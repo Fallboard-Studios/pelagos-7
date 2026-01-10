@@ -8,7 +8,7 @@
 ## Prerequisites
 
 - [ ] Phase 0 complete (repository exists and is cloned locally)
-- [ ] Oceanic codebase available for reference (current workspace)
+- [ ] Oceanic codebase available for reference (exterior workspace)
 - [ ] Understanding of the three pillars architecture (Audio/Animation/State)
 - [ ] Decision on robot theme vs biological systems
 

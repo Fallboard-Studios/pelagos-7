@@ -1188,10 +1188,13 @@ git diff
 
 **Commit 1: Project scaffold**
 ```bash
+# Add only files that Vite created (verify with `git status` first)
 git add package.json package-lock.json vite.config.ts tsconfig*.json
-git add index.html public/ src/main.tsx src/App.tsx src/index.css src/vite-env.d.ts
+git add index.html public/ src/
 git commit -m "chore: initialize Vite + React + TypeScript project"
 ```
+
+Note: This commits all Vite-generated files in `src/` including `main.tsx`, `App.tsx`, `App.css`, `index.css`, `vite-env.d.ts`, and assets.
 
 **Commit 2: Linting configs**
 ```bash
@@ -1216,7 +1219,7 @@ git commit -m "chore: create initial folder structure"
 **Commit 5: Documentation**
 ```bash
 git add README.md docs/ROADMAP.md docs/ARCHITECTURE.md docs/CONTRIBUTION_GUIDE.md
-git commit -m "docs: add README, roadmap, and architecture placeholders"
+git commit -m "docs: add README, roadmap, POC docs, and architecture placeholders"
 ```
 
 **Commit 6: Update package.json scripts**
@@ -1227,8 +1230,26 @@ git commit -m "chore: add npm scripts for linting and auditing"
 
 ### 7.3 Push to GitHub
 
+Since you enabled branch protection requiring PRs, use a feature branch:
+
 ```bash
-git push origin main
+# Create and push feature branch for initial setup
+git checkout -b setup/phase-0-foundation
+git push -u origin setup/phase-0-foundation
+```
+
+Then on GitHub:
+1. Go to your repo → Pull Requests → New Pull Request
+2. Base: `main` ← Compare: `setup/phase-0-foundation`
+3. Title: "Phase 0: Initial repository foundation"
+4. Fill out PR template
+5. Create PR and merge it
+
+After merge:
+```bash
+# Switch back to main and pull the merged changes
+git checkout main
+git pull origin main
 ```
 
 ---
