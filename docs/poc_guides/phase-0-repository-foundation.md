@@ -7,12 +7,12 @@
 
 ## Prerequisites
 
-- [ ] GitHub account active
-- [ ] Git installed locally
-- [ ] Node.js installed (v18+ recommended)
-- [ ] VS Code or preferred editor
-- [ ] Decision made on organization name (Fallboard Studios)
-- [ ] Decision made on repo name (pelagos-7)
+- [x] GitHub account active
+- [x] Git installed locally
+- [x] Node.js installed (v18+ recommended)
+- [x] VS Code or preferred editor
+- [x] Decision made on organization name (Fallboard Studios)
+- [x] Decision made on repo name (pelagos-7)
 
 ---
 
@@ -601,14 +601,14 @@ echo "export type Vec2 = { x: number; y: number; z: number };" > src/types/Vec2.
 
 **Interactive ambient robot symphony generator**
 
-_A browser-based musical experience where autonomous robot fish swim through a post-apocalyptic underwater world, creating evolving compositions through their movements and interactions._
+_A browser-based musical experience where autonomous robots swim through a post-apocalyptic underwater world, creating evolving compositions through their movements and interactions._
 
 ---
 
 ## 🎵 What is Pelagos-7?
 
 Pelagos-7 is a generative music system where:
-- Autonomous robot fish swim and interact in real-time
+- Autonomous robots swim and interact in real-time
 - Each robot carries a unique melody synchronized to a global musical clock
 - Factory actors periodically build new robots
 - All audio and visuals are beat-synchronized for perfect harmony
@@ -906,12 +906,11 @@ Built with love for interactive audio experiences.
 
 **Potential Features:**
 - Save/load system
-- Robot breeding/reproduction
-- Hunger/fullness mechanics
+- Robot creation mechanics
+- Robot energy mechanics
 - Day/night cycles
 - Additional instrument types
 - Custom melody editing
-- Social sharing
 
 ---
 

@@ -65,7 +65,7 @@ private activeRobots = new Set<string>();
  * Register robot for melody playback
  * Called when robot spawns or becomes visible
  */
-registerRobot(robotId: string, melody: FishMelodyEvent[]): void {
+registerRobot(robotId: string, melody: RobotMelodyEvent[]): void {
   if (this.activeRobots.has(robotId)) {
     console.warn('[AudioEngine] Robot already registered:', robotId);
     return;
@@ -73,7 +73,7 @@ registerRobot(robotId: string, melody: FishMelodyEvent[]): void {
 
   console.log('[AudioEngine] Registering robot:', robotId);
   this.activeRobots.add(robotId);
-  this.registerFishMelody(robotId, melody); // Existing method from M1
+  this.registerRobotMelody(robotId, melody); // Existing method from M1
 }
 
 /**
@@ -88,7 +88,7 @@ unregisterRobot(robotId: string): void {
 
   console.log('[AudioEngine] Unregistering robot:', robotId);
   this.activeRobots.delete(robotId);
-  this.unregisterFishMelody(robotId); // Existing method from M1
+  this.unregisterRobotMelody(robotId); // Existing method from M1
 }
 
 /**
@@ -453,9 +453,9 @@ export const PolyphonyManager = new PolyphonyManagerImpl();
 import { PolyphonyManager } from './polyphonyManager';
 
 // Update scheduleNote method
-scheduleNote({ fishId, note, duration = '8n', velocity = 0.5, time }: NoteParams): void {
+scheduleNote({ robotId, note, duration = '8n', velocity = 0.5, time }: NoteParams): void {
   // Check polyphony before scheduling
-  if (!PolyphonyManager.requestVoice(fishId, note, velocity)) {
+  if (!PolyphonyManager.requestVoice(robotId, note, velocity)) {
     console.log('[AudioEngine] Note skipped (polyphony limit):', note);
     return;
   }

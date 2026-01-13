@@ -1360,7 +1360,7 @@ Closes #M6.6
 ```markdown
 # Pelagos-7
 
-**A browser-based ambient music generator where autonomous robot fish create evolving symphonies in a post-apocalyptic ocean environment.**
+**A browser-based ambient music generator where autonomous robots create evolving symphonies in a post-apocalyptic ocean environment.**
 
 🎵 **[Live Demo](https://fallboard-studios.github.io/pelagos-7/)** | 📊 **[Project Board](https://github.com/orgs/fallboard-studios/projects/1)**
 
@@ -1370,7 +1370,7 @@ Closes #M6.6
 
 ## Overview
 
-Pelagos-7 is an interactive musical experience that combines procedural generation, autonomous agents, and beat-synchronized audio. Watch as robot fish swim through underwater ruins, generating unique melodies through their movements and interactions.
+Pelagos-7 is an interactive musical experience that combines procedural generation, autonomous agents, and beat-synchronized audio. Watch as robots swim through underwater ruins, generating unique melodies through their movements and interactions.
 
 **Key Features:**
 - 🤖 Autonomous robot behavior with GSAP-driven animation
@@ -1603,7 +1603,7 @@ Closes #M6.7
 
 ## Project Overview
 
-Pelagos-7 is an interactive ambient music generator featuring autonomous robot fish that create evolving musical compositions through their movements and interactions in a post-apocalyptic underwater environment.
+Pelagos-7 is an interactive ambient music generator featuring autonomous robots that create evolving musical compositions through their movements and interactions in a post-apocalyptic underwater environment.
 
 **Challenge:** Build a browser-based generative music system with complex autonomous behavior while maintaining clean architecture and 60 FPS performance.
 
