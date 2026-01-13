@@ -495,4 +495,26 @@ import * as Tone from 'tone';
 - Explicit return types for exported functions >10 lines
 - Extract magic numbers to named constants
 
+**Constant Extraction:**
+
+```typescript
+// ❌ Bad: Magic numbers
+function spawnRobot() {
+  if (robots.length >= 12) return;
+  setTimeout(() => checkStatus(), 5000);
+  setPosition({ x: 100, y: 200, z: 2 });
+}
+
+// ✅ Good: Named constants
+const MAX_ROBOTS = 12;
+const STATUS_CHECK_DELAY = 5000;
+const DEFAULT_SPAWN_POSITION = { x: 100, y: 200, z: 2 };
+
+function spawnRobot() {
+  if (robots.length >= MAX_ROBOTS) return;
+  setTimeout(() => checkStatus(), STATUS_CHECK_DELAY);
+  setPosition(DEFAULT_SPAWN_POSITION);
+}
+```
+
 **For detailed examples and patterns, see [CONTRIBUTION_GUIDE.md](../docs/CONTRIBUTION_GUIDE.md) Code Organization section.**
