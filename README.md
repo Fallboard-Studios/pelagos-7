@@ -2,14 +2,14 @@
 
 **Interactive ambient robot symphony generator**
 
-_A browser-based musical experience where autonomous robot fish swim through a post-apocalyptic underwater world, creating evolving compositions through their movements and interactions._
+_A browser-based musical experience where autonomous robots swim through a post-apocalyptic underwater world, creating evolving compositions through their movements and interactions._
 
 ---
 
 ## What is Pelagos-7?
 
 Pelagos-7 is a generative music system where:
-- Autonomous robot fish swim and interact in real-time
+- Autonomous robots move and interact in real-time
 - Each robot carries a unique melody synchronized to a global musical clock
 - Factory actors periodically build new robots
 - All audio and visuals are beat-synchronized for perfect harmony
@@ -120,7 +120,7 @@ See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for details.
 
 - [x] M0: Repository foundation
 - [ ] M1: Core architecture (AudioEngine, BeatClock, stores)
-- [ ] M2: Robot basics (spawning, swimming, selection)
+- [ ] M2: Robot basics (spawning, movement, selection, unit testing)
 - [ ] M3: Audio integration (melody generation, playback)
 - [ ] M4: Interactions (collision system, bursts)
 - [ ] M5: Environment (actors, camera, depth)
@@ -133,6 +133,9 @@ See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for details.
 ## Testing
 
 ```bash
+# Run unit tests (Vitest)
+npm test
+
 # Lint code
 npm run lint
 
