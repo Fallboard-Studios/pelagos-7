@@ -33,6 +33,8 @@ Related to #[issue number]
 ## Code Quality
 - [ ] `npm run lint` passes
 - [ ] `npm run build` succeeds
+- [ ] `npm test` passes
+- [ ] Tests added for new utilities/functions
 - [ ] No new TypeScript errors
 - [ ] Code follows standards (see CONTRIBUTION_GUIDE.md)
 
