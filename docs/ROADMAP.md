@@ -56,6 +56,8 @@
 **Goal:** Robots spawn, swim, and can be selected
 
 **Key Features:**
+- Unit testing infrastructure (Vitest)
+- Initial test suite for M1 utilities
 - Robot spawning system
 - GSAP swim animations
 - Robot selection/deselection
@@ -130,13 +132,14 @@
 ## Post-Launch (v1.1+)
 
 **Potential Features:**
-- Save/load system
-- Robot breeding/reproduction
-- Hunger/fullness mechanics
-- Day/night cycles
-- Additional instrument types
-- Custom melody editing
-- Social sharing
+- Save/load system (export/import world state)
+- Factory customization (production rates, robot blueprints)
+- Robot upgrade system (dynamic part swapping)
+- Additional environmental actors (more ruins, machinery variants)
+- Advanced audio effects (reverb, delay, filters)
+- Visual effects polish (LED glows, exhaust particles)
+- Camera follow mode (track selected robot)
+- URL-based world sharing (shareable seeds)
 
 ---
 

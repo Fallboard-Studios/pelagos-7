@@ -32,16 +32,262 @@
 
 ## Phase Overview
 
-You'll implement 6 issues from Milestone M2:
+You'll implement 7 issues from Milestone M2:
 
-1. **M2.1:** Robot SVG Components (chassis, head, propeller, 2 antennae)
-2. **M2.2:** RobotBody Component (assembles SVG parts)
-3. **M2.3:** Robot Component (wrapper with position and selection)
-4. **M2.4:** Robot Spawning System (manual spawn button)
-5. **M2.5:** GSAP Swim Animation (point-to-point with curves)
-6. **M2.6:** Idle State and Destination Picking (autonomous loop)
+1. **M2.0:** Unit Testing Setup (Vitest infrastructure and initial tests)
+2. **M2.1:** Robot SVG Components (chassis, head, propeller, 2 antennae)
+3. **M2.2:** RobotBody Component (assembles SVG parts)
+4. **M2.3:** Robot Component (wrapper with position and selection)
+5. **M2.4:** Robot Spawning System (manual spawn button)
+6. **M2.5:** GSAP Swim Animation (point-to-point with curves)
+7. **M2.6:** Idle State and Destination Picking (autonomous loop)
 
-**End state:** 1-3 robots swimming around autonomously. Click to select/deselect. Silent robots - audio integration comes in Phase 6.
+**End state:** 1-3 robots swimming around autonomously. Click to select/deselect. Silent robots - audio integration comes in Phase 6. Test suite covers core utilities from Phase 4.
+
+---
+
+## Issue M2.0: Unit Testing Setup (2-3 hours)
+
+**Goal:** Set up Vitest testing infrastructure and write initial tests for Phase 4 utilities.
+
+**Why first:** Establishes testing culture early. Tests Phase 4 code (BeatClock, harmony, store) while it's fresh. Makes "test alongside development" the norm for rest of project.
+
+### 0.1 Install Testing Dependencies
+
+```bash
+npm install -D vitest @testing-library/react jsdom @vitest/ui
+```
+
+### 0.2 Configure Vitest
+
+**File:** `vite.config.ts`
+
+```typescript
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+
+export default defineConfig({
+  plugins: [react()],
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: './src/test/setup.ts',
+  },
+});
+```
+
+### 0.3 Add Test Scripts
+
+**File:** `package.json`
+
+```json
+{
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage"
+  }
+}
+```
+
+### 0.4 Create Test Setup File
+
+**File:** `src/test/setup.ts`
+
+```typescript
+// Add any global test setup here
+// For now, just ensure jsdom is available
+```
+
+### 0.5 Write BeatClock Tests
+
+**File:** `src/engine/beatClock.test.ts`
+
+```typescript
+import { describe, it, expect } from 'vitest';
+import { convertBeatsToSeconds, convertSecondsToBeats, getCurrentMeasure } from './beatClock';
+
+describe('BeatClock', () => {
+  describe('convertBeatsToSeconds', () => {
+    it('converts beats to seconds at 60 BPM', () => {
+      const seconds = convertBeatsToSeconds(4, 60);
+      expect(seconds).toBe(4); // 4 beats at 60 BPM = 4 seconds
+    });
+
+    it('converts beats to seconds at 120 BPM', () => {
+      const seconds = convertBeatsToSeconds(4, 120);
+      expect(seconds).toBe(2); // 4 beats at 120 BPM = 2 seconds
+    });
+  });
+
+  describe('getCurrentMeasure', () => {
+    it('calculates measure and beat correctly', () => {
+      const result = getCurrentMeasure(17); // 17 total beats
+      expect(result.measure).toBe(4); // Measure 4 (0-indexed: 4 * 4 = 16 beats)
+      expect(result.beat).toBe(1); // Beat 1 (17th beat = 1st beat of measure 5)
+    });
+  });
+});
+```
+
+### 0.6 Write Harmony System Tests
+
+**File:** `src/engine/harmonySystem.test.ts`
+
+```typescript
+import { describe, it, expect } from 'vitest';
+import { getAvailableNotes, setAvailableNotes } from './harmonySystem';
+import type { EightNotes } from './harmonySystem';
+
+describe('harmonySystem', () => {
+  it('returns exactly 8 notes', () => {
+    const notes = getAvailableNotes();
+    expect(notes).toHaveLength(8);
+  });
+
+  it('returns a copy (not mutable reference)', () => {
+    const notes1 = getAvailableNotes();
+    const notes2 = getAvailableNotes();
+    expect(notes1).not.toBe(notes2); // Different array instances
+    expect(notes1).toEqual(notes2); // Same content
+  });
+
+  it('allows setting custom palette', () => {
+    const customNotes: EightNotes = ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5'];
+    setAvailableNotes(customNotes);
+    const notes = getAvailableNotes();
+    expect(notes).toEqual(customNotes);
+  });
+});
+```
+
+### 0.7 Write Ocean Store Tests
+
+**File:** `src/stores/oceanStore.test.ts`
+
+```typescript
+import { describe, it, expect, beforeEach } from 'vitest';
+import { useOceanStore } from './oceanStore';
+import type { Robot } from '../types/Robot';
+
+describe('oceanStore', () => {
+  beforeEach(() => {
+    // Reset store before each test
+    useOceanStore.setState({ robots: [], actors: [] });
+  });
+
+  it('starts with empty robots array', () => {
+    const state = useOceanStore.getState();
+    expect(state.robots).toEqual([]);
+  });
+
+  it('adds robot to array', () => {
+    const robot: Robot = {
+      id: 'test-1',
+      position: { x: 0, y: 0 },
+      destination: null,
+      state: 'idle',
+      melody: [],
+      audio: { synthType: 'am', adsr: { attack: 0.05, decay: 0.2, sustain: 0.3, release: 0.8 } },
+    };
+
+    useOceanStore.getState().addRobot(robot);
+    
+    const state = useOceanStore.getState();
+    expect(state.robots).toHaveLength(1);
+    expect(state.robots[0]).toEqual(robot);
+  });
+
+  it('removes robot by id', () => {
+    const robot: Robot = {
+      id: 'test-1',
+      position: { x: 0, y: 0 },
+      destination: null,
+      state: 'idle',
+      melody: [],
+      audio: { synthType: 'am', adsr: { attack: 0.05, decay: 0.2, sustain: 0.3, release: 0.8 } },
+    };
+
+    useOceanStore.getState().addRobot(robot);
+    useOceanStore.getState().removeRobot('test-1');
+    
+    const state = useOceanStore.getState();
+    expect(state.robots).toHaveLength(0);
+  });
+
+  it('state remains serializable', () => {
+    const robot: Robot = {
+      id: 'test-1',
+      position: { x: 0, y: 0 },
+      destination: null,
+      state: 'idle',
+      melody: [],
+      audio: { synthType: 'am', adsr: { attack: 0.05, decay: 0.2, sustain: 0.3, release: 0.8 } },
+    };
+
+    useOceanStore.getState().addRobot(robot);
+    const state = useOceanStore.getState();
+    
+    // Should serialize without errors
+    expect(() => JSON.stringify(state)).not.toThrow();
+    
+    // Should deserialize correctly
+    const serialized = JSON.stringify(state);
+    const deserialized = JSON.parse(serialized);
+    expect(deserialized.robots[0]).toEqual(robot);
+  });
+});
+```
+
+### 0.8 Run Tests
+
+```bash
+# Run tests
+npm test
+
+# Run with UI (optional)
+npm run test:ui
+
+# Check coverage (optional)
+npm run test:coverage
+```
+
+**Expected output:**
+```
+✓ src/engine/beatClock.test.ts (3 tests)
+✓ src/engine/harmonySystem.test.ts (3 tests)
+✓ src/stores/oceanStore.test.ts (4 tests)
+
+Test Files  3 passed (3)
+     Tests  10 passed (10)
+```
+
+### 0.9 Commit
+
+```bash
+git add .
+git commit -m "feat(testing): add Vitest infrastructure and initial test suite
+
+- Install vitest, @testing-library/react, jsdom
+- Configure vite.config.ts for testing
+- Add test scripts to package.json
+- Write tests for BeatClock, harmonySystem, oceanStore
+- All Phase 4 utilities now covered
+
+Part of M2"
+```
+
+**Success criteria:**
+- ✅ `npm test` passes
+- ✅ 10+ tests passing
+- ✅ BeatClock, harmony, and store utilities tested
+- ✅ Test scripts available in package.json
+- ✅ Testing culture established for rest of project
+
+**Resume talking point:** "Established comprehensive unit testing strategy using Vitest from day 1"
 
 ---
 

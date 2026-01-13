@@ -4,7 +4,7 @@
 **Organization:** Fallboard Studios  
 **Repository:** `fallboard-studios/pelagos-7`  
 **Timeline:** 4-6 weeks to v1.0  
-**Purpose:** Portfolio-ready interactive musical experience featuring autonomous robot fish in a post-apocalyptic setting
+**Purpose:** Portfolio-ready interactive musical experience featuring autonomous robots in a post-apocalyptic setting
 
 **Current Context:** This document is written within the Oceanic codebase workspace. Oceanic serves as a proof-of-concept that we'll reference but NOT modify. Pelagos-7 will be a fresh repository under the Fallboard Studios organization with clean git history and professional workflow.
 
@@ -13,7 +13,7 @@
 ## Philosophy
 
 **What We're Building:**
-A browser-based ambient music generator where robot fish swim autonomously through a post-apocalyptic environment, creating evolving musical compositions through their movements and interactions. Factory actors periodically build new robots. All timing is synchronized to musical beats for perfect audio/visual harmony.
+A browser-based ambient music generator where robots swim autonomously through a post-apocalyptic environment, creating evolving musical compositions through their movements and interactions. Factory actors periodically build new robots. All timing is synchronized to musical beats for perfect audio/visual harmony.
 
 **What Makes This Portfolio-Worthy:**
 - Clean architecture (Audio/Animation/State separation pattern)
@@ -73,10 +73,13 @@ AI-assisted development requires explicit architectural rules. Write these ONCE 
 - [ ] `.github/copilot-instructions.md` - Master AI guide (adapted from Oceanic)
 - [ ] `docs/ARCHITECTURE.md` - Three pillars pattern (Audio/Animation/State)
 - [ ] `docs/ROBOT_DESIGN.md` - Visual design guide, SVG structure, theming
-- [ ] `docs/AUDIO_SYSTEM.md` - BeatClock, Transport, AudioEngine patterns
+- [ ] `docs/AUDIO_SYSTEM.md` - Audio system overview, Tone.js best practices, troubleshooting
+- [ ] `docs/BEAT_CLOCK.md` - Musical timing system, BeatClock API, scheduling patterns
+- [ ] `docs/HARMONY_SYSTEM.md` - Dynamic note palettes, 24-hour cycle
+- [ ] `docs/MELODY_SYSTEM.md` - Procedural melody generation, weighted distributions
+- [ ] `docs/POLYPHONY_GUIDE.md` - Voice management, synth pooling
 - [ ] `docs/ANIMATION_SYSTEM.md` - GSAP patterns, timeline management
-- [ ] `docs/FORBIDDEN_PATTERNS.md` - Anti-patterns and violations to avoid
-- [ ] `docs/CONTRIBUTION_GUIDE.md` - Coding standards, commit conventions
+- [ ] `docs/CONTRIBUTION_GUIDE.md` - Coding standards, commit conventions, testing
 
 **Time Estimate:** 6-8 hours
 
@@ -140,7 +143,7 @@ Get something running immediately. Verify toolchain works. Establish development
 - [ ] `<PlayButton>` component triggers AudioEngine.start()
 - [ ] AudioEngine singleton created (empty, just start/stop)
 - [ ] BeatClock stub (returns current measure/beat)
-- [ ] Zustand oceanStore created (empty fish array)
+- [ ] Zustand oceanStore created (empty robot array)
 - [ ] ESLint passes, TypeScript compiles
 - [ ] First 5 PRs merged with clean history
 
@@ -214,6 +217,8 @@ This IS the portfolio piece. Audio/animation separation, beat-based timing, time
 First visual output! This is when the app becomes "real." GSAP animation patterns get proven. Establishes the core game loop without complexity.
 
 **Deliverables:**
+- [ ] Testing infrastructure setup (Vitest + jsdom)
+- [ ] Initial test suite for Phase 4 utilities (BeatClock, harmonySystem, oceanStore)
 - [ ] Robot type defined (position, state, destination, audio attributes, SVG parts)
 - [ ] Robot SVG components created (chassis, head, propeller, 2 antennae)
 - [ ] 2-3 visual variants (different chassis/head combinations)
@@ -231,8 +236,13 @@ First visual output! This is when the app becomes "real." GSAP animation pattern
 - Visible robots swimming autonomously
 - GSAP animation working correctly
 - Selection/state management proven
+- Test suite covering core utilities
 
 **Key Components:**
+- `vite.config.ts` (test configuration)
+- `src/engine/beatClock.test.ts` (new file)
+- `src/engine/harmonySystem.test.ts` (new file)
+- `src/stores/oceanStore.test.ts` (new file)
 - `src/components/Robot.tsx`
 - `src/components/RobotBody.tsx` (SVG parts)
 - `src/animation/robotAnimation.ts` (swim timelines)
@@ -240,8 +250,8 @@ First visual output! This is when the app becomes "real." GSAP animation pattern
 - `src/systems/spawnerSystem.ts`
 
 **Reference:**
-- `src/components/Fish.tsx` → Robot.tsx structure
-- `src/animation/fishAnimation.ts` → robotAnimation.ts patterns
+- `src/components/Robot.tsx` → Robot.tsx structure
+- `src/animation/robotAnimation.ts` → robotAnimation.ts patterns
 - Current SVG structure (adapt parts to robot theme)
 
 **Detailed Steps:** → `docs/phase-5-robot-basics.md` (to be created)

@@ -270,14 +270,14 @@ export function playInteractionFlurry(robotAId: string, robotBId: string): void 
     // Schedule notes for both robots
     setTimeout(() => {
       AudioEngine.scheduleNote({
-        fishId: robotAId,
+        robotId: robotAId,
         note: randomNote,
         duration: '16n',
         velocity: 0.7 + Math.random() * 0.3,
       });
       
       AudioEngine.scheduleNote({
-        fishId: robotBId,
+        robotId: robotBId,
         note: randomNote,
         duration: '16n',
         velocity: 0.7 + Math.random() * 0.3,
