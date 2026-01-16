@@ -7,10 +7,10 @@
 
 ## Prerequisites
 
-- [ ] Phase 0 complete (repository exists)
-- [ ] Phase 1 complete (documentation written)
-- [ ] Clear understanding of project scope (see NEW_APP_STEPS_OVERVIEW.md)
-- [ ] GitHub organization admin access
+- [x] Phase 0 complete (repository exists)
+- [x] Phase 1 complete (documentation written)
+- [x] Clear understanding of project scope (see NEW_APP_STEPS_OVERVIEW.md)
+- [x] GitHub organization admin access
 
 ---
 
@@ -86,93 +86,136 @@ Add custom field:
 
 ### 2.2 Create Each Milestone
 
-**Milestone 1: M0 - Foundation**
-- **Title:** M0: Foundation
-- **Due date:** [Today + 3 days]
+**Milestone 1: M0 - Repository Foundation**
+- **Title:** M0: Repository Foundation
+- **Due date:** Week 1, Days 1-2 (or specific date if known)
 - **Description:**
   ```
-  Repository setup, configs, basic UI shell, Play button.
+  Professional repo structure with AI guidance ready.
   
   Deliverables:
-  - Empty OceanScene canvas
-  - PlayButton triggers AudioEngine.start()
-  - Core singletons (AudioEngine, BeatClock, oceanStore)
-  - ESLint/TypeScript passing
+  - GitHub organization & repository
+  - Issue/PR templates
+  - Vite + React + TypeScript scaffold
+  - ESLint, Prettier, TypeScript configs
+  - Folder structure
+  - Professional README & comprehensive documentation
+  - Clean git history
+  
+  Time: 4-6 hours
   ```
 
 **Milestone 2: M1 - Core Architecture**
 - **Title:** M1: Core Architecture
-- **Due date:** [Today + 1 week]
+- **Due date:** Week 1, Days 3-5
 - **Description:**
   ```
-  Audio/Animation/State systems fully implemented.
+  Three Pillars operational (Audio / Animation / State).
   
   Deliverables:
-  - AudioEngine with Transport scheduling
-  - BeatClock with 16-step loop
-  - Harmony system (8-note palettes)
+  - AudioEngine singleton (Tone.js wrapper)
+  - BeatClock (musical timing system) with 16-step loop
+  - Harmony system (8-note palettes, 24-hour cycle)
+  - Melody generation system (procedural 16-step loops)
   - Timeline management (timelineMap)
-  - Complete Zustand store
+  - Complete Zustand oceanStore
+  - Beat-synchronized scheduling
+  
+  Time: 1-2 days
   ```
 
 **Milestone 3: M2 - Robot Basics**
 - **Title:** M2: Robot Basics
-- **Due date:** [Today + 2 weeks]
+- **Due date:** Week 2
 - **Description:**
   ```
-  Robots appear, swim autonomously, can be selected.
+  Robots spawn, move autonomously, and can be selected.
   
   Deliverables:
-  - Robot SVG components
-  - Spawning system
-  - GSAP swim animation
+  - Unit testing infrastructure (Vitest)
+  - Initial test suite for M1 utilities (BeatClock, harmony, store)
+  - Robot spawning system
+  - Robot SVG components (chassis, head, propeller, antennae)
+  - GSAP move animations (movement + propeller + rotation)
   - Idle state and destination picking
-  - Selection system
+  - Selection/deselection system
+  - State management integration
+  
+  Time: 2-3 days
   ```
 
 **Milestone 4: M3 - Audio Integration**
 - **Title:** M3: Audio Integration
-- **Due date:** [Today + 3 weeks]
+- **Due date:** Week 3
 - **Description:**
   ```
-  Robots generate melodies synchronized to Transport.
+  Connect robot melodies to audio playback. Lifecycle management and polyphony.
   
   Deliverables:
-  - Melody generator (16-step loops)
-  - Melody playback via Transport
-  - Harmony palette integration
-  - Polyphony limiting
+  - Robot melody lifecycle (register/unregister with AudioEngine)
+  - Melody playback synchronized to Transport
+  - Polyphony management system (voice limiting, 8-16 voices)
+  - Audio status display (active voice/robot count)
+  - Clean lifecycle (no memory leaks on robot removal)
+  
+  Note: Melody generation & harmony system implemented in M1
+  
+  Time: 2-3 days
   ```
 
-**Milestone 5: M4 - Interactions & Environment**
-- **Title:** M4: Interactions & Environment
-- **Due date:** [Today + 4 weeks]
+**Milestone 5: M4 - Interactions & Systems**
+- **Title:** M4: Interactions & Systems
+- **Due date:** Week 4
 - **Description:**
   ```
-  Collision system, factory actors, environment actors.
+  Robots interact and create musical moments.
   
   Deliverables:
-  - Collision detection
-  - Robot-robot interactions
-  - Factory actor spawning
-  - Environmental actors
-  - Camera pan/zoom
+  - Collision detection system (gsap.ticker based)
+  - Robot-robot interaction logic
+  - Interaction audio bursts (note flurries)
+  - Interaction visual effects (scale animations, particles)
+  - Interaction cooldown system (measure-based)
+  
+  Time: 2-3 days
   ```
 
-**Milestone 6: M5 - Polish & Launch**
-- **Title:** M5: Polish & Launch
-- **Due date:** [Today + 6 weeks]
+**Milestone 6: M5 - Environment & Actors**
+- **Title:** M5: Environment & Actors
+- **Due date:** Week 5
 - **Description:**
   ```
-  UI panels, mobile optimization, deployment.
+  Rich underwater world with factories and environmental detail.
   
   Deliverables:
-  - Robot editor panel
-  - Settings panel
-  - Mobile responsive
-  - Performance optimized
-  - GitHub Pages deployed
-  - Portfolio materials
+  - Factory actors (spawn robots on measure-based timers)
+  - Environmental actors (ruins, machinery, scrap)
+  - Camera pan/zoom system
+  - Depth layers with parallax effect
+  - Procedural actor generation
+  - Bubble system (ambient particles)
+  
+  Time: 3-4 days
+  ```
+
+**Milestone 7: M6 - Polish & Launch**
+- **Title:** M6: Polish & Launch
+- **Due date:** Week 6
+- **Description:**
+  ```
+  Production-ready, deployed, and portfolio-ready.
+  
+  Deliverables:
+  - Robot editor panel (view/edit attributes)
+  - Settings panel (volume, BPM, visual options)
+  - Mobile responsiveness and touch controls
+  - Performance optimization (60 FPS target)
+  - GitHub Pages deployment
+  - Portfolio materials (PORTFOLIO.md, screenshots)
+  - Architecture diagram
+  - Demo mode
+  
+  Time: 2-3 days
   ```
 
 ---
@@ -192,8 +235,9 @@ Add custom field:
 - `feature` - Green (#0E8A16) - "New feature or capability"
 - `bug` - Red (#D73A4A) - "Something isn't working"
 - `refactor` - Blue (#0075CA) - "Code improvement without behavior change"
-- `documentation` - Light blue (#0075CA) - "Documentation changes"
+- `documentation` - Light blue (#1D76DB) - "Documentation changes"
 - `chore` - Gray (#6C757D) - "Maintenance, configs, dependencies"
+- `testing` - Orange (#D93F0B) - "Test infrastructure or test files"
 
 **Priority Labels:**
 - `priority: high` - Red (#D93F0B) - "Must complete for milestone"
@@ -221,574 +265,124 @@ Add custom field:
 
 ## Step 4: Write M0 Issues (30 minutes)
 
-### Issue Template to Follow
+Create 6 issues for M0 (Foundation) milestone. Full issue templates with acceptance criteria are maintained in separate files for easy reference and issue creation.
 
-For each issue, use this structure:
-```markdown
-**Milestone:** M0  
-**Labels:** feature, system:[relevant], size:[estimate], priority:[level]
+**See: [M0-issues.md](M0-issues.md)** for complete issue templates.
 
-## Feature Description
-[What needs to be built]
-
-## Implementation Details
-[Key technical points, files to create]
-
-## Acceptance Criteria
-- [ ] Criterion 1
-- [ ] Criterion 2
-- [ ] Tests pass (lint, build)
-
-## Reference
-[Link to Oceanic file if porting, or doc section]
-```
-
----
-
-### M0.1: Create AudioEngine Singleton
-
-```markdown
-**Title:** [M0] Create AudioEngine singleton pattern
-
-**Labels:** feature, system: audio, size: M, priority: high
-
-## Feature Description
-Create the AudioEngine singleton that will handle all Tone.js interactions. This is the foundation of the audio system.
-
-## Implementation Details
-- Create `src/engine/AudioEngine.ts`
-- Implement singleton pattern (single export instance)
-- Add `start()` method (calls `Tone.start()` and `Transport.start()`)
-- Add `stop()` method (stops Transport)
-- Add basic synth pool (1 PolySynth for now)
-- Add `scheduleNote()` stub (logs to console, doesn't play yet)
-
-**Key pattern:**
-```typescript
-class AudioEngineImpl {
-  private initialized = false;
-  async start() { /* ... */ }
-  stop() { /* ... */ }
-  scheduleNote(params: NoteParams) { /* stub */ }
-}
-export const AudioEngine = new AudioEngineImpl();
-```
-
-## Acceptance Criteria
-- [ ] AudioEngine.ts exports singleton instance
-- [ ] `start()` calls Tone.start() and Transport.start()
-- [ ] `stop()` stops Transport
-- [ ] No synths created yet (just structure)
-- [ ] `npm run lint` passes
-- [ ] `npm run build:types` passes
-
-## Reference
-- Oceanic: `src/engine/AudioEngine.ts` (port structure only)
-- Docs: `docs/AUDIO_SYSTEM.md`
-
-
----
-
-### M0.2: Create BeatClock with Transport Integration
-
-```markdown
-**Title:** [M0] Create BeatClock with Transport integration
-
-**Labels:** feature, system: audio, size: M, priority: high
-
-## Feature Description
-Create BeatClock module that wraps Tone.Transport and provides beat/measure tracking.
-
-## Implementation Details
-- Create `src/engine/beatClock.ts`
-- Export `getCurrentBeat()` function
-- Export `getCurrentMeasure()` function
-- Export `scheduleAtBeat()` stub (not implemented yet)
-- Export `scheduleRepeat()` stub
-- Set up Transport.scheduleRepeat('16n') to track current step
-
-**Key functions:**
-```typescript
-export function getCurrentBeat(): number { /* ... */ }
-export function getCurrentMeasure(): number { /* ... */ }
-export function scheduleAtBeat(beat: number, callback: () => void): string { /* stub */ }
-```
-
-## Acceptance Criteria
-- [ ] BeatClock exports timing functions
-- [ ] getCurrentBeat() returns current beat (integer or float)
-- [ ] getCurrentMeasure() returns current measure
-- [ ] Stubs for scheduling (logs only)
-- [ ] No errors when Transport not started
-- [ ] TypeScript compiles
-
-## Reference
-- Oceanic: `src/engine/beatClock.ts`
-- Docs: `docs/AUDIO_SYSTEM.md#beatclock`
-```
-
----
-
-### M0.3: Create Zustand oceanStore
-
-```markdown
-**Title:** [M0] Create Zustand oceanStore with robots array
-
-**Labels:** feature, system: state, size: S, priority: high
-
-## Feature Description
-Create the main Zustand store that will hold all robots and world state.
-
-## Implementation Details
-- Create `src/stores/oceanStore.ts`
-- Define `OceanStore` interface
-- Create store with Zustand `create()`
-- Add `robots: Robot[]` (empty initially)
-- Add `addRobot()` action (stub, logs only)
-- Add `removeRobot()` action
-- Add `updateRobot()` action
-
-**Initial state:**
-```typescript
-{
-  robots: [],
-  settings: {
-    bpm: 60,
-    volume: 0.7,
-    maxRobots: 12
-  }
-}
-```
-
-## Acceptance Criteria
-- [ ] Store created with Zustand
-- [ ] `robots` array exists (empty)
-- [ ] Basic actions defined (add/remove/update)
-- [ ] No complex logic yet (just structure)
-- [ ] Store can be imported and used
-- [ ] TypeScript types defined
-
-## Reference
-- Oceanic: `src/stores/oceanStore.ts`
-- Docs: `docs/ARCHITECTURE.md#state-zustand`
-```
-
----
-
-### M0.4: Create Empty OceanScene Component
-
-```markdown
-**Title:** [M0] Create empty OceanScene component with SVG canvas
-
-**Labels:** feature, system: ui, size: S, priority: high
-
-## Feature Description
-Create the main scene component that will render robots and environment. For now, just empty SVG canvas.
-
-## Implementation Details
-- Create `src/components/OceanScene.tsx`
-- Return SVG with viewBox (1920x1080 or configurable)
-- Apply background color (dark blue/black)
-- Add empty `<g>` groups for layers (background, robots, foreground, ui)
-- No actual content yet
-
-**Structure:**
-```tsx
-<svg viewBox="0 0 1920 1080" className="ocean-scene">
-  <rect fill="#0a1128" width="1920" height="1080" />
-  <g id="background-layer" />
-  <g id="robot-layer" />
-  <g id="foreground-layer" />
-  <g id="ui-layer" />
-</svg>
-```
-
-## Acceptance Criteria
-- [ ] Component renders SVG canvas
-- [ ] Dark background applied
-- [ ] Layer groups created
-- [ ] Responsive (fills viewport)
-- [ ] No console errors
-- [ ] Renders in App.tsx
-
-## Reference
-- Oceanic: `src/components/OceanScene.tsx`
-```
-
----
-
-### M0.5: Create PlayButton Component
-
-```markdown
-**Title:** [M0] Create PlayButton that initializes AudioEngine
-
-**Labels:** feature, system: ui, size: S, priority: high
-
-## Feature Description
-Create a Play button that calls AudioEngine.start() on click. Required for browser autoplay policy.
-
-## Implementation Details
-- Create `src/components/PlayButton.tsx`
-- Show large button overlaying scene (centered)
-- On click: call `await AudioEngine.start()`
-- On success: hide button, show scene
-- On error: show error message
-- Style: simple, accessible, clear affordance
-
-**States:**
-- Initial: "Start Experience" button visible
-- Loading: "Starting..." (during Tone.start())
-- Ready: button hidden, scene active
-- Error: "Audio failed to initialize. Click to retry."
-
-## Acceptance Criteria
-- [ ] Button renders on mount
-- [ ] Click calls AudioEngine.start()
-- [ ] Button hides after successful start
-- [ ] Error handling shows message
-- [ ] Accessible (keyboard, screen reader)
-- [ ] No audio plays before click
-
-## Reference
-- Oceanic: `src/components/PlayButton.tsx`
-- Web Audio autoplay policy docs
-```
-
----
-
-### M0.6: Wire Up App.tsx with Basic Flow
-
-```markdown
-**Title:** [M0] Wire up App.tsx with PlayButton → OceanScene flow
-
-**Labels:** feature, system: ui, size: XS, priority: high
-
-## Feature Description
-Connect PlayButton and OceanScene in App.tsx so user flow works: click Play → audio initializes → scene appears.
-
-## Implementation Details
-- Update `src/App.tsx`
-- Track `audioReady` state (boolean)
-- Show PlayButton when audioReady=false
-- Show OceanScene when audioReady=true
-- Handle AudioEngine.start() promise
-
-**Example:**
-```tsx
-const [audioReady, setAudioReady] = useState(false);
-
-return audioReady ? (
-  <OceanScene />
-) : (
-  <PlayButton onStart={() => setAudioReady(true)} />
-);
-```
-
-## Acceptance Criteria
-- [ ] PlayButton shows initially
-- [ ] Clicking Play calls AudioEngine.start()
-- [ ] Scene appears after audio ready
-- [ ] Smooth transition
-- [ ] No console errors
-- [ ] Dev server runs
-
-## Reference
-- Oceanic: `src/App.tsx`
-```
+**M0 Issue Summary:**
+- M0.1: Create AudioEngine singleton pattern
+- M0.2: Create BeatClock with Transport integration
+- M0.3: Create Zustand oceanStore with robots array
+- M0.4: Create empty OceanScene component with SVG canvas
+- M0.5: Create PlayButton that initializes AudioEngine
+- M0.6: Wire up App.tsx with PlayButton → OceanScene flow
 
 ---
 
 ## Step 5: Write M1 Issues (45 minutes)
 
-### M1.1: Implement Harmony System
+Create 6 issues for M1 (Core Architecture) milestone. Full issue templates with acceptance criteria are maintained in separate files.
 
-```markdown
-**Title:** [M1] Implement harmony system with 8-note palettes
+**See: [M1-issues.md](M1-issues.md)** for complete issue templates.
 
-**Labels:** feature, system: audio, size: L, priority: high
-
-## Feature Description
-Create the harmony system that provides 8-note palettes that change every 4 measures.
-
-## Implementation Details
-- Create `src/engine/harmonySystem.ts`
-- Port `TIME_PITCHES` object (24 hours → 24 palettes)
-- Implement `getAvailableNotes()` returns current 8 notes
-- Implement `scheduleHarmonyCycle()` updates palette every 4 measures
-- Use BeatClock to track when to change harmony
-- Store current palette in module state (not Zustand)
-
-**Key exports:**
-```typescript
-export function getAvailableNotes(): string[]
-export function scheduleHarmonyCycle(): void
-export const TIME_PITCHES: Record<number, [string, string, ...]>
-```
-
-## Acceptance Criteria
-- [ ] TIME_PITCHES defined (24 entries, 8 notes each)
-- [ ] getAvailableNotes() returns current palette
-- [ ] Harmony changes every 4 measures
-- [ ] Changes synchronized to Transport
-- [ ] No setTimeout/setInterval used
-- [ ] Console log shows palette changes (debug)
-
-## Reference
-- Oceanic: `src/engine/harmonySystem.ts` (port directly)
-- Docs: `docs/AUDIO_SYSTEM.md#harmony-system`
-```
-
----
-
-### M1.2: Implement Melody Generator
-
-```markdown
-**Title:** [M1] Implement melody generator with weighted note selection
-
-**Labels:** feature, system: audio, size: M, priority: high
-
-## Feature Description
-Create melody generation algorithm that produces 16-step, 2-measure loops with weighted note selection.
-
-## Implementation Details
-- Create `src/engine/melodyGenerator.ts`
-- Implement `generateMelodyForRobot()` function
-- Implement `pickWeightedIndex()` helper (note index 0-7)
-- Generate 4-12 events per melody
-- Events have: startStep (1-16), length ('8n'|'4n'|'2n'), noteIndex (0-7)
-
-**Algorithm:**
-- Random number of events (4-12)
-- Weighted note selection (lower indices more likely)
-- Random start steps (1-16)
-- Prefer shorter durations (8n > 4n > 2n)
-
-## Acceptance Criteria
-- [ ] generateMelodyForRobot() returns MelodyEvent[]
-- [ ] Events have valid startStep (1-16)
-- [ ] noteIndex weighted toward lower values
-- [ ] Length distribution favors '8n'
-- [ ] Each melody is unique (seeded randomness)
-- [ ] No literal pitch strings (indices only)
-
-## Reference
-- Oceanic: `src/engine/melodyGenerator.ts` (port algorithm exactly)
-- Docs: `docs/AUDIO_SYSTEM.md#melody-generation`
-```
-
----
-
-### M1.3: Implement AudioEngine Note Scheduling
-
-```markdown
-**Title:** [M1] Implement AudioEngine note scheduling with melody playback
-
-**Labels:** feature, system: audio, size: L, priority: high
-
-## Feature Description
-Complete AudioEngine with actual note playback, melody scheduling, and polyphony management.
-
-## Implementation Details
-- Extend AudioEngine with melody scheduling
-- Implement `scheduleNote()` (actually triggers synth)
-- Implement `registerRobotMelody()` (stores melody in registry)
-- Create step registry Map<stepNumber, events[]>
-- Schedule Transport.scheduleRepeat('8n') callback
-- Enforce polyphony limit (8-12 voices)
-
-**Registry pattern:**
-```typescript
-const stepRegistry = new Map<number, Array<{ robotId: string, event: MelodyEvent }>>();
-```
-
-## Acceptance Criteria
-- [ ] scheduleNote() triggers actual sound
-- [ ] Melody registry tracks all robot melodies
-- [ ] 8n callback plays scheduled events
-- [ ] Note indices mapped to harmony palette
-- [ ] Polyphony limit enforced (voice stealing or skip)
-- [ ] No timing drift (synchronized to Transport)
-
-## Reference
-- Oceanic: `src/engine/AudioEngine.ts` (melody scheduling sections)
-- Docs: `docs/AUDIO_SYSTEM.md#scheduling-patterns`
-```
-
----
-
-### M1.4: Implement Timeline Management System
-
-```markdown
-**Title:** [M1] Implement timeline management (timelineMap utilities)
-
-**Labels:** feature, system: animation, size: S, priority: high
-
-## Feature Description
-Create utilities for managing GSAP timelines outside of React state.
-
-## Implementation Details
-- Create `src/animation/timelineMap.ts`
-- Export `timelineMap` as Map<string, gsap.core.Timeline>
-- Export `setTimeline(id, timeline)` function
-- Export `getTimeline(id)` function
-- Export `killTimeline(id)` function (kills and removes)
-- Export `killAllTimelines()` function
-
-**Pattern:**
-```typescript
-export const timelineMap = new Map<string, gsap.core.Timeline>();
-
-export function killTimeline(id: string): void {
-  const tl = timelineMap.get(id);
-  if (tl) {
-    tl.kill();
-    timelineMap.delete(id);
-  }
-}
-```
-
-## Acceptance Criteria
-- [ ] timelineMap created
-- [ ] All utility functions exported
-- [ ] killTimeline properly kills and removes
-- [ ] No memory leaks (old timelines cleaned)
-- [ ] TypeScript types correct
-- [ ] Can be used from components
-
-## Reference
-- Oceanic: `src/animation/timelineMap.ts`
-- Docs: `docs/ANIMATION_SYSTEM.md#timeline-management`
-```
-
----
-
-### M1.5: Add Robot Type Definition
-
-```markdown
-**Title:** [M1] Add Robot type and related type definitions
-
-**Labels:** feature, system: state, size: S, priority: high
-
-## Feature Description
-Define TypeScript types for Robot, RobotState, AudioAttributes, and related types.
-
-## Implementation Details
-- Create `src/types/Robot.ts`
-- Define `Robot` interface (id, position, state, destination, melody, audioAttributes, svgParts)
-- Define `RobotState` enum (idle, swimming, interacting, selected, leaving)
-- Define `AudioAttributes` (synthType, adsr, pitchRange, filterFreq, reverb)
-- Define `MelodyEvent` (id, startStep, length, noteIndex)
-- Define `RobotSVGParts` (chassis, head, propeller, topAntenna, bottomAntenna)
-
-**Key structure:**
-```typescript
-interface Robot {
-  id: string;
-  state: RobotState;
-  position: Vec2;
-  destination: Vec2 | null;
-  melody: MelodyEvent[];
-  audioAttributes: AudioAttributes;
-  svgParts: RobotSVGParts;
-}
-```
-
-## Acceptance Criteria
-- [ ] Robot type defined with all fields
-- [ ] RobotState enum created
-- [ ] AudioAttributes type defined
-- [ ] MelodyEvent type defined
-- [ ] All types exported
-- [ ] Used in oceanStore
-
-## Reference
-- Oceanic: `src/types/Fish.ts` → adapt to Robot
-- Docs: `docs/ROBOT_DESIGN.md`
-```
-
----
-
-### M1.6: Complete Zustand Store Actions
-
-```markdown
-**Title:** [M1] Complete Zustand store with all robot actions
-
-**Labels:** feature, system: state, size: M, priority: high
-
-## Feature Description
-Implement all robot management actions in oceanStore with proper logic.
-
-## Implementation Details
-- Extend `src/stores/oceanStore.ts`
-- Implement `addRobot()` with actual logic (add to array)
-- Implement `removeRobot()` (filter out, cleanup timeline)
-- Implement `updateRobot()` (immutable update pattern)
-- Implement `getRobotById()` selector
-- Add `settings` sub-store (bpm, volume, maxRobots)
-
-**Action signatures:**
-```typescript
-addRobot: (robot: Robot) => void
-removeRobot: (id: string) => void
-updateRobot: (id: string, updates: Partial<Robot>) => void
-getRobotById: (id: string) => Robot | undefined
-```
-
-## Acceptance Criteria
-- [ ] All actions implemented
-- [ ] Immutable state updates
-- [ ] Timeline cleanup on removeRobot
-- [ ] Proper TypeScript types
-- [ ] Store usable from components
-- [ ] No side effects (pure actions)
-
-## Reference
-- Oceanic: `src/stores/oceanStore.ts`
-- Zustand docs (immutable updates)
-```
+**M1 Issue Summary:**
+- M1.1: Implement harmony system with 8-note palettes
+- M1.2: Implement melody generator with weighted note selection
+- M1.3: Implement AudioEngine note scheduling with melody playback
+- M1.4: Implement timeline management (timelineMap utilities)
+- M1.5: Add Robot type and related type definitions
+- M1.6: Complete Zustand store with all robot actions
 
 ---
 
 ## Step 6: Write M2 Issues (30 minutes)
 
-Continue pattern for M2 (Robot Basics):
+Create 7 issues for M2 (Robot Basics) milestone. Full issue templates with acceptance criteria are maintained in separate files.
+
+**See: [M2-issues.md](M2-issues.md)** for complete issue templates.
+
+**M2 Issue Summary:**
+- M2.0: Setup Vitest testing infrastructure
 - M2.1: Create Robot SVG components (chassis, head, propeller, antennae)
 - M2.2: Create RobotBody component that assembles parts
 - M2.3: Create Robot component with position and selection
 - M2.4: Implement robot spawning system
-- M2.5: Implement GSAP swim animation (point-to-point)
+- M2.5: Implement GSAP move animation (point-to-point)
 - M2.6: Implement idle state and destination picking
+- M2.7: Integrate robots into OceanScene component
 
 ---
 
-## Step 7: Write M3, M4, M5 Issues (60 minutes)
+## Step 7: Write M3-M6 Issues (60 minutes)
 
-**M3 Issues (Audio Integration):**
-- M3.1: Integrate melody generator with robot spawner
-- M3.2: Implement melody playback scheduling
-- M3.3: Add polyphony management and voice stealing
-- M3.4: Add volume controls and audio settings
-- M3.5: Test harmony changes and melody synchronization
+### Step 7a: Write M3 Issues (Audio Integration)
 
-**M4 Issues (Interactions & Environment):**
+Create 7 issues for M3 (Audio Integration) milestone. Full issue templates maintained in separate file.
+
+**See: [M3-issues.md](M3-issues.md)** for complete issue templates.
+
+**M3 Issue Summary:**
+- M3.1: Integrate melody registration with robot spawner
+- M3.2: Implement melody cleanup on robot removal
+- M3.3: Implement synth pool creation in AudioEngine
+- M3.4: Implement polyphony management with skip-based limiting
+- M3.5: Implement 8n tick melody playback loop
+- M3.6: Add audio status display (dev UI)
+- M3.7: Test melody lifecycle end-to-end
+
+---
+
+### Step 7b: Write M4 Issues (Interactions & Systems)
+
+Create 7 issues for M4 (Interactions & Systems) milestone. Full issue templates maintained in separate file.
+
+**See: [M4-issues.md](M4-issues.md)** for complete issue templates.
+
+**M4 Issue Summary:**
 - M4.1: Implement collision detection system
-- M4.2: Implement robot-robot interaction (note flurry)
-- M4.3: Add interaction cooldown system
-- M4.4: Create Factory actor type and renderer
-- M4.5: Implement factory spawning logic
-- M4.6: Add environmental actors (ruins, machinery)
-- M4.7: Implement camera pan/zoom system
-- M4.8: Add depth layers with parallax
+- M4.2: Implement robot-robot interaction logic
+- M4.3: Implement interaction audio flurry
+- M4.4: Implement interaction visual effects
+- M4.5: Implement measure-based interaction cooldown
+- M4.6: Add interaction debug display
+- M4.7: Test interaction system end-to-end
 
-**M5 Issues (Polish & Launch):**
-- M5.1: Create robot editor panel (show attributes)
-- M5.2: Create settings panel (BPM, volume, visuals)
-- M5.3: Add time display (measures/hours)
-- M5.4: Implement mobile touch controls
-- M5.5: Performance optimization pass (60 FPS)
-- M5.6: Add responsive layout (mobile breakpoints)
-- M5.7: Configure GitHub Pages deployment
-- M5.8: Write PORTFOLIO.md case study
+---
+
+### Step 7c: Write M5 Issues (Environment & Actors)
+
+Create 8 issues for M5 (Environment & Actors) milestone. Full issue templates maintained in separate file.
+
+**See: [M5-issues.md](M5-issues.md)** for complete issue templates.
+
+**M5 Issue Summary:**
+- M5.1: Create Factory actor type and SVG components
+- M5.2: Implement factory robot spawning on measure timers
+- M5.3: Create environmental actor components (ruins, machinery, scrap)
+- M5.4: Implement procedural environmental actor placement
+- M5.5: Implement camera pan/zoom system
+- M5.6: Implement depth layers with parallax scrolling
+- M5.7: Add factory spawn animation for robots
+- M5.8: Test environment and actors system end-to-end
+
+---
+
+### Step 7d: Write M6 Issues (Polish & Launch)
+
+Create 9 issues for M6 (Polish & Launch) milestone. Full issue templates maintained in separate file.
+
+**See: [M6-issues.md](M6-issues.md)** for complete issue templates.
+
+**M6 Issue Summary:**
+- M6.1: Create robot info panel showing attributes
+- M6.2: Create settings panel for BPM and audio controls
+- M6.3: Add time display (measures/hours)
+- M6.4: Implement mobile touch controls
+- M6.5: Implement responsive layout for mobile devices
+- M6.6: Performance optimization pass (target 60 FPS)
+- M6.7: Configure GitHub Pages deployment
+- M6.8: Write portfolio documentation (PORTFOLIO.md, screenshots)
+- M6.9: Final testing and polish pass
 
 ---
 
@@ -798,23 +392,27 @@ Continue pattern for M2 (Robot Basics):
 
 For each issue:
 1. Click "New issue"
-2. Copy template content
+2. Copy template content from the appropriate Mx-issues.md file
 3. Assign to milestone
 4. Add labels
 5. Create issue
-6. Repeat ~35 times
+6. Repeat ~50 times
 
 **Tip:** Use GitHub CLI to speed this up:
 ```bash
+# Extract individual issue content from M0-issues.md, M1-issues.md, etc.
+# Then create issues programmatically:
 gh issue create --title "[M0] Create AudioEngine singleton" \
-  --body "$(cat issue-m0-1.md)" \
+  --body "See M0-issues.md - M0.1 for full template" \
   --milestone "M0: Foundation" \
   --label "feature,system: audio,size: M,priority: high"
 ```
 
+**Note:** Issue templates are in M0-issues.md through M6-issues.md. Copy each issue section individually.
+
 ### 8.2 Add Issues to Project Board
 
-1. Go to project: https://github.com/orgs/fallboard-studios/projects/1
+1. Go to your project (Projects tab → Pelagos-7 Development)
 2. Click "Add items"
 3. Search for issues by milestone
 4. Add all M0 issues → "Backlog" column
@@ -826,7 +424,7 @@ gh issue create --title "[M0] Create AudioEngine singleton" \
 **Backlog column:**
 - M0 issues at top (highest priority)
 - M1 issues below
-- M2-M5 issues below (lower priority)
+- M2-M6 issues below (lower priority)
 
 **Leave empty:**
 - In Progress (you'll move here when working)
@@ -872,7 +470,7 @@ Track progress: [Project Board](https://github.com/orgs/fallboard-studios/projec
 
 ## Version Definition
 v1.0 includes:
-- 6-12 robots swimming autonomously
+- 6-12 robots moving autonomously
 - Musical generation from interactions
 - Factory spawning
 - Camera navigation

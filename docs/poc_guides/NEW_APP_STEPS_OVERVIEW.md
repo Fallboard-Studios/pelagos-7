@@ -104,7 +104,7 @@ Demonstrates project management skills. Having tickets written upfront prevents 
 
 **Deliverables:**
 - [ ] GitHub Project created (board view + roadmap)
-- [ ] 6 Milestones created (M0-M5)
+- [ ] 7 Milestones created (M0-M6)
 - [ ] 30-40 issues created and assigned to milestones
 - [ ] Initial issues labeled (feature/bug/refactor/docs)
 - [ ] Roadmap timeline set (4-6 weeks)
@@ -120,12 +120,13 @@ Demonstrates project management skills. Having tickets written upfront prevents 
 - Clear path to v1.0
 
 **Milestones:**
-- M0: Foundation (~5 tickets)
+- M0: Repository Foundation (~5 tickets)
 - M1: Core Architecture (~6 tickets)
 - M2: Robot Basics (~6 tickets)
 - M3: Audio Integration (~5 tickets)
-- M4: Interactions & Environment (~8 tickets)
-- M5: Polish & Launch (~8 tickets)
+- M4: Interactions & Systems (~6 tickets)
+- M5: Environment & Actors (~6 tickets)
+- M6: Polish & Launch (~8 tickets)
 
 **Detailed Steps:** → `docs/phase-2-github-project-setup.md` (to be created)
 
