@@ -7,11 +7,11 @@
 
 ## Prerequisites
 
-- [ ] Phase 0 complete (repository exists with scaffold)
-- [ ] Phase 1 complete (documentation written)
-- [ ] Phase 2 complete (project board and issues created)
-- [ ] All M0 issues created and in project backlog
-- [ ] Dev environment working (`npm run dev` starts Vite)
+- [x] Phase 0 complete (repository exists with scaffold)
+- [x] Phase 1 complete (documentation written)
+- [x] Phase 2 complete (project board and issues created)
+- [x] All M0 issues created and in project backlog
+- [x] Dev environment working (`npm run dev` starts Vite)
 
 ---
 
