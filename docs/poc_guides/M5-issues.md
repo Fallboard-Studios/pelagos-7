@@ -281,7 +281,7 @@ function createFactory(position: Vec2): Actor {
 - [ ] Actors added to store
 
 ### Reference
-- Similar to Oceanic food placement system
+- Similar to Oceanic actor placement system
 
 ---
 
