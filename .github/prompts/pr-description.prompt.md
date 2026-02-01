@@ -36,7 +36,7 @@ Changes to Include
 ${input:changes:Describe the feature/changes in this PR}
 
 Process
-Analyze changed files using #tool:get_changed_files
+Analyze changed files using #tool:search/changes
 Write concise description (1-2 sentences)
 Check only relevant boxes (omit obvious ones)
 Focus on what matters for review
