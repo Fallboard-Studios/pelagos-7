@@ -3,52 +3,42 @@ name: pr-description
 description: Create PR description following project template
 agent: agent
 tools:
-  - get_changed_files
-  - read_file
+  ['read/readFile', 'search/changes']
 ---
 
-Generate a PR description for this feature branch using the PR template from [CONTRIBUTION_GUIDE.md](../../docs/CONTRIBUTION_GUIDE.md).
+Generate a concise PR description for this feature branch using the PR template from [CONTRIBUTION_GUIDE.md](../../docs/CONTRIBUTION_GUIDE.md).
 
-## PR Template
+## PR Template (Concise Format)
 
 ```markdown
 ## Description
-Brief description of changes
+Brief summary of what was implemented and why.
 
 ## Type of Change
-- [ ] Bug fix
 - [ ] New feature
+- [ ] Bug fix
 - [ ] Refactoring
 - [ ] Documentation
 
 ## Testing
 - [ ] Tested locally
-- [ ] No console errors
-- [ ] Audio/animation working
+- [ ] TypeScript compiles
+- [ ] No architectural violations
 
 ## Checklist
 - [ ] Code follows style guidelines
 - [ ] Self-review completed
-- [ ] Comments added where needed
-- [ ] Documentation updated
-- [ ] No architectural violations
 
 ## Related Issues
 Closes #XX
-```
 
-## Changes to Include
-
+Changes to Include
 ${input:changes:Describe the feature/changes in this PR}
 
-## Process
-
-1. Analyze changed files using #tool:get_changed_files
-2. Summarize key changes
-3. Identify type of change (feature, fix, refactor, docs)
-4. List testing performed
-5. Check architectural compliance
-6. Reference related issues
-7. Generate complete PR description
-
+Process
+Analyze changed files using #tool:get_changed_files
+Write concise description (1-2 sentences)
+Check only relevant boxes (omit obvious ones)
+Focus on what matters for review
+Reference related issues
 Show the PR description for review.

@@ -3,7 +3,7 @@ name: commit-message
 description: Generate commit message following project conventions
 agent: agent
 tools:
-  - get_changed_files
+  ['search/changes']
 ---
 
 Generate a commit message for these changes following [CONTRIBUTION_GUIDE.md](../../docs/CONTRIBUTION_GUIDE.md) format.

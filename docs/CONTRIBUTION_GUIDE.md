@@ -303,27 +303,26 @@ chore/update-dependencies
 
 ### PR Template
 
+**Use the concise format below. Only include items relevant to your PR.**
+
 ```markdown
 ## Description
-Brief description of changes
+Brief summary of what was implemented and why.
 
 ## Type of Change
-- [ ] Bug fix
 - [ ] New feature
+- [ ] Bug fix
 - [ ] Refactoring
 - [ ] Documentation
 
 ## Testing
 - [ ] Tested locally
-- [ ] No console errors
-- [ ] Audio/animation working
+- [ ] TypeScript compiles
+- [ ] No architectural violations
 
 ## Checklist
 - [ ] Code follows style guidelines
 - [ ] Self-review completed
-- [ ] Comments added where needed
-- [ ] Documentation updated
-- [ ] No architectural violations
 
 ## Related Issues
 Closes #XX
@@ -335,6 +334,26 @@ Closes #XX
 2. **Request review** from maintainer
 3. **Address feedback** with new commits (don't force-push during review)
 4. **Squash and merge** once approved
+
+### Example PR
+```markdown
+## Description
+Implements harmony system with 8-note palettes that change every 4 measures.
+
+## Type of Change
+- [x] New feature
+
+## Testing
+- [x] Tested locally
+- [x] TypeScript compiles
+
+## Checklist
+- [x] Code follows style guidelines
+- [x] Self-review completed
+
+## Related Issues
+Closes #42
+```
 
 ## Common Patterns
 
