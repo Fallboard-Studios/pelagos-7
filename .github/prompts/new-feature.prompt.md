@@ -3,7 +3,7 @@ name: new-feature
 description: Plan and implement a feature from a GitHub issue following project architecture
 agent: agent
 tools:
-  ['read', 'search/changes']
+  ['read', 'edit', 'search/changes', 'web']
 ---
 
 I want to implement a feature from a GitHub issue.
@@ -13,7 +13,7 @@ I want to implement a feature from a GitHub issue.
 ## Workflow
 
 1. **Fetch the issue**
-   - Get issue details from https://github.com/Fallboard-Studios/pelagos-7/issues/{issue}
+   - fetch issue details from https://github.com/Fallboard-Studios/pelagos-7/issues/{issue}
    - Summarize: title, description, acceptance criteria, implementation details
 
 2. **Review documentation**
