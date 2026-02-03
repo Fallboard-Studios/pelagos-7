@@ -1,18 +1,18 @@
 import js from '@eslint/js';
-import globals from 'globals';
+import importPlugin from 'eslint-plugin-import';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
+import globals from 'globals';
 import tseslint from 'typescript-eslint';
-import importPlugin from 'eslint-plugin-import';
 
 export default [
   // Ignore build output
   { ignores: ['dist'] },
-  
+
   // Base recommended configs
   js.configs.recommended,
   ...tseslint.configs.recommended,
-  
+
   // React-specific rules
   {
     files: ['**/*.{ts,tsx}'],
@@ -28,21 +28,21 @@ export default [
     rules: {
       // React Hooks rules
       ...reactHooks.configs.recommended.rules,
-      
+
       // React Refresh rules
       'react-refresh/only-export-components': [
         'warn',
         { allowConstantExport: true },
       ],
-      
+
       // TypeScript rules (from Phase 0)
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/no-unused-vars': ['error', { 
+      '@typescript-eslint/no-unused-vars': ['error', {
         argsIgnorePattern: '^_',
-        varsIgnorePattern: '^_' 
+        varsIgnorePattern: '^_'
       }],
-      
+
       // Import ordering (from Phase 0)
       'import/order': ['error', {
         'groups': [
@@ -53,9 +53,9 @@ export default [
         ],
         'newlines-between': 'always',
       }],
-      
+
       // Console rules (from Phase 0)
-      'no-console': ['warn', { allow: ['warn', 'error'] }],
+      'no-console': ['warn', { allow: ['warn', 'error', 'log'] }],
     },
   },
 ];
