@@ -207,6 +207,25 @@ src/
 - Type all function parameters and return values
 - Use enums for robot states, actor types, time of day, etc.
 
+### Naming Conventions
+
+**Component Types:**
+- Props interfaces: `[ComponentName]Props` (e.g., `PlayButtonProps`)
+- State types: `[ComponentName][Feature]State` or more descriptive variant (e.g., `PlayButtonState`, `RobotAnimationState`)
+- Never use generic names like `State` that conflict with variable names
+- ✅ Good: `type PlayButtonState = 'idle' | 'loading' | 'error'`
+- ❌ Bad: `type PlayState = 'idle' | 'loading' | 'error'` (conflicts with `const [playState, setPlayState]`)
+
+**Variables & State:**
+- State variables: `camelCase` (e.g., `playState`, `selectedRobotId`)
+- State setters: `set[StateNameTitleCase]` (e.g., `setPlayState`)
+- Event handlers: `handle[EventName]` (e.g., `handleClick`, `handleArrival`)
+- Callback props: `on[EventName]` (e.g., `onSuccess`, `onRobotSpawned`)
+
+**Constants:**
+- App-wide: `UPPER_SNAKE_CASE` (e.g., `MAX_ROBOTS`, `DEFAULT_BPM`)
+- Component-specific: `UPPER_SNAKE_CASE` in component scope (e.g., `BUTTON_TEXT = {...}`)
+
 ### GSAP Patterns
 - Always use the useGSAP hook for React components
 - Use `gsap.to()`, `gsap.timeline()` for animations
