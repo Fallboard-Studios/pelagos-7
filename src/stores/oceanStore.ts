@@ -33,7 +33,7 @@ const INITIAL_SETTINGS = {
 // ========================================
 // STORE
 // ========================================
-export const useOceanStore = create<OceanStore>((set, get) => ({
+export const useOceanStore = create<OceanStore>((_set, _get) => ({
   robots: [],
   settings: { ...INITIAL_SETTINGS },
   addRobot: (robot) => {

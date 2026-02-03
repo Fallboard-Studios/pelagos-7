@@ -38,7 +38,6 @@ export const AudioEngine = {
   },
   scheduleNote(params: unknown): void {
     // Stub: log params to console (no audio yet)
-    // eslint-disable-next-line no-console
     console.log('[AudioEngine] scheduleNote called with:', params);
   },
 };

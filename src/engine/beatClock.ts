@@ -36,7 +36,6 @@ export function initBeatClock(): void {
     currentMeasure = measure;
   }, '16n');
   initialized = true;
-  // eslint-disable-next-line no-console
   console.log('BeatClock initialized');
 }
 
@@ -58,7 +57,6 @@ export function getCurrentMeasure(): number {
  * Stub: schedule a callback at a specific beat (logs only)
  */
 export function scheduleAtBeat(beat: number, callback: () => void): string {
-  // eslint-disable-next-line no-console
   console.log('[BeatClock] scheduleAtBeat (stub):', beat, callback);
   return 'stub-id';
 }
@@ -67,7 +65,6 @@ export function scheduleAtBeat(beat: number, callback: () => void): string {
  * Stub: schedule a repeating callback (logs only)
  */
 export function scheduleRepeat(interval: string, callback: () => void): string {
-  // eslint-disable-next-line no-console
   console.log('[BeatClock] scheduleRepeat (stub):', interval, callback);
   return 'stub-id';
 }
