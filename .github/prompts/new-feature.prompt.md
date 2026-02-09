@@ -3,7 +3,7 @@ name: new-feature
 description: Plan and implement a feature from a GitHub issue following project architecture
 agent: agent
 tools:
-  ['read', 'edit', 'search/changes', 'web']
+  ['read', 'edit', 'search/changes', 'web', 'gitkraken/git_branch', 'gitkraken/git_checkout']
 ---
 
 I want to implement a feature from a GitHub issue.

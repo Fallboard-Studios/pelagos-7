@@ -1,7 +1,17 @@
+import { useState } from 'react';
+
 import { OceanScene } from './components/OceanScene';
+import { PlayButton } from './components/PlayButton';
 
 function App() {
-  return <OceanScene />;
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  return (
+    <>
+      {!isPlaying && <PlayButton onSuccess={() => setIsPlaying(true)} />}
+      <OceanScene />
+    </>
+  );
 }
 
 export default App;
