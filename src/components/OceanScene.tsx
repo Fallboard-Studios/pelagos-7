@@ -1,4 +1,4 @@
-import './OceanScene';
+import './OceanScene.css';
 
 // ========================================
 // TYPES & INTERFACES
