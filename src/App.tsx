@@ -4,11 +4,11 @@ import { OceanScene } from './components/OceanScene';
 import { PlayButton } from './components/PlayButton';
 
 function App() {
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isAudioReady, setAudioReady] = useState(false);
 
   return (
     <>
-      {!isPlaying && <PlayButton onSuccess={() => setIsPlaying(true)} />}
+      {!isAudioReady && <PlayButton onSuccess={() => setAudioReady(true)} />}
       <OceanScene />
     </>
   );
