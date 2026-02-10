@@ -40,6 +40,7 @@ Component or system affected: `audio`, `animation`, `state`, `components`, `engi
 - Explain what and why (not how)
 - Wrap at 72 characters
 - Bullet points okay
+- Never use double quotes, use backticks for code references or single quotes as needed
 
 ### Footer
 - Reference issues: `Closes #42`, `Fixes #67`, `Part of #23`
