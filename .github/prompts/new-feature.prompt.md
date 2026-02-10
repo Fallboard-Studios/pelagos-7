@@ -62,4 +62,4 @@ I want to implement a feature from a GitHub issue.
 - **Cite documentation** - reference specific sections when explaining decisions
 - **Be concise** - summaries should be brief, not exhaustive
 
-Start by fetching issue #{issue} and working through the workflow above.
+Start by following the workflow above, beginning with creating the feature branch for issue #{issue}.
