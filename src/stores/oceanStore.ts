@@ -4,6 +4,7 @@
 import { create } from 'zustand';
 
 import type { Robot } from '../types/Robot';
+import { killTimeline } from '../animation/timelineMap';
 
 // ========================================
 // TYPES
@@ -17,7 +18,8 @@ interface OceanStore {
   };
   addRobot: (robot: Robot) => void;
   removeRobot: (id: string) => void;
-  updateRobot: (robot: Robot) => void;
+  updateRobot: (id: string, updates: Partial<Robot>) => void;
+  getRobotById: (id: string) => Robot | undefined;
 }
 
 // ========================================
@@ -31,23 +33,35 @@ const INITIAL_SETTINGS = {
 // ========================================
 // STORE
 // ========================================
-export const useOceanStore = create<OceanStore>((_set, _get) => ({
+export const useOceanStore = create<OceanStore>((_set, get) => ({
   robots: [],
   settings: { ...INITIAL_SETTINGS },
+
   addRobot: (robot) => {
-    // Stub: log only for now
-    console.log('[OceanStore] addRobot called', robot);
-    // Implementation to be added in future milestones
+    _set((state) => ({
+      robots: [...state.robots, robot],
+    }));
   },
+
   removeRobot: (id) => {
-    // Stub: log only for now
-    console.log('[OceanStore] removeRobot called', id);
-    // Implementation to be added in future milestones
+    // Clean up associated timeline before removing robot
+    killTimeline(`swim-${id}`);
+
+    _set((state) => ({
+      robots: state.robots.filter((r) => r.id !== id),
+    }));
   },
-  updateRobot: (robot) => {
-    // Stub: log only for now
-    console.log('[OceanStore] updateRobot called', robot);
-    // Implementation to be added in future milestones
+
+  updateRobot: (id, updates) => {
+    _set((state) => ({
+      robots: state.robots.map((r) =>
+        r.id === id ? { ...r, ...updates } : r
+      ),
+    }));
+  },
+
+  getRobotById: (id) => {
+    return get().robots.find((r) => r.id === id);
   },
 }));
 
