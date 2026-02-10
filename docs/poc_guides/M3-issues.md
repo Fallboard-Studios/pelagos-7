@@ -34,7 +34,7 @@ export function spawnRobot(): void {
     destination: null,
     melody: generateMelodyForRobot(),  // From M1
     audioAttributes: generateAudioAttributes(),
-    svgParts: generateSVGParts(),
+    // Visual appearance derived from audioAttributes
   };
   
   useOceanStore.getState().addRobot(robot);

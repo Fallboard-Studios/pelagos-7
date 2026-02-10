@@ -50,90 +50,116 @@ describe('BeatClock', () => {
 
 ## M2.1: Create Robot SVG Components
 
-**Title:** [M2.1] Create Robot SVG components (chassis, head, propeller, antennae)
+**Title:** [M2.1] Create Robot SVG components (unified shapes)
 
 **Labels:** feature, system: ui, size: M, priority: high
 
 ### Feature Description
-Create individual SVG components for robot parts that can be composed into complete robots.
+Create unified robot SVG components where each represents a complete robot with a distinct visual style determined by audio attributes.
 
 ### Implementation Details
-- Create `src/components/robot/RobotChassis.tsx`
-- Create `src/components/robot/RobotHead.tsx`
-- Create `src/components/robot/RobotPropeller.tsx`
-- Create `src/components/robot/RobotAntenna.tsx` (top and bottom variants)
-- Each component receives color/style props
-- Use `<g>` tags for CSS class application
-- Create 2-3 variants per part for visual variety
+- Create `src/components/robot/RobotSleek.tsx` (AMSynth - smooth, flowing)
+- Create `src/components/robot/RobotAngular.tsx` (FMSynth - sharp, geometric)
+- Create `src/components/robot/RobotOrganic.tsx` (PolySynth - rounded, biological)
+- Create `src/components/robot/RobotIndustrial.tsx` (MembraneSynth - boxy, mechanical)
+- Each receives colors, scale, and detailLevel props
+- Propeller element marked for GSAP rotation animation
+- Use CSS custom properties for dynamic coloring
 
 **Component pattern:**
 ```tsx
-interface RobotChassisProps {
-  variant: 'box' | 'cylinder' | 'sphere';
-  colorClass?: string;
+interface RobotSVGProps {
+  colors: { primary: string; secondary: string; accent: string };
+  scale: number;
+  detailLevel: number; // 0-1, controls decoration complexity
 }
 
-export function RobotChassis({ variant, colorClass }: RobotChassisProps) {
-  return <g className={colorClass}>{/* SVG paths */}</g>;
-}
-```
-
-### Acceptance Criteria
-- [ ] 5 component files created (chassis, head, propeller, 2 antennae)
-- [ ] Each component has 2-3 variants
-- [ ] Props for variant selection and color classes
-- [ ] SVGs properly grouped in `<g>` tags
-- [ ] No hardcoded colors (use CSS classes)
-- [ ] Components render without errors
-
-### Reference
-- Oceanic: `src/components/fish/` (adapt fish parts to robot aesthetic)
-- Docs: `docs/ROBOT_DESIGN.md`
-
----
-
-## M2.2: Create RobotBody Component
-
-**Title:** [M2.2] Create RobotBody component that assembles parts
-
-**Labels:** feature, system: ui, size: S, priority: high
-
-### Feature Description
-Create a component that assembles individual robot parts into a complete robot based on Robot data.
-
-### Implementation Details
-- Create `src/components/robot/RobotBody.tsx`
-- Accept `robot: Robot` prop
-- Read `robot.svgParts` to determine which variants to render
-- Position parts relative to each other (propeller behind chassis, head on top, etc.)
-- Apply color classes based on `robot.audioAttributes`
-- Use refs for GSAP animation targets
-
-**Structure:**
-```tsx
-export function RobotBody({ robot }: { robot: Robot }) {
+export function RobotSleek({ colors, scale, detailLevel }: RobotSVGProps) {
   return (
-    <g className="robot-body">
-      <RobotPropeller variant={robot.svgParts.propeller} />
-      <RobotChassis variant={robot.svgParts.chassis} colorClass="body-color" />
-      <RobotHead variant={robot.svgParts.head} colorClass="head-color" />
-      <RobotAntenna variant={robot.svgParts.topAntenna} position="top" />
-      <RobotAntenna variant={robot.svgParts.bottomAntenna} position="bottom" />
+    <g transform={`scale(${scale})`}>
+      <g className="robot-body">
+        {/* Main body shape */}
+        <ellipse fill={colors.primary} />
+        {/* Propeller (animated) */}
+        <g className="propeller">
+          <ellipse fill={colors.secondary} />
+        </g>
+        {/* Conditional details based on detailLevel */}
+        {detailLevel > 0.5 && <circle fill={colors.accent} />}
+      </g>
     </g>
   );
 }
 ```
 
 ### Acceptance Criteria
-- [ ] RobotBody component created
-- [ ] Assembles 5 robot parts
-- [ ] Reads svgParts from Robot data
-- [ ] Applies colors based on audioAttributes
-- [ ] Parts positioned correctly relative to each other
-- [ ] Component renders complete robot
+- [ ] 4 robot shape components created (Sleek, Angular, Organic, Industrial)
+- [ ] Each represents complete unified robot
+- [ ] Props for colors, scale, detailLevel
+- [ ] Propeller element identifiable for animation
+- [ ] Conditional details based on detailLevel
+- [ ] Components render without errors
 
 ### Reference
-- Oceanic: `src/components/fish/FishBody.tsx`
+- Docs: `docs/ROBOT_DESIGN.md`
+
+---
+
+## M2.2: Create RobotBody Component
+
+**Title:** [M2.2] Create RobotBody component that selects shape variant
+
+**Labels:** feature, system: ui, size: S, priority: high
+
+### Feature Description
+Create a component that selects the appropriate robot shape variant based on audio attributes and calculates visual properties.
+
+### Implementation Details
+- Create `src/components/robot/RobotBody.tsx`
+- Accept `robot: Robot` prop
+- Calculate visual properties from `robot.audioAttributes`:
+  - Shape variant from synthType
+  - Colors from ADSR envelope
+  - Scale from pitchRange
+  - Detail level from filterFreq
+- Render appropriate SVG component (RobotSleek, RobotAngular, etc.)
+- Use refs for GSAP animation targets
+
+**Structure:**
+```tsx
+export function RobotBody({ robot }: { robot: Robot }) {
+  const visual = useMemo(() => {
+    const { synthType, adsr, pitchRange, filterFreq } = robot.audioAttributes;
+    return {
+      Component: selectRobotShape(synthType),  // Returns RobotSleek, etc.
+      colors: generateColors(adsr),
+      scale: calculateScale(pitchRange),
+      detailLevel: calculateDetailLevel(filterFreq),
+    };
+  }, [robot.audioAttributes]);
+  
+  const { Component, colors, scale, detailLevel } = visual;
+  
+  return (
+    <Component 
+      colors={colors} 
+      scale={scale} 
+      detailLevel={detailLevel} 
+    />
+  );
+}
+```
+
+### Acceptance Criteria
+- [ ] RobotBody component created
+- [ ] Calculates visuals from audioAttributes
+- [ ] Selects correct shape variant (Sleek/Angular/Organic/Industrial)
+- [ ] Applies calculated colors, scale, detail level
+- [ ] Component renders complete robot
+- [ ] Visual properties memoized for performance
+
+### Reference
+- Docs: `docs/ROBOT_DESIGN.md`
 
 ---
 

@@ -34,7 +34,7 @@ Pelagos-7 is a generative music system where:
 ## Key Features (Planned)
 
 - [ ] Beat-synchronized timing system (musical alignment)
-- [ ] Procedurally generated robot visuals (modular SVG parts)
+- [ ] Procedurally generated robot visuals (audio-driven shapes & colors)
 - [ ] Melody generation system (16-step loops, harmony palettes)
 - [ ] Collision-based interactions (audio/visual bursts)
 - [ ] Factory actors (automated robot spawning)

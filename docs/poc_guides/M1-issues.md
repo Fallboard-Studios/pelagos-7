@@ -172,11 +172,11 @@ Define TypeScript types for Robot, RobotState, AudioAttributes, and related type
 
 ### Implementation Details
 - Create `src/types/Robot.ts`
-- Define `Robot` interface (id, position, state, destination, melody, audioAttributes, svgParts)
+- Define `Robot` interface (id, position, state, destination, melody, audioAttributes)
 - Define `RobotState` enum (idle, moving, interacting, selected, leaving)
 - Define `AudioAttributes` (synthType, adsr, pitchRange, filterFreq, reverb)
 - Define `MelodyEvent` (id, startStep, length, noteIndex)
-- Define `RobotSVGParts` (chassis, head, propeller, topAntenna, bottomAntenna)
+- Note: Visual appearance determined by audio attributes, not stored separately
 
 **Key structure:**
 ```typescript
@@ -187,7 +187,7 @@ interface Robot {
   destination: Vec2 | null;
   melody: MelodyEvent[];
   audioAttributes: AudioAttributes;
-  svgParts: RobotSVGParts;
+  // Visual appearance derived from audioAttributes (not stored)
 }
 ```
 
