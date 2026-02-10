@@ -7,6 +7,8 @@ import * as Tone from 'tone';
 // CONSTANTS
 // ========================================
 const BEATS_PER_MEASURE = 4;
+const MEASURES_PER_CYCLE = 96;
+const MEASURES_PER_HOUR = 4;
 
 // ========================================
 // INTERNAL STATE
@@ -51,6 +53,15 @@ export function getCurrentBeat(): number {
  */
 export function getCurrentMeasure(): number {
   return currentMeasure;
+}
+
+/**
+ * Returns the derived hour (0-23) from current measure position.
+ * 96 measures = 1 full day cycle, 4 measures = 1 hour equivalent.
+ */
+export function getCurrentHour(): number {
+  const derivedHour = Math.floor((currentMeasure % MEASURES_PER_CYCLE) / MEASURES_PER_HOUR);
+  return Math.max(0, Math.min(23, derivedHour));
 }
 
 /**
