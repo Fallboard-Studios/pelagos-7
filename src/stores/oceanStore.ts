@@ -3,13 +3,11 @@
 // ========================================
 import { create } from 'zustand';
 
+import type { Robot } from '../types/Robot';
+
 // ========================================
 // TYPES
 // ========================================
-export interface Robot {
-  id: string;
-  // Add more robot fields as needed
-}
 
 interface OceanStore {
   robots: Robot[];
