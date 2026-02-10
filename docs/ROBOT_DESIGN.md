@@ -2,69 +2,52 @@
 
 ## Overview
 
-Robots in Pelagos-7 are modular SVG constructs with swappable parts. Each robot's appearance is procedurally generated from its musical attributes.
+Robots in Pelagos-7 are single unified SVG entities. Each robot's visual appearance (shape, colors, decorations) is procedurally generated from its audio attributes, creating a direct visual representation of its sonic character.
 
-## SVG Part System
+## Design Philosophy
 
-### Robot Anatomy (5 Parts)
-
-1. **Chassis** (body)
-   - Main structural component
-   - Contains attachment points for other parts
-   - Size: ~40-60px base dimension
-   - Variants: Sleek, Boxy, Organic, Industrial
-
-2. **Head** (front module)
-   - Sensor array or camera unit
-   - Attached to front of chassis
-   - Size: ~20-30px
-   - Variants: Dome, Angular, Cylindrical, Flat
-
-3. **Propeller** (rear propulsion)
-   - Rotating element (animated)
-   - Attached to rear of chassis
-   - Size: ~15-25px
-   - Variants: 2-blade, 3-blade, 4-blade, Turbine
-
-4. **Top Antenna** (sensor)
-   - Extends upward from chassis
-   - Size: ~10-20px height
-   - Variants: Rod, Dish, Array, Spiral
-
-5. **Bottom Antenna** (stabilizer)
-   - Extends downward from chassis
-   - Size: ~10-20px height
-   - Variants: Rod, Fin, Paddle, Wire
+**Key Principle:** Audio attributes drive visual appearance
+- **Synth type** → Overall body shape and silhouette
+- **ADSR envelope** → Color palette and saturation
+- **Pitch range** → Size scaling
+- **Filter frequency** → Detail complexity and decorative elements
 
 ## SVG Structure
 
 ### File Organization
 ```
 src/assets/robots/
-├── chassis/
-│   ├── ChassisSleek.tsx
-│   ├── ChassisBoxey.tsx
-│   └── ...
-├── heads/
-├── propellers/
-└── antennae/
+├── RobotSleek.tsx      # Smooth, flowing lines (AMSynth)
+├── RobotAngular.tsx    # Sharp, geometric (FMSynth)
+├── RobotOrganic.tsx    # Rounded, biological (PolySynth)
+└── RobotIndustrial.tsx # Mechanical, boxy (MembraneSynth)
 ```
 
 ### Component Pattern
 ```typescript
-interface RobotPartProps {
-  color: string;
-  scale?: number;
+interface RobotSVGProps {
+  colors: RobotColorPalette;
+  scale: number;
+  detailLevel: number; // 0-1, controls decoration complexity
 }
 
-export function ChassisSleek({ color, scale = 1 }: RobotPartProps) {
+export function RobotSleek({ colors, scale, detailLevel }: RobotSVGProps) {
   return (
     <g transform={`scale(${scale})`}>
-      <path d="..." fill={color} />
-      {/* Attachment point markers */}
-      <circle cx="0" cy="0" r="2" fill="none" data-attach="center" />
-      <circle cx="20" cy="0" r="2" fill="none" data-attach="head" />
-      <circle cx="-20" cy="0" r="2" fill="none" data-attach="propeller" />
+      {/* Main body shape */}
+      <path d="..." fill={colors.primary} />
+      
+      {/* Propeller (animated element) */}
+      <g className="propeller">
+        <path d="..." fill={colors.secondary} />
+      </g>
+      
+      {/* Decorative details (conditional based on detailLevel) */}
+      {detailLevel > 0.5 && (
+        <g className="details">
+          <circle cx="..." cy="..." r="..." fill={colors.accent} />
+        </g>
+      )}
     </g>
   );
 }
@@ -72,28 +55,30 @@ export function ChassisSleek({ color, scale = 1 }: RobotPartProps) {
 
 ## Attribute Mapping
 
-### Synth Type → Head Shape
-- **AMSynth** → Dome head (smooth, rounded)
-- **FMSynth** → Angular head (sharp edges)
-- **PolySynth** → Cylindrical head (stacked layers)
-- **MembraneSynth** → Flat head (wide, thin)
+### Synth Type → Body Shape
+- **AMSynth** → Sleek profile (smooth curves, streamlined)
+- **FMSynth** → Angular profile (sharp edges, geometric)
+- **PolySynth** → Organic profile (rounded, flowing)
+- **MembraneSynth** → Industrial profile (boxy, mechanical)
 
 ### ADSR → Color Palette
-- **Fast Attack** → Bright colors (high saturation)
-- **Slow Attack** → Muted colors (lower saturation)
-- **Long Decay** → Cool hues (blue, cyan)
-- **Short Decay** → Warm hues (red, orange)
+- **Fast Attack** → Bright, saturated colors
+- **Slow Attack** → Muted, desaturated colors
+- **Long Decay** → Cool hues (blues, cyans, purples)
+- **Short Decay** → Warm hues (reds, oranges, yellows)
+- **High Sustain** → Higher luminance
+- **Low Sustain** → Lower luminance
 
-### Pitch Range → Propeller Type
-- **High Range** → Small, fast propeller (2-blade)
-- **Mid Range** → Medium propeller (3-blade)
-- **Low Range** → Large, slow propeller (4-blade)
-- **Wide Range** → Turbine (omni-directional)
+### Pitch Range → Size Scaling
+- **High Range (>600Hz)** → Small scale (0.7x)
+- **Mid Range (200-600Hz)** → Medium scale (1.0x)
+- **Low Range (<200Hz)** → Large scale (1.3x)
 
-### Filter Frequency → Antenna Configuration
-- **High Filter** → Long, thin antennae
-- **Low Filter** → Short, thick antennae
-- **No Filter** → Minimal antennae
+### Filter Frequency → Detail Complexity
+- **High Filter (>2000Hz)** → Complex decorations (many details)
+- **Mid Filter (500-2000Hz)** → Moderate decorations
+- **Low Filter (<500Hz)** → Minimal decorations (clean silhouette)
+- **No Filter** → Base shape only
 
 ## Color System
 
@@ -108,10 +93,9 @@ const ROBOT_COLORS = {
 ```
 
 ### Color Application
-- **Chassis:** Base color (from attribute)
-- **Head:** Lighter shade (+20% lightness)
-- **Propeller:** Darker shade (-20% lightness)
-- **Antennae:** Accent color (complementary hue)
+- **Primary:** Main body fill color
+- **Secondary:** Propeller and structural elements
+- **Accent:** Sensors, lights, decorative details
 
 ## Animation States
 
@@ -122,8 +106,8 @@ const ROBOT_COLORS = {
 
 ### Swimming
 - Propeller fast spin: 3 rotations/s
-- Chassis tilt: 5-10° toward destination
-- Antennae sway: ±5°, 0.5s cycle
+- Body tilt: 5-10° toward destination
+- Slight undulation animation
 
 ### Interacting
 - Scale pulse: 1.0 → 1.15 → 1.0, 0.4s
@@ -139,41 +123,40 @@ const ROBOT_COLORS = {
 
 ### Generation Algorithm
 ```typescript
-function generateRobotParts(audioAttributes: AudioAttributes): RobotParts {
+function generateRobotVisuals(audioAttributes: AudioAttributes): RobotVisuals {
   const { synthType, adsr, pitchRange, filterFreq } = audioAttributes;
   
   return {
-    chassis: selectChassis(synthType),
-    head: selectHead(synthType),
-    propeller: selectPropeller(pitchRange),
-    topAntenna: selectAntenna(filterFreq, 'top'),
-    bottomAntenna: selectAntenna(filterFreq, 'bottom'),
-    colors: generateColorPalette(adsr),
+    svgComponent: selectRobotShape(synthType),    // Which SVG shape variant
+    colors: generateColorPalette(adsr),           // Color scheme
+    scale: calculateScale(pitchRange),            // Size scaling
+    detailLevel: calculateDetailLevel(filterFreq), // Decoration complexity
   };
 }
+
+function selectRobotShape(synthType: SynthType): RobotSVGComponent {
+  switch (synthType) {
+    case 'AMSynth': return RobotSleek;
+    case 'FMSynth': return RobotAngular;
+    case 'PolySynth': return RobotOrganic;
+    case 'MembraneSynth': return RobotIndustrial;
+  }
+}
+
+function calculateScale(pitchRange: { min: number; max: number }): number {
+  const avgFreq = (pitchRange.min + pitchRange.max) / 2;
+  if (avgFreq > 600) return 0.7;  // Small
+  if (avgFreq < 200) return 1.3;  // Large
+  return 1.0;                     // Medium
+}
+
+function calculateDetailLevel(filterFreq: number): number {
+  // Returns 0-1 value for decoration complexity
+  if (filterFreq > 2000) return 1.0;   // Maximum detail
+  if (filterFreq < 500) return 0.2;    // Minimal detail
+  return (filterFreq - 500) / 1500;    // Linear interpolation
+}
 ```
-
-### Variant Weighting
-```typescript
-const CHASSIS_WEIGHTS = {
-  sleek: 0.35,
-  boxy: 0.30,
-  organic: 0.20,
-  industrial: 0.15,
-};
-```
-
-## Size Variations
-
-### Base Size Classes
-- **Small:** 0.7x scale (high-pitched robots)
-- **Medium:** 1.0x scale (default)
-- **Large:** 1.3x scale (low-pitched robots)
-
-### Size Mapping
-- Pitch range < 200Hz → Large
-- Pitch range 200-600Hz → Medium
-- Pitch range > 600Hz → Small
 
 ## Accessibility
 
@@ -203,80 +186,91 @@ const CHASSIS_WEIGHTS = {
 ## Future Enhancements
 
 - [ ] Procedural texture generation (rust, scratches)
-- [ ] Dynamic part swapping (upgrade animation)
-- [ ] Battle damage (visual degradation over time)
+- [ ] Dynamic shape morphing (visual evolution over time)
+- [ ] Battle damage (visual degradation)
 - [ ] Electronic glow effects
 - [ ] Particle trails (exhaust from propellers)
 
 ## Examples
 
-### Example 1: High-Pitched Scout
+### Example 1: High-Pitched Scout (AMSynth)
 ```typescript
 {
-  chassis: 'sleek',
-  head: 'dome',
-  propeller: '2-blade',
-  topAntenna: 'rod-long',
-  bottomAntenna: 'fin-small',
-  colors: {
-    base: '#00FFFF',
-    accent: '#FF00FF',
+  audioAttributes: {
+    synthType: 'AMSynth',
+    adsr: { attack: 0.01, decay: 0.2, sustain: 0.3, release: 0.5 },
+    pitchRange: { min: 600, max: 1200 },
+    filterFreq: 2500,
   },
-  size: 'small',
+  visualOutput: {
+    svgComponent: RobotSleek,
+    colors: {
+      primary: '#00FFFF',    // Bright cyan (fast attack, high sustain)
+      secondary: '#0088CC',  // Dark cyan
+      accent: '#FF00FF',     // Magenta accent
+    },
+    scale: 0.7,              // Small (high pitch)
+    detailLevel: 0.9,        // High detail (high filter)
+  },
 }
 ```
 
-### Example 2: Low-Frequency Hauler
+### Example 2: Low-Frequency Industrial (MembraneSynth)
 ```typescript
 {
-  chassis: 'industrial',
-  head: 'flat',
-  propeller: '4-blade',
-  topAntenna: 'dish',
-  bottomAntenna: 'paddle',
-  colors: {
-    base: '#8B4513',
-    accent: '#CD853F',
+  audioAttributes: {
+    synthType: 'MembraneSynth',
+    adsr: { attack: 0.1, decay: 0.5, sustain: 0.6, release: 1.0 },
+    pitchRange: { min: 80, max: 200 },
+    filterFreq: 400,
   },
-  size: 'large',
+  visualOutput: {
+    svgComponent: RobotIndustrial,
+    colors: {
+      primary: '#8B4513',    // Rusty brown (slow attack, low pitch)
+      secondary: '#654321',  // Dark brown
+      accent: '#CD853F',     // Light brown
+    },
+    scale: 1.3,              // Large (low pitch)
+    detailLevel: 0.3,        // Minimal detail (low filter)
+  },
 }
 ```
 
 ## Reference Images
 
-[To be added: Sketch wireframes of each part type]
+[To be added: Sketch wireframes of each robot shape variant]
 
-## SVG Template
+## SVG Template (Sleek Variant)
 
 ```svg
 <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
   <g id="robot" transform="translate(50, 50)">
-    <!-- Chassis -->
-    <g id="chassis">
-      <path d="M -20,-10 L 20,-10 L 20,10 L -20,10 Z" fill="currentColor" />
+    <!-- Main body (smooth, streamlined shape) -->
+    <g id="body">
+      <ellipse cx="0" cy="0" rx="25" ry="15" fill="var(--primary-color)" />
+      <path d="M -15,-8 Q -20,0 -15,8" fill="var(--secondary-color)" />
+      <path d="M 15,-8 Q 20,0 15,8" fill="var(--secondary-color)" />
     </g>
     
-    <!-- Head -->
-    <g id="head" transform="translate(20, 0)">
-      <circle r="8" fill="currentColor" opacity="0.9" />
+    <!-- Propeller (animated rotation) -->
+    <g id="propeller" className="propeller" transform="translate(-22, 0)">
+      <ellipse cx="0" cy="0" rx="8" ry="2" fill="var(--secondary-color)" opacity="0.8" />
+      <ellipse cx="0" cy="0" rx="2" ry="8" fill="var(--secondary-color)" opacity="0.6" />
     </g>
     
-    <!-- Propeller (animated) -->
-    <g id="propeller" transform="translate(-20, 0)">
-      <line x1="-10" y1="0" x2="10" y2="0" stroke="currentColor" stroke-width="2" />
-      <line x1="0" y1="-10" x2="0" y2="10" stroke="currentColor" stroke-width="2" />
+    <!-- Sensor window -->
+    <g id="sensor">
+      <circle cx="18" cy="-2" r="4" fill="var(--accent-color)" opacity="0.7" />
     </g>
     
-    <!-- Top Antenna -->
-    <g id="top-antenna" transform="translate(0, -10)">
-      <line x1="0" y1="0" x2="0" y2="-15" stroke="currentColor" stroke-width="1" />
-      <circle cx="0" cy="-15" r="2" fill="currentColor" />
-    </g>
-    
-    <!-- Bottom Antenna -->
-    <g id="bottom-antenna" transform="translate(0, 10)">
-      <path d="M 0,0 L -5,10 L 5,10 Z" fill="currentColor" opacity="0.7" />
+    <!-- Decorative details (conditional based on detailLevel) -->
+    <g id="details" opacity="0.6">
+      <line x1="-5" y1="-10" x2="5" y2="-10" stroke="var(--accent-color)" stroke-width="1" />
+      <circle cx="0" cy="10" r="2" fill="var(--accent-color)" />
     </g>
   </g>
 </svg>
 ```
+
+**Note:** Color values use CSS custom properties that are dynamically set based on the robot's audio attributes.

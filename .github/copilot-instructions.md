@@ -96,9 +96,9 @@ interface OceanStore {
 ## Domain-Specific Concepts
 
 ### Robot Design
-- Robots composed of 5 swappable SVG parts: chassis, head, propeller, top antenna, bottom antenna
-- SVGs grouped in `<g>` tags for CSS color class application
-- Musical attributes determine visual appearance (synth shape → head shape, ADSR → colors)
+- Robots are single unified SVG entities (not modular parts)
+- Visual appearance (shape, colors, decorations) determined by audio attributes
+- Synth type → overall body shape; ADSR → colors; pitch → size; filter → detail complexity
 
 ### Factory Actors
 - Factories spawn new robots periodically (measure-based timing)
@@ -302,7 +302,7 @@ it('maintains serializable state', () => {
 ### Adding a New Robot Attribute
 1. Update Robot type/interface
 2. Add UI control in robot menu component
-3. Map attribute to visual appearance (SVG selection, CSS class)
+3. Map attribute to visual appearance (shape variant, colors, scale, or detail level)
 4. Map attribute to audio parameter (send to AudioEngine)
 5. Ensure attribute is serializable (JSON-compatible)
 

@@ -128,7 +128,7 @@ function createRobotFromFactory(factory: Actor): Robot {
     destination: null,
     melody: generateMelodyForRobot(),
     audioAttributes: generateAudioAttributes(),
-    svgParts: generateSVGParts(),
+    // Visual appearance derived from audioAttributes
   };
 }
 ```
