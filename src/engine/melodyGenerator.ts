@@ -1,0 +1,112 @@
+// ========================================
+// TYPES
+// ========================================
+export interface RobotMelodyEvent {
+  id: string;
+  startStep: number; // 1..16 (8th-note position in 2-measure loop)
+  length: '8n' | '4n' | '2n'; // Note duration
+  noteIndex: number; // 0..7 (maps into availableNotes palette)
+}
+
+export interface MelodyGeneratorOptions {
+  events?: number; // Number of notes (default: 4-12)
+  rand?: () => number; // RNG for testing (default: Math.random)
+  syncopationBias?: number; // 0-1, off-beat preference (default: 0.4)
+}
+
+// ========================================
+// CONSTANTS
+// ========================================
+const MIN_EVENTS = 4;
+const MAX_EVENTS = 12;
+const DEFAULT_SYNCOPATION_BIAS = 0.4;
+
+const NOTE_INDEX_WEIGHTS = [0.35, 0.2, 0.15, 0.1, 0.07, 0.06, 0.04, 0.03];
+const LENGTH_WEIGHTS = [0.6, 0.3, 0.1];
+const LENGTHS: Array<'8n' | '4n' | '2n'> = ['8n', '4n', '2n'];
+
+const ON_BEAT_STEPS = [1, 3, 5, 7, 9, 11, 13, 15];
+const OFF_BEAT_STEPS = [2, 4, 6, 8, 10, 12, 14, 16];
+
+// ========================================
+// EXPORTS
+// ========================================
+
+/**
+ * Generates a melody for a robot at spawn time.
+ * Returns 4-12 events with weighted note selection.
+ */
+export function generateMelodyForRobot(
+  opts?: MelodyGeneratorOptions
+): RobotMelodyEvent[] {
+  const rand = opts?.rand ?? Math.random;
+  const eventsCount =
+    opts?.events ?? MIN_EVENTS + Math.floor(rand() * (MAX_EVENTS - MIN_EVENTS + 1));
+  const syncopationBias = opts?.syncopationBias ?? DEFAULT_SYNCOPATION_BIAS;
+
+  const melody: RobotMelodyEvent[] = [];
+  const usedSlots = new Set<number>();
+
+  for (let i = 0; i < eventsCount; i++) {
+    // Pick step position (with syncopation bias)
+    const useOffBeat = rand() < syncopationBias;
+    const candidateSteps = useOffBeat ? OFF_BEAT_STEPS : ON_BEAT_STEPS;
+
+    let startStep = candidateSteps[Math.floor(rand() * candidateSteps.length)];
+
+    // Avoid duplicate slots (with retry limit)
+    let attempts = 0;
+    while (usedSlots.has(startStep) && attempts < 8) {
+      startStep = candidateSteps[Math.floor(rand() * candidateSteps.length)];
+      attempts++;
+    }
+    usedSlots.add(startStep);
+
+    // Pick note index (weighted)
+    const noteIndex = pickWeightedIndex(rand);
+
+    // Pick duration (biased toward shorter)
+    const length = pickLength(rand);
+
+    melody.push({
+      id: crypto.randomUUID(),
+      startStep,
+      length,
+      noteIndex,
+    });
+  }
+
+  return melody;
+}
+
+/**
+ * Picks a weighted note index (0-7).
+ * Lower indices are more common (35%, 20%, 15%, etc.)
+ */
+export function pickWeightedIndex(rand: () => number = Math.random): number {
+  const r = rand();
+  let acc = 0;
+
+  for (let i = 0; i < NOTE_INDEX_WEIGHTS.length; i++) {
+    acc += NOTE_INDEX_WEIGHTS[i];
+    if (r <= acc) return i;
+  }
+
+  return NOTE_INDEX_WEIGHTS.length - 1;
+}
+
+/**
+ * Picks a note length with bias toward shorter durations.
+ * '8n' 60%, '4n' 30%, '2n' 10%
+ */
+export function pickLength(rand: () => number = Math.random): '8n' | '4n' | '2n' {
+  const r = rand();
+  let acc = 0;
+
+  for (let i = 0; i < LENGTH_WEIGHTS.length; i++) {
+    acc += LENGTH_WEIGHTS[i];
+    if (r <= acc) return LENGTHS[i];
+  }
+
+  return '8n';
+}
