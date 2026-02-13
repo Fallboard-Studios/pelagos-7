@@ -279,6 +279,7 @@ function createFactory(position: Vec2): Actor {
 - [ ] 1-2 factories at edges
 - [ ] No overlap with spawn zones
 - [ ] Actors added to store
+- [ ] Unit tests for placement bounds and actor type distribution
 
 ### Reference
 - Similar to Oceanic actor placement system

@@ -622,10 +622,37 @@ vi.useFakeTimers();
 const mockRandom = vi.spyOn(Math, 'random').mockReturnValue(0.5);
 ```
 
-**Skip mocking Tone.js/GSAP:**
-- Too complex, not worth the effort
-- Integration test manually instead
-- Focus tests on pure logic
+**Mock simple interfaces from Tone.js/GSAP:**
+
+It's fine to mock the scheduling/cleanup surface (e.g., `Transport.scheduleRepeat`, `killTimeline`). Skip mocking complex runtime behavior (actual audio output, GSAP rendering/tick).
+
+```typescript
+// ✅ Good — replace an entire module with a factory
+vi.mock('tone', () => ({
+  getTransport: () => mockTransport,
+}));
+
+vi.mock('../animation/timelineMap', () => ({
+  killTimeline: vi.fn(),
+}));
+```
+
+**Resetting module-level state between tests:**
+
+Engine modules like `beatClock` and `harmonySystem` use module-scoped variables (e.g., `let initialized = false`). A regular `beforeEach` can't reset those. Use `vi.resetModules()` + a dynamic `await import()` to get a fresh copy of the module for every test:
+
+```typescript
+let initBeatClock: () => void;
+let getCurrentBeat: () => number;
+
+beforeEach(async () => {
+  vi.resetModules();
+  // Dynamic import gives us a brand-new module instance
+  ({ initBeatClock, getCurrentBeat } = await import('./beatClock'));
+});
+```
+
+This pattern ensures each test starts with a clean slate — no leftover `initialized` flags or stale palette arrays leaking between tests.
 
 ### Coverage Goals
 

@@ -124,6 +124,7 @@ Create a component that selects the appropriate robot shape variant based on aud
   - Detail level from filterFreq
 - Render appropriate SVG component (RobotSleek, RobotAngular, etc.)
 - Use refs for GSAP animation targets
+- Create src/components/robot/robotVisualHelpers.test.ts (or whatever file name is appropriate)
 
 **Structure:**
 ```tsx
@@ -157,6 +158,7 @@ export function RobotBody({ robot }: { robot: Robot }) {
 - [ ] Applies calculated colors, scale, detail level
 - [ ] Component renders complete robot
 - [ ] Visual properties memoized for performance
+- [ ] Unit tests for visual mapping helpers (selectRobotShape, generateColors, calculateScale, calculateDetailLevel)
 
 ### Reference
 - Docs: `docs/ROBOT_DESIGN.md`
@@ -238,6 +240,7 @@ Create the spawning system that generates new robots with randomized attributes 
 - Generate melody using melodyGenerator
 - Add to oceanStore
 - Enforce MAX_ROBOTS limit
+- Create src/systems/spawnSystem.test.ts for attribute generation and limit enforcement
 
 **Spawning logic:**
 ```typescript
@@ -268,6 +271,7 @@ export function spawnRobot(): void {
 - [ ] Registers melody with AudioEngine
 - [ ] Respects MAX_ROBOTS limit
 - [ ] Can spawn multiple robots
+- [ ] Unit tests for generateSpawnPosition, generateAudioAttributes, and MAX_ROBOTS limit
 
 ### Reference
 - Oceanic: `src/systems/spawnSystem.ts`
@@ -394,6 +398,7 @@ export function handleRobotArrival(robotId: string): void {
 - [ ] New destination picked after delay
 - [ ] Robots move autonomously
 - [ ] No infinite loops or errors
+- [ ] Unit test for pickDestination (validates within world bounds)
 
 ### Reference
 - Oceanic: `src/systems/idleSystem.ts`

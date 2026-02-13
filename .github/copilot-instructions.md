@@ -289,7 +289,10 @@ it('maintains serializable state', () => {
 ### Mocking Guidelines
 - Avoid complex mocks (if hard to test, function is doing too much)
 - Simple mocks okay: `vi.spyOn(Math, 'random').mockReturnValue(0.5)`
-- Skip mocking Tone.js/GSAP (integration test manually)
+- **Mock simple interfaces** from Tone.js/GSAP (e.g., `Transport.scheduleRepeat`, `killTimeline`)
+- **Skip mocking complex runtime behavior** (actual audio output, GSAP rendering/tick)
+- Use `vi.mock()` factory pattern to replace entire modules (Tone, timelineMap)
+- Use `vi.resetModules()` + dynamic `await import()` in `beforeEach` to reset module-level state between tests
 
 ### Coverage Goals
 - Target: ~70-80% for utilities and stores

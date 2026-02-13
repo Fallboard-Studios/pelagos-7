@@ -187,6 +187,7 @@ Implement polyphony limiting in AudioEngine to prevent audio distortion and CPU 
 - Implement `scheduleVoiceRelease()` using Transport.scheduleOnce
 - Update `scheduleNote()` to use triggerWithCap
 - Add debug logging for voice count
+- Extract voice-counting logic into testable helper; add unit tests for cap enforcement and counter increment/decrement
 
 **Polyphony logic:**
 ```typescript
@@ -242,6 +243,7 @@ function scheduleVoiceRelease(duration: string, time?: number): void {
 - [ ] Voice release scheduled with Transport
 - [ ] No audio distortion at high activity
 - [ ] Debug logs show voice count
+- [ ] Unit tests for polyphony cap logic counter increment, skip at cap, decrement after release
 
 ### Reference
 - Docs: `docs/POLYPHONY_GUIDE.md#voice-lifecycle`
@@ -383,6 +385,7 @@ Create comprehensive tests and manual validation for the complete melody lifecyc
 - Check for memory leaks (spawn/remove 20 times)
 - Verify no orphaned audio events
 - Check step registry cleanup
+- Add unit tests for step registry register/unregister operations
 
 **Test checklist:**
 ```markdown
@@ -404,6 +407,7 @@ Create comprehensive tests and manual validation for the complete melody lifecyc
 - [ ] Harmony changes reflected in playback
 - [ ] No orphaned events in step registry
 - [ ] Clean console output
+- [ ] Unit tests for step registry (register adds events, unregister removes events, no orphans)
 
 ### Reference
 - Docs: `docs/AUDIO_SYSTEM.md#troubleshooting`
