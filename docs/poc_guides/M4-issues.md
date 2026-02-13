@@ -64,6 +64,7 @@ function canInteract(robot: Robot): boolean {
 - [ ] Cooldowns respected
 - [ ] No performance issues (60 FPS with 12 robots)
 - [ ] Detection stops when system paused
+- [ ] Unit test for canInteract() logic (state check, cooldown check)
 
 ### Reference
 - Oceanic: `src/systems/collisionSystem.ts`
@@ -275,6 +276,7 @@ Implement a cooldown system that prevents robots from interacting too frequently
 - Set cooldown duration: 8 measures (2 "hours")
 - Use BeatClock to track measure count
 - Clear cooldown after duration
+- Create src/systems/interactionCooldown.test.ts for cooldown logic
 
 **Cooldown management:**
 ```typescript
@@ -315,6 +317,7 @@ export function canInteract(robot: Robot): boolean {
 - [ ] canInteract() respects cooldown
 - [ ] Multiple interactions don't interfere
 - [ ] BeatClock used (not setTimeout)
+- [ ] Unit tests for canInteract and cooldown elapsed check
 
 ### Reference
 - Docs: `docs/BEAT_CLOCK.md#scheduling-reliability`
