@@ -63,11 +63,11 @@ export const RobotOrganic = React.memo(function RobotOrganic({ colors, scale, de
             {/* Panel seam lines */}
             <ellipse cx="48" cy="36" rx="28" ry="20" fill="none" stroke={colors.accent} strokeWidth="1" opacity="0.4" />
             <ellipse cx="48" cy="36" rx="20" ry="14" fill="none" stroke={colors.accent} strokeWidth="1" opacity="0.3" />
-            
+
             {/* Bio-vent detail */}
             <ellipse cx="56" cy="36" rx="6" ry="8" fill="#6a6384" opacity="0.8" />
             <ellipse cx="56" cy="34" rx="4" ry="3" fill="#928ba9" opacity="0.5" />
-            
+
             {/* Status light */}
             <circle cx="60" cy="24" r="3" fill="#39ff14" opacity="0.8" />
             <circle cx="60" cy="23" r="2" fill="#a2ff8a" opacity="0.9" />

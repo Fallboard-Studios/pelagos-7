@@ -73,7 +73,7 @@ export const RobotSleek = React.memo(function RobotSleek({ colors, scale, detail
             {/* Panel lines */}
             <path d="M 40,12 L 40,60" stroke={colors.accent} strokeWidth="1" opacity="0.4" />
             <path d="M 60,12 L 60,60" stroke={colors.accent} strokeWidth="1" opacity="0.4" />
-            
+
             {/* Vent detail */}
             <rect x="48" y="28" width="12" height="16" fill="#6a6384" opacity="0.8" />
             <path d="M 48,28 L 49,29 H 59 L 60,28 Z" fill="#928ba9" opacity="0.6" />

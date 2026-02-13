@@ -73,11 +73,11 @@ export const RobotAngular = React.memo(function RobotAngular({ colors, scale, de
             {/* Panel divider lines */}
             <line x1="48" y1="12" x2="48" y2="60" stroke={colors.accent} strokeWidth="1" opacity="0.4" />
             <line x1="24" y1="36" x2="72" y2="36" stroke={colors.accent} strokeWidth="1" opacity="0.4" />
-            
+
             {/* Warning stripes */}
             <polygon points="56,20 64,20 62,24 58,24" fill={colors.accent} opacity="0.7" />
             <polygon points="56,48 64,48 62,52 58,52" fill={colors.accent} opacity="0.7" />
-            
+
             {/* Vent panels */}
             <rect x="60" y="28" width="8" height="16" fill="#6a6384" opacity="0.8" />
             <path d="M 60,28 L 61,29 H 67 L 68,28 Z" fill="#928ba9" opacity="0.6" />

@@ -64,7 +64,7 @@ export const RobotIndustrial = React.memo(function RobotIndustrial({ colors, sca
         <circle cx="66" cy="14" r="1.5" fill="#4f5458" />
         <circle cx="14" cy="26" r="1.5" fill="#4f5458" />
         <circle cx="66" cy="26" r="1.5" fill="#4f5458" />
-        
+
         {/* Corner rivets - bottom section */}
         <circle cx="14" cy="46" r="1.5" fill="#4f5458" />
         <circle cx="66" cy="46" r="1.5" fill="#4f5458" />
@@ -82,12 +82,12 @@ export const RobotIndustrial = React.memo(function RobotIndustrial({ colors, sca
             <path d="M 46,22 H 54" stroke="#928ba9" strokeWidth="1" opacity="0.5" />
             <path d="M 46,26 H 54" stroke="#928ba9" strokeWidth="1" opacity="0.5" />
             <path d="M 46,30 H 54" stroke="#928ba9" strokeWidth="1" opacity="0.5" />
-            
+
             {/* Status indicator */}
             <rect x="76" y="28" width="8" height="16" fill="#818589" />
             <rect x="78" y="32" width="4" height="8" fill="#39ff14" opacity="0.8" />
             <rect x="78" y="32" width="4" height="4" fill="#a2ff8a" opacity="0.7" />
-            
+
             {/* Warning stripes */}
             <rect x="20" y="48" width="8" height="4" fill={colors.accent} opacity="0.6" />
             <rect x="52" y="48" width="8" height="4" fill={colors.accent} opacity="0.6" />
