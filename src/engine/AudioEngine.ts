@@ -282,4 +282,12 @@ export const AudioEngine = {
     // Return requested synth or fall back to default
     return synthPool[poolKey] ?? synthPool.default;
   },
+
+  getPolyphonyStats(): { voices: number; maxVoices: number; step: number } {
+    return {
+      voices: activeVoices,
+      maxVoices: MAX_POLYPHONY,
+      step: (stepCounter % 16) + 1,
+    };
+  },
 };
