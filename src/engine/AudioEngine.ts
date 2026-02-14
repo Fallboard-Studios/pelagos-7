@@ -3,6 +3,7 @@
 // ========================================
 import * as Tone from 'tone';
 
+import type { NoteDuration } from '../types/Robot';
 import { getAvailableNotes, scheduleHarmonyCycle, stopHarmonyCycle } from './harmonySystem';
 import { initBeatClock } from './beatClock';
 import type { RobotMelodyEvent } from './melodyGenerator';
@@ -14,7 +15,7 @@ import { DEV_TUNING } from '../constants';
 export interface NoteParams {
   robotId: string;
   note: string;
-  duration: '8n' | '4n' | '2n';
+  duration: NoteDuration;
   time?: number;
   velocity?: number;
 }
@@ -83,7 +84,7 @@ async function loadInstruments(): Promise<void> {
 /**
  * Schedule voice release at the exact time note ends.
  */
-function scheduleVoiceRelease(duration: string, time: number): void {
+function scheduleVoiceRelease(duration: NoteDuration, time: number): void {
   const durSec = Tone.Time(duration).toSeconds();
   const releaseTime = time + durSec + 0.04;
 
@@ -109,7 +110,7 @@ function scheduleVoiceRelease(duration: string, time: number): void {
  */
 export function triggerWithCap(
   note: string,
-  duration: string,
+  duration: NoteDuration,
   time?: number,
   velocity?: number,
   synthType?: string
