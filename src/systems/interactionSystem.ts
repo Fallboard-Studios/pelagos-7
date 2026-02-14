@@ -25,7 +25,8 @@ const FLURRY_NOTE_COUNT = 4; // Number of notes from each robot's melody
 
 /**
  * Play rapid notes from both robots' melodies to create an "interaction flurry" sound.
- * Picks random notes from each robot and schedules them with 32nd note spacing.
+ * Picks random notes from each robot and schedules them with staggered timing.
+ * Notes play immediately (no delay) via AudioEngine.
  */
 function playInteractionFlurry(robotAId: string, robotBId: string): void {
   const store = useOceanStore.getState();
@@ -37,21 +38,21 @@ function playInteractionFlurry(robotAId: string, robotBId: string): void {
     return;
   }
 
-  const now = gsap.ticker.time;
-  const noteSpacing = 0.125; // 32nd note in seconds at 120 BPM
+  const noteSpacing = 0.125; // 16th note spacing in seconds
 
-  // Play flurry from Robot A (starting at now)
+  // Play flurry from Robot A (starting immediately)
   for (let i = 0; i < FLURRY_NOTE_COUNT && i < robotA.melody.length; i++) {
     const randomEventA = robotA.melody[Math.floor(Math.random() * robotA.melody.length)];
     const noteA = notes[randomEventA.noteIndex];
 
     if (noteA) {
-      AudioEngine.scheduleNote({
-        robotId: robotAId,
-        note: noteA,
-        duration: '16n',
-        time: now + i * noteSpacing,
-        velocity: 0.7,
+      gsap.delayedCall(i * noteSpacing, () => {
+        AudioEngine.scheduleNote({
+          robotId: robotAId,
+          note: noteA,
+          duration: '16n',
+          velocity: 0.7,
+        });
       });
     }
   }
@@ -62,12 +63,13 @@ function playInteractionFlurry(robotAId: string, robotBId: string): void {
     const noteB = notes[randomEventB.noteIndex];
 
     if (noteB) {
-      AudioEngine.scheduleNote({
-        robotId: robotBId,
-        note: noteB,
-        duration: '16n',
-        time: now + noteSpacing * 0.5 + i * noteSpacing,
-        velocity: 0.7,
+      gsap.delayedCall(noteSpacing * 0.5 + i * noteSpacing, () => {
+        AudioEngine.scheduleNote({
+          robotId: robotBId,
+          note: noteB,
+          duration: '16n',
+          velocity: 0.7,
+        });
       });
     }
   }
@@ -80,30 +82,30 @@ function playInteractionFlurry(robotAId: string, robotBId: string): void {
 }
 
 /**
- * Trigger visual effects for robot interaction (scale pulse + rotation).
+ * Trigger visual effects for robot interaction (rotation wobble).
  */
 function playInteractionAnimation(robotAId: string, robotBId: string): void {
   const refA = getRef(`robot-${robotAId}`);
   const refB = getRef(`robot-${robotBId}`);
 
-  // Scale pulse: grow to 1.25x and back
+  // Rotation wobble: ±10 degrees
   if (refA) {
     gsap.to(refA, {
-      scale: 1.25,
-      duration: 0.15,
+      rotation: '+=10',
+      duration: 0.1,
       yoyo: true,
       repeat: 1,
-      ease: 'back.out',
+      ease: 'sine.inOut',
     });
   }
 
   if (refB) {
     gsap.to(refB, {
-      scale: 1.25,
-      duration: 0.15,
+      rotation: '+=10',
+      duration: 0.1,
       yoyo: true,
       repeat: 1,
-      ease: 'back.out',
+      ease: 'sine.inOut',
     });
   }
 }
