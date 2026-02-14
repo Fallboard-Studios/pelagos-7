@@ -5,10 +5,8 @@ import gsap from 'gsap';
 
 import type { Robot } from '../types/Robot';
 import type { Vec2 } from '../types/Vec2';
-import { RobotState } from '../types/Robot';
 import { getRef } from '../utils/refs';
 import { setTimeline, killTimeline } from './timelineMap';
-import { useOceanStore } from '../stores/oceanStore';
 
 // ========================================
 // CONSTANTS
@@ -38,18 +36,6 @@ function calculateDuration(from: Vec2, to: Vec2): number {
   return distance / SWIM_SPEED;
 }
 
-/**
- * Handle robot arrival at destination
- * Updates robot state to Idle and clears destination
- */
-function handleArrival(robotId: string): void {
-  useOceanStore.getState().updateRobot(robotId, {
-    state: RobotState.Idle,
-    destination: null,
-  });
-  console.log(`[SwimAnimation] Robot ${robotId} arrived at destination`);
-}
-
 // ========================================
 // EXPORTS
 // ========================================
@@ -57,8 +43,15 @@ function handleArrival(robotId: string): void {
 /**
  * Create GSAP timeline for robot swim animation
  * Animates movement from current position to destination with propeller rotation
+ * @param robot Robot to animate
+ * @param destination Target destination
+ * @param onComplete Optional callback when animation completes
  */
-export function createSwimTimeline(robot: Robot, destination: Vec2): gsap.core.Timeline {
+export function createSwimTimeline(
+  robot: Robot,
+  destination: Vec2,
+  onComplete?: (robotId: string) => void
+): gsap.core.Timeline {
   const ref = getRef(`robot-${robot.id}`);
 
   // If ref not found, return empty timeline
@@ -70,12 +63,11 @@ export function createSwimTimeline(robot: Robot, destination: Vec2): gsap.core.T
   // Kill any existing swim timeline for this robot
   killTimeline(`swim-${robot.id}`);
 
-  // Calculate animation duration based on distance
   const duration = calculateDuration(robot.position, destination);
 
-  // Create main timeline with arrival handler
+  // Create main timeline with optional arrival handler
   const tl = gsap.timeline({
-    onComplete: () => handleArrival(robot.id),
+    onComplete: onComplete ? () => onComplete(robot.id) : undefined,
   });
 
   // Main movement tween (position change)
