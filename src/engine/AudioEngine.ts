@@ -3,7 +3,8 @@
 // ========================================
 import * as Tone from 'tone';
 
-import { getAvailableNotes } from './harmonySystem';
+import { getAvailableNotes, scheduleHarmonyCycle, stopHarmonyCycle } from './harmonySystem';
+import { initBeatClock } from './beatClock';
 import type { RobotMelodyEvent } from './melodyGenerator';
 import { DEV_TUNING } from '../constants';
 
@@ -209,7 +210,9 @@ export const AudioEngine = {
       await transport.start();
     }
 
+    initBeatClock();
     startMelodyPlayback();
+    scheduleHarmonyCycle();
 
     initialized = true;
     console.log('[AudioEngine] Started');
@@ -222,6 +225,8 @@ export const AudioEngine = {
       transport.clear(scheduledTickId);
       scheduledTickId = null;
     }
+
+    stopHarmonyCycle();
 
     if (transport.state === 'started') {
       transport.stop();
