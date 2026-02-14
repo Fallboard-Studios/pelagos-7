@@ -1,4 +1,10 @@
+import { useEffect } from 'react';
+
 import './OceanScene.css';
+import { Robot } from './robot/Robot';
+import { useOceanStore } from '../stores/oceanStore';
+import { spawnRobot } from '../systems/spawnSystem';
+import { handleRobotIdle } from '../systems/idleSystem';
 
 // ========================================
 // TYPES & INTERFACES
@@ -22,6 +28,20 @@ export function OceanScene({
   width = DEFAULT_WIDTH,
   height = DEFAULT_HEIGHT,
 }: OceanSceneProps = {}) {
+  const robots = useOceanStore((s) => s.robots);
+
+  // Spawn initial robots on mount
+  useEffect(() => {
+    spawnRobot();
+    spawnRobot();
+
+    // Get robots that were just added (synchronous)
+    const currentRobots = useOceanStore.getState().robots;
+    currentRobots.forEach((robot) => {
+      handleRobotIdle(robot.id);
+    });
+  }, []);
+
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
@@ -31,7 +51,11 @@ export function OceanScene({
     >
       <rect fill={BACKGROUND_COLOR} width={width} height={height} />
       <g id="background-layer" />
-      <g id="robot-layer" />
+      <g id="robot-layer">
+        {robots.map((robot) => (
+          <Robot key={robot.id} robot={robot} />
+        ))}
+      </g>
       <g id="foreground-layer" />
       <g id="ui-layer" />
     </svg>
