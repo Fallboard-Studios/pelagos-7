@@ -83,7 +83,7 @@ describe('robotVisualHelpers', () => {
     });
 
     it('returns 1.0 for mid pitch range', () => {
-      const pitchRange = { min: 100, max: 280 };
+      const pitchRange = { min: 250, max: 450 };
       const scale = calculateScale(pitchRange);
       expect(scale).toBe(1.0);
     });
