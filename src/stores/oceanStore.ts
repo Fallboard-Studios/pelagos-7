@@ -5,6 +5,8 @@ import { create } from 'zustand';
 
 import type { Robot } from '../types/Robot';
 import { killTimeline } from '../animation/timelineMap';
+import { AudioEngine } from '../engine/AudioEngine';
+import { DEV_TUNING } from '../constants';
 
 // ========================================
 // TYPES
@@ -47,12 +49,20 @@ export const useOceanStore = create<OceanStore>((_set, get) => ({
   },
 
   removeRobot: (id) => {
-    // Clean up associated timeline before removing robot
+    // Clean up audio first
+    AudioEngine.unregisterRobotMelody(id);
+
+    // Clean up animation
     killTimeline(`swim-${id}`);
 
+    // Remove from state
     _set((state) => ({
       robots: state.robots.filter((r) => r.id !== id),
     }));
+
+    if (DEV_TUNING) {
+      console.log(`[Cleanup] Robot ${id} removed and cleaned up`);
+    }
   },
 
   updateRobot: (id, updates) => {
