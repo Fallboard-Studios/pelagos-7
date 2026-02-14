@@ -21,6 +21,8 @@ const INTERACTION_DISTANCE_SQUARED = INTERACTION_DISTANCE * INTERACTION_DISTANCE
 // MODULE STATE
 // ========================================
 let tickerCallback: (() => void) | null = null;
+let collisionChecksPerSecond = 0;
+let frameCount = 0;
 
 // ========================================
 // HELPER FUNCTIONS
@@ -72,6 +74,13 @@ function getVisualPosition(robot: Robot): Vec2 {
   return { x, y };
 }
 
+/**
+ * Get collision checks per second (for debug display).
+ */
+export function getCollisionChecksPerSecond(): number {
+  return collisionChecksPerSecond;
+}
+
 // ========================================
 // COLLISION DETECTION
 // ========================================
@@ -86,8 +95,22 @@ export function startCollisionDetection(): void {
     return;
   }
 
+  collisionChecksPerSecond = 0;
+  frameCount = 0;
+  let lastTime = gsap.ticker.time;
+
   tickerCallback = () => {
     const robots = useOceanStore.getState().robots;
+    const checkCount = (robots.length * (robots.length - 1)) / 2;
+
+    // Update collision checks per second metric
+    frameCount += checkCount;
+    const currentTime = gsap.ticker.time;
+    if (currentTime - lastTime >= 1) {
+      collisionChecksPerSecond = frameCount;
+      frameCount = 0;
+      lastTime = currentTime;
+    }
 
     // Check all unique pairs
     for (let i = 0; i < robots.length; i++) {
