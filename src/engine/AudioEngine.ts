@@ -91,11 +91,11 @@ function scheduleVoiceRelease(duration: string, time: number): void {
     Tone.getTransport().scheduleOnce(() => {
       activeVoices = Math.max(0, activeVoices - 1);
 
-      if (DEV_TUNING) {
-        console.log(
-          `[AudioEngine] Voice released: ${activeVoices}/${MAX_POLYPHONY}`
-        );
-      }
+      // if (DEV_TUNING) {
+      //   console.log(
+      //     `[AudioEngine] Voice released: ${activeVoices}/${MAX_POLYPHONY}`
+      //   );
+      // }
     }, releaseTime);
   } catch (err) {
     console.warn('[AudioEngine] Failed to schedule voice release:', err);
@@ -143,11 +143,11 @@ export function triggerWithCap(
     synth.triggerAttackRelease(note, duration, scheduleTime, velocity ?? 0.8);
     scheduleVoiceRelease(duration, scheduleTime);
 
-    if (DEV_TUNING) {
-      console.log(
-        `[AudioEngine] Voice triggered: ${activeVoices}/${MAX_POLYPHONY}`
-      );
-    }
+    // if (DEV_TUNING) {
+    //   console.log(
+    //     `[AudioEngine] Voice triggered: ${activeVoices}/${MAX_POLYPHONY}`
+    //   );
+    // }
 
     return true;
   } catch (err) {

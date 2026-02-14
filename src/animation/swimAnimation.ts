@@ -54,10 +54,17 @@ export function createSwimTimeline(
 ): gsap.core.Timeline {
   const ref = getRef(`robot-${robot.id}`);
 
-  // If ref not found, return empty timeline
+  // If ref not found, log warning and still create timeline with callback
+  // (for edge cases where ref might be registered late)
   if (!ref) {
-    console.warn(`[SwimAnimation] No ref found for robot ${robot.id}`);
-    return gsap.timeline();
+    console.warn(`[SwimAnimation] No ref found for robot ${robot.id}, deferring animation`);
+    // Return empty timeline but still call onComplete after expected duration
+    const tl = gsap.timeline();
+    if (onComplete) {
+      const estimatedDuration = calculateDuration(robot.position, destination);
+      gsap.delayedCall(estimatedDuration, () => onComplete(robot.id));
+    }
+    return tl;
   }
 
   // Kill any existing swim timeline for this robot
@@ -65,9 +72,20 @@ export function createSwimTimeline(
 
   const duration = calculateDuration(robot.position, destination);
 
+  console.log(
+    `[SwimAnimation] Creating timeline for robot ${robot.id}, duration: ${duration.toFixed(2)}s, onComplete: ${onComplete ? 'YES' : 'NO'}`
+  );
+
   // Create main timeline with optional arrival handler
   const tl = gsap.timeline({
-    onComplete: onComplete ? () => onComplete(robot.id) : undefined,
+    paused: true, // Start paused so we can register it first
+    onComplete: onComplete ? () => {
+      console.log(`[SwimAnimation] ✅ Timeline onComplete fired for robot ${robot.id}`);
+      onComplete(robot.id);
+    } : undefined,
+    onStart: () => {
+      console.log(`[SwimAnimation] Timeline started for robot ${robot.id}`);
+    },
   });
 
   // Main movement tween (position change)
@@ -78,15 +96,17 @@ export function createSwimTimeline(
     ease: 'sine.inOut',
   });
 
-  // Propeller rotation (continuous loop, starts immediately)
+  // Propeller rotation (continuous during movement)
+  // Calculate how many full rotations fit in the movement duration
   const propeller = ref.querySelector('.propeller');
   if (propeller) {
+    const numRotations = Math.ceil(duration / PROPELLER_ROTATION_SPEED);
     tl.to(
       propeller,
       {
         rotation: '+=360',
         duration: PROPELLER_ROTATION_SPEED,
-        repeat: -1,
+        repeat: numRotations - 1, // Repeat to fill duration (first play doesn't count)
         ease: 'none',
       },
       0 // Start at time 0 (parallel with movement)
@@ -122,8 +142,11 @@ export function createSwimTimeline(
   setTimeline(`swim-${robot.id}`, tl);
 
   console.log(
-    `[SwimAnimation] Created swim timeline for robot ${robot.id} (duration: ${duration.toFixed(2)}s)`
+    `[SwimAnimation] Timeline stored for robot ${robot.id}, now playing...`
   );
+
+  // Start the timeline (was paused during creation)
+  tl.play();
 
   return tl;
 }
