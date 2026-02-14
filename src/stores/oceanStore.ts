@@ -12,6 +12,7 @@ import { killTimeline } from '../animation/timelineMap';
 
 interface OceanStore {
   robots: Robot[];
+  selectedRobotId: string | null;
   settings: {
     bpm: number;
     maxRobots: number;
@@ -20,6 +21,7 @@ interface OceanStore {
   removeRobot: (id: string) => void;
   updateRobot: (id: string, updates: Partial<Robot>) => void;
   getRobotById: (id: string) => Robot | undefined;
+  selectRobot: (id: string | null) => void;
 }
 
 // ========================================
@@ -35,6 +37,7 @@ const INITIAL_SETTINGS = {
 // ========================================
 export const useOceanStore = create<OceanStore>((_set, get) => ({
   robots: [],
+  selectedRobotId: null,
   settings: { ...INITIAL_SETTINGS },
 
   addRobot: (robot) => {
@@ -62,6 +65,10 @@ export const useOceanStore = create<OceanStore>((_set, get) => ({
 
   getRobotById: (id) => {
     return get().robots.find((r) => r.id === id);
+  },
+
+  selectRobot: (id) => {
+    _set({ selectedRobotId: id });
   },
 }));
 

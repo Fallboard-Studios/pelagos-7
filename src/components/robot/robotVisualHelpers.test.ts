@@ -3,7 +3,6 @@
 // ========================================
 import { describe, it, expect } from 'vitest';
 
-import type { AudioAttributes } from '../../types/Robot';
 import {
   selectRobotShape,
   generateColors,
@@ -43,122 +42,102 @@ describe('robotVisualHelpers', () => {
   });
 
   describe('generateColors', () => {
-    it('generates bright neon colors for fast attack and high sustain', () => {
-      const adsr: AudioAttributes['adsr'] = {
-        attack: 0.05,  // Fast
-        decay: 0.5,
-        sustain: 0.8,  // High
-        release: 0.5,
-      };
-
+    it('generates neon colors for fast attack and short decay', () => {
+      const adsr = { attack: 0.05, decay: 0.2, sustain: 0.7, release: 0.5 };
       const colors = generateColors(adsr);
-
-      // Should return neon colors
-      expect(colors.primary).toMatch(/^#[0-9A-Fa-f]{6}$/);
-      expect(colors.secondary).toMatch(/^#[0-9A-Fa-f]{6}$/);
-      expect(colors.accent).toMatch(/^#[0-9A-Fa-f]{6}$/);
+      expect(colors.primary).toBe('#00FF00');
+      expect(colors.secondary).toBe('#00FFFF');
+      expect(colors.accent).toBe('#FF00FF');
     });
 
-    it('generates cool hues for long decay', () => {
-      const adsr: AudioAttributes['adsr'] = {
-        attack: 0.3,
-        decay: 1.5,   // Long
-        sustain: 0.5,
-        release: 0.5,
-      };
-
+    it('generates corroded colors for slow attack and long decay', () => {
+      const adsr = { attack: 0.6, decay: 1.5, sustain: 0.8, release: 1.0 };
       const colors = generateColors(adsr);
-
-      // Should use corroded/cool palette
-      expect(colors.primary).toMatch(/^#[0-9A-Fa-f]{6}$/);
+      expect(colors.primary).toBe('#2F4F4F');
+      expect(colors.secondary).toBe('#556B2F');
+      expect(colors.accent).toBe('#6B8E23');
     });
 
-    it('generates warm hues for short decay', () => {
-      const adsr: AudioAttributes['adsr'] = {
-        attack: 0.3,
-        decay: 0.2,   // Short
-        sustain: 0.5,
-        release: 0.5,
-      };
-
+    it('generates rusty colors for fast attack with longer decay', () => {
+      const adsr = { attack: 0.08, decay: 0.5, sustain: 0.6, release: 0.7 };
       const colors = generateColors(adsr);
-
-      // Should use rusty/warm palette
-      expect(colors.primary).toMatch(/^#[0-9A-Fa-f]{6}$/);
+      expect(colors.primary).toBe('#8B4513');
+      expect(colors.secondary).toBe('#A0522D');
+      expect(colors.accent).toBe('#CD853F');
     });
 
-    it('darkens colors for slow attack', () => {
-      const adsr: AudioAttributes['adsr'] = {
-        attack: 0.8,  // Slow
-        decay: 0.5,
-        sustain: 0.5,
-        release: 0.5,
-      };
-
+    it('generates industrial colors for mid-range ADSR', () => {
+      const adsr = { attack: 0.3, decay: 0.4, sustain: 0.5, release: 0.6 };
       const colors = generateColors(adsr);
-
-      // Should return darkened colors
-      expect(colors.primary).toMatch(/^#[0-9A-Fa-f]{6}$/);
+      expect(colors.primary).toBe('#696969');
+      expect(colors.secondary).toBe('#808080');
+      expect(colors.accent).toBe('#A9A9A9');
     });
   });
 
   describe('calculateScale', () => {
-    it('returns 0.7 for high pitch range (>600Hz)', () => {
+    it('returns 0.7 for high pitch range', () => {
       const pitchRange = { min: 700, max: 900 };
       const scale = calculateScale(pitchRange);
       expect(scale).toBe(0.7);
     });
 
-    it('returns 1.0 for mid pitch range (200-600Hz)', () => {
-      const pitchRange = { min: 300, max: 500 };
+    it('returns 1.0 for mid pitch range', () => {
+      const pitchRange = { min: 100, max: 280 };
       const scale = calculateScale(pitchRange);
       expect(scale).toBe(1.0);
     });
 
-    it('returns 1.3 for low pitch range (<200Hz)', () => {
-      const pitchRange = { min: 100, max: 180 };
+    it('returns 1.3 for low pitch range', () => {
+      const pitchRange = { min: 80, max: 150 };
       const scale = calculateScale(pitchRange);
       expect(scale).toBe(1.3);
     });
 
-    it('uses average frequency for calculation', () => {
-      const pitchRange = { min: 100, max: 280 }; // avg = 190
+    it('returns 1.0 for exact mid-range threshold', () => {
+      const pitchRange = { min: 300, max: 500 };
       const scale = calculateScale(pitchRange);
-      expect(scale).toBe(1.3); // Should be low range
+      expect(scale).toBe(1.0);
     });
   });
 
   describe('calculateDetailLevel', () => {
-    it('returns 0.0 for no filter (0Hz)', () => {
-      const detailLevel = calculateDetailLevel(0);
-      expect(detailLevel).toBe(0.0);
+    it('returns 0.0 for filter frequency at or below low threshold', () => {
+      expect(calculateDetailLevel(400)).toBe(0.0);
+      expect(calculateDetailLevel(500)).toBe(0.0);
     });
 
-    it('returns 0.2 for low filter (<500Hz)', () => {
-      const detailLevel = calculateDetailLevel(300);
-      expect(detailLevel).toBe(0.2);
+    it('returns 1.0 for filter frequency at or above high threshold', () => {
+      expect(calculateDetailLevel(2000)).toBe(1.0);
+      expect(calculateDetailLevel(3000)).toBe(1.0);
     });
 
-    it('returns 1.0 for high filter (>2000Hz)', () => {
-      const detailLevel = calculateDetailLevel(2500);
-      expect(detailLevel).toBe(1.0);
+    it('returns 0.5 for filter frequency at midpoint', () => {
+      const midpoint = (500 + 2000) / 2; // 1250 Hz
+      expect(calculateDetailLevel(midpoint)).toBe(0.5);
     });
 
-    it('interpolates linearly for mid-range filter (500-2000Hz)', () => {
-      const detailLevel = calculateDetailLevel(1250); // Midpoint
-      expect(detailLevel).toBeGreaterThan(0.2);
-      expect(detailLevel).toBeLessThan(1.0);
-      expect(detailLevel).toBeCloseTo(0.6, 1); // Should be near midpoint
+    it('returns correct interpolation for 1000 Hz', () => {
+      // 1000 is 500 units above 500 threshold
+      // Range is 1500 (2000 - 500)
+      // So 500/1500 = 0.333...
+      const expected = (1000 - 500) / (2000 - 500);
+      expect(calculateDetailLevel(1000)).toBeCloseTo(expected, 5);
     });
 
-    it('returns correct interpolation at 500Hz boundary', () => {
-      const detailLevel = calculateDetailLevel(500);
-      expect(detailLevel).toBe(0.2);
+    it('returns correct interpolation for 1500 Hz', () => {
+      // 1500 is 1000 units above 500 threshold
+      // Range is 1500 (2000 - 500)
+      // So 1000/1500 = 0.666...
+      const expected = (1500 - 500) / (2000 - 500);
+      expect(calculateDetailLevel(1500)).toBeCloseTo(expected, 5);
     });
 
-    it('returns correct interpolation at 2000Hz boundary', () => {
-      const detailLevel = calculateDetailLevel(2000);
-      expect(detailLevel).toBe(1.0);
+    it('handles boundary values correctly', () => {
+      expect(calculateDetailLevel(0)).toBe(0.0);
+      expect(calculateDetailLevel(499)).toBe(0.0);
+      expect(calculateDetailLevel(501)).toBeCloseTo(0.000666, 5);
+      expect(calculateDetailLevel(1999)).toBeCloseTo(0.999333, 5);
     });
   });
 });

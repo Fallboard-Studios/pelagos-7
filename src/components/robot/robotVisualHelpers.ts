@@ -66,116 +66,78 @@ export function selectRobotShape(synthType: SynthType): RobotSVGComponent {
 
 /**
  * Generate color palette from ADSR envelope
- * - Attack: Fast → bright/saturated, Slow → muted/desaturated
- * - Decay: Long → cool hues, Short → warm hues
- * - Sustain: High → higher luminance, Low → lower luminance
+ * Fast attack + short decay → bright neon colors (energetic)
+ * Slow attack + long decay → muted corroded colors (atmospheric)
  */
 export function generateColors(adsr: AudioAttributes['adsr']): RobotColors {
-  const { attack, decay, sustain } = adsr;
+  const { attack, decay } = adsr;
 
-  // Determine base palette from decay (hue selection)
-  let basePalette: string[];
-  if (decay > LONG_DECAY_THRESHOLD) {
-    basePalette = CORRODED_COLORS; // Cool hues (blues, cyans, greens)
-  } else if (decay < SHORT_DECAY_THRESHOLD) {
-    basePalette = RUSTY_COLORS; // Warm hues (reds, oranges, browns)
+  // Determine color palette
+  let palette: string[];
+  if (attack < FAST_ATTACK_THRESHOLD && decay < SHORT_DECAY_THRESHOLD) {
+    palette = NEON_COLORS; // Fast/bright
+  } else if (attack > SLOW_ATTACK_THRESHOLD && decay > LONG_DECAY_THRESHOLD) {
+    palette = CORRODED_COLORS; // Slow/muted
+  } else if (attack < FAST_ATTACK_THRESHOLD) {
+    palette = RUSTY_COLORS; // Fast but sustained
   } else {
-    basePalette = INDUSTRIAL_COLORS; // Neutral grays
+    palette = INDUSTRIAL_COLORS; // Default
   }
 
-  // Modify saturation/brightness based on attack and sustain
-  const isFastAttack = attack < FAST_ATTACK_THRESHOLD;
-  const isSlowAttack = attack > SLOW_ATTACK_THRESHOLD;
-  const isHighSustain = sustain > 0.6;
-
-  // Bright, saturated colors for fast attack
-  if (isFastAttack && isHighSustain) {
-    return {
-      primary: NEON_COLORS[0],
-      secondary: NEON_COLORS[1],
-      accent: NEON_COLORS[2],
-    };
-  }
-
-  // Muted colors for slow attack or low sustain
-  if (isSlowAttack || sustain < 0.3) {
-    return {
-      primary: darken(basePalette[0], 0.3),
-      secondary: darken(basePalette[1], 0.3),
-      accent: darken(basePalette[2], 0.3),
-    };
-  }
-
-  // Standard palette
   return {
-    primary: basePalette[0],
-    secondary: basePalette[1],
-    accent: basePalette[2],
+    primary: palette[0],
+    secondary: palette[1],
+    accent: palette[2],
   };
 }
 
 /**
  * Calculate scale from pitch range
- * High pitch (>600Hz) → small (0.7x)
- * Mid pitch (200-600Hz) → medium (1.0x)
- * Low pitch (<200Hz) → large (1.3x)
+ * High pitch → smaller (0.7x)
+ * Mid pitch → normal (1.0x)
+ * Low pitch → larger (1.3x)
  */
 export function calculateScale(pitchRange: AudioAttributes['pitchRange']): number {
-  const avgFreq = (pitchRange.min + pitchRange.max) / 2;
+  const avgPitch = (pitchRange.min + pitchRange.max) / 2;
 
-  if (avgFreq > HIGH_PITCH_THRESHOLD) {
-    return 0.7; // Small
+  if (avgPitch > HIGH_PITCH_THRESHOLD) {
+    return 0.7;
+  } else if (avgPitch < LOW_PITCH_THRESHOLD) {
+    return 1.3;
+  } else {
+    return 1.0;
   }
-  if (avgFreq < LOW_PITCH_THRESHOLD) {
-    return 1.3; // Large
-  }
-  return 1.0; // Medium
 }
 
 /**
  * Calculate detail level from filter frequency
- * High filter (>2000Hz) → maximum detail (1.0)
- * Mid filter (500-2000Hz) → interpolated detail
- * Low filter (<500Hz) → minimal detail (0.2)
- * No filter (0Hz) → base shape only (0.0)
+ * Low filter → minimal details (0.0)
+ * High filter → maximum details (1.0)
+ * Linear interpolation between thresholds
  */
 export function calculateDetailLevel(filterFreq: number): number {
-  if (filterFreq === 0) {
-    return 0.0; // No filter = no details
+  if (filterFreq <= LOW_FILTER_THRESHOLD) {
+    return 0.0;
+  } else if (filterFreq >= HIGH_FILTER_THRESHOLD) {
+    return 1.0;
+  } else {
+    // Linear interpolation
+    return (filterFreq - LOW_FILTER_THRESHOLD) / (HIGH_FILTER_THRESHOLD - LOW_FILTER_THRESHOLD);
   }
-  if (filterFreq > HIGH_FILTER_THRESHOLD) {
-    return 1.0; // Maximum detail
-  }
-  if (filterFreq < LOW_FILTER_THRESHOLD) {
-    return 0.2; // Minimal detail
-  }
-
-  // Linear interpolation between 0.2 and 1.0
-  const normalized = (filterFreq - LOW_FILTER_THRESHOLD) / (HIGH_FILTER_THRESHOLD - LOW_FILTER_THRESHOLD);
-  return 0.2 + normalized * 0.8;
 }
 
 // ========================================
-// INTERNAL HELPERS
+// HELPERS
 // ========================================
 
 /**
- * Darken a hex color by a given factor
+ * Darken a hex color by a factor (0-1)
+ * Used internally for shading calculations
  */
-function darken(hex: string, factor: number): string {
-  // Remove # if present
-  const color = hex.replace('#', '');
-
-  // Parse RGB
-  const r = parseInt(color.substring(0, 2), 16);
-  const g = parseInt(color.substring(2, 4), 16);
-  const b = parseInt(color.substring(4, 6), 16);
-
-  // Apply darkening factor
-  const newR = Math.round(r * (1 - factor));
-  const newG = Math.round(g * (1 - factor));
-  const newB = Math.round(b * (1 - factor));
-
-  // Convert back to hex
-  return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
+export function darken(hex: string, factor: number): string {
+  const num = parseInt(hex.replace('#', ''), 16);
+  const r = Math.floor((num >> 16) * (1 - factor));
+  const g = Math.floor(((num >> 8) & 0x00ff) * (1 - factor));
+  const b = Math.floor((num & 0x0000ff) * (1 - factor));
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
 }
