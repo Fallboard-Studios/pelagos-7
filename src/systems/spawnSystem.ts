@@ -6,6 +6,7 @@ import type { Robot, AudioAttributes, SynthType } from '../types/Robot';
 import { RobotState } from '../types/Robot';
 import { generateMelodyForRobot } from '../engine/melodyGenerator';
 import { AudioEngine } from '../engine/AudioEngine';
+import { DEV_TUNING } from '../constants';
 import { useOceanStore } from '../stores/oceanStore';
 
 // ========================================
@@ -135,5 +136,7 @@ export function spawnRobot(): void {
   // Register melody with AudioEngine
   AudioEngine.registerRobotMelody(robot.id, robot.melody);
 
-  console.log(`[SpawnSystem] Spawned robot ${robot.id} at (${Math.round(robot.position.x)}, ${Math.round(robot.position.y)})`);
+  if (DEV_TUNING) {
+    console.log(`[Spawn] Robot ${robot.id} spawned with ${robot.melody.length} melody events`);
+  }
 }
