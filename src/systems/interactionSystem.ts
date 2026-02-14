@@ -128,6 +128,9 @@ export function triggerInteraction(robotAId: string, robotBId: string): void {
   playInteractionFlurry(robotAId, robotBId);
   playInteractionAnimation(robotAId, robotBId);
 
+  // Increment total interaction counter for debug display
+  store.incrementInteractions();
+
   // Update both robots to interacting state with measure-based cooldown
   store.updateRobot(robotAId, {
     state: RobotState.Interacting,

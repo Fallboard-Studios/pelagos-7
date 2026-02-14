@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 
 import './OceanScene.css';
 import { Robot } from './robot/Robot';
+import { InteractionStatus } from './debug/InteractionStatus';
 import { useOceanStore } from '../stores/oceanStore';
 import { spawnRobot } from '../systems/spawnSystem';
 import { handleRobotIdle } from '../systems/idleSystem';
@@ -59,21 +60,24 @@ export function OceanScene({
   }, []);
 
   return (
-    <svg
-      viewBox={`0 0 ${width} ${height}`}
-      className="ocean-scene"
-      width={width}
-      height={height}
-    >
-      <rect fill={BACKGROUND_COLOR} width={width} height={height} />
-      <g id="background-layer" />
-      <g id="robot-layer">
-        {robots.map((robot) => (
-          <Robot key={robot.id} robot={robot} />
-        ))}
-      </g>
-      <g id="foreground-layer" />
-      <g id="ui-layer" />
-    </svg>
+    <>
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="ocean-scene"
+        width={width}
+        height={height}
+      >
+        <rect fill={BACKGROUND_COLOR} width={width} height={height} />
+        <g id="background-layer" />
+        <g id="robot-layer">
+          {robots.map((robot) => (
+            <Robot key={robot.id} robot={robot} />
+          ))}
+        </g>
+        <g id="foreground-layer" />
+        <g id="ui-layer" />
+      </svg>
+      <InteractionStatus />
+    </>
   );
 }

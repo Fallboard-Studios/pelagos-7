@@ -15,6 +15,7 @@ import { DEV_TUNING } from '../constants';
 interface OceanStore {
   robots: Robot[];
   selectedRobotId: string | null;
+  totalInteractions: number;
   settings: {
     bpm: number;
     maxRobots: number;
@@ -24,6 +25,7 @@ interface OceanStore {
   updateRobot: (id: string, updates: Partial<Robot>) => void;
   getRobotById: (id: string) => Robot | undefined;
   selectRobot: (id: string | null) => void;
+  incrementInteractions: () => void;
 }
 
 // ========================================
@@ -40,6 +42,7 @@ const INITIAL_SETTINGS = {
 export const useOceanStore = create<OceanStore>((_set, get) => ({
   robots: [],
   selectedRobotId: null,
+  totalInteractions: 0,
   settings: { ...INITIAL_SETTINGS },
 
   addRobot: (robot) => {
@@ -79,6 +82,12 @@ export const useOceanStore = create<OceanStore>((_set, get) => ({
 
   selectRobot: (id) => {
     _set({ selectedRobotId: id });
+  },
+
+  incrementInteractions: () => {
+    _set((state) => ({
+      totalInteractions: state.totalInteractions + 1,
+    }));
   },
 }));
 
