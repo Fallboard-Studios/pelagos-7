@@ -233,4 +233,17 @@ export const AudioEngine = {
       `[AudioEngine] Unregistered melody for robot ${robotId} (${removedCount} events removed)`
     );
   },
+
+  getSynth(type?: string): Tone.PolySynth | null {
+    if (!synthPool) {
+      console.warn('[AudioEngine] Synth pool not loaded');
+      return null;
+    }
+
+    // Map synth type to pool key
+    const poolKey = type as keyof SynthPool;
+
+    // Return requested synth or fall back to default
+    return synthPool[poolKey] ?? synthPool.default;
+  },
 };
