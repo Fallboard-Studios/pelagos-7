@@ -5,6 +5,7 @@ import gsap from 'gsap';
 
 import { getAvailableNotes } from '../engine/harmonySystem';
 import { AudioEngine } from '../engine/AudioEngine';
+import { getCurrentMeasure } from '../engine/beatClock';
 import { useOceanStore } from '../stores/oceanStore';
 import { RobotState } from '../types/Robot';
 import { DEV_TUNING } from '../constants';
@@ -15,7 +16,7 @@ import { getRef } from '../utils/refs';
 // ========================================
 // CONSTANTS
 // ========================================
-const INTERACTION_COOLDOWN_MS = 5000; // 5 seconds between interactions
+const INTERACTION_COOLDOWN_MEASURES = 8; // 8 measures between interactions
 const INTERACTION_DURATION = 0.5; // 0.5 second interaction before returning to idle
 const FLURRY_NOTE_COUNT = 4; // Number of notes from each robot's melody
 
@@ -117,7 +118,7 @@ function playInteractionAnimation(robotAId: string, robotBId: string): void {
  */
 export function triggerInteraction(robotAId: string, robotBId: string): void {
   const store = useOceanStore.getState();
-  const cooldownExpiry = Date.now() + INTERACTION_COOLDOWN_MS;
+  const currentMeasure = getCurrentMeasure();
 
   // Kill any active swim timelines (stop current movement)
   killTimeline(`swim-${robotAId}`);
@@ -127,20 +128,20 @@ export function triggerInteraction(robotAId: string, robotBId: string): void {
   playInteractionFlurry(robotAId, robotBId);
   playInteractionAnimation(robotAId, robotBId);
 
-  // Update both robots to interacting state
+  // Update both robots to interacting state with measure-based cooldown
   store.updateRobot(robotAId, {
     state: RobotState.Interacting,
-    interactionCooldown: cooldownExpiry,
+    lastInteractionMeasure: currentMeasure,
   });
 
   store.updateRobot(robotBId, {
     state: RobotState.Interacting,
-    interactionCooldown: cooldownExpiry,
+    lastInteractionMeasure: currentMeasure,
   });
 
   if (DEV_TUNING) {
     console.log(
-      `[Interaction] Robots ${robotAId} and ${robotBId} interacting (cooldown: ${INTERACTION_COOLDOWN_MS}ms, duration: ${INTERACTION_DURATION}s)`
+      `[Interaction] Robots ${robotAId} and ${robotBId} interacting (measure ${currentMeasure}, cooldown: ${INTERACTION_COOLDOWN_MEASURES} measures)`
     );
   }
 

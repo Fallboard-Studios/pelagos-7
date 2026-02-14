@@ -9,6 +9,7 @@ import type { Vec2 } from '../types/Vec2';
 import { useOceanStore } from '../stores/oceanStore';
 import { triggerInteraction } from './interactionSystem';
 import { getRef } from '../utils/refs';
+import { getCurrentMeasure } from '../engine/beatClock';
 
 // ========================================
 // CONSTANTS
@@ -37,15 +38,17 @@ export function calculateDistanceSquared(a: Vec2, b: Vec2): number {
 
 /**
  * Check if a robot can interact (correct state and not on cooldown).
+ * Cooldown is measure-based: robots must wait 8 measures between interactions.
  */
 export function canInteract(robot: Robot): boolean {
   // Must be in idle or moving state
   const validState =
     robot.state === RobotState.Idle || robot.state === RobotState.Moving;
 
-  // Must not be on cooldown
-  const notOnCooldown =
-    !robot.interactionCooldown || Date.now() >= robot.interactionCooldown;
+  // Check measure-based cooldown (8 measures = cooldown duration)
+  const notOnCooldown = !robot.lastInteractionMeasure
+    ? true
+    : getCurrentMeasure() - robot.lastInteractionMeasure >= 8;
 
   return validState && notOnCooldown;
 }
