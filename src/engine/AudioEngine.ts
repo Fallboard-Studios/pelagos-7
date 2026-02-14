@@ -5,6 +5,7 @@ import * as Tone from 'tone';
 
 import { getAvailableNotes } from './harmonySystem';
 import type { RobotMelodyEvent } from './melodyGenerator';
+import { DEV_TUNING } from '../constants';
 
 // ========================================
 // TYPES
@@ -32,7 +33,7 @@ interface SynthPool {
 // ========================================
 // CONSTANTS
 // ========================================
-const MAX_POLYPHONY = 12;
+const MAX_POLYPHONY = 16;
 const MIN_LEAD = 0.05; // 50ms lookahead for scheduling
 
 // ========================================
@@ -88,10 +89,70 @@ function scheduleVoiceRelease(duration: string, time: number): void {
   try {
     Tone.getTransport().scheduleOnce(() => {
       activeVoices = Math.max(0, activeVoices - 1);
+
+      if (DEV_TUNING) {
+        console.log(
+          `[AudioEngine] Voice released: ${activeVoices}/${MAX_POLYPHONY}`
+        );
+      }
     }, releaseTime);
   } catch (err) {
     console.warn('[AudioEngine] Failed to schedule voice release:', err);
     activeVoices = Math.max(0, activeVoices - 1);
+  }
+}
+
+/**
+ * Trigger note with polyphony cap enforcement.
+ * Returns true if note was triggered, false if skipped due to cap.
+ */
+export function triggerWithCap(
+  note: string,
+  duration: string,
+  time?: number,
+  velocity?: number,
+  synthType?: string
+): boolean {
+  if (!synthPool) {
+    console.warn('[AudioEngine] Synth pool not loaded');
+    return false;
+  }
+
+  // Check polyphony limit
+  if (activeVoices >= MAX_POLYPHONY) {
+    if (DEV_TUNING) {
+      console.log(
+        `[AudioEngine] Polyphony capped: ${activeVoices}/${MAX_POLYPHONY}`
+      );
+    }
+    return false;
+  }
+
+  const scheduleTime = time ?? Tone.now();
+
+  // Increment voice counter BEFORE triggering
+  activeVoices++;
+
+  try {
+    // Select synth from pool (default for now, per-robot types in future milestone)
+    const synth = synthType
+      ? (AudioEngine.getSynth(synthType) ?? synthPool.default)
+      : synthPool.default;
+
+    synth.triggerAttackRelease(note, duration, scheduleTime, velocity ?? 0.8);
+    scheduleVoiceRelease(duration, scheduleTime);
+
+    if (DEV_TUNING) {
+      console.log(
+        `[AudioEngine] Voice triggered: ${activeVoices}/${MAX_POLYPHONY}`
+      );
+    }
+
+    return true;
+  } catch (err) {
+    console.error('[AudioEngine] Failed to trigger note:', err);
+    activeVoices = Math.max(0, activeVoices - 1);
+    return false;
   }
 }
 
@@ -174,33 +235,8 @@ export const AudioEngine = {
   },
 
   scheduleNote(params: NoteParams): void {
-    if (!synthPool) {
-      console.warn('[AudioEngine] Synth pool not loaded');
-      return;
-    }
-
-    // Polyphony cap: skip note if limit exceeded
-    if (activeVoices >= MAX_POLYPHONY) {
-      console.log(
-        `[AudioEngine] Polyphony capped: ${activeVoices}/${MAX_POLYPHONY}, skipping note`
-      );
-      return;
-    }
-
     const { note, duration, time, velocity } = params;
-    const scheduleTime = time ?? Tone.now();
-
-    try {
-      // Use default synth for now (per-robot synth types in future milestone)
-      const synth = synthPool.default;
-
-      activeVoices++;
-      synth.triggerAttackRelease(note, duration, scheduleTime, velocity ?? 0.8);
-      scheduleVoiceRelease(duration, scheduleTime);
-    } catch (err) {
-      console.error('[AudioEngine] Failed to trigger note:', err);
-      activeVoices = Math.max(0, activeVoices - 1);
-    }
+    triggerWithCap(note, duration, time, velocity);
   },
 
   registerRobotMelody(robotId: string, melody: RobotMelodyEvent[]): void {
