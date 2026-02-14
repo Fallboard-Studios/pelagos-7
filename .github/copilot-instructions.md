@@ -126,7 +126,7 @@ interface OceanStore {
 interface RobotMelodyEvent {
   id: string;               // crypto.randomUUID()
   startStep: number;        // 1..16 (8th-note grid)
-  length: '8n' | '4n' | '2n';
+  length: '16n' |'8n' | '4n' | '2n';
   noteIndex: number;        // 0..7 -> index into availableNotes[]
 }
 ```

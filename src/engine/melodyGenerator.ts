@@ -1,10 +1,15 @@
 // ========================================
+// IMPORTS
+// ========================================
+import type { NoteDuration } from '../types/Robot';
+
+// ========================================
 // TYPES
 // ========================================
 export interface RobotMelodyEvent {
   id: string;
   startStep: number; // 1..16 (8th-note position in 2-measure loop)
-  length: '8n' | '4n' | '2n'; // Note duration
+  length: NoteDuration; // Note duration
   noteIndex: number; // 0..7 (maps into availableNotes palette)
 }
 
@@ -22,8 +27,8 @@ const MAX_EVENTS = 12;
 const DEFAULT_SYNCOPATION_BIAS = 0.4;
 
 const NOTE_INDEX_WEIGHTS = [0.35, 0.2, 0.15, 0.1, 0.07, 0.06, 0.04, 0.03];
-const LENGTH_WEIGHTS = [0.6, 0.3, 0.1];
-const LENGTHS: Array<'8n' | '4n' | '2n'> = ['8n', '4n', '2n'];
+const LENGTH_WEIGHTS = [0.6, 0.3, 0.1, 0.0];
+const LENGTHS: NoteDuration[] = ['16n', '8n', '4n', '2n'];
 
 const ON_BEAT_STEPS = [1, 3, 5, 7, 9, 11, 13, 15];
 const OFF_BEAT_STEPS = [2, 4, 6, 8, 10, 12, 14, 16];
@@ -97,9 +102,9 @@ export function pickWeightedIndex(rand: () => number = Math.random): number {
 
 /**
  * Picks a note length with bias toward shorter durations.
- * '8n' 60%, '4n' 30%, '2n' 10%
+ * '16n' 0%, '8n' 60%, '4n' 30%, '2n' 10%
  */
-export function pickLength(rand: () => number = Math.random): '8n' | '4n' | '2n' {
+export function pickLength(rand: () => number = Math.random): NoteDuration {
   const r = rand();
   let acc = 0;
 

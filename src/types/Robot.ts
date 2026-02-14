@@ -1,6 +1,12 @@
 import type { Vec2 } from './Vec2';
 
 /**
+ * Note duration values for Tone.js scheduling
+ * Standard musical note lengths: 32nd, 16th, 8th, quarter, half
+ */
+export type NoteDuration = '32n' | '16n' | '8n' | '4n' | '2n';
+
+/**
  * Robot state machine states
  */
 export enum RobotState {
@@ -47,7 +53,7 @@ export interface AudioAttributes {
 export interface MelodyEvent {
   id: string;                           // Unique identifier (UUID)
   startStep: number;                    // 1-16 (8th-note grid position)
-  length: '8n' | '4n' | '2n';          // Note duration
+  length: NoteDuration;                 // Note duration
   noteIndex: number;                    // 0-7 (index into available harmony palette)
 }
 
