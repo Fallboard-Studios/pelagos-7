@@ -63,6 +63,7 @@ export interface Robot {
   destination: Vec2 | null;
   melody: MelodyEvent[];
   audioAttributes: AudioAttributes;
+  interactionCooldown?: number; // Timestamp (ms) when interaction cooldown expires
   // Note: Visual appearance (shape, colors, scale, detail level) is derived
   // from audioAttributes and NOT stored in state - calculated at render time
 }

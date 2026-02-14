@@ -36,10 +36,13 @@ export function pickDestination(): Vec2 {
  * Picks a random destination and triggers swim animation
  */
 export function handleRobotIdle(robotId: string): void {
+  console.log(`[IdleSystem] handleRobotIdle called for robot ${robotId}`);
+
   const robot = useOceanStore.getState().getRobotById(robotId);
 
   // Guard: robot must exist and be in idle state
   if (!robot || robot.state !== RobotState.Idle) {
+    console.warn(`[IdleSystem] Robot ${robotId} not found or not Idle (state: ${robot?.state})`);
     return;
   }
 
@@ -52,6 +55,7 @@ export function handleRobotIdle(robotId: string): void {
   });
 
   // Trigger swim animation with arrival callback
+  console.log(`[IdleSystem] Creating swim timeline for robot ${robotId} with onComplete callback`);
   createSwimTimeline(robot, destination, handleRobotArrival);
 
   console.log(
@@ -64,9 +68,16 @@ export function handleRobotIdle(robotId: string): void {
  * Returns robot to idle state and schedules next destination pick
  */
 export function handleRobotArrival(robotId: string): void {
-  // Update robot state to idle
+  const robot = useOceanStore.getState().getRobotById(robotId);
+
+  if (!robot || !robot.destination) {
+    return;
+  }
+
+  // Update robot state to idle and sync position to destination
   useOceanStore.getState().updateRobot(robotId, {
     state: RobotState.Idle,
+    position: robot.destination, // Sync store position to where robot actually is
     destination: null,
   });
 

@@ -5,6 +5,10 @@ import { Robot } from './robot/Robot';
 import { useOceanStore } from '../stores/oceanStore';
 import { spawnRobot } from '../systems/spawnSystem';
 import { handleRobotIdle } from '../systems/idleSystem';
+import {
+  startCollisionDetection,
+  stopCollisionDetection,
+} from '../systems/collisionSystem';
 
 // ========================================
 // TYPES & INTERFACES
@@ -35,11 +39,23 @@ export function OceanScene({
     spawnRobot();
     spawnRobot();
 
-    // Get robots that were just added (synchronous)
-    const currentRobots = useOceanStore.getState().robots;
-    currentRobots.forEach((robot) => {
-      handleRobotIdle(robot.id);
-    });
+    // Wait for robots to mount before starting idle behavior
+    // (refs need to exist for GSAP animations)
+    const timer = setTimeout(() => {
+      const currentRobots = useOceanStore.getState().robots;
+      currentRobots.forEach((robot) => {
+        handleRobotIdle(robot.id);
+      });
+    }, 100);
+
+    // Start collision detection
+    startCollisionDetection();
+
+    // Cleanup on unmount
+    return () => {
+      clearTimeout(timer);
+      stopCollisionDetection();
+    };
   }, []);
 
   return (
