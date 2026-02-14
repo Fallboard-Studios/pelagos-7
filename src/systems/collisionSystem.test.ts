@@ -1,11 +1,16 @@
 // ========================================
 // IMPORTS
 // ========================================
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 import { calculateDistanceSquared, canInteract } from './collisionSystem';
 import { RobotState } from '../types/Robot';
 import type { Robot } from '../types/Robot';
+
+// Mock BeatClock
+vi.mock('../engine/beatClock', () => ({
+  getCurrentMeasure: vi.fn(() => 100),
+}));
 
 // ========================================
 // TESTS
@@ -104,34 +109,41 @@ describe('CollisionSystem', () => {
       expect(canInteract(robot)).toBe(false);
     });
 
-    it('returns false when robot is on cooldown', () => {
-      const futureTime = Date.now() + 5000; // 5 seconds from now
+    it('returns false when robot is on cooldown (less than 8 measures elapsed)', () => {
       const robot: Robot = {
         ...baseRobot,
         state: RobotState.Idle,
-        interactionCooldown: futureTime,
+        lastInteractionMeasure: 95, // 5 measures ago (100 - 95 = 5 < 8)
       };
 
       expect(canInteract(robot)).toBe(false);
     });
 
-    it('returns true when cooldown has expired', () => {
-      const pastTime = Date.now() - 1000; // 1 second ago
+    it('returns true when cooldown has expired (8+ measures elapsed)', () => {
       const robot: Robot = {
         ...baseRobot,
         state: RobotState.Idle,
-        interactionCooldown: pastTime,
+        lastInteractionMeasure: 92, // 8 measures ago (100 - 92 = 8 >= 8)
+      };
+
+      expect(canInteract(robot)).toBe(true);
+    });
+
+    it('returns true when cooldown has completely expired (many measures elapsed)', () => {
+      const robot: Robot = {
+        ...baseRobot,
+        state: RobotState.Idle,
+        lastInteractionMeasure: 50, // 50 measures ago
       };
 
       expect(canInteract(robot)).toBe(true);
     });
 
     it('returns false for moving robot on cooldown', () => {
-      const futureTime = Date.now() + 5000;
       const robot: Robot = {
         ...baseRobot,
         state: RobotState.Moving,
-        interactionCooldown: futureTime,
+        lastInteractionMeasure: 98, // 2 measures ago (100 - 98 = 2 < 8)
       };
 
       expect(canInteract(robot)).toBe(false);
