@@ -14,7 +14,7 @@ let useOceanStore: typeof import('./oceanStore')['useOceanStore'];
 const createRobot = (overrides: Partial<Robot> = {}): Robot => ({
   id: overrides.id ?? 'r-1',
   state: overrides.state ?? RobotState.Idle,
-  position: overrides.position ?? { x: 0, y: 0, z: 0 },
+  position: overrides.position ?? { x: 0, y: 0 },
   destination: overrides.destination ?? null,
   melody:
     overrides.melody ?? [{ id: 'm-1', startStep: 1, length: '8n', noteIndex: 0 }],
@@ -55,11 +55,11 @@ describe('oceanStore', () => {
     useOceanStore.getState().addRobot(robot);
     useOceanStore.getState().updateRobot('r-update', {
       state: RobotState.Moving,
-      destination: { x: 10, y: 5, z: 0 },
+      destination: { x: 10, y: 5 },
     });
     const updated = useOceanStore.getState().getRobotById('r-update');
     expect(updated?.state).toBe(RobotState.Moving);
-    expect(updated?.destination).toEqual({ x: 10, y: 5, z: 0 });
+    expect(updated?.destination).toEqual({ x: 10, y: 5 });
   });
 
   it('retrieves robots by id', () => {
