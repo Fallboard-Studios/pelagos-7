@@ -1,0 +1,45 @@
+{
+  "name": "Pelagos-7 Industrial Ocean Depth",
+  "body": {
+    "base": "#2a3439",
+    "highlight": "#45535a",
+    "shadow": "#1a1f22"
+  },
+  "shell": {
+    "base": "#818589",
+    "highlight": "#a9adb0",
+    "shadow": "#4f5458"
+  },
+  "strut": {
+    "base": "#ff8c00",
+    "highlight": "#ffae42",
+    "shadow": "#a04000"
+  },
+  "wire": {
+    "base": "#f1c40f",
+    "highlight": "#f7dc6f",
+    "shadow": "#9a7d0a"
+  },
+  "vent": {
+    "base": "#6a6384",
+    "highlight": "#928ba9",
+    "shadow": "#3b374d"
+  },
+  "glass": {
+    "base": "#78cce2",
+    "highlight": "#b3e5f2",
+    "shadow": "#3b6b7a"
+  },
+  "indicator": {
+    "powered": "#39ff14",
+    "highlight": "#a2ff8a",
+    "off": "#145a32",
+    "flare": "#e0ffff"
+  },
+  "alert": {
+    "powered": "#e60d2e",
+    "highlight": "#ff5c75",
+    "off": "#7b091c"
+  },
+  "shadowDepth": "#191919"
+}
