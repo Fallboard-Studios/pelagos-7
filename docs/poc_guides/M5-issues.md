@@ -13,33 +13,41 @@
 **Labels:** feature, system: ui, size: M, priority: high
 
 ### Feature Description
-Create the Factory actor type and SVG components for rendering stationary factory structures that spawn robots.
+Create the Factory actor type and SVG components for rendering stationary factory structures that spawn robots. Factories are **massive procedurally-generated structures** (200-350px × 300-500px) placed along the ocean floor, rendered behind robots in the background layer.
 
 ### Implementation Details
 - Create `src/types/Actor.ts`
-- Define `Actor` interface (id, type, position, production cooldown)
-- Define `ActorType` enum (factory, ruin, machinery, scrap)
+- Define `Actor` interface (id, type, position, scale, rotation, cooldownRemaining)
+- Define `ActorType` enum (FACTORY_PIPES, FACTORY_TANKS, FACTORY_MECHANICAL)
 - Create `src/components/actors/Factory.tsx`
-- Design industrial SVG (pipes, tanks, mechanical elements)
-- Add 2-3 factory variants for visual variety
+- Implement `RandomStream` class for deterministic procedural generation
+- Three architectural styles: Brutalist, Sawtooth, Functional
+- Procedural greeble system: vents, windows, panels, conduits, hatches, antennas
+- Large scale buildings (200-350px wide × 300-500px tall)
+- 4-8 greebles per building, placed on 10px grid
+- Colors from `src/constants/colorTheme.json`
+- Strictly 90°/45° angles, fills only (no strokes)
 
 **Actor types:**
 ```typescript
 export enum ActorType {
-  Factory = 'factory',
-  Ruin = 'ruin',
-  Machinery = 'machinery',
-  Scrap = 'scrap',
+  FACTORY_PIPES = 'FACTORY_PIPES',
+  FACTORY_TANKS = 'FACTORY_TANKS',
+  FACTORY_MECHANICAL = 'FACTORY_MECHANICAL',
 }
 
 export interface Actor {
-  id: string;
+  id: string;                    // Used as procedural generation seed
   type: ActorType;
-  position: Vec2;
-  variant: string;
-  // Factory-specific
-  productionCooldown?: number;  // measures until next spawn
-  lastSpawnMeasure?: number;
+  position: { x: number; y: number };
+  rotation?: number;
+  scale?: number;
+  isActive: boolean;
+  cooldownRemaining: number;     // Measures until next activation
+  config?: {
+    robotBlueprint?: string;
+    productionInterval?: number;
+  };
 }
 ```
 
@@ -49,27 +57,45 @@ interface FactoryProps {
   actor: Actor;
 }
 
-export function Factory({ actor }: FactoryProps) {
+export const Factory: React.FC<FactoryProps> = ({ actor }) => {
+  // Procedurally generate from actor.id seed
+  const config = useMemo(() => {
+    const rng = new RandomStream(actor.id);
+    const width = rng.rangeInt(20, 35) * 10;   // 200-350px
+    const height = rng.rangeInt(30, 50) * 10;  // 300-500px
+    const style = rng.pick(['Brutalist', 'Sawtooth', 'Functional']);
+    const chamferSize = rng.rangeInt(2, 5) * 5;
+    const greebles = generateGreebles(rng, width, height, style);
+    return { width, height, style, chamferSize, greebles };
+  }, [actor.id]);
+  
   return (
-    <g transform={`translate(${actor.position.x}, ${actor.position.y})`}>
-      {actor.variant === 'pipes' && <FactoryPipes />}
-      {actor.variant === 'tanks' && <FactoryTanks />}
-      {actor.variant === 'mechanical' && <FactoryMechanical />}
+    <g transform={`translate(${position.x}, ${position.y}) scale(${scale}) rotate(${rotation})`}>
+      {/* Render architectural style with procedural greebles */}
+      {config.style === 'Brutalist' && <BrutalistFactory {...config} />}
+      {config.style === 'Sawtooth' && <SawtoothFactory {...config} />}
+      {config.style === 'Functional' && <FunctionalFactory {...config} />}
     </g>
   );
-}
+};
 ```
 
 ### Acceptance Criteria
-- [ ] Actor type defined with all fields
-- [ ] ActorType enum created
-- [ ] Factory component renders 2-3 variants
-- [ ] SVG has industrial aesthetic
-- [ ] Factory scales appropriately
-- [ ] Factory added to oceanStore
+- [ ] Actor type defined with id, type, position, scale, rotation, cooldownRemaining
+- [ ] ActorType enum created (FACTORY_PIPES, FACTORY_TANKS, FACTORY_MECHANICAL)
+- [ ] Factory component uses RandomStream for deterministic procedural generation
+- [ ] Three architectural styles generated (Brutalist, Sawtooth, Functional)
+- [ ] Greeble system with 6 types (vent, window, panel, conduit, hatch, antenna)
+- [ ] Industrial aesthetic with strict 90°/45° angles, fills only
+- [ ] Large scale buildings (200-350px × 300-500px)
+- [ ] Static rendering (no animations yet)
+- [ ] Factories render in background layer (behind robots)
+- [ ] Factory added to oceanStore *(needs M5.4)*
 
 ### Reference
-- Oceanic: `src/types/Actor.ts`, `src/components/actors/Factory.tsx`
+- Design doc: `docs/BUILDING_DESIGN.md`
+- Color palette: `src/constants/colorTheme.json`
+- Implementation: `src/components/actors/Factory.tsx`, `src/types/Actor.ts`
 
 ---
 
@@ -213,7 +239,7 @@ export function Scrap({ actor }: ActorProps) {
 **Labels:** feature, system: state, size: M, priority: medium
 
 ### Feature Description
-Create a system that procedurally places environmental actors throughout the world on initialization.
+Create a system that procedurally places environmental actors throughout the world on initialization. **Factories must be placed along the ocean floor** (bottom of viewport) in the background layer, behind robots.
 
 ### Implementation Details
 - Create `src/systems/actorPlacementSystem.ts`
@@ -221,18 +247,27 @@ Create a system that procedurally places environmental actors throughout the wor
 - Place 10-20 actors randomly
 - Avoid overlap with spawn zones
 - Mix of actor types (60% ruins, 30% machinery, 10% scrap)
-- Place 1-2 factories at edges
+- **Place 3-5 factories along ocean floor** (y position near bottom, spaced horizontally)
+- Factories render in background-layer (behind robots)
 
 **Placement logic:**
 ```typescript
 const WORLD_BOUNDS = { width: 1920, height: 1080 };
+const OCEAN_FLOOR = 900; // Y position for ocean floor
+const PRODUCTION_INTERVAL = 60; // measures
 
 export function placeEnvironmentalActors(): void {
   const actors: Actor[] = [];
   
-  // Place 1-2 factories at edges
-  actors.push(createFactory({ x: 200, y: 540 }));
-  actors.push(createFactory({ x: 1720, y: 540 }));
+  // Place 3-5 factories along ocean floor (background layer)
+  const factoryCount = 4;
+  const factorySpacing = WORLD_BOUNDS.width / (factoryCount + 1);
+  for (let i = 0; i < factoryCount; i++) {
+    actors.push(createFactory({
+      x: factorySpacing * (i + 1),
+      y: OCEAN_FLOOR,
+    }));
+  }
   
   // Place 10-15 ruins
   for (let i = 0; i < 12; i++) {
@@ -262,21 +297,24 @@ function randomPosition(): Vec2 {
 
 function createFactory(position: Vec2): Actor {
   return {
-    id: crypto.randomUUID(),
-    type: ActorType.Factory,
+    id: crypto.randomUUID(),  // ID seeds procedural generation
+    type: ActorType.FACTORY_PIPES, // Or randomly pick from enum
     position,
-    variant: randomChoice(['pipes', 'tanks', 'mechanical']),
-    productionCooldown: PRODUCTION_INTERVAL,
-    lastSpawnMeasure: 0,
+    scale: 1.0,
+    rotation: 0,
+    isActive: true,
+    cooldownRemaining: PRODUCTION_INTERVAL,
   };
 }
 ```
 
 ### Acceptance Criteria
 - [ ] 10-20 actors placed on init
-- [ ] Random positions used
-- [ ] Mix of actor types
-- [ ] 1-2 factories at edges
+- [ ] Random positions used for ruins/machinery/scrap
+- [ ] Mix of actor types (60% ruins, 30% machinery, 10% scrap)
+- [ ] 3-5 factories placed along ocean floor (y ≈ 900)
+- [ ] Factories evenly spaced horizontally
+- [ ] Factories render in background layer (behind robots)
 - [ ] No overlap with spawn zones
 - [ ] Actors added to store
 - [ ] Unit tests for placement bounds and actor type distribution
