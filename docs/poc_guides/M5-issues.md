@@ -13,27 +13,25 @@
 **Labels:** feature, system: ui, size: M, priority: high
 
 ### Feature Description
-Create the Factory actor type and SVG components for rendering stationary factory structures that spawn robots. Factories are **massive procedurally-generated structures** (200-350px × 300-500px) placed along the ocean floor, rendered behind robots in the background layer.
+Create the Factory actor type and SVG components for rendering stationary factory structures that spawn robots. Factories are **massive silhouette-based structures** placed along the ocean floor, rendered behind robots in the background layer. Use Alea + Simplex Noise for deterministic variety.
 
 ### Implementation Details
 - Create `src/types/Actor.ts`
 - Define `Actor` interface (id, type, position, scale, rotation, cooldownRemaining)
-- Define `ActorType` enum (FACTORY_PIPES, FACTORY_TANKS, FACTORY_MECHANICAL)
+- Define `ActorType` enum (FACTORY only - variants determined by noise)
 - Create `src/components/actors/Factory.tsx`
-- Implement `RandomStream` class for deterministic procedural generation
-- Three architectural styles: Brutalist, Sawtooth, Functional
-- Procedural greeble system: vents, windows, panels, conduits, hatches, antennas
-- Large scale buildings (200-350px wide × 300-500px tall)
-- 4-8 greebles per building, placed on 10px grid
+- Use Alea for deterministic seeding (from actor.id)
+- Use Simplex Noise to determine silhouette variant
+- Three silhouette variants: Monolith, Spire, Refinery
+- Each factory is primarily a single `<path>` element
+- 1-3 interior cutouts maximum (windows/vents for lights)
 - Colors from `src/constants/colorTheme.json`
 - Strictly 90°/45° angles, fills only (no strokes)
 
 **Actor types:**
 ```typescript
 export enum ActorType {
-  FACTORY_PIPES = 'FACTORY_PIPES',
-  FACTORY_TANKS = 'FACTORY_TANKS',
-  FACTORY_MECHANICAL = 'FACTORY_MECHANICAL',
+  FACTORY = 'FACTORY',
 }
 
 export interface Actor {
@@ -53,28 +51,38 @@ export interface Actor {
 
 **Factory component:**
 ```tsx
+import Alea from 'alea';
+import { createNoise2D } from 'simplex-noise';
+
 interface FactoryProps {
   actor: Actor;
 }
 
 export const Factory: React.FC<FactoryProps> = ({ actor }) => {
-  // Procedurally generate from actor.id seed
+  // Procedurally generate silhouette from actor.id seed
   const config = useMemo(() => {
-    const rng = new RandomStream(actor.id);
-    const width = rng.rangeInt(20, 35) * 10;   // 200-350px
-    const height = rng.rangeInt(30, 50) * 10;  // 300-500px
-    const style = rng.pick(['Brutalist', 'Sawtooth', 'Functional']);
-    const chamferSize = rng.rangeInt(2, 5) * 5;
-    const greebles = generateGreebles(rng, width, height, style);
-    return { width, height, style, chamferSize, greebles };
+    const prng = Alea(actor.id);
+    const noise2D = createNoise2D(prng);
+    const noiseValue = noise2D(actor.position.x / 100, 0);
+    
+    // Determine variant from noise value
+    let variant: 'Monolith' | 'Spire' | 'Refinery';
+    if (noiseValue < -0.4) variant = 'Monolith';
+    else if (noiseValue < 0.3) variant = 'Spire';
+    else variant = 'Refinery';
+    
+    // Simple size variation
+    const scale = 0.8 + prng() * 0.4; // 0.8-1.2x scale variation
+    
+    return { variant, scale, noiseValue };
   }, [actor.id]);
   
   return (
-    <g transform={`translate(${position.x}, ${position.y}) scale(${scale}) rotate(${rotation})`}>
-      {/* Render architectural style with procedural greebles */}
-      {config.style === 'Brutalist' && <BrutalistFactory {...config} />}
-      {config.style === 'Sawtooth' && <SawtoothFactory {...config} />}
-      {config.style === 'Functional' && <FunctionalFactory {...config} />}
+    <g transform={`translate(${actor.position.x}, ${actor.position.y}) scale(${config.scale})`}>
+      {/* Render silhouette variant */}
+      {config.variant === 'Monolith' && <MonolithSilhouette />}
+      {config.variant === 'Spire' && <SpireSilhouette />}
+      {config.variant === 'Refinery' && <RefinerySilhouette />}
     </g>
   );
 };
@@ -82,12 +90,13 @@ export const Factory: React.FC<FactoryProps> = ({ actor }) => {
 
 ### Acceptance Criteria
 - [ ] Actor type defined with id, type, position, scale, rotation, cooldownRemaining
-- [ ] ActorType enum created (FACTORY_PIPES, FACTORY_TANKS, FACTORY_MECHANICAL)
-- [ ] Factory component uses RandomStream for deterministic procedural generation
-- [ ] Three architectural styles generated (Brutalist, Sawtooth, Functional)
-- [ ] Greeble system with 6 types (vent, window, panel, conduit, hatch, antenna)
+- [ ] ActorType enum created (FACTORY only)
+- [ ] Factory component uses Alea + Simplex Noise for deterministic generation
+- [ ] Three silhouette variants generated (Monolith, Spire, Refinery)
+- [ ] Each factory is primarily a single `<path>` element
+- [ ] 1-3 interior cutouts maximum for window/vent lights
 - [ ] Industrial aesthetic with strict 90°/45° angles, fills only
-- [ ] Large scale buildings (200-350px × 300-500px)
+- [ ] Silhouette-based design (solid fills, minimal interior complexity)
 - [ ] Static rendering (no animations yet)
 - [ ] Factories render in background layer (behind robots)
 - [ ] Factory added to oceanStore *(needs M5.4)*
@@ -106,7 +115,7 @@ export const Factory: React.FC<FactoryProps> = ({ actor }) => {
 **Labels:** feature, system: state, size: L, priority: high
 
 ### Feature Description
-Implement the factory spawning system that produces robots at measure-based intervals.
+Implement the factory spawning system that produces robots at measure-based intervals. **Robots spawn behind factory silhouettes** (background layer) for 4 measures, then move to the foreground layer with other robots.
 
 ### Implementation Details
 - Create `src/systems/factorySystem.ts`
@@ -114,6 +123,8 @@ Implement the factory spawning system that produces robots at measure-based inte
 - Use BeatClock.scheduleRepeat for timing (not setInterval)
 - Default production interval: 60 measures (15 "hours")
 - Spawn robot at factory position with exit animation
+- Robot spawns in background layer (behind factory silhouettes)
+- After 4 measures, robot moves to foreground layer
 - Enforce MAX_ROBOTS limit
 
 **Factory production:**
@@ -132,12 +143,13 @@ export function startFactoryProduction(factoryId: string): void {
       return;
     }
     
-    // Spawn robot at factory position
+    // Spawn robot at factory position (in background layer initially)
     const robot = createRobotFromFactory(factory);
+    robot.layer = 'background'; // Start behind factory silhouette
     useOceanStore.getState().addRobot(robot);
     AudioEngine.registerRobotMelody(robot.id, robot.melody);
     
-    // Play spawn animation
+    // Play spawn animation (includes 4-measure layer transition)
     playFactorySpawnAnimation(factoryId, robot.id);
     
     if (DEV_TUNING) {
@@ -164,6 +176,8 @@ function createRobotFromFactory(factory: Actor): Robot {
 - [ ] BeatClock used (not setInterval)
 - [ ] Spawning respects MAX_ROBOTS limit
 - [ ] Robot starts at factory position
+- [ ] Robot spawns in background layer (behind factories)
+- [ ] After 4 measures, robot moves to foreground layer
 - [ ] Spawn animation plays
 - [ ] Multiple factories work independently
 
@@ -172,83 +186,20 @@ function createRobotFromFactory(factory: Actor): Robot {
 
 ---
 
-## M5.3: Create Environmental Actor Components
+## M5.3: Implement Factory Placement
 
-**Title:** [M5] Create environmental actor components (ruins, machinery, scrap)
+**Title:** [M5.3] Implement factory placement along ocean floor
 
-**Labels:** feature, system: ui, size: M, priority: medium
-
-### Feature Description
-Create SVG components for non-interactive environmental actors that add visual richness to the scene.
-
-### Implementation Details
-- Create `src/components/actors/Ruin.tsx`
-- Create `src/components/actors/Machinery.tsx`
-- Create `src/components/actors/Scrap.tsx`
-- 2-3 variants per actor type
-- Post-apocalyptic aesthetic (rusted, broken, barnacles)
-- Various sizes for depth layering
-
-**Environmental actors:**
-```tsx
-export function Ruin({ actor }: ActorProps) {
-  return (
-    <g transform={`translate(${actor.position.x}, ${actor.position.y})`}>
-      {actor.variant === 'building' && <RuinBuilding />}
-      {actor.variant === 'tower' && <RuinTower />}
-      {actor.variant === 'wreck' && <RuinWreck />}
-    </g>
-  );
-}
-
-export function Machinery({ actor }: ActorProps) {
-  return (
-    <g transform={`translate(${actor.position.x}, ${actor.position.y})`}>
-      {actor.variant === 'gears' && <MachineryGears />}
-      {actor.variant === 'pipes' && <MachineryPipes />}
-    </g>
-  );
-}
-
-export function Scrap({ actor }: ActorProps) {
-  return (
-    <g transform={`translate(${actor.position.x}, ${actor.position.y})`}>
-      {actor.variant === 'debris' && <ScrapDebris />}
-      {actor.variant === 'parts' && <ScrapParts />}
-    </g>
-  );
-}
-```
-
-### Acceptance Criteria
-- [ ] 3 actor types created (ruin, machinery, scrap)
-- [ ] 2-3 variants per type
-- [ ] Post-apocalyptic aesthetic
-- [ ] Various sizes available
-- [ ] All render without errors
-
-### Reference
-- Oceanic: `src/components/actors/` folder
-
----
-
-## M5.4: Implement Procedural Actor Placement
-
-**Title:** [M5] Implement procedural environmental actor placement
-
-**Labels:** feature, system: state, size: M, priority: medium
+**Labels:** feature, system: state, size: S, priority: medium
 
 ### Feature Description
-Create a system that procedurally places environmental actors throughout the world on initialization. **Factories must be placed along the ocean floor** (bottom of viewport) in the background layer, behind robots.
+Create a system that places factories along the ocean floor on initialization. **Factories are placed along the ocean floor** (bottom of viewport) in the background layer, behind robots.
 
 ### Implementation Details
-- Create `src/systems/actorPlacementSystem.ts`
-- Implement `placeEnvironmentalActors()` function
-- Place 10-20 actors randomly
-- Avoid overlap with spawn zones
-- Mix of actor types (60% ruins, 30% machinery, 10% scrap)
+- Create `src/systems/factoryPlacementSystem.ts`
+- Implement `placeFactories()` function
 - **Place 3-5 factories along ocean floor** (y position near bottom, spaced horizontally)
-- Factories render in background-layer (behind robots)
+- Factories render in background layer (behind robots)
 
 **Placement logic:**
 ```typescript
@@ -256,7 +207,7 @@ const WORLD_BOUNDS = { width: 1920, height: 1080 };
 const OCEAN_FLOOR = 900; // Y position for ocean floor
 const PRODUCTION_INTERVAL = 60; // measures
 
-export function placeEnvironmentalActors(): void {
+export function placeFactories(): void {
   const actors: Actor[] = [];
   
   // Place 3-5 factories along ocean floor (background layer)
@@ -269,36 +220,14 @@ export function placeEnvironmentalActors(): void {
     }));
   }
   
-  // Place 10-15 ruins
-  for (let i = 0; i < 12; i++) {
-    actors.push(createRuin(randomPosition()));
-  }
-  
-  // Place 5-8 machinery
-  for (let i = 0; i < 6; i++) {
-    actors.push(createMachinery(randomPosition()));
-  }
-  
-  // Place 2-3 scrap piles
-  for (let i = 0; i < 3; i++) {
-    actors.push(createScrap(randomPosition()));
-  }
-  
   // Add all to store
   useOceanStore.getState().setActors(actors);
 }
 
-function randomPosition(): Vec2 {
-  return {
-    x: Math.random() * WORLD_BOUNDS.width,
-    y: Math.random() * WORLD_BOUNDS.height,
-  };
-}
-
 function createFactory(position: Vec2): Actor {
   return {
-    id: crypto.randomUUID(),  // ID seeds procedural generation
-    type: ActorType.FACTORY_PIPES, // Or randomly pick from enum
+    id: crypto.randomUUID(),  // ID seeds procedural generation (Alea + Simplex)
+    type: ActorType.FACTORY,  // Single factory type, visual variant from noise
     position,
     scale: 1.0,
     rotation: 0,
@@ -309,24 +238,20 @@ function createFactory(position: Vec2): Actor {
 ```
 
 ### Acceptance Criteria
-- [ ] 10-20 actors placed on init
-- [ ] Random positions used for ruins/machinery/scrap
-- [ ] Mix of actor types (60% ruins, 30% machinery, 10% scrap)
 - [ ] 3-5 factories placed along ocean floor (y ≈ 900)
 - [ ] Factories evenly spaced horizontally
 - [ ] Factories render in background layer (behind robots)
-- [ ] No overlap with spawn zones
 - [ ] Actors added to store
-- [ ] Unit tests for placement bounds and actor type distribution
+- [ ] Unit tests for placement bounds and spacing
 
 ### Reference
-- Similar to Oceanic actor placement system
+- Factory placement along skyline/horizon
 
 ---
 
-## M5.5: Implement Camera Pan/Zoom System
+## M5.4: Implement Camera Pan/Zoom System
 
-**Title:** [M5] Implement camera pan/zoom system
+**Title:** [M5.4] Implement camera pan/zoom system
 
 **Labels:** feature, system: ui, size: L, priority: high
 
@@ -398,9 +323,9 @@ export function useCameraControls(svgRef: RefObject<SVGSVGElement>) {
 
 ---
 
-## M5.6: Implement Depth Layers with Parallax
+## M5.5: Implement Depth Layers with Parallax
 
-**Title:** [M5] Implement depth layers with parallax scrolling
+**Title:** [M5.5] Implement depth layers with parallax scrolling
 
 **Labels:** feature, system: animation, size: M, priority: medium
 
@@ -463,31 +388,34 @@ export function OceanScene() {
 
 ---
 
-## M5.7: Add Factory Spawn Animation
+## M5.6: Add Factory Spawn Animation
 
-**Title:** [M5] Add factory spawn animation for robots
+**Title:** [M5.6] Add factory spawn animation for robots
 
 **Labels:** feature, system: animation, size: S, priority: medium
 
 ### Feature Description
-Create a spawn animation that plays when a factory produces a robot (scale up, move away from factory).
+Create a spawn animation that plays when a factory produces a robot (scale up, move away from factory). **Robot emerges from behind the factory silhouette**, remaining in the background layer for 4 measures before moving to the foreground.
 
 ### Implementation Details
 - Create `src/animation/factorySpawnAnimation.ts`
-- Robot starts at factory position, scaled to 0
+- Robot starts at factory position, scaled to 0, in **background layer**
 - Scale up (0 → 1.0) with elastic ease
 - Move to random nearby position
+- **After 4 measures, transition robot to foreground layer** (use BeatClock)
 - Play "puff of steam" effect (optional)
 
 **Spawn animation:**
 ```typescript
+const SPAWN_LAYER_DURATION = 4; // measures in background before moving to foreground
+
 export function playFactorySpawnAnimation(factoryId: string, robotId: string): void {
   const robotRef = getRef(`robot-${robotId}`);
   if (!robotRef) return;
   
   const tl = gsap.timeline();
   
-  // Start invisible
+  // Start invisible (robot is in background layer)
   gsap.set(robotRef, { scale: 0 });
   
   // Scale up with elastic
@@ -507,6 +435,12 @@ export function playFactorySpawnAnimation(factoryId: string, robotId: string): v
   }, 0.3);
   
   setTimeline(`spawn-${robotId}`, tl);
+  
+  // After 4 measures, move robot to foreground layer
+  BeatClock.scheduleOnce(`${SPAWN_LAYER_DURATION}m`, () => {
+    useOceanStore.getState().setRobotLayer(robotId, 'foreground');
+    if (DEV_TUNING) console.log(`[Factory] Robot ${robotId} moved to foreground`);
+  });
 }
 ```
 
@@ -515,6 +449,9 @@ export function playFactorySpawnAnimation(factoryId: string, robotId: string): v
 - [ ] Elastic ease applied
 - [ ] Robot moves away from factory
 - [ ] Animation completes in ~1.5s
+- [ ] Robot spawns in background layer (behind factory silhouette)
+- [ ] After 4 measures, robot transitions to foreground layer
+- [ ] Layer transition is visually seamless
 - [ ] Visually satisfying feedback
 - [ ] Timeline cleanup on complete
 
@@ -523,30 +460,30 @@ export function playFactorySpawnAnimation(factoryId: string, robotId: string): v
 
 ---
 
-## M5.8: Test Environment & Actors System
+## M5.7: Test Environment & Factory System
 
-**Title:** [M5] Test environment and actors system end-to-end
+**Title:** [M5.7] Test environment and factory system end-to-end
 
 **Labels:** testing, system: ui, size: M, priority: high
 
 ### Feature Description
-Comprehensive testing of the environment system including factories, actors, camera, and parallax.
+Comprehensive testing of the environment system including factories, camera, and parallax.
 
 ### Implementation Details
 - Manual test: Factories spawn robots every 60 measures
 - Manual test: Camera pan/zoom works smoothly
 - Manual test: Parallax effect visible
-- Manual test: Environmental actors render correctly
+- Manual test: Factory silhouettes render correctly
 - Manual test: Multiple factories work independently
-- Check performance with 20+ actors
+- Check performance with multiple factories
 
 **Test checklist:**
 ```markdown
-- [ ] 1-2 factories placed at edges
+- [ ] 3-5 factories placed along ocean floor
 - [ ] Factories spawn robots every 60 measures
 - [ ] MAX_ROBOTS limit prevents overflow
-- [ ] 10-20 environmental actors placed
-- [ ] Actors have visual variety
+- [ ] Factory silhouettes show procedural variety (Monolith/Spire/Refinery)
+- [ ] Robots spawn behind factories, then move to foreground after 4 measures
 - [ ] Camera drag pans scene
 - [ ] Mouse wheel zooms (0.5x - 2.0x)
 - [ ] Touch gestures work on mobile
