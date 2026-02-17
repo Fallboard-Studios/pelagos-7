@@ -70,11 +70,32 @@ and stale animation references.
 Fixes #67
 ```
 
+## Machine-readable output
+
+When done, in addition to the human-readable message, return a JSON object with these keys:
+- `commit_subject` (string)
+- `commit_message` (string)
+- `scope` (string)
+- `metadata_used` (boolean)
+
+Example JSON (append to your response):
+
+```json
+{ "commit_subject": "feat(audio): add harmony system",
+  "commit_message": "feat(audio): add harmony system with 24-hour palette rotation\n\n- Implement TIME_PITCHES mapping\n\nCloses #42",
+  "scope": "audio",
+  "metadata_used": true
+}
+```
+
 ## Process
 
-1. Get changed files to understand scope
-2. Analyze changes to determine type and impact
-3. Generate commit message
-4. Show message for review before using
+1. Prefer structured `metadata` when provided: if `${input:metadata}` exists, use `metadata.summary`, `metadata.changedFiles`, and `metadata.detectedSize` to populate subject/body/scope. If not provided, fall back to analyzing `${input:changes}` (git diff).
+2. Get changed files (from metadata.changedFiles or search/changes) to infer `scope` (use first path segment, e.g. `src/components` → `components`).
+3. Determine `type` (feat/fix/test/etc.) from the change intent and files.
+4. Generate a concise commit subject (<50 chars) and full commit message (body + footer). If an issue number is present in metadata or diff, add `Closes #NN` in the footer.
+5. Return the human-readable commit message for review and also emit a machine-readable JSON object (see "Machine-readable output" above).
+6. Show message for review before using.
 
 ${input:changes:Describe changes or paste git diff}
+${input:metadata:Optional METADATA JSON (summary, changedFiles, detectedSize, issueNumber)}
