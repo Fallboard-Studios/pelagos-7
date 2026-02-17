@@ -369,7 +369,7 @@ Make the UI responsive and mobile-friendly with appropriate breakpoints and layo
 **Labels:** refactor, size: L, priority: high
 
 ### Feature Description
-Optimize performance to maintain 60 FPS with 12 robots and 20+ actors.
+Optimize performance to maintain 60 FPS with 12 robots and 3-5 factories (environmental actors removed).
 
 ### Implementation Details
 - Profile with Chrome DevTools Performance tab
@@ -388,11 +388,11 @@ Optimize performance to maintain 60 FPS with 12 robots and 20+ actors.
 - [ ] Ensure timelines cleaned up on unmount
 - [ ] Check for event listener leaks
 - [ ] Optimize SVG complexity (simplify paths if needed)
-- [ ] Test with 12 robots + 20 actors
+- [ ] Test with 12 robots + 3-5 factories (no environmental actors) 
 ```
 
 **Performance targets:**
-- 60 FPS with 12 robots
+- 60 FPS with 12 robots and 3-5 factories
 - < 100ms interaction response
 - < 200MB memory usage
 - Smooth camera pan/zoom
