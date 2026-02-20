@@ -1,12 +1,10 @@
-// ========================================
-// IMPORTS
-// ========================================
 import { create } from 'zustand';
 
+import type { Actor } from '../types/Actor';
 import type { Robot } from '../types/Robot';
 import { killTimeline } from '../animation/timelineMap';
-import { AudioEngine } from '../engine/AudioEngine';
 import { DEV_TUNING } from '../constants';
+import { AudioEngine } from '../engine/AudioEngine';
 
 // ========================================
 // TYPES
@@ -14,6 +12,7 @@ import { DEV_TUNING } from '../constants';
 
 interface OceanStore {
   robots: Robot[];
+  actors: Actor[];
   selectedRobotId: string | null;
   totalInteractions: number;
   settings: {
@@ -24,6 +23,10 @@ interface OceanStore {
   removeRobot: (id: string) => void;
   updateRobot: (id: string, updates: Partial<Robot>) => void;
   getRobotById: (id: string) => Robot | undefined;
+  // Actors
+  setActors: (actors: Actor[]) => void;
+  addActor: (actor: Actor) => void;
+  getActorById: (id: string) => Actor | undefined;
   selectRobot: (id: string | null) => void;
   incrementInteractions: () => void;
 }
@@ -32,7 +35,7 @@ interface OceanStore {
 // CONSTANTS
 // ========================================
 const INITIAL_SETTINGS = {
-  bpm: 60,
+  bpm: 120,
   maxRobots: 12,
 };
 
@@ -41,6 +44,7 @@ const INITIAL_SETTINGS = {
 // ========================================
 export const useOceanStore = create<OceanStore>((_set, get) => ({
   robots: [],
+  actors: [],
   selectedRobotId: null,
   totalInteractions: 0,
   settings: { ...INITIAL_SETTINGS },
@@ -78,6 +82,19 @@ export const useOceanStore = create<OceanStore>((_set, get) => ({
 
   getRobotById: (id) => {
     return get().robots.find((r) => r.id === id);
+  },
+
+  // Actors
+  setActors: (actors) => {
+    _set({ actors });
+  },
+
+  addActor: (actor) => {
+    _set((state) => ({ actors: [...state.actors, actor] }));
+  },
+
+  getActorById: (id) => {
+    return get().actors.find((a) => a.id === id);
   },
 
   selectRobot: (id) => {

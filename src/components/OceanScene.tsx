@@ -10,6 +10,9 @@ import {
   startCollisionDetection,
   stopCollisionDetection,
 } from '../systems/collisionSystem';
+import { Factory } from './actors/Factory';
+import { placeFactories } from '../systems/factoryPlacementSystem';
+import { ActorType } from '../types/Actor';
 
 // ========================================
 // TYPES & INTERFACES
@@ -34,9 +37,13 @@ export function OceanScene({
   height = DEFAULT_HEIGHT,
 }: OceanSceneProps = {}) {
   const robots = useOceanStore((s) => s.robots);
+  const actors = useOceanStore((s) => s.actors);
 
-  // Spawn initial robots on mount
+  // Spawn initial robots and place factories on mount
   useEffect(() => {
+    // Place a dense row of factories (overlap allowed) so you can preview them
+    placeFactories(6);
+
     spawnRobot();
     spawnRobot();
 
@@ -68,7 +75,15 @@ export function OceanScene({
         height={height}
       >
         <rect fill={BACKGROUND_COLOR} width={width} height={height} />
-        <g id="background-layer" />
+        <g id="factory-layer">
+          {
+            actors
+              .filter((a) => a.type === ActorType.FACTORY)
+              .map((actor) => (
+                <Factory key={actor.id} actor={actor} />
+              ))
+          }
+        </g>
         <g id="robot-layer">
           {robots.map((robot) => (
             <Robot key={robot.id} robot={robot} />
