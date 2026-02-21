@@ -188,6 +188,18 @@ The following systems from the Oceanic prototype are explicitly **excluded** fro
 - Stores: camelCase with `Store` suffix (e.g., `oceanStore`, `audioStore`)
 - Constants: UPPER_SNAKE_CASE (e.g., `MAX_ROBOTS`, `INTERACTION_DISTANCE`)
 
+## Comment & Documentation Style
+- When adding **3 or more lines** to a file, insert an obvious section header using the
+  `// ========================================` pattern. Common section names include:
+  IMPORTS, TYPES, CONSTANTS, EXPORTS, HELPERS, etc.  
+  (This mirrors the style used around line 17‑19 of `OceanScene.tsx`.)
+
+- Every exported symbol (functions, constants, types, etc.) must be preceded by a
+  JSDoc block describing its purpose, parameters, and return value.
+
+- When editing an existing file, **retro‑fit** headings and JSDoc to any public API
+  that you touch, even if the file already existed.
+
 ### File Organization
 ```javascript
 src/
