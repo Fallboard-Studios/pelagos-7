@@ -16,6 +16,7 @@ const MEASURES_PER_HOUR = 4;
 let currentBeat = 0;
 let currentMeasure = 0;
 let initialized = false;
+const scheduleMap = new Map<string, string>();  // Track scheduled event IDs
 
 // ========================================
 // BEATCLOCK API
@@ -76,6 +77,22 @@ export function scheduleAtBeat(beat: number, callback: () => void): string {
  * Stub: schedule a repeating callback (logs only)
  */
 export function scheduleRepeat(interval: string, callback: () => void): string {
-  console.log('[BeatClock] scheduleRepeat (stub):', interval, callback);
-  return 'stub-id';
+  const transport = Tone.getTransport();
+  // Generate unique ID for this scheduled event
+  const scheduleId = `schedule-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+  // Schedule with Transport; treat callback return value as the new ID
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const transportId = transport.scheduleRepeat((time) => {
+    callback();
+  }, interval);
+
+  // Store mapping for potential cancellation later
+  scheduleMap.set(scheduleId, String(transportId));
+
+  if (console && console.log) {
+    console.log('[BeatClock] scheduleRepeat:', interval, 'id:', scheduleId);
+  }
+
+  return scheduleId;
 }

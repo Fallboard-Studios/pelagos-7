@@ -13,6 +13,7 @@ import {
 import { Factory } from './actors/Factory';
 import { placeFactories } from '../systems/factoryPlacementSystem';
 import { ActorType } from '../types/Actor';
+import { startFactoryProduction } from '../systems/factorySystem';
 
 // ========================================
 // TYPES & INTERFACES
@@ -46,6 +47,14 @@ export function OceanScene({
 
     spawnRobot();
     spawnRobot();
+
+    // Start factory production for all placed factories
+    const { actors } = useOceanStore.getState();
+    actors.forEach((actor) => {
+      if (actor.type === ActorType.FACTORY) {
+        startFactoryProduction(actor.id);
+      }
+    });
 
     // Wait for robots to mount before starting idle behavior
     // (refs need to exist for GSAP animations)
@@ -89,7 +98,6 @@ export function OceanScene({
             <Robot key={robot.id} robot={robot} />
           ))}
         </g>
-        <g id="foreground-layer" />
         <g id="ui-layer" />
       </svg>
       <InteractionStatus />
