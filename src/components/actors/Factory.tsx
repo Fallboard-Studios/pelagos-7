@@ -1,15 +1,10 @@
 import React, { useMemo } from 'react';
 
 import type { Actor } from '../../types/Actor';
-import { BuildingSilhouette, FactoryVariant } from './Building';
-import { selectVariantFromSeed } from './factoryVariants';
-
-// Stable reference — defined outside component so it never triggers new prop identity
-const NATIVE_SIZES: Record<FactoryVariant, { width: number; height: number }> = {
-  Monolith: { width: 200, height: 300 },
-  Stacks: { width: 140, height: 360 },
-  Refinery: { width: 220, height: 300 },
-};
+import { BuildingSilhouette } from './Building';
+import type { FactoryVariant } from './factoryVariants';
+import { selectVariantFromSeed, VARIANT_CONF } from './factoryVariants';
+import { getRowConfig } from '../../systems/factoryPlacementSystem';
 
 interface FactoryProps {
   actor: Actor;
@@ -17,10 +12,14 @@ interface FactoryProps {
 
 export const Factory: React.FC<FactoryProps> = ({ actor }) => {
   // Procedurally generate silhouette from actor.id seed
-  const config = useMemo(() => selectVariantFromSeed(actor.id, actor.position.x), [actor.id, actor.position.x]);
+  const config = useMemo(() => {
+    const row = actor.config?.row ?? 1;
+    const rowCfg = getRowConfig(row);
+    const available = rowCfg?.availableFactoryTypes;
+    return selectVariantFromSeed(actor.id, actor.position.x, row, available);
+  }, [actor.id, actor.position.x, actor.config?.row]);
 
-  const native = NATIVE_SIZES[config.variant];
-
+  const native = VARIANT_CONF[config.variant].nativeSizes;
   return (
     <g>
       <BuildingSilhouette

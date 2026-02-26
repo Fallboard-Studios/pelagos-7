@@ -1,12 +1,21 @@
 import { describe, it, expect } from 'vitest';
 
 import { getVariantFromNoise, selectVariantFromSeed } from './factoryVariants';
+import type { FactoryVariant } from './factoryVariants';
 
 describe('Factory variant selection', () => {
-  it('maps noise value to correct variant', () => {
-    expect(getVariantFromNoise(0.1)).toBe('Monolith');
-    expect(getVariantFromNoise(0.3)).toBe('Stacks');
-    expect(getVariantFromNoise(0.8)).toBe('Refinery');
+  it('maps noise value to correct variant using default list', () => {
+    const available: FactoryVariant[] = ['Monolith', 'Stacks', 'Refinery'];
+    expect(getVariantFromNoise(0.1, 1, available)).toBe('Monolith');
+    expect(getVariantFromNoise(0.6, 1, available)).toBe('Stacks');
+    expect(getVariantFromNoise(0.9, 1, available)).toBe('Refinery');
+  });
+
+  it('weights variants according to provided order', () => {
+    const available: FactoryVariant[] = ['Refinery', 'Stacks', 'Monolith'];
+    expect(getVariantFromNoise(0.1, 1, available)).toBe('Refinery');
+    expect(getVariantFromNoise(0.6, 1, available)).toBe('Stacks');
+    expect(getVariantFromNoise(0.95, 1, available)).toBe('Monolith');
   });
 
   it('is deterministic for a given seed and x position', () => {

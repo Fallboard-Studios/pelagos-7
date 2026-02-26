@@ -7,17 +7,36 @@ import type { Actor } from '../../types/Actor';
 export const SVG_VIEWBOX = '0 0 100 100';
 export const SVG_PRESERVE_ASPECT = 'xMidYMax meet';
 
+/**
+ * Shift a hex color's brightness based on noiseValue.
+ * noiseValue (0-1) maps to brightness multiplier (0.85-1.15) for ±15% variation.
+ * Returns a similar but slightly varied shade of the input color.
+ */
+export function shiftColorByNoise(hexColor: string, noiseValue: number): string {
+  // Parse hex to RGB
+  const hex = hexColor.replace('#', '');
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+
+  // Apply brightness shift based on noiseValue (0.85 to 1.15 range = ±15%)
+  const brightnessMultiplier = 0.5 + noiseValue * 1.5;
+  const rNew = Math.round(Math.min(255, r * brightnessMultiplier));
+  const gNew = Math.round(Math.min(255, g * brightnessMultiplier));
+  const bNew = Math.round(Math.min(255, b * brightnessMultiplier));
+
+  // Convert back to hex
+  const toHex = (val: number) => val.toString(16).padStart(2, '0');
+  return `#${toHex(rNew)}${toHex(gNew)}${toHex(bNew)}`;
+}
+
 export function calcSilhouetteSize(
   noiseValue: number,
   nativeSizes: { width: number; height: number },
-  baseScale = 1
 ) {
-  // baseScale applies uniformly to native sizes
-  const baseW = nativeSizes.width * baseScale;
-  const baseH = nativeSizes.height * baseScale;
 
-  const width = noiseValue * nativeSizes.width + baseW;
-  const height = noiseValue * nativeSizes.height + baseH;
+  const width = noiseValue * nativeSizes.width / 2 + nativeSizes.width * 0.85; // Ensure a minimum width of 50% native size
+  const height = noiseValue * nativeSizes.height / 2 + nativeSizes.height * 0.85; // Ensure a minimum height of 50% native size
 
   return { width, height };
 }
@@ -71,9 +90,11 @@ export function generateGreebleRects(
 }
 
 export function bottomAnchorTransform(actor: Actor, height: number) {
-  // Anchor the bottom of the silhouette to actor.position.y
+  // Anchor the bottom of the silhouette to actor.position.y.  Respect
+  // vertical scaling so callers don't have to remember to multiply.
   const x = actor.position.x;
-  const y = Math.round(actor.position.y - height);
+  const sy = actor.scaleY ?? 1;
+  const y = Math.round(actor.position.y - height * sy);
   return `translate(${x}, ${y})`;
 }
 
@@ -104,7 +125,6 @@ export interface SilhouetteResult {
 export function useSilhouette(props: {
   noiseValue: number;
   nativeSizes: { width: number; height: number };
-  baseScale?: number;
   colors: { light: string; base: string; dark: string };
   actor: Actor;
   greebleConfig?: {
@@ -112,15 +132,15 @@ export function useSilhouette(props: {
     rows: number;
   };
 }): SilhouetteResult {
-  const { noiseValue, nativeSizes, baseScale = 1, colors, actor, greebleConfig } = props;
+  const { noiseValue, nativeSizes, colors, actor, greebleConfig } = props;
 
   // Extract primitives so useMemo only re-runs when actual values change,
   // not whenever parent creates a new object literal (e.g. on every Zustand tick)
   const nativeWidth = nativeSizes.width;
   const nativeHeight = nativeSizes.height;
-  const colorLight = colors.light;
-  const colorBase = colors.base;
-  const colorDark = colors.dark;
+  const colorLight = shiftColorByNoise(colors.light, noiseValue);
+  const colorBase = shiftColorByNoise(colors.base, noiseValue);
+  const colorDark = shiftColorByNoise(colors.dark, noiseValue);
   const actorX = actor.position.x;
   const actorY = actor.position.y;
   const cols = greebleConfig?.cols;
@@ -129,14 +149,18 @@ export function useSilhouette(props: {
   return useMemo(() => {
     const sizes = { width: nativeWidth, height: nativeHeight };
     const clrs = { light: colorLight, base: colorBase, dark: colorDark };
-    const { width, height } = calcSilhouetteSize(noiseValue, sizes, baseScale);
+    const { width, height } = calcSilhouetteSize(noiseValue, sizes);
     const fill = pickSilhouetteFill(noiseValue, clrs);
     const greebleFill = pickSilhouetteGreebleFill(noiseValue, clrs);
-    const transform = `translate(${actorX}, ${Math.round(actorY - height)})`;
+    // subtract computed height so the bottom of every building lands at actorY;
+    // also factor in actor-scale so the translation matches the rendered size.
+    const sy = actor.scaleY ?? 1;
+    const scaledHeight = Math.round(height * sy);
+    const transform = `translate(${actorX}, ${Math.round(actorY - scaledHeight)})`;
     const result: SilhouetteResult = { width, height, fill, greebleFill, transform };
     if (cols && rows) {
       result.greebles = generateGreebleRects(noiseValue, cols, rows);
     }
     return result;
-  }, [noiseValue, nativeWidth, nativeHeight, baseScale, colorLight, colorBase, colorDark, actorX, actorY, cols, rows]);
+  }, [noiseValue, nativeWidth, nativeHeight, colorLight, colorBase, colorDark, actorX, actorY, cols, rows, actor.scaleY]);
 }
