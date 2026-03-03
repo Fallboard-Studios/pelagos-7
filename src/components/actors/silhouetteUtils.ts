@@ -66,7 +66,7 @@ export function pickSilhouetteGreebleFill(
 /**
  * Generate a full cols×rows grid of window positions in SVG viewBox space (0–100).
  * Every cell always renders; opacity is driven by simplex noise at (col, row).
- * The bodyClipPath in Building.tsx masks cells outside the silhouette shape.
+ * The bodyClipPath in Factory.tsx masks cells outside the silhouette shape.
  */
 export function generateGreebleRects(
   noiseValue: number,

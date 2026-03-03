@@ -4,7 +4,7 @@ import colorTheme from '../../constants/colorTheme.json';
 
 
 // FactoryVariant and configuration moved here to centralize variant data
-export type FactoryVariant = 'Monolith' | 'Stacks' | 'Refinery' | 'Skyscraper' | 'Warehouse' | 'Watertower';
+export type FactoryVariant = 'Monolith' | 'Stacks' | 'Refinery' | 'Skyscraper' | 'Warehouse';
 
 
 // configuration for each variant; values copied from the old individual components
@@ -76,17 +76,6 @@ export const VARIANT_CONF: Record<FactoryVariant, {
     // inset square clip
     bodyClipPath: 'M3,97 V3 H97 V97 Z',
   },
-  Watertower: {
-    nativeSizes: { width: 240, height: 240 },
-    colors: {
-      light: colorTheme.vent.shadow,
-      base: colorTheme.body.base,
-      dark: colorTheme.shell.shadow,
-    },
-    greebleConfig: { cols: 0, rows: 0 },
-    pathD: 'M50,0 L70,20 V100 H30 V20 Z',
-    bodyClipPath: 'M53,3 L67,17 V97 H33 V17 Z',
-  },
 };
 
 
@@ -98,7 +87,7 @@ export const VARIANT_CONF: Record<FactoryVariant, {
 export function getVariantFromNoise(
   noiseValue: number,
   row: number,
-  availableTypes: FactoryVariant[] = ['Monolith', 'Stacks', 'Refinery', 'Skyscraper', 'Watertower'],
+  availableTypes: FactoryVariant[] = ['Monolith', 'Stacks', 'Refinery', 'Skyscraper', 'Warehouse'],
 ): FactoryVariant {
   // if caller provided an ordered list, weight variants based on order
   if (availableTypes && availableTypes.length > 0) {
@@ -117,7 +106,7 @@ export function getVariantFromNoise(
     if (noiseValue < 0.65) return 'Stacks';
     if (noiseValue < 0.75) return 'Skyscraper';
     if (noiseValue < 0.95) return 'Refinery';
-    return 'Watertower';
+    return 'Warehouse';
   }
 
 }

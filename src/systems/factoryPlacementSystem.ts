@@ -24,9 +24,9 @@ const FACTORY_ROWS: FactoryRowConfig[] = [
   { y: 920, spreadType: 'full', factoriesPerRow: 4, availableFactoryTypes: ['Refinery'] },
   { y: 921, spreadType: 'full', factoriesPerRow: 6, availableFactoryTypes: ['Refinery'] },
   // { y: 840, spreadType: 'edges', factoriesPerRow: 2, edgeWidth: 0.05, availableFactoryTypes: ['Warehouse'] },
-  { y: 860, spreadType: 'edges', factoriesPerRow: 3, edgeWidth: 0.1, availableFactoryTypes: ['Watertower'] },
+  { y: 860, spreadType: 'edges', factoriesPerRow: 3, edgeWidth: 0.1, availableFactoryTypes: ['Warehouse'] },
   { y: 980, spreadType: 'edges', factoriesPerRow: 6, edgeWidth: 0.15, availableFactoryTypes: ['Warehouse'] },
-  { y: 1000, spreadType: 'edges', factoriesPerRow: 3, edgeWidth: 0.2, availableFactoryTypes: ['Watertower'] },
+  { y: 1000, spreadType: 'edges', factoriesPerRow: 3, edgeWidth: 0.2, availableFactoryTypes: ['Warehouse'] },
   { y: 1200, spreadType: 'edges', factoriesPerRow: 8, edgeWidth: 0.3, availableFactoryTypes: ['Warehouse'] },
 ];
 
