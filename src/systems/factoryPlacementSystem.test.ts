@@ -263,6 +263,25 @@ describe('FactoryPlacementSystem', () => {
       expect(a.beltCourseCount).toBe(factory.config?.beltCourseCount);
     });
 
+    // purpose tests added per Phase 9 requirements
+    it('selectVariantFromSeed returns correct purpose for each variant', () => {
+      (['Monolith','Stacks','Refinery','Skyscraper','Warehouse'] as const).forEach((variant) => {
+        const info = selectVariantFromSeed('dummy-id', 0, 0, [variant]);
+        expect(info.purpose).toBe(VARIANT_CONF[variant].purpose);
+      });
+    });
+
+    it('factory.config.purpose matches selectVariantFromSeed and survives JSON stringify', () => {
+      const factory = createFactory({ x: 200, y: 800 }, 0);
+      expect(factory.config?.purpose).toBeDefined();
+      const availableTypes = getRowConfig(factory.config?.row ?? 0)?.availableFactoryTypes;
+      const info = selectVariantFromSeed(factory.id, factory.position.x, factory.config?.row ?? 0, availableTypes);
+      expect(factory.config?.purpose).toBe(info.purpose);
+      expect(() => JSON.stringify(factory)).not.toThrow();
+      const parsed = JSON.parse(JSON.stringify(factory));
+      expect(parsed.config.purpose).toBe(factory.config?.purpose);
+    });
+
     it('produces identical color shifts for same position (deterministic from ID seed)', () => {
       // Note: This test uses multiple factories at the same position.
       // In practice, each factory gets a unique random UUID, so they will have

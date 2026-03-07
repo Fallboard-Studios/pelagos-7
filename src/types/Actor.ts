@@ -57,5 +57,7 @@ export interface Actor {
      * deterministic without re-running the PRNG at render time.
      */
     beltCourseCount?: number;
+    /** High‑level purpose derived from factory variant. Read-only after spawn. */
+    purpose?: import('../components/actors/factoryVariants').FactoryPurpose;
   };
 }

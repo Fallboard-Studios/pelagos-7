@@ -15,6 +15,17 @@ import type { RooftopGreeble, FacadeGreeble } from './greebles/greebleTypes';
 // FactoryVariant and configuration moved here to centralize variant data
 export type FactoryVariant = 'Monolith' | 'Stacks' | 'Refinery' | 'Skyscraper' | 'Warehouse';
 
+// New for Building Design 2.0: each variant now has a high‑level purpose that
+// gates animations, bubbles, offline effects, etc. The purpose is determined
+// solely by the variant type and stored in the actor config at spawn time.
+export type FactoryPurpose =
+  | 'heavyIndustry'
+  | 'chemicalProcessing'
+  | 'pipeWorks'
+  | 'observationComms'
+  | 'storageLogistics';
+
+
 
 /**
  * Per-variant configuration table. Each entry fully describes the visual
@@ -56,9 +67,11 @@ export const VARIANT_CONF: Record<FactoryVariant, {
     /** Max belt courses for this variant; 0 means none. */
     maxBeltCourses: number;
   };
+  purpose: FactoryPurpose;
   frontCornerX: number; // 0-100 horizontal split
 }> = {
   Monolith: {
+    purpose: 'heavyIndustry',
     sizeRange: { minWidth: 120, maxWidth: 180, minHeight: 200, maxHeight: 300 },
     colors: {
       body: colorTheme.body.base,
@@ -71,6 +84,7 @@ export const VARIANT_CONF: Record<FactoryVariant, {
     frontCornerX: 50,
   },
   Stacks: {
+    purpose: 'chemicalProcessing',
     sizeRange: { minWidth: 480, maxWidth: 520, minHeight: 160, maxHeight: 180 },
     colors: {
       body: colorTheme.body.base,
@@ -83,6 +97,7 @@ export const VARIANT_CONF: Record<FactoryVariant, {
     frontCornerX: 50,
   },
   Refinery: {
+    purpose: 'pipeWorks',
     sizeRange: { minWidth: 176, maxWidth: 264, minHeight: 160, maxHeight: 240 },
     colors: {
       body: colorTheme.body.base,
@@ -95,6 +110,7 @@ export const VARIANT_CONF: Record<FactoryVariant, {
     frontCornerX: 50,
   },
   Skyscraper: {
+    purpose: 'observationComms',
     sizeRange: { minWidth: 160, maxWidth: 240, minHeight: 440, maxHeight: 660 },
     colors: {
       body: colorTheme.body.base,
@@ -107,6 +123,7 @@ export const VARIANT_CONF: Record<FactoryVariant, {
     frontCornerX: 50,
   },
   Warehouse: {
+    purpose: 'storageLogistics',
     sizeRange: { minWidth: 160, maxWidth: 240, minHeight: 240, maxHeight: 360 },
     colors: {
       body: colorTheme.body.base,
@@ -221,5 +238,7 @@ export function selectVariantFromSeed(
   // random east/west split point: 25-75 in 0-100 normalised SVG space
   const frontCornerX = 25 + Math.floor(prng() * 51);
 
-  return { variant, scale, noiseValue, hueShift, satShift, rooftopGreeble, facadeGreeble, beltCourseCount, frontCornerX } as const;
+  // purpose is purely derived from the variant, but we include it here so
+  // callers (e.g. createFactory) can stash it in Actor.config in one pass.
+  return { variant, scale, noiseValue, hueShift, satShift, rooftopGreeble, facadeGreeble, beltCourseCount, frontCornerX, purpose: VARIANT_CONF[variant].purpose } as const;
 }

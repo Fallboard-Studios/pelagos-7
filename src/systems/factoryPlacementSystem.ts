@@ -80,7 +80,7 @@ export function createFactory(position: { x: number; y: number }, row = 0): Acto
   const availableTypes = getRowConfig(row)?.availableFactoryTypes;
 
   // Generate deterministic color shifts and greeble choices from actor ID
-  const { hueShift, satShift, rooftopGreeble, facadeGreeble, beltCourseCount } = selectVariantFromSeed(id, position.x, row, availableTypes);
+  const { hueShift, satShift, rooftopGreeble, facadeGreeble, beltCourseCount, purpose } = selectVariantFromSeed(id, position.x, row, availableTypes);
 
   return {
     id,
@@ -99,6 +99,7 @@ export function createFactory(position: { x: number; y: number }, row = 0): Acto
       rooftopGreeble,
       facadeGreeble,
       beltCourseCount,
+      purpose,
     },
   };
 }
