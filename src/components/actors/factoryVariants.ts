@@ -1,88 +1,138 @@
+// Variant configuration data for factories.  Historically each variant
+// defined its own SVG path (pathD) and corresponding clip path, but in the
+// redesigned system every factory uses a universal rectangle drawn by
+// `Factory.tsx`.  The variant definitions now only carry colours, sizes, and
+// greeble settings; path/clip information lives entirely in the renderer.
+
 import Alea from 'alea';
 import { createNoise2D } from 'simplex-noise';
 import colorTheme from '../../constants/colorTheme.json';
+import type { HSL } from '../../utils/colorUtils';
+import { lerp } from '../../utils/math';
+import type { RooftopGreeble, FacadeGreeble } from './greebles/greebleTypes';
 
 
 // FactoryVariant and configuration moved here to centralize variant data
 export type FactoryVariant = 'Monolith' | 'Stacks' | 'Refinery' | 'Skyscraper' | 'Warehouse';
 
 
-// configuration for each variant; values copied from the old individual components
+/**
+ * Per-variant configuration table. Each entry fully describes the visual
+ * character of one factory variant — sizes, HSL base colors, per-instance
+ * color-shift ranges, and the greeble pools that govern procedural decoration.
+ *
+ * Key schema fields (see docs/BUILDING_DESIGN.md §VariantConfig for full spec):
+ *
+ * - `sizeRange`     — lerp bounds for width/height; maps noise value → pixel size.
+ * - `colors`        — four HSL slots (body, accent, greeble, illuminated) used
+ *                     by renderers via `applyColorShift()`. No hex strings.
+ * - `colorRanges`   — PRNG bounds for per-instance hue/sat shifts. Ranges may be
+ *                     inverted (e.g. `[-45, -90]`) — `Math.min/max` is used to
+ *                     resolve the actual interval at test/validation time.
+ * - `greebleConfig` — greeble pool arrays and belt course maximum.
+ * - `frontCornerX`  — kept in schema as a fallback; runtime value is overridden
+ *                     by `selectVariantFromSeed` which generates a per-instance
+ *                     random split in the range 25–75.
+ */
 export const VARIANT_CONF: Record<FactoryVariant, {
-  nativeSizes: { width: number; height: number };
-  colors: { light: string; base: string; dark: string };
-  greebleConfig: { cols: number; rows: number };
-  pathD: string;
-  bodyClipPath?: string;
+  // size range replaced nativeSizes
+  sizeRange: { minWidth: number; maxWidth: number; minHeight: number; maxHeight: number };
+
+  // colour slots now HSL
+  colors: {
+    body: HSL;
+    accent: HSL;
+    greeble: HSL;
+    illuminated: HSL;
+  };
+
+  // per-instance shift ranges
+  colorRanges: { hueShiftRange: [number, number]; satShiftRange: [number, number] };
+
+  greebleConfig: {
+    allowedRooftop: RooftopGreeble[];
+    allowedFacade: FacadeGreeble[];
+    maxRooftop?: number;
+    /** Max belt courses for this variant; 0 means none. */
+    maxBeltCourses: number;
+  };
+  frontCornerX: number; // 0-100 horizontal split
 }> = {
   Monolith: {
-    nativeSizes: { width: 150, height: 250 },
+    sizeRange: { minWidth: 120, maxWidth: 180, minHeight: 200, maxHeight: 300 },
     colors: {
-      light: colorTheme.vent.shadow,
-      base: colorTheme.shell.base,
-      dark: colorTheme.body.shadow,
+      body: colorTheme.body.base,
+      accent: colorTheme.body.highlight,
+      greeble: colorTheme.vent.base,
+      illuminated: { h: colorTheme.vent.shadow.h, s: colorTheme.vent.shadow.s, l: Math.min(colorTheme.vent.shadow.l + 30, 100) },
     },
-    greebleConfig: { cols: 2, rows: 3 },
-    pathD: 'M20,100 V20 L50,0 L80,20 V100 Z',
-    // inset by ~3px to keep rects away from silhouette edges
-    bodyClipPath: 'M23,97 V23 L50,3 L77,23 V97 Z',
+    colorRanges: { hueShiftRange: [-15, 15], satShiftRange: [40, 60] },
+    greebleConfig: { allowedRooftop: ['steppeRoof', 'machinery', 'pipesValves'], allowedFacade: ['squareWindows', 'pipesValves'], maxRooftop: 1, maxBeltCourses: 2 },
+    frontCornerX: 50,
   },
   Stacks: {
-    nativeSizes: { width: 200, height: 210 },
+    sizeRange: { minWidth: 480, maxWidth: 520, minHeight: 160, maxHeight: 180 },
     colors: {
-      light: colorTheme.vent.shadow,
-      base: colorTheme.body.base,
-      dark: colorTheme.body.highlight,
+      body: colorTheme.body.base,
+      accent: colorTheme.shell.highlight,
+      greeble: colorTheme.vent.shadow,
+      illuminated: { h: colorTheme.vent.shadow.h, s: colorTheme.vent.shadow.s, l: Math.min(colorTheme.vent.shadow.l + 30, 100) },
     },
-    greebleConfig: { cols: 6, rows: 2 },
-    pathD: 'M0,100 V40 H20 V0 H40 V40 H60 V0 H80 V40 H100 V100 Z',
-    // inset contours to give padding around stacks
-    bodyClipPath: 'M3,97 V43 H23 V3 H43 V43 H63 V3 H83 V43 H97 V97 Z',
+    colorRanges: { hueShiftRange: [-15, 15], satShiftRange: [-60, -40] },
+    greebleConfig: { allowedRooftop: ['machinery', 'pipesValves'], allowedFacade: ['tallWindows', 'wideWindows', 'pipesValves'], maxRooftop: 1, maxBeltCourses: 1 },
+    frontCornerX: 50,
   },
   Refinery: {
-    nativeSizes: { width: 220, height: 200 },
+    sizeRange: { minWidth: 176, maxWidth: 264, minHeight: 160, maxHeight: 240 },
     colors: {
-      light: colorTheme.vent.shadow,
-      base: colorTheme.body.base,
-      dark: colorTheme.shell.shadow,
+      body: colorTheme.body.base,
+      accent: colorTheme.shell.base,
+      greeble: colorTheme.vent.shadow,
+      illuminated: { h: colorTheme.vent.shadow.h, s: colorTheme.vent.shadow.s, l: Math.min(colorTheme.vent.shadow.l + 30, 100) },
     },
-    greebleConfig: { cols: 5, rows: 3 },
-    pathD: 'M0,100 V60 H30 V40 H70 V60 H100 V100 Z',
-    // keep greebles off the outermost edge
-    bodyClipPath: 'M3,97 V63 H33 V43 H67 V63 H97 V97 Z',
+    colorRanges: { hueShiftRange: [60, 150], satShiftRange: [-35, 20] },
+    greebleConfig: { allowedRooftop: ['machinery', 'antennae', 'pipesValves'], allowedFacade: ['wideWindows', 'pipesValves'], maxRooftop: 1, maxBeltCourses: 1 },
+    frontCornerX: 50,
   },
   Skyscraper: {
-    nativeSizes: { width: 200, height: 550 },
+    sizeRange: { minWidth: 160, maxWidth: 240, minHeight: 440, maxHeight: 660 },
     colors: {
-      light: colorTheme.vent.shadow,
-      base: colorTheme.body.base,
-      dark: colorTheme.shell.shadow,
+      body: colorTheme.body.base,
+      accent: colorTheme.shell.base,
+      greeble: colorTheme.vent.shadow,
+      illuminated: { h: colorTheme.vent.shadow.h, s: colorTheme.vent.shadow.s, l: Math.min(colorTheme.vent.shadow.l + 30, 100) },
     },
-    greebleConfig: { cols: 4, rows: 16 },
-    pathD: 'M20,100 V20 L50,0 L80,20 V100 Z',
-    // inset by ~3px to keep rects away from silhouette edges
-    bodyClipPath: 'M23,97 V23 L50,3 L77,23 V97 Z',
+    colorRanges: { hueShiftRange: [-120, 120], satShiftRange: [0, 30] },
+    greebleConfig: { allowedRooftop: ['pitchedRoof', 'crownSpire', 'antennae', 'pipesValves'], allowedFacade: ['tallWindows', 'pipesValves'], maxRooftop: 1, maxBeltCourses: 3 },
+    frontCornerX: 50,
   },
   Warehouse: {
-    nativeSizes: { width: 200, height: 300 },
+    sizeRange: { minWidth: 160, maxWidth: 240, minHeight: 240, maxHeight: 360 },
     colors: {
-      light: colorTheme.body.base,
-      base: colorTheme.body.base,
-      dark: colorTheme.body.base,
+      body: colorTheme.body.base,
+      accent: colorTheme.body.base,
+      greeble: colorTheme.body.base,
+      illuminated: { h: colorTheme.body.base.h, s: colorTheme.body.base.s, l: Math.min(colorTheme.body.base.l + 30, 100) },
     },
-    greebleConfig: { cols: 6, rows: 2 },
-    // simple square footprint
-    pathD: 'M0,100 L0,0 L100,0 L100,100 Z',
-    // inset square clip
-    bodyClipPath: 'M3,97 V3 H97 V97 Z',
+    colorRanges: { hueShiftRange: [45, 60], satShiftRange: [-30, 20] },
+    greebleConfig: { allowedRooftop: ['crownSpire', 'pipesValves'], allowedFacade: ['squareWindows', 'pipesValves'], maxRooftop: 1, maxBeltCourses: 0 },
+    frontCornerX: 50,
   },
 };
 
 
 
 /**
- * Deterministic mapping from raw noise value -> silhouette variant
- * Exported for unit tests.
+ * Maps a noise value (0..1) to a FactoryVariant, respecting the optional
+ * `availableTypes` allow-list. When an allow-list is provided, variants are
+ * evenly distributed across the noise range by index order; otherwise the
+ * default probability distribution applies (Stacks is the most common).
+ *
+ * @param noiseValue    - Simplex noise output normalised to [0, 1].
+ * @param row           - Depth row; not currently used for filtering but
+ *                        reserved for future row-specific variant constraints.
+ * @param availableTypes - Optional ordered subset of variants to select from.
+ * @returns The resolved FactoryVariant for this noise position.
  */
 export function getVariantFromNoise(
   noiseValue: number,
@@ -112,8 +162,28 @@ export function getVariantFromNoise(
 }
 
 /**
- * Deterministic selection from seed (actorId) + x position.
- * Returns variant, scale (0.8-1.2) and raw noise value.
+ * Deterministic variant selection driven by actor id + x position.
+ * Consumes a reproducible PRNG sequence (Alea seeded by `actorId`) to derive
+ * **all** per-instance values in a single pass, so spawn order doesn't affect
+ * any individual value.
+ *
+ * PRNG draw order (must not be changed without updating tests):
+ *   1. `noiseValue`      — simplex noise at (x/100, 0)
+ *   2. `scale`           — 0.8–1.2 uniform
+ *   3. `hueShift`        — lerp across variant `hueShiftRange`
+ *   4. `satShift`        — lerp across variant `satShiftRange`
+ *   5. `rooftopGreeble`  — uniform pick from `allowedRooftop`
+ *   6. `facadeGreeble`   — uniform pick from `allowedFacade`
+ *   7. `beltCourseCount` — uniform integer in `[0 .. maxBeltCourses]`
+ *   8. `frontCornerX`    — uniform integer in `[25 .. 75]`
+ *
+ * See docs/BUILDING_DESIGN.md §ProceduralGeneration for the full rationale.
+ *
+ * @param actorId        - Unique actor id used as the PRNG seed.
+ * @param x              - World x position used for simplex noise sampling.
+ * @param row            - Depth row forwarded to `getVariantFromNoise`.
+ * @param availableTypes - Optional allow-list passed to `getVariantFromNoise`.
+ * @returns Immutable object containing all per-instance derived values.
  */
 export function selectVariantFromSeed(
   actorId: string,
@@ -124,7 +194,32 @@ export function selectVariantFromSeed(
   const prng = Alea(actorId);
   const noise2D = createNoise2D(prng);
   const noiseValue = (noise2D(x / 100, 0) + 1) / 2; // Normalize to [0,1]
+  // availableTypes = ['Monolith'];
   const variant = getVariantFromNoise(noiseValue, row, availableTypes);
   const scale = 0.8 + prng() * 0.4; // 0.8-1.2
-  return { variant, scale, noiseValue } as const;
+
+  // Generate per-instance color shifts from variant's allowed ranges
+  const colorRanges = VARIANT_CONF[variant].colorRanges;
+  const hueShift = lerp(colorRanges.hueShiftRange[0], colorRanges.hueShiftRange[1], prng());
+  const satShift = lerp(colorRanges.satShiftRange[0], colorRanges.satShiftRange[1], prng());
+
+  // choose rooftop/facade greebles deterministically
+  const gcfg = VARIANT_CONF[variant].greebleConfig;
+  const rooftopPool = gcfg.allowedRooftop || [];
+  const facadePool = gcfg.allowedFacade || [];
+  const rooftopGreeble = rooftopPool.length
+    ? rooftopPool[Math.floor(prng() * rooftopPool.length)]
+    : undefined;
+  const facadeGreeble = facadePool.length
+    ? facadePool[Math.floor(prng() * facadePool.length)]
+    : undefined;
+
+  // uniform pick in [0 .. maxBeltCourses]
+  const maxBeltCourses = gcfg.maxBeltCourses ?? 0;
+  const beltCourseCount = maxBeltCourses === 0 ? 0 : Math.floor(prng() * (maxBeltCourses + 1));
+
+  // random east/west split point: 25-75 in 0-100 normalised SVG space
+  const frontCornerX = 25 + Math.floor(prng() * 51);
+
+  return { variant, scale, noiseValue, hueShift, satShift, rooftopGreeble, facadeGreeble, beltCourseCount, frontCornerX } as const;
 }

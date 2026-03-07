@@ -12,6 +12,15 @@ export interface HSL {
   l: number; // 0..100
 }
 
+/**
+ * Per-instance color shift values applied to base colors.
+ * Generated deterministically at spawn time using variant's colorRanges.
+ */
+export interface ColorShift {
+  hueShift: number;   // Degrees to shift hue (-180 to +180 typical)
+  satShift: number;   // Percentage points to shift saturation (-100 to +100)
+}
+
 // ========================================
 // HELPERS
 // ========================================
@@ -46,4 +55,46 @@ export function clamp(value: number, min: number, max: number): number {
     max = tmp;
   }
   return Math.min(max, Math.max(min, value));
+}
+
+/**
+ * Apply hue and saturation shift to an HSL color, returning a new HSL object.
+ * Lightness is untouched — callers apply lightness multipliers separately.
+ *
+ * @param base - Base HSL color to shift
+ * @param shift - Hue and saturation deltas
+ * @returns A new HSL with shifted h and s values
+ */
+export function shiftHSL(base: HSL, shift: ColorShift): HSL {
+  return {
+    h: (base.h + shift.hueShift + 360) % 360,
+    s: clamp(base.s + shift.satShift, 0, 100),
+    l: base.l,
+  };
+}
+
+/**
+ * Apply color shift and lightness multiplier to a base HSL color.
+ * Used for per-instance factory color variation and day/night lighting.
+ *
+ * @param base - Base HSL color from variant config
+ * @param shift - Hue and saturation shifts (deterministic per actor)
+ * @param lMultiplier - Lightness multiplier (0-1 for darkening, >1 for brightening)
+ * @returns CSS hsl() string ready for use in SVG fill/stroke
+ */
+export function applyColorShift(
+  base: HSL,
+  shift: ColorShift,
+  lMultiplier: number,
+): string {
+  // Apply hue shift with wraparound at 0/360
+  const h = (base.h + shift.hueShift + 360) % 360;
+
+  // Apply saturation shift with clamping to valid range
+  const s = clamp(base.s + shift.satShift, 0, 100);
+
+  // Apply lightness multiplier (e.g., 0.8 for darkening, 1.2 for brightening)
+  const l = base.l * lMultiplier;
+
+  return hslToString({ h, s, l });
 }

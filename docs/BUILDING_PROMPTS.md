@@ -591,3 +591,363 @@ These will be addressed in a separate prompt sequence once the foundation is sta
 - If prompt proves too large, split into sub-prompts (e.g., 5.3a, 5.3b)
 - Preserve determinism throughout - same seed must always produce identical results
 - Maintain coding conventions from .github/copilot-instructions.md
+
+# Building Design 2.0
+
+This section contains implementation prompts for the four systems described in
+the **Building Design 2.0** goals in `BUILDING_DESIGN.md`. Each phase is
+self-contained and independently executable.
+
+**Implementation Order:**
+1. Variant Purposes (small, unlocks everything else)
+2. Bubble Streams (GSAP animation, purpose-gated)
+3. Offline State (system + store change, gates bubbles + windows + lights)
+4. Swaying Cables (SVG + GSAP, row-config-gated)
+
+---
+
+## Phase 9: Variant Purposes
+
+### Prompt 9.1: Add `purpose` Field to Variant Config
+
+```
+Update src/components/actors/factoryVariants.ts:
+
+1. Add a FactoryPurpose string union type:
+   export type FactoryPurpose =
+     | 'heavyIndustry'
+     | 'chemicalProcessing'
+     | 'pipeWorks'
+     | 'observationComms'
+     | 'storageLogistics';
+
+2. Add purpose: FactoryPurpose to each entry in VARIANT_CONF:
+   - Monolith    → 'heavyIndustry'
+   - Stacks      → 'chemicalProcessing'
+   - Refinery    → 'pipeWorks'
+   - Skyscraper  → 'observationComms'
+   - Warehouse   → 'storageLogistics'
+
+3. Store purpose in Actor.config at spawn time inside selectVariantFromSeed
+   (or in createFactory — wherever hueShift/satShift are currently written).
+   Add purpose?: FactoryPurpose to Actor.config type in src/types/Actor.ts.
+
+4. purpose is read-only after spawn; it is never recalculated.
+
+5. Add/update unit tests in factoryVariants.test.ts:
+   - All five variants map to the correct purpose.
+   - actor.config.purpose survives JSON.stringify round-trip.
+```
+
+---
+
+## Phase 10: Bubble Streams
+
+### Prompt 10.1: BubbleStream Component
+
+```
+Create src/components/actors/BubbleStream.tsx:
+
+1. Props interface BubbleStreamProps:
+   - actorId: string
+   - ventX: number          // SVG x position of the vent (pixels)
+   - ventY: number          // SVG y position of the vent (top of building, pixels)
+   - seed: number           // for deterministic sizing / stagger
+   - isActive: boolean      // false when building is offline
+
+2. Derived constants (from seed using a simple LCG):
+   - radius: 2–4 px
+   - riseDistance: 20–40 px
+   - riseDuration: 2.5–4.5 s
+   - staggerDelay: 0–2 s
+
+3. Render a single <circle> element, referenced by a React ref.
+
+4. Use the useGSAP hook to create a looping GSAP timeline:
+   - Initial position: { cx: ventX, cy: ventY }
+   - Tween to: { cy: ventY - riseDistance, opacity: 0, duration: riseDuration,
+                  ease: 'power1.out' }
+   - delay: staggerDelay before first play
+   - repeat: -1, repeatDelay: seeded 0.4–1.2 s
+   - Store the timeline in timelineMap under key `bubble-{actorId}`.
+
+5. When isActive changes from true → false: pause the timeline and set
+   circle opacity to 0.
+   When isActive changes from false → true: resume the timeline.
+   Use a useEffect watching isActive for this; do NOT restart the GSAP
+   timeline — pause/resume only.
+
+6. Kill and remove the timelineMap entry on unmount.
+
+7. Bubble fill: hsl(200, 40%, 75%) at opacity 0.55 (constant; GSAP drives
+   per-tween opacity from 0.55 → 0).
+
+8. Do NOT use setTimeout, setInterval, or requestAnimationFrame directly.
+
+9. Add a unit smoke-test in BubbleStream.test.tsx verifying the component
+   renders a <circle> and that timelineMap receives an entry.
+```
+
+### Prompt 10.2: Integrate BubbleStream into Factory.tsx
+
+```
+Update src/components/actors/Factory.tsx:
+
+1. Import BubbleStream and FactoryPurpose.
+
+2. Define BUBBLE_PURPOSES: Set<FactoryPurpose> = new Set([
+     'heavyIndustry', 'chemicalProcessing', 'pipeWorks'
+   ]);
+
+3. Compute ventX deterministically from buildingSeed:
+   ventX = (buildingSeed % 60) + 20   // 20–80% of normalised width
+   Convert to pixel coords: ventXPx = ventX / 100 * actualWidth
+
+4. ventY = transform-space top of the building (y offset of the building's
+   top edge in scene coordinates). This is actor.position.y - actualHeight
+   (the same y used as the top of the rooftop greeble group).
+
+5. Read actor.config.isOffline to derive isActive = !actor.config.isOffline.
+
+6. Render <BubbleStream> after the rooftopElement only when
+   BUBBLE_PURPOSES.has(actor.config.purpose):
+   <BubbleStream
+     actorId={actor.id}
+     ventX={ventXPx}
+     ventY={ventY}
+     seed={buildingSeed}
+     isActive={isActive}
+   />
+
+7. Ensure the bubble renders in scene (world) coordinates, outside the
+   normalised scale group.
+
+8. Run tsc --noEmit and npm test to verify no regressions.
+```
+
+---
+
+## Phase 11: Offline State
+
+### Prompt 11.1: Extend Actor Type + Store
+
+```
+1. In src/types/Actor.ts, add to Actor.config:
+   - isOffline?: boolean          // true while powered down
+   - offlineSince?: number        // the measure at which offline started
+
+2. In src/stores/oceanStore.ts:
+   - Add action setActorOffline(actorId: string, measure: number): void
+     Sets actor.config.isOffline = true, actor.config.offlineSince = measure.
+   - Add action setActorOnline(actorId: string): void
+     Sets actor.config.isOffline = false, deletes offlineSince.
+
+3. Add unit tests in oceanStore.test.ts:
+   - setActorOffline sets fields correctly on the matching actor.
+   - setActorOnline clears fields correctly.
+   - State remains JSON-serialisable after both transitions.
+```
+
+### Prompt 11.2: offlineSystem
+
+```
+Create src/systems/offlineSystem.ts:
+
+Constants:
+  const OFFLINE_PROBABILITY = 1 / 200;   // per building per measure
+  const OFFLINE_DURATION = 66;           // measures
+
+Export function tickOfflineSystem(currentMeasure: number): void
+
+Logic:
+1. Get all actors from useOceanStore.getState().
+2. For each factory actor:
+   a. If actor.config.isOffline === true:
+      - If currentMeasure - actor.config.offlineSince >= OFFLINE_DURATION:
+        call setActorOnline(actor.id)
+   b. Else (online):
+      - If Math.random() < OFFLINE_PROBABILITY:
+        call setActorOffline(actor.id, currentMeasure)
+
+3. Do NOT use Math.random() for the probability check — use a seeded
+   per-building per-measure PRNG:
+     const roll = Alea(`offline-${actor.id}-${currentMeasure}`)();
+   This ensures replays are deterministic.
+
+4. Export offlineSystem for wiring into the beat clock subscriber in App.tsx.
+
+5. Add unit tests in offlineSystem.test.ts:
+   - A building with offlineSince = 0 at measure 66 comes back online.
+   - A building offline since measure 5 at measure 70 does NOT come back
+     (66 measures haven't elapsed yet; 70 - 5 = 65).
+   - The Alea roll is deterministic (same actorId + measure = same result).
+```
+
+### Prompt 11.3: Wire offlineSystem into Beat Clock
+
+```
+Update src/App.tsx:
+
+1. Import tickOfflineSystem from offlineSystem.ts.
+2. Inside the subscribeToMeasure callback (where setCurrentMeasure is called),
+   also call tickOfflineSystem(m) after updating the store.
+
+The callback currently looks like:
+  subscribeToMeasure((m) => useOceanStore.getState().setCurrentMeasure(m));
+Change it to:
+  subscribeToMeasure((m) => {
+    useOceanStore.getState().setCurrentMeasure(m);
+    tickOfflineSystem(m);
+  });
+
+3. Run tsc --noEmit and npm test.
+```
+
+### Prompt 11.4: Apply Offline Visual Effects in Factory.tsx
+
+```
+Update src/components/actors/Factory.tsx to visually reflect offline state:
+
+1. Read isOffline = actor.config.isOffline ?? false.
+
+2. nightDepth override:
+   - When isOffline: force nightDepth = 0 (no lit windows).
+   - No change needed in the selector — just override the computed value:
+     const effectiveNightDepth = isOffline ? 0 : nightDepth;
+   - Pass effectiveNightDepth as nightDepth in ctx.
+
+3. Body saturation desaturation:
+   - When isOffline, reduce body saturation by 20 before applyColorShift:
+     const offlineShift = isOffline
+       ? { ...shift, satShift: shift.satShift - 20 }
+       : shift;
+   - Use offlineShift when computing eastFill and westFill.
+
+4. Antennae lights:
+   - Pass isOffline into GreebleRendererContext (add field isOffline?: boolean).
+   - In renderAntennae (rooftopGreebles.tsx), when ctx.isOffline === true,
+     set opacity={0} on both indicator light <circle> elements.
+
+5. Bubble stream:
+   - isActive = !isOffline (already handled in Prompt 10.2 via isActive prop).
+
+6. Add unit test in Factory.test.tsx (or a new snapshot/render test):
+   - With isOffline=true: ctx.nightDepth === 0 and body satShift is reduced.
+
+7. Run tsc --noEmit and npm test.
+```
+
+---
+
+## Phase 12: Swaying Cables
+
+### Prompt 12.1: Extend Row Config with cablesEnabled
+
+```
+Update src/systems/factoryPlacementSystem.ts:
+
+1. Add cablesEnabled: boolean to RowConfig interface (default false).
+2. Set cablesEnabled: false on all existing row configs for now.
+3. Export a helper isCablesEnabled(row: number): boolean that reads from
+   getRowConfig(row)?.cablesEnabled ?? false.
+4. Update factoryPlacementSystem.test.ts to verify the new field.
+```
+
+### Prompt 12.2: CableLayer Component
+
+```
+Create src/components/actors/CableLayer.tsx:
+
+Props:
+  actors: Actor[]   // full list of factory actors
+
+Logic:
+1. Filter actors to those where isCablesEnabled(actor.config.row) === true.
+2. Group filtered actors by row:
+   Map<row, Actor[]>
+3. For each row group, sort actors by actor.position.x ascending.
+4. For each consecutive pair [a, b] in the sorted list:
+   - Skip if a.config.variant !== b.config.variant (must match).
+   - Skip if either is offline.
+   - Skip if horizontal distance > MAX_CABLE_SPAN (export constant, 320 px).
+   - Otherwise: compute cable geometry and render a <CableSegment>.
+
+CableSegment (inline sub-component or separate file):
+  Props: { id: string; x1: number; y1: number; x2: number; y2: number;
+           sag: number; seed: number }
+  - Render an SVG <path> quadratic Bézier:
+      const cpX = (x1 + x2) / 2;
+      const cpY = Math.max(y1, y2) + sag;  // sag hangs below the endpoints
+      d={`M ${x1},${y1} Q ${cpX},${cpY} ${x2},${y2}`}
+  - stroke="hsl(220, 10%, 18%)" strokeWidth={1.5} fill="none" opacity={0.6}
+  - Use a ref on the <path> element.
+  - Use useGSAP to create a slow sway tween on the control point:
+      Animate cpY ± (4 + seed % 5) px
+      Duration: 12 + (seed % 14) s
+      yoyo: true, repeat: -1, ease: 'sine.inOut'
+    Store in timelineMap under key `cable-{id}`.
+  - Kill timeline on unmount.
+
+Cable y-positions:
+  y1 = actor.position.y - actualHeight (top-centre of building a)
+  y2 = neighbour.position.y - actualHeight (top-centre of building b)
+  x1 = actor.position.x + actualWidth / 2
+  x2 = neighbour.position.x + neighbour_actualWidth / 2
+  sag = (x2 - x1) * 0.18 + (seed % 8)   // ~18% of span + seed jitter
+
+5. CableLayer renders an SVG <g className="cable-layer"> containing all
+   CableSegment elements. This group must be placed BELOW factory buildings
+   in the render order in OceanScene.tsx.
+
+6. Do NOT perform GSAP sway via state updates or re-renders. Animate the
+   SVG path `d` attribute directly via gsap.to(ref.current, { attr: { d } }).
+
+7. Add unit tests in CableLayer.test.tsx:
+   - Pairs of same-variant, same-row actors within MAX_CABLE_SPAN produce
+     a CableSegment.
+   - Mismatched variants produce no cable.
+   - Distance over MAX_CABLE_SPAN produces no cable.
+   - Online/offline actor pair produces no cable.
+```
+
+### Prompt 12.3: Mount CableLayer in OceanScene
+
+```
+Update src/components/OceanScene.tsx:
+
+1. Import CableLayer.
+2. Read the actors array from the ocean store.
+3. Render <CableLayer actors={actors} /> immediately BEFORE the factory
+   actor render group so cables appear in SVG behind buildings:
+
+   <svg ...>
+     {/* background layers */}
+     <CableLayer actors={actors} />
+     {/* factory buildings */}
+     {actors.map(actor => <Factory key={actor.id} actor={actor} />)}
+     {/* robots etc. */}
+   </svg>
+
+4. Run tsc --noEmit and npm test.
+5. Manually toggle cablesEnabled: true on one row in factoryPlacementSystem.ts,
+   reload, and verify cables appear between matching-variant neighbours.
+   Revert the toggle after testing (leave default as false).
+```
+
+---
+
+## Notes for AI Assistant (2.0 addendum)
+
+- **Purpose gates are the key dependency.** Prompts 10–12 all require
+  actor.config.purpose to exist; do not skip Prompt 9.1.
+- **Offline state is a store concern, not a render concern.** Factory.tsx
+  reads actor.config.isOffline reactively; the system writes it. Keep
+  the boundary clean.
+- **No GSAP inside greeble renderer pure functions.** BubbleStream and
+  CableLayer are React components that own their own GSAP lifecycles.
+  GreebleRendererContext renders are pure SVG output only.
+- **timelineMap keys must be unique and stable.** Use the scheme defined
+  in each prompt; don't invent new key patterns.
+- **cablesEnabled is false by default.** The feature is opt-in per row.
+  No row currently has cables — a manual config change is required to
+  enable them, making it safe to merge without visual side effects.

@@ -29,6 +29,9 @@ interface OceanStore {
   getActorById: (id: string) => Actor | undefined;
   selectRobot: (id: string | null) => void;
   incrementInteractions: () => void;
+  /** Current measure in the 96-measure day/night cycle (0–95). */
+  currentMeasure: number;
+  setCurrentMeasure: (measure: number) => void;
 }
 
 // ========================================
@@ -48,6 +51,7 @@ export const useOceanStore = create<OceanStore>((_set, get) => ({
   selectedRobotId: null,
   totalInteractions: 0,
   settings: { ...INITIAL_SETTINGS },
+  currentMeasure: 0,
 
   addRobot: (robot) => {
     _set((state) => ({
@@ -105,6 +109,10 @@ export const useOceanStore = create<OceanStore>((_set, get) => ({
     _set((state) => ({
       totalInteractions: state.totalInteractions + 1,
     }));
+  },
+
+  setCurrentMeasure: (measure) => {
+    _set({ currentMeasure: measure % 96 });
   },
 }));
 

@@ -525,3 +525,118 @@ of flickering.
 | 5 | Greeble registry + rooftop greeble renderers (incremental, one type at a time) | Step 2 |
 | 6 | Facade greeble types (windows, belt course) — replaces current window rects | Steps 2, 4 |
 | 7 | Window illumination system | Steps 4, 6 |
+
+# Building Design 2.0
+
+This section describes four new visual systems planned for the next pass of
+factory building development. Each goal is scoped to what is realistic within
+the existing SVG + GSAP + React architecture.
+
+---
+
+## Goal 1 — Variant Purposes (Cosmetic Identity)
+
+**Summary:** Each factory variant is assigned a named industrial purpose.
+Purpose is purely cosmetic; it drives the variant's visual language (colour
+palette bias, greeble pool) and determines eligibility for other systems
+(bubbles, cables). No gameplay behaviour changes.
+
+**Purpose Map:**
+
+| Variant | Purpose |
+|---------|---------|
+| Monolith | Heavy Industry |
+| Stacks | Chemical Processing |
+| Refinery | Pipe Works / Refinery |
+| Skyscraper | Observation / Communications |
+| Warehouse | Storage / Logistics |
+
+**Goals:**
+- Each `VARIANT_CONF` entry gains a `purpose` string field.
+- Purpose is stored on `Actor.config` at spawn (serialisable).
+- Purpose is used as an eligibility gate in the bubble and cable systems.
+- No visual change is required beyond what already differentiates variants;
+  purpose is a label that makes intent explicit and allows future expansion.
+
+---
+
+## Goal 2 — Bubble Streams
+
+**Summary:** Industrial-purpose buildings (Heavy Industry, Chemical Processing,
+Pipe Works) emit a single slow stream of rising bubbles from a vent near their
+roofline. Streams are subtle — never more than 3–5 bubbles visible at once per
+building. Buildings in the "offline" state (see Goal 3) emit no bubbles.
+
+**Goals:**
+- Bubble stream eligibility: `purpose` is one of `heavyIndustry`,
+  `chemicalProcessing`, `pipeWorks`.
+- One stream per building. Vent X position is derived deterministically from
+  the building seed (somewhere in the upper 20% of the facade width).
+- Stream is a GSAP `gsap.timeline({ repeat: -1 })` on a single `<circle>`
+  element. The timeline moves it upward ~20–40 px (seeded), fades opacity
+  `1 → 0` over the same duration, then snaps back to origin.
+- A small random stagger between repeat cycles (seeded) prevents all buildings
+  from syncing visually.
+- Bubble radius: 2–4 px (seeded). Colour: `colorTheme.glass.base` with
+  slightly elevated L.
+- The GSAP timeline is stored in `timelineMap` under the key
+  `bubble-{actorId}` and is killed when the building goes offline or unmounts.
+- No more than one GSAP bubble timeline per building, ever.
+
+---
+
+## Goal 3 — Offline State
+
+**Summary:** Very rarely, a building "powers down" — all animated and
+illuminated elements switch off for approximately 66 measures before the
+building comes back online. This suggests systemic fragility in the
+post-apocalyptic world without being a constant visual distraction.
+
+**Goals:**
+- `Actor.config` gains two optional fields: `offlineSince?: number` (measure
+  at which the building went offline) and `isOffline?: boolean`.
+- **Trigger:** Each measure, every building has an independent
+  ~`1 / 200` probability of going offline. Approximately 1% of buildings
+  are offline at any given time. Offline state is set by a system
+  (`offlineSystem`) that runs on each measure tick.
+- **Duration:** A building stays offline for `66` measures
+  (`currentMeasure - offlineSince >= 66`), then returns online. The same
+  system handles recovery.
+- **Visual effects while offline:**
+  - `nightDepth` forced to `0` — no lit windows regardless of time of day.
+  - Bubble stream GSAP timeline is paused/killed.
+  - Antennae indicator light `<circle>` elements have `opacity: 0`.
+  - Body fill is slightly desaturated (saturation clamped down ~20%).
+- Online recovery reverses all of the above instantly (no transition needed;
+  the building "reboots").
+- The offline state is fully serialisable (two numbers on `Actor.config`).
+
+---
+
+## Goal 4 — Swaying Cables
+
+**Summary:** Power cables hang between adjacent buildings of the **same
+variant** in rows where cables are enabled. Each cable is a single SVG
+quadratic Bézier path rendered with a catenary sag. Cables drift very
+slowly — a near-imperceptible sway triggered by beat events, suggesting
+deep-ocean current.
+
+**Goals:**
+- Row config (`RowConfig`) gains a `cablesEnabled: boolean` field (default
+  `false`).
+- At render time, buildings in cable-enabled rows scan for the nearest
+  neighbour of the same variant in that row. If one is found within a
+  maximum distance threshold (TBD, ~300 px), a cable is drawn between them.
+- Cable SVG: a `<path>` using a quadratic Bézier. The two endpoints are
+  at the top-edge midpoints of each building; the control point hangs
+  ~15–25% of the horizontal span below the endpoints (seeded sag).
+- Colour: dark near-black (e.g. `hsl(220, 10%, 18%)`). Stroke width: 1.5 px.
+  No fill. Opacity: ~0.6.
+- **Sway animation:** A slow GSAP tween nudges the Bézier control point
+  ±4–8 px vertically over 12–25 s (seeded duration). The tween uses
+  `yoyo: true, repeat: -1, ease: 'sine.inOut'`. It is stored in
+  `timelineMap` under `cable-{actorId}-{neighbourId}`.
+- Cables are rendered in their own SVG layer beneath the buildings so they
+  never occlude facades.
+- Cables are not rendered for offline buildings (either endpoint offline
+  hides the cable between them).

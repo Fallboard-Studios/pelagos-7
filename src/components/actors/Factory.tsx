@@ -1,89 +1,59 @@
 import React, { useMemo } from 'react';
 
 import type { Actor } from '../../types/Actor';
-import { useSilhouette } from './silhouetteUtils';
 import type { FactoryVariant } from './factoryVariants';
 import { selectVariantFromSeed, VARIANT_CONF } from './factoryVariants';
 import { getRowConfig } from '../../systems/factoryPlacementSystem';
+import { calcSilhouetteSize, bottomAnchorTransform } from './silhouetteUtils';
+import { applyColorShift, shiftHSL, clamp } from '../../utils/colorUtils';
+import { getLighting, getNightDepth, FLICKER_PERIOD, FILL_TRANSITION } from '../../utils/lightingUtils';
+import { ROOFTOP_RENDERERS } from './greebles/rooftopGreebles';
+import { FACADE_RENDERERS } from './greebles/facadeGreebles';
+import type { GreebleRendererContext } from './greebles/greebleTypes';
+import { useOceanStore } from '../../stores/oceanStore';
+
+// ========================================
+// DEBUG LIGHTING
+// ========================================
+
+/** Named lighting presets for visual testing.
+ * east = sun-facing side multiplier, west = shadow-side multiplier.
+ * Values >1 are valid (boost lightness beyond base).
+ */
+const LIGHTING_PRESETS = {
+  dawn: { east: 1.1, west: 0.45 },
+  morning: { east: 1.0, west: 0.6 },
+  noon: { east: 0.9, west: 0.85 },
+  evening: { east: 0.55, west: 1.0 },
+  night: { east: 0.3, west: 0.3 },
+} as const;
+
+/**
+ * Set to one of the preset keys to preview lighting.
+ * Set to `null` to use the live day/night cycle driven by `currentMeasure`.
+ */
+const DEBUG_LIGHTING_PRESET = null as keyof typeof LIGHTING_PRESETS | null;
+// const DEBUG_LIGHTING_PRESET = "morning" as keyof typeof LIGHTING_PRESETS | null;
+
+// ========================================
+// CONSTANTS
+// ========================================
+
+/** Belt course thickness in normalised 0-100 SVG units. */
+const BELT_H = 2;
+
+// ========================================
+// COMPONENT
+// ========================================
 
 interface FactoryProps {
   actor: Actor;
 }
 
-// ----------------------------------------
-// Factory silhouette (merged from Building.tsx)
-// ----------------------------------------
-
-interface FactorySilhouetteProps {
-  variant: FactoryVariant;
-  noiseValue: number;
-  nativeSizes?: { width: number; height: number };
-  actor: Actor;
-}
-
-const FactorySilhouetteImpl: React.FC<FactorySilhouetteProps> = ({
-  variant,
-  noiseValue,
-  nativeSizes,
-  actor,
-}) => {
-  const config = VARIANT_CONF[variant];
-  const sizes = nativeSizes ?? config.nativeSizes;
-
-  const { width, height, fill, greebleFill, transform, greebles } = useSilhouette({
-    noiseValue,
-    nativeSizes: sizes,
-    colors: config.colors,
-    actor,
-    greebleConfig: config.greebleConfig,
-  });
-
-  const clipId = `${variant.toLowerCase()}-clip-${String(actor.id).replace(/[^a-zA-Z0-9-_]/g, '-')}`;
-  const pathD = config.pathD;
-
-  const bodyClipId = config.bodyClipPath
-    ? `${variant.toLowerCase()}-body-clip-${String(actor.id).replace(/[^a-zA-Z0-9-_]/g, '-')}`
-    : undefined;
-
-  return (
-    <g transform={transform}>
-      <defs>
-        <clipPath id={clipId}>
-          <path d={pathD} />
-        </clipPath>
-        {config.bodyClipPath && bodyClipId && (
-          <clipPath id={bodyClipId}>
-            <path d={config.bodyClipPath} />
-          </clipPath>
-        )}
-      </defs>
-
-      <g transform={`scale(${(width * (actor.scaleX ?? 1)) / 100}, ${(height * (actor.scaleY ?? 1)) / 100})`}>
-        <path d={pathD} fill={fill} />
-        <g clipPath={`url(#${bodyClipId ?? clipId})`}>
-          {greebles &&
-            greebles.map((r, i) => (
-              <rect
-                key={i}
-                x={r.x}
-                y={r.y}
-                width="4"
-                height="6"
-                fill={greebleFill}
-                opacity={r.opacity}
-              />
-            ))}
-        </g>
-      </g>
-    </g>
-  );
-};
-
-const FactorySilhouette = React.memo(FactorySilhouetteImpl);
 
 
-export const Factory: React.FC<FactoryProps> = ({ actor }) => {
-  // Procedurally generate silhouette from actor.id seed
+const FactoryInner: React.FC<FactoryProps> = ({ actor }) => {
+  // Procedurally generate silhouette configuration
   const config = useMemo(() => {
     const row = actor.config?.row ?? 1;
     const rowCfg = getRowConfig(row);
@@ -91,17 +61,186 @@ export const Factory: React.FC<FactoryProps> = ({ actor }) => {
     return selectVariantFromSeed(actor.id, actor.position.x, row, available);
   }, [actor.id, actor.position.x, actor.config?.row]);
 
-  const native = VARIANT_CONF[config.variant].nativeSizes;
+  const sizeRange = VARIANT_CONF[config.variant].sizeRange;
+  const { width, height } = calcSilhouetteSize(config.noiseValue, sizeRange);
+
+  // compute body fills — east/west split prepares for day/night system
+  const hueShift = actor.config?.hueShift ?? 0;
+  const satShift = actor.config?.satShift ?? 0;
+  const shift = { hueShift, satShift };
+  const frontCornerX = config.frontCornerX;
+
+  // Per-building phase offset (0..FLICKER_PERIOD-1) staggers window rerolls
+  // across FLICKER_PERIOD consecutive measures so no two buildings re-render
+  // in the same frame at an epoch boundary.
+  const buildingSeed = parseInt(actor.id.slice(0, 8), 16) || 0;
+  const buildingPhase = buildingSeed % FLICKER_PERIOD;
+
+  // Resolve east/west lightness multipliers:
+  // debug preset overrides the live cycle (useful for visual testing).
+  //
+  // lightMeasure: quantised to multiples of 4 so body fills only update once
+  // every 4 measures — the 96-measure day cycle changes slowly enough that
+  // sub-4-measure granularity is imperceptible.
+  const lightMeasure = useOceanStore(state => Math.round(state.currentMeasure / 4) * 4);
+  // flickerEpoch: phased per building so window rerolls are spread across
+  // FLICKER_PERIOD consecutive measures rather than all firing at once.
+  const flickerEpoch = useOceanStore(state =>
+    Math.floor((state.currentMeasure + buildingPhase) / FLICKER_PERIOD)
+  );
+
+  const preset = DEBUG_LIGHTING_PRESET ? LIGHTING_PRESETS[DEBUG_LIGHTING_PRESET] : null;
+  const { eastL: eastLMultiplier, westL: westLMultiplier } = preset
+    ? { eastL: preset.east, westL: preset.west }
+    : getLighting(lightMeasure);
+
+  const nightDepth = getNightDepth(eastLMultiplier, westLMultiplier);
+  /** Average used for elements spanning the full roof width */
+  const roofLMultiplier = (eastLMultiplier + westLMultiplier) / 2;
+
+  // Pre-shift the palette so all greebles (roof + facade) share the
+  // building's per-instance hue/sat variation.
+  const rawColors = VARIANT_CONF[config.variant].colors;
+  const shiftedColors = {
+    body: shiftHSL(rawColors.body, shift),
+    accent: shiftHSL(rawColors.accent, shift),
+    greeble: shiftHSL(rawColors.greeble, shift),
+    illuminated: shiftHSL(rawColors.illuminated, shift),
+  };
+
+  // Apply lightness multipliers to body color using already-shifted palette
+  const eastFill = applyColorShift(shiftedColors.body, { hueShift: 0, satShift: 0 }, eastLMultiplier);
+  const westFill = applyColorShift(shiftedColors.body, { hueShift: 0, satShift: 0 }, westLMultiplier);
+
+  const transform = bottomAnchorTransform(actor, height);
+  const safeId = String(actor.id).replace(/[^a-zA-Z0-9-_]/g, '-');
+  const bodyClipId = `body-clip-${safeId}`;
+  const westClipId = `west-clip-${safeId}`;
+
+  // Actual pixel dimensions after actor scale is applied.
+  // The scale group inside multiplies by (scaleX/Y ?? 1), so rooftop greebles —
+  // which render outside that group — must use these values, not bare width/height.
+  const actualWidth = width * (actor.scaleX ?? 1);
+  const actualHeight = height * (actor.scaleY ?? 1);
+
+  // build context for any greeble renderer
+  const ctx: GreebleRendererContext = {
+    buildingWidth: width,
+    buildingHeight: height,
+    roofY: 1, // 1px overlap into building top prevents sub-pixel seam
+    seed: buildingSeed,
+    colors: shiftedColors,
+    lMultiplier: roofLMultiplier,
+    eastLMultiplier,
+    westLMultiplier,
+    frontCornerX,
+    nightDepth,
+    flickerEpoch,
+  };
+
+  const rooftopElement =
+    actor.config?.rooftopGreeble
+      ? ROOFTOP_RENDERERS[actor.config.rooftopGreeble]({
+        ...ctx,
+        // Rooftop greebles render outside the scale group, so they need the
+        // actual rendered pixel dimensions rather than the normalized values.
+        buildingWidth: actualWidth,
+        buildingHeight: actualHeight,
+        frontCornerX: (frontCornerX / 100) * actualWidth,
+      })
+      : null;
+
+  // ----------------------------------------
+  // Facade: belt courses + window zones
+  // ----------------------------------------
+  const beltCourseCount = actor.config?.beltCourseCount ?? 0;
+  const facadeGreeble = actor.config?.facadeGreeble;
+
+  let facadeContent: React.ReactElement | null = null;
+  let beltContent: React.ReactElement | null = null;
+  if (facadeGreeble) {
+    if (beltCourseCount === 0) {
+      // No belt courses — windows span full facade height
+      facadeContent = FACADE_RENDERERS[facadeGreeble](ctx);
+    } else {
+      // Divide facade into (beltCourseCount + 1) window zones separated by belt rects
+      const totalBeltH = beltCourseCount * BELT_H;
+      const zoneH = (100 - totalBeltH) / (beltCourseCount + 1);
+      const accentBase = shiftedColors.accent;
+      const beltAccent = { ...accentBase, l: clamp(accentBase.l + 5, 0, 100) };
+      const noShift = { hueShift: 0, satShift: 0 };
+      const eastBeltFill = applyColorShift(beltAccent, noShift, eastLMultiplier);
+      const westBeltFill = applyColorShift(beltAccent, noShift, westLMultiplier);
+
+      const zoneElements: React.ReactElement[] = [];
+      const beltElements: React.ReactElement[] = [];
+      for (let i = 0; i <= beltCourseCount; i++) {
+        const zoneY = i * (zoneH + BELT_H);
+        const zoneCtx: GreebleRendererContext = {
+          ...ctx,
+          zoneY,
+          zoneHeight: zoneH,
+          // independent seed per zone for varied window patterns
+          seed: ctx.seed + 1000 * (i + 1),
+        };
+        const zoneEl = FACADE_RENDERERS[facadeGreeble](zoneCtx);
+        if (zoneEl) {
+          zoneElements.push(<React.Fragment key={`zone-${i}`}>{zoneEl}</React.Fragment>);
+        }
+        // Belt separators: left rect = west face, right rect = east face
+        if (i < beltCourseCount) {
+          const by = zoneY + zoneH;
+          beltElements.push(
+            <React.Fragment key={`belt-${i}`}>
+              <rect x={0} y={by} width={frontCornerX} height={BELT_H} fill={westBeltFill} style={{ transition: FILL_TRANSITION }} />
+              <rect x={frontCornerX} y={by} width={100 - frontCornerX} height={BELT_H} fill={eastBeltFill} style={{ transition: FILL_TRANSITION }} />
+            </React.Fragment>
+          );
+        }
+      }
+      facadeContent = <>{zoneElements}</>;
+      beltContent = <>{beltElements}</>;
+    }
+  }
+
   return (
-    <g>
-      <FactorySilhouette
-        variant={config.variant as FactoryVariant}
-        noiseValue={config.noiseValue}
-        nativeSizes={native}
-        actor={actor}
-      />
+    <g
+      transform={transform}
+      data-factory-type={config.variant}
+      data-rooftop-greeble={actor.config?.rooftopGreeble ?? 'none'}
+      data-facade-greeble={actor.config?.facadeGreeble ?? 'none'}
+    >
+      <defs>
+        {/* Full body clip — keeps facade greebles inside building bounds */}
+        <clipPath id={bodyClipId}>
+          <rect x="2" y="2" width="96" height="96" />
+        </clipPath>
+        {/* Right-face clip (x ≥ frontCornerX) — left/west is the base rect */}
+        <clipPath id={westClipId}>
+          <rect x={frontCornerX} y={0} width={100 - frontCornerX} height={100} />
+        </clipPath>
+      </defs>
+
+      <g transform={`scale(${(width * (actor.scaleX ?? 1)) / 100}, ${(height * (actor.scaleY ?? 1)) / 100})`}>
+        {/* Body: base rect = left (west) face; overlay clipped to right (east) face */}
+        <rect x="0" y="0" width="100" height="100" fill={westFill} style={{ transition: FILL_TRANSITION }} />
+        <g clipPath={`url(#${westClipId})`}>
+          <rect x="0" y="0" width="100" height="100" fill={eastFill} style={{ transition: FILL_TRANSITION }} />
+        </g>
+        {/* Facade greebles clipped to body bounds */}
+        <g clipPath={`url(#${bodyClipId})`}>{facadeContent}</g>
+        {/* Belt separators rendered outside the body clip so they span full width */}
+        {beltContent}
+      </g>
+      {/* rooftop greeble rendered outside scaled group so it's not clipped */}
+      {rooftopElement}
     </g>
   );
 };
 
+/**
+ * Factory building component. Wrapped in React.memo because factory actors
+ * are static after spawn — prevents re-renders driven by robot state updates.
+ */
+export const Factory = React.memo(FactoryInner);
 export default Factory;

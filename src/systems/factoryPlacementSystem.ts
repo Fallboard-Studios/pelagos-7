@@ -14,27 +14,50 @@ interface FactoryRowConfig {
   availableFactoryTypes?: FactoryVariant[]; // Optional filter for which factory variants can be placed in this row
   factoriesPerRow: number; // Maximum number of factories in this row
   edgeWidth?: number; // For 'edges' spreadType, width of each edge segment (default: 20% of screen width)
+  centerWidth?: number; // For 'center' spreadType, width of center segment (default: 40% of screen width)
+  row?: 'background' | 'midground' | 'foreground'; // Optional label for rendering order and floor layering
 }
 // Factory placement rows (3 depth layers)
 const FACTORY_ROWS: FactoryRowConfig[] = [
-  { y: 870, spreadType: 'center', factoriesPerRow: 4, availableFactoryTypes: ['Skyscraper'] },
-  { y: 890, spreadType: 'center', factoriesPerRow: 2, availableFactoryTypes: ['Skyscraper'] },
-  { y: 860, spreadType: 'center', factoriesPerRow: 5, availableFactoryTypes: ['Monolith'] },
-  { y: 919, spreadType: 'full', factoriesPerRow: 5, availableFactoryTypes: ['Refinery', 'Stacks'] },
-  { y: 920, spreadType: 'full', factoriesPerRow: 4, availableFactoryTypes: ['Refinery'] },
-  { y: 921, spreadType: 'full', factoriesPerRow: 6, availableFactoryTypes: ['Refinery'] },
-  // { y: 840, spreadType: 'edges', factoriesPerRow: 2, edgeWidth: 0.05, availableFactoryTypes: ['Warehouse'] },
-  { y: 860, spreadType: 'edges', factoriesPerRow: 3, edgeWidth: 0.1, availableFactoryTypes: ['Warehouse'] },
-  { y: 980, spreadType: 'edges', factoriesPerRow: 6, edgeWidth: 0.15, availableFactoryTypes: ['Warehouse'] },
-  { y: 1000, spreadType: 'edges', factoriesPerRow: 3, edgeWidth: 0.2, availableFactoryTypes: ['Warehouse'] },
-  { y: 1200, spreadType: 'edges', factoriesPerRow: 8, edgeWidth: 0.3, availableFactoryTypes: ['Warehouse'] },
+  // BACKGROUND
+  { y: 700, spreadType: 'center', factoriesPerRow: 3, centerWidth: 0.3, availableFactoryTypes: ['Skyscraper'], row: 'background' },
+  { y: 1000, spreadType: 'center', factoriesPerRow: 5, centerWidth: 0.5, availableFactoryTypes: ['Skyscraper'], row: 'background' },
+  { y: 980, spreadType: 'full', factoriesPerRow: 24, centerWidth: 0.7, availableFactoryTypes: ['Monolith'], row: 'background' },
+  // MIDGROUND
+  { y: 1019, spreadType: 'full', factoriesPerRow: 5, availableFactoryTypes: ['Refinery', 'Stacks'], row: 'midground' },
+  { y: 1030, spreadType: 'full', factoriesPerRow: 4, availableFactoryTypes: ['Refinery', 'Stacks', 'Warehouse'], row: 'midground' },
+  // FOREGROUND
+  { y: 1180, spreadType: 'center', factoriesPerRow: 8, centerWidth: 0.5, availableFactoryTypes: ['Refinery'], row: 'foreground' },
+  { y: 900, spreadType: 'edges', factoriesPerRow: 4, edgeWidth: 0.05, availableFactoryTypes: ['Warehouse'], row: 'foreground' },
+  { y: 1000, spreadType: 'edges', factoriesPerRow: 3, edgeWidth: 0.2, availableFactoryTypes: ['Warehouse', 'Monolith'], row: 'foreground' },
+  { y: 1200, spreadType: 'edges', factoriesPerRow: 8, edgeWidth: 0.3, availableFactoryTypes: ['Warehouse'], row: 'foreground' },
 ];
+
+// const FACTORY_ROWS: FactoryRowConfig[] = [
+//   // MIDGROUND
+//   { y: 219, spreadType: 'full', factoriesPerRow: 5, availableFactoryTypes: ['Monolith'], row: 'midground' },
+//   { y: 1030, spreadType: 'full', factoriesPerRow: 4, availableFactoryTypes: ['Monolith'], row: 'midground' },
+//   // MIDGROUND
+//   { y: 619, spreadType: 'full', factoriesPerRow: 3, availableFactoryTypes: ['Monolith'], row: 'midground' },
+//   { y: 1130, spreadType: 'full', factoriesPerRow: 5, availableFactoryTypes: ['Monolith'], row: 'midground' },
+//   { y: 319, spreadType: 'full', factoriesPerRow: 5, availableFactoryTypes: ['Monolith'], row: 'midground' },
+//   { y: 960, spreadType: 'full', factoriesPerRow: 7, availableFactoryTypes: ['Monolith'], row: 'midground' },
+//   // MIDGROUND
+//   { y: 500, spreadType: 'full', factoriesPerRow: 5, availableFactoryTypes: ['Monolith'], row: 'midground' },
+//   { y: 730, spreadType: 'full', factoriesPerRow: 7, availableFactoryTypes: ['Monolith'], row: 'midground' },
+//   // FOREGROUND
+//   { y: 280, spreadType: 'center', factoriesPerRow: 4, centerWidth: 0.5, availableFactoryTypes: ['Monolith'], row: 'foreground' },
+//   { y: 900, spreadType: 'center', factoriesPerRow: 2, centerWidth: 0.4, availableFactoryTypes: ['Monolith'], row: 'foreground' },
+//   { y: 400, spreadType: 'full', factoriesPerRow: 3, availableFactoryTypes: ['Monolith'], row: 'foreground' },
+//   { y: 1200, spreadType: 'full', factoriesPerRow: 3, availableFactoryTypes: ['Monolith'], row: 'foreground' },
+// ];
 
 // no longer need global FACTORIES_PER_ROW; each row config knows how many factories it wants
 
 const PRODUCTION_INTERVAL = 60; // measures
 
 const DEFAULT_ROW_EDGE_WIDTH = 0.3; // 20% of screen width on each edge
+const DEFAULT_CENTER_WIDTH = 0.4; // 50% of screen width for center spread
 
 // MIN_BUILDING_GAP previously enforced gap between front row buildings, 
 // no longer necessary now that scale is random and available types fixed.
@@ -50,8 +73,17 @@ export function createFactory(position: { x: number; y: number }, row = 0): Acto
   // apply a small random scale variation independent of row
   const rand = 0.9 + Math.random() * 0.2; // 0.9–1.1
 
+  const id = crypto.randomUUID();
+
+  // Use the same availableTypes that Factory.tsx will use, so the variant —
+  // and therefore greeble pools — are consistent between spawn and render.
+  const availableTypes = getRowConfig(row)?.availableFactoryTypes;
+
+  // Generate deterministic color shifts and greeble choices from actor ID
+  const { hueShift, satShift, rooftopGreeble, facadeGreeble, beltCourseCount } = selectVariantFromSeed(id, position.x, row, availableTypes);
+
   return {
-    id: crypto.randomUUID(),
+    id,
     type: ActorType.FACTORY,
     position: { x: Math.round(position.x), y: Math.round(position.y) },
     scaleX: rand,
@@ -62,6 +94,11 @@ export function createFactory(position: { x: number; y: number }, row = 0): Acto
     config: {
       productionInterval: PRODUCTION_INTERVAL,
       row,
+      hueShift,
+      satShift,
+      rooftopGreeble,
+      facadeGreeble,
+      beltCourseCount,
     },
   };
 }
@@ -90,10 +127,10 @@ export function placeFactories(): Actor[] {
       factory.id,
       currX,
       rowIndex,
-      rowConfig.availableFactoryTypes,
+      rowConfig.availableFactoryTypes
     );
-    const native = VARIANT_CONF[variant].nativeSizes;
-    return calcSilhouetteSize(noiseValue, native).width;
+    const range = VARIANT_CONF[variant].sizeRange;
+    return calcSilhouetteSize(noiseValue, range).width;
   }
 
   // Place factories in each row
@@ -141,8 +178,8 @@ export function placeFactories(): Actor[] {
       }
     } else if (rowConfig.spreadType === 'center') {
       // center segment: fill from leftBound to rightBound or count
-      let currX = WORLD_BOUNDS.width * 0.4;
-      const rightBoundary = WORLD_BOUNDS.width * 0.6;
+      let currX = (WORLD_BOUNDS.width * (1 - (rowConfig.centerWidth ?? DEFAULT_CENTER_WIDTH)) / 2) - 20; // start at left edge of center segment
+      const rightBoundary = (WORLD_BOUNDS.width * (1 + (rowConfig.centerWidth ?? DEFAULT_CENTER_WIDTH)) / 2) + 20; // end at right edge of center segment, account for max factory width
       let placedCenter = 0;
       while (currX < rightBoundary && placedCenter < rowConfig.factoriesPerRow) {
         const factory = createFactory({ x: currX, y }, rowIndex);

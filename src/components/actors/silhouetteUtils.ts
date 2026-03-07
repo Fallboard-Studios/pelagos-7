@@ -3,6 +3,7 @@ import Alea from 'alea';
 import { createNoise2D } from 'simplex-noise';
 
 import type { Actor } from '../../types/Actor';
+import { lerp } from '../../utils/math';
 
 export const SVG_VIEWBOX = '0 0 100 100';
 export const SVG_PRESERVE_ASPECT = 'xMidYMax meet';
@@ -30,14 +31,20 @@ export function shiftColorByNoise(hexColor: string, noiseValue: number): string 
   return `#${toHex(rNew)}${toHex(gNew)}${toHex(bNew)}`;
 }
 
+export interface SizeRange {
+  minWidth: number;
+  maxWidth: number;
+  minHeight: number;
+  maxHeight: number;
+}
+
 export function calcSilhouetteSize(
   noiseValue: number,
-  nativeSizes: { width: number; height: number },
+  range: SizeRange,
 ) {
-
-  const width = noiseValue * nativeSizes.width / 2 + nativeSizes.width * 0.85; // Ensure a minimum width of 50% native size
-  const height = noiseValue * nativeSizes.height / 2 + nativeSizes.height * 0.85; // Ensure a minimum height of 50% native size
-
+  // Map noise value [0,1] linearly into the specified min/max ranges
+  const width = lerp(range.minWidth, range.maxWidth, noiseValue);
+  const height = lerp(range.minHeight, range.maxHeight, noiseValue);
   return { width, height };
 }
 
@@ -124,7 +131,7 @@ export interface SilhouetteResult {
 
 export function useSilhouette(props: {
   noiseValue: number;
-  nativeSizes: { width: number; height: number };
+  sizeRange: SizeRange;
   colors: { light: string; base: string; dark: string };
   actor: Actor;
   greebleConfig?: {
@@ -132,24 +139,19 @@ export function useSilhouette(props: {
     rows: number;
   };
 }): SilhouetteResult {
-  const { noiseValue, nativeSizes, colors, actor, greebleConfig } = props;
+  const { noiseValue, sizeRange, colors, actor, greebleConfig } = props;
 
   // Extract primitives so useMemo only re-runs when actual values change,
   // not whenever parent creates a new object literal (e.g. on every Zustand tick)
-  const nativeWidth = nativeSizes.width;
-  const nativeHeight = nativeSizes.height;
-  const colorLight = shiftColorByNoise(colors.light, noiseValue);
-  const colorBase = shiftColorByNoise(colors.base, noiseValue);
-  const colorDark = shiftColorByNoise(colors.dark, noiseValue);
+  const { minWidth, maxWidth, minHeight, maxHeight } = sizeRange;
   const actorX = actor.position.x;
   const actorY = actor.position.y;
   const cols = greebleConfig?.cols;
   const rows = greebleConfig?.rows;
 
   return useMemo(() => {
-    const sizes = { width: nativeWidth, height: nativeHeight };
-    const clrs = { light: colorLight, base: colorBase, dark: colorDark };
-    const { width, height } = calcSilhouetteSize(noiseValue, sizes);
+    const clrs = colors;
+    const { width, height } = calcSilhouetteSize(noiseValue, sizeRange);
     const fill = pickSilhouetteFill(noiseValue, clrs);
     const greebleFill = pickSilhouetteGreebleFill(noiseValue, clrs);
     // subtract computed height so the bottom of every building lands at actorY;
@@ -162,5 +164,5 @@ export function useSilhouette(props: {
       result.greebles = generateGreebleRects(noiseValue, cols, rows);
     }
     return result;
-  }, [noiseValue, nativeWidth, nativeHeight, colorLight, colorBase, colorDark, actorX, actorY, cols, rows, actor.scaleY]);
+  }, [noiseValue, minWidth, maxWidth, minHeight, maxHeight, colors, actorX, actorY, cols, rows, actor.scaleY]);
 }

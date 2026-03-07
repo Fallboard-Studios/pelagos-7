@@ -5,10 +5,17 @@ import { PlayButton } from './components/PlayButton';
 import { AudioStatus } from './components/debug/AudioStatus';
 import { spawnRobot } from './systems/spawnSystem';
 import { useOceanStore } from './stores/oceanStore';
+import { subscribeToMeasure } from './engine/beatClock';
 import { DEV_TUNING } from './constants';
 
 function App() {
   const [isAudioReady, setAudioReady] = useState(false);
+
+  // Wire the BeatClock measure tick → store so factories can react to day/night
+  const handleAudioReady = () => {
+    subscribeToMeasure((m) => useOceanStore.getState().setCurrentMeasure(m));
+    setAudioReady(true);
+  };
 
   // Expose debug functions globally in dev mode
   useEffect(() => {
@@ -25,7 +32,7 @@ function App() {
 
   return (
     <>
-      {!isAudioReady && <PlayButton onSuccess={() => setAudioReady(true)} />}
+      {!isAudioReady && <PlayButton onSuccess={handleAudioReady} />}
       <OceanScene />
       <AudioStatus />
     </>

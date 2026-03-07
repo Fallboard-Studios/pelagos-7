@@ -6,14 +6,15 @@ import { calcSilhouetteSize, pickSilhouetteFill, bottomAnchorTransform } from '.
 const DUMMY_ACTOR: Actor = { id: 'a', type: ActorType.FACTORY, position: { x: 100, y: 900 }, isActive: true, cooldownRemaining: 0 };
 
 describe('silhouette utils', () => {
-  it('calcSilhouetteSize returns expected width/height using current formula', () => {
-    const native = { width: 200, height: 300 };
+  it('calcSilhouetteSize maps noise value into provided sizeRange', () => {
+    const range = { minWidth: 100, maxWidth: 200, minHeight: 50, maxHeight: 150 };
 
-    // noiseValue = 0 → minimum size floor (0.85×native)
-    expect(calcSilhouetteSize(0, native)).toEqual({ width: 200 * 0.85, height: 300 * 0.85 });
-
-    // noiseValue = 1 → floor plus half of native added (width = native*0.85 + native/2)
-    expect(calcSilhouetteSize(1, native)).toEqual({ width: 200 * 0.85 + 100, height: 300 * 0.85 + 150 });
+    // noiseValue = 0 → min values
+    expect(calcSilhouetteSize(0, range)).toEqual({ width: 100, height: 50 });
+    // noiseValue = 1 → max values
+    expect(calcSilhouetteSize(1, range)).toEqual({ width: 200, height: 150 });
+    // midpoint should be average
+    expect(calcSilhouetteSize(0.5, range)).toEqual({ width: 150, height: 100 });
   });
 
   it('pickSilhouetteFill uses thresholds correctly', () => {

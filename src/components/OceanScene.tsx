@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import './OceanScene.css';
 import { Robot } from './robot/Robot';
@@ -15,6 +15,7 @@ import { placeFactories, getRowConfig } from '../systems/factoryPlacementSystem'
 import { ActorType } from '../types/Actor';
 import { startFactoryProduction } from '../systems/factorySystem';
 import colorTheme from '../constants/colorTheme.json';
+import { hslToString } from '../utils/colorUtils';
 
 // ========================================
 // TYPES & INTERFACES
@@ -43,22 +44,29 @@ export function OceanScene({
   const robots = useOceanStore((s) => s.robots);
   const actors = useOceanStore((s) => s.actors);
 
-  // categorize factory actors by spreadType
-  const backgroundFactories = actors.filter((a) => {
-    if (a.type !== ActorType.FACTORY) return false;
-    const cfg = getRowConfig(a.config?.row ?? -1);
-    return cfg?.spreadType === 'center';
-  });
-  const midgroundFactories = actors.filter((a) => {
-    if (a.type !== ActorType.FACTORY) return false;
-    const cfg = getRowConfig(a.config?.row ?? -1);
-    return cfg?.spreadType === 'full';
-  });
-  const frontgroundFactories = actors.filter((a) => {
-    if (a.type !== ActorType.FACTORY) return false;
-    const cfg = getRowConfig(a.config?.row ?? -1);
-    return cfg?.spreadType === 'edges';
-  });
+  // categorize factory actors by row — memoised so robot updates don't
+  // create new array references and trigger unnecessary Factory re-renders
+  const backgroundFactories = useMemo(
+    () => actors.filter((a) => {
+      if (a.type !== ActorType.FACTORY) return false;
+      return getRowConfig(a.config?.row ?? -1)?.row === 'background';
+    }),
+    [actors],
+  );
+  const midgroundFactories = useMemo(
+    () => actors.filter((a) => {
+      if (a.type !== ActorType.FACTORY) return false;
+      return getRowConfig(a.config?.row ?? -1)?.row === 'midground';
+    }),
+    [actors],
+  );
+  const frontgroundFactories = useMemo(
+    () => actors.filter((a) => {
+      if (a.type !== ActorType.FACTORY) return false;
+      return getRowConfig(a.config?.row ?? -1)?.row === 'foreground';
+    }),
+    [actors],
+  );
 
   // Spawn initial robots and place factories on mount
   useEffect(() => {
@@ -107,12 +115,12 @@ export function OceanScene({
         <defs>
           {/* Gradients between factory rows */}
           <linearGradient id="gradient-0-1" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#0c1c4f" stopOpacity=".5" />
-            <stop offset="100%" stopColor={colorTheme.vent.shadow} stopOpacity=".5" />
+            <stop offset="0%" stopColor="#0c1c4f" stopOpacity=".7" />
+            <stop offset="100%" stopColor={hslToString(colorTheme.vent.shadow)} stopOpacity=".7" />
           </linearGradient>
           <linearGradient id="gradient-1-2" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor={colorTheme.vent.shadow} stopOpacity=".5" />
-            <stop offset="100%" stopColor={colorTheme.vent.shadow} stopOpacity=".1" />
+            <stop offset="0%" stopColor={hslToString(colorTheme.vent.shadow)} stopOpacity=".5" />
+            <stop offset="100%" stopColor={hslToString(colorTheme.vent.shadow)} stopOpacity=".5" />
           </linearGradient>
         </defs>
 

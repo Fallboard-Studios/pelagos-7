@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { getVariantFromNoise, selectVariantFromSeed } from './factoryVariants';
+import { getVariantFromNoise, selectVariantFromSeed, VARIANT_CONF } from './factoryVariants';
 import type { FactoryVariant } from './factoryVariants';
 
 describe('Factory variant selection', () => {
@@ -34,5 +34,66 @@ describe('Factory variant selection', () => {
     // At least one difference expected across seeds/positions
     expect(s1.variant === s2.variant && s1.noiseValue === s2.noiseValue).toBe(false);
     expect(s1.variant === s3.variant && s1.noiseValue === s3.noiseValue).toBe(false);
+  });
+
+  it('all variants define the new config schema', () => {
+    for (const key of Object.keys(VARIANT_CONF) as FactoryVariant[]) {
+      const v = VARIANT_CONF[key];
+      expect(v).toHaveProperty('sizeRange');
+      expect(v.sizeRange).toHaveProperty('minWidth');
+      expect(v.sizeRange).toHaveProperty('maxHeight');
+      expect(v).toHaveProperty('colors');
+      expect(v.colors).toHaveProperty('body');
+      expect(v.colors).toHaveProperty('accent');
+      expect(v.colors).toHaveProperty('greeble');
+      expect(v.colors).toHaveProperty('illuminated');
+      expect(v).toHaveProperty('colorRanges');
+      expect(Array.isArray(v.colorRanges.hueShiftRange)).toBe(true);
+      expect(typeof v.frontCornerX).toBe('number');
+      // greebleConfig now contains rooftop/facade pools
+      expect(v).toHaveProperty('greebleConfig');
+      const gc = (v as any).greebleConfig;
+      expect(Array.isArray(gc.allowedRooftop)).toBe(true);
+      expect(Array.isArray(gc.allowedFacade)).toBe(true);
+      expect(gc.maxRooftop).toBe(1);
+
+      // character-specific pools (spot check)
+      if (key === 'Monolith') {
+        expect(gc.allowedRooftop).toEqual(expect.arrayContaining(['steppeRoof', 'machinery']));
+      }
+      if (key === 'Stacks') {
+        expect(gc.allowedFacade).toEqual(expect.arrayContaining(['tallWindows']));
+        expect(typeof gc.maxBeltCourses).toBe('number');
+      }
+
+      // old path-based fields should no longer exist
+      expect(v).not.toHaveProperty('pathD');
+      expect(v).not.toHaveProperty('bodyClipPath');
+    }
+  });
+
+  it('all variants define maxBeltCourses as a number in greebleConfig', () => {
+    for (const key of Object.keys(VARIANT_CONF) as FactoryVariant[]) {
+      const gc = (VARIANT_CONF[key] as any).greebleConfig;
+      expect(typeof gc.maxBeltCourses).toBe('number');
+      expect(gc.maxBeltCourses).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it('selectVariantFromSeed returns beltCourseCount within [0..maxBeltCourses]', () => {
+    // Test many seeds to exercise the PRNG range
+    const seeds = ['seed-a', 'seed-b', 'seed-c', 'seed-d', 'seed-e'];
+    for (const seed of seeds) {
+      const result = selectVariantFromSeed(seed, 500);
+      const maxBeltCourses = (VARIANT_CONF[result.variant] as any).greebleConfig.maxBeltCourses as number;
+      expect(result.beltCourseCount).toBeGreaterThanOrEqual(0);
+      expect(result.beltCourseCount).toBeLessThanOrEqual(maxBeltCourses);
+    }
+  });
+
+  it('beltCourseCount is deterministic for the same seed', () => {
+    const a = selectVariantFromSeed('det-seed-42', 300);
+    const b = selectVariantFromSeed('det-seed-42', 300);
+    expect(a.beltCourseCount).toBe(b.beltCourseCount);
   });
 });
