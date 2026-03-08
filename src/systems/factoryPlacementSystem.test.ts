@@ -265,7 +265,7 @@ describe('FactoryPlacementSystem', () => {
 
     // purpose tests added per Phase 9 requirements
     it('selectVariantFromSeed returns correct purpose for each variant', () => {
-      (['Monolith','Stacks','Refinery','Skyscraper','Warehouse'] as const).forEach((variant) => {
+      (['Monolith', 'Stacks', 'Refinery', 'Skyscraper', 'Warehouse'] as const).forEach((variant) => {
         const info = selectVariantFromSeed('dummy-id', 0, 0, [variant]);
         expect(info.purpose).toBe(VARIANT_CONF[variant].purpose);
       });
