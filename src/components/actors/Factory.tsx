@@ -11,6 +11,8 @@ import { ROOFTOP_RENDERERS } from './greebles/rooftopGreebles';
 import { FACADE_RENDERERS } from './greebles/facadeGreebles';
 import type { GreebleRendererContext } from './greebles/greebleTypes';
 import { useOceanStore } from '../../stores/oceanStore';
+import BubbleStream from './BubbleStream';
+import type { FactoryPurpose } from './factoryVariants';
 
 // ========================================
 // DEBUG LIGHTING
@@ -41,6 +43,13 @@ const DEBUG_LIGHTING_PRESET = null as keyof typeof LIGHTING_PRESETS | null;
 
 /** Belt course thickness in normalised 0-100 SVG units. */
 const BELT_H = 2;
+
+// purposes eligible for bubble vents
+const BUBBLE_PURPOSES: Set<FactoryPurpose> = new Set([
+  'heavyIndustry',
+  'chemicalProcessing',
+  'pipeWorks',
+]);
 
 // ========================================
 // COMPONENT
@@ -101,6 +110,14 @@ const FactoryInner: React.FC<FactoryProps> = ({ actor }) => {
   // Pre-shift the palette so all greebles (roof + facade) share the
   // building's per-instance hue/sat variation.
   const rawColors = VARIANT_CONF[config.variant].colors;
+
+  // --- bubble vent coordinates (scene space) ---------------------------------
+  const ventXnorm = (buildingSeed % 60) + 20; // 20–80% of normalised width
+  const ventXPx = (ventXnorm / 100) * actualWidth;
+  // ventY is top edge of building in world coords
+  const ventY = actor.position.y - actualHeight;
+  const isOffline = actor.config?.isOffline ?? false;
+  const isActive = !isOffline;
   const shiftedColors = {
     body: shiftHSL(rawColors.body, shift),
     accent: shiftHSL(rawColors.accent, shift),
@@ -234,6 +251,16 @@ const FactoryInner: React.FC<FactoryProps> = ({ actor }) => {
       </g>
       {/* rooftop greeble rendered outside scaled group so it's not clipped */}
       {rooftopElement}
+      {/* bubble vent animation (scene coordinates) */}
+      {BUBBLE_PURPOSES.has(actor.config?.purpose ?? 'heavyIndustry') && (
+        <BubbleStream
+          actorId={actor.id}
+          ventX={ventXPx}
+          ventY={ventY}
+          seed={buildingSeed}
+          isActive={isActive}
+        />
+      )}
     </g>
   );
 };
