@@ -1,8 +1,24 @@
-/** @vitest-environment jsdom */
 import React from 'react';
-import ReactDOM from 'react-dom';
+// stub gsap timeline for tests to avoid DOM dependency
+vi.mock('gsap', () => ({
+  timeline: () => {
+    const tl: any = {
+      fromTo: () => tl,
+      play: () => tl,
+      pause: () => tl,
+      repeat: () => -1,
+      kill: () => {},
+      paused: () => false,
+    };
+    return tl;
+  },
+}));
+
+import * as ReactDOM from 'react-dom/client';
+
 import { timelineMap } from '../../animation/timelineMap';
 import BubbleStream from './BubbleStream';
+import { describe, it, expect, afterEach } from 'vitest';
 
 describe('BubbleStream', () => {
   afterEach(() => {
@@ -18,7 +34,8 @@ describe('BubbleStream', () => {
       isActive: true,
     };
     const container = document.createElement('div');
-    ReactDOM.render(<BubbleStream {...props} />, container);
+    const root = ReactDOM.createRoot(container);
+    root.render(<BubbleStream {...props} />);
 
     const circle = container.querySelector('circle');
     expect(circle).not.toBeNull();
@@ -41,7 +58,8 @@ describe('BubbleStream', () => {
       isActive: true,
     };
     const container = document.createElement('div');
-    ReactDOM.render(<BubbleStream {...props} />, container);
+    const root = ReactDOM.createRoot(container);
+    root.render(<BubbleStream {...props} />);
     const key = `bubble-${props.actorId}`;
     const tl = timelineMap.get(key);
     expect(tl).toBeDefined();
