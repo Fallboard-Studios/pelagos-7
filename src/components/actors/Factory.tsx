@@ -111,19 +111,16 @@ const FactoryInner: React.FC<FactoryProps> = ({ actor }) => {
   // building's per-instance hue/sat variation.
   const rawColors = VARIANT_CONF[config.variant].colors;
 
-  // --- bubble vent coordinates (scene space) ---------------------------------
-  const ventXnorm = (buildingSeed % 60) + 20; // 20–80% of normalised width
-  const ventXPx = (ventXnorm / 100) * actualWidth;
-  // ventY is top edge of building in world coords
-  const ventY = actor.position.y - actualHeight;
-  const isOffline = actor.config?.isOffline ?? false;
-  const isActive = !isOffline;
   const shiftedColors = {
     body: shiftHSL(rawColors.body, shift),
     accent: shiftHSL(rawColors.accent, shift),
     greeble: shiftHSL(rawColors.greeble, shift),
     illuminated: shiftHSL(rawColors.illuminated, shift),
   };
+
+  // --- bubble vent helper values; actualWidth/Height calculated below
+  const isOffline = actor.config?.isOffline ?? false;
+  const isActive = !isOffline;
 
   // Apply lightness multipliers to body color using already-shifted palette
   const eastFill = applyColorShift(shiftedColors.body, { hueShift: 0, satShift: 0 }, eastLMultiplier);
@@ -139,6 +136,12 @@ const FactoryInner: React.FC<FactoryProps> = ({ actor }) => {
   // which render outside that group — must use these values, not bare width/height.
   const actualWidth = width * (actor.scaleX ?? 1);
   const actualHeight = height * (actor.scaleY ?? 1);
+
+  // --- bubble vent coordinates (scene space) ---------------------------------
+  const ventXnorm = (buildingSeed % 60) + 20; // 20–80% of normalised width
+  const ventXPx = (ventXnorm / 100) * actualWidth;
+  // ventY is top edge of building in world coords
+  const ventY = actor.position.y - actualHeight;
 
   // build context for any greeble renderer
   const ctx: GreebleRendererContext = {
