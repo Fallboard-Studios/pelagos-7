@@ -4,7 +4,7 @@ import './OceanScene.css';
 import { Robot } from './robot/Robot';
 import { InteractionStatus } from './debug/InteractionStatus';
 import { useOceanStore } from '../stores/oceanStore';
-import { spawnRobot } from '../systems/spawnSystem';
+import { spawnRobot, startSpawnScheduler, stopSpawnScheduler } from '../systems/spawnSystem';
 import {
   startCollisionDetection,
   stopCollisionDetection,
@@ -88,11 +88,13 @@ export function OceanScene({
       }
     });
 
-    // Start collision detection
+    // Start periodic robot spawning and collision detection
+    startSpawnScheduler();
     startCollisionDetection();
 
     // Cleanup on unmount
     return () => {
+      stopSpawnScheduler();
       stopCollisionDetection();
     };
   }, []);

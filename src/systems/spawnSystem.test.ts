@@ -7,33 +7,38 @@ import { generateSpawnPosition, generateAudioAttributes, spawnRobot } from './sp
 import { useOceanStore } from '../stores/oceanStore';
 import { AudioEngine } from '../engine/AudioEngine';
 
+vi.mock('../engine/beatClock', () => ({
+  scheduleRepeat: vi.fn(() => 'beat-spawn-1'),
+  cancelSchedule: vi.fn(),
+}));
+
 // ========================================
 // TESTS
 // ========================================
 
 describe('spawnSystem', () => {
   describe('generateSpawnPosition', () => {
-    it('generates position within world bounds', () => {
+    it('generates position just outside world bounds (off-screen)', () => {
       const position = generateSpawnPosition();
-      expect(position.x).toBeGreaterThanOrEqual(0);
-      expect(position.x).toBeLessThanOrEqual(1920);
-      expect(position.y).toBeGreaterThanOrEqual(0);
-      expect(position.y).toBeLessThanOrEqual(1080);
+      // Must be outside the viewBox on at least one axis
+      const outsideX = position.x < 0 || position.x > 1920;
+      const outsideY = position.y < 0 || position.y > 1080;
+      expect(outsideX || outsideY).toBe(true);
     });
 
-    it('generates positions near edges (within 100px margin)', () => {
+    it('generates positions on all four edges (off-screen)', () => {
       const positions = Array.from({ length: 100 }, () => generateSpawnPosition());
 
-      // At least some should be near edges
-      const nearLeftEdge = positions.filter((p) => p.x < 100).length;
-      const nearRightEdge = positions.filter((p) => p.x > 1820).length;
-      const nearTopEdge = positions.filter((p) => p.y < 100).length;
-      const nearBottomEdge = positions.filter((p) => p.y > 980).length;
+      const leftEdge = positions.filter((p) => p.x < 0).length;
+      const rightEdge = positions.filter((p) => p.x > 1920).length;
+      const topEdge = positions.filter((p) => p.y < 0).length;
+      const bottomEdge = positions.filter((p) => p.y > 1080).length;
 
-      const totalNearEdge = nearLeftEdge + nearRightEdge + nearTopEdge + nearBottomEdge;
-
-      // All 100 positions should be near at least one edge
-      expect(totalNearEdge).toBeGreaterThan(80);
+      // Each edge should be hit roughly 25% of the time over 100 samples
+      expect(leftEdge).toBeGreaterThan(10);
+      expect(rightEdge).toBeGreaterThan(10);
+      expect(topEdge).toBeGreaterThan(10);
+      expect(bottomEdge).toBeGreaterThan(10);
     });
 
     it('generates varied positions (not all the same)', () => {
@@ -172,6 +177,46 @@ describe('spawnSystem', () => {
       const uniquePositions = new Set(positions);
 
       expect(uniquePositions.size).toBeGreaterThan(1); // Different positions
+    });
+  });
+
+  describe('startSpawnScheduler / stopSpawnScheduler', () => {
+    beforeEach(async () => {
+      vi.resetModules();
+      vi.clearAllMocks();
+    });
+
+    it('startSpawnScheduler is idempotent (multiple calls register only one schedule)', async () => {
+      const { scheduleRepeat } = await import('../engine/beatClock');
+      const { startSpawnScheduler, stopSpawnScheduler } = await import('./spawnSystem');
+
+      startSpawnScheduler();
+      startSpawnScheduler();
+      startSpawnScheduler();
+
+      expect(scheduleRepeat).toHaveBeenCalledTimes(1);
+
+      stopSpawnScheduler();
+    });
+
+    it('stopSpawnScheduler cancels the Transport schedule', async () => {
+      const { cancelSchedule } = await import('../engine/beatClock');
+      const { startSpawnScheduler, stopSpawnScheduler } = await import('./spawnSystem');
+
+      startSpawnScheduler();
+      stopSpawnScheduler();
+
+      expect(cancelSchedule).toHaveBeenCalledWith('beat-spawn-1');
+    });
+
+    it('stopSpawnScheduler is idempotent when scheduler is not running', async () => {
+      const { cancelSchedule } = await import('../engine/beatClock');
+      const { stopSpawnScheduler } = await import('./spawnSystem');
+
+      stopSpawnScheduler();
+      stopSpawnScheduler();
+
+      expect(cancelSchedule).not.toHaveBeenCalled();
     });
   });
 });

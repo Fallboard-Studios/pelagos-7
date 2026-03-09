@@ -105,9 +105,12 @@ export function scheduleRepeat(interval: string, callback: () => void): string {
   // Generate unique ID for this scheduled event
   const scheduleId = `schedule-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
+  // Pass interval as startTime so the first tick fires after one full interval,
+  // not at T=0 when Transport starts. Without this, all schedules registered
+  // before the Transport starts fire immediately on Play.
   const transportId = transport.scheduleRepeat((_time) => {
     callback();
-  }, interval);
+  }, interval, interval);
 
   // Store mapping for cancellation via cancelSchedule
   scheduleMap.set(scheduleId, String(transportId));

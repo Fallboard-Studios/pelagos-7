@@ -66,7 +66,7 @@ describe('beatClock', () => {
     const cb = vi.fn();
     const id = scheduleRepeat('4m', cb);
     expect(id).toMatch(/^schedule-/);
-    expect(mockTransport.scheduleRepeat).toHaveBeenCalledWith(expect.any(Function), '4m');
+    expect(mockTransport.scheduleRepeat).toHaveBeenCalledWith(expect.any(Function), '4m', '4m');
   });
 
   it('cancelSchedule calls transport.clear and removes the entry', () => {
