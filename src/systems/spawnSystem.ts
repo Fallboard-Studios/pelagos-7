@@ -6,15 +6,21 @@ import type { Robot, AudioAttributes, SynthType } from '../types/Robot';
 import { RobotState } from '../types/Robot';
 import { generateMelodyForRobot } from '../engine/melodyGenerator';
 import { AudioEngine } from '../engine/AudioEngine';
+import { scheduleRepeat, cancelSchedule } from '../engine/beatClock';
 import { DEV_TUNING } from '../constants';
 import { useOceanStore } from '../stores/oceanStore';
 
 // ========================================
 // CONSTANTS
 // ========================================
+/** Spawn interval range in measures; a value is chosen randomly on each scheduler start. */
+const SPAWN_INTERVAL_MIN = 32;
+const SPAWN_INTERVAL_MAX = 48;
+
 const WORLD_WIDTH = 1920;
 const WORLD_HEIGHT = 1080;
-const SPAWN_EDGE_MARGIN = 100; // Spawn near edges (within 100px of boundaries)
+/** Distance outside the SVG viewBox where robots spawn before swimming on-screen. */
+const OFFSCREEN_OFFSET = 150;
 
 // ADSR ranges (typical synth values)
 const ATTACK_RANGE = { min: 0.01, max: 0.5 };
@@ -36,36 +42,81 @@ const FILTER_FREQ_RANGE = { min: 400, max: 2500 };
 const SYNTH_TYPES: SynthType[] = ['AMSynth', 'FMSynth', 'PolySynth', 'MembraneSynth'];
 
 // ========================================
+// MODULE STATE
+// ========================================
+let spawnScheduleId: string | null = null;
+
+// ========================================
 // EXPORTS
 // ========================================
 
 /**
- * Generate random spawn position near world edges
- * Robots spawn from outside and swim inward
+ * Start the periodic robot spawn scheduler.
+ * Picks a random interval between SPAWN_INTERVAL_MIN and SPAWN_INTERVAL_MAX measures,
+ * then schedules a repeating callback via BeatClock. Idempotent — safe to call
+ * multiple times; only one schedule will be active at a time.
+ */
+export function startSpawnScheduler(): void {
+  if (spawnScheduleId !== null) {
+    if (DEV_TUNING) console.log('[SpawnSystem] Scheduler already running, skipping start');
+    return;
+  }
+
+  const interval =
+    SPAWN_INTERVAL_MIN + Math.floor(Math.random() * (SPAWN_INTERVAL_MAX - SPAWN_INTERVAL_MIN + 1));
+
+  spawnScheduleId = scheduleRepeat(`${interval}m`, () => {
+    spawnRobot();
+  });
+
+  if (DEV_TUNING) console.log(`[SpawnSystem] Scheduler started with interval ${interval}m`);
+}
+
+/**
+ * Stop the periodic robot spawn scheduler.
+ * Cancels the active BeatClock schedule and clears the stored ID.
+ * Idempotent — safe to call when no scheduler is running.
+ */
+export function stopSpawnScheduler(): void {
+  if (spawnScheduleId === null) {
+    if (DEV_TUNING) console.log('[SpawnSystem] Scheduler not running, nothing to stop');
+    return;
+  }
+
+  cancelSchedule(spawnScheduleId);
+  spawnScheduleId = null;
+
+  if (DEV_TUNING) console.log('[SpawnSystem] Scheduler stopped');
+}
+
+/**
+ * Generate a spawn position just outside the visible SVG viewBox.
+ * Robots are invisible here (SVG clips to viewBox) and swim inward on their
+ * first idle tick, creating a natural "swimming on-screen" entrance.
  */
 export function generateSpawnPosition(): Vec2 {
   const edge = Math.floor(Math.random() * 4); // 0=top, 1=right, 2=bottom, 3=left
 
   switch (edge) {
-    case 0: // Top edge
+    case 0: // Top edge — spawn above the scene
       return {
         x: Math.random() * WORLD_WIDTH,
-        y: Math.random() * SPAWN_EDGE_MARGIN,
+        y: -OFFSCREEN_OFFSET,
       };
-    case 1: // Right edge
+    case 1: // Right edge — spawn to the right of the scene
       return {
-        x: WORLD_WIDTH - Math.random() * SPAWN_EDGE_MARGIN,
+        x: WORLD_WIDTH + OFFSCREEN_OFFSET,
         y: Math.random() * WORLD_HEIGHT,
       };
-    case 2: // Bottom edge
+    case 2: // Bottom edge — spawn below the scene
       return {
         x: Math.random() * WORLD_WIDTH,
-        y: WORLD_HEIGHT - Math.random() * SPAWN_EDGE_MARGIN,
+        y: WORLD_HEIGHT + OFFSCREEN_OFFSET,
       };
-    case 3: // Left edge
+    case 3: // Left edge — spawn to the left of the scene
     default:
       return {
-        x: Math.random() * SPAWN_EDGE_MARGIN,
+        x: -OFFSCREEN_OFFSET,
         y: Math.random() * WORLD_HEIGHT,
       };
   }

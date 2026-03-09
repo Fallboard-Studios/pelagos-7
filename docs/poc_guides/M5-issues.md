@@ -503,3 +503,52 @@ Comprehensive testing of the environment system including factories, camera, and
 
 ### Reference
 - End-to-end system validation
+
+---
+
+## M5.6: Implement Periodic Robot Spawning From Off-Screen
+
+**Title:** [M5.6] Spawn robots from world edges on a beat-based timer
+
+**Labels:** feature, system: state, size: S, priority: high
+
+### Feature Description
+Robots periodically enter the scene from just outside the visible world boundary and swim autonomously inward. There is no factory involvement for v1.0 — factories are environmental decoration only. Spawning is driven by the beat clock so the population grows in musical time.
+
+### Implementation Details
+- Extend `src/systems/spawnSystem.ts` with two new exports:
+  - `startSpawnScheduler()` — registers a `scheduleRepeat` callback; idempotent (no-op if already running)
+  - `stopSpawnScheduler()` — calls `cancelSchedule` with the stored ID; idempotent
+- `generateSpawnPosition()` and `spawnRobot()` already exist in `spawnSystem.ts` — no changes needed there
+- Call `startSpawnScheduler()` from `OceanScene.tsx` on mount (alongside the two existing immediate `spawnRobot()` calls)
+- Call `stopSpawnScheduler()` in the existing `OceanScene` cleanup return alongside `stopCollisionDetection()`
+- Enforce `settings.maxRobots` before each spawn
+
+**Spawn scheduler (no code fences to avoid markdown breakage):**
+
+Module-level variable: `let spawnScheduleId: string | null = null`
+
+`startSpawnScheduler()`:
+- If `spawnScheduleId !== null` return early (idempotent)
+- Call `scheduleRepeat('16m', callback)` and store returned ID in `spawnScheduleId`
+- Callback: read `robots` and `settings` from store; if `robots.length >= settings.maxRobots` return; otherwise call `spawnRobot()`
+
+`stopSpawnScheduler()`:
+- If `spawnScheduleId === null` return early
+- Call `cancelSchedule(spawnScheduleId)`; set `spawnScheduleId = null`
+
+### Acceptance Criteria
+- [ ] `startSpawnScheduler` and `stopSpawnScheduler` exported from `spawnSystem.ts`
+- [ ] `startSpawnScheduler` is idempotent (multiple calls register only one schedule)
+- [ ] `stopSpawnScheduler` cancels the Transport schedule via `cancelSchedule`
+- [ ] `stopSpawnScheduler` is idempotent (safe to call when not running)
+- [ ] Spawning respects `settings.maxRobots`
+- [ ] Spawn interval driven by `scheduleRepeat` — no `setTimeout`/`setInterval`
+- [ ] `OceanScene.tsx` calls `startSpawnScheduler()` on mount
+- [ ] `OceanScene.tsx` calls `stopSpawnScheduler()` in cleanup
+- [ ] Unit tests: max-robots guard, idempotent start, stop cancels schedule
+
+### Reference
+- `src/systems/spawnSystem.ts` — existing `generateSpawnPosition` / `spawnRobot`
+- `src/engine/beatClock.ts` — `scheduleRepeat` / `cancelSchedule`
+- `src/systems/factorySystem.ts` — reference pattern for scheduler lifecycle
