@@ -235,20 +235,14 @@ export function renderTallWindows(ctx: GreebleRendererContext): GreebleElement |
 }
 
 /**
- * Renders horizontal decorative belt courses evenly spaced across the full
- * facade width. This renderer is kept in the registry for completeness but is
- * **not** rendered via `FACADE_RENDERERS` in Factory.tsx — belt courses are
- * instead drawn directly as `<rect>` separators between window zones, using
- * `actor.config.beltCourseCount` (chosen at spawn from `maxBeltCourses`).
- *
- * Useful as a standalone renderer in tests or future deferred-render contexts.
- *
- * Course count: `Math.floor(buildingHeight / BELT_COURSE_THRESHOLD)`.
- * Course fill: `ctx.colors.accent` with lightness bumped +5%.
- * Course height: 2–3% of building height (seeded random per course).
+ * Renders decorative vertical pipe segments with round valve discs along the
+ * left or right facade edge (or both). Pipes run vertically with short
+ * horizontal branches at junctions. Layout is seeded from `ctx.seed`.
+ * Uses `ctx.colors.greeble` at –15% saturation for a desaturated, watery look.
+ * Respects `ctx.frontCornerX` to constrain branches within the selected face.
  *
  * @param ctx - Greeble renderer context providing building dimensions and colors.
- * @returns A React fragment of belt-course rects, or null when count is zero.
+ * @returns A React fragment of pipe rects and valve circles, or null when empty.
  */
 export function renderPipesValvesFacade(ctx: GreebleRendererContext): GreebleElement | null {
   const { buildingWidth: bw, buildingHeight: bh, zoneY = 0, zoneHeight = bh, seed, frontCornerX } = ctx;
@@ -301,6 +295,22 @@ export function renderPipesValvesFacade(ctx: GreebleRendererContext): GreebleEle
   return elements.length ? <>{elements}</> : null;
 }
 
+/**
+ * Renders horizontal decorative belt courses evenly spaced across the full
+ * facade width. This renderer is kept in the registry for completeness but is
+ * **not** rendered via `FACADE_RENDERERS` in Factory.tsx — belt courses are
+ * instead drawn directly as `<rect>` separators between window zones, using
+ * `actor.config.beltCourseCount` (chosen at spawn from `maxBeltCourses`).
+ *
+ * Useful as a standalone renderer in tests or future deferred-render contexts.
+ *
+ * Course count: `Math.floor(buildingHeight / BELT_COURSE_THRESHOLD)`.
+ * Course fill: `ctx.colors.accent` with lightness bumped +5%.
+ * Course height: 2–3% of building height (seeded random per course).
+ *
+ * @param ctx - Greeble renderer context providing building dimensions and colors.
+ * @returns A React fragment of belt-course rects, or null when count is zero.
+ */
 export function renderBeltCourse(ctx: GreebleRendererContext): GreebleElement | null {
   const { buildingWidth: bw, buildingHeight: bh, seed, colors } = ctx;
   const count = deriveBeltCourses(bh);

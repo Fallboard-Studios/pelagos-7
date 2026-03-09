@@ -5,7 +5,6 @@ import { Robot } from './robot/Robot';
 import { InteractionStatus } from './debug/InteractionStatus';
 import { useOceanStore } from '../stores/oceanStore';
 import { spawnRobot } from '../systems/spawnSystem';
-import { handleRobotIdle } from '../systems/idleSystem';
 import {
   startCollisionDetection,
   stopCollisionDetection,
@@ -26,15 +25,20 @@ interface OceanSceneProps {
   backgroundColor: string;
 }
 
-
-// ========================================
-// CONSTANTS
-// ========================================
-
-
 // ========================================
 // COMPONENT
 // ========================================
+
+/**
+ * Root SVG scene component. Renders factory building layers (background →
+ * midground → foreground), depth-gradient overlays, the robot layer, and the
+ * debug UI overlay. Kicks off factory placement, robot spawning, factory
+ * production scheduling, and collision detection on mount.
+ *
+ * @param width           - SVG viewBox width in pixels (default 1920).
+ * @param height          - SVG viewBox height in pixels (default 1080).
+ * @param backgroundColor - CSS colour string for the ocean background rect.
+ */
 export function OceanScene({
   width = 1920,
   height = 1080,
@@ -60,7 +64,7 @@ export function OceanScene({
     }),
     [actors],
   );
-  const frontgroundFactories = useMemo(
+  const foregroundFactories = useMemo(
     () => actors.filter((a) => {
       if (a.type !== ActorType.FACTORY) return false;
       return getRowConfig(a.config?.row ?? -1)?.row === 'foreground';
@@ -84,21 +88,11 @@ export function OceanScene({
       }
     });
 
-    // Wait for robots to mount before starting idle behavior
-    // (refs need to exist for GSAP animations)
-    const timer = setTimeout(() => {
-      const currentRobots = useOceanStore.getState().robots;
-      currentRobots.forEach((robot) => {
-        handleRobotIdle(robot.id);
-      });
-    }, 100);
-
     // Start collision detection
     startCollisionDetection();
 
     // Cleanup on unmount
     return () => {
-      clearTimeout(timer);
       stopCollisionDetection();
     };
   }, []);
@@ -168,9 +162,9 @@ export function OceanScene({
             <Robot key={robot.id} robot={robot} />
           ))}
         </g>
-        <g id="factory-frontground-layer">
+        <g id="factory-foreground-layer">
           {/* edge-type rows (foreground) */}
-          {frontgroundFactories.map((actor) => (
+          {foregroundFactories.map((actor) => (
             <Factory key={actor.id} actor={actor} />
           ))}
         </g>

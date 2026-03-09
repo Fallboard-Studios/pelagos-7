@@ -123,14 +123,6 @@ export function renderPitchedRoof(ctx: GreebleRendererContext): GreebleElement |
 }
 
 /**
- * Renders a crown spire: a stepped/terraced roof (2-3 tiers) that spans the
- * full building width at its base, tapering inward on each tier, topped with
- * a thin antenna rod. Total height is ~15% of building height.
- *
- * @param ctx - The greeble renderer context providing dimensions and colors.
- * @returns A React fragment containing tier rectangles and an antenna rect.
- */
-/**
  * Renders a step-pyramid (ziggurat) crown spire above the roofline.
  *
  * **Shaded path** (when `frontCornerX`, `eastLMultiplier`, `westLMultiplier`
@@ -344,16 +336,17 @@ export function renderCupola(ctx: GreebleRendererContext): GreebleElement | null
  * refinement pass.
  *
  * Future implementation will:
- *   1. Resolve the SVG element by `elementId`.
+ *   1. Read the element via `ref.current` — do NOT use `document.getElementById()`.
  *   2. Register a `gsap.ticker.add()` handler that varies `opacity` slightly
  *      each frame to simulate a real-world indicator blink.
  *   3. Return a cleanup that calls `gsap.ticker.remove()` to prevent leaks.
  *
- * @param _elementId - DOM id of the circle element to animate (unused until implemented).
+ * @param _ref - React ref pointing to the SVG circle element to animate (unused until implemented).
  * @returns A cleanup function that removes the ticker listener (currently a no-op).
  */
-export function attachFlickerAnimation(_elementId: string): () => void {
-  // TODO: implement with gsap.ticker.add() when animation pass begins
+export function attachFlickerAnimation(_ref: React.RefObject<SVGCircleElement>): () => void {
+  // TODO: implement with gsap.ticker.add() when animation pass begins.
+  // Use _ref.current to access the element — never document.getElementById().
   return () => { };
 }
 

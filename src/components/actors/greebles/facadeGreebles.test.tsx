@@ -230,7 +230,7 @@ describe('renderPipesValvesFacade', () => {
     const kids = React.Children.toArray(el.props.children) as EL[];
     expect(kids.length).toBeGreaterThan(0);
     const hasEdge = kids.some((c) => {
-      const { x, y, width } = c.props;
+      const { x, y } = c.props;
       return x === 2 || x === ctx.buildingWidth - 4 || y === (ctx.zoneY ?? 0) + 1;
     });
     expect(hasEdge).toBe(true);

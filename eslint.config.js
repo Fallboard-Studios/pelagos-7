@@ -6,8 +6,8 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default [
-  // Ignore build output
-  { ignores: ['dist'] },
+  // Ignore build output and miscellaneous standalone scripts
+  { ignores: ['dist', 'scripts/convertColors.cjs'] },
 
   // Base recommended configs
   js.configs.recommended,

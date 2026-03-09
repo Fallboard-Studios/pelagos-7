@@ -234,7 +234,7 @@ describe('FactoryPlacementSystem', () => {
       expect(factory.config?.satShift).toBeLessThanOrEqual(satMax);
 
       // selected greebles must belong to the variant's pools
-      const gc: any = variantConf.greebleConfig;
+      const gc = variantConf.greebleConfig;
       expect(gc.allowedRooftop).toContain(factory.config?.rooftopGreeble);
       expect(gc.allowedFacade).toContain(factory.config?.facadeGreeble);
     });
@@ -249,7 +249,7 @@ describe('FactoryPlacementSystem', () => {
       const factory = createFactory({ x: 700, y: 1000 }, 1);
       const availableTypes = getRowConfig(factory.config?.row ?? 0)?.availableFactoryTypes;
       const variant = selectVariantFromSeed(factory.id, factory.position.x, factory.config?.row ?? 0, availableTypes).variant;
-      const maxBeltCourses = (VARIANT_CONF[variant] as any).greebleConfig.maxBeltCourses as number;
+      const maxBeltCourses = VARIANT_CONF[variant].greebleConfig.maxBeltCourses;
       expect(factory.config!.beltCourseCount).toBeGreaterThanOrEqual(0);
       expect(factory.config!.beltCourseCount).toBeLessThanOrEqual(maxBeltCourses);
     });
@@ -263,7 +263,6 @@ describe('FactoryPlacementSystem', () => {
       expect(a.beltCourseCount).toBe(factory.config?.beltCourseCount);
     });
 
-    // purpose tests added per Phase 9 requirements
     it('selectVariantFromSeed returns correct purpose for each variant', () => {
       (['Monolith', 'Stacks', 'Refinery', 'Skyscraper', 'Warehouse'] as const).forEach((variant) => {
         const info = selectVariantFromSeed('dummy-id', 0, 0, [variant]);

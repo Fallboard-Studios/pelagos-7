@@ -94,7 +94,7 @@ describe('BubbleStream', () => {
       bubbleRand(); // riseSpeed fraction
       const wobbleDraw = bubbleRand();
       const baseAmp = (8 + wobbleDraw * 12) * 1;
-      const midAmp  = (8 + wobbleDraw * 12) * 0.5;
+      const midAmp = (8 + wobbleDraw * 12) * 0.5;
       expect(midAmp).toBeCloseTo(baseAmp * 0.5);
     });
 
@@ -104,7 +104,7 @@ describe('BubbleStream', () => {
       bubbleRand(); // riseSpeed fraction
       const wobbleDraw = bubbleRand();
       const baseAmp = (8 + wobbleDraw * 12) * 1;
-      const bgAmp   = (8 + wobbleDraw * 12) * (1 / 3);
+      const bgAmp = (8 + wobbleDraw * 12) * (1 / 3);
       expect(bgAmp).toBeCloseTo(baseAmp / 3);
     });
   });

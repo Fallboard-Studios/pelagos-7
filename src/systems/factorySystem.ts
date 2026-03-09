@@ -6,7 +6,7 @@ import type { Robot } from '../types/Robot';
 import { RobotState } from '../types/Robot';
 import { useOceanStore } from '../stores/oceanStore';
 import { AudioEngine } from '../engine/AudioEngine';
-import { scheduleRepeat } from '../engine/beatClock';
+import { scheduleRepeat, cancelSchedule } from '../engine/beatClock';
 import { generateMelodyForRobot } from '../engine/melodyGenerator';
 import { generateAudioAttributes } from './spawnSystem';
 import { DEV_TUNING } from '../constants';
@@ -96,9 +96,7 @@ export function stopFactoryProduction(factoryId: string): void {
     return;
   }
 
-  // Note: Ideally we'd cancel the Transport schedule here,
-  // but Tone.Transport doesn't expose a cancel API in callback return.
-  // For now, we just track removal locally.
+  cancelSchedule(schedule.scheduleId);
   activeSchedules.delete(factoryId);
 
   if (DEV_TUNING) {
