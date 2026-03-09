@@ -15,8 +15,10 @@ const MEASURES_PER_HOUR = 4;
 // ========================================
 let currentBeat = 0;
 let currentMeasure = 0;
+let lastNotifiedMeasure = -1;
 let initialized = false;
 const scheduleMap = new Map<string, string>();  // Track scheduled event IDs
+const measureListeners: Array<(measure: number) => void> = [];
 
 // ========================================
 // BEATCLOCK API
@@ -37,9 +39,26 @@ export function initBeatClock(): void {
     const sixteenths = parseInt(pos[2], 10) || 0;
     currentBeat = measure * BEATS_PER_MEASURE + beat + sixteenths / 4;
     currentMeasure = measure;
+    // Fire measure listeners once per measure change
+    if (currentMeasure !== lastNotifiedMeasure) {
+      lastNotifiedMeasure = currentMeasure;
+      const wrappedMeasure = currentMeasure % MEASURES_PER_CYCLE;
+      measureListeners.forEach(fn => fn(wrappedMeasure));
+    }
   }, '16n');
   initialized = true;
   console.log('BeatClock initialized');
+}
+
+/**
+ * Register a callback to be fired once per measure change.
+ * The callback receives the wrapped measure (0–95).
+ * Safe to call before or after initialization.
+ *
+ * @param callback - Called with the new wrapped measure on each measure tick.
+ */
+export function subscribeToMeasure(callback: (measure: number) => void): void {
+  measureListeners.push(callback);
 }
 
 /**

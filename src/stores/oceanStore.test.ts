@@ -62,6 +62,21 @@ describe('oceanStore', () => {
     expect(updated?.destination).toEqual({ x: 10, y: 5 });
   });
 
+  it('serializes actors with colour shifts', () => {
+    // create a fake factory actor with hue/sat shifts in its config
+    const actor = {
+      id: 'f1',
+      type: 'FACTORY' as const,
+      position: { x: 0, y: 0 },
+      isActive: true,
+      cooldownRemaining: 0,
+      config: { row: 0, hueShift: 10, satShift: -5 },
+    };
+    // pretend ocean store holds actors field
+    useOceanStore.setState({ actors: [actor] } as any);
+    expect(() => JSON.stringify(useOceanStore.getState())).not.toThrow();
+  });
+
   it('retrieves robots by id', () => {
     const robotA = createRobot({ id: 'a' });
     const robotB = createRobot({ id: 'b' });

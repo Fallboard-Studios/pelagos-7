@@ -6,15 +6,15 @@ import { calcSilhouetteSize, pickSilhouetteFill, bottomAnchorTransform } from '.
 const DUMMY_ACTOR: Actor = { id: 'a', type: ActorType.FACTORY, position: { x: 100, y: 900 }, isActive: true, cooldownRemaining: 0 };
 
 describe('silhouette utils', () => {
-  it('calcSilhouetteSize returns expected width/height', () => {
-    const native = { width: 200, height: 300 };
-    const baseScale = 1.25; // corresponds to previous baseWidth 250 / native.width 200
+  it('calcSilhouetteSize maps noise value into provided sizeRange', () => {
+    const range = { minWidth: 100, maxWidth: 200, minHeight: 50, maxHeight: 150 };
 
-    // noiseValue = 0 -> returns base sizes (native * baseScale)
-    expect(calcSilhouetteSize(0, native, baseScale)).toEqual({ width: 200 * baseScale, height: 300 * baseScale });
-
-    // noiseValue = 1 -> native contribution added fully
-    expect(calcSilhouetteSize(1, native, baseScale)).toEqual({ width: 200 * baseScale + 200, height: 300 * baseScale + 300 });
+    // noiseValue = 0 → min values
+    expect(calcSilhouetteSize(0, range)).toEqual({ width: 100, height: 50 });
+    // noiseValue = 1 → max values
+    expect(calcSilhouetteSize(1, range)).toEqual({ width: 200, height: 150 });
+    // midpoint should be average
+    expect(calcSilhouetteSize(0.5, range)).toEqual({ width: 150, height: 100 });
   });
 
   it('pickSilhouetteFill uses thresholds correctly', () => {
@@ -25,8 +25,15 @@ describe('silhouette utils', () => {
     expect(pickSilhouetteFill(0.71, colors)).toBe('D');
   });
 
-  it('bottomAnchorTransform anchors bottom correctly', () => {
+  it('bottomAnchorTransform anchors bottom correctly without scale', () => {
     const t = bottomAnchorTransform(DUMMY_ACTOR, 360);
     expect(t).toBe('translate(100, 540)'); // 900 - 360 = 540
+  });
+
+  it('bottomAnchorTransform honours scaleY', () => {
+    const scaled: Actor = { ...DUMMY_ACTOR, scaleY: 0.5 };
+    const t = bottomAnchorTransform(scaled, 360);
+    // height reduced by half: 360 * 0.5 = 180
+    expect(t).toBe('translate(100, 720)'); // 900 - 180
   });
 });

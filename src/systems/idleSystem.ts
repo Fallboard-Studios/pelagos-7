@@ -36,7 +36,7 @@ export function pickDestination(): Vec2 {
  * Picks a random destination and triggers swim animation
  */
 export function handleRobotIdle(robotId: string): void {
-  console.log(`[IdleSystem] handleRobotIdle called for robot ${robotId}`);
+  // console.log(`[IdleSystem] handleRobotIdle called for robot ${robotId}`);
 
   const robot = useOceanStore.getState().getRobotById(robotId);
 
@@ -55,12 +55,12 @@ export function handleRobotIdle(robotId: string): void {
   });
 
   // Trigger swim animation with arrival callback
-  console.log(`[IdleSystem] Creating swim timeline for robot ${robotId} with onComplete callback`);
+  // console.log(`[IdleSystem] Creating swim timeline for robot ${robotId} with onComplete callback`);
   createSwimTimeline(robot, destination, handleRobotArrival);
 
-  console.log(
-    `[IdleSystem] Robot ${robotId} swimming to (${Math.round(destination.x)}, ${Math.round(destination.y)})`
-  );
+  // console.log(
+  //   `[IdleSystem] Robot ${robotId} swimming to (${Math.round(destination.x)}, ${Math.round(destination.y)})`
+  // );
 }
 
 /**
@@ -81,7 +81,7 @@ export function handleRobotArrival(robotId: string): void {
     destination: null,
   });
 
-  console.log(`[IdleSystem] Robot ${robotId} arrived, entering idle state`);
+  // console.log(`[IdleSystem] Robot ${robotId} arrived, entering idle state`);
 
   // Schedule next destination pick after delay (using GSAP instead of setTimeout)
   gsap.delayedCall(IDLE_DELAY, () => {

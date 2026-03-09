@@ -72,19 +72,19 @@ export function createSwimTimeline(
 
   const duration = calculateDuration(robot.position, destination);
 
-  console.log(
-    `[SwimAnimation] Creating timeline for robot ${robot.id}, duration: ${duration.toFixed(2)}s, onComplete: ${onComplete ? 'YES' : 'NO'}`
-  );
+  // console.log(
+  //   `[SwimAnimation] Creating timeline for robot ${robot.id}, duration: ${duration.toFixed(2)}s, onComplete: ${onComplete ? 'YES' : 'NO'}`
+  // );
 
   // Create main timeline with optional arrival handler
   const tl = gsap.timeline({
     paused: true, // Start paused so we can register it first
     onComplete: onComplete ? () => {
-      console.log(`[SwimAnimation] ✅ Timeline onComplete fired for robot ${robot.id}`);
+      // console.log(`[SwimAnimation] ✅ Timeline onComplete fired for robot ${robot.id}`);
       onComplete(robot.id);
     } : undefined,
     onStart: () => {
-      console.log(`[SwimAnimation] Timeline started for robot ${robot.id}`);
+      // console.log(`[SwimAnimation] Timeline started for robot ${robot.id}`);
     },
   });
 

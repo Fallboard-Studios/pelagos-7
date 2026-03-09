@@ -1,0 +1,91 @@
+
+  describe('applyColorShift', () => {
+    const baseColor: HSL = { h: 180, s: 50, l: 50 };
+    const noShift: ColorShift = { hueShift: 0, satShift: 0 };
+
+    it('applies no shift with neutral values', () => {
+      const result = applyColorShift(baseColor, noShift, 1.0);
+      expect(result).toBe('hsl(180, 50%, 50%)');
+    });
+
+    it('applies hue shift correctly', () => {
+      const shift: ColorShift = { hueShift: 30, satShift: 0 };
+      const result = applyColorShift(baseColor, shift, 1.0);
+      expect(result).toBe('hsl(210, 50%, 50%)');
+    });
+
+    it('applies negative hue shift correctly', () => {
+      const shift: ColorShift = { hueShift: -30, satShift: 0 };
+      const result = applyColorShift(baseColor, shift, 1.0);
+      expect(result).toBe('hsl(150, 50%, 50%)');
+    });
+
+    it('wraps hue around at 360 (positive overflow)', () => {
+      const base: HSL = { h: 350, s: 50, l: 50 };
+      const shift: ColorShift = { hueShift: 30, satShift: 0 };
+      const result = applyColorShift(base, shift, 1.0);
+      expect(result).toBe('hsl(20, 50%, 50%)');
+    });
+
+    it('wraps hue around at 0 (negative overflow)', () => {
+      const base: HSL = { h: 10, s: 50, l: 50 };
+      const shift: ColorShift = { hueShift: -30, satShift: 0 };
+      const result = applyColorShift(base, shift, 1.0);
+      expect(result).toBe('hsl(340, 50%, 50%)');
+    });
+
+    it('applies saturation shift correctly', () => {
+      const shift: ColorShift = { hueShift: 0, satShift: 20 };
+      const result = applyColorShift(base Color, shift, 1.0);
+      expect(result).toBe('hsl(180, 70%, 50%)');
+    });
+
+    it('clamps saturation at 0 (negative overflow)', () => {
+      const base: HSL = { h: 180, s: 10, l: 50 };
+      const shift: ColorShift = { hueShift: 0, satShift: -20 };
+      const result = applyColorShift(base, shift, 1.0);
+      expect(result).toBe('hsl(180, 0%, 50%)');
+    });
+
+    it('clamps saturation at 100 (positive overflow)', () => {
+      const base: HSL = { h: 180, s: 90, l: 50 };
+      const shift: ColorShift = { hueShift: 0, satShift: 20 };
+      const result = applyColorShift(base, shift, 1.0);
+      expect(result).toBe('hsl(180, 100%, 50%)');
+    });
+
+    it('applies lightness multiplier correctly', () => {
+      const result = applyColorShift(baseColor, noShift, 0.8);
+      expect(result).toBe('hsl(180, 50%, 40%)');
+    });
+
+    it('brightens with multiplier > 1', () => {
+      const result = applyColorShift(baseColor, noShift, 1.2);
+      expect(result).toBe('hsl(180, 50%, 60%)');
+    });
+
+    it('darkens with multiplier < 1', () => {
+      const base: HSL = { h: 180, s: 50, l: 60 };
+      const result = applyColorShift(base, noShift, 0.5);
+      expect(result).toBe('hsl(180, 50%, 30%)');
+    });
+
+    it('applies all shifts simultaneously', () => {
+      const base: HSL = { h: 200, s: 40, l: 30 };
+      const shift: ColorShift = { hueShift: 15, satShift: 10 };
+     const result = applyColorShift(base, shift, 1.5);
+      expect(result).toBe('hsl(215, 50%, 45%)');
+    });
+
+    it('handles edge case: zero lightness multiplier', () => {
+      const result = applyColorShift(baseColor, noShift, 0);
+      expect(result).toBe('hsl(180, 50%, 0%)');
+    });
+
+    it('handles extreme hue shifts with multiple wraps', () => {
+      const base: HSL = { h: 10, s: 50, l: 50 };
+      const shift: ColorShift = { hueShift: 720, satShift: 0 };
+      const result = applyColorShift(base, shift, 1.0);
+      expect(result).toBe('hsl(10, 50%, 50%)');
+    });
+  });

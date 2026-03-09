@@ -1,45 +1,149 @@
 {
   "name": "Pelagos-7 Industrial Ocean Depth",
   "body": {
-    "base": "#2a3439",
-    "highlight": "#45535a",
-    "shadow": "#1a1f22"
+    "base": {
+      "h": 200,
+      "s": 15,
+      "l": 19
+    },
+    "highlight": {
+      "h": 200,
+      "s": 13,
+      "l": 31
+    },
+    "shadow": {
+      "h": 203,
+      "s": 13,
+      "l": 12
+    }
   },
   "shell": {
-    "base": "#818589",
-    "highlight": "#a9adb0",
-    "shadow": "#4f5458"
+    "base": {
+      "h": 210,
+      "s": 3,
+      "l": 52
+    },
+    "highlight": {
+      "h": 206,
+      "s": 4,
+      "l": 68
+    },
+    "shadow": {
+      "h": 207,
+      "s": 5,
+      "l": 33
+    }
   },
   "strut": {
-    "base": "#ff8c00",
-    "highlight": "#ffae42",
-    "shadow": "#a04000"
+    "base": {
+      "h": 33,
+      "s": 100,
+      "l": 50
+    },
+    "highlight": {
+      "h": 34,
+      "s": 100,
+      "l": 63
+    },
+    "shadow": {
+      "h": 24,
+      "s": 100,
+      "l": 31
+    }
   },
   "wire": {
-    "base": "#f1c40f",
-    "highlight": "#f7dc6f",
-    "shadow": "#9a7d0a"
+    "base": {
+      "h": 48,
+      "s": 89,
+      "l": 50
+    },
+    "highlight": {
+      "h": 48,
+      "s": 89,
+      "l": 70
+    },
+    "shadow": {
+      "h": 48,
+      "s": 88,
+      "l": 32
+    }
   },
   "vent": {
-    "base": "#6a6384",
-    "highlight": "#928ba9",
-    "shadow": "#3b374d"
+    "base": {
+      "h": 253,
+      "s": 14,
+      "l": 45
+    },
+    "highlight": {
+      "h": 254,
+      "s": 15,
+      "l": 60
+    },
+    "shadow": {
+      "h": 251,
+      "s": 17,
+      "l": 26
+    }
   },
   "glass": {
-    "base": "#78cce2",
-    "highlight": "#b3e5f2",
-    "shadow": "#3b6b7a"
+    "base": {
+      "h": 192,
+      "s": 65,
+      "l": 68
+    },
+    "highlight": {
+      "h": 192,
+      "s": 71,
+      "l": 83
+    },
+    "shadow": {
+      "h": 194,
+      "s": 35,
+      "l": 35
+    }
   },
   "indicator": {
-    "powered": "#39ff14",
-    "highlight": "#a2ff8a",
-    "off": "#145a32",
-    "flare": "#e0ffff"
+    "powered": {
+      "h": 111,
+      "s": 100,
+      "l": 54
+    },
+    "highlight": {
+      "h": 108,
+      "s": 100,
+      "l": 77
+    },
+    "off": {
+      "h": 146,
+      "s": 64,
+      "l": 22
+    },
+    "flare": {
+      "h": 180,
+      "s": 100,
+      "l": 94
+    }
   },
   "alert": {
-    "powered": "#e60d2e",
-    "highlight": "#ff5c75",
-    "off": "#7b091c"
+    "powered": {
+      "h": 351,
+      "s": 89,
+      "l": 48
+    },
+    "highlight": {
+      "h": 351,
+      "s": 100,
+      "l": 68
+    },
+    "off": {
+      "h": 350,
+      "s": 86,
+      "l": 26
+    }
   },
-  "shadowDepth": "#191919"
+  "shadowDepth": {
+    "h": 0,
+    "s": 0,
+    "l": 10
+  }
 }

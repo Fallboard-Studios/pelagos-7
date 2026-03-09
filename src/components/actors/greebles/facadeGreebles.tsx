@@ -1,0 +1,348 @@
+import React from 'react';
+import Alea from 'alea';
+import type { FacadeGreeble, GreebleRenderer, GreebleRendererContext, GreebleElement } from './greebleTypes';
+import type { HSL } from '../../../utils/colorUtils';
+import { hslToString, clamp } from '../../../utils/colorUtils';
+import colorTheme from '../../../constants/colorTheme.json';
+
+// ========================================
+// CONSTANTS
+// ========================================
+
+/**
+ * Minimum building height (px) required per belt course.
+ * Dividing buildingHeight by this threshold gives the course count.
+ */
+const BELT_COURSE_THRESHOLD = 90;
+
+// ========================================
+// TYPES
+// ========================================
+
+/**
+ * Metadata for calculating a window grid.
+ */
+export interface WindowGrid {
+  cols: number;
+  rows: number;
+  unitW: number;
+  unitH: number;
+  gapX: number;
+  gapY: number;
+  slotX: number;
+  slotY: number;
+  offsetX: number;
+  offsetY: number;
+}
+
+// ========================================
+// HELPERS
+// ========================================
+
+/**
+ * Calculates the number of belt courses for a given building height.
+ * Returns 0 for buildings shorter than BELT_COURSE_THRESHOLD.
+ * @param bh Building height in pixels.
+ * @returns Number of belt courses.
+ */
+export function deriveBeltCourses(bh: number): number {
+  return Math.floor(bh / BELT_COURSE_THRESHOLD);
+}
+
+/**
+ * Calculates a window grid based on building dimensions and window type.
+ * @param bw Building width.
+ * @param bh Building height.
+ * @param type Window type key.
+ * @returns WindowGrid metadata.
+ */
+export function deriveWindowGrid(
+  bw: number,
+  bh: number,
+  type: "squareWindows" | "wideWindows" | "tallWindows",
+  fixedUnitSize?: number
+): WindowGrid {
+  const unitSize = fixedUnitSize ?? Math.max(4, bw * 0.06);
+
+  let unitW = unitSize;
+  let unitH = unitSize;
+
+  if (type === "wideWindows") {
+    unitW = unitSize * 2;
+    unitH = unitSize * 0.5;
+  } else if (type === "tallWindows") {
+    unitW = unitSize * 0.5;
+    unitH = unitSize * 2;
+  }
+
+  const gapX = type === "wideWindows" ? 1 : unitW * 0.5;
+  const gapY = unitH * 0.5;
+  const slotX = unitW + gapX;
+  const slotY = unitH + gapY;
+
+  const cols = Math.floor((bw + gapX) / slotX);
+  const rows = Math.floor((bh + gapY) / slotY);
+
+  const offsetX = (bw - (cols * slotX - gapX)) / 2;
+  const offsetY = (bh - (rows * slotY - gapY)) / 2;
+
+  return { cols, rows, unitW, unitH, gapX, gapY, slotX, slotY, offsetX, offsetY };
+}
+
+/**
+ * Renders a grid of windows based on a probability threshold.
+ * Respects optional `zoneY` / `zoneHeight` on the context to confine
+ * windows to a vertical slice (e.g. between belt courses).
+ * @param ctx Greeble renderer context.
+ * @param type Window type key.
+ * @param threshold Probability (0..1) of a window spawning at a grid slot.
+ * @returns JSX.Element fragment.
+ */
+function renderWindowGrid(
+  ctx: GreebleRendererContext,
+  type: 'squareWindows' | 'wideWindows' | 'tallWindows',
+  threshold: number
+): GreebleElement {
+  const { buildingWidth: bw, buildingHeight: bh, seed, frontCornerX } = ctx;
+
+  // When frontCornerX is defined, render two independent grids — one per face —
+  // so no window is clipped or bisected by the front corner edge.
+  if (frontCornerX !== undefined) {
+    // Derive unit size from the full building width so both faces share
+    // the same window dimensions; only the column count varies per face.
+    const sharedUnitSize = ctx.fixedUnitSize ?? Math.max(4, bw * 0.06);
+    const eastCtx: GreebleRendererContext = {
+      ...ctx,
+      buildingWidth: frontCornerX,
+      // Left portion = west face
+      lMultiplier: ctx.westLMultiplier ?? ctx.lMultiplier,
+      frontCornerX: undefined,
+      eastLMultiplier: undefined,
+      westLMultiplier: undefined,
+      fixedUnitSize: sharedUnitSize,
+    };
+    const westCtx: GreebleRendererContext = {
+      ...ctx,
+      buildingWidth: bw - frontCornerX,
+      // Right portion = east face
+      lMultiplier: ctx.eastLMultiplier ?? ctx.lMultiplier,
+      // offset seed so east and west face patterns don't mirror each other
+      seed: seed + 500,
+      frontCornerX: undefined,
+      eastLMultiplier: undefined,
+      westLMultiplier: undefined,
+      fixedUnitSize: sharedUnitSize,
+    };
+    const eastEl = renderWindowGrid(eastCtx, type, threshold);
+    const westEl = renderWindowGrid(westCtx, type, threshold);
+    return (
+      <>
+        {eastEl}
+        <g transform={`translate(${frontCornerX}, 0)`}>{westEl}</g>
+      </>
+    );
+  }
+
+  const zoneY = ctx.zoneY ?? 0;
+  const effectiveHeight = ctx.zoneHeight ?? bh;
+  const grid = deriveWindowGrid(bw, effectiveHeight, type, ctx.fixedUnitSize);
+  const windows: GreebleElement[] = [];
+
+  // Simple LCG for deterministic grid; seed already carries zone offset from caller
+  let s = seed + (type === 'wideWindows' ? 100 : type === 'tallWindows' ? 200 : 0);
+  const prng = () => {
+    s = (s * 1664525 + 1013904223) % 4294967296;
+    return s / 4294967296;
+  };
+
+  const windowFill = hslToString(colorTheme.glass.base);
+  const illuminatedFill = ctx.colors?.illuminated ? hslToString(ctx.colors.illuminated) : windowFill;
+  const lMult = ctx.lMultiplier ?? 1;
+  const nightDepth = ctx.nightDepth ?? 0;
+  const flickerEpoch = ctx.flickerEpoch ?? 0;
+
+  for (let r = 0; r < grid.rows; r++) {
+    for (let c = 0; c < grid.cols; c++) {
+      if (prng() < threshold) {
+        const x = grid.offsetX + c * grid.slotX;
+        const y = zoneY + grid.offsetY + r * grid.slotY;
+        // Independent Alea seed per window+epoch so lit state never interferes
+        // with the LCG draws that control existence and opacity.
+        const litRng = Alea(`${seed}-${flickerEpoch}-${r}-${c}`);
+        const isLit = nightDepth > 0 && litRng() < nightDepth;
+        // Compute base opacity once; lit versions simply use the night-depth
+        // multiplier while unlit windows use the face lightness multiplier.
+        const baseOpacity = (0.15 + prng() * 0.3) * (isLit ? nightDepth : lMult);
+        windows.push(
+          <rect
+            key={`${type}-${r}-${c}`}
+            x={x}
+            y={y}
+            width={grid.unitW}
+            height={grid.unitH}
+            fill={isLit ? illuminatedFill : windowFill}
+            opacity={baseOpacity}
+          />
+        );
+      }
+    }
+  }
+
+  return <>{windows}</>;
+}
+
+// ========================================
+// REGISTRY
+// ========================================
+
+/**
+ * Renders a probabilistic grid of 1:1 square windows across the facade.
+ * Window density threshold is 40% — roughly 2 in 5 grid slots are filled.
+ * Respects `ctx.zoneY` / `ctx.zoneHeight` when rendering inside belt-course zones.
+ * Window opacity is modulated by the east/west lightness multipliers from `ctx`.
+ *
+ * @param ctx - Greeble renderer context providing building dimensions and colors.
+ * @returns A React fragment of window rects, or null when the grid yields no windows.
+ */
+export function renderSquareWindows(ctx: GreebleRendererContext): GreebleElement | null {
+  return renderWindowGrid(ctx, "squareWindows", 0.4);
+}
+
+/**
+ * Renders a probabilistic grid of wide (4:1 aspect) windows across the facade.
+ * Window density threshold is 30%. Wide windows suit industrial or warehouse
+ * silhouettes and produce a horizontal rhythm on the facade.
+ * Respects zone constraints and east/west opacity split from `ctx`.
+ *
+ * @param ctx - Greeble renderer context providing building dimensions and colors.
+ * @returns A React fragment of window rects, or null when the grid yields no windows.
+ */
+export function renderWideWindows(ctx: GreebleRendererContext): GreebleElement | null {
+  return renderWindowGrid(ctx, "wideWindows", 0.3);
+}
+
+/**
+ * Renders a probabilistic grid of tall (1:4 aspect) windows across the facade.
+ * Window density threshold is 30%. Tall windows suit skyscraper and stacks
+ * silhouettes and produce a vertical rhythm on the facade.
+ * Respects zone constraints and east/west opacity split from `ctx`.
+ *
+ * @param ctx - Greeble renderer context providing building dimensions and colors.
+ * @returns A React fragment of window rects, or null when the grid yields no windows.
+ */
+export function renderTallWindows(ctx: GreebleRendererContext): GreebleElement | null {
+  return renderWindowGrid(ctx, "tallWindows", 0.3);
+}
+
+/**
+ * Renders horizontal decorative belt courses evenly spaced across the full
+ * facade width. This renderer is kept in the registry for completeness but is
+ * **not** rendered via `FACADE_RENDERERS` in Factory.tsx — belt courses are
+ * instead drawn directly as `<rect>` separators between window zones, using
+ * `actor.config.beltCourseCount` (chosen at spawn from `maxBeltCourses`).
+ *
+ * Useful as a standalone renderer in tests or future deferred-render contexts.
+ *
+ * Course count: `Math.floor(buildingHeight / BELT_COURSE_THRESHOLD)`.
+ * Course fill: `ctx.colors.accent` with lightness bumped +5%.
+ * Course height: 2–3% of building height (seeded random per course).
+ *
+ * @param ctx - Greeble renderer context providing building dimensions and colors.
+ * @returns A React fragment of belt-course rects, or null when count is zero.
+ */
+export function renderPipesValvesFacade(ctx: GreebleRendererContext): GreebleElement | null {
+  const { buildingWidth: bw, buildingHeight: bh, zoneY = 0, zoneHeight = bh, seed, frontCornerX } = ctx;
+  // reduce saturation by 15% for a slightly desaturated, watery look
+  const desat: HSL = { ...ctx.colors.greeble, s: clamp(ctx.colors.greeble.s - 15, 0, 100) };
+  const fill = hslToString(desat);
+  let s = seed + 800;
+  const prng = () => {
+    s = (s * 1664525 + 1013904223) % 4294967296;
+    return s / 4294967296;
+  };
+  const elements: GreebleElement[] = [];
+  // vertical edge pipes (one or two L‑shaped runs)
+  const primarySide: 'left' | 'right' = frontCornerX !== undefined
+    ? (frontCornerX < bw / 2 ? 'left' : 'right')
+    : prng() < 0.5 ? 'left' : 'right';
+
+  const drawSide = (side: 'left' | 'right') => {
+    const xPos = side === 'left' ? 2 : bw - 4;
+    const horizontalMaxLen = frontCornerX !== undefined
+      ? side === 'left'
+        ? Math.max(0, frontCornerX - xPos)
+        : Math.max(0, xPos - frontCornerX)
+      : bw - xPos - 5;
+    const countHere = 2 + Math.floor(prng() * 3);
+    for (let i = 0; i < countHere; i++) {
+      const len = zoneHeight * (0.2 + prng() * 0.3);
+      const y = zoneY + prng() * (zoneHeight - len);
+      elements.push(<rect key={`facade-pv-${side}-${i}`} x={xPos} y={y} width={2} height={len} fill={fill} />);
+      elements.push(<circle key={`facade-vv-${side}-${i}`} cx={xPos + 1} cy={y} r={2} fill={fill} />);
+      const hlen = prng() * horizontalMaxLen;
+      const hy = zoneY + 1;
+      if (side === 'left') {
+        elements.push(<rect key={`facade-ph-${side}-${i}`} x={xPos} y={hy} width={hlen} height={2} fill={fill} />);
+        elements.push(<circle key={`facade-vh-${side}-${i}`} cx={xPos} cy={hy + 1} r={2} fill={fill} />);
+      } else {
+        elements.push(<rect key={`facade-ph-${side}-${i}`} x={xPos - hlen} y={hy} width={hlen} height={2} fill={fill} />);
+        elements.push(<circle key={`facade-vh-${side}-${i}`} cx={xPos} cy={hy + 1} r={2} fill={fill} />);
+      }
+    }
+  };
+
+  // draw primary run
+  drawSide(primarySide);
+  // sometimes also draw on opposite facade (33% chance)
+  if (prng() < 0.33) {
+    drawSide(primarySide === 'left' ? 'right' : 'left');
+  }
+
+  return elements.length ? <>{elements}</> : null;
+}
+
+export function renderBeltCourse(ctx: GreebleRendererContext): GreebleElement | null {
+  const { buildingWidth: bw, buildingHeight: bh, seed, colors } = ctx;
+  const count = deriveBeltCourses(bh);
+  if (count === 0) return null;
+
+  // LCG for deterministic per-course height variation
+  let s = seed + 300;
+  const prng = () => {
+    s = (s * 1664525 + 1013904223) % 4294967296;
+    return s / 4294967296;
+  };
+
+  const fill = hslToString({ ...colors.accent, l: clamp(colors.accent.l + 5, 0, 100) });
+  const spacing = bh / count;
+  const courses: GreebleElement[] = [];
+
+  for (let i = 0; i < count; i++) {
+    // Course height: 2–3% of building height, seeded
+    const courseH = bh * (0.02 + prng() * 0.01);
+    const y = i * spacing + spacing / 2 - courseH / 2;
+    courses.push(
+      <rect
+        key={`belt-${i}`}
+        x={0}
+        y={y}
+        width={bw}
+        height={courseH}
+        fill={fill}
+      />
+    );
+  }
+
+  return <>{courses}</>;
+}
+
+/**
+ * Registry of all facade greeble renderers.
+ */
+export const FACADE_RENDERERS: Record<FacadeGreeble, GreebleRenderer> = {
+  squareWindows: renderSquareWindows,
+  wideWindows: renderWideWindows,
+  tallWindows: renderTallWindows,
+  beltCourse: renderBeltCourse,
+  pipesValves: renderPipesValvesFacade,
+};

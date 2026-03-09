@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import './OceanScene.css';
 import { Robot } from './robot/Robot';
@@ -11,39 +11,67 @@ import {
   stopCollisionDetection,
 } from '../systems/collisionSystem';
 import { Factory } from './actors/Factory';
-import { placeFactories } from '../systems/factoryPlacementSystem';
+import { placeFactories, getRowConfig } from '../systems/factoryPlacementSystem';
 import { ActorType } from '../types/Actor';
 import { startFactoryProduction } from '../systems/factorySystem';
+import colorTheme from '../constants/colorTheme.json';
+import { hslToString } from '../utils/colorUtils';
 
 // ========================================
 // TYPES & INTERFACES
 // ========================================
 interface OceanSceneProps {
-  width?: number;
-  height?: number;
+  width: number;
+  height: number;
+  backgroundColor: string;
 }
+
 
 // ========================================
 // CONSTANTS
 // ========================================
-const DEFAULT_WIDTH = 1920;
-const DEFAULT_HEIGHT = 1080;
-const BACKGROUND_COLOR = '#0a1128';
+
 
 // ========================================
 // COMPONENT
 // ========================================
 export function OceanScene({
-  width = DEFAULT_WIDTH,
-  height = DEFAULT_HEIGHT,
-}: OceanSceneProps = {}) {
+  width = 1920,
+  height = 1080,
+  backgroundColor = '#0a1128',
+}: OceanSceneProps) {
+
   const robots = useOceanStore((s) => s.robots);
   const actors = useOceanStore((s) => s.actors);
 
+  // categorize factory actors by row — memoised so robot updates don't
+  // create new array references and trigger unnecessary Factory re-renders
+  const backgroundFactories = useMemo(
+    () => actors.filter((a) => {
+      if (a.type !== ActorType.FACTORY) return false;
+      return getRowConfig(a.config?.row ?? -1)?.row === 'background';
+    }),
+    [actors],
+  );
+  const midgroundFactories = useMemo(
+    () => actors.filter((a) => {
+      if (a.type !== ActorType.FACTORY) return false;
+      return getRowConfig(a.config?.row ?? -1)?.row === 'midground';
+    }),
+    [actors],
+  );
+  const frontgroundFactories = useMemo(
+    () => actors.filter((a) => {
+      if (a.type !== ActorType.FACTORY) return false;
+      return getRowConfig(a.config?.row ?? -1)?.row === 'foreground';
+    }),
+    [actors],
+  );
+
   // Spawn initial robots and place factories on mount
   useEffect(() => {
-    // Place a dense row of factories (overlap allowed) so you can preview them
-    placeFactories(6);
+    // Place factories in 3 depth rows
+    placeFactories();
 
     spawnRobot();
     spawnRobot();
@@ -75,6 +103,7 @@ export function OceanScene({
     };
   }, []);
 
+
   return (
     <>
       <svg
@@ -83,19 +112,66 @@ export function OceanScene({
         width={width}
         height={height}
       >
-        <rect fill={BACKGROUND_COLOR} width={width} height={height} />
-        <g id="factory-layer">
-          {
-            actors
-              .filter((a) => a.type === ActorType.FACTORY)
-              .map((actor) => (
-                <Factory key={actor.id} actor={actor} />
-              ))
-          }
+        <defs>
+          {/* Gradients between factory rows */}
+          <linearGradient id="gradient-0-1" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#0c1c4f" stopOpacity=".7" />
+            <stop offset="100%" stopColor={hslToString(colorTheme.vent.shadow)} stopOpacity=".7" />
+          </linearGradient>
+          <linearGradient id="gradient-1-2" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor={hslToString(colorTheme.vent.shadow)} stopOpacity=".5" />
+            <stop offset="100%" stopColor={hslToString(colorTheme.vent.shadow)} stopOpacity=".5" />
+          </linearGradient>
+        </defs>
+
+        <rect fill={backgroundColor} width={width} height={height} />
+
+        {/* Factory rows rendered back-to-front for proper depth perception */}
+        <g id="factory-background-layer">
+          {/* center-type rows (should appear furthest back) */}
+          {backgroundFactories.map((actor) => (
+            <Factory key={actor.id} actor={actor} />
+          ))}
         </g>
+        {/* Gradient between row 2 and row 1 */}
+        <rect
+          id="gradient-back-mid"
+          x="0"
+          y="0"
+          width={width}
+          height={height}
+          fill="url(#gradient-0-1)"
+          pointerEvents="none"
+        />
+
+        <g id="factory-midground-layer">
+          {/* full-type rows */}
+          {midgroundFactories.map((actor) => (
+            <Factory key={actor.id} actor={actor} />
+          ))}
+        </g>
+        {/* Gradient between row 1 and row 0 */}
+        <rect
+          id="gradient-mid-front"
+          x="0"
+          y="0"
+          width={width}
+          height={height}
+          fill="url(#gradient-1-2)"
+          pointerEvents="none"
+        />
+
+
+
         <g id="robot-layer">
           {robots.map((robot) => (
             <Robot key={robot.id} robot={robot} />
+          ))}
+        </g>
+        <g id="factory-frontground-layer">
+          {/* edge-type rows (foreground) */}
+          {frontgroundFactories.map((actor) => (
+            <Factory key={actor.id} actor={actor} />
           ))}
         </g>
         <g id="ui-layer" />
