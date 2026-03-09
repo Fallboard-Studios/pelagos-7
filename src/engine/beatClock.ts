@@ -2,6 +2,7 @@
 // IMPORTS
 // ========================================
 import * as Tone from 'tone';
+import { DEV_TUNING } from '../constants';
 
 // ========================================
 // CONSTANTS
@@ -47,7 +48,7 @@ export function initBeatClock(): void {
     }
   }, '16n');
   initialized = true;
-  console.log('BeatClock initialized');
+  if (DEV_TUNING) console.log('[BeatClock] initialized');
 }
 
 /**
@@ -93,25 +94,42 @@ export function scheduleAtBeat(beat: number, callback: () => void): string {
 }
 
 /**
- * Stub: schedule a repeating callback (logs only)
+ * Schedule a callback to repeat at the given musical interval.
+ * Registers with Tone.Transport and stores the event ID for later cancellation via cancelSchedule.
+ * @param interval - Tone.js time notation, e.g. '4m', '8n', '60m'
+ * @param callback - Called on each interval tick
+ * @returns A schedule ID that can be passed to cancelSchedule
  */
 export function scheduleRepeat(interval: string, callback: () => void): string {
   const transport = Tone.getTransport();
   // Generate unique ID for this scheduled event
   const scheduleId = `schedule-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-  // Schedule with Transport; treat callback return value as the new ID
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const transportId = transport.scheduleRepeat((time) => {
+  const transportId = transport.scheduleRepeat((_time) => {
     callback();
   }, interval);
 
-  // Store mapping for potential cancellation later
+  // Store mapping for cancellation via cancelSchedule
   scheduleMap.set(scheduleId, String(transportId));
 
-  if (console && console.log) {
-    console.log('[BeatClock] scheduleRepeat:', interval, 'id:', scheduleId);
-  }
+  if (DEV_TUNING) console.log('[BeatClock] scheduleRepeat:', interval, 'id:', scheduleId);
 
   return scheduleId;
+}
+
+/**
+ * Cancel a previously scheduled repeating event.
+ * Clears the event from Tone.Transport and removes it from the internal schedule map.
+ * @param scheduleId - ID returned by scheduleRepeat
+ */
+export function cancelSchedule(scheduleId: string): void {
+  const transportIdStr = scheduleMap.get(scheduleId);
+  if (transportIdStr === undefined) {
+    if (DEV_TUNING) console.log('[BeatClock] cancelSchedule: no schedule found for', scheduleId);
+    return;
+  }
+  const transport = Tone.getTransport();
+  transport.clear(Number(transportIdStr));
+  scheduleMap.delete(scheduleId);
+  if (DEV_TUNING) console.log('[BeatClock] cancelSchedule: cleared', scheduleId);
 }

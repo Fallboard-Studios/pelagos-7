@@ -33,25 +33,6 @@ const FACTORY_ROWS: FactoryRowConfig[] = [
   { y: 1200, spreadType: 'edges', factoriesPerRow: 8, edgeWidth: 0.3, availableFactoryTypes: ['Warehouse'], row: 'foreground' },
 ];
 
-// const FACTORY_ROWS: FactoryRowConfig[] = [
-//   // MIDGROUND
-//   { y: 219, spreadType: 'full', factoriesPerRow: 5, availableFactoryTypes: ['Monolith'], row: 'midground' },
-//   { y: 1030, spreadType: 'full', factoriesPerRow: 4, availableFactoryTypes: ['Monolith'], row: 'midground' },
-//   // MIDGROUND
-//   { y: 619, spreadType: 'full', factoriesPerRow: 3, availableFactoryTypes: ['Monolith'], row: 'midground' },
-//   { y: 1130, spreadType: 'full', factoriesPerRow: 5, availableFactoryTypes: ['Monolith'], row: 'midground' },
-//   { y: 319, spreadType: 'full', factoriesPerRow: 5, availableFactoryTypes: ['Monolith'], row: 'midground' },
-//   { y: 960, spreadType: 'full', factoriesPerRow: 7, availableFactoryTypes: ['Monolith'], row: 'midground' },
-//   // MIDGROUND
-//   { y: 500, spreadType: 'full', factoriesPerRow: 5, availableFactoryTypes: ['Monolith'], row: 'midground' },
-//   { y: 730, spreadType: 'full', factoriesPerRow: 7, availableFactoryTypes: ['Monolith'], row: 'midground' },
-//   // FOREGROUND
-//   { y: 280, spreadType: 'center', factoriesPerRow: 4, centerWidth: 0.5, availableFactoryTypes: ['Monolith'], row: 'foreground' },
-//   { y: 900, spreadType: 'center', factoriesPerRow: 2, centerWidth: 0.4, availableFactoryTypes: ['Monolith'], row: 'foreground' },
-//   { y: 400, spreadType: 'full', factoriesPerRow: 3, availableFactoryTypes: ['Monolith'], row: 'foreground' },
-//   { y: 1200, spreadType: 'full', factoriesPerRow: 3, availableFactoryTypes: ['Monolith'], row: 'foreground' },
-// ];
-
 // no longer need global FACTORIES_PER_ROW; each row config knows how many factories it wants
 
 const PRODUCTION_INTERVAL = 60; // measures

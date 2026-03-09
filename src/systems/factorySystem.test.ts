@@ -32,12 +32,12 @@ vi.mock('../engine/AudioEngine', () => ({
 }));
 
 vi.mock('../engine/beatClock', () => ({
-   
   scheduleRepeat: vi.fn((interval: string, callback: () => void) => {
     // For tests, invoke callback immediately
     callback();
     return `schedule-id-${Date.now()}`;
   }),
+  cancelSchedule: vi.fn(),
 }));
 
 vi.mock('../engine/melodyGenerator', () => ({

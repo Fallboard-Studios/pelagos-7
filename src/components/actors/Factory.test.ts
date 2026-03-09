@@ -52,7 +52,7 @@ describe('Factory variant selection', () => {
       expect(typeof v.frontCornerX).toBe('number');
       // greebleConfig now contains rooftop/facade pools
       expect(v).toHaveProperty('greebleConfig');
-      const gc = (v as any).greebleConfig;
+      const gc = v.greebleConfig;
       expect(Array.isArray(gc.allowedRooftop)).toBe(true);
       expect(Array.isArray(gc.allowedFacade)).toBe(true);
       expect(gc.maxRooftop).toBe(1);
@@ -74,7 +74,7 @@ describe('Factory variant selection', () => {
 
   it('all variants define maxBeltCourses as a number in greebleConfig', () => {
     for (const key of Object.keys(VARIANT_CONF) as FactoryVariant[]) {
-      const gc = (VARIANT_CONF[key] as any).greebleConfig;
+      const gc = VARIANT_CONF[key].greebleConfig;
       expect(typeof gc.maxBeltCourses).toBe('number');
       expect(gc.maxBeltCourses).toBeGreaterThanOrEqual(0);
     }
@@ -85,7 +85,7 @@ describe('Factory variant selection', () => {
     const seeds = ['seed-a', 'seed-b', 'seed-c', 'seed-d', 'seed-e'];
     for (const seed of seeds) {
       const result = selectVariantFromSeed(seed, 500);
-      const maxBeltCourses = (VARIANT_CONF[result.variant] as any).greebleConfig.maxBeltCourses as number;
+      const maxBeltCourses = VARIANT_CONF[result.variant].greebleConfig.maxBeltCourses;
       expect(result.beltCourseCount).toBeGreaterThanOrEqual(0);
       expect(result.beltCourseCount).toBeLessThanOrEqual(maxBeltCourses);
     }

@@ -25,6 +25,16 @@ const BUTTON_TEXT = {
 // ========================================
 // COMPONENT
 // ========================================
+
+/**
+ * Overlay button that initialises the AudioEngine on first user interaction.
+ * Browsers require a user gesture before the Web Audio API context can start;
+ * this component satisfies that requirement and calls `onSuccess` once the
+ * engine is ready.
+ *
+ * @param onSuccess - Optional callback invoked after `AudioEngine.start()`
+ *                    resolves successfully.
+ */
 export function PlayButton({ onSuccess }: PlayButtonProps) {
   const [playState, setPlayState] = useState<PlayButtonState>('idle');
 

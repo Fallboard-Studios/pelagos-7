@@ -5,8 +5,9 @@ import React, { useRef, useEffect } from 'react';
 
 import type { Robot as RobotType } from '../../types/Robot';
 import { RobotBody } from './RobotBody';
-import { setRef } from '../../utils/refs';
+import { setRef, deleteRef } from '../../utils/refs';
 import { useOceanStore } from '../../stores/oceanStore';
+import { handleRobotIdle } from '../../systems/idleSystem';
 
 // ========================================
 // TYPES
@@ -28,11 +29,14 @@ export function Robot({ robot }: RobotProps) {
   const selectRobot = useOceanStore((s) => s.selectRobot);
   const isSelected = selectedRobotId === robot.id;
 
-  // Store ref for GSAP access
+  // Register ref for GSAP access, start idle behaviour, and clean up on unmount.
   useEffect(() => {
     if (ref.current) {
       setRef(`robot-${robot.id}`, ref.current);
+      // Ref is guaranteed present here — safe to start the swim timeline.
+      handleRobotIdle(robot.id);
     }
+    return () => deleteRef(`robot-${robot.id}`);
   }, [robot.id]);
 
   const handleClick = () => {

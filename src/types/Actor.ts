@@ -59,5 +59,9 @@ export interface Actor {
     beltCourseCount?: number;
     /** High‑level purpose derived from factory variant. Read-only after spawn. */
     purpose?: import('../components/actors/factoryVariants').FactoryPurpose;
+    /** Convenience flag set when a factory has been powered down. */
+    isOffline?: boolean;
+    /** Measure at which the factory went offline. Used by offlineSystem. */
+    offlineSince?: number;
   };
 }

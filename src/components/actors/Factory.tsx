@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 
 import type { Actor } from '../../types/Actor';
-import type { FactoryVariant } from './factoryVariants';
 import { selectVariantFromSeed, VARIANT_CONF } from './factoryVariants';
 import { getRowConfig } from '../../systems/factoryPlacementSystem';
 import { calcSilhouetteSize, bottomAnchorTransform } from './silhouetteUtils';
@@ -49,6 +48,7 @@ const BUBBLE_PURPOSES: Set<FactoryPurpose> = new Set([
   'heavyIndustry',
   'chemicalProcessing',
   'pipeWorks',
+  'storageLogistics'
 ]);
 
 // ========================================
@@ -91,6 +91,7 @@ const FactoryInner: React.FC<FactoryProps> = ({ actor }) => {
   // lightMeasure: quantised to multiples of 4 so body fills only update once
   // every 4 measures — the 96-measure day cycle changes slowly enough that
   // sub-4-measure granularity is imperceptible.
+  const bpm = useOceanStore(state => state.settings.bpm);
   const lightMeasure = useOceanStore(state => Math.round(state.currentMeasure / 4) * 4);
   // flickerEpoch: phased per building so window rerolls are spread across
   // FLICKER_PERIOD consecutive measures rather than all firing at once.
@@ -139,7 +140,8 @@ const FactoryInner: React.FC<FactoryProps> = ({ actor }) => {
 
   // --- bubble vent coordinates (scene space) ---------------------------------
   const ventXnorm = (buildingSeed % 60) + 20; // 20–80% of normalised width
-  const ventXPx = (ventXnorm / 100) * actualWidth;
+  // ventXPx is the local building offset; add actor.position.x for world space
+  const ventXWorld = actor.position.x + (ventXnorm / 100) * actualWidth;
   // ventY is top edge of building in world coords
   const ventY = actor.position.y - actualHeight;
 
@@ -223,48 +225,62 @@ const FactoryInner: React.FC<FactoryProps> = ({ actor }) => {
     }
   }
 
-  return (
-    <g
-      transform={transform}
-      data-factory-type={config.variant}
-      data-rooftop-greeble={actor.config?.rooftopGreeble ?? 'none'}
-      data-facade-greeble={actor.config?.facadeGreeble ?? 'none'}
-    >
-      <defs>
-        {/* Full body clip — keeps facade greebles inside building bounds */}
-        <clipPath id={bodyClipId}>
-          <rect x="2" y="2" width="96" height="96" />
-        </clipPath>
-        {/* Right-face clip (x ≥ frontCornerX) — left/west is the base rect */}
-        <clipPath id={westClipId}>
-          <rect x={frontCornerX} y={0} width={100 - frontCornerX} height={100} />
-        </clipPath>
-      </defs>
+  // Derive bubble depth scale from the row layer label.
+  // foreground rows get full-size bubbles; midground = half; background = one-third.
+  const rowLabel = getRowConfig(actor.config?.row ?? 0)?.row;
+  const bubbleDepthScale = rowLabel === 'background' ? 1 / 3 : rowLabel === 'midground' ? 0.5 : 1;
 
-      <g transform={`scale(${(width * (actor.scaleX ?? 1)) / 100}, ${(height * (actor.scaleY ?? 1)) / 100})`}>
-        {/* Body: base rect = left (west) face; overlay clipped to right (east) face */}
-        <rect x="0" y="0" width="100" height="100" fill={westFill} style={{ transition: FILL_TRANSITION }} />
-        <g clipPath={`url(#${westClipId})`}>
-          <rect x="0" y="0" width="100" height="100" fill={eastFill} style={{ transition: FILL_TRANSITION }} />
+  return (
+    <>
+      <g
+        transform={transform}
+        data-factory-type={config.variant}
+        data-rooftop-greeble={actor.config?.rooftopGreeble ?? 'none'}
+        data-facade-greeble={actor.config?.facadeGreeble ?? 'none'}
+      >
+        <defs>
+          {/* Full body clip — keeps facade greebles inside building bounds */}
+          <clipPath id={bodyClipId}>
+            <rect x="2" y="2" width="96" height="96" />
+          </clipPath>
+          {/* Right-face clip (x ≥ frontCornerX) — left/west is the base rect */}
+          <clipPath id={westClipId}>
+            <rect x={frontCornerX} y={0} width={100 - frontCornerX} height={100} />
+          </clipPath>
+        </defs>
+
+        <g transform={`scale(${(width * (actor.scaleX ?? 1)) / 100}, ${(height * (actor.scaleY ?? 1)) / 100})`}>
+          {/* Body: base rect = left (west) face; overlay clipped to right (east) face */}
+          <rect x="0" y="0" width="100" height="100" fill={westFill} style={{ transition: FILL_TRANSITION }} />
+          <g clipPath={`url(#${westClipId})`}>
+            <rect x="0" y="0" width="100" height="100" fill={eastFill} style={{ transition: FILL_TRANSITION }} />
+          </g>
+          {/* Facade greebles clipped to body bounds */}
+          <g clipPath={`url(#${bodyClipId})`}>{facadeContent}</g>
+          {/* Belt separators rendered outside the body clip so they span full width */}
+          {beltContent}
         </g>
-        {/* Facade greebles clipped to body bounds */}
-        <g clipPath={`url(#${bodyClipId})`}>{facadeContent}</g>
-        {/* Belt separators rendered outside the body clip so they span full width */}
-        {beltContent}
+        {/* rooftop greeble rendered outside scaled group so it's not clipped */}
+        {rooftopElement}
       </g>
-      {/* rooftop greeble rendered outside scaled group so it's not clipped */}
-      {rooftopElement}
-      {/* bubble vent animation (scene coordinates) */}
-      {BUBBLE_PURPOSES.has(actor.config?.purpose ?? 'heavyIndustry') && (
-        <BubbleStream
-          actorId={actor.id}
-          ventX={ventXPx}
-          ventY={ventY}
-          seed={buildingSeed}
-          isActive={isActive}
-        />
-      )}
-    </g>
+      {/* end scaled/positioned factory group */}
+
+      {/* bubble vent animation (scene coordinates) - placed outside transform group */}
+      {
+        BUBBLE_PURPOSES.has(actor.config?.purpose ?? 'heavyIndustry') && (
+          <BubbleStream
+            actorId={actor.id}
+            ventX={ventXWorld}
+            ventY={ventY}
+            seed={buildingSeed}
+            isActive={isActive}
+            bpm={bpm}
+            bodyHue={shiftedColors.body.h}
+            depthScale={bubbleDepthScale}
+          />
+        )
+      }
+    </>
   );
 };
 

@@ -73,7 +73,7 @@ describe('oceanStore', () => {
       config: { row: 0, hueShift: 10, satShift: -5 },
     };
     // pretend ocean store holds actors field
-    useOceanStore.setState({ actors: [actor] } as any);
+    useOceanStore.setState({ actors: [actor] } as Partial<import('./oceanStore').OceanStore>);
     expect(() => JSON.stringify(useOceanStore.getState())).not.toThrow();
   });
 

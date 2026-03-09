@@ -109,7 +109,6 @@ export const BubbleStream: React.FC<BubbleStreamProps> = ({
   const circleRefs = React.useMemo(
     () => Array.from({ length: config.count }, () => React.createRef<SVGCircleElement>()),
     // count is derived from seed and won't change after mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [config.count],
   );
 

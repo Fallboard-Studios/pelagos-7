@@ -257,7 +257,7 @@ describe('renderCrownSpire', () => {
   });
 
   it('each step height equals 15% of buildingHeight divided by step count', () => {
-    const totalH = ctx.buildingHeight * 0.15; // = 15
+    const _totalH = ctx.buildingHeight * 0.15; // = 15
     const el2 = renderCrownSpire({ ...ctx, seed: 0 }) as EL;
     const children2 = React.Children.toArray(el2.props.children) as EL[];
     // 2 steps: stepH = 15/2 = 7.5
@@ -302,7 +302,7 @@ describe('renderCrownSpire', () => {
 // ========================================
 
 describe('renderCrownSpire — shaded', () => {
-  const INSET_RATE = 0.65;
+  const _INSET_RATE = 0.65;
   const shadedCtx: GreebleRendererContext = {
     ...ctx,
     frontCornerX: 40,
@@ -428,12 +428,12 @@ describe('renderAntennae', () => {
 
 describe('attachFlickerAnimation', () => {
   it('returns a cleanup function', () => {
-    const cleanup = attachFlickerAnimation('light-element-id');
+    const cleanup = attachFlickerAnimation({ current: null });
     expect(typeof cleanup).toBe('function');
   });
 
   it('cleanup function does not throw', () => {
-    const cleanup = attachFlickerAnimation('light-element-id');
+    const cleanup = attachFlickerAnimation({ current: null });
     expect(() => cleanup()).not.toThrow();
   });
 });

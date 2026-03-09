@@ -1,9 +1,6 @@
-// Variant configuration data for factories.  Historically each variant
-// defined its own SVG path (pathD) and corresponding clip path, but in the
-// redesigned system every factory uses a universal rectangle drawn by
-// `Factory.tsx`.  The variant definitions now only carry colours, sizes, and
-// greeble settings; path/clip information lives entirely in the renderer.
-
+// ========================================
+// IMPORTS
+// ========================================
 import Alea from 'alea';
 import { createNoise2D } from 'simplex-noise';
 import colorTheme from '../../constants/colorTheme.json';
@@ -12,12 +9,20 @@ import { lerp } from '../../utils/math';
 import type { RooftopGreeble, FacadeGreeble } from './greebles/greebleTypes';
 
 
-// FactoryVariant and configuration moved here to centralize variant data
+// ========================================
+// TYPES
+// ========================================
+
+/**
+ * Visual silhouette archetypes available for factory buildings.
+ * Determines the base size range, colour palette, and greeble pools.
+ */
 export type FactoryVariant = 'Monolith' | 'Stacks' | 'Refinery' | 'Skyscraper' | 'Warehouse';
 
-// New for Building Design 2.0: each variant now has a high‑level purpose that
-// gates animations, bubbles, offline effects, etc. The purpose is determined
-// solely by the variant type and stored in the actor config at spawn time.
+/**
+ * High-level operational purpose assigned to each factory variant.
+ * Gates which animations, bubble-vent effects, and offline visuals apply.
+ */
 export type FactoryPurpose =
   | 'heavyIndustry'
   | 'chemicalProcessing'
@@ -25,7 +30,9 @@ export type FactoryPurpose =
   | 'observationComms'
   | 'storageLogistics';
 
-
+// ========================================
+// CONSTANTS
+// ========================================
 
 /**
  * Per-variant configuration table. Each entry fully describes the visual
@@ -137,45 +144,36 @@ export const VARIANT_CONF: Record<FactoryVariant, {
   },
 };
 
-
+// ========================================
+// EXPORTS
+// ========================================
 
 /**
- * Maps a noise value (0..1) to a FactoryVariant, respecting the optional
- * `availableTypes` allow-list. When an allow-list is provided, variants are
- * evenly distributed across the noise range by index order; otherwise the
- * default probability distribution applies (Stacks is the most common).
+ * Maps a noise value (0..1) to a FactoryVariant, respecting the
+ * `availableTypes` allow-list. Variants are weighted by index order —
+ * earlier entries receive a larger share of the noise range.
  *
  * @param noiseValue    - Simplex noise output normalised to [0, 1].
- * @param row           - Depth row; not currently used for filtering but
- *                        reserved for future row-specific variant constraints.
- * @param availableTypes - Optional ordered subset of variants to select from.
+ * @param _row          - Depth row; reserved for future row-specific variant
+ *                        constraints, currently unused.
+ * @param availableTypes - Ordered subset of variants to select from.
  * @returns The resolved FactoryVariant for this noise position.
  */
 export function getVariantFromNoise(
   noiseValue: number,
-  row: number,
+  _row: number,
   availableTypes: FactoryVariant[] = ['Monolith', 'Stacks', 'Refinery', 'Skyscraper', 'Warehouse'],
 ): FactoryVariant {
-  // if caller provided an ordered list, weight variants based on order
-  if (availableTypes && availableTypes.length > 0) {
-    const n = availableTypes.length;
-    const total = (n * (n + 1)) / 2; // sum of 1..n
-    let cumulative = 0;
-    for (let i = 0; i < n; i++) {
-      cumulative += (n - i) / total;
-      if (noiseValue < cumulative) {
-        return availableTypes[i];
-      }
+  const n = availableTypes.length;
+  const total = (n * (n + 1)) / 2; // sum of 1..n
+  let cumulative = 0;
+  for (let i = 0; i < n; i++) {
+    cumulative += (n - i) / total;
+    if (noiseValue < cumulative) {
+      return availableTypes[i];
     }
-    return availableTypes[n - 1];
-  } else {
-    if (noiseValue < 0.2) return 'Monolith';
-    if (noiseValue < 0.65) return 'Stacks';
-    if (noiseValue < 0.75) return 'Skyscraper';
-    if (noiseValue < 0.95) return 'Refinery';
-    return 'Warehouse';
   }
-
+  return availableTypes[n - 1];
 }
 
 /**
@@ -211,7 +209,6 @@ export function selectVariantFromSeed(
   const prng = Alea(actorId);
   const noise2D = createNoise2D(prng);
   const noiseValue = (noise2D(x / 100, 0) + 1) / 2; // Normalize to [0,1]
-  // availableTypes = ['Monolith'];
   const variant = getVariantFromNoise(noiseValue, row, availableTypes);
   const scale = 0.8 + prng() * 0.4; // 0.8-1.2
 

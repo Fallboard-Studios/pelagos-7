@@ -20,6 +20,8 @@ let getCurrentBeat: () => number;
 let getCurrentMeasure: () => number;
 let getCurrentHour: () => number;
 let scheduleAtBeat: (beat: number, cb: () => void) => string;
+let scheduleRepeat: (interval: string, callback: () => void) => string;
+let cancelSchedule: (scheduleId: string) => void;
 
 describe('beatClock', () => {
   beforeEach(async () => {
@@ -34,6 +36,8 @@ describe('beatClock', () => {
       getCurrentMeasure,
       getCurrentHour,
       scheduleAtBeat,
+      scheduleRepeat,
+      cancelSchedule,
     } = await import('./beatClock'));
   });
 
@@ -56,5 +60,24 @@ describe('beatClock', () => {
   it('returns stub id for scheduleAtBeat', () => {
     const id = scheduleAtBeat(4, () => undefined);
     expect(id).toBe('stub-id');
+  });
+
+  it('scheduleRepeat registers with transport and returns a schedule id', () => {
+    const cb = vi.fn();
+    const id = scheduleRepeat('4m', cb);
+    expect(id).toMatch(/^schedule-/);
+    expect(mockTransport.scheduleRepeat).toHaveBeenCalledWith(expect.any(Function), '4m');
+  });
+
+  it('cancelSchedule calls transport.clear and removes the entry', () => {
+    const cb = vi.fn();
+    const id = scheduleRepeat('4m', cb);
+    cancelSchedule(id);
+    expect(mockTransport.clear).toHaveBeenCalledWith(expect.anything());
+  });
+
+  it('cancelSchedule does nothing for an unknown id', () => {
+    cancelSchedule('unknown-id');
+    expect(mockTransport.clear).not.toHaveBeenCalled();
   });
 });
