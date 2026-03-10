@@ -10,7 +10,7 @@ import { AudioEngine } from '../engine/AudioEngine';
 // TYPES
 // ========================================
 
-interface OceanStore {
+export interface OceanStore {
   robots: Robot[];
   actors: Actor[];
   selectedRobotId: string | null;
@@ -18,6 +18,7 @@ interface OceanStore {
   settings: {
     bpm: number;
     maxRobots: number;
+    minRobots: number; // lower bound for population bouncing
   };
   addRobot: (robot: Robot) => void;
   removeRobot: (id: string) => void;
@@ -39,7 +40,8 @@ interface OceanStore {
 // ========================================
 const INITIAL_SETTINGS = {
   bpm: 120,
-  maxRobots: 12,
+  maxRobots: 6,
+  minRobots: 2,
 };
 
 // ========================================
