@@ -552,3 +552,167 @@ Module-level variable: `let spawnScheduleId: string | null = null`
 - `src/systems/spawnSystem.ts` — existing `generateSpawnPosition` / `spawnRobot`
 - `src/engine/beatClock.ts` — `scheduleRepeat` / `cancelSchedule`
 - `src/systems/factorySystem.ts` — reference pattern for scheduler lifecycle
+
+---
+
+## M5.8: Remove Collision and Interaction Systems
+
+**Title:** [M5.8] Remove collision and interaction systems
+
+**Labels:** refactor, system: state, size: S, priority: high
+
+### Feature Description
+Remove the collision detection and robot-robot interaction systems implemented in M4. For v1.0, robots do not collide with each other or trigger interactive effects. The ecosystem focuses on autonomous swimming and music generation.
+
+### Implementation Details
+- Delete `src/systems/collisionSystem.ts`
+- Delete `src/systems/interactionSystem.ts`
+- Remove `startCollisionDetection()` / `stopCollisionDetection()` calls from `OceanScene.tsx`
+- Remove any interaction-related state from the robot type (cooldowns, interaction state)
+- Clean up AudioEngine references to interaction flurry
+- Update Robot type to remove interaction fields
+
+### Acceptance Criteria
+- [ ] Collision detection system deleted
+- [ ] Interaction system deleted
+- [ ] No imports remain for deleted systems
+- [ ] OceanScene cleanup hooks removed
+- [ ] Robot type cleaned up
+- [ ] Robots swim independently without collision checks
+- [ ] Application runs without collision-related code paths
+
+### Reference
+- Replaced by autonomous spawning (M5.2) and population management (M5.9)
+
+---
+
+## M5.9: Implement MIN/MAX Robot Population Bouncing
+
+**Title:** [M5.9] Implement MIN/MAX robot population bouncing
+
+**Labels:** feature, system: state, size: M, priority: high
+
+### Feature Description
+Once MAX_ROBOTS is reached, remove a robot instead when the spawn timer fires. From this point forward, the number of robots bounces between MIN_ROBOTS and MAX_ROBOTS. Any number of robots may be added or removed within those boundaries.
+
+### Implementation Details
+- Add `settings.minRobots` constant (= 1) to oceanStore
+- Modify `spawnRobot()` in `spawnSystem.ts` to check population:
+  - If `robots.length >= maxRobots`, remove the oldest/least-active robot instead of spawning
+  - Use removal criteria: oldest robot by spawn time, or robot in idle state longest
+- Update spawn system to track robot creation time for removal ordering
+- Add removal event logging (DEV_TUNING)
+
+### Acceptance Criteria
+- [ ] Robot population bounces between MIN_ROBOTS (1) and MAX_ROBOTS
+- [ ] When at max and spawn timer fires, oldest robot is removed
+- [ ] Removed robots are unregistered from AudioEngine
+- [ ] Population never drops below MIN_ROBOTS (1)
+- [ ] Robot creation time tracked in state
+- [ ] Population logging (DEV_TUNING)
+- [ ] Unit tests: min/max bounds, removal order
+
+### Reference
+- `src/systems/spawnSystem.ts` — spawn scheduler
+- `src/stores/oceanStore.ts` — robot removal
+
+---
+
+## M5.10: Implement Robot Facing Direction (X-Axis Flip)
+
+**Title:** [M5.10] Implement robot facing direction with x-axis flip
+
+**Labels:** feature, system: animation, size: M, priority: high
+
+### Feature Description
+Robots face the direction they are moving. They rotate (flip horizontally) along the x-axis with an ease-in-out animation that starts before the robot begins swimming towards its destination. The turn and swim should overlap slightly for natural motion.
+
+### Implementation Details
+- Add `direction` field to Robot type: `direction: 'left' | 'right'` (default: 'right')
+- Modify `handleRobotIdle()` in `idleSystem.ts`:
+  - Calculate direction based on `destination.x` vs `robot.position.x`
+  - Start flip animation BEFORE starting swim animation (~0.3s lead time)
+  - Flip animation: 0.5s duration with 'power1.inOut' ease, scaleX from -1 to 1 (or vice versa)
+- Update Robot SVG rendering to apply `scaleX` transform based on direction
+- Ensure animations overlap: flip starts 0.3s before swim, both total ~0.8–1.0s
+
+### Acceptance Criteria
+- [ ] Robots flip horizontally based on movement direction
+- [ ] Flip animation duration: ~0.5s
+- [ ] Flip starts before swim animation (~0.3s lead)
+- [ ] Animations overlap naturally
+- [ ] scaleX applied in SVG rendering
+- [ ] Robot direction tracked in state
+- [ ] Works with all robot speeds
+
+### Reference
+- `src/systems/idleSystem.ts` — destination logic
+- `src/animation/swimAnimation.ts` — timeline creation
+
+---
+
+## M5.11: Implement Night/Day Cycle Lightness Modulation
+
+**Title:** [M5.11] Implement night/day cycle lightness modulation for robots
+
+**Labels:** feature, system: animation, size: M, priority: medium
+
+### Feature Description
+The night/day cycle impacts robot appearance. Instead of changing facade color, the lightness (L in HSL) of all robot parts increases and decreases across the 96-measure day/night cycle. Robot shapes remain the same; only brightness varies with time of day.
+
+### Implementation Details
+- Add `currentHour` to oceanStore (derived from `currentMeasure % 96 / 4`)
+- Calculate lightness multiplier based on hour:
+  - Hour 0 (midnight) → 0.4x (darkest)
+  - Hour 6 (dawn) → 0.7x
+  - Hour 12 (noon) → 1.0x (brightest)
+  - Hour 18 (dusk) → 0.7x
+  - Hour 23 → 0.4x
+  - Smooth interpolation between hours using sinusoidal curve
+- Store lightness multiplier in oceanStore
+- Update Robot SVG colors on every lightness change via `subscribeToMeasure()`
+
+### Acceptance Criteria
+- [ ] Lightness varies smoothly across 96-measure cycle
+- [ ] Darkest at midnight (hour 0, measure 0)
+- [ ] Brightest at noon (hour 12, measure 48)
+- [ ] All robot colors scale with lightness
+- [ ] Subscribed to measure updates
+- [ ] Performance maintained (no expensive recalcs)
+- [ ] Visual cycle clear and atmospheric
+
+### Reference
+- `docs/BEAT_CLOCK.md` — hour derivation
+- `src/stores/oceanStore.ts` — subscription pattern
+
+---
+
+## M5.12: Implement Periodic Robot Bubble Emission
+
+**Title:** [M5.12] Implement periodic robot bubble emission
+
+**Labels:** feature, system: animation, size: S, priority: medium
+
+### Feature Description
+Robots periodically emit bubbles that rise and fade as they float toward the surface. Bubbles are emitted once per measure on average (with randomness) from the top of each robot's SVG, using the existing `BubbleStream` component.
+
+### Implementation Details
+- Reuse `BubbleStream.tsx` component (already handles bubble visuals and physics)
+- Add `bubbleEmitterRef` to each Robot component pointing to SVG element at bubble origin
+- Schedule bubble emission via BeatClock on a ~1-measure interval with randomness
+- Each emission calls `BubbleStream` with origin position (robot top + small random offset)
+- Pass bubble parameters: depth scale from robot position, animation duration
+- Bubbles automatically handle particle motion and cleanup
+
+### Acceptance Criteria
+- [ ] Bubbles emit ~once per measure (with variance)
+- [ ] Bubbles originate from robot top center
+- [ ] Bubbles rise and fade naturally
+- [ ] BubbleStream component reused
+- [ ] Depth scaling applied (foreground = bigger)
+- [ ] No memory leaks from bubble cleanup
+- [ ] Visually adds life to the scene
+
+### Reference
+- `src/components/actors/BubbleStream.tsx` — component reuse
+- `src/engine/beatClock.ts` — scheduling
