@@ -2,13 +2,8 @@ import { useEffect, useMemo } from 'react';
 
 import './OceanScene.css';
 import { Robot } from './robot/Robot';
-import { InteractionStatus } from './debug/InteractionStatus';
 import { useOceanStore } from '../stores/oceanStore';
 import { spawnRobot, startSpawnScheduler, stopSpawnScheduler } from '../systems/spawnSystem';
-import {
-  startCollisionDetection,
-  stopCollisionDetection,
-} from '../systems/collisionSystem';
 import { Factory } from './actors/Factory';
 import { placeFactories, getRowConfig } from '../systems/factoryPlacementSystem';
 import { ActorType } from '../types/Actor';
@@ -88,14 +83,12 @@ export function OceanScene({
       }
     });
 
-    // Start periodic robot spawning and collision detection
+    // Start periodic robot spawning
     startSpawnScheduler();
-    startCollisionDetection();
 
     // Cleanup on unmount
     return () => {
       stopSpawnScheduler();
-      stopCollisionDetection();
     };
   }, []);
 
@@ -172,7 +165,6 @@ export function OceanScene({
         </g>
         <g id="ui-layer" />
       </svg>
-      <InteractionStatus />
     </>
   );
 }

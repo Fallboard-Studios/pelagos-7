@@ -12,7 +12,6 @@ export type NoteDuration = '32n' | '16n' | '8n' | '4n' | '2n';
 export enum RobotState {
   Idle = 'idle',
   Moving = 'moving',
-  Interacting = 'interacting',
   Selected = 'selected',
   Leaving = 'leaving',
 }
@@ -70,7 +69,6 @@ export interface Robot {
   melody: MelodyEvent[];
   audioAttributes: AudioAttributes;
   layer?: 'background' | 'foreground'; // SVG rendering layer (default: foreground)
-  lastInteractionMeasure?: number; // Measure number when robot last interacted
   // Note: Visual appearance (shape, colors, scale, detail level) is derived
   // from audioAttributes and NOT stored in state - calculated at render time
 }
