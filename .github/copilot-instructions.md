@@ -203,14 +203,18 @@ The following systems from the Oceanic prototype are explicitly **excluded** fro
 ### File Organization
 ```javascript
 src/
-  components/      # React components
-  stores/          # Zustand stores
-  engine/          # AudioEngine module
-  utils/           # Helper functions
-  types/           # TypeScript types/interfaces
-  hooks/           # Custom React hooks
-  constants/       # App-wide constants
-  assets/          # SVG files
+  components/          # React components
+    actors/            #   Factory, BubbleStream
+    robot/             #   Robot SVG variants and visual helpers
+    hud/               #   HUD overlay and controls
+    debug/             #   Dev-only overlays (DEV_TUNING gated)
+  stores/              # Zustand stores
+  engine/              # AudioEngine, BeatClock, harmonySystem, melodyGenerator
+  animation/           # GSAP swimAnimation, timelineMap
+  systems/             # Game logic (spawn, factory, idle, collision)
+  utils/               # Helper functions (math, color, refs)
+  types/               # TypeScript types/interfaces
+  constants/           # App-wide constants and color theme
 ```
 
 ### TypeScript
@@ -466,10 +470,15 @@ interface Robot {
 // CORRECT
 interface Robot {
   id: string;
+  state: RobotState;
   position: Vec2;
   destination: Vec2 | null;
-  state: RobotState;
   melody: MelodyEvent[];
+  audioAttributes: AudioAttributes; // synthType, adsr, pitchRange, filterFreq, reverb
+  octaveOffset: 0 | 1 | 2;         // subtracts octaves at scheduling time
+  masterVolume: number;             // 0-1, base note velocity
+  layer?: 'background' | 'foreground';
+  // NO synths, NO timelines, NO DOM refs — those are never stored in state
 }
 ```
 

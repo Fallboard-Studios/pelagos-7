@@ -1,639 +1,275 @@
-# M6: Polish & Launch Issues
+# M6: Audio Depth Issues
 
-**Milestone:** M6 - Polish & Launch  
+**Milestone:** M6 - Audio Depth  
 **Timeline:** Week 6  
-**Goal:** Production-ready, deployed, and portfolio-ready
+**Goal:** Each robot has a distinct sonic identity with per-robot synths, volume, timing, and panning
 
 ---
 
-## M6.1: Create Robot Info Panel
+## M6.1: Per-Robot Synth Instances with Individual ADSR
 
-**Title:** [M6.1] Create robot info panel showing attributes
+**Title:** [M6.1] Wire per-robot synth type and ADSR to AudioEngine playback
 
-**Labels:** feature, system: ui, size: M, priority: high
-
-### Feature Description
-Create a side panel that displays detailed information about the selected robot (audio attributes, melody, state).
-
-### Implementation Details
-- Create `src/components/panels/RobotInfoPanel.tsx`
-- Show when robot selected (selectedRobotId not null)
-- Display robot attributes:
-  - ID (shortened)
-  - Synth type
-  - ADSR envelope values
-  - Pitch range
-  - Melody event count
-  - Current state
-- Positioned on right side of screen
-- Slide in/out animation
-
-**Panel component:**
-```tsx
-export function RobotInfoPanel() {
-  const selectedId = useOceanStore(s => s.selectedRobotId);
-  const robot = useOceanStore(s => s.getRobotById(selectedId ?? ''));
-  
-  if (!robot) return null;
-  
-  return (
-    <div className="robot-info-panel">
-      <h3>Robot {robot.id.slice(0, 8)}</h3>
-      
-      <section>
-        <h4>Audio</h4>
-        <div>Synth: {robot.audioAttributes.synthType}</div>
-        <div>Attack: {robot.audioAttributes.adsr.attack}s</div>
-        <div>Decay: {robot.audioAttributes.adsr.decay}s</div>
-        <div>Sustain: {robot.audioAttributes.adsr.sustain}</div>
-        <div>Release: {robot.audioAttributes.adsr.release}s</div>
-      </section>
-      
-      <section>
-        <h4>Melody</h4>
-        <div>Events: {robot.melody.length}</div>
-        <div>Pattern: {robot.melody.map(e => e.noteIndex).join('-')}</div>
-      </section>
-      
-      <section>
-        <h4>State</h4>
-        <div>Current: {robot.state}</div>
-        <div>Cooldown: {robot.interactionCooldown ? 'Yes' : 'No'}</div>
-      </section>
-      
-      <button onClick={() => deselectRobot()}>Close</button>
-    </div>
-  );
-}
-```
-
-### Acceptance Criteria
-- [ ] Panel shows when robot selected
-- [ ] All attributes displayed correctly
-- [ ] Panel slides in/out smoothly
-- [ ] Close button deselects robot
-- [ ] Responsive layout (adapts to screen size)
-- [ ] No performance impact
-
-### Reference
-- Standard info panel pattern
-
----
-
-## M6.2: Create Settings Panel
-
-**Title:** [M6.2] Create settings panel for BPM and audio controls
-
-**Labels:** feature, system: ui, size: M, priority: high
+**Labels:** feature, system: audio, size: M
 
 ### Feature Description
-Create a settings panel for adjusting global parameters (BPM, master volume, visual options).
+Currently all notes play through the same `synthPool.default` PolySynth with shared options. Each robot already carries a `synthType` and `adsr` in its `audioAttributes`. This ticket wires those fields into note scheduling so each robot is heard as a distinct timbre.
 
 ### Implementation Details
-- Create `src/components/panels/SettingsPanel.tsx`
-- Toggle with settings button (gear icon)
-- Controls:
-  - BPM slider (40-120 BPM)
-  - Master volume slider (0-100%)
-  - Show debug overlay toggle
-  - Max robots slider (4-16)
-- Apply changes immediately
-- Persist to localStorage (optional)
+- Update `triggerWithCap()` in `src/engine/AudioEngine.ts` to accept a full `NoteParams` (or extend it) that includes `adsr` and `synthType`
+- When scheduling a note, select the synth pool entry matching the robot's `synthType` (`default` → PolySynth, `fm`, `am`, `membrane`)
+- Apply the robot's `adsr` envelope options to the chosen synth before triggering — use `synth.set({ envelope: adsr })` (PolySynth) or the equivalent for FM/AM
+- In `startMelodyPlayback()`, look up the robot from the store at tick time to pass its `audioAttributes` through to `triggerWithCap()`
+- Synth pool entries remain shared objects; `set()` is cheap and runs per-note, so no new allocations needed
+- Do not create per-robot Tone.js instances — the pool is intentional to cap polyphony
 
-**Settings panel:**
-```tsx
-export function SettingsPanel() {
-  const [isOpen, setIsOpen] = useState(false);
-  const settings = useOceanStore(s => s.settings);
-  
-  const handleBPMChange = (bpm: number) => {
-    useOceanStore.getState().updateSettings({ bpm });
-    Tone.getTransport().bpm.value = bpm;
-  };
-  
-  return (
-    <>
-      <button className="settings-button" onClick={() => setIsOpen(true)}>
-        ⚙️
-      </button>
-      
-      {isOpen && (
-        <div className="settings-panel">
-          <h3>Settings</h3>
-          
-          <label>
-            BPM: {settings.bpm}
-            <input 
-              type="range" 
-              min={40} 
-              max={120} 
-              value={settings.bpm}
-              onChange={e => handleBPMChange(Number(e.target.value))}
-            />
-          </label>
-          
-          <label>
-            Max Robots: {settings.maxRobots}
-            <input 
-              type="range" 
-              min={4} 
-              max={16} 
-              value={settings.maxRobots}
-              onChange={e => updateSettings({ maxRobots: Number(e.target.value) })}
-            />
-          </label>
-          
-          <label>
-            Debug Overlay
-            <input 
-              type="checkbox" 
-              checked={settings.showDebug}
-              onChange={e => updateSettings({ showDebug: e.target.checked })}
-            />
-          </label>
-          
-          <button onClick={() => setIsOpen(false)}>Close</button>
-        </div>
-      )}
-    </>
-  );
-}
-```
-
-### Acceptance Criteria
-- [ ] Settings button toggles panel
-- [ ] BPM slider updates Transport immediately
-- [ ] Max robots limit applied
-- [ ] Debug toggle works
-- [ ] Settings persist across sessions (localStorage)
-- [ ] Panel closes on outside click
-
-### Reference
-- Standard settings panel pattern
-
----
-
-## M6.3: Add Time Display (Measures/Hours)
-
-**Title:** [M6] Add time display showing measures and derived hours
-
-**Labels:** feature, system: ui, size: S, priority: medium
-
-### Feature Description
-Create a time display showing current measure count and derived "hour" (visual feedback for harmony cycle).
-
-### Implementation Details
-- Create `src/components/ui/TimeDisplay.tsx`
-- Show current measure (e.g., "M: 42")
-- Show derived hour (0-23, from measure % 96 / 4)
-- Update every beat using BeatClock
-- Position in top-left corner
-
-**Time display:**
-```tsx
-export function TimeDisplay() {
-  const [time, setTime] = useState({ measure: 0, hour: 0 });
-  
-  useEffect(() => {
-    const updateTime = () => {
-      const measure = BeatClock.getCurrentMeasure().measure;
-      const hour = Math.floor((measure % 96) / 4);
-      setTime({ measure, hour });
-    };
-    
-    // Update every beat
-    const intervalId = BeatClock.scheduleRepeat('4n', updateTime);
-    
-    return () => BeatClock.cancelScheduled(intervalId);
-  }, []);
-  
-  return (
-    <div className="time-display">
-      <div>Measure: {time.measure}</div>
-      <div>Hour: {time.hour}:00</div>
-    </div>
-  );
-}
-```
-
-### Acceptance Criteria
-- [ ] Display shows current measure
-- [ ] Display shows derived hour (0-23)
-- [ ] Updates synchronized to beat
-- [ ] No performance impact
-- [ ] Positioned in corner (non-intrusive)
-
-### Reference
-- Standard game time display
-
----
-
-## M6.4: Implement Mobile Touch Controls
-
-**Title:** [M6] Implement mobile touch controls
-
-**Labels:** feature, system: ui, size: L, priority: high
-
-### Feature Description
-Add touch gesture support for mobile devices (tap to select, pinch to zoom, drag to pan).
-
-### Implementation Details
-- Detect touch events (touchstart, touchmove, touchend)
-- Single tap: select robot
-- Drag: pan camera
-- Pinch: zoom camera
-- Prevent default behaviors (zoom, scroll)
-- Add touch-friendly UI elements (larger tap targets)
-
-**Touch handler:**
+**Updated NoteParams:**
 ```typescript
-export function useTouchControls(svgRef: RefObject<SVGSVGElement>) {
-  const [touches, setTouches] = useState<Touch[]>([]);
-  
-  const handleTouchStart = (e: TouchEvent) => {
-    e.preventDefault();
-    setTouches(Array.from(e.touches));
-  };
-  
-  const handleTouchMove = (e: TouchEvent) => {
-    e.preventDefault();
-    const currentTouches = Array.from(e.touches);
-    
-    if (currentTouches.length === 1) {
-      // Single finger drag (pan)
-      handlePan(currentTouches[0]);
-    } else if (currentTouches.length === 2) {
-      // Two finger pinch (zoom)
-      handlePinch(currentTouches[0], currentTouches[1]);
-    }
-    
-    setTouches(currentTouches);
-  };
-  
-  const handleTouchEnd = (e: TouchEvent) => {
-    if (e.touches.length === 0) {
-      // Tap to select
-      handleTap(e.changedTouches[0]);
-    }
-    setTouches(Array.from(e.touches));
-  };
-  
-  return { handleTouchStart, handleTouchMove, handleTouchEnd };
+export interface NoteParams {
+  robotId: string;
+  note: string;
+  duration: NoteDuration;
+  time?: number;
+  velocity?: number;
+  synthType?: SynthType;
+  adsr?: ADSREnvelope;
 }
 ```
 
-### Acceptance Criteria
-- [ ] Tap selects robot
-- [ ] Drag pans camera
-- [ ] Pinch zooms camera
-- [ ] No accidental selections during pan/zoom
-- [ ] Smooth gesture handling
-- [ ] Works on iOS and Android
-
-### Reference
-- Standard touch gesture handlers
-
----
-
-## M6.5: Implement Responsive Layout
-
-**Title:** [M6] Implement responsive layout for mobile devices
-
-**Labels:** feature, system: ui, size: M, priority: high
-
-### Feature Description
-Make the UI responsive and mobile-friendly with appropriate breakpoints and layout adjustments.
-
-### Implementation Details
-- Add CSS media queries for mobile (< 768px)
-- Stack panels vertically on mobile
-- Adjust font sizes for readability
-- Make buttons/targets larger (44x44px minimum)
-- Hide non-essential UI on small screens
-- Ensure SVG scales properly
-
-**Responsive CSS:**
-```css
-/* Desktop (default) */
-.ocean-scene {
-  width: 100vw;
-  height: 100vh;
-}
-
-.robot-info-panel {
-  position: fixed;
-  right: 0;
-  top: 0;
-  width: 300px;
-  height: 100vh;
-}
-
-/* Mobile */
-@media (max-width: 768px) {
-  .robot-info-panel {
-    bottom: 0;
-    top: auto;
-    width: 100vw;
-    height: 50vh;
-  }
-  
-  .settings-button {
-    width: 44px;
-    height: 44px;
-    font-size: 24px;
-  }
-  
-  .time-display {
-    font-size: 14px;
-  }
-}
-```
-
-### Acceptance Criteria
-- [ ] Layout adapts to screen size
-- [ ] Panels stack vertically on mobile
-- [ ] Touch targets ≥ 44x44px
-- [ ] Text readable on small screens
-- [ ] SVG scales properly
-- [ ] Tested on iOS Safari and Chrome Android
-
-### Reference
-- Standard responsive design patterns
-
----
-
-## M6.6: Performance Optimization Pass
-
-**Title:** [M6] Performance optimization pass (target 60 FPS)
-
-**Labels:** refactor, size: L, priority: high
-
-### Feature Description
-Optimize performance to maintain 60 FPS with 12 robots and 3-5 factories (environmental actors removed).
-
-### Implementation Details
-- Profile with Chrome DevTools Performance tab
-- Optimize collision detection (spatial partitioning or reduce frequency)
-- Memoize expensive React computations
-- Debounce camera updates
-- Optimize SVG rendering (reduce complexity if needed)
-- Check for memory leaks (Timeline cleanup, event listeners)
-
-**Optimization checklist:**
-```markdown
-- [ ] Profile with DevTools (identify bottlenecks)
-- [ ] Memoize robot/actor components with React.memo
-- [ ] Use useMemo for expensive calculations
-- [ ] Reduce collision check frequency if needed
-- [ ] Ensure timelines cleaned up on unmount
-- [ ] Check for event listener leaks
-- [ ] Optimize SVG complexity (simplify paths if needed)
-- [ ] Test with 12 robots + 3-5 factories (no environmental actors) 
-```
-
-**Performance targets:**
-- 60 FPS with 12 robots and 3-5 factories
-- < 100ms interaction response
-- < 200MB memory usage
-- Smooth camera pan/zoom
-
-### Acceptance Criteria
-- [ ] Maintains 60 FPS with full load
-- [ ] No memory leaks after 5 minutes
-- [ ] Camera movements smooth
-- [ ] Interactions responsive
-- [ ] Profiling shows no major bottlenecks
-
-### Reference
-- React performance best practices
-
----
-
-## M6.7: Configure GitHub Pages Deployment
-
-**Title:** [M6] Configure GitHub Pages deployment
-
-**Labels:** chore, size: M, priority: high
-
-### Feature Description
-Set up automated deployment to GitHub Pages so the project is publicly accessible.
-
-### Implementation Details
-- Update `vite.config.ts` with base path
-- Create `deploy.sh` script or use GitHub Actions
-- Configure GitHub Pages in repository settings
-- Add deployment workflow (optional: deploy on push to main)
-- Test deployed site
-
-**Vite config:**
+**Synth selection in triggerWithCap:**
 ```typescript
-// vite.config.ts
-export default defineConfig({
-  base: '/pelagos-7/',  // Repository name
-  plugins: [react()],
-  build: {
-    outDir: 'dist',
-  },
-});
-```
-
-**Deploy script:**
-```bash
-#!/bin/bash
-# deploy.sh
-
-# Build
-npm run build
-
-# Deploy to gh-pages branch
-git subtree push --prefix dist origin gh-pages
-```
-
-**Or GitHub Actions:**
-```yaml
-name: Deploy to GitHub Pages
-
-on:
-  push:
-    branches: [main]
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-      - run: npm ci
-      - run: npm run build
-      - uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
+const synth = selectSynth(synthType); // returns pool entry
+if (adsr) synth.set({ envelope: adsr });
+synth.triggerAttackRelease(note, duration, scheduleTime, velocity ?? 0.8);
 ```
 
 ### Acceptance Criteria
-- [ ] Site deploys to GitHub Pages
-- [ ] Base path configured correctly
-- [ ] All assets load properly
-- [ ] Audio works on deployed site
-- [ ] Site accessible at https://fallboard-studios.github.io/pelagos-7/
-- [ ] Deployment documented in README
+- [ ] Each robot's `synthType` routes to the correct pool entry
+- [ ] Each robot's `adsr` is applied before note trigger
+- [ ] Multiple robots playing simultaneously sound tonally distinct
+- [ ] No new Tone.js synth instances created at runtime
+- [ ] Polyphony cap still enforced
+- [ ] No regressions in existing melody playback tests
 
 ### Reference
-- Vite GitHub Pages deployment guide
+- `src/engine/AudioEngine.ts` — `triggerWithCap()`, `loadInstruments()`
+- `src/types/Robot.ts` — `AudioAttributes`, `ADSREnvelope`, `SynthType`
 
 ---
 
-## M6.8: Write Portfolio Documentation
+## M6.2: Octave Offset Attribute
 
-**Title:** [M6] Write portfolio documentation (PORTFOLIO.md, screenshots)
+**Title:** [M6.2] Add octave offset attribute to robots, subtract from scheduled notes
 
-**Labels:** documentation, size: M, priority: high
+**Labels:** feature, system: audio, size: S
 
 ### Feature Description
-Create comprehensive portfolio documentation showcasing technical decisions, architecture, and outcomes.
+Robots should have an `octaveOffset` that lowers their pitch range by 0, 1, or 2 octaves. This creates bass, mid, and treble robots without additional melody complexity. A value of 2 should be uncommon so the soundscape stays bright by default.
 
 ### Implementation Details
-- Create `docs/PORTFOLIO.md`
-- Write case study format:
-  - Project overview
-  - Technical challenges
-  - Architecture decisions
-  - Key features
-  - Technologies used
-  - Lessons learned
-- Take screenshots/screen recordings
-- Create architecture diagram
-- Document time spent per milestone
+- Add `octaveOffset: 0 | 1 | 2` to the `Robot` interface in `src/types/Robot.ts`
+- Assign at spawn time in `src/systems/spawnSystem.ts` using a weighted random pick:
+  - `0` → ~65% probability
+  - `1` → ~28% probability  
+  - `2` → ~7% probability
+- When scheduling a note in `AudioEngine.ts`, transpose the resolved pitch string down by `octaveOffset` octaves before passing to `triggerAttackRelease`
+- Pitch transposition helper: parse the octave digit from the Tone.js pitch string (e.g. `"C4"`) and subtract `octaveOffset`, clamping to a minimum of octave `1`
 
-**Portfolio structure:**
-```markdown
-# Pelagos-7 Portfolio Case Study
+**Spawn-time assignment:**
+```typescript
+function pickOctaveOffset(): 0 | 1 | 2 {
+  const r = Math.random();
+  if (r < 0.65) return 0;
+  if (r < 0.93) return 1;
+  return 2;
+}
+```
 
-## Overview
-Browser-based generative music system where autonomous robots create evolving ambient compositions.
-
-## Technical Challenge
-Build a real-time music generation system with:
-- Sample-accurate audio scheduling
-- Musical time management (beat-based, not wall-clock)
-- Separation of concerns (audio/animation/state)
-
-## Architecture Decisions
-
-### Three Pillars
-- **Audio**: Singleton AudioEngine, Tone.js Transport
-- **Animation**: GSAP timelines (NOT in state)
-- **State**: Zustand (serializable only)
-
-### Key Patterns
-- Step registry for O(1) melody lookup
-- Skip-based polyphony limiting
-- Index-based melodies (harmony-adaptive)
-- Measure-based world time
-
-## Implementation Highlights
-
-[Code snippets, diagrams, screenshots]
-
-## Outcomes
-- 60 FPS with 12 robots
-- Sample-accurate audio
-- Mobile-responsive
-- Zero memory leaks
-
-## Technologies
-- React + TypeScript
-- Tone.js (Web Audio)
-- GSAP (animation)
-- Zustand (state)
-- Vitest (testing)
-
-## Lessons Learned
-[Key insights from development]
-
-## Live Demo
-https://fallboard-studios.github.io/pelagos-7/
+**Note transposition:**
+```typescript
+function applyOctaveOffset(note: string, offset: number): string {
+  if (offset === 0) return note;
+  const octave = parseInt(note.slice(-1), 10);
+  const newOctave = Math.max(1, octave - offset);
+  return note.slice(0, -1) + newOctave;
+}
 ```
 
 ### Acceptance Criteria
-- [ ] PORTFOLIO.md written (1500-2000 words)
-- [ ] Screenshots captured (3-5 images)
-- [ ] Architecture diagram created
-- [ ] Code snippets included
-- [ ] Live demo link works
-- [ ] Time tracking documented
+- [ ] `octaveOffset` field present on `Robot` type and initialised at spawn
+- [ ] Distribution: roughly 65/28/7 across a large sample
+- [ ] Notes transposed correctly at scheduling time (not stored as pitch strings)
+- [ ] Octave never goes below 1
+- [ ] `oceanStore` state serialises without errors after change
+- [ ] Unit test for `applyOctaveOffset()` edge cases (offset 0, offset 2, minimum clamp)
 
 ### Reference
-- Portfolio case study best practices
+- `src/types/Robot.ts` — `Robot` interface
+- `src/systems/spawnSystem.ts` — robot initialisation
+- `src/engine/AudioEngine.ts` — note scheduling
 
 ---
 
-## M6.9: Final Testing and Polish
+## M6.3: Per-Robot Master Volume with Per-Note Variance
 
-**Title:** [M6] Final testing and polish pass
+**Title:** [M6.3] Add master volume attribute with slight per-note velocity variance
 
-**Labels:** testing, size: L, priority: high
+**Labels:** feature, system: audio, size: S
 
 ### Feature Description
-Comprehensive end-to-end testing of the complete system and final polish.
+Each robot should have a `masterVolume` (0–1) that sets its average note velocity. To add organic expressiveness, each individual note is allowed to deviate up to ±15% from that base, so the melody breathes instead of playing at a rigid flat level.
 
 ### Implementation Details
-- Test all features end-to-end
-- Test on multiple browsers (Chrome, Firefox, Safari)
-- Test on mobile devices (iOS, Android)
-- Fix any remaining bugs
-- Polish animations and transitions
-- Verify all documentation links work
+- Add `masterVolume: number` (0–1) to the `Robot` interface
+- Assign at spawn time in `src/systems/spawnSystem.ts` — recommended range `0.5–0.85` to keep robots below full saturation
+- When scheduling a note, compute the effective velocity:
+  ```typescript
+  const variance = (Math.random() * 0.3) - 0.15; // -0.15 to +0.15
+  const velocity = Math.min(1, Math.max(0.05, robot.masterVolume + variance));
+  ```
+- Pass `velocity` into `triggerWithCap()` / `NoteParams`
+- Do not store per-note velocities in state — they are ephemeral, generated at scheduling time only
 
-**Final test checklist:**
-```markdown
-## Core Systems
-- [ ] AudioEngine starts on play button click
-- [ ] Robots spawn and swim autonomously
-- [ ] Melodies play synchronized to beat
-- [ ] Harmony changes every 4 measures
-- [ ] Polyphony limiting works
-- [ ] Interactions trigger (audio + visual)
-- [ ] Cooldowns prevent spam
-- [ ] Factories spawn robots every 60 measures
-- [ ] Camera pan/zoom works smoothly
+### Acceptance Criteria
+- [ ] `masterVolume` field on `Robot` type and initialised at spawn
+- [ ] Effective velocity is `masterVolume ± ≤15%`, clamped 0.05–1.0
+- [ ] Variance calculated fresh at each note trigger (not precomputed)
+- [ ] `oceanStore` state serialises without errors
+- [ ] Unit test: 1000 sample velocities stay within bounds for a given `masterVolume`
 
-## UI/UX
-- [ ] Robot selection works
-- [ ] Info panel shows correct data
-- [ ] Settings panel controls work
-- [ ] Time display updates
-- [ ] Touch controls work on mobile
-- [ ] Responsive layout adapts
+### Reference
+- `src/types/Robot.ts` — `Robot` interface
+- `src/systems/spawnSystem.ts` — robot initialisation
+- `src/engine/AudioEngine.ts` — `triggerWithCap()`
 
-## Performance
-- [ ] 60 FPS with 12 robots
-- [ ] No memory leaks after 10 minutes
-- [ ] No console errors/warnings
-- [ ] Audio stays synchronized
+---
 
-## Cross-browser
-- [ ] Chrome (desktop + mobile)
-- [ ] Firefox (desktop)
-- [ ] Safari (desktop + iOS)
-- [ ] Edge (desktop)
+## M6.4: Rhythmic Variance in Robot Melodies
 
-## Deployment
-- [ ] Deployed to GitHub Pages
-- [ ] Live site loads correctly
-- [ ] All assets load
-- [ ] Audio works on deployed site
+**Title:** [M6.4] Apply occasional rhythmic step shifts to robot melody events
+
+**Labels:** feature, system: audio, size: S
+
+### Feature Description
+Melodies are 16-step loops generated at spawn. To prevent mechanical repetition, a small number of notes per loop should have their `startStep` nudged forward or back by one 8th note (±1 step) or one quarter note (±2 steps). This is applied rarely and at most to 1–2 events per loop.
+
+### Implementation Details
+- Add a `applyRhythmicVariance()` utility in `src/engine/melodyGenerator.ts` (or a new `src/utils/melodyVariance.ts`)
+- On each full 16-step loop completion in `AudioEngine.ts`, decide whether to apply variance this pass (recommended: ~20% chance per loop)
+- If applying: pick 1–2 random events, shift `startStep` by a random delta from `{-2, -1, +1, +2}`, clamp to `1..16`, wrap if needed
+- Store the varied melody back on the robot via `updateRobot()` — this keeps state serialisable and the next loop plays the shifted version
+- Do NOT regenerate the entire melody; only mutate the `startStep` of the chosen events
+
+**Variance application:**
+```typescript
+export function applyRhythmicVariance(melody: MelodyEvent[]): MelodyEvent[] {
+  const SHIFT_OPTIONS = [-2, -1, 1, 2];
+  const numToShift = Math.random() < 0.5 ? 1 : 2;
+  const indices = pickRandom(melody, numToShift);
+  
+  return melody.map((event, i) => {
+    if (!indices.includes(i)) return event;
+    const delta = SHIFT_OPTIONS[Math.floor(Math.random() * SHIFT_OPTIONS.length)];
+    const newStep = Math.min(16, Math.max(1, event.startStep + delta));
+    return { ...event, startStep: newStep };
+  });
+}
 ```
 
 ### Acceptance Criteria
-- [ ] All tests pass
-- [ ] No critical bugs
-- [ ] Performance targets met
-- [ ] Works on major browsers
-- [ ] Mobile-friendly
-- [ ] Documentation complete
-- [ ] Portfolio-ready
+- [ ] Rhythmic variance applied at most once per 16-step loop completion
+- [ ] At most 2 events shifted per application
+- [ ] `startStep` stays within 1–16 after shift
+- [ ] Varied melody stored back in Zustand state (serialisable)
+- [ ] Original note indices (`noteIndex`) are unchanged
+- [ ] Unit tests for clamp edge cases and no-mutation of other fields
 
 ### Reference
-- End-to-end validation
+- `src/engine/melodyGenerator.ts` — melody generation patterns
+- `src/engine/AudioEngine.ts` — loop completion point (`stepCounter % 16 === 0`)
+- `src/types/Robot.ts` — `MelodyEvent`
+
+---
+
+## M6.5: Tonal Variance in Robot Melodies
+
+**Title:** [M6.5] Apply occasional note index shifts to robot melody events
+
+**Labels:** feature, system: audio, size: S
+
+### Feature Description
+Complementing rhythmic variance, tonal variance shifts the `noteIndex` of 1–2 melody events by ±1 position within the available harmony palette. Because melodies use indices rather than pitch strings, the shift automatically respects whatever chord is currently active — no out-of-key notes are possible.
+
+### Implementation Details
+- Add `applyTonalVariance()` alongside `applyRhythmicVariance()` in the same utility file
+- Apply independently of rhythmic variance — separate ~20% chance per loop, so both can fire, one, or neither on any given pass
+- Shift `noteIndex` by `{-1, +1}`, clamped to `0..7` (the 8 available harmony palette slots)
+- Store the varied melody back on the robot via `updateRobot()`
+
+**Variance application:**
+```typescript
+export function applyTonalVariance(melody: MelodyEvent[]): MelodyEvent[] {
+  const numToShift = Math.random() < 0.5 ? 1 : 2;
+  const indices = pickRandom(melody, numToShift);
+  
+  return melody.map((event, i) => {
+    if (!indices.includes(i)) return event;
+    const delta = Math.random() < 0.5 ? -1 : 1;
+    const newIndex = Math.min(7, Math.max(0, event.noteIndex + delta));
+    return { ...event, noteIndex: newIndex };
+  });
+}
+```
+
+### Acceptance Criteria
+- [ ] Tonal variance fires independently from rhythmic variance
+- [ ] At most 2 events shifted per application
+- [ ] `noteIndex` stays within 0–7 after shift
+- [ ] Varied melody stored back in Zustand state
+- [ ] `startStep` and `length` are unchanged by this function
+- [ ] Unit tests for boundary clamp (index 0 shifting down stays at 0, index 7 up stays at 7)
+
+### Reference
+- `src/engine/melodyGenerator.ts` — `noteIndex` generation
+- `src/engine/harmonySystem.ts` — 8-note palette size
+- `src/types/Robot.ts` — `MelodyEvent`
+
+---
+
+## M6.6: Position-Based Note Panning
+
+**Title:** [M6.6] Pan each scheduled note based on the robot's current X position
+
+**Labels:** feature, system: audio, size: S
+
+### Feature Description
+When a robot's note is scheduled, look up the robot's current X position in the store and derive a stereo pan value. Robots on the left edge of the world pan left; robots on the right edge pan right. This grounds each voice spatially and makes the soundscape feel like it occupies the full stereo field.
+
+### Implementation Details
+- In `AudioEngine.ts`, inside `startMelodyPlayback()` at note-trigger time, read `robot.position.x` from the store
+- Map X to pan: `pan = (x / WORLD_WIDTH) * 2 - 1`, where `WORLD_WIDTH = 1920`; result is `−1..+1`
+- Create a per-trigger `Tone.Panner` or use a module-level panner node that is adjusted before each `triggerAttackRelease` call
+  - **Preferred approach**: a single shared `Tone.Panner` inserted between each synth pool entry and the compressor; update `panner.pan.value` immediately before each trigger
+  - The panner update is synchronous and cheap; no additional Tone nodes needed per note
+- Do NOT store the pan value in robot state — compute it fresh at scheduling time from `position.x`
+- `WORLD_WIDTH` should be imported from `src/constants`
+
+**Pan calculation:**
+```typescript
+const pan = (robot.position.x / WORLD_WIDTH) * 2 - 1; // -1 (left) to +1 (right)
+panner.pan.value = pan;
+synth.triggerAttackRelease(note, duration, scheduleTime, velocity);
+```
+
+### Acceptance Criteria
+- [ ] Pan value derived from `robot.position.x` at scheduling time, not stored in state
+- [ ] Pan range is `−1..+1`, correctly mapped from `0..WORLD_WIDTH`
+- [ ] Robots near x=0 pan left; robots near x=1920 pan right
+- [ ] `WORLD_WIDTH` sourced from constants (not a magic number)
+- [ ] No new Tone.Panner allocated per note trigger
+- [ ] Panning change is inaudible for robots near centre (pan ≈ 0)
+
+### Reference
+- `src/engine/AudioEngine.ts` — `startMelodyPlayback()`, `triggerWithCap()`
+- `src/constants/index.ts` — `WORLD_WIDTH`
+- `src/types/Robot.ts` — `Robot.position`
