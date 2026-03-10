@@ -69,6 +69,7 @@ export interface Robot {
   melody: MelodyEvent[];
   audioAttributes: AudioAttributes;
   layer?: 'background' | 'foreground'; // SVG rendering layer (default: foreground)
+  createdAt: number;            // timestamp used for removal ordering
   // Note: Visual appearance (shape, colors, scale, detail level) is derived
   // from audioAttributes and NOT stored in state - calculated at render time
 }

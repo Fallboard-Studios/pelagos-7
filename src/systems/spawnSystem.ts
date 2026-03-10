@@ -165,9 +165,26 @@ export function generateAudioAttributes(): AudioAttributes {
 export function spawnRobot(): void {
   const { robots, settings } = useOceanStore.getState();
 
-  // Enforce MAX_ROBOTS limit
+  // If at or above max, remove oldest robot instead of spawning.
+  // This causes the population to "bounce" between min and max limits.
   if (robots.length >= settings.maxRobots) {
-    console.log(`[SpawnSystem] Max robots reached (${settings.maxRobots}), skipping spawn`);
+    if (robots.length > settings.minRobots) {
+      // find the oldest robot by creation timestamp
+      let oldest = robots[0];
+      for (const r of robots) {
+        if (r.createdAt < oldest.createdAt) {
+          oldest = r;
+        }
+      }
+      useOceanStore.getState().removeRobot(oldest.id);
+      if (DEV_TUNING) {
+        console.log(`[SpawnSystem] Max robots reached, removed oldest ${oldest.id}`);
+      }
+    } else {
+      if (DEV_TUNING) {
+        console.log(`[SpawnSystem] At minRobots (${settings.minRobots}); no removal performed`);
+      }
+    }
     return;
   }
 
@@ -179,6 +196,7 @@ export function spawnRobot(): void {
     destination: null,
     melody: generateMelodyForRobot(),
     audioAttributes: generateAudioAttributes(),
+    createdAt: Date.now(),
   };
 
   // Add to store
