@@ -114,8 +114,10 @@ export function createRobotFromFactory(factory: Actor): Robot {
     state: RobotState.Idle,
     position: { ...factory.position },
     destination: null,
+    direction: 'right',
     melody: generateMelodyForRobot(),
     audioAttributes: generateAudioAttributes(),
+    createdAt: Date.now(),
   };
 }
 

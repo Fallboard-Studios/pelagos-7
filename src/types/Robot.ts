@@ -66,6 +66,7 @@ export interface Robot {
   state: RobotState;
   position: Vec2;
   destination: Vec2 | null;
+  direction: 'left' | 'right';     // Facing direction (horizontal orientation)
   melody: MelodyEvent[];
   audioAttributes: AudioAttributes;
   layer?: 'background' | 'foreground'; // SVG rendering layer (default: foreground)

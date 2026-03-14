@@ -17,6 +17,12 @@ const WORLD_MARGIN = 100; // Keep destinations away from edges
 const IDLE_DELAY = 1.0; // Seconds before picking next destination
 
 // ========================================
+// MODULE STATE
+// ========================================
+/** Track pending idle delays by robot ID to allow cleanup */
+const pendingIdleDelays = new Map<string, gsap.core.Tween>();
+
+// ========================================
 // EXPORTS
 // ========================================
 
@@ -48,15 +54,19 @@ export function handleRobotIdle(robotId: string): void {
 
   const destination = pickDestination();
 
-  // Update robot state to swimming with destination
+  // Calculate direction based on destination x-coordinate relative to current position
+  const direction = destination.x > robot.position.x ? 'right' : 'left';
+
+  // Pass PRE-UPDATE robot to createSwimTimeline so it knows the old direction
+  // and can correctly determine whether a flip animation is needed.
+  createSwimTimeline(robot, destination, direction, handleRobotArrival);
+
+  // Update robot state to swimming with destination and new direction
   useOceanStore.getState().updateRobot(robotId, {
     state: RobotState.Moving,
     destination,
+    direction,
   });
-
-  // Trigger swim animation with arrival callback
-  // console.log(`[IdleSystem] Creating swim timeline for robot ${robotId} with onComplete callback`);
-  createSwimTimeline(robot, destination, handleRobotArrival);
 
   // console.log(
   //   `[IdleSystem] Robot ${robotId} swimming to (${Math.round(destination.x)}, ${Math.round(destination.y)})`
@@ -84,7 +94,23 @@ export function handleRobotArrival(robotId: string): void {
   // console.log(`[IdleSystem] Robot ${robotId} arrived, entering idle state`);
 
   // Schedule next destination pick after delay (using GSAP instead of setTimeout)
-  gsap.delayedCall(IDLE_DELAY, () => {
+  // Store the tween so we can cancel it if the robot is removed before it fires
+  const delayTween = gsap.delayedCall(IDLE_DELAY, () => {
+    pendingIdleDelays.delete(robotId); // Clean up the stored reference
     handleRobotIdle(robotId);
   });
+
+  pendingIdleDelays.set(robotId, delayTween);
+}
+
+/**
+ * Cancel any pending idle delay for a robot
+ * Called when a robot is removed to prevent orphaned timers
+ */
+export function cancelPendingIdleDelay(robotId: string): void {
+  const delayTween = pendingIdleDelays.get(robotId);
+  if (delayTween) {
+    delayTween.kill();
+    pendingIdleDelays.delete(robotId);
+  }
 }

@@ -21,8 +21,10 @@ const INTERACTION_DURATION = 0.5; // 0.5 second interaction before returning to 
 const FLURRY_NOTE_COUNT = 4; // Number of notes from each robot's melody
 
 // ========================================
-// INTERACTION LOGIC
+// MODULE STATE
 // ========================================
+/** Track pending interaction recovery delays by robot ID to allow cleanup */
+const pendingInteractionRecoveries = new Map<string, gsap.core.Tween>();
 
 /**
  * Play rapid notes from both robots' melodies to create an "interaction flurry" sound.
@@ -149,7 +151,9 @@ export function triggerInteraction(robotAId: string, robotBId: string): void {
   }
 
   // Return robots to idle state after interaction completes
-  gsap.delayedCall(INTERACTION_DURATION, () => {
+  // Store the recovery delays so they can be cancelled if robots are removed
+  const recoveryDelayA = gsap.delayedCall(INTERACTION_DURATION, () => {
+    pendingInteractionRecoveries.delete(robotAId);
     const robotA = store.getRobotById(robotAId);
     if (robotA) {
       // Sync position to where robot visually is (get from GSAP values)
@@ -166,7 +170,8 @@ export function triggerInteraction(robotAId: string, robotBId: string): void {
     }
   });
 
-  gsap.delayedCall(INTERACTION_DURATION, () => {
+  const recoveryDelayB = gsap.delayedCall(INTERACTION_DURATION, () => {
+    pendingInteractionRecoveries.delete(robotBId);
     const robotB = store.getRobotById(robotBId);
     if (robotB) {
       // Sync position to where robot visually is (get from GSAP values)
@@ -182,4 +187,19 @@ export function triggerInteraction(robotAId: string, robotBId: string): void {
       handleRobotIdle(robotBId);
     }
   });
+
+  pendingInteractionRecoveries.set(robotAId, recoveryDelayA);
+  pendingInteractionRecoveries.set(robotBId, recoveryDelayB);
+}
+
+/**
+ * Cancel any pending interaction recovery delay for a robot
+ * Called when a robot is removed to prevent orphaned timers
+ */
+export function cancelPendingInteractionRecovery(robotId: string): void {
+  const delayTween = pendingInteractionRecoveries.get(robotId);
+  if (delayTween) {
+    delayTween.kill();
+    pendingInteractionRecoveries.delete(robotId);
+  }
 }
