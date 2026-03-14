@@ -5,6 +5,8 @@ import type { Robot } from '../types/Robot';
 import { killTimeline } from '../animation/timelineMap';
 import { DEV_TUNING } from '../constants';
 import { AudioEngine } from '../engine/AudioEngine';
+import { cancelPendingIdleDelay } from '../systems/idleSystem';
+import { cancelPendingInteractionRecovery } from '../systems/interactionSystem';
 
 // ========================================
 // TYPES
@@ -62,7 +64,13 @@ export const useOceanStore = create<OceanStore>((_set, get) => ({
   },
 
   removeRobot: (id) => {
-    // Clean up audio first
+    // Clean up idle delay
+    cancelPendingIdleDelay(id);
+
+    // Clean up interaction recovery delay
+    cancelPendingInteractionRecovery(id);
+
+    // Clean up audio
     AudioEngine.unregisterRobotMelody(id);
 
     // Clean up animation

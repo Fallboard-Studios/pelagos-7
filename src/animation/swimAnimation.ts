@@ -14,6 +14,8 @@ import { setTimeline, killTimeline } from './timelineMap';
 const SWIM_SPEED = 120; // pixels per second
 const PROPELLER_ROTATION_SPEED = 2; // seconds per 360deg rotation
 const TILT_ANGLE = 5; // degrees of body tilt during movement
+const ORIENTATION_DURATION = 0.5; // seconds to flip orientation
+const PROPULSION_OVERLAP = 0.2; // seconds of overlap between orientation and propulsion phases
 
 // ========================================
 // HELPERS
@@ -41,15 +43,20 @@ function calculateDuration(from: Vec2, to: Vec2): number {
 // ========================================
 
 /**
- * Create GSAP timeline for robot swim animation
- * Animates movement from current position to destination with propeller rotation
+ * Create GSAP timeline for robot swim animation with directional orientation
+ * Implements sequenced Turn-then-Swim behavioral pattern:
+ * 1. Orientation Phase (if needed): Flip robot orientation via scaleX transform
+ * 2. Propulsion Phase: Animate movement with slight overlap for fluid feel
+ * 
  * @param robot Robot to animate
  * @param destination Target destination
+ * @param targetDirection Intended facing direction ('left' | 'right')
  * @param onComplete Optional callback when animation completes
  */
 export function createSwimTimeline(
   robot: Robot,
   destination: Vec2,
+  targetDirection: 'left' | 'right',
   onComplete?: (robotId: string) => void
 ): gsap.core.Timeline {
   const ref = getRef(`robot-${robot.id}`);
@@ -72,6 +79,14 @@ export function createSwimTimeline(
 
   const duration = calculateDuration(robot.position, destination);
 
+  // ========================================
+  // INITIALIZATION: Ensure scaleX matches stored direction, set transform origin
+  // ========================================
+  // Calculate what scaleX should be based on stored direction and target direction
+  const currentScaleX = robot.direction === 'right' ? 1 : -1;
+  const targetScaleX = targetDirection === 'right' ? 1 : -1;
+  const needsFlip = currentScaleX !== targetScaleX;
+
   // console.log(
   //   `[SwimAnimation] Creating timeline for robot ${robot.id}, duration: ${duration.toFixed(2)}s, onComplete: ${onComplete ? 'YES' : 'NO'}`
   // );
@@ -84,20 +99,43 @@ export function createSwimTimeline(
       onComplete(robot.id);
     } : undefined,
     onStart: () => {
-      // console.log(`[SwimAnimation] Timeline started for robot ${robot.id}`);
+      console.log(`[SwimAnimation] Timeline started for robot ${robot.id} at ${new Date().toLocaleTimeString()})`);
     },
   });
 
-  // Main movement tween (position change)
+  // Always set transformOrigin first to ensure flips occur around center
+  tl.set(ref, { transformOrigin: '50% 50%' });
+
+  // ========================================
+  // ORIENTATION PHASE: Flip if direction changed
+  // ========================================
+  if (needsFlip) {
+    tl.to(ref, {
+      scaleX: targetScaleX,
+      duration: ORIENTATION_DURATION,
+      ease: 'power1.inOut',
+    });
+  }
+
+  // ========================================
+  // PROPULSION PHASE: Movement with overlap
+  // ========================================
+  // Use absolute start time so all parallel tweens share the same anchor.
+  // Relative offsets like "-=0.2" shift based on the *current* timeline end,
+  // which drifts as tweens are added — causing the timeline to grow far
+  // beyond the intended swim duration.
+  const propulsionStart = needsFlip ? ORIENTATION_DURATION - PROPULSION_OVERLAP : 0;
+
   tl.to(ref, {
     x: destination.x,
     y: destination.y,
     duration,
     ease: 'sine.inOut',
-  });
+  }, propulsionStart);
 
-  // Propeller rotation (continuous during movement)
-  // Calculate how many full rotations fit in the movement duration
+  // ========================================
+  // PROPELLER ROTATION (parallel with movement)
+  // ========================================
   const propeller = ref.querySelector('.propeller');
   if (propeller) {
     const numRotations = Math.ceil(duration / PROPELLER_ROTATION_SPEED);
@@ -106,15 +144,16 @@ export function createSwimTimeline(
       {
         rotation: '+=360',
         duration: PROPELLER_ROTATION_SPEED,
-        repeat: numRotations - 1, // Repeat to fill duration (first play doesn't count)
+        repeat: numRotations - 1,
         ease: 'none',
       },
-      0 // Start at time 0 (parallel with movement)
+      propulsionStart
     );
   }
 
-  // Slight body tilt during movement (optional polish)
-  // Calculate tilt direction based on movement vector
+  // ========================================
+  // BODY TILT (optional polish)
+  // ========================================
   const dx = destination.x - robot.position.x;
   const tiltDirection = dx > 0 ? TILT_ANGLE : -TILT_ANGLE;
 
@@ -125,7 +164,7 @@ export function createSwimTimeline(
       duration: duration * 0.3,
       ease: 'sine.out',
     },
-    0 // Start at beginning
+    propulsionStart
   );
 
   tl.to(
@@ -135,7 +174,7 @@ export function createSwimTimeline(
       duration: duration * 0.3,
       ease: 'sine.in',
     },
-    duration * 0.7 // Start near end of movement
+    propulsionStart + duration * 0.7
   );
 
   // Store timeline for external access/cleanup

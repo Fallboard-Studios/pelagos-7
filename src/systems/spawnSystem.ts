@@ -194,6 +194,7 @@ export function spawnRobot(): void {
     state: RobotState.Idle,
     position: generateSpawnPosition(),
     destination: null,
+    direction: 'right', // Default facing direction (will be updated by idleSystem)
     melody: generateMelodyForRobot(),
     audioAttributes: generateAudioAttributes(),
     createdAt: Date.now(),

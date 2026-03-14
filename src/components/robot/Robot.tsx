@@ -1,7 +1,8 @@
 // ========================================
 // IMPORTS
 // ========================================
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useLayoutEffect } from 'react';
+import gsap from 'gsap';
 
 import type { Robot as RobotType } from '../../types/Robot';
 import { RobotBody } from './RobotBody';
@@ -22,6 +23,11 @@ interface RobotProps {
 /**
  * Robot - Main robot component with positioning, selection, and interaction
  * Handles click events and stores SVG ref for GSAP animations
+ *
+ * IMPORTANT: The top-level <g> has NO React-managed `transform` attribute.
+ * GSAP is the single source of truth for all transforms (position, scaleX,
+ * rotation) on this element. React re-renders must never overwrite GSAP's
+ * SVG transform attribute, otherwise scaleX resets cause instant flips.
  */
 export function Robot({ robot }: RobotProps) {
   const ref = useRef<SVGGElement>(null);
@@ -29,14 +35,23 @@ export function Robot({ robot }: RobotProps) {
   const selectRobot = useOceanStore((s) => s.selectRobot);
   const isSelected = selectedRobotId === robot.id;
 
-  // Register ref for GSAP access, start idle behaviour, and clean up on unmount.
-  useEffect(() => {
+  // useLayoutEffect fires before paint, preventing a single frame at (0,0).
+  // Sets initial position and scaleX via GSAP so it owns all transforms.
+  // Intentionally run this effect only on mount so GSAP owns transforms
+
+  useLayoutEffect(() => {
     if (ref.current) {
       setRef(`robot-${robot.id}`, ref.current);
-      // Ref is guaranteed present here — safe to start the swim timeline.
+      gsap.set(ref.current, {
+        x: robot.position.x,
+        y: robot.position.y,
+        scaleX: robot.direction === 'right' ? 1 : -1,
+        transformOrigin: '50% 50%',
+      });
       handleRobotIdle(robot.id);
     }
     return () => deleteRef(`robot-${robot.id}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [robot.id]);
 
   const handleClick = () => {
@@ -46,7 +61,6 @@ export function Robot({ robot }: RobotProps) {
   return (
     <g
       ref={ref}
-      transform={`translate(${robot.position.x}, ${robot.position.y})`}
       className={isSelected ? 'robot selected' : 'robot'}
       onClick={handleClick}
       style={{ cursor: 'pointer' }}
