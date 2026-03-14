@@ -22,6 +22,10 @@ export interface OceanStore {
     maxRobots: number;
     minRobots: number; // lower bound for population bouncing
   };
+  /** Current hour derived from currentMeasure (0..23) */
+  currentHour: number;
+  /** Lightness multiplier (0..1+) applied to robot colors */
+  lightnessMultiplier: number;
   addRobot: (robot: Robot) => void;
   removeRobot: (id: string) => void;
   updateRobot: (id: string, updates: Partial<Robot>) => void;
@@ -56,6 +60,8 @@ export const useOceanStore = create<OceanStore>((_set, get) => ({
   totalInteractions: 0,
   settings: { ...INITIAL_SETTINGS },
   currentMeasure: 0,
+  currentHour: 0,
+  lightnessMultiplier: 1,
 
   addRobot: (robot) => {
     _set((state) => ({
@@ -122,7 +128,18 @@ export const useOceanStore = create<OceanStore>((_set, get) => ({
   },
 
   setCurrentMeasure: (measure) => {
-    _set({ currentMeasure: measure % 96 });
+    const m = measure % 96;
+
+    // Derive hour (0..23) from 96-measure cycle (4 measures = 1 hour)
+    const hour = Math.floor((m % 96) / 4);
+
+    // Smooth sinusoidal lightness mapping with anchor points:
+    // hour 0 -> 0.4, 6 -> 0.7, 12 -> 1.0, 18 -> 0.7, 23 -> 0.4
+    // Use sin curve shifted so hour=0 maps to -1.
+    const angle = (hour / 24) * 2 * Math.PI - Math.PI / 2;
+    const lightnessMultiplier = 0.7 + 0.3 * Math.sin(angle);
+
+    _set({ currentMeasure: m, currentHour: hour, lightnessMultiplier });
   },
 }));
 

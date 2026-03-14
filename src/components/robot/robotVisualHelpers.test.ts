@@ -45,33 +45,33 @@ describe('robotVisualHelpers', () => {
     it('generates neon colors for fast attack and short decay', () => {
       const adsr = { attack: 0.05, decay: 0.2, sustain: 0.7, release: 0.5 };
       const colors = generateColors(adsr);
-      expect(colors.primary).toBe('#00FF00');
-      expect(colors.secondary).toBe('#00FFFF');
-      expect(colors.accent).toBe('#FF00FF');
+      expect(colors.primary).toBe('hsl(120, 100%, 50%)');
+      expect(colors.secondary).toBe('hsl(180, 100%, 50%)');
+      expect(colors.accent).toBe('hsl(300, 100%, 50%)');
     });
 
     it('generates corroded colors for slow attack and long decay', () => {
       const adsr = { attack: 0.6, decay: 1.5, sustain: 0.8, release: 1.0 };
       const colors = generateColors(adsr);
-      expect(colors.primary).toBe('#2F4F4F');
-      expect(colors.secondary).toBe('#556B2F');
-      expect(colors.accent).toBe('#6B8E23');
+      expect(colors.primary).toBe('hsl(120, 12%, 18%)');
+      expect(colors.secondary).toBe('hsl(90, 18%, 28%)');
+      expect(colors.accent).toBe('hsl(75, 25%, 35%)');
     });
 
     it('generates rusty colors for fast attack with longer decay', () => {
       const adsr = { attack: 0.08, decay: 0.5, sustain: 0.6, release: 0.7 };
       const colors = generateColors(adsr);
-      expect(colors.primary).toBe('#8B4513');
-      expect(colors.secondary).toBe('#A0522D');
-      expect(colors.accent).toBe('#CD853F');
+      expect(colors.primary).toBe('hsl(30, 65%, 30%)');
+      expect(colors.secondary).toBe('hsl(20, 45%, 35%)');
+      expect(colors.accent).toBe('hsl(30, 55%, 50%)');
     });
 
     it('generates industrial colors for mid-range ADSR', () => {
       const adsr = { attack: 0.3, decay: 0.4, sustain: 0.5, release: 0.6 };
       const colors = generateColors(adsr);
-      expect(colors.primary).toBe('#696969');
-      expect(colors.secondary).toBe('#808080');
-      expect(colors.accent).toBe('#A9A9A9');
+      expect(colors.primary).toBe('hsl(0, 0%, 41%)');
+      expect(colors.secondary).toBe('hsl(0, 0%, 50%)');
+      expect(colors.accent).toBe('hsl(0, 0%, 66%)');
     });
   });
 
