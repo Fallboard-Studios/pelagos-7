@@ -39,7 +39,15 @@ const PITCH_RANGES = [
 const FILTER_FREQ_RANGE = { min: 400, max: 2500 };
 
 // Synth types
-const SYNTH_TYPES: SynthType[] = ['AMSynth', 'FMSynth', 'PolySynth', 'MembraneSynth'];
+const SYNTH_TYPES: SynthType[] = [
+  'AMSynth',
+  'FMSynth',
+  'PolySynth',
+  'MembraneSynth',
+  'MetalSynth',
+  'DuoSynth',
+  'PluckSynth',
+];
 
 // ========================================
 // MODULE STATE

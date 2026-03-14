@@ -19,7 +19,14 @@ export enum RobotState {
 /**
  * Synth type determines robot shape and sonic character
  */
-export type SynthType = 'AMSynth' | 'FMSynth' | 'PolySynth' | 'MembraneSynth';
+export type SynthType =
+  | 'AMSynth'
+  | 'FMSynth'
+  | 'PolySynth'
+  | 'MembraneSynth'
+  | 'DuoSynth'
+  | 'PluckSynth'
+  | 'MetalSynth';
 
 /**
  * ADSR envelope parameters for synth

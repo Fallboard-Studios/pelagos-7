@@ -4,7 +4,7 @@
 import * as Tone from 'tone';
 import { useOceanStore } from '../stores/oceanStore';
 
-import type { NoteDuration } from '../types/Robot';
+import type { NoteDuration, ADSREnvelope, SynthType } from '../types/Robot';
 import { getAvailableNotes, scheduleHarmonyCycle, stopHarmonyCycle } from './harmonySystem';
 import { initBeatClock } from './beatClock';
 import type { RobotMelodyEvent } from './melodyGenerator';
@@ -19,6 +19,8 @@ export interface NoteParams {
   duration: NoteDuration;
   time?: number;
   velocity?: number;
+  synthType?: SynthType | string;
+  adsr?: ADSREnvelope;
 }
 
 interface MelodyEventEntry {
@@ -31,6 +33,8 @@ interface SynthPool {
   fm: Tone.PolySynth;
   am: Tone.PolySynth;
   membrane: Tone.PolySynth;
+  duo: Tone.PolySynth;
+  pluck: Tone.PolySynth;
 }
 
 // ========================================
@@ -71,12 +75,33 @@ async function loadInstruments(): Promise<void> {
     release: 0.25,
   }).toDestination();
 
+  // Helper to try constructing a PolySynth for a voice constructor, with
+  // a fallback to a simpler Synth voice if the voice class is not present
+  // in the loaded Tone.js build or throws at construction time.
+  const createPolyWithFallback = (voiceCtor: unknown, fallbackCtor: unknown) => {
+    try {
+      // Some Tone builds may not export all synths; guard against that.
+      if (!voiceCtor) throw new Error('voiceCtor not available');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (new (Tone.PolySynth as any)(voiceCtor as any)).connect(compressor);
+    } catch (err) {
+      console.warn('[AudioEngine] Failed to construct PolySynth for voice, falling back:', err);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return new (Tone.PolySynth as any)(fallbackCtor || Tone.Synth).connect(compressor);
+    }
+  };
+
+  // Construct pool entries defensively — log and fallback when necessary so
+  // AudioEngine.start() doesn't throw in browsers with different Tone builds.
   synthPool = {
     default: new Tone.PolySynth(Tone.Synth).connect(compressor),
-    fm: new Tone.PolySynth(Tone.FMSynth).connect(compressor),
-    am: new Tone.PolySynth(Tone.AMSynth).connect(compressor),
-    membrane: new Tone.PolySynth(Tone.MembraneSynth).connect(compressor),
-  };
+    fm: createPolyWithFallback(Tone.FMSynth, Tone.Synth),
+    am: createPolyWithFallback(Tone.AMSynth, Tone.Synth),
+    membrane: createPolyWithFallback(Tone.MembraneSynth, Tone.Synth),
+    duo: createPolyWithFallback((Tone as unknown as Record<string, unknown>).DuoSynth, Tone.FMSynth),
+    pluck: createPolyWithFallback((Tone as unknown as Record<string, unknown>).PluckSynth, Tone.Synth),
+    // Note: NoiseSynth removed from pool by design (not used for melodic robots)
+  } as SynthPool;
 
   instrumentsLoaded = true;
   console.log('[AudioEngine] Synth pool loaded');
@@ -109,13 +134,14 @@ function scheduleVoiceRelease(duration: NoteDuration, time: number): void {
  * Trigger note with polyphony cap enforcement.
  * Returns true if note was triggered, false if skipped due to cap.
  */
-export function triggerWithCap(
-  note: string,
-  duration: NoteDuration,
-  time?: number,
-  velocity?: number,
-  synthType?: string
-): boolean {
+/**
+ * Trigger note with polyphony cap enforcement.
+ * Applies per-robot synth selection and ADSR envelope when provided.
+ * Returns true if note was triggered, false if skipped due to cap.
+ */
+export function triggerWithCap(params: NoteParams): boolean {
+  const { note, duration, time, velocity, synthType, adsr } = params;
+
   if (!synthPool) {
     console.warn('[AudioEngine] Synth pool not loaded');
     return false;
@@ -137,19 +163,20 @@ export function triggerWithCap(
   activeVoices++;
 
   try {
-    // Select synth from pool (default for now, per-robot types in future milestone)
-    const synth = synthType
-      ? (AudioEngine.getSynth(synthType) ?? synthPool.default)
-      : synthPool.default;
+    // Select synth from pool using tolerant mapping between store values
+      const synth = AudioEngine.getSynth(synthType) ?? synthPool.default;
+
+    // Apply per-note ADSR if provided (shared synths; set() is cheap)
+    if (adsr && typeof synth.set === 'function') {
+      try {
+        synth.set({ envelope: adsr });
+      } catch (err) {
+        console.warn('[AudioEngine] Failed to apply ADSR to synth:', err);
+      }
+    }
 
     synth.triggerAttackRelease(note, duration, scheduleTime, velocity ?? 0.8);
     scheduleVoiceRelease(duration, scheduleTime);
-
-    // if (DEV_TUNING) {
-    //   console.log(
-    //     `[AudioEngine] Voice triggered: ${activeVoices}/${MAX_POLYPHONY}`
-    //   );
-    // }
 
     return true;
   } catch (err) {
@@ -243,9 +270,32 @@ export const AudioEngine = {
     console.log('[AudioEngine] Stopped');
   },
 
+  /**
+   * Schedule a note using NoteParams. If `synthType`/`adsr` are not provided
+   * the robot's current `audioAttributes` are looked up in the store and
+   * applied at scheduling time.
+   */
   scheduleNote(params: NoteParams): void {
-    const { note, duration, time, velocity } = params;
-    triggerWithCap(note, duration, time, velocity);
+    const { robotId, note, duration, time, velocity } = params;
+
+    let synthType = params.synthType;
+    let adsr = params.adsr;
+
+    if (robotId && (!synthType || !adsr)) {
+      try {
+        const state = useOceanStore.getState();
+        const robot = state.robots.find((r) => r.id === robotId);
+
+        if (robot && robot.audioAttributes) {
+          if (!synthType) synthType = robot.audioAttributes.synthType as SynthType | string;
+          if (!adsr) adsr = robot.audioAttributes.adsr;
+        }
+      } catch (err) {
+        console.warn('[AudioEngine] Failed to lookup robot audioAttributes:', err);
+      }
+    }
+
+    triggerWithCap({ robotId, note, duration, time, velocity, synthType, adsr });
   },
 
   registerRobotMelody(robotId: string, melody: RobotMelodyEvent[]): void {
@@ -279,17 +329,42 @@ export const AudioEngine = {
     );
   },
 
+  /**
+   * Return a synth from the pool using a tolerant mapping for different
+   * synth type identifiers used across the codebase.
+   */
   getSynth(type?: string): Tone.PolySynth | null {
     if (!synthPool) {
       console.warn('[AudioEngine] Synth pool not loaded');
       return null;
     }
 
-    // Map synth type to pool key
-    const poolKey = type as keyof SynthPool;
+    if (!type) return synthPool.default;
 
-    // Return requested synth or fall back to default
-    return synthPool[poolKey] ?? synthPool.default;
+    const t = (type || '').toString().toLowerCase();
+
+    switch (t) {
+      case 'polysynth':
+      case 'default':
+        return synthPool.default;
+      case 'fmsynth':
+      case 'fm':
+        return synthPool.fm;
+      case 'amsynth':
+      case 'am':
+        return synthPool.am;
+      case 'membranesynth':
+      case 'membrane':
+        return synthPool.membrane;
+      case 'duosynth':
+      case 'duo':
+        return synthPool.duo;
+      case 'pluck':
+      case 'plucksynth':
+        return synthPool.pluck;
+      default:
+        return synthPool.default;
+    }
   },
 
   getPolyphonyStats(): { voices: number; maxVoices: number; step: number } {
