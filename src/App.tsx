@@ -13,7 +13,13 @@ function App() {
 
   // Wire the BeatClock measure tick → store so factories can react to day/night
   const handleAudioReady = () => {
-    subscribeToMeasure((m) => useOceanStore.getState().setCurrentMeasure(m));
+    // Keep world time when Play is clicked: add transport measure to the
+    // pre-existing world measure so audio starts at 0 while the world keeps
+    // its loaded time-of-day.
+    const initialWorldMeasure = useOceanStore.getState().currentMeasure;
+    subscribeToMeasure((m) =>
+      useOceanStore.getState().setCurrentMeasure((initialWorldMeasure + m) % 96)
+    );
     setAudioReady(true);
   };
 
@@ -28,6 +34,15 @@ function App() {
       (window as any).oceanStore = useOceanStore;
       console.log('[Dev] Debug functions exposed: spawnRobot(), removeRobot(id), oceanStore');
     }
+  }, []);
+
+  // Ensure derived time-dependent values are computed from the initial measure
+  // so visuals reflect the loaded time immediately on app mount.
+  useEffect(() => {
+    const m = useOceanStore.getState().currentMeasure;
+    useOceanStore.getState().setCurrentMeasure(m);
+    // run only once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

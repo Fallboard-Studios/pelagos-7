@@ -59,9 +59,17 @@ export const useOceanStore = create<OceanStore>((_set, get) => ({
   selectedRobotId: null,
   totalInteractions: 0,
   settings: { ...INITIAL_SETTINGS },
-  currentMeasure: 0,
-  currentHour: 0,
-  lightnessMultiplier: 1,
+  // Start world at measure 1200 (wrapped into 0..95 range => 1200 % 96 = 48)
+  currentMeasure: 48,
+  // Derived from wrapped measure: hour = floor(48 / 4) = 12 (noon)
+  currentHour: 12,
+  // Compute initial lightness to match setCurrentMeasure behaviour so visuals
+  // reflect the loaded time immediately.
+  lightnessMultiplier: (() => {
+    const hour = 12;
+    const angle = (hour / 24) * 2 * Math.PI - Math.PI / 2;
+    return 0.7 + 0.3 * Math.sin(angle);
+  })(),
 
   addRobot: (robot) => {
     _set((state) => ({
