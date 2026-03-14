@@ -15,9 +15,9 @@ import { hslToString } from '../utils/colorUtils';
 // TYPES & INTERFACES
 // ========================================
 interface OceanSceneProps {
-  width: number;
-  height: number;
-  backgroundColor: string;
+  width?: number;
+  height?: number;
+  backgroundColor?: string;
 }
 
 // ========================================

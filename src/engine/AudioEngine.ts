@@ -2,6 +2,7 @@
 // IMPORTS
 // ========================================
 import * as Tone from 'tone';
+import { useOceanStore } from '../stores/oceanStore';
 
 import type { NoteDuration } from '../types/Robot';
 import { getAvailableNotes, scheduleHarmonyCycle, stopHarmonyCycle } from './harmonySystem';
@@ -207,6 +208,8 @@ export const AudioEngine = {
     await loadInstruments();
 
     const transport = Tone.getTransport();
+    // Always start audio transport at 0 so music begins at measure 0 regardless
+    // of the world time. Do NOT realign transport.position with store.
     if (transport.state !== 'started') {
       await transport.start();
     }
