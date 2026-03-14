@@ -9,7 +9,9 @@ import {
   generateColors,
   calculateScale,
   calculateDetailLevel,
+  applyLightnessMultiplier,
 } from './robotVisualHelpers';
+import { useOceanStore } from '../../stores/oceanStore';
 
 // ========================================
 // TYPES
@@ -26,16 +28,21 @@ interface RobotBodyProps {
  * from audio attributes. Memoized to prevent unnecessary recalculations.
  */
 export const RobotBody = React.memo(function RobotBody({ robot }: RobotBodyProps) {
+  const lightnessMultiplier = useOceanStore((s) => s.lightnessMultiplier);
+
   const visual = useMemo(() => {
     const { synthType, adsr, pitchRange, filterFreq } = robot.audioAttributes;
 
+    const baseColors = generateColors(adsr);
+    const colors = applyLightnessMultiplier(baseColors, lightnessMultiplier);
+
     return {
       Component: selectRobotShape(synthType),
-      colors: generateColors(adsr),
+      colors,
       scale: calculateScale(pitchRange),
       detailLevel: calculateDetailLevel(filterFreq),
     };
-  }, [robot.audioAttributes]);
+  }, [robot.audioAttributes, lightnessMultiplier]);
 
   const { Component, colors, scale, detailLevel } = visual;
 

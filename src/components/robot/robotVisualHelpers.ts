@@ -35,11 +35,11 @@ const LOW_PITCH_THRESHOLD = 200;     // Hz
 const HIGH_FILTER_THRESHOLD = 2000;  // Hz
 const LOW_FILTER_THRESHOLD = 500;    // Hz
 
-// Color palettes (post-apocalyptic theme)
-const RUSTY_COLORS = ['#8B4513', '#A0522D', '#CD853F'];
-const CORRODED_COLORS = ['#2F4F4F', '#556B2F', '#6B8E23'];
-const NEON_COLORS = ['#00FF00', '#00FFFF', '#FF00FF'];
-const INDUSTRIAL_COLORS = ['#696969', '#808080', '#A9A9A9'];
+// Color palettes (post-apocalyptic theme) - expressed as HSL strings
+const RUSTY_COLORS = ['hsl(30, 65%, 30%)', 'hsl(20, 45%, 35%)', 'hsl(30, 55%, 50%)'];
+const CORRODED_COLORS = ['hsl(120, 12%, 18%)', 'hsl(90, 18%, 28%)', 'hsl(75, 25%, 35%)'];
+const NEON_COLORS = ['hsl(120, 100%, 50%)', 'hsl(180, 100%, 50%)', 'hsl(300, 100%, 50%)'];
+const INDUSTRIAL_COLORS = ['hsl(0, 0%, 41%)', 'hsl(0, 0%, 50%)', 'hsl(0, 0%, 66%)'];
 
 // ========================================
 // EXPORTS
@@ -84,6 +84,7 @@ export function generateColors(adsr: AudioAttributes['adsr']): RobotColors {
     palette = INDUSTRIAL_COLORS; // Default
   }
 
+  // Palettes are already HSL strings.
   return {
     primary: palette[0],
     secondary: palette[1],
@@ -126,6 +127,42 @@ export function calculateDetailLevel(filterFreq: number): number {
   }
 }
 
+/**
+ * Adjust RobotColors by applying a lightness multiplier to each color.
+ * Multiplier scales the L component of HSL (0..1) and clamps results.
+ */
+export function applyLightnessMultiplier(colors: RobotColors, multiplier: number): RobotColors {
+  return {
+    primary: adjustHslLightness(colors.primary, multiplier),
+    secondary: adjustHslLightness(colors.secondary, multiplier),
+    accent: adjustHslLightness(colors.accent, multiplier),
+  };
+}
+
+function clamp01(v: number) {
+  return Math.max(0, Math.min(1, v));
+}
+
+/**
+ * Parse an HSL string `hsl(h, s%, l%)` into components.
+ */
+function parseHslString(hsl: string) {
+  const m = /hsl\s*\(\s*([\d.]+)\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%\s*\)/i.exec(hsl);
+  if (!m) return null;
+  return { h: Number(m[1]), s: Number(m[2]), l: Number(m[3]) };
+}
+
+/**
+ * Adjust an HSL string's lightness, returning an HSL string.
+ */
+function adjustHslLightness(input: string, multiplier: number) {
+  const parsed = parseHslString(input);
+  if (!parsed) return input;
+  const { h, s, l } = parsed;
+  const newL = Math.round(clamp01((l / 100) * multiplier) * 100);
+  return `hsl(${Math.round(h)}, ${Math.round(s)}%, ${newL}%)`;
+}
+
 // ========================================
 // HELPERS
 // ========================================
@@ -134,10 +171,10 @@ export function calculateDetailLevel(filterFreq: number): number {
  * Darken a hex color by a factor (0-1)
  * Used internally for shading calculations
  */
-export function darken(hex: string, factor: number): string {
-  const num = parseInt(hex.replace('#', ''), 16);
-  const r = Math.floor((num >> 16) * (1 - factor));
-  const g = Math.floor(((num >> 8) & 0x00ff) * (1 - factor));
-  const b = Math.floor((num & 0x0000ff) * (1 - factor));
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+export function darken(hsl: string, factor: number): string {
+  const parsed = parseHslString(hsl);
+  if (!parsed) return hsl;
+  const { h, s, l } = parsed;
+  const newL = Math.round(clamp01((l / 100) * (1 - factor)) * 100);
+  return `hsl(${Math.round(h)}, ${Math.round(s)}%, ${newL}%)`;
 }
