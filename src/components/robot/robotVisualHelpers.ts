@@ -47,7 +47,7 @@ const INDUSTRIAL_COLORS = ['hsl(0, 0%, 41%)', 'hsl(0, 0%, 50%)', 'hsl(0, 0%, 66%
 
 /**
  * Select robot shape component based on synth type
- * AMSynth → Sleek, FMSynth → Angular, PolySynth → Organic, MembraneSynth → Industrial
+ * AMSynth → Sleek, FMSynth → Angular, PolySynth → Organic, DuoSynth → Industrial
  */
 export function selectRobotShape(synthType: SynthType): RobotSVGComponent {
   switch (synthType) {
@@ -57,7 +57,7 @@ export function selectRobotShape(synthType: SynthType): RobotSVGComponent {
       return RobotAngular;
     case 'PolySynth':
       return RobotOrganic;
-    case 'MembraneSynth':
+    case 'DuoSynth':
       return RobotIndustrial;
     default:
       return RobotSleek; // Fallback

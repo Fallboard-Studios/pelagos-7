@@ -28,20 +28,14 @@ interface MelodyEventEntry {
   event: RobotMelodyEvent;
 }
 
-interface SynthPool {
-  default: Tone.PolySynth;
-  fm: Tone.PolySynth;
-  am: Tone.PolySynth;
-  membrane: Tone.PolySynth;
-  duo: Tone.PolySynth;
-  pluck: Tone.PolySynth;
-}
+type SynthPool = Record<string, Tone.PolySynth[]>;
 
 // ========================================
 // CONSTANTS
 // ========================================
 const MAX_POLYPHONY = 16;
 const MIN_LEAD = 0.05; // 50ms lookahead for scheduling
+// (single shared pool per synth type)
 
 // ========================================
 // MODULE STATE
@@ -49,7 +43,11 @@ const MIN_LEAD = 0.05; // 50ms lookahead for scheduling
 let initialized = false;
 let instrumentsLoaded = false;
 let synthPool: SynthPool | null = null;
+// Reservation state
+const reservedVoices: Map<string, { type: string; index: number; reservedAt: number }> = new Map();
+let reservedSlots: Record<string, Array<string | null>> | null = null;
 let activeVoices = 0;
+let masterCompressor: Tone.Compressor | null = null;
 
 // Step registry: Map<stepNumber (1-16), events at that step>
 const stepRegistry = new Map<number, MelodyEventEntry[]>();
@@ -74,34 +72,59 @@ async function loadInstruments(): Promise<void> {
     attack: 0.003,
     release: 0.25,
   }).toDestination();
+  masterCompressor = compressor;
 
   // Helper to try constructing a PolySynth for a voice constructor, with
   // a fallback to a simpler Synth voice if the voice class is not present
   // in the loaded Tone.js build or throws at construction time.
-  const createPolyWithFallback = (voiceCtor: unknown, fallbackCtor: unknown) => {
+  const PolySynthCtor = Tone.PolySynth as unknown as { new(voiceCtor: unknown): Tone.PolySynth };
+  const toneRecord = Tone as unknown as Record<string, unknown>;
+
+  const createPolyWithFallback = (voiceCtor: unknown, fallbackCtor: unknown): Tone.PolySynth => {
     try {
-      // Some Tone builds may not export all synths; guard against that.
       if (!voiceCtor) throw new Error('voiceCtor not available');
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return (new (Tone.PolySynth as any)(voiceCtor as any)).connect(compressor);
+      return new PolySynthCtor(voiceCtor).connect(compressor);
     } catch (err) {
       console.warn('[AudioEngine] Failed to construct PolySynth for voice, falling back:', err);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return new (Tone.PolySynth as any)(fallbackCtor || Tone.Synth).connect(compressor);
+      return new PolySynthCtor(fallbackCtor || (toneRecord.Synth ?? null)).connect(compressor);
     }
   };
 
-  // Construct pool entries defensively — log and fallback when necessary so
-  // AudioEngine.start() doesn't throw in browsers with different Tone builds.
-  synthPool = {
-    default: new Tone.PolySynth(Tone.Synth).connect(compressor),
-    fm: createPolyWithFallback(Tone.FMSynth, Tone.Synth),
-    am: createPolyWithFallback(Tone.AMSynth, Tone.Synth),
-    membrane: createPolyWithFallback(Tone.MembraneSynth, Tone.Synth),
-    duo: createPolyWithFallback((Tone as unknown as Record<string, unknown>).DuoSynth, Tone.FMSynth),
-    pluck: createPolyWithFallback((Tone as unknown as Record<string, unknown>).PluckSynth, Tone.Synth),
-    // Note: NoiseSynth removed from pool by design (not used for melodic robots)
-  } as SynthPool;
+  // pool sizing per type (sum should be <= MAX_POLYPHONY)
+  const POOL_SIZING: Record<string, number> = {
+    default: 5,
+    fm: 3,
+    am: 3,
+    poly: 2,
+    duo: 3,
+  };
+
+  synthPool = {} as SynthPool;
+  reservedSlots = {};
+
+  for (const [type, count] of Object.entries(POOL_SIZING)) {
+    const arr: Tone.PolySynth[] = [];
+    for (let i = 0; i < count; i++) {
+      let poly: Tone.PolySynth;
+      switch (type) {
+        case 'fm':
+          poly = createPolyWithFallback(toneRecord.FMSynth, toneRecord.Synth);
+          break;
+        case 'am':
+          poly = createPolyWithFallback(toneRecord.AMSynth, toneRecord.Synth);
+          break;
+        case 'duo':
+          poly = createPolyWithFallback(toneRecord.DuoSynth, toneRecord.Synth);
+          break;
+        default:
+          poly = createPolyWithFallback(toneRecord.Synth, toneRecord.Synth);
+      }
+      if (masterCompressor) poly.connect(masterCompressor);
+      arr.push(poly);
+    }
+    synthPool[type] = arr;
+    reservedSlots[type] = new Array(count).fill(null);
+  }
 
   instrumentsLoaded = true;
   console.log('[AudioEngine] Synth pool loaded');
@@ -112,24 +135,23 @@ async function loadInstruments(): Promise<void> {
  */
 function scheduleVoiceRelease(duration: NoteDuration, time: number): void {
   const durSec = Tone.Time(duration).toSeconds();
-  const releaseTime = time + durSec + 0.04;
+  const noteEnd = time + durSec;
+  const releaseTime = noteEnd + 0.04;
 
   try {
-    Tone.getTransport().scheduleOnce(() => {
+    const transport = Tone.getTransport();
+    transport.scheduleOnce(() => {
       activeVoices = Math.max(0, activeVoices - 1);
-
-      // if (DEV_TUNING) {
-      //   console.log(
-      //     `[AudioEngine] Voice released: ${activeVoices}/${MAX_POLYPHONY}`
-      //   );
-      // }
+      if (DEV_TUNING) {
+        console.log(`[AudioEngine] Voice released: ${activeVoices}/${MAX_POLYPHONY}`);
+      }
     }, releaseTime);
   } catch (err) {
-    console.warn('[AudioEngine] Failed to schedule voice release:', err);
+    // Fallback: immediate release
     activeVoices = Math.max(0, activeVoices - 1);
+    if (DEV_TUNING) console.warn('[AudioEngine] Failed to schedule voice release, immediate fallback', err);
   }
 }
-
 /**
  * Trigger note with polyphony cap enforcement.
  * Returns true if note was triggered, false if skipped due to cap.
@@ -140,7 +162,7 @@ function scheduleVoiceRelease(duration: NoteDuration, time: number): void {
  * Returns true if note was triggered, false if skipped due to cap.
  */
 export function triggerWithCap(params: NoteParams): boolean {
-  const { note, duration, time, velocity, synthType, adsr } = params;
+  const { robotId, note, duration, time, velocity, synthType, adsr } = params;
 
   if (!synthPool) {
     console.warn('[AudioEngine] Synth pool not loaded');
@@ -163,15 +185,42 @@ export function triggerWithCap(params: NoteParams): boolean {
   activeVoices++;
 
   try {
-    // Select synth from pool using tolerant mapping between store values
-      const synth = AudioEngine.getSynth(synthType) ?? synthPool.default;
+    // Select synth from the tolerant synth mapping (single shared pool per type)
+    // Prefer reserved synth slot for this robot when present
+    const reserved = AudioEngine.getVoiceForRobot(robotId);
+    const synth: Tone.PolySynth | null = reserved ?? (AudioEngine.getSynth(synthType) ?? (synthPool ? (synthPool['default']?.[0] ?? null) : null));
+
+    if (!synth) {
+      // No synth available — restore voice counter and skip note
+      activeVoices = Math.max(0, activeVoices - 1);
+      if (DEV_TUNING) console.warn('[AudioEngine] No synth available, skipping note');
+      return false;
+    }
+
+    // Log which synth we're using (for debugging/dev tuning)
+    if (DEV_TUNING) {
+      let resolvedType = 'unknown';
+      if (synthPool) {
+        for (const [t, arr] of Object.entries(synthPool)) {
+          if (arr.includes(synth)) {
+            resolvedType = t;
+            break;
+          }
+        }
+      }
+      const ctorName = (synth as unknown as { constructor?: { name?: string } }).constructor?.name || 'UnknownCtor';
+      console.log(`[AudioEngine] Trigger: robot=${robotId} requested=${synthType ?? 'none'} resolved=${resolvedType} ctor=${ctorName} note=${note}`);
+    }
 
     // Apply per-note ADSR if provided (shared synths; set() is cheap)
-    if (adsr && typeof synth.set === 'function') {
-      try {
-        synth.set({ envelope: adsr });
-      } catch (err) {
-        console.warn('[AudioEngine] Failed to apply ADSR to synth:', err);
+    if (adsr) {
+      const maybeSetter = synth as unknown as { set?: (props: unknown) => void };
+      if (typeof maybeSetter.set === 'function') {
+        try {
+          maybeSetter.set({ envelope: adsr });
+        } catch (err) {
+          console.warn('[AudioEngine] Failed to apply ADSR to synth:', err);
+        }
       }
     }
 
@@ -298,6 +347,50 @@ export const AudioEngine = {
     triggerWithCap({ robotId, note, duration, time, velocity, synthType, adsr });
   },
 
+  /** Reserve a slot for a robot. Returns true if reserved, false if pool exhausted. */
+  reserveVoice(robotId: string, synthType: string): boolean {
+    if (!synthPool || !reservedSlots) return false;
+
+    const typeKey = (synthType || 'default').toString().toLowerCase();
+    const slots = reservedSlots[typeKey];
+    if (!slots) return false;
+
+    const freeIndex = slots.findIndex((s) => s === null);
+    if (freeIndex === -1) return false;
+
+    slots[freeIndex] = robotId;
+    reservedVoices.set(robotId, { type: typeKey, index: freeIndex, reservedAt: Date.now() });
+    if (DEV_TUNING) console.log(`[AudioEngine] Reserved ${typeKey}[${freeIndex}] for ${robotId}`);
+    return true;
+  },
+
+  /** Release a previously reserved slot for the given robotId. */
+  releaseVoice(robotId: string): void {
+    if (!synthPool || !reservedSlots) return;
+    const entry = reservedVoices.get(robotId);
+    if (!entry) return;
+    const slots = reservedSlots[entry.type];
+    if (!slots) {
+      reservedVoices.delete(robotId);
+      return;
+    }
+    slots[entry.index] = null;
+    reservedVoices.delete(robotId);
+    if (DEV_TUNING) console.log(`[AudioEngine] Released ${entry.type}[${entry.index}] from ${robotId}`);
+  },
+
+  /** Return the synth instance reserved for a robot, or null if none. */
+  getVoiceForRobot(robotId?: string): Tone.PolySynth | null {
+    if (!synthPool || !reservedSlots || !robotId) return null;
+    const entry = reservedVoices.get(robotId);
+    if (!entry) return null;
+    const pool = synthPool[entry.type];
+    if (!pool || !pool[entry.index]) return null;
+    return pool[entry.index];
+  },
+
+
+
   registerRobotMelody(robotId: string, melody: RobotMelodyEvent[]): void {
     melody.forEach((event) => {
       const entries = stepRegistry.get(event.startStep) || [];
@@ -329,6 +422,8 @@ export const AudioEngine = {
     );
   },
 
+
+
   /**
    * Return a synth from the pool using a tolerant mapping for different
    * synth type identifiers used across the codebase.
@@ -339,31 +434,24 @@ export const AudioEngine = {
       return null;
     }
 
-    if (!type) return synthPool.default;
+    const firstOf = (arr?: Tone.PolySynth[]) => (arr && arr.length > 0 ? arr[0] : null);
+
+    if (!type) return firstOf(synthPool['default']);
 
     const t = (type || '').toString().toLowerCase();
 
     switch (t) {
-      case 'polysynth':
-      case 'default':
-        return synthPool.default;
       case 'fmsynth':
       case 'fm':
-        return synthPool.fm;
+        return firstOf(synthPool['fm']);
       case 'amsynth':
       case 'am':
-        return synthPool.am;
-      case 'membranesynth':
-      case 'membrane':
-        return synthPool.membrane;
+        return firstOf(synthPool['am']);
       case 'duosynth':
       case 'duo':
-        return synthPool.duo;
-      case 'pluck':
-      case 'plucksynth':
-        return synthPool.pluck;
+        return firstOf(synthPool['duo']);
       default:
-        return synthPool.default;
+        return firstOf(synthPool['default']);
     }
   },
 

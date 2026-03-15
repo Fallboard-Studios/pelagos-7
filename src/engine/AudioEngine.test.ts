@@ -28,9 +28,7 @@ vi.mock('tone', () => ({
   Synth: vi.fn(),
   FMSynth: vi.fn(),
   AMSynth: vi.fn(),
-  MembraneSynth: vi.fn(),
   DuoSynth: vi.fn(),
-  PluckSynth: vi.fn(),
   Compressor: vi.fn(() => ({
     toDestination: vi.fn().mockReturnThis(),
   })),

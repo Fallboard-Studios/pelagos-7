@@ -23,10 +23,8 @@ export type SynthType =
   | 'AMSynth'
   | 'FMSynth'
   | 'PolySynth'
-  | 'MembraneSynth'
   | 'DuoSynth'
-  | 'PluckSynth'
-  | 'MetalSynth';
+  ;
 
 /**
  * ADSR envelope parameters for synth

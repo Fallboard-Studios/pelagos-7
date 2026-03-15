@@ -56,15 +56,13 @@ describe('spawnSystem', () => {
   describe('generateAudioAttributes', () => {
     it('generates valid synth type', () => {
       const attrs = generateAudioAttributes();
-        expect([
-          'AMSynth',
-          'FMSynth',
-          'PolySynth',
-          'MembraneSynth',
-          'MetalSynth',
-          'DuoSynth',
-          'PluckSynth',
-        ]).toContain(attrs.synthType);
+      expect([
+        'AMSynth',
+        'FMSynth',
+        'PolySynth',
+        'DuoSynth',
+        'PluckSynth',
+      ]).toContain(attrs.synthType);
     });
 
     it('generates ADSR values in valid ranges', () => {

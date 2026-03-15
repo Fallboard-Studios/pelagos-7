@@ -486,3 +486,46 @@ function playInteractionFlurry(robotA: Robot, robotB: Robot) {
   });
 }
 ```
+## Steps for creating robot pools:
+Todo — Per‑Robot Voice Reservation
+
+### 1
+Design pool & sizing
+Decide: voices-per-robot (recommend 1) and total pool size (<= MAX_POLYPHONY).
+Map: synth-type → voice count distribution.
+Constants: add config in AudioEngine.ts:1 (e.g., RESERVE_VOICES_PER_ROBOT, POOL_SIZING).
+
+### 2
+AudioEngine changes (core)
+Pool shape: change synthPool → Record<string, Tone.PolySynth[]> (arrays of slots).
+Reservation map: add reservedVoices: Map<string,{type:string,index:number,reservedAt:number}>.
+APIs: implement reserveVoice(robotId: string, synthType: string): boolean, releaseVoice(robotId: string): void, getVoiceForRobot(robotId: string).
+Scheduling: update scheduleNote / triggerWithCap to prefer getVoiceForRobot() and apply adsr on that reserved instance.
+Policy: implement fallback behavior (shared pool) and an optional LRU eviction/steal policy.
+
+### 3
+Spawn/teardown wiring
+Register on spawn: call AudioEngine.registerRobotMelody(robot.id, robot.melody) in spawnSystem.ts when creating a robot.
+Unregister on remove: call AudioEngine.unregisterRobotMelody(robotId) when a robot is removed (store removal hooks / spawn cleanup).
+
+### 4
+Maintain architectural rules
+No synths in state: keep reservation metadata inside AudioEngine only (do NOT put synth objects into Zustand).
+Single AudioEngine: all synth creation & lifecycle remain centralized in AudioEngine.
+
+### 5
+Tests
+Unit tests: add tests for reserveVoice/releaseVoice allocation, double-allocation prevention, and fallback behavior.
+Integration tests: spawn many robots to validate distinctive timbres when reserved and correct behavior when pool exhausted. Update/extend AudioEngine.test.ts and spawnSystem.test.ts.
+Polyphony: assert global cap still enforced.
+
+### 6
+Docs & observability
+JSDoc: document new APIs (reserveVoice, releaseVoice, semantics).
+Dev tooling: optional debug hooks (e.g., AudioEngine.getReservations()) for dev-only overlays. Update copilot-instructions.md if necessary.
+
+### 7
+Validation & rollout
+Run tests: npm test and fix regressions.
+Manual check: run app, spawn robots, listen for distinct timbres.
+Tweak: adjust pool sizing or eviction policy based on CPU/polyphony behavior.

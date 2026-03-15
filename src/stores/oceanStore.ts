@@ -85,6 +85,11 @@ export const useOceanStore = create<OceanStore>((_set, get) => ({
     cancelPendingInteractionRecovery(id);
 
     // Clean up audio
+    try {
+      AudioEngine.releaseVoice(id);
+    } catch (err) {
+      if (DEV_TUNING) console.warn('[Cleanup] AudioEngine.releaseVoice threw', err);
+    }
     AudioEngine.unregisterRobotMelody(id);
 
     // Clean up animation
