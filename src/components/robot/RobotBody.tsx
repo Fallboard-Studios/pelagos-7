@@ -1,7 +1,7 @@
 // ========================================
 // IMPORTS
 // ========================================
-import React, { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
 import type { Robot } from '../../types/Robot';
 import {
@@ -27,7 +27,7 @@ interface RobotBodyProps {
  * RobotBody - Selects appropriate robot shape variant and calculates visual properties
  * from audio attributes. Memoized to prevent unnecessary recalculations.
  */
-export const RobotBody = React.memo(function RobotBody({ robot }: RobotBodyProps) {
+export const RobotBody = memo(function RobotBody({ robot }: RobotBodyProps) {
   const lightnessMultiplier = useOceanStore((s) => s.lightnessMultiplier);
 
   const visual = useMemo(() => {

@@ -28,8 +28,9 @@ const pendingInteractionRecoveries = new Map<string, gsap.core.Tween>();
 
 /**
  * Play rapid notes from both robots' melodies to create an "interaction flurry" sound.
- * Picks random notes from each robot and schedules them with staggered timing.
- * Notes play immediately (no delay) via AudioEngine.
+ * Picks random notes from each robot and schedules them with staggered Tone.js timing.
+ * All notes are scheduled via AudioEngine using future AudioContext timestamps —
+ * no GSAP involvement in audio timing.
  */
 function playInteractionFlurry(robotAId: string, robotBId: string): void {
   const store = useOceanStore.getState();
@@ -42,37 +43,38 @@ function playInteractionFlurry(robotAId: string, robotBId: string): void {
   }
 
   const noteSpacing = 0.125; // 16th note spacing in seconds
+  // Capture the current AudioContext time once so all offsets are relative
+  // to the same reference point (avoids drift from repeated Tone.now() calls).
+  const baseTime = AudioEngine.now();
 
-  // Play flurry from Robot A (starting immediately)
+  // Schedule flurry from Robot A (starting at baseTime)
   for (let i = 0; i < FLURRY_NOTE_COUNT && i < robotA.melody.length; i++) {
     const randomEventA = robotA.melody[Math.floor(Math.random() * robotA.melody.length)];
     const noteA = notes[randomEventA.noteIndex];
 
     if (noteA) {
-      gsap.delayedCall(i * noteSpacing, () => {
-        AudioEngine.scheduleNote({
-          robotId: robotAId,
-          note: noteA,
-          duration: '16n',
-          velocity: 0.7,
-        });
+      AudioEngine.scheduleNote({
+        robotId: robotAId,
+        note: noteA,
+        duration: '16n',
+        time: baseTime + i * noteSpacing,
+        velocity: 0.7,
       });
     }
   }
 
-  // Play flurry from Robot B (slightly staggered overlap)
+  // Schedule flurry from Robot B (slightly staggered overlap)
   for (let i = 0; i < FLURRY_NOTE_COUNT && i < robotB.melody.length; i++) {
     const randomEventB = robotB.melody[Math.floor(Math.random() * robotB.melody.length)];
     const noteB = notes[randomEventB.noteIndex];
 
     if (noteB) {
-      gsap.delayedCall(noteSpacing * 0.5 + i * noteSpacing, () => {
-        AudioEngine.scheduleNote({
-          robotId: robotBId,
-          note: noteB,
-          duration: '16n',
-          velocity: 0.7,
-        });
+      AudioEngine.scheduleNote({
+        robotId: robotBId,
+        note: noteB,
+        duration: '16n',
+        time: baseTime + noteSpacing * 0.5 + i * noteSpacing,
+        velocity: 0.7,
       });
     }
   }

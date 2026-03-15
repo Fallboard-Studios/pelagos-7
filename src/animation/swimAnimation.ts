@@ -7,6 +7,7 @@ import type { Robot } from '../types/Robot';
 import type { Vec2 } from '../types/Vec2';
 import { getRef } from '../utils/refs';
 import { setTimeline, killTimeline } from './timelineMap';
+import { DEV_TUNING } from '../constants';
 
 // ========================================
 // CONSTANTS
@@ -95,12 +96,11 @@ export function createSwimTimeline(
   const tl = gsap.timeline({
     paused: true, // Start paused so we can register it first
     onComplete: onComplete ? () => {
-      // console.log(`[SwimAnimation] ✅ Timeline onComplete fired for robot ${robot.id}`);
       onComplete(robot.id);
     } : undefined,
-    onStart: () => {
-      console.log(`[SwimAnimation] Timeline started for robot ${robot.id} at ${new Date().toLocaleTimeString()})`);
-    },
+    onStart: DEV_TUNING ? () => {
+      console.log(`[SwimAnimation] Timeline started for robot ${robot.id}`);
+    } : undefined,
   });
 
   // Always set transformOrigin first to ensure flips occur around center
@@ -180,9 +180,9 @@ export function createSwimTimeline(
   // Store timeline for external access/cleanup
   setTimeline(`swim-${robot.id}`, tl);
 
-  console.log(
-    `[SwimAnimation] Timeline stored for robot ${robot.id}, now playing...`
-  );
+  if (DEV_TUNING) {
+    console.log(`[SwimAnimation] Timeline stored for robot ${robot.id}, now playing...`);
+  }
 
   // Start the timeline (was paused during creation)
   tl.play();

@@ -8,6 +8,7 @@ import { Factory } from './actors/Factory';
 import { placeFactories, getRowConfig } from '../systems/factoryPlacementSystem';
 import { ActorType } from '../types/Actor';
 import { startFactoryProduction } from '../systems/factorySystem';
+import { startCollisionDetection, stopCollisionDetection } from '../systems/collisionSystem';
 import colorTheme from '../constants/colorTheme.json';
 import { hslToString } from '../utils/colorUtils';
 
@@ -86,9 +87,13 @@ export function OceanScene({
     // Start periodic robot spawning
     startSpawnScheduler();
 
+    // Start proximity-based robot interaction detection
+    startCollisionDetection();
+
     // Cleanup on unmount
     return () => {
       stopSpawnScheduler();
+      stopCollisionDetection();
     };
   }, []);
 

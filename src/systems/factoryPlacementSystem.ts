@@ -1,3 +1,6 @@
+// ========================================
+// IMPORTS
+// ========================================
 import type { Actor } from '../types/Actor';
 import { ActorType } from '../types/Actor';
 import { useOceanStore } from '../stores/oceanStore';

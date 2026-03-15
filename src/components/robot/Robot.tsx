@@ -1,7 +1,7 @@
 // ========================================
 // IMPORTS
 // ========================================
-import React, { useRef, useLayoutEffect } from 'react';
+import { useRef, useLayoutEffect } from 'react';
 import gsap from 'gsap';
 
 import type { Robot as RobotType } from '../../types/Robot';

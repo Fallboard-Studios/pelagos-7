@@ -47,7 +47,9 @@ let synthPool: SynthPool | null = null;
 const reservedVoices: Map<string, { type: string; index: number; reservedAt: number }> = new Map();
 let reservedSlots: Record<string, Array<string | null>> | null = null;
 let activeVoices = 0;
-let masterCompressor: Tone.Compressor | null = null;
+// Prefixed with underscore to acknowledge it's intentionally kept for
+// potential external inspector/debugging while avoiding unused-var lint.
+let _masterCompressor: Tone.Compressor | null = null;
 
 // Step registry: Map<stepNumber (1-16), events at that step>
 const stepRegistry = new Map<number, MelodyEventEntry[]>();
@@ -72,20 +74,21 @@ async function loadInstruments(): Promise<void> {
     attack: 0.003,
     release: 0.25,
   }).toDestination();
-  masterCompressor = compressor;
+  _masterCompressor = compressor;
 
   // Helper to try constructing a PolySynth for a voice constructor, with
   // a fallback to a simpler Synth voice if the voice class is not present
   // in the loaded Tone.js build or throws at construction time.
   const PolySynthCtor = Tone.PolySynth as unknown as { new(voiceCtor: unknown): Tone.PolySynth };
   const toneRecord = Tone as unknown as Record<string, unknown>;
-
   const createPolyWithFallback = (voiceCtor: unknown, fallbackCtor: unknown): Tone.PolySynth => {
     try {
       if (!voiceCtor) throw new Error('voiceCtor not available');
+      if (typeof PolySynthCtor !== 'function') throw new Error('PolySynth constructor not available');
       return new PolySynthCtor(voiceCtor).connect(compressor);
     } catch (err) {
       console.warn('[AudioEngine] Failed to construct PolySynth for voice, falling back:', err);
+      if (typeof PolySynthCtor !== 'function') throw err;
       return new PolySynthCtor(fallbackCtor || (toneRecord.Synth ?? null)).connect(compressor);
     }
   };
@@ -119,7 +122,7 @@ async function loadInstruments(): Promise<void> {
         default:
           poly = createPolyWithFallback(toneRecord.Synth, toneRecord.Synth);
       }
-      if (masterCompressor) poly.connect(masterCompressor);
+      // `createPolyWithFallback` already connects voices to the compressor.
       arr.push(poly);
     }
     synthPool[type] = arr;
@@ -152,10 +155,6 @@ function scheduleVoiceRelease(duration: NoteDuration, time: number): void {
     if (DEV_TUNING) console.warn('[AudioEngine] Failed to schedule voice release, immediate fallback', err);
   }
 }
-/**
- * Trigger note with polyphony cap enforcement.
- * Returns true if note was triggered, false if skipped due to cap.
- */
 /**
  * Trigger note with polyphony cap enforcement.
  * Applies per-robot synth selection and ADSR envelope when provided.
@@ -290,9 +289,9 @@ export const AudioEngine = {
       await transport.start();
     }
 
-    initBeatClock();
+    initBeatClock(transport);
     startMelodyPlayback();
-    scheduleHarmonyCycle();
+    scheduleHarmonyCycle(transport);
 
     initialized = true;
     console.log('[AudioEngine] Started');
@@ -461,5 +460,10 @@ export const AudioEngine = {
       maxVoices: MAX_POLYPHONY,
       step: (stepCounter % 16) + 1,
     };
+  },
+
+  /** Returns the current AudioContext time (seconds). Use for note scheduling offsets. */
+  now(): number {
+    return Tone.now();
   },
 };

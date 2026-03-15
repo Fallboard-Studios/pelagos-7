@@ -1,9 +1,18 @@
 // ========================================
 // IMPORTS
 // ========================================
-import * as Tone from 'tone';
-
 import { getCurrentHour } from './beatClock';
+
+// Minimal transport-like interface to avoid importing Tone.js here.
+interface TransportLike {
+  scheduleRepeat(callback: (time?: unknown) => void, interval: string, startTime?: unknown): unknown;
+  clear(id: unknown): void;
+  // position may be present on some transport implementations; accept unknown
+  position?: unknown;
+}
+
+// Transport instance provided by AudioEngine at startup
+let transportInstance: TransportLike | null = null;
 
 // ========================================
 // TYPES
@@ -47,7 +56,7 @@ const TIME_PITCHES: Record<number, EighthNotes> = {
 // ========================================
 let availableNotes: EighthNotes = TIME_PITCHES[0];
 let lastHour = 0;
-let scheduledEventId: number | null = null;
+let scheduledEventId: unknown | null = null;
 
 // ========================================
 // EXPORTS
@@ -74,15 +83,14 @@ export function setAvailableNotes(notes: EighthNotes): void {
  * Checks every 4 measures if the derived hour has changed.
  * Call once after Transport starts.
  */
-export function scheduleHarmonyCycle(): void {
+export function scheduleHarmonyCycle(transport: TransportLike): void {
   if (scheduledEventId !== null) {
     console.warn('[HarmonySystem] Harmony cycle already scheduled');
     return;
   }
 
-  const transport = Tone.getTransport();
-
-  scheduledEventId = transport.scheduleRepeat(() => {
+  transportInstance = transport;
+  scheduledEventId = transportInstance.scheduleRepeat(() => {
     const currentHour = getCurrentHour();
 
     if (currentHour !== lastHour) {
@@ -99,10 +107,10 @@ export function scheduleHarmonyCycle(): void {
  * Stop the harmony cycle (for cleanup/testing).
  */
 export function stopHarmonyCycle(): void {
-  if (scheduledEventId !== null) {
-    const transport = Tone.getTransport();
-    transport.clear(scheduledEventId);
+  if (scheduledEventId !== null && transportInstance) {
+    transportInstance.clear(scheduledEventId);
     scheduledEventId = null;
+    transportInstance = null;
     console.log('[HarmonySystem] Harmony cycle stopped');
   }
 }
