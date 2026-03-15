@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import gsap from 'gsap';
 
 import { useOceanStore } from '../../stores/oceanStore';
 import { AudioEngine } from '../../engine/AudioEngine';
@@ -31,11 +32,21 @@ export function AudioStatus() {
   });
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setStats(AudioEngine.getPolyphonyStats());
-    }, UPDATE_INTERVAL_MS);
+    let ticker: (() => void) | null = null;
+    let lastUpdate = 0;
 
-    return () => clearInterval(interval);
+    ticker = () => {
+      const now = gsap.ticker.time;
+      if (now - lastUpdate >= UPDATE_INTERVAL_MS / 1000) {
+        lastUpdate = now;
+        setStats(AudioEngine.getPolyphonyStats());
+      }
+    };
+
+    gsap.ticker.add(ticker);
+    return () => {
+      if (ticker) gsap.ticker.remove(ticker);
+    };
   }, []);
 
   if (!DEV_TUNING) return null;

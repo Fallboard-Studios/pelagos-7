@@ -15,7 +15,7 @@ vi.mock('tone', () => ({
   getTransport: () => mockTransport,
 }));
 
-let initBeatClock: () => void;
+let initBeatClock: (transport?: typeof mockTransport) => void;
 let getCurrentBeat: () => number;
 let getCurrentMeasure: () => number;
 let getCurrentHour: () => number;
@@ -39,10 +39,12 @@ describe('beatClock', () => {
       scheduleRepeat,
       cancelSchedule,
     } = await import('./beatClock'));
+    // Initialize the beatClock with the mocked transport for tests
+    initBeatClock(mockTransport);
   });
 
   it('initializes once and tracks beat/measure from transport position', () => {
-    initBeatClock();
+    initBeatClock(mockTransport);
     expect(mockTransport.scheduleRepeat).toHaveBeenCalledTimes(1);
     mockTransport.position = '2:1:2';
     callbacks[0]?.();

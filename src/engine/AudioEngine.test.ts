@@ -37,13 +37,13 @@ vi.mock('tone', () => ({
 // Mock harmony system
 vi.mock('./harmonySystem', () => ({
   getAvailableNotes: () => ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5'],
-  scheduleHarmonyCycle: vi.fn(),
+  scheduleHarmonyCycle: vi.fn((_transport?: unknown) => undefined),
   stopHarmonyCycle: vi.fn(),
 }));
 
 // Mock beat clock
 vi.mock('./beatClock', () => ({
-  initBeatClock: vi.fn(),
+  initBeatClock: vi.fn((_transport?: unknown) => undefined),
   getCurrentHour: vi.fn(() => 0),
   getCurrentMeasure: vi.fn(() => 0),
   getCurrentBeat: vi.fn(() => 0),

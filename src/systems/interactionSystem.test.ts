@@ -39,6 +39,7 @@ vi.mock('../engine/AudioEngine', () => ({
   AudioEngine: {
     scheduleNote: vi.fn(),
     unregisterRobotMelody: vi.fn(),
+    now: vi.fn(() => 0),
   },
 }));
 
@@ -92,6 +93,8 @@ const createTestRobot = (id: string, state = RobotState.Idle): Robot => ({
     filterFreq: 1000,
     reverb: 0.3,
   },
+  direction: 'right',
+  createdAt: Date.now(),
 });
 
 beforeEach(() => {

@@ -20,9 +20,14 @@ vi.mock('tone', () => ({
   getTransport: () => mockTransport,
 }));
 
+type TestTransport = {
+  scheduleRepeat: (cb: () => void, interval: string) => string;
+  clear: (id: unknown) => void;
+};
+
 let getAvailableNotes: () => string[];
 let setAvailableNotes: (notes: [string, string, string, string, string, string, string, string]) => void;
-let scheduleHarmonyCycle: () => void;
+let scheduleHarmonyCycle: (transport: TestTransport) => void;
 let stopHarmonyCycle: () => void;
 
 describe('harmonySystem', () => {
@@ -52,7 +57,7 @@ describe('harmonySystem', () => {
   });
 
   it('schedules harmony cycle once and updates when hour changes', () => {
-    scheduleHarmonyCycle();
+    scheduleHarmonyCycle(mockTransport);
     expect(mockTransport.scheduleRepeat).toHaveBeenCalledTimes(1);
     currentHour = 5;
     callbacks[0]?.();
@@ -60,10 +65,10 @@ describe('harmonySystem', () => {
   });
 
   it('stops harmony cycle and clears scheduled event', () => {
-    scheduleHarmonyCycle();
+    scheduleHarmonyCycle(mockTransport);
     stopHarmonyCycle();
     expect(mockTransport.clear).toHaveBeenCalledWith('repeat-id');
-    scheduleHarmonyCycle();
+    scheduleHarmonyCycle(mockTransport);
     expect(mockTransport.scheduleRepeat).toHaveBeenCalledTimes(2);
   });
 });

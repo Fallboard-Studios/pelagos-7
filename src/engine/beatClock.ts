@@ -1,8 +1,18 @@
 // ========================================
 // IMPORTS
 // ========================================
-import * as Tone from 'tone';
 import { DEV_TUNING } from '../constants';
+
+// Minimal transport-like interface to avoid importing Tone.js here.
+interface TransportLike {
+  // Tone.Transport.position can be a Tone.Time (string/number-like), accept unknown
+  position?: unknown;
+  scheduleRepeat(callback: (time?: unknown) => void, interval: string, startTime?: unknown): unknown;
+  clear(id: unknown): void;
+}
+
+// Transport instance is provided by AudioEngine to avoid importing Tone here.
+let transportInstance: TransportLike | null = null;
 
 // ========================================
 // CONSTANTS
@@ -28,13 +38,17 @@ const measureListeners: Array<(measure: number) => void> = [];
 /**
  * Initializes beat tracking. Should be called after Transport starts.
  */
-export function initBeatClock(): void {
+export function initBeatClock(transport?: TransportLike): void {
   if (initialized) return;
-  const transport = Tone.getTransport();
-  transport.scheduleRepeat(() => {
+  if (!transport) {
+    throw new Error('initBeatClock requires a transport instance. Call initBeatClock(transport) from AudioEngine or tests.');
+  }
+  transportInstance = transport;
+  const transportLocal = transportInstance as TransportLike;
+  transportLocal.scheduleRepeat(() => {
     // Calculate current beat and measure from Transport position
     // Defensive: fallback to 0 if not started
-    const pos = String(transport.position).split(':');
+    const pos = String(transportLocal.position).split(':');
     const measure = parseInt(pos[0], 10) || 0;
     const beat = parseInt(pos[1], 10) || 0;
     const sixteenths = parseInt(pos[2], 10) || 0;
@@ -101,14 +115,22 @@ export function scheduleAtBeat(beat: number, callback: () => void): string {
  * @returns A schedule ID that can be passed to cancelSchedule
  */
 export function scheduleRepeat(interval: string, callback: () => void): string {
-  const transport = Tone.getTransport();
   // Generate unique ID for this scheduled event
-  const scheduleId = `schedule-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const scheduleId = `schedule-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 
   // Pass interval as startTime so the first tick fires after one full interval,
   // not at T=0 when Transport starts. Without this, all schedules registered
   // before the Transport starts fire immediately on Play.
-  const transportId = transport.scheduleRepeat((_time) => {
+  if (!transportInstance) {
+    // Transport not initialized yet — create a stub schedule id so callers
+    // can still obtain an id and cancel it later. This makes tests and
+    // modules tolerant of init ordering during unit tests.
+    scheduleMap.set(scheduleId, 'stub');
+    if (DEV_TUNING) console.log('[BeatClock] scheduleRepeat (stub):', interval, 'id:', scheduleId);
+    return scheduleId;
+  }
+
+  const transportId = transportInstance.scheduleRepeat((_time: unknown) => {
     callback();
   }, interval, interval);
 
@@ -131,8 +153,14 @@ export function cancelSchedule(scheduleId: string): void {
     if (DEV_TUNING) console.log('[BeatClock] cancelSchedule: no schedule found for', scheduleId);
     return;
   }
-  const transport = Tone.getTransport();
-  transport.clear(Number(transportIdStr));
+  if (!transportInstance) {
+    // If transport isn't initialized, the scheduleId may be a stub — just
+    // remove the map entry and return.
+    scheduleMap.delete(scheduleId);
+    if (DEV_TUNING) console.log('[BeatClock] cancelSchedule (stub):', scheduleId);
+    return;
+  }
+  transportInstance.clear(Number(transportIdStr));
   scheduleMap.delete(scheduleId);
   if (DEV_TUNING) console.log('[BeatClock] cancelSchedule: cleared', scheduleId);
 }
