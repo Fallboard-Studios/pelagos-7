@@ -16,7 +16,7 @@ interface RobotSVGProps {
 // COMPONENT
 // ========================================
 /**
- * RobotIndustrial - Boxy, mechanical design for MembraneSynth
+ * RobotIndustrial - Boxy, mechanical design for DuoSynths
  * Heavy industrial construction with layered armor plates
  * Future: Panel dimensions, rivet placement, and weathering controlled by audio attributes
  */

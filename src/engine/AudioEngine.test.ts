@@ -28,7 +28,7 @@ vi.mock('tone', () => ({
   Synth: vi.fn(),
   FMSynth: vi.fn(),
   AMSynth: vi.fn(),
-  MembraneSynth: vi.fn(),
+  DuoSynth: vi.fn(),
   Compressor: vi.fn(() => ({
     toDestination: vi.fn().mockReturnThis(),
   })),
@@ -78,7 +78,7 @@ describe('AudioEngine - Polyphony Management', () => {
       const { triggerWithCap } = await import('./AudioEngine');
 
       // Should accept first note
-      const result = triggerWithCap('C4', '4n', 0, 0.8);
+      const result = triggerWithCap({ robotId: 'test', note: 'C4', duration: '4n', time: 0, velocity: 0.8 });
       expect(result).toBe(true);
     });
 
@@ -87,12 +87,12 @@ describe('AudioEngine - Polyphony Management', () => {
 
       // Fill up to limit (16 voices)
       for (let i = 0; i < 16; i++) {
-        const result = triggerWithCap('C4', '4n', 0, 0.8);
+        const result = triggerWithCap({ robotId: 'test', note: 'C4', duration: '4n', time: 0, velocity: 0.8 });
         expect(result).toBe(true);
       }
 
       // 17th note should be skipped
-      const result = triggerWithCap('C4', '4n', 0, 0.8);
+      const result = triggerWithCap({ robotId: 'test', note: 'C4', duration: '4n', time: 0, velocity: 0.8 });
       expect(result).toBe(false);
     });
 
@@ -101,7 +101,7 @@ describe('AudioEngine - Polyphony Management', () => {
       vi.resetModules();
       const { triggerWithCap } = await import('./AudioEngine');
 
-      const result = triggerWithCap('C4', '4n', 0, 0.8);
+      const result = triggerWithCap({ robotId: 'test', note: 'C4', duration: '4n', time: 0, velocity: 0.8 });
       expect(result).toBe(false);
     });
 
@@ -109,7 +109,7 @@ describe('AudioEngine - Polyphony Management', () => {
       const { triggerWithCap } = await import('./AudioEngine');
 
       // Should not throw, should use Tone.now()
-      const result = triggerWithCap('C4', '4n', undefined, 0.8);
+      const result = triggerWithCap({ robotId: 'test', note: 'C4', duration: '4n', time: undefined, velocity: 0.8 });
       expect(result).toBe(true);
     });
 
@@ -117,7 +117,7 @@ describe('AudioEngine - Polyphony Management', () => {
       const { triggerWithCap } = await import('./AudioEngine');
 
       // Should not throw, should use 0.8
-      const result = triggerWithCap('C4', '4n', 0);
+      const result = triggerWithCap({ robotId: 'test', note: 'C4', duration: '4n', time: 0 });
       expect(result).toBe(true);
     });
 
@@ -136,13 +136,13 @@ describe('AudioEngine - Polyphony Management', () => {
       const { triggerWithCap } = await import('./AudioEngine');
 
       // Trigger 3 notes
-      triggerWithCap('C4', '4n', 0, 0.8);
-      triggerWithCap('E4', '4n', 0, 0.8);
-      triggerWithCap('G4', '4n', 0, 0.8);
+      triggerWithCap({ robotId: 'test', note: 'C4', duration: '4n', time: 0, velocity: 0.8 });
+      triggerWithCap({ robotId: 'test', note: 'E4', duration: '4n', time: 0, velocity: 0.8 });
+      triggerWithCap({ robotId: 'test', note: 'G4', duration: '4n', time: 0, velocity: 0.8 });
 
       // Can't directly test activeVoices (internal), but can verify
       // that we can still trigger more (under limit)
-      const result = triggerWithCap('C5', '4n', 0, 0.8);
+      const result = triggerWithCap({ robotId: 'test', note: 'C5', duration: '4n', time: 0, velocity: 0.8 });
       expect(result).toBe(true);
     });
 
@@ -165,7 +165,7 @@ describe('AudioEngine - Polyphony Management', () => {
 
       // Try to trigger 20 notes
       for (let i = 0; i < 20; i++) {
-        const result = triggerWithCap('C4', '4n', 0, 0.8);
+        const result = triggerWithCap({ robotId: 'test', note: 'C4', duration: '4n', time: 0, velocity: 0.8 });
         if (result) {
           acceptedCount++;
         } else {

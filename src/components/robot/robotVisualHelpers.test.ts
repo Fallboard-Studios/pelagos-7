@@ -35,8 +35,8 @@ describe('robotVisualHelpers', () => {
       expect(result).toBe(RobotOrganic);
     });
 
-    it('returns RobotIndustrial for MembraneSynth', () => {
-      const result = selectRobotShape('MembraneSynth');
+    it('returns RobotIndustrial for DuoSynth', () => {
+      const result = selectRobotShape('DuoSynth');
       expect(result).toBe(RobotIndustrial);
     });
   });

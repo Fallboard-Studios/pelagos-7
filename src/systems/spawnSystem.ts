@@ -39,7 +39,12 @@ const PITCH_RANGES = [
 const FILTER_FREQ_RANGE = { min: 400, max: 2500 };
 
 // Synth types
-const SYNTH_TYPES: SynthType[] = ['AMSynth', 'FMSynth', 'PolySynth', 'MembraneSynth'];
+const SYNTH_TYPES: SynthType[] = [
+  'AMSynth',
+  'FMSynth',
+  'PolySynth',
+  'DuoSynth',
+];
 
 // ========================================
 // MODULE STATE
@@ -101,22 +106,22 @@ export function generateSpawnPosition(): Vec2 {
     case 0: // Top edge — spawn above the scene
       return {
         x: Math.random() * WORLD_WIDTH,
-        y: -OFFSCREEN_OFFSET,
+        y: -OFFSCREEN_OFFSET - Math.random() * 50,
       };
     case 1: // Right edge — spawn to the right of the scene
       return {
-        x: WORLD_WIDTH + OFFSCREEN_OFFSET,
+        x: WORLD_WIDTH + OFFSCREEN_OFFSET + Math.random() * 50,
         y: Math.random() * WORLD_HEIGHT,
       };
     case 2: // Bottom edge — spawn below the scene
       return {
         x: Math.random() * WORLD_WIDTH,
-        y: WORLD_HEIGHT + OFFSCREEN_OFFSET,
+        y: WORLD_HEIGHT + OFFSCREEN_OFFSET + Math.random() * 50,
       };
     case 3: // Left edge — spawn to the left of the scene
     default:
       return {
-        x: -OFFSCREEN_OFFSET,
+        x: -OFFSCREEN_OFFSET - Math.random() * 50,
         y: Math.random() * WORLD_HEIGHT,
       };
   }
@@ -204,6 +209,12 @@ export function spawnRobot(): void {
   useOceanStore.getState().addRobot(robot);
 
   // Register melody with AudioEngine
+  // Reserve a voice for this robot (best-effort) so its timbre/adsr are isolated
+  try {
+    AudioEngine.reserveVoice(robot.id, robot.audioAttributes.synthType as string);
+  } catch (err) {
+    if (DEV_TUNING) console.warn('[SpawnSystem] reserveVoice failed', err);
+  }
   AudioEngine.registerRobotMelody(robot.id, robot.melody);
 
   if (DEV_TUNING) {
