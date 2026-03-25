@@ -8,6 +8,7 @@ import type { NoteDuration, ADSREnvelope, SynthType } from '../types/Robot';
 import { getAvailableNotes, scheduleHarmonyCycle, stopHarmonyCycle } from './harmonySystem';
 import { initBeatClock } from './beatClock';
 import type { RobotMelodyEvent } from './melodyGenerator';
+import { applyRhythmicVariance } from './melodyGenerator';
 import { DEV_TUNING } from '../constants';
 
 // ========================================
@@ -250,6 +251,8 @@ export function triggerWithCap(params: NoteParams): boolean {
 
 /**
  * Start the main melody playback loop (8th-note tick).
+ * At each 16-step loop completion, apply rhythmic variance to all active robots' melodies
+ * and update their state for the next loop iteration.
  */
 function startMelodyPlayback(): void {
   if (scheduledTickId !== null) return;
@@ -284,6 +287,58 @@ function startMelodyPlayback(): void {
     });
 
     stepCounter++;
+
+    // ========================================
+    // LOOP COMPLETION: Apply rhythmic variance
+    // ========================================
+    // At loop boundary (16-step loop completed), apply occasional variance
+    // to all robots' melodies and update state for the next loop iteration.
+    if (stepCounter % 16 === 0) {
+      if (DEV_TUNING) {
+        console.log(`[AudioEngine] Loop boundary reached at step ${stepCounter}`);
+      }
+      try {
+        const store = useOceanStore.getState();
+        const robotCount = store.robots.length;
+        if (DEV_TUNING) {
+          console.log(`[AudioEngine] Checking variance for ${robotCount} robots`);
+        }
+
+        store.robots.forEach((robot) => {
+          // Store original data to detect changes
+          const originalMelody = robot.melody;
+          const originalSteps = originalMelody.map((e) => e.startStep);
+
+          // Apply variance (returns new array or original)
+          const variedMelody = applyRhythmicVariance(originalMelody as never);
+
+          // Detect if any startStep actually changed
+          const newSteps = variedMelody.map((e) => e.startStep);
+          const changed = originalSteps.some((step, i) => step !== newSteps[i]);
+
+          if (changed) {
+            // Update stepRegistry with varied melody for THIS loop's playback only
+            // (don't persist to state, so next loop resets to original)
+            AudioEngine.unregisterRobotMelody(robot.id);
+            AudioEngine.registerRobotMelody(robot.id, variedMelody as never);
+
+            if (DEV_TUNING) {
+              const shifts = originalSteps
+                .map((step, i) => (step !== newSteps[i] ? `event${i}:${step}→${newSteps[i]}` : null))
+                .filter((x) => x !== null)
+                .join(', ');
+              console.log(
+                `[AudioEngine] Rhythmic variance applied to robot ${robot.id}: ${shifts}`
+              );
+            }
+          } else if (DEV_TUNING) {
+            console.log(`[AudioEngine] No variance triggered for robot ${robot.id} (probability)`);
+          }
+        });
+      } catch (err) {
+        console.warn('[AudioEngine] Failed to apply rhythmic variance:', err);
+      }
+    }
   }, '8n');
 
   console.log('[AudioEngine] Melody playback started (8n tick)');
