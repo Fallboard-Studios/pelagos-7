@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyRhythmicVariance, pickRandomIndices } from './melodyGenerator';
+import { applyRhythmicVariance, applyTonalVariance, pickRandomIndices } from './melodyGenerator';
 import type { RobotMelodyEvent } from './melodyGenerator';
 
 // ========================================
@@ -298,5 +298,292 @@ describe('applyRhythmicVariance', () => {
 
     // Should clamp to 16, not go beyond
     expect(result[0].startStep).toBeLessThanOrEqual(16);
+  });
+});
+
+// ========================================
+// TEST SUITE: applyTonalVariance
+// ========================================
+
+describe('applyTonalVariance', () => {
+  it('returns unchanged melody when probability triggers false', () => {
+    const melody = [
+      createMelodyEvent({ noteIndex: 2 }),
+      createMelodyEvent({ noteIndex: 4 }),
+      createMelodyEvent({ noteIndex: 6 }),
+    ];
+
+    // RNG always returns > probability (never triggers)
+    const noOpRand = () => 1.0;
+
+    const result = applyTonalVariance(melody, 0.5, noOpRand);
+    expect(result).toEqual(melody);
+  });
+
+  it('applies variance when probability triggers true', () => {
+    const melody = [
+      createMelodyEvent({ noteIndex: 3 }),
+      createMelodyEvent({ noteIndex: 4 }),
+      createMelodyEvent({ noteIndex: 5 }),
+    ];
+
+    // RNG that always triggers variance
+    let callCount = 0;
+    const alwaysApplyRand = () => {
+      callCount++;
+      // First call: probability check (always trigger)
+      if (callCount === 1) return 0.0;
+      // Subsequent calls: mix of different RNG values
+      return (callCount * 0.37) % 1.0;
+    };
+
+    const result = applyTonalVariance(melody, 0.5, alwaysApplyRand);
+
+    // At least some events should have shifted noteIndex
+    const unchanged = result.filter((e, i) => e.noteIndex === melody[i].noteIndex);
+    expect(unchanged.length).toBeLessThan(melody.length);
+  });
+
+  it('clamps shifted noteIndex to 0-7 range', () => {
+    const melody = [
+      createMelodyEvent({ noteIndex: 0, id: 'at-min' }),
+      createMelodyEvent({ noteIndex: 7, id: 'at-max' }),
+    ];
+
+    let callCount = 0;
+    const alwaysApplyRand = () => {
+      callCount++;
+      // First call: probability check (trigger variance)
+      // Make shifts always negative then positive to test clamping
+      if (callCount === 1) return 0.0; // trigger
+      return 0.5; // mixed shifts
+    };
+
+    const result = applyTonalVariance(melody, 0.5, alwaysApplyRand);
+
+    // All noteIndex values should be in range 0-7
+    result.forEach((event) => {
+      expect(event.noteIndex).toBeGreaterThanOrEqual(0);
+      expect(event.noteIndex).toBeLessThanOrEqual(7);
+    });
+  });
+
+  it('does not mutate startStep, length, octave when applying variance', () => {
+    const original = createMelodyEvent({
+      noteIndex: 4,
+      startStep: 5,
+      length: '8n',
+      octave: 3,
+      id: 'immutable-tonal-test',
+    });
+
+    const melody = [original];
+
+    let callCount = 0;
+    const alwaysApplyRand = () => {
+      callCount++;
+      return callCount === 1 ? 0.0 : 0.5; // trigger on first call
+    };
+
+    const result = applyTonalVariance(melody, 0.5, alwaysApplyRand);
+    const varied = result[0];
+
+    // These fields must not change
+    expect(varied.startStep).toBe(original.startStep);
+    expect(varied.length).toBe(original.length);
+    expect(varied.octave).toBe(original.octave);
+    expect(varied.id).toBe(original.id);
+  });
+
+  it('preserves event IDs across variance', () => {
+    const melody = [
+      createMelodyEvent({ id: 'tonal-id-1', noteIndex: 0 }),
+      createMelodyEvent({ id: 'tonal-id-2', noteIndex: 3 }),
+      createMelodyEvent({ id: 'tonal-id-3', noteIndex: 6 }),
+    ];
+
+    const alwaysApplyRand = () => 0.0;
+
+    const result = applyTonalVariance(melody, 0.5, alwaysApplyRand);
+
+    result.forEach((event, i) => {
+      expect(event.id).toBe(melody[i].id);
+    });
+  });
+
+  it('shifts at most 2 events per application', () => {
+    const melody = Array.from({ length: 8 }, (_, i) =>
+      createMelodyEvent({ id: `tonal-event-${i}`, noteIndex: i % 8 })
+    );
+
+    let _callCount = 0;
+    const alwaysApplyRand = () => {
+      _callCount++;
+      return 0.0; // always trigger
+    };
+
+    const result = applyTonalVariance(melody, 0.5, alwaysApplyRand);
+
+    // Count how many events had their noteIndex changed
+    const shiftedCount = result.filter((e, i) => e.noteIndex !== melody[i].noteIndex).length;
+
+    expect(shiftedCount).toBeLessThanOrEqual(2);
+  });
+
+  it('handles single-event melodies', () => {
+    const melody = [createMelodyEvent({ noteIndex: 3 })];
+
+    const alwaysApplyRand = () => 0.0;
+
+    const result = applyTonalVariance(melody, 0.5, alwaysApplyRand);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].noteIndex).toBeGreaterThanOrEqual(0);
+    expect(result[0].noteIndex).toBeLessThanOrEqual(7);
+  });
+
+  it('handles empty melody gracefully', () => {
+    const melody: RobotMelodyEvent[] = [];
+
+    const alwaysApplyRand = () => 0.0;
+
+    const result = applyTonalVariance(melody, 0.5, alwaysApplyRand);
+
+    expect(result).toEqual([]);
+  });
+
+  it('respects probability parameter', () => {
+    const melody = [
+      createMelodyEvent({ noteIndex: 2 }),
+      createMelodyEvent({ noteIndex: 5 }),
+    ];
+
+    // RNG that returns > probability (no variance)
+    let callIndex = 0;
+    const probProbeRand = () => {
+      callIndex++;
+      // First call checks probability
+      if (callIndex === 1) return 0.99; // probability check fails, no variance
+      return 0.5;
+    };
+
+    const result = applyTonalVariance(melody, 0.1, probProbeRand);
+
+    // Should return unchanged because probability triggered false
+    expect(result).toEqual(melody);
+  });
+
+  it('boundary clamp: noteIndex 0 shifting down stays at 0', () => {
+    const melody = [createMelodyEvent({ noteIndex: 0 })];
+
+    let callCount = 0;
+    const alwaysNegativeShiftRand = () => {
+      callCount++;
+      if (callCount === 1) return 0.0; // probability: apply
+      if (callCount === 2) return 0.1; // numToShift: pick 1
+      if (callCount === 3) return 0.99; // pickRandomIndices: always pick index 0
+      if (callCount === 4) return 0.0; // shift delta: pick -1
+      return 0.5;
+    };
+
+    const result = applyTonalVariance(melody, 0.5, alwaysNegativeShiftRand);
+
+    // Should clamp to 0, not go negative
+    expect(result[0].noteIndex).toBe(0);
+  });
+
+  it('boundary clamp: noteIndex 7 shifting up stays at 7', () => {
+    const melody = [createMelodyEvent({ noteIndex: 7 })];
+
+    let callCount = 0;
+    const alwaysPositiveShiftRand = () => {
+      callCount++;
+      if (callCount === 1) return 0.0; // probability: apply
+      if (callCount === 2) return 0.1; // numToShift: pick 1
+      if (callCount === 3) return 0.99; // pickRandomIndices: always pick index 0
+      if (callCount === 4) return 0.99; // shift delta: pick +1
+      return 0.5;
+    };
+
+    const result = applyTonalVariance(melody, 0.5, alwaysPositiveShiftRand);
+
+    // Should clamp to 7, not go beyond
+    expect(result[0].noteIndex).toBe(7);
+  });
+
+  it('fires independently from rhythmic variance', () => {
+    const melody = [
+      createMelodyEvent({ noteIndex: 3, startStep: 5, id: 'independence-test' }),
+      createMelodyEvent({ noteIndex: 4, startStep: 7, id: 'independence-test-2' }),
+    ];
+
+    // Apply tonal variance
+    const tonalResult = applyTonalVariance(melody, 0.5, () => 0.0);
+
+    // Apply rhythmic variance separately
+    const rhythmicResult = applyRhythmicVariance(melody, 0.5, () => 0.0);
+
+    // Tonal should only change noteIndex
+    const tonalChanged = tonalResult.some(
+      (e, i) => e.noteIndex !== melody[i].noteIndex && e.startStep === melody[i].startStep
+    );
+    expect(tonalChanged).toBe(true);
+
+    // Rhythmic should only change startStep
+    const rhythmicChanged = rhythmicResult.some(
+      (e, i) => e.startStep !== melody[i].startStep && e.noteIndex === melody[i].noteIndex
+    );
+    expect(rhythmicChanged).toBe(true);
+  });
+
+  it('does not apply variance twice in one call', () => {
+    const melody = [
+      createMelodyEvent({ noteIndex: 2, id: 'event-1' }),
+      createMelodyEvent({ noteIndex: 4, id: 'event-2' }),
+      createMelodyEvent({ noteIndex: 6, id: 'event-3' }),
+    ];
+
+    let _callCount = 0;
+    const alwaysApplyRand = () => {
+      _callCount++;
+      return 0.0; // always apply
+    };
+
+    const result = applyTonalVariance(melody, 0.5, alwaysApplyRand);
+
+    // Variance applies at most once and shifts at most 2 events
+    const modifiedCount = result.filter((e, i) => e.noteIndex !== melody[i].noteIndex).length;
+    expect(modifiedCount).toBeLessThanOrEqual(2);
+  });
+
+  it('shifts can be +1 or -1 only (not larger deltas)', () => {
+    // Test with a controlled RNG that triggers variance and picks specific deltas
+    const melody = [
+      createMelodyEvent({ noteIndex: 4, id: 'event-1' }),
+      createMelodyEvent({ noteIndex: 4, id: 'event-2' }),
+    ];
+
+    let _callCount = 0;
+    const controlledRand = () => {
+      _callCount++;
+      // 1st call: probability check → apply
+      // 2nd call: numToShift → pick 1
+      // 3-4th calls: pickRandomIndices RNG
+      // 5th+ calls: shift delta selection (alternating -1 and +1)
+      if (_callCount === 1) return 0.0; // trigger
+      if (_callCount === 2) return 0.1; // numToShift = 1
+      if (_callCount < 5) return 0.5; // pickRandomIndices internal calls
+      if (_callCount === 5) return 0.0; // shift delta: -1
+      return 0.99; // shift delta: +1
+    };
+
+    const result = applyTonalVariance(melody, 0.5, controlledRand);
+
+    // Check that any shifts are exactly ±1
+    result.forEach((event, i) => {
+      const diff = event.noteIndex - melody[i].noteIndex;
+      // Only shifted events should have diff of ±1, unshifted should be 0
+      expect([0, -1, 1]).toContain(diff);
+    });
   });
 });

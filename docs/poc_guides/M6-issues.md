@@ -158,7 +158,6 @@ Melodies are 16-step loops generated at spawn. To prevent mechanical repetition,
 - Add a `applyRhythmicVariance()` utility in `src/engine/melodyGenerator.ts` (or a new `src/utils/melodyVariance.ts`)
 - On each full 16-step loop completion in `AudioEngine.ts`, decide whether to apply variance this pass (recommended: ~20% chance per loop)
 - If applying: pick 1–2 random events, shift `startStep` by a random delta from `{-2, -1, +1, +2}`, clamp to `1..16`, wrap if needed
-- Store the varied melody back on the robot via `updateRobot()` — this keeps state serialisable and the next loop plays the shifted version
 - Do NOT regenerate the entire melody; only mutate the `startStep` of the chosen events
 
 **Variance application:**
@@ -181,7 +180,6 @@ export function applyRhythmicVariance(melody: MelodyEvent[]): MelodyEvent[] {
 - [ ] Rhythmic variance applied at most once per 16-step loop completion
 - [ ] At most 2 events shifted per application
 - [ ] `startStep` stays within 1–16 after shift
-- [ ] Varied melody stored back in Zustand state (serialisable)
 - [ ] Original note indices (`noteIndex`) are unchanged
 - [ ] Unit tests for clamp edge cases and no-mutation of other fields
 
@@ -205,7 +203,6 @@ Complementing rhythmic variance, tonal variance shifts the `noteIndex` of 1–2 
 - Add `applyTonalVariance()` alongside `applyRhythmicVariance()` in the same utility file
 - Apply independently of rhythmic variance — separate ~20% chance per loop, so both can fire, one, or neither on any given pass
 - Shift `noteIndex` by `{-1, +1}`, clamped to `0..7` (the 8 available harmony palette slots)
-- Store the varied melody back on the robot via `updateRobot()`
 
 **Variance application:**
 ```typescript
@@ -226,7 +223,6 @@ export function applyTonalVariance(melody: MelodyEvent[]): MelodyEvent[] {
 - [ ] Tonal variance fires independently from rhythmic variance
 - [ ] At most 2 events shifted per application
 - [ ] `noteIndex` stays within 0–7 after shift
-- [ ] Varied melody stored back in Zustand state
 - [ ] `startStep` and `length` are unchanged by this function
 - [ ] Unit tests for boundary clamp (index 0 shifting down stays at 0, index 7 up stays at 7)
 
