@@ -61,7 +61,7 @@ describe('harmonySystem', () => {
     expect(mockTransport.scheduleRepeat).toHaveBeenCalledTimes(1);
     currentHour = 5;
     callbacks[0]?.();
-    expect(getAvailableNotes()[0]).toBe('A4');
+    expect(getAvailableNotes()[0]).toBe('A');
   });
 
   it('stops harmony cycle and clears scheduled event', () => {

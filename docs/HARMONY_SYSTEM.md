@@ -11,29 +11,32 @@ Robots don't store literal note strings in their melodies. Instead, they store *
 ```
 Robot Melody: [2, 0, 5, 3, ...]  (note indices, immutable)
                 ↓  ↓  ↓  ↓
-Available Notes: [C4, D4, E4, F4, G4, A4, C5, D5]  (palette, changes every 4 measures)
+Available Notes: ['C', 'G', 'E', 'D', 'B', 'C', 'E', 'G']  (note names, no octave — changes every 4 measures)
                 ↓  ↓  ↓  ↓
-Actual Playback: E4, C4, A4, F4, ...  (automatic mapping)
+Per-event octave: [4,  4,  4,  3,  ...]  (concrete octave stored on each MelodyEvent at spawn)
+                ↓  ↓  ↓  ↓
+Actual Playback: E4, C4, A3, ... (note name + event octave combined at scheduling time)
 ```
 
-When the hour changes, only `availableNotes` swaps—robot melodies remain untouched.
+When the hour changes, only `availableNotes` swaps—robot melodies (indices + octaves) remain untouched.
 
 ## Data Structure
 
 ```typescript
-// Exactly 8 notes per palette
-export type EightNotes = [string, string, string, string, string, string, string, string];
+// Exactly 8 note-name strings (no octave digit) per palette.
+// Octave is determined per-robot at spawn; each MelodyEvent stores a concrete octave.
+export type EighthNotes = [string, string, string, string, string, string, string, string];
 
 // 24-hour cycle mapping (hours 0-23)
-const TIME_PITCHES: Record<number, EightNotes> = {
-  0: ['C4', 'G4', 'E4', 'D4', 'B4', 'C5', 'E5', 'G5'],      // Midnight
-  1: ['C4', 'G4', 'F4', 'D4', 'A4', 'C5', 'F5', 'F5'],      // 1am
-  2: ['D4', 'A4', 'F4', 'D4', 'A4', 'C5', 'F5', 'D5'],      // 2am
+const TIME_PITCHES: Record<number, EighthNotes> = {
+  0:  ['C',  'G',  'E',  'D',  'B',  'C',  'E',  'G' ],  // Midnight
+  1:  ['C',  'G',  'F',  'D',  'A',  'C',  'F',  'F' ],  // 1am
+  2:  ['D',  'A',  'F',  'D',  'A',  'C',  'F',  'D' ],  // 2am
   // ... (24 total palettes)
-  6: ['Bb4', 'D4', 'C4', 'G4', 'F4', 'C5', 'Bb5', 'F5'],    // Dawn
-  12: ['E4', 'B4', 'G#4', 'F#4', 'C#5', 'E5', 'B5', 'G#5'], // Noon
-  18: ['Ab4', 'Eb4', 'Bb4', 'F4', 'Db5', 'Ab5', 'Eb5', 'Bb5'], // Dusk
-  23: ['C4', 'G4', 'E4', 'D4', 'B4', 'C5', 'E5', 'G5'],     // Late night
+  6:  ['Bb', 'D',  'C',  'G',  'F',  'C',  'Bb', 'F' ],  // Dawn
+  12: ['C',  'G',  'E',  'D',  'B',  'C',  'E',  'G' ],  // Noon
+  18: ['Bb', 'D',  'C',  'G',  'F',  'C',  'Bb', 'F' ],  // Dusk
+  23: ['E',  'C',  'G#', 'D',  'Bb', 'E',  'G#', 'B' ],  // Late night
 };
 ```
 
@@ -93,13 +96,14 @@ BeatClock.scheduleRepeat('8n', (time) => {
   const currentStep = (stepCounter % 16) + 1;
   const eventsAtStep = melodyRegistry.get(currentStep) || [];
   
-  eventsAtStep.forEach(event => {
-    const notes = getAvailableNotes();  // Get current palette
-    const note = notes[event.noteIndex]; // Map index → pitch
+  eventsAtStep.forEach(({ robotId, event }) => {
+    const notes = getAvailableNotes();         // note names, e.g. ['C', 'G', ...]
+    const noteName = notes[event.noteIndex];   // e.g. 'C'
+    const note = `${noteName}${event.octave}`; // e.g. 'C4' — octave baked in at spawn
     
     AudioEngine.scheduleNote({
-      robotId: event.robotId,
-      note,  // Automatically uses new harmony
+      robotId,
+      note,  // Automatically uses new harmony + robot's spawn-time octave
       duration: event.length,
       time: time + MIN_LEAD,
     });
@@ -140,9 +144,9 @@ const derivedHour = Math.floor((currentMeasure % 96) / 4);  // 0..23
 When creating custom `TIME_PITCHES`:
 
 1. **Use 8 notes exactly** (EightNotes type enforces this)
-2. **Range:** Stay within 2-3 octaves (e.g., C3-C5)
-3. **Avoid extreme leaps:** Adjacent indices should be reasonably close
-4. **Smooth transitions:** Hour N and N+1 should share some notes for continuity
+2. **No octave digits:** All entries are bare note names (`'C'`, `'Bb'`, `'F#'`). Octave is a robot-level attribute, not a palette concern.
+3. **Avoid extreme leaps:** Adjacent indices should be reasonably close in pitch character
+4. **Smooth transitions:** Hour N and N+1 should share some note names for continuity
 5. **Mood mapping:**
    - Midnight-Dawn (0-6): Lower, darker tones
    - Morning (6-12): Brighter, rising pitches
@@ -189,15 +193,18 @@ For unit testing patterns and examples, see [CONTRIBUTION_GUIDE.md](CONTRIBUTION
 
 ## Integration with Melody System
 
-Robots generate melodies at spawn:
+Robots generate melodies at spawn. Each event stores the note index *and* a concrete octave:
 ```typescript
 interface RobotMelodyEvent {
   id: string;
-  startStep: number;     // 1..16
-  length: '8n' | '4n' | '2n';
-  noteIndex: number;     // 0..7 ← Maps into availableNotes
+  startStep: number;                  // 1..16
+  length: '16n' | '8n' | '4n' | '2n';
+  noteIndex: number;                  // 0..7 ← maps into note-name palette
+  octave: number;                     // concrete octave assigned at spawn time
 }
 ```
+
+At scheduling time, `note = availableNotes[event.noteIndex] + event.octave` (e.g. `"C" + 4 = "C4"`). This means a harmony change silently updates the pitch class while the octave register stays as the robot was born with.
 
 At playback:
 ```typescript

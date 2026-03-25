@@ -475,7 +475,7 @@ interface Robot {
   destination: Vec2 | null;
   melody: MelodyEvent[];
   audioAttributes: AudioAttributes; // synthType, adsr, pitchRange, filterFreq, reverb
-  octaveOffset: 0 | 1 | 2;         // subtracts octaves at scheduling time
+  octaveRange: [number, number];    // [min, max] octave band; melody events store concrete octaves
   masterVolume: number;             // 0-1, base note velocity
   layer?: 'background' | 'foreground';
   // NO synths, NO timelines, NO DOM refs — those are never stored in state

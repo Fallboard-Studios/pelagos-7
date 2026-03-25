@@ -223,6 +223,15 @@ export function triggerWithCap(params: NoteParams): boolean {
       }
     }
 
+    // Validate note string before touching the synth — an invalid note can start
+    // an oscillator attack before throwing, leaving voices permanently open.
+    const NOTE_RE = /^[A-Ga-g][b#]{0,2}\d+$/;
+    if (!NOTE_RE.test(note)) {
+      activeVoices = Math.max(0, activeVoices - 1);
+      console.warn(`[AudioEngine] Invalid note string "${note}", skipping`);
+      return false;
+    }
+
     synth.triggerAttackRelease(note, duration, scheduleTime, velocity ?? 0.8);
     scheduleVoiceRelease(duration, scheduleTime);
 
@@ -248,14 +257,18 @@ function startMelodyPlayback(): void {
     const notes = getAvailableNotes();
 
     events.forEach(({ robotId, event }) => {
-      const note = notes[event.noteIndex]; // Map index → pitch
+      const noteName = notes[event.noteIndex]; // note name without octave, e.g. "C"
 
-      if (!note) {
+      if (!noteName) {
         console.warn(
           `[AudioEngine] Invalid note index ${event.noteIndex} for robot ${robotId}`
         );
         return;
       }
+
+      // Fallback octave of 4 handles stale events that pre-date the octaveRange change.
+      const octave = event.octave ?? 4;
+      const note = `${noteName}${octave}`; // combine with per-event octave, e.g. "C4"
 
       AudioEngine.scheduleNote({
         robotId,
