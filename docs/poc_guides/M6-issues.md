@@ -274,49 +274,50 @@ synth.triggerAttackRelease(note, duration, scheduleTime, velocity);
 
 ---
 
-## M6.7: DuoSynth Harmonicity and Vibrato Attributes
+## M6.7: Per-Robot Waveform Variation
 
-**Title:** [M6.7] Add harmonicity and vibratoAmount attributes to DuoSynth robots
+**Title:** [M6.7] Add waveform attribute to robots for timbral variety
 
 **Labels:** feature, system: audio, size: S
 
 ### Feature Description
-`DuoSynth` layers two `MonoSynth` voices with a `harmonicity` ratio controlling the interval between them. Adding `harmonicity` and `vibratoAmount` as per-robot attributes gives DuoSynth robots a distinct wavering, choral character — ranging from tight beating (harmonicity ≈ 1.03) through warm fifths (1.5) to bell-like overtones (3.0+). Vibrato adds further organic movement on top.
+Each robot should have a `waveform` attribute that determines the oscillator shape of its synth voice. Sine waves are pure and smooth; square waves are bright and hollow; triangle waves are warm and slightly hollow; sawtooth waves are rich and buzzy. This creates instant timbral variety without sounding "wrong" — all waveforms remain in-key and musically coherent.
 
 ### Implementation Details
-- Add `harmonicity: number` (0.5–5.0) and `vibratoAmount: number` (0–1) to `AudioAttributes` in `src/types/Robot.ts`
+- Add `waveform: 'sine' | 'square' | 'triangle' | 'sawtooth'` to `AudioAttributes` in `src/types/Robot.ts`
 - Assign at spawn time in `src/systems/spawnSystem.ts`:
-  - Only meaningful for `synthType === 'DuoSynth'`; other synth types receive defaults (`harmonicity: 1.0, vibratoAmount: 0`)
-  - DuoSynth robots: pick `harmonicity` from range 0.5–5.0 (favour 1.0–2.0 for ambient character); `vibratoAmount` random in `0.0–0.5`
-- In `triggerWithCap()` in `src/engine/AudioEngine.ts`, extend the `synth.set()` call to include `harmonicity` and `vibratoAmount` when the resolved synth is a DuoSynth type
-- Use reserved voice slots (`reserveVoice`) as best-effort isolation (see M6.8 for a full fix)
-- Do not store computed timbral state — `harmonicity` and `vibratoAmount` live in `audioAttributes` and are applied fresh per note
+  - Distribute evenly: each waveform gets ~25% chance
+  - All robot types (AMSynth, FMSynth, PolySynth, DuoSynth) can use waveforms
+- In `triggerWithCap()` in `src/engine/AudioEngine.ts`, apply the waveform via `synth.set()` before triggering the note
+- Do not store computed state — `waveform` is applied fresh per note trigger
+- The waveform property exists on all `Tone.PolySynth` voice types; use the same `synth.set()` pattern as ADSR
 
-**Spawn-time assignment (DuoSynth only):**
+**Spawn-time assignment:**
 ```typescript
-const isDuo = synthType === 'DuoSynth';
-const harmonicity = isDuo ? 0.5 + Math.random() * 4.5 : 1.0;
-const vibratoAmount = isDuo ? Math.random() * 0.5 : 0;
+const WAVEFORMS = ['sine', 'square', 'triangle', 'sawtooth'] as const;
+const waveform = WAVEFORMS[Math.floor(Math.random() * WAVEFORMS.length)];
 ```
 
 ### Application in triggerWithCap:
 ```typescript
 if (adsr) synth.set({ envelope: adsr });
-if (synthType === 'DuoSynth') synth.set({ harmonicity, vibratoAmount });
+synth.set({ oscillator: { type: waveform } });
+synth.triggerAttackRelease(note, duration, scheduleTime, velocity);
 ```
 
 ### Acceptance Criteria
-- [ ] harmonicity and vibratoAmount fields on AudioAttributes and serialisable
-- [ ] DuoSynth robots assigned non-default values at spawn; other synth types default to harmonicity: 1.0, vibratoAmount: 0
-- [ ] Values applied via synth.set() at trigger time, not stored as ephemeral state
+- [ ] `waveform` field on `AudioAttributes` and serialisable
+- [ ] All robots assigned a waveform at spawn time
+- [ ] Waveform applied via `synth.set({ oscillator: { type } })` at trigger time, not stored as ephemeral state
 - [ ] oceanStore state serialises without errors
-- [ ] DuoSynth robots audibly sound different from each other
+- [ ] Robots with different waveforms audibly sound different from each other
 - [ ] No new Tone.js instances created at runtime
+- [ ] Distribution roughly even across waveform types (spot check ~25% each)
 
 ### Reference
-Robot.ts — AudioAttributes
-spawnSystem.ts — robot initialisation
-AudioEngine.ts — triggerWithCap(), reserveVoice()
+- `src/types/Robot.ts` — `AudioAttributes`
+- `src/systems/spawnSystem.ts` — robot initialisation
+- `src/engine/AudioEngine.ts` — `triggerWithCap()`
 
 ---
 
