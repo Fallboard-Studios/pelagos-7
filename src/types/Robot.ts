@@ -82,6 +82,8 @@ export interface Robot {
   createdAt: number;            // timestamp used for removal ordering
   /** Transport measure at which this robot last interacted (for cooldown tracking). */
   lastInteractionMeasure?: number;
+  /** Base velocity (0–1) controlling average note loudness. Per-note variance is applied at scheduling time, not stored. */
+  masterVolume: number;
   // Note: Visual appearance (shape, colors, scale, detail level) is derived
   // from audioAttributes and NOT stored in state - calculated at render time
 }

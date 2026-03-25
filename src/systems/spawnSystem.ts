@@ -38,6 +38,10 @@ const PITCH_RANGES = [
 // Filter frequency range
 const FILTER_FREQ_RANGE = { min: 400, max: 2500 };
 
+// Master volume range: keep robots below full saturation
+const MASTER_VOLUME_MIN = 0.65;
+const MASTER_VOLUME_MAX = 0.85;
+
 // Synth types
 const SYNTH_TYPES: SynthType[] = [
   'AMSynth',
@@ -218,6 +222,7 @@ export function spawnRobot(): void {
     melody: generateMelodyForRobot({ octaveRange }),
     audioAttributes,
     octaveRange,
+    masterVolume: MASTER_VOLUME_MIN + Math.random() * (MASTER_VOLUME_MAX - MASTER_VOLUME_MIN),
     createdAt: Date.now(),
   };
 

@@ -197,9 +197,9 @@ describe('AudioEngine - Melody Lifecycle', () => {
       const { AudioEngine } = await import('./AudioEngine');
 
       const melody = [
-        { id: 'event1', startStep: 1, length: '8n' as const, noteIndex: 0 },
-        { id: 'event2', startStep: 5, length: '4n' as const, noteIndex: 2 },
-        { id: 'event3', startStep: 9, length: '8n' as const, noteIndex: 4 },
+        { id: 'event1', startStep: 1, length: '8n' as const, noteIndex: 0, octave: 4 },
+        { id: 'event2', startStep: 5, length: '4n' as const, noteIndex: 2, octave: 4 },
+        { id: 'event3', startStep: 9, length: '8n' as const, noteIndex: 4, octave: 4 },
       ];
 
       AudioEngine.registerRobotMelody('robot1', melody);
@@ -214,13 +214,13 @@ describe('AudioEngine - Melody Lifecycle', () => {
       const { AudioEngine } = await import('./AudioEngine');
 
       const melody1 = [
-        { id: 'r1-e1', startStep: 1, length: '8n' as const, noteIndex: 0 },
-        { id: 'r1-e2', startStep: 5, length: '4n' as const, noteIndex: 2 },
+        { id: 'r1-e1', startStep: 1, length: '8n' as const, noteIndex: 0, octave: 4 },
+        { id: 'r1-e2', startStep: 5, length: '4n' as const, noteIndex: 2, octave: 4 },
       ];
 
       const melody2 = [
-        { id: 'r2-e1', startStep: 1, length: '8n' as const, noteIndex: 1 },
-        { id: 'r2-e2', startStep: 5, length: '4n' as const, noteIndex: 3 },
+        { id: 'r2-e1', startStep: 1, length: '8n' as const, noteIndex: 1, octave: 4 },
+        { id: 'r2-e2', startStep: 5, length: '4n' as const, noteIndex: 3, octave: 4 },
       ];
 
       // Both robots register events at steps 1 and 5
@@ -245,9 +245,9 @@ describe('AudioEngine - Melody Lifecycle', () => {
       const { AudioEngine } = await import('./AudioEngine');
 
       const melody = [
-        { id: 'event1', startStep: 1, length: '8n' as const, noteIndex: 0 },
-        { id: 'event2', startStep: 5, length: '4n' as const, noteIndex: 2 },
-        { id: 'event3', startStep: 9, length: '8n' as const, noteIndex: 4 },
+        { id: 'event1', startStep: 1, length: '8n' as const, noteIndex: 0, octave: 4 },
+        { id: 'event2', startStep: 5, length: '4n' as const, noteIndex: 2, octave: 4 },
+        { id: 'event3', startStep: 9, length: '8n' as const, noteIndex: 4, octave: 4 },
       ];
 
       AudioEngine.registerRobotMelody('robot1', melody);
@@ -261,13 +261,13 @@ describe('AudioEngine - Melody Lifecycle', () => {
       const { AudioEngine } = await import('./AudioEngine');
 
       const melody1 = [
-        { id: 'r1-e1', startStep: 1, length: '8n' as const, noteIndex: 0 },
-        { id: 'r1-e2', startStep: 5, length: '4n' as const, noteIndex: 2 },
+        { id: 'r1-e1', startStep: 1, length: '8n' as const, noteIndex: 0, octave: 4 },
+        { id: 'r1-e2', startStep: 5, length: '4n' as const, noteIndex: 2, octave: 4 },
       ];
 
       const melody2 = [
-        { id: 'r2-e1', startStep: 1, length: '8n' as const, noteIndex: 1 },
-        { id: 'r2-e2', startStep: 9, length: '4n' as const, noteIndex: 3 },
+        { id: 'r2-e1', startStep: 1, length: '8n' as const, noteIndex: 1, octave: 4 },
+        { id: 'r2-e2', startStep: 9, length: '4n' as const, noteIndex: 3, octave: 4 },
       ];
 
       AudioEngine.registerRobotMelody('robot1', melody1);
@@ -293,8 +293,8 @@ describe('AudioEngine - Melody Lifecycle', () => {
       const { AudioEngine } = await import('./AudioEngine');
 
       const melody = [
-        { id: 'event1', startStep: 1, length: '8n' as const, noteIndex: 0 },
-        { id: 'event2', startStep: 5, length: '4n' as const, noteIndex: 2 },
+        { id: 'event1', startStep: 1, length: '8n' as const, noteIndex: 0, octave: 4 },
+        { id: 'event2', startStep: 5, length: '4n' as const, noteIndex: 2, octave: 4 },
       ];
 
       AudioEngine.registerRobotMelody('robot1', melody);
@@ -308,9 +308,9 @@ describe('AudioEngine - Melody Lifecycle', () => {
       const { AudioEngine } = await import('./AudioEngine');
 
       const melody = [
-        { id: 'event1', startStep: 1, length: '8n' as const, noteIndex: 0 },
-        { id: 'event2', startStep: 5, length: '4n' as const, noteIndex: 2 },
-        { id: 'event3', startStep: 9, length: '8n' as const, noteIndex: 4 },
+        { id: 'event1', startStep: 1, length: '8n' as const, noteIndex: 0, octave: 4 },
+        { id: 'event2', startStep: 5, length: '4n' as const, noteIndex: 2, octave: 4 },
+        { id: 'event3', startStep: 9, length: '8n' as const, noteIndex: 4, octave: 4 },
       ];
 
       // Simulate 20 spawn/remove cycles
@@ -331,18 +331,18 @@ describe('AudioEngine - Melody Lifecycle', () => {
       const { AudioEngine } = await import('./AudioEngine');
 
       const melody1 = [
-        { id: 'r1-e1', startStep: 1, length: '8n' as const, noteIndex: 0 },
-        { id: 'r1-e2', startStep: 5, length: '4n' as const, noteIndex: 2 },
+        { id: 'r1-e1', startStep: 1, length: '8n' as const, noteIndex: 0, octave: 4 },
+        { id: 'r1-e2', startStep: 5, length: '4n' as const, noteIndex: 2, octave: 4 },
       ];
 
       const melody2 = [
-        { id: 'r2-e1', startStep: 1, length: '8n' as const, noteIndex: 1 },
-        { id: 'r2-e2', startStep: 9, length: '4n' as const, noteIndex: 3 },
-        { id: 'r2-e3', startStep: 13, length: '8n' as const, noteIndex: 5 },
+        { id: 'r2-e1', startStep: 1, length: '8n' as const, noteIndex: 1, octave: 4 },
+        { id: 'r2-e2', startStep: 9, length: '4n' as const, noteIndex: 3, octave: 4 },
+        { id: 'r2-e3', startStep: 13, length: '8n' as const, noteIndex: 5, octave: 4 },
       ];
 
       const melody3 = [
-        { id: 'r3-e1', startStep: 5, length: '8n' as const, noteIndex: 2 },
+        { id: 'r3-e1', startStep: 5, length: '8n' as const, noteIndex: 2, octave: 4 },
       ];
 
       // Register 3 robots
@@ -359,5 +359,90 @@ describe('AudioEngine - Melody Lifecycle', () => {
 
       // No events should remain
     });
+  });
+});
+
+describe('computeNoteVelocity', () => {
+  it('keeps all 1000 samples within [0.05, 1.0] for a typical masterVolume', async () => {
+    vi.resetModules();
+    const { computeNoteVelocity } = await import('./AudioEngine');
+    for (let i = 0; i < 1000; i++) {
+      const v = computeNoteVelocity(0.7);
+      expect(v).toBeGreaterThanOrEqual(0.05);
+      expect(v).toBeLessThanOrEqual(1.0);
+    }
+  });
+
+  it('keeps all 1000 samples within [0.05, 1.0] at minimum masterVolume (0.05)', async () => {
+    vi.resetModules();
+    const { computeNoteVelocity } = await import('./AudioEngine');
+    for (let i = 0; i < 1000; i++) {
+      const v = computeNoteVelocity(0.05);
+      expect(v).toBeGreaterThanOrEqual(0.05);
+      expect(v).toBeLessThanOrEqual(1.0);
+    }
+  });
+
+  it('keeps all 1000 samples within [0.05, 1.0] at maximum masterVolume (1.0)', async () => {
+    vi.resetModules();
+    const { computeNoteVelocity } = await import('./AudioEngine');
+    for (let i = 0; i < 1000; i++) {
+      const v = computeNoteVelocity(1.0);
+      expect(v).toBeGreaterThanOrEqual(0.05);
+      expect(v).toBeLessThanOrEqual(1.0);
+    }
+  });
+
+  it('non-variance path returns clamped masterVolume unchanged', async () => {
+    vi.resetModules();
+    const { computeNoteVelocity } = await import('./AudioEngine');
+    // Force non-variance path: random value >= VELOCITY_VARIANCE_RATE (0.15)
+    vi.spyOn(Math, 'random').mockReturnValue(0.9);
+    expect(computeNoteVelocity(0.7)).toBeCloseTo(0.7, 5);
+    vi.restoreAllMocks();
+  });
+
+  it('variance path applies max positive offset (+0.25)', async () => {
+    vi.resetModules();
+    const { computeNoteVelocity } = await import('./AudioEngine');
+    // First call 0.05 < 0.15 → variance path; second call 1.0 → variance = +0.25
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0.05)
+      .mockReturnValueOnce(1.0);
+    expect(computeNoteVelocity(0.7)).toBeCloseTo(0.95, 5);
+    vi.restoreAllMocks();
+  });
+
+  it('variance path applies max negative offset (-0.25)', async () => {
+    vi.resetModules();
+    const { computeNoteVelocity } = await import('./AudioEngine');
+    // Second call 0.0 → variance = -0.25
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0.05)
+      .mockReturnValueOnce(0.0);
+    expect(computeNoteVelocity(0.7)).toBeCloseTo(0.45, 5);
+    vi.restoreAllMocks();
+  });
+
+  it('clamps to VELOCITY_MIN when variance pushes below 0.05', async () => {
+    vi.resetModules();
+    const { computeNoteVelocity } = await import('./AudioEngine');
+    // masterVolume = 0.05, variance = -0.15 → unclamped -0.10 → clamped to 0.05
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0.05)
+      .mockReturnValueOnce(0.0);
+    expect(computeNoteVelocity(0.05)).toBe(0.05);
+    vi.restoreAllMocks();
+  });
+
+  it('clamps to 1.0 when variance pushes above 1.0', async () => {
+    vi.resetModules();
+    const { computeNoteVelocity } = await import('./AudioEngine');
+    // masterVolume = 1.0, variance = +0.15 → unclamped 1.15 → clamped to 1.0
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0.05)
+      .mockReturnValueOnce(1.0);
+    expect(computeNoteVelocity(1.0)).toBe(1.0);
+    vi.restoreAllMocks();
   });
 });
