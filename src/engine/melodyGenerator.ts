@@ -39,13 +39,82 @@ const LENGTHS: NoteDuration[] = ['8n', '4n', '2n', '16n'];
 const ON_BEAT_STEPS = [1, 3, 5, 7, 9, 11, 13, 15];
 const OFF_BEAT_STEPS = [2, 4, 6, 8, 10, 12, 14, 16];
 
+/** Probability of applying rhythmic variance per 16-step loop (recommended: 0.2) */
+const DEFAULT_VARIANCE_PROBABILITY = 0.20;
+/** Possible step shifts (±1 or ±2 8th notes) */
+const SHIFT_OPTIONS = [-2, -1, 1, 2];
+
 // ========================================
 // EXPORTS
 // ========================================
 
 /**
+ * Pick random indices from an array without replacement.
+ * @param arr Array to pick from
+ * @param count Number of items to pick
+ * @param rand Optional RNG function (default: Math.random)
+ * @returns Array of picked indices
+ */
+export function pickRandomIndices(arr: unknown[], count: number, rand: () => number = Math.random): number[] {
+  const indices = Array.from({ length: arr.length }, (_, i) => i);
+  const picked: number[] = [];
+
+  for (let i = 0; i < Math.min(count, indices.length); i++) {
+    const idx = Math.floor(rand() * (indices.length - i));
+    picked.push(indices[idx]);
+    // Swap to end to remove from available pool
+    [indices[idx], indices[indices.length - 1 - i]] = [indices[indices.length - 1 - i], indices[idx]];
+  }
+
+  return picked;
+}
+
+/**
+ * Apply occasional rhythmic variance to a melody by shifting 1–2 events' startStep.
+ * Called at loop completion (~20% chance per loop by default).
+ * Preserves all other fields (id, length, noteIndex, octave).
+ * 
+ * @param melody Melody events to apply variance to
+ * @param probability 0-1 chance to apply variance (default: 0.2 ~ 20%)
+ * @param rand Optional RNG function (default: Math.random)
+ * @returns New melody array with variance applied (if triggered), or original melody
+ */
+export function applyRhythmicVariance(
+  melody: RobotMelodyEvent[],
+  probability: number = DEFAULT_VARIANCE_PROBABILITY,
+  rand: () => number = Math.random
+): RobotMelodyEvent[] {
+  // Check if variance applies this loop
+  if (rand() > probability) {
+    return melody;
+  }
+
+  // Pick 1–2 events to shift
+  const numToShift = rand() < 0.5 ? 1 : 2;
+  const indicesToShift = pickRandomIndices(melody, Math.min(numToShift, melody.length), rand);
+
+  // Apply shift to selected indices
+  return melody.map((event, idx) => {
+    if (!indicesToShift.includes(idx)) {
+      return event;
+    }
+
+    // Pick random shift from ±1 or ±2 steps
+    const delta = SHIFT_OPTIONS[Math.floor(rand() * SHIFT_OPTIONS.length)];
+    // Clamp to 1..16
+    const newStep = Math.min(16, Math.max(1, event.startStep + delta));
+
+    // Return new event with shifted step, all other fields unchanged
+    return {
+      ...event,
+      startStep: newStep,
+    };
+  });
+}
+
+/**
  * Generates a melody for a robot at spawn time.
- * Returns 4-12 events with weighted note selection.
+ * Returns 4-12 events with weighted note selection and procedural octave variation.
  */
 export function generateMelodyForRobot(
   opts?: MelodyGeneratorOptions
