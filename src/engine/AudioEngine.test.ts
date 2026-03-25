@@ -32,6 +32,10 @@ vi.mock('tone', () => ({
   Compressor: vi.fn(() => ({
     toDestination: vi.fn().mockReturnThis(),
   })),
+  Panner: vi.fn(() => ({
+    connect: vi.fn().mockReturnThis(),
+    pan: { value: 0 },
+  })),
 }));
 
 // Mock harmony system
@@ -52,9 +56,25 @@ vi.mock('./beatClock', () => ({
 // Mock melody generator
 vi.mock('./melodyGenerator', () => ({}));
 
+// Mock refs utility
+vi.mock('../utils/refs', () => ({
+  getRef: vi.fn(() => undefined), // Returns undefined by default in tests
+  setRef: vi.fn(),
+  deleteRef: vi.fn(),
+  clearRefs: vi.fn(),
+}));
+
+// Mock GSAP
+vi.mock('gsap', () => ({
+  default: {
+    getProperty: vi.fn(() => undefined), // Returns undefined (fallback to state position)
+  },
+}));
+
 // Mock constants
 vi.mock('../constants', () => ({
   DEV_TUNING: false,
+  WORLD_WIDTH: 1920,
 }));
 
 // ========================================
