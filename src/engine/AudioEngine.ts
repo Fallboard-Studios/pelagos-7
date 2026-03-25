@@ -35,7 +35,12 @@ type SynthPool = Record<string, Tone.PolySynth[]>;
 // ========================================
 const MAX_POLYPHONY = 16;
 const MIN_LEAD = 0.05; // 50ms lookahead for scheduling
-// (single shared pool per synth type)
+/** Fraction of notes that receive a random velocity offset for organic expressiveness. */
+const VELOCITY_VARIANCE_RATE = 0.15;
+/** Maximum ± deviation applied to a note's velocity when variance is triggered. */
+const VELOCITY_VARIANCE_AMOUNT = 0.25;  // ±25% offset
+/** Minimum effective note velocity after clamping (prevents silent notes). */
+const VELOCITY_MIN = 0.05;
 
 // ========================================
 // MODULE STATE
@@ -69,10 +74,10 @@ async function loadInstruments(): Promise<void> {
   if (instrumentsLoaded) return;
 
   const compressor = new Tone.Compressor({
-    threshold: -18,
-    ratio: 8,
-    attack: 0.003,
-    release: 0.25,
+    threshold: -3,   // only brickwall true peaks; leaves normal dynamics intact
+    ratio: 20,       // limiter-style: hard ceiling above threshold
+    attack: 0.001,   // catch peaks fast
+    release: 0.1,    // release quickly so it doesn't duck sustained notes
   }).toDestination();
   _masterCompressor = compressor;
 
@@ -288,6 +293,22 @@ function startMelodyPlayback(): void {
 // AUDIOENGINE SINGLETON (FUNCTIONAL)
 // ========================================
 
+/**
+ * Compute an effective note velocity from a robot's `masterVolume`.
+ * 15% of calls apply a random ±25% offset, producing organic expressiveness.
+ * All results are clamped to [VELOCITY_MIN, 1.0] and are never stored in state.
+ *
+ * @param masterVolume - Base velocity (0–1) from the robot's state
+ * @returns Effective velocity clamped to [VELOCITY_MIN, 1.0]
+ */
+export function computeNoteVelocity(masterVolume: number): number {
+  if (Math.random() < VELOCITY_VARIANCE_RATE) {
+    const variance = Math.random() * 2 * VELOCITY_VARIANCE_AMOUNT - VELOCITY_VARIANCE_AMOUNT;
+    return Math.min(1, Math.max(VELOCITY_MIN, masterVolume + variance));
+  }
+  return Math.min(1, Math.max(VELOCITY_MIN, masterVolume));
+}
+
 export const AudioEngine = {
   async start(): Promise<void> {
     if (initialized) return;
@@ -337,26 +358,32 @@ export const AudioEngine = {
    * applied at scheduling time.
    */
   scheduleNote(params: NoteParams): void {
-    const { robotId, note, duration, time, velocity } = params;
+    const { robotId, note, duration, time } = params;
 
     let synthType = params.synthType;
     let adsr = params.adsr;
+    let effectiveVelocity = params.velocity;
 
-    if (robotId && (!synthType || !adsr)) {
+    if (robotId && (!synthType || !adsr || effectiveVelocity === undefined)) {
       try {
         const state = useOceanStore.getState();
         const robot = state.robots.find((r) => r.id === robotId);
 
-        if (robot && robot.audioAttributes) {
-          if (!synthType) synthType = robot.audioAttributes.synthType as SynthType | string;
-          if (!adsr) adsr = robot.audioAttributes.adsr;
+        if (robot) {
+          if (robot.audioAttributes) {
+            if (!synthType) synthType = robot.audioAttributes.synthType as SynthType | string;
+            if (!adsr) adsr = robot.audioAttributes.adsr;
+          }
+          if (effectiveVelocity === undefined) {
+            effectiveVelocity = computeNoteVelocity(robot.masterVolume ?? 0.7);
+          }
         }
       } catch (err) {
         console.warn('[AudioEngine] Failed to lookup robot audioAttributes:', err);
       }
     }
 
-    triggerWithCap({ robotId, note, duration, time, velocity, synthType, adsr });
+    triggerWithCap({ robotId, note, duration, time, velocity: effectiveVelocity, synthType, adsr });
   },
 
   /** Reserve a slot for a robot. Returns true if reserved, false if pool exhausted. */

@@ -122,13 +122,14 @@ Each robot should have a `masterVolume` (0–1) that sets its average note veloc
 ### Implementation Details
 - Add `masterVolume: number` (0–1) to the `Robot` interface
 - Assign at spawn time in `src/systems/spawnSystem.ts` — recommended range `0.5–0.85` to keep robots below full saturation
-- When scheduling a note, compute the effective velocity:
+- When scheduling a note compute the effective velocity:
   ```typescript
-  const variance = (Math.random() * 0.3) - 0.15; // -0.15 to +0.15
+  const variance = (Math.random() * 0.3) - 0.25; // -0.25 to +0.25
   const velocity = Math.min(1, Math.max(0.05, robot.masterVolume + variance));
   ```
 - Pass `velocity` into `triggerWithCap()` / `NoteParams`
 - Do not store per-note velocities in state — they are ephemeral, generated at scheduling time only
+- This velocity change should only happen on 15% of the notes.
 
 ### Acceptance Criteria
 - [ ] `masterVolume` field on `Robot` type and initialised at spawn
