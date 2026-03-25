@@ -2,6 +2,7 @@
 // IMPORTS
 // ========================================
 import * as Tone from 'tone';
+import gsap from 'gsap';
 import { useOceanStore } from '../stores/oceanStore';
 
 import type { NoteDuration, ADSREnvelope, SynthType } from '../types/Robot';
@@ -9,7 +10,8 @@ import { getAvailableNotes, scheduleHarmonyCycle, stopHarmonyCycle } from './har
 import { initBeatClock } from './beatClock';
 import type { RobotMelodyEvent } from './melodyGenerator';
 import { applyRhythmicVariance } from './melodyGenerator';
-import { DEV_TUNING } from '../constants';
+import { DEV_TUNING, WORLD_WIDTH } from '../constants';
+import { getRef } from '../utils/refs';
 
 // ========================================
 // TYPES
@@ -30,6 +32,7 @@ interface MelodyEventEntry {
 }
 
 type SynthPool = Record<string, Tone.PolySynth[]>;
+type PannerPool = Record<string, Tone.Panner[]>;
 
 // ========================================
 // CONSTANTS
@@ -63,13 +66,105 @@ const stepRegistry = new Map<number, MelodyEventEntry[]>();
 let stepCounter = 0;
 let scheduledTickId: number | null = null;
 
+// Panner pool: each synth instance has its own panner for independent position control
+let pannerPool: PannerPool | null = null;
+
 // ========================================
 // INTERNAL FUNCTIONS
 // ========================================
 
 /**
+ * Calculate stereo pan value from robot's X position.
+ * Returns −0.5 (left) to +0.5 (right) mapped from world coordinate [0, WORLD_WIDTH].
+ * Reduced range keeps voices more centered for a cohesive mix.
+ *
+ * @param x - Robot X position in world space
+ * @returns Pan value in range [−0.5, +0.5]
+ */
+function calculatePanFromPosition(x: number): number {
+  return (x / WORLD_WIDTH) * 1 - 0.5;
+}
+
+/**
+ * Get the robot's current visual X position from the DOM.
+ * Reads the current GSAP-animated x transform value from the SVG element.
+ * Falls back to stored state position if ref not found or transform unavailable.
+ *
+ * @param robotId - Robot ID
+ * @returns Current visual X position (from DOM) or stored X position (from state)
+ */
+function getRobotVisualX(robotId: string): number {
+  try {
+    const ref = getRef(`robot-${robotId}`);
+    if (ref) {
+      // Read the current x transform applied by GSAP
+      const visualX = gsap.getProperty(ref, 'x') as number;
+      if (typeof visualX === 'number' && !isNaN(visualX)) {
+        return visualX;
+      }
+    }
+  } catch (err) {
+    // Silently fall through to state position fallback
+    if (DEV_TUNING) console.warn('[AudioEngine] Failed to read visual X from DOM:', err);
+  }
+
+  // Fallback: read position from state
+  try {
+    const state = useOceanStore.getState();
+    const robot = state.robots.find((r) => r.id === robotId);
+    return robot?.position.x ?? 960; // Default to center if not found
+  } catch (err) {
+    if (DEV_TUNING) console.warn('[AudioEngine] Failed to read state position:', err);
+    return 960; // Default to center
+  }
+}
+
+/**
+ * Get the synth and its corresponding panner from the pool.
+ * Used to ensure each synth trigger updates the correct panner for that voice.
+ *
+ * @param type - Synth type (e.g., 'fm', 'am')
+ * @returns { synth, panner } or { synth: null, panner: null } if not found
+ */
+function getSynthAndPanner(type?: string): { synth: Tone.PolySynth | null; panner: Tone.Panner | null } {
+  if (!synthPool || !pannerPool) {
+    return { synth: null, panner: null };
+  }
+
+  const t = (type || '').toString().toLowerCase();
+  let synthArr: Tone.PolySynth[] | undefined;
+  let pannerArr: Tone.Panner[] | undefined;
+
+  switch (t) {
+    case 'fmsynth':
+    case 'fm':
+      synthArr = synthPool['fm'];
+      pannerArr = pannerPool['fm'];
+      break;
+    case 'amsynth':
+    case 'am':
+      synthArr = synthPool['am'];
+      pannerArr = pannerPool['am'];
+      break;
+    case 'duosynth':
+    case 'duo':
+      synthArr = synthPool['duo'];
+      pannerArr = pannerPool['duo'];
+      break;
+    default:
+      synthArr = synthPool['default'];
+      pannerArr = pannerPool['default'];
+  }
+
+  const synth = synthArr && synthArr.length > 0 ? synthArr[0] : null;
+  const panner = pannerArr && pannerArr.length > 0 ? pannerArr[0] : null;
+
+  return { synth, panner };
+}
+
+/**
  * Load synth pool with 4 types for timbral variety.
- * All synths share a global compressor to prevent clipping.
+ * All synths route through individual panners to the compressor for position-based panning.
  */
 async function loadInstruments(): Promise<void> {
   if (instrumentsLoaded) return;
@@ -91,11 +186,11 @@ async function loadInstruments(): Promise<void> {
     try {
       if (!voiceCtor) throw new Error('voiceCtor not available');
       if (typeof PolySynthCtor !== 'function') throw new Error('PolySynth constructor not available');
-      return new PolySynthCtor(voiceCtor).connect(compressor);
+      return new PolySynthCtor(voiceCtor);
     } catch (err) {
       console.warn('[AudioEngine] Failed to construct PolySynth for voice, falling back:', err);
       if (typeof PolySynthCtor !== 'function') throw err;
-      return new PolySynthCtor(fallbackCtor || (toneRecord.Synth ?? null)).connect(compressor);
+      return new PolySynthCtor(fallbackCtor || (toneRecord.Synth ?? null));
     }
   };
 
@@ -109,10 +204,12 @@ async function loadInstruments(): Promise<void> {
   };
 
   synthPool = {} as SynthPool;
+  pannerPool = {} as PannerPool;
   reservedSlots = {};
 
   for (const [type, count] of Object.entries(POOL_SIZING)) {
-    const arr: Tone.PolySynth[] = [];
+    const synthArr: Tone.PolySynth[] = [];
+    const pannerArr: Tone.Panner[] = [];
     for (let i = 0; i < count; i++) {
       let poly: Tone.PolySynth;
       switch (type) {
@@ -128,10 +225,15 @@ async function loadInstruments(): Promise<void> {
         default:
           poly = createPolyWithFallback(toneRecord.Synth, toneRecord.Synth);
       }
-      // `createPolyWithFallback` already connects voices to the compressor.
-      arr.push(poly);
+      // Create individual panner for this synth: synth → panner → compressor
+      const panner = new Tone.Panner({ pan: 0 }).connect(compressor);
+      poly.connect(panner);
+      
+      synthArr.push(poly);
+      pannerArr.push(panner);
     }
-    synthPool[type] = arr;
+    synthPool[type] = synthArr;
+    pannerPool[type] = pannerArr;
     reservedSlots[type] = new Array(count).fill(null);
   }
 
@@ -190,10 +292,42 @@ export function triggerWithCap(params: NoteParams): boolean {
   activeVoices++;
 
   try {
-    // Select synth from the tolerant synth mapping (single shared pool per type)
+    // Select synth and corresponding panner from the pool
     // Prefer reserved synth slot for this robot when present
     const reserved = AudioEngine.getVoiceForRobot(robotId);
-    const synth: Tone.PolySynth | null = reserved ?? (AudioEngine.getSynth(synthType) ?? (synthPool ? (synthPool['default']?.[0] ?? null) : null));
+    let synth: Tone.PolySynth | null;
+    let panner: Tone.Panner | null;
+
+    if (reserved) {
+      synth = reserved;
+      // Find the panner for this reserved synth by searching all pools
+      panner = null;
+      if (synthPool && pannerPool) {
+        for (const [type, synthArr] of Object.entries(synthPool)) {
+          const idx = synthArr.indexOf(reserved);
+          if (idx !== -1) {
+            const pannerArr = pannerPool[type];
+            if (pannerArr && pannerArr[idx]) {
+              panner = pannerArr[idx];
+            }
+            break;
+          }
+        }
+      }
+    } else {
+      // Use getSynthAndPanner to get both synth and its corresponding panner
+      const { synth: selectedSynth, panner: selectedPanner } = getSynthAndPanner(synthType);
+      synth = selectedSynth;
+      panner = selectedPanner;
+
+      // Fallback to default synth if still nothing available
+      if (!synth && synthPool) {
+        const defaultArr = synthPool['default'];
+        const defaultPannerArr = pannerPool ? pannerPool['default'] : undefined;
+        synth = defaultArr?.[0] ?? null;
+        panner = defaultPannerArr?.[0] ?? null;
+      }
+    }
 
     if (!synth) {
       // No synth available — restore voice counter and skip note
@@ -236,6 +370,28 @@ export function triggerWithCap(params: NoteParams): boolean {
       activeVoices = Math.max(0, activeVoices - 1);
       console.warn(`[AudioEngine] Invalid note string "${note}", skipping`);
       return false;
+    }
+
+    // ========================================
+    // PAN CALCULATION & UPDATE
+    // ========================================
+    // Look up robot's current visual X position (from DOM animation) and calculate stereo pan.
+    // Reads the GSAP-animated x transform for real-time panning that tracks visual movement.
+    // Falls back to stored position if DOM ref not available.
+    // Update the synth's individual panner before note trigger (synchronous, cheap).
+    if (robotId && panner) {
+      try {
+        const visualX = getRobotVisualX(robotId);
+        const panValue = calculatePanFromPosition(visualX);
+        panner.pan.value = panValue;
+        if (DEV_TUNING) {
+          console.log(
+            `[AudioEngine] Panned ${robotId}: x=${visualX.toFixed(0)}, pan=${panValue.toFixed(2)}`
+          );
+        }
+      } catch (err) {
+        console.warn('[AudioEngine] Failed to calculate/apply pan:', err);
+      }
     }
 
     synth.triggerAttackRelease(note, duration, scheduleTime, velocity ?? 0.8);
