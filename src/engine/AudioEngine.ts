@@ -228,7 +228,7 @@ async function loadInstruments(): Promise<void> {
       // Create individual panner for this synth: synth → panner → compressor
       const panner = new Tone.Panner({ pan: 0 }).connect(compressor);
       poly.connect(panner);
-      
+
       synthArr.push(poly);
       pannerArr.push(panner);
     }
