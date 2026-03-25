@@ -14,17 +14,21 @@ Melody generation creates unique, procedurally-generated musical patterns for ea
 
 ```typescript
 interface RobotMelodyEvent {
-  id: string;               // Unique identifier (e.g., "mel-abc123")
-  startStep: number;        // 1..16 (8th-note position in 2-measure loop)
-  length: '8n' | '4n' | '2n'; // Note duration
-  noteIndex: number;        // 0..7 (maps into availableNotes palette)
+  id: string;                          // Unique identifier (UUID)
+  startStep: number;                   // 1..16 (8th-note position in 2-measure loop)
+  length: '16n' | '8n' | '4n' | '2n'; // Note duration
+  noteIndex: number;                   // 0..7 (maps into note-name palette)
+  octave: number;                      // Concrete octave assigned at spawn time
 }
 
 interface Robot {
   // ... other fields
-  melody: RobotMelodyEvent[];  // 4-12 events per robot
+  octaveRange: [number, number];   // [min, max] octave band for this robot
+  melody: RobotMelodyEvent[];      // 4-12 events per robot
 }
 ```
+
+`noteIndex` maps into the **note-name** palette (e.g. `'C'`, `'Bb'`). `octave` is baked in at spawn and stays stable across harmony changes. The full pitch is composed at scheduling time: `noteName + octave`.
 
 ## Generation Algorithm
 
@@ -32,15 +36,33 @@ interface Robot {
 
 ```typescript
 export function generateMelodyForRobot(opts?: {
-  events?: number;           // Number of notes (default: 4-12)
-  rand?: () => number;       // RNG for testing (default: Math.random)
-  syncopationBias?: number;  // 0-1, off-beat preference (default: 0.4)
+  events?: number;                  // Number of notes (default: 4-12)
+  rand?: () => number;              // RNG for testing (default: Math.random)
+  syncopationBias?: number;         // 0-1, off-beat preference (default: 0.4)
+  octaveRange?: [number, number];   // [min, max] octave band for this robot
 }): RobotMelodyEvent[] {
   const eventsCount = opts?.events ?? (4 + Math.floor(Math.random() * 9));
+  const [octMin, octMax] = opts?.octaveRange ?? [3, 4];
+
+  // Seed a random starting octave within the robot's range
+  let currentOctave = octMin + Math.floor(Math.random() * (octMax - octMin + 1));
+
   const melody: RobotMelodyEvent[] = [];
   const usedSlots = new Set<number>();
   
   for (let i = 0; i < eventsCount; i++) {
+    // 15% chance to jump more than one octave (when range allows)
+    if (i > 0 && Math.random() < 0.15) {
+      const jumpCandidates = [];
+      for (let o = octMin; o <= octMax; o++) {
+        if (Math.abs(o - currentOctave) > 1) jumpCandidates.push(o);
+      }
+      if (jumpCandidates.length > 0) {
+        currentOctave = jumpCandidates[Math.floor(Math.random() * jumpCandidates.length)];
+      }
+      // Span too narrow to jump — stay on current octave
+    }
+
     // 1. Pick step position
     const useOffBeat = Math.random() < (opts?.syncopationBias ?? 0.4);
     const candidateSteps = useOffBeat 
@@ -68,6 +90,7 @@ export function generateMelodyForRobot(opts?: {
       startStep,
       length,
       noteIndex,
+      octave: currentOctave,  // concrete octave for this note
     });
   }
   
@@ -107,14 +130,16 @@ export function pickWeightedIndex(rand = Math.random): number {
 ## Duration Selection
 
 ```typescript
-function pickLength(rand = Math.random): '8n' | '4n' | '2n' {
-  const weights = [0.6, 0.3, 0.1];  // Bias toward shorter notes
+function pickLength(rand = Math.random): NoteDuration {
+  // Order: 8n, 4n, 2n, 16n
+  const weights = [0.5, 0.25, 0.15, 0.1];
+  const lengths: NoteDuration[] = ['8n', '4n', '2n', '16n'];
   const r = rand();
   let acc = 0;
   
   for (let i = 0; i < weights.length; i++) {
     acc += weights[i];
-    if (r <= acc) return ['8n', '4n', '2n'][i];
+    if (r <= acc) return lengths[i];
   }
   
   return '8n';
@@ -122,9 +147,10 @@ function pickLength(rand = Math.random): '8n' | '4n' | '2n' {
 ```
 
 **Distribution:**
-- `8n` (eighth note): **60%** (shortest, most rhythmic)
-- `4n` (quarter note): **30%** (medium)
-- `2n` (half note): **10%** (longest, sustained)
+- `8n` (eighth note): **50%**
+- `4n` (quarter note): **25%**
+- `2n` (half note): **15%**
+- `16n` (sixteenth note): **10%**
 
 ## Syncopation Control
 
@@ -147,17 +173,20 @@ const useOffBeat = Math.random() < syncopationBias;
 ```typescript
 // In robot spawner
 function spawnRobot(): Robot {
-  const melody = generateMelodyForRobot({
-    events: 6,               // This robot gets 6 notes
-    syncopationBias: 0.5,    // Moderately syncopated
-  });
-  
+  const audioAttributes = generateAudioAttributes();
+  const octaveRange = pickOctaveRange(audioAttributes.pitchRange);
+  // low pitch bucket → [2,3], mid → [3,4], high → [4,5]
+
+  const melody = generateMelodyForRobot({ octaveRange });
+  // Each event has .octave set; stays stable across harmony changes
+
   return {
     id: crypto.randomUUID(),
-    position: { x: 100, y: 200, z: 2 },
     state: 'idle',
+    audioAttributes,
+    octaveRange,
     melody,  // Immutable from this point forward
-    // ... other fields
+    // ...
   };
 }
 ```
@@ -194,7 +223,8 @@ BeatClock.scheduleRepeat('8n', (time) => {
   const notes = getAvailableNotes();
   
   events.forEach(({ robotId, event }) => {
-    const note = notes[event.noteIndex];  // Map index → pitch
+    const noteName = notes[event.noteIndex];    // e.g. 'C' (from note-name palette)
+    const note = `${noteName}${event.octave}`; // e.g. 'C4'
     
     scheduleNote({
       robotId,

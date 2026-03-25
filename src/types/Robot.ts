@@ -60,6 +60,7 @@ export interface MelodyEvent {
   startStep: number;                    // 1-16 (8th-note grid position)
   length: NoteDuration;                 // Note duration
   noteIndex: number;                    // 0-7 (index into available harmony palette)
+  octave: number;                       // Concrete octave assigned at spawn time
 }
 
 /**
@@ -75,6 +76,8 @@ export interface Robot {
   direction: 'left' | 'right';     // Facing direction (horizontal orientation)
   melody: MelodyEvent[];
   audioAttributes: AudioAttributes;
+  /** Octave range [min, max] this robot plays within. Melody events store concrete octaves within this range. */
+  octaveRange: [number, number];
   layer?: 'background' | 'foreground'; // SVG rendering layer (default: foreground)
   createdAt: number;            // timestamp used for removal ordering
   /** Transport measure at which this robot last interacted (for cooldown tracking). */

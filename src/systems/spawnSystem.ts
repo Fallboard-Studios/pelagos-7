@@ -164,6 +164,18 @@ export function generateAudioAttributes(): AudioAttributes {
 }
 
 /**
+ * Pick an octave range [min, max] for a robot based on its pitch bucket.
+ * Low  robots (< 150 Hz) → [2, 3] — bass register
+ * Mid  robots (< 450 Hz) → [3, 4] — mid register
+ * High robots (≥ 450 Hz) → [4, 5] — treble register
+ */
+export function pickOctaveRange(pitchRange: { min: number; max: number }): [number, number] {
+  if (pitchRange.max < 150) return [2, 3];
+  if (pitchRange.max < 450) return [3, 4];
+  return [4, 5];
+}
+
+/**
  * Spawn a new robot with randomized attributes
  * Enforces MAX_ROBOTS limit and registers melody with AudioEngine
  */
@@ -193,15 +205,19 @@ export function spawnRobot(): void {
     return;
   }
 
-  // Generate robot attributes
+  // Generate audio attributes first so octaveRange can be derived and passed to melody generator
+  const audioAttributes = generateAudioAttributes();
+  const octaveRange = pickOctaveRange(audioAttributes.pitchRange);
+
   const robot: Robot = {
     id: crypto.randomUUID(),
     state: RobotState.Idle,
     position: generateSpawnPosition(),
     destination: null,
     direction: 'right', // Default facing direction (will be updated by idleSystem)
-    melody: generateMelodyForRobot(),
-    audioAttributes: generateAudioAttributes(),
+    melody: generateMelodyForRobot({ octaveRange }),
+    audioAttributes,
+    octaveRange,
     createdAt: Date.now(),
   };
 

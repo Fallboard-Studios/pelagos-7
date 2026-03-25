@@ -17,7 +17,8 @@ let transportInstance: TransportLike | null = null;
 // ========================================
 // TYPES
 // ========================================
-// Require exactly 8 note strings per hour-equivalent (derived from measure position for palette lookup, not stored).
+// Exactly 8 note-name strings (no octave digit) per hour-equivalent.
+// Octave is determined per-robot at spawn time; melody events store note index + octave separately.
 // Hour is calculated as Math.floor((currentMeasure % 96) / 4) where 96 measures = 1 full day cycle.
 export type EighthNotes = [string, string, string, string, string, string, string, string];
 
@@ -25,30 +26,30 @@ export type EighthNotes = [string, string, string, string, string, string, strin
 // CONSTANTS
 // ========================================
 const TIME_PITCHES: Record<number, EighthNotes> = {
-  0: ['C4', 'G4', 'E4', 'D4', 'B4', 'C5', 'E5', 'G5'],
-  1: ['C4', 'G4', 'F4', 'D4', 'A4', 'C5', 'F5', 'F5'],
-  2: ['D4', 'A4', 'F4', 'D4', 'A4', 'C5', 'F5', 'D5'],
-  3: ['F4', 'G4', 'B4', 'D4', 'G4', 'D5', 'G5', 'G5'],
-  4: ['G4', 'D4', 'B4', 'A4', 'B4', 'D5', 'A5', 'G5'],
-  5: ['A4', 'D4', 'C4', 'G4', 'E4', 'C5', 'A5', 'E5'],
-  6: ['Bb4', 'D4', 'C4', 'G4', 'F4', 'C5', 'Bb5', 'F5'],
-  7: ['Bb4', 'Eb4', 'C4', 'G4', 'F4', 'D5', 'Bb5', 'Eb5'],
-  8: ['Ab4', 'Eb4', 'C4', 'G4', 'Ab4', 'D5', 'Ab5', 'Eb5'],
-  9: ['Db4', 'F4', 'C4', 'Ab4', 'Bb4', 'Db5', 'Ab5', 'F5'],
-  10: ['B4', 'F#4', 'D#4', 'C#4', 'A4', 'B5', 'D#5', 'F#5'],
-  11: ['E4', 'C4', 'G#4', 'D4', 'Bb4', 'E5', 'G#5', 'B5'],
-  12: ['C4', 'G4', 'E4', 'D4', 'B4', 'C5', 'E5', 'G5'],
-  13: ['C4', 'G4', 'F4', 'D4', 'A4', 'C5', 'F5', 'F5'],
-  14: ['D4', 'A4', 'F4', 'D4', 'A4', 'C5', 'F5', 'D5'],
-  15: ['F4', 'G4', 'B4', 'D4', 'G4', 'D5', 'G5', 'G5'],
-  16: ['G4', 'D4', 'B4', 'A4', 'B4', 'D5', 'A5', 'G5'],
-  17: ['A4', 'D4', 'C4', 'G4', 'E4', 'C5', 'A5', 'E5'],
-  18: ['Bb4', 'D4', 'C4', 'G4', 'F4', 'C5', 'Bb5', 'F5'],
-  19: ['Bb4', 'Eb4', 'C4', 'G4', 'F4', 'D5', 'Bb5', 'Eb5'],
-  20: ['Ab4', 'Eb4', 'C4', 'G4', 'Ab4', 'D5', 'Ab5', 'Eb5'],
-  21: ['Db4', 'F4', 'C4', 'Ab4', 'Bb4', 'Db5', 'Ab5', 'F5'],
-  22: ['B4', 'F#4', 'D#4', 'C#4', 'A4', 'B5', 'D#5', 'F#5'],
-  23: ['E4', 'C4', 'G#4', 'D4', 'Bb4', 'E5', 'G#5', 'B5'],
+  0:  ['C',  'G',  'E',  'D',  'B',  'C',  'E',  'G' ],
+  1:  ['C',  'G',  'F',  'D',  'A',  'C',  'F',  'F' ],
+  2:  ['D',  'A',  'F',  'D',  'A',  'C',  'F',  'D' ],
+  3:  ['F',  'G',  'B',  'D',  'G',  'D',  'G',  'G' ],
+  4:  ['G',  'D',  'B',  'A',  'B',  'D',  'A',  'G' ],
+  5:  ['A',  'D',  'C',  'G',  'E',  'C',  'A',  'E' ],
+  6:  ['Bb', 'D',  'C',  'G',  'F',  'C',  'Bb', 'F' ],
+  7:  ['Bb', 'Eb', 'C',  'G',  'F',  'D',  'Bb', 'Eb'],
+  8:  ['Ab', 'Eb', 'C',  'G',  'Ab', 'D',  'Ab', 'Eb'],
+  9:  ['Db', 'F',  'C',  'Ab', 'Bb', 'Db', 'Ab', 'F' ],
+  10: ['B',  'F#', 'D#', 'C#', 'A',  'B',  'D#', 'F#'],
+  11: ['E',  'C',  'G#', 'D',  'Bb', 'E',  'G#', 'B' ],
+  12: ['C',  'G',  'E',  'D',  'B',  'C',  'E',  'G' ],
+  13: ['C',  'G',  'F',  'D',  'A',  'C',  'F',  'F' ],
+  14: ['D',  'A',  'F',  'D',  'A',  'C',  'F',  'D' ],
+  15: ['F',  'G',  'B',  'D',  'G',  'D',  'G',  'G' ],
+  16: ['G',  'D',  'B',  'A',  'B',  'D',  'A',  'G' ],
+  17: ['A',  'D',  'C',  'G',  'E',  'C',  'A',  'E' ],
+  18: ['Bb', 'D',  'C',  'G',  'F',  'C',  'Bb', 'F' ],
+  19: ['Bb', 'Eb', 'C',  'G',  'F',  'D',  'Bb', 'Eb'],
+  20: ['Ab', 'Eb', 'C',  'G',  'Ab', 'D',  'Ab', 'Eb'],
+  21: ['Db', 'F',  'C',  'Ab', 'Bb', 'Db', 'Ab', 'F' ],
+  22: ['B',  'F#', 'D#', 'C#', 'A',  'B',  'D#', 'F#'],
+  23: ['E',  'C',  'G#', 'D',  'Bb', 'E',  'G#', 'B' ],
 };
 
 // ========================================

@@ -11,12 +11,14 @@ export interface RobotMelodyEvent {
   startStep: number; // 1..16 (8th-note position in 2-measure loop)
   length: NoteDuration; // Note duration
   noteIndex: number; // 0..7 (maps into availableNotes palette)
+  octave: number;   // Concrete octave assigned at spawn time
 }
 
 export interface MelodyGeneratorOptions {
   events?: number; // Number of notes (default: 4-12)
   rand?: () => number; // RNG for testing (default: Math.random)
   syncopationBias?: number; // 0-1, off-beat preference (default: 0.4)
+  octaveRange?: [number, number]; // [min, max] octave band for this robot
 }
 
 // ========================================
@@ -25,6 +27,9 @@ export interface MelodyGeneratorOptions {
 const MIN_EVENTS = 4;
 const MAX_EVENTS = 12;
 const DEFAULT_SYNCOPATION_BIAS = 0.4;
+/** Probability that a successive note jumps more than one octave (when range allows). */
+const OCTAVE_JUMP_CHANCE = 0.15;
+const DEFAULT_OCTAVE_RANGE: [number, number] = [3, 4];
 
 const NOTE_INDEX_WEIGHTS = [0.35, 0.2, 0.15, 0.1, 0.07, 0.06, 0.04, 0.03];
 const LENGTH_WEIGHTS = [0.5, 0.25, 0.15, 0.1];
@@ -50,10 +55,26 @@ export function generateMelodyForRobot(
     opts?.events ?? MIN_EVENTS + Math.floor(rand() * (MAX_EVENTS - MIN_EVENTS + 1));
   const syncopationBias = opts?.syncopationBias ?? DEFAULT_SYNCOPATION_BIAS;
 
+  const [octMin, octMax] = opts?.octaveRange ?? DEFAULT_OCTAVE_RANGE;
+  // Seed currentOctave to a random value within the robot's range
+  let currentOctave = octMin + Math.floor(rand() * (octMax - octMin + 1));
+
   const melody: RobotMelodyEvent[] = [];
   const usedSlots = new Set<number>();
 
   for (let i = 0; i < eventsCount; i++) {
+    // 15% chance to jump to a non-adjacent octave (requires span of at least 2)
+    if (i > 0 && rand() < OCTAVE_JUMP_CHANCE) {
+      const jumpCandidates: number[] = [];
+      for (let o = octMin; o <= octMax; o++) {
+        if (Math.abs(o - currentOctave) > 1) jumpCandidates.push(o);
+      }
+      if (jumpCandidates.length > 0) {
+        currentOctave = jumpCandidates[Math.floor(rand() * jumpCandidates.length)];
+      }
+      // Range too narrow to jump — stay on current octave
+    }
+
     // Pick step position (with syncopation bias)
     const useOffBeat = rand() < syncopationBias;
     const candidateSteps = useOffBeat ? OFF_BEAT_STEPS : ON_BEAT_STEPS;
@@ -79,6 +100,7 @@ export function generateMelodyForRobot(
       startStep,
       length,
       noteIndex,
+      octave: currentOctave,
     });
   }
 
