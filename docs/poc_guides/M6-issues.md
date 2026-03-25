@@ -274,3 +274,83 @@ synth.triggerAttackRelease(note, duration, scheduleTime, velocity);
 - `src/engine/AudioEngine.ts` — `startMelodyPlayback()`, `triggerWithCap()`
 - `src/constants/index.ts` — `WORLD_WIDTH`
 - `src/types/Robot.ts` — `Robot.position`
+
+
+---
+
+## M6.7: DuoSynth Harmonicity and Vibrato Attributes
+
+**Title:** [M6.7] Add harmonicity and vibratoAmount attributes to DuoSynth robots
+
+**Labels:** feature, system: audio, size: S
+
+### Feature Description
+`DuoSynth` layers two `MonoSynth` voices with a `harmonicity` ratio controlling the interval between them. Adding `harmonicity` and `vibratoAmount` as per-robot attributes gives DuoSynth robots a distinct wavering, choral character — ranging from tight beating (harmonicity ≈ 1.03) through warm fifths (1.5) to bell-like overtones (3.0+). Vibrato adds further organic movement on top.
+
+### Implementation Details
+- Add `harmonicity: number` (0.5–5.0) and `vibratoAmount: number` (0–1) to `AudioAttributes` in `src/types/Robot.ts`
+- Assign at spawn time in `src/systems/spawnSystem.ts`:
+  - Only meaningful for `synthType === 'DuoSynth'`; other synth types receive defaults (`harmonicity: 1.0, vibratoAmount: 0`)
+  - DuoSynth robots: pick `harmonicity` from range 0.5–5.0 (favour 1.0–2.0 for ambient character); `vibratoAmount` random in `0.0–0.5`
+- In `triggerWithCap()` in `src/engine/AudioEngine.ts`, extend the `synth.set()` call to include `harmonicity` and `vibratoAmount` when the resolved synth is a DuoSynth type
+- Use reserved voice slots (`reserveVoice`) as best-effort isolation (see M6.8 for a full fix)
+- Do not store computed timbral state — `harmonicity` and `vibratoAmount` live in `audioAttributes` and are applied fresh per note
+
+**Spawn-time assignment (DuoSynth only):**
+```typescript
+const isDuo = synthType === 'DuoSynth';
+const harmonicity = isDuo ? 0.5 + Math.random() * 4.5 : 1.0;
+const vibratoAmount = isDuo ? Math.random() * 0.5 : 0;
+```
+
+### Application in triggerWithCap:
+```typescript
+if (adsr) synth.set({ envelope: adsr });
+if (synthType === 'DuoSynth') synth.set({ harmonicity, vibratoAmount });
+```
+
+### Acceptance Criteria
+- [ ] harmonicity and vibratoAmount fields on AudioAttributes and serialisable
+- [ ] DuoSynth robots assigned non-default values at spawn; other synth types default to harmonicity: 1.0, vibratoAmount: 0
+- [ ] Values applied via synth.set() at trigger time, not stored as ephemeral state
+- [ ] oceanStore state serialises without errors
+- [ ] DuoSynth robots audibly sound different from each other
+- [ ] No new Tone.js instances created at runtime
+
+### Reference
+Robot.ts — AudioAttributes
+spawnSystem.ts — robot initialisation
+AudioEngine.ts — triggerWithCap(), reserveVoice()
+
+---
+
+## M6.8: Eliminate Per-Note Parameter Bleed on Shared Synth Pool
+
+**Title:** [M6.8] Prevent ADSR, harmonicity, and vibrato bleed between robots sharing a synth
+
+**Labels:** bug, system: audio, size: M
+
+### Feature Description
+Shared synth pool entries mutate their parameters (ADSR envelope, harmonicity, vibratoAmount) via synth.set() immediately before each note trigger. If two robots share the same synth instance and trigger notes concurrently, one robot's parameters overwrite the other's mid-sustain, causing audible timbral glitches. This issue tracks a systematic fix covering all per-note parameters together.
+
+### Background
+The reserved voice system (reserveVoice / getVoiceForRobot) was introduced as a best-effort mitigation. It works when the pool has spare capacity but does not guarantee isolation under load. M6.7 (harmonicity) makes this more acute since harmonicity shifts are more audible than ADSR drift.
+
+### Implementation Details
+- grow pool to match maxRobots:
+  Increase each pool entry size to match settings.maxRobots. Eliminates the gap but higher memory cost; only viable if maxRobots stays ≤ 12.
+
+
+
+### Acceptance Criteria
+- [ ] Two DuoSynth robots sustaining concurrent notes do not audibly alter each other's timbre
+- [ ] Two robots with different ADSR envelopes triggering simultaneously each use their own envelope shape
+- [ ] Robots without a reserved slot skip notes gracefully rather than corrupting another robot's voice
+- [ ] No new Tone.js instances created at runtime beyond pool initialisation
+- [ ] Existing polyphony cap (MAX_POLYPHONY) still enforced
+- [ ] Unit test: parameter changes for robot A do not affect a concurrently-sustaining robot B
+
+### Reference
+AudioEngine.ts — reserveVoice(), releaseVoice(), triggerWithCap()
+oceanStore.ts — removeRobot() action
+spawnSystem.ts — spawn and removal logic
