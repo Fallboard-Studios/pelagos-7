@@ -5,7 +5,7 @@ import * as Tone from 'tone';
 import gsap from 'gsap';
 import { useOceanStore } from '../stores/oceanStore';
 
-import type { NoteDuration, ADSREnvelope, SynthType } from '../types/Robot';
+import type { NoteDuration, ADSREnvelope, SynthType, WaveformType } from '../types/Robot';
 import { getAvailableNotes, scheduleHarmonyCycle, stopHarmonyCycle } from './harmonySystem';
 import { initBeatClock } from './beatClock';
 import type { RobotMelodyEvent } from './melodyGenerator';
@@ -24,6 +24,7 @@ export interface NoteParams {
   velocity?: number;
   synthType?: SynthType | string;
   adsr?: ADSREnvelope;
+  waveform?: WaveformType;
 }
 
 interface MelodyEventEntry {
@@ -269,7 +270,7 @@ function scheduleVoiceRelease(duration: NoteDuration, time: number): void {
  * Returns true if note was triggered, false if skipped due to cap.
  */
 export function triggerWithCap(params: NoteParams): boolean {
-  const { robotId, note, duration, time, velocity, synthType, adsr } = params;
+  const { robotId, note, duration, time, velocity, synthType, adsr, waveform } = params;
 
   if (!synthPool) {
     console.warn('[AudioEngine] Synth pool not loaded');
@@ -359,6 +360,18 @@ export function triggerWithCap(params: NoteParams): boolean {
           maybeSetter.set({ envelope: adsr });
         } catch (err) {
           console.warn('[AudioEngine] Failed to apply ADSR to synth:', err);
+        }
+      }
+    }
+
+    // Apply waveform (oscillator type) if provided — applied fresh per trigger, never stored
+    if (waveform) {
+      const maybeSetter = synth as unknown as { set?: (props: unknown) => void };
+      if (typeof maybeSetter.set === 'function') {
+        try {
+          maybeSetter.set({ oscillator: { type: waveform } });
+        } catch (err) {
+          console.warn('[AudioEngine] Failed to apply waveform to synth:', err);
         }
       }
     }
@@ -573,9 +586,10 @@ export const AudioEngine = {
 
     let synthType = params.synthType;
     let adsr = params.adsr;
+    let waveform = params.waveform;
     let effectiveVelocity = params.velocity;
 
-    if (robotId && (!synthType || !adsr || effectiveVelocity === undefined)) {
+    if (robotId && (!synthType || !adsr || !waveform || effectiveVelocity === undefined)) {
       try {
         const state = useOceanStore.getState();
         const robot = state.robots.find((r) => r.id === robotId);
@@ -584,6 +598,7 @@ export const AudioEngine = {
           if (robot.audioAttributes) {
             if (!synthType) synthType = robot.audioAttributes.synthType as SynthType | string;
             if (!adsr) adsr = robot.audioAttributes.adsr;
+            if (!waveform) waveform = robot.audioAttributes.waveform;
           }
           if (effectiveVelocity === undefined) {
             effectiveVelocity = computeNoteVelocity(robot.masterVolume ?? 0.7);
@@ -594,7 +609,7 @@ export const AudioEngine = {
       }
     }
 
-    triggerWithCap({ robotId, note, duration, time, velocity: effectiveVelocity, synthType, adsr });
+    triggerWithCap({ robotId, note, duration, time, velocity: effectiveVelocity, synthType, adsr, waveform });
   },
 
   /** Reserve a slot for a robot. Returns true if reserved, false if pool exhausted. */

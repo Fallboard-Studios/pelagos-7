@@ -2,7 +2,7 @@
 // IMPORTS
 // ========================================
 import type { Vec2 } from '../types/Vec2';
-import type { Robot, AudioAttributes, SynthType } from '../types/Robot';
+import type { Robot, AudioAttributes, SynthType, WaveformType } from '../types/Robot';
 import { RobotState } from '../types/Robot';
 import { generateMelodyForRobot } from '../engine/melodyGenerator';
 import { AudioEngine } from '../engine/AudioEngine';
@@ -47,8 +47,11 @@ const SYNTH_TYPES: SynthType[] = [
   'AMSynth',
   'FMSynth',
   'PolySynth',
-  'DuoSynth',
+  // 'DuoSynth',
 ];
+
+// Waveform types — even distribution gives ~25% each
+const WAVEFORMS: WaveformType[] = ['sine', 'square', 'triangle', 'sawtooth'];
 
 // ========================================
 // MODULE STATE
@@ -158,12 +161,16 @@ export function generateAudioAttributes(): AudioAttributes {
   // Random reverb amount
   const reverb = Math.random();
 
+  // Random waveform — evenly distributed across all four types
+  const waveform = WAVEFORMS[Math.floor(Math.random() * WAVEFORMS.length)];
+
   return {
     synthType,
     adsr,
     pitchRange,
     filterFreq,
     reverb,
+    waveform,
   };
 }
 
