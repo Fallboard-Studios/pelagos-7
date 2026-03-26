@@ -14,8 +14,8 @@ import { useOceanStore } from '../stores/oceanStore';
 // CONSTANTS
 // ========================================
 /** Spawn interval range in measures; a value is chosen randomly on each scheduler start. */
-const SPAWN_INTERVAL_MIN = 32;
-const SPAWN_INTERVAL_MAX = 48;
+const SPAWN_INTERVAL_MIN = 2;
+const SPAWN_INTERVAL_MAX = 8;
 
 const WORLD_WIDTH = 1920;
 const WORLD_HEIGHT = 1080;
