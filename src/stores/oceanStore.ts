@@ -46,7 +46,7 @@ export interface OceanStore {
 // ========================================
 const INITIAL_SETTINGS = {
   bpm: 120,
-  maxRobots: 12,
+  maxRobots: 16,
   minRobots: 2,
 };
 
