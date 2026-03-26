@@ -28,6 +28,11 @@ export type SynthType =
   ;
 
 /**
+ * Oscillator waveform shapes for timbral variety
+ */
+export type WaveformType = 'sine' | 'square' | 'triangle' | 'sawtooth';
+
+/**
  * ADSR envelope parameters for synth
  */
 export interface ADSREnvelope {
@@ -50,6 +55,7 @@ export interface AudioAttributes {
   };
   filterFreq: number;  // Hz (cutoff frequency, 0 = no filter)
   reverb: number;      // 0-1 (mix amount)
+  waveform: WaveformType; // Oscillator shape applied once at voice reservation time
 }
 
 /**

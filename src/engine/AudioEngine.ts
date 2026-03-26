@@ -5,7 +5,7 @@ import * as Tone from 'tone';
 import gsap from 'gsap';
 import { useOceanStore } from '../stores/oceanStore';
 
-import type { NoteDuration, ADSREnvelope, SynthType } from '../types/Robot';
+import type { NoteDuration, ADSREnvelope, SynthType, WaveformType } from '../types/Robot';
 import { getAvailableNotes, scheduleHarmonyCycle, stopHarmonyCycle } from './harmonySystem';
 import { initBeatClock } from './beatClock';
 import type { RobotMelodyEvent } from './melodyGenerator';
@@ -22,8 +22,11 @@ export interface NoteParams {
   duration: NoteDuration;
   time?: number;
   velocity?: number;
+  fatCount?: number;
+  fatSpread?: number;
   synthType?: SynthType | string;
   adsr?: ADSREnvelope;
+  waveform?: WaveformType;
 }
 
 interface MelodyEventEntry {
@@ -68,6 +71,15 @@ let scheduledTickId: number | null = null;
 
 // Panner pool: each synth instance has its own panner for independent position control
 let pannerPool: PannerPool | null = null;
+/** Robot audio attribute cache — keyed by robotId to avoid per-note Zustand store scans.
+ * Populated on first note for a robot, cleared when its melody is unregistered.
+ * Audio attributes are immutable after spawn so this cache never goes stale. */
+const robotAttributeCache = new Map<string, {
+  synthType: string;
+  adsr: ADSREnvelope;
+  waveform?: WaveformType;
+  masterVolume: number;
+}>();
 
 // ========================================
 // INTERNAL FUNCTIONS
@@ -170,10 +182,10 @@ async function loadInstruments(): Promise<void> {
   if (instrumentsLoaded) return;
 
   const compressor = new Tone.Compressor({
-    threshold: -3,   // only brickwall true peaks; leaves normal dynamics intact
-    ratio: 20,       // limiter-style: hard ceiling above threshold
-    attack: 0.001,   // catch peaks fast
-    release: 0.1,    // release quickly so it doesn't duck sustained notes
+    threshold: -18,  // engage earlier to tame FM/AM harmonics before clipping
+    ratio: 6,        // softer compression ratio; not a hard limiter
+    attack: 0.003,
+    release: 0.15,
   }).toDestination();
   _masterCompressor = compressor;
 
@@ -225,6 +237,12 @@ async function loadInstruments(): Promise<void> {
         default:
           poly = createPolyWithFallback(toneRecord.Synth, toneRecord.Synth);
       }
+      // Pull back hot synth types before the compressor.
+      // FM/AM synthesis produces loud harmonics; attenuate to prevent clipping.
+      if (poly.volume && typeof poly.volume.value === 'number') {
+        poly.volume.value = (type === 'fm' || type === 'am') ? -10 : -6;
+      }
+
       // Create individual panner for this synth: synth → panner → compressor
       const panner = new Tone.Panner({ pan: 0 }).connect(compressor);
       poly.connect(panner);
@@ -300,19 +318,11 @@ export function triggerWithCap(params: NoteParams): boolean {
 
     if (reserved) {
       synth = reserved;
-      // Find the panner for this reserved synth by searching all pools
+      // Use stored type+index for O(1) panner lookup — avoids indexOf scan on every trigger.
       panner = null;
-      if (synthPool && pannerPool) {
-        for (const [type, synthArr] of Object.entries(synthPool)) {
-          const idx = synthArr.indexOf(reserved);
-          if (idx !== -1) {
-            const pannerArr = pannerPool[type];
-            if (pannerArr && pannerArr[idx]) {
-              panner = pannerArr[idx];
-            }
-            break;
-          }
-        }
+      const reservation = reservedVoices.get(robotId);
+      if (reservation && pannerPool) {
+        panner = pannerPool[reservation.type]?.[reservation.index] ?? null;
       }
     } else {
       // Use getSynthAndPanner to get both synth and its corresponding panner
@@ -336,23 +346,9 @@ export function triggerWithCap(params: NoteParams): boolean {
       return false;
     }
 
-    // Log which synth we're using (for debugging/dev tuning)
-    if (DEV_TUNING) {
-      let resolvedType = 'unknown';
-      if (synthPool) {
-        for (const [t, arr] of Object.entries(synthPool)) {
-          if (arr.includes(synth)) {
-            resolvedType = t;
-            break;
-          }
-        }
-      }
-      const ctorName = (synth as unknown as { constructor?: { name?: string } }).constructor?.name || 'UnknownCtor';
-      console.log(`[AudioEngine] Trigger: robot=${robotId} requested=${synthType ?? 'none'} resolved=${resolvedType} ctor=${ctorName} note=${note}`);
-    }
-
-    // Apply per-note ADSR if provided (shared synths; set() is cheap)
-    if (adsr) {
+    // Apply ADSR only on shared (non-reserved) synths. Reserved voices have ADSR applied
+    // once at reserveVoice() time — reapplying every note is wasted work inside the Transport tick.
+    if (adsr && !reserved) {
       const maybeSetter = synth as unknown as { set?: (props: unknown) => void };
       if (typeof maybeSetter.set === 'function') {
         try {
@@ -362,6 +358,9 @@ export function triggerWithCap(params: NoteParams): boolean {
         }
       }
     }
+
+    // Waveform is applied once at reserveVoice() time, not per-trigger.
+    // Mid-playback oscillator rebuilds on a shared synth kill in-flight voices.
 
     // Validate note string before touching the synth — an invalid note can start
     // an oscillator attack before throwing, leaving voices permanently open.
@@ -384,11 +383,7 @@ export function triggerWithCap(params: NoteParams): boolean {
         const visualX = getRobotVisualX(robotId);
         const panValue = calculatePanFromPosition(visualX);
         panner.pan.value = panValue;
-        if (DEV_TUNING) {
-          console.log(
-            `[AudioEngine] Panned ${robotId}: x=${visualX.toFixed(0)}, pan=${panValue.toFixed(2)}`
-          );
-        }
+
       } catch (err) {
         console.warn('[AudioEngine] Failed to calculate/apply pan:', err);
       }
@@ -424,7 +419,7 @@ function startMelodyPlayback(): void {
       const noteName = notes[event.noteIndex]; // note name without octave, e.g. "C"
 
       if (!noteName) {
-        console.warn(
+        if (DEV_TUNING) console.warn(
           `[AudioEngine] Invalid note index ${event.noteIndex} for robot ${robotId}`
         );
         return;
@@ -447,53 +442,55 @@ function startMelodyPlayback(): void {
     // ========================================
     // LOOP COMPLETION: Apply rhythmic variance
     // ========================================
-    // At loop boundary (16-step loop completed), apply occasional variance
-    // to all robots' melodies and update state for the next loop iteration.
+    // At loop boundary (16-step loop completed), defer the O(robots × registry) variance
+    // work via queueMicrotask so the Transport tick completes before we mutate state.
     if (stepCounter % 16 === 0) {
       if (DEV_TUNING) {
         console.log(`[AudioEngine] Loop boundary reached at step ${stepCounter}`);
       }
-      try {
-        const store = useOceanStore.getState();
-        const robotCount = store.robots.length;
-        if (DEV_TUNING) {
-          console.log(`[AudioEngine] Checking variance for ${robotCount} robots`);
-        }
-
-        store.robots.forEach((robot) => {
-          // Store original data to detect changes
-          const originalMelody = robot.melody;
-          const originalSteps = originalMelody.map((e) => e.startStep);
-
-          // Apply variance (returns new array or original)
-          const variedMelody = applyRhythmicVariance(originalMelody as never);
-
-          // Detect if any startStep actually changed
-          const newSteps = variedMelody.map((e) => e.startStep);
-          const changed = originalSteps.some((step, i) => step !== newSteps[i]);
-
-          if (changed) {
-            // Update stepRegistry with varied melody for THIS loop's playback only
-            // (don't persist to state, so next loop resets to original)
-            AudioEngine.unregisterRobotMelody(robot.id);
-            AudioEngine.registerRobotMelody(robot.id, variedMelody as never);
-
-            if (DEV_TUNING) {
-              const shifts = originalSteps
-                .map((step, i) => (step !== newSteps[i] ? `event${i}:${step}→${newSteps[i]}` : null))
-                .filter((x) => x !== null)
-                .join(', ');
-              console.log(
-                `[AudioEngine] Rhythmic variance applied to robot ${robot.id}: ${shifts}`
-              );
-            }
-          } else if (DEV_TUNING) {
-            console.log(`[AudioEngine] No variance triggered for robot ${robot.id} (probability)`);
+      queueMicrotask(() => {
+        try {
+          const store = useOceanStore.getState();
+          const robotCount = store.robots.length;
+          if (DEV_TUNING) {
+            console.log(`[AudioEngine] Checking variance for ${robotCount} robots`);
           }
-        });
-      } catch (err) {
-        console.warn('[AudioEngine] Failed to apply rhythmic variance:', err);
-      }
+
+          store.robots.forEach((robot) => {
+            // Store original data to detect changes
+            const originalMelody = robot.melody;
+            const originalSteps = originalMelody.map((e) => e.startStep);
+
+            // Apply variance (returns new array or original)
+            const variedMelody = applyRhythmicVariance(originalMelody as never);
+
+            // Detect if any startStep actually changed
+            const newSteps = variedMelody.map((e) => e.startStep);
+            const changed = originalSteps.some((step, i) => step !== newSteps[i]);
+
+            if (changed) {
+              // Update stepRegistry with varied melody for THIS loop's playback only
+              // (don't persist to state, so next loop resets to original)
+              AudioEngine.unregisterRobotMelody(robot.id);
+              AudioEngine.registerRobotMelody(robot.id, variedMelody as never);
+
+              if (DEV_TUNING) {
+                const shifts = originalSteps
+                  .map((step, i) => (step !== newSteps[i] ? `event${i}:${step}→${newSteps[i]}` : null))
+                  .filter((x) => x !== null)
+                  .join(', ');
+                console.log(
+                  `[AudioEngine] Rhythmic variance applied to robot ${robot.id}: ${shifts}`
+                );
+              }
+            } else if (DEV_TUNING) {
+              console.log(`[AudioEngine] No variance triggered for robot ${robot.id} (probability)`);
+            }
+          });
+        } catch (err) {
+          console.warn('[AudioEngine] Failed to apply rhythmic variance:', err);
+        }
+      });
     }
   }, '8n');
 
@@ -573,32 +570,65 @@ export const AudioEngine = {
 
     let synthType = params.synthType;
     let adsr = params.adsr;
+    let waveform = params.waveform;
     let effectiveVelocity = params.velocity;
 
     if (robotId && (!synthType || !adsr || effectiveVelocity === undefined)) {
-      try {
-        const state = useOceanStore.getState();
-        const robot = state.robots.find((r) => r.id === robotId);
-
-        if (robot) {
-          if (robot.audioAttributes) {
-            if (!synthType) synthType = robot.audioAttributes.synthType as SynthType | string;
-            if (!adsr) adsr = robot.audioAttributes.adsr;
-          }
-          if (effectiveVelocity === undefined) {
-            effectiveVelocity = computeNoteVelocity(robot.masterVolume ?? 0.7);
-          }
+      // Check attribute cache first — avoids a per-note Zustand store scan inside the Transport tick.
+      const cached = robotAttributeCache.get(robotId);
+      if (cached) {
+        if (!synthType) synthType = cached.synthType;
+        if (!adsr) adsr = cached.adsr;
+        if (!waveform) waveform = cached.waveform;
+        if (effectiveVelocity === undefined) {
+          effectiveVelocity = computeNoteVelocity(cached.masterVolume);
         }
-      } catch (err) {
-        console.warn('[AudioEngine] Failed to lookup robot audioAttributes:', err);
+      } else {
+        try {
+          const state = useOceanStore.getState();
+          const robot = state.robots.find((r) => r.id === robotId);
+
+          if (robot) {
+            if (robot.audioAttributes) {
+              if (!synthType) synthType = robot.audioAttributes.synthType as SynthType | string;
+              if (!adsr) adsr = robot.audioAttributes.adsr;
+              if (!waveform) waveform = robot.audioAttributes.waveform;
+              // Populate cache — audio attributes are immutable after spawn.
+              robotAttributeCache.set(robotId, {
+                synthType: robot.audioAttributes.synthType,
+                adsr: robot.audioAttributes.adsr,
+                waveform: robot.audioAttributes.waveform,
+                masterVolume: robot.masterVolume ?? 0.7,
+              });
+            }
+            if (effectiveVelocity === undefined) {
+              effectiveVelocity = computeNoteVelocity(robot.masterVolume ?? 0.7);
+            }
+          }
+        } catch (err) {
+          console.warn('[AudioEngine] Failed to lookup robot audioAttributes:', err);
+        }
       }
     }
 
-    triggerWithCap({ robotId, note, duration, time, velocity: effectiveVelocity, synthType, adsr });
+    triggerWithCap({ robotId, note, duration, time, velocity: effectiveVelocity, synthType, adsr, waveform });
   },
 
-  /** Reserve a slot for a robot. Returns true if reserved, false if pool exhausted. */
-  reserveVoice(robotId: string, synthType: string): boolean {
+  /**
+   * Reserve a dedicated synth slot for a robot and apply its waveform once at
+   * reservation time — the safe moment when the synth has no in-flight voices.
+   * Returns true if reserved, false if pool exhausted.
+   *
+   * @param robotId - Robot ID
+   * @param synthType - Synth type key (e.g. 'FMSynth')
+   * @param waveform - Optional oscillator type to apply immediately on the idle slot
+   */
+  reserveVoice(
+    robotId: string,
+    synthType: string,
+    waveform?: string,
+    adsr?: ADSREnvelope,
+  ): boolean {
     if (!synthPool || !reservedSlots) return false;
 
     const typeKey = (synthType || 'default').toString().toLowerCase();
@@ -610,7 +640,30 @@ export const AudioEngine = {
 
     slots[freeIndex] = robotId;
     reservedVoices.set(robotId, { type: typeKey, index: freeIndex, reservedAt: Date.now() });
-    if (DEV_TUNING) console.log(`[AudioEngine] Reserved ${typeKey}[${freeIndex}] for ${robotId}`);
+
+    // Apply waveform and ADSR once on the now-dedicated, idle synth — safe because no
+    // notes are in flight on this slot yet. Avoids mid-playback oscillator rebuilds and
+    // eliminates redundant synth.set() calls on every note trigger.
+    const dedicatedSynth = synthPool[typeKey]?.[freeIndex];
+    const maybeSetter = dedicatedSynth as unknown as { set?: (props: unknown) => void } | undefined;
+    if (maybeSetter && typeof maybeSetter.set === 'function') {
+      if (waveform) {
+        try {
+          maybeSetter.set({ oscillator: { type: waveform } });
+        } catch (err) {
+          console.warn('[AudioEngine] Failed to apply waveform at reservation time:', err);
+        }
+      }
+      if (adsr) {
+        try {
+          maybeSetter.set({ envelope: adsr });
+        } catch (err) {
+          console.warn('[AudioEngine] Failed to apply ADSR at reservation time:', err);
+        }
+      }
+    }
+
+    if (DEV_TUNING) console.log(`[AudioEngine] Reserved ${typeKey}[${freeIndex}] for ${robotId}${waveform ? ` (waveform: ${waveform})` : ''}${adsr ? ' (adsr applied)' : ''}`);
     return true;
   },
 
@@ -642,18 +695,34 @@ export const AudioEngine = {
 
 
   registerRobotMelody(robotId: string, melody: RobotMelodyEvent[]): void {
+    // Purge any existing entries for this robot before adding new ones so this
+    // method is idempotent regardless of call site — prevents duplicate triggers.
+    stepRegistry.forEach((entries, step) => {
+      const filtered = entries.filter((e) => e.robotId !== robotId);
+      if (filtered.length !== entries.length) {
+        if (filtered.length > 0) {
+          stepRegistry.set(step, filtered);
+        } else {
+          stepRegistry.delete(step);
+        }
+      }
+    });
+
     melody.forEach((event) => {
       const entries = stepRegistry.get(event.startStep) || [];
       entries.push({ robotId, event });
       stepRegistry.set(event.startStep, entries);
     });
 
-    console.log(
-      `[AudioEngine] Registered melody for robot ${robotId} (${melody.length} events)`
-    );
+    if (DEV_TUNING) {
+      console.log(
+        `[AudioEngine] Registered melody for robot ${robotId} (${melody.length} events)`
+      );
+    }
   },
 
   unregisterRobotMelody(robotId: string): void {
+    robotAttributeCache.delete(robotId);
     let removedCount = 0;
 
     stepRegistry.forEach((entries, step) => {
@@ -667,9 +736,11 @@ export const AudioEngine = {
       }
     });
 
-    console.log(
-      `[AudioEngine] Unregistered melody for robot ${robotId} (${removedCount} events removed)`
-    );
+    if (DEV_TUNING) {
+      console.log(
+        `[AudioEngine] Unregistered melody for robot ${robotId} (${removedCount} events removed)`
+      );
+    }
   },
 
 

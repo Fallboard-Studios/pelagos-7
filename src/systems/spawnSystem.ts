@@ -2,7 +2,7 @@
 // IMPORTS
 // ========================================
 import type { Vec2 } from '../types/Vec2';
-import type { Robot, AudioAttributes, SynthType } from '../types/Robot';
+import type { Robot, AudioAttributes, SynthType, WaveformType } from '../types/Robot';
 import { RobotState } from '../types/Robot';
 import { generateMelodyForRobot } from '../engine/melodyGenerator';
 import { AudioEngine } from '../engine/AudioEngine';
@@ -47,8 +47,11 @@ const SYNTH_TYPES: SynthType[] = [
   'AMSynth',
   'FMSynth',
   'PolySynth',
-  'DuoSynth',
+  // 'DuoSynth',
 ];
+
+// Waveform types — even distribution gives ~25% each
+const WAVEFORMS: WaveformType[] = ['sine', 'square', 'triangle', 'sawtooth'];
 
 // ========================================
 // MODULE STATE
@@ -158,13 +161,10 @@ export function generateAudioAttributes(): AudioAttributes {
   // Random reverb amount
   const reverb = Math.random();
 
-  return {
-    synthType,
-    adsr,
-    pitchRange,
-    filterFreq,
-    reverb,
-  };
+  // Random waveform — evenly distributed (~25% each)
+  const waveform = WAVEFORMS[Math.floor(Math.random() * WAVEFORMS.length)];
+
+  return { synthType, adsr, pitchRange, filterFreq, reverb, waveform };
 }
 
 /**
@@ -230,9 +230,17 @@ export function spawnRobot(): void {
   useOceanStore.getState().addRobot(robot);
 
   // Register melody with AudioEngine
-  // Reserve a voice for this robot (best-effort) so its timbre/adsr are isolated
+  // Unregister first to guard against duplicate entries if robot id is reused.
+  AudioEngine.unregisterRobotMelody(robot.id);
+  // Reserve a voice for this robot (best-effort) so its timbre/adsr are isolated.
+  // Waveform is applied once here on the idle slot — no mid-playback oscillator rebuilds.
   try {
-    AudioEngine.reserveVoice(robot.id, robot.audioAttributes.synthType as string);
+    AudioEngine.reserveVoice(
+      robot.id,
+      robot.audioAttributes.synthType as string,
+      robot.audioAttributes.waveform,
+      robot.audioAttributes.adsr,
+    );
   } catch (err) {
     if (DEV_TUNING) console.warn('[SpawnSystem] reserveVoice failed', err);
   }
