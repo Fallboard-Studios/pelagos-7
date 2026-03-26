@@ -239,10 +239,8 @@ async function loadInstruments(): Promise<void> {
       }
       // Pull back hot synth types before the compressor.
       // FM/AM synthesis produces loud harmonics; attenuate to prevent clipping.
-      if (type === 'fm' || type === 'am') {
-        poly.volume.value = -10;
-      } else {
-        poly.volume.value = -6;
+      if (poly.volume && typeof poly.volume.value === 'number') {
+        poly.volume.value = (type === 'fm' || type === 'am') ? -10 : -6;
       }
 
       // Create individual panner for this synth: synth → panner → compressor
@@ -289,7 +287,7 @@ function scheduleVoiceRelease(duration: NoteDuration, time: number): void {
  * Returns true if note was triggered, false if skipped due to cap.
  */
 export function triggerWithCap(params: NoteParams): boolean {
-  const { robotId, note, duration, time, velocity, synthType, adsr, waveform } = params;
+  const { robotId, note, duration, time, velocity, synthType, adsr } = params;
 
   if (!synthPool) {
     console.warn('[AudioEngine] Synth pool not loaded');
@@ -717,7 +715,7 @@ export const AudioEngine = {
     });
 
     if (DEV_TUNING) {
-      console.debug(
+      console.log(
         `[AudioEngine] Registered melody for robot ${robotId} (${melody.length} events)`
       );
     }
@@ -739,7 +737,7 @@ export const AudioEngine = {
     });
 
     if (DEV_TUNING) {
-      console.debug(
+      console.log(
         `[AudioEngine] Unregistered melody for robot ${robotId} (${removedCount} events removed)`
       );
     }
