@@ -28,6 +28,8 @@ export function killTimeline(id: string): void {
 }
 ```
 
+Note: the runtime implementation (src/animation/timelineMap.ts) exposes a `killAllTimelines()` helper and `setTimeline()` will kill any existing timeline with the same id before storing the new one. This prevents leaks when recreating timelines for the same entity.
+
 ### React Integration
 ```typescript
 import { useGSAP } from '@gsap/react';
@@ -58,6 +60,8 @@ function Robot({ robot }: { robot: Robot }) {
 }
 ```
 
+Ref registry: The codebase uses a simple ref registry so external animation helpers can find SVG elements. Top-level components call `setRef(key, element)` (see `src/utils/refs.ts`) and animation modules use `getRef(key)` (e.g. `getRef(`robot-${id}`)`) to locate elements outside React render. Prefer setting refs in mount-only effects so GSAP remains the single owner of transforms.
+
 ## Common Animation Types
 
 ### Movement Animation
@@ -67,17 +71,16 @@ Point-to-point movement with propeller spin and body tilt.
 **Pattern:**
 ```typescript
 function createMovementTimeline(robot: Robot, destination: Vec2): gsap.core.Timeline {
-  const tl = gsap.timeline({
-    onComplete: () => handleArrival(robot.id)
-  });
-  
-  // Main movement
-  tl.to(robotRef.current, {
-    x: destination.x,
-    y: destination.y,
-    duration: 5,
-    ease: 'power1.inOut'
-  });
+  // Use distance-driven durations (runtime uses SWIM_SPEED constant)
+  // Example: duration = distance / SWIM_SPEED
+  const SWIM_SPEED = 120; // px/s (see src/animation/swimAnimation.ts)
+  const distance = Math.hypot(destination.x - robot.position.x, destination.y - robot.position.y);
+  const duration = distance / SWIM_SPEED;
+
+  const tl = gsap.timeline({ onComplete: () => handleArrival(robot.id) });
+
+  // Main movement (duration derived from SWIM_SPEED)
+  tl.to(robotRef.current, { x: destination.x, y: destination.y, duration, ease: 'power1.inOut' });
   
   // Body tilt toward destination
   const angle = Math.atan2(
@@ -154,6 +157,8 @@ function createIdleTimeline(robotRef: RefObject<SVGGElement>): gsap.core.Timelin
 - Small values (±3-5px, ±2-3°) for subtle effect
 - All animations start simultaneously (position `0`)
 - Slower propeller (2s vs 0.3s when swimming)
+
+Runtime nuance: the swim animation uses a finite number of propeller rotations based on the swim duration (see `src/animation/swimAnimation.ts`) rather than an infinite `repeat: -1`. Idle propellers use continuous rotation (`repeat: -1`) while movement propellers compute `numRotations = Math.ceil(duration / PROPELLER_ROTATION_SPEED)` and animate that many cycles.
 
 ---
 
@@ -389,3 +394,7 @@ Before committing animation code:
 - [ ] Using transforms (`x`, `y`, `rotation`, `scale`), not layout properties
 - [ ] useGSAP hook used for React components
 - [ ] Timeline references stored in timelineMap
+ - [ ] Top-level components register SVG refs with `setRef(key, element)` and external animation code uses `getRef(key)`
+ - [ ] Movement durations derived from speed constants (e.g., `SWIM_SPEED`) rather than hard-coded seconds
+ - [ ] Timelines paused/played for `isActive` state (use `timeline.play()` / `timeline.pause()`)
+ - [ ] Use `gsap.delayedCall` as a fallback to call `onComplete` when refs are not yet available

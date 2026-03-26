@@ -154,8 +154,8 @@ interface Robot {
 - 96 measures = 1 full day/night cycle
 - 4 measures = 1 "hour equivalent"
 
-**Scheduling:**
-- Use `BeatClock.scheduleAtBeat()` or `Transport.schedule()`
+- **Scheduling:**
+- Use `BeatClock.scheduleRepeat()` for recurring musical intervals or `Transport.schedule()`/`Transport.scheduleOnce()` for one-shot events. (`scheduleAtBeat` is a planned helper — the runtime provides `scheduleRepeat` and transport-backed APIs.)
 - NO `setTimeout` or `setInterval`
 - NO `requestAnimationFrame` for timing
 
@@ -243,9 +243,14 @@ const swim = () => {
   setTimeout(swim, 16);
 };
 ```
-**Fix:** Use GSAP timeline
+**Fix:** Use GSAP ticker or timeline
 ```typescript
-// ✅ Correct
+// ✅ Correct — GSAP ticker for per-frame updates
+gsap.ticker.add(() => {
+  updatePosition();
+});
+
+// Or use a GSAP timeline for controlled animations
 gsap.to(ref.current, { x: target.x, duration: 3 });
 ```
 

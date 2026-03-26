@@ -127,6 +127,25 @@ export function pickWeightedIndex(rand = Math.random): number {
 - Index 6: **4%**
 - Index 7: **3%** (rarest, typically highest pitch)
 
+## Exported Utilities & Variance
+
+The melody generator exposes a few helpers used by playback and tests. Key functions and defaults:
+
+- `pickRandomIndices(arr, count, rand?)` — pick indices without replacement (used by variance helpers).
+- `applyRhythmicVariance(melody, probability = 0.20, rand?)` — with default 20% chance per 16-step loop, shifts 1–2 events by ±1 or ±2 steps (options: `[-2,-1,1,2]`). Returns a new melody array (or original if no change).
+- `applyTonalVariance(melody, probability = 0.20, rand?)` — with default 20% chance, shifts 1–2 events' `noteIndex` by ±1 (options: `[-1,1]`), clamped to 0–7. Returns a new melody array (or original if no change).
+- `pickWeightedIndex(rand?)` — picks a note index (0..7) using weights `[0.35,0.20,0.15,0.10,0.07,0.06,0.04,0.03]`.
+- `pickLength(rand?)` — picks durations using weights `[0.5,0.25,0.15,0.1]` mapping to `['8n','4n','2n','16n']`.
+
+Constants of interest:
+
+- `OCTAVE_JUMP_CHANCE = 0.15` — 15% chance to jump more than one octave when range allows.
+- `DEFAULT_VARIANCE_PROBABILITY = 0.20` — default per-loop probability for variance functions.
+- `SHIFT_OPTIONS = [-2, -1, 1, 2]` — allowed step offsets for rhythmic variance.
+- `NOTE_SHIFT_OPTIONS = [-1, 1]` — allowed index offsets for tonal variance.
+
+These helpers accept an optional `rand` function for deterministic testing.
+
 ## Duration Selection
 
 ```typescript
@@ -136,12 +155,12 @@ function pickLength(rand = Math.random): NoteDuration {
   const lengths: NoteDuration[] = ['8n', '4n', '2n', '16n'];
   const r = rand();
   let acc = 0;
-  
+
   for (let i = 0; i < weights.length; i++) {
     acc += weights[i];
     if (r <= acc) return lengths[i];
   }
-  
+
   return '8n';
 }
 ```
@@ -179,6 +198,12 @@ function spawnRobot(): Robot {
 
   const melody = generateMelodyForRobot({ octaveRange });
   // Each event has .octave set; stays stable across harmony changes
+
+  // Note: `generateAudioAttributes()` produces the `audioAttributes` used here
+  // — ADSR envelope (attack/decay/sustain/release), a `pitchRange` bucket (used to
+  // derive `octaveRange`), `filterFreq`, `waveform`, and a `masterVolume` in the
+  // configured range. `pickOctaveRange(pitchRange)` maps pitch buckets to
+  // octave bands: low→[2,3], mid→[3,4], high→[4,5].
 
   return {
     id: crypto.randomUUID(),
@@ -264,8 +289,8 @@ interface MelodyConfig {
   minEvents: number;           // Default: 4
   maxEvents: number;           // Default: 12
   syncopationBias: number;     // Default: 0.4 (0-1)
-  durationWeights: [number, number, number];  // Default: [0.6, 0.3, 0.1]
-  noteIndexWeights: number[];  // Default: [0.35, 0.20, 0.15, ...]
+  durationWeights: [number, number, number, number]; // Default: [0.5, 0.25, 0.15, 0.1]
+  noteIndexWeights: number[];  // Default: [0.35,0.20,0.15,0.10,0.07,0.06,0.04,0.03]
 }
 ```
 

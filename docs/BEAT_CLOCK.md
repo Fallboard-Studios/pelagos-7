@@ -8,58 +8,44 @@ BeatClock ensures all systems in Pelagos-7 operate on **musical time** (beats/me
 
 ## Implementation Strategy
 
-**Primary:** Use `Tone.Transport` directly when audio is available
-- Accurate musical timing built-in
-- Native BPM and scheduling primitives
-- Harmonizes audio and world events automatically
+**Primary:** Use `Tone.Transport` directly when audio is available. Note: the runtime `beatClock.ts` implementation does NOT import Tone — it expects a transport-like instance to be provided by `AudioEngine` via `initBeatClock(transport)`.
 
-**Fallback:** Implement lightweight BeatClock using `gsap.ticker` for audio-less mode
-- BPM → seconds conversion
-- Same API as Transport-based approach
-- Not recommended for production (audio should always be present)
+**Fallback / TODO:** The docs previously described a `gsap.ticker` fallback. The current implementation does not include that fallback; a ticker-based fallback is TODO and should mirror the Transport API where required.
 
-## Core API
+## Core API (implemented)
+
+The runtime `beatClock.ts` exposes a small transport-backed API. It requires the host to provide a transport instance via `initBeatClock(transport)` (this avoids importing Tone inside the module). Implemented functions:
 
 ```typescript
-interface BeatClock {
-  // Current State
-  getCurrentBeat(): number;  // Total beats (float) since start
-  getCurrentMeasure(): { measure: number; beat: number };
-  
-  // Scheduling
-  scheduleAtBeat(beatPosition: number, callback: () => void): string;  // returns schedule ID
-  scheduleAfterBeats(beatCount: number, callback: () => void): string;
-  scheduleRepeat(subdivision: string, callback: (time: number) => void): string;  // "8n", "4n", "1m", etc.
-  
-  // Tick Listeners (for non-audio systems)
-  addTickListener(callback: (time: number) => void, subdivision: string): string;
-  removeTickListener(id: string): void;
-  
-  // Cancellation
-  cancelScheduled(id: string): void;
-  clearScheduledRange(fromBeat: number, toBeat: number): void;
-  
-  // Conversion Utilities
-  convertBeatsToSeconds(beats: number): number;
-  convertSecondsToBeats(seconds: number): number;
-  
-  // Lifecycle
-  start(): void;
-  stop(): void;
-  pause(): void;
-  seek(measure: number, beat?: number): void;
-  
-  // Events
-  onSeek(callback: (newPosition: { measure: number; beat: number }) => void): void;
-}
+// Initialize with a transport-like instance (called from AudioEngine)
+initBeatClock(transport: TransportLike): void;
+
+// Subscribe to measure changes (fires once per measure; measure is wrapped 0..95)
+subscribeToMeasure(callback: (measure: number) => void): void;
+
+// Queryors
+getCurrentBeat(): number;       // float, 0-based (measure*4 + beat + sixteenths/4)
+getCurrentMeasure(): number;    // integer, 0-based
+getCurrentHour(): number;       // derived hour 0..23 from measures
+
+// Scheduling
+scheduleRepeat(interval: string, callback: () => void): string; // returns scheduleId
+cancelSchedule(scheduleId: string): void;
+
+// Convenience / stubs
+scheduleAtBeat(beat: number, callback: () => void): string; // deprecated helper — prefer Transport.scheduleOnce or BeatClock.scheduleRepeat
 ```
+
+Notes:
+- `scheduleRepeat` persists requested schedules when a transport is not yet available; these pending schedules are registered automatically when `initBeatClock` runs.
+- `scheduleAtBeat` is deprecated in this documentation; implement one-shot scheduling with `Transport.scheduleOnce` or `BeatClock.scheduleRepeat` instead.
 
 ## Usage Patterns
 
 **Robot Spawning (measure-based):**
 ```typescript
 // Spawn robot every 30 measures (factory production cycle)
-BeatClock.scheduleRepeat('30m', (time) => {
+BeatClock.scheduleRepeat('30m', () => {
   spawnRobot();
 });
 ```
@@ -76,48 +62,55 @@ BeatClock.scheduleRepeat('4m', (time) => {
 **Collision Checks (8th-note granularity):**
 ```typescript
 // Check collisions every 8th note
-BeatClock.addTickListener((time) => {
+BeatClock.scheduleRepeat('8n', () => {
   checkAllCollisions();
-}, '8n');
-```
-
-**Day/Night Transitions (96-measure cycle):**
-```typescript
-// Trigger visual effects at measure boundaries
-BeatClock.scheduleAtBeat(measureToBeats(24), () => {
-  transitionToEvening();
 });
 ```
 
-## Scheduling Reliability
+**Day/Night Transitions (96-measure cycle):**
+**Day/Night Transitions (96-measure cycle):**
 
+Trigger visual effects at measure boundaries. Use `Transport.scheduleOnce` or
+`Transport.schedule` for one-shot events when a precise beat position is required.
+
+❌ WRONG (time-anchored):
+```ts
+setTimeout(() => handleEvent(), 5000);
+```
+
+✅ CORRECT (musical, one-shot):
+```ts
+Transport.scheduleOnce(handleEvent, '10m'); // schedule at measure 10 (beat string)
+```
+
+## Scheduling Reliability
+// setTimeout(() => handleEvent(), 5000);  // ❌ WRONG
 **For Audio Events:**
-- Schedule directly on Transport with MIN_LEAD lookahead (~40-80ms)
-- Use the `time` parameter passed to callbacks (accurate Tone.js time)
-- Never read `Transport.seconds` inside callbacks
+- The implemented `beatClock` ticks on `'16n'` (16th-note) and computes `currentBeat` as `measure*4 + beat + sixteenths/4` (a float, 0-based). Use `scheduleRepeat` to register musical intervals.
+- Schedule directly on Transport with a short lookahead (the project uses `MIN_LEAD`, default ~0.1s) and prefer the `time` parameter when available.
+- Never read `Transport.seconds` inside callbacks.
 
 **For Non-Audio Events (State Changes):**
 - Use Transport callbacks when available
 - OR maintain step registry: `Map<beatNumber, events[]>` for O(1) lookup
 - Apply small lookahead for state preparation
 
-## Integration with AudioEngine
+**Integration with AudioEngine**
+
+The codebase uses a step registry and `AudioEngine` for melody scheduling. Example (conceptual):
 
 ```typescript
-// BeatClock drives melody scheduling
-BeatClock.scheduleRepeat('8n', (time) => {
+// Melody playback driven by an 8th-note repeat
+BeatClock.scheduleRepeat('8n', (/* time */) => {
+  // `AudioEngine` applies its own MIN_LEAD when scheduling notes
   const currentStep = (stepCounter % 16) + 1;
-  const events = melodyRegistry.get(currentStep) || [];
-  
-  events.forEach(event => {
-    AudioEngine.scheduleNote({
-      robotId: event.robotId,
-      note: availableNotes[event.noteIndex],
-      duration: event.length,
-      time: time + MIN_LEAD,  // Apply lookahead
-    });
+  const events = stepRegistry.get(currentStep) || [];
+
+  events.forEach(({ robotId, event }) => {
+    const note = availableNotes[event.noteIndex] + (event.octave ?? 4);
+    AudioEngine.scheduleNote({ robotId, note, duration: event.length });
   });
-  
+
   stepCounter++;
 });
 ```
@@ -127,11 +120,12 @@ BeatClock.scheduleRepeat('8n', (time) => {
 **Option 1: Trigger timelines on beat events (Recommended)**
 ```typescript
 // Discrete events (spawn animation, interaction burst)
-BeatClock.scheduleAtBeat(spawnBeat, () => {
+// Use Transport.scheduleOnce or call into your semantic handlers from a repeating tick.
+Transport.scheduleOnce(() => {
   const tl = gsap.timeline();
   tl.from(robotRef.current, { scale: 0, duration: 0.5 });
   setTimeline(robot.id, tl);
-});
+}, spawnBeat /* e.g. '12m' or transport time */);
 ```
 
 **Option 2: Drive timeline speed via BPM**
@@ -149,7 +143,8 @@ Use **Option 1** for discrete events, **Option 2** for continuous loops that sho
 **Beat-anchored events** remain at their musical position when BPM changes:
 ```typescript
 // This event will always fire at measure 10, regardless of BPM
-BeatClock.scheduleAtBeat(measureToBeats(10), handleEvent);
+// Use Transport.scheduleOnce for one-shot beat-accurate callbacks
+Transport.scheduleOnce(handleEvent, '10m');
 ```
 
 **Time-anchored events** (not recommended) shift their musical position:
@@ -160,26 +155,14 @@ setTimeout(() => handleEvent(), 5000);  // ❌ WRONG
 
 ## Pause/Seek Behavior
 
-**On Pause:**
-- Transport stops
-- All scheduled events remain queued
-- No callbacks fire until resume
-
-**On Seek:**
-- Fire `onSeek` events to all listeners
-- Systems recompute pending events
-- Do NOT fire all missed events in a flood (cap or reconcile)
-
-**On HMR/Reload:**
-- Cancel all previous schedules before re-registering
-- Idempotent schedule registration (same ID replaces previous)
+The current `beatClock.ts` implementation does not implement explicit `pause`, `seek`, or `start/stop` lifecycle helpers — those are managed by the provided transport (e.g., `Tone.Transport`). On HMR/reload the module attempts to register pending schedules idempotently; callers should clear existing transport schedules before re-registering to avoid duplicates.
 
 ## Day/Night Mapping
 
 ```typescript
 // 96 measures = 1 full day/night cycle
 // 4 measures = 1 "hour equivalent"
-const currentMeasure = BeatClock.getCurrentMeasure().measure;
+const currentMeasure = BeatClock.getCurrentMeasure();
 const derivedHour = Math.floor((currentMeasure % 96) / 4);  // 0..23
 ```
 

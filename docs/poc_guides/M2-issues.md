@@ -385,8 +385,10 @@ export function handleRobotArrival(robotId: string): void {
     destination: null,
   });
   
-  // Pick new destination after short delay
-  setTimeout(() => handleRobotIdle(robotId), 1000);
+  // Pick new destination after short delay — use GSAP delayedCall (stored so it can be cancelled)
+  // Example runtime uses `IDLE_DELAY` and stores the tween in `pendingIdleDelays`.
+  const delayTween = gsap.delayedCall(IDLE_DELAY, () => handleRobotIdle(robotId));
+  pendingIdleDelays.set(robotId, delayTween);
 }
 ```
 

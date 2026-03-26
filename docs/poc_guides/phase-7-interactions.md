@@ -21,13 +21,8 @@
 **The ecosystem emerges!** This phase transforms individual robots into an interactive community. Collisions trigger musical and visual events. Factory actors automate population growth, eliminating the need for manual spawning.
 
 **What makes this impressive:**
-- Collision detection demonstrates spatial algorithms
-- Interactions create emergent musical patterns
-- Factory actors replace biological reproduction (much simpler)
-- Cooldown system prevents interaction spam
-- Musical coherence maintained through harmony palette
 
-**After Phase 7:** You have an interactive music generator with autonomous behavior, interactions, and automated spawning. Phase 8 (M5) adds environmental depth, camera controls, and visual polish.
+ **BeatClock-based spawning maintains musical timing (factory production every 60 measures; autonomous spawn scheduler randomly picks an interval between 2 and 8 measures)**
 
 ---
 
@@ -40,7 +35,7 @@ You'll implement 4 issues from Milestone M4:
 3. **M4.3:** Factory Actor Implementation
 4. **M4.4:** Interaction Cooldown and State Management
 
-**End state:** Robots interact when nearby producing note flurries and visual bursts, factories spawn new robots automatically every 16 measures, cooldown system prevents spam.
+**End state:** Robots interact when nearby producing note flurries and visual bursts, factories spawn new robots automatically every 60 measures, cooldown system prevents spam.
 
 ---
 
@@ -57,20 +52,32 @@ You'll implement 4 issues from Milestone M4:
 ```typescript
 import type { Robot, Vec2 } from '../types/Robot';
 
-const INTERACTION_DISTANCE = 100;
+const INTERACTION_DISTANCE = 150; // pixels (runtime uses 150)
 
 /**
- * Calculate distance between two points
+ * Get the current visual position of a robot (preferred) and fall back to stored position.
+ * The runtime collision system reads GSAP transforms when available to match visuals.
  */
-function distance(a: Vec2, b: Vec2): number {
-  return Math.sqrt(Math.pow(b.x - a.x, 2) + Math.pow(b.y - a.y, 2));
+function getVisualPosition(robot: Robot): Vec2 {
+  // Prefer visual DOM position via GSAP if available (getRef/getProperty pattern)
+  // Fallback to robot.position when the element is not rendered yet.
+  // See `src/systems/collisionSystem.ts` for the actual implementation.
+  // Example (conceptual):
+  // const ref = getRef(`robot-${robot.id}`);
+  // return ref ? { x: gsap.getProperty(ref, 'x'), y: gsap.getProperty(ref, 'y') } : robot.position;
+  return robot.position; // doc placeholder — runtime prefers GSAP visual position
 }
 
 /**
- * Check if two robots are within interaction distance
+ * Check if two robots are within interaction distance (uses visual positions).
  */
 export function areRobotsNearby(robotA: Robot, robotB: Robot): boolean {
-  return distance(robotA.position, robotB.position) < INTERACTION_DISTANCE;
+  const a = getVisualPosition(robotA);
+  const b = getVisualPosition(robotB);
+
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  return dx * dx + dy * dy < INTERACTION_DISTANCE * INTERACTION_DISTANCE;
 }
 
 /**
@@ -91,13 +98,20 @@ export function findNearbyPairs(robots: Robot[]): Array<[Robot, Robot]> {
 }
 
 /**
- * Check if robot can interact (cooldown check)
+ * Check if a robot can interact (correct state and not on cooldown).
+ * Cooldown is measure-based: robots must wait 8 measures between interactions.
  */
-export function canInteract(robot: Robot, now: number): boolean {
-  if (!robot.lastInteractionTime) return true;
-  
-  const COOLDOWN_MS = 5000; // 5 seconds
-  return now - robot.lastInteractionTime > COOLDOWN_MS;
+export function canInteract(robot: Robot): boolean {
+  // Must be in Idle or Moving state to interact
+  const validState = robot.state === RobotState.Idle || robot.state === RobotState.Moving;
+
+  // Measure-based cooldown (8 measures)
+  if (robot.lastInteractionMeasure === undefined) return validState;
+
+  const currentMeasure = BeatClock.getCurrentMeasure();
+  const notOnCooldown = currentMeasure - robot.lastInteractionMeasure >= 8;
+
+  return validState && notOnCooldown;
 }
 ```
 
@@ -122,7 +136,7 @@ export function useCollisionSystem() {
 
   useEffect(() => {
     const checkCollisions = () => {
-      const now = Date.now();
+      const currentMeasure = BeatClock.getCurrentMeasure();
       const pairs = findNearbyPairs(robots);
 
       pairs.forEach(([robotA, robotB]) => {
@@ -134,21 +148,21 @@ export function useCollisionSystem() {
           return;
         }
 
-        // Check cooldowns
-        if (!canInteract(robotA, now) || !canInteract(robotB, now)) {
+        // Check measure-based cooldowns and valid state
+        if (!canInteract(robotA) || !canInteract(robotB)) {
           return;
         }
 
         // Trigger interaction
         triggerInteraction(robotA.id, robotB.id);
 
-        // Update cooldowns
-        updateRobot(robotA.id, { lastInteractionTime: now });
-        updateRobot(robotB.id, { lastInteractionTime: now });
+        // Update cooldowns (store measure when interaction occurred)
+        updateRobot(robotA.id, { lastInteractionMeasure: currentMeasure });
+        updateRobot(robotB.id, { lastInteractionMeasure: currentMeasure });
       });
     };
 
-    // Check every 500ms (don't need every frame)
+    // Register with GSAP ticker (fast, frame-aligned checks)
     gsap.ticker.add(checkCollisions);
 
     return () => {
@@ -563,7 +577,7 @@ import { spawnRobotAtRandom } from './spawner';
 import { BeatClock } from '../engine/beatClock';
 import type { Actor } from '../types/Actor';
 
-const SPAWN_INTERVAL_MEASURES = 16; // Spawn every 16 measures (4 hours equivalent)
+const SPAWN_INTERVAL_MEASURES = 60; // Spawn every 60 measures (production interval)
 
 /**
  * Hook to manage factory actor spawning
@@ -757,7 +771,7 @@ export async function initEngine() {
 
 1. Start app, click Play
 2. Verify factory actor appears at center (spinning gears)
-3. Wait 16 measures (~64 beats at BPM 60 = ~60 seconds)
+3. Wait 60 measures (~4 minutes at 60 BPM)
 4. Verify robot spawns automatically
 5. Check console for spawn logs
 6. Verify factory stops spawning at max robots
@@ -767,7 +781,7 @@ export async function initEngine() {
 - [ ] Actor type system defined
 - [ ] FactorySVG component created
 - [ ] Factory idle animation (spinning gears)
-- [ ] Factory system spawns robots every 16 measures
+- [ ] Factory system spawns robots every 60 measures
 - [ ] Respects max robot limit
 - [ ] lastSpawnTime tracked per factory
 - [ ] Actors in store with CRUD actions
@@ -785,7 +799,7 @@ Implements M4.3: Factory actors
 
 - Actor type system (factory, environmental)
 - FactorySVG with spinning gear animation
-- Factory system spawns robots every 16 measures
+- Factory system spawns robots every 60 measures
 - Respects max robot limit
 - lastSpawnTime tracking
 - Actor store actions (add/update/remove)
@@ -809,7 +823,7 @@ git push origin feature/m4-3-factory-actors
 // Update cooldown to use measure-based timing
 import { BeatClock } from '../engine/beatClock';
 
-const COOLDOWN_MEASURES = 5; // 5 measures = ~1.25 hours equivalent
+const COOLDOWN_MEASURES = 8; // 8 measures (measure-based cooldown)
 
 export function canInteract(robot: Robot): boolean {
   if (!robot.lastInteractionMeasure) return true;
@@ -949,7 +963,7 @@ git push origin feature/m4-4-cooldown-management
 - ✅ Interaction count tracking
 
 **Actor System:**
-- ✅ Factory actors (automated robot spawning every 16 measures)
+- ✅ Factory actors (automated robot spawning every 60 measures)
 - ✅ Factory idle animations (spinning gears)
 - ✅ Actor type system (factory only - environmental in Phase 8)
 - ✅ BeatClock-based spawning timing
@@ -974,7 +988,7 @@ git push origin feature/m4-4-cooldown-management
 ### Testing the Complete System
 
 1. Start app, click Play
-2. Watch factory spawn robots automatically (every 16 measures)
+2. Watch factory spawn robots automatically (every 60 measures)
 3. Wait for robots to collide → see flurries and bursts
 4. Verify cooldown prevents spam (5 measures between same-pair)
 5. Check console for interaction count logs

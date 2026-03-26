@@ -198,50 +198,32 @@ Create a system that places factories along the ocean floor on initialization. *
 ### Implementation Details
 - Create `src/systems/factoryPlacementSystem.ts`
 - Implement `placeFactories()` function
-- **Place 3-5 factories along ocean floor** (y position near bottom, spaced horizontally)
-- Factories render in background layer (behind robots)
+### Implementation Details
+- Create `src/systems/factoryPlacementSystem.ts`
+- Implement `placeFactories()` function
+- Place factories in multiple depth rows using a row configuration (`FACTORY_ROWS`). Each row defines a `y` position, a `spreadType` ("edges" | "full" | "center"), and `factoriesPerRow` to control density. Placement is deterministic per-actor via seeded noise and variant selection.
+- Factories render in background/midground/foreground layers according to row metadata and are added to the store with `cooldownRemaining` initialized to the configured `PRODUCTION_INTERVAL`.
 
-**Placement logic:**
-```typescript
-const WORLD_BOUNDS = { width: 1920, height: 1080 };
-const OCEAN_FLOOR = 900; // Y position for ocean floor
-const PRODUCTION_INTERVAL = 60; // measures
+**Placement details (runtime):**
 
-export function placeFactories(): void {
-  const actors: Actor[] = [];
-  
-  // Place 3-5 factories along ocean floor (background layer)
-  const factoryCount = 4;
-  const factorySpacing = WORLD_BOUNDS.width / (factoryCount + 1);
-  for (let i = 0; i < factoryCount; i++) {
-    actors.push(createFactory({
-      x: factorySpacing * (i + 1),
-      y: OCEAN_FLOOR,
-    }));
-  }
-  
-  // Add all to store
-  useOceanStore.getState().setActors(actors);
-}
+- Uses `WORLD_BOUNDS` and a `FACTORY_ROWS: FactoryRowConfig[]` table to express row layout and density.
+- `spreadType` semantics:
+  - `edges` — place factories along left/right edge bands (edge width configurable per-row).
+  - `full`  — spread across the full width with a `factoriesPerRow` cap.
+  - `center` — constrain placement to a centered segment (configurable `centerWidth`).
+- Each placed factory is created with `createFactory(position, rowIndex)` which:
+  - derives a visual `variant` and deterministic `noiseValue` from the factory `id` and position,
+  - computes silhouette size with `calcSilhouetteSize` and applies a small random scale (0.9–1.1),
+  - sets `config.productionInterval = PRODUCTION_INTERVAL` and `cooldownRemaining = PRODUCTION_INTERVAL` on the actor.
 
-function createFactory(position: Vec2): Actor {
-  return {
-    id: crypto.randomUUID(),  // ID seeds procedural generation (Alea + Simplex)
-    type: ActorType.FACTORY,  // Single factory type, visual variant from noise
-    position,
-    scale: 1.0,
-    rotation: 0,
-    isActive: true,
-    cooldownRemaining: PRODUCTION_INTERVAL,
-  };
-}
-```
+The `placeFactories()` implementation iterates `FACTORY_ROWS`, fills each row according to its `spreadType` and `factoriesPerRow`, computes per-actor widths to avoid overlap, and finally calls `useOceanStore.getState().setActors(actors)`.
 
-### Acceptance Criteria
-- [ ] 3-5 factories placed along ocean floor (y ≈ 900)
-- [ ] Factories evenly spaced horizontally
-- [ ] Factories render in background layer (behind robots)
-- [ ] Actors added to store
+### Acceptance Criteria (updated)
+- [ ] Factories placed across multiple configured rows (`FACTORY_ROWS`) with expected `y` positions
+- [ ] Row `spreadType` behavior matches config (`edges`, `full`, `center`)
+- [ ] `factoriesPerRow` respected as a soft cap per row
+- [ ] Actors added to store with `config.productionInterval` and `cooldownRemaining` initialized to `PRODUCTION_INTERVAL`
+- [ ] Placement avoids obvious silhouette overlap using computed silhouette sizes
 - [ ] Unit tests for placement bounds and spacing
 
 ### Reference
@@ -479,7 +461,7 @@ Comprehensive testing of the environment system including factories, camera, and
 
 **Test checklist:**
 ```markdown
-- [ ] 3-5 factories placed along ocean floor
+ - [ ] Factories placed according to `FACTORY_ROWS` configuration (rows, spreadType, factoriesPerRow)
 - [ ] Factories spawn robots every 60 measures
 - [ ] MAX_ROBOTS limit prevents overflow
 - [ ] Factory silhouettes show procedural variety (Monolith/Spire/Refinery)
@@ -530,8 +512,9 @@ Module-level variable: `let spawnScheduleId: string | null = null`
 
 `startSpawnScheduler()`:
 - If `spawnScheduleId !== null` return early (idempotent)
-- Call `scheduleRepeat('16m', callback)` and store returned ID in `spawnScheduleId`
-- Callback: read `robots` and `settings` from store; if `robots.length >= settings.maxRobots` return; otherwise call `spawnRobot()`
+- Pick a random integer interval in measures between `SPAWN_INTERVAL_MIN = 2` and `SPAWN_INTERVAL_MAX = 8` and call `scheduleRepeat(`${interval}m`, callback)`; store returned ID in `spawnScheduleId`.
+- Callback: read `robots` and `settings` from store; if `robots.length >= settings.maxRobots` then:
+  - if `robots.length > settings.minRobots` remove the oldest robot (by `createdAt`) then continue, otherwise skip spawning this tick. Otherwise call `spawnRobot()`.
 
 `stopSpawnScheduler()`:
 - If `spawnScheduleId === null` return early
