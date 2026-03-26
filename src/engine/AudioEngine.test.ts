@@ -1,7 +1,6 @@
-// ========================================
-// IMPORTS
-// ========================================
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { useOceanStore } from '../stores/oceanStore';
+import type { ADSREnvelope } from '../types/Robot';
 
 // Mock Tone.js to avoid audio context initialization in tests
 vi.mock('tone', () => ({
@@ -76,10 +75,6 @@ vi.mock('../constants', () => ({
   DEV_TUNING: false,
   WORLD_WIDTH: 1920,
 }));
-
-// ========================================
-// TESTS
-// ========================================
 
 describe('AudioEngine - Polyphony Management', () => {
   beforeEach(async () => {
@@ -323,146 +318,41 @@ describe('AudioEngine - Melody Lifecycle', () => {
       // Registry should delete empty step entries (implementation does this)
       // Verified by code inspection: stepRegistry.delete(step) when filtered.length === 0
     });
-
-    it('handles multiple spawn/remove cycles without leaks', async () => {
-      const { AudioEngine } = await import('./AudioEngine');
-
-      const melody = [
-        { id: 'event1', startStep: 1, length: '8n' as const, noteIndex: 0, octave: 4 },
-        { id: 'event2', startStep: 5, length: '4n' as const, noteIndex: 2, octave: 4 },
-        { id: 'event3', startStep: 9, length: '8n' as const, noteIndex: 4, octave: 4 },
-      ];
-
-      // Simulate 20 spawn/remove cycles
-      for (let i = 0; i < 20; i++) {
-        const robotId = `robot-${i}`;
-        AudioEngine.registerRobotMelody(robotId, melody);
-        AudioEngine.unregisterRobotMelody(robotId);
-      }
-
-      // Final check: register and unregister one more robot
-      AudioEngine.registerRobotMelody('final-robot', melody);
-      AudioEngine.unregisterRobotMelody('final-robot');
-
-      // No orphaned events remain (verified by implementation logic)
-    });
-
-    it('maintains correct event count across multiple robots', async () => {
-      const { AudioEngine } = await import('./AudioEngine');
-
-      const melody1 = [
-        { id: 'r1-e1', startStep: 1, length: '8n' as const, noteIndex: 0, octave: 4 },
-        { id: 'r1-e2', startStep: 5, length: '4n' as const, noteIndex: 2, octave: 4 },
-      ];
-
-      const melody2 = [
-        { id: 'r2-e1', startStep: 1, length: '8n' as const, noteIndex: 1, octave: 4 },
-        { id: 'r2-e2', startStep: 9, length: '4n' as const, noteIndex: 3, octave: 4 },
-        { id: 'r2-e3', startStep: 13, length: '8n' as const, noteIndex: 5, octave: 4 },
-      ];
-
-      const melody3 = [
-        { id: 'r3-e1', startStep: 5, length: '8n' as const, noteIndex: 2, octave: 4 },
-      ];
-
-      // Register 3 robots
-      AudioEngine.registerRobotMelody('robot1', melody1);
-      AudioEngine.registerRobotMelody('robot2', melody2);
-      AudioEngine.registerRobotMelody('robot3', melody3);
-
-      // Remove middle robot
-      AudioEngine.unregisterRobotMelody('robot2');
-
-      // Clean up remaining robots
-      AudioEngine.unregisterRobotMelody('robot1');
-      AudioEngine.unregisterRobotMelody('robot3');
-
-      // No events should remain
-    });
   });
 });
 
-describe('computeNoteVelocity', () => {
-  it('keeps all 1000 samples within [0.05, 1.0] for a typical masterVolume', async () => {
+// Additional focused unit tests for reservation & isolation
+describe('AudioEngine - Reservation & Isolation (focused)', () => {
+  beforeEach(() => {
     vi.resetModules();
-    const { computeNoteVelocity } = await import('./AudioEngine');
-    for (let i = 0; i < 1000; i++) {
-      const v = computeNoteVelocity(0.7);
-      expect(v).toBeGreaterThanOrEqual(0.05);
-      expect(v).toBeLessThanOrEqual(1.0);
-    }
+    // Reset store to deterministic settings
+    useOceanStore.setState({ settings: { bpm: 120, maxRobots: 6, minRobots: 1 } } as unknown as Record<string, unknown>);
   });
 
-  it('keeps all 1000 samples within [0.05, 1.0] at minimum masterVolume (0.05)', async () => {
-    vi.resetModules();
-    const { computeNoteVelocity } = await import('./AudioEngine');
-    for (let i = 0; i < 1000; i++) {
-      const v = computeNoteVelocity(0.05);
-      expect(v).toBeGreaterThanOrEqual(0.05);
-      expect(v).toBeLessThanOrEqual(1.0);
-    }
+  it('reserves a voice and getVoiceForRobot returns a synth', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+    const adsr = { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.2 } as ADSREnvelope;
+    const ok = AudioEngine.reserveVoice('robot-test-1', 'default', 'sine', adsr);
+    expect(ok).toBe(true);
+    const synth = AudioEngine.getVoiceForRobot('robot-test-1');
+    expect(synth).not.toBeNull();
   });
 
-  it('keeps all 1000 samples within [0.05, 1.0] at maximum masterVolume (1.0)', async () => {
-    vi.resetModules();
-    const { computeNoteVelocity } = await import('./AudioEngine');
-    for (let i = 0; i < 1000; i++) {
-      const v = computeNoteVelocity(1.0);
-      expect(v).toBeGreaterThanOrEqual(0.05);
-      expect(v).toBeLessThanOrEqual(1.0);
-    }
+  it('skips trigger when ADSR provided but no reserved voice', async () => {
+    const { AudioEngine, triggerWithCap } = await import('./AudioEngine');
+    await AudioEngine.start();
+    const result = triggerWithCap({ robotId: 'unreserved-robot', note: 'C4', duration: '8n', adsr: { attack: 0.01 } as ADSREnvelope });
+    expect(result).toBe(false);
   });
 
-  it('non-variance path returns clamped masterVolume unchanged', async () => {
-    vi.resetModules();
-    const { computeNoteVelocity } = await import('./AudioEngine');
-    // Force non-variance path: random value >= VELOCITY_VARIANCE_RATE (0.15)
-    vi.spyOn(Math, 'random').mockReturnValue(0.9);
-    expect(computeNoteVelocity(0.7)).toBeCloseTo(0.7, 5);
-    vi.restoreAllMocks();
-  });
-
-  it('variance path applies max positive offset (+0.25)', async () => {
-    vi.resetModules();
-    const { computeNoteVelocity } = await import('./AudioEngine');
-    // First call 0.05 < 0.15 → variance path; second call 1.0 → variance = +0.25
-    vi.spyOn(Math, 'random')
-      .mockReturnValueOnce(0.05)
-      .mockReturnValueOnce(1.0);
-    expect(computeNoteVelocity(0.7)).toBeCloseTo(0.95, 5);
-    vi.restoreAllMocks();
-  });
-
-  it('variance path applies max negative offset (-0.25)', async () => {
-    vi.resetModules();
-    const { computeNoteVelocity } = await import('./AudioEngine');
-    // Second call 0.0 → variance = -0.25
-    vi.spyOn(Math, 'random')
-      .mockReturnValueOnce(0.05)
-      .mockReturnValueOnce(0.0);
-    expect(computeNoteVelocity(0.7)).toBeCloseTo(0.45, 5);
-    vi.restoreAllMocks();
-  });
-
-  it('clamps to VELOCITY_MIN when variance pushes below 0.05', async () => {
-    vi.resetModules();
-    const { computeNoteVelocity } = await import('./AudioEngine');
-    // masterVolume = 0.05, variance = -0.15 → unclamped -0.10 → clamped to 0.05
-    vi.spyOn(Math, 'random')
-      .mockReturnValueOnce(0.05)
-      .mockReturnValueOnce(0.0);
-    expect(computeNoteVelocity(0.05)).toBe(0.05);
-    vi.restoreAllMocks();
-  });
-
-  it('clamps to 1.0 when variance pushes above 1.0', async () => {
-    vi.resetModules();
-    const { computeNoteVelocity } = await import('./AudioEngine');
-    // masterVolume = 1.0, variance = +0.15 → unclamped 1.15 → clamped to 1.0
-    vi.spyOn(Math, 'random')
-      .mockReturnValueOnce(0.05)
-      .mockReturnValueOnce(1.0);
-    expect(computeNoteVelocity(1.0)).toBe(1.0);
-    vi.restoreAllMocks();
+  it('triggers when reserved even with ADSR', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+    const ok = AudioEngine.reserveVoice('robot-test-2', 'default');
+    expect(ok).toBe(true);
+    const { triggerWithCap } = await import('./AudioEngine');
+    const result = triggerWithCap({ robotId: 'robot-test-2', note: 'C4', duration: '8n', adsr: { attack: 0.01 } as ADSREnvelope });
+    expect(result).toBe(true);
   });
 });

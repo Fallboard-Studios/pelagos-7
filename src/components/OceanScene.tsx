@@ -75,6 +75,20 @@ export function OceanScene({
 
     spawnRobot();
     spawnRobot();
+    spawnRobot();
+    spawnRobot();
+    spawnRobot();
+    spawnRobot();
+    spawnRobot();
+    spawnRobot();
+    spawnRobot();
+    spawnRobot();
+    spawnRobot();
+    spawnRobot();
+    spawnRobot();
+    spawnRobot();
+    spawnRobot();
+    spawnRobot();
 
     // Start factory production for all placed factories
     const { actors } = useOceanStore.getState();
