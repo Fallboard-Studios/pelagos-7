@@ -55,7 +55,7 @@ export interface AudioAttributes {
   };
   filterFreq: number;  // Hz (cutoff frequency, 0 = no filter)
   reverb: number;      // 0-1 (mix amount)
-  waveform: WaveformType; // Oscillator shape — applied fresh per note trigger
+  waveform: WaveformType; // Oscillator shape applied once at voice reservation time
 }
 
 /**

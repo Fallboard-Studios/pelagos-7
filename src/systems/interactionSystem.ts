@@ -50,12 +50,12 @@ function playInteractionFlurry(robotAId: string, robotBId: string): void {
   // Schedule flurry from Robot A (starting at baseTime)
   for (let i = 0; i < FLURRY_NOTE_COUNT && i < robotA.melody.length; i++) {
     const randomEventA = robotA.melody[Math.floor(Math.random() * robotA.melody.length)];
-    const noteA = notes[randomEventA.noteIndex];
+    const noteName = notes[randomEventA.noteIndex];
 
-    if (noteA) {
+    if (noteName) {
       AudioEngine.scheduleNote({
         robotId: robotAId,
-        note: noteA,
+        note: `${noteName}${randomEventA.octave}`,
         duration: '16n',
         time: baseTime + i * noteSpacing,
         velocity: 0.7,
@@ -66,12 +66,12 @@ function playInteractionFlurry(robotAId: string, robotBId: string): void {
   // Schedule flurry from Robot B (slightly staggered overlap)
   for (let i = 0; i < FLURRY_NOTE_COUNT && i < robotB.melody.length; i++) {
     const randomEventB = robotB.melody[Math.floor(Math.random() * robotB.melody.length)];
-    const noteB = notes[randomEventB.noteIndex];
+    const noteName = notes[randomEventB.noteIndex];
 
-    if (noteB) {
+    if (noteName) {
       AudioEngine.scheduleNote({
         robotId: robotBId,
-        note: noteB,
+        note: `${noteName}${randomEventB.octave}`,
         duration: '16n',
         time: baseTime + noteSpacing * 0.5 + i * noteSpacing,
         velocity: 0.7,
