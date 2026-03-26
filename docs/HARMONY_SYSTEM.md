@@ -47,10 +47,15 @@ const TIME_PITCHES: Record<number, EighthNotes> = {
 export function getAvailableNotes(): string[];
 
 // Manually set palette (for testing or custom harmonies)
-export function setAvailableNotes(notes: EightNotes): void;
+export function setAvailableNotes(notes: EighthNotes): void;
 
-// Initialize automatic palette updates (call once on app start)
-export function scheduleHarmonyCycle(): void;
+// Initialize automatic palette updates (call once after Transport starts).
+// The runtime implementation requires the caller to provide a transport instance:
+// scheduleHarmonyCycle(transport: TransportLike)
+export function scheduleHarmonyCycle(transport: TransportLike): void;
+
+// Stop the scheduled harmony cycle
+export function stopHarmonyCycle(): void;
 ```
 
 ## Implementation
@@ -58,35 +63,16 @@ export function scheduleHarmonyCycle(): void;
 **File: `src/engine/harmonySystem.ts`**
 
 ```typescript
-let availableNotes: EightNotes = ['C4', 'D4', 'E4', 'G4', 'A4', 'C5', 'D5', 'E5'];
+// The runtime keeps an internal `availableNotes` and updates it from the provided transport.
+let availableNotes: EighthNotes = TIME_PITCHES[0];
 
-export function scheduleHarmonyCycle(): void {
-  // Watch currentMeasure from store
-  const unsubscribe = oceanStore.subscribe(state => {
-    const currentMeasure = state.currentMeasure;
-    const derivedHour = Math.floor((currentMeasure % 96) / 4);  // 0..23
-    
-    // Check if hour changed since last update
-    if (derivedHour !== lastHour) {
-      lastHour = derivedHour;
-      availableNotes = (TIME_PITCHES[derivedHour] ?? TIME_PITCHES[0]).slice() as EightNotes;
-      console.log(`Harmony updated to hour ${derivedHour}`);
-    }
-  });
-  
-  return unsubscribe;
+export function scheduleHarmonyCycle(transport: TransportLike): void {
+  // Schedules a transport.repeat on '4m' and swaps the palette when the derived hour changes.
+  // If scheduleHarmonyCycle is called twice, the implementation warns and ignores the second call.
 }
 ```
 
-**Alternative: BeatClock-driven approach**
-```typescript
-// Update palette every 4 measures using BeatClock
-BeatClock.scheduleRepeat('4m', (time) => {
-  const currentMeasure = BeatClock.getCurrentMeasure().measure;
-  const derivedHour = Math.floor((currentMeasure % 96) / 4);
-  availableNotes = (TIME_PITCHES[derivedHour] ?? TIME_PITCHES[0]).slice() as EightNotes;
-});
-```
+The actual implementation calls `transport.scheduleRepeat(callback, '4m')`, uses `getCurrentHour()` inside the callback, and updates `availableNotes = TIME_PITCHES[currentHour] ?? TIME_PITCHES[0]` when the hour changes. `stopHarmonyCycle()` clears the transport id and resets internal references.
 
 ## Usage in Melody Playback
 

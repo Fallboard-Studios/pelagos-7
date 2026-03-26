@@ -17,9 +17,9 @@ Pelagos-7's audio system is built on **Tone.js** and follows a strict singleton 
 
 - **Use the scheduled `time` argument:** Inside `Transport.schedule`/`scheduleRepeat` callbacks prefer the `time` parameter passed by Tone for accurate scheduling; do not rely on reading `Transport.seconds` inside those callbacks.
 
-- **Lookahead (MIN_LEAD):** Apply a configurable lookahead (recommended ~40–80ms) when scheduling note playback so synths/samplers can prepare. The `AudioEngine` should centralize this logic and apply the MIN_LEAD automatically.
+ - **Lookahead (MIN_LEAD):** Apply a configurable lookahead (probably between 50–100ms) when scheduling note playback so synths/samplers can prepare. The `AudioEngine` centralizes this logic — the implementation uses `MIN_LEAD = 0.1` (100ms) by default.
 
-- **Pool synths & enforce polyphony:** Create and reuse synths in `AudioEngine`. Enforce a global polyphony budget (e.g., 8–12 voices) and implement a clear voice-stealing or skipping policy.
+ - **Pool synths & enforce polyphony:** Create and reuse synths in `AudioEngine`. The implementation enforces a global polyphony budget with `MAX_POLYPHONY = 16` by default; pool sizing is derived from `settings.maxRobots` and clamped by this limit. Implement a clear voice-stealing or skipping policy.
 
 - **No synths in components:** Never instantiate Tone instruments in React components or hooks; use `AudioEngine` APIs (e.g., `scheduleNote`, `getSynth`) instead.
 
@@ -66,7 +66,7 @@ Tone.start() + Transport.start()
 ┌─────────────────────────────────────┐
 │         AudioEngine                 │
 │  ┌──────────────────────────────┐  │
-│  │  Synth Pool (8-12 voices)   │  │
+│  │  Synth Pool (sized, MAX_POLYPHONY=16) │  │
 │  │  - AMSynth (robot type A)   │  │
 │  │  - FMSynth (robot type B)   │  │
 │  │  - PolySynth (shared)       │  │
@@ -81,7 +81,7 @@ Tone.start() + Transport.start()
 │                                     │
 │  ┌──────────────────────────────┐  │
 │  │  Melody Registry             │  │
-│  │  Map<robotId, melody[]>      │  │
+│  │  stepRegistry: Map<stepNumber, MelodyEventEntry[]> │  │
 │  └──────────────────────────────┘  │
 └─────────────────────────────────────┘
          ↓              ↓
@@ -94,26 +94,25 @@ Tone.start() + Transport.start()
 ```typescript
 export const AudioEngine = {
   // Lifecycle
-  start: async () => Promise<void>,
+  start: async (): Promise<void>,
   stop: () => void,
-  
+
   // Scheduling
-  scheduleNote: (params: {
-    robotId: string;
-    note: string;
-    duration?: string;
-    time?: number;
-  }) => void,
-  
-  scheduleFlurry: (robotA: string, robotB?: string) => void,
-  
+  scheduleNote: (params: { robotId: string; note: string; duration?: string; time?: number; velocity?: number }) => void,
+
+  // Voice reservation & pool management
+  reserveVoice: (robotId: string, synthType: string, waveform?: string, adsr?: any) => boolean,
+  releaseVoice: (robotId: string) => void,
+  getVoiceForRobot: (robotId?: string) => Tone.PolySynth | null,
+
   // Melody Management
   registerRobotMelody: (robotId: string, melody: RobotMelodyEvent[]) => void,
   unregisterRobotMelody: (robotId: string) => void,
-  
-  // Synth Access (internal use only)
-  getSynth: (type: SynthType) => Tone.Synth | null,
-  releaseSynth: (id: string) => void,
+
+  // Synth access & metrics
+  getSynth: (type?: string) => Tone.PolySynth | null,
+  getPolyphonyStats: () => { voices: number; maxVoices: number; step: number },
+  now: () => number,
 }
 ```
 
@@ -122,6 +121,8 @@ export const AudioEngine = {
 - **Singleton**: Only one AudioEngine exists, accessible globally
 - **Polyphony Control**: Never more than configured max voices (8-12)
 - **Lookahead**: MIN_LEAD (~40-80ms) applied automatically to all scheduling
+ - **Polyphony Control**: Never more than the configured max voices (default `MAX_POLYPHONY = 16`)
+ - **Lookahead**: MIN_LEAD (probably 50–100ms; implementation defaults to `MIN_LEAD = 0.1s`) applied automatically to scheduling
 - **Idempotent**: Safe to call `start()` multiple times
 - **Cleanup**: Proper disposal of synths and scheduled events on stop
 
@@ -168,7 +169,8 @@ Polyphony management controls the maximum number of simultaneous audio voices to
 
 **Key principles:**
 - Global `MAX_POLYPHONY` limit (typically 8-16 voices)
-- Shared synth pool (4 PolySynths reused by all robots)
+ - Global `MAX_POLYPHONY` limit (default 16 voices); pool sizing is derived from `settings.maxRobots` and clamped to this limit
+ - Shared synth pool (PolySynth slots sized to robots vs. MAX_POLYPHONY)
 - Fail-fast skipping when limit exceeded
 - Transport-based voice release scheduling
 - Centralized enforcement in AudioEngine
@@ -189,7 +191,7 @@ Audio scheduling in Pelagos-7 uses Tone.js Transport for sample-accurate, musica
 - `Transport.scheduleRepeat(callback, interval)` - Recurring event
 - `Transport.schedule(callback, time)` - Generic scheduling
 
-**Lookahead:** Apply `MIN_LEAD_SECONDS` (40ms) or `SCHEDULE_LOOKAHEAD_SECONDS` (60ms) when scheduling to ensure Web Audio can prepare synths reliably.
+**Lookahead:** Apply a short scheduling lead (probably 50–100ms) so Web Audio can prepare synths reliably; the implementation exposes `MIN_LEAD` (default 0.1s).
 
 **Critical rule:** Always use the `time` parameter passed to Transport callbacks (sample-accurate), never `Tone.now()` inside callbacks.
 
@@ -207,7 +209,7 @@ Essential audio patterns. All examples use AudioEngine correctly.
 
 ```typescript
 import { AudioEngine } from '../engine/AudioEngine';
-import { MIN_LEAD_SECONDS } from '../constants';
+import { MIN_LEAD } from '../constants';
 
 // Simple immediate trigger
 AudioEngine.scheduleNote({
@@ -222,7 +224,7 @@ AudioEngine.scheduleNote({
   robotId: 'robot-123',
   note: 'E4',
   duration: '8n',
-  time: Tone.now() + MIN_LEAD_SECONDS,
+  time: Tone.now() + MIN_LEAD,
 });
 ```
 
@@ -242,6 +244,14 @@ function cleanupRobotAudio(robotId: string): void {
   AudioEngine.unregisterRobotMelody(robotId);
 }
 ```
+
+// Spawn-time audio notes
+// On spawn, callers should optionally unregister any existing melody id, attempt a
+// best-effort `AudioEngine.reserveVoice(robotId, synthType, waveform, adsr)` to give
+// the robot an isolated synth slot (waveform/ADSR applied at reservation time), and
+// then register the robot melody via `AudioEngine.registerRobotMelody(robot.id, robot.melody)`.
+// `reserveVoice` may return false if the pool is exhausted; code should continue gracefully.
+
 
 ### React Component Cleanup
 
@@ -315,7 +325,8 @@ setTimeout(() => {
 
 **✅ Fix:**
 ```typescript
-BeatClock.scheduleAfterBeats(4, () => {
+// Schedule relative to musical time (1 measure = 4 beats)
+BeatClock.scheduleRepeat('1m', () => {
   AudioEngine.scheduleNote({ robotId, note: 'C4' });
 });
 ```
@@ -480,7 +491,13 @@ function triggerWithCap(synth, note, duration, time) {
   if (activeVoices >= MAX_POLYPHONY) return;  // Skip note
   activeVoices++;
   synth.triggerAttackRelease(note, duration, time);
-  setTimeout(() => activeVoices--, duration * 1000);
+  // Schedule voice release on Transport for sample-accurate timing (avoid setTimeout)
+  const durSec = Tone.Time(duration).toSeconds();
+  const noteStart = time ?? AudioEngine.now();
+  const releaseAt = noteStart + durSec + 0.04; // small buffer
+  Tone.getTransport().scheduleOnce(() => {
+    activeVoices = Math.max(0, activeVoices - 1);
+  }, releaseAt);
 }
 ```
 

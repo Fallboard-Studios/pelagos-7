@@ -37,6 +37,11 @@ value which drives variant choice, sizing, and per-instance colour shifts.
   (variant, size, colour shift, greeble selection) is derived from a
   seeded PRNG. Reloading the scene produces identical buildings.
 
+### Procedural generation (runtime specifics)
+
+- **PRNG draw order** — The runtime `selectVariantFromSeed` consumes the seeded PRNG in a fixed order so spawn order does not affect any individual derived value. The draw order is: `noiseValue` → `scale` → `hueShift` → `satShift` → `rooftopGreeble` → `facadeGreeble` → `beltCourseCount` → `frontCornerX` → `purpose`. Tests rely on this order; avoid reordering draws without updating tests. (`src/components/actors/factoryVariants.ts`)
+- **frontCornerX override** — Although `VARIANT_CONF` contains a `frontCornerX` fallback, the runtime generates a per-instance `frontCornerX` uniformly in `[25..75]` inside `selectVariantFromSeed`. Documentation should not treat the config value as the final split point.
+
 ---
 
 ## SVG Rules
@@ -214,11 +219,37 @@ renderer draws the rectangular base **twice**, each clipped to one side:
 </clipPath>
 <rect x="0" y="0" width="100" height="100" fill={westFill}
       clip-path="url(#west-clip-{id})" />
-```
+
+
+## Runtime fields & production timing
+
+When factories are created at runtime, `createFactory` stashes per-instance derived fields on `Actor.config` so they are serialisable and available to renderers and systems. In particular:
+
+- `config.productionInterval` — set to the `PRODUCTION_INTERVAL` constant (runtime default `60` measures).
+- `cooldownRemaining` — initialised to `PRODUCTION_INTERVAL` so production scheduling and UI can read a serialisable cooldown value.
+
+Other related runtime details:
+- Bubble/vent timing: bubble bursts use `MEASURES_BETWEEN_BURSTS = 96` and per-burst parameters are seeded; see `src/components/actors/BubbleStream.tsx`.
+- `depthScale` is applied to bubble sizes/timings so vents in background rows have smaller/longer bubbles.
+
+Runtime files to reference:
+- `src/components/actors/factoryVariants.ts` — variant config and `selectVariantFromSeed` (PRNG draw order).
+- `src/components/actors/silhouetteUtils.ts` — `calcSilhouetteSize`, `bottomAnchorTransform`.
+- `src/systems/factoryPlacementSystem.ts` — `FACTORY_ROWS` and placement algorithm.
 
 Facade greebles on each side receive the L multiplier of their respective
 facade. Rooftop greebles centred over the split use the average of
 east/west L.
+
+## Placement & Rows (runtime)
+
+The runtime places factories using a row configuration table (`FACTORY_ROWS`) that defines multiple depth rows. Each row entry contains a `y` position, a `spreadType` (`edges` | `full` | `center`), and `factoriesPerRow` which acts as a per-row density cap. Additional per-row fields include `edgeWidth` and `centerWidth` to control the horizontal extents for `edges` and `center` spreads respectively. Placement computes each factory's silhouette size via `calcSilhouetteSize` and advances placement by the computed width to avoid overlaps. See `src/systems/factoryPlacementSystem.ts` for the exact algorithm.
+
+- `edges`: fill left and right bands (edge width configurable) until count reached.
+- `full`: spread evenly across the full width with a soft cap of `factoriesPerRow`.
+- `center`: constrain placement to a centered segment (configurable `centerWidth`).
+
+Placement is deterministic per actor (seeded) and respects row depth for rendering order (background → midground → foreground).
 
 ---
 

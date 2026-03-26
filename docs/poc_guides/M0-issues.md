@@ -62,15 +62,15 @@ Create BeatClock module that wraps Tone.Transport and provides beat/measure trac
 - **Wraps Tone.Transport** (primary approach, not gsap.ticker fallback)
 - Export `getCurrentBeat()` function (reads from Transport)
 - Export `getCurrentMeasure()` function (derives from Transport.position)
-- Export `scheduleAtBeat()` stub (not implemented yet, logs only)
-- Export `scheduleRepeat()` stub (logs only)
+-- `scheduleAtBeat()` is a planned helper (currently a stub in some docs). Prefer `Transport.scheduleOnce` or `scheduleRepeat` for now.
+-- `scheduleRepeat()` is implemented in the runtime `beatClock` and persists pending schedules until a transport is provided.
 - Set up Transport.scheduleRepeat('16n') to track current step internally
 
 **Key functions:**
 ```typescript
 export function getCurrentBeat(): number { /* ... */ }
 export function getCurrentMeasure(): number { /* ... */ }
-export function scheduleAtBeat(beat: number, callback: () => void): string { /* stub */ }
+// `scheduleAtBeat` is a conceptual helper. Use `Transport.scheduleOnce` instead for now.
 ```
 
 ### Acceptance Criteria

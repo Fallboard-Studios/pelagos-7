@@ -478,11 +478,27 @@ BeatClock.scheduleRepeat('8n', (time) => {
 ```typescript
 function playInteractionFlurry(robotA: Robot, robotB: Robot) {
   const notes = [robotA.currentNote, robotB.currentNote];
-  
+  // Use AudioEngine scheduling and musical spacing (16th-note spacing)
+  const SPACING_SEC = 0.125; // 16th note spacing in seconds
+
   notes.forEach((note, i) => {
-    // Stagger slightly to avoid all notes hitting polyphony limit at once
-    const delay = i * 0.05;
-    triggerWithCap(note, '8n', Tone.now() + delay);
+    const delay = i * SPACING_SEC;
+    // Schedule for both robots with a slight offset to avoid exact simultaneity
+    AudioEngine.scheduleNote({
+      robotId: robotA.id,
+      note,
+      duration: '16n',
+      time: AudioEngine.now() + delay,
+      velocity: 0.8,
+    });
+
+    AudioEngine.scheduleNote({
+      robotId: robotB.id,
+      note,
+      duration: '16n',
+      time: AudioEngine.now() + delay + 0.02,
+      velocity: 0.8,
+    });
   });
 }
 ```

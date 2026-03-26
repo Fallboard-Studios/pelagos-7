@@ -276,9 +276,9 @@ export function getCurrentMeasure(): number {
 /**
  * Schedule a callback at a specific beat (stub).
  */
-export function scheduleAtBeat(beat: number, callback: () => void): string {
-  console.log('[BeatClock] scheduleAtBeat (stub):', beat);
-  // Real implementation in M1
+// `scheduleAtBeat` is a conceptual helper. Use `Transport.scheduleOnce` for one-shot beat-accurate callbacks.
+export function scheduleAtBeat(_beat: number, _callback: () => void): string {
+  console.log('[BeatClock] scheduleAtBeat (stub): not implemented; use Transport.scheduleOnce');
   return 'stub-id';
 }
 

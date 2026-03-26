@@ -25,23 +25,29 @@ Create a collision detection system that checks for proximity between robots and
 
 **Collision detection:**
 ```typescript
-const INTERACTION_DISTANCE = 150;  // pixels
+const INTERACTION_DISTANCE = 150; // pixels
 
 export function startCollisionDetection(): void {
+  // Frame-aligned collision checks using GSAP ticker. Runtime uses visual DOM
+  // positions (GSAP transforms) when available to match on-screen robots.
   gsap.ticker.add(() => {
     const robots = useOceanStore.getState().robots;
-    
+
     for (let i = 0; i < robots.length; i++) {
       for (let j = i + 1; j < robots.length; j++) {
         const robotA = robots[i];
         const robotB = robots[j];
-        
-        // Skip if either on cooldown or wrong state
+
+        // Skip if either cannot interact
         if (!canInteract(robotA) || !canInteract(robotB)) continue;
-        
-        const distance = calculateDistance(robotA.position, robotB.position);
-        
-        if (distance < INTERACTION_DISTANCE) {
+
+        // Prefer visual positions via GSAP; fall back to stored position
+        const posA = getVisualPosition(robotA);
+        const posB = getVisualPosition(robotB);
+
+        const dx = posB.x - posA.x;
+        const dy = posB.y - posA.y;
+        if (dx * dx + dy * dy < INTERACTION_DISTANCE * INTERACTION_DISTANCE) {
           triggerInteraction(robotA.id, robotB.id);
         }
       }
@@ -50,10 +56,14 @@ export function startCollisionDetection(): void {
 }
 
 function canInteract(robot: Robot): boolean {
-  return (
-    (robot.state === 'idle' || robot.state === 'swimming') &&
-    !robot.interactionCooldown
-  );
+  // Runtime allows interactions when robot is Idle or Moving and not on cooldown.
+  const validState = robot.state === RobotState.Idle || robot.state === RobotState.Moving;
+  if (!validState) return false;
+
+  // Measure-based cooldown using BeatClock: require 8 measures between interactions
+  if (robot.lastInteractionMeasure === undefined) return true;
+  const currentMeasure = BeatClock.getCurrentMeasure();
+  return currentMeasure - robot.lastInteractionMeasure >= 8;
 }
 ```
 
@@ -112,11 +122,11 @@ export function triggerInteraction(robotAId: string, robotBId: string): void {
   // Trigger visual effects
   playInteractionAnimation(robotAId, robotBId);
   
-  // Return to previous state after 0.5 seconds
-  setTimeout(() => {
+  // Return to previous state after 0.5s using Transport-backed scheduling (avoid setTimeout)
+  Tone.getTransport().scheduleOnce(() => {
     useOceanStore.getState().updateRobot(robotAId, { state: 'idle' });
     useOceanStore.getState().updateRobot(robotBId, { state: 'idle' });
-  }, 500);
+  }, AudioEngine.now() + 0.5);
 }
 ```
 
@@ -163,17 +173,18 @@ export function playInteractionFlurry(robotA: Robot, robotB: Robot): void {
     .slice(0, 3)
     .map(e => notes[e.noteIndex]);
   
-  // Play notes with staggered timing
+  // Play notes with musical spacing using AudioEngine scheduling
+  const SPACING_SEC = 0.125; // 16th-note spacing
   [...notesA, ...notesB].forEach((note, i) => {
-    const delay = i * 0.08;  // 80ms stagger
-    
-    triggerWithCap(
+    const delay = i * SPACING_SEC;
+
+    AudioEngine.scheduleNote({
+      robotId: robotA.id,
       note,
-      '16n',  // Short duration
-      Tone.now() + delay,
-      robotA.audioAttributes.synthType,
-      0.8  // Higher velocity
-    );
+      duration: '16n',
+      time: AudioEngine.now() + delay,
+      velocity: 0.8,
+    });
   });
   
   if (DEV_TUNING) {
@@ -288,16 +299,18 @@ export function applyInteractionCooldown(robotId: string): void {
     lastInteractionMeasure: currentMeasure,
   });
   
-  // Schedule cooldown clear
-  BeatClock.scheduleAfterBeats(8 * 4, () => {  // 8 measures = 32 beats
+  // Schedule cooldown clear: Transport.scheduleOnce at the future 8-measure position
+  // (or use a transport-backed scheduling helper). Example:
+  const beatsFromNow = '8m'; // 8 measures
+  Transport.scheduleOnce(() => {
     useOceanStore.getState().updateRobot(robotId, {
       interactionCooldown: false,
     });
-    
+
     if (DEV_TUNING) {
       console.log(`[Cooldown] Robot ${robotId} cooldown cleared`);
     }
-  });
+  }, beatsFromNow);
 }
 
 export function canInteract(robot: Robot): boolean {

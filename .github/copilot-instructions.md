@@ -29,7 +29,7 @@ Pelagos-7 is a browser-based ambient music generator where robots swim autonomou
 - **GSAP Controls Animation**: GSAP controls ALL pathing and animation states
 - **Tone.js for Audio Only**: Tone.js must NEVER drive animation loops directly
 - **GSAP** must not trigger Tone events and timelines must not directly call audio events
-- **Maximum Polyphony**: Limit concurrent tones to ~8 at once
+ - **Maximum Polyphony**: Limit concurrent tones to ~16 at once (default `MAX_POLYPHONY = 16`)
 
 ### Animation Architecture
 - **GSAP for All Motion**: All visual movement, pathing, and transforms use GSAP timelines
@@ -117,7 +117,7 @@ interface OceanStore {
 **Critical Rules:**
 - Melody generation happens ONCE at spawn time (immutable after)
 - Use step-indexed registry: `Map<stepNumber, Array<{robotId,event}>>` for O(1) lookups
-- Enforce global polyphony limit (8-12 voices)
+ - Enforce global polyphony limit (default 16 voices)
 - Never use literal pitch strings in melodies
 - Never regenerate melodies when harmony changes
 
@@ -162,13 +162,13 @@ The following systems from the Oceanic prototype are explicitly **excluded** fro
 
 **Authoritative Clock:**
 - Use `Tone.Transport` as single source of truth for timing
-- Fallback: lightweight `BeatClock` built on `gsap.ticker` (NOT raw rAF)
+- Runtime note: the project's `beatClock` expects a transport-like instance (provided via `initBeatClock`) and preserves pending schedules until a transport is available. A `gsap.ticker` fallback is not part of the shipped runtime and is TODO — prefer Transport-based scheduling in examples.
 - Express all durations in beats/measures, convert to seconds only for scheduling
 
 **Critical Rules:**
 - **NEVER** use `setTimeout`/`setInterval`/`requestAnimationFrame` for musical timing
 - Use `Tone.Transport.scheduleRepeat()` for beat-aligned events
-- Schedule with lookahead (MIN_LEAD ~40-60ms) for audio reliability
+- Schedule with lookahead (MIN_LEAD ~50-100ms, ~0.05–0.1s) for audio reliability
 - For non-audio events: step registry pattern `Map<beatNumber, events[]>` for O(1) lookups
 
 **GSAP Integration:**

@@ -92,12 +92,12 @@
 **Goal:** Cohesive underwater world feel; remove unused systems
 
 **Key work:**
-- Remove collision and interaction systems (replaced in M8 robot editor)
-- MIN / MAX robot population bouncing (spawn timer removes oldest at MAX)
-- Robot facing direction — x-axis flip with GSAP ease on direction change
-- Night / day cycle modulates robot lightness (L value) across SVG layers
-- Periodic robot bubble emission (reuses `BubbleStream` component)
-- Beat-aligned spawn scheduler with off-screen entry positions
+ - Factory placement rows (`FACTORY_ROWS`) and deterministic placement algorithm
+ - Beat-aligned factory production (`PRODUCTION_INTERVAL = 60` measures) and autonomous spawn scheduler (measure-based)
+ - GSAP swim timelines with orientation/flip, propulsion overlap, and speed derived from `SWIM_SPEED`
+ - `BubbleStream` implemented for periodic vent bursts (seeded, `MEASURES_BETWEEN_BURSTS = 96`)
+ - Timeline registry (`timelineMap`) and ref registry (`setRef` / `getRef`) patterns standardized
+ - Population management: at `settings.maxRobots` the oldest robot is removed before spawning to avoid unbounded growth
 
 See [M5-issues.md](poc_guides/M5-issues.md)
 
@@ -198,5 +198,7 @@ By v1.0 completion:
 ---
 
 **Current Status:** M0 Complete → Starting M1
+
+**Current Status:** M0..M4 Complete → M5 In Progress (placement, animation polish, docs)
 
 [View detailed phase documentation](./)
