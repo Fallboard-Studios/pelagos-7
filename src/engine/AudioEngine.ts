@@ -5,7 +5,7 @@ import * as Tone from 'tone';
 import gsap from 'gsap';
 import { useOceanStore } from '../stores/oceanStore';
 
-import type { NoteDuration, ADSREnvelope, SynthType, WaveformType } from '../types/Robot';
+import type { NoteDuration, ADSREnvelope, SynthType, WaveformType, Robot } from '../types/Robot';
 import { getAvailableNotes, scheduleHarmonyCycle, stopHarmonyCycle } from './harmonySystem';
 import { initBeatClock } from './beatClock';
 import type { RobotMelodyEvent } from './melodyGenerator';
@@ -27,6 +27,8 @@ export interface NoteParams {
   synthType?: SynthType | string;
   adsr?: ADSREnvelope;
   waveform?: WaveformType;
+  harmonicity?: number;
+  vibratoAmount?: number;
 }
 
 interface MelodyEventEntry {
@@ -41,7 +43,7 @@ type PannerPool = Record<string, Tone.Panner[]>;
 // CONSTANTS
 // ========================================
 const MAX_POLYPHONY = 16;
-const MIN_LEAD = 0.05; // 50ms lookahead for scheduling
+const MIN_LEAD = 0.1; // 50ms lookahead for scheduling
 /** Fraction of notes that receive a random velocity offset for organic expressiveness. */
 const VELOCITY_VARIANCE_RATE = 0.15;
 /** Maximum ± deviation applied to a note's velocity when variance is triggered. */
@@ -206,14 +208,14 @@ async function loadInstruments(): Promise<void> {
     }
   };
 
-  // pool sizing per type (sum should be <= MAX_POLYPHONY)
-  const POOL_SIZING: Record<string, number> = {
-    default: 5,
-    fm: 3,
-    am: 3,
-    poly: 2,
-    duo: 3,
-  };
+  const maxRobots = useOceanStore.getState().settings?.maxRobots ?? 8;
+  const desiredTotal = Math.min(MAX_POLYPHONY, Math.max(1, Math.floor(maxRobots)));
+  if (DEV_TUNING) console.log(`[AudioEngine] Pool desiredTotal=${desiredTotal} (maxRobots=${maxRobots}, MAX_POLYPHONY=${MAX_POLYPHONY}) - guaranteeing one slot per robot when possible`);
+
+  // Flat pool sizing: allocate one identical slot per robot (clamped by MAX_POLYPHONY).
+  if (DEV_TUNING) console.log(`[AudioEngine] Flat pool desiredTotal=${desiredTotal} (maxRobots=${maxRobots}, MAX_POLYPHONY=${MAX_POLYPHONY}) - creating ${desiredTotal} identical slots`);
+
+  const POOL_SIZING: Record<string, number> = { default: desiredTotal };
 
   synthPool = {} as SynthPool;
   pannerPool = {} as PannerPool;
@@ -257,6 +259,28 @@ async function loadInstruments(): Promise<void> {
 
   instrumentsLoaded = true;
   console.log('[AudioEngine] Synth pool loaded');
+
+  // If robots spawned earlier than AudioEngine initialization, try to reserve
+  // slots for them now so per-robot parameters are applied safely.
+  try {
+    const store = useOceanStore.getState();
+    if (store && Array.isArray(store.robots) && store.robots.length > 0) {
+      if (DEV_TUNING) console.log(`[AudioEngine] Attempting post-load reservations for ${store.robots.length} robots`);
+      store.robots.forEach((robot: Robot) => {
+        try {
+          const requestedType = robot.audioAttributes?.synthType as string | undefined;
+          const waveform = robot.audioAttributes?.waveform as string | undefined;
+          const adsr = robot.audioAttributes?.adsr as ADSREnvelope | undefined;
+          const ok = AudioEngine.reserveVoice(robot.id, requestedType ?? 'default', waveform, adsr);
+          if (DEV_TUNING) console.log(`[AudioEngine] Post-load reserve for ${robot.id}: ${ok ? 'OK' : 'FAILED'}`);
+        } catch (err) {
+          if (DEV_TUNING) console.warn('[AudioEngine] Failed post-load reservation for robot', robot.id, err);
+        }
+      });
+    }
+  } catch (err) {
+    if (DEV_TUNING) console.warn('[AudioEngine] Post-load reservation pass failed', err);
+  }
 }
 
 /**
@@ -279,6 +303,32 @@ function scheduleVoiceRelease(duration: NoteDuration, time: number): void {
     // Fallback: immediate release
     activeVoices = Math.max(0, activeVoices - 1);
     if (DEV_TUNING) console.warn('[AudioEngine] Failed to schedule voice release, immediate fallback', err);
+  }
+}
+
+/**
+ * Update all reserved panners' pan values once per tick to avoid frequent DOM reads
+ * and per-trigger panner updates which can cause main-thread jank.
+ * Called from the Transport tick with the scheduled `time` for accuracy.
+ */
+function updateAllPanners(_time?: number): void {
+  if (!pannerPool || !reservedVoices) return;
+
+  try {
+    for (const [robotId, entry] of reservedVoices.entries()) {
+      const panner = pannerPool[entry.type]?.[entry.index];
+      if (!panner) continue;
+      try {
+        const visualX = getRobotVisualX(robotId);
+        const panValue = calculatePanFromPosition(visualX);
+        // Set value directly — this is cheap and avoids reflow-inducing operations.
+        panner.pan.value = panValue;
+      } catch (err) {
+        if (DEV_TUNING) console.warn('[AudioEngine] Failed to update panner for', robotId, err);
+      }
+    }
+  } catch (err) {
+    if (DEV_TUNING) console.warn('[AudioEngine] updateAllPanners failed', err);
   }
 }
 /**
@@ -346,9 +396,26 @@ export function triggerWithCap(params: NoteParams): boolean {
       return false;
     }
 
-    // Apply ADSR only on shared (non-reserved) synths. Reserved voices have ADSR applied
-    // once at reserveVoice() time — reapplying every note is wasted work inside the Transport tick.
-    if (adsr && !reserved) {
+    // If a robot supplied per-note parameters that require voice isolation (ADSR, harmonicity, vibrato),
+    // ensure the robot has a reserved voice. If not, skip the note to avoid mutating shared synths
+    // and corrupting concurrently sustaining voices.
+    const requiresIsolation = !!(
+      adsr || params.harmonicity || params.vibratoAmount
+    );
+    if (requiresIsolation && !reserved) {
+      // rollback the voice increment and skip note
+      activeVoices = Math.max(0, activeVoices - 1);
+      if (DEV_TUNING) {
+        console.warn(
+          `[AudioEngine] Robot ${robotId} requested per-note parameters but has no reserved voice; skipping note to avoid bleed.`
+        );
+      }
+      return false;
+    }
+
+    // Only apply ADSR on reserved synths. Reserved voices should have their parameters set at reservation time
+    // (reserveVoice()). Applying here is a safety measure.
+    if (adsr && reserved) {
       const maybeSetter = synth as unknown as { set?: (props: unknown) => void };
       if (typeof maybeSetter.set === 'function') {
         try {
@@ -411,6 +478,9 @@ function startMelodyPlayback(): void {
   const transport = Tone.getTransport();
 
   scheduledTickId = transport.scheduleRepeat((time) => {
+    // Update panners once per tick to reduce per-note DOM reads and main-thread work.
+    updateAllPanners(time);
+
     const currentStep = (stepCounter % 16) + 1; // 1..16
     const events = stepRegistry.get(currentStep) || [];
     const notes = getAvailableNotes();
@@ -631,20 +701,57 @@ export const AudioEngine = {
   ): boolean {
     if (!synthPool || !reservedSlots) return false;
 
-    const typeKey = (synthType || 'default').toString().toLowerCase();
-    const slots = reservedSlots[typeKey];
-    if (!slots) return false;
+    const requestedKey = (synthType || 'default').toString().toLowerCase();
+    // Normalize requested synth type to pool keys used by loadInstruments()
+    const typeKey = ((): string => {
+      switch (requestedKey) {
+        case 'fmsynth':
+        case 'fm':
+          return 'fm';
+        case 'amsynth':
+        case 'am':
+          return 'am';
+        case 'duosynth':
+        case 'duo':
+          return 'duo';
+        case 'polysynth':
+        case 'poly':
+          return 'poly';
+        default:
+          return 'default';
+      }
+    })();
 
-    const freeIndex = slots.findIndex((s) => s === null);
+
+    // Try requested slot first; if missing or exhausted, pick any free slot across the flat pool.
+    let freeIndex = -1;
+    let assignedType = typeKey;
+
+    const requestedSlots = reservedSlots[typeKey];
+    if (requestedSlots) {
+      freeIndex = requestedSlots.findIndex((s) => s === null);
+    }
+
+    if (freeIndex === -1) {
+      for (const [otherType, otherSlots] of Object.entries(reservedSlots)) {
+        const idx = otherSlots.findIndex((s) => s === null);
+        if (idx !== -1) {
+          assignedType = otherType;
+          freeIndex = idx;
+          break;
+        }
+      }
+    }
+
     if (freeIndex === -1) return false;
 
-    slots[freeIndex] = robotId;
-    reservedVoices.set(robotId, { type: typeKey, index: freeIndex, reservedAt: Date.now() });
+    reservedSlots[assignedType][freeIndex] = robotId;
+    reservedVoices.set(robotId, { type: assignedType, index: freeIndex, reservedAt: Date.now() });
 
     // Apply waveform and ADSR once on the now-dedicated, idle synth — safe because no
     // notes are in flight on this slot yet. Avoids mid-playback oscillator rebuilds and
     // eliminates redundant synth.set() calls on every note trigger.
-    const dedicatedSynth = synthPool[typeKey]?.[freeIndex];
+    const dedicatedSynth = synthPool[assignedType]?.[freeIndex];
     const maybeSetter = dedicatedSynth as unknown as { set?: (props: unknown) => void } | undefined;
     if (maybeSetter && typeof maybeSetter.set === 'function') {
       if (waveform) {
@@ -663,7 +770,7 @@ export const AudioEngine = {
       }
     }
 
-    if (DEV_TUNING) console.log(`[AudioEngine] Reserved ${typeKey}[${freeIndex}] for ${robotId}${waveform ? ` (waveform: ${waveform})` : ''}${adsr ? ' (adsr applied)' : ''}`);
+    if (DEV_TUNING) console.log(`[AudioEngine] Reserved ${assignedType}[${freeIndex}] for ${robotId} (requested: ${typeKey})${waveform ? ` (waveform: ${waveform})` : ''}${adsr ? ' (adsr applied)' : ''}`);
     return true;
   },
 
