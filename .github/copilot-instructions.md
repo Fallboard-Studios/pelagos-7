@@ -1,563 +1,69 @@
-# Pelagos-7 - GitHub Copilot Instructions
+# Pelagos-7 — Concise Copilot Instructions
 
-## TL;DR for Copilot
-- All audio = AudioEngine (singleton)
-- All animation = GSAP (timelines in timelineMap, NOT state)
-- All state = Zustand (serializable only)
-- All timing = BeatClock/Transport (NO setTimeout/setInterval/rAF)
-- NO synths in React components
-- NO GSAP timelines in state
-- NO main loop
+Purpose: a short, focused guidance file for Copilot-style assistants and contributors. Full implementation and examples live in the linked docs; use this file for quick rules and pointers.
 
-## Absolutely Forbidden
-- requestAnimationFrame loops (use GSAP ticker or BeatClock only)
-- Local Tone.js synths (AudioEngine only)
-- useEffect-triggered audio (BeatClock scheduling only)
-- setTimeout/setInterval (use Transport.schedule)
-- DOM manipulation without refs
-- React-driven animations
-- GSAP timelines stored in React/Zustand state
-- JS classes (use functions unless absolutely necessary)
+TL;DR (critical rules)
+- All audio: `AudioEngine` only (singleton). No local Tone.js synths in components.
+- All timing: `Tone.Transport` / `BeatClock` (measure-based). No `setTimeout`/`setInterval`/`requestAnimationFrame` for musical timing.
+- All animation: GSAP timelines only; store timelines in `timelineMap`, not in React/Zustand state.
+- State: Zustand only; store JSON-serializable data only.
+- Polyphony: default `MAX_POLYPHONY = 16`.
+- Lookahead: apply `MIN_LEAD ≈ 50–100ms` when scheduling audio.
 
-## Project Overview
-Pelagos-7 is a browser-based ambient music generator where robots swim autonomously through a post-apocalyptic underwater environment. Robots interact with each other and factory actors, creating evolving musical compositions synchronized to musical beats.
+Absolutely forbidden (quick list)
+- Creating Tone synths in React components.
+- Storing GSAP timelines, DOM refs, or synth instances in state.
+- Using `requestAnimationFrame` loops for game timing or animation (use GSAP ticker when needed).
+- Calling audio scheduling inside GSAP timeline callbacks (use semantic callbacks).
 
-## Critical Architecture Rules
-### Audio Architecture
-- **Single Global AudioEngine**: All synth instantiation and note scheduling happens in one global AudioEngine module
-- **No Local Synths**: Robots and actors NEVER create their own synths - they reference a shared pool or request instances from the engine
-- **GSAP Controls Animation**: GSAP controls ALL pathing and animation states
-- **Tone.js for Audio Only**: Tone.js must NEVER drive animation loops directly
-- **GSAP** must not trigger Tone events and timelines must not directly call audio events
- - **Maximum Polyphony**: Limit concurrent tones to ~16 at once (default `MAX_POLYPHONY = 16`)
+Critical architecture rules (short)
+- Audio: `AudioEngine` owns synth pools, scheduling, and voice management. Use `AudioEngine.scheduleNote()` and voice reservation APIs.
+- Timing: Initialize `BeatClock` with a transport-like instance via `initBeatClock(transport)` (AudioEngine provides this). Prefer `Transport.scheduleRepeat` / `scheduleOnce` and apply `MIN_LEAD` when scheduling.
+- Animation: Use `useGSAP` in components and store references in `timelineMap` (`setTimeline`, `killTimeline`, `killAllTimelines`). Register top-level SVG refs with `setRef(key, el)` and read them from animation modules with `getRef(key)`.
+- State: Keep only serialisable primitives/objects/arrays in Zustand. Derived values and complex objects belong in helpers or modules (e.g., timelines, synths, DOM refs).
 
-### Animation Architecture
-- **GSAP for All Motion**: All visual movement, pathing, and transforms use GSAP timelines
-- **Timeline Storage**: Timelines stored in separate `timelineMap` (Map<string, gsap.core.Timeline>), NEVER in React state or Zustand
-- **useGSAP Hook**: Always use the `useGSAP` hook for React component animations
-- **No Animation Loops**: No `requestAnimationFrame`, `setInterval`, or `setTimeout` for animation
-- **Timeline Cleanup**: Always kill timelines on component unmount or state change
-- **Semantic Callbacks**: Timeline callbacks must be semantic events only (e.g., `onComplete: () => handleArrival(robotId)`), never trigger audio directly
+Guardrails (must not be relaxed)
+- Melody Logic: "Melodies must store note indices (0..7), never literal pitch strings; 96 measures = 1 day cycle."
+- Visual Mapping: "Robot visuals (shape/color) must map strictly to audio attributes (synth/ADSR) as defined in MELODY_SYSTEM.md."
+- Strict Separation: "GSAP timelines must only trigger semantic state changes, never call AudioEngine directly."
 
-#### Robot Pathing Pipeline
-1. Robot enters Idle state
-2. Robot chooses a target point
-3. GSAP timeline created and stored in timeline map:
-   - Movement tween to destination
-   - Looping propeller animations
-   - Slight rotation/tilt for natural movement
-4. On arrival: timeline killed and removed from map, robot enters new Idle state
-5. On interaction or selection: kill current timeline, execute handlers, pick new destination
+Where to find the full guidance (read these)
+- Animation patterns: docs/ANIMATION_SYSTEM.md
+- Audio architecture & scheduling: docs/AUDIO_SYSTEM.md
+- Beat clock & scheduling: docs/BEAT_CLOCK.md
+- Melody & harmony rules: docs/MELODY_SYSTEM.md, docs/HARMONY_SYSTEM.md
+- Polyphony & voice management: docs/POLYPHONY_GUIDE.md
+- Factory & placement: docs/BUILDING_DESIGN.md
 
-**Important**: Timelines are imperative references only, used to drive animation. Do NOT store in React state or Zustand state.
+Quick checklist for PRs
+- [ ] No synths created in components
+- [ ] No timelines or refs stored in Zustand or component state
+- [ ] All scheduling is beat-based (BeatClock/Transport) with `MIN_LEAD` applied for audio
+- [ ] Timelines are killed on unmount and registered in `timelineMap`
+- [ ] State remains JSON-serialisable
 
-### State Management
-- **Zustand for All State**: Use Zustand as the single source of truth for all application state
-- **Serializable Data Only**: Store only JSON-compatible data (strings, numbers, arrays, plain objects)
-- **No Complex Objects**: Never store GSAP timelines, Tone.js synths, React refs, or DOM elements
-- **Track Robots Individually**: Each robot is a separate object in the state array
-- **Track Actors by Type**: Group factory actors and environmental actors appropriately
-- **Version Field Required**: Include version field in all exports for forward compatibility
-- **Save/Load Ready**: State designed for serialization (save/load feature planned for v1.1)
+Recommended repo expectations (suggested additions)
+- **CI:** Ensure continuous integration is set up for automated testing and linting.
+- **Lint:** Use ESLint with the recommended configuration for code quality.
+- **Testing:** Write unit and integration tests for all components and utilities.
+- **TS rules:** Follow TypeScript best practices and ensure type safety across the codebase.
+- **PR process:** All PRs should be reviewed by at least one other contributor before merging.
+- **Examples:** Provide clear examples in the documentation for common use cases.
+- **Accessibility & performance:** For audio, avoid autoplay without user intent; provide UI mute/volume controls. For animations, prefer GSAP for performant transforms and avoid large layout thrashing. Add basic a11y checks to PRs (focus/keyboard navigation, reduced-motion preference).
 
-#### What Goes in State
-- Robot positions, destinations, states, melodies, audio attributes
-- Actor positions, types, cooldown timers
-- World settings (BPM, camera viewport, world size)
-- UI state (selected robot, panel visibility)
-
-#### What Does NOT Go in State
-- GSAP timelines (use timelineMap)
-- Tone.js synth instances (managed by AudioEngine)
-- React refs (component-local only)
-- Derived/computed values (calculate on read)
-- Animation frame data (GSAP handles this)
-
-#### Example Store Structure
-```typescript
-interface OceanStore {
-  robots: Robot[];
-  actors: Actor[];
-  lastSpawnTime: number;
-  settings: WorldSettings;
-  selectedRobotId: string | null;
-}
-```
-
-## Tech Stack Details
-- **React** with **TypeScript**
-- **Zustand** for state management
-- **Tone.js** for audio synthesis and scheduling
-- **GSAP** for all animations and pathing
-- **SVG** for all visual assets
-- **Vite** as build tool
-- Hosted on **GitHub Pages**
-
-## Domain-Specific Concepts
-
-### Robot Design
-- Robots are single unified SVG entities (not modular parts)
-- Visual appearance (shape, colors, decorations) determined by audio attributes
-- Synth type → overall body shape; ADSR → colors; pitch → size; filter → detail complexity
-
-### Factory Actors
-- Factories spawn new robots periodically (measure-based timing)
-- Factory production cooldown: configurable (recommended 60-120 measures)
-- No proximity required - factory just produces on timer
-- Factory type determines robot blueprint (visual + audio attributes)
-
-### Melody System Requirements
-
-**Key Principles:**
-- Melodies are 16-slot, 2-measure loops (8th-note grid)
-- Robots store note **indices (0..7)**, NOT pitch strings
-- Melody playback automatically adapts when 8-note harmony palette changes every 4 measures
-- All scheduling via `AudioEngine` and `Tone.Transport` only
-
-**Critical Rules:**
-- Melody generation happens ONCE at spawn time (immutable after)
-- Use step-indexed registry: `Map<stepNumber, Array<{robotId,event}>>` for O(1) lookups
- - Enforce global polyphony limit (default 16 voices)
-- Never use literal pitch strings in melodies
-- Never regenerate melodies when harmony changes
-
-**Data Structure:**
-```typescript
-interface RobotMelodyEvent {
-  id: string;               // crypto.randomUUID()
-  startStep: number;        // 1..16 (8th-note grid)
-  length: '16n' |'8n' | '4n' | '2n';
-  noteIndex: number;        // 0..7 -> index into availableNotes[]
-}
-```
-
-**For complete implementation details, see:**
-- [AUDIO_SYSTEM.md](../docs/AUDIO_SYSTEM.md) - Overview & Tone.js best practices
-- [BEAT_CLOCK.md](../docs/BEAT_CLOCK.md) - Musical timing and scheduling
-- [HARMONY_SYSTEM.md](../docs/HARMONY_SYSTEM.md) - Dynamic note palettes  
-- [MELODY_SYSTEM.md](../docs/MELODY_SYSTEM.md) - Procedural melody generation
-- [POLYPHONY_GUIDE.md](../docs/POLYPHONY_GUIDE.md) - Voice management and synth pooling
-
-## Out of Scope (Not Included in v1.0)
-
-The following systems from the Oceanic prototype are explicitly **excluded** from Pelagos-7:
-
-- ❌ **Hunger/food system** - Adds biological complexity without portfolio value
-- ❌ **Reproduction/courtship** - Replaced by factory actors (simpler, thematically appropriate)
-- ❌ **Maturity points** - Unnecessary complexity
-- ❌ **User-placed food** - Not thematic for post-apocalyptic robot setting
-- ❌ **Biological life systems** - Wrong theme; robots are manufactured, not born
-
-**Why these are excluded:** These systems added ~900 lines of state management in the prototype without improving the core technical demonstrations. Factory-based spawning is simpler and more aligned with the robot/industrial theme.
-
-### Beat-Based World Time
-
-**Core Principle:** Use measure-based timing (NOT hour/minute) for all game logic.
-
-**Key Facts:**
-- **96 measures = 1 full day/night cycle** (4 measures = 1 "hour equivalent")
-- **All game logic uses measures** (spawning, cooldowns, interactions)
-- **Hour is derived** when needed: `Math.floor((currentMeasure % 96) / 4)` → 0..23
-- **BPM-independent** - changing tempo doesn't affect game timing
-
-**Authoritative Clock:**
-- Use `Tone.Transport` as single source of truth for timing
-- Runtime note: the project's `beatClock` expects a transport-like instance (provided via `initBeatClock`) and preserves pending schedules until a transport is available. A `gsap.ticker` fallback is not part of the shipped runtime and is TODO — prefer Transport-based scheduling in examples.
-- Express all durations in beats/measures, convert to seconds only for scheduling
-
-**Critical Rules:**
-- **NEVER** use `setTimeout`/`setInterval`/`requestAnimationFrame` for musical timing
-- Use `Tone.Transport.scheduleRepeat()` for beat-aligned events
-- Schedule with lookahead (MIN_LEAD ~50-100ms, ~0.05–0.1s) for audio reliability
-- For non-audio events: step registry pattern `Map<beatNumber, events[]>` for O(1) lookups
-
-**GSAP Integration:**
-- Trigger GSAP timelines ON beat events (discrete animations)
-- OR drive timeline `timeScale` from BPM (continuous loops)
-- Never call AudioEngine/Tone methods inside GSAP callbacks
-
-**For complete implementation details, see:**
-- [BEAT_CLOCK.md](../docs/BEAT_CLOCK.md) - BeatClock API & Architecture
-- [AUDIO_SYSTEM.md](../docs/AUDIO_SYSTEM.md) - Scheduling & Reliability
-- Animation Integration Patterns documented in BEAT_CLOCK.md
-
-## Coding Conventions
-### Naming
-- Components: PascalCase (e.g., `OceanScene`, `RobotMenu`)
-- Hooks: camelCase with `use` prefix (e.g., `useRobotSpawner`)
-- Stores: camelCase with `Store` suffix (e.g., `oceanStore`, `audioStore`)
-- Constants: UPPER_SNAKE_CASE (e.g., `MAX_ROBOTS`, `INTERACTION_DISTANCE`)
-
-## Comment & Documentation Style
-- When adding **3 or more lines** to a file, insert an obvious section header using the
-  `// ========================================` pattern. Common section names include:
-  IMPORTS, TYPES, CONSTANTS, EXPORTS, HELPERS, etc.  
-  (This mirrors the style used around line 17‑19 of `OceanScene.tsx`.)
-
-- Every exported symbol (functions, constants, types, etc.) must be preceded by a
-  JSDoc block describing its purpose, parameters, and return value.
-
-- When editing an existing file, **retro‑fit** headings and JSDoc to any public API
-  that you touch, even if the file already existed.
-
-### File Organization
-```javascript
-src/
-  components/          # React components
-    actors/            #   Factory, BubbleStream
-    robot/             #   Robot SVG variants and visual helpers
-    hud/               #   HUD overlay and controls
-    debug/             #   Dev-only overlays (DEV_TUNING gated)
-  stores/              # Zustand stores
-  engine/              # AudioEngine, BeatClock, harmonySystem, melodyGenerator
-  animation/           # GSAP swimAnimation, timelineMap
-  systems/             # Game logic (spawn, factory, idle, collision)
-  utils/               # Helper functions (math, color, refs)
-  types/               # TypeScript types/interfaces
-  constants/           # App-wide constants and color theme
-```
-
-### TypeScript
-- Strict mode enabled
-- Define interfaces for all entities (Robot, Actor, Ocean)
-- Type all function parameters and return values
-- Use enums for robot states, actor types, time of day, etc.
-
-### Naming Conventions
-
-**Component Types:**
-- Props interfaces: `[ComponentName]Props` (e.g., `PlayButtonProps`)
-- State types: `[ComponentName][Feature]State` or more descriptive variant (e.g., `PlayButtonState`, `RobotAnimationState`)
-- Never use generic names like `State` that conflict with variable names
-- ✅ Good: `type PlayButtonState = 'idle' | 'loading' | 'error'`
-- ❌ Bad: `type PlayState = 'idle' | 'loading' | 'error'` (conflicts with `const [playState, setPlayState]`)
-
-**Variables & State:**
-- State variables: `camelCase` (e.g., `playState`, `selectedRobotId`)
-- State setters: `set[StateNameTitleCase]` (e.g., `setPlayState`)
-- Event handlers: `handle[EventName]` (e.g., `handleClick`, `handleArrival`)
-- Callback props: `on[EventName]` (e.g., `onSuccess`, `onRobotSpawned`)
-
-**Constants:**
-- App-wide: `UPPER_SNAKE_CASE` (e.g., `MAX_ROBOTS`, `DEFAULT_BPM`)
-- Component-specific: `UPPER_SNAKE_CASE` in component scope (e.g., `BUTTON_TEXT = {...}`)
-
-### GSAP Patterns
-- Always use the useGSAP hook for React components
-- Use `gsap.to()`, `gsap.timeline()` for animations
-- Store timeline references for pause/play/kill
-- Use `onComplete` callbacks to transition states
-- Timeline for movement animations (looping propeller waves, rotation)
-
-### Tone.js Patterns
-- Initialize AudioEngine on user interaction (play button)
-- Use `Tone.Transport` for global tempo sync
-- Pool synth instances (don't create/destroy frequently)
-- Use `Tone.now()` for scheduling, NOT `setTimeout`
-- Apply effects globally (reverb, filters, etc.)
-- AudioEngine.start must call Tone.start() before Transport.start()
-- All audio scheduling must be routed through AudioEngine only
-
-## Testing Conventions
-
-### Framework
-- **Vitest** for all unit tests
-- Tests added in M2 (Phase 5: Robot Basics)
-- Test files live alongside source: `beatClock.ts` → `beatClock.test.ts`
-
-### What to Test
-**Test these:**
-- Utility functions (math, helpers)
-- Core engine logic (BeatClock, harmonySystem)
-- State management (store actions)
-- Algorithm logic (melody generation, collision detection)
-
-**Skip these:**
-- React components (visual testing sufficient)
-- GSAP timeline integration (mocking too complex)
-- Tone.js audio scheduling (manual testing better)
-- Simple getters/setters
-
-### Test File Location
-```
-src/
-  engine/
-    beatClock.ts
-    beatClock.test.ts       ← Test file alongside source
-```
-
-### Running Tests
+Minimal commands
 ```bash
-npm test              # Run all tests
-npm run test:ui       # Interactive UI
-npm run test:coverage # Coverage report
+npm install
+npm run dev
+npm test
 ```
 
-### Test Pattern
-```typescript
-import { describe, it, expect } from 'vitest';
-import { functionToTest } from './module';
-
-describe('ModuleName', () => {
-  it('describes expected behavior', () => {
-    const result = functionToTest(input);
-    expect(result).toBe(expected);
-  });
-});
-```
-
-### Store Testing
-```typescript
-import { beforeEach } from 'vitest';
-import { useOceanStore } from './oceanStore';
-
-beforeEach(() => {
-  useOceanStore.setState({ robots: [], actors: [] });
-});
-
-it('maintains serializable state', () => {
-  const state = useOceanStore.getState();
-  expect(() => JSON.stringify(state)).not.toThrow();
-});
-```
-
-### Mocking Guidelines
-- Avoid complex mocks (if hard to test, function is doing too much)
-- Simple mocks okay: `vi.spyOn(Math, 'random').mockReturnValue(0.5)`
-- **Mock simple interfaces** from Tone.js/GSAP (e.g., `Transport.scheduleRepeat`, `killTimeline`)
-- **Skip mocking complex runtime behavior** (actual audio output, GSAP rendering/tick)
-- Use `vi.mock()` factory pattern to replace entire modules (Tone, timelineMap)
-- Use `vi.resetModules()` + dynamic `await import()` in `beforeEach` to reset module-level state between tests
-
-### Coverage Goals
-- Target: ~70-80% for utilities and stores
-- Don't obsess over 100%
-- Focus on critical business logic
-
-**See CONTRIBUTION_GUIDE.md for detailed testing patterns and examples.**
-
-## Common Tasks
-### Adding a New Robot Attribute
-1. Update Robot type/interface
-2. Add UI control in robot menu component
-3. Map attribute to visual appearance (shape variant, colors, scale, or detail level)
-4. Map attribute to audio parameter (send to AudioEngine)
-5. Ensure attribute is serializable (JSON-compatible)
-
-#### Robot Attribute Guidance
-##### Attributes like speed, curve, ADSR, and filter must be mapped in one place:
-- Speed / path curve → GSAP timeline parameters
-- ADSR / synth type → AudioEngine scheduling
-
-##### AI should not invent independent motion systems or separate synths per robot.
-
-##### Any new attribute must clearly specify:
-- Visual effect (SVG or CSS)
-- Audio effect (AudioEngine)
-- State storage (Zustand)
-
-### Creating a New Interactive Actor
-1. Define actor type in types
-2. Add SVG asset
-3. Create interaction handler (what happens when robot nearby)
-4. Add to spawn logic with placement parameters
-5. Register with AudioEngine if it makes sound
-
-### Adding a New Factory Type
-1. Define factory variant in Actor types
-2. Create factory SVG asset
-3. Add robot blueprint generation logic
-4. Configure production cooldown and timing
-5. Add factory to spawn weights configuration
-
-### Implementing Day/Night Cycle
-1. Track elapsed measures in global state
-2. Calculate current phase (morning/day/evening/night) based on derived hour
-3. Apply CSS classes to ocean/environment layers for lighting changes
-4. Modify lighting, bubble density, and atmospheric effects
-
-## Anti-Patterns to Avoid
-### ❌ DON'T: Create Synth in Component
-```typescript
-// FORBIDDEN
-function Robot() {
-  const synth = new Tone.Synth().toDestination();
-  return <g onClick={() => synth.triggerAttackRelease('C4', '8n')} />;
-}
-```
-**Why:** Breaks audio isolation, creates synth leak, not centralized
-
-### ✅ DO: Use AudioEngine
-```typescript
-// CORRECT
-function Robot({ id }: { id: string }) {
-  return <g onClick={() => AudioEngine.scheduleNote({ robotId: id, note: 'C4' })} />;
-}
-```
-
----
-
-### ❌ DON'T: Store Timeline in State
-```typescript
-// FORBIDDEN
-const [timeline, setTimeline] = useState<gsap.core.Timeline>();
-```
-**Why:** Timelines are not serializable, cause memory leaks
-
-### ✅ DO: Use Timeline Map
-```typescript
-// CORRECT
-const tl = gsap.timeline({ onComplete: () => handleArrival(id) });
-setTimeline(robot.id, tl);
-```
-
----
-
-### ❌ DON'T: Animate with State Updates
-```typescript
-// FORBIDDEN
-const [x, setX] = useState(0);
-useEffect(() => {
-  const animate = () => {
-    setX(prev => prev + 1);
-    setTimeout(animate, 16);
-  };
-  animate();
-}, []);
-```
-**Why:** Not synchronized, causes drift, performance issues
-
-### ✅ DO: Use GSAP Timeline
-```typescript
-// CORRECT
-useGSAP(() => {
-  gsap.to(ref.current, { x: 100, duration: 3 });
-});
-```
-
----
-
-### ❌ DON'T: Use setTimeout for Game Timing
-```typescript
-// FORBIDDEN
-setInterval(() => {
-  spawnRobot();
-}, 5000);
-```
-**Why:** Not beat-aligned, drifts from musical time
-
-### ✅ DO: Use BeatClock
-```typescript
-// CORRECT
-BeatClock.scheduleRepeat('4m', () => spawnRobot());
-```
-
----
-
-### ❌ DON'T: Store Complex Objects in State
-```typescript
-// FORBIDDEN
-interface Robot {
-  synth: Tone.Synth;
-  timeline: gsap.core.Timeline;
-  domRef: RefObject<HTMLElement>;
-}
-```
-**Why:** Not serializable, can't save/load, memory leaks
-
-### ✅ DO: Store Only Serializable Data
-```typescript
-// CORRECT
-interface Robot {
-  id: string;
-  state: RobotState;
-  position: Vec2;
-  destination: Vec2 | null;
-  melody: MelodyEvent[];
-  audioAttributes: AudioAttributes; // synthType, adsr, pitchRange, filterFreq, reverb
-  octaveRange: [number, number];    // [min, max] octave band; melody events store concrete octaves
-  masterVolume: number;             // 0-1, base note velocity
-  layer?: 'background' | 'foreground';
-  // NO synths, NO timelines, NO DOM refs — those are never stored in state
-}
-```
-
----
-
-### ❌ DON'T: Call Tone.js from GSAP Timeline
-```typescript
-// FORBIDDEN
-timeline.call(() => AudioEngine.scheduleNote(...));
-timeline.call(() => synth.triggerAttackRelease('C4', '8n'));
-```
-**Why:** Violates separation of concerns, creates tight coupling
-
-### ✅ DO: Use Semantic Callbacks
-```typescript
-// CORRECT
-timeline.to(robotRef.current, {
-  x: dest.x,
-  y: dest.y,
-  onComplete: () => onRobotArrived(robotId), // semantic event only
-});
-```
-
----
-
-### ❌ DON'T: Import Tone.js Outside Engine
-```typescript
-// FORBIDDEN (outside src/engine/)
-import * as Tone from 'tone';
-```
-**Why:** Audio should only exist in AudioEngine
-
-### ✅ DO: Keep Tone.js in Engine Only
-```typescript
-// CORRECT (src/engine/AudioEngine.ts)
-import * as Tone from 'tone';
-```
-
-## Code Organization Standards
-
-**File Structure Pattern (strict order):**
-1. Imports (grouped: React/external → types → components → hooks → utils → constants → stores)
-2. Types/Interfaces (declared BEFORE implementation)
-3. Constants (component-specific)
-4. Component/Function exports
-5. Internal helpers (after exports)
-
-**Import Ordering:**
-- React & external libraries (no `type` keyword)
-- Type imports (always with `type` keyword)
-- Components, Hooks, Utils, Constants
-- Stores (last, minimize usage)
-
-**Type Guidelines:**
-- Use `import type { }` for type-only imports
-- Props interface required for components >50 lines: `[ComponentName]Props`
-- Explicit return types for exported functions >10 lines
-- Extract magic numbers to named constants
-
-**Constant Extraction:**
-
-```typescript
-// ❌ Bad: Magic numbers
-function spawnRobot() {
-  if (robots.length >= 12) return;
-  setTimeout(() => checkStatus(), 5000);
-  setPosition({ x: 100, y: 200, z: 2 });
-}
-
-// ✅ Good: Named constants
-const MAX_ROBOTS = 12;
-const STATUS_CHECK_DELAY = 5000;
-const DEFAULT_SPAWN_POSITION = { x: 100, y: 200, z: 2 };
-
-function spawnRobot() {
-  if (robots.length >= MAX_ROBOTS) return;
-  setTimeout(() => checkStatus(), STATUS_CHECK_DELAY);
-  setPosition(DEFAULT_SPAWN_POSITION);
-}
-```
-
-**For detailed examples and patterns, see [CONTRIBUTION_GUIDE.md](../docs/CONTRIBUTION_GUIDE.md) Code Organization section.**
+See also (short pointers)
+- `docs/AUDIO_SYSTEM.md`: AudioEngine architecture, MIN_LEAD, polyphony rules, and scheduling examples.
+- `docs/BEAT_CLOCK.md`: How to initialize and use the BeatClock/Transport for measure-based scheduling.
+- `docs/MELODY_SYSTEM.md`: Melody generation rules and step/registry semantics for robot melodies.
+- `docs/HARMONY_SYSTEM.md`: Harmony progression rules and chord selection used by the systems.
+- `docs/POLYPHONY_GUIDE.md`: Voice management, pool sizing, and voice-stealing policies.
+- `docs/ANIMATION_SYSTEM.md`: GSAP timeline patterns, `timelineMap` lifecycle, and ref registry usage.
+- `docs/BUILDING_DESIGN.md`: Factory and placement rules, production cooldowns, and placement algorithms.
+- `docs/CONTRIBUTION_GUIDE.md`: PR process, testing expectations, and where to record exceptions.

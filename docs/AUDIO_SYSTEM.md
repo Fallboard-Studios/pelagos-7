@@ -1,3 +1,4 @@
+### Key Guarantees
 # Audio System Guide
 
 ## Overview
@@ -119,12 +120,10 @@ export const AudioEngine = {
 ### Key Guarantees
 
 - **Singleton**: Only one AudioEngine exists, accessible globally
-- **Polyphony Control**: Never more than configured max voices (8-12)
-- **Lookahead**: MIN_LEAD (~40-80ms) applied automatically to all scheduling
- - **Polyphony Control**: Never more than the configured max voices (default `MAX_POLYPHONY = 16`)
- - **Lookahead**: MIN_LEAD (probably 50–100ms; implementation defaults to `MIN_LEAD = 0.1s`) applied automatically to scheduling
-- **Idempotent**: Safe to call `start()` multiple times
-- **Cleanup**: Proper disposal of synths and scheduled events on stop
+ **Polyphony Control**: Never more than the configured max voices (default `MAX_POLYPHONY = 16`)
+ **Lookahead**: MIN_LEAD (≈50–100ms; implementation defaults to `MIN_LEAD = 0.1s`) applied automatically to scheduling
+ **Idempotent**: Safe to call `start()` multiple times
+ **Cleanup**: Proper disposal of synths and scheduled events on stop
 
 ### Musical Time Authority
 
@@ -168,9 +167,8 @@ Melody generation creates unique, procedurally-generated patterns for each robot
 Polyphony management controls the maximum number of simultaneous audio voices to prevent audio distortion, CPU overload, and maintain musical clarity.
 
 **Key principles:**
-- Global `MAX_POLYPHONY` limit (typically 8-16 voices)
- - Global `MAX_POLYPHONY` limit (default 16 voices); pool sizing is derived from `settings.maxRobots` and clamped to this limit
- - Shared synth pool (PolySynth slots sized to robots vs. MAX_POLYPHONY)
+- Global `MAX_POLYPHONY` limit (default `MAX_POLYPHONY = 16`); pool sizing is derived from `settings.maxRobots` and clamped to this limit
+- Shared synth pool (PolySynth slots sized to robots vs. `MAX_POLYPHONY`)
 - Fail-fast skipping when limit exceeded
 - Transport-based voice release scheduling
 - Centralized enforcement in AudioEngine
