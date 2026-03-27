@@ -8,6 +8,10 @@ import {
   selectRobotShape,
   generateColors,
   shapeParamsFromAudio,
+  calculateGreebleCount,
+  calculateGreebleSize,
+  calculateGreeblePersistence,
+  calculateGreeblePlacementBias,
   calculateScale,
   calculateDetailLevel,
   applyLightnessMultiplier,
@@ -38,23 +42,40 @@ export const RobotBody = memo(function RobotBody({ robot }: RobotBodyProps) {
     const colors = applyLightnessMultiplier(baseColors, lightnessMultiplier);
     const { shapeParams, microVariants } = shapeParamsFromAudio(robot.audioAttributes as any);
 
+    // Greeble values
+    const detail = calculateDetailLevel(filterFreq);
+    const greebleCount = calculateGreebleCount(filterFreq, detail, robot.audioAttributes.waveform, adsr);
+    const greebleSize = calculateGreebleSize(adsr.sustain);
+    const greeblePersistence = calculateGreeblePersistence(adsr.release);
+    const greeblePlacementBias = calculateGreeblePlacementBias(adsr.decay, adsr.release);
+
     return {
       Component: selectRobotShape(synthType),
       colors,
       scale: calculateScale(pitchRange),
-      detailLevel: calculateDetailLevel(filterFreq),
+      detailLevel: detail,
+      shapeParams,
+      microVariants,
+      greebleCount,
+      greebleSize,
+      greeblePersistence,
+      greeblePlacementBias,
     };
   }, [robot.audioAttributes, lightnessMultiplier]);
 
-  const { Component, colors, scale, detailLevel } = visual;
+  const { Component, colors, scale, detailLevel, shapeParams, microVariants, greebleCount, greebleSize, greeblePersistence, greeblePlacementBias } = visual as any;
 
   return (
     <Component
       colors={colors}
       scale={scale}
       detailLevel={detailLevel}
-        shapeParams={shapeParams}
-        microVariants={microVariants}
+      shapeParams={shapeParams}
+      microVariants={microVariants}
+      greebleCount={greebleCount}
+      greebleSize={greebleSize}
+      greeblePersistence={greeblePersistence}
+      greeblePlacementBias={greeblePlacementBias}
     />
   );
 });

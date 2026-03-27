@@ -24,6 +24,10 @@ interface RobotSVGProps {
   detailLevel: number; // 0-1, controls decoration complexity
   shapeParams?: ShapeParams;
   microVariants?: MicroVariants;
+  greebleCount?: number;
+  greebleSize?: number;
+  greeblePersistence?: number;
+  greeblePlacementBias?: number;
 }
 
 // ========================================
