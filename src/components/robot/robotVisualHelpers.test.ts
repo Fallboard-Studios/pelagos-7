@@ -30,14 +30,14 @@ describe('robotVisualHelpers', () => {
       expect(result).toBe(RobotAngular);
     });
 
-    it('returns RobotOrganic for PolySynth', () => {
+    it('returns RobotIndustrial for PolySynth', () => {
       const result = selectRobotShape('PolySynth');
-      expect(result).toBe(RobotOrganic);
+      expect(result).toBe(RobotIndustrial);
     });
 
-    it('returns RobotIndustrial for DuoSynth', () => {
+    it('returns RobotOrganic for DuoSynth', () => {
       const result = selectRobotShape('DuoSynth');
-      expect(result).toBe(RobotIndustrial);
+      expect(result).toBe(RobotOrganic);
     });
   });
 

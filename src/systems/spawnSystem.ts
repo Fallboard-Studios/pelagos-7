@@ -9,6 +9,7 @@ import { AudioEngine } from '../engine/AudioEngine';
 import { scheduleRepeat, cancelSchedule } from '../engine/beatClock';
 import { DEV_TUNING } from '../constants';
 import { useOceanStore } from '../stores/oceanStore';
+import { removeRobotWithExit } from './removeSystem';
 
 // ========================================
 // CONSTANTS
@@ -47,7 +48,7 @@ const SYNTH_TYPES: SynthType[] = [
   'AMSynth',
   'FMSynth',
   'PolySynth',
-  // 'DuoSynth',
+  'DuoSynth',
 ];
 
 // Waveform types — even distribution gives ~25% each
@@ -197,7 +198,8 @@ export function spawnRobot(): void {
           oldest = r;
         }
       }
-      useOceanStore.getState().removeRobot(oldest.id);
+      // Animate the oldest robot offscreen, then remove it
+      removeRobotWithExit(oldest.id);
       if (DEV_TUNING) {
         console.log(`[SpawnSystem] Max robots reached, removed oldest ${oldest.id}`);
       }
