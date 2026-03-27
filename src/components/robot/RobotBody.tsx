@@ -7,6 +7,7 @@ import type { Robot } from '../../types/Robot';
 import {
   selectRobotShape,
   generateColors,
+  shapeParamsFromAudio,
   calculateScale,
   calculateDetailLevel,
   applyLightnessMultiplier,
@@ -35,6 +36,7 @@ export const RobotBody = memo(function RobotBody({ robot }: RobotBodyProps) {
 
     const baseColors = generateColors(robot.audioAttributes);
     const colors = applyLightnessMultiplier(baseColors, lightnessMultiplier);
+    const { shapeParams, microVariants } = shapeParamsFromAudio(robot.audioAttributes as any);
 
     return {
       Component: selectRobotShape(synthType),
@@ -51,6 +53,8 @@ export const RobotBody = memo(function RobotBody({ robot }: RobotBodyProps) {
       colors={colors}
       scale={scale}
       detailLevel={detailLevel}
+        shapeParams={shapeParams}
+        microVariants={microVariants}
     />
   );
 });

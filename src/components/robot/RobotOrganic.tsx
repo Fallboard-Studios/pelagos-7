@@ -6,10 +6,24 @@ import React from 'react';
 // ========================================
 // TYPES
 // ========================================
+interface ShapeParams {
+  torsoAspect: number;
+  appendageLength: number;
+  scaleBias: number;
+}
+
+interface MicroVariants {
+  stripes?: boolean;
+  smooth?: boolean;
+  spikes?: boolean;
+}
+
 interface RobotSVGProps {
   colors: { primary: string; secondary: string; accent: string };
   scale: number;
   detailLevel: number; // 0-1, controls decoration complexity
+  shapeParams?: ShapeParams;
+  microVariants?: MicroVariants;
 }
 
 // ========================================
@@ -20,9 +34,15 @@ interface RobotSVGProps {
  * Industrial construction with curved organic hull
  * Future: Cell shape, membrane curves, and details controlled by audio attributes
  */
-export const RobotOrganic = React.memo(function RobotOrganic({ colors, scale, detailLevel }: RobotSVGProps) {
+export const RobotOrganic = React.memo(function RobotOrganic({ colors, scale, detailLevel, shapeParams }: RobotSVGProps) {
+  const torsoAspect = shapeParams?.torsoAspect ?? 1;
+  const appendageLength = shapeParams?.appendageLength ?? 1;
+  const scaleBias = shapeParams?.scaleBias ?? 0;
+  const overall = scale * (1 + scaleBias);
+
   return (
-    <g transform={`scale(${scale})`}>
+    <g transform={`scale(${overall})`}>
+      <g transform={`scale(${torsoAspect},1)`}>
       <svg viewBox="0 0 96 72" width={96} height={72}>
         {/* Base hull - organic curved shape */}
         <ellipse cx="48" cy="36" rx="36" ry="28" fill={colors.primary} />
@@ -35,7 +55,7 @@ export const RobotOrganic = React.memo(function RobotOrganic({ colors, scale, de
 
         {/* Propeller mounting pod */}
         <g className="propeller-arm">
-          <ellipse cx="84" cy="36" rx="6" ry="10" fill={colors.secondary} />
+          <ellipse cx="84" cy="36" rx="6" ry={Math.max(6, Math.round(10 * appendageLength))} fill={colors.secondary} />
           <ellipse cx="84" cy="32" rx="4" ry="4" fill="#a9adb0" opacity="0.5" />
           <ellipse cx="84" cy="40" rx="4" ry="4" fill="#000000" opacity="0.3" />
         </g>
@@ -74,6 +94,7 @@ export const RobotOrganic = React.memo(function RobotOrganic({ colors, scale, de
           </g>
         )}
       </svg>
+      </g>
     </g>
   );
 });

@@ -6,10 +6,24 @@ import React from 'react';
 // ========================================
 // TYPES
 // ========================================
+interface ShapeParams {
+  torsoAspect: number;
+  appendageLength: number;
+  scaleBias: number;
+}
+
+interface MicroVariants {
+  stripes?: boolean;
+  smooth?: boolean;
+  spikes?: boolean;
+}
+
 interface RobotSVGProps {
   colors: { primary: string; secondary: string; accent: string };
   scale: number;
   detailLevel: number; // 0-1, controls decoration complexity
+  shapeParams?: ShapeParams;
+  microVariants?: MicroVariants;
 }
 
 // ========================================
@@ -20,9 +34,15 @@ interface RobotSVGProps {
  * Heavy industrial construction with layered armor plates
  * Future: Panel dimensions, rivet placement, and weathering controlled by audio attributes
  */
-export const RobotIndustrial = React.memo(function RobotIndustrial({ colors, scale, detailLevel }: RobotSVGProps) {
+export const RobotIndustrial = React.memo(function RobotIndustrial({ colors, scale, detailLevel, shapeParams }: RobotSVGProps) {
+  const torsoAspect = shapeParams?.torsoAspect ?? 1;
+  const appendageLength = shapeParams?.appendageLength ?? 1;
+  const scaleBias = shapeParams?.scaleBias ?? 0;
+  const overall = scale * (1 + scaleBias);
+
   return (
-    <g transform={`scale(${scale})`}>
+    <g transform={`scale(${overall})`}>
+      <g transform={`scale(${torsoAspect},1)`}>
       <svg viewBox="0 0 96 72" width={96} height={72}>
         {/* Base hull - layered rectangular sections */}
         <path d="M 8,8 L 12,12 H 68 L 72,8 H 88 L 92,12 V 60 L 88,64 H 72 L 68,60 H 12 L 8,64 Z" fill={colors.primary} />
@@ -44,7 +64,7 @@ export const RobotIndustrial = React.memo(function RobotIndustrial({ colors, sca
 
         {/* Propeller mounting - industrial bracket */}
         <g className="propeller-arm">
-          <rect x="88" y="32" width="4" height="8" fill={colors.secondary} />
+          <rect x="88" y="32" width="4" height={Math.max(4, Math.round(8 * appendageLength))} fill={colors.secondary} />
           <path d="M 88,32 H 92 L 91,33 H 89 Z" fill="#a9adb0" opacity="0.5" />
         </g>
 
@@ -94,6 +114,7 @@ export const RobotIndustrial = React.memo(function RobotIndustrial({ colors, sca
           </g>
         )}
       </svg>
+      </g>
     </g>
   );
 });

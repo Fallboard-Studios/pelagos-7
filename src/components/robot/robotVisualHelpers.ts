@@ -129,6 +129,70 @@ export function generateColors(attrs: AudioAttributes): RobotColors {
   };
 }
 
+// ========================================
+// Shape params
+// ========================================
+
+export interface ShapeParams {
+  torsoAspect: number;      // horizontal stretch (0.7..1.3)
+  appendageLength: number;  // multiplier for propeller/strut lengths (0.6..1.4)
+  scaleBias: number;        // additive bias applied to overall scale (-0.3..0.3)
+}
+
+export interface MicroVariants {
+  stripes?: boolean;
+  smooth?: boolean;
+  spikes?: boolean;
+}
+
+/**
+ * Deterministically derive visual shape parameters from AudioAttributes.
+ * Keeps values clamped to safe visual ranges.
+ */
+export function shapeParamsFromAudio(attrs: AudioAttributes & { octaveOffset?: number }) {
+  const { pitchRange, filterFreq, waveform, adsr, octaveOffset } = attrs;
+
+  const avgPitch = (pitchRange.min + pitchRange.max) / 2;
+
+  // torsoAspect: map avgPitch (LOW..HIGH) to 0.85..1.15 (lower pitch -> wider)
+  const pitchNorm = clamp01((avgPitch - LOW_PITCH_THRESHOLD) / (HIGH_PITCH_THRESHOLD - LOW_PITCH_THRESHOLD));
+  const torsoAspect = 1.15 - pitchNorm * 0.3; // 1.15 -> 0.85
+
+  // appendageLength: use filterFreq (more detail -> longer appendages)
+  const detailNorm = calculateDetailLevel(filterFreq); // 0..1
+  const appendageLength = 0.7 + detailNorm * 0.8; // 0.7..1.5
+
+  // scaleBias: derived from pitch (reuse calculateScale as anchor)
+  const baseScale = calculateScale(pitchRange); // 0.7|1|1.3
+  const scaleBias = Math.round((baseScale - 1) * 100) / 100; // -0.3|0|0.3
+
+  // octaveOffset nudges scale if provided (0 = fastest/smallest -> slight negative bias)
+  let octaveBias = 0;
+  if (typeof octaveOffset === 'number') {
+    // map 0->-0.06, 1->0, 2->+0.06
+    octaveBias = (octaveOffset - 1) * 0.06;
+  }
+
+  const finalScaleBias = clamp01(0.5 + (scaleBias + octaveBias)) - 0.5; // keep within roughly -0.5..0.5 then recentre
+
+  // MicroVariants from waveform and ADSR attack
+  const micro: MicroVariants = {};
+  if (waveform === 'square') micro.stripes = true;
+  if (waveform === 'sine') micro.smooth = true;
+  if (waveform === 'triangle' || waveform === 'sawtooth') micro.spikes = true;
+  // fast attack -> highlight micro variant
+  if (adsr.attack < FAST_ATTACK_THRESHOLD) micro.stripes = true;
+
+  // Clamp ergonomics
+  const clamped: ShapeParams = {
+    torsoAspect: Math.max(0.7, Math.min(1.3, torsoAspect)),
+    appendageLength: Math.max(0.6, Math.min(1.4, appendageLength)),
+    scaleBias: Math.max(-0.4, Math.min(0.4, finalScaleBias)),
+  };
+
+  return { shapeParams: clamped, microVariants: micro };
+}
+
 /**
  * Calculate scale from pitch range
  * High pitch → smaller (0.7x)

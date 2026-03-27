@@ -6,10 +6,24 @@ import React from 'react';
 // ========================================
 // TYPES
 // ========================================
+interface ShapeParams {
+  torsoAspect: number;
+  appendageLength: number;
+  scaleBias: number;
+}
+
+interface MicroVariants {
+  stripes?: boolean;
+  smooth?: boolean;
+  spikes?: boolean;
+}
+
 interface RobotSVGProps {
   colors: { primary: string; secondary: string; accent: string };
   scale: number;
   detailLevel: number; // 0-1, controls decoration complexity
+  shapeParams?: ShapeParams;
+  microVariants?: MicroVariants;
 }
 
 // ========================================
@@ -20,9 +34,16 @@ interface RobotSVGProps {
  * Industrial submarine aesthetic with curved hull sections
  * Future: Body curvature, position, and details controlled by audio attributes
  */
-export const RobotSleek = React.memo(function RobotSleek({ colors, scale, detailLevel }: RobotSVGProps) {
+export const RobotSleek = React.memo(function RobotSleek({ colors, scale, detailLevel, shapeParams, microVariants }: RobotSVGProps) {
+  const torsoAspect = shapeParams?.torsoAspect ?? 1;
+  const appendageLength = shapeParams?.appendageLength ?? 1;
+  const scaleBias = shapeParams?.scaleBias ?? 0;
+
+  const overall = scale * (1 + scaleBias);
+
   return (
-    <g transform={`scale(${scale})`}>
+    <g transform={`scale(${overall})`}>
+      <g transform={`scale(${torsoAspect},1)`}>
       <svg viewBox="0 0 96 72" width={96} height={72}>
         {/* Base hull - streamlined curved shape */}
         <path
@@ -46,7 +67,7 @@ export const RobotSleek = React.memo(function RobotSleek({ colors, scale, detail
 
         {/* Propeller mounting strut */}
         <g className="propeller-arm">
-          <rect x="80" y="32" width="10" height="8" fill={colors.secondary} />
+          <rect x="80" y="32" width="10" height={Math.max(4, Math.round(8 * appendageLength))} fill={colors.secondary} />
           <path d="M 80,33 H 89 V 32 H 80 Z" fill="#a9adb0" opacity="0.5" />
           <path d="M 80,39 H 89 V 40 H 80 Z" fill="#000000" opacity="0.3" />
         </g>
@@ -85,6 +106,7 @@ export const RobotSleek = React.memo(function RobotSleek({ colors, scale, detail
           </g>
         )}
       </svg>
+      </g>
     </g>
   );
 });
