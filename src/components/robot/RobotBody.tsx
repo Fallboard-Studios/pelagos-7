@@ -33,7 +33,7 @@ export const RobotBody = memo(function RobotBody({ robot }: RobotBodyProps) {
   const visual = useMemo(() => {
     const { synthType, adsr, pitchRange, filterFreq } = robot.audioAttributes;
 
-    const baseColors = generateColors(adsr);
+    const baseColors = generateColors(robot.audioAttributes);
     const colors = applyLightnessMultiplier(baseColors, lightnessMultiplier);
 
     return {

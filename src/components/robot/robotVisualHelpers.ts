@@ -35,11 +35,16 @@ const LOW_PITCH_THRESHOLD = 200;     // Hz
 const HIGH_FILTER_THRESHOLD = 2000;  // Hz
 const LOW_FILTER_THRESHOLD = 500;    // Hz
 
-// Color palettes (post-apocalyptic theme) - expressed as HSL strings
-const RUSTY_COLORS = ['hsl(30, 65%, 30%)', 'hsl(20, 45%, 35%)', 'hsl(30, 55%, 50%)'];
-const CORRODED_COLORS = ['hsl(120, 12%, 18%)', 'hsl(90, 18%, 28%)', 'hsl(75, 25%, 35%)'];
-const NEON_COLORS = ['hsl(120, 100%, 50%)', 'hsl(180, 100%, 50%)', 'hsl(300, 100%, 50%)'];
-const INDUSTRIAL_COLORS = ['hsl(0, 0%, 41%)', 'hsl(0, 0%, 50%)', 'hsl(0, 0%, 66%)'];
+// Base hue per synth type (degrees)
+const BASE_HUE: Record<SynthType, number> = {
+  AMSynth: 210,
+  FMSynth: 24,
+  PolySynth: 140,
+  DuoSynth: 280,
+};
+
+// Safety guard to avoid divide-by-zero
+const MIN_DENOMINATOR = 1e-4;
 
 // ========================================
 // EXPORTS
@@ -69,26 +74,58 @@ export function selectRobotShape(synthType: SynthType): RobotSVGComponent {
  * Fast attack + short decay → bright neon colors (energetic)
  * Slow attack + long decay → muted corroded colors (atmospheric)
  */
-export function generateColors(adsr: AudioAttributes['adsr']): RobotColors {
-  const { attack, decay } = adsr;
+/**
+ * Compute a hue offset (degrees) from ADSR components.
+ * Uses decay/release and attack/sustain ratios to produce a small deterministic offset.
+ */
+export function hueOffset(adsr: AudioAttributes['adsr']): number {
+  const { attack, decay, sustain, release } = adsr;
+  const denomDR = Math.max(MIN_DENOMINATOR, decay + release);
+  const denomAS = Math.max(MIN_DENOMINATOR, attack + sustain);
 
-  // Determine color palette
-  let palette: string[];
-  if (attack < FAST_ATTACK_THRESHOLD && decay < SHORT_DECAY_THRESHOLD) {
-    palette = NEON_COLORS; // Fast/bright
-  } else if (attack > SLOW_ATTACK_THRESHOLD && decay > LONG_DECAY_THRESHOLD) {
-    palette = CORRODED_COLORS; // Slow/muted
-  } else if (attack < FAST_ATTACK_THRESHOLD) {
-    palette = RUSTY_COLORS; // Fast but sustained
-  } else {
-    palette = INDUSTRIAL_COLORS; // Default
-  }
+  const drComponent = (decay / denomDR - release / denomDR) * 18; // ±18°
+  const asComponent = (attack / denomAS - sustain / denomAS) * 9; // ±9°
 
-  // Palettes are already HSL strings.
+  return drComponent + asComponent;
+}
+
+export function toSaturation(attack: number): number {
+  const MIN_ATTACK = 0.01;
+  const MAX_ATTACK = 1.0;
+  const MIN_SAT = 30;
+  const MAX_SAT = 100;
+
+  const norm = clamp01((attack - MIN_ATTACK) / (MAX_ATTACK - MIN_ATTACK));
+  // Fast attack (small value) -> higher saturation
+  return Math.round(MIN_SAT + (1 - norm) * (MAX_SAT - MIN_SAT));
+}
+
+export function toLuminance(sustain: number): number {
+  const MIN_L = 20;
+  const MAX_L = 72;
+  const norm = clamp01(sustain); // sustain expected in 0..1
+  return Math.round(MIN_L + norm * (MAX_L - MIN_L));
+}
+
+/**
+ * Generate colors from full AudioAttributes
+ */
+export function generateColors(attrs: AudioAttributes): RobotColors {
+  const { synthType, adsr } = attrs;
+
+  const baseHue = BASE_HUE[synthType] ?? 200;
+  const offset = hueOffset(adsr);
+  const primaryHue = ((baseHue + offset) % 360 + 360) % 360; // normalized
+  const secondaryHue = ((primaryHue + 14) % 360 + 360) % 360;
+  const accentHue = ((primaryHue - 22) % 360 + 360) % 360;
+
+  const sat = toSaturation(adsr.attack);
+  const lum = toLuminance(adsr.sustain);
+
   return {
-    primary: palette[0],
-    secondary: palette[1],
-    accent: palette[2],
+    primary: `hsl(${Math.round(primaryHue)}, ${sat}%, ${lum}%)`,
+    secondary: `hsl(${Math.round(secondaryHue)}, ${Math.round(sat * 0.9)}%, ${Math.max(8, Math.round(lum * 0.9))}%)`,
+    accent: `hsl(${Math.round(accentHue)}, ${Math.round(Math.min(100, sat * 1.1))}%, ${Math.max(6, Math.round(lum * 0.95))}%)`,
   };
 }
 
