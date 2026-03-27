@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import type { ADSREnvelope } from '../../types/Robot';
 
 import {
   calculateGreebleCount,
@@ -8,7 +9,7 @@ import {
 
 describe('greeble helpers', () => {
   it('calculateGreebleCount is deterministic and capped <= 16', () => {
-    const adsr = { attack: 0.1, decay: 0.2, sustain: 0.8, release: 0.3 } as any;
+    const adsr: ADSREnvelope = { attack: 0.1, decay: 0.2, sustain: 0.8, release: 0.3 };
     const c1 = calculateGreebleCount(2000, 1.0, 'sawtooth', adsr);
     const c2 = calculateGreebleCount(2000, 1.0, 'sawtooth', adsr);
     expect(c1).toBe(c2);

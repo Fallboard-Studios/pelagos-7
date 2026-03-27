@@ -16,6 +16,7 @@ import {
   calculateDetailLevel,
   applyLightnessMultiplier,
 } from './robotVisualHelpers';
+import type { RobotColors, RobotSVGComponent, ShapeParams, MicroVariants } from './robotVisualHelpers';
 import { useOceanStore } from '../../stores/oceanStore';
 
 // ========================================
@@ -40,7 +41,7 @@ export const RobotBody = memo(function RobotBody({ robot }: RobotBodyProps) {
 
     const baseColors = generateColors(robot.audioAttributes);
     const colors = applyLightnessMultiplier(baseColors, lightnessMultiplier);
-    const { shapeParams, microVariants } = shapeParamsFromAudio(robot.audioAttributes as any);
+    const { shapeParams, microVariants } = shapeParamsFromAudio(robot.audioAttributes);
 
     // Greeble values
     const detail = calculateDetailLevel(filterFreq);
@@ -61,9 +62,20 @@ export const RobotBody = memo(function RobotBody({ robot }: RobotBodyProps) {
       greeblePersistence,
       greeblePlacementBias,
     };
-  }, [robot.audioAttributes, lightnessMultiplier]);
+  }, [robot.audioAttributes, lightnessMultiplier]) as {
+    Component: RobotSVGComponent;
+    colors: RobotColors;
+    scale: number;
+    detailLevel: number;
+    shapeParams: ShapeParams;
+    microVariants: MicroVariants;
+    greebleCount: number;
+    greebleSize: number;
+    greeblePersistence: number;
+    greeblePlacementBias: number;
+  };
 
-  const { Component, colors, scale, detailLevel, shapeParams, microVariants, greebleCount, greebleSize, greeblePersistence, greeblePlacementBias } = visual as any;
+  const { Component, colors, scale, detailLevel, shapeParams, microVariants, greebleCount, greebleSize, greeblePersistence, greeblePlacementBias } = visual;
 
   return (
     <Component

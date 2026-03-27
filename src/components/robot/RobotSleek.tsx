@@ -38,7 +38,7 @@ interface RobotSVGProps {
  * Industrial submarine aesthetic with curved hull sections
  * Future: Body curvature, position, and details controlled by audio attributes
  */
-export const RobotSleek = React.memo(function RobotSleek({ colors, scale, detailLevel, shapeParams, microVariants }: RobotSVGProps) {
+export const RobotSleek = React.memo(function RobotSleek({ colors, scale, detailLevel, shapeParams, _microVariants }: RobotSVGProps) {
   const torsoAspect = shapeParams?.torsoAspect ?? 1;
   const appendageLength = shapeParams?.appendageLength ?? 1;
   const scaleBias = shapeParams?.scaleBias ?? 0;

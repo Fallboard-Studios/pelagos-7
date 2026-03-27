@@ -11,12 +11,13 @@ import {
   hueOffset,
   toSaturation,
   toLuminance,
+  calculateGreebleCount,
 } from './robotVisualHelpers';
 import { RobotSleek } from './RobotSleek';
 import { RobotAngular } from './RobotAngular';
 import { RobotOrganic } from './RobotOrganic';
 import { RobotIndustrial } from './RobotIndustrial';
-import type { AudioAttributes } from '../../types/Robot';
+import type { AudioAttributes, ADSREnvelope } from '../../types/Robot';
 
 describe('robotVisualHelpers', () => {
   describe('selectRobotShape', () => {
@@ -30,14 +31,14 @@ describe('robotVisualHelpers', () => {
       expect(result).toBe(RobotAngular);
     });
 
-    it('returns RobotOrganic for PolySynth', () => {
+    it('returns RobotIndustrial for PolySynth', () => {
       const result = selectRobotShape('PolySynth');
-      expect(result).toBe(RobotOrganic);
+      expect(result).toBe(RobotIndustrial);
     });
 
-    it('returns RobotIndustrial for DuoSynth', () => {
+    it('returns RobotOrganic for DuoSynth', () => {
       const result = selectRobotShape('DuoSynth');
-      expect(result).toBe(RobotIndustrial);
+      expect(result).toBe(RobotOrganic);
     });
   });
 
@@ -51,7 +52,7 @@ describe('robotVisualHelpers', () => {
       } as unknown as AudioAttributes;
 
       const colors = generateColors(attrs);
-      const hslRegex = /^hsl\(\d+,\s*\d+%\,\s*\d+%\)$/;
+      const hslRegex = /^hsl\(\d+,\s*\d+%,\s*\d+%\)$/;
       expect(hslRegex.test(colors.primary)).toBe(true);
       expect(hslRegex.test(colors.secondary)).toBe(true);
       expect(hslRegex.test(colors.accent)).toBe(true);
@@ -93,6 +94,24 @@ describe('robotVisualHelpers', () => {
       const low = toLuminance(0.0);
       const high = toLuminance(1.0);
       expect(high).toBeGreaterThan(low);
+    });
+
+    it('calculateGreebleCount: deterministic, integer, and capped at 16', () => {
+      const waveform = 'sawtooth' as const;
+      const adsr1: ADSREnvelope = { attack: 0.01, decay: 0.1, sustain: 1.0, release: 0.2 };
+      const adsr2: ADSREnvelope = { attack: 0.5, decay: 1.0, sustain: 0.1, release: 1.0 };
+
+      const c1 = calculateGreebleCount(2200, 1.0, waveform, adsr1);
+      const c2 = calculateGreebleCount(200, 0.0, waveform, adsr2);
+
+      expect(Number.isInteger(c1)).toBe(true);
+      expect(Number.isInteger(c2)).toBe(true);
+      expect(c1).toBeGreaterThanOrEqual(0);
+      expect(c1).toBeLessThanOrEqual(16);
+      expect(c2).toBeGreaterThanOrEqual(0);
+      expect(c2).toBeLessThanOrEqual(16);
+      // different inputs should often produce different results
+      expect(c1).not.toEqual(c2);
     });
   });
 

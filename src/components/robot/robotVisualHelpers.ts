@@ -23,9 +23,9 @@ export type RobotSVGComponent = typeof RobotSleek | typeof RobotAngular | typeof
 // ========================================
 // ADSR thresholds for color mapping
 const FAST_ATTACK_THRESHOLD = 0.1;   // seconds
-const SLOW_ATTACK_THRESHOLD = 0.5;   // seconds
-const SHORT_DECAY_THRESHOLD = 0.3;   // seconds
-const LONG_DECAY_THRESHOLD = 1.0;    // seconds
+const _SLOW_ATTACK_THRESHOLD = 0.5;   // seconds
+const _SHORT_DECAY_THRESHOLD = 0.3;   // seconds
+const _LONG_DECAY_THRESHOLD = 1.0;    // seconds
 
 // Pitch thresholds for scale mapping
 const HIGH_PITCH_THRESHOLD = 600;    // Hz
@@ -39,8 +39,8 @@ const LOW_FILTER_THRESHOLD = 500;    // Hz
 const BASE_HUE: Record<SynthType, number> = {
   AMSynth: 210,
   FMSynth: 24,
-  PolySynth: 140,
-  DuoSynth: 280,
+  PolySynth: 280,
+  DuoSynth: 140,
 };
 
 // Safety guard to avoid divide-by-zero
@@ -61,9 +61,9 @@ export function selectRobotShape(synthType: SynthType): RobotSVGComponent {
     case 'FMSynth':
       return RobotAngular;
     case 'PolySynth':
-      return RobotOrganic;
-    case 'DuoSynth':
       return RobotIndustrial;
+    case 'DuoSynth':
+      return RobotOrganic;
     default:
       return RobotSleek; // Fallback
   }
