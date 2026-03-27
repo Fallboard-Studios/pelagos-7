@@ -56,9 +56,9 @@ export function selectRobotShape(synthType: SynthType): RobotSVGComponent {
     case 'FMSynth':
       return RobotAngular;
     case 'PolySynth':
-      return RobotOrganic;
-    case 'DuoSynth':
       return RobotIndustrial;
+    case 'DuoSynth':
+      return RobotOrganic;
     default:
       return RobotSleek; // Fallback
   }
