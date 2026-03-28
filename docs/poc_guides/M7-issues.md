@@ -22,92 +22,89 @@
 
 ---
 
-## M7.1: Audio-Derived HSL Color System
+## M7.1: Audio → Visual: split proposals
 
-**Title:** [M7.1] Replace hex palette buckets with continuous HSL color derivation
+**Overview:** The original M7.1 proposal is split into smaller, focused issues to make implementation and review easier. Below are the suggested sub-issues (pick any to open):
+
+### M7.1a — Color System: Continuous HSL
+
+**Title:** [M7.1a] Replace palette-bucket `generateColors()` with continuous HSL mapping
 
 **Labels:** feature, system: ui, size: M
 
-### Feature Description
-Replace the current `generateColors()` function in `robotVisualHelpers.ts`, which assigns robots to one of four static hex palettes. The new system derives a continuous HSL color from audio attributes, giving each robot a genuinely unique tint. Each `synthType` anchors a base hue; the ADSR envelope then shifts that hue, controls saturation, and controls luminance.
+**What:** Replace the static palette buckets with a deterministic HSL color generator that uses full `AudioAttributes`. Export small helpers: `hueOffset(adsr)`, `toSaturation(attack)`, `toLuminance(sustain)` and a `generateColors(audioAttributes: AudioAttributes): RobotColors` that returns `primary`, `secondary`, and `accent` as HSL strings.
 
-### Implementation Details
+**Acceptance criteria:**
+- `generateColors(audioAttributes)` implemented and typed
+- Uses `BASE_HUE` per `synthType` and a `MIN_DENOMINATOR` guard to avoid division-by-zero
+- Returns `primary`, `secondary`, `accent` as HSL strings
+- Removes unused hex palette constants
+- Call sites updated and TypeScript compiles
 
-**Base hue by synthType (anchor values):**
-```typescript
-const BASE_HUE: Record<SynthType, number> = {
-  AMSynth:       210,  // blue-cyan family (Sleek)
-  FMSynth:       280,  // purple family    (Angular)
-  PolySynth:     135,  // green family     (Organic)
-  MembraneSynth:  25,  // orange family    (Industrial)
-};
-```
+**Files:**
+- `src/components/robot/robotVisualHelpers.ts`
+- `src/components/robot/RobotBody.tsx`
 
-**Hue offset formula:**
-The raw hue offset is `(A / S) + (D / R)` where A, D, S, R are the ADSR seconds/ratio values. Both terms can produce very large numbers when the denominator is near zero, so clamp each ratio individually before summing, then multiply by a scale constant to keep the offset inside a musically useful arc (~0–180°):
+### M7.1b — Shape Parameters & Micro-Variants
 
-```typescript
-const MIN_DENOMINATOR = 0.05; // prevent division by zero
+**Title:** [M7.1b] Deterministic shape params from `AudioAttributes`
 
-function hueOffset(adsr: ADSREnvelope): number {
-  const aOverS = adsr.attack  / Math.max(adsr.sustain, MIN_DENOMINATOR);
-  const dOverR = adsr.decay   / Math.max(adsr.release, MIN_DENOMINATOR);
-  const raw    = Math.min(aOverS, 10) + Math.min(dOverR, 10); // clamp each to 0-10
-  return (raw / 20) * 180; // normalise 0-20 → 0-180 degrees
-}
-```
+**What:** Keep the `synthType` → hull variant mapping but expose `shapeParamsFromAudio(audioAttributes)` to compute proportions (torso aspect, appendage length), `microVariant` flags (waveform-driven SVG treatments), and any scale biases driven by `pitchRange` and `octaveOffset`.
 
-**Saturation from attack:** Fast attack (≤0.01 s) = 90%; slow attack (≥2.0 s) = 30%. Linear interpolation:
-```typescript
-function toSaturation(attack: number): number {
-  return Math.round(90 - clamp((attack / 2.0), 0, 1) * 60); // 90% → 30%
-}
-```
+**Acceptance criteria:**
+- `shapeParamsFromAudio()` exported and typed
+- Shapes accept `shapeParams` and `microVariant` props and render deterministically
+- `pitchRange` and `octaveOffset` meaningfully affect proportions
 
-**Luminance from sustain:** High sustain = brighter. Range kept to 25–65% to avoid pure white or pure black:
-```typescript
-function toLuminance(sustain: number): number {
-  return Math.round(25 + clamp(sustain, 0, 1) * 40); // 25% → 65%
-}
-```
+**Files:**
+- `src/components/robot/robotVisualHelpers.ts`
+- `src/components/robot/RobotSleek.tsx`, `RobotAngular.tsx`, `RobotOrganic.tsx`, `RobotIndustrial.tsx`
 
-**Final color assembly:**
-```typescript
-export function generateColors(audioAttributes: AudioAttributes): RobotColors {
-  const { synthType, adsr } = audioAttributes;
-  const h = (BASE_HUE[synthType] + hueOffset(adsr)) % 360;
-  const s = toSaturation(adsr.attack);
-  const l = toLuminance(adsr.sustain);
+### M7.1c — Greebles & Detail System
 
-  const primary   = `hsl(${h}, ${s}%, ${l}%)`;
-  const secondary = `hsl(${h}, ${Math.max(10, s - 20)}%, ${Math.min(75, l + 10)}%)`;
-  const accent    = `hsl(${(h + 45) % 360}, ${s}%, ${Math.min(80, l + 15)}%)`;
+**Title:** [M7.1c] Continuous greeble generation driven by `filterFreq`/`detailLevel`
 
-  return { primary, secondary, accent };
-}
-```
+**What:** Replace threshold buckets with continuous greeble generation driven by `filterFreq`, `detailLevel`, `adsr.sustain`, `adsr.release`, and `waveform`. Export `calculateGreebleCount(filterFreq, detailLevel, waveform, adsr)` and deterministic `greeble` sizing/placement formulas.
 
-- `secondary` is a lighter / less saturated version of the primary (structural elements)
-- `accent` shifts hue +45° for complementary sensors / lights
-- Update `generateColors` signature to accept full `AudioAttributes` instead of just `adsr` (needed to read `synthType`)
-- Remove `RUSTY_COLORS`, `CORRODED_COLORS`, `NEON_COLORS`, `INDUSTRIAL_COLORS` constants and threshold constants that are no longer used
-- Update all call sites (primarily `Robot.tsx`) to pass `audioAttributes` rather than `audioAttributes.adsr`
+**Acceptance criteria:**
+- `calculateGreebleCount()` returns deterministic counts (capped ≤ 16)
+- `size` and `persistence` formulas tied to `sustain`/`release`
+- Placement bias uses `decay/release` ratio
+- Greebles remain visual-only (no Zustand)
 
-### Acceptance Criteria
-- [ ] `generateColors()` accepts `AudioAttributes` and returns `RobotColors` with HSL strings
-- [ ] Each `synthType` produces a visibly different hue family
-- [ ] Two robots with identical `synthType` but different ADSR values produce different tints
-- [ ] Saturation tracks `adsr.attack` (fast = vivid, slow = muted)
-- [ ] Luminance tracks `adsr.sustain` (high = bright, low = dark)
-- [ ] No hex palette constants remain
-- [ ] No division-by-zero possible (MIN_DENOMINATOR guard in place)
-- [ ] Existing `robotVisualHelpers.test.ts` updated/extended to cover new formula
-- [ ] All call sites compile without TypeScript errors
+**Files:**
+- `src/components/robot/robotVisualHelpers.ts`
+- `src/components/robot/RobotBody.tsx`
 
-### Reference
-- `src/components/robot/robotVisualHelpers.ts` — `generateColors()`, palette constants
-- `src/components/robot/Robot.tsx` — call site
-- `src/types/Robot.ts` — `AudioAttributes`, `ADSREnvelope`, `SynthType`
+### M7.1d — Robot API / Integration
+
+**Title:** [M7.1d] Update consumers to use full `audioAttributes` and new visual props
+
+**What:** Update `RobotBody.tsx`/`Robot.tsx` to compute `colors = generateColors(audioAttributes)`, `shapeParams = shapeParamsFromAudio(audioAttributes)`, and `greebleCount = calculateGreebleCount(...)` and pass the new props into shape components. Keep GSAP-driven animations unchanged.
+
+**Acceptance criteria:**
+- `RobotBody.tsx` computes and passes new props
+- Shape components accept new props and compile
+- No GSAP/state regressions
+
+**Files:**
+- `src/components/robot/RobotBody.tsx`, `Robot.tsx`
+
+### M7.1e — Tests & Visual QA
+
+**Title:** [M7.1e] Unit tests and a visual QA grid for audio→visual mappings
+
+**What:** Add unit tests for color helpers and greeble calculations, and create a visual QA grid (screenshot or story) that renders representative robots across synth types and ADSR corners for manual review.
+
+**Acceptance criteria:**
+- Unit tests for `hueOffset`, `toSaturation`, `toLuminance`, and `calculateGreebleCount`
+- Visual QA artifacts (grid of samples) saved under `docs/` or `scripts/`
+
+**Files:**
+- `src/components/robot/robotVisualHelpers.test.ts`
+- `docs/` or `scripts/` (visual QA outputs)
+
+---
 
 ---
 

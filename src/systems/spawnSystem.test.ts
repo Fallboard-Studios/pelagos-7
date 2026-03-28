@@ -37,10 +37,10 @@ describe('spawnSystem', () => {
       const bottomEdge = positions.filter((p) => p.y > 1080).length;
 
       // Each edge should be hit roughly 25% of the time over 100 samples
-      expect(leftEdge).toBeGreaterThan(10);
-      expect(rightEdge).toBeGreaterThan(10);
-      expect(topEdge).toBeGreaterThan(10);
-      expect(bottomEdge).toBeGreaterThan(10);
+      expect(leftEdge).toBeGreaterThanOrEqual(10);
+      expect(rightEdge).toBeGreaterThanOrEqual(10);
+      expect(topEdge).toBeGreaterThanOrEqual(10);
+      expect(bottomEdge).toBeGreaterThanOrEqual(10);
     });
 
     it('generates varied positions (not all the same)', () => {

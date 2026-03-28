@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Robot Visual QA</title>
+  <style>
+    body {
+      font-family: system-ui, Segoe UI, Roboto, Helvetica, Arial;
+      margin: 24px;
+      color: #0b1220
+    }
+
+    h1 {
+      font-size: 18px;
+      margin-bottom: 12px
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px
+    }
+
+    .cell {
+      border: 1px solid #ddd;
+      padding: 8px;
+      border-radius: 6px;
+      background: #fff
+    }
+
+    .label {
+      font-size: 12px;
+      margin-bottom: 8px;
+      color: #333
+    }
+
+    svg {
+      width: 160px;
+      height: 120px;
+      display: block
+    }
+
+    .meta {
+      font-size: 11px;
+      color: #666;
+      margin-top: 6px
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Robot Visual QA — Representative synth types & ADSR corners</h1>
+  <p>Manual review: ensure hues, saturations, luminance, scale, and greeble density vary across samples.</p>
+  <div id="grid" class="grid"></div>
+
+  <script>
+    // Minimal reimplementation of the helpers used for visual QA
+    const BASE_HUE = { AMSynth: 210, FMSynth: 24, PolySynth: 280, DuoSynth: 140 };
+    const MIN_DENOMINATOR = 1e-4;
+    function clamp01(v) { return Math.max(0, Math.min(1, v)); }
+
+    function hueOffset(adsr) {
+      const { attack, decay, sustain, release } = adsr;
+      const denomDR = Math.max(MIN_DENOMINATOR, decay + release);
+      const denomAS = Math.max(MIN_DENOMINATOR, attack + sustain);
+      const drComponent = (decay / denomDR - release / denomDR) * 18;
+      const asComponent = (attack / denomAS - sustain / denomAS) * 9;
+      return drComponent + asComponent;
+    }
+    function toSaturation(attack) {
+      const MIN_ATTACK = 0.01, MAX_ATTACK = 1.0, MIN_SAT = 30, MAX_SAT = 100;
+      const norm = clamp01((attack - MIN_ATTACK) / (MAX_ATTACK - MIN_ATTACK));
+      return Math.round(MIN_SAT + (1 - norm) * (MAX_SAT - MIN_SAT));
+    }
+    function toLuminance(sustain) {
+      const MIN_L = 20, MAX_L = 72; return Math.round(MIN_L + clamp01(sustain) * (MAX_L - MIN_L));
+    }
+    function generateColors(attrs) {
+      const { synthType, adsr } = attrs;
+      const baseHue = BASE_HUE[synthType] ?? 200;
+      const offset = hueOffset(adsr);
+      const primaryHue = ((baseHue + offset) % 360 + 360) % 360;
+      const secondaryHue = ((primaryHue + 14) % 360 + 360) % 360;
+      const accentHue = ((primaryHue - 22) % 360 + 360) % 360;
+      const sat = toSaturation(adsr.attack);
+      const lum = toLuminance(adsr.sustain);
+      return {
+        primary: `hsl(${Math.round(primaryHue)}, ${sat}%, ${lum}%)`,
+        secondary: `hsl(${Math.round(secondaryHue)}, ${Math.round(sat * 0.9)}%, ${Math.max(8, Math.round(lum * 0.9))}%)`,
+        accent: `hsl(${Math.round(accentHue)}, ${Math.round(Math.min(100, sat * 1.1))}%, ${Math.max(6, Math.round(lum * 0.95))}%)`,
+      };
+    }
+
+    function calculateDetailLevel(filterFreq) {
+      const LOW = 500, HIGH = 2000; if (filterFreq <= LOW) return 0; if (filterFreq >= HIGH) return 1; return (filterFreq - LOW) / (HIGH - LOW);
+    }
+    function calculateGreebleCount(filterFreq, detailLevel, waveform, adsr) {
+      const freqDetail = calculateDetailLevel(filterFreq);
+      const sustainFactor = clamp01(adsr.sustain);
+      const base = freqDetail * 0.6 + clamp01(detailLevel) * 0.25 + sustainFactor * 0.15;
+      const waveformBias = (waveform === 'sawtooth' || waveform === 'square') ? 1 : 0;
+      const raw = Math.round(base * 15) + waveformBias; return Math.max(0, Math.min(16, raw));
+    }
+
+    const synthTypes = ['AMSynth', 'FMSynth', 'PolySynth', 'DuoSynth'];
+    const adsrCorners = [
+      { name: 'Fast/Short/HighSustain', adsr: { attack: 0.01, decay: 0.08, sustain: 1.0, release: 0.1 } },
+      { name: 'Slow/Long/LowSustain', adsr: { attack: 0.8, decay: 1.2, sustain: 0.05, release: 1.8 } },
+      { name: 'Medium', adsr: { attack: 0.2, decay: 0.5, sustain: 0.5, release: 0.4 } }
+    ];
+
+    const grid = document.getElementById('grid');
+
+    synthTypes.forEach(synth => {
+      adsrCorners.forEach(corner => {
+        const attrs = { synthType: synth, adsr: corner.adsr, pitchRange: { min: 100, max: 800 }, filterFreq: 1200 };
+        const colors = generateColors(attrs);
+        const detail = calculateDetailLevel(attrs.filterFreq);
+        const greebleCount = calculateGreebleCount(attrs.filterFreq, detail, 'sawtooth', attrs.adsr);
+
+        const cell = document.createElement('div'); cell.className = 'cell';
+        const label = document.createElement('div'); label.className = 'label'; label.textContent = `${synth} — ${corner.name}`;
+        const meta = document.createElement('div'); meta.className = 'meta'; meta.innerHTML = `colors: ${colors.primary} / ${colors.secondary} / ${colors.accent} <br> greebles: ${greebleCount}`;
+
+        // Simple representative SVG using shapes from components, colored
+        const svgNS = 'http://www.w3.org/2000/svg';
+        const svg = document.createElementNS(svgNS, 'svg'); svg.setAttribute('viewBox', '0 0 96 72');
+
+        // base hull (rect/ellipse/polygon per synth)
+        if (synth === 'AMSynth') {
+          const path = document.createElementNS(svgNS, 'path'); path.setAttribute('d', 'M 8,16 L 12,12 H 72 L 80,20 V 52 L 72,60 H 12 L 8,56 Z'); path.setAttribute('fill', colors.primary); svg.appendChild(path);
+        } else if (synth === 'FMSynth') {
+          const poly = document.createElementNS(svgNS, 'polygon'); poly.setAttribute('points', '16,36 24,12 72,12 80,36 72,60 24,60'); poly.setAttribute('fill', colors.primary); svg.appendChild(poly);
+        } else if (synth === 'PolySynth') {
+          const ell = document.createElementNS(svgNS, 'ellipse'); ell.setAttribute('cx', '48'); ell.setAttribute('cy', '36'); ell.setAttribute('rx', '36'); ell.setAttribute('ry', '28'); ell.setAttribute('fill', colors.primary); svg.appendChild(ell);
+        } else {
+          const p = document.createElementNS(svgNS, 'path'); p.setAttribute('d', 'M 8,8 L 12,12 H 68 L 72,8 H 88 L 92,12 V 60 L 88,64 H 72 L 68,60 H 12 L 8,64 Z'); p.setAttribute('fill', colors.primary); svg.appendChild(p);
+        }
+
+        // viewport
+        const view = document.createElementNS(svgNS, 'circle'); view.setAttribute('cx', '32'); view.setAttribute('cy', '36'); view.setAttribute('r', '10'); view.setAttribute('fill', '#78cce2'); view.setAttribute('opacity', '0.8'); svg.appendChild(view);
+
+        // accent detail
+        const acc = document.createElementNS(svgNS, 'rect'); acc.setAttribute('x', '60'); acc.setAttribute('y', '28'); acc.setAttribute('width', '8'); acc.setAttribute('height', '16'); acc.setAttribute('fill', colors.accent); acc.setAttribute('opacity', '0.8'); svg.appendChild(acc);
+
+        // greebles: draw small circles distributed across hull
+        for (let i = 0; i < greebleCount; i++) {
+          const gx = 12 + ((i * 37) % 68);
+          const gy = 18 + ((i * 23) % 36);
+          const g = document.createElementNS(svgNS, 'circle'); g.setAttribute('cx', String(gx)); g.setAttribute('cy', String(gy)); g.setAttribute('r', String(1 + (i % 3))); g.setAttribute('fill', colors.secondary); g.setAttribute('opacity', '0.9'); svg.appendChild(g);
+        }
+
+        cell.appendChild(label); cell.appendChild(svg); cell.appendChild(meta);
+        grid.appendChild(cell);
+      });
+    });
+  </script>
+</body>
+
+</html>
