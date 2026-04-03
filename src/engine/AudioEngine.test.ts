@@ -356,3 +356,45 @@ describe('AudioEngine - Reservation & Isolation (focused)', () => {
     expect(result).toBe(true);
   });
 });
+
+describe('AudioEngine - Composite Voices (Layered)', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    useOceanStore.setState({ settings: { bpm: 120, maxRobots: 6, minRobots: 1 } } as unknown as Record<string, unknown>);
+  });
+
+  it('can reserve a composite voice from a LayeredWave descriptor', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+    const layered = { base: 'sine', layers: [{ type: 'sine', gain: 0.8 }] } as unknown as import('../types/layeredAudio').LayeredWave;
+    const ok = AudioEngine.reserveVoice('composite-robot-1', layered);
+    expect(ok).toBe(true);
+    const voice = AudioEngine.getVoiceForRobot('composite-robot-1');
+    expect(voice).not.toBeNull();
+  });
+
+  it('triggerWithCap uses composite voice when reserved and returns true', async () => {
+    const { AudioEngine, triggerWithCap } = await import('./AudioEngine');
+    await AudioEngine.start();
+    const layered = { base: 'sine', layers: [{ type: 'sine', gain: 0.6 }] } as unknown as import('../types/layeredAudio').LayeredWave;
+    const ok = AudioEngine.reserveVoice('composite-robot-2', layered);
+    expect(ok).toBe(true);
+    const result = triggerWithCap({ robotId: 'composite-robot-2', note: 'C4', duration: '8n', time: 0 });
+    expect(result).toBe(true);
+  });
+
+  it('releases composite and cleans up internal maps on releaseVoice', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+    const layered = { base: 'sine', layers: [{ type: 'sine', gain: 0.6 }] } as unknown as import('../types/layeredAudio').LayeredWave;
+    const ok = AudioEngine.reserveVoice('composite-robot-3', layered);
+    expect(ok).toBe(true);
+    // ensure voice exists
+    let voice = AudioEngine.getVoiceForRobot('composite-robot-3');
+    expect(voice).not.toBeNull();
+    // release and ensure it's removed
+    AudioEngine.releaseVoice('composite-robot-3');
+    voice = AudioEngine.getVoiceForRobot('composite-robot-3');
+    expect(voice).toBeNull();
+  });
+});

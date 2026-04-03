@@ -180,6 +180,24 @@ Polyphony management controls the maximum number of simultaneous audio voices to
 
 **For complete implementation details, see [POLYPHONY_GUIDE.md](POLYPHONY_GUIDE.md).**
 
+## Layered / Composite Voices and Visual Mapping
+
+Pelagos-7 supports compact, spawn-time layered descriptors ("LayeredWave") that describe a small stack of timbral layers (oscillators or noise) and per-layer gains/detune/adsr. These descriptors are intentionally serializable and stored on the robot as a `visualAudioMap` so the visual system can deterministically derive appearance from audio without instantiating synths at render time.
+
+Key points:
+- A `LayeredWave` is a small JSON-like descriptor: `{ base: WaveformType, layers?: LayerDescriptor[] }`.
+- At spawn time the `spawnSystem` may create 1–3 layered presets and compute a gain-weighted averaged ADSR and compact `shapeParams` used by robot visuals.
+- The `AudioEngine` can create a runtime composite voice from a `LayeredWave` via `AudioEngine.createCompositeVoice()` and `AudioEngine.reserveVoice(robotId, layeredWave)`. Composite voices are routed into a per-robot sub-bus (panner -> gain -> filter -> master compressor) to avoid parameter bleed and allow safe per-robot control.
+- Composite voices expose `triggerAttackRelease`, `set`, and `dispose` semantics similar to single synths so scheduling code uses the same high-level APIs.
+- Because `visualAudioMap` is serializable and stored on spawn, visuals can be rendered identically in non-audio contexts (editor previews, snapshots) without requiring Tone.js objects.
+
+Recommended usage:
+- At spawn: generate and persist a compact `visualAudioMap` on the robot. This contains the `LayeredWave`, `averagedADSR`, `averagedGain`, `shapeParams`, and per-layer `layerVisuals`.
+- At audio init: attempt `AudioEngine.reserveVoice(robotId, layeredWave)` to allocate an isolated composite voice. If reservation fails (pool exhausted), AudioEngine will gracefully fall back to shared pool voices.
+- In components: prefer reading `visualAudioMap` (or the `robotVisualMapper`) for visual properties; do not instantiate synths in components.
+
+See `src/types/layeredAudio.ts` and `src/systems/spawnSystem.ts` for the canonical descriptor shape and spawn-time averaging logic.
+
 ## Scheduling Patterns
 
 Audio scheduling in Pelagos-7 uses Tone.js Transport for sample-accurate, musically-aligned timing.

@@ -6,6 +6,7 @@ import type { Robot, AudioAttributes, SynthType, WaveformType } from '../types/R
 import { RobotState } from '../types/Robot';
 import { generateMelodyForRobot } from '../engine/melodyGenerator';
 import { AudioEngine } from '../engine/AudioEngine';
+import type { LayeredWave, LayerDescriptor } from '../types/layeredAudio';
 import { scheduleRepeat, cancelSchedule } from '../engine/beatClock';
 import { DEV_TUNING } from '../constants';
 import { useOceanStore } from '../stores/oceanStore';
@@ -28,6 +29,10 @@ const ATTACK_RANGE = { min: 0.01, max: 0.5 };
 const DECAY_RANGE = { min: 0.1, max: 1.5 };
 const SUSTAIN_RANGE = { min: 0.3, max: 0.9 };
 const RELEASE_RANGE = { min: 0.2, max: 1.2 };
+
+// M7.4: Layered presets and normalization constants
+const MAX_LAYERS = 3;
+const ADSR_MAX = { attack: 2, decay: 2, sustain: 1, release: 5 };
 
 // Pitch ranges (Hz) - determines robot scale
 const PITCH_RANGES = [
@@ -165,7 +170,90 @@ export function generateAudioAttributes(): AudioAttributes {
   // Random waveform — evenly distributed (~25% each)
   const waveform = WAVEFORMS[Math.floor(Math.random() * WAVEFORMS.length)];
 
-  return { synthType, adsr, pitchRange, filterFreq, reverb, waveform };
+  // Derive a compact visualAudioMap to store on the robot at spawn time.
+  // ---
+  // M7.4: Generate layered presets (1..MAX_LAYERS layers), each with gain and ADSR.
+  // The mapping and normalization logic below is critical for visual/audio consistency:
+  // - Each layer gets randomized ADSR and gain.
+  // - Gain-weighted averaging and normalization (by ADSR_MAX) is used to produce a single averaged ADSR.
+  // - These normalized values are mapped to ShapeParams for visuals.
+  // If you change the mapping, update docs and robotVisualMapper accordingly.
+  const clamp = (v: number) => Math.max(0, Math.min(1, v));
+
+  const numLayers = 1 + Math.floor(Math.random() * MAX_LAYERS); // 1..MAX_LAYERS
+  const layers: LayeredWave['layers'] = [];
+  for (let i = 0; i < numLayers; i++) {
+    const isNoise = Math.random() < 0.18; // small chance of noise layer
+    const layerWave: LayerDescriptor = {
+      type: isNoise ? 'noise' : WAVEFORMS[Math.floor(Math.random() * WAVEFORMS.length)],
+      gain: 0.2 + Math.random() * 1.0, // 0.2 .. 1.2
+      detune: (Math.random() - 0.5) * 4, // -20 .. +20 cents
+      adsr: {
+        attack: ATTACK_RANGE.min + Math.random() * (ATTACK_RANGE.max - ATTACK_RANGE.min),
+        decay: DECAY_RANGE.min + Math.random() * (DECAY_RANGE.max - DECAY_RANGE.min),
+        sustain: SUSTAIN_RANGE.min + Math.random() * (SUSTAIN_RANGE.max - SUSTAIN_RANGE.min),
+        release: RELEASE_RANGE.min + Math.random() * (RELEASE_RANGE.max - RELEASE_RANGE.min),
+      },
+    };
+    layers.push(layerWave);
+  }
+
+  // Compute gain-weighted normalized ADSR (normalize by ADSR_MAX), then convert back
+  // to seconds for averagedADSR while keeping a normalized copy for mapping.
+  // ---
+  // This ensures that the visual mapping (scale, roundness, detail) is always in 0..1 range
+  // and reflects the actual audio envelope shape.
+  let totalGain = 0;
+  for (const l of layers) totalGain += l.gain ?? 1;
+  if (totalGain <= 0) totalGain = layers.length || 1;
+
+  const normSum = layers.reduce(
+    (acc, l) => {
+      const g = l.gain ?? 1;
+      acc.attack += (l.adsr?.attack ?? 0) / ADSR_MAX.attack * g;
+      acc.decay += (l.adsr?.decay ?? 0) / ADSR_MAX.decay * g;
+      acc.sustain += (l.adsr?.sustain ?? 0) / ADSR_MAX.sustain * g;
+      acc.release += (l.adsr?.release ?? 0) / ADSR_MAX.release * g;
+      return acc;
+    },
+    { attack: 0, decay: 0, sustain: 0, release: 0 }
+  );
+
+  const averagedNorm = {
+    attack: normSum.attack / totalGain,
+    decay: normSum.decay / totalGain,
+    sustain: normSum.sustain / totalGain,
+    release: normSum.release / totalGain,
+  };
+
+  const averagedADSR = {
+    attack: averagedNorm.attack * ADSR_MAX.attack,
+    decay: averagedNorm.decay * ADSR_MAX.decay,
+    sustain: averagedNorm.sustain * ADSR_MAX.sustain,
+    release: averagedNorm.release * ADSR_MAX.release,
+  };
+
+  const averagedGain = (layers.reduce((s, l) => s + (l.gain ?? 1), 0) / layers.length) || 1;
+
+  // Map averaged normalized ADSR into simple ShapeParams (0..1)
+  // Mapping rules:
+  //   - scale: larger when attack is shorter (snappier envelope → bigger robot)
+  //   - roundness: mapped from sustain (higher sustain → rounder shape)
+  //   - detail: mapped from release (longer release → more detail/greebles)
+  // If you adjust these, update robotVisualMapper and docs for consistency.
+  const scale = clamp(0.25 + (1 - averagedNorm.attack) * 0.75);
+  const roundness = clamp(averagedNorm.sustain);
+  const detail = clamp(averagedNorm.release);
+
+  const visualAudioMap = {
+    layeredWave: { base: waveform, layers },
+    averagedADSR,
+    averagedGain,
+    shapeParams: { scale, roundness, detail },
+    layerVisuals: layers.map((l) => ({ color: undefined, scale: clamp((l.gain ?? 1) / 1.2,), offset: { x: 0, y: 0 } })),
+  };
+
+  return { synthType, adsr, pitchRange, filterFreq, reverb, waveform, visualAudioMap };
 }
 
 /**
@@ -237,12 +325,17 @@ export function spawnRobot(): void {
   // Reserve a voice for this robot (best-effort) so its timbre/adsr are isolated.
   // Waveform is applied once here on the idle slot — no mid-playback oscillator rebuilds.
   try {
-    AudioEngine.reserveVoice(
-      robot.id,
-      robot.audioAttributes.synthType as string,
-      robot.audioAttributes.waveform,
-      robot.audioAttributes.adsr,
-    );
+    const layered = (robot.audioAttributes as unknown as { visualAudioMap?: { layeredWave?: LayeredWave } })?.visualAudioMap?.layeredWave as LayeredWave | undefined;
+    if (layered) {
+      AudioEngine.reserveVoice(robot.id, layered);
+    } else {
+      AudioEngine.reserveVoice(
+        robot.id,
+        robot.audioAttributes.synthType as string,
+        robot.audioAttributes.waveform,
+        robot.audioAttributes.adsr,
+      );
+    }
   } catch (err) {
     if (DEV_TUNING) console.warn('[SpawnSystem] reserveVoice failed', err);
   }

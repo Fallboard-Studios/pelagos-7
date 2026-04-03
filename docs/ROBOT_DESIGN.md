@@ -158,6 +158,23 @@ function calculateDetailLevel(filterFreq: number): number {
 }
 ```
 
+## Spawn-time Visual Mapping (`visualAudioMap`)
+
+The audio systems produce a compact `visualAudioMap` at spawn time that is stored on each robot's `audioAttributes`. This map is intentionally serializable and contains a small `LayeredWave` descriptor plus derived visuals used by the rendering pipeline:
+
+- `layeredWave` — compact layered descriptor (base + optional per-layer gain/detune/adsr)
+- `averagedADSR` — gain-weighted averaged ADSR envelope derived from layers
+- `averagedGain` — overall loudness proxy used for color/luminance mapping
+- `shapeParams` — compact shape values (`scale`, `roundness`, `detail`) in 0..1 used by the SVG components
+- `layerVisuals` — optional per-layer color/scale/offset hints for greebles and lights
+
+Practical guidelines:
+- Prefer `visualAudioMap` when rendering — it guarantees deterministic visuals in editor previews and snapshots without initializing Tone.js.
+- Keep the map serializable; never store Tone.js nodes or functions in state.
+- The runtime `AudioEngine` may create an isolated composite synth from the same `LayeredWave` for real synthesis, but the visual system continues to use the spawn-time map for deterministic presentation.
+
+See `src/types/layeredAudio.ts`, `src/systems/spawnSystem.ts` and `src/components/robot/robotVisualMapper.ts` for the canonical shapes and mapping logic.
+
 ## Accessibility
 
 ### Color Contrast
