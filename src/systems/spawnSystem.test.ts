@@ -112,6 +112,50 @@ describe('spawnSystem', () => {
       expect(uniqueSynthTypes.size).toBeGreaterThan(1);
       expect(uniqueAttacks.size).toBeGreaterThan(10); // Should have variety
     });
+
+    it('creates layeredWave with 1..3 layers and shapeParams in range', () => {
+      const attrs = generateAudioAttributes();
+      const vm = attrs.visualAudioMap;
+      expect(vm).toBeDefined();
+      expect(vm?.layeredWave).toBeDefined();
+      const layers = vm?.layeredWave?.layers ?? [];
+      expect(layers.length).toBeGreaterThanOrEqual(1);
+      expect(layers.length).toBeLessThanOrEqual(3);
+      // averagedADSR should be within ADSR_MAX-derived bounds
+      expect(vm?.averagedADSR).toBeDefined();
+      expect(vm?.averagedADSR?.attack).toBeGreaterThanOrEqual(0);
+      expect(vm?.averagedADSR?.decay).toBeGreaterThanOrEqual(0);
+      expect(vm?.averagedADSR?.sustain).toBeGreaterThanOrEqual(0);
+      expect(vm?.averagedADSR?.release).toBeGreaterThanOrEqual(0);
+      // shape params 0..1
+      expect(vm?.shapeParams?.scale).toBeGreaterThanOrEqual(0);
+      expect(vm?.shapeParams?.scale).toBeLessThanOrEqual(1);
+      expect(vm?.shapeParams?.roundness).toBeGreaterThanOrEqual(0);
+      expect(vm?.shapeParams?.roundness).toBeLessThanOrEqual(1);
+      expect(vm?.shapeParams?.detail).toBeGreaterThanOrEqual(0);
+      expect(vm?.shapeParams?.detail).toBeLessThanOrEqual(1);
+    });
+
+    it('averagedADSR equals single layer ADSR when only one layer (deterministic)', () => {
+      // Make Math.random deterministic to force single-layer and known values
+      const rnd = vi.spyOn(Math, 'random').mockImplementation(() => 0);
+      try {
+        const attrs = generateAudioAttributes();
+        const vm = attrs.visualAudioMap!;
+        const layers = vm.layeredWave?.layers ?? [];
+        // With Math.random=0 we should get exactly 1 layer
+        expect(layers.length).toBe(1);
+        const layerAdsr = layers[0].adsr!;
+        const avg = vm.averagedADSR!;
+        // The averaged should equal the single layer's values
+        expect(avg.attack).toBeCloseTo(layerAdsr.attack as number, 6);
+        expect(avg.decay).toBeCloseTo(layerAdsr.decay as number, 6);
+        expect(avg.sustain).toBeCloseTo(layerAdsr.sustain as number, 6);
+        expect(avg.release).toBeCloseTo(layerAdsr.release as number, 6);
+      } finally {
+        rnd.mockRestore();
+      }
+    });
   });
 
   describe('spawnRobot', () => {
@@ -194,9 +238,9 @@ describe('spawnSystem', () => {
       }));
       const { addRobot } = useOceanStore.getState();
       // seed store with max robots
-      addRobot({ id: 'a', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { synthType: 'AMSynth', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0, reverb: 0 }, octaveRange: [3, 4], createdAt: 1000 });
-      addRobot({ id: 'b', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { synthType: 'AMSynth', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0, reverb: 0 }, octaveRange: [3, 4], createdAt: 2000 });
-      addRobot({ id: 'c', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { synthType: 'AMSynth', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0, reverb: 0 }, octaveRange: [3, 4], createdAt: 3000 });
+      addRobot({ id: 'a', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { synthType: 'AMSynth', waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0, reverb: 0 }, octaveRange: [3, 4], createdAt: 1000, masterVolume: 0.7 });
+      addRobot({ id: 'b', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { synthType: 'AMSynth', waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0, reverb: 0 }, octaveRange: [3, 4], createdAt: 2000, masterVolume: 0.7 });
+      addRobot({ id: 'c', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { synthType: 'AMSynth', waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0, reverb: 0 }, octaveRange: [3, 4], createdAt: 3000, masterVolume: 0.7 });
       expect(useOceanStore.getState().robots.length).toBe(3);
 
       spawnRobot();
@@ -210,7 +254,7 @@ describe('spawnSystem', () => {
       // set max and min equal
       useOceanStore.setState({ settings: { bpm: 120, maxRobots: 1, minRobots: 1 } } as OceanStore);
       const { addRobot } = useOceanStore.getState();
-      addRobot({ id: 'only', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { synthType: 'AMSynth', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0, reverb: 0 }, octaveRange: [3, 4], createdAt: 123 });
+      addRobot({ id: 'only', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { synthType: 'AMSynth', waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0, reverb: 0 }, octaveRange: [3, 4], createdAt: 123, masterVolume: 0.7 });
 
       spawnRobot();
       expect(useOceanStore.getState().robots.length).toBe(1);
