@@ -21,6 +21,8 @@ export interface OceanStore {
     bpm: number;
     maxRobots: number;
     minRobots: number; // lower bound for population bouncing
+    /** Number of measures that make up a full day (default 96) */
+    dayLengthMeasures: number;
   };
   /** Current hour derived from currentMeasure (0..23) */
   currentHour: number;
@@ -39,15 +41,18 @@ export interface OceanStore {
   /** Current measure in the 96-measure day/night cycle (0–95). */
   currentMeasure: number;
   setCurrentMeasure: (measure: number) => void;
+  /** Update the configured day length (in measures) */
+  setDayLength: (measures: number) => void;
 }
 
 // ========================================
 // CONSTANTS
 // ========================================
 const INITIAL_SETTINGS = {
-  bpm: 120,
+  bpm: 240,
   maxRobots: 12,
   minRobots: 2,
+  dayLengthMeasures: 96,
 };
 
 // ========================================
@@ -59,14 +64,18 @@ export const useOceanStore = create<OceanStore>((_set, get) => ({
   selectedRobotId: null,
   totalInteractions: 0,
   settings: { ...INITIAL_SETTINGS },
-  // Start world at measure 1200 (wrapped into 0..95 range => 1200 % 96 = 48)
-  currentMeasure: 48,
-  // Derived from wrapped measure: hour = floor(48 / 4) = 12 (noon)
-  currentHour: 12,
+  // Start world at measure 1200 wrapped into configured day length
+  currentMeasure: (() => 1200 % INITIAL_SETTINGS.dayLengthMeasures)(),
+  // Derived from wrapped measure using configured day length
+  currentHour: (() => {
+    const m = 1200 % INITIAL_SETTINGS.dayLengthMeasures;
+    return Math.floor(m / (INITIAL_SETTINGS.dayLengthMeasures / 24));
+  })(),
   // Compute initial lightness to match setCurrentMeasure behaviour so visuals
   // reflect the loaded time immediately.
   lightnessMultiplier: (() => {
-    const hour = 12;
+    const m = 1200 % INITIAL_SETTINGS.dayLengthMeasures;
+    const hour = Math.floor(m / (INITIAL_SETTINGS.dayLengthMeasures / 24));
     const angle = (hour / 24) * 2 * Math.PI - Math.PI / 2;
     return 0.7 + 0.3 * Math.sin(angle);
   })(),
@@ -141,10 +150,11 @@ export const useOceanStore = create<OceanStore>((_set, get) => ({
   },
 
   setCurrentMeasure: (measure) => {
-    const m = measure % 96;
+    const dayLength = get().settings.dayLengthMeasures;
+    const m = measure % dayLength;
 
-    // Derive hour (0..23) from 96-measure cycle (4 measures = 1 hour)
-    const hour = Math.floor((m % 96) / 4);
+    // Derive hour (0..23) from configured day-length (dayLength / 24 measures = 1 hour)
+    const hour = Math.floor(m / (dayLength / 24));
 
     // Smooth sinusoidal lightness mapping with anchor points:
     // hour 0 -> 0.4, 6 -> 0.7, 12 -> 1.0, 18 -> 0.7, 23 -> 0.4
@@ -153,6 +163,11 @@ export const useOceanStore = create<OceanStore>((_set, get) => ({
     const lightnessMultiplier = 0.7 + 0.3 * Math.sin(angle);
 
     _set({ currentMeasure: m, currentHour: hour, lightnessMultiplier });
+  },
+
+  setDayLength: (measures) => {
+    const sanitized = Math.max(1, Math.floor(measures));
+    _set((state) => ({ settings: { ...state.settings, dayLengthMeasures: sanitized } }));
   },
 }));
 
