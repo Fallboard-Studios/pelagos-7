@@ -16,16 +16,21 @@ const createRobot = (overrides: Partial<Robot> = {}): Robot => ({
   state: overrides.state ?? RobotState.Idle,
   position: overrides.position ?? { x: 0, y: 0 },
   destination: overrides.destination ?? null,
+  direction: overrides.direction ?? 'left',
   melody:
-    overrides.melody ?? [{ id: 'm-1', startStep: 1, length: '8n', noteIndex: 0 }],
+    overrides.melody ?? [{ id: 'm-1', startStep: 1, length: '8n', noteIndex: 0, octave: 4 }],
   audioAttributes:
     overrides.audioAttributes ?? {
       synthType: 'AMSynth',
+      waveform: 'triangle',
       adsr: { attack: 0.1, decay: 0.2, sustain: 0.7, release: 0.3 },
       pitchRange: { min: 220, max: 440 },
       filterFreq: 800,
       reverb: 0.4,
     },
+  octaveRange: overrides.octaveRange ?? [3, 5],
+  createdAt: overrides.createdAt ?? Date.now(),
+  masterVolume: overrides.masterVolume ?? 1,
 });
 
 describe('oceanStore', () => {
@@ -33,7 +38,7 @@ describe('oceanStore', () => {
     vi.resetModules();
     killTimeline.mockClear();
     ({ useOceanStore } = await import('./oceanStore'));
-    useOceanStore.setState({ robots: [], settings: { bpm: 60, maxRobots: 12 } });
+    useOceanStore.setState({ robots: [], settings: { bpm: 60, maxRobots: 12, minRobots: 0 } });
   });
 
   it('adds robots to state', () => {
