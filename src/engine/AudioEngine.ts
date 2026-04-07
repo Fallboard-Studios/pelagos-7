@@ -1189,4 +1189,13 @@ export const AudioEngine = {
   now(): number {
     return Tone.now();
   },
+
+  /**
+   * Update Tone.Transport BPM. No-op if AudioEngine has not been started
+   * (audio context not yet running) to avoid errors in headless environments.
+   */
+  setBPM(bpm: number): void {
+    if (!initialized) return;
+    Tone.getTransport().bpm.value = bpm;
+  },
 };
