@@ -89,9 +89,15 @@ export function killTimeline(id: string): void {
 }
 ```
 
+
 ### 3. State (Zustand)
 **Responsibility:** All serializable data and business logic  
 **Location:** `src/stores/`
+
+**Store Structure:**
+- `oceanStore`: Simulation/game state (robots, actors, world settings, etc.)
+- `audioStore`: Global audio settings (FX, BPM, day length, etc.)
+- `uiStore`: UI-only state (active view, theme, language, fullscreen, etc.)
 
 **Rules:**
 - Only serializable data (JSON-compatible)

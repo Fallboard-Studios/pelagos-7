@@ -413,6 +413,10 @@ import { Robot } from '../types/Robot';
 ### State
 
 - **ONLY** Zustand for state
+- Store structure:
+  - `oceanStore`: Simulation/game state (robots, actors, world settings, etc.)
+  - `audioStore`: Global audio settings (FX, BPM, day length, etc.)
+  - `uiStore`: UI-only state (active view, theme, language, fullscreen, etc.)
 - Only serializable data in stores
 - No synths/timelines/refs in state
 - Pass via props when possible

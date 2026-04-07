@@ -44,8 +44,12 @@ Pelagos-7's audio system is built on **Tone.js** and follows a strict singleton 
 - No components, hooks, or utilities directly import or use Tone.js
 - AudioEngine manages synth pooling, scheduling, and Transport control
 
+
 **2. Separation of Concerns**
 - **AudioEngine**: Sound generation, scheduling, polyphony
+- **audioStore**: Holds all global audio settings (FX, BPM, etc.) as a dedicated Zustand store. This keeps audio parameters separate from simulation/game state for better React performance and modularity.
+- **oceanStore**: Holds simulation/game state (robots, actors, world settings, etc.)
+- **uiStore**: Holds UI-only state (active view, theme, language, fullscreen, etc.)
 - **GSAP**: Visual animation and motion
 - **BeatClock/Transport**: Musical timing authority
 - These systems communicate via semantic events, never direct coupling
@@ -54,6 +58,11 @@ Pelagos-7's audio system is built on **Tone.js** and follows a strict singleton 
 - `Tone.start()` MUST be called from explicit user interaction (e.g., Play button)
 - Cannot initialize audio in `useEffect`, component mount, or automatically
 - Required for Web Audio API compliance across all browsers
+
+
+### State Management Note
+
+Global audio settings (such as FX parameters and BPM) are now managed in a dedicated Zustand store: `audioStore`. This avoids overloading `oceanStore` and improves React performance by isolating high-frequency audio state updates. The length of day remains in `oceanStore` (as it does not affect audio). Only simulation/game state remains in `oceanStore`, and UI state in `uiStore`.
 
 ### Architecture Diagram
 
@@ -451,6 +460,41 @@ Before committing audio code:
 ## Troubleshooting
 
 Common audio issues and their solutions.
+
+## Robot Audio Lifecycle & Voice Cleanup
+
+### Robot Audio Lifecycle
+
+The audio lifecycle for each robot consists of:
+
+1. **Spawn**: When a robot is created, generate and persist its `visualAudioMap` (see Layered/Composite Voices above). Attempt to reserve a dedicated synth voice for the robot using `AudioEngine.reserveVoice(robotId, layeredWave)`. If the pool is exhausted, fallback to a shared pool voice.
+2. **Register Melody**: Register the robot's melody with `AudioEngine.registerRobotMelody(robot.id, robot.melody)`. Melodies store note indices, not literal pitches.
+3. **Parameter Application**: At reservation, apply oscillator parameters (waveform, detune, phase, ADSR) from the robot's `visualAudioMap` or audio attributes. These parameters are set on the reserved synth/voice and are not stored in state.
+4. **Update**: If a robot's audio parameters change (e.g., detune, phase, waveform), call `AudioEngine.updateVoiceParams(robotId, newParams)` to update the reserved synth. Do not mutate synths directly in components or state.
+5. **Destroy/Remove**: When a robot is removed, call `AudioEngine.unregisterRobotMelody(robotId)` and `AudioEngine.releaseVoice(robotId)`. This ensures the reserved synth/voice is released, cleaned up, and made available for other robots. No synths or Tone.js objects should persist after robot removal.
+
+### Synth/Voice Cleanup on Robot Destruction
+
+- Always call `AudioEngine.releaseVoice(robotId)` when a robot is destroyed or removed. This releases the reserved synth/voice and decrements the active voice count.
+- If the robot had a composite or custom voice, ensure any Tone.js objects (e.g., PolySynth, FMSynth) are disposed via their `.dispose()` method.
+- Never store synths or voices in Zustand or React state. All synth management is handled by AudioEngine.
+- If a robot is replaced or respawned with the same ID, always release the old voice before reserving a new one.
+
+### Oscillator Parameter Application
+
+- **At Reservation**: When reserving a voice for a robot, apply all oscillator parameters (waveform, detune, phase, ADSR) from the robot's `visualAudioMap` or audio attributes. This ensures the synth is configured before any notes are triggered.
+- **On Update**: If a robot's audio parameters change during its lifetime, call `AudioEngine.updateVoiceParams(robotId, newParams)`. This updates the reserved synth's oscillator and envelope parameters in-place.
+- **Never** mutate synths directly in components or outside AudioEngine. All parameter changes must go through AudioEngine APIs.
+
+**Summary Table:**
+
+| Event         | AudioEngine Call(s)                  | Effect                                  |
+|-------------- |--------------------------------------|------------------------------------------|
+| Spawn         | reserveVoice, registerRobotMelody     | Allocates synth, applies params, melody  |
+| Update Params | updateVoiceParams                    | Updates synth oscillator/ADSR            |
+| Destroy       | unregisterRobotMelody, releaseVoice   | Releases synth, cleans up Tone objects   |
+
+See also: [POLYPHONY_GUIDE.md](POLYPHONY_GUIDE.md) for details on synth pooling and voice management.
 
 ### 1. No Sound / Suspended AudioContext
 

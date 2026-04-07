@@ -1,5 +1,18 @@
 # Polyphony Management Guide
 
+## Oscillator Limit Per Robot
+
+**maxOscillatorsPerRobot = 2**
+
+To ensure musical clarity, fair polyphony distribution, and predictable performance, each robot is limited to a maximum of 2 oscillators by default.
+
+- This prevents a single robot from monopolizing the global polyphony budget.
+- 2 oscillators per robot (e.g., detuned or layered) provide rich timbres without muddying the mix.
+- With 16 robots × 2 oscillators = 32 voices at peak, MAX_POLYPHONY can be set to 32 to guarantee all robots are always heard.
+- This limit simplifies the user experience and avoids the need for users to manage oscillator counts across robots.
+
+Advanced/experimental options may allow more oscillators per robot, but the default and recommended setting is 2.
+
 Polyphony management controls the maximum number of simultaneous audio voices to prevent audio distortion, CPU overload, and maintain musical clarity.
 
 ## Core Principles
@@ -205,6 +218,29 @@ const synth = synthPool[synthType] ?? synthPool.default;
 ## Monitoring & Debugging
 
 ### Dev Overlay Display
+
+## Robot Destruction & Voice Cleanup
+
+When a robot is destroyed or removed:
+
+- Always call `AudioEngine.releaseVoice(robotId)` to release the reserved synth/voice and decrement the active voice count.
+- If the robot used a composite or custom voice, ensure all Tone.js objects are disposed via `.dispose()`.
+- Never store synths or voices in Zustand or React state; AudioEngine manages all synth lifecycles.
+- If a robot is replaced or respawned with the same ID, release the old voice before reserving a new one.
+
+## Oscillator Parameter Application
+
+- **At Reservation:** When reserving a voice for a robot, apply all oscillator parameters (waveform, detune, phase, ADSR) from the robot's `visualAudioMap` or audio attributes. This ensures the synth is configured before any notes are triggered.
+- **On Update:** If a robot's audio parameters change, call `AudioEngine.updateVoiceParams(robotId, newParams)` to update the reserved synth's oscillator and envelope parameters.
+- **Never** mutate synths directly in components or outside AudioEngine. All parameter changes must go through AudioEngine APIs.
+
+**Lifecycle Summary:**
+
+| Event         | AudioEngine Call(s)                  | Effect                                  |
+|-------------- |--------------------------------------|------------------------------------------|
+| Spawn         | reserveVoice, registerRobotMelody     | Allocates synth, applies params, melody  |
+| Update Params | updateVoiceParams                    | Updates synth oscillator/ADSR            |
+| Destroy       | unregisterRobotMelody, releaseVoice   | Releases synth, cleans up Tone objects   |
 
 ```typescript
 if (DEV_TUNING) {
