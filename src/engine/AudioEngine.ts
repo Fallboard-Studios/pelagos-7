@@ -50,6 +50,20 @@ interface MinimalToneNode {
   pan?: { value: number };
 }
 
+// Lightweight synth shape used for safe typed access to set/oscillator fields
+interface SynthWithOscillator {
+  set?: (props: unknown) => void;
+  oscillator?: {
+    detune?: { value: number } | number;
+    phase?: { value?: number } | number;
+  };
+  triggerAttackRelease?: (note: string, dur: string, time?: number, v?: number) => void;
+  triggerAttack?: (note: string, time?: number, v?: number) => void;
+  triggerRelease?: (time?: number) => void;
+  dispose?: () => void;
+  connect?: (t?: unknown) => unknown;
+}
+
 // ========================================
 // CONSTANTS
 // ========================================
@@ -394,10 +408,10 @@ async function loadInstruments(): Promise<void> {
           const layered = (robot.audioAttributes as unknown as { visualAudioMap?: { layeredWave?: LayeredWave } })?.visualAudioMap?.layeredWave;
           let ok = false;
           if (layered) {
-            ok = AudioEngine.reserveVoice(robot.id, layered as LayeredWave);
+            ok = AudioEngine.reserveVoice(robot.id, layered as LayeredWave, undefined, undefined, robot.audioAttributes?.phase, robot.audioAttributes?.detune);
           } else {
             const requestedType = robot.audioAttributes?.synthType as string | undefined;
-            ok = AudioEngine.reserveVoice(robot.id, requestedType ?? 'default', waveform, adsr);
+            ok = AudioEngine.reserveVoice(robot.id, requestedType ?? 'default', waveform, adsr, robot.audioAttributes?.phase, robot.audioAttributes?.detune);
           }
           if (DEV_TUNING) console.log(`[AudioEngine] Post-load reserve for ${robot.id}: ${ok ? 'OK' : 'FAILED'}`);
         } catch (err) {
@@ -854,6 +868,8 @@ export const AudioEngine = {
     synthTypeOrLayered: string | LayeredWave,
     waveform?: string,
     adsr?: ADSREnvelope,
+    phase?: number,
+    detune?: number,
   ): boolean {
     // Allow composite reservations even if the synth pool hasn't been created yet
     if (!synthPool || !reservedSlots) {
@@ -892,6 +908,19 @@ export const AudioEngine = {
         }
 
         compositeVoices.set(robotId, { composite, panner, busGain, busFilter });
+        // Apply optional top-level detune/phase across composite layers when provided
+        try {
+          if (typeof detune === 'number') {
+            const layersParam = (descriptor.layers ?? [{ type: descriptor.base }]).map((l) => ({ type: l.type, detune: (l.detune ?? 0) + detune }));
+            composite.set({ layers: layersParam });
+          }
+          if (typeof phase === 'number') {
+            const layersPhase = (descriptor.layers ?? [{ type: descriptor.base }]).map((l) => ({ type: l.type, phase }));
+            composite.set({ layers: layersPhase });
+          }
+        } catch (e) {
+          if (DEV_TUNING) console.warn('[AudioEngine] Failed to apply composite phase/detune at reservation time', e);
+        }
         reservedVoices.set(robotId, { type: 'composite', index: -1, reservedAt: Date.now() });
         if (DEV_TUNING) console.log(`[AudioEngine] Reserved composite voice for ${robotId}`);
         return true;
@@ -986,6 +1015,21 @@ export const AudioEngine = {
           maybeSetter.set({ envelope: adsr });
         } catch (err) {
           console.warn('[AudioEngine] Failed to apply ADSR at reservation time:', err);
+        }
+      }
+      // Apply phase and detune when provided
+      if (typeof phase === 'number') {
+        try {
+          maybeSetter.set({ oscillator: { phase } });
+        } catch (err) {
+          console.warn('[AudioEngine] Failed to apply oscillator phase at reservation time:', err);
+        }
+      }
+      if (typeof detune === 'number') {
+        try {
+          maybeSetter.set({ detune });
+        } catch (err) {
+          console.warn('[AudioEngine] Failed to apply detune at reservation time:', err);
         }
       }
     }
@@ -1115,6 +1159,32 @@ export const AudioEngine = {
             if (DEV_TUNING) console.warn('[AudioEngine] Failed to apply detune on composite layer', err);
           }
         }
+        // apply phase if present and supported
+        if (layer.phase !== undefined) {
+          try {
+            const osc = (synth as unknown as { oscillator?: { phase?: number | { value?: number } } })?.oscillator;
+            if (osc) {
+              // Tone oscillator may accept numeric phase or an object; attempt to set directly
+              try {
+                // Preferred: set via set({ oscillator: { phase } }) when available
+                (synth as unknown as SynthWithOscillator).set?.({ oscillator: { phase: layer.phase } });
+              } catch {
+                try {
+                  const oscPhase = (osc as unknown as { phase?: { value?: number } | number })?.phase;
+                  if (typeof oscPhase === 'object' && oscPhase !== null && 'value' in oscPhase) {
+                    (oscPhase as { value?: number }).value = layer.phase;
+                  } else {
+                    (osc as unknown as { phase?: number }).phase = layer.phase;
+                  }
+                } catch (err) {
+                  if (DEV_TUNING) console.warn('[AudioEngine] Failed to apply phase on composite layer', err);
+                }
+              }
+            }
+          } catch (err) {
+            if (DEV_TUNING) console.warn('[AudioEngine] Failed to apply phase on composite layer', err);
+          }
+        }
       } catch (err) {
         if (DEV_TUNING) console.warn('[AudioEngine] Failed to apply detune on composite layer', err);
       }
@@ -1160,6 +1230,27 @@ export const AudioEngine = {
                   if (osc && osc.detune) osc.detune.value = p.detune;
                 } catch (err) {
                   if (DEV_TUNING) console.warn('[AudioEngine] Failed to set detune on composite layer', err);
+                }
+              }
+              if (p.phase !== undefined) {
+                try {
+                  const osc = (synth as unknown as SynthWithOscillator)?.oscillator;
+                  if (osc) {
+                    try { (synth as unknown as SynthWithOscillator).set?.({ oscillator: { phase: p.phase } }); } catch {
+                      try {
+                        const oscPhase = (osc as unknown as { phase?: { value?: number } | number })?.phase;
+                        if (typeof oscPhase === 'object' && oscPhase !== null && 'value' in oscPhase) {
+                          (oscPhase as { value?: number }).value = p.phase;
+                        } else {
+                          (osc as unknown as { phase?: number }).phase = p.phase;
+                        }
+                      } catch (err) {
+                        if (DEV_TUNING) console.warn('[AudioEngine] Failed to set phase on composite layer', err);
+                      }
+                    }
+                  }
+                } catch (err) {
+                  if (DEV_TUNING) console.warn('[AudioEngine] Failed to set phase on composite layer', err);
                 }
               }
               if (p.adsr && typeof (synth as unknown as { set?: (props: unknown) => void }).set === 'function') {
