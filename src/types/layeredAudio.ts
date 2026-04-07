@@ -13,6 +13,7 @@ export interface LayerDescriptor {
   type: WaveformType | 'noise'
   gain?: number
   detune?: number // cents
+  phase?: number // degrees
   adsr?: ADSTRaw
 }
 

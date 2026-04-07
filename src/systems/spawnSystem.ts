@@ -59,6 +59,16 @@ const SYNTH_TYPES: SynthType[] = [
 // Waveform types — even distribution gives ~25% each
 const WAVEFORMS: WaveformType[] = ['sine', 'square', 'triangle', 'sawtooth'];
 
+// Simple word lists for deterministic-looking robot names
+const ADJECTIVES = ['Iron', 'Null', 'Silent', 'Drift', 'Azure', 'Rust', 'Neon', 'Glass', 'Solar', 'Tidal'];
+const NOUNS = ['Drifter', 'Tide', 'Warden', 'Seeker', 'Courier', 'Wisp', 'Beacon', 'Nomad', 'Rover', 'Pilot'];
+
+function generateRobotName(): string {
+  const a = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)];
+  const n = NOUNS[Math.floor(Math.random() * NOUNS.length)];
+  return `${a} ${n}`;
+}
+
 // ========================================
 // MODULE STATE
 // ========================================
@@ -253,7 +263,12 @@ export function generateAudioAttributes(): AudioAttributes {
     layerVisuals: layers.map((l) => ({ color: undefined, scale: clamp((l.gain ?? 1) / 1.2,), offset: { x: 0, y: 0 } })),
   };
 
-  return { synthType, adsr, pitchRange, filterFreq, reverb, waveform, visualAudioMap };
+  // Phase: 0..360 degrees (used for oscillator phase)
+  const phase = Math.floor(Math.random() * 361);
+  // Detune: default 0 cents (fine pitch adjustment)
+  const detune = 0;
+
+  return { synthType, adsr, pitchRange, filterFreq, reverb, waveform, visualAudioMap, phase, detune };
 }
 
 /**
@@ -305,6 +320,7 @@ export function spawnRobot(): void {
 
   const robot: Robot = {
     id: crypto.randomUUID(),
+    name: generateRobotName(),
     state: RobotState.Idle,
     position: generateSpawnPosition(),
     destination: null,
@@ -327,13 +343,15 @@ export function spawnRobot(): void {
   try {
     const layered = (robot.audioAttributes as unknown as { visualAudioMap?: { layeredWave?: LayeredWave } })?.visualAudioMap?.layeredWave as LayeredWave | undefined;
     if (layered) {
-      AudioEngine.reserveVoice(robot.id, layered);
+      AudioEngine.reserveVoice(robot.id, layered, undefined, undefined, robot.audioAttributes.phase, robot.audioAttributes.detune);
     } else {
       AudioEngine.reserveVoice(
         robot.id,
         robot.audioAttributes.synthType as string,
         robot.audioAttributes.waveform,
         robot.audioAttributes.adsr,
+        robot.audioAttributes.phase,
+        robot.audioAttributes.detune,
       );
     }
   } catch (err) {

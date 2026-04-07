@@ -57,6 +57,10 @@ export interface AudioAttributes {
   filterFreq: number;  // Hz (cutoff frequency, 0 = no filter)
   reverb: number;      // 0-1 (mix amount)
   waveform: WaveformType; // Oscillator shape applied once at voice reservation time
+  /** Phase in degrees (0..360) applied to oscillator at reservation time */
+  phase?: number;
+  /** Detune in cents (e.g. -100..100) applied to synth at reservation time */
+  detune?: number;
   /** Optional compact visual/audio mapping produced at spawn time and stored on the robot */
   visualAudioMap?: VisualAudioMap;
 }
@@ -79,6 +83,8 @@ export interface MelodyEvent {
  */
 export interface Robot {
   id: string;
+  /** Human-readable display name (generated at spawn) */
+  name?: string;
   state: RobotState;
   position: Vec2;
   destination: Vec2 | null;
