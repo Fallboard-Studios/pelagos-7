@@ -242,8 +242,9 @@ A secondary panel (or full-screen overlay) that lists all active robots and allo
 | `adsr.release` | Slider | 0.05–4.0 s |
 | `filterFreq` | Slider | 0–8000 Hz |
 | `reverb` | Slider | 0.0–1.0 |
-| `octaveOffset` | Select / button group | 0 / 1 / 2 |
 | `masterVolume` | Slider | 0.0–1.0 |
+
+> **Note:** `octaveOffset` and note indices are set by the robot at spawn time and are not user-editable. The robot editor exposes timbre/envelope attributes only.
 
 - On any change: call `useOceanStore.getState().updateRobot(id, { audioAttributes: { ...updated } })` — visual and audio derive from state automatically
 - **Create**: "Spawn Robot" button calls `spawnRobot()` with default/random attributes
