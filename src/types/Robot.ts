@@ -55,7 +55,6 @@ export interface AudioAttributes {
     max: number;       // Hz
   };
   filterFreq: number;  // Hz (cutoff frequency, 0 = no filter)
-  reverb: number;      // 0-1 (mix amount)
   waveform: WaveformType; // Oscillator shape applied once at voice reservation time
   /** Phase in degrees (0..360) applied to oscillator at reservation time */
   phase?: number;
