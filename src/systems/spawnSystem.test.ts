@@ -98,12 +98,6 @@ describe('spawnSystem', () => {
       expect(attrs.filterFreq).toBeLessThanOrEqual(2500);
     });
 
-    it('generates reverb amount between 0 and 1', () => {
-      const attrs = generateAudioAttributes();
-      expect(attrs.reverb).toBeGreaterThanOrEqual(0);
-      expect(attrs.reverb).toBeLessThanOrEqual(1);
-    });
-
     it('generates varied attributes (not all the same)', () => {
       const attributes = Array.from({ length: 20 }, () => generateAudioAttributes());
       const uniqueSynthTypes = new Set(attributes.map((a) => a.synthType));
@@ -238,9 +232,9 @@ describe('spawnSystem', () => {
       }));
       const { addRobot } = useOceanStore.getState();
       // seed store with max robots
-      addRobot({ id: 'a', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { synthType: 'AMSynth', waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0, reverb: 0 }, octaveRange: [3, 4], createdAt: 1000, masterVolume: 0.7 });
-      addRobot({ id: 'b', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { synthType: 'AMSynth', waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0, reverb: 0 }, octaveRange: [3, 4], createdAt: 2000, masterVolume: 0.7 });
-      addRobot({ id: 'c', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { synthType: 'AMSynth', waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0, reverb: 0 }, octaveRange: [3, 4], createdAt: 3000, masterVolume: 0.7 });
+      addRobot({ id: 'a', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { synthType: 'AMSynth', waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0 }, octaveRange: [3, 4], createdAt: 1000, masterVolume: 0.7 });
+      addRobot({ id: 'b', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { synthType: 'AMSynth', waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0 }, octaveRange: [3, 4], createdAt: 2000, masterVolume: 0.7 });
+      addRobot({ id: 'c', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { synthType: 'AMSynth', waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0 }, octaveRange: [3, 4], createdAt: 3000, masterVolume: 0.7 });
       expect(useOceanStore.getState().robots.length).toBe(3);
 
       spawnRobot();

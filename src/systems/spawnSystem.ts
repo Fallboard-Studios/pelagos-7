@@ -174,8 +174,6 @@ export function generateAudioAttributes(): AudioAttributes {
     FILTER_FREQ_RANGE.min +
     Math.random() * (FILTER_FREQ_RANGE.max - FILTER_FREQ_RANGE.min);
 
-  // Random reverb amount
-  const reverb = Math.random();
 
   // Random waveform — evenly distributed (~25% each)
   const waveform = WAVEFORMS[Math.floor(Math.random() * WAVEFORMS.length)];
@@ -268,7 +266,7 @@ export function generateAudioAttributes(): AudioAttributes {
   // Detune: default 0 cents (fine pitch adjustment)
   const detune = 0;
 
-  return { synthType, adsr, pitchRange, filterFreq, reverb, waveform, visualAudioMap, phase, detune };
+  return { synthType, adsr, pitchRange, filterFreq, waveform, visualAudioMap, phase, detune };
 }
 
 /**
