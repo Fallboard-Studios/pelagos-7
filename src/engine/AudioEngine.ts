@@ -7,6 +7,7 @@ import { useOceanStore } from '../stores/oceanStore';
 
 import type { NoteDuration, ADSREnvelope, SynthType, WaveformType, Robot } from '../types/Robot';
 import type { LayeredWave, LayerDescriptor } from '../types/layeredAudio';
+import type { ReverbSettings, DelaySettings, ChorusSettings, FilterSettings, EQ3Settings, CompressorSettings } from '../types/globalAudio';
 import { getAvailableNotes, scheduleHarmonyCycle, stopHarmonyCycle } from './harmonySystem';
 import { initBeatClock } from './beatClock';
 import type { RobotMelodyEvent } from './melodyGenerator';
@@ -77,6 +78,31 @@ let activeVoices = 0;
 // Prefixed with underscore to acknowledge it's intentionally kept for
 // potential external inspector/debugging while avoiding unused-var lint.
 let _masterCompressor: Tone.Compressor | null = null;
+
+// Global FX chain nodes (nullable; initialized in loadInstruments when Tone is available)
+let _globalReverb: Tone.Reverb | null = null;
+let _globalDelay: Tone.FeedbackDelay | null = null;
+let _globalChorus: Tone.Chorus | null = null;
+let _globalEQ: Tone.EQ3 | null = null;
+let _globalLPF: Tone.Filter | null = null;
+let _globalHPF: Tone.Filter | null = null;
+// Passthrough gain node used when global bypass is active — audio routes here, skipping FX chain
+let _fxBypassGain: Tone.Gain | null = null;
+let _globalBypassActive = false;
+
+/**
+ * Cache of the last wet/level values for each FX node — used to restore values
+ * when an effect is re-enabled after being bypassed via setEffectBypass().
+ */
+const _fxParamCache = {
+  reverb: { wet: 0.3 },
+  delay: { wet: 0.15 },
+  chorus: { wet: 0.2 },
+  eq3: { low: 0, mid: 0, high: 0 },
+  lpf: { frequency: 20000, Q: 1 },
+  hpf: { frequency: 20, Q: 1 },
+  compressor: { threshold: -18, ratio: 6, attack: 0.003, release: 0.15, knee: 0 },
+};
 
 // Step registry: Map<stepNumber (1-16), events at that step>
 const stepRegistry = new Map<number, MelodyEventEntry[]>();
@@ -216,14 +242,81 @@ async function loadInstruments(): Promise<void> {
     ratio: 6,        // softer compression ratio; not a hard limiter
     attack: 0.003,
     release: 0.15,
-  }).toDestination();
+  });
   _masterCompressor = compressor;
+
+  // ========================================
+  // GLOBAL FX CHAIN
+  // Build: _masterCompressor → _globalEQ → _globalLPF → _globalHPF
+  //          → _globalChorus → _globalDelay → _globalReverb → Destination
+  // All nodes guarded with typeof checks for test/headless environments.
+  // ========================================
+  const ReverbCtor = toneRecord.Reverb as unknown as (new (opts: object) => Tone.Reverb) | undefined;
+  const DelayCtor = toneRecord.FeedbackDelay as unknown as (new (opts: object) => Tone.FeedbackDelay) | undefined;
+  const ChorusCtor = toneRecord.Chorus as unknown as (new (opts: object) => Tone.Chorus) | undefined;
+  const EQ3Ctor = toneRecord.EQ3 as unknown as (new (opts: object) => Tone.EQ3) | undefined;
+  const FilterCtor = toneRecord.Filter as unknown as (new (opts: object) => Tone.Filter) | undefined;
+  const GainCtorFX = toneRecord.Gain as unknown as (new (v: number) => Tone.Gain) | undefined;
+
+  if (typeof ReverbCtor === 'function') {
+    _globalReverb = new ReverbCtor({ decay: 1.5, preDelay: 0.02, wet: 0.3 });
+  }
+  if (typeof DelayCtor === 'function') {
+    _globalDelay = new DelayCtor({ delayTime: 0.25, feedback: 0.2, wet: 0 });
+  }
+  if (typeof ChorusCtor === 'function') {
+    _globalChorus = new ChorusCtor({ rate: 1.5, depth: 0.2, delayTime: 0.012, feedback: 0.1, wet: 0 });
+    try { (_globalChorus as unknown as { start(): void }).start(); } catch { /* headless */ }
+  }
+  if (typeof EQ3Ctor === 'function') {
+    _globalEQ = new EQ3Ctor({ low: 0, mid: 0, high: 0 });
+  }
+  if (typeof FilterCtor === 'function') {
+    _globalLPF = new FilterCtor({ type: 'lowpass', frequency: 20000, Q: 1 });
+    _globalHPF = new FilterCtor({ type: 'highpass', frequency: 20, Q: 1 });
+  }
+  if (typeof GainCtorFX === 'function') {
+    _fxBypassGain = new GainCtorFX(1);
+  }
+
+  // Wire chain: compressor → EQ → LPF → HPF → Chorus → Delay → Reverb → Destination
+  // Fall back gracefully: connect compressor directly to destination when nodes are missing.
+  const chainNodes = [
+    _globalEQ,
+    _globalLPF,
+    _globalHPF,
+    _globalChorus,
+    _globalDelay,
+    _globalReverb,
+  ].filter(Boolean) as Array<{ connect: (t: unknown) => unknown; toDestination?: () => void }>;
+
+  if (chainNodes.length > 0) {
+    try {
+      // connect compressor → first FX node
+      (compressor as unknown as { connect: (t: unknown) => void }).connect(chainNodes[0]);
+      // connect each FX node to the next
+      for (let i = 0; i < chainNodes.length - 1; i++) {
+        chainNodes[i].connect(chainNodes[i + 1]);
+      }
+      // connect last FX node → Destination
+      chainNodes[chainNodes.length - 1].toDestination?.();
+      // also wire bypass gain → Destination (used when _globalBypassActive)
+      if (_fxBypassGain) {
+        try { (_fxBypassGain as unknown as { toDestination: () => void }).toDestination(); } catch { /* headless */ }
+      }
+    } catch (err) {
+      if (DEV_TUNING) console.warn('[AudioEngine] FX chain wiring failed, falling back to direct destination', err);
+      try { compressor.toDestination(); } catch { /* headless */ }
+    }
+  } else {
+    // No FX nodes available (test env) — route directly to destination
+    try { compressor.toDestination(); } catch { /* headless */ }
+  }
 
   // Helper to try constructing a PolySynth for a voice constructor, with
   // a fallback to a simpler Synth voice if the voice class is not present
   // in the loaded Tone.js build or throws at construction time.
   const PolySynthCtor = Tone.PolySynth as unknown as { new(voiceCtor: unknown): Tone.PolySynth };
-  const toneRecord = Tone as unknown as Record<string, unknown>;
   const createPolyWithFallback = (voiceCtor: unknown, fallbackCtor: unknown): Tone.PolySynth => {
     try {
       if (!voiceCtor) throw new Error('voiceCtor not available');
@@ -651,6 +744,11 @@ export const AudioEngine = {
 
     await Tone.start();
     await loadInstruments();
+
+    // Reverb generates its impulse response asynchronously — wait before transport starts
+    if (_globalReverb) {
+      try { await (_globalReverb as unknown as { ready: Promise<void> }).ready; } catch { /* headless */ }
+    }
 
     const transport = Tone.getTransport();
     // Always start audio transport at 0 so music begins at measure 0 regardless
@@ -1197,5 +1295,194 @@ export const AudioEngine = {
   setBPM(bpm: number): void {
     if (!initialized) return;
     Tone.getTransport().bpm.value = bpm;
+  },
+
+  // ========================================
+  // GLOBAL FX SETTERS
+  // ========================================
+
+  setGlobalReverb(params: Partial<ReverbSettings>): void {
+    if (params.wet !== undefined) _fxParamCache.reverb.wet = params.wet;
+    if (!_globalReverb) return;
+    try {
+      if (params.wet !== undefined) (_globalReverb as unknown as { wet: { value: number } }).wet.value = params.wet;
+      if (params.decay !== undefined) (_globalReverb as unknown as { decay: number }).decay = params.decay;
+      if (params.preDelay !== undefined) (_globalReverb as unknown as { preDelay: number }).preDelay = params.preDelay;
+      if (params.dampening !== undefined) (_globalReverb as unknown as { dampening: number }).dampening = params.dampening;
+    } catch (err) {
+      if (DEV_TUNING) console.warn('[AudioEngine] setGlobalReverb failed', err);
+    }
+  },
+
+  setGlobalDelay(params: Partial<DelaySettings>): void {
+    if (params.wet !== undefined) _fxParamCache.delay.wet = params.wet;
+    if (!_globalDelay) return;
+    try {
+      if (params.wet !== undefined) (_globalDelay as unknown as { wet: { value: number } }).wet.value = params.wet;
+      if (params.delayTime !== undefined) (_globalDelay as unknown as { delayTime: { value: number } }).delayTime.value = params.delayTime;
+      if (params.feedback !== undefined) (_globalDelay as unknown as { feedback: { value: number } }).feedback.value = params.feedback;
+    } catch (err) {
+      if (DEV_TUNING) console.warn('[AudioEngine] setGlobalDelay failed', err);
+    }
+  },
+
+  setGlobalChorus(params: Partial<ChorusSettings>): void {
+    if (params.wet !== undefined) _fxParamCache.chorus.wet = params.wet;
+    if (!_globalChorus) return;
+    try {
+      if (params.wet !== undefined) (_globalChorus as unknown as { wet: { value: number } }).wet.value = params.wet;
+      if (params.rate !== undefined) (_globalChorus as unknown as { frequency: { value: number } }).frequency.value = params.rate;
+      if (params.depth !== undefined) (_globalChorus as unknown as { depth: number }).depth = params.depth;
+      if (params.delayTime !== undefined) (_globalChorus as unknown as { delayTime: number }).delayTime = params.delayTime;
+      if (params.feedback !== undefined) (_globalChorus as unknown as { feedback: { value: number } }).feedback.value = params.feedback;
+    } catch (err) {
+      if (DEV_TUNING) console.warn('[AudioEngine] setGlobalChorus failed', err);
+    }
+  },
+
+  setGlobalFilterLPF(params: Partial<FilterSettings>): void {
+    if (params.frequency !== undefined) _fxParamCache.lpf.frequency = params.frequency;
+    if (params.Q !== undefined) _fxParamCache.lpf.Q = params.Q;
+    if (!_globalLPF) return;
+    try {
+      if (params.frequency !== undefined) (_globalLPF as unknown as { frequency: { value: number } }).frequency.value = params.frequency;
+      if (params.Q !== undefined) (_globalLPF as unknown as { Q: { value: number } }).Q.value = params.Q;
+    } catch (err) {
+      if (DEV_TUNING) console.warn('[AudioEngine] setGlobalFilterLPF failed', err);
+    }
+  },
+
+  setGlobalFilterHPF(params: Partial<FilterSettings>): void {
+    if (params.frequency !== undefined) _fxParamCache.hpf.frequency = params.frequency;
+    if (params.Q !== undefined) _fxParamCache.hpf.Q = params.Q;
+    if (!_globalHPF) return;
+    try {
+      if (params.frequency !== undefined) (_globalHPF as unknown as { frequency: { value: number } }).frequency.value = params.frequency;
+      if (params.Q !== undefined) (_globalHPF as unknown as { Q: { value: number } }).Q.value = params.Q;
+    } catch (err) {
+      if (DEV_TUNING) console.warn('[AudioEngine] setGlobalFilterHPF failed', err);
+    }
+  },
+
+  setGlobalEQ(params: Partial<EQ3Settings>): void {
+    if (params.low !== undefined) _fxParamCache.eq3.low = params.low;
+    if (params.mid !== undefined) _fxParamCache.eq3.mid = params.mid;
+    if (params.high !== undefined) _fxParamCache.eq3.high = params.high;
+    if (!_globalEQ) return;
+    try {
+      if (params.low !== undefined) (_globalEQ as unknown as { low: { value: number } }).low.value = params.low;
+      if (params.mid !== undefined) (_globalEQ as unknown as { mid: { value: number } }).mid.value = params.mid;
+      if (params.high !== undefined) (_globalEQ as unknown as { high: { value: number } }).high.value = params.high;
+    } catch (err) {
+      if (DEV_TUNING) console.warn('[AudioEngine] setGlobalEQ failed', err);
+    }
+  },
+
+  setGlobalCompressor(params: Partial<CompressorSettings>): void {
+    if (params.threshold !== undefined) _fxParamCache.compressor.threshold = params.threshold;
+    if (params.ratio !== undefined) _fxParamCache.compressor.ratio = params.ratio;
+    if (params.attack !== undefined) _fxParamCache.compressor.attack = params.attack;
+    if (params.release !== undefined) _fxParamCache.compressor.release = params.release;
+    if (params.knee !== undefined) _fxParamCache.compressor.knee = params.knee;
+    if (!_masterCompressor) return;
+    try {
+      if (params.threshold !== undefined) _masterCompressor.threshold.value = params.threshold;
+      if (params.ratio !== undefined) _masterCompressor.ratio.value = params.ratio;
+      if (params.attack !== undefined) _masterCompressor.attack.value = params.attack;
+      if (params.release !== undefined) _masterCompressor.release.value = params.release;
+      if (params.knee !== undefined) _masterCompressor.knee.value = params.knee;
+    } catch (err) {
+      if (DEV_TUNING) console.warn('[AudioEngine] setGlobalCompressor failed', err);
+    }
+  },
+
+  /**
+   * Short-circuit the entire FX chain.
+   * When bypass=true, disconnect _masterCompressor from the FX chain and connect directly to Destination.
+   * When bypass=false, reconnect through the FX chain.
+   */
+  setGlobalBypass(bypass: boolean): void {
+    _globalBypassActive = bypass;
+    if (!_masterCompressor) return;
+    const comp = _masterCompressor as unknown as { connect: (t: unknown) => void; disconnect: () => void; toDestination: () => void };
+    try {
+      comp.disconnect();
+      if (bypass) {
+        comp.toDestination();
+        if (DEV_TUNING) console.log('[AudioEngine] Global bypass ON — audio routed direct to destination');
+      } else {
+        // Reconnect through FX chain (first available node or destination)
+        const firstFX = (_globalEQ ?? _globalLPF ?? _globalHPF ?? _globalChorus ?? _globalDelay ?? _globalReverb) as unknown as { connect?: (t: unknown) => void } | null;
+        if (firstFX?.connect) {
+          firstFX.connect(_masterCompressor);
+          comp.connect(firstFX);
+        } else {
+          comp.toDestination();
+        }
+        if (DEV_TUNING) console.log('[AudioEngine] Global bypass OFF — audio routed through FX chain');
+      }
+    } catch (err) {
+      if (DEV_TUNING) console.warn('[AudioEngine] setGlobalBypass failed', err);
+    }
+  },
+
+  /**
+   * Enable or disable an individual effect in the chain.
+   * For wet effects (reverb, delay, chorus): sets wet=0 to disable, restores cached wet to enable.
+   * For dry effects (eq3): zeros all bands to disable, restores cached values to enable.
+   * For filters (lpf, hpf): sets frequency to passthrough value to disable, restores cached freq to enable.
+   *
+   * @param effect - 'reverb' | 'delay' | 'chorus' | 'eq3' | 'lpf' | 'hpf' | 'compressor'
+   * @param enabled - true to enable, false to bypass
+   */
+  setEffectBypass(effect: string, enabled: boolean): void {
+    try {
+      switch (effect) {
+        case 'reverb':
+          if (_globalReverb) {
+            (_globalReverb as unknown as { wet: { value: number } }).wet.value = enabled ? _fxParamCache.reverb.wet : 0;
+          }
+          break;
+        case 'delay':
+          if (_globalDelay) {
+            (_globalDelay as unknown as { wet: { value: number } }).wet.value = enabled ? _fxParamCache.delay.wet : 0;
+          }
+          break;
+        case 'chorus':
+          if (_globalChorus) {
+            (_globalChorus as unknown as { wet: { value: number } }).wet.value = enabled ? _fxParamCache.chorus.wet : 0;
+          }
+          break;
+        case 'eq3':
+          if (_globalEQ) {
+            const e = _globalEQ as unknown as { low: { value: number }; mid: { value: number }; high: { value: number } };
+            e.low.value = enabled ? _fxParamCache.eq3.low : 0;
+            e.mid.value = enabled ? _fxParamCache.eq3.mid : 0;
+            e.high.value = enabled ? _fxParamCache.eq3.high : 0;
+          }
+          break;
+        case 'lpf':
+          if (_globalLPF) {
+            (_globalLPF as unknown as { frequency: { value: number } }).frequency.value = enabled ? _fxParamCache.lpf.frequency : 20000;
+          }
+          break;
+        case 'hpf':
+          if (_globalHPF) {
+            (_globalHPF as unknown as { frequency: { value: number } }).frequency.value = enabled ? _fxParamCache.hpf.frequency : 20;
+          }
+          break;
+        case 'compressor':
+          // Compressor bypass: restore or clamp to passthrough (ratio=1, threshold=0)
+          if (_masterCompressor) {
+            _masterCompressor.ratio.value = enabled ? _fxParamCache.compressor.ratio : 1;
+            _masterCompressor.threshold.value = enabled ? _fxParamCache.compressor.threshold : 0;
+          }
+          break;
+        default:
+          if (DEV_TUNING) console.warn(`[AudioEngine] setEffectBypass: unknown effect "${effect}"`);
+      }
+    } catch (err) {
+      if (DEV_TUNING) console.warn(`[AudioEngine] setEffectBypass(${effect}, ${enabled}) failed`, err);
+    }
   },
 };
