@@ -248,7 +248,7 @@ describe('spawnSystem', () => {
       // set max and min equal
       useOceanStore.setState({ settings: { bpm: 120, maxRobots: 1, minRobots: 1 } } as OceanStore);
       const { addRobot } = useOceanStore.getState();
-      addRobot({ id: 'only', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { synthType: 'AMSynth', waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0, reverb: 0 }, octaveRange: [3, 4], createdAt: 123, masterVolume: 0.7 });
+      addRobot({ id: 'only', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { synthType: 'AMSynth', waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0 }, octaveRange: [3, 4], createdAt: 123, masterVolume: 0.7 });
 
       spawnRobot();
       expect(useOceanStore.getState().robots.length).toBe(1);

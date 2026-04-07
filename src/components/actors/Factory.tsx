@@ -5,7 +5,7 @@ import { selectVariantFromSeed, VARIANT_CONF } from './factoryVariants';
 import { getRowConfig } from '../../systems/factoryPlacementSystem';
 import { calcSilhouetteSize, bottomAnchorTransform } from './silhouetteUtils';
 import { applyColorShift, shiftHSL, clamp } from '../../utils/colorUtils';
-import { getLighting, getNightDepth, FLICKER_PERIOD, FILL_TRANSITION } from '../../utils/lightingUtils';
+import { getLighting, getNightDepth, FLICKER_PERIOD, FILL_TRANSITION, DAY_CYCLE_MEASURES } from '../../utils/lightingUtils';
 import { ROOFTOP_RENDERERS } from './greebles/rooftopGreebles';
 import { FACADE_RENDERERS } from './greebles/facadeGreebles';
 import type { GreebleRendererContext } from './greebles/greebleTypes';
@@ -88,11 +88,16 @@ const FactoryInner: React.FC<FactoryProps> = ({ actor }) => {
   // Resolve east/west lightness multipliers:
   // debug preset overrides the live cycle (useful for visual testing).
   //
-  // lightMeasure: quantised to multiples of 4 so body fills only update once
-  // every 4 measures — the 96-measure day cycle changes slowly enough that
-  // sub-4-measure granularity is imperceptible.
+  // lightMeasure: quantised to multiples of an in-world hour so body fills
+  // update once per in-world hour. For a 96-measure day this equals 4 measures
+  // (96/24). Using `dayLengthMeasures` keeps building lighting proportional
+  // when the day length is changed.
   const bpm = useOceanStore(state => state.settings.bpm);
-  const lightMeasure = useOceanStore(state => Math.round(state.currentMeasure / 4) * 4);
+  const lightMeasure = useOceanStore(state => {
+    const dayLength = state.settings.dayLengthMeasures || 96;
+    const measuresPerHour = Math.max(1, Math.round(dayLength / 24));
+    return Math.round(state.currentMeasure / measuresPerHour) * measuresPerHour;
+  });
   // flickerEpoch: phased per building so window rerolls are spread across
   // FLICKER_PERIOD consecutive measures rather than all firing at once.
   const flickerEpoch = useOceanStore(state =>
@@ -100,9 +105,22 @@ const FactoryInner: React.FC<FactoryProps> = ({ actor }) => {
   );
 
   const preset = DEBUG_LIGHTING_PRESET ? LIGHTING_PRESETS[DEBUG_LIGHTING_PRESET] : null;
-  const { eastL: eastLMultiplier, westL: westLMultiplier } = preset
-    ? { eastL: preset.east, westL: preset.west }
-    : getLighting(lightMeasure);
+
+  // Map the quantised `lightMeasure` (0..dayLength-1) into the 0..95 cycle
+  // expected by `getLighting`. This keeps the relative sun position correct
+  // even when `dayLengthMeasures` is changed from the default 96.
+  const eastLMultiplier = (() => {
+    if (preset) return preset.east;
+    const dayLength = useOceanStore.getState().settings.dayLengthMeasures || 96;
+    const cycleMeasure = Math.round((lightMeasure / dayLength) * DAY_CYCLE_MEASURES) % DAY_CYCLE_MEASURES;
+    return getLighting(cycleMeasure).eastL;
+  })();
+  const westLMultiplier = (() => {
+    if (preset) return preset.west;
+    const dayLength = useOceanStore.getState().settings.dayLengthMeasures || 96;
+    const cycleMeasure = Math.round((lightMeasure / dayLength) * DAY_CYCLE_MEASURES) % DAY_CYCLE_MEASURES;
+    return getLighting(cycleMeasure).westL;
+  })();
 
   const nightDepth = getNightDepth(eastLMultiplier, westLMultiplier);
   /** Average used for elements spanning the full roof width */

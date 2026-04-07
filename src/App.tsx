@@ -6,6 +6,7 @@ import { AudioStatus } from './components/debug/AudioStatus';
 import { spawnRobot } from './systems/spawnSystem';
 import { useOceanStore } from './stores/oceanStore';
 import { subscribeToMeasure } from './engine/beatClock';
+import { DAY_CYCLE_MEASURES } from './utils/lightingUtils';
 import { DEV_TUNING } from './constants';
 
 function App() {
@@ -13,13 +14,16 @@ function App() {
 
   // Wire the BeatClock measure tick → store so factories can react to day/night
   const handleAudioReady = () => {
-    // Keep world time when Play is clicked: add transport measure to the
+    // Keep world time when Play is clicked: map the transport's 96-measure
+    // beat clock into the configured world day length and add the
     // pre-existing world measure so audio starts at 0 while the world keeps
     // its loaded time-of-day.
     const initialWorldMeasure = useOceanStore.getState().currentMeasure;
-    subscribeToMeasure((m) =>
-      useOceanStore.getState().setCurrentMeasure((initialWorldMeasure + m) % 96)
-    );
+    subscribeToMeasure((m) => {
+      const dayLength = useOceanStore.getState().settings.dayLengthMeasures || 96;
+      const scaled = Math.floor((m / DAY_CYCLE_MEASURES) * dayLength);
+      useOceanStore.getState().setCurrentMeasure((initialWorldMeasure + scaled) % dayLength);
+    });
     setAudioReady(true);
   };
 

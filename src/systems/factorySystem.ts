@@ -14,6 +14,9 @@ import { DEV_TUNING } from '../constants';
 // ========================================
 // CONSTANTS
 // ========================================
+// ========================================
+// CONSTANTS
+// ========================================
 const PRODUCTION_INTERVAL = 60;  // 60 measures (15 "hours")
 
 // ========================================
@@ -117,6 +120,9 @@ export function createRobotFromFactory(factory: Actor): Robot {
     direction: 'right',
     melody: generateMelodyForRobot(),
     audioAttributes: generateAudioAttributes(),
+    // sensible defaults for required audio/visual ranges
+    octaveRange: [3, 5],
+    masterVolume: 0.9,
     createdAt: Date.now(),
   };
 }
