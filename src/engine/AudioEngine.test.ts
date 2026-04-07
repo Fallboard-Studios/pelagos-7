@@ -29,11 +29,68 @@ vi.mock('tone', () => ({
   AMSynth: vi.fn(),
   DuoSynth: vi.fn(),
   Compressor: vi.fn(() => ({
+    connect: vi.fn().mockReturnThis(),
+    disconnect: vi.fn(),
     toDestination: vi.fn().mockReturnThis(),
+    threshold: { value: -18 },
+    ratio: { value: 6 },
+    attack: { value: 0.003 },
+    release: { value: 0.15 },
+    knee: { value: 0 },
   })),
   Panner: vi.fn(() => ({
     connect: vi.fn().mockReturnThis(),
     pan: { value: 0 },
+  })),
+  Reverb: vi.fn(() => ({
+    connect: vi.fn().mockReturnThis(),
+    disconnect: vi.fn(),
+    toDestination: vi.fn(),
+    ready: Promise.resolve(),
+    wet: { value: 0.3 },
+    decay: 1.5,
+    preDelay: 0.02,
+    dampening: 3000,
+  })),
+  FeedbackDelay: vi.fn(() => ({
+    connect: vi.fn().mockReturnThis(),
+    disconnect: vi.fn(),
+    toDestination: vi.fn(),
+    wet: { value: 0 },
+    delayTime: { value: 0.25 },
+    feedback: { value: 0.2 },
+  })),
+  Chorus: vi.fn(() => ({
+    connect: vi.fn().mockReturnThis(),
+    disconnect: vi.fn(),
+    toDestination: vi.fn(),
+    start: vi.fn(),
+    wet: { value: 0 },
+    frequency: { value: 1.5 },
+    depth: 0.2,
+    delayTime: 0.012,
+    feedback: { value: 0.1 },
+  })),
+  EQ3: vi.fn(() => ({
+    connect: vi.fn().mockReturnThis(),
+    disconnect: vi.fn(),
+    toDestination: vi.fn(),
+    low: { value: 0 },
+    mid: { value: 0 },
+    high: { value: 0 },
+  })),
+  Filter: vi.fn(() => ({
+    connect: vi.fn().mockReturnThis(),
+    disconnect: vi.fn(),
+    toDestination: vi.fn(),
+    frequency: { value: 20000 },
+    Q: { value: 1 },
+  })),
+  Gain: vi.fn(() => ({
+    connect: vi.fn().mockReturnThis(),
+    disconnect: vi.fn(),
+    toDestination: vi.fn(),
+    gain: { value: 1 },
   })),
 }));
 
@@ -396,5 +453,158 @@ describe('AudioEngine - Composite Voices (Layered)', () => {
     AudioEngine.releaseVoice('composite-robot-3');
     voice = AudioEngine.getVoiceForRobot('composite-robot-3');
     expect(voice).toBeNull();
+  });
+});
+
+describe('AudioEngine - Global FX Chain', () => {
+  // Helper: get the most recently constructed mock instance for a Tone constructor
+  type AnyMock = ReturnType<typeof vi.fn>;
+  const lastInstance = (ctor: unknown) =>
+    (ctor as unknown as AnyMock).mock.results.at(-1)?.value;
+
+  beforeEach(() => {
+    vi.resetModules();
+    useOceanStore.setState({ settings: { bpm: 120, maxRobots: 4, minRobots: 1 } } as unknown as Record<string, unknown>);
+  });
+
+  it('starts without throwing when FX constructors are present', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await expect(AudioEngine.start()).resolves.not.toThrow();
+  });
+
+  describe('setGlobalReverb', () => {
+    it('updates wet value on the reverb node', async () => {
+      const Tone = await import('tone');
+      const { AudioEngine } = await import('./AudioEngine');
+      await AudioEngine.start();
+      const reverbNode = lastInstance(Tone.Reverb) ?? { wet: { value: 0.3 } };
+      AudioEngine.setGlobalReverb({ wet: 0.8 });
+      expect(reverbNode.wet.value).toBe(0.8);
+    });
+
+    it('is a no-op when AudioEngine not started', async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      // Do NOT start — _globalReverb is null
+      expect(() => AudioEngine.setGlobalReverb({ wet: 0.8 })).not.toThrow();
+    });
+  });
+
+  describe('setGlobalDelay', () => {
+    it('updates wet value on the delay node', async () => {
+      const Tone = await import('tone');
+      const { AudioEngine } = await import('./AudioEngine');
+      await AudioEngine.start();
+      const delayNode = lastInstance(Tone.FeedbackDelay) ?? { wet: { value: 0 } };
+      AudioEngine.setGlobalDelay({ wet: 0.5 });
+      expect(delayNode.wet.value).toBe(0.5);
+    });
+  });
+
+  describe('setGlobalChorus', () => {
+    it('updates wet value on the chorus node', async () => {
+      const Tone = await import('tone');
+      const { AudioEngine } = await import('./AudioEngine');
+      await AudioEngine.start();
+      const chorusNode = lastInstance(Tone.Chorus) ?? { wet: { value: 0 } };
+      AudioEngine.setGlobalChorus({ wet: 0.4 });
+      expect(chorusNode.wet.value).toBe(0.4);
+    });
+  });
+
+  describe('setGlobalEQ', () => {
+    it('updates band values on the EQ3 node', async () => {
+      const Tone = await import('tone');
+      const { AudioEngine } = await import('./AudioEngine');
+      await AudioEngine.start();
+      const eqNode = lastInstance(Tone.EQ3) ?? { low: { value: 0 }, mid: { value: 0 }, high: { value: 0 } };
+      AudioEngine.setGlobalEQ({ low: -3, mid: 2, high: 4 });
+      expect(eqNode.low.value).toBe(-3);
+      expect(eqNode.mid.value).toBe(2);
+      expect(eqNode.high.value).toBe(4);
+    });
+  });
+
+  describe('setGlobalFilterLPF', () => {
+    it('updates frequency on the LPF node', async () => {
+      const Tone = await import('tone');
+      const { AudioEngine } = await import('./AudioEngine');
+      await AudioEngine.start();
+      // Filter is called twice in loadInstruments (LPF then HPF).
+      // mock.results accumulates across tests, so use at(-2) for LPF and at(-1) for HPF.
+      const lpfNode = (Tone.Filter as unknown as AnyMock).mock.results.at(-2)?.value
+        ?? { frequency: { value: 20000 } };
+      AudioEngine.setGlobalFilterLPF({ frequency: 8000 });
+      expect(lpfNode.frequency.value).toBe(8000);
+    });
+  });
+
+  describe('setGlobalCompressor', () => {
+    it('updates threshold and ratio on the master compressor', async () => {
+      const Tone = await import('tone');
+      const { AudioEngine } = await import('./AudioEngine');
+      await AudioEngine.start();
+      const compNode = lastInstance(Tone.Compressor) ?? { threshold: { value: -18 }, ratio: { value: 6 } };
+      AudioEngine.setGlobalCompressor({ threshold: -30, ratio: 4 });
+      expect(compNode.threshold.value).toBe(-30);
+      expect(compNode.ratio.value).toBe(4);
+    });
+  });
+
+  describe('setEffectBypass', () => {
+    it('silences reverb wet when bypassed', async () => {
+      const Tone = await import('tone');
+      const { AudioEngine } = await import('./AudioEngine');
+      await AudioEngine.start();
+      const reverbNode = lastInstance(Tone.Reverb) ?? { wet: { value: 0.3 } };
+      AudioEngine.setGlobalReverb({ wet: 0.6 });
+      AudioEngine.setEffectBypass('reverb', false);
+      expect(reverbNode.wet.value).toBe(0);
+    });
+
+    it('restores reverb wet when re-enabled', async () => {
+      const Tone = await import('tone');
+      const { AudioEngine } = await import('./AudioEngine');
+      await AudioEngine.start();
+      const reverbNode = lastInstance(Tone.Reverb) ?? { wet: { value: 0.3 } };
+      AudioEngine.setGlobalReverb({ wet: 0.7 });
+      AudioEngine.setEffectBypass('reverb', false);
+      AudioEngine.setEffectBypass('reverb', true);
+      expect(reverbNode.wet.value).toBe(0.7);
+    });
+
+    it('zeros EQ bands when bypassed', async () => {
+      const Tone = await import('tone');
+      const { AudioEngine } = await import('./AudioEngine');
+      await AudioEngine.start();
+      const eqNode = lastInstance(Tone.EQ3) ?? { low: { value: 0 }, mid: { value: 0 }, high: { value: 0 } };
+      AudioEngine.setGlobalEQ({ low: -3, mid: 2, high: 4 });
+      AudioEngine.setEffectBypass('eq3', false);
+      expect(eqNode.low.value).toBe(0);
+      expect(eqNode.mid.value).toBe(0);
+      expect(eqNode.high.value).toBe(0);
+    });
+
+    it('is a no-op for unknown effect names', async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      await AudioEngine.start();
+      expect(() => AudioEngine.setEffectBypass('unknown_fx', false)).not.toThrow();
+    });
+  });
+
+  describe('setGlobalBypass', () => {
+    it('calls disconnect then toDestination on the compressor when bypass=true', async () => {
+      const Tone = await import('tone');
+      const { AudioEngine } = await import('./AudioEngine');
+      await AudioEngine.start();
+      const compNode = lastInstance(Tone.Compressor) ?? { disconnect: vi.fn(), toDestination: vi.fn(), connect: vi.fn() };
+      AudioEngine.setGlobalBypass(true);
+      expect(compNode.disconnect).toHaveBeenCalled();
+      expect(compNode.toDestination).toHaveBeenCalled();
+    });
+
+    it('is a no-op when AudioEngine not started', async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      expect(() => AudioEngine.setGlobalBypass(true)).not.toThrow();
+    });
   });
 });
