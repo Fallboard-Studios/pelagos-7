@@ -7,20 +7,20 @@ assignees: ''
 ---
 
 <!-- ============================================================ -->
-<!-- ISSUE 6: Build Robot Visualizer Placeholder                  -->
+<!-- ISSUE 6: Build Ocean View Viewport                           -->
 <!-- ============================================================ -->
 
-## [M8.2-6] Build Robot Visualizer Placeholder (4×4 Desktop / Full-width Mobile)
+## [M8.2-6] Build Ocean View Viewport
 
 ## Feature Description
-Integrate the existing `OceanScene` SVG canvas into the Ocean view as its primary viewport element, framed within the industrial UI grid. On desktop and tablet the scene occupies a `4×4` grid-unit area; on mobile it expands to full width. This is the visual "home" of the app when `activeView === 'ocean'`.
+Integrate the existing `OceanScene` SVG canvas as the primary viewport of the Ocean view, rendered inside `GlassViewport`'s active content area. The scene fills all available glass space, accounting for the transport bar height and navigation bar offset. On desktop the scene expands as the glass reveals more of the tablet along the X-axis. This is the visual "home" of the app when `activeView === 'ocean'`.
 
-Depends on: **Issue 1** (grid tokens), **Issue 4** (ocean view is the rendered target of `ActiveViewport`).
+Depends on: **Issue 1** (design tokens, `GlassViewport`), **Issue 4** (ocean view is the rendered target of `ActiveViewport`).
 
 ## Implementation Details
-- [ ] Create `src/components/views/OceanView.tsx` wrapping `<OceanScene />` in a grid-aware container
-- [ ] Container uses CSS grid tokens from Issue 1: `width: calc(4 * var(--unit)); aspect-ratio: 16/9` on desktop; `width: 100%` on mobile (≤480px)
-- [ ] Container handles the offset for the sidebar (Issue 3): add `margin-left: var(--unit)` on tablet/desktop so the scene is not obscured by the sidebar
+- [ ] Create `src/components/views/OceanView.tsx` wrapping `<OceanScene />` in a layout-aware container
+- [ ] Container fills available glass area: `width: 100%; height: 100%` within the content area (below the transport bar, beside or below the navigation bar depending on breakpoint)
+- [ ] Container accounts for the navigation bar offset: on desktop, the content area is inset from the left nav bar (via `padding-left: var(--nav-width)` set by the outer layout); on mobile, inset from the bottom nav bar
 - [ ] `OceanScene` `width` and `height` props should match the container's rendered size — pass computed dimensions or let CSS handle scaling via `viewBox` + `preserveAspectRatio`
 - [ ] `ActiveViewport` (Issue 4) renders `<OceanView />` instead of `<OceanScene />` directly for `activeView === 'ocean'`
 - [ ] Side-effect lifecycle (spawn scheduler, collision detection, factory placement) remains in `OceanScene` — no changes needed there
@@ -31,15 +31,15 @@ Depends on: **Issue 1** (grid tokens), **Issue 4** (ocean view is the rendered t
 
 ## Technical Notes
 - `OceanScene` uses a fixed `viewBox="0 0 1920 1080"` — CSS `width: 100%; height: auto` with `preserveAspectRatio="xMidYMid meet"` will scale it correctly inside any container without changing internal coordinate space.
-- The sidebar in Issue 3 is `1×--unit` wide on desktop — account for this in the layout so the scene is not clipped.
-- The header from Issue 2 is `1×--unit` tall — add `padding-top: var(--unit)` to the layout root so content starts below it.
-- On mobile, the bottom bar from Issue 3 is `1×--unit` tall — add `padding-bottom: var(--unit)` to the layout root for mobile.
+- Remove the `100vw × 100vh` full-screen sizing assumption from `OceanScene.css` (`width: 100%; height: 100%` relative to its parent container is the new target).
+- The transport bar from Issue 2 defines `--transport-height` — the content area below it starts at that offset. The navigation bar from Issue 3 defines `--nav-width` (desktop) and `--nav-height` (mobile). `OceanView` should use these tokens to avoid overlap.
+- On desktop, as `--sleeve-width` increases with viewport width, `GlassViewport` grows and `OceanScene` grows with it — no explicit resize handler needed; CSS flex/fill handles it.
 
 ## Acceptance Criteria
 - [ ] `OceanScene` renders inside `OceanView` within the `ocean` active view
-- [ ] On desktop/tablet the ocean scene respects the `4×4` grid-unit sizing
-- [ ] On mobile the ocean scene expands to full width
-- [ ] Neither the header nor the sidebar obscures the scene content
+- [ ] On desktop the ocean scene fills the available glass content area without overflowing into the sleeve or navigation areas
+- [ ] On mobile the ocean scene fills the full `GlassViewport` width
+- [ ] Neither the transport bar nor the navigation bar obscures the scene content
 - [ ] Spawn, collision, and factory systems continue to function correctly
 - [ ] App compiles with no TypeScript errors
 - [ ] App remains functional after merge

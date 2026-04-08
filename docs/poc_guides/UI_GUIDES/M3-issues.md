@@ -124,7 +124,7 @@ Depends on: **Issue 0d** (`robot.name` must exist), **Issue 10** (a robot must b
 ## [M8.3-12] Build Synthesis Module B — Oscillators (Waveform, Phase, Gain, Detune, Pulsewidth)
 
 ## Feature Description
-Build the oscillator synthesis module for the selected robot. It exposes waveform type selection, phase, gain (masterVolume), detune, and conditional pulsewidth — the core oscillator parameters that shape the robot's timbral identity. Changes take effect at the next voice reservation cycle (robot remount/respawn) except for masterVolume which is per-note-velocity.
+Build the oscillator synthesis module for the selected robot. It exposes waveform type selection and touch-optimized Vertical Power Bars for phase, gain, detune, and conditional pulsewidth — the core oscillator parameters that shape the robot's timbral identity. No rotary knobs or grippable controls; everything is a linear fill bar designed for the glass touchscreen. Changes take effect at the next voice reservation cycle (robot remount/respawn) except for masterVolume which is per-note-velocity.
 
 Depends on: **Issue 0d** (`phase` and `detune` in `AudioAttributes` must exist), **Issue 10** (robot selection), **Issue 1** (design tokens).
 
@@ -137,29 +137,34 @@ Depends on: **Issue 0d** (`phase` and `detune` in `AudioAttributes` must exist),
   - On change: calls `updateRobot(id, { audioAttributes: { ...robot.audioAttributes, waveform: value } })`
   - Triggers voice re-reservation (see Technical Notes)
   - When waveform changes to/from `square`, the Pulsewidth control appears/disappears accordingly
-- [ ] **Phase Knob/Slider (1×1):**
+- [ ] **Phase Vertical Power Bar:**
+  - Touch-optimized vertical fill bar (linear scale); minimum 44×44px drag handle
   - Range: 0–360 degrees
   - Reads `robot.audioAttributes.phase` (added in Issue 0d)
   - On change: `updateRobot(id, { audioAttributes: { ...robot.audioAttributes, phase: value } })`
   - Triggers voice re-reservation
-  - Display: numeric readout in degrees (e.g., `180°`)
-- [ ] **Gain Slider:**
-  - This is `robot.masterVolume` — shared with Synthesis Module A's volume slider
+  - Display: numeric readout in degrees below the bar (e.g., `180°`)
+- [ ] **Gain Vertical Power Bar:**
+  - This is `robot.masterVolume` — shared with Synthesis Module A's volume control
   - Either omit from this module (document the overlap) or render as a read-only reference display linking to Module A
-- [ ] **Detune Knob/Slider (1×1):**
+- [ ] **Detune Vertical Power Bar:**
+  - Touch-optimized vertical fill bar (linear scale); minimum 44×44px drag handle
   - Range: −100 to +100 cents
   - Reads `robot.audioAttributes.detune` (added in Issue 0d)
   - On change: `updateRobot(id, { audioAttributes: { ...robot.audioAttributes, detune: value } })`
   - Triggers voice re-reservation
-  - Display: signed numeric readout (e.g., `−24 ct`)
-- [ ] **Pulsewidth Stepper (2×1, conditional):**
+  - Display: signed numeric readout below the bar (e.g., `−24 ct`)
+- [ ] **Pulsewidth Vertical Power Bar (conditional):**
   - Rendered only when `robot.audioAttributes.waveform === 'square'`
+  - Touch-optimized vertical fill bar; minimum 44×44px drag handle
   - Reads a new `pulseWidth: number` field on `AudioAttributes` (0.0–1.0, default 0.5)
   - Add `pulseWidth` to `AudioAttributes` interface and `spawnSystem`
   - On change: `updateRobot(...)` + voice re-reservation
-  - Display: percentage readout (e.g., `50%`)
-- [ ] Module dimensions: fits within a `2×2` grid unit area; use design tokens for all styles
+  - Display: percentage readout below the bar (e.g., `50%`)
+- [ ] No rotary knobs or grippable controls — all oscillator parameters are Vertical Power Bars (linear fill sliders)
+- [ ] Module dimensions: fits within the available RobotView panel width; use design tokens for all styles
 - [ ] Render `<SynthModuleB />` inside `RobotView`
+- [ ] No rotary knobs or grippable controls introduced anywhere in this module
 - [ ] No architecture violations (audio/animation/state separation)
 - [ ] Code follows standards (imports ordered, explicit types)
 - [ ] Tested locally (no console errors)
@@ -175,8 +180,8 @@ Depends on: **Issue 0d** (`phase` and `detune` in `AudioAttributes` must exist),
 ## Acceptance Criteria
 - [ ] Waveform dropdown shows current waveform and updates `robot.audioAttributes.waveform`
 - [ ] Changing waveform triggers voice re-reservation; audible timbre change is heard on next note
-- [ ] Phase and detune controls update their respective `AudioAttributes` fields and trigger re-reservation
-- [ ] Pulsewidth control is only visible when waveform is `square`
+- [ ] Phase and detune Vertical Power Bars update their respective `AudioAttributes` fields and trigger re-reservation
+- [ ] Pulsewidth Vertical Power Bar is only visible when waveform is `square`
 - [ ] Pulsewidth updates `audioAttributes.pulseWidth` and triggers re-reservation
 - [ ] All new `AudioAttributes` fields are present in spawned robots
 - [ ] All existing tests pass after type/fixture updates
@@ -194,27 +199,31 @@ Depends on: **Issue 0d** (`phase` and `detune` in `AudioAttributes` must exist),
 <!-- ISSUE 13: Build ADSR Envelope Cluster                        -->
 <!-- ============================================================ -->
 
-## [M8.3-13] Build ADSR Envelope Cluster (4× Steppers with Visual Sparkline)
+## [M8.3-13] Build ADSR Envelope Cluster (HTML Canvas Graph with Draggable Nodes)
 
 ## Feature Description
-Build the ADSR envelope control module for the selected robot. Four steppers control attack, decay, sustain, and release. A live sparkline visualises the current envelope shape, giving immediate visual feedback. ADSR changes trigger voice re-reservation in AudioEngine so the new envelope is applied to the next played note.
+Build the ADSR envelope control module for the selected robot. An HTML Canvas graph with four draggable nodes — Attack, Decay, Sustain, Release — gives the user direct, tactile control over the envelope shape on the glass touchscreen. A bezier curve rendered on the canvas visualises the envelope in real time as nodes are dragged. Numeric readouts beneath the canvas display each parameter value with correct units. ADSR changes trigger voice re-reservation in AudioEngine so the new envelope is applied to the next played note.
 
 Depends on: **Issue 10** (robot selection), **Issue 1** (design tokens).
 
 ## Implementation Details
 - [ ] Create `src/components/ui/ADSRModule.tsx` and `ADSRModule.css`
 - [ ] Module reads the selected robot's `robot.audioAttributes.adsr`; renders disabled placeholder if none selected
-- [ ] **Four steppers** (each with fine and coarse increment/decrement buttons):
-  - **Attack:** range 0.001–4.0s, fine step 0.001s, coarse step 0.1s; display in ms for values <1s (e.g., `50 ms`), seconds otherwise (e.g., `1.2 s`)
-  - **Decay:** range 0.001–4.0s, same step sizes and display logic as Attack
-  - **Sustain:** range 0–1.0 (dimensionless level), fine step 0.01, coarse step 0.1; display as percentage (e.g., `75%`)
-  - **Release:** range 0.001–8.0s, fine step 0.001s, coarse step 0.1s; same display as Attack/Decay
-- [ ] On any ADSR value change: call `updateRobot(id, { audioAttributes: { ...robot.audioAttributes, adsr: newAdsr } })` then trigger voice re-reservation (release + reserve, same pattern as Issue 12)
-- [ ] **Sparkline:**
-  - Inline SVG rendering the classic ADSR trapezoid: Attack ramp up → Decay ramp down to Sustain level → flat Sustain line → Release ramp down
-  - Rerenders reactively when any ADSR value changes
-  - Dimensions: `2×1` grid units wide, occupies own row in the module
-  - No GSAP needed — this is a pure SVG path recomputed on render, not animated
+- [ ] **HTML Canvas ADSR graph:**
+  - A `<canvas>` element rendering a bezier curve ADSR shape; redraws in real time as nodes are dragged
+  - Four draggable nodes positioned at the Attack peak, Decay endpoint, Sustain level, and Release endpoint
+  - Nodes respond to both `pointerdown/pointermove/pointerup` and touch events; minimum 44×44px hit target per node
+  - **Attack node:** constrains horizontal drag (time axis); range 0.001–4.0s
+  - **Decay node:** constrains horizontal drag (time) and vertical drag (curves to sustain level); range 0.001–4.0s
+  - **Sustain node:** constrains vertical drag (level axis); range 0–1.0 (displayed as %)
+  - **Release node:** constrains horizontal drag; range 0.001–8.0s
+  - Numeric readout for each parameter displayed beneath the canvas with correct units (ms/s for time, % for sustain)
+- [ ] On any ADSR value change (node drag settle): call `updateRobot(id, { audioAttributes: { ...robot.audioAttributes, adsr: newAdsr } })` then trigger voice re-reservation (release + reserve, same pattern as Issue 12)
+- [ ] **Canvas graph:**
+  - Dimensions: occupies its own visually prominent area within the module
+  - Bezier curve connects all four nodes and redraws on every drag event
+  - Canvas is not animated between drag events — only redraws when node positions change
+  - No GSAP needed for the canvas — direct Canvas 2D API redraws only
 - [ ] Module total dimensions: fits within a `2×3` grid unit area; use design tokens for all styles
 - [ ] Render `<ADSRModule />` inside `RobotView`
 - [ ] No architecture violations (audio/animation/state separation)
@@ -222,16 +231,19 @@ Depends on: **Issue 10** (robot selection), **Issue 1** (design tokens).
 - [ ] Tested locally (no console errors)
 
 ## Technical Notes
-- **ADSR affects visual appearance:** `adsr` drives `generateColors()` (via `hueOffset`, `toLuminance`, `toSaturation`) and `calculateGreebleCount/Size/Persistence/PlacementBias()` in `robotVisualHelpers.ts`. Changing ADSR will visually update the robot on the next render — this is expected and correct per architecture. No extra action needed to trigger the visual update; it is purely reactive.
+- **ADSR affects visual appearance:** `adsr` drives `generateColors()` and `calculateGreebleCount/Size/Persistence/PlacementBias()` in `robotVisualHelpers.ts`. Changing ADSR will visually update the robot on the next render — this is expected and correct per architecture.
 - **Voice re-reservation on ADSR change:** Call `AudioEngine.releaseVoice(id)` then `AudioEngine.reserveVoice(id, ...)` as in Issue 12. Note: `reserveVoice()` already accepts `adsr` as a parameter and applies it at reservation time.
-- **Sparkline path calculation:** Given normalised time budget `T = A + D + R + sustainLength`, compute SVG path points proportionally: (0,0) → (A/T, 1.0) → ((A+D)/T, sustain) → ((A+D+sustainLen)/T, sustain) → (1.0, 0). Use a fixed `sustainLen` display constant (e.g., `sustainLen = D` for a balanced visual). Keep the sparkline calculation in a pure function for easy unit testing.
-- **Attack display threshold:** The Tone.js minimum attack for `PolySynth` is approximately 0.001s (1ms) — values below this may produce clicks. The stepper minimum of 0.001s respects this.
+- **Canvas node hit detection:** Each node's hit target should be expanded to at least 44×44px around its rendered point. Use a simple radius check in the `pointerdown` handler rather than referencing exact canvas pixel coordinates.
+- **Canvas bezier path calculation:** Given ADSR values, compute SVG/Canvas path points proportionally: (0,0) → (A/T, 1.0) → ((A+D)/T, sustain) → ((A+D+sustainLen)/T, sustain) → (1.0, 0). Use a fixed `sustainLen` display constant (e.g., `sustainLen = D`) for a balanced visual. This logic should live in a pure helper function for easy unit testing.
+- **Attack display threshold:** The Tone.js minimum attack for `PolySynth` is approximately 0.001s (1ms) — values below this may produce clicks. The Attack node range minimum of 0.001s respects this.
+- **No GSAP on the canvas** — use Canvas 2D API `clearRect` + path draws directly.
 
 ## Acceptance Criteria
-- [ ] All four ADSR parameters have steppers with correct ranges and step sizes
-- [ ] Value display uses correct units (ms/s for time, % for sustain)
+- [ ] All four ADSR parameters can be adjusted via the canvas graph node drags
+- [ ] Value readouts display correct units (ms/s for time, % for sustain) and update live on drag
+- [ ] All four draggable nodes have a minimum 44×44px touch hit target
 - [ ] ADSR change triggers voice re-reservation; audible envelope change on next note
-- [ ] Sparkline redraws immediately to reflect updated ADSR values
+- [ ] Canvas bezier curve redraws in real time as nodes are dragged
 - [ ] ADSR change updates robot colour/greebles on next render (visual reactivity confirmed)
 - [ ] Module disabled/placeholder when no robot is selected
 - [ ] App compiles with no TypeScript errors

@@ -68,10 +68,10 @@ Depends on: **Issue 0a** (`GlobalAudioSettings` type), **Issue 0b** (`globalAudi
 <!-- ISSUE 18: Implement Reverb & Delay Modules                   -->
 <!-- ============================================================ -->
 
-## [M8.5-18] Implement Reverb & Delay Modules (Slider Clusters)
+## [M8.5-18] Implement Reverb & Delay Modules (Value Strips)
 
 ## Feature Description
-Build the two time-based FX modules for the global rack: Reverb and Delay. Each renders inside an `FXEffectBlock` wrapper (Issue 17) and provides sliders for all controllable parameters. Changes call the corresponding `AudioEngine` setter and persist to `oceanStore.globalAudio`.
+Build the two time-based FX modules for the global rack: Reverb and Delay. Each renders inside an `FXEffectBlock` wrapper (Issue 17) and provides Value Strips (high-contrast horizontal or vertical fill bars, touch-optimized) for all controllable parameters. No rotary knobs or grippable controls — everything is a linear fill bar suited for the glass touchscreen. Changes call the corresponding `AudioEngine` setter and persist to `audioStore.globalAudio`.
 
 Depends on: **Issue 17** (`FXEffectBlock` wrapper), **Issue 0a** (types), **Issue 0b** (state), **Issue 0c** (AudioEngine setters).
 
@@ -80,20 +80,21 @@ Depends on: **Issue 17** (`FXEffectBlock` wrapper), **Issue 0a** (types), **Issu
 - [ ] Create `src/components/ui/fx/DelayModule.tsx` and `DelayModule.css`
 
 ### Reverb Module (`globalAudio.reverb: ReverbSettings`)
-- [ ] **Decay** slider: range 0.1–10s, step 0.1s; display in seconds (e.g. `2.5 s`)
-- [ ] **Pre-Delay** slider: range 0–0.5s, step 0.01s; display in ms (e.g. `20 ms`)
-- [ ] **Dampening** slider: range 100–8000 Hz, step 100 Hz; display in Hz (e.g. `2000 Hz`)
-- [ ] **Wet** slider: range 0–1, step 0.01; display as percentage (e.g. `40%`)
+- [ ] **Decay** Value Strip: range 0.1–10s, step 0.1s; display in seconds (e.g. `2.5 s`)
+- [ ] **Pre-Delay** Value Strip: range 0–0.5s, step 0.01s; display in ms (e.g. `20 ms`)
+- [ ] **Dampening** Value Strip: range 100–8000 Hz, step 100 Hz; display in Hz (e.g. `2000 Hz`)
+- [ ] **Wet** Value Strip: range 0–1, step 0.01; display as percentage (e.g. `40%`)
 - [ ] On any change: call `setGlobalAudio('reverb', { [param]: value })` AND `AudioEngine.setGlobalReverb({ [param]: value })`
 
 ### Delay Module (`globalAudio.delay: DelaySettings`)
-- [ ] **Delay Time** slider: range 0–1s, step 0.01s; display in ms (e.g. `250 ms`)
-- [ ] **Feedback** slider: range 0–0.95, step 0.01; display as percentage (e.g. `35%`)
-- [ ] **Wet** slider: range 0–1, step 0.01; display as percentage (e.g. `30%`)
+- [ ] **Delay Time** Value Strip: range 0–1s, step 0.01s; display in ms (e.g. `250 ms`)
+- [ ] **Feedback** Value Strip: range 0–0.95, step 0.01; display as percentage (e.g. `35%`)
+- [ ] **Wet** Value Strip: range 0–1, step 0.01; display as percentage (e.g. `30%`)
 - [ ] On any change: call `setGlobalAudio('delay', { [param]: value })` AND `AudioEngine.setGlobalDelay({ [param]: value })`
 
 ### Shared requirements
-- [ ] Each module reads initial values from `useAudioStore((s) => s.globalAudio.<effect>)` on mount so sliders initialise at current state (not hardcoded defaults)
+- [ ] Each module reads initial values from `useAudioStore((s) => s.globalAudio.<effect>)` on mount so Value Strips initialise at current state (not hardcoded defaults)
+- [ ] All Value Strip controls are touch-optimized (minimum 44px touch target height/width)
 - [ ] Each module is wrapped in `<FXEffectBlock label="REVERB" effectKey="reverb">` / `<FXEffectBlock label="DELAY" effectKey="delay">`
 - [ ] Use only design tokens from Issue 1 for all styles
 - [ ] No architecture violations (audio/animation/state separation)
@@ -107,9 +108,9 @@ Depends on: **Issue 17** (`FXEffectBlock` wrapper), **Issue 0a** (types), **Issu
 - **Dampening display:** Dampening is a filter frequency in Hz — a log-scale display or non-linear slider step would be more musically useful (doubling frequency = one octave), but a linear 100 Hz step is acceptable for an initial implementation.
 
 ## Acceptance Criteria
-- [ ] Reverb module renders all four sliders with correct ranges and units
-- [ ] Delay module renders all three sliders with correct ranges and units
-- [ ] Moving any slider updates both `audioStore.globalAudio` and the live AudioEngine effect
+- [ ] Reverb module renders all four Value Strips with correct ranges and units
+- [ ] Delay module renders all three Value Strips with correct ranges and units
+- [ ] Moving any Value Strip updates both `audioStore.globalAudio` and the live AudioEngine effect
 - [ ] Both modules initialise from current `audioStore.globalAudio` state (not hardcoded)
 - [ ] Both modules respect their parent `FXEffectBlock` bypass toggle (dimmed and inert when bypassed)
 - [ ] Global bypass makes both effects inaudible
@@ -127,10 +128,10 @@ Depends on: **Issue 17** (`FXEffectBlock` wrapper), **Issue 0a** (types), **Issu
 <!-- ISSUE 19: Implement Compression & EQ Modules                 -->
 <!-- ============================================================ -->
 
-## [M8.5-19] Implement Compression & EQ Modules (Slider Clusters)
+## [M8.5-19] Implement Compression & EQ Modules (Value Strips)
 
 ## Feature Description
-Build the dynamics and tonal shaping modules for the global rack: a Compressor and a 3-band EQ. The Compressor wraps the existing `_masterCompressor` node (previously hardcoded); EQ uses `Tone.EQ3`. Both render inside `FXEffectBlock` wrappers and provide sliders for all controllable parameters.
+Build the dynamics and tonal shaping modules for the global rack: a Compressor and a 3-band EQ. Both render inside `FXEffectBlock` wrappers and provide Value Strips (high-contrast linear fill bars) for all controllable parameters. No rotary knobs or grippable controls.
 
 Depends on: **Issue 17** (`FXEffectBlock`), **Issue 0a** (types), **Issue 0b** (state), **Issue 0c** (AudioEngine setters — `setGlobalCompressor`, `setGlobalEQ`).
 
@@ -139,22 +140,23 @@ Depends on: **Issue 17** (`FXEffectBlock`), **Issue 0a** (types), **Issue 0b** (
 - [ ] Create `src/components/ui/fx/EQ3Module.tsx` and `EQ3Module.css`
 
 ### Compressor Module (`globalAudio.compressor: CompressorSettings`)
-- [ ] **Threshold** slider: range −60–0 dB, step 1 dB; display in dB (e.g. `−18 dB`)
-- [ ] **Ratio** slider: range 1–20, step 0.5; display as ratio (e.g. `6:1`)
-- [ ] **Attack** slider: range 0.001–1s, step 0.001s; display in ms (e.g. `3 ms`)
-- [ ] **Release** slider: range 0.01–1s, step 0.01s; display in ms (e.g. `150 ms`)
-- [ ] **Knee** slider: range 0–40 dB, step 1 dB; display in dB (e.g. `6 dB`)
+- [ ] **Threshold** Value Strip: range −60–0 dB, step 1 dB; display in dB (e.g. `−18 dB`)
+- [ ] **Ratio** Value Strip: range 1–20, step 0.5; display as ratio (e.g. `6:1`)
+- [ ] **Attack** Value Strip: range 0.001–1s, step 0.001s; display in ms (e.g. `3 ms`)
+- [ ] **Release** Value Strip: range 0.01–1s, step 0.01s; display in ms (e.g. `150 ms`)
+- [ ] **Knee** Value Strip: range 0–40 dB, step 1 dB; display in dB (e.g. `6 dB`)
 - [ ] On any change: call `setGlobalAudio('compressor', { [param]: value })` AND `AudioEngine.setGlobalCompressor({ [param]: value })`
 - [ ] Default values must match the previously hardcoded `_masterCompressor` values: threshold −18 dB, ratio 6, attack 0.003s, release 0.15s, knee 6 dB (verify against `AudioEngine.ts`)
 
 ### EQ3 Module (`globalAudio.eq3: EQ3Settings`)
-- [ ] **Low gain** slider: range −12–12 dB, step 0.5 dB; display in dB (e.g. `+3 dB`)
-- [ ] **Mid gain** slider: range −12–12 dB, step 0.5 dB; display in dB
-- [ ] **High gain** slider: range −12–12 dB, step 0.5 dB; display in dB
+- [ ] **Low gain** Value Strip: range −12–12 dB, step 0.5 dB; display in dB (e.g. `+3 dB`)
+- [ ] **Mid gain** Value Strip: range −12–12 dB, step 0.5 dB; display in dB
+- [ ] **High gain** Value Strip: range −12–12 dB, step 0.5 dB; display in dB
 - [ ] On any change: call `setGlobalAudio('eq3', { [param]: value })` AND `AudioEngine.setGlobalEQ({ [param]: value })`
 
 ### Shared requirements
 - [ ] Each module reads initial values from `useAudioStore((s) => s.globalAudio.<effect>)` on mount
+- [ ] All Value Strip controls are touch-optimized (minimum 44px touch target)
 - [ ] Wrapped in `<FXEffectBlock label="COMP" effectKey="compressor">` / `<FXEffectBlock label="EQ" effectKey="eq3">`
 - [ ] **Bypass note:** EQ3 and Compressor have no `wet` parameter — bypass is implemented in AudioEngine by routing around the node (via a pass-through gain swap). The `enabled` flag in each effect's settings is the bypass signal. When `enabled = false`, the block must call `AudioEngine.setEffectBypass('compressor'/'eq3', false)` via the parent `FXEffectBlock` — this is handled by the wrapper from Issue 17, not the module itself.
 - [ ] Use only design tokens from Issue 1 for all styles
@@ -169,9 +171,9 @@ Depends on: **Issue 17** (`FXEffectBlock`), **Issue 0a** (types), **Issue 0b** (
 - **Attack/Release display threshold:** Show in ms for values < 1s (multiply by 1000, suffix `ms`). Compressor attack and release params are stored in seconds in `CompressorSettings`.
 
 ## Acceptance Criteria
-- [ ] Compressor module renders all five sliders with correct ranges, units, and hardcoded-compatible defaults
-- [ ] EQ module renders all three gain sliders
-- [ ] Moving any slider updates both `audioStore.globalAudio` and the live AudioEngine node
+- [ ] Compressor module renders all five Value Strips with correct ranges, units, and hardcoded-compatible defaults
+- [ ] EQ module renders all three gain Value Strips
+- [ ] Moving any Value Strip updates both `audioStore.globalAudio` and the live AudioEngine node
 - [ ] Both modules initialise from current `audioStore.globalAudio` state
 - [ ] Both modules respect their parent `FXEffectBlock` bypass toggle
 - [ ] Bypassing the compressor removes dynamics processing but does not stop audio
@@ -190,10 +192,10 @@ Depends on: **Issue 17** (`FXEffectBlock`), **Issue 0a** (types), **Issue 0b** (
 <!-- ISSUE 20: Implement Filter & Chorus Modules                  -->
 <!-- ============================================================ -->
 
-## [M8.5-20] Implement Filter & Chorus Modules (Slider Clusters)
+## [M8.5-20] Implement Filter & Chorus Modules (Value Strips)
 
 ## Feature Description
-Build the final two FX modules for the global rack: a dual-filter section (LPF and HPF) and a Chorus effect. Both render inside `FXEffectBlock` wrappers. Together with Issues 18 and 19 these complete the full FX Rack view.
+Build the final two FX modules for the global rack: a dual-filter section (LPF and HPF) and a Chorus effect. Both render inside `FXEffectBlock` wrappers and use Value Strips (high-contrast linear fill bars) for all parameters. No rotary knobs or grippable controls.
 
 Depends on: **Issue 17** (`FXEffectBlock`), **Issue 0a** (types), **Issue 0b** (state), **Issue 0c** (AudioEngine setters — `setGlobalFilterLPF`, `setGlobalFilterHPF`, `setGlobalChorus`).
 
@@ -204,26 +206,27 @@ Depends on: **Issue 17** (`FXEffectBlock`), **Issue 0a** (types), **Issue 0b** (
 ### Filter Module (LPF + HPF as a paired block)
 - [ ] Render both LPF and HPF controls within a single `<FXEffectBlock label="FILTER">` — they share a block because they are typically used together to define a bandpass window
 - [ ] **LPF section** (`globalAudio.filterLPF: FilterSettings`):
-  - **Frequency** slider: range 200–20000 Hz, step 100 Hz; display in Hz (e.g. `8000 Hz`)
-  - **Q (Resonance)** slider: range 0.1–20, step 0.1; display to 1 decimal (e.g. `Q 1.0`)
+  - **Frequency** Value Strip: range 200–20000 Hz, step 100 Hz; display in Hz (e.g. `8000 Hz`)
+  - **Q (Resonance)** Value Strip: range 0.1–20, step 0.1; display to 1 decimal (e.g. `Q 1.0`)
   - On change: `setGlobalAudio('filterLPF', { [param]: value })` AND `AudioEngine.setGlobalFilterLPF({ [param]: value })`
 - [ ] **HPF section** (`globalAudio.filterHPF: FilterSettings`):
-  - **Frequency** slider: range 20–4000 Hz, step 10 Hz; display in Hz (e.g. `80 Hz`)
-  - **Q (Resonance)** slider: range 0.1–20, step 0.1
+  - **Frequency** Value Strip: range 20–4000 Hz, step 10 Hz; display in Hz (e.g. `80 Hz`)
+  - **Q (Resonance)** Value Strip: range 0.1–20, step 0.1
   - On change: `setGlobalAudio('filterHPF', { [param]: value })` AND `AudioEngine.setGlobalFilterHPF({ [param]: value })`
 - [ ] The `effectKey` for the shared block bypass can be a composite — either give the block two bypass toggles (one per filter), or a single `enabled` flag that bypasses both simultaneously. Document the approach chosen.
 
 ### Chorus Module (`globalAudio.chorus: ChorusSettings`)
-- [ ] **Rate** slider: range 0.1–10 Hz, step 0.1 Hz; display in Hz (e.g. `1.5 Hz`)
-- [ ] **Depth** slider: range 0–1, step 0.01; display as percentage (e.g. `50%`)
-- [ ] **Delay Time** slider: range 2–20 ms, step 0.5 ms; display in ms (e.g. `8 ms`)
-- [ ] **Feedback** slider: range 0–1, step 0.01; display as percentage (e.g. `20%`)
-- [ ] **Wet** slider: range 0–1, step 0.01; display as percentage (e.g. `30%`)
+- [ ] **Rate** Value Strip: range 0.1–10 Hz, step 0.1 Hz; display in Hz (e.g. `1.5 Hz`)
+- [ ] **Depth** Value Strip: range 0–1, step 0.01; display as percentage (e.g. `50%`)
+- [ ] **Delay Time** Value Strip: range 2–20 ms, step 0.5 ms; display in ms (e.g. `8 ms`)
+- [ ] **Feedback** Value Strip: range 0–1, step 0.01; display as percentage (e.g. `20%`)
+- [ ] **Wet** Value Strip: range 0–1, step 0.01; display as percentage (e.g. `30%`)
 - [ ] On any change: `setGlobalAudio('chorus', { [param]: value })` AND `AudioEngine.setGlobalChorus({ [param]: value })`
 - [ ] Wrapped in `<FXEffectBlock label="CHORUS" effectKey="chorus">`
 
 ### Shared requirements
 - [ ] Each module reads initial values from `useAudioStore((s) => s.globalAudio.<effect>)` on mount
+- [ ] All Value Strip controls are touch-optimized (minimum 44px touch target)
 - [ ] Use only design tokens from Issue 1 for all styles
 - [ ] No architecture violations (audio/animation/state separation)
 - [ ] Code follows standards (imports ordered, explicit types)
@@ -238,11 +241,11 @@ Depends on: **Issue 17** (`FXEffectBlock`), **Issue 0a** (types), **Issue 0b** (
 - **Shared filter block bypass strategy:** Simplest approach is a single `enabled` on both (`filterLPF.enabled && filterHPF.enabled` combined) — or add a dedicated `filtersEnabled: boolean` to `GlobalAudioSettings`. Document and stick to one approach.
 
 ## Acceptance Criteria
-- [ ] LPF and HPF sections each render frequency and Q sliders with correct ranges
-- [ ] LPF and HPF sliders update both store and AudioEngine independently
+- [ ] LPF and HPF sections each render frequency and Q Value Strips with correct ranges
+- [ ] LPF and HPF Value Strips update both store and AudioEngine independently
 - [ ] Filter block bypass silences both LPF and HPF effects simultaneously (or clarified two-toggle approach)
-- [ ] Chorus module renders all five sliders with correct ranges and units
-- [ ] Chorus slider changes update both store and AudioEngine
+- [ ] Chorus module renders all five Value Strips with correct ranges and units
+- [ ] Chorus Value Strip changes update both store and AudioEngine
 - [ ] Chorus block bypass disables the chorus effect
 - [ ] Both modules initialise from current `globalAudio` state
 - [ ] `Tone.Chorus` LFO is running (audible modulation) after AudioEngine starts
