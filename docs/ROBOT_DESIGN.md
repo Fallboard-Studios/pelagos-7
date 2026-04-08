@@ -20,7 +20,7 @@ src/assets/robots/
 ├── RobotSleek.tsx      # Smooth, flowing lines (AMSynth)
 ├── RobotAngular.tsx    # Sharp, geometric (FMSynth)
 ├── RobotOrganic.tsx    # Rounded, biological (PolySynth)
-└── RobotIndustrial.tsx # Mechanical, boxy (MembraneSynth)
+└── RobotIndustrial.tsx # Mechanical, boxy (DuoSynth)
 ```
 
 ### Component Pattern
@@ -59,7 +59,7 @@ export function RobotSleek({ colors, scale, detailLevel }: RobotSVGProps) {
 - **AMSynth** → Sleek profile (smooth curves, streamlined)
 - **FMSynth** → Angular profile (sharp edges, geometric)
 - **PolySynth** → Organic profile (rounded, flowing)
-- **MembraneSynth** → Industrial profile (boxy, mechanical)
+- **DuoSynth** → Industrial profile (boxy, mechanical)
 
 ### ADSR → Color Palette
 - **Fast Attack** → Bright, saturated colors
@@ -79,6 +79,21 @@ export function RobotSleek({ colors, scale, detailLevel }: RobotSVGProps) {
 - **Mid Filter (500-2000Hz)** → Moderate decorations
 - **Low Filter (<500Hz)** → Minimal decorations (clean silhouette)
 - **No Filter** → Base shape only
+
+### Phase → Oscillator Stereo Character
+- `audioAttributes.phase` (0–360°) shifts the oscillator start phase at voice reservation time.
+- Visual hint only: extreme phase values (>180°) can subtly widen perceived stereo width in layered visuals.
+
+### Detune → Pitch Drift Visual
+- `audioAttributes.detune` (cents, e.g. −100..100) controls micro-pitch drift at voice reservation.
+- Influences greeble "shimmer" intensity in the `layerVisuals` descriptor when non-zero.
+
+### Name → Display Label
+- `robot.name` (string, generated at spawn by `spawnSystem`) provides the human-readable label shown in the Robot Gallery and Synthesis Module A UI.
+
+### masterVolume → Gain / Brightness
+- `robot.masterVolume` (0–1) is the base velocity/loudness for all notes this robot plays.
+- Mapped to the Gain Power Bar in Synthesis Module B (UI Issue 12).
 
 ## Color System
 
@@ -139,7 +154,7 @@ function selectRobotShape(synthType: SynthType): RobotSVGComponent {
     case 'AMSynth': return RobotSleek;
     case 'FMSynth': return RobotAngular;
     case 'PolySynth': return RobotOrganic;
-    case 'MembraneSynth': return RobotIndustrial;
+    case 'DuoSynth': return RobotIndustrial;
   }
 }
 
@@ -232,11 +247,11 @@ See `src/types/layeredAudio.ts`, `src/systems/spawnSystem.ts` and `src/component
 }
 ```
 
-### Example 2: Low-Frequency Industrial (MembraneSynth)
+### Example 2: Low-Frequency Industrial (DuoSynth)
 ```typescript
 {
   audioAttributes: {
-    synthType: 'MembraneSynth',
+    synthType: 'DuoSynth',
     adsr: { attack: 0.1, decay: 0.5, sustain: 0.6, release: 1.0 },
     pitchRange: { min: 80, max: 200 },
     filterFreq: 400,

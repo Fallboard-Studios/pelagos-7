@@ -47,12 +47,8 @@ const MAX_POLYPHONY = 16;  // Configurable: 8-16 recommended
 let activeVoices = 0;
 
 // Synth pool (reused by all robots)
-interface SynthPool {
-  default: Tone.PolySynth;
-  fm: Tone.PolySynth;
-  am: Tone.PolySynth;
-  membrane: Tone.PolySynth;
-}
+// Keys: 'default' | 'fm' | 'am' | 'duo'
+type SynthPool = Record<string, Tone.PolySynth[]>;
 
 let synthPool: SynthPool | null = null;
 ```
@@ -172,10 +168,10 @@ async function loadInstruments(): Promise<void> {
   
   // Create synth pool (4 types for timbral variety)
   synthPool = {
-    default: new Tone.PolySynth(Tone.Synth).connect(compressor),
-    fm: new Tone.PolySynth(Tone.FMSynth).connect(compressor),
-    am: new Tone.PolySynth(Tone.AMSynth).connect(compressor),
-    membrane: new Tone.PolySynth(Tone.MembraneSynth).connect(compressor),
+    default: [new Tone.PolySynth(Tone.Synth).connect(compressor)],
+    fm: [new Tone.PolySynth(Tone.FMSynth).connect(compressor)],
+    am: [new Tone.PolySynth(Tone.AMSynth).connect(compressor)],
+    duo: [new Tone.PolySynth(Tone.DuoSynth).connect(compressor)],
   };
 }
 ```
@@ -191,8 +187,8 @@ async function loadInstruments(): Promise<void> {
 
 ```typescript
 // In scheduleNote call
-const synthType = robot.audio.synthType;  // 'default' | 'fm' | 'am' | 'membrane'
-const synth = synthPool[synthType] ?? synthPool.default;
+const synthType = robot.audio.synthType;  // 'default' | 'fm' | 'am' | 'duo'
+const synth = synthPool[synthType] ?? synthPool['default'];
 
 // Each PolySynth has internal voice allocation (typically 32 voices)
 // Our MAX_POLYPHONY limit applies ACROSS all synths

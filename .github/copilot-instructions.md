@@ -24,8 +24,9 @@ Critical architecture rules (short)
 
 Guardrails (must not be relaxed)
 - Melody Logic: "Melodies must store note indices (0..7), never literal pitch strings; 96 measures = 1 day cycle."
-- Visual Mapping: "Robot visuals (shape/color) must map strictly to audio attributes (synth/ADSR) as defined in MELODY_SYSTEM.md."
+- Visual Mapping: "Robot visuals (shape/color) must map strictly to audio attributes (synth/ADSR/phase/detune) as defined in ROBOT_DESIGN.md."
 - Strict Separation: "GSAP timelines must only trigger semantic state changes, never call AudioEngine directly."
+- UI Shell: "All interactive UI (transport, navigation, controls) lives inside GlassViewport only — never in the decorative SleeveContainer."
 
 Where to find the full guidance (read these)
 - Animation patterns: docs/ANIMATION_SYSTEM.md
@@ -66,4 +67,6 @@ See also (short pointers)
 - `docs/POLYPHONY_GUIDE.md`: Voice management, pool sizing, and voice-stealing policies.
 - `docs/ANIMATION_SYSTEM.md`: GSAP timeline patterns, `timelineMap` lifecycle, and ref registry usage.
 - `docs/BUILDING_DESIGN.md`: Factory and placement rules, production cooldowns, and placement algorithms.
+- `docs/ROBOT_DESIGN.md`: Robot visual design, audio→visual attribute mapping (synth/ADSR/phase/detune), and SVG generation rules.
 - `docs/CONTRIBUTION_GUIDE.md`: PR process, testing expectations, and where to record exceptions.
+- `docs/poc_guides/UI_GUIDES/UI_ISSUE_OVERVIEW.md`: Sleeve & Glass UI architecture, store responsibilities, and milestone issue breakdown.
