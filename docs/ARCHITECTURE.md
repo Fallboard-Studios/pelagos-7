@@ -95,9 +95,12 @@ export function killTimeline(id: string): void {
 **Location:** `src/stores/`
 
 **Store Structure:**
-- `oceanStore`: Simulation/game state (robots, actors, world settings, etc.)
-- `audioStore`: Global audio settings (FX, BPM, day length, etc.)
+- `oceanStore`: Simulation/game state (robots, actors, world settings, day length, measure clock, etc.)
+- `audioStore`: Global audio settings (FX chain parameters, BPM, global bypass, etc.)
 - `uiStore`: UI-only state (active view, theme, language, fullscreen, etc.)
+- `settingsStore`: Persistent user preferences (reduced motion, accessibility, saved theme, language) — persisted via localStorage.
+- `notificationStore`: In-app notifications/toasts (id, message, type, timestamp).
+- `sessionStore`: Session-level state (sessionId, unsaved changes flag, auth state).
 
 **Rules:**
 - Only serializable data (JSON-compatible)
@@ -192,7 +195,12 @@ src/
 │   ├── timelineMap.ts
 │   └── interactionBursts.ts
 ├── stores/          # State (Zustand only)
-│   └── oceanStore.ts
+│   ├── oceanStore.ts
+│   ├── audioStore.ts
+│   ├── uiStore.ts
+│   ├── settingsStore.ts   # planned (Issue 0h)
+│   ├── notificationStore.ts # planned (Issue 0i)
+│   └── sessionStore.ts    # planned (Issue 0j)
 ├── components/      # React (UI only, no logic)
 │   └── Robot.tsx
 ├── hooks/           # React hooks (orchestration)
