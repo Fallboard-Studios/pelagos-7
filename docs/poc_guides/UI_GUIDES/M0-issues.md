@@ -151,7 +151,7 @@ Depends on: **Issue 0a** (`GlobalAudioSettings` type), **Issue 0b** (globalAudio
 ## [M8.0-0d] Add name, phase, and detune to Robot Type
 
 ## Feature Description
-Extend the `Robot` type and `AudioAttributes` with `name`, `phase`, and `detune` fields. Wire `phase` and `detune` into `AudioEngine.reserveVoice()` alongside the existing `waveform` application. Generate robot names in `spawnSystem`. These fields back the Name Textbox and Oscillator knobs in Milestone 3.
+Extend the `Robot` type and `AudioAttributes` with `name`, `phase`, and `detune` fields. Wire `phase` and `detune` into `AudioEngine.reserveVoice()` alongside the existing `waveform` application. Generate robot names in `spawnSystem`. These fields back the Name Textbox and Oscillator Vertical Power Bars in Milestone 3.
 
 ## Implementation Details
 - [ ] Add `name: string` to `Robot` interface in `src/types/Robot.ts`
@@ -214,7 +214,7 @@ Create a new Zustand store at `src/stores/uiStore.ts` to hold UI-only state: act
 ## Technical Notes
 - `isFullscreen` stores intent only; the component that renders fullscreen should use the browser Fullscreen API in response to this state, not store the DOM reference itself.
 - Do not store any derived or computed values in this store — keep it as a flat, minimal state shape.
-- Theme values should align with whatever CSS custom property system is defined in Issue 1 (Global CSS Grid / design tokens).
+- Theme values should align with whatever CSS custom property system is defined in Issue 1 (design tokens).
 - Language is a future placeholder; full i18n is out of scope for now. Store the value but no translation logic is required in this issue.
 
 ## Acceptance Criteria
@@ -306,4 +306,149 @@ Add a configurable day-length setting to `oceanStore`. Day length is a world pro
 
 ## Source Reference
 - File: `src/stores/oceanStore.ts`
+- Copilot instructions: "State: Zustand only; store JSON-serializable data only."
+
+---
+
+<!-- ============================================================ -->
+<!-- ISSUE 0h: Create settingsStore.ts                            -->
+<!-- ============================================================ -->
+
+## [M8.0-0h] Create settingsStore.ts
+
+## Feature Description
+Create a new Zustand store at `src/stores/settingsStore.ts` to hold persistent user preferences: reduced motion, accessibility mode, saved theme, and language. This store is the backing state for the Settings Overlay (Milestone 6, Issue 21) and is persisted to `localStorage` across sessions.
+
+Depends on: No other M0 issues (standalone store).
+
+## Implementation Details
+- [ ] Create `src/stores/settingsStore.ts` following the same pattern as `uiStore.ts` (Issue 0e)
+- [ ] State shape:
+  - `reducedMotion: boolean` (default: `false` — read from `window.matchMedia('(prefers-reduced-motion: reduce)').matches` on first load if no saved preference exists)
+  - `accessibilityMode: boolean` (default: `false`)
+  - `savedTheme: string` (default: `'dark'`)
+  - `language: string` (default: `'en'`)
+- [ ] Actions: `setPreference(key: keyof SettingsState, value: SettingsState[typeof key])`, `loadPreferences()`, `savePreferences()`
+- [ ] `loadPreferences()`: reads from `localStorage` (key: `pelagos7.settings.v1`), merges into state; called on app init
+- [ ] `savePreferences()`: serialises current state to `localStorage`; called automatically on state change via a Zustand `subscribe` listener
+- [ ] All state is JSON-serializable (no DOM refs or Tone nodes)
+- [ ] Export `useSettingsStore` hook
+- [ ] No architecture violations (audio/animation/state separation)
+- [ ] Code follows standards (imports ordered, explicit types)
+
+## Technical Notes
+- Read `window.matchMedia('(prefers-reduced-motion: reduce)').matches` to set the initial `reducedMotion` default, but only if `loadPreferences()` does not find a saved preference — a user override takes priority over the OS setting.
+- Use a `localStorage` key with a version suffix (e.g. `pelagos7.settings.v1`) to allow future schema migrations without corrupting saved data.
+- Do not store derived or computed values — store only the raw preference values.
+- `language` is a placeholder for future i18n; no translation logic is required in this issue.
+
+## Acceptance Criteria
+- [ ] `useSettingsStore` is importable from `src/stores/settingsStore.ts`
+- [ ] `useSettingsStore.getState().savedTheme` defaults to `'dark'`
+- [ ] Calling `setPreference('savedTheme', 'light')` updates the store and persists to `localStorage`
+- [ ] Calling `loadPreferences()` on a fresh load restores a previously saved preference set
+- [ ] All state values are JSON-serializable
+- [ ] App compiles with no TypeScript errors
+- [ ] App remains functional after merge
+- [ ] No regression in existing features
+
+## Source Reference
+- File: `src/stores/uiStore.ts` (Issue 0e — reference for store pattern)
+- Copilot instructions: "State: Zustand only; store JSON-serializable data only."
+
+---
+
+<!-- ============================================================ -->
+<!-- ISSUE 0i: Create notificationStore.ts                        -->
+<!-- ============================================================ -->
+
+## [M8.0-0i] Create notificationStore.ts
+
+## Feature Description
+Create a new Zustand store at `src/stores/notificationStore.ts` to manage in-app notifications, alerts, and toast messages. This store provides the backing state for any system-generated feedback (e.g., "World Saved", "Robot Removed", audio engine errors). It is consumed by a notification renderer component added in Milestone 6.
+
+Depends on: No other M0 issues (standalone store).
+
+## Implementation Details
+- [ ] Create `src/stores/notificationStore.ts` following the same pattern as `uiStore.ts`
+- [ ] Define a `Notification` interface (inline or in `src/types/`):
+  ```typescript
+  interface Notification {
+    id: string;
+    message: string;
+    type: 'info' | 'warning' | 'error';
+    timestamp: number;
+  }
+  ```
+- [ ] State shape:
+  - `notifications: Notification[]` (default: `[]`)
+- [ ] Actions:
+  - `addNotification(notification: Omit<Notification, 'id' | 'timestamp'>)`: generates `id` (e.g. `crypto.randomUUID()`) and `timestamp` (`Date.now()`), appends to array; drops the oldest entry if `notifications.length >= 5` before appending
+  - `removeNotification(id: string)`: filters the notification out of the array
+  - `clearNotifications()`: sets `notifications` to `[]`
+- [ ] All state is JSON-serializable
+- [ ] Export `useNotificationStore` hook
+- [ ] No architecture violations
+- [ ] Code follows standards (imports ordered, explicit types)
+
+## Technical Notes
+- Auto-dismiss logic (removing a notification after N seconds) belongs in the consuming UI component, not the store. The store only holds state; the component drives timed removal by calling `removeNotification(id)` after a timeout.
+- Limit the maximum number of simultaneous notifications to 5 to prevent runaway accumulation.
+- Use `crypto.randomUUID()` for ID generation (available in all modern browsers; no library needed).
+
+## Acceptance Criteria
+- [ ] `useNotificationStore` is importable from `src/stores/notificationStore.ts`
+- [ ] `addNotification({ message: 'Test', type: 'info' })` adds a notification with a generated `id` and `timestamp`
+- [ ] `removeNotification(id)` removes the matching notification without affecting others
+- [ ] `clearNotifications()` empties the array
+- [ ] Maximum of 5 simultaneous notifications is enforced (oldest dropped when limit is reached)
+- [ ] All state is JSON-serializable
+- [ ] App compiles with no TypeScript errors
+- [ ] App remains functional after merge
+
+## Source Reference
+- File: `src/stores/uiStore.ts` (reference for store pattern)
+- Copilot instructions: "State: Zustand only; store JSON-serializable data only."
+
+---
+
+<!-- ============================================================ -->
+<!-- ISSUE 0j: Create sessionStore.ts                             -->
+<!-- ============================================================ -->
+
+## [M8.0-0j] Create sessionStore.ts
+
+## Feature Description
+Create a new Zustand store at `src/stores/sessionStore.ts` to track session-level state: the current session identifier, unsaved changes flag, and authentication state. This store is the backing state for session management logic in the Ocean Management Card (Milestone 2, Issue 7) and future session persistence features.
+
+Depends on: No other M0 issues (standalone store).
+
+## Implementation Details
+- [ ] Create `src/stores/sessionStore.ts` following the same pattern as `uiStore.ts`
+- [ ] State shape:
+  - `sessionId: string | null` (default: `null`)
+  - `unsavedChanges: boolean` (default: `false`)
+  - `authState: 'unauthenticated' | 'authenticated'` (default: `'unauthenticated'`)
+- [ ] Actions: `setSession(id: string | null)`, `setAuthState(state: SessionStore['authState'])`, `setUnsavedChanges(flag: boolean)`
+- [ ] All state is JSON-serializable
+- [ ] Export `useSessionStore` hook
+- [ ] No architecture violations
+- [ ] Code follows standards (imports ordered, explicit types)
+
+## Technical Notes
+- `sessionId` is a lightweight identifier for the current editing session. Generate it with `crypto.randomUUID()` when a world is loaded or created (in Issue 7). It does not imply server-side session management.
+- `authState` is a placeholder field for future authentication. In v1 it will always be `'unauthenticated'`; no auth logic is required in this issue.
+- `unsavedChanges` should be set to `true` whenever `updateRobot()`, `addRobot()`, or `removeRobot()` is called, and reset to `false` after a successful Save action in Issue 7. This can be done via a Zustand `subscribe` listener or explicit calls at the action call sites.
+
+## Acceptance Criteria
+- [ ] `useSessionStore` is importable from `src/stores/sessionStore.ts`
+- [ ] `useSessionStore.getState().sessionId` defaults to `null`
+- [ ] `setSession('abc-123')` updates `sessionId` to `'abc-123'`
+- [ ] `setUnsavedChanges(true)` updates `unsavedChanges` to `true`
+- [ ] All state is JSON-serializable
+- [ ] App compiles with no TypeScript errors
+- [ ] App remains functional after merge
+
+## Source Reference
+- File: `src/stores/uiStore.ts` (reference for store pattern)
 - Copilot instructions: "State: Zustand only; store JSON-serializable data only."

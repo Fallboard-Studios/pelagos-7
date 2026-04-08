@@ -1,6 +1,6 @@
 ---
 name: Feature
-about: Milestone 6 — System Utilities & Polish
+about: Milestone 6 — System Utilities & Polish. Depends on: settingsStore (Issue 0h), notificationStore (Issue 0i), sessionStore (Issue 0j).
 title: '[M8.6] '
 labels: feature
 assignees: ''
@@ -76,75 +76,79 @@ Depends on: **Issue 0e** (`uiStore` for theme, language, isFullscreen), **Issue 
 ---
 
 <!-- ============================================================ -->
-<!-- ISSUE 22: 360px Mobile Optimization Pass                     -->
+<!-- ISSUE 22: 360px Collapsed Sleeve Pass                        -->
 <!-- ============================================================ -->
 
-## [M8.6-22] 360px Mobile Optimization Pass (Stacking Logic for All Previous Milestones)
+## [M8.6-22] 360px Collapsed Sleeve Pass
 
 ## Feature Description
-A dedicated responsive audit and fix pass ensuring every view and component introduced in Milestones 1–6 is fully functional and usable at a minimum viewport width of 360px. This is a sweep issue — not new features, but layout corrections, overflow fixes, and stacking rewrites for every component that does not already handle the 360px breakpoint.
+A dedicated responsive audit and fix pass ensuring every view and component introduced in Milestones 1–6 is fully functional and usable at a minimum viewport width of 360px on the collapsed sleeve layout. At 360px, `--sleeve-width` narrows to its ~30px minimum and navigation drops to the bottom tab bar, making `GlassViewport` a narrow vertical-scroll "tape" of content pulled from a compact handheld unit. This is a sweep issue — not new features, but layout corrections, overflow fixes, and stacking rewrites for every component that does not already handle the collapsed state.
 
 Depends on: **All previous milestones** (all components must exist before this audit).
 
 ## Implementation Details
-- [ ] **Global layout (Milestone 1):**
-  - Confirm `--unit` value scales correctly at 360px (`clamp()` or reduced px value at breakpoint)
-  - `GlobalHeader` (Issue 2): verify measure display and transport controls do not overflow or truncate at 360px
-  - `ModeSwitcher` (Issue 3): verify bottom bar mode activates at ≤480px; confirm all five icons/labels fit within 360px width without overlap
-  - `ScreenWearOverlay` (Issue 5): confirm `position: fixed; inset: 0` renders correctly on 360px mobile (no horizontal scroll introduced)
+- [ ] **Shell — Sleeve/Glass (Milestone 1):**
+  - Confirm `--sleeve-width` resolves to ~30px at 360px viewport width
+  - Confirm `SleeveContainer` remains visible (logo mark only; ~30px width) without clipping
+  - Confirm `GlassViewport` fills `calc(100vw - var(--sleeve-width))` ≈ 330px of usable glass width
+  - Navigation (Issue 3): confirm bottom tab bar activates; all five icons fit within ~330px without overflow or truncation
+  - Transport bar (Issue 2): confirm Play/Stop, BPM, and Measure counter do not overflow at ~330px
+  - Guide rails (Issue 1a): confirm top/bottom rails and occlusion shadow render correctly at ~330px glass width
+  - Screen-wear overlay (Issue 5): confirm it covers only `GlassViewport` (not the sleeve) at 360px
 
 - [ ] **Ocean View (Milestone 2):**
   - `OceanView` / `OceanScene` (Issue 6): confirm full-width scaling on mobile; SVG scales correctly via `viewBox` + CSS; no horizontal overflow
-  - `OceanManagementCard` (Issue 7): buttons stack vertically if they exceed 360px width; confirm modal is fully usable at 360px
-  - `WorldOptionsModule` (Issue 8): dual-speed steppers and readouts stack or shrink without overflow
-  - `VUIndicator` (Issue 9): confirm `1×1` grid-unit sizing works at reduced `--unit`
+  - `OceanManagementCard` (Issue 7): buttons stack vertically if they exceed 330px; confirm modal is fully usable at 360px
+  - `WorldOptionsModule` (Issue 8): steppers and readouts stack or shrink without overflow
+  - `VUIndicator` (Issue 9): confirm sizing works at reduced glass width
 
 - [ ] **Robot View (Milestone 3):**
   - `RobotGallery` (Issue 10): list items stack correctly; preview is not clipped; scrollable
-  - `SynthModuleA` (Issue 11): Name textbox, Volume, Density, Variance controls stack vertically at 360px
-  - `SynthModuleB` (Issue 12): Waveform dropdown, Phase, Detune, conditional Pulsewidth — no horizontal overflow
-  - `ADSRModule` (Issue 13): four steppers + sparkline stack into a single-column layout; sparkline does not clip
+  - `SynthModuleA` (Issue 11): Name textbox, Volume, Density, Variance controls stack vertically
+  - `SynthModuleB` (Issue 12): Waveform dropdown, Vertical Power Bars for Phase/Detune/Pulsewidth — no horizontal overflow
+  - `ADSRModule` (Issue 13): HTML Canvas graph and numeric readouts fit within ~330px; canvas does not clip
 
 - [ ] **Composition View (Milestone 4):**
-  - `NoteArrayDisplay` (Issue 14): 16-cell grid must be fully visible; if it cannot fit in 360px at full cell size, implement horizontal scroll within the component (not the whole page)
-  - `PianoKeyPopover` (Issue 15): popover must fit within 360px viewport; anchor to viewport center on mobile if cell-relative positioning would push it off-screen
-  - `MeasureCRUD` (Issue 16): Add/Duplicate/Delete buttons stack vertically; confirmation state is legible
+  - `HarmonyPaletteEditor` (Issue 15): 8-cell grid must be fully visible; if it cannot fit at 330px at full cell size, implement horizontal scroll within the component (not the whole page)
+  - `PianoKeyPopover` (Issue 16): popover must fit within 360px viewport; use bottom-sheet style (`position: fixed; bottom: 0; width: 100%`) on mobile if cell-relative positioning would push it off-screen
+  - `CompositionView` shell (Issue 14): headings, tokens, and layout confirm correct at 330px
 
 - [ ] **FX Rack View (Milestone 5):**
-  - `FXRackView` (Issue 17): global bypass toggle spans full width; `FXEffectBlock` header does not overflow
-  - `ReverbModule`, `DelayModule` (Issue 18): sliders span full width; labels do not truncate
-  - `CompressorModule`, `EQ3Module` (Issue 19): same as above
-  - `FilterModule`, `ChorusModule` (Issue 20): same; LPF and HPF sections stack vertically on mobile
+  - `FXRackView` (Issue 17): global bypass toggle spans full glass width; `FXEffectBlock` header does not overflow
+  - Issues 18–20: all Value Strips span full glass width; LPF and HPF sections stack vertically on mobile
 
 - [ ] **Settings View (Milestone 6):**
-  - `SettingsView` (Issue 21): all controls stack and are touch-friendly (minimum 44×44px tap target per WCAG 2.5.5)
+  - `SettingsView` (Issue 21): all controls stack and are touch-friendly (minimum 44×44px tap target)
 
 - [ ] **Cross-cutting:**
-  - Confirm no component introduces horizontal scroll on the body at 360px
-  - Confirm all modals and popovers (Issues 7, 15, 16) are fully within the viewport at 360px
-  - Confirm text does not overflow containers (use `overflow-wrap: break-word` or `text-overflow: ellipsis` as appropriate)
-  - Confirm touch targets (buttons, toggles, steppers) meet 44×44px minimum
+  - Confirm no component introduces horizontal scroll on `body` at 360px
+  - Confirm all modals and popovers (Issues 7, 16) are fully within `GlassViewport` at 360px
+  - Confirm text does not overflow containers (use `overflow-wrap: break-word` or `text-overflow: ellipsis`)
+  - Confirm all touch targets (buttons, toggles, Power Bars, Value Strips) meet 44×44px minimum
 
 - [ ] Use only design tokens from Issue 1 for any new breakpoint overrides
-- [ ] No architecture violations (audio/animation/state separation)
-- [ ] Code follows standards (imports ordered, explicit types)
+- [ ] No architecture violations
+- [ ] Code follows standards
 - [ ] Tested in browser DevTools at 360×640px (portrait mobile)
 
 ## Technical Notes
 - **Test device profile:** Use Chrome/Edge DevTools device emulation at 360×640 (portrait). Also test at 375×667 (iPhone SE) as a secondary target.
-- **Horizontal scroll detection:** In DevTools, set `body { overflow-x: hidden }` temporarily and visually confirm no content is clipped that should be visible. Then remove it and confirm the production layout does not introduce scroll.
-- **`NoteArrayDisplay` horizontal scroll:** A 16-cell grid at ~22px per cell = ~352px minimum — just barely fits at 360px. If it does not, wrapping to two rows of 8 is an alternative to horizontal scroll.
-- **`PianoKeyPopover` on mobile:** 8 keys + octave + duration selectors in a popover — likely too wide for 360px if positioned relative to a grid cell. Safest mobile approach: bottom-sheet style (`position: fixed; bottom: 0; left: 0; width: 100%`) triggered on mobile. Use `matchMedia('(max-width: 480px)')` to conditionally switch anchor strategy.
-- **Tap targets:** CSS `min-height: 44px; min-width: 44px` on all interactive elements (buttons, toggles, stepper buttons). This may require padding adjustments on compact elements like `FXEffectBlock` bypass toggles.
-- **`--unit` scaling:** If `--unit: clamp(48px, 8vw, 64px)` is used (suggested in Issue 1), the entire grid auto-scales. Verify all components that use fixed multiples of `--unit` scale proportionally.
+- **Usable glass width at 360px:** `360px - 30px (sleeve) = 330px`. All components must fit within 330px or implement internal scroll.
+- **`GlassViewport` tape mode:** On mobile, the GlassViewport becomes a single scrollable column. Views should stack their panels vertically rather than using horizontal grids. Use `flex-direction: column` and `overflow-y: auto` scoped to the active view container.
+- **`PianoKeyPopover` on mobile:** Bottom-sheet anchoring is the preferred approach at 360px. Use `matchMedia('(max-width: 480px)')` to switch anchor strategy conditionally.
+- **Tap targets:** CSS `min-height: 44px; min-width: 44px` on all interactive elements. This may require padding adjustments on compact elements like `FXEffectBlock` bypass toggles and Value Strip drag handles.
+- **Horizontal scroll detection:** In DevTools, temporarily set `body { overflow-x: hidden }` and confirm no visible content is clipped. Then remove and confirm no horizontal scroll appears in production layout.
 
 ## Acceptance Criteria
+- [ ] `--sleeve-width` is ~30px at 360px viewport; `SleeveContainer` is visible but narrow
+- [ ] `GlassViewport` fills ~330px of usable width at 360px
 - [ ] All views render without horizontal body scroll at 360px viewport width
 - [ ] All interactive elements have a minimum 44×44px tap target
-- [ ] `ModeSwitcher` bottom bar shows all five items without overflow at 360px
-- [ ] `NoteArrayDisplay` 16-cell grid is scrollable or wraps cleanly on mobile
-- [ ] `PianoKeyPopover` is fully within the viewport on mobile (anchored to bottom or centred)
+- [ ] `NavigationBar` bottom bar shows all five items without overflow at 360px
+- [ ] `HarmonyPaletteEditor` 8-cell grid is scrollable or fits cleanly at 330px
+- [ ] `PianoKeyPopover` is fully within `GlassViewport` on mobile (bottom-sheet or centred)
 - [ ] All modals render fully within the 360px viewport
+- [ ] Screen-wear overlay covers only the glass, not the sleeve, at 360px
 - [ ] No text truncates without an ellipsis or wraps in a way that obscures meaning
 - [ ] Tested at 360×640 (portrait) and 375×667 (iPhone SE) in DevTools
 - [ ] App compiles with no TypeScript errors

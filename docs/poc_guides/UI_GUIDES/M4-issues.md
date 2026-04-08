@@ -1,6 +1,6 @@
 ---
 name: Feature
-about: Milestone 4 — Composition & Note Matrix
+about: Milestone 4 — Composition & Note Matrix. Note: all interactive elements in this milestone must meet the 44×44px minimum touch target size (WCAG 2.5.5).
 title: '[M8.4] '
 labels: feature
 assignees: ''
@@ -36,6 +36,7 @@ Depends on: **Issue 1** (global design tokens).
 - [ ] App compiles with no TypeScript errors after this issue
 
 ## Acceptance Criteria
+- [ ] All interactive elements in `CompositionView` and its children meet the 44×44px minimum touch target size
 - [ ] `CompositionView.tsx` exists and mounts without errors
 - [ ] `"Harmony Palette"` heading renders inside the view
 - [ ] All five CSS custom properties are defined and accessible to child components
@@ -89,6 +90,7 @@ Depends on: **Issue 14** (CompositionView shell and CSS tokens), **Issue 16** (P
 - **Harmony cycle interaction:** When `scheduleHarmonyCycle` fires (every 4 measures), it overwrites `availableNotes` with `TIME_PITCHES[currentHour]`, discarding any user edit silently. This is acceptable in v1. The `"Resets each hour"` label communicates this to the user.
 
 ## Acceptance Criteria
+- [ ] All 8 palette cells meet the 44×44px minimum touch target size
 - [ ] 8 labelled note-name cells render correctly from the current harmony palette
 - [ ] Current in-game hour label and `"Resets each hour"` note display correctly
 - [ ] Clicking a cell opens `PianoKeyPopover` with the correct `index` and `currentNote` props
@@ -165,6 +167,7 @@ Depends on: **Issue 14** (CSS tokens), **Issue 15** (HarmonyPaletteEditor wires 
 - **Positioning:** If using `position: absolute` inside the palette row, ensure the parent cell has `position: relative`. If portaling, use a `ref` to the cell element and `getBoundingClientRect()` to compute the fixed position.
 
 ## Acceptance Criteria
+- [ ] All piano keys (white and black) meet the 44×44px minimum touch target size (achieved via hit-area expansion, not visual key size)
 - [ ] Popover renders anchored to the clicked cell
 - [ ] All 12 pitch classes display as piano-style white and black keys
 - [ ] ♯/♭ toggle switches black key labels between sharps and flats
