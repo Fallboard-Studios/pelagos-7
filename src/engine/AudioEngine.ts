@@ -481,8 +481,8 @@ function scheduleVoiceRelease(duration: NoteDuration, time: number): void {
   const releaseTime = noteEnd + 0.04;
 
   try {
-      const transport = _transport ?? Tone.getTransport();
-      transport.scheduleOnce(() => {
+    const transport = _transport ?? Tone.getTransport();
+    transport.scheduleOnce(() => {
       activeVoices = Math.max(0, activeVoices - 1);
       if (DEV_TUNING) {
         console.log(`[AudioEngine] Voice released: ${activeVoices}/${MAX_POLYPHONY}`);
