@@ -8,7 +8,6 @@ import GlassViewport from './components/layout/GlassViewport';
 import { spawnRobot } from './systems/spawnSystem';
 import { useOceanStore } from './stores/oceanStore';
 import { subscribeToMeasure } from './engine/beatClock';
-import { DAY_CYCLE_MEASURES } from './utils/lightingUtils';
 import { DEV_TUNING } from './constants';
 
 function App() {
@@ -21,10 +20,11 @@ function App() {
     // pre-existing world measure so audio starts at 0 while the world keeps
     // its loaded time-of-day.
     const initialWorldMeasure = useOceanStore.getState().currentMeasure;
+    // Measures are no longer wrapped into a configured day length for
+    // time-of-day. Keep the transport-driven measure as a simple increment
+    // relative to the currently loaded world measure.
     subscribeToMeasure((m) => {
-      const dayLength = useOceanStore.getState().settings.dayLengthMeasures || 96;
-      const scaled = Math.floor((m / DAY_CYCLE_MEASURES) * dayLength);
-      useOceanStore.getState().setCurrentMeasure((initialWorldMeasure + scaled) % dayLength);
+      useOceanStore.getState().setCurrentMeasure(initialWorldMeasure + m);
     });
     setAudioReady(true);
   };

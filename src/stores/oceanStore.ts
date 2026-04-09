@@ -21,11 +21,13 @@ export interface OceanStore {
     bpm: number;
     maxRobots: number;
     minRobots: number; // lower bound for population bouncing
-    /** Number of measures that make up a full day (default 96) */
-    dayLengthMeasures: number;
+    /** Planet size mapping (small|medium|large). Controls real-world minutes per in-world day. */
+    planetSize: 'small' | 'medium' | 'large';
   };
   /** Current hour derived from currentMeasure (0..23) */
   currentHour: number;
+  /** Timestamp (ms) representing the start of the current in-world day */
+  dayStartTimestamp: number;
   /** Lightness multiplier (0..1+) applied to robot colors */
   lightnessMultiplier: number;
   addRobot: (robot: Robot) => void;
@@ -41,8 +43,11 @@ export interface OceanStore {
   /** Current measure in the 96-measure day/night cycle (0–95). */
   currentMeasure: number;
   setCurrentMeasure: (measure: number) => void;
+  /** Set the current in-world hour (float, 0..24). Called by the time-of-day tick. */
+  setCurrentHour: (hour: number) => void;
   /** Update the configured day length (in measures) */
-  setDayLength: (measures: number) => void;
+  setPlanetSize: (size: 'small' | 'medium' | 'large') => void;
+  setDayStartTimestamp: (ts: number) => void;
 }
 
 // ========================================
@@ -52,7 +57,7 @@ const INITIAL_SETTINGS = {
   bpm: 240,
   maxRobots: 12,
   minRobots: 2,
-  dayLengthMeasures: 96,
+  planetSize: 'medium' as const,
 };
 
 // ========================================
@@ -64,18 +69,15 @@ export const useOceanStore = create<OceanStore>((_set, get) => ({
   selectedRobotId: null,
   totalInteractions: 0,
   settings: { ...INITIAL_SETTINGS },
-  // Start world at measure 1200 wrapped into configured day length
-  currentMeasure: (() => 1200 % INITIAL_SETTINGS.dayLengthMeasures)(),
-  // Derived from wrapped measure using configured day length
-  currentHour: (() => {
-    const m = 1200 % INITIAL_SETTINGS.dayLengthMeasures;
-    return Math.floor(m / (INITIAL_SETTINGS.dayLengthMeasures / 24));
-  })(),
-  // Compute initial lightness to match setCurrentMeasure behaviour so visuals
-  // reflect the loaded time immediately.
+  // Start world at an arbitrary measure (no wrapping for time-of-day)
+  currentMeasure: (() => 1200)(),
+  // Time-of-day is driven by wall clock. On load the day starts now, so
+  // currentHour should be approximately 0.
+  dayStartTimestamp: Date.now(),
+  currentHour: 0,
+  // Compute initial lightness from hour=0 so visuals reflect midnight.
   lightnessMultiplier: (() => {
-    const m = 1200 % INITIAL_SETTINGS.dayLengthMeasures;
-    const hour = Math.floor(m / (INITIAL_SETTINGS.dayLengthMeasures / 24));
+    const hour = 0;
     const angle = (hour / 24) * 2 * Math.PI - Math.PI / 2;
     return 0.7 + 0.3 * Math.sin(angle);
   })(),
@@ -150,24 +152,23 @@ export const useOceanStore = create<OceanStore>((_set, get) => ({
   },
 
   setCurrentMeasure: (measure) => {
-    const dayLength = get().settings.dayLengthMeasures;
-    const m = measure % dayLength;
-
-    // Derive hour (0..23) from configured day-length (dayLength / 24 measures = 1 hour)
-    const hour = Math.floor(m / (dayLength / 24));
-
-    // Smooth sinusoidal lightness mapping with anchor points:
-    // hour 0 -> 0.4, 6 -> 0.7, 12 -> 1.0, 18 -> 0.7, 23 -> 0.4
-    // Use sin curve shifted so hour=0 maps to -1.
-    const angle = (hour / 24) * 2 * Math.PI - Math.PI / 2;
-    const lightnessMultiplier = 0.7 + 0.3 * Math.sin(angle);
-
-    _set({ currentMeasure: m, currentHour: hour, lightnessMultiplier });
+    _set({ currentMeasure: measure });
   },
 
-  setDayLength: (measures) => {
-    const sanitized = Math.max(1, Math.floor(measures));
-    _set((state) => ({ settings: { ...state.settings, dayLengthMeasures: sanitized } }));
+  setCurrentHour: (hour) => {
+    // hour is a float (e.g. 6.5 = 6:30). Compute lightness from the float hour.
+    const normalized = hour % 24;
+    const angle = (normalized / 24) * 2 * Math.PI - Math.PI / 2;
+    const lightnessMultiplier = 0.7 + 0.3 * Math.sin(angle);
+    _set({ currentHour: normalized, lightnessMultiplier });
+  },
+
+  setPlanetSize: (size) => {
+    _set((state) => ({ settings: { ...state.settings, planetSize: size } }));
+  },
+
+  setDayStartTimestamp: (ts) => {
+    _set({ dayStartTimestamp: ts });
   },
 }));
 

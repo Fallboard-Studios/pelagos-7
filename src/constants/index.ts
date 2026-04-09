@@ -11,3 +11,13 @@ export const WORLD_HEIGHT = 1080;
  * Logs spawn events, melody registration, and other debug info
  */
 export const DEV_TUNING = import.meta.env.DEV;
+
+/**
+ * Mapping from planet size to real-world milliseconds per full in-world day.
+ * Small: 3 minutes, Medium: 6 minutes, Large: 9 minutes.
+ */
+export const PLANET_DURATION_MS = {
+	small: 3 * 60_000,
+	medium: 6 * 60_000,
+	large: 9 * 60_000,
+} as const;

@@ -1,7 +1,8 @@
-import React, { FC } from 'react';
+import React from 'react';
+import type { FC } from 'react';
 import './GlassViewport.css';
 
-const GlassViewport: FC = ({ children }: { children?: React.ReactNode }) => {
+const GlassViewport: FC<{ children?: React.ReactNode }> = ({ children }) => {
   return (
     <main className="glass-viewport">
       <div className="glass-occlusion" aria-hidden="true" />

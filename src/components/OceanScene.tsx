@@ -11,6 +11,7 @@ import { startFactoryProduction } from '../systems/factorySystem';
 import { startCollisionDetection, stopCollisionDetection } from '../systems/collisionSystem';
 import colorTheme from '../constants/colorTheme.json';
 import { hslToString } from '../utils/colorUtils';
+import { PLANET_DURATION_MS } from '../constants';
 
 // ========================================
 // TYPES & INTERFACES
@@ -95,6 +96,27 @@ export function OceanScene({
       stopSpawnScheduler();
       stopCollisionDetection();
     };
+  }, []);
+
+  // Time-of-day tick: advances currentHour based on real wall-clock time
+  useEffect(() => {
+    const tick = () => {
+      const state = useOceanStore.getState();
+      const dayStart = state.dayStartTimestamp ?? Date.now();
+      const planetSize = state.settings?.planetSize ?? 'medium';
+      const dayMs = PLANET_DURATION_MS[planetSize];
+      const newHour = ((Date.now() - dayStart) / dayMs) * 24;
+
+      if (newHour >= 24) {
+        state.setDayStartTimestamp(Date.now());
+        state.setCurrentHour(newHour % 24);
+      } else {
+        state.setCurrentHour(newHour);
+      }
+    };
+
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
   }, []);
 
 
