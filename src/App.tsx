@@ -1,34 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 
 import { OceanScene } from './components/OceanScene';
-import { PlayButton } from './components/PlayButton';
 import { AudioStatus } from './components/debug/AudioStatus';
 import SleeveContainer from './components/layout/SleeveContainer';
 import GlassViewport from './components/layout/GlassViewport';
+import { TransportBar } from './components/ui/TransportBar';
 import { spawnRobot } from './systems/spawnSystem';
 import { useOceanStore } from './stores/oceanStore';
-import { subscribeToMeasure } from './engine/beatClock';
 import { DEV_TUNING } from './constants';
 
 function App() {
-  const [isAudioReady, setAudioReady] = useState(false);
-
-  // Wire the BeatClock measure tick → store so factories can react to day/night
-  const handleAudioReady = () => {
-    // Keep world time when Play is clicked: map the transport's 96-measure
-    // beat clock into the configured world day length and add the
-    // pre-existing world measure so audio starts at 0 while the world keeps
-    // its loaded time-of-day.
-    const initialWorldMeasure = useOceanStore.getState().currentMeasure;
-    // Measures are no longer wrapped into a configured day length for
-    // time-of-day. Keep the transport-driven measure as a simple increment
-    // relative to the currently loaded world measure.
-    subscribeToMeasure((m) => {
-      useOceanStore.getState().setCurrentMeasure(initialWorldMeasure + m);
-    });
-    setAudioReady(true);
-  };
-
   // Expose debug functions globally in dev mode
   useEffect(() => {
     if (DEV_TUNING) {
@@ -54,7 +35,7 @@ function App() {
     <>
       <SleeveContainer />
       <GlassViewport>
-        {!isAudioReady && <PlayButton onSuccess={handleAudioReady} />}
+        <TransportBar />
         <OceanScene />
         <AudioStatus />
       </GlassViewport>

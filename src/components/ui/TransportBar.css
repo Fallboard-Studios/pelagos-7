@@ -1,0 +1,76 @@
+.transport-bar {
+  position: sticky;
+  top: 0;
+  width: 100%;
+  height: var(--transport-height, 48px);
+  min-height: 48px;
+  z-index: var(--z-header);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--spacing-md, 12px);
+  box-sizing: border-box;
+  background: var(--color-surface);
+  border-bottom: var(--border-width) solid var(--border-color);
+}
+
+/* ----------------------------------------
+   Button group
+   ---------------------------------------- */
+.transport-bar__buttons {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm, 8px);
+}
+
+.transport-bar__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
+  cursor: pointer;
+  transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+
+.transport-bar__btn:hover:not(:disabled) {
+  background: var(--color-border);
+}
+
+.transport-bar__btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.transport-bar__btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ----------------------------------------
+   Displays
+   ---------------------------------------- */
+.transport-bar__displays {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md, 12px);
+}
+
+.transport-bar__measure,
+.transport-bar__bpm {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  letter-spacing: 0.05em;
+}
+
+.transport-bar__bpm--dim {
+  color: var(--color-text-muted);
+  opacity: 0.45;
+}
