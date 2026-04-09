@@ -112,6 +112,31 @@ Goal: Establish the backing types, state, and AudioEngine wiring that all later 
         Actions: setSession(id), setAuthState(state), setUnsavedChanges(flag).
         All state JSON-serializable.
 
+    Issue 0b-delta: Add mute state to audioStore.
+        Additive change to existing audioStore (post Issue 0b).
+        Add isMuted: boolean (default false), preMuteVolume: number (default 1.0), setMuted(muted: boolean), setPreMuteVolume(volume: number).
+        All new state is JSON-serializable. Prerequisites for Issue 2d (Mute button).
+
+    Issue 0c-delta: Add transport methods to AudioEngine.
+        Additive change to existing AudioEngine (post Issue 0c).
+        Add killAll(): cancels all scheduled transport events, releases all voices, calls Transport.stop() and resets to 0. Called by Power Off confirm (Issue 2a) and Restart (Issue 2b).
+        Add pause(): calls Transport.pause() without resetting position. Called by Pause button (Issue 2c).
+        Add resume(): calls Transport.start() from current position. Called by Pause button (Issue 2c).
+        Add setMasterVolume(volume: number): clamps to [0, 1] and applies to master gain node. Called by Mute button (Issue 2d).
+        Add getMasterVolume(): returns current master gain value. Called by Mute button (Issue 2d) to snapshot pre-mute level.
+
+    Issue 0e-delta: Add isPoweredOn to existing uiStore.
+        Additive change to existing uiStore (post Issue 0e).
+        Add isPoweredOn: boolean (default false), setPowerOn(), setPowerOff() to uiStore.
+        Prerequisites for Issue 2 (scaffold gating) and Issue 2a (Power button).
+
+    Issue 0g-delta: Replace dayLengthMeasures with Planet Size and real-clock time-of-day.
+        Migration of existing oceanStore (post Issue 0g).
+        Remove dayLengthMeasures and setDayLength; add planetSize: 'small' | 'medium' | 'large' (default 'medium') with setPlanetSize(size).
+        PLANET_DURATION_MS: small = 3 min, medium = 6 min, large = 9 min.
+        Add dayStartTimestamp: number (wall-clock ms) and setDayStartTimestamp(ts); derive currentHour from wall-clock elapsed time.
+        Time-of-day setInterval runs in the ocean scene/system — explicitly permitted (world/visual timing, not musical timing).
+
 🏳️ Milestone 1: Core Architecture & Navigation
 
 Goal: Establish the asymmetric Sleeve/Glass shell and the state machine for view swapping.
@@ -129,17 +154,27 @@ Depends on: Issue 0e (uiStore).
         Guide rails: subtle horizontal SVG lines at the top and bottom edges of the GlassViewport, representing the mechanical tracks that keep the screen attached as it extends along the X-axis.
         No interactive elements in the sleeve. No buttons, controls, or transport here.
 
-    Issue 2: Build Glass-Mounted Transport Bar.
-        Horizontal bar pinned to the top of GlassViewport.
-        Contains: Power button, Restart button, Pause button, Mute button, BPM display, and Measure counter.
-        On app load the tablet is in a "powered-down" state: all transport and nav buttons are disabled except the Power button; the main display is dark/off.
-        Power On: enables all buttons, starts AudioEngine, populates ocean, begins robot spawning and melody playback.
-        Power Off (click while on): shows a confirmation modal; on confirm: kills audio, resets measure to 0, darkens display, disables all buttons except Power; ocean/robot data persists; measures stop advancing (time-of-day still runs).
-        Restart button: kills all current/planned audio, resets measure to 0, immediately resumes playback from measure 0. No change to power state or ocean display.
-        Pause button: pauses audio and measure advancement; click again to resume.
-        Mute button: toggles master volume between current level and 0; unmuting restores the pre-mute level (stored in audioStore.preMuteVolume).
-        All controls are touch targets (minimum 44×44px per WCAG).
+    Issue 2: Build Glass-Mounted Transport Bar (Scaffold).
+        Creates TransportBar component shell: bar layout, four stubbed button slots (Power always enabled; Restart/Pause/Mute disabled on load via isPoweredOn gating), measure display (M: --- when off), BPM display (dimmed when off).
+        App.tsx cleanup: removes PlayButton overlay, removes hardcoded % 96 from subscribeToMeasure.
         Transport is rendered on the glass — not in the sleeve.
+
+    Issue 2a: TransportBar — Power Button.
+        Power On (isPoweredOn === false): calls AudioEngine.start(), setPowerOn(), populates robots/factories, triggers GSAP wake-up timeline (stored in timelineMap under 'tablet-power-on').
+        Power Off (isPoweredOn === true): opens local-state confirmation modal; on confirm: killAll(), setCurrentMeasure(0), setPowerOff(), triggers GSAP shutdown timeline (timelineMap 'tablet-power-off'); ocean/robot data persists.
+
+    Issue 2b: TransportBar — Restart Button.
+        Disabled when isPoweredOn === false.
+        On click: killAll() → setCurrentMeasure(0) → AudioEngine.start(). No modal, no GSAP, no power state change.
+
+    Issue 2c: TransportBar — Pause Button.
+        Disabled when isPoweredOn === false.
+        Toggles between playing and paused: AudioEngine.pause() / resume(); isPaused is local React state (not in Zustand).
+
+    Issue 2d: TransportBar — Mute Button.
+        Disabled when isPoweredOn === false.
+        On mute: getMasterVolume() → setPreMuteVolume() → setMasterVolume(0) → setMuted(true).
+        On unmute: setMasterVolume(preMuteVolume) → setMuted(false).
 
     Issue 3: Build Navigation System.
         Tablet/desktop: vertical icon bar on the left edge of GlassViewport (inside the glass, not the sleeve).

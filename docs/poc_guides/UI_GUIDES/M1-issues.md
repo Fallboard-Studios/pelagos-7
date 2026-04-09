@@ -125,15 +125,15 @@ Depends on: **Issue 1** (`SleeveContainer` and `GlassViewport` must exist).
 ---
 
 <!-- ============================================================ -->
-<!-- ISSUE 2: Build Glass-Mounted Transport Bar                   -->
+<!-- ISSUE 2: Build Glass-Mounted Transport Bar (Scaffold)        -->
 <!-- ============================================================ -->
 
-## [M8.1-2] Build Glass-Mounted Transport Bar
+## [M8.1-2] Build Glass-Mounted Transport Bar (Scaffold)
 
 ## Feature Description
-Build a persistent transport control bar mounted at the top of `GlassViewport`. It contains four controls (Power, Restart, Pause, Mute), a live measure display, and a BPM readout. All transport controls are rendered on the glass touchscreen — nothing lives in the sleeve. The bar is always visible regardless of the active view, and replaces the current full-screen `PlayButton` overlay.
+Create the `TransportBar` component shell — the persistent horizontal bar pinned to the top of `GlassViewport`. This scaffold issue covers the bar layout, four disabled/placeholder button slots, the measure and BPM displays, the powered-down initial state gating, and `App.tsx` cleanup. Button logic (click handlers, animations, audio calls) is handled in sub-issues 2a–2d.
 
-On app load the tablet is in a **powered-down** state: all transport controls and nav buttons render as disabled except the Power button. The main display area is off (dark). Time of day still advances. When the user powers on, all buttons enable, the ocean populates, and robots begin playing.
+On app load the tablet is in a **powered-down** state: all transport controls and nav buttons render as disabled except the Power button slot. The main display area is dark. Time of day still advances.
 
 Depends on: **Issue 1** (design tokens), **Issue 0b** (measure display reads `oceanStore.currentMeasure`), **Issue 0e** (`uiStore.isPoweredOn` must exist), **Issue 0g** (`planetSize`/time-of-day system must exist in `oceanStore`).
 
@@ -143,71 +143,183 @@ Depends on: **Issue 1** (design tokens), **Issue 0b** (measure display reads `oc
 - [ ] Transport bar height uses `var(--transport-height, 48px)` — minimum 48px
 - [ ] Use only design tokens from Issue 1 for all styles (no hardcoded values)
 - [ ] All controls are touch targets (minimum 44×44px per WCAG 2.5.5)
-
-### Power Button
-- [ ] Always enabled — the only interactive element in the powered-down state
-- [ ] **Power On** (when `isPoweredOn === false`): calls `AudioEngine.start()`, calls `useUIStore.getState().setPowerOn()`, populates robots/factories via existing spawn systems; all other buttons become enabled; display turns on; GSAP timeline animates the tablet "waking up" (lights brightening, display fading in) — store this timeline in `timelineMap`
-- [ ] **Power Off** (when `isPoweredOn === true`): opens a local-state confirmation modal before acting
-- [ ] Confirmation modal on Power Off: "Power off? All audio will stop and the measure will reset." with Confirm and Cancel; modal state is local React state (not in `uiStore`)
-- [ ] On confirm: calls `AudioEngine.killAll()` (kills all current and scheduled audio), calls `useOceanStore.getState().setCurrentMeasure(0)`, calls `useUIStore.getState().setPowerOff()`; GSAP timeline animates the tablet "powering down" (lights dimming, display fading out) — stored in `timelineMap`; beat-clock measure advancement stops (BeatClock is stopped); ocean/robot data persists in stores
-
-### Restart Button
-- [ ] Disabled when `isPoweredOn === false`
-- [ ] On click: calls `AudioEngine.killAll()`, calls `useOceanStore.getState().setCurrentMeasure(0)`, then calls `AudioEngine.start()` to resume playback from measure 0 (all robots restart their note arrays simultaneously)
-- [ ] No changes to power state, ocean display, or tablet visuals
-
-### Pause Button
-- [ ] Disabled when `isPoweredOn === false`
-- [ ] Toggles between playing and paused: when playing, calls `AudioEngine.pause()` and stops BeatClock advancement; when paused, calls `AudioEngine.resume()` and resumes BeatClock
-- [ ] Button visually reflects paused state (e.g., icon swap or CSS class)
-
-### Mute Button
-- [ ] Disabled when `isPoweredOn === false`
-- [ ] On mute: reads `audioStore.preMuteVolume`, saves current master volume to `audioStore.preMuteVolume`, sets master volume to 0 via `AudioEngine.setMasterVolume(0)`, sets `audioStore.isMuted = true`
-- [ ] On unmute: restores volume via `AudioEngine.setMasterVolume(audioStore.preMuteVolume)`, sets `audioStore.isMuted = false`
-- [ ] Button visually reflects muted state
-
-### Measure Display & BPM
+- [ ] Render four button slots (Power, Restart, Pause, Mute) as stubbed `<button>` elements with `disabled` attribute; no click handlers yet (added in 2a–2d)
+- [ ] Power button slot is always enabled; Restart, Pause, and Mute slots are `disabled` when `useUIStore((s) => s.isPoweredOn) === false`
 - [ ] Measure display: reads `useOceanStore((s) => s.currentMeasure)`; renders as `M: 048`; shows `M: ---` when `isPoweredOn === false`
 - [ ] BPM display: reads `useAudioStore((s) => s.bpm)`; renders as `120 BPM`; dimmed when `isPoweredOn === false`
-
-### App.tsx cleanup
 - [ ] Remove the conditional `{!isAudioReady && <PlayButton />}` rendering from `App.tsx`
-- [ ] Remove the hardcoded `% 96` in `subscribeToMeasure` callback (prerequisite: Issue 0g decouples measure wrap from day length)
-- [ ] Add `audioStore` state fields: `isMuted: boolean` (default `false`), `preMuteVolume: number` (default `1.0`), and `setMuted(muted: boolean)` action
-- [ ] Add `AudioEngine.killAll()` if not already present: stops all active voices, cancels all scheduled Tone.Transport events, calls `Tone.Transport.stop()` and `Tone.Transport.cancel()`
-- [ ] Add `AudioEngine.pause()` / `AudioEngine.resume()` if not already present: pauses/resumes `Tone.Transport` without resetting position
-- [ ] Add `AudioEngine.setMasterVolume(volume: number)` if not already present: adjusts master gain to the given 0–1 value
+- [ ] Remove the hardcoded `% 96` in `subscribeToMeasure` callback in `App.tsx` (prerequisite: Issue 0g decouples measure wrap from day length)
+- [ ] Render `<TransportBar />` inside `GlassViewport` at the top of the layout
 
 ## Technical Notes
-- `isPoweredOn` is the single gating flag for all controls except Power — read it via `useUIStore((s) => s.isPoweredOn)` and apply `disabled` attribute or a CSS `.disabled` class to all non-power buttons.
-- The powered-down visual state (dimmed lights, dark display) is a GSAP timeline stored in `timelineMap` under a key like `'tablet-power'`. On power-on, play the reverse or a wake-up timeline. On power-off, play the shutdown timeline. Do NOT store GSAP timelines in React state or Zustand.
-- Beat-clock advancement on power-off: calling `Tone.Transport.stop()` (inside `AudioEngine.killAll()`) stops the scheduler. On restart or power-on, `Tone.Transport.start()` resumes from the reset position.
-- The confirmation modal for power-off is local React state in `TransportBar` — it is transient UI and does not belong in `uiStore`.
-- On power-on after a previous power-off, ocean/robots already exist in the store — do NOT re-spawn from scratch. Simply restart the AudioEngine and re-register robot melodies (same as the Load path in Issue 7).
-- The measure display should be driven by a Zustand subscription, not polling — it updates whenever `setCurrentMeasure` is called by the BeatClock subscriber.
-- On all breakpoints, the transport bar remains pinned at the top of `GlassViewport`. The bottom nav bar (mobile) and side nav (desktop) from Issue 3 are separate.
+- `isPoweredOn` is the single gating flag for Restart/Pause/Mute — apply `disabled` attribute or a CSS `.disabled` class to all non-power button slots.
+- Measure display must be driven by a Zustand subscription, not polling — it updates whenever `setCurrentMeasure` is called by the BeatClock subscriber.
+- `TransportBar` is rendered on the glass pane — never in `SleeveContainer`.
 
 ## Acceptance Criteria
-- [ ] On app load, all buttons except Power are visually disabled; main display is dark
-- [ ] Clicking Power On starts audio, enables all buttons, and the ocean/robots populate
-- [ ] Clicking Power Off (while on) opens a confirmation modal; Cancel dismisses without action; Confirm kills audio, resets measure to 0, dims the display, disables all buttons except Power
-- [ ] After power-off, ocean/robot data is still in the store (not cleared)
-- [ ] Restart button kills audio, resets to measure 0, and immediately resumes playback
-- [ ] Pause button pauses audio and measure advancement; clicking again resumes both
-- [ ] Mute kills volume without stopping audio; unmute restores pre-mute volume level
-- [ ] Measure display shows `M: ---` when powered off, live measure count when on
-- [ ] BPM display is dimmed when powered off
-- [ ] Transport bar height uses `--transport-height` token (minimum 48px)
+- [ ] `TransportBar` renders at the top of `GlassViewport` with correct height token
+- [ ] Four button slots are visible; Power is enabled, Restart/Pause/Mute are disabled on load
+- [ ] Measure display shows `M: ---` on load; BPM display is dimmed on load
 - [ ] Full-screen `PlayButton` overlay is removed from `App.tsx`
 - [ ] No transport controls exist in `SleeveContainer`
 - [ ] App compiles with no TypeScript errors
 - [ ] App remains functional after merge
+
+## Source Reference
+- File: `src/App.tsx`, `src/components/PlayButton.tsx`, `src/stores/oceanStore.ts`, `src/stores/audioStore.ts`, `src/stores/uiStore.ts` (Issue 0e)
+- Copilot instructions: "All interactive UI (transport, navigation, controls) lives inside GlassViewport only — never in the decorative SleeveContainer."
+
+---
+
+<!-- ============================================================ -->
+<!-- ISSUE 2a: TransportBar — Power Button                        -->
+<!-- ============================================================ -->
+
+## [M8.1-2a] TransportBar — Power Button
+
+## Feature Description
+Implement the Power button in `TransportBar`. The Power button is always enabled and toggles the tablet between a powered-down state (all audio off, display dark) and a powered-on state (audio running, all buttons enabled).
+
+Depends on: **Issue 2** (TransportBar scaffold must exist), **Issue 0e** (`uiStore.isPoweredOn`), **Issue 0c-delta** (`AudioEngine.killAll()` must exist).
+
+## Implementation Details
+- [ ] Add click handler to the Power button slot in `TransportBar`
+- [ ] **Power On** (when `isPoweredOn === false`): calls `AudioEngine.start()`, calls `useUIStore.getState().setPowerOn()`, populates robots/factories via existing spawn systems; all other buttons become enabled; GSAP timeline animates the tablet "waking up" (lights brightening, display fading in) — store this timeline in `timelineMap` under key `'tablet-power-on'`
+- [ ] **Power Off** (when `isPoweredOn === true`): opens a local-state confirmation modal before acting
+- [ ] Confirmation modal: "Power off? All audio will stop and the measure will reset." with Confirm and Cancel; modal state is local `useState` in `TransportBar` (not in `uiStore`)
+- [ ] On confirm: calls `AudioEngine.killAll()`, calls `useOceanStore.getState().setCurrentMeasure(0)`, calls `useUIStore.getState().setPowerOff()`; GSAP timeline animates the tablet "powering down" (lights dimming, display fading out) — stored in `timelineMap` under key `'tablet-power-off'`; ocean/robot data persists in stores
+- [ ] On cancel: modal dismisses, no state changes
+
+## Technical Notes
+- On power-on after a previous power-off, ocean/robots already exist in the store — do NOT re-spawn from scratch. Simply restart the AudioEngine and re-register robot melodies (same path as the Load case in Issue 7).
+- GSAP wake/shutdown timelines must be stored in `timelineMap`, never in React state or Zustand.
+- Beat-clock advancement stops when `Tone.Transport.stop()` is called inside `AudioEngine.killAll()`. `AudioEngine.start()` resumes from measure 0 on power-on.
+
+## Acceptance Criteria
+- [ ] Power button is always enabled regardless of powered state
+- [ ] Clicking Power while off starts audio, enables all other buttons, triggers wake-up animation
+- [ ] Clicking Power while on opens a confirmation modal
+- [ ] Cancel dismisses the modal with no state change
+- [ ] Confirm kills audio, resets measure to 0, dims display, disables all buttons except Power
+- [ ] After power-off, ocean/robot data is still in the store (not cleared)
+- [ ] App compiles with no TypeScript errors
 - [ ] No regression in audio behaviour
 
 ## Source Reference
-- File: `src/App.tsx`, `src/components/PlayButton.tsx`, `src/engine/AudioEngine.ts`, `src/stores/oceanStore.ts`, `src/stores/uiStore.ts` (Issue 0e), `src/stores/audioStore.ts` (Issue 0b)
-- Copilot instructions: "All audio: AudioEngine only (singleton). No local Tone.js synths in components."; "All animation: GSAP timelines only; store timelines in timelineMap."
+- File: `src/components/ui/TransportBar.tsx`, `src/engine/AudioEngine.ts`, `src/stores/uiStore.ts`, `src/stores/oceanStore.ts`
+- Copilot instructions: "All audio: AudioEngine only (singleton)."; "All animation: GSAP timelines only; store timelines in timelineMap."; "GSAP timelines must only trigger semantic state changes, never call AudioEngine directly."
+
+---
+
+<!-- ============================================================ -->
+<!-- ISSUE 2b: TransportBar — Restart Button                      -->
+<!-- ============================================================ -->
+
+## [M8.1-2b] TransportBar — Restart Button
+
+## Feature Description
+Implement the Restart button in `TransportBar`. Restart performs a hard reset of audio and measure position without changing power state, display state, or spawn state.
+
+Depends on: **Issue 2** (TransportBar scaffold must exist), **Issue 0c-delta** (`AudioEngine.killAll()` must exist).
+
+## Implementation Details
+- [ ] Add click handler to the Restart button slot in `TransportBar`
+- [ ] Disabled when `isPoweredOn === false` (inherited from scaffold gating)
+- [ ] On click: calls `AudioEngine.killAll()`, calls `useOceanStore.getState().setCurrentMeasure(0)`, then calls `AudioEngine.start()` to resume playback immediately from measure 0 (all robots restart their note arrays simultaneously)
+- [ ] No confirmation modal
+- [ ] No changes to power state, ocean display, or tablet visuals
+- [ ] No GSAP animation needed
+
+## Technical Notes
+- After `killAll()`, the transport is at position 0. `setCurrentMeasure(0)` resets the store counter. `AudioEngine.start()` reinitialises the transport from 0 — all robot melodies re-register from their stored note arrays.
+
+## Acceptance Criteria
+- [ ] Restart is disabled when `isPoweredOn === false`
+- [ ] Clicking Restart kills all audio, resets measure to 0, and immediately resumes playback
+- [ ] Power state, ocean display, and robot/ocean store data are unchanged after Restart
+- [ ] App compiles with no TypeScript errors
+- [ ] No regression in audio behaviour
+
+## Source Reference
+- File: `src/components/ui/TransportBar.tsx`, `src/engine/AudioEngine.ts`, `src/stores/oceanStore.ts`
+- Copilot instructions: "All audio: AudioEngine only (singleton). No local Tone.js synths in components."
+
+---
+
+<!-- ============================================================ -->
+<!-- ISSUE 2c: TransportBar — Pause Button                        -->
+<!-- ============================================================ -->
+
+## [M8.1-2c] TransportBar — Pause Button
+
+## Feature Description
+Implement the Pause button in `TransportBar`. Pause is a soft toggle — it suspends audio and measure advancement without resetting position.
+
+Depends on: **Issue 2** (TransportBar scaffold must exist), **Issue 0c-delta** (`AudioEngine.pause()` and `AudioEngine.resume()` must exist).
+
+## Implementation Details
+- [ ] Add click handler to the Pause button slot in `TransportBar`
+- [ ] Disabled when `isPoweredOn === false` (inherited from scaffold gating)
+- [ ] Add local `isPaused` boolean via `useState` in `TransportBar`
+- [ ] When playing (not paused): calls `AudioEngine.pause()`, stops BeatClock advancement, sets `isPaused = true`; button shows paused visual state (e.g., CSS class `.transport-btn--active`)
+- [ ] When paused: calls `AudioEngine.resume()`, resumes BeatClock, sets `isPaused = false`; button returns to normal visual state
+- [ ] `isPaused` is local React state — it is transient UI and does not belong in `uiStore`
+
+## Technical Notes
+- `AudioEngine.pause()` calls `Tone.Transport.pause()` — transport position is preserved.
+- `AudioEngine.resume()` calls `Tone.Transport.start()` — resumes from where it was paused.
+- When paused, the BeatClock subscriber stops receiving events because `Tone.Transport` is paused.
+- Power-off (via `killAll()`) fully resets the system — after power-off the pause state is implicitly cleared.
+
+## Acceptance Criteria
+- [ ] Pause is disabled when `isPoweredOn === false`
+- [ ] Clicking Pause pauses audio and measure advancement; button shows paused state
+- [ ] Clicking Pause again resumes audio and measure advancement; button returns to normal
+- [ ] `isPaused` is local React state (not in Zustand)
+- [ ] App compiles with no TypeScript errors
+- [ ] No regression in audio behaviour
+
+## Source Reference
+- File: `src/components/ui/TransportBar.tsx`, `src/engine/AudioEngine.ts`
+- Copilot instructions: "All audio: AudioEngine only (singleton). No local Tone.js synths in components."
+
+---
+
+<!-- ============================================================ -->
+<!-- ISSUE 2d: TransportBar — Mute Button                         -->
+<!-- ============================================================ -->
+
+## [M8.1-2d] TransportBar — Mute Button
+
+## Feature Description
+Implement the Mute button in `TransportBar`. Mute silences audio by setting master volume to 0 without stopping playback or advancing measures, and restores the previous volume level on unmute.
+
+Depends on: **Issue 2** (TransportBar scaffold must exist), **Issue 0b-delta** (`audioStore.isMuted` and `preMuteVolume` must exist), **Issue 0c-delta** (`AudioEngine.setMasterVolume()` and `getMasterVolume()` must exist).
+
+## Implementation Details
+- [ ] Add click handler to the Mute button slot in `TransportBar`
+- [ ] Disabled when `isPoweredOn === false` (inherited from scaffold gating)
+- [ ] Read `isMuted` state via `useAudioStore((s) => s.isMuted)` to drive visual muted state
+- [ ] **On mute** (`isMuted === false`): calls `AudioEngine.getMasterVolume()`, saves result via `useAudioStore.getState().setPreMuteVolume(volume)`, calls `AudioEngine.setMasterVolume(0)`, calls `useAudioStore.getState().setMuted(true)`
+- [ ] **On unmute** (`isMuted === true`): calls `AudioEngine.setMasterVolume(useAudioStore.getState().preMuteVolume)`, calls `useAudioStore.getState().setMuted(false)`
+- [ ] Button visually reflects muted state (e.g., CSS class `.transport-btn--muted`)
+
+## Technical Notes
+- Audio does not stop during mute — `Tone.Transport` keeps running and measures keep advancing. Only the master gain node value is changed.
+- `preMuteVolume` is stored in Zustand (not local state) so it survives component remounts. It resets to `1.0` on hard reload (not persisted to `localStorage`).
+- `setMuted` and `setPreMuteVolume` only update store state — the actual `AudioEngine` call is made here in the click handler. Do not call `AudioEngine` from inside store actions.
+
+## Acceptance Criteria
+- [ ] Mute is disabled when `isPoweredOn === false`
+- [ ] Clicking Mute silences audio; button shows muted state; measures continue advancing
+- [ ] Clicking Mute again restores volume to the pre-mute level; button returns to normal
+- [ ] Pre-mute volume is correctly snapshotted before muting and restored on unmute
+- [ ] App compiles with no TypeScript errors
+- [ ] No regression in audio behaviour
+
+## Source Reference
+- File: `src/components/ui/TransportBar.tsx`, `src/engine/AudioEngine.ts`, `src/stores/audioStore.ts` (Issue 0b-delta)
+- Copilot instructions: "All audio: AudioEngine only (singleton). No local Tone.js synths in components."
 
 ---
 

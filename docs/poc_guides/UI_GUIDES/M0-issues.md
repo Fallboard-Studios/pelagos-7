@@ -599,3 +599,98 @@ Depends on: **Issue 0g** (the code being replaced must exist).
 ## Source Reference
 - File: `src/stores/oceanStore.ts`, `src/components/OceanScene.tsx`, `src/constants/index.ts`, `src/App.tsx`
 - Copilot instructions: "State: Zustand only; store JSON-serializable data only."; "All timing: Tone.Transport / BeatClock (measure-based). No setTimeout/setInterval for musical timing." (Note: the time-of-day interval is world/visual timing, not musical timing — `setInterval` is explicitly permitted here.)
+
+---
+
+<!-- ============================================================ -->
+<!-- ISSUE 0b-delta: Add mute state to audioStore                 -->
+<!-- ============================================================ -->
+
+## [M8.0-0b-delta] Add mute state to audioStore
+
+## Feature Description
+Add `isMuted` and `preMuteVolume` fields to the existing `audioStore`, plus `setMuted()` and `setPreMuteVolume()` actions. These are the state prerequisites for the Mute button in Issue 2d.
+
+**Current state (post Issue 0b):** `audioStore` has `globalAudio`, `bpm`, `setBPM()`, `setGlobalAudio()` — no mute tracking.
+
+**Target state:** `audioStore` additionally has `isMuted: boolean` (default `false`), `preMuteVolume: number` (default `1.0`), `setMuted(muted: boolean)`, and `setPreMuteVolume(volume: number)`.
+
+Depends on: **Issue 0b** (audioStore must exist).
+
+## Implementation Details
+- [ ] Open `src/stores/audioStore.ts`
+- [ ] Add `isMuted: boolean` to the state interface (default `false`)
+- [ ] Add `preMuteVolume: number` to the state interface (default `1.0`)
+- [ ] Add `setMuted(muted: boolean)` action: sets `isMuted` to the given value
+- [ ] Add `setPreMuteVolume(volume: number)` action: sets `preMuteVolume` to the given value
+- [ ] Update the store's initial state object with both new fields and defaults
+- [ ] All new state is JSON-serializable (no Tone nodes or DOM refs)
+- [ ] Update existing `audioStore` tests if fixtures require the new fields
+- [ ] App compiles with no TypeScript errors
+
+## Technical Notes
+- `preMuteVolume` is set by the Mute button *before* calling `AudioEngine.setMasterVolume(0)` — it captures the pre-mute level so unmute can restore it exactly.
+- `setMuted` only updates store state — it does NOT call `AudioEngine`. The audio effect is applied by the `TransportBar` component (Issue 2d).
+- Keep all new fields JSON-serializable. Do not store Tone.js gain nodes here.
+
+## Acceptance Criteria
+- [ ] `audioStore.isMuted` initialises as `false`
+- [ ] `audioStore.preMuteVolume` initialises as `1.0`
+- [ ] `setMuted(true)` sets `isMuted` to `true`; `setMuted(false)` sets it to `false`
+- [ ] `setPreMuteVolume(0.7)` sets `preMuteVolume` to `0.7`
+- [ ] All existing `audioStore` tests continue to pass
+- [ ] App compiles with no TypeScript errors
+- [ ] No regression in existing audio behaviour
+
+## Source Reference
+- File: `src/stores/audioStore.ts`, `src/stores/audioStore.test.ts`
+- Copilot instructions: "State: Zustand only; store JSON-serializable data only."
+
+---
+
+<!-- ============================================================ -->
+<!-- ISSUE 0c-delta: Add transport methods to AudioEngine         -->
+<!-- ============================================================ -->
+
+## [M8.0-0c-delta] Add transport methods to AudioEngine
+
+## Feature Description
+Add `killAll()`, `pause()`, `resume()`, `setMasterVolume(volume)`, and `getMasterVolume()` to `AudioEngine`. These are the audio-side prerequisites for the Transport Bar buttons in Issues 2a–2d.
+
+**Current state (post Issue 0c):** `AudioEngine` manages synth pools, the global FX chain, and voice scheduling — but has no explicit stop-all, pause/resume, or master-volume controls exposed as public methods.
+
+**Target state:** `AudioEngine` additionally exposes the five public methods listed below.
+
+Depends on: **Issue 0c** (AudioEngine global FX chain must exist).
+
+## Implementation Details
+- [ ] Open `src/engine/AudioEngine.ts`
+- [ ] Add `killAll()`: cancels all scheduled `Tone.Transport` events (`Tone.Transport.cancel()`), stops all active voices (releases all synths in the pool), calls `Tone.Transport.stop()`, and resets transport position to 0
+- [ ] Add `pause()`: calls `Tone.Transport.pause()` — suspends transport without resetting position; all active notes are silenced by the transport halt
+- [ ] Add `resume()`: calls `Tone.Transport.start()` to resume from the current transport position
+- [ ] Add `setMasterVolume(volume: number)`: sets the master gain node's value to `volume`; clamp to [0, 1] before applying
+- [ ] Add `getMasterVolume(): number`: returns the current master gain node's value
+- [ ] All five methods are public on the `AudioEngine` singleton class
+- [ ] No new Tone nodes are created — these methods operate on existing infrastructure (`Tone.Transport` and the existing master gain node)
+- [ ] Update `AudioEngine.test.ts` if the class interface is tested
+
+## Technical Notes
+- `killAll()` is the "hard stop" — called by both the Power Off confirmation (Issue 2a) and the Restart button (Issue 2b). After `killAll()`, the transport sits at position 0 and must be explicitly restarted via `AudioEngine.start()`.
+- `pause()` / `resume()` are soft — they preserve transport position and do not reset voice pool state. Called by the Pause button (Issue 2c).
+- `getMasterVolume()` is used by the Mute button (Issue 2d) to snapshot the pre-mute level before calling `setMasterVolume(0)`.
+- If `AudioEngine` already has an equivalent method from a prior issue, verify its behaviour matches this spec and alias if needed — do not duplicate logic.
+
+## Acceptance Criteria
+- [ ] `AudioEngine.killAll()` stops all audio and resets transport to 0
+- [ ] `AudioEngine.pause()` pauses transport without resetting position
+- [ ] `AudioEngine.resume()` resumes from the paused position
+- [ ] `AudioEngine.setMasterVolume(0)` silences audio without stopping the transport
+- [ ] `AudioEngine.setMasterVolume(1)` restores full volume
+- [ ] `AudioEngine.getMasterVolume()` returns the current master gain value
+- [ ] All existing `AudioEngine` tests continue to pass
+- [ ] App compiles with no TypeScript errors
+- [ ] No regression in existing audio behaviour
+
+## Source Reference
+- File: `src/engine/AudioEngine.ts`, `src/engine/AudioEngine.test.ts`
+- Copilot instructions: "All audio: AudioEngine only (singleton). No local Tone.js synths in components."; "All timing: Tone.Transport / BeatClock (measure-based)."
