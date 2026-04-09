@@ -1,0 +1,43 @@
+.glass-viewport {
+  position: relative;
+  margin-left: var(--sleeve-width);
+  flex: 1 1 auto;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--color-bg);
+}
+
+.glass-occlusion {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 20px;
+  background: linear-gradient(to right, rgba(0,0,0,0.4), transparent);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.glass-rail {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  pointer-events: none;
+  fill: none;
+  stroke: var(--color-border);
+  stroke-width: 1px;
+  opacity: 0.4;
+  z-index: 2;
+}
+
+.top-rail { top: 0; }
+.bottom-rail { bottom: 0; }
+
+.glass-rail line { stroke: var(--color-border); }
+
+.glass-content {
+  position: relative;
+  z-index: 0;
+  height: 100%;
+  overflow: auto;
+}

@@ -1,0 +1,27 @@
+.sleeve-container {
+  position: fixed;
+  left: 0;
+  top: 0;
+  height: 100vh;
+  width: var(--sleeve-width);
+  background: var(--color-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: var(--z-header);
+  box-shadow: inset -2px 0 6px rgba(0,0,0,0.25);
+}
+
+.sleeve-logo {
+  transform: rotate(-90deg);
+  transform-origin: center;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  opacity: 0.8;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  pointer-events: none;
+  user-select: none;
+}

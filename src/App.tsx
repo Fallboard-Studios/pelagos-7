@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import { OceanScene } from './components/OceanScene';
 import { PlayButton } from './components/PlayButton';
 import { AudioStatus } from './components/debug/AudioStatus';
+import SleeveContainer from './components/layout/SleeveContainer';
+import GlassViewport from './components/layout/GlassViewport';
 import { spawnRobot } from './systems/spawnSystem';
 import { useOceanStore } from './stores/oceanStore';
 import { subscribeToMeasure } from './engine/beatClock';
@@ -50,9 +52,12 @@ function App() {
 
   return (
     <>
-      {!isAudioReady && <PlayButton onSuccess={handleAudioReady} />}
-      <OceanScene />
-      <AudioStatus />
+      <SleeveContainer />
+      <GlassViewport>
+        {!isAudioReady && <PlayButton onSuccess={handleAudioReady} />}
+        <OceanScene />
+        <AudioStatus />
+      </GlassViewport>
     </>
   );
 }

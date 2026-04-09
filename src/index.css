@@ -1,11 +1,38 @@
 :root {
+  /* Typography */
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Segoe UI Mono", monospace;
+  --font-size-sm: 12px;
+  --font-size-md: 16px;
+  --font-size-lg: 20px;
+
+  /* Sleeve layout */
+  --sleeve-width: 30px;
+  --sleeve-width-tablet: 80px;
+  --sleeve-width-desktop: 120px;
+
+  /* Color tokens (fallbacks; prefer assets/color-theme.json mapping elsewhere) */
+  --color-bg: #121212;
+  --color-surface: #1a1a1a;
+  --color-border: rgba(255,255,255,0.08);
+  --color-accent: #646cff;
+  --color-text-primary: rgba(255,255,255,0.87);
+  --color-text-muted: rgba(255,255,255,0.6);
+
+  /* Border & z-index */
+  --border-width: 1px;
+  --border-color: var(--color-border);
+  --border-radius: 8px;
+  --z-overlay: 50;
+  --z-header: 40;
+  --z-popover: 60;
+
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
   color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  color: var(--color-text-primary);
+  background-color: var(--color-bg);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -24,10 +51,19 @@ a:hover {
 
 body {
   margin: 0;
+  padding: 0;
+  overflow: hidden;
   display: flex;
-  place-items: center;
+  flex-direction: row;
   min-width: 320px;
-  min-height: 100vh;
+  height: 100vh;
+}
+
+@media (min-width: 768px) {
+  :root { --sleeve-width: var(--sleeve-width-tablet); }
+}
+@media (min-width: 1200px) {
+  :root { --sleeve-width: var(--sleeve-width-desktop); }
 }
 
 h1 {
