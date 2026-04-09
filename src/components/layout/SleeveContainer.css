@@ -4,6 +4,36 @@
   top: 0;
   height: 100vh;
   width: var(--sleeve-width);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02));
+  z-index: calc(var(--z-header) - 1);
+  box-sizing: border-box;
+  padding: 8px 4px;
+}
+
+.sleeve-logo {
+  transform: rotate(-90deg);
+  transform-origin: center;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  opacity: 0.9;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 0 rgba(0,0,0,0.25));
+}
+.sleeve-container {
+  position: fixed;
+  left: 0;
+  top: 0;
+  height: 100vh;
+  width: var(--sleeve-width);
   background: var(--color-surface);
   display: flex;
   align-items: center;
