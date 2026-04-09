@@ -15,6 +15,7 @@ vi.mock('tone', () => ({
   getTransport: vi.fn(() => ({
     state: 'stopped',
     start: vi.fn().mockResolvedValue(undefined),
+    pause: vi.fn(),
     stop: vi.fn(),
     clear: vi.fn(),
     scheduleOnce: vi.fn(),
@@ -605,6 +606,161 @@ describe('AudioEngine - Global FX Chain', () => {
     it('is a no-op when AudioEngine not started', async () => {
       const { AudioEngine } = await import('./AudioEngine');
       expect(() => AudioEngine.setGlobalBypass(true)).not.toThrow();
+    });
+  });
+});
+
+// ============================================================
+// Issue #220 — Transport methods & master volume
+// ============================================================
+describe('AudioEngine - Transport methods & Master Volume (Issue #220)', () => {
+  type AnyMock = ReturnType<typeof vi.fn>;
+  const lastInstance = (ctor: unknown) =>
+    (ctor as unknown as AnyMock).mock.results.at(-1)?.value;
+
+  beforeEach(() => {
+    vi.resetModules();
+    useOceanStore.setState({ settings: { bpm: 120, maxRobots: 4, minRobots: 1 } } as unknown as Record<string, unknown>);
+  });
+
+  // ── pause ──────────────────────────────────────────────── //
+  describe('pause()', () => {
+    it('calls Transport.pause()', async () => {
+      const Tone = await import('tone');
+      const { AudioEngine } = await import('./AudioEngine');
+      await AudioEngine.start();
+      const transport = (Tone.getTransport as unknown as AnyMock).mock.results.at(-1)?.value;
+      AudioEngine.pause();
+      expect(transport.pause).toHaveBeenCalled();
+    });
+
+    it('does not throw when called before start', async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      expect(() => AudioEngine.pause()).not.toThrow();
+    });
+  });
+
+  // ── resume ─────────────────────────────────────────────── //
+  describe('resume()', () => {
+    it('calls Transport.start()', async () => {
+      const Tone = await import('tone');
+      const { AudioEngine } = await import('./AudioEngine');
+      await AudioEngine.start();
+      const transport = (Tone.getTransport as unknown as AnyMock).mock.results.at(-1)?.value;
+      // Reset call count so only the resume call is counted
+      transport.start.mockClear();
+      AudioEngine.resume();
+      expect(transport.start).toHaveBeenCalled();
+    });
+
+    it('does not throw when called before start', async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      expect(() => AudioEngine.resume()).not.toThrow();
+    });
+  });
+
+  // ── killAll ────────────────────────────────────────────── //
+  describe('killAll()', () => {
+    it('calls Transport.cancel() and Transport.stop()', async () => {
+      const Tone = await import('tone');
+      // Ensure transport reports state as 'started' so stop() is invoked
+      // Use mockReturnValueOnce so the override doesn't bleed into later tests.
+      (Tone.getTransport as unknown as AnyMock).mockReturnValueOnce({
+        state: 'started',
+        start: vi.fn().mockResolvedValue(undefined),
+        stop: vi.fn(),
+        pause: vi.fn(),
+        cancel: vi.fn(),
+        clear: vi.fn(),
+        scheduleOnce: vi.fn(),
+        scheduleRepeat: vi.fn(() => 1),
+        bpm: { value: 120 },
+      });
+      const { AudioEngine } = await import('./AudioEngine');
+      await AudioEngine.start();
+      const transport = (Tone.getTransport as unknown as AnyMock).mock.results.at(-1)?.value;
+      AudioEngine.killAll();
+      expect(transport.cancel).toHaveBeenCalled();
+      expect(transport.stop).toHaveBeenCalled();
+    });
+
+    it('does not throw when called on an uninitialised engine', async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      expect(() => AudioEngine.killAll()).not.toThrow();
+    });
+  });
+
+  // ── setMasterVolume ────────────────────────────────────── //
+  describe('setMasterVolume()', () => {
+    it('updates the master gain node value', async () => {
+      const Tone = await import('tone');
+      const { AudioEngine } = await import('./AudioEngine');
+      await AudioEngine.start();
+      // The last Gain instance created in loadInstruments is the master gain
+      const gainNode = lastInstance(Tone.Gain) ?? { gain: { value: 1 } };
+      AudioEngine.setMasterVolume(0.5);
+      expect(gainNode.gain.value).toBe(0.5);
+    });
+
+    it('clamps values above 1 to 1', async () => {
+      const Tone = await import('tone');
+      const { AudioEngine } = await import('./AudioEngine');
+      await AudioEngine.start();
+      const gainNode = lastInstance(Tone.Gain) ?? { gain: { value: 1 } };
+      AudioEngine.setMasterVolume(2);
+      expect(gainNode.gain.value).toBe(1);
+    });
+
+    it('clamps values below 0 to 0', async () => {
+      const Tone = await import('tone');
+      const { AudioEngine } = await import('./AudioEngine');
+      await AudioEngine.start();
+      const gainNode = lastInstance(Tone.Gain) ?? { gain: { value: 1 } };
+      AudioEngine.setMasterVolume(-1);
+      expect(gainNode.gain.value).toBe(0);
+    });
+
+    it('silences audio at 0 without stopping transport', async () => {
+      const Tone = await import('tone');
+      const { AudioEngine } = await import('./AudioEngine');
+      await AudioEngine.start();
+      const gainNode = lastInstance(Tone.Gain) ?? { gain: { value: 1 } };
+      const transport = (Tone.getTransport as unknown as AnyMock).mock.results.at(-1)?.value;
+      AudioEngine.setMasterVolume(0);
+      expect(gainNode.gain.value).toBe(0);
+      // transport should NOT have been stopped
+      expect(transport.stop).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── getMasterVolume ────────────────────────────────────── //
+  describe('getMasterVolume()', () => {
+    it('returns 1 before any setMasterVolume call', async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      await AudioEngine.start();
+      expect(AudioEngine.getMasterVolume()).toBe(1);
+    });
+
+    it('returns the value set by setMasterVolume', async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      await AudioEngine.start();
+      AudioEngine.setMasterVolume(0.3);
+      expect(AudioEngine.getMasterVolume()).toBeCloseTo(0.3);
+    });
+
+    it('round-trips setMasterVolume(0) → getMasterVolume() === 0', async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      await AudioEngine.start();
+      AudioEngine.setMasterVolume(0);
+      expect(AudioEngine.getMasterVolume()).toBe(0);
+    });
+
+    it('round-trips setMasterVolume(1) → getMasterVolume() === 1', async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      await AudioEngine.start();
+      AudioEngine.setMasterVolume(0); // set to 0 first
+      AudioEngine.setMasterVolume(1); // restore
+      expect(AudioEngine.getMasterVolume()).toBe(1);
     });
   });
 });

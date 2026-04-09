@@ -14,6 +14,7 @@ import type { RobotMelodyEvent } from './melodyGenerator';
 import { applyRhythmicVariance } from './melodyGenerator';
 import { DEV_TUNING, WORLD_WIDTH } from '../constants';
 import { getRef } from '../utils/refs';
+import { swallow } from '../utils/swallow';
 
 // ========================================
 // TYPES
@@ -103,6 +104,9 @@ let _globalHPF: Tone.Filter | null = null;
 // Passthrough gain node used when global bypass is active — audio routes here, skipping FX chain
 let _fxBypassGain: Tone.Gain | null = null;
 let _globalBypassActive = false;
+// Master output gain controlling overall volume (used by setMasterVolume/getMasterVolume)
+let _masterGain: Tone.Gain | null = null;
+let _masterVolume = 1;
 
 /**
  * Cache of the last wet/level values for each FX node — used to restore values
@@ -126,6 +130,9 @@ let scheduledTickId: number | null = null;
 
 // Panner pool: each synth instance has its own panner for independent position control
 let pannerPool: PannerPool | null = null;
+// Cache Tone.Transport instance returned by Tone.getTransport() so repeated calls
+// return the same mock instance in tests and the same runtime transport in-app.
+let _transport: ReturnType<typeof Tone.getTransport> | null = null;
 /** Robot audio attribute cache — keyed by robotId to avoid per-note Zustand store scans.
  * Populated on first note for a robot, cleared when its melody is unregistered.
  * Audio attributes are immutable after spawn so this cache never goes stale. */
@@ -150,6 +157,7 @@ const compositeVoices: Map<string, {
   busGain: Tone.Gain;
   busFilter: Tone.Filter;
 }> = new Map();
+
 
 // ========================================
 // INTERNAL FUNCTIONS
@@ -186,8 +194,8 @@ function getRobotVisualX(robotId: string): number {
       }
     }
   } catch (err) {
-    // Silently fall through to state position fallback
     if (DEV_TUNING) console.warn('[AudioEngine] Failed to read visual X from DOM:', err);
+    if (DEV_TUNING) swallow(err, 'AudioEngine.getRobotVisualX');
   }
 
   // Fallback: read position from state
@@ -280,7 +288,7 @@ async function loadInstruments(): Promise<void> {
   }
   if (typeof ChorusCtor === 'function') {
     _globalChorus = new ChorusCtor({ rate: 1.5, depth: 0.2, delayTime: 0.012, feedback: 0.1, wet: 0 });
-    try { (_globalChorus as unknown as { start(): void }).start(); } catch { /* headless */ }
+    try { (_globalChorus as unknown as { start(): void }).start(); } catch (err) { if (DEV_TUNING) swallow(err, 'chorus.start'); }
   }
   if (typeof EQ3Ctor === 'function') {
     _globalEQ = new EQ3Ctor({ low: 0, mid: 0, high: 0 });
@@ -291,6 +299,13 @@ async function loadInstruments(): Promise<void> {
   }
   if (typeof GainCtorFX === 'function') {
     _fxBypassGain = new GainCtorFX(1);
+    // Master gain sits after the FX chain (or final destination) so both bypass
+    // and FX-chain paths are routed through this single volume control.
+    try {
+      _masterGain = new (GainCtorFX as unknown as (new (v: number) => Tone.Gain))(1);
+    } catch {
+      _masterGain = null;
+    }
   }
 
   // Wire chain: compressor → EQ → LPF → HPF → Chorus → Delay → Reverb → Destination
@@ -312,19 +327,52 @@ async function loadInstruments(): Promise<void> {
       for (let i = 0; i < chainNodes.length - 1; i++) {
         chainNodes[i].connect(chainNodes[i + 1]);
       }
-      // connect last FX node → Destination
-      chainNodes[chainNodes.length - 1].toDestination?.();
-      // also wire bypass gain → Destination (used when _globalBypassActive)
-      if (_fxBypassGain) {
-        try { (_fxBypassGain as unknown as { toDestination: () => void }).toDestination(); } catch { /* headless */ }
+      // connect last FX node → Master gain → Destination (masterGain optional)
+      try {
+        if (_masterGain) {
+          chainNodes[chainNodes.length - 1].connect(_masterGain);
+          try { _masterGain.toDestination?.(); } catch (err) { if (DEV_TUNING) swallow(err, 'masterGain.toDestination'); }
+        } else {
+          try { chainNodes[chainNodes.length - 1].toDestination?.(); } catch (err) { if (DEV_TUNING) swallow(err, 'chain.toDestination'); }
+        }
+
+        // also wire bypass gain → Master gain (so bypassed path respects master volume)
+        if (_fxBypassGain) {
+          try {
+            if (_masterGain) {
+              (_fxBypassGain as unknown as { connect: (t: unknown) => void }).connect(_masterGain);
+            } else {
+              (_fxBypassGain as unknown as { toDestination: () => void }).toDestination();
+            }
+          } catch (err) { if (DEV_TUNING) swallow(err); }
+        }
+      } catch (err) {
+        if (DEV_TUNING) console.warn('[AudioEngine] FX chain wiring failed, falling back to direct destination', err);
+        try { compressor.toDestination(); } catch { /* headless */ }
       }
     } catch (err) {
       if (DEV_TUNING) console.warn('[AudioEngine] FX chain wiring failed, falling back to direct destination', err);
-      try { compressor.toDestination(); } catch { /* headless */ }
+      try { compressor.toDestination(); } catch (err) { if (DEV_TUNING) swallow(err, 'compressor.toDestination'); }
     }
   } else {
     // No FX nodes available (test env) — route directly to destination
-    try { compressor.toDestination(); } catch { /* headless */ }
+    try {
+      if (_masterGain) {
+        (compressor as unknown as { connect: (t: unknown) => void }).connect(_masterGain);
+        try { _masterGain.toDestination?.(); } catch { /* headless */ }
+      } else {
+        compressor.toDestination();
+      }
+      if (_fxBypassGain) {
+        try {
+          if (_masterGain) {
+            (_fxBypassGain as unknown as { connect: (t: unknown) => void }).connect(_masterGain);
+          } else {
+            (_fxBypassGain as unknown as { toDestination: () => void }).toDestination();
+          }
+        } catch (err) { if (DEV_TUNING) swallow(err, 'fxBypass.connect'); }
+      }
+    } catch (err) { if (DEV_TUNING) swallow(err); }
   }
 
   // Helper to try constructing a PolySynth for a voice constructor, with
@@ -433,15 +481,15 @@ function scheduleVoiceRelease(duration: NoteDuration, time: number): void {
   const releaseTime = noteEnd + 0.04;
 
   try {
-    const transport = Tone.getTransport();
-    transport.scheduleOnce(() => {
+      const transport = _transport ?? Tone.getTransport();
+      transport.scheduleOnce(() => {
       activeVoices = Math.max(0, activeVoices - 1);
       if (DEV_TUNING) {
         console.log(`[AudioEngine] Voice released: ${activeVoices}/${MAX_POLYPHONY}`);
       }
     }, releaseTime);
   } catch (err) {
-    // Fallback: immediate release
+    if (DEV_TUNING) swallow(err, 'AudioEngine.scheduleVoiceRelease');
     activeVoices = Math.max(0, activeVoices - 1);
     if (DEV_TUNING) console.warn('[AudioEngine] Failed to schedule voice release, immediate fallback', err);
   }
@@ -640,9 +688,9 @@ export function triggerWithCap(params: NoteParams): boolean {
 function startMelodyPlayback(): void {
   if (scheduledTickId !== null) return;
 
-  const transport = Tone.getTransport();
+  const transport = _transport ?? Tone.getTransport();
 
-  scheduledTickId = transport.scheduleRepeat((time) => {
+  scheduledTickId = transport.scheduleRepeat((time: number) => {
     // Update panners once per tick to reduce per-note DOM reads and main-thread work.
     updateAllPanners(time);
 
@@ -761,10 +809,11 @@ export const AudioEngine = {
 
     // Reverb generates its impulse response asynchronously — wait before transport starts
     if (_globalReverb) {
-      try { await (_globalReverb as unknown as { ready: Promise<void> }).ready; } catch { /* headless */ }
+      try { await (_globalReverb as unknown as { ready: Promise<void> }).ready; } catch (err) { if (DEV_TUNING) swallow(err, 'reverb.ready'); }
     }
 
     const transport = Tone.getTransport();
+    _transport = transport;
     // Always start audio transport at 0 so music begins at measure 0 regardless
     // of the world time. Do NOT realign transport.position with store.
     if (transport.state !== 'started') {
@@ -780,18 +829,20 @@ export const AudioEngine = {
   },
 
   stop(): void {
-    const transport = Tone.getTransport();
+    const transport = _transport ?? Tone.getTransport();
 
     if (scheduledTickId !== null) {
-      transport.clear(scheduledTickId);
+      try { transport.clear(scheduledTickId); } catch (err) { if (DEV_TUNING) swallow(err, 'transport.clear'); }
       scheduledTickId = null;
     }
 
     stopHarmonyCycle();
 
-    if (transport.state === 'started') {
-      transport.stop();
-    }
+    try {
+      if (transport.state === 'started') {
+        try { transport.stop(); } catch { /* ignore */ }
+      }
+    } catch { /* ignore */ }
 
     stepCounter = 0;
     activeVoices = 0;
@@ -1385,7 +1436,94 @@ export const AudioEngine = {
    */
   setBPM(bpm: number): void {
     if (!initialized) return;
-    Tone.getTransport().bpm.value = bpm;
+    const transport = _transport ?? Tone.getTransport();
+    try { transport.bpm.value = bpm; } catch (err) { if (DEV_TUNING) console.warn('[AudioEngine] setBPM failed', err); }
+  },
+
+  /** Pause transport without resetting position (soft pause). */
+  pause(): void {
+    try {
+      const transport = _transport ?? Tone.getTransport();
+      transport.pause();
+    } catch (err) {
+      if (DEV_TUNING) console.warn('[AudioEngine] pause failed', err);
+    }
+  },
+
+  /** Resume transport from current position. */
+  resume(): void {
+    try {
+      const transport = _transport ?? Tone.getTransport();
+      transport.start();
+    } catch (err) {
+      if (DEV_TUNING) console.warn('[AudioEngine] resume failed', err);
+    }
+  },
+
+  /**
+   * Hard stop: cancel scheduled transport events, release active voices,
+   * stop transport, and reset position to 0.
+   */
+  killAll(): void {
+    try {
+      const transport = _transport ?? Tone.getTransport();
+      try { transport.cancel(); } catch (err) { if (DEV_TUNING) swallow(err, 'transport.cancel'); }
+
+      // Attempt to release voices in synth pool
+      if (synthPool) {
+        Object.values(synthPool).forEach((arr) => {
+          arr.forEach((s) => {
+            try { (s as unknown as { releaseAll?: () => void }).releaseAll?.(); } catch { /* ignore */ }
+            try { (s as unknown as { triggerRelease?: (...args: unknown[]) => void }).triggerRelease?.(); } catch { /* ignore */ }
+          });
+        });
+      }
+
+      stopHarmonyCycle();
+
+      try {
+        if (transport.state === 'started') {
+          try { transport.stop(); } catch { /* ignore */ }
+        }
+      } catch { /* ignore */ }
+
+      try {
+        try { (transport as unknown as { seconds?: number }).seconds = 0; } catch {
+          try { (transport as unknown as { position?: string }).position = '0:0:0'; } catch { /* ignore */ }
+        }
+      } catch { /* ignore */ }
+
+      if (scheduledTickId !== null) {
+        try { transport.clear(scheduledTickId); } catch (err) { if (DEV_TUNING) swallow(err, 'transport.clear'); }
+        scheduledTickId = null;
+      }
+
+      stepCounter = 0;
+      activeVoices = 0;
+      initialized = false;
+      console.log('[AudioEngine] killAll: transport cancelled, voices released, position reset');
+    } catch (err) {
+      if (DEV_TUNING) console.warn('[AudioEngine] killAll failed', err);
+    }
+  },
+
+  /** Set master volume (clamped to [0,1]). */
+  setMasterVolume(volume: number): void {
+    const v = Math.max(0, Math.min(1, Number(volume) || 0));
+    _masterVolume = v;
+    if (_masterGain) {
+      try { (_masterGain as unknown as { gain: { value: number } }).gain.value = v; } catch (err) { if (DEV_TUNING) console.warn('[AudioEngine] setMasterVolume failed', err); }
+    }
+  },
+
+  /** Get the current master volume (0..1). */
+  getMasterVolume(): number {
+    try {
+      if (_masterGain && typeof (_masterGain as unknown as { gain?: { value?: number } }).gain?.value === 'number') {
+        return (_masterGain as unknown as { gain?: { value?: number } }).gain!.value ?? _masterVolume;
+      }
+    } catch { /* ignore */ }
+    return _masterVolume;
   },
 
   // ========================================
@@ -1494,6 +1632,7 @@ export const AudioEngine = {
    */
   setGlobalBypass(bypass: boolean): void {
     _globalBypassActive = bypass;
+    if (DEV_TUNING) console.log('[AudioEngine] global bypass state set to', _globalBypassActive);
     if (!_masterCompressor) return;
     const comp = _masterCompressor as unknown as { connect: (t: unknown) => void; disconnect: () => void; toDestination: () => void };
     try {
