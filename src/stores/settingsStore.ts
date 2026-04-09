@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { swallow } from '../utils/swallow';
+import { DEV_TUNING } from '../constants';
 
 // ========================================
 // TYPES
@@ -52,7 +54,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => {
           savedTheme: saved.savedTheme ?? 'dark',
           language: saved.language ?? 'en',
         });
-      } catch {
+      } catch (err) {
+        if (DEV_TUNING) swallow(err, 'settings.loadPreferences');
         // Corrupted storage — leave defaults in place
       }
     },
@@ -64,7 +67,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => {
           STORAGE_KEY,
           JSON.stringify({ reducedMotion, accessibilityMode, savedTheme, language } satisfies SettingsState),
         );
-      } catch {
+      } catch (err) {
+        if (DEV_TUNING) swallow(err, 'settings.savePreferences');
         // Storage unavailable — silently skip
       }
     },
@@ -78,7 +82,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => {
         STORAGE_KEY,
         JSON.stringify({ reducedMotion, accessibilityMode, savedTheme, language } satisfies SettingsState),
       );
-    } catch {
+    } catch (err) {
+      if (DEV_TUNING) swallow(err, 'settings.subscribePersist');
       // Storage unavailable — silently skip
     }
   });

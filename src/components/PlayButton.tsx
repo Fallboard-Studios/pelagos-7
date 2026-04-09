@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { AudioEngine } from '../engine/AudioEngine';
+import { swallow } from '../utils/swallow';
 
 import './PlayButton.css';
 
@@ -46,7 +47,7 @@ export function PlayButton({ onSuccess }: PlayButtonProps) {
       setPlayState('idle');
       onSuccess?.();
     } catch (err) {
-      console.error('[PlayButton] AudioEngine.start() failed:', err);
+      swallow(err, 'PlayButton.handleClick');
       setPlayState('error');
     }
   };

@@ -194,7 +194,6 @@ function getRobotVisualX(robotId: string): number {
       }
     }
   } catch (err) {
-    if (DEV_TUNING) console.warn('[AudioEngine] Failed to read visual X from DOM:', err);
     if (DEV_TUNING) swallow(err, 'AudioEngine.getRobotVisualX');
   }
 
@@ -204,7 +203,7 @@ function getRobotVisualX(robotId: string): number {
     const robot = state.robots.find((r) => r.id === robotId);
     return robot?.position.x ?? 960; // Default to center if not found
   } catch (err) {
-    if (DEV_TUNING) console.warn('[AudioEngine] Failed to read state position:', err);
+    if (DEV_TUNING) swallow(err, 'AudioEngine.getRobotVisualX.stateFallback');
     return 960; // Default to center
   }
 }
@@ -347,11 +346,11 @@ async function loadInstruments(): Promise<void> {
           } catch (err) { if (DEV_TUNING) swallow(err); }
         }
       } catch (err) {
-        if (DEV_TUNING) console.warn('[AudioEngine] FX chain wiring failed, falling back to direct destination', err);
+        if (DEV_TUNING) swallow(err, 'AudioEngine.fxChain.connect');
         try { compressor.toDestination(); } catch { /* headless */ }
       }
     } catch (err) {
-      if (DEV_TUNING) console.warn('[AudioEngine] FX chain wiring failed, falling back to direct destination', err);
+      if (DEV_TUNING) swallow(err, 'AudioEngine.fxChain.topLevel');
       try { compressor.toDestination(); } catch (err) { if (DEV_TUNING) swallow(err, 'compressor.toDestination'); }
     }
   } else {
@@ -385,7 +384,7 @@ async function loadInstruments(): Promise<void> {
       if (typeof PolySynthCtor !== 'function') throw new Error('PolySynth constructor not available');
       return new PolySynthCtor(voiceCtor);
     } catch (err) {
-      console.warn('[AudioEngine] Failed to construct PolySynth for voice, falling back:', err);
+      if (DEV_TUNING) swallow(err, 'AudioEngine.createPolyWithFallback');
       if (typeof PolySynthCtor !== 'function') throw err;
       return new PolySynthCtor(fallbackCtor || (toneRecord.Synth ?? null));
     }
@@ -441,7 +440,7 @@ async function loadInstruments(): Promise<void> {
   }
 
   instrumentsLoaded = true;
-  console.log('[AudioEngine] Synth pool loaded');
+  if (DEV_TUNING) console.log('[AudioEngine] Synth pool loaded');
 
   // If robots spawned earlier than AudioEngine initialization, try to reserve
   // slots for them now so per-robot parameters are applied safely.
@@ -485,7 +484,7 @@ function scheduleVoiceRelease(duration: NoteDuration, time: number): void {
     transport.scheduleOnce(() => {
       activeVoices = Math.max(0, activeVoices - 1);
       if (DEV_TUNING) {
-        console.log(`[AudioEngine] Voice released: ${activeVoices}/${MAX_POLYPHONY}`);
+        if (DEV_TUNING) console.log(`[AudioEngine] Voice released: ${activeVoices}/${MAX_POLYPHONY}`);
       }
     }, releaseTime);
   } catch (err) {

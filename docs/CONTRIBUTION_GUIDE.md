@@ -398,6 +398,32 @@ import { Robot } from '../types/Robot';
 
 ### Audio
 
+### Logging & Error Handling
+
+- **Gate runtime logs:** All runtime `console.log` / `console.warn` / `console.error` used for debugging or informational purposes must be guarded by the `DEV_TUNING` flag. Example:
+
+```ts
+// ✅ Good
+if (DEV_TUNING) console.log('[MyModule] Helpful debug info', someValue);
+
+// ❌ Bad — always prints in production
+console.log('[MyModule] Helpful debug info', someValue);
+```
+
+- **Use `swallow()` for caught errors:** In `catch` blocks prefer calling the shared `swallow(err, ctx?)` helper so error reporting is consistent. Gate `swallow()` calls with `DEV_TUNING` where logging should only occur in dev tuning mode.
+
+```ts
+try {
+  await doSomethingRisky();
+} catch (err) {
+  if (DEV_TUNING) swallow(err, 'MyModule.doSomethingRisky');
+}
+```
+
+- **Avoid empty catches unless intentionally silent.** If an error is intentionally ignored, add a short comment explaining why and prefer `swallow()` gated by `DEV_TUNING` if any diagnostics would be helpful during development.
+
+This keeps production consoles clean and centralizes debug logging behavior across the codebase.
+
 - **ONLY** AudioEngine touches Tone.js
 - No `import * as Tone` outside `src/engine/`
 - All timing uses BeatClock/Transport

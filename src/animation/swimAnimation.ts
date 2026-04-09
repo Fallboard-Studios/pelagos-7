@@ -65,7 +65,7 @@ export function createSwimTimeline(
   // If ref not found, log warning and still create timeline with callback
   // (for edge cases where ref might be registered late)
   if (!ref) {
-    console.warn(`[SwimAnimation] No ref found for robot ${robot.id}, deferring animation`);
+    if (DEV_TUNING) console.warn(`[SwimAnimation] No ref found for robot ${robot.id}, deferring animation`);
     // Return empty timeline but still call onComplete after expected duration
     const tl = gsap.timeline();
     if (onComplete) {

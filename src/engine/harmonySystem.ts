@@ -2,6 +2,7 @@
 // IMPORTS
 // ========================================
 import { getCurrentHour } from './beatClock';
+import { DEV_TUNING } from '../constants';
 
 // Minimal transport-like interface to avoid importing Tone.js here.
 interface TransportLike {
@@ -26,30 +27,30 @@ export type EighthNotes = [string, string, string, string, string, string, strin
 // CONSTANTS
 // ========================================
 const TIME_PITCHES: Record<number, EighthNotes> = {
-  0:  ['C',  'G',  'E',  'D',  'B',  'C',  'E',  'G' ],
-  1:  ['C',  'G',  'F',  'D',  'A',  'C',  'F',  'F' ],
-  2:  ['D',  'A',  'F',  'D',  'A',  'C',  'F',  'D' ],
-  3:  ['F',  'G',  'B',  'D',  'G',  'D',  'G',  'G' ],
-  4:  ['G',  'D',  'B',  'A',  'B',  'D',  'A',  'G' ],
-  5:  ['A',  'D',  'C',  'G',  'E',  'C',  'A',  'E' ],
-  6:  ['Bb', 'D',  'C',  'G',  'F',  'C',  'Bb', 'F' ],
-  7:  ['Bb', 'Eb', 'C',  'G',  'F',  'D',  'Bb', 'Eb'],
-  8:  ['Ab', 'Eb', 'C',  'G',  'Ab', 'D',  'Ab', 'Eb'],
-  9:  ['Db', 'F',  'C',  'Ab', 'Bb', 'Db', 'Ab', 'F' ],
-  10: ['B',  'F#', 'D#', 'C#', 'A',  'B',  'D#', 'F#'],
-  11: ['E',  'C',  'G#', 'D',  'Bb', 'E',  'G#', 'B' ],
-  12: ['C',  'G',  'E',  'D',  'B',  'C',  'E',  'G' ],
-  13: ['C',  'G',  'F',  'D',  'A',  'C',  'F',  'F' ],
-  14: ['D',  'A',  'F',  'D',  'A',  'C',  'F',  'D' ],
-  15: ['F',  'G',  'B',  'D',  'G',  'D',  'G',  'G' ],
-  16: ['G',  'D',  'B',  'A',  'B',  'D',  'A',  'G' ],
-  17: ['A',  'D',  'C',  'G',  'E',  'C',  'A',  'E' ],
-  18: ['Bb', 'D',  'C',  'G',  'F',  'C',  'Bb', 'F' ],
-  19: ['Bb', 'Eb', 'C',  'G',  'F',  'D',  'Bb', 'Eb'],
-  20: ['Ab', 'Eb', 'C',  'G',  'Ab', 'D',  'Ab', 'Eb'],
-  21: ['Db', 'F',  'C',  'Ab', 'Bb', 'Db', 'Ab', 'F' ],
-  22: ['B',  'F#', 'D#', 'C#', 'A',  'B',  'D#', 'F#'],
-  23: ['E',  'C',  'G#', 'D',  'Bb', 'E',  'G#', 'B' ],
+  0: ['C', 'G', 'E', 'D', 'B', 'C', 'E', 'G'],
+  1: ['C', 'G', 'F', 'D', 'A', 'C', 'F', 'F'],
+  2: ['D', 'A', 'F', 'D', 'A', 'C', 'F', 'D'],
+  3: ['F', 'G', 'B', 'D', 'G', 'D', 'G', 'G'],
+  4: ['G', 'D', 'B', 'A', 'B', 'D', 'A', 'G'],
+  5: ['A', 'D', 'C', 'G', 'E', 'C', 'A', 'E'],
+  6: ['Bb', 'D', 'C', 'G', 'F', 'C', 'Bb', 'F'],
+  7: ['Bb', 'Eb', 'C', 'G', 'F', 'D', 'Bb', 'Eb'],
+  8: ['Ab', 'Eb', 'C', 'G', 'Ab', 'D', 'Ab', 'Eb'],
+  9: ['Db', 'F', 'C', 'Ab', 'Bb', 'Db', 'Ab', 'F'],
+  10: ['B', 'F#', 'D#', 'C#', 'A', 'B', 'D#', 'F#'],
+  11: ['E', 'C', 'G#', 'D', 'Bb', 'E', 'G#', 'B'],
+  12: ['C', 'G', 'E', 'D', 'B', 'C', 'E', 'G'],
+  13: ['C', 'G', 'F', 'D', 'A', 'C', 'F', 'F'],
+  14: ['D', 'A', 'F', 'D', 'A', 'C', 'F', 'D'],
+  15: ['F', 'G', 'B', 'D', 'G', 'D', 'G', 'G'],
+  16: ['G', 'D', 'B', 'A', 'B', 'D', 'A', 'G'],
+  17: ['A', 'D', 'C', 'G', 'E', 'C', 'A', 'E'],
+  18: ['Bb', 'D', 'C', 'G', 'F', 'C', 'Bb', 'F'],
+  19: ['Bb', 'Eb', 'C', 'G', 'F', 'D', 'Bb', 'Eb'],
+  20: ['Ab', 'Eb', 'C', 'G', 'Ab', 'D', 'Ab', 'Eb'],
+  21: ['Db', 'F', 'C', 'Ab', 'Bb', 'Db', 'Ab', 'F'],
+  22: ['B', 'F#', 'D#', 'C#', 'A', 'B', 'D#', 'F#'],
+  23: ['E', 'C', 'G#', 'D', 'Bb', 'E', 'G#', 'B'],
 };
 
 // ========================================
@@ -76,7 +77,9 @@ export function getAvailableNotes(): string[] {
  */
 export function setAvailableNotes(notes: EighthNotes): void {
   availableNotes = notes;
-  console.log('[HarmonySystem] Palette manually set:', notes);
+  if (DEV_TUNING) {
+    console.log('[HarmonySystem] Palette manually set:', notes);
+  }
 }
 
 /**
@@ -86,7 +89,10 @@ export function setAvailableNotes(notes: EighthNotes): void {
  */
 export function scheduleHarmonyCycle(transport: TransportLike): void {
   if (scheduledEventId !== null) {
-    console.warn('[HarmonySystem] Harmony cycle already scheduled');
+    if (DEV_TUNING) {
+
+      console.warn('[HarmonySystem] Harmony cycle already scheduled');
+    }
     return;
   }
 
@@ -97,11 +103,16 @@ export function scheduleHarmonyCycle(transport: TransportLike): void {
     if (currentHour !== lastHour) {
       lastHour = currentHour;
       availableNotes = TIME_PITCHES[currentHour] ?? TIME_PITCHES[0];
-      console.log(`[HarmonySystem] Palette changed to hour ${currentHour}:`, availableNotes);
+      if (DEV_TUNING) {
+
+        console.log(`[HarmonySystem] Palette changed to hour ${currentHour}:`, availableNotes);
+      }
     }
   }, '4m');
 
-  console.log('[HarmonySystem] Harmony cycle scheduled (updates every 4 measures)');
+  if (DEV_TUNING) {
+    console.log('[HarmonySystem] Harmony cycle scheduled (updates every 4 measures)');
+  }
 }
 
 /**
@@ -112,6 +123,9 @@ export function stopHarmonyCycle(): void {
     transportInstance.clear(scheduledEventId);
     scheduledEventId = null;
     transportInstance = null;
-    console.log('[HarmonySystem] Harmony cycle stopped');
+    if (DEV_TUNING) {
+
+      console.log('[HarmonySystem] Harmony cycle stopped');
+    }
   }
 }

@@ -4,6 +4,7 @@ import type { Actor } from '../types/Actor';
 import type { Robot } from '../types/Robot';
 import { killTimeline } from '../animation/timelineMap';
 import { DEV_TUNING } from '../constants';
+import { swallow } from '../utils/swallow';
 import { AudioEngine } from '../engine/AudioEngine';
 import { cancelPendingIdleDelay } from '../systems/idleSystem';
 import { cancelPendingInteractionRecovery } from '../systems/interactionSystem';
@@ -99,7 +100,7 @@ export const useOceanStore = create<OceanStore>((_set, get) => ({
     try {
       AudioEngine.releaseVoice(id);
     } catch (err) {
-      if (DEV_TUNING) console.warn('[Cleanup] AudioEngine.releaseVoice threw', err);
+      if (DEV_TUNING) swallow(err, 'AudioEngine.releaseVoice');
     }
     AudioEngine.unregisterRobotMelody(id);
 
