@@ -132,11 +132,11 @@ Depends on: **Issue 0d** (`phase` and `detune` in `AudioAttributes` must exist),
 - [ ] Create `src/components/ui/SynthModuleB.tsx` and `SynthModuleB.css`
 - [ ] Module reads the selected robot; renders disabled placeholder if none selected
 - [ ] **Waveform Dropdown:**
-  - `<select>` with options: `sine`, `square`, `triangle`, `sawtooth`
   - Reads `robot.audioAttributes.waveform`
   - On change: calls `updateRobot(id, { audioAttributes: { ...robot.audioAttributes, waveform: value } })`
   - Triggers voice re-reservation (see Technical Notes)
   - When waveform changes to/from `square`, the Pulsewidth control appears/disappears accordingly
+  - **Radix:** Use `@radix-ui/react-select` → `Select.Root` + `Select.Trigger` + `Select.Content` + `Select.Item` instead of a native `<select>`. Provides consistent keyboard navigation and styling across platforms.
 - [ ] **Phase Vertical Power Bar:**
   - Touch-optimized vertical fill bar (linear scale); minimum 44×44px drag handle
   - Range: 0–360 degrees
@@ -144,6 +144,7 @@ Depends on: **Issue 0d** (`phase` and `detune` in `AudioAttributes` must exist),
   - On change: `updateRobot(id, { audioAttributes: { ...robot.audioAttributes, phase: value } })`
   - Triggers voice re-reservation
   - Display: numeric readout in degrees below the bar (e.g., `180°`)
+  - **Radix:** Use `@radix-ui/react-slider` → `Slider.Root` (set `orientation="vertical"`) + `Slider.Track` + `Slider.Range` + `Slider.Thumb`. Provides correct `role="slider"`, `aria-valuenow`, `aria-valuemin`, `aria-valuemax`, keyboard arrow key support, and touch handling.
 - [ ] **Gain Vertical Power Bar:**
   - This is `robot.masterVolume` — shared with Synthesis Module A's volume control
   - Either omit from this module (document the overlap) or render as a read-only reference display linking to Module A
@@ -154,6 +155,7 @@ Depends on: **Issue 0d** (`phase` and `detune` in `AudioAttributes` must exist),
   - On change: `updateRobot(id, { audioAttributes: { ...robot.audioAttributes, detune: value } })`
   - Triggers voice re-reservation
   - Display: signed numeric readout below the bar (e.g., `−24 ct`)
+  - **Radix:** Use `@radix-ui/react-slider` → `Slider.Root` (`orientation="vertical"`) + `Slider.Track` + `Slider.Range` + `Slider.Thumb`.
 - [ ] **Pulsewidth Vertical Power Bar (conditional):**
   - Rendered only when `robot.audioAttributes.waveform === 'square'`
   - Touch-optimized vertical fill bar; minimum 44×44px drag handle
@@ -161,6 +163,7 @@ Depends on: **Issue 0d** (`phase` and `detune` in `AudioAttributes` must exist),
   - Add `pulseWidth` to `AudioAttributes` interface and `spawnSystem`
   - On change: `updateRobot(...)` + voice re-reservation
   - Display: percentage readout below the bar (e.g., `50%`)
+  - **Radix:** Use `@radix-ui/react-slider` → `Slider.Root` (`orientation="vertical"`) + `Slider.Track` + `Slider.Range` + `Slider.Thumb`.
 - [ ] No rotary knobs or grippable controls — all oscillator parameters are Vertical Power Bars (linear fill sliders)
 - [ ] Module dimensions: fits within the available RobotView panel width; use design tokens for all styles
 - [ ] Render `<SynthModuleB />` inside `RobotView`

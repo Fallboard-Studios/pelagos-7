@@ -694,3 +694,53 @@ Depends on: **Issue 0c** (AudioEngine global FX chain must exist).
 ## Source Reference
 - File: `src/engine/AudioEngine.ts`, `src/engine/AudioEngine.test.ts`
 - Copilot instructions: "All audio: AudioEngine only (singleton). No local Tone.js synths in components."; "All timing: Tone.Transport / BeatClock (measure-based)."
+
+---
+
+<!-- ============================================================ -->
+<!-- ISSUE 0k: Install Radix UI Primitives                        -->
+<!-- ============================================================ -->
+
+## [M8.0-0k] Install Radix UI Primitives
+
+## Feature Description
+Install a curated set of unstyled `@radix-ui/*` primitive packages as the shared foundation for all interactive UI components across Milestones 1–6. Radix handles ARIA roles, focus management, roving tabindex, keyboard contracts, and screen-reader semantics. The project's own design tokens own all visual styling — Radix primitives are intentionally unstyled.
+
+**Decision rationale:** Accessibility is a stated requirement (focus/keyboard navigation, reduced-motion). Radix provides correct accessible behaviour for each primitive type out of the box, removing the need to hand-roll ARIA patterns for every control.
+
+Depends on: No other M0 issues (pure dependency install).
+
+## Implementation Details
+- [ ] Run the following install command:
+  ```
+  npm install @radix-ui/react-toolbar @radix-ui/react-dialog @radix-ui/react-alert-dialog @radix-ui/react-toggle @radix-ui/react-toggle-group @radix-ui/react-tabs @radix-ui/react-popover @radix-ui/react-select @radix-ui/react-slider @radix-ui/react-switch @radix-ui/react-separator @radix-ui/react-tooltip @radix-ui/react-visually-hidden @radix-ui/react-dropdown-menu
+  ```
+- [ ] Confirm all packages appear in `dependencies` in `package.json`
+- [ ] Update `TransportBar.tsx` to use `@radix-ui/react-toolbar`:
+  - Replace `<div role="toolbar" aria-label="...">` with `<Toolbar.Root aria-label="...">`
+  - Replace each `<button className="transport-bar__btn ...">` with `<Toolbar.Button className="transport-bar__btn ...">`
+  - Existing CSS classes remain unchanged — Radix is unstyled and passes them through
+  - Add `<Toolbar.Separator />` between the button group and the displays
+- [ ] Do NOT install `@radix-ui/themes` — the project uses its own design tokens
+- [ ] No architecture violations (audio/animation/state separation)
+- [ ] Code follows standards (imports ordered, explicit types)
+
+## Technical Notes
+- All Radix packages are unstyled; they render semantic HTML with correct ARIA attributes. CSS classes added to Radix components are applied to the rendered DOM element exactly as if applied to a native element.
+- Radix `Toolbar.Root` provides roving tabindex keyboard navigation between `Toolbar.Button` children for free — Tab enters the toolbar; arrow keys move between buttons; Tab exits.
+- `Toolbar.Button` forwards the `disabled` attribute to the DOM element and adds `data-disabled` as a Radix convention. Add a `[data-disabled]` selector alias in `TransportBar.css` alongside the existing `:disabled` selector.
+- `@radix-ui/react-toggle-group` will be used to upgrade Pause and Mute buttons (Issues 2c, 2d) to stateful toggles. `@radix-ui/react-dialog` will be used for confirmation modals (Issue 2a). See each issue's Radix notes for the specific primitive mapping.
+- Peer dependency is `react >= 17` — satisfied by the project's React 19.
+
+## Acceptance Criteria
+- [ ] All listed packages appear in `package.json` `dependencies`
+- [ ] `TransportBar` uses `Toolbar.Root` and `Toolbar.Button` from `@radix-ui/react-toolbar`
+- [ ] Arrow keys move focus between transport buttons when the toolbar is focused
+- [ ] Disabled Restart/Pause/Mute buttons have both `:disabled` and `[data-disabled]` CSS handled
+- [ ] `npm run build:types` reports zero TypeScript errors
+- [ ] Dev server renders TransportBar with no visual regressions
+- [ ] App remains functional after merge
+
+## Source Reference
+- File: `src/components/ui/TransportBar.tsx`, `src/components/ui/TransportBar.css`, `package.json`
+- Copilot instructions: "All interactive UI (transport, navigation, controls) lives inside GlassViewport only — never in the decorative SleeveContainer."

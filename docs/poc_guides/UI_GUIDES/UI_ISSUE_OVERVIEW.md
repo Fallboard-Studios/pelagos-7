@@ -137,6 +137,26 @@ Goal: Establish the backing types, state, and AudioEngine wiring that all later 
         Add dayStartTimestamp: number (wall-clock ms) and setDayStartTimestamp(ts); derive currentHour from wall-clock elapsed time.
         Time-of-day setInterval runs in the ocean scene/system — explicitly permitted (world/visual timing, not musical timing).
 
+    Issue 0k: Install Radix UI Primitives (package.json).
+        Decision: All interactive UI primitives are built on unstyled @radix-ui/* packages. Radix handles ARIA roles, focus trapping, roving tabindex, and keyboard contracts; project design tokens own all visual styling.
+        Install the following packages (all unstyled, peer dep: react ≥17):
+            @radix-ui/react-toolbar — TransportBar (Issue 2)
+            @radix-ui/react-dialog — confirmation modals (Issue 2a, Issue 16)
+            @radix-ui/react-alert-dialog — destructive confirmations (Issue 16)
+            @radix-ui/react-toggle — stateful single-button toggles
+            @radix-ui/react-toggle-group — Pause / Mute toggle buttons (Issues 2c, 2d)
+            @radix-ui/react-tabs — Navigation + View-Switching (Issues 3, 4)
+            @radix-ui/react-popover — Piano Keyboard Popover (Issue 15)
+            @radix-ui/react-select — Waveform dropdown, Planet Size selector (Issues 8, 12)
+            @radix-ui/react-slider — ADSR nodes & Value Strips (Issues 11, 12, 18, 19, 20)
+            @radix-ui/react-switch — Bypass toggles, settings booleans (Issues 17, 22)
+            @radix-ui/react-separator — dividers within toolbar and panels
+            @radix-ui/react-tooltip — button tooltips throughout
+            @radix-ui/react-visually-hidden — screen reader labels
+            @radix-ui/react-dropdown-menu — context menus (robot interactions, future)
+        Do NOT install @radix-ui/themes — the project uses its own design tokens.
+        Prerequisite for all M8 interactive UI issues.
+
 🏳️ Milestone 1: Core Architecture & Navigation
 
 Goal: Establish the asymmetric Sleeve/Glass shell and the state machine for view swapping.
@@ -158,10 +178,12 @@ Depends on: Issue 0e (uiStore).
         Creates TransportBar component shell: bar layout, four stubbed button slots (Power always enabled; Restart/Pause/Mute disabled on load via isPoweredOn gating), measure display (M: --- when off), BPM display (dimmed when off).
         App.tsx cleanup: removes PlayButton overlay, removes hardcoded % 96 from subscribeToMeasure.
         Transport is rendered on the glass — not in the sleeve.
+        Radix: use @radix-ui/react-toolbar → Toolbar.Root + Toolbar.Button for the button group; gives roving tabindex keyboard navigation for free.
 
     Issue 2a: TransportBar — Power Button.
         Power On (isPoweredOn === false): calls AudioEngine.start(), setPowerOn(), populates robots/factories, triggers GSAP wake-up timeline (stored in timelineMap under 'tablet-power-on').
         Power Off (isPoweredOn === true): opens local-state confirmation modal; on confirm: killAll(), setCurrentMeasure(0), setPowerOff(), triggers GSAP shutdown timeline (timelineMap 'tablet-power-off'); ocean/robot data persists.
+        Radix: confirmation modal uses @radix-ui/react-dialog → Dialog.Root + Dialog.Content + Dialog.Title + Dialog.Description.
 
     Issue 2b: TransportBar — Restart Button.
         Disabled when isPoweredOn === false.
@@ -170,21 +192,25 @@ Depends on: Issue 0e (uiStore).
     Issue 2c: TransportBar — Pause Button.
         Disabled when isPoweredOn === false.
         Toggles between playing and paused: AudioEngine.pause() / resume(); isPaused is local React state (not in Zustand).
+        Radix: replace Toolbar.Button stub with Toolbar.ToggleGroup + Toolbar.ToggleItem (single) for correct aria-pressed semantics.
 
     Issue 2d: TransportBar — Mute Button.
         Disabled when isPoweredOn === false.
         On mute: getMasterVolume() → setPreMuteVolume() → setMasterVolume(0) → setMuted(true).
         On unmute: setMasterVolume(preMuteVolume) → setMuted(false).
+        Radix: replace Toolbar.Button stub with Toolbar.ToggleGroup + Toolbar.ToggleItem (single) for correct aria-pressed semantics.
 
     Issue 3: Build Navigation System.
         Tablet/desktop: vertical icon bar on the left edge of GlassViewport (inside the glass, not the sleeve).
         Mobile: bottom tab bar on GlassViewport.
         Responsive toggle between the two layouts driven by CSS breakpoints.
         Navigation state (active view) lives in uiStore.activeView.
+        Radix: use @radix-ui/react-tabs → Tabs.Root (orientation="vertical" on tablet, orientation="horizontal" on mobile) + Tabs.List + Tabs.Trigger. Note: Tabs.Content siblings must be co-located with Tabs.List — verify this does not conflict with the GlassViewport layout before committing. If DOM structure is incompatible, use Tabs.Trigger only for the nav rail and render content separately via uiStore.activeView.
 
     Issue 4: Implement View-Switching Logic (State management to toggle "Active Viewport").
         Active view state lives in uiStore.activeView.
         Swaps the content area of GlassViewport between: 'ocean' | 'robot' | 'composition' | 'fx' | 'settings'.
+        Radix: if Issue 3 uses Tabs.Root + Tabs.Content, view switching is handled by Tabs. If nav and content are structurally decoupled, drive visibility from uiStore.activeView directly.
 
     Issue 5: Create Glass Screen-Wear Overlay.
         SVG/PNG procedurally generated scratches and cracks layered over GlassViewport only.
@@ -207,6 +233,7 @@ Depends on: oceanStore (world settings, day length), audioStore (setBPM), uiStor
     Issue 8: Build World Options Module (BPM Stepper & Planet Size Selector).
         BPM stepper calls setBPM(bpm) — updates store and Tone.Transport simultaneously.
         Planet Size selector replaces the Length of Day stepper: three options — Small (3 min/day), Medium (6 min/day), Large (9 min/day) — call setPlanetSize(size) on oceanStore; this controls how many real-world minutes make up one full in-world day cycle.
+        Radix: Planet Size selector uses @radix-ui/react-select → Select.Root + Select.Trigger + Select.Content + Select.Item.
 
     Issue 9: Integrate Volume VU Indicator (1x1 Display component).
 
@@ -225,11 +252,13 @@ Depends on: robotStore (robot state, selection), uiStore (selected robot view).
     Issue 12: Build Synthesis Module B (Oscillators):
 
         Dropdown for Waveform Type (maps to robot.audioAttributes.waveform).
+        Radix: Waveform dropdown uses @radix-ui/react-select → Select.Root + Select.Trigger + Select.Content + Select.Item.
 
         Vertical Power Bars (linear fill sliders, touch-optimized, minimum 44×44px touch target) for:
             Phase → robot.audioAttributes.phase (added in Issue 0d).
             Gain → robot.masterVolume (top-level field, already exists).
             Detune → robot.audioAttributes.detune (added in Issue 0d).
+        Radix: each Vertical Power Bar uses @radix-ui/react-slider → Slider.Root (orientation="vertical") + Slider.Track + Slider.Range + Slider.Thumb.
 
         Pulsewidth: Vertical Power Bar (maps to Tone oscillator width; render conditionally when waveform = 'square' only).
 
@@ -251,8 +280,10 @@ Note: All interactive elements in this milestone must meet the 44×44px minimum 
     Issue 14: Build Note Array Display (Passive visualization of current measures).
 
     Issue 15: Build Piano Keyboard Popover (Floating octave selector).
+        Radix: use @radix-ui/react-popover → Popover.Root + Popover.Trigger + Popover.Content + Popover.Close for the floating panel.
 
     Issue 16: Implement Measure CRUD (New/Delete Measure buttons with safety confirmations).
+        Radix: destructive delete confirmation uses @radix-ui/react-alert-dialog → AlertDialog.Root + AlertDialog.Trigger + AlertDialog.Content + AlertDialog.Action + AlertDialog.Cancel.
 
 
 🎛️ Milestone 5: Global Audio FX Rack
@@ -263,22 +294,26 @@ Depends on: audioStore (globalAudio state, FX), AudioEngine (FX chain).
     Issue 17: Build Universal FX Wrapper (1×1 Bypass Toggle + Group Border).
         Global bypass toggle maps to audioStore.globalAudio.globalBypass → AudioEngine.setGlobalBypass().
         Per-effect bypass toggle maps to audioStore.globalAudio.<effect>.enabled → AudioEngine.setEffectBypass(effect, enabled).
+        Radix: both bypass toggles use @radix-ui/react-switch → Switch.Root + Switch.Thumb for correct checked/unchecked accessibility semantics.
 
     Issue 18: Implement Reverb & Delay Modules (Value Strips).
         All parameters use Value Strips (horizontal or vertical high-contrast fill bars) — no knobs or grippable controls.
         Reverb: decay, preDelay, dampening, wet → AudioEngine.setGlobalReverb().
         Delay: delayTime, feedback, wet → AudioEngine.setGlobalDelay().
+        Radix: each Value Strip uses @radix-ui/react-slider → Slider.Root + Slider.Track + Slider.Range + Slider.Thumb.
 
     Issue 19: Implement Compression & EQ Modules (Value Strips).
         All parameters use Value Strips.
         Compressor: threshold, ratio, attack, release, knee → AudioEngine.setGlobalCompressor().
         EQ3: low, mid, high gain → AudioEngine.setGlobalEQ().
+        Radix: each Value Strip uses @radix-ui/react-slider → Slider.Root + Slider.Track + Slider.Range + Slider.Thumb.
 
     Issue 20: Implement Filter & Chorus Modules (Value Strips).
         All parameters use Value Strips.
         LPF: frequency, Q → AudioEngine.setGlobalFilterLPF().
         HPF: frequency, Q → AudioEngine.setGlobalFilterHPF().
         Chorus: rate, depth, delayTime, feedback, wet → AudioEngine.setGlobalChorus().
+        Radix: each Value Strip uses @radix-ui/react-slider → Slider.Root + Slider.Track + Slider.Range + Slider.Thumb.
 
 
 📊 Milestone 6: System Utilities & Polish
@@ -290,6 +325,7 @@ Depends on: uiStore (theme, language, fullscreen), settingsStore (Issues 0h), no
 
     Issue 22: Build Settings Overlay (Theme Switcher & Graphic Settings).
         Theme and language state lives in uiStore (setTheme, setLanguage).
+        Radix: overlay panel uses @radix-ui/react-dialog → Dialog.Root + Dialog.Content. Boolean preference toggles (reducedMotion, accessibilityMode) use @radix-ui/react-switch. Language and theme dropdowns use @radix-ui/react-select.
 
     Issue 23: 360px Collapsed Sleeve Pass.
         Set --sleeve-width: 30px on mobile — the sleeve narrows to its minimum housing width.

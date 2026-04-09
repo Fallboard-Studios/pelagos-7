@@ -75,6 +75,7 @@ Depends on: **Issue 14** (CompositionView shell and CSS tokens), **Issue 16** (P
   - `onConfirm: (noteName: string) => void`
   - `onClose: () => void`
 - [ ] Only one popover open at a time; track `openCellIndex: number | null` in local state; clicking a different cell closes the current popover and opens a new one
+- [ ] **Radix:** Each cell click opens a `@radix-ui/react-popover` → `Popover.Root` + `Popover.Trigger` + `Popover.Portal` + `Popover.Content` + `Popover.Close`. This provides focus management, Escape-to-close, click-outside dismissal, and correct `aria-expanded` semantics. The cell element acts as the `Popover.Trigger`.
 - [ ] `onConfirm` handler: build an updated `EighthNotes` tuple — `const updated = [...getAvailableNotes()] as EighthNotes; updated[index] = noteName; setAvailableNotes(updated)` — then re-read `getAvailableNotes()` to refresh local state
 - [ ] `onClose` handler: set `openCellIndex` to `null`
 - [ ] Mount `<HarmonyPaletteEditor />` inside `CompositionView` (replacing the placeholder from Issue 14)
@@ -118,10 +119,13 @@ Depends on: **Issue 14** (CompositionView shell and CSS tokens), **Issue 16** (P
 ## Feature Description
 Build `PianoKeyPopover` — a floating piano keyboard UI that appears anchored to a note cell in `HarmonyPaletteEditor`. The user selects a replacement note name from the 12 chromatic pitch classes, with a ♯/♭ toggle to switch black key label spellings. Confirming a selection calls back to `HarmonyPaletteEditor` with the chosen note name string.
 
-Depends on: **Issue 14** (CSS tokens), **Issue 15** (HarmonyPaletteEditor wires this component in).
+**Radix note:** The popover anchoring, focus trapping, Escape-to-close, and portal are all handled by `@radix-ui/react-popover` (wired in Issue 15). This issue implements the piano keyboard content rendered inside `Popover.Content`. For the ♯/♭ toggle, use `@radix-ui/react-toggle` → `Toggle.Root` for correct `aria-pressed` semantics. For the Confirm/Cancel close button, use `Popover.Close`.
+
+Depends on: **Issue 0k** (Radix installed), **Issue 14** (CSS tokens), **Issue 15** (HarmonyPaletteEditor wires this component in).
 
 ## Implementation Details
 - [ ] Create `src/components/ui/PianoKeyPopover.tsx` and `PianoKeyPopover.css`
+- [ ] **Radix:** The floating panel is implemented with `@radix-ui/react-popover` (provided by `HarmonyPaletteEditor` as the outer `Popover.Root` + `Popover.Content`). `PianoKeyPopover` renders as the content inside `Popover.Content`; it does not manage its own open/close state or positioning.
 - [ ] Props interface:
   ```typescript
   interface PianoKeyPopoverProps {
@@ -187,3 +191,38 @@ Depends on: **Issue 14** (CSS tokens), **Issue 15** (HarmonyPaletteEditor wires 
 - Copilot instructions: "Melody Logic: Melodies must store note indices (0..7), never literal pitch strings."
 
 ---
+
+<!-- ============================================================ -->
+<!-- ISSUE 16a: Implement Measure CRUD                             -->
+<!-- ============================================================ -->
+
+## [M8.4-16a] Implement Measure CRUD (New/Delete Measure Buttons with Confirmation)
+
+## Feature Description
+Add New Measure and Delete Measure buttons to `CompositionView`. Deletion is a destructive operation and requires a confirmation dialog before executing. This issue covers the buttons, the confirmation guard, and the backing logic in the harmony/melody system.
+
+Depends on: **Issue 0k** (Radix installed), **Issue 14** (`CompositionView` shell), **Issue 15** (`HarmonyPaletteEditor` renders inside it).
+
+## Implementation Details
+- [ ] Add **New Measure** and **Delete Measure** buttons to `CompositionView`
+- [ ] All controls are touch targets (minimum 44×44px per WCAG 2.5.5)
+- [ ] **New Measure:** creates a new measure entry; no confirmation required (non-destructive)
+- [ ] **Delete Measure:** destructive — must confirm before executing
+- [ ] **Radix:** Destructive delete confirmation uses `@radix-ui/react-alert-dialog` → `AlertDialog.Root` + `AlertDialog.Trigger` + `AlertDialog.Portal` + `AlertDialog.Overlay` + `AlertDialog.Content` + `AlertDialog.Title` + `AlertDialog.Description` + `AlertDialog.Action` + `AlertDialog.Cancel`. Provides focus trapping, Escape-to-dismiss, and correct `role="alertdialog"` ARIA semantics automatically.
+- [ ] Use only design tokens from Issue 1 for all styles
+- [ ] No architecture violations (audio/animation/state separation)
+- [ ] Code follows standards (imports ordered, explicit types)
+- [ ] Tested locally (no console errors)
+
+## Acceptance Criteria
+- [ ] New Measure button adds a measure without confirmation
+- [ ] Delete Measure button opens an `AlertDialog` confirmation
+- [ ] Confirming the dialog deletes the measure; Cancel dismisses without changes
+- [ ] Focus is trapped in the dialog while open; Escape dismisses
+- [ ] All buttons meet 44×44px minimum touch target
+- [ ] App compiles with no TypeScript errors
+- [ ] App remains functional after merge
+
+## Source Reference
+- File: `src/components/views/CompositionView.tsx`
+- Copilot instructions: "All interactive UI (transport, navigation, controls) lives inside GlassViewport only."
