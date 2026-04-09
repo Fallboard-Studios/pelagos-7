@@ -10,6 +10,7 @@ import { useOceanStore } from '../stores/oceanStore';
 import { triggerInteraction } from './interactionSystem';
 import { getRef } from '../utils/refs';
 import { getCurrentMeasure } from '../engine/beatClock';
+import { DEV_TUNING } from '../constants';
 
 // ========================================
 // CONSTANTS
@@ -91,7 +92,7 @@ export function getCollisionChecksPerSecond(): number {
  */
 export function startCollisionDetection(): void {
   if (tickerCallback) {
-    console.warn('[CollisionSystem] Already running');
+    if (DEV_TUNING) console.warn('[CollisionSystem] Already running');
     return;
   }
 
@@ -138,7 +139,7 @@ export function startCollisionDetection(): void {
   };
 
   gsap.ticker.add(tickerCallback);
-  console.log('[CollisionSystem] Started');
+  if (DEV_TUNING) console.log('[CollisionSystem] Started');
 }
 
 /**
@@ -148,6 +149,6 @@ export function stopCollisionDetection(): void {
   if (tickerCallback) {
     gsap.ticker.remove(tickerCallback);
     tickerCallback = null;
-    console.log('[CollisionSystem] Stopped');
+    if (DEV_TUNING) console.log('[CollisionSystem] Stopped');
   }
 }

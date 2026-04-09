@@ -118,7 +118,7 @@ export function getCurrentHour(): number {
  * Stub: schedule a callback at a specific beat (logs only)
  */
 export function scheduleAtBeat(beat: number, callback: () => void): string {
-  console.log('[BeatClock] scheduleAtBeat (stub):', beat, callback);
+  if (DEV_TUNING) console.log('[BeatClock] scheduleAtBeat (stub):', beat, callback);
   return 'stub-id';
 }
 
