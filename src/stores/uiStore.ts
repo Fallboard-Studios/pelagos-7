@@ -11,11 +11,14 @@ export interface UIStore {
   activeView: ActiveView;
   theme: Theme;
   language: string;
+  isPoweredOn: boolean;
   isFullscreen: boolean;
   setActiveView: (v: ActiveView) => void;
   setTheme: (t: Theme) => void;
   setLanguage: (lang: string) => void;
   setFullscreen: (f: boolean) => void;
+  setPowerOn: () => void;
+  setPowerOff: () => void;
 }
 
 // ========================================
@@ -27,11 +30,14 @@ export const useUIStore = create<UIStore>((set) => ({
   theme: 'dark',
   language: 'en',
   isFullscreen: false,
+  isPoweredOn: false,
 
   setActiveView: (v) => set({ activeView: v }),
   setTheme: (t) => set({ theme: t }),
   setLanguage: (lang) => set({ language: lang }),
   setFullscreen: (f) => set({ isFullscreen: f }),
+  setPowerOn: () => set({ isPoweredOn: true }),
+  setPowerOff: () => set({ isPoweredOn: false }),
 }));
 
 // ========================================
