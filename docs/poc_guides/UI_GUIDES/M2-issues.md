@@ -127,6 +127,7 @@ Depends on: **Issue 0b** (`setBPM` action must exist in `audioStore`), **Issue 0
   - On change: calls `useOceanStore.getState().setPlanetSize(size)`
   - Active option is visually highlighted (CSS class, not inline style)
   - All three options are keyboard accessible (focusable, respond to Enter/Space)
+  - **Radix:** Use `@radix-ui/react-select` → `Select.Root` + `Select.Trigger` + `Select.Content` + `Select.Item` for the Planet Size selector. Provides keyboard navigation, typeahead, and correct `aria-expanded` semantics automatically.
 - [ ] Module dimensions: fits within a `2×1` grid unit area; use design tokens for all styles
 - [ ] Render `<WorldOptionsModule />` inside `OceanView`
 - [ ] No architecture violations (audio/animation/state separation)

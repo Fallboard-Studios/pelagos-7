@@ -19,22 +19,26 @@ Depends on: **Issue 0e** (`uiStore` for theme, language, isFullscreen), **Issue 
 
 ## Implementation Details
 - [ ] Create `src/components/views/SettingsView.tsx` and `SettingsView.css` — replaces the stub from Issue 4
+- [ ] **Radix:** The Settings view is rendered as an overlay/full-view panel — wrap with `@radix-ui/react-dialog` → `Dialog.Root` + `Dialog.Content` if it should be a modal overlay, or render inline as a standard view if it is just a swap in `ActiveViewport`. Dropdowns (language, max robots if applicable) use `@radix-ui/react-select`. All boolean preference toggles (theme, fullscreen, reducedMotion) use `@radix-ui/react-switch` as noted above.
 - [ ] **Theme Switcher:**
   - Two-option toggle: `dark` / `light`
   - Reads `useUIStore((s) => s.theme)`
   - On toggle: calls `useUIStore.getState().setTheme(theme)`
   - CSS theme switching: apply a `data-theme="dark|light"` attribute to `document.documentElement` in a `useEffect` that watches `theme`. All colour tokens in `index.css` should be defined for both themes using `[data-theme="dark"]` and `[data-theme="light"]` selectors
   - Default: `'dark'` (matches current `#242424` background and `rgba(255,255,255,0.87)` text in `index.css`)
+  - **Radix:** Use `@radix-ui/react-switch` → `Switch.Root` + `Switch.Thumb` for the dark/light toggle.
 - [ ] **Fullscreen Toggle:**
   - Reads `useUIStore((s) => s.isFullscreen)`
   - On toggle: call `document.documentElement.requestFullscreen()` or `document.exitFullscreen()` depending on current state; update `isFullscreen` in store via `setFullscreen()`
   - Listen to `document.fullscreenchange` event to sync store if user exits fullscreen via Escape key; clean up listener on unmount
+  - **Radix:** Use `@radix-ui/react-switch` → `Switch.Root` + `Switch.Thumb`.
 - [ ] **Reduced Motion Setting:**
   - Checkbox / toggle labelled "Reduce Motion"
   - Reads from `window.matchMedia('(prefers-reduced-motion: reduce)').matches` as default; allows manual override stored in `uiStore`
   - Add `reducedMotion: boolean` to `uiStore` state and `setReducedMotion()` action
   - GSAP animations across the app should check this flag (via `gsap.matchMedia`) and skip or simplify animations when true
   - Note: The `ScreenWearOverlay` from Issue 5 should already respect this; verify
+  - **Radix:** Use `@radix-ui/react-switch` → `Switch.Root` + `Switch.Thumb`.
 - [ ] **Max Robots Setting:**
   - Stepper for `settings.maxRobots` (range 2–12, steps of 1)
   - Reads `useOceanStore((s) => s.settings.maxRobots)`

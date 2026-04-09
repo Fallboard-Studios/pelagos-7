@@ -155,6 +155,8 @@ Depends on: **Issue 1** (design tokens), **Issue 0b** (measure display reads `oc
 - `isPoweredOn` is the single gating flag for Restart/Pause/Mute — apply `disabled` attribute or a CSS `.disabled` class to all non-power button slots.
 - Measure display must be driven by a Zustand subscription, not polling — it updates whenever `setCurrentMeasure` is called by the BeatClock subscriber.
 - `TransportBar` is rendered on the glass pane — never in `SleeveContainer`.
+- **Radix:** Use `@radix-ui/react-toolbar` → `Toolbar.Root` + `Toolbar.Button` for the button group. This gives roving tabindex keyboard navigation for free. All four button slots should be `Toolbar.Button` stubs at this stage (Pause and Mute will be upgraded to `Toolbar.ToggleGroup` items in Issues 2c/2d). Add `[data-disabled]` selector to `TransportBar.css` alongside `:disabled` to handle the Radix `data-disabled` attribute on disabled buttons.
+- Prerequisite: **Issue 0k** (Radix must be installed before this issue is started).
 
 ## Acceptance Criteria
 - [ ] `TransportBar` renders at the top of `GlassViewport` with correct height token
@@ -187,6 +189,7 @@ Depends on: **Issue 2** (TransportBar scaffold must exist), **Issue 0e** (`uiSto
 - [ ] **Power On** (when `isPoweredOn === false`): calls `AudioEngine.start()`, calls `useUIStore.getState().setPowerOn()`, populates robots/factories via existing spawn systems; all other buttons become enabled; GSAP timeline animates the tablet "waking up" (lights brightening, display fading in) — store this timeline in `timelineMap` under key `'tablet-power-on'`
 - [ ] **Power Off** (when `isPoweredOn === true`): opens a local-state confirmation modal before acting
 - [ ] Confirmation modal: "Power off? All audio will stop and the measure will reset." with Confirm and Cancel; modal state is local `useState` in `TransportBar` (not in `uiStore`)
+- [ ] **Radix:** Confirmation modal uses `@radix-ui/react-dialog` → `Dialog.Root` + `Dialog.Trigger` + `Dialog.Portal` + `Dialog.Overlay` + `Dialog.Content` + `Dialog.Title` + `Dialog.Description` + `Dialog.Close`. This provides focus trapping, Escape-to-dismiss, and correct `role="dialog"` ARIA semantics automatically.
 - [ ] On confirm: calls `AudioEngine.killAll()`, calls `useOceanStore.getState().setCurrentMeasure(0)`, calls `useUIStore.getState().setPowerOff()`; GSAP timeline animates the tablet "powering down" (lights dimming, display fading out) — stored in `timelineMap` under key `'tablet-power-off'`; ocean/robot data persists in stores
 - [ ] On cancel: modal dismisses, no state changes
 
@@ -264,6 +267,7 @@ Depends on: **Issue 2** (TransportBar scaffold must exist), **Issue 0c-delta** (
 - [ ] When playing (not paused): calls `AudioEngine.pause()`, stops BeatClock advancement, sets `isPaused = true`; button shows paused visual state (e.g., CSS class `.transport-btn--active`)
 - [ ] When paused: calls `AudioEngine.resume()`, resumes BeatClock, sets `isPaused = false`; button returns to normal visual state
 - [ ] `isPaused` is local React state — it is transient UI and does not belong in `uiStore`
+- [ ] **Radix:** Replace the `Toolbar.Button` stub for Pause with a `Toolbar.ToggleGroup` (type `"single"`) + `Toolbar.ToggleItem`. This provides correct `aria-pressed` semantics automatically. Drive the pressed state from `isPaused`.
 
 ## Technical Notes
 - `AudioEngine.pause()` calls `Tone.Transport.pause()` — transport position is preserved.
@@ -303,6 +307,7 @@ Depends on: **Issue 2** (TransportBar scaffold must exist), **Issue 0b-delta** (
 - [ ] **On mute** (`isMuted === false`): calls `AudioEngine.getMasterVolume()`, saves result via `useAudioStore.getState().setPreMuteVolume(volume)`, calls `AudioEngine.setMasterVolume(0)`, calls `useAudioStore.getState().setMuted(true)`
 - [ ] **On unmute** (`isMuted === true`): calls `AudioEngine.setMasterVolume(useAudioStore.getState().preMuteVolume)`, calls `useAudioStore.getState().setMuted(false)`
 - [ ] Button visually reflects muted state (e.g., CSS class `.transport-btn--muted`)
+- [ ] **Radix:** Replace the `Toolbar.Button` stub for Mute with a `Toolbar.ToggleGroup` (type `"single"`) + `Toolbar.ToggleItem`. Drive the pressed state from `useAudioStore((s) => s.isMuted)` for correct `aria-pressed` semantics.
 
 ## Technical Notes
 - Audio does not stop during mute — `Tone.Transport` keeps running and measures keep advancing. Only the master gain node value is changed.
@@ -353,6 +358,7 @@ Depends on: **Issue 0e** (`uiStore.activeView` must exist), **Issue 1** (design 
 - [ ] Code follows standards (imports ordered, explicit types)
 - [ ] Tested locally (no console errors)
 - [ ] Keyboard navigable (tab through items, Enter/Space to activate)
+- [ ] **Radix:** Use `@radix-ui/react-tabs` → `Tabs.Root` + `Tabs.List` + `Tabs.Trigger` for the nav rail. Set `orientation="vertical"` on desktop and `orientation="horizontal"` on mobile. **Important caveat:** `Tabs.Content` siblings must be co-located with `Tabs.List` inside the same `Tabs.Root`. If this DOM structure conflicts with the existing `GlassViewport` layout (transport bar + content area + nav), use `Tabs.Trigger` only for the nav rail and drive content visibility separately from `uiStore.activeView` — document the decision in the PR.
 
 ## Technical Notes
 - Icons can be simple SVG inline or a small local icon set — do not introduce an icon library dependency without discussion.
@@ -392,6 +398,7 @@ Depends on: **Issue 0e** (`uiStore`), **Issue 3** (Mode Switcher emits `setActiv
 
 ## Implementation Details
 - [ ] Create a `src/components/ui/ActiveViewport.tsx` component that reads `useUIStore((s) => s.activeView)` and renders the matching view component
+- [ ] **Radix:** If Issue 3 uses `Tabs.Root` + `Tabs.Content`, view switching is handled by the Tabs primitive — `ActiveViewport` wraps `Tabs.Content` panels. If Issue 3 uses only `Tabs.Trigger` (decoupled from content due to layout constraints), `ActiveViewport` drives visibility directly from `uiStore.activeView` via conditional rendering.
 - [ ] View components (stubs acceptable for non-ocean views at this stage):
   - `'ocean'` → `<OceanScene />` (existing component)
   - `'robot'` → `<RobotView />` (stub: placeholder panel — Milestone 3)

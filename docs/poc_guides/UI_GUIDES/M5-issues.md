@@ -26,6 +26,7 @@ Depends on: **Issue 0a** (`GlobalAudioSettings` type), **Issue 0b** (`globalAudi
   - On toggle: calls `useAudioStore.getState().setGlobalAudio('globalBypass' as any, ...)` — or a dedicated `setGlobalBypass(enabled)` action if added to audioStore
   - Simultaneously calls `AudioEngine.setGlobalBypass(enabled)`
   - Visual state: clearly indicates "BYPASSED" vs. "ACTIVE" (e.g., LED indicator + label)
+  - **Radix:** Use `@radix-ui/react-switch` → `Switch.Root` + `Switch.Thumb` for the global bypass toggle. Provides `role="switch"`, `aria-checked`, and keyboard activation.
 - [ ] **`FXEffectBlock` component props:**
   - `label: string` — effect name displayed in the block header (e.g. `"REVERB"`)
   - `effectKey: keyof GlobalAudioSettings` — used to read `globalAudio[effectKey].enabled` and write via `setGlobalAudio`
@@ -34,6 +35,7 @@ Depends on: **Issue 0a** (`GlobalAudioSettings` type), **Issue 0b** (`globalAudi
   - Reads `useAudioStore((s) => s.globalAudio[effectKey].enabled)`
   - On toggle: calls `setGlobalAudio(effectKey, { enabled: !current })` AND `AudioEngine.setEffectBypass(effectKey, !current)`
   - When `enabled = false`: block visually dims its children with reduced opacity; label shows a "BYPASSED" badge
+  - **Radix:** Use `@radix-ui/react-switch` → `Switch.Root` + `Switch.Thumb` for each per-effect bypass toggle.
 - [ ] Each block has a `1×--unit` height header (label + bypass toggle) and expands vertically based on children
 - [ ] `FXRackView` renders all four effect modules (Issues 18–20) wrapped in `FXEffectBlock`, arranged in a scrollable column or grid on mobile
 - [ ] Use only design tokens from Issue 1 for all styles
@@ -95,6 +97,7 @@ Depends on: **Issue 17** (`FXEffectBlock` wrapper), **Issue 0a** (types), **Issu
 ### Shared requirements
 - [ ] Each module reads initial values from `useAudioStore((s) => s.globalAudio.<effect>)` on mount so Value Strips initialise at current state (not hardcoded defaults)
 - [ ] All Value Strip controls are touch-optimized (minimum 44px touch target height/width)
+- [ ] **Radix:** Each Value Strip uses `@radix-ui/react-slider` → `Slider.Root` + `Slider.Track` + `Slider.Range` + `Slider.Thumb`. Provides `role="slider"`, `aria-valuenow/min/max/valuetext`, keyboard arrow key support, and correct touch handling. Orient horizontally (`orientation="horizontal"`, the default) for Value Strips; the CSS controls the visual fill appearance.
 - [ ] Each module is wrapped in `<FXEffectBlock label="REVERB" effectKey="reverb">` / `<FXEffectBlock label="DELAY" effectKey="delay">`
 - [ ] Use only design tokens from Issue 1 for all styles
 - [ ] No architecture violations (audio/animation/state separation)
@@ -157,6 +160,7 @@ Depends on: **Issue 17** (`FXEffectBlock`), **Issue 0a** (types), **Issue 0b** (
 ### Shared requirements
 - [ ] Each module reads initial values from `useAudioStore((s) => s.globalAudio.<effect>)` on mount
 - [ ] All Value Strip controls are touch-optimized (minimum 44px touch target)
+- [ ] **Radix:** Each Value Strip uses `@radix-ui/react-slider` → `Slider.Root` + `Slider.Track` + `Slider.Range` + `Slider.Thumb`.
 - [ ] Wrapped in `<FXEffectBlock label="COMP" effectKey="compressor">` / `<FXEffectBlock label="EQ" effectKey="eq3">`
 - [ ] **Bypass note:** EQ3 and Compressor have no `wet` parameter — bypass is implemented in AudioEngine by routing around the node (via a pass-through gain swap). The `enabled` flag in each effect's settings is the bypass signal. When `enabled = false`, the block must call `AudioEngine.setEffectBypass('compressor'/'eq3', false)` via the parent `FXEffectBlock` — this is handled by the wrapper from Issue 17, not the module itself.
 - [ ] Use only design tokens from Issue 1 for all styles
@@ -227,6 +231,7 @@ Depends on: **Issue 17** (`FXEffectBlock`), **Issue 0a** (types), **Issue 0b** (
 ### Shared requirements
 - [ ] Each module reads initial values from `useAudioStore((s) => s.globalAudio.<effect>)` on mount
 - [ ] All Value Strip controls are touch-optimized (minimum 44px touch target)
+- [ ] **Radix:** Each Value Strip uses `@radix-ui/react-slider` → `Slider.Root` + `Slider.Track` + `Slider.Range` + `Slider.Thumb`.
 - [ ] Use only design tokens from Issue 1 for all styles
 - [ ] No architecture violations (audio/animation/state separation)
 - [ ] Code follows standards (imports ordered, explicit types)
