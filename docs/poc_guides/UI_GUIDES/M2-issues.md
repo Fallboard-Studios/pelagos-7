@@ -105,12 +105,12 @@ Depends on: **Issue 1** (design tokens), **Issue 6** (lives inside `OceanView`).
 <!-- ISSUE 8: Build World Options Module                          -->
 <!-- ============================================================ -->
 
-## [M8.2-8] Build World Options Module (BPM & Length of Day Dual-Speed Steppers)
+## [M8.2-8] Build World Options Module (BPM Stepper & Planet Size Selector)
 
 ## Feature Description
-Build a UI module in the Ocean view exposing the two global world parameters: BPM (tempo) and Length of Day (in measures). Each uses a dual-speed stepper — one button for small increments and one for large jumps — matching the industrial "precision control" aesthetic.
+Build a UI module in the Ocean view exposing the two global world parameters: BPM (tempo) and Planet Size (day duration). BPM uses a dual-speed stepper matching the industrial "precision control" aesthetic. Planet Size replaces the old Length of Day stepper — instead of a numeric measure count, the user picks from three named options (Small, Medium, Large) that map to real-world minutes per in-world day.
 
-Depends on: **Issue 0b** (`setBPM` action must exist in `audioStore`), **Issue 0g** (`setDayLength` action must exist in `oceanStore`), **Issue 1** (design tokens), **Issue 6** (lives inside `OceanView`).
+Depends on: **Issue 0b** (`setBPM` action must exist in `audioStore`), **Issue 0g** (`setPlanetSize` action and `planetSize` setting must exist in `oceanStore`), **Issue 1** (design tokens), **Issue 6** (lives inside `OceanView`).
 
 ## Implementation Details
 - [ ] Create `src/components/ui/WorldOptionsModule.tsx` and `WorldOptionsModule.css`
@@ -120,41 +120,42 @@ Depends on: **Issue 0b** (`setBPM` action must exist in `audioStore`), **Issue 0
   - Valid range: 40–240 BPM (clamp on set)
   - On change: calls `useAudioStore.getState().setBPM(newBpm)`
   - Displays current value as a digital readout (e.g., `120 BPM`)
-- [ ] **Length of Day Stepper:**
-  - Reads `useOceanStore((s) => s.settings.dayLengthMeasures)`
-  - Decrement/Increment buttons: small step = `±4 measures` (1 hour), large step = `±24 measures` (6 hours)
-  - Valid range: 24–192 measures (clamp on set; minimum = 1 day with 24-measure granularity)
-  - On change: calls `useOceanStore.getState().setDayLength(measures)`
-  - Displays current value as a readout (e.g., `96 M`)
+- [ ] **Planet Size Selector:**
+  - Reads `useOceanStore((s) => s.settings.planetSize)`
+  - Three selectable options in a cycle or segmented button group: `Small`, `Medium`, `Large`
+  - Each option displays its real-world duration label: `Small (3 min)`, `Medium (6 min)`, `Large (9 min)`
+  - On change: calls `useOceanStore.getState().setPlanetSize(size)`
+  - Active option is visually highlighted (CSS class, not inline style)
+  - All three options are keyboard accessible (focusable, respond to Enter/Space)
 - [ ] Module dimensions: fits within a `2×1` grid unit area; use design tokens for all styles
 - [ ] Render `<WorldOptionsModule />` inside `OceanView`
-- [ ] Stepper buttons are keyboard accessible (focusable, respond to Enter/Space)
 - [ ] No architecture violations (audio/animation/state separation)
 - [ ] Code follows standards (imports ordered, explicit types)
 - [ ] Tested locally (no console errors)
 
 ## Technical Notes
-- `setBPM` updates both `settings.bpm` in the store and `Tone.Transport.bpm.value` — the tempo change is live. Users will hear the change immediately; no restart required.
-- `setDayLength` only affects the measure wrap in `setCurrentMeasure` — the day/night cycle speed changes from the next measure tick. No audio restart required.
-- Dual-speed stepper pattern: one pair of `−` / `+` buttons for fine, one pair of `−−` / `++` for coarse. Label each pair clearly (e.g., `−1` / `+1` and `−5` / `+5` for BPM).
-- Consider holding down a button for continuous increment (use `mousedown` + interval, clear on `mouseup`/`mouseleave`) for ergonomic rapid adjustment — but this is optional polish.
-- The stepper is a reusable primitive — consider extracting a `<DualSpeedStepper>` base component that both BPM and Day Length controls use (takes `value`, `onSmallStep`, `onLargeStep`, `min`, `max`, `unit` as props).
+- `setBPM` updates both `settings.bpm` in the store and `Tone.Transport.bpm.value` — the tempo change is live and immediately audible; no restart required.
+- `setPlanetSize` updates `settings.planetSize` in `oceanStore`. The time-of-day tick (Issue 0g) reads `planetSize` on each interval firing, so the day-cycle speed adjusts automatically from the next second tick — no restart required.
+- The Planet Size selector is not a stepper — it is a discrete three-option control. A segmented button group (three buttons, one active at a time) or a custom cycle control is appropriate. Do not use an HTML `<select>` dropdown unless screen size forces it.
+- Consider holding a BPM stepper button for continuous increment (use `mousedown` + interval, clear on `mouseup`/`mouseleave`) for ergonomic rapid adjustment — optional polish.
+- The BPM stepper is still a reusable primitive — consider extracting a `<DualSpeedStepper>` base component if compatible with existing or planned components.
 
 ## Acceptance Criteria
 - [ ] BPM stepper increments and decrements in steps of 1 and 5
 - [ ] BPM change is immediately reflected in `Tone.Transport.bpm.value` (audible tempo change)
 - [ ] BPM is clamped to [40, 240]; out-of-range values are not applied
-- [ ] Day Length stepper increments and decrements in steps of 4 and 24
-- [ ] Day Length change updates `settings.dayLengthMeasures` in the store
-- [ ] Both steppers display the current value as a clearly readable readout
-- [ ] Both steppers are keyboard accessible
+- [ ] Planet Size selector shows three options; active option is visually highlighted
+- [ ] Selecting a different Planet Size calls `setPlanetSize` and the day-cycle speed adjusts
+- [ ] Both controls display the current value as a clearly readable readout
+- [ ] Both controls are keyboard accessible
+- [ ] `dayLengthMeasures` / `setDayLength` references are absent (replaced by `planetSize` / `setPlanetSize`)
 - [ ] App compiles with no TypeScript errors
 - [ ] App remains functional after merge
-- [ ] No regression in existing BPM or day cycle behaviour
+- [ ] No regression in existing BPM behaviour or day/night cycle visuals
 
 ## Source Reference
-- File: `src/stores/audioStore.ts` (`setBPM` — Issue 0b), `src/stores/oceanStore.ts` (`setDayLength` — Issue 0g), `src/engine/AudioEngine.ts`
-- Copilot instructions: "All timing: Tone.Transport / BeatClock (measure-based). No setTimeout/setInterval for musical timing."
+- File: `src/stores/audioStore.ts` (`setBPM` — Issue 0b), `src/stores/oceanStore.ts` (`setPlanetSize` — Issue 0g), `src/engine/AudioEngine.ts`
+- Copilot instructions: "All timing: Tone.Transport / BeatClock (measure-based). No setTimeout/setInterval for musical timing." (Note: the time-of-day interval introduced in Issue 0g is not musical timing.)
 
 ---
 
