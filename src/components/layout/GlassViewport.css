@@ -13,9 +13,9 @@
   left: 0;
   height: 100%;
   width: 20px;
-  background: linear-gradient(to right, rgba(0,0,0,0.4), transparent);
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.4), transparent);
   pointer-events: none;
-  z-index: 1;
+  z-index: 2;
 }
 
 .glass-rail {
@@ -24,16 +24,24 @@
   width: 100%;
   pointer-events: none;
   fill: none;
-  stroke: var(--color-border);
+  stroke: rgba(255, 255, 255, 0.12);
   stroke-width: 1px;
-  opacity: 0.4;
-  z-index: 2;
+  opacity: 1;
+  z-index: 3;
 }
 
-.top-rail { top: 0; }
-.bottom-rail { bottom: 0; }
+.top-rail {
+  top: 0;
+}
 
-.glass-rail line { stroke: var(--color-border); }
+.bottom-rail {
+  bottom: 0;
+}
+
+.glass-rail line {
+  stroke: rgba(255, 255, 255, 0.12);
+  vector-effect: non-scaling-stroke;
+}
 
 .glass-content {
   position: relative;
