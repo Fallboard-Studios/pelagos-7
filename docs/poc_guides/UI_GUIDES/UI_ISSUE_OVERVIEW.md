@@ -7,17 +7,17 @@ Pelagos-7 uses modular Zustand stores to manage state in a scalable, maintainabl
     - State: array of robots, selectedRobotId
     - Actions: addRobot(), removeRobot(), updateRobot(), getRobotById(), setSelectedRobotId()
 
-- **oceanStore**: Manages world/environment state (e.g., day length, world settings, actor positions).
-    - State: world settings, actors, dayLengthMeasures, etc.
-    - Actions: setDayLength(), setWorldSetting(), addActor(), removeActor(), etc.
+- **oceanStore**: Manages world/environment state (e.g., planet size, world settings, actor positions).
+    - State: world settings, actors, planetSize, currentHour, dayStartTimestamp, etc.
+    - Actions: setPlanetSize(), setWorldSetting(), addActor(), removeActor(), etc.
 
-- **audioStore**: Manages global audio FX, BPM, and related settings.
-    - State: globalAudio, bpm, etc.
-    - Actions: setGlobalAudio(), setBPM(), etc.
+- **audioStore**: Manages global audio FX, BPM, mute state, and related settings.
+    - State: globalAudio, bpm, isMuted, preMuteVolume, etc.
+    - Actions: setGlobalAudio(), setBPM(), setMuted(), etc.
 
 - **uiStore**: Manages UI state, navigation, and panel logic.
-    - State: activeView, theme, language, isFullscreen, panel states, selection
-    - Actions: setActiveView(), setTheme(), setLanguage(), setFullscreen(), setPanelState(), setSelection()
+    - State: activeView, theme, language, isFullscreen, isPoweredOn, panel states, selection
+    - Actions: setActiveView(), setTheme(), setLanguage(), setFullscreen(), setPowerOn(), setPowerOff(), setPanelState(), setSelection()
 
 - **settingsStore**: Manages persistent user preferences (e.g., reduced motion, accessibility, saved themes, language).
     - State: user preferences
@@ -76,8 +76,8 @@ Goal: Establish the backing types, state, and AudioEngine wiring that all later 
 
     Issue 0e: Create uiStore.ts (src/stores/uiStore.ts).
         Store: uiStore
-        New Zustand store with: activeView: 'ocean' | 'robot' | 'composition' | 'fx' | 'settings', theme, language, isFullscreen.
-        Actions: setActiveView(), setTheme(), setLanguage(), setFullscreen().
+        New Zustand store with: activeView: 'ocean' | 'robot' | 'composition' | 'fx' | 'settings', theme, language, isFullscreen, isPoweredOn: boolean (default: false).
+        Actions: setActiveView(), setTheme(), setLanguage(), setFullscreen(), setPowerOn(), setPowerOff().
         All state JSON-serializable; no Tone nodes, GSAP timelines, or DOM refs stored here.
 
     Issue 0f: Remove robot.audioAttributes.reverb (src/types/Robot.ts, all construction sites).
@@ -85,11 +85,14 @@ Goal: Establish the backing types, state, and AudioEngine wiring that all later 
         Global reverb is now handled by GlobalAudioSettings.reverb and the _globalReverb node in AudioEngine.
         Update spawnSystem, tests, and any other AudioAttributes construction sites.
 
-    Issue 0g: Add dayLengthMeasures and setDayLength to oceanStore (src/stores/oceanStore.ts).
+    Issue 0g: Add planetSize and real-clock time-of-day system to oceanStore (src/stores/oceanStore.ts).
         Store: oceanStore
-        Add dayLengthMeasures: number (default: 96, unit: measures) to oceanStore.settings.
-        Add setDayLength(measures: number) action.
-        Update setCurrentMeasure to wrap using dayLengthMeasures and derive currentHour proportionally.
+        Replace dayLengthMeasures/setDayLength with planetSize: 'small' | 'medium' | 'large' (default: 'medium') in oceanStore.settings; planet size maps to real-world day duration: small=3 min, medium=6 min, large=9 min.
+        Add setPlanetSize(size) action.
+        Add dayStartTimestamp: number to oceanStore (wall-clock ms when the current day cycle started; set to Date.now() on init) and setDayStartTimestamp(ts) action.
+        currentHour is now derived from real elapsed wall-clock time — ((Date.now() - dayStartTimestamp) / planetDurationMs) * 24 — updated every second by a timer in the ocean scene/system, not by beat measures.
+        Time of day always advances regardless of power-on/off state. Beat-clock measure advancement is controlled separately by the power state.
+        Remove the setCurrentMeasure day-length wrap logic (measures no longer drive time-of-day).
 
     Issue 0h: Create settingsStore.ts (src/stores/settingsStore.ts).
         Store: settingsStore
@@ -128,7 +131,13 @@ Depends on: Issue 0e (uiStore).
 
     Issue 2: Build Glass-Mounted Transport Bar.
         Horizontal bar pinned to the top of GlassViewport.
-        Contains: Play/Pause/Stop controls, BPM display, and Measure counter.
+        Contains: Power button, Restart button, Pause button, Mute button, BPM display, and Measure counter.
+        On app load the tablet is in a "powered-down" state: all transport and nav buttons are disabled except the Power button; the main display is dark/off.
+        Power On: enables all buttons, starts AudioEngine, populates ocean, begins robot spawning and melody playback.
+        Power Off (click while on): shows a confirmation modal; on confirm: kills audio, resets measure to 0, darkens display, disables all buttons except Power; ocean/robot data persists; measures stop advancing (time-of-day still runs).
+        Restart button: kills all current/planned audio, resets measure to 0, immediately resumes playback from measure 0. No change to power state or ocean display.
+        Pause button: pauses audio and measure advancement; click again to resume.
+        Mute button: toggles master volume between current level and 0; unmuting restores the pre-mute level (stored in audioStore.preMuteVolume).
         All controls are touch targets (minimum 44×44px per WCAG).
         Transport is rendered on the glass — not in the sleeve.
 
@@ -160,9 +169,9 @@ Depends on: oceanStore (world settings, day length), audioStore (setBPM), uiStor
 
     Issue 7: Build Ocean Management Card (File/Session CRUD buttons with confirmation modals).
 
-    Issue 8: Build World Options Module (BPM & Length of Day Dual-Speed Steppers).
+    Issue 8: Build World Options Module (BPM Stepper & Planet Size Selector).
         BPM stepper calls setBPM(bpm) — updates store and Tone.Transport simultaneously.
-        Length of Day stepper calls setDayLength(measures) — unit is measures, default 96.
+        Planet Size selector replaces the Length of Day stepper: three options — Small (3 min/day), Medium (6 min/day), Large (9 min/day) — call setPlanetSize(size) on oceanStore; this controls how many real-world minutes make up one full in-world day cycle.
 
     Issue 9: Integrate Volume VU Indicator (1x1 Display component).
 
