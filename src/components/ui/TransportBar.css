@@ -80,3 +80,14 @@
   color: var(--color-text-muted);
   opacity: 0.45;
 }
+
+/* ----------------------------------------
+   Separator (Radix Toolbar.Separator)
+   ---------------------------------------- */
+.transport-bar__separator {
+  width: var(--border-width, 1px);
+  height: 24px;
+  background: var(--border-color);
+  margin: 0 var(--spacing-sm, 8px);
+  flex-shrink: 0;
+}

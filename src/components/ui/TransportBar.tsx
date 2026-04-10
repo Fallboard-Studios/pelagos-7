@@ -23,47 +23,35 @@ export function TransportBar() {
   return (
     <Toolbar.Root className="transport-bar" aria-label="Transport controls">
       <div className="transport-bar__buttons">
-        <Toolbar.Button asChild>
-          <button
-            className="transport-bar__btn transport-bar__btn--power"
-            type="button"
-            aria-label="Power"
-          >
-            ⏻
-          </button>
+        <Toolbar.Button
+          className="transport-bar__btn transport-bar__btn--power"
+          aria-label="Power"
+        >
+          ⏻
         </Toolbar.Button>
 
-        <Toolbar.Button asChild>
-          <button
-            className="transport-bar__btn transport-bar__btn--restart"
-            type="button"
-            aria-label="Restart"
-            disabled={!isPoweredOn}
-          >
-            ⏮
-          </button>
+        <Toolbar.Button
+          className="transport-bar__btn transport-bar__btn--restart"
+          aria-label="Restart"
+          disabled={!isPoweredOn}
+        >
+          ⏮
         </Toolbar.Button>
 
-        <Toolbar.Button asChild>
-          <button
-            className="transport-bar__btn transport-bar__btn--pause"
-            type="button"
-            aria-label="Pause"
-            disabled={!isPoweredOn}
-          >
-            ⏸
-          </button>
+        <Toolbar.Button
+          className="transport-bar__btn transport-bar__btn--pause"
+          aria-label="Pause"
+          disabled={!isPoweredOn}
+        >
+          ⏸
         </Toolbar.Button>
 
-        <Toolbar.Button asChild>
-          <button
-            className="transport-bar__btn transport-bar__btn--mute"
-            type="button"
-            aria-label="Mute"
-            disabled={!isPoweredOn}
-          >
-            🔇
-          </button>
+        <Toolbar.Button
+          className="transport-bar__btn transport-bar__btn--mute"
+          aria-label="Mute"
+          disabled={!isPoweredOn}
+        >
+          🔇
         </Toolbar.Button>
       </div>
 
