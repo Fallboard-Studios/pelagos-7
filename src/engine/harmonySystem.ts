@@ -73,6 +73,15 @@ export function getAvailableNotes(): string[] {
 }
 
 /**
+ * Reset the harmony palette to hour 0 (start of the day cycle).
+ * Call on power-on so music resumes from the beginning of the chord progression.
+ */
+export function resetHarmony(): void {
+  availableNotes = TIME_PITCHES[0];
+  lastHour = 0;
+}
+
+/**
  * Manually set the harmony palette (for testing or custom harmonies).
  */
 export function setAvailableNotes(notes: EighthNotes): void {

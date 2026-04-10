@@ -7,9 +7,12 @@ import GlassViewport from './components/layout/GlassViewport';
 import { TransportBar } from './components/ui/TransportBar';
 import { spawnRobot } from './systems/spawnSystem';
 import { useOceanStore } from './stores/oceanStore';
+import { useUIStore } from './stores/uiStore';
 import { DEV_TUNING } from './constants';
 
 function App() {
+  const isPoweredOn = useUIStore((s) => s.isPoweredOn);
+
   // Expose debug functions globally in dev mode
   useEffect(() => {
     if (DEV_TUNING) {
@@ -36,7 +39,7 @@ function App() {
       <SleeveContainer />
       <GlassViewport>
         <TransportBar />
-        <OceanScene />
+        {isPoweredOn && <OceanScene />}
         <AudioStatus />
       </GlassViewport>
     </>
