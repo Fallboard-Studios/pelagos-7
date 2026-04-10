@@ -53,6 +53,12 @@
   cursor: not-allowed;
 }
 
+/* Radix convention: add [data-disabled] alias so styled selectors catch Radix buttons */
+.transport-bar__btn[data-disabled] {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
 /* ----------------------------------------
    Displays
    ---------------------------------------- */
