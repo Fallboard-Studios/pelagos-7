@@ -23,9 +23,6 @@ export type RobotSVGComponent = typeof RobotSleek | typeof RobotAngular | typeof
 // ========================================
 // ADSR thresholds for color mapping
 const FAST_ATTACK_THRESHOLD = 0.1;   // seconds
-const _SLOW_ATTACK_THRESHOLD = 0.5;   // seconds
-const _SHORT_DECAY_THRESHOLD = 0.3;   // seconds
-const _LONG_DECAY_THRESHOLD = 1.0;    // seconds
 
 // Pitch thresholds for scale mapping
 const HIGH_PITCH_THRESHOLD = 600;    // Hz

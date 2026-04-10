@@ -183,3 +183,15 @@ export function cancelSchedule(scheduleId: string): void {
   scheduleMap.delete(scheduleId);
   if (DEV_TUNING) console.log('[BeatClock] cancelSchedule: cleared', scheduleId);
 }
+
+/**
+ * Reset BeatClock state so initBeatClock() will re-register the internal
+ * 16n tick on the next AudioEngine.start() call.
+ * Call from AudioEngine.killAll() after transport.cancel() has cleared
+ * the old tick events.
+ */
+export function resetBeatClock(): void {
+  initialized = false;
+  scheduleMap.clear();
+  if (DEV_TUNING) console.log('[BeatClock] reset');
+}

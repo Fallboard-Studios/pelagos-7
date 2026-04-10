@@ -88,6 +88,18 @@ export function startFactoryProduction(factoryId: string): void {
 }
 
 /**
+ * Stop production for all active factories.
+ * Call on power-off to cancel all scheduled factory spawns.
+ */
+export function stopAllFactoryProduction(): void {
+  for (const schedule of activeSchedules.values()) {
+    cancelSchedule(schedule.scheduleId);
+  }
+  activeSchedules.clear();
+  if (DEV_TUNING) console.log('[Factory] All factory production stopped');
+}
+
+/**
  * Stop factory production for a given factory.
  * Cleanup function for when a factory is destroyed or disabled.
  */

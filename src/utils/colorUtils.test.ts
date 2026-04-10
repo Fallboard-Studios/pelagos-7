@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { HSL, hslToString, clamp, applyColorShift, ColorShift } from './colorUtils';
+import { type HSL, hslToString, clamp, applyColorShift, type ColorShift } from './colorUtils';
 
 describe('colorUtils', () => {
   describe('hslToString', () => {

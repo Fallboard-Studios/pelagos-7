@@ -328,6 +328,7 @@ export function spawnRobot(): void {
     octaveRange,
     masterVolume: MASTER_VOLUME_MIN + Math.random() * (MASTER_VOLUME_MAX - MASTER_VOLUME_MIN),
     createdAt: Date.now(),
+    persistent: true,
   };
 
   // Add to store
@@ -360,4 +361,50 @@ export function spawnRobot(): void {
   if (DEV_TUNING) {
     console.log(`[Spawn] Robot ${robot.id} spawned with ${robot.melody.length} melody events`);
   }
+}
+
+/**
+ * Re-register persistent robots with the AudioEngine after a power-on.
+ * Releases any stale voice reservation, re-reserves with the robot's
+ * original audio attributes, and re-registers its melody.
+ * Non-persistent robots are not present in the store at this point
+ * (removed by removeNonPersistentRobots on power-off).
+ */
+export function reRegisterAllRobotsAudio(): void {
+  const robots = useOceanStore.getState().robots.filter((r) => r.persistent);
+  robots.forEach((robot) => {
+    AudioEngine.releaseVoice(robot.id);
+    try {
+      const layered = (robot.audioAttributes as unknown as { visualAudioMap?: { layeredWave?: LayeredWave } })?.visualAudioMap?.layeredWave as LayeredWave | undefined;
+      if (layered) {
+        AudioEngine.reserveVoice(robot.id, layered, undefined, undefined, robot.audioAttributes.phase, robot.audioAttributes.detune);
+      } else {
+        AudioEngine.reserveVoice(
+          robot.id,
+          robot.audioAttributes.synthType as string,
+          robot.audioAttributes.waveform,
+          robot.audioAttributes.adsr,
+          robot.audioAttributes.phase,
+          robot.audioAttributes.detune,
+        );
+      }
+    } catch (err) {
+      if (DEV_TUNING) console.warn('[SpawnSystem] reRegisterAllRobotsAudio: reserveVoice failed for', robot.id, err);
+    }
+    AudioEngine.unregisterRobotMelody(robot.id);
+    AudioEngine.registerRobotMelody(robot.id, robot.melody);
+  });
+  if (DEV_TUNING) console.log(`[SpawnSystem] reRegisterAllRobotsAudio: re-registered ${robots.length} persistent robots`);
+}
+
+/**
+ * Remove all non-persistent robots from the store and release their audio resources.
+ * Call on power-off. Persistent robots (robot.persistent === true) are kept.
+ */
+export function removeNonPersistentRobots(): void {
+  const robots = useOceanStore.getState().robots.filter((r) => !r.persistent);
+  robots.forEach((robot) => {
+    useOceanStore.getState().removeRobot(robot.id);
+  });
+  if (DEV_TUNING) console.log(`[SpawnSystem] removeNonPersistentRobots: removed ${robots.length} robots`);
 }

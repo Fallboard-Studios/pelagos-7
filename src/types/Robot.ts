@@ -10,13 +10,14 @@ export type NoteDuration = '32n' | '16n' | '8n' | '4n' | '2n';
 /**
  * Robot state machine states
  */
-export enum RobotState {
-  Idle = 'idle',
-  Moving = 'moving',
-  Selected = 'selected',
-  Interacting = 'interacting',
-  Leaving = 'leaving',
-}
+export const RobotState = {
+  Idle: 'idle',
+  Moving: 'moving',
+  Selected: 'selected',
+  Interacting: 'interacting',
+  Leaving: 'leaving',
+} as const;
+export type RobotState = (typeof RobotState)[keyof typeof RobotState];
 
 /**
  * Synth type determines robot shape and sonic character
@@ -98,6 +99,8 @@ export interface Robot {
   lastInteractionMeasure?: number;
   /** Base velocity (0–1) controlling average note loudness. Per-note variance is applied at scheduling time, not stored. */
   masterVolume: number;
+  /** When true, this robot survives a power-off cycle and is not removed. */
+  persistent?: boolean;
   // Note: Visual appearance (shape, colors, scale, detail level) is derived
   // from audioAttributes and NOT stored in state - calculated at render time
 }

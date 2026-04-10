@@ -9,6 +9,7 @@ import type { NoteDuration, ADSREnvelope, SynthType, WaveformType, Robot } from 
 import type { LayeredWave, LayerDescriptor } from '../types/layeredAudio';
 import type { ReverbSettings, DelaySettings, ChorusSettings, FilterSettings, EQ3Settings, CompressorSettings } from '../types/globalAudio';
 import { getAvailableNotes, scheduleHarmonyCycle, stopHarmonyCycle } from './harmonySystem';
+import { resetBeatClock } from './beatClock';
 import { initBeatClock } from './beatClock';
 import type { RobotMelodyEvent } from './melodyGenerator';
 import { applyRhythmicVariance } from './melodyGenerator';
@@ -476,17 +477,20 @@ async function loadInstruments(): Promise<void> {
  */
 function scheduleVoiceRelease(duration: NoteDuration, time: number): void {
   const durSec = Tone.Time(duration).toSeconds();
-  const noteEnd = time + durSec;
-  const releaseTime = noteEnd + 0.04;
+  // Use a transport-relative offset ('+N' syntax) so the release fires correctly
+  // regardless of when in the AudioContext lifetime the note was scheduled.
+  // `time` is an absolute AudioContext timestamp; `Tone.now()` is the current
+  // AudioContext time, so their difference is the lookahead until the note fires.
+  const delayFromNow = Math.max(0, (time - Tone.now()) + durSec + 0.04);
 
   try {
     const transport = _transport ?? Tone.getTransport();
     transport.scheduleOnce(() => {
       activeVoices = Math.max(0, activeVoices - 1);
       if (DEV_TUNING) {
-        if (DEV_TUNING) console.log(`[AudioEngine] Voice released: ${activeVoices}/${MAX_POLYPHONY}`);
+        console.log(`[AudioEngine] Voice released: ${activeVoices}/${MAX_POLYPHONY}`);
       }
-    }, releaseTime);
+    }, `+${delayFromNow}`);
   } catch (err) {
     if (DEV_TUNING) swallow(err, 'AudioEngine.scheduleVoiceRelease');
     activeVoices = Math.max(0, activeVoices - 1);
@@ -1243,15 +1247,24 @@ export const AudioEngine = {
     });
 
     const triggerAttackRelease = (note: string, dur: NoteDuration | string, time?: number, velocity?: number) => {
-      // Fix: Avoid passing null as time to Tone.js (causes cancelAndHoldAtTime error)
       const t = (typeof time === 'number' && isFinite(time)) ? time : Tone.now();
       const durStr = String(dur);
-      layerNodes.forEach(({ synth }) => {
+      layerNodes.forEach(({ synth, layer }) => {
         try {
+          const isNoise = layer.type === 'noise';
           if (synth && typeof (synth as unknown as { triggerAttackRelease?: unknown }).triggerAttackRelease === 'function') {
-            (synth as unknown as { triggerAttackRelease?: (n: string, d: string, time?: number, v?: number) => void }).triggerAttackRelease?.(note, durStr, t, velocity ?? 0.8);
+            if (isNoise) {
+              // NoiseSynth API: triggerAttackRelease(duration, time?, velocity?) — no note argument
+              (synth as unknown as { triggerAttackRelease?: (d: string, time?: number, v?: number) => void }).triggerAttackRelease?.(durStr, t, velocity ?? 0.8);
+            } else {
+              (synth as unknown as { triggerAttackRelease?: (n: string, d: string, time?: number, v?: number) => void }).triggerAttackRelease?.(note, durStr, t, velocity ?? 0.8);
+            }
           } else if (synth && typeof (synth as unknown as { triggerAttack?: unknown }).triggerAttack === 'function') {
-            (synth as unknown as { triggerAttack?: (n: string, time?: number, v?: number) => void }).triggerAttack?.(note, t, velocity ?? 0.8);
+            if (!isNoise) {
+              (synth as unknown as { triggerAttack?: (n: string, time?: number, v?: number) => void }).triggerAttack?.(note, t, velocity ?? 0.8);
+            } else {
+              (synth as unknown as { triggerAttack?: (time?: number, v?: number) => void }).triggerAttack?.(t, velocity ?? 0.8);
+            }
             const releaseAt = t + Tone.Time(durStr).toSeconds();
             (synth as unknown as { triggerRelease?: (time?: number) => void }).triggerRelease?.(releaseAt + 0.01);
           }
@@ -1500,6 +1513,9 @@ export const AudioEngine = {
       stepCounter = 0;
       activeVoices = 0;
       initialized = false;
+      // Reset beatClock so initBeatClock() re-registers its internal tick on next start.
+      // transport.cancel() above cleared the old 16n tick; resetBeatClock() lets it be recreated.
+      resetBeatClock();
       console.log('[AudioEngine] killAll: transport cancelled, voices released, position reset');
     } catch (err) {
       if (DEV_TUNING) console.warn('[AudioEngine] killAll failed', err);

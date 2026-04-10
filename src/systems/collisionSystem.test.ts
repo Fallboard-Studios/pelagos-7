@@ -54,13 +54,17 @@ describe('CollisionSystem', () => {
       state: RobotState.Idle,
       position: { x: 0, y: 0 },
       destination: null,
+      direction: 'right',
+      octaveRange: [3, 5],
+      createdAt: 0,
+      masterVolume: 1,
       melody: [],
       audioAttributes: {
         synthType: 'PolySynth',
         adsr: { attack: 0.1, decay: 0.2, sustain: 0.5, release: 0.3 },
         pitchRange: { min: 200, max: 400 },
         filterFreq: 1000,
-        reverb: 0.3,
+        waveform: 'sine' as const,
       },
     };
 
@@ -156,13 +160,17 @@ describe('CollisionSystem', () => {
       state: RobotState.Idle,
       position: { x: 0, y: 0 },
       destination: null,
+      direction: 'right',
+      octaveRange: [3, 5],
+      createdAt: 0,
+      masterVolume: 1,
       melody: [],
       audioAttributes: {
         synthType: 'PolySynth',
         adsr: { attack: 0.1, decay: 0.2, sustain: 0.5, release: 0.3 },
         pitchRange: { min: 200, max: 400 },
         filterFreq: 1000,
-        reverb: 0.3,
+        waveform: 'sine' as const,
       },
     };
 

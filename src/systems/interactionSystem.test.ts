@@ -25,7 +25,7 @@ vi.mock('../engine/beatClock', () => ({
 vi.mock('gsap', () => ({
   default: {
     to: vi.fn(),
-    delayedCall: vi.fn((delay, callback) => {
+    delayedCall: vi.fn((_delay, callback) => {
       // Store callback instead of executing immediately
       // Tests can control when callbacks execute via flushDelayedCalls()
       delayedCallbacks.push(callback);
@@ -78,12 +78,14 @@ const createTestRobot = (id: string, state = RobotState.Idle): Robot => ({
       startStep: 1,
       length: '16n',
       noteIndex: 0,
+      octave: 4,
     },
     {
       id: 'melody-2',
       startStep: 3,
       length: '16n',
       noteIndex: 1,
+      octave: 4,
     },
   ],
   audioAttributes: {
@@ -91,10 +93,12 @@ const createTestRobot = (id: string, state = RobotState.Idle): Robot => ({
     adsr: { attack: 0.1, decay: 0.2, sustain: 0.5, release: 0.3 },
     pitchRange: { min: 200, max: 400 },
     filterFreq: 1000,
-    reverb: 0.3,
+    waveform: 'sine' as const,
   },
   direction: 'right',
   createdAt: Date.now(),
+  octaveRange: [3, 5] as [number, number],
+  masterVolume: 1,
 });
 
 beforeEach(() => {

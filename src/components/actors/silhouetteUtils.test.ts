@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { Actor, ActorType } from '../../types/Actor';
+import { type Actor, ActorType } from '../../types/Actor';
 import { calcSilhouetteSize, pickSilhouetteFill, bottomAnchorTransform } from './silhouetteUtils';
 
 const DUMMY_ACTOR: Actor = { id: 'a', type: ActorType.FACTORY, position: { x: 100, y: 900 }, isActive: true, cooldownRemaining: 0 };

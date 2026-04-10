@@ -1,10 +1,11 @@
 import React from 'react';
 import type { FC } from 'react';
+import { GLASS_VIEWPORT_ID } from './GlassViewportContext';
 import './GlassViewport.css';
 
 const GlassViewport: FC<{ children?: React.ReactNode }> = ({ children }) => {
   return (
-    <main className="glass-viewport">
+    <main id={GLASS_VIEWPORT_ID} className="glass-viewport">
       <div className="glass-occlusion" aria-hidden="true" />
 
       <svg className="glass-rail top-rail" viewBox="0 0 100 2" width="100%" height="2" aria-hidden="true" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">

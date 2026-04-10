@@ -257,7 +257,6 @@ describe('renderCrownSpire', () => {
   });
 
   it('each step height equals 15% of buildingHeight divided by step count', () => {
-    const _totalH = ctx.buildingHeight * 0.15; // = 15
     const el2 = renderCrownSpire({ ...ctx, seed: 0 }) as EL;
     const children2 = React.Children.toArray(el2.props.children) as EL[];
     // 2 steps: stepH = 15/2 = 7.5
@@ -302,7 +301,6 @@ describe('renderCrownSpire', () => {
 // ========================================
 
 describe('renderCrownSpire — shaded', () => {
-  const _INSET_RATE = 0.65;
   const shadedCtx: GreebleRendererContext = {
     ...ctx,
     frontCornerX: 40,

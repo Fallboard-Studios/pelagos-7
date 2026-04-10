@@ -24,13 +24,6 @@ export function TransportBar() {
     <Toolbar.Root className="transport-bar" aria-label="Transport controls">
       <div className="transport-bar__buttons">
         <Toolbar.Button
-          className="transport-bar__btn transport-bar__btn--power"
-          aria-label="Power"
-        >
-          ⏻
-        </Toolbar.Button>
-
-        <Toolbar.Button
           className="transport-bar__btn transport-bar__btn--restart"
           aria-label="Restart"
           disabled={!isPoweredOn}

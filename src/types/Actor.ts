@@ -1,6 +1,7 @@
-export enum ActorType {
-  FACTORY = 'FACTORY',
-}
+export const ActorType = {
+  FACTORY: 'FACTORY',
+} as const;
+export type ActorType = typeof ActorType[keyof typeof ActorType];
 
 /**
  * A placed actor in the world (currently only factories).

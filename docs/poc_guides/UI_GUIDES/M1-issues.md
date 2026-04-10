@@ -23,7 +23,7 @@ Depends on: No other issues (foundation).
 - [ ] Create `SleeveContainer` in `src/components/layout/SleeveContainer.tsx` and `SleeveContainer.css`
   - `position: fixed; left: 0; top: 0; height: 100vh`
   - Width controlled by `--sleeve-width` CSS custom property; never grows past its housing role
-  - Contains no interactive elements — only the logo slot from Issue 1a
+  - Contains no interactive elements — only the logo slot from Issue 1a and the `PowerRockerSwitch` panel (Issue 2a; intentional exception for a hardware device control)
 - [ ] Create `GlassViewport` in `src/components/layout/GlassViewport.tsx` and `GlassViewport.css`
   - Flex sibling of `SleeveContainer`; `margin-left: var(--sleeve-width)` to create the offset
   - `height: 100vh; overflow: hidden` at the shell level (individual views scroll internally)
@@ -95,7 +95,7 @@ Depends on: **Issue 1** (`SleeveContainer` and `GlassViewport` must exist).
   - `pointer-events: none`
   - Represent the mechanical tracks that hold the screen as it extends out of the sleeve
 - [ ] Neither the logo, the shadow, nor the guide rails intercept any pointer events
-- [ ] No interactive content of any kind in `SleeveContainer`
+- [ ] No interactive content of any kind in `SleeveContainer` *(the `PowerRockerSwitch` added in Issue 2a is an intentional hardware-control exception)*
 - [ ] No architecture violations (audio/animation/state separation)
 - [ ] Code follows standards (imports ordered, explicit types)
 - [ ] Tested locally (no console errors)
@@ -114,7 +114,7 @@ Depends on: **Issue 1** (`SleeveContainer` and `GlassViewport` must exist).
 - [ ] Horizontal guide lines are visible at the top and bottom edges of `GlassViewport`
 - [ ] None of these elements intercept pointer events (click-through confirmed)
 - [ ] Occlusion shadow, logo, and guide rails are all `pointer-events: none`
-- [ ] No interactive elements exist inside `SleeveContainer`
+- [ ] No interactive elements exist inside `SleeveContainer` *(the `PowerRockerSwitch` panel added in Issue 2a is an intentional exception — hardware control, not application UI)*
 - [ ] App compiles with no TypeScript errors
 - [ ] No regression in existing behaviour
 
@@ -143,8 +143,8 @@ Depends on: **Issue 1** (design tokens), **Issue 0b** (measure display reads `oc
 - [ ] Transport bar height uses `var(--transport-height, 48px)` — minimum 48px
 - [ ] Use only design tokens from Issue 1 for all styles (no hardcoded values)
 - [ ] All controls are touch targets (minimum 44×44px per WCAG 2.5.5)
-- [ ] Render four button slots (Power, Restart, Pause, Mute) as stubbed `<button>` elements with `disabled` attribute; no click handlers yet (added in 2a–2d)
-- [ ] Power button slot is always enabled; Restart, Pause, and Mute slots are `disabled` when `useUIStore((s) => s.isPoweredOn) === false`
+- [ ] Render three button slots (Restart, Pause, Mute) as stubbed `<button>` elements with `disabled` attribute; no click handlers yet (added in 2b–2d); the Power control is a sleeve hardware switch handled in Issue 2a
+- [ ] Restart, Pause, and Mute slots are `disabled` when `useUIStore((s) => s.isPoweredOn) === false`
 - [ ] Measure display: reads `useOceanStore((s) => s.currentMeasure)`; renders as `M: 048`; shows `M: ---` when `isPoweredOn === false`
 - [ ] BPM display: reads `useAudioStore((s) => s.bpm)`; renders as `120 BPM`; dimmed when `isPoweredOn === false`
 - [ ] Remove the conditional `{!isAudioReady && <PlayButton />}` rendering from `App.tsx`
@@ -160,7 +160,7 @@ Depends on: **Issue 1** (design tokens), **Issue 0b** (measure display reads `oc
 
 ## Acceptance Criteria
 - [ ] `TransportBar` renders at the top of `GlassViewport` with correct height token
-- [ ] Four button slots are visible; Power is enabled, Restart/Pause/Mute are disabled on load
+- [ ] Three button slots are visible (Restart, Pause, Mute); all are disabled on load; no power button in the transport bar
 - [ ] Measure display shows `M: ---` on load; BPM display is dimmed on load
 - [ ] Full-screen `PlayButton` overlay is removed from `App.tsx`
 - [ ] No transport controls exist in `SleeveContainer`
@@ -169,47 +169,65 @@ Depends on: **Issue 1** (design tokens), **Issue 0b** (measure display reads `oc
 
 ## Source Reference
 - File: `src/App.tsx`, `src/components/PlayButton.tsx`, `src/stores/oceanStore.ts`, `src/stores/audioStore.ts`, `src/stores/uiStore.ts` (Issue 0e)
-- Copilot instructions: "All interactive UI (transport, navigation, controls) lives inside GlassViewport only — never in the decorative SleeveContainer."
+- Copilot instructions: "All interactive UI (transport, navigation, controls) lives inside GlassViewport only — never in the decorative SleeveContainer." *(Note: the power rocker in `SleeveContainer` is an intentional exception — see Issue 2a.)*
 
 ---
 
 <!-- ============================================================ -->
-<!-- ISSUE 2a: TransportBar — Power Button                        -->
+<!-- ISSUE 2a: Sleeve — Power Rocker Switch                       -->
 <!-- ============================================================ -->
 
-## [M8.1-2a] TransportBar — Power Button
+## [M8.1-2a] Sleeve — Power Rocker Switch
 
 ## Feature Description
-Implement the Power button in `TransportBar`. The Power button is always enabled and toggles the tablet between a powered-down state (all audio off, display dark) and a powered-on state (audio running, all buttons enabled).
+Add a physical rocker switch panel to `SleeveContainer` that controls the tablet power state. The panel juts out from the right side of the sleeve and houses a rocker switch and an indicator light. The underlying power-cycle logic (audio teardown and restore across all systems) is unchanged — only the trigger point moves from the TransportBar into the sleeve.
 
-Depends on: **Issue 2** (TransportBar scaffold must exist), **Issue 0e** (`uiStore.isPoweredOn`), **Issue 0c-delta** (`AudioEngine.killAll()` must exist).
+This is an intentional exception to the "no interactive elements in SleeveContainer" rule: the power rocker is a hardware device control (analogous to a physical power switch on a device casing), not application UI.
+
+Depends on: **Issue 1** (`SleeveContainer` must exist), **Issue 0e** (`uiStore.isPoweredOn`), **Issue 0c-delta** (`AudioEngine.killAll()` must exist).
 
 ## Implementation Details
-- [ ] Add click handler to the Power button slot in `TransportBar`
-- [ ] **Power On** (when `isPoweredOn === false`): calls `AudioEngine.start()`, calls `useUIStore.getState().setPowerOn()`, populates robots/factories via existing spawn systems; all other buttons become enabled; GSAP timeline animates the tablet "waking up" (lights brightening, display fading in) — store this timeline in `timelineMap` under key `'tablet-power-on'`
-- [ ] **Power Off** (when `isPoweredOn === true`): opens a local-state confirmation modal before acting
-- [ ] Confirmation modal: "Power off? All audio will stop and the measure will reset." with Confirm and Cancel; modal state is local `useState` in `TransportBar` (not in `uiStore`)
-- [ ] **Radix:** Confirmation modal uses `@radix-ui/react-dialog` → `Dialog.Root` + `Dialog.Trigger` + `Dialog.Portal` + `Dialog.Overlay` + `Dialog.Content` + `Dialog.Title` + `Dialog.Description` + `Dialog.Close`. This provides focus trapping, Escape-to-dismiss, and correct `role="dialog"` ARIA semantics automatically.
-- [ ] On confirm: calls `AudioEngine.killAll()`, calls `useOceanStore.getState().setCurrentMeasure(0)`, calls `useUIStore.getState().setPowerOff()`; GSAP timeline animates the tablet "powering down" (lights dimming, display fading out) — stored in `timelineMap` under key `'tablet-power-off'`; ocean/robot data persists in stores
-- [ ] On cancel: modal dismisses, no state changes
+- [ ] Create `src/components/sleeve/PowerRockerSwitch.tsx` and `PowerRockerSwitch.css`
+- [ ] Render `<PowerRockerSwitch />` inside `SleeveContainer`, near the top
+- [ ] **Sleeve panel:** add a CSS rectangular panel (`--rocker-panel-width` custom property controls jut amount) that protrudes from the right edge of `SleeveContainer` with rounded corners, sized to contain the rocker and indicator light
+- [ ] **Rocker appearance:** flat switch with subtle CSS depth (box-shadow / perspective); this is not a toggle input — the element always returns to neutral after interaction
+- [ ] **Rocker animation:** on click/touch, a self-managed GSAP timeline (key `'power-rocker'`, stored via `setTimeline`) rocks the switch element then springs it back to neutral; the animation fires regardless of whether the user confirms or cancels power-off; timeline is killed on unmount via `killTimeline('power-rocker')` in a `useEffect` cleanup
+- [ ] **Power On** (when `isPoweredOn === false`): calls `AudioEngine.start()`, calls `resetHarmony()`, calls `reRegisterAllRobotsAudio()`, then calls `useUIStore.getState().setPowerOn()`; GSAP timeline animates the tablet waking up (display brightening) — stored in `timelineMap` under key `'tablet-power-on'`
+- [ ] **Power Off** (when `isPoweredOn === true`): opens a confirmation modal before acting
+- [ ] **Confirmation modal:** "Power off? All audio will stop." with Confirm and Cancel; modal state is local `useState` in `PowerRockerSwitch` (not in `uiStore`); uses `@radix-ui/react-dialog` → `Dialog.Root` + `Dialog.Portal` + `Dialog.Overlay` + `Dialog.Content` + `Dialog.Title` + `Dialog.Description` + `Dialog.Close`; focus trapping and Escape-to-dismiss are provided by Radix automatically; modal overlay covers the GlassViewport area (use `position: fixed; inset: 0; left: var(--sleeve-width)` or full-screen fixed is acceptable)
+- [ ] **On confirm:** calls `stopSpawnScheduler()`, `stopAllFactoryProduction()`, `stopCollisionDetection()`, `AudioEngine.killAll()`, `removeNonPersistentRobots()`, `useOceanStore.getState().setActors([])`, `useUIStore.getState().setPowerOff()`; GSAP timeline animates the tablet powering down — stored in `timelineMap` under key `'tablet-power-off'`; ocean/robot data persists in stores
+- [ ] **On cancel:** modal dismisses, no state changes
+- [ ] **Indicator light:** a small element in the same panel as the rocker, driven by CSS animations keyed to `data-power-state` and `data-transitioning` HTML attributes set on the light element:
+  - `data-power-state="off"`: dim red glow (CSS `box-shadow` red), keyframe pulse once every ~3 s
+  - `data-power-state="on"`: bright green glow, keyframe pulse once every ~6 s
+  - `data-transitioning="true"` (set on toggle for 2 s): yellow glow, keyframe pulse 3× per second; a plain `setTimeout` clears the attribute after 2 s
+- [ ] Remove the `⏻` power button and all power-cycle logic from `TransportBar.tsx`; move `power-confirm__*` CSS from `TransportBar.css` to `PowerRockerSwitch.css`
 
 ## Technical Notes
-- On power-on after a previous power-off, ocean/robots already exist in the store — do NOT re-spawn from scratch. Simply restart the AudioEngine and re-register robot melodies (same path as the Load case in Issue 7).
-- GSAP wake/shutdown timelines must be stored in `timelineMap`, never in React state or Zustand.
-- Beat-clock advancement stops when `Tone.Transport.stop()` is called inside `AudioEngine.killAll()`. `AudioEngine.start()` resumes from measure 0 on power-on.
+- The rocker GSAP timeline fires on every click as physical feedback — it does not wait for or react to the modal outcome.
+- `data-transitioning` is managed by a plain `setTimeout` (2 s duration), not by Zustand or GSAP — it is a transient visual indicator, not a semantic state change.
+- GSAP wake/shutdown timelines (`tablet-power-on`, `tablet-power-off`) must be stored in `timelineMap`, never in React state or Zustand.
+- The rocker panel CSS jut is additive to the existing `SleeveContainer` width — do not change `--sleeve-width`; use a negative margin or absolute positioning on the panel to extend it rightward.
 
 ## Acceptance Criteria
-- [ ] Power button is always enabled regardless of powered state
-- [ ] Clicking Power while off starts audio, enables all other buttons, triggers wake-up animation
-- [ ] Clicking Power while on opens a confirmation modal
-- [ ] Cancel dismisses the modal with no state change
-- [ ] Confirm kills audio, resets measure to 0, dims display, disables all buttons except Power
+- [ ] Rectangular rocker panel juts out of the right side of the sleeve with rounded corners
+- [ ] Rocker rocks on click/touch and springs back to neutral — it never stays "clicked"
+- [ ] Clicking while off starts audio, re-registers robot audio, triggers wake-up animation, enables transport buttons
+- [ ] Clicking while on rocks the switch and opens a confirmation modal
+- [ ] Cancel dismisses the modal with no state change; rocker has already returned to neutral
+- [ ] Confirm kills audio, tears down all systems, removes transient robots, clears factory actors, dims display, disables transport buttons
+- [ ] Indicator light emits dim red pulse (~3 s interval) when powered off
+- [ ] Indicator light emits bright green pulse (~6 s interval) when powered on
+- [ ] Indicator light emits yellow pulse (3× per second) for 2 s after any power toggle, then returns to steady state
+- [ ] `⏻` button no longer exists in `TransportBar`
+- [ ] Rocker GSAP timeline is killed on component unmount
 - [ ] After power-off, ocean/robot data is still in the store (not cleared)
 - [ ] App compiles with no TypeScript errors
 - [ ] No regression in audio behaviour
 
 ## Source Reference
-- File: `src/components/ui/TransportBar.tsx`, `src/engine/AudioEngine.ts`, `src/stores/uiStore.ts`, `src/stores/oceanStore.ts`
+- File: `src/components/sleeve/PowerRockerSwitch.tsx` *(new)*, `src/components/layout/SleeveContainer.tsx`, `src/components/ui/TransportBar.tsx`
+- Systems: `src/engine/AudioEngine.ts`, `src/engine/harmonySystem.ts`, `src/systems/spawnSystem.ts`, `src/systems/factorySystem.ts`, `src/systems/collisionSystem.ts`, `src/stores/uiStore.ts`, `src/stores/oceanStore.ts`
 - Copilot instructions: "All audio: AudioEngine only (singleton)."; "All animation: GSAP timelines only; store timelines in timelineMap."; "GSAP timelines must only trigger semantic state changes, never call AudioEngine directly."
 
 ---
