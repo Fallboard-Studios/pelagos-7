@@ -1,3 +1,6 @@
+/* ─── Sleeve Container ────────────────────────────────────────────────────── */
+/* The sleeve body is a plain CSS background. The .sleeve-jut child extends    */
+/* to the right, with its left portion sitting flush under the sleeve body.    */
 .sleeve-container {
   position: fixed;
   left: 0;
@@ -5,16 +8,54 @@
   height: 100vh;
   width: var(--sleeve-width);
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   pointer-events: none;
-  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02));
+  overflow: visible;
   z-index: calc(var(--z-header) - 1);
   box-sizing: border-box;
-  padding: 8px 4px;
+  background: var(--color-surface);
+  /* Right-edge highlight on the straight sections above/below the jut */
+  box-shadow:
+    inset -1px 0 0 rgba(255, 255, 255, 0.08),
+    2px 0 5px rgba(0, 0, 0, 0.55);
 }
 
+/* ─── Jut Panel ───────────────────────────────────────────────────────────── */
+/* Extends to the right of the sleeve body. left: 0 means it starts at the    */
+/* sleeve's left edge; padding-left: var(--sleeve-width) pushes the switch     */
+/* content so its left edge is flush with the sleeve's right edge.             */
+/* The left portion of the jut background (0 → --sleeve-width) blends         */
+/* seamlessly with the sleeve body since they share the same fill color.       */
+.sleeve-jut {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 24px;
+  background: var(--color-surface);
+  border-radius: 0 8px 8px 0;
+  pointer-events: auto;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.55);
+}
+
+/* Edge highlight on the three visible sides of the jut (left is sleeve body) */
+.sleeve-jut::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+  pointer-events: none;
+}
+
+/* ─── SVG Background Shape ─── (removed) ─────────────────────────────────── */
+
+/* ─── Sleeve Logo ─────────────────────────────────────────────────────────── */
 .sleeve-logo {
+  position: relative;
+  z-index: 1;
   transform: rotate(-90deg);
   transform-origin: center;
   font-family: var(--font-mono);
@@ -26,32 +67,5 @@
   -webkit-font-smoothing: antialiased;
   user-select: none;
   pointer-events: none;
-  filter: drop-shadow(0 1px 0 rgba(0,0,0,0.25));
-}
-.sleeve-container {
-  position: fixed;
-  left: 0;
-  top: 0;
-  height: 100vh;
-  width: var(--sleeve-width);
-  background: var(--color-surface);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-  z-index: var(--z-header);
-  box-shadow: inset -2px 0 6px rgba(0,0,0,0.25);
-}
-
-.sleeve-logo {
-  transform: rotate(-90deg);
-  transform-origin: center;
-  font-family: var(--font-mono);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-  opacity: 0.8;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  pointer-events: none;
-  user-select: none;
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.25));
 }

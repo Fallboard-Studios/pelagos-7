@@ -16,8 +16,7 @@ import type { Robot } from '../types/Robot';
 vi.mock('tone', () => ({
   getTransport: vi.fn(() => ({
     bpm: { value: 120 },
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    scheduleRepeat: vi.fn((callback, interval) => {
+    scheduleRepeat: vi.fn((_callback, _interval) => {
       // Return a mock ID
       return `transport-schedule-${Date.now()}`;
     }),
@@ -32,7 +31,7 @@ vi.mock('../engine/AudioEngine', () => ({
 }));
 
 vi.mock('../engine/beatClock', () => ({
-  scheduleRepeat: vi.fn((interval: string, callback: () => void) => {
+  scheduleRepeat: vi.fn((_interval: string, callback: () => void) => {
     // For tests, invoke callback immediately
     callback();
     return `schedule-id-${Date.now()}`;
@@ -69,7 +68,7 @@ describe('FactorySystem', () => {
       actors: [],
       selectedRobotId: null,
       totalInteractions: 0,
-      settings: { bpm: 120, maxRobots: 12 },
+      settings: { bpm: 120, maxRobots: 12, minRobots: 0, planetSize: 'medium' as const },
     });
     vi.clearAllMocks();
   });
@@ -161,7 +160,7 @@ describe('FactorySystem', () => {
 
       useOceanStore.setState({
         actors: [factory],
-        settings: { bpm: 120, maxRobots: 2 },
+        settings: { bpm: 120, maxRobots: 2, minRobots: 0, planetSize: 'medium' as const },
         robots: [
           { id: 'robot-1' } as unknown as Robot,
           { id: 'robot-2' } as unknown as Robot,

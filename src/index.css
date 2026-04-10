@@ -6,17 +6,17 @@
   --font-size-lg: 20px;
 
   /* Sleeve layout */
-  --sleeve-width: 30px;
-  --sleeve-width-tablet: 80px;
-  --sleeve-width-desktop: 120px;
+  --sleeve-width: 32px;
+  --sleeve-width-tablet: 48px;
+  --sleeve-width-desktop: 64px;
 
   /* Color tokens (fallbacks; prefer assets/color-theme.json mapping elsewhere) */
   --color-bg: #121212;
   --color-surface: #1a1a1a;
-  --color-border: rgba(255,255,255,0.08);
+  --color-border: rgba(255, 255, 255, 0.08);
   --color-accent: #646cff;
-  --color-text-primary: rgba(255,255,255,0.87);
-  --color-text-muted: rgba(255,255,255,0.6);
+  --color-text-primary: rgba(255, 255, 255, 0.87);
+  --color-text-muted: rgba(255, 255, 255, 0.6);
 
   /* Border & z-index */
   --border-width: 1px;
@@ -45,6 +45,7 @@ a {
   color: #646cff;
   text-decoration: inherit;
 }
+
 a:hover {
   color: #535bf2;
 }
@@ -60,10 +61,15 @@ body {
 }
 
 @media (min-width: 768px) {
-  :root { --sleeve-width: var(--sleeve-width-tablet); }
+  :root {
+    --sleeve-width: var(--sleeve-width-tablet);
+  }
 }
+
 @media (min-width: 1200px) {
-  :root { --sleeve-width: var(--sleeve-width-desktop); }
+  :root {
+    --sleeve-width: var(--sleeve-width-desktop);
+  }
 }
 
 h1 {
@@ -82,9 +88,11 @@ button {
   cursor: pointer;
   transition: border-color 0.25s;
 }
+
 button:hover {
   border-color: #646cff;
 }
+
 button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
@@ -95,9 +103,11 @@ button:focus-visible {
     color: #213547;
     background-color: #ffffff;
   }
+
   a:hover {
     color: #747bff;
   }
+
   button {
     background-color: #f9f9f9;
   }

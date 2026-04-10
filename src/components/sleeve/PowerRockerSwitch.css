@@ -1,0 +1,273 @@
+/* ----------------------------------------
+   Rocker panel — flex column container for
+   the indicator light and rocker button.
+   Positioning and outer spacing are handled
+   by .sleeve-jut in SleeveContainer.css.
+   ---------------------------------------- */
+.rocker-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-sm, 8px);
+  pointer-events: auto;
+  z-index: 1;
+}
+
+/* ----------------------------------------
+   Indicator light housing — recessed pocket
+   mounted above the rocker switch
+   ---------------------------------------- */
+.rocker-light-housing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  height: 27px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 3px;
+  box-shadow:
+    inset 0 2px 5px rgba(0, 0, 0, 0.85),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.3),
+    0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* ----------------------------------------
+   Indicator light — rectangular translucent lens
+   ---------------------------------------- */
+.rocker-light {
+  width: 37px;
+  height: 13px;
+  border-radius: 2px;
+  background: currentColor;
+  /* Fine dot-grid overlaid on the solid colour simulates a physical
+     diffuser lens screen — dots are dark so they're consistent across
+     all three glow colours */
+  background-image: radial-gradient(circle, rgba(0, 0, 0, 0.35) 1px, transparent 1px);
+  background-size: 3px 3px;
+  flex-shrink: 0;
+}
+
+/* --- Off: dark red glow, slow breathe ~3 s --- */
+.rocker-light[data-power-state="off"] {
+  color: #8b1a14;
+  box-shadow: 0 0 6px 2px rgba(139, 26, 20, 0.55);
+  animation: light-pulse-transition 2.5s ease-in-out infinite;
+}
+
+/* --- On: saturated green, gentle breathe ~6 s --- */
+.rocker-light[data-power-state="on"] {
+  color: #1a8f40;
+  box-shadow: 0 0 8px 3px rgba(26, 143, 64, 0.7);
+  animation: light-pulse-on 6s ease-in-out infinite;
+}
+
+/* --- Transitioning: amber, slow flash (selector wins by specificity position) --- */
+.rocker-light[data-transitioning="true"] {
+  color: #c08800;
+  box-shadow: 0 0 6px 2px rgba(192, 136, 0, 0.5);
+  animation: light-pulse-transition 0.66s ease-in-out infinite;
+}
+
+@keyframes light-pulse-on {
+
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+
+  50% {
+    opacity: .9;
+  }
+}
+
+@keyframes light-pulse-transition {
+
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* ----------------------------------------
+   Rocker bezel — molded plastic housing that
+   cradles the switch and creates the recessed
+   inset look from the reference design
+   ---------------------------------------- */
+.rocker-bezel {
+  display: flex;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 6px 6px 7px 7px;
+  padding: 3px;
+  box-shadow:
+    inset 0 3px 8px rgba(0, 0, 0, 0.85),
+    inset 0 -1px 3px rgba(0, 0, 0, 0.4),
+    inset 1px 0 2px rgba(0, 0, 0, 0.35),
+    inset -1px 0 2px rgba(0, 0, 0, 0.35);
+  /* Clips top/bottom edges of the button during its swing arc */
+  overflow: hidden;
+}
+
+/* ----------------------------------------
+   Rocker button — transparent click target.
+   The SVG child provides all visual rendering.
+   ---------------------------------------- */
+.rocker-el {
+  /* 12px wider than the 37px indicator light = 53px (×1.33); 1:2 ratio = 106px tall */
+  width: 53px;
+  height: 106px;
+  display: block;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+}
+
+.rocker-el:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ----------------------------------------
+   Rocker SVG — the actual visual.
+
+   Two polygon halves share a gradient that
+   spans the full viewBox height so shading is
+   continuous regardless of which half is
+   currently the trapezoid.
+
+   Resting state (set in HTML attributes):
+     top half  → wide‑at‑top trapezoid  = top protrudes toward viewer
+     bottom half → rectangle           = flush with panel
+
+   Pressed state (GSAP attr tween):
+     top half  → rectangle             = flush
+     bottom half → wide‑at‑bottom trap = bottom protrudes
+   ---------------------------------------- */
+.rocker-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.rocker-top,
+.rocker-bottom {
+  fill: url(#rockerGrad);
+}
+
+/* Side faces — darker than the front face, simulating less direct lighting */
+.rocker-top-left,
+.rocker-top-right,
+.rocker-bottom-left,
+.rocker-bottom-right {
+  fill: #1a1a1a;
+}
+
+/* Lip / edge faces — slightly lighter than the sides since they face
+   toward the viewer rather than away (top-edge = faces upward/forward,
+   bottom-edge = faces downward/forward when protruding) */
+.rocker-top-edge,
+.rocker-bottom-edge {
+  fill: #262626;
+}
+
+.rocker-ridge {
+  fill: url(#rockerRidgeGrad);
+}
+
+/* Power symbol nested SVG — no additional styles needed; all visual
+   properties are set inline on the SVG paths */
+
+/* ----------------------------------------
+   Power-off confirmation modal
+   (moved from TransportBar.css)
+   ---------------------------------------- */
+.power-confirm__overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: var(--z-modal-overlay, 10);
+}
+
+.power-confirm__content {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: var(--z-modal, 201);
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-lg, 24px);
+  min-width: 300px;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md, 12px);
+}
+
+.power-confirm__title {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-md);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.power-confirm__description {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.power-confirm__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-sm, 8px);
+  margin-top: var(--spacing-sm, 8px);
+}
+
+.power-confirm__btn {
+  min-width: 80px;
+  min-height: 36px;
+  padding: 0 var(--spacing-md, 12px);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.power-confirm__btn:hover {
+  background: var(--color-border);
+}
+
+.power-confirm__btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.power-confirm__btn--confirm {
+  color: var(--color-danger, #e05555);
+  border-color: var(--color-danger, #e05555);
+}
+
+/* Accessibility: reduce motion */
+@media (prefers-reduced-motion: reduce) {
+
+  .rocker-light,
+  .rocker-light[data-power-state="off"],
+  .rocker-light[data-power-state="on"],
+  .rocker-light[data-transitioning="true"] {
+    animation: none;
+  }
+
+  /* No will-change override needed — SVG attr tweens don't use compositing */
+}

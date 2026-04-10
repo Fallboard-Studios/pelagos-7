@@ -4,7 +4,8 @@
 import type { Actor } from '../types/Actor';
 import { ActorType } from '../types/Actor';
 import { useOceanStore } from '../stores/oceanStore';
-import { FactoryVariant, VARIANT_CONF, selectVariantFromSeed } from '../components/actors/factoryVariants';
+import type { FactoryVariant } from '../components/actors/factoryVariants';
+import { VARIANT_CONF, selectVariantFromSeed } from '../components/actors/factoryVariants';
 import { calcSilhouetteSize } from '../components/actors/silhouetteUtils';
 
 // ========================================

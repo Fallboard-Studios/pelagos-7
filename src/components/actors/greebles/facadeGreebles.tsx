@@ -1,4 +1,3 @@
-import React from 'react';
 import Alea from 'alea';
 import type { FacadeGreeble, GreebleRenderer, GreebleRendererContext, GreebleElement } from './greebleTypes';
 import type { HSL } from '../../../utils/colorUtils';

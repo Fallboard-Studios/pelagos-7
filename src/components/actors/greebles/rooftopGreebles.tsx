@@ -344,7 +344,7 @@ export function renderCupola(ctx: GreebleRendererContext): GreebleElement | null
  * @param _ref - React ref pointing to the SVG circle element to animate (unused until implemented).
  * @returns A cleanup function that removes the ticker listener (currently a no-op).
  */
-export function attachFlickerAnimation(_ref: React.RefObject<SVGCircleElement>): () => void {
+export function attachFlickerAnimation(_ref: React.RefObject<SVGCircleElement | null>): () => void {
   // TODO: implement with gsap.ticker.add() when animation pass begins.
   // Use _ref.current to access the element — never document.getElementById().
   return () => { };

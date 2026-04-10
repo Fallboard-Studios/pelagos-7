@@ -94,7 +94,7 @@ const FactoryInner: React.FC<FactoryProps> = ({ actor }) => {
   // when the day length is changed.
   const bpm = useOceanStore(state => state.settings.bpm);
   const lightMeasure = useOceanStore(state => {
-    const dayLength = state.settings.dayLengthMeasures || 96;
+    const dayLength = 96;
     const measuresPerHour = Math.max(1, Math.round(dayLength / 24));
     return Math.round(state.currentMeasure / measuresPerHour) * measuresPerHour;
   });
@@ -111,13 +111,13 @@ const FactoryInner: React.FC<FactoryProps> = ({ actor }) => {
   // even when `dayLengthMeasures` is changed from the default 96.
   const eastLMultiplier = (() => {
     if (preset) return preset.east;
-    const dayLength = useOceanStore.getState().settings.dayLengthMeasures || 96;
+    const dayLength = 96;
     const cycleMeasure = Math.round((lightMeasure / dayLength) * DAY_CYCLE_MEASURES) % DAY_CYCLE_MEASURES;
     return getLighting(cycleMeasure).eastL;
   })();
   const westLMultiplier = (() => {
     if (preset) return preset.west;
-    const dayLength = useOceanStore.getState().settings.dayLengthMeasures || 96;
+    const dayLength = 96;
     const cycleMeasure = Math.round((lightMeasure / dayLength) * DAY_CYCLE_MEASURES) % DAY_CYCLE_MEASURES;
     return getLighting(cycleMeasure).westL;
   })();

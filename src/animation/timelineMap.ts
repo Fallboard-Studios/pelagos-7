@@ -1,12 +1,12 @@
 // ========================================
 // IMPORTS
 // ========================================
-import gsap from 'gsap';
+import type { TimelineLite } from 'gsap';
 
 // ========================================
 // TYPES
 // ========================================
-type Timeline = gsap.core.Timeline;
+type Timeline = TimelineLite;
 
 // ========================================
 // MODULE STATE
