@@ -7,13 +7,9 @@ import * as Dialog from '@radix-ui/react-dialog';
 import gsap from 'gsap';
 
 import { useUIStore } from '../../stores/uiStore';
-import { useOceanStore } from '../../stores/oceanStore';
-import { AudioEngine } from '../../engine/AudioEngine';
-import { resetHarmony } from '../../engine/harmonySystem';
+
+import { powerController } from '../../systems/powerController';
 import { setTimeline, killTimeline } from '../../animation/timelineMap';
-import { stopAllFactoryProduction } from '../../systems/factorySystem';
-import { stopSpawnScheduler, reRegisterAllRobotsAudio, removeNonPersistentRobots } from '../../systems/spawnSystem';
-import { stopCollisionDetection } from '../../systems/collisionSystem';
 
 import { useGlassPortal } from '../layout/GlassViewportContext';
 import './PowerRockerSwitch.css';
@@ -80,7 +76,7 @@ export function PowerRockerSwitch() {
       .to(sel('.rocker-bottom'), { attr: { points: '3,44  97,44   94,75  6,75' }, duration: THUNK, ease: 'power4.in' }, '<')
       .to(sel('.rocker-bottom-left'), { attr: { points: '0,44  3,44    6,75   0,85' }, duration: THUNK, ease: 'power4.in' }, '<')
       .to(sel('.rocker-bottom-right'), { attr: { points: '97,44 100,44  100,85 94,75' }, duration: THUNK, ease: 'power4.in' }, '<')
-      .to(sel('.rocker-power-svg'), { attr: { y: 48 }, scaleY: 0.76, transformOrigin: '50% 50%', duration: THUNK, ease: 'power4.in' }, '<')
+      .to(sel('.rocker-power-svg'), { attr: { y: 50 }, scaleY: 0.76, transformOrigin: '50% 50%', duration: THUNK, ease: 'power4.in' }, '<')
       // ── Hold (button stays depressed until dialog resolves) ────────────────
       .to({}, { duration: HOLD });
     setTimeline('power-rocker', tl);
@@ -124,7 +120,7 @@ export function PowerRockerSwitch() {
         { attr: { points: '97,44 100,44  100,85 94,75' } },
         { attr: { points: '97,44 100,44  100,85 97,85' }, duration: MOTOR, ease: 'none' }, '<')
       .fromTo(sel('.rocker-power-svg'),
-        { attr: { y: 48 }, scaleY: 0.76 },
+        { attr: { y: 50 }, scaleY: 0.74 },
         { attr: { y: 54 }, scaleY: 1, transformOrigin: '50% 50%', duration: MOTOR, ease: 'none' }, '<')
       .call(() => setIsTransitioning(false));
     setTimeline('power-rocker-return', tl);
@@ -134,16 +130,10 @@ export function PowerRockerSwitch() {
   // Power On
   // ----------------------------------------
   async function handlePowerOn() {
-    await AudioEngine.start();
-    resetHarmony();
+    // Centralized power startup — powerController handles audio/system init
+    await powerController.start();
 
-    // Re-register persistent robots' audio before OceanScene mounts so
-    // their voices are ready when the scene's spawn effects run.
-    reRegisterAllRobotsAudio();
-
-    // Defer the heavy scene mount (OceanScene + factories + robots) to the
-    // next animation frame so GSAP's return animation gets at least one
-    // painted frame before the main thread is blocked by the mount.
+    // Defer mount to next paint frame so the GSAP return animation can paint
     requestAnimationFrame(() => {
       useUIStore.getState().setPowerOn();
 
@@ -167,37 +157,34 @@ export function PowerRockerSwitch() {
   // ----------------------------------------
   // Power Off confirm
   // ----------------------------------------
-  function handlePowerOffConfirm() {
+  async function handlePowerOffConfirm() {
     setShowConfirm(false);
-    // onOpenChange does NOT fire when open is changed via controlled state —
-    // only user gestures (escape/backdrop) trigger it. Call returnRocker directly.
+    // Return rocker immediately for UI feedback
     returnRocker();
-    // Halt all game systems immediately — nothing new fires during the drain visual
-    stopSpawnScheduler();
-    stopAllFactoryProduction();
-    stopCollisionDetection();
-    AudioEngine.killAll();
 
-    // ~500ms sleeve-drain: borders flicker then cut to black, then teardown
+    // Use centralized shutdown sequence; powerController.shutdown returns a promise
     killTimeline('sleeve-drain');
+    // Create an expressive sleeve-drain timeline, then call centralized shutdown
     const drainTl = gsap.timeline({
       onComplete: () => {
-        removeNonPersistentRobots();
-        useOceanStore.getState().setActors([]);
-        useUIStore.getState().setPowerOff();
-        // Restore sleeve opacity so it's ready for next power-on
-        gsap.set('.sleeve-shape', { clearProps: 'opacity' });
-        // Dim transport controls
-        killTimeline('tablet-power-off');
-        const tl = gsap.timeline();
-        tl.to('.transport-bar__displays', { opacity: 0.25, duration: 0.5, ease: 'power2.in' })
-          .to(
-            '.transport-bar__btn',
-            { opacity: 0.35, duration: 0.4, ease: 'power1.in', stagger: 0.04, clearProps: 'opacity' },
-            '-=0.3'
-          );
-        setTimeline('tablet-power-off', tl);
-      },
+        void (async () => {
+          // run centralized shutdown which performs system halts and state updates
+          await powerController.shutdown();
+          // Restore sleeve opacity so it's ready for next power-on
+          gsap.set('.sleeve-shape', { clearProps: 'opacity' });
+
+          // Dim transport controls
+          killTimeline('tablet-power-off');
+          const tl = gsap.timeline();
+          tl.to('.transport-bar__displays', { opacity: 0.25, duration: 0.5, ease: 'power2.in' })
+            .to(
+              '.transport-bar__btn',
+              { opacity: 0.35, duration: 0.4, ease: 'power1.in', stagger: 0.04, clearProps: 'opacity' },
+              '-=0.3'
+            );
+          setTimeline('tablet-power-off', tl);
+        })();
+      }
     });
     drainTl
       .to('.sleeve-shape', { opacity: 0.55, duration: 0.055, ease: 'none' })
@@ -218,18 +205,20 @@ export function PowerRockerSwitch() {
     setIsTransitioning(true);
     animateRockerPress();
     if (isPoweredOn) {
-      // Show modal once the button is fully depressed (THUNK=0.06 + HOLD=0.12)
-      setTimeout(() => setShowConfirm(true), 180);
+      // Show modal once the button is fully depressed (THUNK + HOLD)
+      const confirmTl = gsap.timeline({ onComplete: () => setShowConfirm(true) });
+      // short delay matching the previous timing (≈180ms)
+      confirmTl.to({}, { duration: 0.18 });
+      setTimeline('power-rocker-confirm-delay', confirmTl);
     } else {
-      // Delay power-on until after the hold phase so the React re-render
-      // (triggered by setPowerOn) doesn't reset GSAP attr tweens mid-animation.
-      // returnRocker uses fromTo with hardcoded FROM values so it's immune,
-      // but we still wait for the hold to finish before triggering everything.
-      // Power-on fires after hold so the scene mount starts immediately.
-      // Return animation is deferred 500ms extra so GSAP isn't competing
-      // with the heavy OceanScene mount on the main thread.
-      setTimeout(() => void handlePowerOn(), 180);
-      setTimeout(() => returnRocker(), 680);
+      // Orchestrate the power-on and return sequence with a timeline so timings
+      // are centralized and cancelable instead of using setTimeout.
+      const seq = gsap.timeline();
+      // hold phase (~180ms)
+      seq.to({}, { duration: 0.18, onComplete: () => { void handlePowerOn(); } });
+      // extra delay before returnRocker (previously 500ms after hold)
+      seq.to({}, { duration: 0.5, onComplete: () => returnRocker() });
+      setTimeline('power-rocker-sequence', seq);
     }
   }
 
