@@ -18,7 +18,8 @@ export function TransportBar() {
   const currentMeasure = useOceanStore((s) => s.currentMeasure);
   const bpm = useAudioStore((s) => s.bpm);
 
-  const measureLabel = isPoweredOn ? `M: ${currentMeasure}` : 'M: ---';
+  const padMeasure = (m: number) => String(m).padStart(3, '0');
+  const measureLabel = isPoweredOn ? `M: ${padMeasure(currentMeasure)}` : 'M: ---';
 
   return (
     <Toolbar.Root className="transport-bar" aria-label="Transport controls">
