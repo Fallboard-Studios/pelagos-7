@@ -2,13 +2,13 @@
   position: sticky;
   top: 0;
   width: 100%;
-  height: var(--transport-height, 48px);
-  min-height: 48px;
+  height: var(--transport-height);
+  min-height: var(--transport-height);
   z-index: var(--z-header);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 var(--spacing-md, 12px);
+  padding: 0 var(--spacing-md);
   box-sizing: border-box;
   background: var(--color-surface);
   border-bottom: var(--border-width) solid var(--border-color);
@@ -20,15 +20,15 @@
 .transport-bar__buttons {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm, 8px);
+  gap: var(--spacing-sm);
 }
 
 .transport-bar__btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 44px;
-  min-height: 44px;
+  min-width: var(--touch-target-size);
+  min-height: var(--touch-target-size);
   padding: 0;
   border: var(--border-width) solid var(--border-color);
   border-radius: var(--border-radius);
@@ -65,7 +65,7 @@
 .transport-bar__displays {
   display: flex;
   align-items: center;
-  gap: var(--spacing-md, 12px);
+  gap: var(--spacing-md);
 }
 
 .transport-bar__measure,
@@ -85,9 +85,9 @@
    Separator (Radix Toolbar.Separator)
    ---------------------------------------- */
 .transport-bar__separator {
-  width: var(--border-width, 1px);
-  height: 24px;
+  width: var(--border-width);
+  height: var(--transport-separator-height);
   background: var(--border-color);
-  margin: 0 var(--spacing-sm, 8px);
+  margin: 0 var(--spacing-sm);
   flex-shrink: 0;
 }

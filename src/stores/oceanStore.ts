@@ -70,8 +70,8 @@ export const useOceanStore = create<OceanStore>((_set, get) => ({
   selectedRobotId: null,
   totalInteractions: 0,
   settings: { ...INITIAL_SETTINGS },
-  // Start world at an arbitrary measure (no wrapping for time-of-day)
-  currentMeasure: (() => 1200)(),
+  // Start world at measure 0 so initial displays are in-range
+  currentMeasure: 0,
   // Time-of-day is driven by wall clock. On load the day starts now, so
   // currentHour should be approximately 0.
   dayStartTimestamp: Date.now(),
