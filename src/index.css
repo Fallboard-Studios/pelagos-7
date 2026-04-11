@@ -25,6 +25,12 @@
   --z-overlay: 50;
   --z-header: 40;
   --z-popover: 60;
+  /* Transport / spacing tokens (fallbacks until Issue 1 provides canonical tokens) */
+  --transport-height: 48px;
+  --touch-target-size: 44px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --transport-separator-height: 24px;
 
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;

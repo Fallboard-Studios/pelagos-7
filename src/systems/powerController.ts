@@ -1,4 +1,3 @@
-import gsap from 'gsap';
 import { AudioEngine } from '../engine/AudioEngine';
 import { resetHarmony } from '../engine/harmonySystem';
 import { reRegisterAllRobotsAudio, removeNonPersistentRobots, stopSpawnScheduler } from './spawnSystem';
@@ -6,6 +5,9 @@ import { stopAllFactoryProduction } from './factorySystem';
 import { stopCollisionDetection } from './collisionSystem';
 import { useUIStore } from '../stores/uiStore';
 import { useOceanStore } from '../stores/oceanStore';
+import { playTabletPowerOff, playTabletPowerOn } from './powerAnimations';
+import { swallow } from '../utils/swallow';
+import { DEV_TUNING } from '../constants';
 
 /**
  * powerController centralizes power on/off side effects so components stay thin.
@@ -18,23 +20,42 @@ export const powerController = {
   },
 
   async shutdown() {
-    // Halt systems immediately
+    // Immediate stop (no UI animation). Use this when caller already handled
+    // visuals or when a hard shutdown is required.
     stopSpawnScheduler();
     stopAllFactoryProduction();
     stopCollisionDetection();
     AudioEngine.killAll();
+    removeNonPersistentRobots();
+    // clear ocean actors and flip UI state
+    try {
+      useOceanStore.getState().setActors([]);
+    } catch (e) {
+      if (DEV_TUNING) swallow(e, 'powerController.setActors');
+    }
+    useUIStore.getState().setPowerOff();
+  },
 
-    // Return a promise that resolves after the sleeve-drain UI timeline finishes
-    return new Promise<void>((resolve) => {
-      const tl = gsap.timeline({ onComplete: () => {
-        removeNonPersistentRobots();
-        useOceanStore.getState().setActors([]);
-        useUIStore.getState().setPowerOff();
-        resolve();
-      }});
-      // Minimal drain visual; callers may also provide their own timelines
-      tl.to('.sleeve-shape', { opacity: 0, duration: 0.14, ease: 'power2.in' });
-    });
+  /**
+   * Orchestrated shutdown that stops systems and runs the tablet power-off UI animation.
+   */
+  async shutdownWithAnimation() {
+
+    stopSpawnScheduler();
+    stopAllFactoryProduction();
+    stopCollisionDetection();
+    AudioEngine.killAll();
+    removeNonPersistentRobots();
+    useUIStore.getState().setPowerOff();
+
+    // Play the dimming sequence. If the animation throws in edge-cases
+    // we only log it in dev tuning mode via `swallow` so shutdown still completes.
+    try {
+      playTabletPowerOff();
+    } catch (e) {
+      if (DEV_TUNING) swallow(e, 'powerController.playTabletPowerOff');
+    }
+    return;
   },
 
   // High-level power-on sequence that mounts UI in caller when appropriate.
@@ -43,6 +64,12 @@ export const powerController = {
     await this.start();
     // flip app state
     useUIStore.getState().setPowerOn();
+    // play UI brighten sequence
+    try {
+      playTabletPowerOn();
+    } catch (e) {
+      if (DEV_TUNING) swallow(e, 'powerController.playTabletPowerOn');
+    }
   }
 };
 

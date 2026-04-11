@@ -17,7 +17,7 @@ export const DEV_TUNING = import.meta.env.DEV;
  * Small: 3 minutes, Medium: 6 minutes, Large: 9 minutes.
  */
 export const PLANET_DURATION_MS = {
-	small: 3 * 60_000,
-	medium: 6 * 60_000,
-	large: 9 * 60_000,
+	small: 6 * 60_000,
+	medium: 9 * 60_000,
+	large: 12 * 60_000,
 } as const;

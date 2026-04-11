@@ -68,6 +68,7 @@
   gap: var(--spacing-md);
 }
 
+.transport-bar__displays,
 .transport-bar__measure,
 .transport-bar__bpm {
   font-family: var(--font-mono);
@@ -76,6 +77,8 @@
   letter-spacing: 0.05em;
 }
 
+.transport-bar__displays--dim,
+.transport-bar__measure--dim,
 .transport-bar__bpm--dim {
   color: var(--color-text-muted);
   opacity: 0.45;

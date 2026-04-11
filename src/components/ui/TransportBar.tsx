@@ -16,10 +16,14 @@ import './TransportBar.css';
 export function TransportBar() {
   const isPoweredOn = useUIStore((s) => s.isPoweredOn);
   const currentMeasure = useOceanStore((s) => s.currentMeasure);
+  const planetHour = useOceanStore((s) => s.planetHour);
+  const planetMinute = useOceanStore((s) => s.planetMinute);
   const bpm = useAudioStore((s) => s.bpm);
 
   const padMeasure = (m: number) => String(m).padStart(3, '0');
-  const measureLabel = isPoweredOn ? `M: ${padMeasure(currentMeasure)}` : 'M: ---';
+  const hh = String(Math.max(0, Math.min(23, Math.floor(planetHour ?? 0)))).padStart(2, '0');
+  const mm = String(Math.max(0, Math.min(59, Math.floor(planetMinute ?? 0)))).padStart(2, '0');
+  const measureLabel = isPoweredOn ? `M: ${padMeasure(currentMeasure)} H: ${hh}:${mm}` : `M: --- H: ${hh}:${mm}`;
 
   return (
     <Toolbar.Root className="transport-bar" aria-label="Transport controls">
@@ -51,7 +55,7 @@ export function TransportBar() {
 
       <Toolbar.Separator className="transport-bar__separator" />
 
-      <div className="transport-bar__displays">
+      <div className={`transport-bar__displays${isPoweredOn ? '' : ' transport-bar__displays--dim'}`}>
         <span className="transport-bar__measure" aria-label="Current measure">
           {measureLabel}
         </span>

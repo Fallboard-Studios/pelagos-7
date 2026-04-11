@@ -11,7 +11,6 @@ import { startFactoryProduction } from '../systems/factorySystem';
 import { startCollisionDetection, stopCollisionDetection } from '../systems/collisionSystem';
 import colorTheme from '../constants/colorTheme.json';
 import { hslToString } from '../utils/colorUtils';
-import { PLANET_DURATION_MS } from '../constants';
 
 // ========================================
 // TYPES & INTERFACES
@@ -71,8 +70,14 @@ export function OceanScene({
 
   // Spawn initial robots and place factories on mount
   useEffect(() => {
-    // Place factories in 3 depth rows
-    placeFactories();
+    // Place factories in 3 depth rows only if none exist in the store yet.
+    // This prevents re-placing factories on power cycles where the scene
+    // is unmounted/remounted — actors persist in the store and should not
+    // be recreated.
+    const existing = useOceanStore.getState().actors;
+    if (!existing || existing.length === 0) {
+      placeFactories();
+    }
 
     spawnRobot();
     spawnRobot();
@@ -98,26 +103,8 @@ export function OceanScene({
     };
   }, []);
 
-  // Time-of-day tick: advances currentHour based on real wall-clock time
-  useEffect(() => {
-    const tick = () => {
-      const state = useOceanStore.getState();
-      const dayStart = state.dayStartTimestamp ?? Date.now();
-      const planetSize = state.settings?.planetSize ?? 'medium';
-      const dayMs = PLANET_DURATION_MS[planetSize];
-      const newHour = ((Date.now() - dayStart) / dayMs) * 24;
-
-      if (newHour >= 24) {
-        state.setDayStartTimestamp(Date.now());
-        state.setCurrentHour(newHour % 24);
-      } else {
-        state.setCurrentHour(newHour);
-      }
-    };
-
-    const id = window.setInterval(tick, 1000);
-    return () => window.clearInterval(id);
-  }, []);
+  // Time-of-day is handled globally in App.tsx so the clock runs regardless of
+  // tablet power state. OceanScene does not start its own interval.
 
 
   return (
