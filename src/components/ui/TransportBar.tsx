@@ -1,6 +1,7 @@
 // ========================================
 // IMPORTS
 // ========================================
+import { useState } from 'react';
 import * as Toolbar from '@radix-ui/react-toolbar';
 
 import { useOceanStore } from '../../stores/oceanStore';
@@ -22,13 +23,31 @@ export function TransportBar() {
   const planetMinute = useOceanStore((s) => s.planetMinute);
   const bpm = useAudioStore((s) => s.bpm);
 
+  const [isPaused, setIsPaused] = useState(false);
+
   const handleRestartClick = async () => {
     try {
       AudioEngine.killAll();
       useOceanStore.getState().setCurrentMeasure(0);
       await AudioEngine.start();
+      setIsPaused(false);
     } catch (err) {
       swallow(err, '[TransportBar] Restart failed');
+    }
+  };
+
+  const handlePauseClick = async () => {
+    if (!isPoweredOn) return;
+    try {
+      if (!isPaused) {
+        await AudioEngine.pause();
+        setIsPaused(true);
+      } else {
+        await AudioEngine.resume();
+        setIsPaused(false);
+      }
+    } catch (err) {
+      swallow(err, '[TransportBar] Pause toggle failed');
     }
   };
 
@@ -49,13 +68,22 @@ export function TransportBar() {
           ⏮
         </Toolbar.Button>
 
-        <Toolbar.Button
-          className="transport-bar__btn transport-bar__btn--pause"
-          aria-label="Pause"
-          disabled={!isPoweredOn}
+        <Toolbar.ToggleGroup
+          type="single"
+          value={isPaused ? 'pause' : undefined}
+          aria-label="Playback controls"
+          className="transport-bar__toggle-group"
         >
-          ⏸
-        </Toolbar.Button>
+          <Toolbar.ToggleItem
+            value="pause"
+            className={`transport-bar__btn transport-bar__btn--pause${isPaused ? ' transport-bar__btn--active' : ''}`}
+            aria-label="Pause"
+            disabled={!isPoweredOn}
+            onClick={handlePauseClick}
+          >
+            {isPaused ? '▶' : '⏸'}
+          </Toolbar.ToggleItem>
+        </Toolbar.ToggleGroup>
 
         <Toolbar.Button
           className="transport-bar__btn transport-bar__btn--mute"
