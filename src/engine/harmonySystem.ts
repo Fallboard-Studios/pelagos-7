@@ -3,6 +3,7 @@
 // ========================================
 import { DEV_TUNING } from '../constants';
 import { useOceanStore } from '../stores/oceanStore';
+import { swallow } from '../utils/swallow';
 import { getCurrentHour } from './beatClock';
 
 // Minimal transport-like interface to avoid importing Tone.js here.
@@ -121,7 +122,7 @@ export function scheduleHarmonyCycle(transport: TransportLike): void {
         paletteIndex = Math.floor(hour) % Object.keys(TIME_PITCHES).length;
       }
     } catch (err) {
-      // ignore and fall back to measure-based stepping
+      if (DEV_TUNING) swallow(err, '[HarmonySystem] getCurrentHour threw in palette cycle check');
     }
 
     if (paletteIndex === null) {
