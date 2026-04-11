@@ -48,7 +48,6 @@ export function PowerRockerSwitch() {
       killTimeline('power-rocker-return');
       killTimeline('tablet-power-on');
       killTimeline('tablet-power-off');
-      killTimeline('sleeve-drain');
     };
   }, []);
 
@@ -161,40 +160,9 @@ export function PowerRockerSwitch() {
     setShowConfirm(false);
     // Return rocker immediately for UI feedback
     returnRocker();
-
-    // Use centralized shutdown sequence; powerController.shutdown returns a promise
-    killTimeline('sleeve-drain');
-    // Create an expressive sleeve-drain timeline, then call centralized shutdown
-    const drainTl = gsap.timeline({
-      onComplete: () => {
-        void (async () => {
-          // run centralized shutdown which performs system halts and state updates
-          await powerController.shutdown();
-          // Restore sleeve opacity so it's ready for next power-on
-          gsap.set('.sleeve-shape', { clearProps: 'opacity' });
-
-          // Dim transport controls
-          killTimeline('tablet-power-off');
-          const tl = gsap.timeline();
-          tl.to('.transport-bar__displays', { opacity: 0.25, duration: 0.5, ease: 'power2.in' })
-            .to(
-              '.transport-bar__btn',
-              { opacity: 0.35, duration: 0.4, ease: 'power1.in', stagger: 0.04, clearProps: 'opacity' },
-              '-=0.3'
-            );
-          setTimeline('tablet-power-off', tl);
-        })();
-      }
-    });
-    drainTl
-      .to('.sleeve-shape', { opacity: 0.55, duration: 0.055, ease: 'none' })
-      .to('.sleeve-shape', { opacity: 1.0, duration: 0.04, ease: 'none' })
-      .to('.sleeve-shape', { opacity: 0.3, duration: 0.075, ease: 'none' })
-      .to('.sleeve-shape', { opacity: 0.85, duration: 0.05, ease: 'none' })
-      .to('.sleeve-shape', { opacity: 0.15, duration: 0.09, ease: 'none' })
-      .to('.sleeve-shape', { opacity: 0.7, duration: 0.04, ease: 'none' })
-      .to('.sleeve-shape', { opacity: 0, duration: 0.14, ease: 'power2.in' });
-    setTimeline('sleeve-drain', drainTl);
+    // Delegate orchestrated shutdown (plays sleeve drain, stops systems,
+    // and runs the tablet power-off UI animation).
+    await powerController.shutdownWithAnimation();
   }
 
   // ----------------------------------------

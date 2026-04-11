@@ -9,7 +9,7 @@ import type { NoteDuration, ADSREnvelope, SynthType, WaveformType, Robot } from 
 import type { LayeredWave, LayerDescriptor } from '../types/layeredAudio';
 import type { ReverbSettings, DelaySettings, ChorusSettings, FilterSettings, EQ3Settings, CompressorSettings } from '../types/globalAudio';
 import { getAvailableNotes, scheduleHarmonyCycle, stopHarmonyCycle } from './harmonySystem';
-import { resetBeatClock } from './beatClock';
+import { resetBeatClock, subscribeToMeasure } from './beatClock';
 import { initBeatClock } from './beatClock';
 import type { RobotMelodyEvent } from './melodyGenerator';
 import { applyRhythmicVariance } from './melodyGenerator';
@@ -824,6 +824,15 @@ export const AudioEngine = {
     }
 
     initBeatClock(transport);
+    // Ensure `currentMeasure` in the ocean store is driven by the BeatClock.
+    // This updates visuals (lighting) and allows harmony to derive from measures.
+    try {
+      subscribeToMeasure((m: number) => {
+        useOceanStore.getState().setCurrentMeasure(m);
+      });
+    } catch (err) {
+      if (DEV_TUNING) console.warn('[AudioEngine] subscribeToMeasure failed', err);
+    }
     startMelodyPlayback();
     scheduleHarmonyCycle(transport);
 

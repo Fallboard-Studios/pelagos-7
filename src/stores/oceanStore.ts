@@ -27,6 +27,10 @@ export interface OceanStore {
   };
   /** Current hour derived from currentMeasure (0..23) */
   currentHour: number;
+  /** Quantised planet hour (integer 0..23) for UI display */
+  planetHour: number;
+  /** Quantised planet minute (0,15,30,45) for UI display */
+  planetMinute: number;
   /** Timestamp (ms) representing the start of the current in-world day */
   dayStartTimestamp: number;
   /** Lightness multiplier (0..1+) applied to robot colors */
@@ -46,10 +50,15 @@ export interface OceanStore {
   setCurrentMeasure: (measure: number) => void;
   /** Set the current in-world hour (float, 0..24). Called by the time-of-day tick. */
   setCurrentHour: (hour: number) => void;
+  /** Set quantised planet time for UI (hh, mm) */
+  setPlanetTime: (hour: number, minute: number) => void;
   /** Update the configured day length (in measures) */
   setPlanetSize: (size: 'small' | 'medium' | 'large') => void;
   setDayStartTimestamp: (ts: number) => void;
 }
+
+// ========================================
+// CONSTANTS
 
 // ========================================
 // CONSTANTS
@@ -58,7 +67,7 @@ const INITIAL_SETTINGS = {
   bpm: 240,
   maxRobots: 12,
   minRobots: 2,
-  planetSize: 'medium' as const,
+  planetSize: 'small' as const,
 };
 
 // ========================================
@@ -76,6 +85,8 @@ export const useOceanStore = create<OceanStore>((_set, get) => ({
   // currentHour should be approximately 0.
   dayStartTimestamp: Date.now(),
   currentHour: 0,
+  planetHour: 0,
+  planetMinute: 0,
   // Compute initial lightness from hour=0 so visuals reflect midnight.
   lightnessMultiplier: (() => {
     const hour = 0;
@@ -162,6 +173,12 @@ export const useOceanStore = create<OceanStore>((_set, get) => ({
     const angle = (normalized / 24) * 2 * Math.PI - Math.PI / 2;
     const lightnessMultiplier = 0.7 + 0.3 * Math.sin(angle);
     _set({ currentHour: normalized, lightnessMultiplier });
+  },
+
+  setPlanetTime: (hour, minute) => {
+    const h = ((Math.floor(Number(hour)) % 24) + 24) % 24;
+    const m = Math.max(0, Math.min(45, Math.floor(Number(minute) / 15) * 15));
+    _set({ planetHour: h, planetMinute: m });
   },
 
   setPlanetSize: (size) => {

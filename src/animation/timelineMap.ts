@@ -1,12 +1,14 @@
 // ========================================
 // IMPORTS
 // ========================================
-import type { TimelineLite } from 'gsap';
+import gsap from 'gsap';
 
 // ========================================
 // TYPES
 // ========================================
-type Timeline = TimelineLite;
+// Use the actual return type of `gsap.timeline()` so we avoid deprecated
+// `TimelineLite` and stay aligned with the GSAP public API.
+type Timeline = ReturnType<typeof gsap.timeline>;
 
 // ========================================
 // MODULE STATE

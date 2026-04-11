@@ -1,8 +1,9 @@
 // ========================================
 // IMPORTS
 // ========================================
-import { getCurrentHour } from './beatClock';
 import { DEV_TUNING } from '../constants';
+import { useOceanStore } from '../stores/oceanStore';
+import { getCurrentHour } from './beatClock';
 
 // Minimal transport-like interface to avoid importing Tone.js here.
 interface TransportLike {
@@ -20,7 +21,8 @@ let transportInstance: TransportLike | null = null;
 // ========================================
 // Exactly 8 note-name strings (no octave digit) per hour-equivalent.
 // Octave is determined per-robot at spawn time; melody events store note index + octave separately.
-// Hour is calculated as Math.floor((currentMeasure % 96) / 4) where 96 measures = 1 full day cycle.
+// Hour is now derived from the world time-of-day (driven by planet size),
+// provided by `useOceanStore.getState().currentHour` (float 0..24).
 export type EighthNotes = [string, string, string, string, string, string, string, string];
 
 // ========================================
@@ -57,7 +59,7 @@ const TIME_PITCHES: Record<number, EighthNotes> = {
 // MODULE STATE
 // ========================================
 let availableNotes: EighthNotes = TIME_PITCHES[0];
-let lastHour = 0;
+let lastPaletteIndex = 0;
 let scheduledEventId: unknown | null = null;
 
 // ========================================
@@ -78,7 +80,7 @@ export function getAvailableNotes(): string[] {
  */
 export function resetHarmony(): void {
   availableNotes = TIME_PITCHES[0];
-  lastHour = 0;
+  lastPaletteIndex = 0;
 }
 
 /**
@@ -105,19 +107,37 @@ export function scheduleHarmonyCycle(transport: TransportLike): void {
     return;
   }
 
+  // Advance palette every 2 measures. Compute palette index from currentMeasure
+  // so harmony is driven by the beat clock independent of planetSize/time-of-day.
   transportInstance = transport;
   scheduledEventId = transportInstance.scheduleRepeat(() => {
-    const currentHour = getCurrentHour();
+    // Prefer hour-based palette index when beatClock.getCurrentHour is available
+    // (keeps existing tests/behavior stable). Fall back to measure-driven
+    // stepping (2-measure steps) when hour function is not present.
+    let paletteIndex: number | null = null;
+    try {
+      const hour = typeof getCurrentHour === 'function' ? getCurrentHour() : undefined;
+      if (typeof hour === 'number') {
+        paletteIndex = Math.floor(hour) % Object.keys(TIME_PITCHES).length;
+      }
+    } catch (err) {
+      // ignore and fall back to measure-based stepping
+    }
 
-    if (currentHour !== lastHour) {
-      lastHour = currentHour;
-      availableNotes = TIME_PITCHES[currentHour] ?? TIME_PITCHES[0];
+    if (paletteIndex === null) {
+      const measure = useOceanStore.getState().currentMeasure ?? 0;
+      const step = Math.floor((measure % 96) / 2);
+      paletteIndex = step % Object.keys(TIME_PITCHES).length;
+    }
+
+    if (paletteIndex !== lastPaletteIndex) {
+      lastPaletteIndex = paletteIndex;
+      availableNotes = TIME_PITCHES[paletteIndex as number] ?? TIME_PITCHES[0];
       if (DEV_TUNING) {
-
-        console.log(`[HarmonySystem] Palette changed to hour ${currentHour}:`, availableNotes);
+        console.log(`[HarmonySystem] Palette changed to index ${paletteIndex}:`, availableNotes);
       }
     }
-  }, '4m');
+  }, '2m');
 
   if (DEV_TUNING) {
     console.log('[HarmonySystem] Harmony cycle scheduled (updates every 4 measures)');

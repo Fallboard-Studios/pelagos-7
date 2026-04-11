@@ -88,15 +88,15 @@ const FactoryInner: React.FC<FactoryProps> = ({ actor }) => {
   // Resolve east/west lightness multipliers:
   // debug preset overrides the live cycle (useful for visual testing).
   //
-  // lightMeasure: quantised to multiples of an in-world hour so body fills
-  // update once per in-world hour. For a 96-measure day this equals 4 measures
-  // (96/24). Using `dayLengthMeasures` keeps building lighting proportional
-  // when the day length is changed.
+  // lightMeasure: derived from the world time-of-day (fractional hour)
+  // so building fills update smoothly based on real wall-clock time. We
+  // convert `currentHour` (0..24 float) into the 0..DAY_CYCLE_MEASURES range
+  // expected by `getLighting`.
   const bpm = useOceanStore(state => state.settings.bpm);
   const lightMeasure = useOceanStore(state => {
-    const dayLength = 96;
-    const measuresPerHour = Math.max(1, Math.round(dayLength / 24));
-    return Math.round(state.currentMeasure / measuresPerHour) * measuresPerHour;
+    const hourFloat = state.currentHour ?? 0; // fractional hour (0..24)
+    const cycleMeasure = Math.round((hourFloat / 24) * DAY_CYCLE_MEASURES) % DAY_CYCLE_MEASURES;
+    return cycleMeasure;
   });
   // flickerEpoch: phased per building so window rerolls are spread across
   // FLICKER_PERIOD consecutive measures rather than all firing at once.
@@ -111,14 +111,12 @@ const FactoryInner: React.FC<FactoryProps> = ({ actor }) => {
   // even when `dayLengthMeasures` is changed from the default 96.
   const eastLMultiplier = (() => {
     if (preset) return preset.east;
-    const dayLength = 96;
-    const cycleMeasure = Math.round((lightMeasure / dayLength) * DAY_CYCLE_MEASURES) % DAY_CYCLE_MEASURES;
+    const cycleMeasure = lightMeasure % DAY_CYCLE_MEASURES;
     return getLighting(cycleMeasure).eastL;
   })();
   const westLMultiplier = (() => {
     if (preset) return preset.west;
-    const dayLength = 96;
-    const cycleMeasure = Math.round((lightMeasure / dayLength) * DAY_CYCLE_MEASURES) % DAY_CYCLE_MEASURES;
+    const cycleMeasure = lightMeasure % DAY_CYCLE_MEASURES;
     return getLighting(cycleMeasure).westL;
   })();
 
