@@ -6,6 +6,8 @@ import * as Toolbar from '@radix-ui/react-toolbar';
 import { useOceanStore } from '../../stores/oceanStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useAudioStore } from '../../stores/audioStore';
+import { AudioEngine } from '../../engine/AudioEngine';
+import { swallow } from '../../utils/swallow';
 
 import './TransportBar.css';
 
@@ -20,6 +22,16 @@ export function TransportBar() {
   const planetMinute = useOceanStore((s) => s.planetMinute);
   const bpm = useAudioStore((s) => s.bpm);
 
+  const handleRestartClick = async () => {
+    try {
+      AudioEngine.killAll();
+      useOceanStore.getState().setCurrentMeasure(0);
+      await AudioEngine.start();
+    } catch (err) {
+      swallow(err, '[TransportBar] Restart failed');
+    }
+  };
+
   const padMeasure = (m: number) => String(m).padStart(3, '0');
   const hh = String(Math.max(0, Math.min(23, Math.floor(planetHour ?? 0)))).padStart(2, '0');
   const mm = String(Math.max(0, Math.min(59, Math.floor(planetMinute ?? 0)))).padStart(2, '0');
@@ -32,6 +44,7 @@ export function TransportBar() {
           className="transport-bar__btn transport-bar__btn--restart"
           aria-label="Restart"
           disabled={!isPoweredOn}
+          onClick={handleRestartClick}
         >
           ⏮
         </Toolbar.Button>
