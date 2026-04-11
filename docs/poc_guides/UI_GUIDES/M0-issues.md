@@ -300,8 +300,8 @@ Replace the measure-coupled day-length system with a real wall-clock time-of-day
 - [ ] Add `setDayStartTimestamp(ts: number)` action: called when a day cycle wraps (i.e. when `currentHour` rolls past 24)
 - [ ] `currentHour` derivation: computed as `((Date.now() - dayStartTimestamp) / PLANET_DURATION_MS[planetSize]) * 24` — this yields a float 0–24 representing the current in-world hour
 - [ ] Remove the `setCurrentMeasure` day-length wrap logic (`% dayLengthMeasures`) — measures no longer drive time of day
-- [ ] Create or update a time-of-day tick in `OceanScene` (or a dedicated `timeClock.ts` system): a `setInterval` firing every second that reads `dayStartTimestamp` and `planetSize` from the store, computes `currentHour`, calls `useOceanStore.getState().setCurrentHour(newHour)`, and calls `setDayStartTimestamp(Date.now())` when a new day cycle begins (i.e. `newHour` wraps past 24). This interval is NOT musical timing — using `setInterval` here is acceptable per architecture rules.
-- [ ] The time-of-day interval starts on app mount and runs regardless of tablet power state
+ - [ ] Create or update a global time-of-day tick in `src/App.tsx` (or a dedicated `src/systems/timeClock.ts`): a `setInterval` firing every second that reads `dayStartTimestamp` and `planetSize` from the store, computes `currentHour`, calls `useOceanStore.getState().setCurrentHour(newHour)`, and calls `setDayStartTimestamp(Date.now())` when a new day cycle begins (i.e. `newHour` wraps past 24). This interval is NOT musical timing — using `setInterval` here is acceptable per architecture rules.
+ - [ ] The time-of-day interval starts on app mount and runs regardless of tablet power state
 - [ ] No architecture violations (audio/animation/state separation)
 - [ ] Code follows standards (imports ordered, explicit types)
 - [ ] Tested locally (no console errors)
@@ -319,7 +319,7 @@ Replace the measure-coupled day-length system with a real wall-clock time-of-day
 - [ ] `useOceanStore.getState().dayStartTimestamp` is a recent `Date.now()` timestamp on app load
 - [ ] Calling `setPlanetSize('small')` updates `settings.planetSize` to `'small'`; a full day cycle then takes 3 real minutes
 - [ ] `currentHour` advances in real time — after 90 real seconds with `planetSize = 'small'`, `currentHour ≈ 12` (midday)
-- [ ] `currentHour` does not advance when the transport is paused or powered off (it always advances — confirm the interval is independent of transport state)
+ - [ ] `currentHour` advances even when the transport is paused or the tablet is powered off (confirm the interval is independent of transport/power state)
 - [ ] `setCurrentMeasure` no longer wraps using a day-length value
 - [ ] `dayLengthMeasures` does not appear in the store type, state, or actions
 - [ ] No regression in existing features
@@ -327,7 +327,7 @@ Replace the measure-coupled day-length system with a real wall-clock time-of-day
 - [ ] App remains functional after merge
 
 ## Source Reference
-- File: `src/stores/oceanStore.ts`, `src/components/OceanScene.tsx` (time-of-day tick location)
+ - File: `src/stores/oceanStore.ts`, `src/App.tsx` (time-of-day tick location)
 - Copilot instructions: "State: Zustand only; store JSON-serializable data only."; "All timing: Tone.Transport / BeatClock (measure-based). No setTimeout/setInterval for musical timing." (Note: the time-of-day interval is not musical timing and is explicitly permitted.)
 
 ---

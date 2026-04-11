@@ -181,8 +181,8 @@ Depends on: Issue 0e (uiStore).
         Radix: use @radix-ui/react-toolbar → Toolbar.Root + Toolbar.Button for the button group; gives roving tabindex keyboard navigation for free.
 
     Issue 2a: TransportBar — Power Button.
-        Power On (isPoweredOn === false): calls AudioEngine.start(), setPowerOn(), populates robots/factories, triggers GSAP wake-up timeline (stored in timelineMap under 'tablet-power-on').
-        Power Off (isPoweredOn === true): opens local-state confirmation modal; on confirm: killAll(), setCurrentMeasure(0), setPowerOff(), triggers GSAP shutdown timeline (timelineMap 'tablet-power-off'); ocean/robot data persists.
+        Power On (isPoweredOn === false): clicking the rocker starts the audio systems by calling `powerController.start()` (which delegates to `AudioEngine.start()` and resets harmony). The UI flip (`useUIStore.setPowerOn()`) and the visual wake animation are currently handled in `PowerRockerSwitch` via a GSAP timeline stored in `timelineMap` under the id `tablet-power-on`. There is also a convenience helper `powerController.powerOnSequence()` which will run the same audio startup and invoke the reusable animation in `src/systems/powerAnimations.ts` if callers prefer a controller-owned animation.
+        Power Off (isPoweredOn === true): the rocker shows a confirmation modal; on confirm the component calls `powerController.shutdownWithAnimation()`. That method (current implementation) stops spawn/factory/collision systems, calls `AudioEngine.killAll()`, clears ocean actors (`useOceanStore.setActors([])`), flips `useUIStore.setPowerOff()`, and triggers the reusable dimming animation via `playTabletPowerOff()` (timeline id `tablet-power-off`). Note: the expressive sleeve-drain animation from earlier iterations is not currently active — implement `playSleeveDrain()` in `src/systems/powerAnimations.ts` and call it prior to system shutdown if you want that effect.
         Radix: confirmation modal uses @radix-ui/react-dialog → Dialog.Root + Dialog.Content + Dialog.Title + Dialog.Description.
 
     Issue 2b: TransportBar — Restart Button.
