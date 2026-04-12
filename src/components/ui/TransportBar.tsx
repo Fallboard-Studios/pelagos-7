@@ -24,6 +24,7 @@ export function TransportBar() {
   const bpm = useAudioStore((s) => s.bpm);
 
   const [isPaused, setIsPaused] = useState(false);
+  const isMuted = useAudioStore((s) => s.isMuted);
 
   const handleRestartClick = async () => {
     try {
@@ -48,6 +49,25 @@ export function TransportBar() {
       }
     } catch (err) {
       swallow(err, '[TransportBar] Pause toggle failed');
+    }
+  };
+
+  const handleMuteClick = async () => {
+    if (!isPoweredOn) return;
+    try {
+      const store = useAudioStore.getState();
+      if (!isMuted) {
+        const current = AudioEngine.getMasterVolume();
+        store.setPreMuteVolume(current);
+        AudioEngine.setMasterVolume(0);
+        store.setMuted(true);
+      } else {
+        const pre = store.preMuteVolume ?? 1.0;
+        AudioEngine.setMasterVolume(pre);
+        store.setMuted(false);
+      }
+    } catch (err) {
+      swallow(err, '[TransportBar] Mute toggle failed');
     }
   };
 
@@ -85,13 +105,22 @@ export function TransportBar() {
           </Toolbar.ToggleItem>
         </Toolbar.ToggleGroup>
 
-        <Toolbar.Button
-          className="transport-bar__btn transport-bar__btn--mute"
-          aria-label="Mute"
-          disabled={!isPoweredOn}
+        <Toolbar.ToggleGroup
+          type="single"
+          value={isMuted ? 'mute' : undefined}
+          aria-label="Mute controls"
+          className="transport-bar__toggle-group"
         >
-          🔇
-        </Toolbar.Button>
+          <Toolbar.ToggleItem
+            value="mute"
+            className={`transport-bar__btn transport-bar__btn--mute${isMuted ? ' transport-bar__btn--muted' : ''}`}
+            aria-label="Mute"
+            disabled={!isPoweredOn}
+            onClick={handleMuteClick}
+          >
+            {isMuted ? '🔇' : '🔊'}
+          </Toolbar.ToggleItem>
+        </Toolbar.ToggleGroup>
       </div>
 
       <Toolbar.Separator className="transport-bar__separator" />
