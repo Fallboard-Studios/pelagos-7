@@ -130,6 +130,13 @@ Goal: Establish the backing types, state, and AudioEngine wiring that all later 
         Add isPoweredOn: boolean (default false), setPowerOn(), setPowerOff() to uiStore.
         Prerequisites for Issue 2 (scaffold gating) and Issue 2a (Power button).
 
+    Issue 0l-delta: Add activeConsoleTab to uiStore.
+        Additive change to existing uiStore (post Issue 0e/0e-delta).
+        Add activeConsoleTab: 'session' | 'composition' | 'robotOptions' | 'robotEditor' | 'audioRig' | 'settings' (default: 'session').
+        Add setActiveConsoleTab(tab: ActiveConsoleTab) action.
+        activeView from Issue 0e is superseded by this tab system — remove or deprecate it if no other consumers remain.
+        All state JSON-serializable; prerequisite for Issues 3 and 4.
+
     Issue 0g-delta: Replace dayLengthMeasures with Planet Size and real-clock time-of-day.
         Migration of existing oceanStore (post Issue 0g).
         Remove dayLengthMeasures and setDayLength; add planetSize: 'small' | 'medium' | 'large' (default 'medium') with setPlanetSize(size).
@@ -200,17 +207,40 @@ Depends on: Issue 0e (uiStore).
         On unmute: setMasterVolume(preMuteVolume) → setMuted(false).
         Radix: replace Toolbar.Button stub with Toolbar.ToggleGroup + Toolbar.ToggleItem (single) for correct aria-pressed semantics.
 
-    Issue 3: Build Navigation System.
-        Tablet/desktop: vertical icon bar on the left edge of GlassViewport (inside the glass, not the sleeve).
-        Mobile: bottom tab bar on GlassViewport.
-        Responsive toggle between the two layouts driven by CSS breakpoints.
-        Navigation state (active view) lives in uiStore.activeView.
-        Radix: use @radix-ui/react-tabs → Tabs.Root (orientation="vertical" on tablet, orientation="horizontal" on mobile) + Tabs.List + Tabs.Trigger. Note: Tabs.Content siblings must be co-located with Tabs.List — verify this does not conflict with the GlassViewport layout before committing. If DOM structure is incompatible, use Tabs.Trigger only for the nav rail and render content separately via uiStore.activeView.
+    Issue 3: Build Root Layout Grid (Four-Panel Shell).
+        GlassViewport is divided into four persistent, named areas using CSS Grid. All four panels render unconditionally — no display:none toggling at the root level.
 
-    Issue 4: Implement View-Switching Logic (State management to toggle "Active Viewport").
-        Active view state lives in uiStore.activeView.
-        Swaps the content area of GlassViewport between: 'ocean' | 'robot' | 'composition' | 'fx' | 'settings'.
-        Radix: if Issue 3 uses Tabs.Root + Tabs.Content, view switching is handled by Tabs. If nav and content are structurally decoupled, drive visibility from uiStore.activeView directly.
+        Desktop layout (≥768px):
+            CSS Grid: 2 columns (2fr 1fr) × 3 rows — [transport-height: auto] [world-view: auto] [console: 1fr].
+            TransportBar:  column 1, row 1. Flush top-left; same width as WorldView (~2/3 of GlassViewport).
+            WorldView:     column 1, row 2. 16:9 aspect ratio enforced with aspect-ratio: 16/9; fills available column width. Flush left, directly below TransportBar.
+            RobotList:     column 2, rows 1–2 (row-span). Flush top-right; same combined height as TransportBar + WorldView. Width is the remaining ~1/3 of the glass (flexible).
+            Console:       columns 1–2, row 3 (column-span, full width). Fills all remaining vertical space below WorldView and RobotList (1fr).
+
+        Mobile layout (<768px):
+            All four panels stack full-width in a single column.
+            Order (top to bottom): TransportBar (position: sticky, top: 0) → WorldView → Console → RobotList.
+            TransportBar shrinks to icon/compact form on mobile.
+
+        Both WorldView and RobotList always render regardless of the active Console tab.
+        Depends on: Issue 1 (shell), Issue 0l-delta (activeConsoleTab).
+
+    Issue 3a: Build Robot List Panel (Persistent Right Column).
+        RobotList is the persistent right-column panel established in Issue 3 (column 2, rows 1–2 on desktop; bottom area on mobile).
+        Renders a scrollable list of all current robots; each row shows the robot's name and a visual indicator of its active/muted/solo state.
+        Clicking a robot row sets robotStore.selectedRobotId and calls uiStore.setActiveConsoleTab('robotEditor') — the Console switches to the Robot Editor tab for that robot.
+        No robot-editing controls live in this panel; it is a picker only.
+        On mobile: renders below the Console as a compact horizontal scrolling strip or a collapsed expandable drawer.
+        Depends on: Issue 3, robotStore.
+        Note: this is the persistent gallery view; deep robot editing lives in the Robot Editor Console Tab (Issue 10).
+
+    Issue 4: Build Console Panel + Console Navigation.
+        Console renders ConsoleNavigation (tab list) at its top/left edge and a content area that mounts the active tab's component.
+        Navigation tabs: Session Settings | Composition | Robot Options | Robot Editor | Audio Rig | Settings.
+        Tab selection calls uiStore.setActiveConsoleTab(tab); content area renders the matching component keyed to activeConsoleTab.
+        Radix: use @radix-ui/react-tabs → Tabs.Root + Tabs.List + Tabs.Trigger + Tabs.Content. Tabs.Root orientation="horizontal" on mobile, orientation="vertical" on desktop if layout permits; otherwise use Tabs.Trigger only for the nav rail and drive Tabs.Content separately via activeConsoleTab.
+        Console Navigation is entirely inside GlassViewport — never in SleeveContainer.
+        Depends on: Issue 3, Issue 0l-delta.
 
     Issue 5: Create Glass Screen-Wear Overlay.
         SVG/PNG procedurally generated scratches and cracks layered over GlassViewport only.
@@ -218,117 +248,186 @@ Depends on: Issue 0e (uiStore).
         Overlay is a non-interactive, pointer-events: none layer at high z-index within GlassViewport.
 
 
-🌊 Milestone 2: Ocean View (The Default Context)
 
-Goal: The primary "Home" landing and high-level environment control.
-Depends on: oceanStore (world settings, day length), audioStore (setBPM), uiStore (activeView).
+🌊 Milestone 2: Session & World Management Console Tab
 
-    Issue 6: Build Ocean View Viewport.
-        Render OceanScene SVG inside the GlassViewport content area (not full-screen).
-        Remove the 100vw × 100vh full-screen sizing assumption; OceanScene fills the available glass space accounting for the transport bar and nav bar offsets.
-        On desktop, the scene expands as more of the glass is revealed along the X-axis (sleeve grows, glass grows).
+Goal: Session file management and world-level settings surfaced in the Console.
+Depends on: sessionStore (0j), oceanStore (0g-delta), audioStore (setBPM), uiStore (activeConsoleTab via 0l-delta), Issue 4 (Console + ConsoleNavigation).
 
-    Issue 7: Build Ocean Management Card (File/Session CRUD buttons with confirmation modals).
+    Issue 6: Size Ocean Scene Inside WorldView.
+        Remove the 100vw × 100vh full-screen assumption from OceanScene; it must fill the WorldView bounds only.
+        WorldView passes its bounding box to OceanScene via CSS layout (no explicit pixel values).
+        On desktop, WorldView expands as more of the GlassViewport is revealed along the X-axis.
+        No new controls; pure layout/sizing change.
 
-    Issue 8: Build World Options Module (BPM Stepper & Planet Size Selector).
-        BPM stepper calls setBPM(bpm) — updates store and Tone.Transport simultaneously.
-        Planet Size selector replaces the Length of Day stepper: three options — Small (3 min/day), Medium (6 min/day), Large (9 min/day) — call setPlanetSize(size) on oceanStore; this controls how many real-world minutes make up one full in-world day cycle.
-        Radix: Planet Size selector uses @radix-ui/react-select → Select.Root + Select.Trigger + Select.Content + Select.Item.
+    Issue 7: Build Session Settings Console Tab.
+        Renders when activeConsoleTab === 'session'.
+        Buttons with confirmation modals: New World, Save World To Local Storage, Load World From Local Storage, Import World From Text.
+        Plain button (no confirmation): Export World To Text.
+        Preset row: Select World Preset (Dropdown) + Load World Preset (Button With Confirmation).
+        All actions read/write sessionStore.
+        Radix: destructive confirmations use @radix-ui/react-alert-dialog; non-destructive confirmations use @radix-ui/react-dialog; Preset dropdown uses @radix-ui/react-select.
 
-    Issue 9: Integrate Volume VU Indicator (1x1 Display component).
-
-
-🤖 Milestone 3: Robot Synthesis & Management
-
-Goal: Deep-dive customization of the generative "mining" units.
-Depends on: robotStore (robot state, selection), uiStore (selected robot view).
-
-    Issue 10: Build Robot Selection/Gallery (List view for choosing active robot).
-
-    Issue 11: Build Synthesis Module A (General: Name Textbox, Rhythmic Density/Variance Sliders).
-        Name Textbox maps to robot.name (added in Issue 0d).
-        Note: "Rhythmic Density/Variance" has no current backing type — define mapping before building (e.g., note density in melody, masterVolume jitter). Scope this in the issue.
-
-    Issue 12: Build Synthesis Module B (Oscillators):
-
-        Dropdown for Waveform Type (maps to robot.audioAttributes.waveform).
-        Radix: Waveform dropdown uses @radix-ui/react-select → Select.Root + Select.Trigger + Select.Content + Select.Item.
-
-        Vertical Power Bars (linear fill sliders, touch-optimized, minimum 44×44px touch target) for:
-            Phase → robot.audioAttributes.phase (added in Issue 0d).
-            Gain → robot.masterVolume (top-level field, already exists).
-            Detune → robot.audioAttributes.detune (added in Issue 0d).
-        Radix: each Vertical Power Bar uses @radix-ui/react-slider → Slider.Root (orientation="vertical") + Slider.Track + Slider.Range + Slider.Thumb.
-
-        Pulsewidth: Vertical Power Bar (maps to Tone oscillator width; render conditionally when waveform = 'square' only).
-
-        No rotary knobs or grippable controls — everything is a touch-friendly linear bar.
-
-    Issue 13: Build ADSR Envelope Cluster.
-        HTML Canvas ADSR graph with 4 draggable nodes: Attack, Decay, Sustain, Release.
-        Bezier curve visualization connecting the nodes updates in real time as nodes are dragged.
-        Uses pointer/touch events for compatibility across the touch screen.
-        Maps directly to robot.audioAttributes ADSR fields.
+    Issue 8: Build World Options Section (BPM Stepper & Planet Size Selector).
+        Rendered inside the Session Settings Console Tab (or as a clearly labelled sub-section within it).
+        BPM: Dual Speed Stepper — calls audioStore.setBPM(bpm) which updates store and Tone.Transport simultaneously.
+        Planet Size: Dropdown (Small 3 min/day | Medium 6 min/day | Large 9 min/day) — calls oceanStore.setPlanetSize(size).
+        Radix: Planet Size dropdown uses @radix-ui/react-select → Select.Root + Select.Trigger + Select.Content + Select.Item.
 
 
-🎹 Milestone 4: Composition & Note Matrix
+🤖 Milestone 3: Robot Management Console Tabs
 
-Goal: The sequence-level control and popover interaction.
-Depends on: robotStore (robot melodies), oceanStore (measure state), uiStore (popover state).
-Note: All interactive elements in this milestone must meet the 44×44px minimum touch target size.
+Goal: Spawn control and per-robot synthesis editing via the Console.
+Depends on: robotStore (0d), uiStore (activeConsoleTab), Issues 3–4.
+Note: All interactive elements must meet the 44×44px minimum touch target size (WCAG 2.5.5).
 
-    Issue 14: Build Note Array Display (Passive visualization of current measures).
+    Issue 9: Build Robot Options Console Tab.
+        Renders when activeConsoleTab === 'robotOptions'.
+        Min/Max Robots: Range Input → robotStore min/max robot count.
+        Auto Spawn Robots: Toggle → robotStore autoSpawn flag.
+        Spawn Frequency: Slider → robotStore spawnFrequency.
+        New Robot: Button → spawns a new robot via robotStore, then calls setActiveConsoleTab('robotEditor') and sets selectedRobotId to the new robot. The RobotList panel (Issue 3a) updates automatically as it observes robotStore.
+        Depends on: Issues 3–4, Issue 3a.
 
-    Issue 15: Build Piano Keyboard Popover (Floating octave selector).
-        Radix: use @radix-ui/react-popover → Popover.Root + Popover.Trigger + Popover.Content + Popover.Close for the floating panel.
+    Issue 10: Build Robot Editor Console Tab Shell + Robot Editor Navigation.
+        Renders when activeConsoleTab === 'robotEditor'.
+        Shows the most recently created/selected robot by default (reads selectedRobotId from robotStore).
+        Robot Editor Navigation: Radix sub-tabs within the Console content area for three sub-tabs: Robot Meta | Robot Audio | Robot Oscillators.
+        Robot Editor Console: the panel below the sub-tabs that renders the active sub-tab's content.
+        Sub-tab state is local to this component (not in Zustand) — it does not need global persistence.
+        Radix: @radix-ui/react-tabs → Tabs.Root + Tabs.List + Tabs.Trigger + Tabs.Content (nested inside the outer Console tabs).
+        Depends on: Issues 3–4, Issue 9 (New Robot trigger).
 
-    Issue 16: Implement Measure CRUD (New/Delete Measure buttons with safety confirmations).
-        Radix: destructive delete confirmation uses @radix-ui/react-alert-dialog → AlertDialog.Root + AlertDialog.Trigger + AlertDialog.Content + AlertDialog.Action + AlertDialog.Cancel.
+    Issue 11: Robot Meta Sub-Tab.
+        Renders inside Robot Editor Console when Robot Meta sub-tab is active.
+        Name: Textbox → robot.name (Issue 0d).
+        Age: read-only Display → robot age (derived value; no store write).
+        Persist: Toggle → robot persistence flag in robotStore.
+        Preset Selection: Dropdown + Load Robot Preset Button → robotStore preset loading.
+        Copy Robot: Dropdown → robotStore copy action (target robot selector).
+        Link To Robot: Dropdown → robotStore link action (target robot selector).
+        Radix: Dropdown selectors use @radix-ui/react-select.
+
+    Issue 12: Robot Audio Sub-Tab.
+        Renders inside Robot Editor Console when Robot Audio sub-tab is active.
+        Solo, Mute, Highlight: Radio group → robotStore per-robot solo/mute/highlight flags.
+        Rhythmic Density: Slider → maps to melody density parameter (define exact backing field in this issue; document the decision).
+        Note Variance: Slider → maps to melody variance parameter (define exact backing field in this issue).
+        Octave Range: Range Input (dual-thumb) → robot octave min/max in robotStore.
+        New Melody: Button With Confirmation → regenerates melody for selected robot via robotStore.
+        Radix: Radio group uses @radix-ui/react-radio-group; sliders use @radix-ui/react-slider; confirmation uses @radix-ui/react-alert-dialog.
+
+    Issue 13: Robot Oscillators Sub-Tab.
+        Renders inside Robot Editor Console when Robot Oscillators sub-tab is active.
+        Robot Oscillator Type: Dropdown → robot.audioAttributes.waveform.
+        Robot Oscillator Detune: Dual Speed Stepper → robot.audioAttributes.detune (Issue 0d).
+        Robot Oscillator Gain: Dual Speed Stepper → robot.masterVolume.
+        Robot Oscillator Phase: Slider → robot.audioAttributes.phase (Issue 0d).
+        Robot Oscillator Pulsewidth: Dual Speed Stepper → Tone oscillator width; render conditionally when waveform === 'square' only.
+        Robot Oscillator ADSR Canvas: HTML Canvas with 4 draggable nodes (Attack, Decay, Sustain, Release), bezier curve visualization; uses pointer/touch events. Maps to robot.audioAttributes ADSR fields.
+        Select Robot Oscillator Preset: Dropdown + Load Robot Oscillator Preset: Button With Confirmation.
+        Delete This Oscillator: Button With Confirmation.
+        New Oscillator: Button → adds an oscillator layer to the selected robot.
+        Radix: Waveform dropdown uses @radix-ui/react-select; for each slider @radix-ui/react-slider; preset confirmation uses @radix-ui/react-alert-dialog.
+        No rotary knobs — all continuous controls are touch-friendly linear sliders or steppers.
 
 
-🎛️ Milestone 5: Global Audio FX Rack
+🎹 Milestone 4: Composition Console Tab
 
-Goal: The master signal chain processing.
-Depends on: audioStore (globalAudio state, FX), AudioEngine (FX chain).
+Goal: Chord sequence editing and note selection.
+Depends on: audioStore (harmony/chord state), oceanStore (measure state), uiStore (activeConsoleTab).
+Note: All interactive elements must meet the 44×44px minimum touch target size (WCAG 2.5.5).
 
-    Issue 17: Build Universal FX Wrapper (1×1 Bypass Toggle + Group Border).
-        Global bypass toggle maps to audioStore.globalAudio.globalBypass → AudioEngine.setGlobalBypass().
-        Per-effect bypass toggle maps to audioStore.globalAudio.<effect>.enabled → AudioEngine.setEffectBypass(effect, enabled).
-        Radix: both bypass toggles use @radix-ui/react-switch → Switch.Root + Switch.Thumb for correct checked/unchecked accessibility semantics.
+    Issue 14: Build Composition Console Tab Shell.
+        Renders when activeConsoleTab === 'composition'.
+        Renders a scrollable list of ChordItem components, one per chord in the sequence (from audioStore chord state).
+        Shell only in this issue — ChordItem renders a placeholder until Issue 15.
+        Depends on: Issues 3–4.
 
-    Issue 18: Implement Reverb & Delay Modules (Value Strips).
-        All parameters use Value Strips (horizontal or vertical high-contrast fill bars) — no knobs or grippable controls.
-        Reverb: decay, preDelay, dampening, wet → AudioEngine.setGlobalReverb().
-        Delay: delayTime, feedback, wet → AudioEngine.setGlobalDelay().
+    Issue 15: Build Chord Item Component.
+        Repeating list item component; one instance per chord in the sequence.
+        Notes Button → opens Piano Keyboard Popover (Issue 16) anchored to this chord item.
+        Delete Chord: Button With Confirmation → removes this chord from the sequence via audioStore.
+        Add Chord Here: Button With Confirmation → inserts a new chord after this position in the sequence via audioStore.
+        Radix: confirmations use @radix-ui/react-alert-dialog.
+
+    Issue 16: Build Piano Keyboard Popover (Note Selector).
+        Floating popover triggered from the Notes button on a ChordItem.
+        Renders a visual keyboard with white and black keys for note/octave selection.
+        Selected notes update the chord's note array in audioStore.
+        Radix: @radix-ui/react-popover → Popover.Root + Popover.Trigger + Popover.Content + Popover.Close.
+
+
+🎛️ Milestone 5: Audio Rig Console Tab
+
+Goal: Master signal chain processing surfaced in the Console.
+Depends on: audioStore (globalAudio, FX state — Issues 0a–0c), AudioEngine (FX chain — Issue 0c), uiStore (activeConsoleTab).
+
+    Issue 17: Build Audio Rig Console Tab Shell + Audio Rig Navigation.
+        Renders when activeConsoleTab === 'audioRig'.
+        Audio Rig Navigation: Radix sub-tabs for Audio Meta | Reverb | Compression | Delay | Filters | Chorus | EQ.
+        Audio Rig Console: panel content area below the sub-tabs rendering the active sub-tab's component.
+        Sub-tab state is local to this component (not Zustand).
+        Radix: nested @radix-ui/react-tabs inside the outer Console Tabs.
+        Depends on: Issues 3–4, Issues 0a–0c.
+
+    Issue 18: Build Universal FX Effect Block (Reusable Wrapper).
+        Reusable FXEffectBlock component: label (string), per-effect bypass toggle, children slot.
+        Per-effect bypass toggle reads audioStore.globalAudio[effectKey].enabled; on toggle calls setGlobalAudio(effectKey, { enabled }) AND AudioEngine.setEffectBypass(effectKey, enabled).
+        When enabled = false: children dim via CSS opacity + pointer-events: none; label shows BYPASSED badge; bypass toggle itself remains fully interactive.
+        Global bypass toggle at the Audio Rig level (top of the tab): reads globalAudio.globalBypass; calls AudioEngine.setGlobalBypass(enabled). A dedicated setGlobalBypass(enabled) action may be required in audioStore — decide and document at implementation time.
+        Radix: all bypass toggles use @radix-ui/react-switch → Switch.Root + Switch.Thumb.
+        Used by Issues 19–24 as the wrapper for each effect sub-tab.
+
+    Issue 19: Audio Meta Sub-Tab.
+        Renders inside Audio Rig Console when Audio Meta sub-tab is active.
+        BPM: Dual Speed Stepper → audioStore.setBPM(bpm).
+        Volume Indicator: read-only VU display → derived from audioStore master volume.
+
+    Issue 20: Reverb Sub-Tab.
+        Renders inside Audio Rig Console when Reverb sub-tab is active. Wrapped in FXEffectBlock (Issue 18).
+        Room Size, Wet/Dry Mix, Pre-Delay, Damping, Width: Value Strips (horizontal high-contrast fill bars) → AudioEngine.setGlobalReverb().
+        Reverb Bypass: handled by FXEffectBlock per-effect toggle.
         Radix: each Value Strip uses @radix-ui/react-slider → Slider.Root + Slider.Track + Slider.Range + Slider.Thumb.
 
-    Issue 19: Implement Compression & EQ Modules (Value Strips).
-        All parameters use Value Strips.
-        Compressor: threshold, ratio, attack, release, knee → AudioEngine.setGlobalCompressor().
-        EQ3: low, mid, high gain → AudioEngine.setGlobalEQ().
-        Radix: each Value Strip uses @radix-ui/react-slider → Slider.Root + Slider.Track + Slider.Range + Slider.Thumb.
+    Issue 21: Compression Sub-Tab.
+        Renders inside Audio Rig Console when Compression sub-tab is active. Wrapped in FXEffectBlock.
+        Threshold, Ratio, Attack, Release, Knee: Value Strips → AudioEngine.setGlobalCompressor().
+        Compression Bypass: handled by FXEffectBlock.
+        Radix: @radix-ui/react-slider for each Value Strip.
 
-    Issue 20: Implement Filter & Chorus Modules (Value Strips).
-        All parameters use Value Strips.
-        LPF: frequency, Q → AudioEngine.setGlobalFilterLPF().
-        HPF: frequency, Q → AudioEngine.setGlobalFilterHPF().
-        Chorus: rate, depth, delayTime, feedback, wet → AudioEngine.setGlobalChorus().
-        Radix: each Value Strip uses @radix-ui/react-slider → Slider.Root + Slider.Track + Slider.Range + Slider.Thumb.
+    Issue 22: Delay Sub-Tab.
+        Renders inside Audio Rig Console when Delay sub-tab is active. Wrapped in FXEffectBlock.
+        Delay Time, Feedback, Wet/Dry: Value Strips → AudioEngine.setGlobalDelay().
+        Delay Bypass: handled by FXEffectBlock.
+        Radix: @radix-ui/react-slider for each Value Strip.
+
+    Issue 23: Filters Sub-Tab.
+        Renders inside Audio Rig Console when Filters sub-tab is active. Two FXEffectBlock sections: High Pass and Low Pass.
+        High Pass: Cutoff Frequency, Resonance Value Strips → AudioEngine.setGlobalFilterHPF(). High Pass Bypass toggle.
+        Low Pass: Cutoff Frequency, Resonance Value Strips → AudioEngine.setGlobalFilterLPF(). Low Pass Bypass toggle.
+        Radix: @radix-ui/react-slider; bypass toggles via FXEffectBlock.
+
+    Issue 24: Chorus Sub-Tab.
+        Renders inside Audio Rig Console when Chorus sub-tab is active. Wrapped in FXEffectBlock.
+        Rate, Depth, Delay Time, Feedback, Wet/Dry: Value Strips → AudioEngine.setGlobalChorus().
+        Chorus Bypass: handled by FXEffectBlock.
+        Radix: @radix-ui/react-slider for each Value Strip.
+
+    Issue 25: EQ Sub-Tab.
+        Renders inside Audio Rig Console when EQ sub-tab is active. Wrapped in FXEffectBlock.
+        Low, Mid, High: Value Strips → AudioEngine.setGlobalEQ().
+        EQ Bypass: handled by FXEffectBlock.
+        Radix: @radix-ui/react-slider for each Value Strip.
 
 
-📊 Milestone 6: System Utilities & Polish
+⚙️ Milestone 6: Settings, Utilities & Responsive Polish
 
-Goal: Data visualization, settings, and final responsive cleanup.
-Depends on: uiStore (theme, language, fullscreen), settingsStore (Issues 0h), notificationStore (Issue 0i), sessionStore (Issue 0j).
+Goal: User preferences, final responsive cleanup, and data visualization.
 
-    Issue 21: Build Data Vis Viewport (TBD Grid area for telemetry).
 
-    Issue 22: Build Settings Overlay (Theme Switcher & Graphic Settings).
-        Theme and language state lives in uiStore (setTheme, setLanguage).
-        Radix: overlay panel uses @radix-ui/react-dialog → Dialog.Root + Dialog.Content. Boolean preference toggles (reducedMotion, accessibilityMode) use @radix-ui/react-switch. Language and theme dropdowns use @radix-ui/react-select.
-
-    Issue 23: 360px Collapsed Sleeve Pass.
-        Set --sleeve-width: 30px on mobile — the sleeve narrows to its minimum housing width.
-        Navigation drops to the bottom tab bar on the GlassViewport (see Issue 3).
-        GlassViewport enters vertical scroll "tape" mode: all views stack in a single scrollable column, making the interface feel like a long tape of data being pulled out of a compact handheld unit.
-        Verify all views from Milestones 2–5 stack and scroll correctly at 360px viewport width.
+    Issue 26: 360px Collapsed Sleeve Pass.
+        Set --sleeve-width: 30px at ≤768px breakpoint — sleeve narrows to minimum housing width.
+        Console stacks below WorldView on mobile; ConsoleNavigation remains accessible.
+        Verify all Console tabs from Milestones 2–5 stack and scroll correctly at 360px viewport width.
+        WorldView shrinks gracefully; OceanScene remains usable and legible at minimum width.

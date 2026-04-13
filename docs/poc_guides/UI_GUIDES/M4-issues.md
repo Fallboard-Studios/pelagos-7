@@ -1,112 +1,102 @@
 ---
 name: Feature
-about: Milestone 4 — Composition & Note Matrix. Note: all interactive elements in this milestone must meet the 44×44px minimum touch target size (WCAG 2.5.5).
+about: Milestone 4 — Composition Console Tab. Note: all interactive elements in this milestone must meet the 44×44px minimum touch target size (WCAG 2.5.5).
 title: '[M8.4] '
 labels: feature
 assignees: ''
 ---
 
 <!-- ============================================================ -->
-<!-- ISSUE 14: Composition View Shell & Design Token Setup        -->
+<!-- ISSUE 14: Build Composition Console Tab Shell                -->
 <!-- ============================================================ -->
 
-## [M8.4-14] Composition View Shell & Design Token Setup
+## [M8.4-14] Build Composition Console Tab Shell
 
 ## Feature Description
-Create the `CompositionView` shell component and establish all design tokens and shared CSS custom properties needed by the note matrix and piano popover in Issues 15 and 16. This is the setup issue — no functional note-editing UI yet, just the container and tokens in place so the subsequent issues have a stable foundation to build on.
+Build the `CompositionConsoleTab` shell that renders when `activeConsoleTab === 'composition'`. It displays a scrollable list of `ChordItem` components (one per chord in the sequence from audioStore chord state). This issue covers the shell and CSS token setup only — `ChordItem` renders a placeholder until Issue 15.
 
-**Design scope:** `CompositionView` is the top-level view for the harmony palette editor. In this version it renders a single child: `<HarmonyPaletteEditor />` (Issue 15). It replaces the stub created in Issue 4.
-
-Depends on: **Issue 1** (global design tokens).
+Depends on: **Issues 3–4** (Console panel must exist), **Issue 1** (design tokens).
 
 ## Implementation Details
-- [ ] Create `src/components/views/CompositionView.tsx` and `CompositionView.css`
-  - Renders a titled panel (`"Harmony Palette"` heading) with a placeholder slot for `<HarmonyPaletteEditor />` (renders nothing until Issue 15 is merged)
-  - Accepts no props; reads no store state
-  - Apply layout CSS using tokens from Issue 1 (padding, background, border-radius)
-- [ ] Add the following CSS custom properties to `CompositionView.css` (scoped to `.composition-view`) for use by child components:
+- [ ] Create `src/components/console/CompositionConsoleTab.tsx` and `CompositionConsoleTab.css`
+- [ ] Renders when `activeConsoleTab === 'composition'` (controlled by `ConsolePanel`, Issue 4)
+- [ ] Renders a scrollable container with a list of `<ChordItem />` components (one per chord in the sequence from audioStore chord state)
+- [ ] `ChordItem` renders a placeholder until Issue 15 — the shell demonstrates the list structure with placeholder items
+- [ ] Add the following CSS custom properties to `CompositionConsoleTab.css` for use by child components:
   - `--palette-cell-size`: width/height of each note cell (e.g. `2.5rem`)
   - `--palette-cell-gap`: gap between cells (e.g. `0.25rem`)
   - `--piano-key-white-width`, `--piano-key-black-width`: key dimensions for the popover
   - `--piano-key-white-height`, `--piano-key-black-height`: key heights
   - Values should be consistent with the existing color theme (`assets/color-theme.json`)
-- [ ] Wire `<CompositionView />` into the appropriate navigation slot established by earlier UI issues (or document exactly where it should be mounted if that slot does not exist yet)
-- [ ] No functional note logic in this issue — the component body is a shell only
+- [ ] No functional chord-editing logic in this issue — the component body is a shell only
 - [ ] Use only design tokens from Issue 1 for all styles
+- [ ] All interactive elements meet the 44×44px minimum touch target size (WCAG 2.5.5)
 - [ ] App compiles with no TypeScript errors after this issue
 
 ## Acceptance Criteria
-- [ ] All interactive elements in `CompositionView` and its children meet the 44×44px minimum touch target size
-- [ ] `CompositionView.tsx` exists and mounts without errors
-- [ ] `"Harmony Palette"` heading renders inside the view
+- [ ] `CompositionConsoleTab` renders when `activeConsoleTab === 'composition'`
+- [ ] Placeholder `ChordItem` list renders in a scrollable container
 - [ ] All five CSS custom properties are defined and accessible to child components
-- [ ] No note-editing functionality present (that is Issues 15 and 16)
+- [ ] No functional chord-editing logic present (that is Issues 15 and 16)
 - [ ] App compiles with no TypeScript errors
 - [ ] No regression in existing UI
 
 ## Source Reference
-- `src/components/views/` — sibling view components for placement reference
+- `src/components/console/CompositionConsoleTab.tsx` (new)
 - `assets/color-theme.json` — color tokens
-- Copilot instructions: issue 1 design tokens must be the source of all style values
+- Copilot instructions: "All interactive UI (transport, navigation, controls) lives inside GlassViewport only."
 
 ---
 
 <!-- ============================================================ -->
-<!-- ISSUE 15: HarmonyPaletteEditor Component (Note Matrix)       -->
+<!-- ISSUE 15: Build Chord Item Component                         -->
 <!-- ============================================================ -->
 
-## [M8.4-15] HarmonyPaletteEditor Component (Note Matrix)
+## [M8.4-15] Build Chord Item Component
 
 ## Feature Description
-Build `HarmonyPaletteEditor` — the 8-cell note matrix that displays and allows editing of the current `TIME_PITCHES` palette. Each cell shows one note name from the active palette. Clicking a cell will open `PianoKeyPopover` (Issue 16) to select a replacement. This issue covers the matrix component itself and its interaction with `harmonySystem.ts`; the popover UI is Issue 16.
+Build the `ChordItem` repeating list component used inside `CompositionConsoleTab`. Each `ChordItem` represents one chord in the sequence and exposes three actions: a Notes button that opens `PianoKeyPopover` (Issue 16), a Delete Chord button with confirmation, and an Add Chord Here button with confirmation.
 
-**Design scope:** This is the only note-editing surface in the current version. Robots' individual melodies are auto-generated at spawn and are not exposed. The palette is the shared, user-accessible "tuning" layer.
-
-Depends on: **Issue 14** (CompositionView shell and CSS tokens), **Issue 16** (PianoKeyPopover — wire the click handler but the popover implementation is separate).
+Depends on: **Issue 14** (`CompositionConsoleTab` shell and CSS tokens), **Issue 0k** (Radix installed), **Issue 1** (design tokens).
 
 ## Implementation Details
-- [ ] Create `src/components/ui/HarmonyPaletteEditor.tsx` and `HarmonyPaletteEditor.css`
-- [ ] On mount: read the current palette via `getAvailableNotes()` from `harmonySystem.ts` and store as local `string[]` state
-- [ ] Render 8 clickable cells in a horizontal row using `--palette-cell-size` and `--palette-cell-gap` from Issue 14; each cell labelled with its current note name (e.g. `C`, `G`, `Bb`)
-- [ ] Display the current in-game hour label (e.g. `Hour 7`) sourced from `getCurrentHour()` from `beatClock.ts`, with a `"Resets each hour"` tooltip/subtitle
-- [ ] Clicking a cell opens `<PianoKeyPopover>` anchored to that cell, passing:
-  - `index: number` — the palette slot being edited (0–7)
-  - `currentNote: string` — the cell's current note name
-  - `onConfirm: (noteName: string) => void`
-  - `onClose: () => void`
-- [ ] Only one popover open at a time; track `openCellIndex: number | null` in local state; clicking a different cell closes the current popover and opens a new one
-- [ ] **Radix:** Each cell click opens a `@radix-ui/react-popover` → `Popover.Root` + `Popover.Trigger` + `Popover.Portal` + `Popover.Content` + `Popover.Close`. This provides focus management, Escape-to-close, click-outside dismissal, and correct `aria-expanded` semantics. The cell element acts as the `Popover.Trigger`.
-- [ ] `onConfirm` handler: build an updated `EighthNotes` tuple — `const updated = [...getAvailableNotes()] as EighthNotes; updated[index] = noteName; setAvailableNotes(updated)` — then re-read `getAvailableNotes()` to refresh local state
-- [ ] `onClose` handler: set `openCellIndex` to `null`
-- [ ] Mount `<HarmonyPaletteEditor />` inside `CompositionView` (replacing the placeholder from Issue 14)
-- [ ] Use `--palette-cell-size`, `--palette-cell-gap` tokens from Issue 14 for layout
-- [ ] Use only design tokens from Issue 1 for all other styles
+- [ ] Create `src/components/console/ChordItem.tsx` and `ChordItem.css`
+- [ ] Props: `chord` (chord data from audioStore), `index: number`, `onDelete: () => void`, `onAddAfter: () => void`, `onNotesChange: (notes: string[]) => void`
+- [ ] **Notes Button:**
+  - Clicking opens `<PianoKeyPopover>` (Issue 16) anchored to this `ChordItem`
+  - Passes the chord's current notes and an `onConfirm` callback that calls `onNotesChange`
+  - **Radix:** `@radix-ui/react-popover` → `Popover.Root` + `Popover.Trigger` + `Popover.Portal` + `Popover.Content` + `Popover.Close`
+  - Only one popover open at a time across all `ChordItem`s (manage via index tracking in `CompositionConsoleTab`)
+- [ ] **Delete Chord Button With Confirmation:**
+  - **Radix:** `@radix-ui/react-alert-dialog` → `AlertDialog.Root` + `AlertDialog.Trigger` + `AlertDialog.Portal` + `AlertDialog.Overlay` + `AlertDialog.Content` + `AlertDialog.Title` + `AlertDialog.Description` + `AlertDialog.Action` + `AlertDialog.Cancel`
+  - On confirm: calls `onDelete()` which removes this chord from the sequence via audioStore
+- [ ] **Add Chord Here Button With Confirmation:**
+  - **Radix:** `@radix-ui/react-alert-dialog` for a non-destructive confirmation ("Add a new chord after this one?")
+  - On confirm: calls `onAddAfter()` which inserts a new chord after this position in the sequence via audioStore
+- [ ] All buttons meet minimum 44×44px touch target size (WCAG 2.5.5)
+- [ ] Use only design tokens from Issue 1 and CSS tokens from Issue 14 for all styles
 - [ ] No architecture violations (audio/animation/state separation)
 - [ ] Code follows standards (imports ordered, explicit types)
 - [ ] Tested locally (no console errors)
 
 ## Technical Notes
-- **`EighthNotes` type:** `setAvailableNotes` expects exactly 8 strings (`[string, string, string, string, string, string, string, string]`). Always spread the full current palette before replacing a single index to preserve the other 7 entries.
-- **No Zustand involvement:** `HarmonyPaletteEditor` does not touch `useOceanStore`. The harmony system is a standalone module. Local React state is the correct pattern here.
-- **Harmony cycle interaction:** When `scheduleHarmonyCycle` fires (every 4 measures), it overwrites `availableNotes` with `TIME_PITCHES[currentHour]`, discarding any user edit silently. This is acceptable in v1. The `"Resets each hour"` label communicates this to the user.
+- Each `ChordItem` is a pure UI component — it receives chord data as props and delegates mutations upward via callbacks. It does not write to audioStore directly.
+- `CompositionConsoleTab` owns the audioStore subscription and passes data + action handlers down to each `ChordItem`.
+- The Notes popover should be controlled by an `openChordIndex: number | null` state in `CompositionConsoleTab` to ensure only one popover is open at a time across all items.
 
 ## Acceptance Criteria
-- [ ] All 8 palette cells meet the 44×44px minimum touch target size
-- [ ] 8 labelled note-name cells render correctly from the current harmony palette
-- [ ] Current in-game hour label and `"Resets each hour"` note display correctly
-- [ ] Clicking a cell opens `PianoKeyPopover` with the correct `index` and `currentNote` props
-- [ ] `onConfirm` updates the palette via `setAvailableNotes` and refreshes the cell labels
-- [ ] The edited cell's label updates immediately after confirmation
-- [ ] Only one popover is open at a time
-- [ ] `onClose` dismisses the popover without changes
+- [ ] All interactive elements meet the 44×44px minimum touch target size
+- [ ] Notes button opens `PianoKeyPopover` anchored to the chord item; only one popover open at once
+- [ ] Delete confirmation uses AlertDialog; confirm removes the chord; cancel dismisses without change
+- [ ] Add Chord Here confirmation uses AlertDialog; confirm inserts a chord after this position
+- [ ] `ChordItem` renders correctly within the scrollable list of `CompositionConsoleTab`
 - [ ] App compiles with no TypeScript errors
 - [ ] App remains functional after merge
 - [ ] No regression in audio playback
 
 ## Source Reference
-- `src/engine/harmonySystem.ts` — `getAvailableNotes`, `setAvailableNotes`, `EighthNotes`
-- `src/engine/beatClock.ts` — `getCurrentHour`
-- Copilot instructions: "Melody Logic: Melodies must store note indices (0..7), never literal pitch strings."
+- File: `src/components/console/ChordItem.tsx` (new), `src/components/console/CompositionConsoleTab.tsx` (Issue 14)
+- Copilot instructions: "All interactive UI (transport, navigation, controls) lives inside GlassViewport only."
 
 ---
 
@@ -117,15 +107,15 @@ Depends on: **Issue 14** (CompositionView shell and CSS tokens), **Issue 16** (P
 ## [M8.4-16] PianoKeyPopover Component
 
 ## Feature Description
-Build `PianoKeyPopover` — a floating piano keyboard UI that appears anchored to a note cell in `HarmonyPaletteEditor`. The user selects a replacement note name from the 12 chromatic pitch classes, with a ♯/♭ toggle to switch black key label spellings. Confirming a selection calls back to `HarmonyPaletteEditor` with the chosen note name string.
+Build `PianoKeyPopover` — a floating piano keyboard UI that appears anchored to the Notes button on a `ChordItem`. The user selects a replacement note name from the 12 chromatic pitch classes, with a ♯/♭ toggle to switch black key label spellings. Confirming a selection calls back to `ChordItem` with the chosen note name string.
 
-**Radix note:** The popover anchoring, focus trapping, Escape-to-close, and portal are all handled by `@radix-ui/react-popover` (wired in Issue 15). This issue implements the piano keyboard content rendered inside `Popover.Content`. For the ♯/♭ toggle, use `@radix-ui/react-toggle` → `Toggle.Root` for correct `aria-pressed` semantics. For the Confirm/Cancel close button, use `Popover.Close`.
+**Radix note:** The popover anchoring, focus trapping, Escape-to-close, and portal are all handled by `@radix-ui/react-popover` (wired in Issue 15 via `ChordItem`). This issue implements the piano keyboard content rendered inside `Popover.Content`. For the ♯/♭ toggle, use `@radix-ui/react-toggle` → `Toggle.Root` for correct `aria-pressed` semantics. For the Confirm/Cancel close button, use `Popover.Close`.
 
-Depends on: **Issue 0k** (Radix installed), **Issue 14** (CSS tokens), **Issue 15** (HarmonyPaletteEditor wires this component in).
+Depends on: **Issue 0k** (Radix installed), **Issue 14** (CSS tokens), **Issue 15** (`ChordItem` wires this component in via the Notes button).
 
 ## Implementation Details
 - [ ] Create `src/components/ui/PianoKeyPopover.tsx` and `PianoKeyPopover.css`
-- [ ] **Radix:** The floating panel is implemented with `@radix-ui/react-popover` (provided by `HarmonyPaletteEditor` as the outer `Popover.Root` + `Popover.Content`). `PianoKeyPopover` renders as the content inside `Popover.Content`; it does not manage its own open/close state or positioning.
+- [ ] **Radix:** The floating panel is implemented with `@radix-ui/react-popover` (provided by `ChordItem` as the outer `Popover.Root` + `Popover.Content`). `PianoKeyPopover` renders as the content inside `Popover.Content`; it does not manage its own open/close state or positioning.
 - [ ] Props interface:
   ```typescript
   interface PianoKeyPopoverProps {
@@ -190,39 +180,5 @@ Depends on: **Issue 0k** (Radix installed), **Issue 14** (CSS tokens), **Issue 1
 - Issue 14 CSS tokens — `--piano-key-*` dimensions
 - Copilot instructions: "Melody Logic: Melodies must store note indices (0..7), never literal pitch strings."
 
----
-
-<!-- ============================================================ -->
-<!-- ISSUE 16a: Implement Measure CRUD                             -->
-<!-- ============================================================ -->
-
-## [M8.4-16a] Implement Measure CRUD (New/Delete Measure Buttons with Confirmation)
-
-## Feature Description
-Add New Measure and Delete Measure buttons to `CompositionView`. Deletion is a destructive operation and requires a confirmation dialog before executing. This issue covers the buttons, the confirmation guard, and the backing logic in the harmony/melody system.
-
-Depends on: **Issue 0k** (Radix installed), **Issue 14** (`CompositionView` shell), **Issue 15** (`HarmonyPaletteEditor` renders inside it).
-
-## Implementation Details
-- [ ] Add **New Measure** and **Delete Measure** buttons to `CompositionView`
-- [ ] All controls are touch targets (minimum 44×44px per WCAG 2.5.5)
-- [ ] **New Measure:** creates a new measure entry; no confirmation required (non-destructive)
-- [ ] **Delete Measure:** destructive — must confirm before executing
-- [ ] **Radix:** Destructive delete confirmation uses `@radix-ui/react-alert-dialog` → `AlertDialog.Root` + `AlertDialog.Trigger` + `AlertDialog.Portal` + `AlertDialog.Overlay` + `AlertDialog.Content` + `AlertDialog.Title` + `AlertDialog.Description` + `AlertDialog.Action` + `AlertDialog.Cancel`. Provides focus trapping, Escape-to-dismiss, and correct `role="alertdialog"` ARIA semantics automatically.
-- [ ] Use only design tokens from Issue 1 for all styles
-- [ ] No architecture violations (audio/animation/state separation)
-- [ ] Code follows standards (imports ordered, explicit types)
-- [ ] Tested locally (no console errors)
-
-## Acceptance Criteria
-- [ ] New Measure button adds a measure without confirmation
-- [ ] Delete Measure button opens an `AlertDialog` confirmation
-- [ ] Confirming the dialog deletes the measure; Cancel dismisses without changes
-- [ ] Focus is trapped in the dialog while open; Escape dismisses
-- [ ] All buttons meet 44×44px minimum touch target
-- [ ] App compiles with no TypeScript errors
-- [ ] App remains functional after merge
-
-## Source Reference
-- File: `src/components/views/CompositionView.tsx`
-- Copilot instructions: "All interactive UI (transport, navigation, controls) lives inside GlassViewport only."
+<!-- NOTE: Issue 16a (Measure CRUD) has been removed — Add/Delete Chord actions are now
+     built directly into ChordItem (Issue 15) via the Add Chord Here and Delete Chord buttons. -->
