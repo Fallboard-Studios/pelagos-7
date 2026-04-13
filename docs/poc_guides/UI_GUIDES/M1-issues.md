@@ -347,109 +347,171 @@ Depends on: **Issue 2** (TransportBar scaffold must exist), **Issue 0b-delta** (
 ---
 
 <!-- ============================================================ -->
-<!-- ISSUE 3: Build Navigation System                             -->
+<!-- ISSUE 3: Build Root Layout Grid (Four-Panel Shell)           -->
 <!-- ============================================================ -->
 
-## [M8.1-3] Build Navigation System
+## [M8.1-3] Build Root Layout Grid (Four-Panel Shell)
 
 ## Feature Description
-Build the primary navigation component that allows the user to switch between the five application views. On tablet and desktop it renders as a vertical icon bar on the left edge of `GlassViewport` — inside the glass, not inside the sleeve. On mobile (≤480px) it renders as a bottom tab bar at the bottom of `GlassViewport`. It is always visible and reflects the currently active view.
+Establish the four-panel CSS Grid that structures all glass-side content below the `SleeveContainer`. `GlassViewport` is divided into four persistent, named areas: `TransportBar`, `WorldView`, `RobotList`, and `Console`. All four panels render unconditionally — no `display:none` toggling at the root level. This is the foundational layout that all Milestone 2+ content is mounted inside.
 
-Depends on: **Issue 0e** (`uiStore.activeView` must exist), **Issue 1** (design tokens).
+Depends on: **Issue 1** (`GlassViewport` must exist, design tokens), **Issue 0l-delta** (`activeConsoleTab` in `uiStore` must exist).
 
 ## Implementation Details
-- [ ] Create `src/components/ui/NavigationBar.tsx` and `NavigationBar.css`
-- [ ] Five navigation targets mapping to `uiStore`'s `activeView` values:
-  - `ocean` — "Ocean" (home/environment view)
-  - `robot` — "Robots" (synthesis & management)
-  - `composition` — "Composition" (note matrix)
-  - `fx` — "FX Rack" (global audio effects)
-  - `settings` — "Settings" (utilities & polish)
-- [ ] Each nav item: icon (or label abbreviation) + text label, highlights when `activeView` matches
-- [ ] Clicking a nav item calls `useUIStore.getState().setActiveView(view)`
-- [ ] **Tablet/Desktop (>480px):** vertical icon bar positioned on the **right edge** inside `GlassViewport`; full `GlassViewport` height; `position: absolute; right: 0; top: 0`; navigation does not extend into or overlap the sleeve
-- [ ] **Mobile (≤480px):** horizontal bottom tab bar; `position: sticky; bottom: 0; width: 100%` inside `GlassViewport`; all five icons/labels fit without overflow at 360px; if horizontal space is insufficient, stack buttons in two rows rather than clipping or scrolling
-- [ ] Navigation does not extend into or overlap `SleeveContainer` — it is entirely within `GlassViewport`
-- [ ] Content area offsets for nav width/height via CSS padding or inner layout (e.g. `padding-right: var(--nav-width)` on desktop, `padding-bottom: var(--nav-height)` on mobile)
-- [ ] Use only design tokens from Issue 1 for all styles
-- [ ] No architecture violations (audio/animation/state separation)
-- [ ] Code follows standards (imports ordered, explicit types)
-- [ ] Tested locally (no console errors)
-- [ ] Keyboard navigable (tab through items, Enter/Space to activate)
-- [ ] **Radix:** Use `@radix-ui/react-tabs` → `Tabs.Root` + `Tabs.List` + `Tabs.Trigger` for the nav rail. Set `orientation="vertical"` on desktop and `orientation="horizontal"` on mobile. **Important caveat:** `Tabs.Content` siblings must be co-located with `Tabs.List` inside the same `Tabs.Root`. If this DOM structure conflicts with the existing `GlassViewport` layout (transport bar + content area + nav), use `Tabs.Trigger` only for the nav rail and drive content visibility separately from `uiStore.activeView` — document the decision in the PR.
+- [ ] Update `GlassViewport.tsx` (or create an inner `GlassGrid.tsx` child wrapper) to establish the four-area CSS Grid:
+  ```
+  grid-template-columns: 2fr 1fr;
+  grid-template-rows: auto auto 1fr;
+  grid-template-areas:
+    "transport   robotlist"
+    "worldview   robotlist"
+    "console     console";
+  ```
+- [ ] **TransportBar** (`grid-area: transport`): already exists from Issue 2; bind it to this named area. Flush top-left; same width as `WorldView` column (~2/3 of `GlassViewport`).
+- [ ] **WorldView** (`grid-area: worldview`): new `src/components/layout/WorldView.tsx`. Enforces `aspect-ratio: 16/9` on itself. Renders `<OceanScene />` as its sole child (no interactive UI). Always visible regardless of `activeConsoleTab`.
+- [ ] **RobotList** (`grid-area: robotlist`): stub `src/components/layout/RobotList.tsx` — renders a placeholder panel. Spans rows 1–2 (flush top-right). Width is the remaining ~1/3 of the glass (flexible `1fr`). Fully implemented in Issue 3a.
+- [ ] **Console** (`grid-area: console`): stub `src/components/layout/ConsolePanel.tsx` — renders a placeholder panel. Spans both columns (full glass width below `WorldView` + `RobotList`). Fills all remaining vertical space (`1fr`). Fully implemented in Issue 4.
+- [ ] Define CSS custom property `--transport-height` on the `TransportBar` element (read at runtime or as a design token default: `48px`) for use by child layout calculations.
+- [ ] **Mobile layout (<768px):** all four areas stack full-width in a single column. Order via `grid-template-areas` override:
+  ```
+  "transport"
+  "worldview"
+  "console"
+  "robotlist"
+  ```
+  `TransportBar` becomes `position: sticky; top: 0` in the stacked layout.
+- [ ] Remove the `<OceanScene />` direct mount from `App.tsx`; it now lives inside `WorldView`.
+- [ ] All panels render unconditionally — do not conditionally mount/unmount based on `activeConsoleTab`.
+- [ ] Use only design tokens from Issue 1 for all styles (no hardcoded colours or sizes).
+- [ ] No architecture violations (audio/animation/state separation).
+- [ ] Code follows standards (imports ordered, explicit types).
+- [ ] Tested locally (no console errors).
 
 ## Technical Notes
-- Icons can be simple SVG inline or a small local icon set — do not introduce an icon library dependency without discussion.
-- The `activeView` highlight should use a CSS class toggle (e.g., `.nav-item--active`), not inline styles, so it is themeable.
-- Reduced-motion: navigation transitions (if any) must respect `prefers-reduced-motion`.
-- Accessibility: each nav item must have a descriptive `aria-label` and the active item `aria-current="page"`.
+- `aspect-ratio: 16/9` on `WorldView` makes its height derived from its column width. Because `WorldView` is in column 1 (`2fr` of the glass), its height will be `(GlassViewport_width * 2/3) * 9/16`. The `Console` row (`1fr`) fills whatever vertical space remains below it — no fixed console height needed.
+- The `RobotList` row-span means it shares its right column with both `TransportBar` and `WorldView` vertically. On desktop this gives it a taller area suitable for a scrolling list.
+- `GlassViewport` must have `display: grid` and `height: 100vh` (or `100%`) so the `1fr` Console row actually fills the remaining space. Ensure `overflow: hidden` is set at the grid level; individual panels scroll internally with `overflow-y: auto`.
+- **`OceanScene` side effects:** `OceanScene` is now always mounted inside `WorldView` (not conditionally). Spawn scheduler, collision, and factory systems continue running uninterrupted. No lifecycle changes needed.
+- **Design token**: add `--glass-col-world: 2fr` and `--glass-col-sidebar: 1fr` to `index.css` tokens so the column ratio is named and overrideable.
 
 ## Acceptance Criteria
-- [ ] All five navigation items render and are clickable
-- [ ] Clicking each item updates `useUIStore.getState().activeView` to the correct value
-- [ ] Active item is visually highlighted
-- [ ] On viewport width >480px, navigation renders as a vertical icon bar on the **right edge** of `GlassViewport`
-- [ ] On viewport width ≤480px, navigation renders as a horizontal bottom tab bar within `GlassViewport`; buttons stack into two rows if space is insufficient rather than clipping or scrolling
-- [ ] Content area is not obscured by the navigation bar at either breakpoint
-- [ ] Navigation bar does not overlap or intrude into `SleeveContainer`
-- [ ] All items are keyboard accessible (Tab + Enter/Space)
+- [ ] Grid renders with TransportBar and WorldView in column 1; RobotList spanning rows 1–2 in column 2; Console spanning full width in row 3
+- [ ] `WorldView` enforces `aspect-ratio: 16/9` — its height is derived from its column width
+- [ ] `RobotList` stub renders in right column flush top
+- [ ] `Console` stub renders full-width below the world view row
+- [ ] All four panels render unconditionally on every load
+- [ ] On mobile (<768px) all four areas stack vertically in the correct order; `TransportBar` is sticky
+- [ ] `OceanScene` renders inside `WorldView` and spawn/collision systems continue working
+- [ ] `App.tsx` no longer mounts `<OceanScene />` directly
 - [ ] App compiles with no TypeScript errors
-- [ ] App remains functional after merge
-- [ ] No regression in existing features
+- [ ] No regression in audio playback or robot/factory rendering
 
 ## Source Reference
-- File: `src/stores/uiStore.ts` (Issue 0e), `src/components/layout/GlassViewport.tsx` (Issue 1)
-- Copilot instructions: "State: Zustand only; store JSON-serializable data only."
+- File: `src/components/layout/GlassViewport.tsx`, `src/App.tsx`, `src/components/OceanScene.tsx`
+- Copilot instructions: "All interactive UI (transport, navigation, controls) lives inside GlassViewport only — never in the decorative SleeveContainer."
 
 ---
 
 <!-- ============================================================ -->
-<!-- ISSUE 4: Implement View-Switching Logic                      -->
+<!-- ISSUE 3a: Build Robot List Panel                             -->
 <!-- ============================================================ -->
 
-## [M8.1-4] Implement View-Switching Logic (State Management to Toggle "Active Viewport")
+## [M8.1-3a] Build Robot List Panel (Persistent Right-Column Picker)
 
 ## Feature Description
-Wire the `uiStore.activeView` state to conditionally render the correct viewport component in the main content area. Each view is a distinct React component (or placeholder); only the active view is mounted/visible at any time. The `OceanScene` (currently always rendered) becomes the `ocean` view.
+Implement the `RobotList` panel stub created in Issue 3. It is the persistent right-column robot picker — a scrollable list of all active robots; selecting one opens the Robot Editor Console Tab. No editing controls here; this panel is a gallery/selector only.
 
-Depends on: **Issue 0e** (`uiStore`), **Issue 3** (Mode Switcher emits `setActiveView` calls).
+Depends on: **Issue 3** (grid area `robotlist` must exist), **Issue 0d** (`robot.name` must exist), **Issue 0e-delta** (`robotStore.selectedRobotId` + `setSelectedRobotId()`).
 
 ## Implementation Details
-- [ ] Create a `src/components/ui/ActiveViewport.tsx` component that reads `useUIStore((s) => s.activeView)` and renders the matching view component
-- [ ] **Radix:** If Issue 3 uses `Tabs.Root` + `Tabs.Content`, view switching is handled by the Tabs primitive — `ActiveViewport` wraps `Tabs.Content` panels. If Issue 3 uses only `Tabs.Trigger` (decoupled from content due to layout constraints), `ActiveViewport` drives visibility directly from `uiStore.activeView` via conditional rendering.
-- [ ] View components (stubs acceptable for non-ocean views at this stage):
-  - `'ocean'` → `<OceanScene />` (existing component)
-  - `'robot'` → `<RobotView />` (stub: placeholder panel — Milestone 3)
-  - `'composition'` → `<CompositionView />` (stub — Milestone 4)
-  - `'fx'` → `<FXRackView />` (stub — Milestone 5)
-  - `'settings'` → `<SettingsView />` (stub — Milestone 6)
-- [ ] Create stub components for non-ocean views in `src/components/views/` (simple `<div>` with view name displayed)
-- [ ] Update `App.tsx` to render `<ActiveViewport />` instead of `<OceanScene />` directly
-- [ ] `OceanScene` side effects (spawn scheduler, collision detection, factory placement) must continue to run correctly when the view is mounted; confirm they are not disrupted by being conditionally rendered
-- [ ] Use only design tokens from Issue 1 for any viewport wrapper styles
+- [ ] Replace the `RobotList` stub with the full `src/components/layout/RobotList.tsx` and `RobotList.css`
+- [ ] Reads `useOceanStore((s) => s.robots)` for the robot list and `useOceanStore((s) => s.selectedRobotId)` for the selection highlight
+- [ ] Renders a vertically scrollable list (`overflow-y: auto`); each row (`RobotListItem`) shows:
+  - `robot.name` (from Issue 0d)
+  - A small static robot preview — use `<RobotPreview />` if available, or a scaled-down `<RobotBody />` with `pointer-events: none` and no GSAP refs registered (see Technical Notes)
+  - A status dot representing the robot's current `RobotState` (colour-coded: Idle/Moving/Selected/Interacting/Leaving)
+- [ ] Clicking a row: calls `useOceanStore.getState().setSelectedRobotId(robot.id)` **and** `useUIStore.getState().setActiveConsoleTab('robotEditor')`
+- [ ] The selected robot's row is visually highlighted via a CSS class (`.robot-list-item--selected`), not inline style
+- [ ] List updates within one render cycle when robots spawn or are removed (reactive to `robots` array in store)
+- [ ] If `robots` is empty: render a `"No robots"` placeholder message
+- [ ] Use only design tokens from Issue 1 for all styles; all list item touch targets minimum 44×44px
+- [ ] No architecture violations (no GSAP in this component, no Tone nodes)
+- [ ] Code follows standards (imports ordered, explicit types)
+- [ ] Tested locally (no console errors)
+
+## Technical Notes
+- **GSAP safety for robot preview:** The in-world `Robot.tsx` SVG registers refs in `setRef()` and animates via GSAP timelines in `timelineMap`. Do NOT re-use it at full fidelity here — use `<RobotPreview />` (a stripped-down static render with `pointer-events: none` and no `setRef`/`setTimeline` calls) to avoid animation system conflicts.
+- **`RobotState` colour map** (suggestion): `Idle` → muted blue/grey; `Moving` → amber; `Selected` → accent green; `Interacting` → bright blue; `Leaving` → dim red. Use CSS custom properties per state class, not inline colours.
+- Use `robot.id` as the React `key` prop on each list item, never array index.
+- The `Console` tab switch (`setActiveConsoleTab('robotEditor')`) is the only navigation side-effect from this panel. The `selectedRobotId` set here is what `Robot Editor` reads to know which robot to show.
+- On mobile, `RobotList` renders at the bottom of the stacked layout (below `Console`). Consider a horizontal compact strip layout at mobile widths (see Issue 28).
+
+## Acceptance Criteria
+- [ ] All active robots appear in the list with their name and visual preview
+- [ ] Clicking a robot sets `selectedRobotId` in the store and switches Console to the Robot Editor tab
+- [ ] Selected robot row is visually distinct (CSS class, not inline style)
+- [ ] List updates within one render cycle on robot spawn or removal
+- [ ] `"No robots"` placeholder visible when robot list is empty
+- [ ] No GSAP timeline collisions with in-world robot animations
+- [ ] All list item touch targets meet 44×44px minimum
+- [ ] App compiles with no TypeScript errors
+- [ ] No regression in ocean scene or robot animations
+
+## Source Reference
+- File: `src/stores/oceanStore.ts`, `src/components/robot/RobotBody.tsx`, `src/components/robot/RobotPreview.tsx`, `src/stores/uiStore.ts`
+- Copilot instructions: "All animation: GSAP timelines only; store timelines in timelineMap, not in React/Zustand state."
+
+---
+
+<!-- ============================================================ -->
+<!-- ISSUE 4: Build Console Panel + Console Navigation            -->
+<!-- ============================================================ -->
+
+## [M8.1-4] Build Console Panel + Console Navigation
+
+## Feature Description
+Implement the `Console` panel stub created in Issue 3. The Console is the primary interactive surface of the app — it contains a horizontal tab navigation (`ConsoleNavigation`) and a content area that mounts the active tab's component. Tab selection is driven by `uiStore.activeConsoleTab`. This issue wires the navigation and creates stub content views for each of the six tabs; full tab content is built in Milestones 2–6.
+
+Depends on: **Issue 3** (grid area `console` must exist), **Issue 0l-delta** (`uiStore.activeConsoleTab` + `setActiveConsoleTab()` must exist), **Issue 1** (design tokens).
+
+## Implementation Details
+- [ ] Replace the `ConsolePanel` stub with the full `src/components/layout/ConsolePanel.tsx` and `ConsolePanel.css`
+- [ ] `ConsolePanel` renders:
+  1. `ConsoleNavigation` — a tab bar listing the six tabs
+  2. A content area that mounts the component corresponding to `activeConsoleTab`
+- [ ] Six tabs (in display order): **Session** | **Composition** | **Robot Options** | **Robot Editor** | **Audio Rig** | **Settings**
+- [ ] Each tab maps to an `activeConsoleTab` value: `'session' | 'composition' | 'robotOptions' | 'robotEditor' | 'audioRig' | 'settings'`
+- [ ] `ConsoleNavigation` reads `useUIStore((s) => s.activeConsoleTab)`; clicking a tab calls `useUIStore.getState().setActiveConsoleTab(tab)`; active tab is highlighted via CSS class
+- [ ] Content area renders a stub `<div>` labelled with the tab name for all six tabs at this stage — milestone issues replace each stub
+- [ ] **Radix:** Use `@radix-ui/react-tabs` → `Tabs.Root` + `Tabs.List` + `Tabs.Trigger` + `Tabs.Content` for the tab system. Set `orientation="horizontal"`. `Tabs.Root` `value` prop is driven by `activeConsoleTab`; `onValueChange` calls `setActiveConsoleTab`. All six `Tabs.Content` panels are declared — stubs initially.
+- [ ] If Radix `Tabs.Content` DOM structure conflicts with the Console's required layout (e.g. the tab list must be visually separate from content), use `Tabs.Trigger` only for the nav rail and drive content visibility from `activeConsoleTab` directly — document the decision in the PR.
+- [ ] `ConsoleNavigation` is entirely inside `GlassViewport` — never in `SleeveContainer`
+- [ ] Content area fills remaining Console height (`flex: 1; overflow-y: auto`)
+- [ ] Use only design tokens from Issue 1 for all styles; tab triggers minimum 44×44px touch target
 - [ ] No architecture violations (audio/animation/state separation)
 - [ ] Code follows standards (imports ordered, explicit types)
 - [ ] Tested locally (no console errors)
 
 ## Technical Notes
-- Prefer conditional rendering (`activeView === 'ocean' ? <OceanScene /> : null`) over CSS-based `display: none` for non-active views — avoids running hidden components' side effects unnecessarily.
-- `OceanScene` uses `useEffect` for spawn scheduler and collision detection with cleanup on unmount — verify these cleanups fire correctly when switching away from the ocean view and re-initialize cleanly on return.
-- Stub views do not need their own stores or logic — they are placeholder targets for future milestones.
-- Avoid animating view transitions in this issue — that is polish work for Issue 23.
+- `ConsolePanel` is always mounted (Issue 3 renders it unconditionally). Tab content switching is handled by `activeConsoleTab` — either via Radix `Tabs.Content` visibility or via conditional rendering in the content area.
+- If using conditional rendering for content (not Radix `Tabs.Content`), prefer `activeConsoleTab === 'session' ? <SessionTab /> : null` over CSS `visibility: hidden` — only the active tab needs to be mounted.
+- **Sub-navigation pattern:** The Robot Editor tab (Issue 10) and Audio Rig tab (Issue 17) contain their own nested sub-tab navigation inside the Console content area. These inner Radix `Tabs.Root` instances are independent of the outer `ConsoleNavigation`; they do not need to be declared here.
+- Tab labels should be short and uppercase for the industrial aesthetic (e.g. `SESSION`, `COMP`, `ROBOTS`, `EDITOR`, `RIG`, `SETTINGS`). Full names are fine for initial implementation.
 
 ## Acceptance Criteria
-- [ ] Changing `activeView` in `uiStore` causes the correct view component to render
-- [ ] `OceanScene` renders when `activeView === 'ocean'` and unmounts cleanly when switching away
-- [ ] Switching back to `'ocean'` re-mounts `OceanScene` and restarts spawn/collision systems correctly
-- [ ] All five `activeView` values render without runtime errors (stubs acceptable)
-- [ ] `App.tsx` no longer renders `<OceanScene />` directly
+- [ ] Six tab triggers render in `ConsoleNavigation`; clicking each updates `activeConsoleTab`
+- [ ] Active tab is visually highlighted (CSS class, not inline style)
+- [ ] Content area renders the stub for the active tab immediately on tab change
+- [ ] All tab triggers are keyboard accessible (Tab + Enter/Space, arrow key navigation within tab list)
+- [ ] All tab triggers meet 44×44px minimum touch target
+- [ ] Console fills the full `console` grid area from Issue 3
 - [ ] App compiles with no TypeScript errors
 - [ ] App remains functional after merge
-- [ ] No regression in audio playback when switching views
+- [ ] No regression in ocean scene or audio
 
 ## Source Reference
-- File: `src/App.tsx`, `src/components/OceanScene.tsx`, `src/stores/uiStore.ts`
-- Copilot instructions: "State: Zustand only; store JSON-serializable data only."
+- File: `src/stores/uiStore.ts` (Issue 0l-delta), `src/components/layout/GlassViewport.tsx`, `src/components/layout/ConsolePanel.tsx`
+- Copilot instructions: "All interactive UI (transport, navigation, controls) lives inside GlassViewport only — never in the decorative SleeveContainer."
 
 ---
 
@@ -462,7 +524,7 @@ Depends on: **Issue 0e** (`uiStore`), **Issue 3** (Mode Switcher emits `setActiv
 ## Feature Description
 Add a decorative overlay that simulates physical screen wear on the glass touchscreen surface — scratches, smudges, and vignette. The sleeve surface has its own aesthetic treatment (Issue 1a); this overlay applies to `GlassViewport` only. The overlay sits above all glass content but below interactive elements (popovers, modals) and must not intercept pointer events.
 
-Depends on: **Issue 1** (z-index token `--z-overlay` must exist).
+Depends on: **Issue 1** (z-index token `--z-overlay` must exist, `GlassViewport` must have `position: relative`).
 
 ## Implementation Details
 - [ ] Create `src/components/ui/ScreenWearOverlay.tsx` and `ScreenWearOverlay.css`
@@ -472,7 +534,7 @@ Depends on: **Issue 1** (z-index token `--z-overlay` must exist).
 - [ ] Opacity must be low enough to not obscure UI content (suggest 0.04–0.12 for texture, 0.3–0.5 for vignette edges)
 - [ ] Overlay must be disabled when `uiStore.theme === 'light'` OR render with reduced opacity in light mode
 - [ ] Overlay must be disabled or significantly reduced when `prefers-reduced-motion` is active (texture is static, but the intent is accessibility-awareness)
-- [ ] Render `<ScreenWearOverlay />` inside `GlassViewport` (not `SleeveContainer`), positioned above `<ActiveViewport />` but below any modals/popovers — renders inside the glass layer stack, persisting across view switches
+- [ ] Render `<ScreenWearOverlay />` inside `GlassViewport` (not `SleeveContainer`), positioned above the grid panels (`z-index: var(--z-overlay)`) but below any modals/popovers — persists across tab changes in the Console
 - [ ] No architecture violations (audio/animation/state separation)
 - [ ] Code follows standards (imports ordered, explicit types)
 - [ ] Tested locally (no console errors)
