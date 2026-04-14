@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { swallow } from '../utils/swallow';
+import { swallow } from '../utils/helpers';
 import { DEV_TUNING } from '../constants';
 
 // ========================================

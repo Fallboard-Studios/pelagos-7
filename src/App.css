@@ -1,6 +1,10 @@
-#app-root {
-  width: 100%;
+.real-world {
+  width: 100vw;
   height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: var(--color-background);
 }
 
 /* Vite default demo styles removed — layout tokens live in src/index.css */

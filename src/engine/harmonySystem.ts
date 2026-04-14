@@ -3,7 +3,7 @@
 // ========================================
 import { DEV_TUNING } from '../constants';
 import { useOceanStore } from '../stores/oceanStore';
-import { swallow } from '../utils/swallow';
+import { swallow } from '../utils/helpers';
 import { getCurrentHour } from './beatClock';
 
 // Minimal transport-like interface to avoid importing Tone.js here.

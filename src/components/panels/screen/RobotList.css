@@ -1,0 +1,5 @@
+.robot-list {
+  /* border: yellow 1px solid; */
+  grid-area: robotlist;
+  grid-row: span 2;
+}

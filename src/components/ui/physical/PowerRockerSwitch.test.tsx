@@ -1,9 +1,9 @@
 import { describe, it, vi, beforeEach, expect } from 'vitest';
 import { render, fireEvent } from '@testing-library/react';
 
-vi.mock('../../systems/powerController', () => ({ powerController: { start: vi.fn(), shutdown: vi.fn().mockResolvedValue(undefined) } }));
-vi.mock('../../animation/timelineMap', () => ({ setTimeline: vi.fn(), killTimeline: vi.fn() }));
-vi.mock('../../stores/uiStore', () => {
+vi.mock('@/systems/powerController', () => ({ powerController: { start: vi.fn(), shutdown: vi.fn().mockResolvedValue(undefined) } }));
+vi.mock('@/animation/timelineMap', () => ({ setTimeline: vi.fn(), killTimeline: vi.fn() }));
+vi.mock('@/stores/uiStore', () => {
   const setPowerOn = vi.fn();
   const setPowerOff = vi.fn();
   const useUIStore = (selector: unknown) => (typeof selector === 'function' ? (selector as (s: { isPoweredOn: boolean }) => unknown)({ isPoweredOn: false }) : { isPoweredOn: false });
@@ -12,8 +12,8 @@ vi.mock('../../stores/uiStore', () => {
 });
 
 import { PowerRockerSwitch } from './PowerRockerSwitch';
-import { powerController } from '../../systems/powerController';
-import { setTimeline } from '../../animation/timelineMap';
+import { powerController } from '@/systems/powerController';
+import { setTimeline } from '@/animation/timelineMap';
 
 describe('PowerRockerSwitch', () => {
   beforeEach(() => {

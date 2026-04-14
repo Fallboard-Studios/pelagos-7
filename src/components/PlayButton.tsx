@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import { AudioEngine } from '../engine/AudioEngine';
-import { swallow } from '../utils/swallow';
+import { swallow } from '../utils/helpers';
 
 import './PlayButton.css';
 

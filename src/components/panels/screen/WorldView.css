@@ -1,0 +1,6 @@
+.world-view {
+  grid-area: worldview;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  /* border: yellow 1px solid; */
+}

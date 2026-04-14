@@ -15,7 +15,7 @@ import type { RobotMelodyEvent } from './melodyGenerator';
 import { applyRhythmicVariance } from './melodyGenerator';
 import { DEV_TUNING, WORLD_WIDTH } from '../constants';
 import { getRef } from '../utils/refs';
-import { swallow } from '../utils/swallow';
+import { swallow } from '../utils/helpers';
 
 // ========================================
 // TYPES

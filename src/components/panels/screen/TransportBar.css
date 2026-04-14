@@ -12,6 +12,8 @@
   box-sizing: border-box;
   background: var(--color-surface);
   border-bottom: var(--border-width) solid var(--border-color);
+  grid-area: transport;
+  /* border: yellow 1px solid; */
 }
 
 /* ----------------------------------------
@@ -93,4 +95,10 @@
   background: var(--border-color);
   margin: 0 var(--spacing-sm);
   flex-shrink: 0;
+}
+
+@media screen and (min-width: 40em) {
+  .transport-bar {
+    position: relative;
+  }
 }

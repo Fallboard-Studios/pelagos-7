@@ -6,12 +6,12 @@ import { useGSAP } from '@gsap/react';
 import * as Dialog from '@radix-ui/react-dialog';
 import gsap from 'gsap';
 
-import { useUIStore } from '../../stores/uiStore';
+import { useUIStore } from '@/stores/uiStore';
 
-import { powerController } from '../../systems/powerController';
-import { setTimeline, killTimeline } from '../../animation/timelineMap';
+import { powerController } from '@/systems/powerController';
+import { setTimeline, killTimeline } from '@/animation/timelineMap';
 
-import { useGlassPortal } from '../layout/GlassViewportContext';
+import { getScreenViewportDomNode } from '@/utils/helpers';
 import './PowerRockerSwitch.css';
 
 // ========================================
@@ -23,7 +23,7 @@ export function PowerRockerSwitch() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const rockerRef = useRef<SVGSVGElement>(null);
-  const dialogContainer = useGlassPortal();
+  const dialogContainer = getScreenViewportDomNode();
 
   // Set initial SVG attribute state via GSAP so it fully owns these attrs —
   // React has no points/y values in JSX to reconcile back on re-renders.

@@ -1,31 +1,13 @@
 import { useEffect } from 'react';
 
-import { OceanScene } from './components/OceanScene';
-import { AudioStatus } from './components/debug/AudioStatus';
-import SleeveContainer from './components/layout/SleeveContainer';
-import GlassViewport from './components/layout/GlassViewport';
-import { TransportBar } from './components/ui/TransportBar';
-import { spawnRobot } from './systems/spawnSystem';
-import { useOceanStore } from './stores/oceanStore';
-import { useUIStore } from './stores/uiStore';
-import { DEV_TUNING } from './constants';
-import { PLANET_DURATION_MS } from './constants';
+import Tablet from './components/tablet/Tablet';
+
+import { useOceanStore } from '@/stores/oceanStore';
+import { PLANET_DURATION_MS } from '@/constants';
+
+import './App.css';
 
 function App() {
-  const isPoweredOn = useUIStore((s) => s.isPoweredOn);
-
-  // Expose debug functions globally in dev mode
-  useEffect(() => {
-    if (DEV_TUNING) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (window as any).spawnRobot = spawnRobot;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (window as any).removeRobot = (id: string) => useOceanStore.getState().removeRobot(id);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (window as any).oceanStore = useOceanStore;
-      console.log('[Dev] Debug functions exposed: spawnRobot(), removeRobot(id), oceanStore');
-    }
-  }, []);
 
   // Ensure derived time-dependent values are computed from the initial measure
   // so visuals reflect the loaded time immediately on app mount.
@@ -69,14 +51,11 @@ function App() {
   }, []);
 
   return (
-    <>
-      <SleeveContainer />
-      <GlassViewport>
-        <TransportBar />
-        {isPoweredOn && <OceanScene />}
-        <AudioStatus />
-      </GlassViewport>
-    </>
+    <div className="app-root">
+      <div className="real-world">
+        <Tablet />
+      </div>
+    </div>
   );
 }
 

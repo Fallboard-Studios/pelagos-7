@@ -7,3 +7,9 @@ export function swallow(err: unknown, ctx?: string) {
     // fall through
   }
 }
+
+export const SCREEN_VIEWPORT_ID = 'screen-viewport';
+
+export function getScreenViewportDomNode(): HTMLElement | null {
+  return document.getElementById(SCREEN_VIEWPORT_ID);
+}
