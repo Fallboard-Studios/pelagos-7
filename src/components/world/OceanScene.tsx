@@ -1,16 +1,18 @@
 import { useEffect, useMemo } from 'react';
 
 import './OceanScene.css';
-import { Robot } from './robot/Robot';
-import { useOceanStore } from '../stores/oceanStore';
-import { spawnRobot, startSpawnScheduler, stopSpawnScheduler } from '../systems/spawnSystem';
-import { Factory } from './actors/Factory';
-import { placeFactories, getRowConfig } from '../systems/factoryPlacementSystem';
-import { ActorType } from '../types/Actor';
-import { startFactoryProduction } from '../systems/factorySystem';
-import { startCollisionDetection, stopCollisionDetection } from '../systems/collisionSystem';
-import colorTheme from '../constants/colorTheme.json';
-import { hslToString } from '../utils/colorUtils';
+
+// import { Robot } from '../robot/Robot';
+import { Robot } from '@/components/robot/Robot'
+import { useOceanStore } from '@/stores/oceanStore';
+import { spawnRobot, startSpawnScheduler, stopSpawnScheduler } from '@/systems/spawnSystem';
+import { Factory } from '@/components/actors/Factory';
+import { placeFactories, getRowConfig } from '@/systems/factoryPlacementSystem';
+import { ActorType } from '@/types/Actor';
+import { startFactoryProduction } from '@/systems/factorySystem';
+import { startCollisionDetection, stopCollisionDetection } from '@/systems/collisionSystem';
+import colorTheme from '@/constants/colorTheme.json';
+import { hslToString } from '@/utils/colorUtils';
 
 // ========================================
 // TYPES & INTERFACES

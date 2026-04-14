@@ -4,11 +4,11 @@
 import { useState } from 'react';
 import * as Toolbar from '@radix-ui/react-toolbar';
 
-import { useOceanStore } from '../../stores/oceanStore';
-import { useUIStore } from '../../stores/uiStore';
-import { useAudioStore } from '../../stores/audioStore';
-import { AudioEngine } from '../../engine/AudioEngine';
-import { swallow } from '../../utils/swallow';
+import { useOceanStore } from '../../../stores/oceanStore';
+import { useUIStore } from '../../../stores/uiStore';
+import { useAudioStore } from '../../../stores/audioStore';
+import { AudioEngine } from '../../../engine/AudioEngine';
+import { swallow } from '../../../utils/helpers';
 
 import './TransportBar.css';
 
@@ -16,7 +16,7 @@ import './TransportBar.css';
 // COMPONENT
 // ========================================
 
-export function TransportBar() {
+function TransportBar() {
   const isPoweredOn = useUIStore((s) => s.isPoweredOn);
   const currentMeasure = useOceanStore((s) => s.currentMeasure);
   const planetHour = useOceanStore((s) => s.planetHour);
@@ -139,3 +139,5 @@ export function TransportBar() {
     </Toolbar.Root>
   );
 }
+
+export default TransportBar;

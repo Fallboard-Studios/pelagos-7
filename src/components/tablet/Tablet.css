@@ -1,0 +1,22 @@
+.tablet {
+  --mobile-tablet-size: calc(100% - 16px);
+
+  max-width: var(--mobile-tablet-size);
+  width: var(--mobile-tablet-size);
+  height: var(--mobile-tablet-size);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+@media screen and (min-width: 40em) {
+  .tablet {
+    --tablet-max-width: 1440px;
+    --tablet-aspect-ratio: 16 / 9;
+
+    width: var(--tablet-max-width);
+    height: calc(var(--tablet-max-width) / (var(--tablet-aspect-ratio)));
+    max-width: var(--tablet-max-width);
+    flex-direction: row;
+  }
+}

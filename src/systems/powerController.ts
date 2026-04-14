@@ -6,7 +6,7 @@ import { stopCollisionDetection } from './collisionSystem';
 import { useUIStore } from '../stores/uiStore';
 import { useOceanStore } from '../stores/oceanStore';
 import { playTabletPowerOff, playTabletPowerOn } from './powerAnimations';
-import { swallow } from '../utils/swallow';
+import { swallow } from '../utils/helpers';
 import { DEV_TUNING } from '../constants';
 
 /**

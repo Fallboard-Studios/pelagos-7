@@ -1,0 +1,103 @@
+.screen-viewport {
+  position: relative;
+  flex: 1 1 auto;
+  overflow: hidden;
+  background: var(--color-bg);
+}
+
+.screen-occlusion {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 20px;
+  width: 100%;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.4), transparent);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.screen-rail {
+  --bevel-width: 9px;
+  position: absolute;
+  left: 0;
+  height: 100%;
+  width: var(--bevel-width);
+  pointer-events: none;
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.12);
+  stroke-width: 1px;
+  opacity: 1;
+  z-index: 3;
+}
+
+.top-rail {
+  top: 0;
+  left: auto;
+  right: 0;
+  background: linear-gradient(to left, rgba(255, 255, 255, 0.12), transparent);
+}
+
+.bottom-rail {
+  bottom: 0;
+  background: linear-gradient(to right, rgba(255, 255, 255, 0.12), transparent);
+}
+
+@media screen and (min-width: 40em) {
+  .screen-rail {
+    height: var(--bevel-width);
+    width: 100%;
+  }
+
+  .top-rail {
+    top: 0;
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.12), transparent);
+  }
+
+  .bottom-rail {
+    bottom: 0;
+    background: linear-gradient(to top, rgba(255, 255, 255, 0.12), transparent);
+  }
+}
+
+.screen-rail line {
+  stroke: rgba(255, 255, 255, 0.12);
+  vector-effect: non-scaling-stroke;
+}
+
+.screen-content {
+  position: relative;
+  z-index: 0;
+  height: 100%;
+  overflow: auto;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto;
+  grid-template-areas:
+    "transport"
+    "worldview"
+    "console"
+    "robotlist";
+
+
+}
+
+@media screen and (min-width: 40em) {
+  .screen-content {
+    height: 100%;
+    grid-template-columns: 2fr 1fr;
+    grid-template-rows: var(--transport-height) auto 1fr;
+    grid-template-areas:
+      "transport   robotlist"
+      "worldview   robotlist"
+      "console     console";
+  }
+
+  .screen-occlusion {
+    height: 100%;
+    width: 20px;
+    top: 0;
+    left: 0;
+    background: linear-gradient(to right, rgba(0, 0, 0, 0.4), transparent);
+
+  }
+}

@@ -4,7 +4,7 @@ import type { Actor } from '../types/Actor';
 import type { Robot } from '../types/Robot';
 import { killTimeline } from '../animation/timelineMap';
 import { DEV_TUNING } from '../constants';
-import { swallow } from '../utils/swallow';
+import { swallow } from '../utils/helpers';
 import { AudioEngine } from '../engine/AudioEngine';
 import { cancelPendingIdleDelay } from '../systems/idleSystem';
 import { cancelPendingInteractionRecovery } from '../systems/interactionSystem';
