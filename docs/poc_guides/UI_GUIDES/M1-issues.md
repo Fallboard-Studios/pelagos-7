@@ -135,7 +135,7 @@ Create the `TransportBar` component shell — the persistent horizontal bar pinn
 
 On app load the tablet is in a **powered-down** state: all transport controls and nav buttons render as disabled except the Power button slot. The main display area is dark. Time of day still advances.
 
-Depends on: **Issue 1** (design tokens), **Issue 0b** (measure display reads `oceanStore.currentMeasure`), **Issue 0e** (`uiStore.isPoweredOn` must exist), **Issue 0g** (`planetSize`/time-of-day system must exist in `oceanStore`).
+Depends on: **Issue 1** (design tokens), **Issue 0b** (measure display reads `oceanStore.currentMeasure`), **Issue 0e** (`uiStore.isPoweredOn` must exist), **Issue 0l** (`uiStore.activeLocaleLocalTime` and the planet/locale stores must exist before the locale time display is wired).
 
 ## Implementation Details
 - [ ] Create `src/components/ui/TransportBar.tsx` and `TransportBar.css`
@@ -147,6 +147,7 @@ Depends on: **Issue 1** (design tokens), **Issue 0b** (measure display reads `oc
 - [ ] Restart, Pause, and Mute slots are `disabled` when `useUIStore((s) => s.isPoweredOn) === false`
 - [ ] Measure display: reads `useOceanStore((s) => s.currentMeasure)`; renders as `M: 048`; shows `M: ---` when `isPoweredOn === false`
 - [ ] BPM display: reads `useAudioStore((s) => s.bpm)`; renders as `120 BPM`; dimmed when `isPoweredOn === false`
+- [ ] Locale time display: reads `useUIStore((s) => s.activeLocaleLocalTime)`; renders the active locale's local time as `HH:MM` (e.g. `14:30`); shows `--:--` when `isPoweredOn === false` or `activeLocaleLocalTime` is `null` — this field is populated every second by `PlanetView` (Issue M8.2-9); stub the display in this issue and wire it in Issue 9
 - [ ] Remove the conditional `{!isAudioReady && <PlayButton />}` rendering from `App.tsx`
 - [ ] Remove the hardcoded `% 96` in `subscribeToMeasure` callback in `App.tsx` (prerequisite: Issue 0g decouples measure wrap from day length)
 - [ ] Render `<TransportBar />` inside `GlassViewport` at the top of the layout
@@ -161,7 +162,7 @@ Depends on: **Issue 1** (design tokens), **Issue 0b** (measure display reads `oc
 ## Acceptance Criteria
 - [ ] `TransportBar` renders at the top of `GlassViewport` with correct height token
 - [ ] Three button slots are visible (Restart, Pause, Mute); all are disabled on load; no power button in the transport bar
-- [ ] Measure display shows `M: ---` on load; BPM display is dimmed on load
+- [ ] Measure display shows `M: ---` on load; BPM display is dimmed on load; locale time display shows `--:--` on load
 - [ ] Full-screen `PlayButton` overlay is removed from `App.tsx`
 - [ ] No transport controls exist in `SleeveContainer`
 - [ ] App compiles with no TypeScript errors

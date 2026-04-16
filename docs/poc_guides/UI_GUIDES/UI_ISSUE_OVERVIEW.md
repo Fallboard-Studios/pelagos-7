@@ -8,8 +8,19 @@ Pelagos-7 uses modular Zustand stores to manage state in a scalable, maintainabl
     - Actions: addRobot(), removeRobot(), updateRobot(), getRobotById(), setSelectedRobotId()
 
 - **oceanStore**: Manages world/environment state (e.g., planet size, world settings, actor positions).
-    - State: world settings, actors, planetSize, currentHour, dayStartTimestamp, etc.
-    - Actions: setPlanetSize(), setWorldSetting(), addActor(), removeActor(), etc.
+- **oceanStore**: Manages the runtime scene state for the ocean view (actors, transient visuals, and scene runtime values).
+        - State: actors, transient visual state, scene runtime values (not planet-scoped persistent world data).
+        - Actions: setActors(), addActor(), removeActor(), setSceneRuntimeValue(), etc.
+
+- **planetStore**: Manages planet-level persisted world data (one or more planets; each planet owns its day cycle and locales).
+        - State: planets: Record<planetId, Planet>
+            - `Planet` shape: { id: string, name: string, size: 'small'|'medium'|'large', locales: string[], currentLocaleId?: string, dayStartTimestamp?: number }
+        - Actions: addPlanet(), removePlanet(), setPlanetSize(planetId, size), setDayStartTimestamp(planetId, ts), selectLocale(planetId, localeId)
+
+- **localeStore**: Manages per-locale persisted world data (robots, actors, locale coordinates and settings scoped to a locale).
+        - State: locales: Record<localeId, Locale>
+            - `Locale` shape: { id: string, name: string, coordinates: { x: number, y: number }, robots: string[], actors: string[], settings: Record<string, any> }
+        - Actions: addLocale(planetId, locale), removeLocale(localeId), setLocaleCoordinates(localeId, coords), addRobotToLocale(localeId, robotId), setLocaleSetting(localeId, key, value)
 
 - **audioStore**: Manages global audio FX, BPM, mute state, and related settings.
     - State: globalAudio, bpm, isMuted, preMuteVolume, etc.
@@ -85,14 +96,13 @@ Goal: Establish the backing types, state, and AudioEngine wiring that all later 
         Global reverb is now handled by GlobalAudioSettings.reverb and the _globalReverb node in AudioEngine.
         Update spawnSystem, tests, and any other AudioAttributes construction sites.
 
-    Issue 0g: Add planetSize and real-clock time-of-day system to oceanStore (src/stores/oceanStore.ts).
-        Store: oceanStore
-        Replace dayLengthMeasures/setDayLength with planetSize: 'small' | 'medium' | 'large' (default: 'medium') in oceanStore.settings; planet size maps to real-world day duration: small=3 min, medium=6 min, large=9 min.
-        Add setPlanetSize(size) action.
-        Add dayStartTimestamp: number to oceanStore (wall-clock ms when the current day cycle started; set to Date.now() on init) and setDayStartTimestamp(ts) action.
-        currentHour is now derived from real elapsed wall-clock time — ((Date.now() - dayStartTimestamp) / planetDurationMs) * 24 — updated every second by a timer in the ocean scene/system, not by beat measures.
-        Time of day always advances regardless of power-on/off state. Beat-clock measure advancement is controlled separately by the power state.
-        Remove the setCurrentMeasure day-length wrap logic (measures no longer drive time-of-day).
+    Issue 0g: Create `planetStore.ts` and `localeStore.ts` (src/stores/planetStore.ts, src/stores/localeStore.ts).
+        Store: planetStore, localeStore
+        Add planet-scoped persisted world model: `Planet` owns day cycle (size, dayStartTimestamp) and an array of `Locale` ids. `Locale` holds locale-specific persisted state: robots, actors, coordinates, and settings.
+        PLANET_DURATION_MS mapping: small = 3 minutes, medium = 6 minutes, large = 9 minutes. Each planet has `dayStartTimestamp` (wall-clock ms) and a `setDayStartTimestamp(ts)` action.
+        Add `setPlanetSize(planetId, size)` on `planetStore` to change the planet's day duration mapping.
+        `Locale` local time is computed by `localTime = (planet.currentHour + coordinates.x / 15) % 24` where `coordinates.x` is longitude-like degrees.
+        Rationale: move persisted world data out of `oceanStore` into `localeStore` so the runtime scene store (`oceanStore`) remains focused on transient scene state.
 
     Issue 0h: Create settingsStore.ts (src/stores/settingsStore.ts).
         Store: settingsStore
@@ -251,8 +261,8 @@ Depends on: Issue 0e (uiStore).
 
 🌊 Milestone 2: Session & World Management Console Tab
 
-Goal: Session file management and world-level settings surfaced in the Console.
-Depends on: sessionStore (0j), oceanStore (0g-delta), audioStore (setBPM), uiStore (activeConsoleTab via 0l-delta), Issue 4 (Console + ConsoleNavigation).
+Goal: World-level view setup and planet/locale component hierarchy.
+Depends on: planetStore, localeStore (0g/0l), oceanStore (0g-delta), uiStore (activeConsoleTab via 0l-delta), Issue 4 (Console + ConsoleNavigation).
 
     Issue 6: Size Ocean Scene Inside WorldView.
         Remove the 100vw × 100vh full-screen assumption from OceanScene; it must fill the WorldView bounds only.
@@ -260,19 +270,13 @@ Depends on: sessionStore (0j), oceanStore (0g-delta), audioStore (setBPM), uiSto
         On desktop, WorldView expands as more of the GlassViewport is revealed along the X-axis.
         No new controls; pure layout/sizing change.
 
-    Issue 7: Build Session Settings Console Tab.
-        Renders when activeConsoleTab === 'session'.
-        Buttons with confirmation modals: New World, Save World To Local Storage, Load World From Local Storage, Import World From Text.
-        Plain button (no confirmation): Export World To Text.
-        Preset row: Select World Preset (Dropdown) + Load World Preset (Button With Confirmation).
-        All actions read/write sessionStore.
-        Radix: destructive confirmations use @radix-ui/react-alert-dialog; non-destructive confirmations use @radix-ui/react-dialog; Preset dropdown uses @radix-ui/react-select.
-
-    Issue 8: Build World Options Section (BPM Stepper & Planet Size Selector).
-        Rendered inside the Session Settings Console Tab (or as a clearly labelled sub-section within it).
-        BPM: Dual Speed Stepper — calls audioStore.setBPM(bpm) which updates store and Tone.Transport simultaneously.
-        Planet Size: Dropdown (Small 3 min/day | Medium 6 min/day | Large 9 min/day) — calls oceanStore.setPlanetSize(size).
-        Radix: Planet Size dropdown uses @radix-ui/react-select → Select.Root + Select.Trigger + Select.Content + Select.Item.
+    Issue 9: Build `PlanetView`, `LocaleView`, and `OceanView` Components.
+        Implements the four-level world view hierarchy: WorldView → PlanetView → LocaleView → OceanView → OceanScene.
+        PlanetView owns the real-time day-cycle tick (`setInterval`, 1000 ms) using `PLANET_DURATION_MS[planet.size]`; writes `currentHour` to `planetStore` and `activeLocaleLocalTime` to `uiStore` each second.
+        LocaleView computes `localTime = computeLocalTime(currentHour, locale.coordinates.x)` and passes it to OceanView.
+        OceanView is a thin named wrapper around OceanScene; receives `localTime` as a prop.
+        All components fill parent bounds via `width: 100%; height: 100%`.
+        Depends on: Issue 0g/0l (planetStore, localeStore, PLANET_DURATION_MS, computeLocalTime, uiStore.activeLocaleLocalTime).
 
 
 🤖 Milestone 3: Robot Management Console Tabs
@@ -431,3 +435,15 @@ Goal: User preferences, final responsive cleanup, and data visualization.
         Console stacks below WorldView on mobile; ConsoleNavigation remains accessible.
         Verify all Console tabs from Milestones 2–5 stack and scroll correctly at 360px viewport width.
         WorldView shrinks gracefully; OceanScene remains usable and legible at minimum width.
+
+    Issue 7: Build Session Settings Console Tab. ⚠️ Build Last
+        Renders when activeConsoleTab === 'session'.
+        Built after planetStore, localeStore (Issue 0l), and the PlanetView/LocaleView hierarchy (Issue 9) are stable.
+        Locale name: inline editable text field → useLocaleStore.setLocaleName(localeId, name).
+        Active planet name: read-only info display from usePlanetStore.
+        Save: serialises localeStore (robots, actors, settings, currentMeasure) and planetStore (name, size, dayStartTimestamp) to localStorage under `pelagos-session-v1`.
+        Load: reads `pelagos-session-v1` from localStorage; validates shape before applying; shows error if malformed.
+        Clear: deletes `pelagos-session-v1` and resets both stores to defaults; requires confirmation before proceeding.
+        No BPM field (BPM lives in Composition Console, Issue 14a). No Planet Size selector (size is set at planet creation; not surface-editable here). No connection to oceanStore (transient runtime store only).
+        Radix: destructive confirmations use @radix-ui/react-alert-dialog; non-destructive confirmations use @radix-ui/react-dialog.
+        Depends on: Issue 0l (planetStore, localeStore fully stable), Issue 9 (PlanetView/LocaleView hierarchy confirmed).
