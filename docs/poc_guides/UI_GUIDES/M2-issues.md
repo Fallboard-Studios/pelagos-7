@@ -34,6 +34,7 @@ Depends on: **Issue 3** (WorldView panel must exist in the 4-panel grid).
 - WorldView should be `position: relative; width: 100%; aspect-ratio: 16/9; overflow: hidden` — any absolute-positioned children (overlays, etc.) should be clipped to the scene bounds.
 - Confirm `@media (min-width: ...)` breakpoints in `OceanScene.css` do not re-introduce `100vw`/`100vh` values.
 - Spawn and collision coordinate systems are SVG `viewBox`-based, not CSS pixel-based — they are unaffected by this change.
+- **Target hierarchy (Issue 9):** In the final architecture `WorldView` renders `<PlanetView>` → `<LocaleView>` → `<OceanView>` → `<OceanScene>`. This issue sets `OceanScene` to `width: 100%; height: 100%` so it fills whatever parent wraps it — that rule stays correct at every level of the chain.
 
 ## Acceptance Criteria
 - [ ] OceanScene fills WorldView bounds; no `100vw`/`100vh` values remain in `OceanScene.css`
@@ -50,109 +51,60 @@ Depends on: **Issue 3** (WorldView panel must exist in the 4-panel grid).
 ---
 
 <!-- ============================================================ -->
-<!-- ISSUE 7: Build Session Settings Console Tab                  -->
+<!-- ISSUE 9: Planet & Locale Components                         -->
 <!-- ============================================================ -->
 
-## [M8.2-7] Build Session Settings Console Tab
+## [M8.2-9] Build `PlanetView`, `LocaleView`, and `OceanView` components
 
 ## Feature Description
-Build the `SessionSettingsTab` component that renders when `activeConsoleTab === 'session'`. It provides session file management (new world, save/load to localStorage, export/import as text) and world preset selection. All destructive actions are guarded with Radix confirmation dialogs.
+Implement the three-layer world view hierarchy that replaces the current direct `WorldView → OceanScene` connection:
 
-Depends on: **Issue 0j** (sessionStore), **Issue 0k** (Radix installed), **Issue 4** (Console panel + ConsoleNavigation slot), **Issue 1** (design tokens).
+```
+WorldView
+  └── PlanetView          (owns planet time tick; one per active planet)
+        └── LocaleView    (computes locale local time from planet hour + longitude offset)
+              └── OceanView  (wraps OceanScene; receives localTime prop)
+                    └── OceanScene
+```
 
-## Implementation Details
-- [ ] Create `src/components/console/SessionSettingsTab.tsx` and `SessionSettingsTab.css`
-- [ ] Renders when `activeConsoleTab === 'session'` (controlled by `ConsolePanel`, Issue 4)
-- [ ] **New World:** Button with AlertDialog confirmation — destructive; creates a fresh world state, clears all robots and session data
-  - **Radix:** `@radix-ui/react-alert-dialog` → `AlertDialog.Root` + `AlertDialog.Trigger` + `AlertDialog.Portal` + `AlertDialog.Overlay` + `AlertDialog.Content` + `AlertDialog.Title` + `AlertDialog.Description` + `AlertDialog.Action` + `AlertDialog.Cancel`
-- [ ] **Save World To Local Storage:** Button with AlertDialog confirmation (overwrites existing save if present)
-  - Serialises: `robots`, `actors`, `settings`, `currentMeasure` only — no runtime values (Transport state, GSAP timelines, DOM refs)
-  - Create `src/utils/sessionStorage.ts` with `saveWorld()` / `loadWorld()` helper functions
-- [ ] **Load World From Local Storage:** Button with AlertDialog confirmation — destructive (replaces current state)
-  - Calls `loadWorld()` then writes to the appropriate Zustand stores
-- [ ] **Export World To Text:** Plain button with no confirmation (non-destructive) — serialises world state to JSON string and copies to clipboard or triggers a download
-- [ ] **Import World From Text:** Button that opens a Dialog with a textarea for pasting JSON
-  - **Radix:** `@radix-ui/react-dialog` → `Dialog.Root` + `Dialog.Trigger` + `Dialog.Portal` + `Dialog.Overlay` + `Dialog.Content` + `Dialog.Title` + `Dialog.Description` + `Dialog.Close`
-- [ ] **Select World Preset:** `@radix-ui/react-select` → `Select.Root` + `Select.Trigger` + `Select.Content` + `Select.Item` — dropdown of available world presets
-- [ ] **Load World Preset:** Button with AlertDialog confirmation — loads the selected preset (destructive)
-- [ ] All buttons meet minimum 44×44px touch target size (WCAG 2.5.5)
-- [ ] Use only design tokens from Issue 1 for all styles
-- [ ] No architecture violations (audio/animation/state separation)
-- [ ] Code follows standards (imports ordered, explicit types)
-- [ ] Tested locally (no console errors)
+Planet `size` (small/medium/large) determines a full day's real-world duration via `PLANET_DURATION_MS`. Locales derive their local time from the planet's current hour plus a longitude offset: `localTime = (planet.currentHour + locale.coordinates.x / 15) % 24`. The active locale's local time is written to `uiStore.activeLocaleLocalTime` each second so the `TransportBar` can display it.
 
-## Technical Notes
-- `src/utils/sessionStorage.ts` must serialise only JSON-serialisable state: `robots`, `actors`, `settings`, `currentMeasure`. Never serialise Tone.js nodes, GSAP timelines, or DOM refs — all of these violate the Zustand rule.
-- `loadWorld()` should call `setRobots(data.robots)`, `setActors(data.actors)`, `setSettings(data.settings)`, and `setCurrentMeasure(data.currentMeasure)` — then call `reRegisterAllRobotsAudio()` to re-initialise AudioEngine with the loaded state.
-- The confirmed "destructive" AlertDialog pattern (New World, Load World): `AlertDialog.Action` = confirm + execute; `AlertDialog.Cancel` = dismiss, no change. Focus is trapped inside the dialog while open; Escape = cancel.
-- Import From Text: validate JSON structure before applying (check for required fields) — reject with an error message in the Dialog if invalid.
-- Prerequisite: **Issue 0k** (Radix must be installed before this issue is started).
-
-## Acceptance Criteria
-- [ ] `SessionSettingsTab` renders when `activeConsoleTab === 'session'`
-- [ ] All 6 action controls are present (New World, Save, Load, Export, Import, Preset Load)
-- [ ] Destructive actions (New World, Load From Storage, Load Preset) are gated by AlertDialog
-- [ ] Import from Text opens a Dialog with a textarea; invalid JSON shows an error; valid JSON applies the world
-- [ ] Save/Load correctly serialise and restore `robots`, `actors`, `settings`, `currentMeasure` via `src/utils/sessionStorage.ts`
-- [ ] All controls meet 44×44px minimum touch target size
-- [ ] App compiles with no TypeScript errors
-- [ ] App remains functional after merge
-
-## Source Reference
-- File: `src/stores/sessionStore.ts`, `src/stores/oceanStore.ts`, `src/utils/sessionStorage.ts` (new)
-- Copilot instructions: "State: Zustand only; store JSON-serializable data only."
-
----
-
-<!-- ============================================================ -->
-<!-- ISSUE 8: Build World Options Section                         -->
-<!-- ============================================================ -->
-
-## [M8.2-8] Build World Options Section (BPM Stepper & Planet Size Selector)
-
-## Feature Description
-Build the World Options sub-section inside `SessionSettingsTab` (clearly labelled). It exposes two world-level settings: BPM via a Dual Speed Stepper and Planet Size via a Radix Select dropdown.
-
-Depends on: **Issue 0b** (`audioStore.setBPM`), **Issue 0g-delta** (`oceanStore.setPlanetSize`), **Issue 7** (renders inside `SessionSettingsTab`), **Issue 1** (design tokens).
+Depends on: **Issue 0l** (`usePlanetStore`, `useLocaleStore`, `PLANET_DURATION_MS`, `computeLocalTime`, and `uiStore.activeLocaleLocalTime` must all exist).
 
 ## Implementation Details
-- [ ] Add a `WorldOptionsSection` sub-component (or inline section) inside `SessionSettingsTab`
-- [ ] **BPM Dual Speed Stepper:**
-  - Two decrement buttons (−1, −5) and two increment buttons (+5, +1) flanking a numeric BPM readout
-  - Reads `useAudioStore((s) => s.bpm)` for current value; range 40–240 BPM
-  - On change: calls `useAudioStore.getState().setBPM(newBpm)` which updates the store AND `Tone.Transport.bpm.value` simultaneously
-  - All step buttons meet minimum 44×44px touch target
-- [ ] **Planet Size Selector:**
-  - **Radix:** `@radix-ui/react-select` → `Select.Root` + `Select.Trigger` + `Select.Content` + `Select.Item`
-  - Options: `Small — 3 min/day`, `Medium — 6 min/day`, `Large — 9 min/day`
-  - Reads `useOceanStore((s) => s.settings.planetSize)` for current selection
-  - On change: calls `useOceanStore.getState().setPlanetSize(size)` (Issue 0g-delta)
-  - Select trigger meets minimum 44×44px touch target
-- [ ] All controls meet minimum 44×44px touch target size
-- [ ] Use only design tokens from Issue 1 for all styles
-- [ ] No architecture violations (audio/animation/state separation)
-- [ ] Code follows standards (imports ordered, explicit types)
-- [ ] Tested locally (no console errors)
+- [ ] Create `src/components/world/PlanetView.tsx` and `PlanetView.css` — props: `planetId: string`
+  - Reads `usePlanetStore((s) => s.planets.find(p => p.id === planetId))`
+  - Runs a `setInterval` (1000 ms) inside a `useEffect` that computes `currentHour = ((Date.now() - planet.dayStartTimestamp) / PLANET_DURATION_MS[planet.size]) * 24 % 24`, calls `usePlanetStore.getState().setCurrentHour(planetId, currentHour)`, and also calls `useUIStore.getState().setActiveLocaleLocalTime(computeLocalTime(currentHour, activeLocale.coordinates.x))` for the active locale
+  - Interval is started on mount and cleared in `useEffect` cleanup
+  - This interval is **not** musical timing — `setInterval` is explicitly permitted here (world/visual timing)
+  - Renders `<LocaleView localeId={planet.currentLocaleId} planetId={planetId} />`
+- [ ] Create `src/components/world/LocaleView.tsx` and `LocaleView.css` — props: `localeId: string`, `planetId: string`
+  - Reads `useLocaleStore((s) => s.locales[localeId])`
+  - Reads `usePlanetStore((s) => s.planets.find(p => p.id === planetId)?.currentHour ?? 0)`
+  - Computes `localTime = computeLocalTime(currentHour, locale.coordinates.x)` (from `src/constants/time.ts`)
+  - Renders `<OceanView localTime={localTime} />`
+- [ ] Create `src/components/world/OceanView.tsx` and `OceanView.css` — props: `localTime: number`
+  - Thin wrapper that passes `localTime` (and any other locale-scoped props) down to `<OceanScene>`
+  - Exists so the locale-to-scene boundary is a clear named seam for future scenes
+- [ ] Mount `<PlanetView planetId="pelagos" />` inside `WorldView` (replacing any direct `<OceanScene />` reference in `WorldView`)
+- [ ] All components use `width: 100%; height: 100%` so they inherit `WorldView` bounds without explicit pixel values
 
 ## Technical Notes
-- `setBPM(bpm)` must update both `audioStore.bpm` and `Tone.Transport.bpm.value` atomically — verify this is wired in Issue 0b's implementation.
-- Planet Size changes the `planetDurationMs` used by the time-of-day system to advance `currentHour`. The change takes effect immediately after `setPlanetSize()` is called.
-- The BPM readout should update reactively when Transport BPM changes externally (e.g., via the Audio Meta sub-tab in Issue 19). Both controls write to the same store field, so they stay in sync automatically.
+- Day length is **entirely driven by `planet.size`** via `PLANET_DURATION_MS`. The size is set on the planet in `planetStore`; there is no separate selector in any console tab.
+- `computeLocalTime(planetHour, longitudeX)` is the shared utility in `src/constants/time.ts`; `LocaleView` and the TransportBar both use it.
+- `uiStore.activeLocaleLocalTime` is a float (e.g. `14.5` = 14:30). `TransportBar` formats it as `HH:MM`.
+- Spawn, collision, and idle systems still read from `oceanStore`/`localeStore` for per-locale robots and actors — they are unaffected by the view hierarchy change.
 
 ## Acceptance Criteria
-- [ ] BPM Dual Speed Stepper displays and updates BPM in range 40–240; step buttons are ±1 and ±5
-- [ ] BPM change calls `setBPM()` and the change is reflected in `Tone.Transport.bpm.value`
-- [ ] Planet Size dropdown shows three options with duration labels; changing selection calls `setPlanetSize()`
-- [ ] WorldOptionsSection renders as a labelled sub-section within `SessionSettingsTab`
-- [ ] All controls meet 44×44px minimum touch target size
-- [ ] App compiles with no TypeScript errors
-- [ ] App remains functional after merge
+- [ ] `WorldView` renders `<PlanetView>` → `<LocaleView>` → `<OceanView>` → `<OceanScene>`
+- [ ] `PlanetView` drives the real-time day-cycle tick using `PLANET_DURATION_MS[planet.size]`; tick runs independent of transport power state
+- [ ] `LocaleView` computes `localTime` via `computeLocalTime` and passes it to `OceanView`
+- [ ] `uiStore.activeLocaleLocalTime` is updated every second while `PlanetView` is mounted
+- [ ] `TransportBar` shows the locale's local time in `HH:MM` format (wired via `useUIStore`)
+- [ ] All components fill parent bounds via `width: 100%; height: 100%` with no `100vw`/`100vh`
+- [ ] App compiles with no TypeScript errors and `OceanScene` renders inside `WorldView`
 
 ## Source Reference
-- File: `src/stores/audioStore.ts` (`setBPM`), `src/stores/oceanStore.ts` (`setPlanetSize`), `src/components/console/SessionSettingsTab.tsx` (Issue 7)
-- Copilot instructions: "All timing: Tone.Transport / BeatClock (measure-based). No setTimeout/setInterval/requestAnimationFrame for musical timing."
-
----
-
-<!-- NOTE: The Volume VU Indicator (was Issue 9) has moved to Milestone 5 —
-     it is now part of Issue 19: Audio Meta Sub-Tab inside the Audio Rig Console Tab. -->
+- `src/stores/planetStore.ts`, `src/stores/localeStore.ts`, `src/stores/uiStore.ts` (Issue 0l)
+- `src/constants/time.ts` — `PLANET_DURATION_MS`, `computeLocalTime`
+- `src/components/layout/WorldView.tsx` (Issue 3)

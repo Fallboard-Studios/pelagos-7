@@ -94,6 +94,28 @@ Depends on: **Issue 14** (`CompositionConsoleTab` shell and CSS tokens), **Issue
 - [ ] App remains functional after merge
 - [ ] No regression in audio playback
 
+---
+
+<!-- ============================================================ -->
+<!-- ISSUE 14a: Add BPM Control to Composition Console           -->
+<!-- ============================================================ -->
+
+## [M8.4-14a] Add BPM Control to Composition Console
+
+## Feature Description
+Move the global BPM control into the Composition Console so composers can set tempo alongside sequence editing. This control replaces the BPM stepper previously planned in World Options.
+
+## Implementation Details
+- [ ] Add a `BPMControl` sub-component to `CompositionConsoleTab` that includes a numeric readout and Dual Speed Stepper (−5, −1, +1, +5)
+- [ ] Read/write via `useAudioStore.getState().bpm` and `setBPM()` (ensure `setBPM()` updates `Tone.Transport.bpm.value` safely)
+- [ ] Ensure step buttons meet 44×44px target and integrate with Composition layout tokens
+
+## Acceptance Criteria
+- [ ] BPM Control renders in `CompositionConsoleTab`
+- [ ] Dual speed stepper updates `audioStore.bpm` and `Tone.Transport.bpm.value`
+- [ ] Control meets touch target accessibility and compiles with no TypeScript errors
+
+
 ## Source Reference
 - File: `src/components/console/ChordItem.tsx` (new), `src/components/console/CompositionConsoleTab.tsx` (Issue 14)
 - Copilot instructions: "All interactive UI (transport, navigation, controls) lives inside GlassViewport only."

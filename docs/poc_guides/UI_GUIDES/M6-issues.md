@@ -89,3 +89,52 @@ Depends on: **All previous milestones** (all components must exist before this a
 ## Source Reference
 - File: All Console tab and component files created in Milestones 1–6
 - Copilot instructions: N/A (layout/responsive polish pass)
+
+## [M8.2-7] Build Session Settings Console Tab
+
+## Feature Description
+Build the `SessionSettingsTab` component that renders when `activeConsoleTab === 'session'`. It provides session file management (new world, save/load to localStorage, export/import as text) and world preset selection. All destructive actions are guarded with Radix confirmation dialogs.
+
+Depends on: **Issue 0j** (sessionStore), **Issue 0k** (Radix installed), **Issue 4** (Console panel + ConsoleNavigation slot), **Issue 1** (design tokens).
+
+## Implementation Details
+- [ ] Create `src/components/console/SessionSettingsTab.tsx` and `SessionSettingsTab.css`
+- [ ] Renders when `activeConsoleTab === 'session'` (controlled by `ConsolePanel`, Issue 4)
+- [ ] **New World:** Button with AlertDialog confirmation — destructive; creates a fresh world state, clears all robots and session data
+  - **Radix:** `@radix-ui/react-alert-dialog` → `AlertDialog.Root` + `AlertDialog.Trigger` + `AlertDialog.Portal` + `AlertDialog.Overlay` + `AlertDialog.Content` + `AlertDialog.Title` + `AlertDialog.Description` + `AlertDialog.Action` + `AlertDialog.Cancel`
+- [ ] **Save World To Local Storage:** Button with AlertDialog confirmation (overwrites existing save if present)
+  - Serialises: `robots`, `actors`, `settings`, `currentMeasure` only — no runtime values (Transport state, GSAP timelines, DOM refs)
+  - Create `src/utils/sessionStorage.ts` with `saveWorld()` / `loadWorld()` helper functions
+- [ ] **Load World From Local Storage:** Button with AlertDialog confirmation — destructive (replaces current state)
+  - Calls `loadWorld()` then writes to the appropriate Zustand stores
+- [ ] **Export World To Text:** Plain button with no confirmation (non-destructive) — serialises world state to JSON string and copies to clipboard or triggers a download
+- [ ] **Import World From Text:** Button that opens a Dialog with a textarea for pasting JSON
+  - **Radix:** `@radix-ui/react-dialog` → `Dialog.Root` + `Dialog.Trigger` + `Dialog.Portal` + `Dialog.Overlay` + `Dialog.Content` + `Dialog.Title` + `Dialog.Description` + `Dialog.Close`
+- [ ] **Select World Preset:** `@radix-ui/react-select` → `Select.Root` + `Select.Trigger` + `Select.Content` + `Select.Item` — dropdown of available world presets
+- [ ] **Load World Preset:** Button with AlertDialog confirmation — loads the selected preset (destructive)
+- [ ] All buttons meet minimum 44×44px touch target size (WCAG 2.5.5)
+- [ ] Use only design tokens from Issue 1 for all styles
+- [ ] No architecture violations (audio/animation/state separation)
+- [ ] Code follows standards (imports ordered, explicit types)
+- [ ] Tested locally (no console errors)
+
+## Technical Notes
+- `src/utils/sessionStorage.ts` must serialise only JSON-serialisable state: `robots`, `actors`, `settings`, `currentMeasure`. Never serialise Tone.js nodes, GSAP timelines, or DOM refs — all of these violate the Zustand rule.
+- `loadWorld()` should call `setRobots(data.robots)`, `setActors(data.actors)`, `setSettings(data.settings)`, and `setCurrentMeasure(data.currentMeasure)` — then call `reRegisterAllRobotsAudio()` to re-initialise AudioEngine with the loaded state.
+- The confirmed "destructive" AlertDialog pattern (New World, Load World): `AlertDialog.Action` = confirm + execute; `AlertDialog.Cancel` = dismiss, no change. Focus is trapped inside the dialog while open; Escape = cancel.
+- Import From Text: validate JSON structure before applying (check for required fields) — reject with an error message in the Dialog if invalid.
+- Prerequisite: **Issue 0k** (Radix must be installed before this issue is started).
+
+## Acceptance Criteria
+- [ ] `SessionSettingsTab` renders when `activeConsoleTab === 'session'`
+- [ ] All 6 action controls are present (New World, Save, Load, Export, Import, Preset Load)
+- [ ] Destructive actions (New World, Load From Storage, Load Preset) are gated by AlertDialog
+- [ ] Import from Text opens a Dialog with a textarea; invalid JSON shows an error; valid JSON applies the world
+- [ ] Save/Load correctly serialise and restore `robots`, `actors`, `settings`, `currentMeasure` via `src/utils/sessionStorage.ts`
+- [ ] All controls meet 44×44px minimum touch target size
+- [ ] App compiles with no TypeScript errors
+- [ ] App remains functional after merge
+
+## Source Reference
+- File: `src/stores/sessionStore.ts`, `src/stores/oceanStore.ts`, `src/utils/sessionStorage.ts` (new)
+- Copilot instructions: "State: Zustand only; store JSON-serializable data only."
