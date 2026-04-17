@@ -6,7 +6,7 @@ import gsap from 'gsap';
 import type { Robot } from '../types/Robot';
 import { RobotState } from '../types/Robot';
 import type { Vec2 } from '../types/Vec2';
-import { useOceanStore } from '../stores/oceanStore';
+import useLocaleStore from '../stores/localeStore';
 import { triggerInteraction } from './interactionSystem';
 import { getRef } from '../utils/refs';
 import { getCurrentMeasure } from '../engine/beatClock';
@@ -90,7 +90,7 @@ export function getCollisionChecksPerSecond(): number {
  * Start collision detection using gsap.ticker.
  * Checks all robot pairs each frame for proximity interactions.
  */
-export function startCollisionDetection(): void {
+export function startCollisionDetection(localeId: string): void {
   if (tickerCallback) {
     if (DEV_TUNING) console.warn('[CollisionSystem] Already running');
     return;
@@ -101,7 +101,7 @@ export function startCollisionDetection(): void {
   let lastTime = gsap.ticker.time;
 
   tickerCallback = () => {
-    const robots = useOceanStore.getState().robots;
+    const robots = useLocaleStore.getState().getLocaleById(localeId)?.robots || [];
     const checkCount = (robots.length * (robots.length - 1)) / 2;
 
     // Update collision checks per second metric
@@ -132,7 +132,7 @@ export function startCollisionDetection(): void {
         const distSquared = calculateDistanceSquared(posA, posB);
 
         if (distSquared < INTERACTION_DISTANCE_SQUARED) {
-          triggerInteraction(robotA.id, robotB.id);
+          triggerInteraction(localeId, robotA.id, robotB.id);
         }
       }
     }
@@ -141,6 +141,8 @@ export function startCollisionDetection(): void {
   gsap.ticker.add(tickerCallback);
   if (DEV_TUNING) console.log('[CollisionSystem] Started');
 }
+
+// (no default wrapper) callers must provide explicit localeId
 
 /**
  * Stop collision detection.

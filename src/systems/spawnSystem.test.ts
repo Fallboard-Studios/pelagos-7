@@ -3,8 +3,9 @@
 // ========================================
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import { generateSpawnPosition, generateAudioAttributes, spawnRobot } from './spawnSystem';
-import { useOceanStore } from '../stores/oceanStore';
+import { generateSpawnPosition, generateAudioAttributes, spawnRobot, startSpawnScheduler, stopSpawnScheduler } from './spawnSystem';
+import { useLocaleStore, DEFAULT_LOCALE } from '../stores/localeStore';
+import { DEFAULT_LOCALE_ID } from '../stores/planetStore';
 import { AudioEngine } from '../engine/AudioEngine';
 import { RobotState } from '../types/Robot';
 import type { OceanStore } from '../stores/oceanStore';
@@ -154,17 +155,17 @@ describe('spawnSystem', () => {
 
   describe('spawnRobot', () => {
     beforeEach(() => {
-      // Reset store before each test
-      useOceanStore.setState({ robots: [] });
+      // Reset locale store before each test
+      useLocaleStore.setState({ locales: { [DEFAULT_LOCALE_ID]: DEFAULT_LOCALE } });
       vi.clearAllMocks();
     });
 
     it('spawns a robot and adds to store', () => {
       const registerSpy = vi.spyOn(AudioEngine, 'registerRobotMelody');
 
-      spawnRobot();
+      spawnRobot(DEFAULT_LOCALE_ID);
 
-      const robots = useOceanStore.getState().robots;
+      const robots = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.robots ?? [];
       expect(robots.length).toBe(1);
 
       const robot = robots[0];
@@ -180,28 +181,30 @@ describe('spawnSystem', () => {
     });
 
     it('enforces MAX_ROBOTS limit', () => {
-      const maxRobots = useOceanStore.getState().settings.maxRobots;
+      const maxRobots = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.settings?.maxRobots ?? 12;
 
       // Spawn max robots
       for (let i = 0; i < maxRobots; i++) {
-        spawnRobot();
+        spawnRobot(DEFAULT_LOCALE_ID);
       }
 
-      expect(useOceanStore.getState().robots.length).toBe(maxRobots);
+      const robotsNow = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.robots ?? [];
+      expect(robotsNow.length).toBe(maxRobots);
 
       // Try to spawn one more
-      spawnRobot();
+      spawnRobot(DEFAULT_LOCALE_ID);
 
-      // Should still be at max
-      expect(useOceanStore.getState().robots.length).toBe(maxRobots - 1);
+      // Should still be at max (oldest removed)
+      const robotsAfter = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.robots ?? [];
+      expect(robotsAfter.length).toBe(maxRobots - 1);
     });
 
     it('spawns multiple robots with unique IDs', () => {
-      spawnRobot();
-      spawnRobot();
-      spawnRobot();
+      spawnRobot(DEFAULT_LOCALE_ID);
+      spawnRobot(DEFAULT_LOCALE_ID);
+      spawnRobot(DEFAULT_LOCALE_ID);
 
-      const robots = useOceanStore.getState().robots;
+      const robots = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.robots ?? [];
       const ids = new Set(robots.map((r) => r.id));
 
       expect(robots.length).toBe(3);
@@ -209,11 +212,11 @@ describe('spawnSystem', () => {
     });
 
     it('generates robots with different attributes', () => {
-      spawnRobot();
-      spawnRobot();
-      spawnRobot();
+      spawnRobot(DEFAULT_LOCALE_ID);
+      spawnRobot(DEFAULT_LOCALE_ID);
+      spawnRobot(DEFAULT_LOCALE_ID);
 
-      const robots = useOceanStore.getState().robots;
+      const robots = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.robots ?? [];
 
       // Positions should differ (ensures different robots)
       const positions = robots.map((r) => `${r.position.x},${r.position.y}`);
@@ -223,35 +226,29 @@ describe('spawnSystem', () => {
     });
 
     it('removes oldest robot when at max and does not add', () => {
-      useOceanStore.setState(state => ({
-        ...state,
-        settings: {
-          ...state.settings,
-          maxRobots: 3, // or your desired value
-        },
-      }));
-      const { addRobot } = useOceanStore.getState();
+      useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { settings: { ...(useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.settings ?? {}), maxRobots: 3 } });
+      const addRobot = useLocaleStore.getState().addRobot;
       // seed store with max robots
-      addRobot({ id: 'a', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { synthType: 'AMSynth', waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0 }, octaveRange: [3, 4], createdAt: 1000, masterVolume: 0.7 });
-      addRobot({ id: 'b', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { synthType: 'AMSynth', waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0 }, octaveRange: [3, 4], createdAt: 2000, masterVolume: 0.7 });
-      addRobot({ id: 'c', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { synthType: 'AMSynth', waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0 }, octaveRange: [3, 4], createdAt: 3000, masterVolume: 0.7 });
-      expect(useOceanStore.getState().robots.length).toBe(3);
+      addRobot(DEFAULT_LOCALE_ID, { id: 'a', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { synthType: 'AMSynth', waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0 }, octaveRange: [3, 4], createdAt: 1000, masterVolume: 0.7 } as any);
+      addRobot(DEFAULT_LOCALE_ID, { id: 'b', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { synthType: 'AMSynth', waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0 }, octaveRange: [3, 4], createdAt: 2000, masterVolume: 0.7 } as any);
+      addRobot(DEFAULT_LOCALE_ID, { id: 'c', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { synthType: 'AMSynth', waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0 }, octaveRange: [3, 4], createdAt: 3000, masterVolume: 0.7 } as any);
+      expect(useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.robots?.length).toBe(3);
 
-      spawnRobot();
+      spawnRobot(DEFAULT_LOCALE_ID);
 
-      const robots = useOceanStore.getState().robots;
+      const robots = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.robots ?? [];
       expect(robots.length).toBe(2);
       expect(robots.find(r => r.id === 'a')).toBeUndefined();
     });
 
     it('respects minRobots and does not remove below it', () => {
       // set max and min equal
-      useOceanStore.setState({ settings: { bpm: 120, maxRobots: 1, minRobots: 1 } } as OceanStore);
-      const { addRobot } = useOceanStore.getState();
-      addRobot({ id: 'only', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { synthType: 'AMSynth', waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0 }, octaveRange: [3, 4], createdAt: 123, masterVolume: 0.7 });
+      useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { settings: { bpm: 120, maxRobots: 1, minRobots: 1 } });
+      const addRobot2 = useLocaleStore.getState().addRobot;
+      addRobot2(DEFAULT_LOCALE_ID, { id: 'only', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { synthType: 'AMSynth', waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0 }, octaveRange: [3, 4], createdAt: 123, masterVolume: 0.7 } as any);
 
-      spawnRobot();
-      expect(useOceanStore.getState().robots.length).toBe(1);
+      spawnRobot(DEFAULT_LOCALE_ID);
+      expect(useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.robots?.length).toBe(1);
     });
   });
 
@@ -265,9 +262,9 @@ describe('spawnSystem', () => {
       const { scheduleRepeat } = await import('../engine/beatClock');
       const { startSpawnScheduler, stopSpawnScheduler } = await import('./spawnSystem');
 
-      startSpawnScheduler();
-      startSpawnScheduler();
-      startSpawnScheduler();
+      startSpawnScheduler(DEFAULT_LOCALE_ID);
+      startSpawnScheduler(DEFAULT_LOCALE_ID);
+      startSpawnScheduler(DEFAULT_LOCALE_ID);
 
       expect(scheduleRepeat).toHaveBeenCalledTimes(1);
 
@@ -278,7 +275,7 @@ describe('spawnSystem', () => {
       const { cancelSchedule } = await import('../engine/beatClock');
       const { startSpawnScheduler, stopSpawnScheduler } = await import('./spawnSystem');
 
-      startSpawnScheduler();
+      startSpawnScheduler(DEFAULT_LOCALE_ID);
       stopSpawnScheduler();
 
       expect(cancelSchedule).toHaveBeenCalledWith('beat-spawn-1');

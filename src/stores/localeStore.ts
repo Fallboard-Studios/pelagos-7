@@ -44,6 +44,35 @@ export const useLocaleStore = create<LocaleState>((set, get) => ({
   },
 
   getLocaleById: (localeId) => get().locales[localeId],
+  // Robot helpers
+  addRobot: (localeId, robot) => {
+    set((state) => {
+      const existing = state.locales[localeId];
+      if (!existing) return state;
+      const updated: Locale = { ...existing, robots: [...(existing.robots || []), robot] };
+      return { locales: { ...state.locales, [localeId]: updated } };
+    });
+  },
+
+  updateRobot: (localeId, robotId, updates) => {
+    set((state) => {
+      const existing = state.locales[localeId];
+      if (!existing) return state;
+      const nextRobots = (existing.robots || []).map((r) => (r.id === robotId ? { ...r, ...updates } : r));
+      return { locales: { ...state.locales, [localeId]: { ...existing, robots: nextRobots } } };
+    });
+  },
+
+  removeRobot: (localeId, robotId) => {
+    set((state) => {
+      const existing = state.locales[localeId];
+      if (!existing) return state;
+      const nextRobots = (existing.robots || []).filter((r) => r.id !== robotId);
+      return { locales: { ...state.locales, [localeId]: { ...existing, robots: nextRobots } } };
+    });
+  },
+
+  getRobotById: (localeId, robotId) => get().locales[localeId]?.robots?.find((r) => r.id === robotId),
 }));
 
 export default useLocaleStore;
