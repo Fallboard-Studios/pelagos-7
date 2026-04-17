@@ -1,32 +1,51 @@
 import { create } from 'zustand';
-import type { LocaleState, Locale } from '../types/locale';
 
-export const DEFAULT_LOCALE_ID = 'pelagos-default-locale';
+import type { Locale, LocaleState } from '../types/locale';
+import { DEFAULT_LOCALE_ID } from './planetStore';
 
-export const DEFAULT_LOCALE: Locale = {
+const DEFAULT_LOCALE: Locale = {
   id: DEFAULT_LOCALE_ID,
   planetId: 'pelagos',
-  name: 'Pelagos - Default Locale',
+  name: 'Pelagos Ocean',
   coordinates: { x: 0, y: 0 },
   robots: [],
   actors: [],
-  settings: {},
+  settings: { bpm: 240, maxRobots: 12, minRobots: 2 },
   currentMeasure: 0,
 };
 
 export const useLocaleStore = create<LocaleState>((set, get) => ({
   locales: { [DEFAULT_LOCALE_ID]: DEFAULT_LOCALE },
+
   addLocale: (planetId, locale) => {
-    const toAdd = { ...locale, planetId };
-    set((s) => ({ locales: { ...s.locales, [toAdd.id]: toAdd } }));
+    const toAdd: Locale = { ...locale, planetId };
+    set((state) => ({ locales: { ...state.locales, [toAdd.id]: toAdd } }));
   },
-  setLocaleData: (localeId, partial) =>
-    set((s) => ({ locales: { ...s.locales, [localeId]: { ...s.locales[localeId], ...partial } } })),
-  removeLocale: (localeId) =>
-    set((s) => {
-      const copy = { ...s.locales };
-      delete copy[localeId];
-      return { locales: copy };
-    }),
+
+  setLocaleData: (localeId, partial) => {
+    set((state) => {
+      const existing = state.locales[localeId];
+      if (!existing) return state;
+      return {
+        locales: {
+          ...state.locales,
+          [localeId]: { ...existing, ...partial },
+        },
+      };
+    });
+  },
+
+  removeLocale: (localeId) => {
+    set((state) => {
+      const next = { ...state.locales };
+      delete next[localeId];
+      return { locales: next };
+    });
+  },
+
   getLocaleById: (localeId) => get().locales[localeId],
 }));
+
+export default useLocaleStore;
+export { DEFAULT_LOCALE };
+export { DEFAULT_LOCALE_ID };
