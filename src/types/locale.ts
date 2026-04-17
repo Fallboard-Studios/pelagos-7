@@ -13,7 +13,7 @@ export interface Locale {
   coordinates: LocaleCoordinates;
   robots: Robot[];
   actors: Actor[];
-  settings: Record<string, any>;
+  settings: Record<string, unknown>;
   currentMeasure: number;
 }
 

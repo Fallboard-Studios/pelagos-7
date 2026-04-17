@@ -1,7 +1,8 @@
 import { create } from 'zustand';
-import type { Planet, PlanetState } from '../types/planet';
 
-const DEFAULT_LOCALE_ID = 'pelagos-default-locale';
+import type { Planet, PlanetSize } from '../types/planet';
+
+export const DEFAULT_LOCALE_ID = 'pelagos-default';
 
 export const DEFAULT_PELAGOS: Planet = {
   id: 'pelagos',
@@ -10,21 +11,60 @@ export const DEFAULT_PELAGOS: Planet = {
   locales: [DEFAULT_LOCALE_ID],
   currentLocaleId: DEFAULT_LOCALE_ID,
   dayStartTimestamp: Date.now(),
+  currentHour: 0,
 };
 
-export const usePlanetStore = create<PlanetState>((set) => ({
+export interface PlanetStore {
+  planets: Planet[];
+  addPlanet: (planet: Planet) => void;
+  removePlanet: (planetId: string) => void;
+  setPlanetSize: (planetId: string, size: PlanetSize) => void;
+  setDayStartTimestamp: (planetId: string, ts: number) => void;
+  setCurrentHour: (planetId: string, hour: number) => void;
+  setCurrentLocale: (planetId: string, localeId: string) => void;
+}
+
+export const usePlanetStore = create<PlanetStore>((set) => ({
   planets: [DEFAULT_PELAGOS],
-  addPlanet: (p) => set((s) => ({ planets: [...s.planets, p] })),
+
+  addPlanet: (planet) =>
+    set((state) => ({
+      planets: [...state.planets, planet],
+    })),
+
+  removePlanet: (planetId) =>
+    set((state) => ({
+      planets: state.planets.filter((p) => p.id !== planetId),
+    })),
+
   setPlanetSize: (planetId, size) =>
-    set((s) => ({
-      planets: s.planets.map((p) => (p.id === planetId ? { ...p, size } : p)),
+    set((state) => ({
+      planets: state.planets.map((p) =>
+        p.id === planetId ? { ...p, size } : p
+      ),
     })),
+
   setDayStartTimestamp: (planetId, ts) =>
-    set((s) => ({
-      planets: s.planets.map((p) => (p.id === planetId ? { ...p, dayStartTimestamp: ts } : p)),
+    set((state) => ({
+      planets: state.planets.map((p) =>
+        p.id === planetId ? { ...p, dayStartTimestamp: ts } : p
+      ),
     })),
+
+  setCurrentHour: (planetId, hour) =>
+    set((state) => ({
+      planets: state.planets.map((p) =>
+        p.id === planetId ? { ...p, currentHour: hour } : p
+      ),
+    })),
+
   setCurrentLocale: (planetId, localeId) =>
-    set((s) => ({
-      planets: s.planets.map((p) => (p.id === planetId ? { ...p, currentLocaleId: localeId } : p)),
+    set((state) => ({
+      planets: state.planets.map((p) =>
+        p.id === planetId ? { ...p, currentLocaleId: localeId } : p
+      ),
     })),
 }));
+
+export default usePlanetStore;
+
