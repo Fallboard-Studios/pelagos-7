@@ -748,69 +748,348 @@ Depends on: No other M0 issues (pure dependency install).
 ---
 
 <!-- ============================================================ -->
-<!-- ISSUE 0l: Appendix — Create planetStore and localeStore     -->
+<!-- ISSUE 0l-1: Define Planet and Locale TypeScript types       -->
 <!-- ============================================================ -->
 
-## [M8.0-0l] Build `planetStore.ts` and `localeStore.ts` (implementation)
+## [M8.0-0l-1] Define `Planet` and `Locale` TypeScript types
 
 ## Feature Description
-Implement the concrete Zustand stores and minimal migration helper so the codebase has working `planetStore` and `localeStore` implementations. This issue requires creating source files, TypeScript types, a small default `Pelagos` seed, and a one-shot migration helper to transfer serialisable per-world data from `oceanStore` into a default locale.
+Create the serialisable TypeScript interfaces for `Planet` and `Locale` in `src/types/`. These types are the single source of truth that `planetStore`, `localeStore`, and all downstream components will import. All fields must be JSON-serializable (no Tone nodes, GSAP timelines, or DOM refs).
+
+Depends on: No other M0 issues (pure type definitions).
 
 ## Implementation Details
-- [ ] Create `src/stores/planetStore.ts` implementing `usePlanetStore` (Zustand).
-  - Exported types and API (example):
-    ```ts
-    export type PlanetSize = 'small'|'medium'|'large';
-    export interface Planet { id: string; name: string; size: PlanetSize; locales: string[]; currentLocaleId?: string; dayStartTimestamp: number }
-    export const usePlanetStore = create<PlanetState>((set, get) => ({
-      planets: [ DEFAULT_PELAGOS ],
-      addPlanet: (p) => set(s => ({ planets: [...s.planets, p] })),
-      setPlanetSize: (planetId, size) => set(...),
-      setDayStartTimestamp: (planetId, ts) => set(...),
-      setCurrentLocale: (planetId, localeId) => set(...),
-    }));
-    ```
-  - Include a `DEFAULT_PELAGOS` constant with one planet seeded (id: 'pelagos', name: 'Pelagos', size: 'medium', locales: [defaultLocaleId], dayStartTimestamp: Date.now()).
+- [ ] Create `src/types/planet.ts`:
+  ```ts
+  export type PlanetSize = 'small' | 'medium' | 'large';
 
-- [ ] Create `src/stores/localeStore.ts` implementing `useLocaleStore`.
-  - Exported types and API (example):
-    ```ts
-    export interface Locale { id: string; planetId: string; name: string; coordinates: { x:number; y:number }; robots: Robot[]; actors: Actor[]; settings: Record<string, any> }
-    export const useLocaleStore = create<LocaleState>((set, get) => ({
-      locales: { [defaultLocaleId]: DEFAULT_LOCALE },
-      addLocale: (planetId, locale) => set(...),
-      setLocaleData: (localeId, partial) => set(...),
-      removeLocale: (localeId) => set(...),
-    }));
-    ```
-  - `DEFAULT_LOCALE` should reference `planetId: 'pelagos'` and contain an initial `OceanScene`-compatible `robots[]` and `actors[]` array.
-  - **Field coverage** — `localeStore` must own all fields that `oceanStore` previously carried at the per-world level; `planetStore` must own all planet-level fields. No data migration is needed (there is no persistent database); this is purely about ensuring the new stores define the right shape:
-    - `localeStore` covers: `robots[]`, `actors[]`, `settings`, `currentMeasure`
-    - `planetStore` covers: `size` (was `planetSize`), `dayStartTimestamp`; `currentHour` is derived at runtime, not stored
-    - `oceanStore` continues to exist as a transient runtime store for audio/playback state that has no locale equivalent; strip out any fields now owned by the new stores so there is no duplication
+  export interface Planet {
+    id: string;
+    name: string;
+    size: PlanetSize;
+    /** Ordered list of locale IDs belonging to this planet */
+    locales: string[];
+    /** ID of the currently active locale, if any */
+    currentLocaleId?: string;
+    /** Wall-clock ms when the current in-world day started */
+    dayStartTimestamp: number;
+    /** Derived in-world hour (float 0–24); updated by time-of-day tick, not stored across sessions */
+    currentHour: number;
+  }
+  ```
+- [ ] Create `src/types/locale.ts`:
+  ```ts
+  import type { Robot } from './Robot';
+  import type { Actor } from './Actor';
 
-- [ ] Create or update `src/constants/time.ts` exporting `PLANET_DURATION_MS = { small: 3*60_000, medium:6*60_000, large:9*60_000 }` and a `computeLocalTime(planetHour, longitudeX)` helper implementing `offsetHours = x / 15`.
+  export interface LocaleSettings {
+    bpm: number;
+    maxRobots: number;
+    minRobots: number;
+  }
 
-- [ ] Add TypeScript definitions in `src/types/planet.ts` and `src/types/locale.ts` and export them from `src/types/index.ts`.
-
-- [ ] Add `activeLocaleLocalTime: number | null` (default `null`) and `setActiveLocaleLocalTime(t: number | null)` to `uiStore` — called every second by `PlanetView`'s time-tick to push the currently visible locale's resolved local time for `TransportBar` to display.
-
-- [ ] Add unit tests: `src/stores/planetStore.test.ts` and `src/stores/localeStore.test.ts` that verify:
-  - store initialisation
-  - adding/removing planets/locales
-  - `setPlanetSize` changes mapping and `dayStartTimestamp` behavior
-  - new stores cover all fields listed above (no field left without an owner)
+  export interface Locale {
+    id: string;
+    planetId: string;
+    name: string;
+    /** Longitude/latitude used by computeLocalTime */
+    coordinates: { x: number; y: number };
+    robots: Robot[];
+    actors: Actor[];
+    settings: LocaleSettings;
+    /** Current transport measure (0–95) */
+    currentMeasure: number;
+  }
+  ```
+- [ ] Export both types from `src/types/index.ts`
+- [ ] No runtime code, no Tone/GSAP dependencies
+- [ ] Code follows standards (imports ordered, explicit types)
 
 ## Acceptance Criteria
-- [ ] `src/stores/planetStore.ts` and `src/stores/localeStore.ts` exist and export `usePlanetStore` / `useLocaleStore`
-- [ ] A seeded `Pelagos` planet and a default locale exist on store init
-- [ ] `localeStore` owns `robots[]`, `actors[]`, `settings`, `currentMeasure`; `planetStore` owns `size`, `dayStartTimestamp`; neither duplicates a field from the other
-- [ ] `oceanStore` no longer defines fields now owned by the new stores
-- [ ] `PLANET_DURATION_MS` and `computeLocalTime()` utilities exist and are used by stores or systems consuming locale local time
-- [ ] Unit tests added and runnable via existing test harness (`npm test` / `vitest`) for the new files
-- [ ] All new code follows the project's rule: stores contain only JSON-serializable state
+- [ ] `Planet`, `PlanetSize`, `Locale`, `LocaleSettings` are importable from `src/types/index.ts`
+- [ ] All fields are JSON-serializable primitives, arrays, or plain objects
+- [ ] App compiles with no TypeScript errors
+- [ ] No regression in existing features
 
-## Notes
-- Implementation must avoid creating Tone.js nodes, GSAP timelines, or DOM refs inside stores. Any audio wiring belongs in `AudioEngine` and systems.
-- After implementation, update components and systems to read from `useLocaleStore` instead of `useOceanStore` for per-world fields, and `usePlanetStore` instead of `useOceanStore` for planet-level fields.
+## Source Reference
+- File: `src/types/Robot.ts` (reference for serializable type conventions)
+- Copilot instructions: "State: Zustand only; store JSON-serializable data only."
+
+---
+
+<!-- ============================================================ -->
+<!-- ISSUE 0l-2: Create time constants and computeLocalTime util -->
+<!-- ============================================================ -->
+
+## [M8.0-0l-2] Create `src/constants/time.ts` with `PLANET_DURATION_MS` and `computeLocalTime`
+
+## Feature Description
+Create a constants/utilities file for planet time calculations. `PLANET_DURATION_MS` maps each `PlanetSize` to real-world milliseconds per in-world day. `computeLocalTime` converts a planet-wide `currentHour` plus a locale's longitude into a locale-local hour. These are pure functions with no side effects.
+
+Depends on: **Issue 0l-1** (`PlanetSize` type must exist).
+
+## Implementation Details
+- [ ] Create `src/constants/time.ts`:
+  ```ts
+  import type { PlanetSize } from '../types/planet';
+
+  /** Real-world milliseconds per in-world day, keyed by planet size */
+  export const PLANET_DURATION_MS: Record<PlanetSize, number> = {
+    small:  3 * 60_000,
+    medium: 6 * 60_000,
+    large:  9 * 60_000,
+  } as const;
+
+  /**
+   * Compute a locale's local hour given the planet's current hour and the
+   * locale's longitude. Each 15° of longitude = 1 hour offset.
+   * @param planetHour  Float 0–24 representing planet-wide in-world time
+   * @param longitudeX  Locale longitude in degrees (–180 to 180)
+   * @returns           Float local hour (0–24, wraps)
+   */
+  export function computeLocalTime(planetHour: number, longitudeX: number): number {
+    const offsetHours = longitudeX / 15;
+    return ((planetHour + offsetHours) % 24 + 24) % 24;
+  }
+  ```
+- [ ] Export `PLANET_DURATION_MS` and `computeLocalTime` from `src/constants/index.ts` (or re-export from the new file)
+- [ ] No side effects, no Tone/GSAP, no DOM access
+- [ ] Code follows standards (imports ordered, explicit types)
+
+## Acceptance Criteria
+- [ ] `PLANET_DURATION_MS` correctly maps `'small'` → 180 000 ms, `'medium'` → 360 000 ms, `'large'` → 540 000 ms
+- [ ] `computeLocalTime(6, 90)` returns `12` (6 h + 6 h offset for 90°E longitude)
+- [ ] `computeLocalTime(1, -180)` wraps correctly (no negative result)
+- [ ] App compiles with no TypeScript errors
+- [ ] No regression in existing features
+
+## Source Reference
+- File: `src/constants/index.ts` (existing constants pattern)
+
+---
+
+<!-- ============================================================ -->
+<!-- ISSUE 0l-3: Implement planetStore.ts                        -->
+<!-- ============================================================ -->
+
+## [M8.0-0l-3] Implement `src/stores/planetStore.ts`
+
+## Feature Description
+Create the `usePlanetStore` Zustand store. The store is seeded with a single default `Pelagos` planet on initialisation. It owns all planet-level fields (`size`, `dayStartTimestamp`, `currentHour`, `locales`, `currentLocaleId`) that `oceanStore` previously duplicated. All state is JSON-serializable.
+
+Depends on: **Issue 0l-1** (Planet / PlanetSize types), **Issue 0l-2** (PLANET_DURATION_MS).
+
+## Implementation Details
+- [ ] Create `src/stores/planetStore.ts`:
+  - State shape:
+    ```ts
+    interface PlanetState {
+      planets: Planet[];
+      addPlanet: (planet: Planet) => void;
+      removePlanet: (planetId: string) => void;
+      setPlanetSize: (planetId: string, size: PlanetSize) => void;
+      setDayStartTimestamp: (planetId: string, ts: number) => void;
+      setCurrentHour: (planetId: string, hour: number) => void;
+      setCurrentLocale: (planetId: string, localeId: string) => void;
+    }
+    ```
+  - `DEFAULT_PELAGOS` constant:
+    ```ts
+    const DEFAULT_LOCALE_ID = 'pelagos-default';
+    const DEFAULT_PELAGOS: Planet = {
+      id: 'pelagos',
+      name: 'Pelagos',
+      size: 'medium',
+      locales: [DEFAULT_LOCALE_ID],
+      currentLocaleId: DEFAULT_LOCALE_ID,
+      dayStartTimestamp: Date.now(),
+      currentHour: 0,
+    };
+    ```
+  - Initial state: `planets: [DEFAULT_PELAGOS]`
+  - `setPlanetSize`: updates the target planet's `size`; does **not** reset `dayStartTimestamp` (the day continues from wherever it is)
+  - `setDayStartTimestamp`: updates `dayStartTimestamp` for the named planet, called by the time-of-day tick when a day wraps
+  - `setCurrentHour`: updates `currentHour` for the named planet, called every second by the time-of-day tick
+  - All mutations are shallow-immutable (use spread, not mutation)
+- [ ] Export `usePlanetStore` and `DEFAULT_LOCALE_ID` constant (used by `localeStore` as the seed)
+- [ ] All state is JSON-serializable; no Tone nodes, GSAP timelines, or DOM refs
+- [ ] Code follows standards (imports ordered, explicit types)
+
+## Acceptance Criteria
+- [ ] `usePlanetStore.getState().planets[0].id` is `'pelagos'` on init
+- [ ] `usePlanetStore.getState().planets[0].size` is `'medium'` on init
+- [ ] `setPlanetSize('pelagos', 'small')` changes only `size` for that planet
+- [ ] `setCurrentHour('pelagos', 12.5)` updates `currentHour` to `12.5`
+- [ ] `addPlanet` / `removePlanet` correctly append/filter the planets array
+- [ ] All state is JSON-serializable
+- [ ] App compiles with no TypeScript errors
+- [ ] No regression in existing features
+
+## Source Reference
+- File: `src/stores/oceanStore.ts` (reference for Zustand store pattern)
+- Copilot instructions: "State: Zustand only; store JSON-serializable data only."
+
+---
+
+<!-- ============================================================ -->
+<!-- ISSUE 0l-4: Implement localeStore.ts                        -->
+<!-- ============================================================ -->
+
+## [M8.0-0l-4] Implement `src/stores/localeStore.ts`
+
+## Feature Description
+Create the `useLocaleStore` Zustand store. The store is seeded with a default `Pelagos` locale on initialisation. It owns all per-world fields (`robots[]`, `actors[]`, `settings`, `currentMeasure`) that `oceanStore` previously held. `locales` is a map keyed by locale ID for O(1) access. All state is JSON-serializable.
+
+Depends on: **Issue 0l-1** (Locale / LocaleSettings types), **Issue 0l-3** (`DEFAULT_LOCALE_ID` export).
+
+## Implementation Details
+- [ ] Create `src/stores/localeStore.ts`:
+  - State shape:
+    ```ts
+    interface LocaleState {
+      locales: Record<string, Locale>;
+      addLocale: (locale: Locale) => void;
+      removeLocale: (localeId: string) => void;
+      setLocaleData: (localeId: string, partial: Partial<Omit<Locale, 'id' | 'planetId'>>) => void;
+      addRobotToLocale: (localeId: string, robot: Robot) => void;
+      removeRobotFromLocale: (localeId: string, robotId: string) => void;
+      updateRobotInLocale: (localeId: string, robotId: string, updates: Partial<Robot>) => void;
+    }
+    ```
+  - `DEFAULT_LOCALE` constant (uses `DEFAULT_LOCALE_ID` imported from `planetStore`):
+    ```ts
+    const DEFAULT_LOCALE: Locale = {
+      id: DEFAULT_LOCALE_ID,
+      planetId: 'pelagos',
+      name: 'Pelagos Ocean',
+      coordinates: { x: 0, y: 0 },
+      robots: [],
+      actors: [],
+      settings: { bpm: 240, maxRobots: 12, minRobots: 2 },
+      currentMeasure: 0,
+    };
+    ```
+  - Initial state: `locales: { [DEFAULT_LOCALE_ID]: DEFAULT_LOCALE }`
+  - `setLocaleData`: shallow-merges `partial` into the target locale's top-level fields (does not deep-merge nested objects; supply a complete replacement for nested fields)
+  - `addRobotToLocale` / `removeRobotFromLocale` / `updateRobotInLocale`: fine-grained robot mutations scoped to one locale, following the same immutable pattern as `oceanStore`'s `addRobot` / `removeRobot` / `updateRobot`
+  - All mutations are shallow-immutable (use spread, not mutation)
+- [ ] Export `useLocaleStore`
+- [ ] All state is JSON-serializable; no Tone nodes, GSAP timelines, or DOM refs
+- [ ] Code follows standards (imports ordered, explicit types)
+
+## Acceptance Criteria
+- [ ] `useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].planetId` is `'pelagos'` on init
+- [ ] `useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].robots` is `[]` on init
+- [ ] `addLocale` / `removeLocale` correctly add/delete entries from the map
+- [ ] `addRobotToLocale` appends a robot; `removeRobotFromLocale` filters it out; `updateRobotInLocale` applies a partial patch
+- [ ] All state is JSON-serializable
+- [ ] App compiles with no TypeScript errors
+- [ ] No regression in existing features
+
+## Source Reference
+- File: `src/stores/oceanStore.ts` (reference for robot mutation pattern)
+- Copilot instructions: "State: Zustand only; store JSON-serializable data only."
+
+---
+
+<!-- ============================================================ -->
+<!-- ISSUE 0l-5: uiStore addition + oceanStore field cleanup     -->
+<!-- ============================================================ -->
+
+## [M8.0-0l-5] Add `activeLocaleLocalTime` to `uiStore` and strip duplicate fields from `oceanStore`
+
+## Feature Description
+Two housekeeping tasks that must happen together to avoid type conflicts after the new stores are live:
+
+1. Add `activeLocaleLocalTime` (and its setter) to `uiStore` — this is the resolved local time for the currently-displayed locale, pushed every second by `PlanetView`'s time-tick and read by `TransportBar` for display.
+2. Strip fields from `oceanStore` that are now owned by `planetStore` or `localeStore`, eliminating duplication. `oceanStore` is retained as a transient runtime store for audio/playback state only.
+
+Depends on: **Issue 0l-3** (planetStore), **Issue 0l-4** (localeStore).
+
+## Implementation Details
+
+### `uiStore` addition
+- [ ] Add `activeLocaleLocalTime: number | null` to `uiStore` state (default: `null`)
+- [ ] Add `setActiveLocaleLocalTime(t: number | null)` action: sets `activeLocaleLocalTime` to the given value
+- [ ] No other `uiStore` fields are modified
+
+### `oceanStore` field removal
+Remove the following fields and actions from `oceanStore`, as they are now owned by the new stores:
+- [ ] `robots: Robot[]` and all robot actions (`addRobot`, `removeRobot`, `updateRobot`, `getRobotById`) — owned by `localeStore`
+- [ ] `actors: Actor[]` and all actor actions (`setActors`, `addActor`, `getActorById`) — owned by `localeStore`
+- [ ] `settings.planetSize` and `setPlanetSize()` — owned by `planetStore`
+- [ ] `dayStartTimestamp` and `setDayStartTimestamp()` — owned by `planetStore`
+- [ ] `currentHour`, `planetHour`, `planetMinute`, `setCurrentHour()`, `setPlanetTime()` — owned by `planetStore`
+- [ ] `currentMeasure` and `setCurrentMeasure()` — owned by `localeStore`
+- [ ] `lightnessMultiplier` — derived from `planetStore.currentHour`; remove from store; compute inline where needed
+- [ ] `settings.bpm`, `settings.maxRobots`, `settings.minRobots` — these become `localeStore.settings`; remove from `oceanStore.settings`
+
+Remaining `oceanStore` fields after cleanup (transient audio/playback runtime state only):
+- `selectedRobotId` / `selectRobot()`
+- `totalInteractions` / `incrementInteractions()`
+
+Update all call sites throughout `src/` that reference removed fields to use the new stores. Any `App.tsx` or `OceanScene.tsx` code that reads these fields must be updated to read from `usePlanetStore` or `useLocaleStore` instead.
+
+## Technical Notes
+- Do a thorough `grep` for `useOceanStore` usages before removing fields — update every consumer.
+- Systems (`spawnSystem`, `collisionSystem`, `idleSystem`, etc.) that currently read `robots` from `oceanStore` must be updated to accept a `localeId` or read directly from `useLocaleStore`.
+- If updating all consumers is too large for one PR, fields may be **deprecated** (typed as `never` with a comment) and removed in a follow-up — but all new code must use the new stores.
+
+## Acceptance Criteria
+- [ ] `useUIStore.getState().activeLocaleLocalTime` defaults to `null`
+- [ ] `setActiveLocaleLocalTime(6.5)` sets it to `6.5`
+- [ ] `oceanStore` no longer defines `robots`, `actors`, `currentMeasure`, `currentHour`, `planetSize`, `dayStartTimestamp`, or `lightnessMultiplier`
+- [ ] No TypeScript errors after removal — all consumers updated
+- [ ] `npm test` passes with no failures
+- [ ] App remains functional after merge
+- [ ] No regression in robot spawn, audio playback, or day/night rendering
+
+## Source Reference
+- File: `src/stores/uiStore.ts`, `src/stores/oceanStore.ts`
+- Copilot instructions: "State: Zustand only; store JSON-serializable data only."
+
+---
+
+<!-- ============================================================ -->
+<!-- ISSUE 0l-6: Unit tests for planetStore and localeStore      -->
+<!-- ============================================================ -->
+
+## [M8.0-0l-6] Add unit tests for `planetStore` and `localeStore`
+
+## Feature Description
+Write vitest unit tests for the two new stores, verifying initialisation, all actions, and field-ownership invariants (no field left without an owner, no field duplicated across stores). Tests follow the same pattern as `oceanStore.test.ts` and `audioStore.test.ts`.
+
+Depends on: **Issue 0l-3** (planetStore), **Issue 0l-4** (localeStore), **Issue 0l-5** (oceanStore cleanup complete).
+
+## Implementation Details
+- [ ] Create `src/stores/planetStore.test.ts`:
+  - Verify `planets[0].id === 'pelagos'` on init
+  - Verify `planets[0].size === 'medium'` on init
+  - `setPlanetSize('pelagos', 'small')` → `size === 'small'`; other fields unchanged
+  - `setCurrentHour('pelagos', 14)` → `currentHour === 14`
+  - `setDayStartTimestamp('pelagos', 9999)` → `dayStartTimestamp === 9999`
+  - `setCurrentLocale('pelagos', 'other-locale')` → `currentLocaleId === 'other-locale'`
+  - `addPlanet(newPlanet)` → `planets.length === 2`
+  - `removePlanet('pelagos')` → `planets.length === 0`
+- [ ] Create `src/stores/localeStore.test.ts`:
+  - Verify default locale exists and `planetId === 'pelagos'` on init
+  - Verify `robots` and `actors` are empty arrays on init
+  - `addRobotToLocale(localeId, robot)` → robot appears in locale robots
+  - `removeRobotFromLocale(localeId, robotId)` → robot removed
+  - `updateRobotInLocale(localeId, robotId, { name: 'X' })` → robot name updated
+  - `addLocale(newLocale)` → locale appears in map
+  - `removeLocale(localeId)` → locale removed from map
+  - `setLocaleData(localeId, { currentMeasure: 42 })` → `currentMeasure === 42`
+- [ ] All tests use `beforeEach` to reset store state to avoid cross-test contamination (reset via re-creating the store or calling `getState()` resets if Zustand supports them)
+- [ ] Tests run via `npm test` with no failures
+
+## Acceptance Criteria
+- [ ] `src/stores/planetStore.test.ts` exists and all tests pass
+- [ ] `src/stores/localeStore.test.ts` exists and all tests pass
+- [ ] `npm test` passes with no failures across the whole test suite
+- [ ] No regression in existing tests
+
+## Source Reference
+- File: `src/stores/oceanStore.test.ts`, `src/stores/audioStore.test.ts` (reference for test pattern)
+- Copilot instructions: "State: Zustand only; store JSON-serializable data only."
 
