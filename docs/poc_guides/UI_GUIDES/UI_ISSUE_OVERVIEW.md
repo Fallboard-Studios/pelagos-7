@@ -96,13 +96,44 @@ Goal: Establish the backing types, state, and AudioEngine wiring that all later 
         Global reverb is now handled by GlobalAudioSettings.reverb and the _globalReverb node in AudioEngine.
         Update spawnSystem, tests, and any other AudioAttributes construction sites.
 
-    Issue 0g: Create `planetStore.ts` and `localeStore.ts` (src/stores/planetStore.ts, src/stores/localeStore.ts).
-        Store: planetStore, localeStore
-        Add planet-scoped persisted world model: `Planet` owns day cycle (size, dayStartTimestamp) and an array of `Locale` ids. `Locale` holds locale-specific persisted state: robots, actors, coordinates, and settings.
-        PLANET_DURATION_MS mapping: small = 3 minutes, medium = 6 minutes, large = 9 minutes. Each planet has `dayStartTimestamp` (wall-clock ms) and a `setDayStartTimestamp(ts)` action.
-        Add `setPlanetSize(planetId, size)` on `planetStore` to change the planet's day duration mapping.
-        `Locale` local time is computed by `localTime = (planet.currentHour + coordinates.x / 15) % 24` where `coordinates.x` is longitude-like degrees.
-        Rationale: move persisted world data out of `oceanStore` into `localeStore` so the runtime scene store (`oceanStore`) remains focused on transient scene state.
+    Issue 0l-1: Define `Planet` and `Locale` TypeScript types (src/types/planet.ts, src/types/locale.ts).
+        Create `Planet` (id, name, size, locales, currentLocaleId, dayStartTimestamp, currentHour) and `Locale` (id, planetId, name, coordinates, robots, actors, settings, currentMeasure) interfaces.
+        Also exports `PlanetSize` and `LocaleSettings`. All values JSON-serializable.
+        Export from src/types/index.ts. No runtime code.
+
+    Issue 0l-2: Create `src/constants/time.ts` — `PLANET_DURATION_MS` and `computeLocalTime`.
+        `PLANET_DURATION_MS`: small = 3 min, medium = 6 min, large = 9 min.
+        `computeLocalTime(planetHour, longitudeX)`: returns `((planetHour + longitudeX / 15) % 24 + 24) % 24` — wraps correctly for negative longitudes.
+        Pure functions, no side effects. Depends on Issue 0l-1 (PlanetSize type).
+
+    Issue 0l-3: Implement `src/stores/planetStore.ts`.
+        Store: planetStore
+        Seeded with `DEFAULT_PELAGOS` (id: 'pelagos', name: 'Pelagos', size: 'medium') on init.
+        Actions: addPlanet(), removePlanet(), setPlanetSize(planetId, size), setDayStartTimestamp(planetId, ts), setCurrentHour(planetId, hour), setCurrentLocale(planetId, localeId).
+        `addPlanet` enforces unique names (case-insensitive) — returns boolean; sets `dayStartTimestamp` based on `planetInitialHour` so the planet starts at the correct in-world hour.
+        Exports `DEFAULT_LOCALE_ID` constant used by localeStore seed.
+        Depends on: Issue 0l-1, 0l-2.
+
+    Issue 0l-4: Implement `src/stores/localeStore.ts`.
+        Store: localeStore
+        Seeded with `DEFAULT_LOCALE` (id: DEFAULT_LOCALE_ID, planetId: 'pelagos', coordinates: {x:0, y:0}) on init.
+        Actions: addLocale(), removeLocale(), setLocaleData(localeId, partial), addRobotToLocale(), removeRobotFromLocale(), updateRobotInLocale().
+        `locales` is a `Record<string, Locale>` map for O(1) access.
+        Owns: robots[], actors[], settings (bpm, maxRobots, minRobots), currentMeasure per locale.
+        Depends on: Issue 0l-1, 0l-3 (DEFAULT_LOCALE_ID).
+
+    Issue 0l-5: Add `activeLocaleLocalTime` to uiStore; strip duplicate fields from oceanStore.
+        Add `activeLocaleLocalTime: number | null` (default null) and `setActiveLocaleLocalTime(t)` to uiStore.
+        Remove from oceanStore: robots, actors, robot/actor actions, settings.planetSize, dayStartTimestamp, currentHour, planetHour, planetMinute, currentMeasure, lightnessMultiplier, and all their actions — all now owned by planetStore or localeStore.
+        Remaining oceanStore: selectedRobotId / selectRobot(), totalInteractions / incrementInteractions().
+        Update all consumers across src/ to read from usePlanetStore or useLocaleStore.
+        Depends on: Issue 0l-3, 0l-4.
+
+    Issue 0l-6: Unit tests for planetStore and localeStore.
+        src/stores/planetStore.test.ts: init seed, setPlanetSize, setCurrentHour, setDayStartTimestamp, setCurrentLocale, addPlanet/removePlanet.
+        src/stores/localeStore.test.ts: init seed, addRobotToLocale/removeRobotFromLocale/updateRobotInLocale, addLocale/removeLocale, setLocaleData.
+        All tests reset store state in beforeEach. npm test must pass with no failures.
+        Depends on: Issue 0l-3, 0l-4, 0l-5.
 
     Issue 0h: Create settingsStore.ts (src/stores/settingsStore.ts).
         Store: settingsStore
@@ -276,7 +307,34 @@ Depends on: planetStore, localeStore (0g/0l), oceanStore (0g-delta), uiStore (ac
         LocaleView computes `localTime = computeLocalTime(currentHour, locale.coordinates.x)` and passes it to OceanView.
         OceanView is a thin named wrapper around OceanScene; receives `localTime` as a prop.
         All components fill parent bounds via `width: 100%; height: 100%`.
-        Depends on: Issue 0g/0l (planetStore, localeStore, PLANET_DURATION_MS, computeLocalTime, uiStore.activeLocaleLocalTime).
+        Depends on: Issue 0l-1 through 0l-5 (planetStore, localeStore, PLANET_DURATION_MS, computeLocalTime, uiStore.activeLocaleLocalTime).
+
+    Issue 10: Seed Infrastructure — `derivePlanetSeed`, `getSeededVal`, `precomputeDataX`, and `noiseMaps` registry.
+        Establishes the deterministic seed system. All game-logic randomness is replaced with reproducible noise-map lookups; the same planet name + locale coordinates always produces the same world.
+        src/utils/seedUtils.ts: `derivePlanetSeed(name)` (lowercase + strip non-alphanumeric); `planetInitialHour(seed)` (letter-average → integer 0–23); `localeCoordSeed(x, y)` (maps -179…179 coords to 0–129,599).
+        src/utils/getSeededVal.ts: `precomputeDataX(dataId)` converts a stable string key to a deterministic float **once at module scope** (must not be called per-note on the audio hot path); `getSeededVal(noiseMap, dataId, offset, min, max)` is the general-purpose sampler for non-hot-path callers.
+        src/utils/noiseMaps.ts: module-level `Map` registry keyed by planet/locale ID; `getPlanetNoiseMap`, `getLocaleNoiseMap`, `evictPlanetNoiseMap`, `evictLocaleNoiseMap`, `tryGetLocaleNoiseMap` (null-safe for audio engine).
+        Planet name uniqueness enforced in `addPlanet()`; `DEFAULT_PELAGOS.dayStartTimestamp` initialised from `planetInitialHour`.
+        Depends on: Issue 0l-3, 0l-4.
+
+    Issue 11: Wire noise map creation into planet and locale lifecycle.
+        Eagerly primes planet and locale noise maps in `addPlanet`/`addLocale`; evicts them in `removePlanet`/`removeLocale`.
+        Default maps for `pelagos` and `DEFAULT_LOCALE_ID` are primed at module scope in their respective store files so maps are available before the first React render.
+        No noise-map logic inside Zustand state — side effects belong at the call sites only.
+        Depends on: Issue 10.
+
+    Issue 12: Replace `Math.random()` in spawn, idle, interaction, and melody systems with `getSeededVal`.
+        spawnSystem: generateRobotName, pickSpawnInterval, generateSpawnPosition, generateAudioAttributes — all accept `(noiseMap, offset)` and use stable dataId keys.
+        idleSystem: pickIdleTarget uses `getSeededVal` for x/y coordinates.
+        interactionSystem: pickInteractionEvents uses `getSeededVal` for melody-event selection.
+        melodyGenerator: call sites pass `() => getSeededVal(noiseMap, 'melody.rand', callIndex++)` as the injectable `rand` parameter — no changes to melodyGenerator internals.
+        DataId strings are stable keys; renames are breaking seed changes and must be documented in CONTRIBUTION_GUIDE.md.
+        Depends on: Issue 11.
+
+    Issue 13: Seed AudioEngine velocity variance; replace beatClock schedule ID with `crypto.randomUUID()`.
+        AudioEngine: two module-level constants `VELOCITY_ROLL_X = precomputeDataX('audio.velocityRoll')` and `VELOCITY_VARIANCE_X = precomputeDataX('audio.velocityVariance')` computed once at import — never inside the scheduling callback. Hot path calls `noiseMap(VELOCITY_ROLL_X, noteIndex % 97)` only (O(1), safe at 240+ BPM). Falls back to no variance when no locale map is available (tests, headless).
+        beatClock: schedule ID replaced with `crypto.randomUUID()` — natively implemented, faster than the previous `Math.random().toString(36)` pattern.
+        Depends on: Issue 11, 12.
 
 
 🤖 Milestone 3: Robot Management Console Tabs
