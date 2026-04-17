@@ -22,19 +22,8 @@ export interface OceanStore {
     bpm: number;
     maxRobots: number;
     minRobots: number; // lower bound for population bouncing
-    /** Planet size mapping (small|medium|large). Controls real-world minutes per in-world day. */
-    planetSize: 'small' | 'medium' | 'large';
   };
-  /** Current hour derived from currentMeasure (0..23) */
-  currentHour: number;
-  /** Quantised planet hour (integer 0..23) for UI display */
-  planetHour: number;
-  /** Quantised planet minute (0,15,30,45) for UI display */
-  planetMinute: number;
-  /** Timestamp (ms) representing the start of the current in-world day */
-  dayStartTimestamp: number;
-  /** Lightness multiplier (0..1+) applied to robot colors */
-  lightnessMultiplier: number;
+  /** Transient playback-only fields are kept in `oceanStore`; planet/locale data moved to planetStore/localeStore. */
   addRobot: (robot: Robot) => void;
   removeRobot: (id: string) => void;
   updateRobot: (id: string, updates: Partial<Robot>) => void;
@@ -45,16 +34,7 @@ export interface OceanStore {
   getActorById: (id: string) => Actor | undefined;
   selectRobot: (id: string | null) => void;
   incrementInteractions: () => void;
-  /** Current measure in the 96-measure day/night cycle (0–95). */
-  currentMeasure: number;
-  setCurrentMeasure: (measure: number) => void;
-  /** Set the current in-world hour (float, 0..24). Called by the time-of-day tick. */
-  setCurrentHour: (hour: number) => void;
-  /** Set quantised planet time for UI (hh, mm) */
-  setPlanetTime: (hour: number, minute: number) => void;
-  /** Update the configured day length (in measures) */
-  setPlanetSize: (size: 'small' | 'medium' | 'large') => void;
-  setDayStartTimestamp: (ts: number) => void;
+  // Planet/locale time and configuration moved to planetStore/localeStore.
 }
 
 // ========================================
@@ -67,7 +47,6 @@ const INITIAL_SETTINGS = {
   bpm: 240,
   maxRobots: 12,
   minRobots: 2,
-  planetSize: 'small' as const,
 };
 
 // ========================================
@@ -79,20 +58,6 @@ export const useOceanStore = create<OceanStore>((_set, get) => ({
   selectedRobotId: null,
   totalInteractions: 0,
   settings: { ...INITIAL_SETTINGS },
-  // Start world at measure 0 so initial displays are in-range
-  currentMeasure: 0,
-  // Time-of-day is driven by wall clock. On load the day starts now, so
-  // currentHour should be approximately 0.
-  dayStartTimestamp: Date.now(),
-  currentHour: 0,
-  planetHour: 0,
-  planetMinute: 0,
-  // Compute initial lightness from hour=0 so visuals reflect midnight.
-  lightnessMultiplier: (() => {
-    const hour = 0;
-    const angle = (hour / 24) * 2 * Math.PI - Math.PI / 2;
-    return 0.7 + 0.3 * Math.sin(angle);
-  })(),
 
   addRobot: (robot) => {
     _set((state) => ({
@@ -162,32 +127,7 @@ export const useOceanStore = create<OceanStore>((_set, get) => ({
       totalInteractions: state.totalInteractions + 1,
     }));
   },
-
-  setCurrentMeasure: (measure) => {
-    _set({ currentMeasure: measure });
-  },
-
-  setCurrentHour: (hour) => {
-    // hour is a float (e.g. 6.5 = 6:30). Compute lightness from the float hour.
-    const normalized = hour % 24;
-    const angle = (normalized / 24) * 2 * Math.PI - Math.PI / 2;
-    const lightnessMultiplier = 0.7 + 0.3 * Math.sin(angle);
-    _set({ currentHour: normalized, lightnessMultiplier });
-  },
-
-  setPlanetTime: (hour, minute) => {
-    const h = ((Math.floor(Number(hour)) % 24) + 24) % 24;
-    const m = Math.max(0, Math.min(45, Math.floor(Number(minute) / 15) * 15));
-    _set({ planetHour: h, planetMinute: m });
-  },
-
-  setPlanetSize: (size) => {
-    _set((state) => ({ settings: { ...state.settings, planetSize: size } }));
-  },
-
-  setDayStartTimestamp: (ts) => {
-    _set({ dayStartTimestamp: ts });
-  },
+  // Note: planet/locale setters and time/state are now owned by planetStore/localeStore.
 }));
 
 // ========================================
