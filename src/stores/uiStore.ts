@@ -13,6 +13,8 @@ export interface UIStore {
   language: string;
   isPoweredOn: boolean;
   isFullscreen: boolean;
+  activeLocaleLocalTime: number | null;
+  setActiveLocaleLocalTime: (t: number | null) => void;
   setActiveView: (v: ActiveView) => void;
   setTheme: (t: Theme) => void;
   setLanguage: (lang: string) => void;
@@ -31,6 +33,7 @@ export const useUIStore = create<UIStore>((set) => ({
   language: 'en',
   isFullscreen: false,
   isPoweredOn: false,
+  activeLocaleLocalTime: null,
 
   setActiveView: (v) => set({ activeView: v }),
   setTheme: (t) => set({ theme: t }),
@@ -38,6 +41,7 @@ export const useUIStore = create<UIStore>((set) => ({
   setFullscreen: (f) => set({ isFullscreen: f }),
   setPowerOn: () => set({ isPoweredOn: true }),
   setPowerOff: () => set({ isPoweredOn: false }),
+  setActiveLocaleLocalTime: (t) => set({ activeLocaleLocalTime: t }),
 }));
 
 // ========================================
