@@ -11,7 +11,8 @@ const WORLD_BOUNDS = { width: 1920, height: 1080 };
 
 // VARIANT_CONF imported previously but no longer needed
 
-import { useOceanStore } from '../stores/oceanStore';
+import { useLocaleStore } from '../stores/localeStore';
+import { DEFAULT_LOCALE_ID } from '../stores/planetStore';
 import { ActorType } from '../types/Actor';
 
 // ========================================
@@ -51,14 +52,14 @@ describe('FactoryPlacementSystem', () => {
 
   describe('placeFactories', () => {
     beforeEach(() => {
-      useOceanStore.setState({ actors: [] });
+      useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { actors: [] });
     });
 
 
 
     it('assigns valid row indices to every actor', () => {
       placeFactories();
-      const state = useOceanStore.getState();
+      const state = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID];
       state.actors.forEach((a) => {
         expect(a.config?.row).toBeGreaterThanOrEqual(0);
         const rows = getAllRowConfigs();
@@ -68,7 +69,7 @@ describe('FactoryPlacementSystem', () => {
 
     it('assigns a small random scale to each factory (0.9-1.1)', () => {
       placeFactories();
-      const state = useOceanStore.getState();
+      const state = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID];
 
       state.actors.forEach((a) => {
         expect(a.scaleX).toBeGreaterThanOrEqual(0.9);
@@ -80,7 +81,7 @@ describe('FactoryPlacementSystem', () => {
 
     it('places every factory at the Y coordinate of its row', () => {
       placeFactories();
-      const state = useOceanStore.getState();
+      const state = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID];
       state.actors.forEach((a) => {
         const row = a.config?.row;
         expect(row).toBeDefined();
@@ -92,7 +93,7 @@ describe('FactoryPlacementSystem', () => {
 
     it('obeys spreadType semantics for each row', () => {
       placeFactories();
-      const state = useOceanStore.getState();
+      const state = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID];
       const rows = getAllRowConfigs();
 
       rows.forEach((cfg, idx) => {
@@ -135,7 +136,7 @@ describe('FactoryPlacementSystem', () => {
 
     it('keeps factories roughly within world bounds (allow a bit of overflow)', () => {
       placeFactories();
-      const state = useOceanStore.getState();
+      const state = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID];
 
       state.actors.forEach((actor) => {
         expect(actor.position.x).toBeGreaterThanOrEqual(-20); // allow off-screen first
@@ -146,7 +147,7 @@ describe('FactoryPlacementSystem', () => {
 
     it('each row respects its factoriesPerRow maximum', () => {
       placeFactories();
-      const state = useOceanStore.getState();
+      const state = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID];
       const rows = getAllRowConfigs();
       rows.forEach((cfg, idx) => {
         const rowActors = state.actors.filter((a) => a.config?.row === idx);
@@ -156,14 +157,14 @@ describe('FactoryPlacementSystem', () => {
 
     it('placement is unaffected by changing factoriesPerRow values', () => {
       placeFactories();
-      const state1 = useOceanStore.getState().actors.map((a) => a.id);
+      const state1 = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].actors.map((a) => a.id);
 
       const rows = getAllRowConfigs();
       const original = rows[0].factoriesPerRow;
       rows[0].factoriesPerRow = original + 10;
 
       placeFactories();
-      const state2 = useOceanStore.getState().actors.map((a) => a.id);
+      const state2 = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].actors.map((a) => a.id);
 
       rows[0].factoriesPerRow = original;
 

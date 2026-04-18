@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import gsap from 'gsap';
 
-import { useOceanStore } from '../../stores/oceanStore';
+import { useLocaleStore } from '../../stores/localeStore';
+import { usePlanetStore } from '../../stores/planetStore';
 import { AudioEngine } from '../../engine/AudioEngine';
 import { DEV_TUNING } from '../../constants';
 import './AudioStatus.css';
@@ -24,7 +25,8 @@ const UPDATE_INTERVAL_MS = 100;
 // COMPONENT
 // ========================================
 export function AudioStatus() {
-  const robots = useOceanStore((s) => s.robots);
+  const localeId = usePlanetStore((s) => s.planets[0]?.currentLocaleId ?? '');
+  const robots = useLocaleStore((s) => s.locales[localeId]?.robots ?? []);
   const [stats, setStats] = useState<PolyphonyStats>({
     voices: 0,
     maxVoices: 0,

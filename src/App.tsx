@@ -4,22 +4,22 @@ import Tablet from './components/tablet/Tablet';
 
 import { usePlanetStore, DEFAULT_PELAGOS } from '@/stores/planetStore';
 import useLocaleStore from '@/stores/localeStore';
-import { getActiveLocaleId } from '@/utils/localeHelpers';
 import { PLANET_DURATION_MS } from '@/constants';
 
 import './App.css';
 
 function App() {
+  const localeId = usePlanetStore((s) => s.planets[0]?.currentLocaleId ?? '');
 
   // Ensure derived time-dependent values are computed from the initial measure
   // so visuals reflect the loaded time immediately on app mount.
   useEffect(() => {
-    const activeLocaleId = getActiveLocaleId();
-    const locale = useLocaleStore.getState().getLocaleById(activeLocaleId);
+    const locale = useLocaleStore.getState().getLocaleById(localeId);
     if (locale) {
-      useLocaleStore.getState().setLocaleData(activeLocaleId, { currentMeasure: locale.currentMeasure });
+      useLocaleStore.getState().setLocaleData(localeId, { currentMeasure: locale.currentMeasure });
     }
-    // run only once on mount
+    // run only once on mount — localeId is stable; re-running would re-sync an already-current value
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Time-of-day tick: advance `currentHour` from real wall-clock time.

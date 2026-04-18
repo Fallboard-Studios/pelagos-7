@@ -158,7 +158,7 @@ describe('FactorySystem', () => {
       startFactoryProduction('factory-2');
 
       // Callback runs immediately in the mock; MAX_ROBOTS is reached so no robot spawns
-      const state = useOceanStore.getState();
+      const state = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID];
       expect(state.robots).toHaveLength(2); // Still at maxRobots
       expect(AudioEngineMock.registerRobotMelody).not.toHaveBeenCalled();
     });
@@ -180,7 +180,7 @@ describe('FactorySystem', () => {
       startFactoryProduction('factory-3');
 
       // Callback runs immediately; robot should be spawned
-      const state = useOceanStore.getState();
+      const state = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID];
       expect(state.robots).toHaveLength(1);
       expect(AudioEngineMock.registerRobotMelody).toHaveBeenCalled();
     });

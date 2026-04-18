@@ -14,6 +14,7 @@ export interface UIStore {
   isPoweredOn: boolean;
   isFullscreen: boolean;
   activeLocaleLocalTime: number | null;
+  selectedRobotId: string | null;
   setActiveLocaleLocalTime: (t: number | null) => void;
   setActiveView: (v: ActiveView) => void;
   setTheme: (t: Theme) => void;
@@ -21,6 +22,7 @@ export interface UIStore {
   setFullscreen: (f: boolean) => void;
   setPowerOn: () => void;
   setPowerOff: () => void;
+  selectRobot: (id: string | null) => void;
 }
 
 // ========================================
@@ -34,6 +36,7 @@ export const useUIStore = create<UIStore>((set) => ({
   isFullscreen: false,
   isPoweredOn: false,
   activeLocaleLocalTime: null,
+  selectedRobotId: null,
 
   setActiveView: (v) => set({ activeView: v }),
   setTheme: (t) => set({ theme: t }),
@@ -42,6 +45,7 @@ export const useUIStore = create<UIStore>((set) => ({
   setPowerOn: () => set({ isPoweredOn: true }),
   setPowerOff: () => set({ isPoweredOn: false }),
   setActiveLocaleLocalTime: (t) => set({ activeLocaleLocalTime: t }),
+  selectRobot: (id) => set({ selectedRobotId: id }),
 }));
 
 // ========================================

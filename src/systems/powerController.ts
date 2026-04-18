@@ -4,7 +4,8 @@ import { reRegisterAllRobotsAudio, removeNonPersistentRobots, stopSpawnScheduler
 import { stopAllFactoryProduction } from './factorySystem';
 import { stopCollisionDetection } from './collisionSystem';
 import { useUIStore } from '../stores/uiStore';
-import { useOceanStore } from '../stores/oceanStore';
+import { useLocaleStore } from '../stores/localeStore';
+import { getActiveLocaleId } from '../utils/localeHelpers';
 import { playTabletPowerOff, playTabletPowerOn } from './powerAnimations';
 import { swallow } from '../utils/helpers';
 import { DEV_TUNING } from '../constants';
@@ -16,7 +17,7 @@ export const powerController = {
   async start() {
     await AudioEngine.start();
     resetHarmony();
-    reRegisterAllRobotsAudio();
+    reRegisterAllRobotsAudio(getActiveLocaleId());
   },
 
   async shutdown() {
@@ -26,10 +27,10 @@ export const powerController = {
     stopAllFactoryProduction();
     stopCollisionDetection();
     AudioEngine.killAll();
-    removeNonPersistentRobots();
+    removeNonPersistentRobots(getActiveLocaleId());
     // clear ocean actors and flip UI state
     try {
-      useOceanStore.getState().setActors([]);
+      useLocaleStore.getState().setLocaleData(getActiveLocaleId(), { actors: [] });
     } catch (e) {
       if (DEV_TUNING) swallow(e, 'powerController.setActors');
     }
@@ -45,7 +46,7 @@ export const powerController = {
     stopAllFactoryProduction();
     stopCollisionDetection();
     AudioEngine.killAll();
-    removeNonPersistentRobots();
+    removeNonPersistentRobots(getActiveLocaleId());
     useUIStore.getState().setPowerOff();
 
     // Play the dimming sequence. If the animation throws in edge-cases

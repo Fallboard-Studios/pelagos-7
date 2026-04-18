@@ -85,7 +85,7 @@ src/
 │   ├── robot/      # Robot SVG variants and visual helpers
 │   ├── hud/        # HUD overlay and controls (M8)
 │   └── debug/      # Dev-only overlays (DEV_TUNING gated)
-├── stores/         # Zustand store (oceanStore)
+├── stores/         # Zustand stores (localeStore, planetStore, audioStore, uiStore, sessionStore)
 ├── systems/        # Game logic (spawn, factory, collision)
 ├── types/          # TypeScript interfaces
 └── constants/      # App-wide constants and color theme

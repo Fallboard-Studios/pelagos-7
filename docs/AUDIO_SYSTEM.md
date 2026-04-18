@@ -48,7 +48,8 @@ Pelagos-7's audio system is built on **Tone.js** and follows a strict singleton 
 **2. Separation of Concerns**
 - **AudioEngine**: Sound generation, scheduling, polyphony
 - **audioStore**: Holds all global audio settings (FX, BPM, etc.) as a dedicated Zustand store. This keeps audio parameters separate from simulation/game state for better React performance and modularity.
-- **oceanStore**: Holds simulation/game state (robots, actors, world settings, etc.)
+- **localeStore**: Holds per-locale simulation state (robots, actors, currentMeasure, settings, etc.)
+- **planetStore**: Holds planet-level state (currentHour, currentLocaleId, planet list)
 - **uiStore**: Holds UI-only state (active view, theme, language, fullscreen, etc.)
 - **GSAP**: Visual animation and motion
 - **BeatClock/Transport**: Musical timing authority
@@ -62,7 +63,7 @@ Pelagos-7's audio system is built on **Tone.js** and follows a strict singleton 
 
 ### State Management Note
 
-Global audio settings (such as FX parameters and BPM) are now managed in a dedicated Zustand store: `audioStore`. This avoids overloading `oceanStore` and improves React performance by isolating high-frequency audio state updates. The length of day remains in `oceanStore` (as it does not affect audio). Only simulation/game state remains in `oceanStore`, and UI state in `uiStore`.
+Global audio settings (such as FX parameters and BPM) are managed in `audioStore`. Per-locale simulation state (robots, actors, currentMeasure, settings) lives in `localeStore`, keyed by locale ID. Planet-level data (currentHour, active locale) lives in `planetStore`. UI state lives in `uiStore`. `oceanStore` no longer exists — do not recreate it.
 
 ### Architecture Diagram
 

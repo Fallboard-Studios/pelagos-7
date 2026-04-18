@@ -1,5 +1,7 @@
 # Building Prompts: Factory Redesign Implementation
 
+> **⚠️ Historical document.** These prompts were written before `oceanStore` was removed from the codebase. Any reference to `oceanStore`, `useOceanStore`, or `oceanStore.test.ts` in the prompts below is outdated. The equivalent store is now `localeStore` — use `useLocaleStore` and key state by locale ID (see `src/stores/localeStore.ts`). Do not recreate `oceanStore`.
+
 This document contains the step-by-step prompts for implementing the new rectangle-based factory system as described in BUILDING_DESIGN.md.
 
 **Implementation Strategy:**

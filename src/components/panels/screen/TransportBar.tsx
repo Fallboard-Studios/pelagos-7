@@ -4,7 +4,8 @@
 import { useState } from 'react';
 import * as Toolbar from '@radix-ui/react-toolbar';
 
-import { useOceanStore } from '../../../stores/oceanStore';
+import { useLocaleStore } from '../../../stores/localeStore';
+import { usePlanetStore } from '../../../stores/planetStore';
 import { useUIStore } from '../../../stores/uiStore';
 import { useAudioStore } from '../../../stores/audioStore';
 import { AudioEngine } from '../../../engine/AudioEngine';
@@ -18,9 +19,11 @@ import './TransportBar.css';
 
 function TransportBar() {
   const isPoweredOn = useUIStore((s) => s.isPoweredOn);
-  const currentMeasure = useOceanStore((s) => s.currentMeasure);
-  const planetHour = useOceanStore((s) => s.planetHour);
-  const planetMinute = useOceanStore((s) => s.planetMinute);
+  const localeId = usePlanetStore((s) => s.planets[0]?.currentLocaleId ?? '');
+  const currentMeasure = useLocaleStore((s) => s.locales[localeId]?.currentMeasure ?? 0);
+  const _planetCurrentHour = usePlanetStore((s) => s.planets[0]?.currentHour ?? 0);
+  const planetHour = Math.floor(_planetCurrentHour);
+  const planetMinute = Math.floor((_planetCurrentHour % 1) * 60);
   const bpm = useAudioStore((s) => s.bpm);
 
   const [isPaused, setIsPaused] = useState(false);
@@ -29,7 +32,7 @@ function TransportBar() {
   const handleRestartClick = async () => {
     try {
       AudioEngine.killAll();
-      useOceanStore.getState().setCurrentMeasure(0);
+      useLocaleStore.getState().setLocaleData(localeId, { currentMeasure: 0 });
       await AudioEngine.start();
       setIsPaused(false);
     } catch (err) {

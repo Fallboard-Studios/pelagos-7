@@ -18,6 +18,7 @@ export interface Locale {
 }
 
 export interface LocaleSettings {
+  bpm?: number;
   maxRobots?: number;
   minRobots?: number;
   [key: string]: unknown;
