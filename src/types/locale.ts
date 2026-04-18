@@ -13,8 +13,15 @@ export interface Locale {
   coordinates: LocaleCoordinates;
   robots: Robot[];
   actors: Actor[];
-  settings: Record<string, unknown>;
+  settings: LocaleSettings;
   currentMeasure: number;
+}
+
+export interface LocaleSettings {
+  bpm?: number;
+  maxRobots?: number;
+  minRobots?: number;
+  [key: string]: unknown;
 }
 
 export interface LocaleState {
@@ -23,4 +30,9 @@ export interface LocaleState {
   setLocaleData: (localeId: string, partial: Partial<Locale>) => void;
   removeLocale: (localeId: string) => void;
   getLocaleById: (localeId: string) => Locale | undefined;
+  // Robot helpers
+  addRobot: (localeId: string, robot: Robot) => void;
+  updateRobot: (localeId: string, robotId: string, updates: Partial<Robot>) => void;
+  removeRobot: (localeId: string, robotId: string) => void;
+  getRobotById: (localeId: string, robotId: string) => Robot | undefined;
 }

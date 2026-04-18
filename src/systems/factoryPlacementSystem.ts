@@ -3,7 +3,8 @@
 // ========================================
 import type { Actor } from '../types/Actor';
 import { ActorType } from '../types/Actor';
-import { useOceanStore } from '../stores/oceanStore';
+import useLocaleStore from '../stores/localeStore';
+import { DEFAULT_LOCALE_ID } from '../stores/planetStore';
 import type { FactoryVariant } from '../components/actors/factoryVariants';
 import { VARIANT_CONF, selectVariantFromSeed } from '../components/actors/factoryVariants';
 import { calcSilhouetteSize } from '../components/actors/silhouetteUtils';
@@ -182,7 +183,7 @@ export function placeFactories(): Actor[] {
 
 
 
-  useOceanStore.getState().setActors(actors);
+  useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { actors });
   return actors;
 }
 

@@ -7,7 +7,8 @@ import gsap from 'gsap';
 import type { Robot as RobotType } from '../../types/Robot';
 import { RobotBody } from './RobotBody';
 import { setRef, deleteRef } from '../../utils/refs';
-import { useOceanStore } from '../../stores/oceanStore';
+import { useUIStore } from '../../stores/uiStore';
+import { usePlanetStore } from '../../stores/planetStore';
 import { handleRobotIdle } from '../../systems/idleSystem';
 
 // ========================================
@@ -31,8 +32,9 @@ interface RobotProps {
  */
 export function Robot({ robot }: RobotProps) {
   const ref = useRef<SVGGElement>(null);
-  const selectedRobotId = useOceanStore((s) => s.selectedRobotId);
-  const selectRobot = useOceanStore((s) => s.selectRobot);
+  const selectedRobotId = useUIStore((s) => s.selectedRobotId);
+  const selectRobot = useUIStore((s) => s.selectRobot);
+  const localeId = usePlanetStore((s) => s.planets[0]?.currentLocaleId ?? '');
   const isSelected = selectedRobotId === robot.id;
 
   // useLayoutEffect fires before paint, preventing a single frame at (0,0).
@@ -48,7 +50,7 @@ export function Robot({ robot }: RobotProps) {
         scaleX: robot.direction === 'right' ? 1 : -1,
         transformOrigin: '50% 50%',
       });
-      handleRobotIdle(robot.id);
+      handleRobotIdle(localeId, robot.id);
     }
     return () => deleteRef(`robot-${robot.id}`);
     // eslint-disable-next-line react-hooks/exhaustive-deps

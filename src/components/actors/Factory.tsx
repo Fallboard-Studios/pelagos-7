@@ -9,7 +9,8 @@ import { getLighting, getNightDepth, FLICKER_PERIOD, FILL_TRANSITION, DAY_CYCLE_
 import { ROOFTOP_RENDERERS } from './greebles/rooftopGreebles';
 import { FACADE_RENDERERS } from './greebles/facadeGreebles';
 import type { GreebleRendererContext } from './greebles/greebleTypes';
-import { useOceanStore } from '../../stores/oceanStore';
+import useLocaleStore from '../../stores/localeStore';
+import { usePlanetStore } from '../../stores/planetStore';
 import BubbleStream from './BubbleStream';
 import type { FactoryPurpose } from './factoryVariants';
 
@@ -92,16 +93,13 @@ const FactoryInner: React.FC<FactoryProps> = ({ actor }) => {
   // so building fills update smoothly based on real wall-clock time. We
   // convert `currentHour` (0..24 float) into the 0..DAY_CYCLE_MEASURES range
   // expected by `getLighting`.
-  const bpm = useOceanStore(state => state.settings.bpm);
-  const lightMeasure = useOceanStore(state => {
-    const hourFloat = state.currentHour ?? 0; // fractional hour (0..24)
-    const cycleMeasure = Math.round((hourFloat / 24) * DAY_CYCLE_MEASURES) % DAY_CYCLE_MEASURES;
-    return cycleMeasure;
-  });
+  const localeId = usePlanetStore((s) => s.planets[0]?.currentLocaleId ?? '');
+  const bpm = useLocaleStore(state => state.locales[localeId]?.settings?.bpm ?? 120);
+  const lightMeasure = useLocaleStore(state => (state.locales[localeId]?.currentMeasure ?? 0));
   // flickerEpoch: phased per building so window rerolls are spread across
   // FLICKER_PERIOD consecutive measures rather than all firing at once.
-  const flickerEpoch = useOceanStore(state =>
-    Math.floor((state.currentMeasure + buildingPhase) / FLICKER_PERIOD)
+  const flickerEpoch = useLocaleStore(state =>
+    Math.floor(((state.locales[localeId]?.currentMeasure ?? 0) + buildingPhase) / FLICKER_PERIOD)
   );
 
   const preset = DEBUG_LIGHTING_PRESET ? LIGHTING_PRESETS[DEBUG_LIGHTING_PRESET] : null;

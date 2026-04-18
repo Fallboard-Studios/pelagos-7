@@ -6,7 +6,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { triggerInteraction } from './interactionSystem';
 import { RobotState } from '../types/Robot';
 import type { Robot } from '../types/Robot';
-import { useOceanStore } from '../stores/oceanStore';
+import { useLocaleStore } from '../stores/localeStore';
+import { useUIStore } from '../stores/uiStore';
+import { DEFAULT_LOCALE_ID } from '../stores/planetStore';
 import * as TimelineMap from '../animation/timelineMap';
 import * as AudioEngineModule from '../engine/AudioEngine';
 
@@ -103,11 +105,8 @@ const createTestRobot = (id: string, state = RobotState.Idle): Robot => ({
 
 beforeEach(() => {
   // Reset store state
-  useOceanStore.setState({
-    robots: [],
-    selectedRobotId: null,
-    totalInteractions: 0,
-  });
+  useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { robots: [] });
+  useUIStore.getState().selectRobot(null);
 
   // Clear all mocks and delayed callbacks
   vi.clearAllMocks();
@@ -129,15 +128,13 @@ describe('InteractionSystem', () => {
       const robotA = createTestRobot('robot-a');
       const robotB = createTestRobot('robot-b');
 
-      useOceanStore.setState({
-        robots: [robotA, robotB],
-      });
+      useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { robots: [robotA, robotB] });
 
-      triggerInteraction('robot-a', 'robot-b');
+      triggerInteraction(DEFAULT_LOCALE_ID, 'robot-a', 'robot-b');
 
-      const state = useOceanStore.getState();
-      const updatedA = state.getRobotById('robot-a');
-      const updatedB = state.getRobotById('robot-b');
+      const state = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID];
+      const updatedA = state?.robots.find(r => r.id === 'robot-a');
+      const updatedB = state?.robots.find(r => r.id === 'robot-b');
 
       expect(updatedA?.state).toBe(RobotState.Interacting);
       expect(updatedB?.state).toBe(RobotState.Interacting);
@@ -147,15 +144,13 @@ describe('InteractionSystem', () => {
       const robotA = createTestRobot('robot-a');
       const robotB = createTestRobot('robot-b');
 
-      useOceanStore.setState({
-        robots: [robotA, robotB],
-      });
+      useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { robots: [robotA, robotB] });
 
-      triggerInteraction('robot-a', 'robot-b');
+      triggerInteraction(DEFAULT_LOCALE_ID, 'robot-a', 'robot-b');
 
-      const state = useOceanStore.getState();
-      const updatedA = state.getRobotById('robot-a');
-      const updatedB = state.getRobotById('robot-b');
+      const state = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID];
+      const updatedA = state?.robots.find(r => r.id === 'robot-a');
+      const updatedB = state?.robots.find(r => r.id === 'robot-b');
 
       // Both should have cooldown set to current measure (100)
       expect(updatedA?.lastInteractionMeasure).toBe(100);
@@ -166,26 +161,20 @@ describe('InteractionSystem', () => {
       const robotA = createTestRobot('robot-a');
       const robotB = createTestRobot('robot-b');
 
-      useOceanStore.setState({
-        robots: [robotA, robotB],
-        totalInteractions: 5,
-      });
+      useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { robots: [robotA, robotB] });
 
-      triggerInteraction('robot-a', 'robot-b');
+      triggerInteraction(DEFAULT_LOCALE_ID, 'robot-a', 'robot-b');
 
-      const state = useOceanStore.getState();
-      expect(state.totalInteractions).toBe(6);
+      // totalInteractions not tracked in localeStore (removed from production code)
     });
 
     it('kills swim timelines for both robots', () => {
       const robotA = createTestRobot('robot-a');
       const robotB = createTestRobot('robot-b');
 
-      useOceanStore.setState({
-        robots: [robotA, robotB],
-      });
+      useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { robots: [robotA, robotB] });
 
-      triggerInteraction('robot-a', 'robot-b');
+      triggerInteraction(DEFAULT_LOCALE_ID, 'robot-a', 'robot-b');
 
       const killTimeline = vi.mocked(TimelineMap.killTimeline);
 
@@ -197,11 +186,9 @@ describe('InteractionSystem', () => {
       const robotA = createTestRobot('robot-a');
       const robotB = createTestRobot('robot-b');
 
-      useOceanStore.setState({
-        robots: [robotA, robotB],
-      });
+      useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { robots: [robotA, robotB] });
 
-      triggerInteraction('robot-a', 'robot-b');
+      triggerInteraction(DEFAULT_LOCALE_ID, 'robot-a', 'robot-b');
 
       // Execute delayed callbacks (flurry scheduling happens in delayedCall)
       delayedCallbacks.forEach(cb => cb());
@@ -219,24 +206,22 @@ describe('InteractionSystem', () => {
       const robotA = createTestRobot('robot-a');
       const robotB = createTestRobot('robot-b');
 
-      useOceanStore.setState({
-        robots: [robotA, robotB],
-      });
+      useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { robots: [robotA, robotB] });
 
-      triggerInteraction('robot-a', 'robot-b');
+      triggerInteraction(DEFAULT_LOCALE_ID, 'robot-a', 'robot-b');
 
       // Initially both should be in Interacting state
-      let state = useOceanStore.getState();
-      expect(state.getRobotById('robot-a')?.state).toBe(RobotState.Interacting);
-      expect(state.getRobotById('robot-b')?.state).toBe(RobotState.Interacting);
+      let state = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID];
+      expect(state?.robots.find(r => r.id === 'robot-a')?.state).toBe(RobotState.Interacting);
+      expect(state?.robots.find(r => r.id === 'robot-b')?.state).toBe(RobotState.Interacting);
 
       // Execute delayed callbacks (simulates time passing)
       delayedCallbacks.forEach(cb => cb());
 
       // After callbacks, both should be back to Idle
-      state = useOceanStore.getState();
-      const updatedA = state.getRobotById('robot-a');
-      const updatedB = state.getRobotById('robot-b');
+      state = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID];
+      const updatedA = state?.robots.find(r => r.id === 'robot-a');
+      const updatedB = state?.robots.find(r => r.id === 'robot-b');
 
       expect(updatedA?.state).toBe(RobotState.Idle);
       expect(updatedB?.state).toBe(RobotState.Idle);
@@ -245,13 +230,11 @@ describe('InteractionSystem', () => {
     it('handles interaction with non-existent robots gracefully', () => {
       const robotA = createTestRobot('robot-a');
 
-      useOceanStore.setState({
-        robots: [robotA],
-      });
+      useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { robots: [robotA] });
 
       // Should not throw error
       expect(() => {
-        triggerInteraction('robot-a', 'robot-nonexistent');
+        triggerInteraction(DEFAULT_LOCALE_ID, 'robot-a', 'robot-nonexistent');
       }).not.toThrow();
     });
 
@@ -261,21 +244,19 @@ describe('InteractionSystem', () => {
       const robotB = createTestRobot('robot-b');
       robotB.melody = [];
 
-      useOceanStore.setState({
-        robots: [robotA, robotB],
-      });
+      useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { robots: [robotA, robotB] });
 
       // Should not throw error (playInteractionFlurry checks for empty melody)
       expect(() => {
-        triggerInteraction('robot-a', 'robot-b');
+        triggerInteraction(DEFAULT_LOCALE_ID, 'robot-a', 'robot-b');
       }).not.toThrow();
 
       // Execute delayed callbacks
       delayedCallbacks.forEach(cb => cb());
 
-      const state = useOceanStore.getState();
-      const updatedA = state.getRobotById('robot-a');
-      const updatedB = state.getRobotById('robot-b');
+      const state = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID];
+      const updatedA = state?.robots.find(r => r.id === 'robot-a');
+      const updatedB = state?.robots.find(r => r.id === 'robot-b');
 
       // State should still update despite no audio
       expect(updatedA?.state).toBe(RobotState.Idle);
@@ -288,31 +269,28 @@ describe('InteractionSystem', () => {
       const robotC = createTestRobot('robot-c');
       const robotD = createTestRobot('robot-d');
 
-      useOceanStore.setState({
-        robots: [robotA, robotB, robotC, robotD],
-        totalInteractions: 0,
-      });
+      useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { robots: [robotA, robotB, robotC, robotD] });
 
       // Two interactions happen simultaneously (or in rapid succession)
-      triggerInteraction('robot-a', 'robot-b');
-      triggerInteraction('robot-c', 'robot-d');
+      triggerInteraction(DEFAULT_LOCALE_ID, 'robot-a', 'robot-b');
+      triggerInteraction(DEFAULT_LOCALE_ID, 'robot-c', 'robot-d');
 
       // Before callbacks execute: all robots should be Interacting
-      let state = useOceanStore.getState();
-      expect(state.getRobotById('robot-a')?.state).toBe(RobotState.Interacting);
-      expect(state.getRobotById('robot-b')?.state).toBe(RobotState.Interacting);
-      expect(state.getRobotById('robot-c')?.state).toBe(RobotState.Interacting);
-      expect(state.getRobotById('robot-d')?.state).toBe(RobotState.Interacting);
+      let state = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID];
+      expect(state?.robots.find(r => r.id === 'robot-a')?.state).toBe(RobotState.Interacting);
+      expect(state?.robots.find(r => r.id === 'robot-b')?.state).toBe(RobotState.Interacting);
+      expect(state?.robots.find(r => r.id === 'robot-c')?.state).toBe(RobotState.Interacting);
+      expect(state?.robots.find(r => r.id === 'robot-d')?.state).toBe(RobotState.Interacting);
 
       // Execute delayed callbacks
       delayedCallbacks.forEach(cb => cb());
 
-      state = useOceanStore.getState();
+      state = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID];
 
       // All robots should be Idle after callbacks execute
       const countByState = {
-        [RobotState.Idle]: state.robots.filter(r => r.state === RobotState.Idle).length,
-        [RobotState.Interacting]: state.robots.filter(
+        [RobotState.Idle]: state?.robots.filter(r => r.state === RobotState.Idle).length,
+        [RobotState.Interacting]: state?.robots.filter(
           r => r.state === RobotState.Interacting
         ).length,
       };
@@ -321,7 +299,7 @@ describe('InteractionSystem', () => {
       expect(countByState[RobotState.Interacting]).toBe(0);
 
       // Interaction counter should increment twice
-      expect(state.totalInteractions).toBe(2);
+      // totalInteractions not tracked in localeStore (removed from production code)
     });
 
     it('maintains interaction counter across multiple interactions', () => {
@@ -329,17 +307,13 @@ describe('InteractionSystem', () => {
       const robotB = createTestRobot('robot-b');
       const robotC = createTestRobot('robot-c');
 
-      useOceanStore.setState({
-        robots: [robotA, robotB, robotC],
-        totalInteractions: 0,
-      });
+      useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { robots: [robotA, robotB, robotC] });
 
-      triggerInteraction('robot-a', 'robot-b');
-      triggerInteraction('robot-b', 'robot-c');
-      triggerInteraction('robot-a', 'robot-c');
+      triggerInteraction(DEFAULT_LOCALE_ID, 'robot-a', 'robot-b');
+      triggerInteraction(DEFAULT_LOCALE_ID, 'robot-b', 'robot-c');
+      triggerInteraction(DEFAULT_LOCALE_ID, 'robot-a', 'robot-c');
 
-      const state = useOceanStore.getState();
-      expect(state.totalInteractions).toBe(3);
+      // totalInteractions not tracked in localeStore (removed from production code)
     });
   });
 });

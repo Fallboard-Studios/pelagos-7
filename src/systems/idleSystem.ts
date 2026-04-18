@@ -5,7 +5,7 @@ import gsap from 'gsap';
 
 import type { Vec2 } from '../types/Vec2';
 import { RobotState } from '../types/Robot';
-import { useOceanStore } from '../stores/oceanStore';
+import useLocaleStore from '../stores/localeStore';
 import { createSwimTimeline } from '../animation/swimAnimation';
 
 // ========================================
@@ -41,10 +41,10 @@ export function pickDestination(): Vec2 {
  * Handle robot entering idle state
  * Picks a random destination and triggers swim animation
  */
-export function handleRobotIdle(robotId: string): void {
+export function handleRobotIdle(localeId: string, robotId: string): void {
   // console.log(`[IdleSystem] handleRobotIdle called for robot ${robotId}`);
 
-  const robot = useOceanStore.getState().getRobotById(robotId);
+  const robot = useLocaleStore.getState().getRobotById(localeId, robotId);
 
   // Guard: robot must exist and be in idle state
   if (!robot || robot.state !== RobotState.Idle) {
@@ -59,10 +59,10 @@ export function handleRobotIdle(robotId: string): void {
 
   // Pass PRE-UPDATE robot to createSwimTimeline so it knows the old direction
   // and can correctly determine whether a flip animation is needed.
-  createSwimTimeline(robot, destination, direction, handleRobotArrival);
+  createSwimTimeline(robot, destination, direction, () => handleRobotArrival(localeId, robotId));
 
   // Update robot state to swimming with destination and new direction
-  useOceanStore.getState().updateRobot(robotId, {
+  useLocaleStore.getState().updateRobot(localeId, robotId, {
     state: RobotState.Moving,
     destination,
     direction,
@@ -77,15 +77,15 @@ export function handleRobotIdle(robotId: string): void {
  * Handle robot arrival at destination
  * Returns robot to idle state and schedules next destination pick
  */
-export function handleRobotArrival(robotId: string): void {
-  const robot = useOceanStore.getState().getRobotById(robotId);
+export function handleRobotArrival(localeId: string, robotId: string): void {
+  const robot = useLocaleStore.getState().getRobotById(localeId, robotId);
 
   if (!robot || !robot.destination) {
     return;
   }
 
   // Update robot state to idle and sync position to destination
-  useOceanStore.getState().updateRobot(robotId, {
+  useLocaleStore.getState().updateRobot(localeId, robotId, {
     state: RobotState.Idle,
     position: robot.destination, // Sync store position to where robot actually is
     destination: null,
@@ -97,7 +97,7 @@ export function handleRobotArrival(robotId: string): void {
   // Store the tween so we can cancel it if the robot is removed before it fires
   const delayTween = gsap.delayedCall(IDLE_DELAY, () => {
     pendingIdleDelays.delete(robotId); // Clean up the stored reference
-    handleRobotIdle(robotId);
+    handleRobotIdle(localeId, robotId);
   });
 
   pendingIdleDelays.set(robotId, delayTween);
@@ -114,3 +114,5 @@ export function cancelPendingIdleDelay(robotId: string): void {
     pendingIdleDelays.delete(robotId);
   }
 }
+
+// (no default wrappers) callers must provide explicit localeId

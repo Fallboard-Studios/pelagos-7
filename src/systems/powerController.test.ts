@@ -8,8 +8,9 @@ vi.mock('./collisionSystem', () => ({ stopCollisionDetection: vi.fn() }));
 const setPowerOnSpy = vi.fn();
 const setPowerOffSpy = vi.fn();
 vi.mock('../stores/uiStore', () => ({ useUIStore: { getState: () => ({ setPowerOn: setPowerOnSpy, setPowerOff: setPowerOffSpy }) } }));
-const setActorsSpy = vi.fn();
-vi.mock('../stores/oceanStore', () => ({ useOceanStore: { getState: () => ({ setActors: setActorsSpy }) } }));
+const setLocaleDataSpy = vi.fn();
+vi.mock('../stores/localeStore', () => ({ useLocaleStore: { getState: () => ({ setLocaleData: setLocaleDataSpy }) } }));
+vi.mock('../utils/localeHelpers', () => ({ getActiveLocaleId: () => 'pelagos-default' }));
 
 import { powerController } from './powerController';
 import { AudioEngine } from '../engine/AudioEngine';
@@ -18,7 +19,7 @@ import { reRegisterAllRobotsAudio, stopSpawnScheduler } from './spawnSystem';
 import { stopAllFactoryProduction } from './factorySystem';
 import { stopCollisionDetection } from './collisionSystem';
 import { useUIStore } from '../stores/uiStore';
-import { useOceanStore } from '../stores/oceanStore';
+import { useLocaleStore } from '../stores/localeStore';
 
 describe('powerController', () => {
   beforeEach(() => {
@@ -40,8 +41,8 @@ describe('powerController', () => {
     expect(stopAllFactoryProduction).toHaveBeenCalled();
     expect(stopCollisionDetection).toHaveBeenCalled();
     expect(AudioEngine.killAll).toHaveBeenCalled();
-    // ocean actors cleared and ui setPowerOff should be called
-    expect(useOceanStore.getState().setActors).toHaveBeenCalled();
+    // locale actors cleared and ui setPowerOff should be called
+    expect(useLocaleStore.getState().setLocaleData).toHaveBeenCalled();
     expect(useUIStore.getState().setPowerOff).toHaveBeenCalled();
   });
 });

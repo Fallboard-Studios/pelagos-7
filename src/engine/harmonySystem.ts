@@ -2,7 +2,8 @@
 // IMPORTS
 // ========================================
 import { DEV_TUNING } from '../constants';
-import { useOceanStore } from '../stores/oceanStore';
+import { useLocaleStore } from '../stores/localeStore';
+import { getActiveLocaleId } from '../utils/localeHelpers';
 import { swallow } from '../utils/helpers';
 import { getCurrentHour } from './beatClock';
 
@@ -23,7 +24,7 @@ let transportInstance: TransportLike | null = null;
 // Exactly 8 note-name strings (no octave digit) per hour-equivalent.
 // Octave is determined per-robot at spawn time; melody events store note index + octave separately.
 // Hour is now derived from the world time-of-day (driven by planet size),
-// provided by `useOceanStore.getState().currentHour` (float 0..24).
+// provided by `usePlanetStore.getState().planets[0].currentHour` (float 0..24).
 export type EighthNotes = [string, string, string, string, string, string, string, string];
 
 // ========================================
@@ -126,7 +127,7 @@ export function scheduleHarmonyCycle(transport: TransportLike): void {
     }
 
     if (paletteIndex === null) {
-      const measure = useOceanStore.getState().currentMeasure ?? 0;
+      const measure = useLocaleStore.getState().locales[getActiveLocaleId()]?.currentMeasure ?? 0;
       const step = Math.floor((measure % 96) / 2);
       paletteIndex = step % Object.keys(TIME_PITCHES).length;
     }

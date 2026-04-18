@@ -128,7 +128,8 @@ Imports must be grouped in this exact order with blank lines between groups:
 
 7. **Stores** (only when unavoidable - prefer props)
    ```typescript
-   import { useOceanStore } from '../stores/oceanStore';
+   import { useLocaleStore } from '../stores/localeStore';
+   import { usePlanetStore } from '../stores/planetStore';
    ```
 
 ## Type Declaration Guidelines
@@ -440,9 +441,12 @@ This keeps production consoles clean and centralizes debug logging behavior acro
 
 - **ONLY** Zustand for state
 - Store structure:
-  - `oceanStore`: Simulation/game state (robots, actors, world settings, etc.)
-  - `audioStore`: Global audio settings (FX, BPM, day length, etc.)
-  - `uiStore`: UI-only state (active view, theme, language, fullscreen, etc.)
+  - `localeStore`: Per-locale simulation state (robots, actors, currentMeasure, settings). Keyed by locale ID.
+  - `planetStore`: Planet-level state (currentHour, currentLocaleId, planet list). Use `getActiveLocaleId()` from `utils/localeHelpers` in modules; use a reactive `usePlanetStore` selector in components.
+  - `audioStore`: Global audio settings (FX, BPM, etc.)
+  - `uiStore`: UI-only state (active view, isPoweredOn, selectedRobotId, etc.)
+  - `sessionStore`: Transient session data
+  - ~~`oceanStore`~~: **Removed. Do not recreate.** Its data now lives in `localeStore` and `planetStore`.
 - Only serializable data in stores
 - No synths/timelines/refs in state
 - Pass via props when possible
@@ -609,28 +613,26 @@ describe('math utilities', () => {
 
 ```typescript
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useOceanStore } from './oceanStore';
+import { useLocaleStore, DEFAULT_LOCALE } from './localeStore';
+import { DEFAULT_LOCALE_ID } from './planetStore';
 
-describe('oceanStore', () => {
+describe('localeStore', () => {
   beforeEach(() => {
     // Reset store before each test
-    useOceanStore.setState({ robots: [], actors: [] });
+    useLocaleStore.setState({ locales: { [DEFAULT_LOCALE_ID]: { ...DEFAULT_LOCALE } } });
   });
 
-  it('adds robot to store', () => {
+  it('adds robot to locale', () => {
     const robot = createMockRobot();
-    useOceanStore.getState().addRobot(robot);
+    useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, robot);
     
-    const state = useOceanStore.getState();
-    expect(state.robots).toHaveLength(1);
-    expect(state.robots[0].id).toBe(robot.id);
+    const robots = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID]?.robots ?? [];
+    expect(robots).toHaveLength(1);
+    expect(robots[0].id).toBe(robot.id);
   });
 
   it('maintains serializable state', () => {
-    const robot = createMockRobot();
-    useOceanStore.getState().addRobot(robot);
-    
-    const state = useOceanStore.getState();
+    const state = useLocaleStore.getState();
     expect(() => JSON.stringify(state)).not.toThrow();
   });
 });

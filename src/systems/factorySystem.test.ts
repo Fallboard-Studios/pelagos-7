@@ -4,7 +4,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { createRobotFromFactory, startFactoryProduction } from './factorySystem';
-import { useOceanStore } from '../stores/oceanStore';
+import { useLocaleStore, DEFAULT_LOCALE } from '../stores/localeStore';
+import { DEFAULT_LOCALE_ID } from '../stores/planetStore';
 import { ActorType } from '../types/Actor';
 import { RobotState } from '../types/Robot';
 import type { Actor } from '../types/Actor';
@@ -62,14 +63,8 @@ import { AudioEngine } from '../engine/AudioEngine';
 // ========================================
 describe('FactorySystem', () => {
   beforeEach(() => {
-    // Reset store state before each test
-    useOceanStore.setState({
-      robots: [],
-      actors: [],
-      selectedRobotId: null,
-      totalInteractions: 0,
-      settings: { bpm: 120, maxRobots: 12, minRobots: 0, planetSize: 'medium' as const },
-    });
+    // Reset locale store state before each test
+    useLocaleStore.setState({ locales: { [DEFAULT_LOCALE_ID]: DEFAULT_LOCALE } });
     vi.clearAllMocks();
   });
 
@@ -136,7 +131,7 @@ describe('FactorySystem', () => {
         cooldownRemaining: 0,
       };
 
-      useOceanStore.setState({ actors: [factory] });
+      useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { actors: [factory] });
 
       startFactoryProduction('factory-1');
 
@@ -158,19 +153,12 @@ describe('FactorySystem', () => {
         cooldownRemaining: 0,
       };
 
-      useOceanStore.setState({
-        actors: [factory],
-        settings: { bpm: 120, maxRobots: 2, minRobots: 0, planetSize: 'medium' as const },
-        robots: [
-          { id: 'robot-1' } as unknown as Robot,
-          { id: 'robot-2' } as unknown as Robot,
-        ],
-      });
+      useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { actors: [factory], settings: { bpm: 120, maxRobots: 2, minRobots: 0, planetSize: 'medium' as const }, robots: [{ id: 'robot-1' } as unknown as Robot, { id: 'robot-2' } as unknown as Robot] });
 
       startFactoryProduction('factory-2');
 
       // Callback runs immediately in the mock; MAX_ROBOTS is reached so no robot spawns
-      const state = useOceanStore.getState();
+      const state = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID];
       expect(state.robots).toHaveLength(2); // Still at maxRobots
       expect(AudioEngineMock.registerRobotMelody).not.toHaveBeenCalled();
     });
@@ -187,12 +175,12 @@ describe('FactorySystem', () => {
         cooldownRemaining: 0,
       };
 
-      useOceanStore.setState({ actors: [factory] });
+      useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { actors: [factory] });
 
       startFactoryProduction('factory-3');
 
       // Callback runs immediately; robot should be spawned
-      const state = useOceanStore.getState();
+      const state = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID];
       expect(state.robots).toHaveLength(1);
       expect(AudioEngineMock.registerRobotMelody).toHaveBeenCalled();
     });
@@ -209,7 +197,7 @@ describe('FactorySystem', () => {
         cooldownRemaining: 0,
       };
 
-      useOceanStore.setState({ actors: [factory] });
+      useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { actors: [factory] });
 
       startFactoryProduction('factory-4');
       const callCountAfterFirst = scheduleRepeatMock.mock.calls.length;

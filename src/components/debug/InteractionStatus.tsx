@@ -5,7 +5,8 @@ import { useEffect, useState } from 'react';
 import gsap from 'gsap';
 
 import { DEV_TUNING } from '../../constants';
-import { useOceanStore } from '../../stores/oceanStore';
+import { useLocaleStore } from '../../stores/localeStore';
+import { usePlanetStore } from '../../stores/planetStore';
 import { getCollisionChecksPerSecond } from '../../systems/collisionSystem';
 import { getCurrentMeasure } from '../../engine/beatClock';
 import type { Robot } from '../../types/Robot';
@@ -24,8 +25,10 @@ interface InteractionStats {
 // COMPONENT
 // ========================================
 export function InteractionStatus() {
-  const robots = useOceanStore((s) => s.robots);
-  const totalInteractions = useOceanStore((s) => s.totalInteractions);
+  const localeId = usePlanetStore((s) => s.planets[0]?.currentLocaleId ?? '');
+  const robots = useLocaleStore((s) => s.locales[localeId]?.robots ?? []);
+  // TODO: totalInteractions not yet tracked in localeStore — always 0 until added to Locale type
+  const totalInteractions = 0;
   const [stats, setStats] = useState<InteractionStats>({
     totalInteractions: 0,
     cooldownCount: 0,

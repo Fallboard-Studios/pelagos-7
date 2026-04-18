@@ -9,7 +9,8 @@ import { AudioEngine } from '../engine/AudioEngine';
 import type { LayeredWave, LayerDescriptor } from '../types/layeredAudio';
 import { scheduleRepeat, cancelSchedule } from '../engine/beatClock';
 import { DEV_TUNING } from '../constants';
-import { useOceanStore } from '../stores/oceanStore';
+import useLocaleStore from '../stores/localeStore';
+import type { LocaleSettings } from '../types/locale';
 import { removeRobotWithExit } from './removeSystem';
 
 // ========================================
@@ -84,7 +85,7 @@ let spawnScheduleId: string | null = null;
  * then schedules a repeating callback via BeatClock. Idempotent — safe to call
  * multiple times; only one schedule will be active at a time.
  */
-export function startSpawnScheduler(): void {
+export function startSpawnScheduler(localeId: string): void {
   if (spawnScheduleId !== null) {
     if (DEV_TUNING) console.log('[SpawnSystem] Scheduler already running, skipping start');
     return;
@@ -94,7 +95,7 @@ export function startSpawnScheduler(): void {
     SPAWN_INTERVAL_MIN + Math.floor(Math.random() * (SPAWN_INTERVAL_MAX - SPAWN_INTERVAL_MIN + 1));
 
   spawnScheduleId = scheduleRepeat(`${interval}m`, () => {
-    spawnRobot();
+    spawnRobot(localeId);
   });
 
   if (DEV_TUNING) console.log(`[SpawnSystem] Scheduler started with interval ${interval}m`);
@@ -285,13 +286,19 @@ export function pickOctaveRange(pitchRange: { min: number; max: number }): [numb
  * Spawn a new robot with randomized attributes
  * Enforces MAX_ROBOTS limit and registers melody with AudioEngine
  */
-export function spawnRobot(): void {
-  const { robots, settings } = useOceanStore.getState();
+export function spawnRobot(localeId: string): void {
+  const locale = useLocaleStore.getState().getLocaleById(localeId);
+  const robots = locale?.robots ?? [];
+  const settings = (locale?.settings as LocaleSettings) ?? { maxRobots: 12, minRobots: 2 };
+
+  // Resolve explicit max/min with safe defaults when settings omit them.
+  const maxRobots = settings.maxRobots ?? 12;
+  const minRobots = settings.minRobots ?? 2;
 
   // If at or above max, remove oldest robot instead of spawning.
   // This causes the population to "bounce" between min and max limits.
-  if (robots.length >= settings.maxRobots) {
-    if (robots.length > settings.minRobots) {
+  if (robots.length >= maxRobots) {
+    if (robots.length > minRobots) {
       // find the oldest robot by creation timestamp
       let oldest = robots[0];
       for (const r of robots) {
@@ -300,14 +307,10 @@ export function spawnRobot(): void {
         }
       }
       // Animate the oldest robot offscreen, then remove it
-      removeRobotWithExit(oldest.id);
-      if (DEV_TUNING) {
-        console.log(`[SpawnSystem] Max robots reached, removed oldest ${oldest.id}`);
-      }
+      removeRobotWithExit(localeId, oldest.id);
+      if (DEV_TUNING) console.log(`[SpawnSystem] Max robots reached, removed oldest ${oldest.id}`);
     } else {
-      if (DEV_TUNING) {
-        console.log(`[SpawnSystem] At minRobots (${settings.minRobots}); no removal performed`);
-      }
+      if (DEV_TUNING) console.log(`[SpawnSystem] At minRobots (${minRobots}); no removal performed`);
     }
     return;
   }
@@ -331,8 +334,8 @@ export function spawnRobot(): void {
     persistent: true,
   };
 
-  // Add to store
-  useOceanStore.getState().addRobot(robot);
+  // Add to locale store
+  useLocaleStore.getState().addRobot(localeId, robot);
 
   // Register melody with AudioEngine
   // Unregister first to guard against duplicate entries if robot id is reused.
@@ -370,8 +373,8 @@ export function spawnRobot(): void {
  * Non-persistent robots are not present in the store at this point
  * (removed by removeNonPersistentRobots on power-off).
  */
-export function reRegisterAllRobotsAudio(): void {
-  const robots = useOceanStore.getState().robots.filter((r) => r.persistent);
+export function reRegisterAllRobotsAudio(localeId: string): void {
+  const robots = (useLocaleStore.getState().getLocaleById(localeId)?.robots || []).filter((r) => r.persistent);
   robots.forEach((robot) => {
     AudioEngine.releaseVoice(robot.id);
     try {
@@ -401,10 +404,13 @@ export function reRegisterAllRobotsAudio(): void {
  * Remove all non-persistent robots from the store and release their audio resources.
  * Call on power-off. Persistent robots (robot.persistent === true) are kept.
  */
-export function removeNonPersistentRobots(): void {
-  const robots = useOceanStore.getState().robots.filter((r) => !r.persistent);
+export function removeNonPersistentRobots(localeId: string): void {
+  const robots = (useLocaleStore.getState().getLocaleById(localeId)?.robots || []).filter((r) => !r.persistent);
   robots.forEach((robot) => {
-    useOceanStore.getState().removeRobot(robot.id);
+    useLocaleStore.getState().removeRobot(localeId, robot.id);
   });
   if (DEV_TUNING) console.log(`[SpawnSystem] removeNonPersistentRobots: removed ${robots.length} robots`);
 }
+
+// Backwards-compatible defaults (deprecated) — prefer explicit localeId.
+// (no default wrappers) callers must provide explicit localeId

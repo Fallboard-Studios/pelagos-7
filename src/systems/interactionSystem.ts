@@ -6,7 +6,7 @@ import gsap from 'gsap';
 import { getAvailableNotes } from '../engine/harmonySystem';
 import { AudioEngine } from '../engine/AudioEngine';
 import { getCurrentMeasure } from '../engine/beatClock';
-import { useOceanStore } from '../stores/oceanStore';
+import useLocaleStore from '../stores/localeStore';
 import { RobotState } from '../types/Robot';
 import { DEV_TUNING } from '../constants';
 import { handleRobotIdle } from './idleSystem';
@@ -32,10 +32,10 @@ const pendingInteractionRecoveries = new Map<string, gsap.core.Tween>();
  * All notes are scheduled via AudioEngine using future AudioContext timestamps —
  * no GSAP involvement in audio timing.
  */
-function playInteractionFlurry(robotAId: string, robotBId: string): void {
-  const store = useOceanStore.getState();
-  const robotA = store.getRobotById(robotAId);
-  const robotB = store.getRobotById(robotBId);
+function playInteractionFlurry(localeId: string, robotAId: string, robotBId: string): void {
+  const store = useLocaleStore.getState();
+  const robotA = store.getRobotById(localeId, robotAId);
+  const robotB = store.getRobotById(localeId, robotBId);
   const notes = getAvailableNotes();
 
   if (!robotA || !robotB || robotA.melody.length === 0 || robotB.melody.length === 0) {
@@ -120,8 +120,8 @@ function playInteractionAnimation(robotAId: string, robotBId: string): void {
  * Sets both robots to interacting state, plays note flurry, and triggers visual effects.
  * After brief interaction, returns robots to idle state.
  */
-export function triggerInteraction(robotAId: string, robotBId: string): void {
-  const store = useOceanStore.getState();
+export function triggerInteraction(localeId: string, robotAId: string, robotBId: string): void {
+  const store = useLocaleStore.getState();
   const currentMeasure = getCurrentMeasure();
 
   // Kill any active swim timelines (stop current movement)
@@ -129,19 +129,15 @@ export function triggerInteraction(robotAId: string, robotBId: string): void {
   killTimeline(`swim-${robotBId}`);
 
   // Play interaction effects (audio + visual)
-  playInteractionFlurry(robotAId, robotBId);
+  playInteractionFlurry(localeId, robotAId, robotBId);
   playInteractionAnimation(robotAId, robotBId);
 
-  // Increment total interaction counter for debug display
-  store.incrementInteractions();
-
   // Update both robots to interacting state with measure-based cooldown
-  store.updateRobot(robotAId, {
+  store.updateRobot(localeId, robotAId, {
     state: RobotState.Interacting,
     lastInteractionMeasure: currentMeasure,
   });
-
-  store.updateRobot(robotBId, {
+  store.updateRobot(localeId, robotBId, {
     state: RobotState.Interacting,
     lastInteractionMeasure: currentMeasure,
   });
@@ -156,37 +152,37 @@ export function triggerInteraction(robotAId: string, robotBId: string): void {
   // Store the recovery delays so they can be cancelled if robots are removed
   const recoveryDelayA = gsap.delayedCall(INTERACTION_DURATION, () => {
     pendingInteractionRecoveries.delete(robotAId);
-    const robotA = store.getRobotById(robotAId);
+    const robotA = store.getRobotById(localeId, robotAId);
     if (robotA) {
       // Sync position to where robot visually is (get from GSAP values)
       const refA = getRef(`robot-${robotAId}`);
       if (refA) {
         const x = gsap.getProperty(refA, 'x') as number;
         const y = gsap.getProperty(refA, 'y') as number;
-        store.updateRobot(robotAId, {
+        store.updateRobot(localeId, robotAId, {
           state: RobotState.Idle,
           position: { x, y },
         });
       }
-      handleRobotIdle(robotAId);
+      handleRobotIdle(localeId, robotAId);
     }
   });
 
   const recoveryDelayB = gsap.delayedCall(INTERACTION_DURATION, () => {
     pendingInteractionRecoveries.delete(robotBId);
-    const robotB = store.getRobotById(robotBId);
+    const robotB = store.getRobotById(localeId, robotBId);
     if (robotB) {
       // Sync position to where robot visually is (get from GSAP values)
       const refB = getRef(`robot-${robotBId}`);
       if (refB) {
         const x = gsap.getProperty(refB, 'x') as number;
         const y = gsap.getProperty(refB, 'y') as number;
-        store.updateRobot(robotBId, {
+        store.updateRobot(localeId, robotBId, {
           state: RobotState.Idle,
           position: { x, y },
         });
       }
-      handleRobotIdle(robotBId);
+      handleRobotIdle(localeId, robotBId);
     }
   });
 
@@ -205,3 +201,5 @@ export function cancelPendingInteractionRecovery(robotId: string): void {
     pendingInteractionRecoveries.delete(robotId);
   }
 }
+
+// (no default wrapper) callers must provide explicit localeId

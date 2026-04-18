@@ -18,7 +18,7 @@ import {
 } from './robotVisualHelpers';
 import mapVisualAudioToProps from './robotVisualMapper';
 import type { RobotColors, RobotSVGComponent, ShapeParams, MicroVariants } from './robotVisualHelpers';
-import { useOceanStore } from '../../stores/oceanStore';
+import { usePlanetStore } from '../../stores/planetStore';
 
 // ========================================
 // TYPES
@@ -35,7 +35,10 @@ interface RobotBodyProps {
  * from audio attributes. Memoized to prevent unnecessary recalculations.
  */
 export const RobotBody = memo(function RobotBody({ robot }: RobotBodyProps) {
-  const lightnessMultiplier = useOceanStore((s) => s.lightnessMultiplier);
+  // Derive lightness from planet time-of-day: peaks at noon (hour 12), min at midnight
+  // TODO: confirm formula with design — previously read from oceanStore.lightnessMultiplier
+  const currentHour = usePlanetStore((s) => s.planets[0]?.currentHour ?? 12);
+  const lightnessMultiplier = 0.5 + 0.5 * Math.sin(((currentHour - 6) / 24) * Math.PI * 2);
 
   const visual = useMemo(() => {
     const { synthType, adsr, pitchRange, filterFreq, visualAudioMap } = robot.audioAttributes;

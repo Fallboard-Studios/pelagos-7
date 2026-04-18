@@ -4,7 +4,8 @@
 import type { Actor } from '../types/Actor';
 import type { Robot } from '../types/Robot';
 import { RobotState } from '../types/Robot';
-import { useOceanStore } from '../stores/oceanStore';
+import useLocaleStore from '../stores/localeStore';
+import type { LocaleSettings } from '../types/locale';
 import { AudioEngine } from '../engine/AudioEngine';
 import { scheduleRepeat, cancelSchedule } from '../engine/beatClock';
 import { generateMelodyForRobot } from '../engine/melodyGenerator';
@@ -42,9 +43,21 @@ const activeSchedules = new Map<string, FactoryProductionSchedule>();
  * Each robot starts in background layer, transitions to foreground after 4 measures.
  */
 export function startFactoryProduction(factoryId: string): void {
-  const factory = useOceanStore.getState().getActorById(factoryId);
+  // Find factory actor across all locales
+  const locales = useLocaleStore.getState().locales;
+  let factory: Actor | undefined;
+  let factoryLocaleId: string | undefined;
+  for (const lid of Object.keys(locales)) {
+    const l = locales[lid];
+    const found = l.actors?.find((a) => a.id === factoryId);
+    if (found) {
+      factory = found;
+      factoryLocaleId = lid;
+      break;
+    }
+  }
 
-  if (!factory) {
+  if (!factory || !factoryLocaleId) {
     if (DEV_TUNING) console.log(`[Factory] Factory ${factoryId} not found`);
     return;
   }
@@ -57,19 +70,21 @@ export function startFactoryProduction(factoryId: string): void {
 
   // Schedule repeating production
   const scheduleId = scheduleRepeat(`${PRODUCTION_INTERVAL}m`, () => {
-    const { robots, settings } = useOceanStore.getState();
+    const locale = useLocaleStore.getState().getLocaleById(factoryLocaleId!);
+    const robots = locale?.robots ?? [];
+    const settings = (locale?.settings as LocaleSettings) ?? { maxRobots: 12, minRobots: 0 };
 
     // Enforce MAX_ROBOTS limit
-    if (robots.length >= settings.maxRobots) {
+    if (robots.length >= (settings.maxRobots ?? 12)) {
       if (DEV_TUNING) console.log(`[Factory] Max robots reached (${settings.maxRobots})`);
       return;
     }
 
     // Create robot from factory
-    const robot = createRobotFromFactory(factory);
+    const robot = createRobotFromFactory(factory!);
 
-    // Add to store
-    useOceanStore.getState().addRobot(robot);
+    // Add to locale store
+    useLocaleStore.getState().addRobot(factoryLocaleId!, robot);
 
     // Register melody with AudioEngine
     AudioEngine.registerRobotMelody(robot.id, robot.melody);

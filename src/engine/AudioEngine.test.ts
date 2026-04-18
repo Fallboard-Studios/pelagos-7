@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { useOceanStore } from '../stores/oceanStore';
+import { useLocaleStore } from '../stores/localeStore';
+import { DEFAULT_LOCALE_ID } from '../stores/planetStore';
 import type { ADSREnvelope } from '../types/Robot';
 
 // Mock Tone.js to avoid audio context initialization in tests
@@ -384,7 +385,7 @@ describe('AudioEngine - Reservation & Isolation (focused)', () => {
   beforeEach(() => {
     vi.resetModules();
     // Reset store to deterministic settings
-    useOceanStore.setState({ settings: { bpm: 120, maxRobots: 6, minRobots: 1 } } as unknown as Record<string, unknown>);
+    useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { settings: { bpm: 120, maxRobots: 6, minRobots: 1 } });
   });
 
   it('reserves a voice and getVoiceForRobot returns a synth', async () => {
@@ -418,7 +419,7 @@ describe('AudioEngine - Reservation & Isolation (focused)', () => {
 describe('AudioEngine - Composite Voices (Layered)', () => {
   beforeEach(() => {
     vi.resetModules();
-    useOceanStore.setState({ settings: { bpm: 120, maxRobots: 6, minRobots: 1 } } as unknown as Record<string, unknown>);
+    useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { settings: { bpm: 120, maxRobots: 6, minRobots: 1 } });
   });
 
   it('can reserve a composite voice from a LayeredWave descriptor', async () => {
@@ -465,7 +466,7 @@ describe('AudioEngine - Global FX Chain', () => {
 
   beforeEach(() => {
     vi.resetModules();
-    useOceanStore.setState({ settings: { bpm: 120, maxRobots: 4, minRobots: 1 } } as unknown as Record<string, unknown>);
+    useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { settings: { bpm: 120, maxRobots: 4, minRobots: 1 } });
   });
 
   it('starts without throwing when FX constructors are present', async () => {
@@ -620,7 +621,7 @@ describe('AudioEngine - Transport methods & Master Volume (Issue #220)', () => {
 
   beforeEach(() => {
     vi.resetModules();
-    useOceanStore.setState({ settings: { bpm: 120, maxRobots: 4, minRobots: 1 } } as unknown as Record<string, unknown>);
+    useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { settings: { bpm: 120, maxRobots: 4, minRobots: 1 } });
   });
 
   // ── pause ──────────────────────────────────────────────── //

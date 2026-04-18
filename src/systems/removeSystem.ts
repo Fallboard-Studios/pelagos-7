@@ -5,9 +5,14 @@ import gsap from 'gsap';
 
 import type { Vec2 } from '../types/Vec2';
 import { RobotState } from '../types/Robot';
-import { useOceanStore } from '../stores/oceanStore';
+import useLocaleStore from '../stores/localeStore';
 import { setTimeline, killTimeline } from '../animation/timelineMap';
 import { getRef } from '../utils/refs';
+import { cancelPendingIdleDelay } from './idleSystem';
+import { cancelPendingInteractionRecovery } from './interactionSystem';
+import { AudioEngine } from '../engine/AudioEngine';
+import { DEV_TUNING } from '../constants';
+import { swallow } from '../utils/helpers';
 
 // ========================================
 // CONSTANTS
@@ -55,12 +60,38 @@ function pickExitDestination(pos: Vec2): Vec2 {
  * Animate a robot swimming/fading offscreen, then remove and cleanup.
  * Falls back to immediate removal if the robot or DOM ref is not available.
  */
-export function removeRobotWithExit(robotId: string): void {
-  const store = useOceanStore.getState();
-  const robot = store.getRobotById(robotId);
+export function removeRobotWithExit(localeId: string, robotId: string): void {
+  const localeStore = useLocaleStore.getState();
+  const robot = localeStore.getRobotById(localeId, robotId);
+  const performCleanupAndRemove = (id: string) => {
+    // Clean up idle delay
+    cancelPendingIdleDelay(id);
+
+    // Clean up interaction recovery delay
+    cancelPendingInteractionRecovery(id);
+
+    // Clean up audio
+    try {
+      AudioEngine.releaseVoice(id);
+    } catch (err) {
+      if (DEV_TUNING) swallow(err, 'AudioEngine.releaseVoice');
+    }
+    AudioEngine.unregisterRobotMelody(id);
+
+    // Clean up animation
+    killTimeline(`swim-${id}`);
+
+    // Remove from locale store
+    useLocaleStore.getState().removeRobot(localeId, id);
+
+    if (DEV_TUNING) {
+      console.log(`[Cleanup] Robot ${id} removed and cleaned up`);
+    }
+  };
+
   if (!robot) {
     // Nothing to animate — perform immediate removal
-    store.removeRobot(robotId);
+    performCleanupAndRemove(robotId);
     return;
   }
 
@@ -72,7 +103,7 @@ export function removeRobotWithExit(robotId: string): void {
   killTimeline(`swim-${robotId}`);
 
   // Mark robot as moving so other systems know its visual state
-  useOceanStore.getState().updateRobot(robotId, {
+  useLocaleStore.getState().updateRobot(localeId, robotId, {
     state: RobotState.Moving,
     destination: dest,
     direction: targetDirection,
@@ -81,7 +112,7 @@ export function removeRobotWithExit(robotId: string): void {
   const ref = getRef(`robot-${robotId}`);
   if (!ref) {
     // If no ref, fallback to immediate removal to avoid orphaned state
-    store.removeRobot(robotId);
+    performCleanupAndRemove(robotId);
     return;
   }
 
@@ -93,8 +124,8 @@ export function removeRobotWithExit(robotId: string): void {
   const duration = calculateDuration(robot.position, dest);
   const tl = gsap.timeline({
     onComplete: () => {
-      // Final cleanup: remove from store which performs audio/timeout cleanup
-      store.removeRobot(robotId);
+      // Final cleanup: remove from locale store and perform audio/timeout cleanup
+      performCleanupAndRemove(robotId);
       // Remove this exit timeline from map
       killTimeline(`exit-${robotId}`);
     }
@@ -127,3 +158,6 @@ export function removeRobotWithExit(robotId: string): void {
   setTimeline(`exit-${robotId}`, tl);
   tl.play();
 }
+
+// Backwards-compatible default
+// (no default wrapper) callers must provide explicit localeId

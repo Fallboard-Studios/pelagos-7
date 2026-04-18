@@ -2,28 +2,35 @@ import { useEffect } from 'react';
 
 import Tablet from './components/tablet/Tablet';
 
-import { useOceanStore } from '@/stores/oceanStore';
+import { usePlanetStore, DEFAULT_PELAGOS } from '@/stores/planetStore';
+import useLocaleStore from '@/stores/localeStore';
 import { PLANET_DURATION_MS } from '@/constants';
 
 import './App.css';
 
 function App() {
+  const localeId = usePlanetStore((s) => s.planets[0]?.currentLocaleId ?? '');
 
   // Ensure derived time-dependent values are computed from the initial measure
   // so visuals reflect the loaded time immediately on app mount.
   useEffect(() => {
-    const m = useOceanStore.getState().currentMeasure;
-    useOceanStore.getState().setCurrentMeasure(m);
-    // run only once on mount
+    const locale = useLocaleStore.getState().getLocaleById(localeId);
+    if (locale) {
+      useLocaleStore.getState().setLocaleData(localeId, { currentMeasure: locale.currentMeasure });
+    }
+    // run only once on mount — localeId is stable; re-running would re-sync an already-current value
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Time-of-day tick: advance `currentHour` from real wall-clock time.
   // Runs for the lifetime of the app regardless of tablet power state.
   useEffect(() => {
     const tick = () => {
-      const state = useOceanStore.getState();
-      const dayStart = state.dayStartTimestamp ?? Date.now();
-      const planetSize = state.settings?.planetSize ?? 'medium';
+      const planetId = DEFAULT_PELAGOS.id;
+      const planetState = usePlanetStore.getState();
+      const planet = planetState.planets.find((p) => p.id === planetId) ?? DEFAULT_PELAGOS;
+      const dayStart = planet.dayStartTimestamp ?? Date.now();
+      const planetSize = planet.size ?? 'medium';
       const dayMs = PLANET_DURATION_MS[planetSize];
       const elapsed = Date.now() - dayStart;
       const totalMinutes = (elapsed / dayMs) * 24 * 60; // total in-world minutes elapsed
@@ -36,12 +43,12 @@ function App() {
       const quantMinute = Math.floor(minute / 15) * 15;
 
       if (totalMinutes >= 24 * 60) {
-        state.setDayStartTimestamp(Date.now());
-        state.setCurrentHour(rawHourFloat % 24);
-        state.setPlanetTime(hour % 24, quantMinute);
+        usePlanetStore.getState().setDayStartTimestamp(planetId, Date.now());
+        usePlanetStore.getState().setCurrentHour(planetId, rawHourFloat % 24);
+        usePlanetStore.getState().setCurrentHour(planetId, (hour % 24) + quantMinute / 60);
       } else {
-        state.setCurrentHour(rawHourFloat);
-        state.setPlanetTime(hour, quantMinute);
+        usePlanetStore.getState().setCurrentHour(planetId, rawHourFloat);
+        usePlanetStore.getState().setCurrentHour(planetId, hour + quantMinute / 60);
       }
     };
 

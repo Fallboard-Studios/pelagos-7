@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { useLocaleStore, DEFAULT_LOCALE_ID } from './localeStore';
+import { useLocaleStore } from './localeStore';
 
 describe('localeStore', () => {
-  it('initialises with DEFAULT_LOCALE', () => {
+  it('initialises with a Pelagos locale', () => {
     const state = useLocaleStore.getState();
-    expect(state.locales[DEFAULT_LOCALE_ID]).toBeDefined();
-    expect(state.locales[DEFAULT_LOCALE_ID].planetId).toBe('pelagos');
+    const locales = Object.values(state.locales);
+    const hasPelagos = locales.some((l) => l.planetId === 'pelagos');
+    expect(hasPelagos).toBeTruthy();
   });
 });

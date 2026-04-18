@@ -59,17 +59,20 @@ describe('ModuleName', () => {
 
 ```typescript
 import { beforeEach } from 'vitest';
-import { useOceanStore } from './oceanStore';
+import { useLocaleStore, DEFAULT_LOCALE } from './localeStore';
+import { DEFAULT_LOCALE_ID } from '../stores/planetStore';
 
 beforeEach(() => {
-  useOceanStore.setState({ robots: [], actors: [] });
+  useLocaleStore.setState({ locales: { [DEFAULT_LOCALE_ID]: { ...DEFAULT_LOCALE } } });
 });
 
 it('maintains serializable state', () => {
-  const state = useOceanStore.getState();
+  const state = useLocaleStore.getState();
   expect(() => JSON.stringify(state)).not.toThrow();
 });
 ```
+
+> **Note:** `oceanStore` no longer exists. Per-locale simulation state (robots, actors, currentMeasure, settings) lives in `localeStore`, keyed by locale ID.
 
 ## Implementation Steps
 

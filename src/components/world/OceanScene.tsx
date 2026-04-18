@@ -4,7 +4,8 @@ import './OceanScene.css';
 
 // import { Robot } from '../robot/Robot';
 import { Robot } from '@/components/robot/Robot'
-import { useOceanStore } from '@/stores/oceanStore';
+import { useLocaleStore } from '@/stores/localeStore';
+import { usePlanetStore } from '@/stores/planetStore';
 import { spawnRobot, startSpawnScheduler, stopSpawnScheduler } from '@/systems/spawnSystem';
 import { Factory } from '@/components/actors/Factory';
 import { placeFactories, getRowConfig } from '@/systems/factoryPlacementSystem';
@@ -43,8 +44,9 @@ export function OceanScene({
   backgroundColor = '#0a1128',
 }: OceanSceneProps) {
 
-  const robots = useOceanStore((s) => s.robots);
-  const actors = useOceanStore((s) => s.actors);
+  const localeId = usePlanetStore((s) => s.planets[0]?.currentLocaleId ?? '');
+  const robots = useLocaleStore((s) => s.locales[localeId]?.robots ?? []);
+  const actors = useLocaleStore((s) => s.locales[localeId]?.actors ?? []);
 
   // categorize factory actors by row — memoised so robot updates don't
   // create new array references and trigger unnecessary Factory re-renders
@@ -76,16 +78,16 @@ export function OceanScene({
     // This prevents re-placing factories on power cycles where the scene
     // is unmounted/remounted — actors persist in the store and should not
     // be recreated.
-    const existing = useOceanStore.getState().actors;
+    const existing = useLocaleStore.getState().locales[localeId]?.actors;
     if (!existing || existing.length === 0) {
       placeFactories();
     }
 
-    spawnRobot();
-    spawnRobot();
+    spawnRobot(localeId);
+    spawnRobot(localeId);
 
     // Start factory production for all placed factories
-    const { actors } = useOceanStore.getState();
+    const { actors } = useLocaleStore.getState().locales[localeId] ?? { actors: [] };
     actors.forEach((actor) => {
       if (actor.type === ActorType.FACTORY) {
         startFactoryProduction(actor.id);
@@ -93,16 +95,19 @@ export function OceanScene({
     });
 
     // Start periodic robot spawning
-    startSpawnScheduler();
+    startSpawnScheduler(localeId);
 
     // Start proximity-based robot interaction detection
-    startCollisionDetection();
+    startCollisionDetection(localeId);
 
     // Cleanup on unmount
     return () => {
       stopSpawnScheduler();
       stopCollisionDetection();
     };
+    // Intentionally mount-only: localeId is stable (locale only changes via user menu)
+    // and re-running would double-spawn robots/factories
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Time-of-day is handled globally in App.tsx so the clock runs regardless of

@@ -3,7 +3,8 @@
 // ========================================
 import * as Tone from 'tone';
 import gsap from 'gsap';
-import { useOceanStore } from '../stores/oceanStore';
+import { useLocaleStore } from '../stores/localeStore';
+import { getActiveLocaleId } from '../utils/localeHelpers';
 
 import type { NoteDuration, ADSREnvelope, SynthType, WaveformType, Robot } from '../types/Robot';
 import type { LayeredWave, LayerDescriptor } from '../types/layeredAudio';
@@ -200,8 +201,8 @@ function getRobotVisualX(robotId: string): number {
 
   // Fallback: read position from state
   try {
-    const state = useOceanStore.getState();
-    const robot = state.robots.find((r) => r.id === robotId);
+    const state = useLocaleStore.getState();
+    const robot = state.locales[getActiveLocaleId()]?.robots.find((r) => r.id === robotId);
     return robot?.position.x ?? 960; // Default to center if not found
   } catch (err) {
     if (DEV_TUNING) swallow(err, 'AudioEngine.getRobotVisualX.stateFallback');
@@ -391,7 +392,7 @@ async function loadInstruments(): Promise<void> {
     }
   };
 
-  const maxRobots = useOceanStore.getState().settings?.maxRobots ?? 8;
+  const maxRobots = useLocaleStore.getState().locales[getActiveLocaleId()]?.settings?.maxRobots ?? 8;
   const desiredTotal = Math.min(MAX_POLYPHONY, Math.max(1, Math.floor(maxRobots)));
   if (DEV_TUNING) console.log(`[AudioEngine] Pool desiredTotal=${desiredTotal} (maxRobots=${maxRobots}, MAX_POLYPHONY=${MAX_POLYPHONY}) - guaranteeing one slot per robot when possible`);
 
@@ -446,10 +447,11 @@ async function loadInstruments(): Promise<void> {
   // If robots spawned earlier than AudioEngine initialization, try to reserve
   // slots for them now so per-robot parameters are applied safely.
   try {
-    const store = useOceanStore.getState();
-    if (store && Array.isArray(store.robots) && store.robots.length > 0) {
-      if (DEV_TUNING) console.log(`[AudioEngine] Attempting post-load reservations for ${store.robots.length} robots`);
-      store.robots.forEach((robot: Robot) => {
+    const store = useLocaleStore.getState();
+    const robots = store.locales[getActiveLocaleId()]?.robots ?? [];
+    if (store && Array.isArray(robots) && robots.length > 0) {
+      if (DEV_TUNING) console.log(`[AudioEngine] Attempting post-load reservations for ${robots.length} robots`);
+      robots.forEach((robot: Robot) => {
         try {
           const waveform = robot.audioAttributes?.waveform as string | undefined;
           const adsr = robot.audioAttributes?.adsr as ADSREnvelope | undefined;
@@ -736,13 +738,14 @@ function startMelodyPlayback(): void {
       }
       queueMicrotask(() => {
         try {
-          const store = useOceanStore.getState();
-          const robotCount = store.robots.length;
+          const store = useLocaleStore.getState();
+          const robots = store.locales[getActiveLocaleId()]?.robots ?? [];
+          const robotCount = robots.length;
           if (DEV_TUNING) {
             console.log(`[AudioEngine] Checking variance for ${robotCount} robots`);
           }
 
-          store.robots.forEach((robot) => {
+          robots.forEach((robot) => {
             // Store original data to detect changes
             const originalMelody = robot.melody;
             const originalSteps = originalMelody.map((e) => e.startStep);
@@ -828,7 +831,7 @@ export const AudioEngine = {
     // This updates visuals (lighting) and allows harmony to derive from measures.
     try {
       subscribeToMeasure((m: number) => {
-        useOceanStore.getState().setCurrentMeasure(m);
+        useLocaleStore.getState().setLocaleData(getActiveLocaleId(), { currentMeasure: m });
       });
     } catch (err) {
       if (DEV_TUNING) console.warn('[AudioEngine] subscribeToMeasure failed', err);
@@ -888,8 +891,8 @@ export const AudioEngine = {
         }
       } else {
         try {
-          const state = useOceanStore.getState();
-          const robot = state.robots.find((r) => r.id === robotId);
+          const state = useLocaleStore.getState();
+          const robot = state.locales[getActiveLocaleId()]?.robots.find((r) => r.id === robotId);
 
           if (robot) {
             if (robot.audioAttributes) {
