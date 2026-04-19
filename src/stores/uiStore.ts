@@ -6,7 +6,13 @@ import { create } from 'zustand';
 
 export type ActiveView = 'ocean' | 'robot' | 'composition' | 'fx' | 'settings';
 export type Theme = 'dark' | 'light';
-export type ConsoleTab = 'robotEditor';
+export type ConsoleTab =
+  | 'session'
+  | 'composition'
+  | 'robotOptions'
+  | 'robotEditor'
+  | 'audioRig'
+  | 'settings';
 
 export interface UIStore {
   activeView: ActiveView;
@@ -40,7 +46,7 @@ export const useUIStore = create<UIStore>((set) => ({
   isPoweredOn: false,
   activeLocaleLocalTime: null,
   selectedRobotId: null,
-  activeConsoleTab: null,
+  activeConsoleTab: 'session',
 
   setActiveView: (v) => set({ activeView: v }),
   setTheme: (t) => set({ theme: t }),
