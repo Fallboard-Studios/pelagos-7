@@ -1,5 +1,124 @@
+/* ========================================
+   Robot List — right-column robot picker
+   ======================================== */
+
+/* Status dot color tokens */
+:root {
+  --dot-idle: #7a8fa6;
+  --dot-moving: #f0a830;
+  --dot-selected: #4caf7d;
+  --dot-interacting: #4db6e8;
+  --dot-leaving: #c0403c;
+}
+
 .robot-list {
-  /* border: yellow 1px solid; */
   grid-area: robotlist;
   grid-row: span 2;
+
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  gap: 0;
+
+  border-left: var(--border-width, 1px) solid var(--color-border, rgba(255, 255, 255, 0.08));
+}
+
+/* ── Empty state ───────────────────────── */
+.robot-list__empty {
+  margin: auto;
+  padding: var(--spacing-md, 12px);
+  font-size: var(--font-size-sm, 12px);
+  color: var(--color-text-muted, rgba(255, 255, 255, 0.6));
+  text-align: center;
+}
+
+/* ── List items ────────────────────────── */
+.robot-list-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm, 8px);
+
+  /* Meets 44×44px touch-target minimum */
+  min-height: var(--touch-target-size, 44px);
+  padding: 4px var(--spacing-sm, 8px);
+
+  background: transparent;
+  border: none;
+  border-bottom: var(--border-width, 1px) solid var(--color-border, rgba(255, 255, 255, 0.08));
+  cursor: pointer;
+
+  text-align: left;
+  color: var(--color-text-primary, rgba(255, 255, 255, 0.87));
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-size-sm, 12px);
+
+  width: 100%;
+  box-sizing: border-box;
+  transition: background 0.1s;
+}
+
+.robot-list-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.robot-list-item--selected {
+  background: rgba(100, 108, 255, 0.12);
+  border-left: 2px solid var(--color-accent, #646cff);
+}
+
+/* ── Robot preview thumbnail ───────────── */
+.robot-list-item__preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.robot-list-item__preview-svg {
+  width: 36px;
+  height: 27px;
+  /* preserves 96:72 viewBox ratio */
+  pointer-events: none;
+  display: block;
+}
+
+/* ── Name ──────────────────────────────── */
+.robot-list-item__name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Status dot ────────────────────────── */
+.robot-list-item__dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--dot-color, var(--dot-idle));
+}
+
+.dot--idle {
+  --dot-color: var(--dot-idle);
+}
+
+.dot--moving {
+  --dot-color: var(--dot-moving);
+}
+
+.dot--selected {
+  --dot-color: var(--dot-selected);
+}
+
+.dot--interacting {
+  --dot-color: var(--dot-interacting);
+}
+
+.dot--leaving {
+  --dot-color: var(--dot-leaving);
 }

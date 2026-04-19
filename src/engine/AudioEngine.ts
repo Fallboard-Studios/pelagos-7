@@ -489,9 +489,9 @@ function scheduleVoiceRelease(duration: NoteDuration, time: number): void {
     const transport = _transport ?? Tone.getTransport();
     transport.scheduleOnce(() => {
       activeVoices = Math.max(0, activeVoices - 1);
-      if (DEV_TUNING) {
-        console.log(`[AudioEngine] Voice released: ${activeVoices}/${MAX_POLYPHONY}`);
-      }
+      // if (DEV_TUNING) {
+      //   console.log(`[AudioEngine] Voice released: ${activeVoices}/${MAX_POLYPHONY}`);
+      // }
     }, `+${delayFromNow}`);
   } catch (err) {
     if (DEV_TUNING) swallow(err, 'AudioEngine.scheduleVoiceRelease');
@@ -1258,11 +1258,23 @@ export const AudioEngine = {
       return { synth, gainNode: layerGain, layer };
     });
 
+    // Per-layer last-scheduled time tracker. Tone Source nodes (Synth, NoiseSynth) require
+    // strictly increasing schedule times. We track the last time used per layer index so we
+    // can always advance by at least 1ms even when multiple flurries hit the same composite
+    // in the same AudioContext quantum (where Tone.now() returns the same value for all calls).
+    const layerLastTime: number[] = layerNodes.map(() => -Infinity);
+
     const triggerAttackRelease = (note: string, dur: NoteDuration | string, time?: number, velocity?: number) => {
-      const t = (typeof time === 'number' && isFinite(time)) ? time : Tone.now();
+      const requested = (typeof time === 'number' && isFinite(time)) ? time : Tone.now();
       const durStr = String(dur);
-      layerNodes.forEach(({ synth, layer }) => {
+      layerNodes.forEach(({ synth, layer }, i) => {
         try {
+          // Guarantee strictly increasing time per layer: Tone Source nodes (Synth, NoiseSynth)
+          // require each scheduled time to be > the previous one on that same source instance.
+          // Multiple flurries in the same AudioContext quantum share the same Tone.now() value,
+          // so we advance by at least 1ms beyond both the requested time and the last used time.
+          const t = Math.max(requested, Tone.now() + 0.001, layerLastTime[i] + 0.001);
+          layerLastTime[i] = t;
           const isNoise = layer.type === 'noise';
           if (synth && typeof (synth as unknown as { triggerAttackRelease?: unknown }).triggerAttackRelease === 'function') {
             if (isNoise) {

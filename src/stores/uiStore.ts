@@ -6,6 +6,7 @@ import { create } from 'zustand';
 
 export type ActiveView = 'ocean' | 'robot' | 'composition' | 'fx' | 'settings';
 export type Theme = 'dark' | 'light';
+export type ConsoleTab = 'robotEditor';
 
 export interface UIStore {
   activeView: ActiveView;
@@ -15,6 +16,7 @@ export interface UIStore {
   isFullscreen: boolean;
   activeLocaleLocalTime: number | null;
   selectedRobotId: string | null;
+  activeConsoleTab: ConsoleTab | null;
   setActiveLocaleLocalTime: (t: number | null) => void;
   setActiveView: (v: ActiveView) => void;
   setTheme: (t: Theme) => void;
@@ -23,6 +25,7 @@ export interface UIStore {
   setPowerOn: () => void;
   setPowerOff: () => void;
   selectRobot: (id: string | null) => void;
+  setActiveConsoleTab: (tab: ConsoleTab | null) => void;
 }
 
 // ========================================
@@ -37,6 +40,7 @@ export const useUIStore = create<UIStore>((set) => ({
   isPoweredOn: false,
   activeLocaleLocalTime: null,
   selectedRobotId: null,
+  activeConsoleTab: null,
 
   setActiveView: (v) => set({ activeView: v }),
   setTheme: (t) => set({ theme: t }),
@@ -46,6 +50,7 @@ export const useUIStore = create<UIStore>((set) => ({
   setPowerOff: () => set({ isPoweredOn: false }),
   setActiveLocaleLocalTime: (t) => set({ activeLocaleLocalTime: t }),
   selectRobot: (id) => set({ selectedRobotId: id }),
+  setActiveConsoleTab: (tab) => set({ activeConsoleTab: tab }),
 }));
 
 // ========================================

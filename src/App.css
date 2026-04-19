@@ -4,7 +4,32 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  background-color: var(--color-background);
+}
+
+.real-world::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(45deg, transparent 50%, #1e1e1e 75%, #083a70 75%, #1d5da1);
+
+  pointer-events: none;
+  z-index: -1;
+}
+
+.real-world::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #1e1e1e 25%, #1d5da1 25%, #083a70 50%, #1e1e1e 50%, #1e1e1e 75%, #1d5da1 75%, #083a70);
+
+  pointer-events: none;
+  z-index: -2;
 }
 
 /* Vite default demo styles removed — layout tokens live in src/index.css */
