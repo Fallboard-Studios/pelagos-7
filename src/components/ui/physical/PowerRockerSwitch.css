@@ -18,7 +18,7 @@
   transform: translateX(100%) rotate(90deg);
 }
 
-@media screen and (min-width: 40em) {
+@media screen and (min-width: 48em) {
   .rocker-panel {
     transform: none;
   }

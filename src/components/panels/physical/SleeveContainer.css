@@ -34,7 +34,7 @@
   filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.25));
 }
 
-@media screen and (min-width: 40em) {
+@media screen and (min-width: 48em) {
   .sleeve-container {
     width: var(--sleeve-width);
     min-width: var(--sleeve-width);

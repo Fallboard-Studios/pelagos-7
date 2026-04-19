@@ -66,18 +66,6 @@ body {
   height: 100vh;
 }
 
-@media (min-width: 768px) {
-  :root {
-    --sleeve-width: var(--sleeve-width-tablet);
-  }
-}
-
-@media (min-width: 1200px) {
-  :root {
-    --sleeve-width: var(--sleeve-width-desktop);
-  }
-}
-
 h1 {
   font-size: 3.2em;
   line-height: 1.1;
