@@ -1,7 +1,7 @@
 import TransportBar from '@/components/panels/screen/TransportBar';
 import WorldView from '@/components/panels/screen/WorldView';
 import RobotList from '@/components/panels/screen/RobotList';
-import Console from '@/components/panels/screen/Console';
+import Console from '@/components/panels/screen/console/Console';
 import { SCREEN_VIEWPORT_ID } from '@/utils/helpers';
 import './ScreenViewport.css';
 
