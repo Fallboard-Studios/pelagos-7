@@ -45,7 +45,7 @@ Depends on: **Issue 3** (WorldView panel must exist in the 4-panel grid).
 - [ ] App remains functional after merge
 
 ## Source Reference
-- File: `src/components/OceanScene.css`, `src/components/OceanScene.tsx`, `src/components/layout/WorldView.tsx` (Issue 3)
+- File: `src/components/world/OceanScene.css`, `src/components/world/OceanScene.tsx`, `src/components/panels/screen/worldView/WorldView.tsx`
 - Copilot instructions: N/A (layout change)
 
 ---
@@ -72,42 +72,46 @@ Planet `size` (small/medium/large) determines a full day's real-world duration v
 Depends on: **Issue 0l** (`usePlanetStore`, `useLocaleStore`, `PLANET_DURATION_MS`, `computeLocalTime`, and `uiStore.activeLocaleLocalTime` must all exist).
 
 ## Implementation Details
-- [ ] Create `src/components/world/PlanetView.tsx` and `PlanetView.css` — props: `planetId: string`
+- [x] Create `src/components/panels/screen/worldView/PlanetView.tsx` and `PlanetView.css` — props: `planetId: string`
   - Reads `usePlanetStore((s) => s.planets.find(p => p.id === planetId))`
-  - Runs a `setInterval` (1000 ms) inside a `useEffect` that computes `currentHour = ((Date.now() - planet.dayStartTimestamp) / PLANET_DURATION_MS[planet.size]) * 24 % 24`, calls `usePlanetStore.getState().setCurrentHour(planetId, currentHour)`, and also calls `useUIStore.getState().setActiveLocaleLocalTime(computeLocalTime(currentHour, activeLocale.coordinates.x))` for the active locale
-  - Interval is started on mount and cleared in `useEffect` cleanup
+  - Stores computed hour in local `useState`; a `setInterval` (1000 ms) inside `useEffect` calls `computePlanetHour(p.dayStartTimestamp, p.size)` (pure utility — no store write) and updates local state
+  - Also calls `useUIStore.getState().setActiveLocaleLocalTime(computeLocalTime(hour, activeLocale.coordinates.x))` for the active locale
+  - Effect deps: `[planetId]` only — switching planets clears the old interval and immediately derives the correct hour from the new planet's `dayStartTimestamp`
   - This interval is **not** musical timing — `setInterval` is explicitly permitted here (world/visual timing)
-  - Renders `<LocaleView localeId={planet.currentLocaleId} planetId={planetId} />`
-- [ ] Create `src/components/world/LocaleView.tsx` and `LocaleView.css` — props: `localeId: string`, `planetId: string`
+  - Renders `<LocaleView localeId={planet.currentLocaleId} currentHour={currentHour} />`
+- [x] Create `src/components/panels/screen/worldView/LocaleView.tsx` and `LocaleView.css` — props: `localeId: string`, `currentHour: number`
   - Reads `useLocaleStore((s) => s.locales[localeId])`
-  - Reads `usePlanetStore((s) => s.planets.find(p => p.id === planetId)?.currentHour ?? 0)`
+  - Receives `currentHour` as a prop from `PlanetView` — **does not read `currentHour` from `planetStore`**
   - Computes `localTime = computeLocalTime(currentHour, locale.coordinates.x)` (from `src/constants/time.ts`)
   - Renders `<OceanView localTime={localTime} />`
-- [ ] Create `src/components/world/OceanView.tsx` and `OceanView.css` — props: `localTime: number`
+- [x] Create `src/components/panels/screen/worldView/OceanView.tsx` and `OceanView.css` — props: `localTime: number`
   - Thin wrapper that passes `localTime` (and any other locale-scoped props) down to `<OceanScene>`
   - Exists so the locale-to-scene boundary is a clear named seam for future scenes
-- [ ] Mount `<PlanetView planetId="pelagos" />` inside `WorldView` (replacing any direct `<OceanScene />` reference in `WorldView`)
-- [ ] All components use `width: 100%; height: 100%` so they inherit `WorldView` bounds without explicit pixel values
+- [x] Mount `<PlanetView planetId="pelagos" />` inside `WorldView` (replacing any direct `<OceanScene />` reference in `WorldView`)
+- [x] All components use `width: 100%; height: 100%` so they inherit `WorldView` bounds without explicit pixel values
 
 ## Technical Notes
 - Day length is **entirely driven by `planet.size`** via `PLANET_DURATION_MS`. The size is set on the planet in `planetStore`; there is no separate selector in any console tab.
+- `computePlanetHour(dayStartTimestamp, size)` is a pure utility added to `src/constants/time.ts` that derives the current in-world hour directly from wall-clock time. Unvisited planets require no background tick — their hour can be computed on demand at any time from their stored `dayStartTimestamp`.
 - `computeLocalTime(planetHour, longitudeX)` is the shared utility in `src/constants/time.ts`; `LocaleView` and the TransportBar both use it.
-- `uiStore.activeLocaleLocalTime` is a float (e.g. `14.5` = 14:30). `TransportBar` formats it as `HH:MM`.
-- Spawn, collision, and idle systems still read from `oceanStore`/`localeStore` for per-locale robots and actors — they are unaffected by the view hierarchy change.
+- `uiStore.activeLocaleLocalTime` is a float (e.g. `14.5` = 14:30). `TransportBar` formats it as `HH:MM`. It is also consumed by `Factory` and `RobotBody` to drive the east/west face lightness (day/night lighting system).
+- `planetStore.currentHour` is no longer written by the tick — it is effectively vestigial. Future issues reading `planet.currentHour` should call `computePlanetHour()` instead.
+- Spawn, collision, and idle systems still read from `localeStore` for per-locale robots and actors — they are unaffected by the view hierarchy change.
 
 ## Acceptance Criteria
-- [ ] `WorldView` renders `<PlanetView>` → `<LocaleView>` → `<OceanView>` → `<OceanScene>`
-- [ ] `PlanetView` drives the real-time day-cycle tick using `PLANET_DURATION_MS[planet.size]`; tick runs independent of transport power state
-- [ ] `LocaleView` computes `localTime` via `computeLocalTime` and passes it to `OceanView`
-- [ ] `uiStore.activeLocaleLocalTime` is updated every second while `PlanetView` is mounted
-- [ ] `TransportBar` shows the locale's local time in `HH:MM` format (wired via `useUIStore`)
-- [ ] All components fill parent bounds via `width: 100%; height: 100%` with no `100vw`/`100vh`
-- [ ] App compiles with no TypeScript errors and `OceanScene` renders inside `WorldView`
+- [x] `WorldView` renders `<PlanetView>` → `<LocaleView>` → `<OceanView>` → `<OceanScene>`
+- [x] `PlanetView` drives the real-time day-cycle tick using `PLANET_DURATION_MS[planet.size]`; tick runs independent of transport power state
+- [x] `LocaleView` computes `localTime` via `computeLocalTime` and passes it to `OceanView`
+- [x] `uiStore.activeLocaleLocalTime` is updated every second while `PlanetView` is mounted
+- [x] `TransportBar` shows the locale's local time in `HH:MM` format (wired via `useUIStore`)
+- [x] All components fill parent bounds via `width: 100%; height: 100%` with no `100vw`/`100vh`
+- [x] App compiles with no TypeScript errors and `OceanScene` renders inside `WorldView`
 
 ## Source Reference
-- `src/stores/planetStore.ts`, `src/stores/localeStore.ts`, `src/stores/uiStore.ts` (Issue 0l)
-- `src/constants/time.ts` — `PLANET_DURATION_MS`, `computeLocalTime`
-- `src/components/layout/WorldView.tsx` (Issue 3)
+- `src/stores/planetStore.ts`, `src/stores/localeStore.ts`, `src/stores/uiStore.ts`
+- `src/constants/time.ts` — `PLANET_DURATION_MS`, `computeLocalTime`, `computePlanetHour` (added)
+- `src/components/panels/screen/worldView/WorldView.tsx`
+- `src/components/actors/Factory.tsx`, `src/components/robot/RobotBody.tsx` — consume `activeLocaleLocalTime` for day/night lighting
 
 ---
 
