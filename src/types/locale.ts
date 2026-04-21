@@ -21,6 +21,10 @@ export interface LocaleSettings {
   bpm?: number;
   maxRobots?: number;
   minRobots?: number;
+  /** Whether robots spawn automatically on a timer. Default: true. */
+  autoSpawn?: boolean;
+  /** Spawn frequency in measures. Default: 4. */
+  spawnFrequency?: number;
   [key: string]: unknown;
 }
 
