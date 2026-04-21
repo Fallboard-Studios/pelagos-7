@@ -3,10 +3,14 @@
 // ========================================
 import gsap from 'gsap';
 
-import type { Vec2 } from '../types/Vec2';
+import type { NoiseFunction2D } from 'simplex-noise';
 import { RobotState } from '../types/Robot';
 import useLocaleStore from '../stores/localeStore';
+import { usePlanetStore } from '../stores/planetStore';
 import { createSwimTimeline } from '../animation/swimAnimation';
+import { getLocaleNoiseMap } from '../utils/noiseMaps';
+import { getSeededVal } from '../utils/getSeededVal';
+import type { Vec2 } from '../types/Vec2';
 
 // ========================================
 // CONSTANTS
@@ -22,15 +26,41 @@ const IDLE_DELAY = 1.0; // Seconds before picking next destination
 /** Track pending idle delays by robot ID to allow cleanup */
 const pendingIdleDelays = new Map<string, gsap.core.Tween>();
 
+/** Per-robot move counter — incremented each time a robot picks a new idle destination.
+ *  Stores the robot's spawn index (for its unique noise channel) and current move count. */
+const idleMoveCounters = new Map<string, { spawnIndex: number; count: number }>();
+
+function getAndIncrementMoveCount(robotId: string): { spawnIndex: number; count: number } {
+  const entry = idleMoveCounters.get(robotId) ?? { spawnIndex: 0, count: 0 };
+  idleMoveCounters.set(robotId, { ...entry, count: entry.count + 1 });
+  return entry;
+}
+
+/**
+ * Seed the idle move counter for a robot at spawn time.
+ * Pass the robot's spawn index so each robot gets its own noise channel.
+ */
+export function initRobotIdleCounter(robotId: string, spawnIndex: number): void {
+  idleMoveCounters.set(robotId, { spawnIndex, count: 0 });
+}
+
 // ========================================
 // EXPORTS
 // ========================================
 
 /**
- * Pick a random destination within world bounds
- * Keeps destinations away from edges by WORLD_MARGIN
+ * Pick a destination within world bounds using seeded noise.
+ * Each robot has a unique noise channel determined by its spawnIndex,
+ * so robots never follow correlated paths regardless of their move count.
+ * Falls back to Math.random if noiseMap is unavailable.
  */
-export function pickDestination(): Vec2 {
+export function pickDestination(noiseMap: NoiseFunction2D | null, spawnIndex: number, moveCount: number): Vec2 {
+  if (noiseMap) {
+    return {
+      x: getSeededVal(noiseMap, `idle.target.x.${spawnIndex}`, moveCount, WORLD_MARGIN, WORLD_WIDTH - WORLD_MARGIN),
+      y: getSeededVal(noiseMap, `idle.target.y.${spawnIndex}`, moveCount, WORLD_MARGIN, WORLD_HEIGHT - WORLD_MARGIN),
+    };
+  }
   return {
     x: WORLD_MARGIN + Math.random() * (WORLD_WIDTH - 2 * WORLD_MARGIN),
     y: WORLD_MARGIN + Math.random() * (WORLD_HEIGHT - 2 * WORLD_MARGIN),
@@ -44,7 +74,8 @@ export function pickDestination(): Vec2 {
 export function handleRobotIdle(localeId: string, robotId: string): void {
   // console.log(`[IdleSystem] handleRobotIdle called for robot ${robotId}`);
 
-  const robot = useLocaleStore.getState().getRobotById(localeId, robotId);
+  const store = useLocaleStore.getState();
+  const robot = store.getRobotById(localeId, robotId);
 
   // Guard: robot must exist and be in idle state
   if (!robot || robot.state !== RobotState.Idle) {
@@ -52,7 +83,19 @@ export function handleRobotIdle(localeId: string, robotId: string): void {
     return;
   }
 
-  const destination = pickDestination();
+  // Resolve locale noise map for deterministic destination
+  const locale = store.getLocaleById(localeId);
+  const planet = locale ? usePlanetStore.getState().planets.find((p) => p.id === locale.planetId) : undefined;
+  const noiseMap = locale && planet
+    ? getLocaleNoiseMap(localeId, locale.planetId, planet.name, locale.coordinates.x, locale.coordinates.y)
+    : null;
+
+  // Each robot has a unique spawnIndex (its noise channel) and an ever-incrementing
+  // move count. Together they guarantee a distinct, non-overlapping noise sequence
+  // for every robot across all time.
+  const { spawnIndex, count } = getAndIncrementMoveCount(robotId);
+
+  const destination = pickDestination(noiseMap, spawnIndex, count);
 
   // Calculate direction based on destination x-coordinate relative to current position
   const direction = destination.x > robot.position.x ? 'right' : 'left';
@@ -113,6 +156,7 @@ export function cancelPendingIdleDelay(robotId: string): void {
     delayTween.kill();
     pendingIdleDelays.delete(robotId);
   }
+  idleMoveCounters.delete(robotId);
 }
 
 // (no default wrappers) callers must provide explicit localeId

@@ -2,8 +2,12 @@
 // IMPORTS
 // ========================================
 import { describe, it, expect } from 'vitest';
+import type { NoiseFunction2D } from 'simplex-noise';
 
 import { pickDestination } from './idleSystem';
+
+/** General-purpose mock: returns a pseudo-random value in [-1, 1]. */
+const mockNoiseMap: NoiseFunction2D = () => Math.random() * 2 - 1;
 
 // ========================================
 // TESTS
@@ -12,7 +16,7 @@ import { pickDestination } from './idleSystem';
 describe('idleSystem', () => {
   describe('pickDestination', () => {
     it('generates destination within world bounds', () => {
-      const destination = pickDestination();
+      const destination = pickDestination(mockNoiseMap, 0, 0);
       expect(destination.x).toBeGreaterThanOrEqual(0);
       expect(destination.x).toBeLessThanOrEqual(1920);
       expect(destination.y).toBeGreaterThanOrEqual(0);
@@ -21,7 +25,7 @@ describe('idleSystem', () => {
 
     it('generates destination with margin from edges', () => {
       const WORLD_MARGIN = 100;
-      const destination = pickDestination();
+      const destination = pickDestination(mockNoiseMap, 0, 0);
 
       // Should be at least WORLD_MARGIN from edges
       expect(destination.x).toBeGreaterThanOrEqual(WORLD_MARGIN);
@@ -31,7 +35,7 @@ describe('idleSystem', () => {
     });
 
     it('generates varied destinations (not all the same)', () => {
-      const destinations = Array.from({ length: 20 }, () => pickDestination());
+      const destinations = Array.from({ length: 20 }, (_, i) => pickDestination(mockNoiseMap, 0, i));
       const uniqueX = new Set(destinations.map((d) => Math.round(d.x)));
       const uniqueY = new Set(destinations.map((d) => Math.round(d.y)));
 
@@ -41,7 +45,7 @@ describe('idleSystem', () => {
     });
 
     it('generates destinations in center area (not just edges)', () => {
-      const destinations = Array.from({ length: 100 }, () => pickDestination());
+      const destinations = Array.from({ length: 100 }, (_, i) => pickDestination(mockNoiseMap, 0, i));
 
       // At least some should be in center region (away from all edges)
       const centerRegion = destinations.filter(
@@ -56,7 +60,7 @@ describe('idleSystem', () => {
     });
 
     it('uses full available space (not clustered)', () => {
-      const destinations = Array.from({ length: 100 }, () => pickDestination());
+      const destinations = Array.from({ length: 100 }, (_, i) => pickDestination(mockNoiseMap, 0, i));
 
       // Check distribution across quadrants
       const leftHalf = destinations.filter((d) => d.x < 960).length;

@@ -1,6 +1,7 @@
 // ========================================
 // IMPORTS
 // ========================================
+import type { NoiseFunction2D } from 'simplex-noise';
 import type { Vec2 } from '../types/Vec2';
 import type { Robot, AudioAttributes, SynthType, WaveformType } from '../types/Robot';
 import { RobotState } from '../types/Robot';
@@ -10,8 +11,12 @@ import type { LayeredWave, LayerDescriptor } from '../types/layeredAudio';
 import { scheduleRepeat, cancelSchedule } from '../engine/beatClock';
 import { DEV_TUNING } from '../constants';
 import useLocaleStore from '../stores/localeStore';
+import { usePlanetStore } from '../stores/planetStore';
 import type { LocaleSettings } from '../types/locale';
 import { removeRobotWithExit } from './removeSystem';
+import { initRobotIdleCounter } from './idleSystem';
+import { getLocaleNoiseMap } from '../utils/noiseMaps';
+import { getSeededVal } from '../utils/getSeededVal';
 
 // ========================================
 // CONSTANTS
@@ -64,9 +69,9 @@ const WAVEFORMS: WaveformType[] = ['sine', 'square', 'triangle', 'sawtooth'];
 const ADJECTIVES = ['Iron', 'Null', 'Silent', 'Drift', 'Azure', 'Rust', 'Neon', 'Glass', 'Solar', 'Tidal'];
 const NOUNS = ['Drifter', 'Tide', 'Warden', 'Seeker', 'Courier', 'Wisp', 'Beacon', 'Nomad', 'Rover', 'Pilot'];
 
-function generateRobotName(): string {
-  const a = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)];
-  const n = NOUNS[Math.floor(Math.random() * NOUNS.length)];
+function generateRobotName(noiseMap: NoiseFunction2D, offset: number): string {
+  const a = ADJECTIVES[Math.floor(getSeededVal(noiseMap, 'robot.name.adj', offset, 0, ADJECTIVES.length))];
+  const n = NOUNS[Math.floor(getSeededVal(noiseMap, 'robot.name.noun', offset, 0, NOUNS.length))];
   return `${a} ${n}`;
 }
 
@@ -74,6 +79,15 @@ function generateRobotName(): string {
 // MODULE STATE
 // ========================================
 let spawnScheduleId: string | null = null;
+
+/** Per-locale spawn counters — used as deterministic offset for noise sampling. Not stored in Zustand. */
+const spawnCounters = new Map<string, number>();
+
+function getAndIncrementSpawnCount(localeId: string): number {
+  const count = spawnCounters.get(localeId) ?? 0;
+  spawnCounters.set(localeId, count + 1);
+  return count;
+}
 
 // ========================================
 // EXPORTS
@@ -91,8 +105,16 @@ export function startSpawnScheduler(localeId: string): void {
     return;
   }
 
-  const interval =
-    SPAWN_INTERVAL_MIN + Math.floor(Math.random() * (SPAWN_INTERVAL_MAX - SPAWN_INTERVAL_MIN + 1));
+  const locale = useLocaleStore.getState().getLocaleById(localeId);
+  const planet = locale ? usePlanetStore.getState().planets.find((p) => p.id === locale.planetId) : undefined;
+  const schedulerNoiseMap = locale && planet
+    ? getLocaleNoiseMap(localeId, locale.planetId, planet.name, locale.coordinates.x, locale.coordinates.y)
+    : null;
+  const interval = SPAWN_INTERVAL_MIN + Math.floor(
+    schedulerNoiseMap
+      ? getSeededVal(schedulerNoiseMap, 'spawn.interval', spawnCounters.get(localeId) ?? 0, 0, SPAWN_INTERVAL_MAX - SPAWN_INTERVAL_MIN + 1)
+      : Math.random() * (SPAWN_INTERVAL_MAX - SPAWN_INTERVAL_MIN + 1)
+  );
 
   spawnScheduleId = scheduleRepeat(`${interval}m`, () => {
     spawnRobot(localeId);
@@ -123,30 +145,30 @@ export function stopSpawnScheduler(): void {
  * Robots are invisible here (SVG clips to viewBox) and swim inward on their
  * first idle tick, creating a natural "swimming on-screen" entrance.
  */
-export function generateSpawnPosition(): Vec2 {
-  const edge = Math.floor(Math.random() * 4); // 0=top, 1=right, 2=bottom, 3=left
+export function generateSpawnPosition(noiseMap: NoiseFunction2D, offset: number): Vec2 {
+  const edge = Math.floor(getSeededVal(noiseMap, 'spawn.pos.edge', offset, 0, 4)); // 0=top, 1=right, 2=bottom, 3=left
 
   switch (edge) {
     case 0: // Top edge — spawn above the scene
       return {
-        x: Math.random() * WORLD_WIDTH,
-        y: -OFFSCREEN_OFFSET - Math.random() * 50,
+        x: getSeededVal(noiseMap, 'spawn.pos.x', offset, 0, WORLD_WIDTH),
+        y: -OFFSCREEN_OFFSET - getSeededVal(noiseMap, 'spawn.pos.y', offset, 0, 50),
       };
     case 1: // Right edge — spawn to the right of the scene
       return {
-        x: WORLD_WIDTH + OFFSCREEN_OFFSET + Math.random() * 50,
-        y: Math.random() * WORLD_HEIGHT,
+        x: WORLD_WIDTH + OFFSCREEN_OFFSET + getSeededVal(noiseMap, 'spawn.pos.x', offset, 0, 50),
+        y: getSeededVal(noiseMap, 'spawn.pos.y', offset, 0, WORLD_HEIGHT),
       };
     case 2: // Bottom edge — spawn below the scene
       return {
-        x: Math.random() * WORLD_WIDTH,
-        y: WORLD_HEIGHT + OFFSCREEN_OFFSET + Math.random() * 50,
+        x: getSeededVal(noiseMap, 'spawn.pos.x', offset, 0, WORLD_WIDTH),
+        y: WORLD_HEIGHT + OFFSCREEN_OFFSET + getSeededVal(noiseMap, 'spawn.pos.y', offset, 0, 50),
       };
     case 3: // Left edge — spawn to the left of the scene
     default:
       return {
-        x: -OFFSCREEN_OFFSET - Math.random() * 50,
-        y: Math.random() * WORLD_HEIGHT,
+        x: -OFFSCREEN_OFFSET - getSeededVal(noiseMap, 'spawn.pos.x', offset, 0, 50),
+        y: getSeededVal(noiseMap, 'spawn.pos.y', offset, 0, WORLD_HEIGHT),
       };
   }
 }
@@ -155,29 +177,26 @@ export function generateSpawnPosition(): Vec2 {
  * Generate random audio attributes
  * Controls both sound synthesis and visual appearance
  */
-export function generateAudioAttributes(): AudioAttributes {
-  // Random synth type
-  const synthType = SYNTH_TYPES[Math.floor(Math.random() * SYNTH_TYPES.length)];
+export function generateAudioAttributes(noiseMap: NoiseFunction2D, offset: number): AudioAttributes {
+  // Seeded synth type
+  const synthType = SYNTH_TYPES[Math.floor(getSeededVal(noiseMap, 'robot.audio.synthType', offset, 0, SYNTH_TYPES.length))];
 
-  // Random ADSR envelope
+  // Seeded ADSR envelope
   const adsr = {
-    attack: ATTACK_RANGE.min + Math.random() * (ATTACK_RANGE.max - ATTACK_RANGE.min),
-    decay: DECAY_RANGE.min + Math.random() * (DECAY_RANGE.max - DECAY_RANGE.min),
-    sustain: SUSTAIN_RANGE.min + Math.random() * (SUSTAIN_RANGE.max - SUSTAIN_RANGE.min),
-    release: RELEASE_RANGE.min + Math.random() * (RELEASE_RANGE.max - RELEASE_RANGE.min),
+    attack: getSeededVal(noiseMap, 'robot.audio.attack', offset, ATTACK_RANGE.min, ATTACK_RANGE.max),
+    decay: getSeededVal(noiseMap, 'robot.audio.decay', offset, DECAY_RANGE.min, DECAY_RANGE.max),
+    sustain: getSeededVal(noiseMap, 'robot.audio.sustain', offset, SUSTAIN_RANGE.min, SUSTAIN_RANGE.max),
+    release: getSeededVal(noiseMap, 'robot.audio.release', offset, RELEASE_RANGE.min, RELEASE_RANGE.max),
   };
 
-  // Random pitch range (determines visual scale)
-  const pitchRange = PITCH_RANGES[Math.floor(Math.random() * PITCH_RANGES.length)];
+  // Seeded pitch range (determines visual scale)
+  const pitchRange = PITCH_RANGES[Math.floor(getSeededVal(noiseMap, 'robot.audio.pitchRange', offset, 0, PITCH_RANGES.length))];
 
-  // Random filter frequency (determines detail level)
-  const filterFreq =
-    FILTER_FREQ_RANGE.min +
-    Math.random() * (FILTER_FREQ_RANGE.max - FILTER_FREQ_RANGE.min);
+  // Seeded filter frequency (determines detail level)
+  const filterFreq = getSeededVal(noiseMap, 'robot.audio.filterFreq', offset, FILTER_FREQ_RANGE.min, FILTER_FREQ_RANGE.max);
 
-
-  // Random waveform — evenly distributed (~25% each)
-  const waveform = WAVEFORMS[Math.floor(Math.random() * WAVEFORMS.length)];
+  // Seeded waveform — evenly distributed (~25% each)
+  const waveform = WAVEFORMS[Math.floor(getSeededVal(noiseMap, 'robot.audio.waveform', offset, 0, WAVEFORMS.length))];
 
   // Derive a compact visualAudioMap to store on the robot at spawn time.
   // ---
@@ -189,19 +208,20 @@ export function generateAudioAttributes(): AudioAttributes {
   // If you change the mapping, update docs and robotVisualMapper accordingly.
   const clamp = (v: number) => Math.max(0, Math.min(1, v));
 
-  const numLayers = 1 + Math.floor(Math.random() * MAX_LAYERS); // 1..MAX_LAYERS
+  const numLayers = 1 + Math.floor(getSeededVal(noiseMap, 'robot.audio.numLayers', offset, 0, MAX_LAYERS)); // 1..MAX_LAYERS
   const layers: LayeredWave['layers'] = [];
   for (let i = 0; i < numLayers; i++) {
-    const isNoise = Math.random() < 0.18; // small chance of noise layer
+    const layerOffset = offset * 10 + i;
+    const isNoise = getSeededVal(noiseMap, 'robot.audio.layer.isNoise', layerOffset, 0, 1) < 0.18;
     const layerWave: LayerDescriptor = {
-      type: isNoise ? 'noise' : WAVEFORMS[Math.floor(Math.random() * WAVEFORMS.length)],
-      gain: 0.2 + Math.random() * 1.0, // 0.2 .. 1.2
-      detune: (Math.random() - 0.5) * 4, // -20 .. +20 cents
+      type: isNoise ? 'noise' : WAVEFORMS[Math.floor(getSeededVal(noiseMap, 'robot.audio.layer.waveform', layerOffset, 0, WAVEFORMS.length))],
+      gain: getSeededVal(noiseMap, 'robot.audio.layer.gain', layerOffset, 0.2, 1.2),
+      detune: getSeededVal(noiseMap, 'robot.audio.layer.detune', layerOffset, -2, 2),
       adsr: {
-        attack: ATTACK_RANGE.min + Math.random() * (ATTACK_RANGE.max - ATTACK_RANGE.min),
-        decay: DECAY_RANGE.min + Math.random() * (DECAY_RANGE.max - DECAY_RANGE.min),
-        sustain: SUSTAIN_RANGE.min + Math.random() * (SUSTAIN_RANGE.max - SUSTAIN_RANGE.min),
-        release: RELEASE_RANGE.min + Math.random() * (RELEASE_RANGE.max - RELEASE_RANGE.min),
+        attack: getSeededVal(noiseMap, 'robot.audio.layer.attack', layerOffset, ATTACK_RANGE.min, ATTACK_RANGE.max),
+        decay: getSeededVal(noiseMap, 'robot.audio.layer.decay', layerOffset, DECAY_RANGE.min, DECAY_RANGE.max),
+        sustain: getSeededVal(noiseMap, 'robot.audio.layer.sustain', layerOffset, SUSTAIN_RANGE.min, SUSTAIN_RANGE.max),
+        release: getSeededVal(noiseMap, 'robot.audio.layer.release', layerOffset, RELEASE_RANGE.min, RELEASE_RANGE.max),
       },
     };
     layers.push(layerWave);
@@ -263,7 +283,7 @@ export function generateAudioAttributes(): AudioAttributes {
   };
 
   // Phase: 0..360 degrees (used for oscillator phase)
-  const phase = Math.floor(Math.random() * 361);
+  const phase = Math.floor(getSeededVal(noiseMap, 'robot.audio.phase', offset, 0, 361));
   // Detune: default 0 cents (fine pitch adjustment)
   const detune = 0;
 
@@ -315,27 +335,53 @@ export function spawnRobot(localeId: string): void {
     return;
   }
 
+  // Resolve locale noise map for deterministic attribute generation
+  const planet = locale ? usePlanetStore.getState().planets.find((p) => p.id === locale.planetId) : undefined;
+  const noiseMap = locale && planet
+    ? getLocaleNoiseMap(localeId, locale.planetId, planet.name, locale.coordinates.x, locale.coordinates.y)
+    : null;
+
+  // Monotonically incrementing offset for this locale — ensures each robot is distinct
+  const spawnCount = getAndIncrementSpawnCount(localeId);
+
   // Generate audio attributes first so octaveRange can be derived and passed to melody generator
-  const audioAttributes = generateAudioAttributes();
+  const audioAttributes = noiseMap
+    ? generateAudioAttributes(noiseMap, spawnCount)
+    : generateAudioAttributes({
+      // fallback: create a trivial noise-like map from Math.random
+      // This path is only hit if locale/planet data is missing (should not happen in production)
+    } as unknown as NoiseFunction2D, spawnCount);
   const octaveRange = pickOctaveRange(audioAttributes.pitchRange);
+
+  // Seeded melody: each rand() call uses a unique offset within this robot's spawn slot
+  let melodyCallIndex = 0;
+  const melodyRand = noiseMap
+    ? () => getSeededVal(noiseMap, 'melody.rand', spawnCount * 100 + melodyCallIndex++)
+    : Math.random;
 
   const robot: Robot = {
     id: crypto.randomUUID(),
-    name: generateRobotName(),
+    name: noiseMap ? generateRobotName(noiseMap, spawnCount) : generateRobotName({ x: 0, y: 0 } as unknown as NoiseFunction2D, spawnCount),
     state: RobotState.Idle,
-    position: generateSpawnPosition(),
+    position: noiseMap ? generateSpawnPosition(noiseMap, spawnCount) : generateSpawnPosition({ x: 0, y: 0 } as unknown as NoiseFunction2D, spawnCount),
     destination: null,
     direction: 'right', // Default facing direction (will be updated by idleSystem)
-    melody: generateMelodyForRobot({ octaveRange }),
+    melody: generateMelodyForRobot({ octaveRange, rand: melodyRand }),
     audioAttributes,
     octaveRange,
-    masterVolume: MASTER_VOLUME_MIN + Math.random() * (MASTER_VOLUME_MAX - MASTER_VOLUME_MIN),
+    masterVolume: noiseMap
+      ? getSeededVal(noiseMap, 'robot.masterVolume', spawnCount, MASTER_VOLUME_MIN, MASTER_VOLUME_MAX)
+      : MASTER_VOLUME_MIN + Math.random() * (MASTER_VOLUME_MAX - MASTER_VOLUME_MIN),
     createdAt: Date.now(),
     persistent: true,
   };
 
   // Add to locale store
   useLocaleStore.getState().addRobot(localeId, robot);
+
+  // Seed the idle counter to this robot's spawn index so its noise-sampled
+  // destinations are phase-shifted away from other robots in the same locale.
+  initRobotIdleCounter(robot.id, spawnCount);
 
   // Register melody with AudioEngine
   // Unregister first to guard against duplicate entries if robot id is reused.

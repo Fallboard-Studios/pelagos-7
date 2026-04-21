@@ -2,6 +2,7 @@
 // IMPORTS
 // ========================================
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import type { NoiseFunction2D } from 'simplex-noise';
 import type { Robot } from '../types/Robot';
 
 import { generateSpawnPosition, generateAudioAttributes, spawnRobot } from './spawnSystem';
@@ -9,6 +10,12 @@ import { useLocaleStore, DEFAULT_LOCALE } from '../stores/localeStore';
 import { DEFAULT_LOCALE_ID } from '../stores/planetStore';
 import { AudioEngine } from '../engine/AudioEngine';
 import { RobotState } from '../types/Robot';
+
+/** General-purpose mock: returns a pseudo-random value in [-1, 1]. */
+const mockNoiseMap: NoiseFunction2D = () => Math.random() * 2 - 1;
+
+/** Deterministic mock: always returns -1, mapping every getSeededVal call to its min value. */
+const deterministicNoiseMap: NoiseFunction2D = () => -1;
 
 vi.mock('../engine/beatClock', () => ({
   scheduleRepeat: vi.fn(() => 'beat-spawn-1'),
@@ -22,7 +29,7 @@ vi.mock('../engine/beatClock', () => ({
 describe('spawnSystem', () => {
   describe('generateSpawnPosition', () => {
     it('generates position just outside world bounds (off-screen)', () => {
-      const position = generateSpawnPosition();
+      const position = generateSpawnPosition(mockNoiseMap, 0);
       // Must be outside the viewBox on at least one axis
       const outsideX = position.x < 0 || position.x > 1920;
       const outsideY = position.y < 0 || position.y > 1080;
@@ -30,7 +37,7 @@ describe('spawnSystem', () => {
     });
 
     it('generates positions on all four edges (off-screen)', () => {
-      const positions = Array.from({ length: 100 }, () => generateSpawnPosition());
+      const positions = Array.from({ length: 100 }, (_, i) => generateSpawnPosition(mockNoiseMap, i));
 
       const leftEdge = positions.filter((p) => p.x < 0).length;
       const rightEdge = positions.filter((p) => p.x > 1920).length;
@@ -45,7 +52,7 @@ describe('spawnSystem', () => {
     });
 
     it('generates varied positions (not all the same)', () => {
-      const positions = Array.from({ length: 20 }, () => generateSpawnPosition());
+      const positions = Array.from({ length: 20 }, (_, i) => generateSpawnPosition(mockNoiseMap, i));
       const uniqueX = new Set(positions.map((p) => Math.round(p.x)));
       const uniqueY = new Set(positions.map((p) => Math.round(p.y)));
 
@@ -56,7 +63,7 @@ describe('spawnSystem', () => {
 
   describe('generateAudioAttributes', () => {
     it('generates valid synth type', () => {
-      const attrs = generateAudioAttributes();
+      const attrs = generateAudioAttributes(mockNoiseMap, 0);
       expect([
         'AMSynth',
         'FMSynth',
@@ -66,7 +73,7 @@ describe('spawnSystem', () => {
     });
 
     it('generates ADSR values in valid ranges', () => {
-      const attrs = generateAudioAttributes();
+      const attrs = generateAudioAttributes(mockNoiseMap, 0);
       expect(attrs.adsr.attack).toBeGreaterThanOrEqual(0.01);
       expect(attrs.adsr.attack).toBeLessThanOrEqual(0.5);
       expect(attrs.adsr.decay).toBeGreaterThanOrEqual(0.1);
@@ -78,7 +85,7 @@ describe('spawnSystem', () => {
     });
 
     it('generates pitch range from predefined options', () => {
-      const attrs = generateAudioAttributes();
+      const attrs = generateAudioAttributes(mockNoiseMap, 0);
       const validRanges = [
         { min: 80, max: 150 },
         { min: 250, max: 450 },
@@ -94,13 +101,13 @@ describe('spawnSystem', () => {
     });
 
     it('generates filter frequency in valid range', () => {
-      const attrs = generateAudioAttributes();
+      const attrs = generateAudioAttributes(mockNoiseMap, 0);
       expect(attrs.filterFreq).toBeGreaterThanOrEqual(400);
       expect(attrs.filterFreq).toBeLessThanOrEqual(2500);
     });
 
     it('generates varied attributes (not all the same)', () => {
-      const attributes = Array.from({ length: 20 }, () => generateAudioAttributes());
+      const attributes = Array.from({ length: 20 }, (_, i) => generateAudioAttributes(mockNoiseMap, i));
       const uniqueSynthTypes = new Set(attributes.map((a) => a.synthType));
       const uniqueAttacks = new Set(attributes.map((a) => a.adsr.attack.toFixed(2)));
 
@@ -109,7 +116,7 @@ describe('spawnSystem', () => {
     });
 
     it('creates layeredWave with 1..3 layers and shapeParams in range', () => {
-      const attrs = generateAudioAttributes();
+      const attrs = generateAudioAttributes(mockNoiseMap, 0);
       const vm = attrs.visualAudioMap;
       expect(vm).toBeDefined();
       expect(vm?.layeredWave).toBeDefined();
@@ -132,24 +139,20 @@ describe('spawnSystem', () => {
     });
 
     it('averagedADSR equals single layer ADSR when only one layer (deterministic)', () => {
-      // Make Math.random deterministic to force single-layer and known values
-      const rnd = vi.spyOn(Math, 'random').mockImplementation(() => 0);
-      try {
-        const attrs = generateAudioAttributes();
-        const vm = attrs.visualAudioMap!;
-        const layers = vm.layeredWave?.layers ?? [];
-        // With Math.random=0 we should get exactly 1 layer
-        expect(layers.length).toBe(1);
-        const layerAdsr = layers[0].adsr!;
-        const avg = vm.averagedADSR!;
-        // The averaged should equal the single layer's values
-        expect(avg.attack).toBeCloseTo(layerAdsr.attack as number, 6);
-        expect(avg.decay).toBeCloseTo(layerAdsr.decay as number, 6);
-        expect(avg.sustain).toBeCloseTo(layerAdsr.sustain as number, 6);
-        expect(avg.release).toBeCloseTo(layerAdsr.release as number, 6);
-      } finally {
-        rnd.mockRestore();
-      }
+      // deterministicNoiseMap always returns -1, mapping every getSeededVal to its min.
+      // numLayers = 1 + floor(0) = 1; all ADSR values = their respective minimums.
+      const attrs = generateAudioAttributes(deterministicNoiseMap, 0);
+      const vm = attrs.visualAudioMap!;
+      const layers = vm.layeredWave?.layers ?? [];
+      // With noiseMap always -1 we always get exactly 1 layer
+      expect(layers.length).toBe(1);
+      const layerAdsr = layers[0].adsr!;
+      const avg = vm.averagedADSR!;
+      // Gain-weighted average of a single layer equals that layer's own values
+      expect(avg.attack).toBeCloseTo(layerAdsr.attack as number, 6);
+      expect(avg.decay).toBeCloseTo(layerAdsr.decay as number, 6);
+      expect(avg.sustain).toBeCloseTo(layerAdsr.sustain as number, 6);
+      expect(avg.release).toBeCloseTo(layerAdsr.release as number, 6);
     });
   });
 
