@@ -1,8 +1,16 @@
 import { create } from 'zustand';
 
 import type { Planet, PlanetSize } from '../types/planet';
+import { PLANET_DURATION_MS } from '../constants/time';
+import { derivePlanetSeed, planetInitialHour } from '../utils/seedUtils';
 
 export const DEFAULT_LOCALE_ID = 'pelagos-default';
+
+function makeDayStartTimestamp(planetName: string, size: PlanetSize): number {
+  const seed = derivePlanetSeed(planetName);
+  const initialHour = planetInitialHour(seed);
+  return Date.now() - (initialHour / 24) * PLANET_DURATION_MS[size];
+}
 
 export const DEFAULT_PELAGOS: Planet = {
   id: 'pelagos',
@@ -10,13 +18,13 @@ export const DEFAULT_PELAGOS: Planet = {
   size: 'medium',
   locales: [DEFAULT_LOCALE_ID],
   currentLocaleId: DEFAULT_LOCALE_ID,
-  dayStartTimestamp: Date.now(),
+  dayStartTimestamp: makeDayStartTimestamp('Pelagos', 'medium'),
   currentHour: 0,
 };
 
 export interface PlanetStore {
   planets: Planet[];
-  addPlanet: (planet: Planet) => void;
+  addPlanet: (planet: Planet) => boolean;
   removePlanet: (planetId: string) => void;
   setPlanetSize: (planetId: string, size: PlanetSize) => void;
   setDayStartTimestamp: (planetId: string, ts: number) => void;
@@ -27,10 +35,27 @@ export interface PlanetStore {
 export const usePlanetStore = create<PlanetStore>((set) => ({
   planets: [DEFAULT_PELAGOS],
 
-  addPlanet: (planet) =>
-    set((state) => ({
-      planets: [...state.planets, planet],
-    })),
+  addPlanet: (planet) => {
+    let added = false;
+    set((state) => {
+      const nameTaken = state.planets.some(
+        (p) => p.name.toLowerCase() === planet.name.toLowerCase()
+      );
+      if (nameTaken) {
+        console.warn(
+          `[planetStore] addPlanet: planet name "${planet.name}" is already taken. Planet not added.`
+        );
+        return state;
+      }
+      const seed = derivePlanetSeed(planet.name);
+      const initialHour = planetInitialHour(seed);
+      const dayStartTimestamp =
+        Date.now() - (initialHour / 24) * PLANET_DURATION_MS[planet.size];
+      added = true;
+      return { planets: [...state.planets, { ...planet, dayStartTimestamp }] };
+    });
+    return added;
+  },
 
   removePlanet: (planetId) =>
     set((state) => ({
