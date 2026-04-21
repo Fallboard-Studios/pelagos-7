@@ -1,5 +1,6 @@
 import { ConsoleNavigation } from './ConsoleNavigation';
 import { RobotOptionsTab } from './RobotOptionsTab';
+import { RobotEditorTab } from './RobotEditorTab';
 import type { ConsoleTab } from '@/stores/uiStore';
 import { useUIStore } from '@/stores/uiStore';
 import './ConsolePanel.css';
@@ -24,11 +25,7 @@ export function ConsolePanel() {
       case 'robotOptions':
         return <RobotOptionsTab />;
       case 'robotEditor':
-        return (
-          <div className="console-panel__stub" id="console-tab-robotEditor">
-            Robot Editor
-          </div>
-        );
+        return <RobotEditorTab />;
       case 'audioRig':
         return (
           <div className="console-panel__stub" id="console-tab-audioRig">
