@@ -2,6 +2,8 @@ import { create } from 'zustand';
 
 import type { Locale, LocaleState } from '../types/locale';
 import { DEFAULT_LOCALE_ID } from './planetStore';
+import { usePlanetStore } from './planetStore';
+import { getLocaleNoiseMap, evictLocaleNoiseMap } from '../utils/noiseMaps';
 
 const DEFAULT_LOCALE: Locale = {
   id: DEFAULT_LOCALE_ID,
@@ -14,12 +16,18 @@ const DEFAULT_LOCALE: Locale = {
   currentMeasure: 0,
 };
 
+getLocaleNoiseMap(DEFAULT_LOCALE_ID, 'pelagos', 'Pelagos', 0, 0);
+
 export const useLocaleStore = create<LocaleState>((set, get) => ({
   locales: { [DEFAULT_LOCALE_ID]: DEFAULT_LOCALE },
 
   addLocale: (planetId, locale) => {
     const toAdd: Locale = { ...locale, planetId };
     set((state) => ({ locales: { ...state.locales, [toAdd.id]: toAdd } }));
+    const planet = usePlanetStore.getState().planets.find((p) => p.id === planetId);
+    if (planet) {
+      getLocaleNoiseMap(toAdd.id, planetId, planet.name, toAdd.coordinates.x, toAdd.coordinates.y);
+    }
   },
 
   setLocaleData: (localeId, partial) => {
@@ -41,6 +49,7 @@ export const useLocaleStore = create<LocaleState>((set, get) => ({
       delete next[localeId];
       return { locales: next };
     });
+    evictLocaleNoiseMap(localeId);
   },
 
   getLocaleById: (localeId) => get().locales[localeId],
