@@ -12,7 +12,7 @@ const DEFAULT_LOCALE: Locale = {
   coordinates: { x: 0, y: 0 },
   robots: [],
   actors: [],
-  settings: { bpm: 240, maxRobots: 12, minRobots: 2 },
+  settings: { bpm: 240, maxRobots: 12, minRobots: 2, autoSpawn: true, spawnFrequency: 4 },
   currentMeasure: 0,
 };
 
