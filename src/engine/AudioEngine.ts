@@ -17,6 +17,8 @@ import { applyRhythmicVariance } from './melodyGenerator';
 import { DEV_TUNING, WORLD_WIDTH } from '../constants';
 import { getRef } from '../utils/refs';
 import { swallow } from '../utils/helpers';
+import { precomputeDataX } from '../utils/getSeededVal';
+import { tryGetLocaleNoiseMap } from '../utils/noiseMaps';
 
 // ========================================
 // TYPES
@@ -34,6 +36,7 @@ export interface NoteParams {
   waveform?: WaveformType;
   harmonicity?: number;
   vibratoAmount?: number;
+  localeId?: string;
 }
 
 interface MelodyEventEntry {
@@ -78,6 +81,10 @@ const VELOCITY_VARIANCE_RATE = 0.15;
 const VELOCITY_VARIANCE_AMOUNT = 0.25;  // ±25% offset
 /** Minimum effective note velocity after clamping (prevents silent notes). */
 const VELOCITY_MIN = 0.05;
+
+// Precompute data X positions for seeded noise sampling (module scope — hot path safe)
+const VELOCITY_ROLL_X = precomputeDataX('audio.velocityRoll');
+const VELOCITY_VARIANCE_X = precomputeDataX('audio.velocityVariance');
 
 // Lightweight record view of Tone to access constructors safely in test/runtime
 const toneRecord = Tone as unknown as Record<string, unknown>;
@@ -159,6 +166,9 @@ const compositeVoices: Map<string, {
   busGain: Tone.Gain;
   busFilter: Tone.Filter;
 }> = new Map();
+
+// Per-robot note counter used for deterministic seeded sampling (mod 97)
+const robotNoteIndex = new Map<string, number>();
 
 
 // ========================================
@@ -799,10 +809,38 @@ function startMelodyPlayback(): void {
  * @returns Effective velocity clamped to [VELOCITY_MIN, 1.0]
  */
 export function computeNoteVelocity(masterVolume: number): number {
-  if (Math.random() < VELOCITY_VARIANCE_RATE) {
-    const variance = Math.random() * 2 * VELOCITY_VARIANCE_AMOUNT - VELOCITY_VARIANCE_AMOUNT;
-    return Math.min(1, Math.max(VELOCITY_MIN, masterVolume + variance));
+  // Fallback: when no locale is provided, do not apply variance (clean, deterministic fallback).
+  return Math.min(1, Math.max(VELOCITY_MIN, masterVolume));
+}
+
+/**
+ * Deterministic, locale-seeded velocity computation.
+ * If a `localeId` is provided and a noise map exists, sample the map at
+ * precomputed X positions and the per-robot note index (mod 97) to decide
+ * whether to apply variance and its amount. Falls back to no variance when
+ * the map is missing or `localeId` is omitted.
+ */
+function computeNoteVelocitySeeded(masterVolume: number, robotId?: string, localeId?: string): number {
+  if (!localeId) return Math.min(1, Math.max(VELOCITY_MIN, masterVolume));
+
+  const noiseMap = tryGetLocaleNoiseMap(localeId);
+  if (!noiseMap) return Math.min(1, Math.max(VELOCITY_MIN, masterVolume));
+
+  const idx = robotId ? (robotNoteIndex.get(robotId) ?? 0) : 0;
+  const noteIndex = idx % 97; // prime period for long non-repeating patterns
+
+  // Determine roll to decide whether to apply variance
+  const roll = (noiseMap(VELOCITY_ROLL_X, noteIndex) + 1) / 2; // map [-1,1] -> [0,1]
+  if (roll < VELOCITY_VARIANCE_RATE) {
+    const raw = noiseMap(VELOCITY_VARIANCE_X, noteIndex); // [-1,1]
+    const variance = raw * VELOCITY_VARIANCE_AMOUNT; // signed
+    const out = Math.min(1, Math.max(VELOCITY_MIN, masterVolume + variance));
+    // increment per-robot counter
+    if (robotId) robotNoteIndex.set(robotId, (idx + 1) % 97);
+    return out;
   }
+
+  if (robotId) robotNoteIndex.set(robotId, (idx + 1) % 97);
   return Math.min(1, Math.max(VELOCITY_MIN, masterVolume));
 }
 
@@ -887,7 +925,7 @@ export const AudioEngine = {
         if (!adsr) adsr = cached.adsr;
         if (!waveform) waveform = cached.waveform;
         if (effectiveVelocity === undefined) {
-          effectiveVelocity = computeNoteVelocity(cached.masterVolume);
+          effectiveVelocity = computeNoteVelocitySeeded(cached.masterVolume, params.robotId, params.localeId);
         }
       } else {
         try {
@@ -908,7 +946,7 @@ export const AudioEngine = {
               });
             }
             if (effectiveVelocity === undefined) {
-              effectiveVelocity = computeNoteVelocity(robot.masterVolume ?? 0.7);
+              effectiveVelocity = computeNoteVelocitySeeded(robot.masterVolume ?? 0.7, robot.id, params.localeId);
             }
           }
         } catch (err) {
