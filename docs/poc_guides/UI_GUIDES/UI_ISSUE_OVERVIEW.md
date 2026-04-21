@@ -494,7 +494,7 @@ Goal: User preferences, final responsive cleanup, and data visualization.
         Verify all Console tabs from Milestones 2–5 stack and scroll correctly at 360px viewport width.
         WorldView shrinks gracefully; OceanScene remains usable and legible at minimum width.
 
-    Issue 7: Build Session Settings Console Tab. ⚠️ Build Last
+    Issue 27: Build Session Settings Console Tab. ⚠️ Build Last
         Renders when activeConsoleTab === 'session'.
         Built after planetStore, localeStore (Issue 0l), and the PlanetView/LocaleView hierarchy (Issue 9) are stable.
         Locale name: inline editable text field → useLocaleStore.setLocaleName(localeId, name).

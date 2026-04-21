@@ -22,6 +22,7 @@ interface OceanSceneProps {
   width?: number;
   height?: number;
   backgroundColor?: string;
+  localTime?: number;
 }
 
 // ========================================
@@ -42,6 +43,7 @@ export function OceanScene({
   width = 1920,
   height = 1080,
   backgroundColor = '#0a1128',
+  localTime: _localTime,
 }: OceanSceneProps) {
 
   const localeId = usePlanetStore((s) => s.planets[0]?.currentLocaleId ?? '');

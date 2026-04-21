@@ -90,7 +90,7 @@ Depends on: **All previous milestones** (all components must exist before this a
 - File: All Console tab and component files created in Milestones 1–6
 - Copilot instructions: N/A (layout/responsive polish pass)
 
-## [M8.2-7] Build Session Settings Console Tab
+## [M8.6-27] Build Session Settings Console Tab
 
 ## Feature Description
 Build the `SessionSettingsTab` component that renders when `activeConsoleTab === 'session'`. It provides session file management (new world, save/load to localStorage, export/import as text) and world preset selection. All destructive actions are guarded with Radix confirmation dialogs.

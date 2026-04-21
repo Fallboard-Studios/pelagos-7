@@ -19,11 +19,12 @@ import './TransportBar.css';
 
 function TransportBar() {
   const isPoweredOn = useUIStore((s) => s.isPoweredOn);
+  const activeLocaleLocalTime = useUIStore((s) => s.activeLocaleLocalTime);
   const localeId = usePlanetStore((s) => s.planets[0]?.currentLocaleId ?? '');
   const currentMeasure = useLocaleStore((s) => s.locales[localeId]?.currentMeasure ?? 0);
-  const _planetCurrentHour = usePlanetStore((s) => s.planets[0]?.currentHour ?? 0);
-  const planetHour = Math.floor(_planetCurrentHour);
-  const planetMinute = Math.floor((_planetCurrentHour % 1) * 60);
+  const _localTime = activeLocaleLocalTime ?? 0;
+  const planetHour = Math.floor(_localTime);
+  const planetMinute = Math.floor((_localTime % 1) * 60);
   const bpm = useAudioStore((s) => s.bpm);
 
   const [isPaused, setIsPaused] = useState(false);

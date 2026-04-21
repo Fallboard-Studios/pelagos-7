@@ -1,4 +1,4 @@
-import { OceanScene } from '@/components/world/OceanScene';
+import PlanetView from '@/components/panels/screen/worldView/PlanetView';
 
 import './WorldView.css'
 
@@ -6,7 +6,7 @@ function WorldView() {
 
   return (
     <div className="world-view">
-      <OceanScene />
+      <PlanetView planetId="pelagos" />
     </div>
   );
 }

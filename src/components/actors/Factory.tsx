@@ -11,6 +11,7 @@ import { FACADE_RENDERERS } from './greebles/facadeGreebles';
 import type { GreebleRendererContext } from './greebles/greebleTypes';
 import useLocaleStore from '../../stores/localeStore';
 import { usePlanetStore } from '../../stores/planetStore';
+import { useUIStore } from '../../stores/uiStore';
 import BubbleStream from './BubbleStream';
 import type { FactoryPurpose } from './factoryVariants';
 
@@ -93,14 +94,17 @@ const FactoryInner: React.FC<FactoryProps> = ({ actor }) => {
   // so building fills update smoothly based on real wall-clock time. We
   // convert `currentHour` (0..24 float) into the 0..DAY_CYCLE_MEASURES range
   // expected by `getLighting`.
-  const localeId = usePlanetStore((s) => s.planets[0]?.currentLocaleId ?? '');
-  const bpm = useLocaleStore(state => state.locales[localeId]?.settings?.bpm ?? 120);
-  const lightMeasure = useLocaleStore(state => (state.locales[localeId]?.currentMeasure ?? 0));
+  // Derive lightMeasure from the active locale's local time so building
+  // lighting tracks planet day/night, not the audio transport position.
+  // activeLocaleLocalTime is a 0..24 float written by PlanetView every second.
+  const localTime = useUIStore((s) => s.activeLocaleLocalTime ?? 12);
+  const lightMeasure = (localTime / 24) * DAY_CYCLE_MEASURES;
   // flickerEpoch: phased per building so window rerolls are spread across
   // FLICKER_PERIOD consecutive measures rather than all firing at once.
-  const flickerEpoch = useLocaleStore(state =>
-    Math.floor(((state.locales[localeId]?.currentMeasure ?? 0) + buildingPhase) / FLICKER_PERIOD)
-  );
+  const flickerEpoch = Math.floor((lightMeasure + buildingPhase) / FLICKER_PERIOD);
+
+  const localeId = usePlanetStore((s) => s.planets[0]?.currentLocaleId ?? '');
+  const bpm = useLocaleStore((s) => s.locales[localeId]?.settings?.bpm ?? 120);
 
   const preset = DEBUG_LIGHTING_PRESET ? LIGHTING_PRESETS[DEBUG_LIGHTING_PRESET] : null;
 
