@@ -131,7 +131,7 @@ export function scheduleAtBeat(beat: number, callback: () => void): string {
  */
 export function scheduleRepeat(interval: string, callback: () => void): string {
   // Generate unique ID for this scheduled event
-  const scheduleId = `schedule-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+  const scheduleId = `schedule-${crypto.randomUUID()}`;
 
   // If transport isn't ready, persist the requested interval+callback so it
   // can be registered once initBeatClock provides the transport instance.

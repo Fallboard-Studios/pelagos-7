@@ -52,6 +52,14 @@ export function getLocaleNoiseMap(
   return localeMaps.get(localeId)!;
 }
 
+/**
+ * Non-throwing getter for a locale noise map. Returns `null` if not present.
+ * Useful for hot-path callers that must not crash when a locale isn't registered (e.g. AudioEngine).
+ */
+export function tryGetLocaleNoiseMap(localeId: string): NoiseFunction2D | null {
+  return localeMaps.get(localeId) ?? null;
+}
+
 /** Remove a planet noise map from the registry (call when a planet is removed). */
 export function evictPlanetNoiseMap(planetId: string): void {
   planetMaps.delete(planetId);
