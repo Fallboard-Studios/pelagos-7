@@ -7,11 +7,14 @@ import { getAvailableNotes } from '../engine/harmonySystem';
 import { AudioEngine } from '../engine/AudioEngine';
 import { getCurrentMeasure } from '../engine/beatClock';
 import useLocaleStore from '../stores/localeStore';
+import { usePlanetStore } from '../stores/planetStore';
 import { RobotState } from '../types/Robot';
 import { DEV_TUNING } from '../constants';
 import { handleRobotIdle } from './idleSystem';
 import { killTimeline } from '../animation/timelineMap';
 import { getRef } from '../utils/refs';
+import { getLocaleNoiseMap } from '../utils/noiseMaps';
+import { getSeededVal } from '../utils/getSeededVal';
 
 // ========================================
 // CONSTANTS
@@ -42,14 +45,26 @@ function playInteractionFlurry(localeId: string, robotAId: string, robotBId: str
     return;
   }
 
+  // Resolve locale noise map for deterministic event selection
+  const locale = store.getLocaleById(localeId);
+  const planet = locale ? usePlanetStore.getState().planets.find((p) => p.id === locale.planetId) : undefined;
+  const noiseMap = locale && planet
+    ? getLocaleNoiseMap(localeId, locale.planetId, planet.name, locale.coordinates.x, locale.coordinates.y)
+    : null;
+
+  // Stable robot indices for offset calculation
+  const robotAIndex = locale?.robots.findIndex((r) => r.id === robotAId) ?? 0;
+  const robotBIndex = locale?.robots.findIndex((r) => r.id === robotBId) ?? 1;
+
   const noteSpacing = 0.125; // 16th note spacing in seconds
-  // Capture the current AudioContext time once so all offsets are relative
-  // to the same reference point (avoids drift from repeated Tone.now() calls).
   const baseTime = AudioEngine.now();
 
   // Schedule flurry from Robot A (starting at baseTime)
   for (let i = 0; i < FLURRY_NOTE_COUNT && i < robotA.melody.length; i++) {
-    const randomEventA = robotA.melody[Math.floor(Math.random() * robotA.melody.length)];
+    const eventIndex = noiseMap
+      ? Math.floor(getSeededVal(noiseMap, 'interaction.eventA', robotAIndex + i, 0, robotA.melody.length))
+      : Math.floor(Math.random() * robotA.melody.length);
+    const randomEventA = robotA.melody[eventIndex];
     const noteName = notes[randomEventA.noteIndex];
 
     if (noteName) {
@@ -65,7 +80,10 @@ function playInteractionFlurry(localeId: string, robotAId: string, robotBId: str
 
   // Schedule flurry from Robot B (slightly staggered overlap)
   for (let i = 0; i < FLURRY_NOTE_COUNT && i < robotB.melody.length; i++) {
-    const randomEventB = robotB.melody[Math.floor(Math.random() * robotB.melody.length)];
+    const eventIndex = noiseMap
+      ? Math.floor(getSeededVal(noiseMap, 'interaction.eventB', robotBIndex + i, 0, robotB.melody.length))
+      : Math.floor(Math.random() * robotB.melody.length);
+    const randomEventB = robotB.melody[eventIndex];
     const noteName = notes[randomEventB.noteIndex];
 
     if (noteName) {
