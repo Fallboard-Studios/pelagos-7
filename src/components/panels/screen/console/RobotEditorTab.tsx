@@ -1,5 +1,6 @@
 import * as Tabs from '@radix-ui/react-tabs';
 
+import RobotMetaTab from './RobotMetaTab.tsx';
 import type { Robot } from '@/types/Robot';
 import { getActiveLocaleId } from '@/utils/localeHelpers';
 import { useUIStore } from '@/stores/uiStore';
@@ -47,7 +48,7 @@ export function RobotEditorTab() {
 
         <div className="tab-panels">
           <Tabs.Content value="meta" className="tab-content">
-            {robot ? <RobotMetaPanel robot={robot} /> : <div className="empty">Robot not found</div>}
+            <RobotMetaTab />
           </Tabs.Content>
 
           <Tabs.Content value="audio" className="tab-content">
@@ -63,15 +64,7 @@ export function RobotEditorTab() {
   );
 }
 
-function RobotMetaPanel({ robot }: { robot: Robot }) {
-  return (
-    <div className="robot-meta-panel">
-      <h3 className="robot-title">{robot.name ?? 'Unnamed Robot'}</h3>
-      <p className="robot-id">ID: {robot.id}</p>
-      <p className="robot-state">State: {robot.state}</p>
-    </div>
-  );
-}
+// Robot meta panel is implemented in its own file: RobotMetaTab.tsx
 
 function RobotAudioPanel({ robot }: { robot: Robot }) {
   return (

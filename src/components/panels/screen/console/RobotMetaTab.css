@@ -1,0 +1,138 @@
+.robot-meta-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.label {
+  width: 100px;
+  font-size: 0.95rem;
+  color: var(--text-muted, #cfcfcf);
+}
+
+.text-input {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid var(--border, #333);
+  border-radius: 6px;
+  background: var(--surface, #111);
+  color: var(--text, #fff);
+  min-height: 36px;
+}
+
+.age {
+  color: var(--text, #fff);
+}
+
+.control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.native-select {
+  min-width: 180px;
+  padding: 8px;
+  border-radius: 6px;
+  background: var(--surface, #111);
+  color: var(--text, #fff);
+  min-height: 36px;
+}
+
+.btn {
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--accent, #1e90ff);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.btn.destructive {
+  background: var(--danger, #c0392b);
+}
+
+.switch-root {
+  width: 44px;
+  height: 28px;
+  background: var(--surface-2, #222);
+  border-radius: 9999px;
+  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  transition: background 0.12s ease;
+  position: relative;
+}
+
+.switch-thumb {
+  display: block;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 9999px;
+  transition: transform 0.12s ease;
+  transform: translateX(0);
+}
+
+/* Checked state styling provided by Radix via data-state="checked" on the root */
+.switch-root[data-state='checked'] {
+  background: var(--accent, #1e90ff);
+}
+.switch-root[data-state='checked'] .switch-thumb {
+  transform: translateX(16px);
+}
+
+.select-trigger {
+  min-width: 180px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--surface, #111);
+  color: var(--text, #fff);
+  display: inline-flex;
+  align-items: center;
+}
+
+.select-empty {
+  padding: 8px;
+  color: var(--text-muted, #9b9b9b);
+}
+
+.dialog-overlay {
+  background: rgba(0, 0, 0, 0.6);
+  position: fixed;
+  inset: 0;
+}
+
+.dialog-content {
+  background: var(--surface, #111);
+  color: var(--text, #fff);
+  padding: 16px;
+  border-radius: 8px;
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 320px;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.control-row .control {
+  margin-left: auto;
+}
