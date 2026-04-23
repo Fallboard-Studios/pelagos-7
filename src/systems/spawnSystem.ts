@@ -318,19 +318,25 @@ export function spawnRobot(localeId: string): void {
   // If at or above max, remove oldest robot instead of spawning.
   // This causes the population to "bounce" between min and max limits.
   if (robots.length >= maxRobots) {
-    if (robots.length > minRobots) {
-      // find the oldest robot by creation timestamp
-      let oldest = robots[0];
-      for (const r of robots) {
-        if (r.createdAt < oldest.createdAt) {
-          oldest = r;
+    // Choose from non-persisting robots only — robots with `persists === true` must never be removed.
+    const removable = robots.filter((r) => !r.persists);
+    if (removable.length > 0) {
+      if (robots.length > minRobots) {
+        // find the oldest non-persisting robot by creation timestamp
+        let oldest = removable[0];
+        for (const r of removable) {
+          if (r.createdAt < oldest.createdAt) {
+            oldest = r;
+          }
         }
+        // Animate the oldest robot offscreen, then remove it
+        removeRobotWithExit(localeId, oldest.id);
+        if (DEV_TUNING) console.log(`[SpawnSystem] Max robots reached, removed oldest non-persisting ${oldest.id}`);
+      } else {
+        if (DEV_TUNING) console.log(`[SpawnSystem] At minRobots (${minRobots}); no removal performed`);
       }
-      // Animate the oldest robot offscreen, then remove it
-      removeRobotWithExit(localeId, oldest.id);
-      if (DEV_TUNING) console.log(`[SpawnSystem] Max robots reached, removed oldest ${oldest.id}`);
     } else {
-      if (DEV_TUNING) console.log(`[SpawnSystem] At minRobots (${minRobots}); no removal performed`);
+      if (DEV_TUNING) console.log('[SpawnSystem] Max robots reached but all robots persist; skipping spawn to avoid removing persisted robots');
     }
     return;
   }
@@ -373,7 +379,8 @@ export function spawnRobot(localeId: string): void {
       ? getSeededVal(noiseMap, 'robot.masterVolume', spawnCount, MASTER_VOLUME_MIN, MASTER_VOLUME_MAX)
       : MASTER_VOLUME_MIN + Math.random() * (MASTER_VOLUME_MAX - MASTER_VOLUME_MIN),
     createdAt: Date.now(),
-    persistent: true,
+    // Persisting robots survive power-off cycles; default to false.
+    persists: false,
   };
 
   // Add to locale store
@@ -420,7 +427,8 @@ export function spawnRobot(localeId: string): void {
  * (removed by removeNonPersistentRobots on power-off).
  */
 export function reRegisterAllRobotsAudio(localeId: string): void {
-  const robots = (useLocaleStore.getState().getLocaleById(localeId)?.robots || []).filter((r) => r.persistent);
+  // Re-register robots that are marked to persist across power cycles.
+  const robots = (useLocaleStore.getState().getLocaleById(localeId)?.robots || []).filter((r) => r.persists);
   robots.forEach((robot) => {
     AudioEngine.releaseVoice(robot.id);
     try {
@@ -443,7 +451,7 @@ export function reRegisterAllRobotsAudio(localeId: string): void {
     AudioEngine.unregisterRobotMelody(robot.id);
     AudioEngine.registerRobotMelody(robot.id, robot.melody);
   });
-  if (DEV_TUNING) console.log(`[SpawnSystem] reRegisterAllRobotsAudio: re-registered ${robots.length} persistent robots`);
+  if (DEV_TUNING) console.log(`[SpawnSystem] reRegisterAllRobotsAudio: re-registered ${robots.length} persisted robots`);
 }
 
 /**
@@ -451,11 +459,12 @@ export function reRegisterAllRobotsAudio(localeId: string): void {
  * Call on power-off. Persistent robots (robot.persistent === true) are kept.
  */
 export function removeNonPersistentRobots(localeId: string): void {
-  const robots = (useLocaleStore.getState().getLocaleById(localeId)?.robots || []).filter((r) => !r.persistent);
+  // Remove robots that are not marked to persist (persists === true are kept).
+  const robots = (useLocaleStore.getState().getLocaleById(localeId)?.robots || []).filter((r) => !r.persists);
   robots.forEach((robot) => {
     useLocaleStore.getState().removeRobot(localeId, robot.id);
   });
-  if (DEV_TUNING) console.log(`[SpawnSystem] removeNonPersistentRobots: removed ${robots.length} robots`);
+  if (DEV_TUNING) console.log(`[SpawnSystem] removeNonPersistentRobots: removed ${robots.length} non-persisting robots`);
 }
 
 // Backwards-compatible defaults (deprecated) — prefer explicit localeId.

@@ -100,7 +100,9 @@ export interface Robot {
   /** Base velocity (0–1) controlling average note loudness. Per-note variance is applied at scheduling time, not stored. */
   masterVolume: number;
   /** When true, this robot survives a power-off cycle and is not removed. */
-  persistent?: boolean;
+  persists?: boolean;
+  /** Optional link target for future follow/sync features. */
+  linkedRobotId?: string | null;
   // Note: Visual appearance (shape, colors, scale, detail level) is derived
   // from audioAttributes and NOT stored in state - calculated at render time
 }
