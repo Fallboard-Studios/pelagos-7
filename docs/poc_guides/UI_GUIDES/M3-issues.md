@@ -246,6 +246,170 @@ Depends on: **Issue 0d** (robot audio fields), **Issue 0k** (Radix installed), *
 ## Source Reference
 - File: `src/types/Robot.ts`, `src/systems/spawnSystem.ts`, `src/engine/melodyGenerator.ts`, `src/engine/AudioEngine.ts`, `src/stores/localeStore.ts` (`updateRobot`), `src/stores/uiStore.ts` (`selectedRobotId`), `src/components/panels/screen/console/RobotAudioTab.tsx`
 - Copilot instructions: "Melody Logic: Melodies must store note indices (0..7), never literal pitch strings."
+## [M8.3-12.a] Add Robot Audio Fields & Spawn Defaults
+
+## Feature Description
+Add per-robot audio configuration fields required by `RobotAudioTab` and the melody system. New fields include `rhythmicDensity`, `rhythmicVariance`, `octaveMin`, `octaveMax`, and `audioMode`. Populate sensible defaults at spawn time so spawned robots are immediately usable by audio systems.
+
+## Implementation Details
+- [ ] Update `src/types/Robot.ts` to add fields with explicit types and short docs.
+- [ ] Update `src/systems/spawnSystem.ts` and any factories to populate defaults (suggested defaults: `rhythmicDensity: 8`, `rhythmicVariance: 0.1`, `octaveMin: 3`, `octaveMax: 5`, `audioMode: 'none'`).
+- [ ] Update test fixtures and any component mocks to include the new fields.
+
+## Technical Notes
+- Keep values serialisable (Zustand-only state).
+- Choose defaults conservatively to avoid extreme audible behaviour on first spawn.
+
+## Acceptance Criteria
+- [ ] `Robot` type exports the new fields.
+- [ ] Spawned robots include the new fields with defaults.
+- [ ] TypeScript compiles and existing tests updated where necessary.
+
+## Source Reference
+- `src/types/Robot.ts`, `src/systems/spawnSystem.ts`, test fixtures
+
+---
+
+## [M8.3-12.b] Add `AudioEngine.registerRobotMelody`
+
+## Feature Description
+Expose a stable API on `AudioEngine` to register or update a robot's melody so UI-driven regenerations take effect for playback scheduling.
+
+## Implementation Details
+- [ ] Add `registerRobotMelody(robotId: string, melody: Melody)` to `src/engine/AudioEngine.ts` with a clear docstring describing expected behaviour.
+- [ ] Ensure the implementation updates the engine's internal melody/sequence registry so the next scheduled note uses the new melody.
+- [ ] Add unit tests verifying registration replaces or appends melody state as expected.
+
+## Technical Notes
+- The method should be safe to call from the main thread; coordinate with transport scheduling but avoid directly mutating transport state inside a tick.
+
+## Acceptance Criteria
+- [ ] `AudioEngine.registerRobotMelody` exists and is covered by unit tests.
+- [ ] Registering a melody results in playback using the new melody on subsequent scheduling.
+
+## Source Reference
+- `src/engine/AudioEngine.ts`, `src/engine/__tests__`
+
+---
+
+## [M8.3-12.c] Implement `RobotAudioTab` UI wiring
+
+## Feature Description
+Implement the `RobotAudioTab` UI and hook its controls to `localeStore` so users can edit density, variance, octave range, and audio mode. Density updates should trigger melody regeneration.
+
+## Implementation Details
+- [ ] Create `src/components/panels/screen/console/RobotAudioTab.tsx` and `RobotAudioTab.css`.
+- [ ] Read `selectedRobotId` from `useUIStore` and the robot object from `useLocaleStore`.
+- [ ] Wire sliders/radio controls to call `useLocaleStore.getState().updateRobot(localeId, id, { ... })`.
+- [ ] On rhythmic density change call `regenerateMelody(robot)` via `queueMicrotask` to avoid running inside transport ticks.
+- [ ] Ensure all controls meet 44×44px touch target and use design tokens.
+
+## Technical Notes
+- Use `queueMicrotask` (or `setTimeout(...,0)`) to schedule melody regeneration outside a Transport tick.
+
+## Acceptance Criteria
+- [ ] Controls update the store values live.
+- [ ] Density change triggers the regeneration flow (calls into melody generator and `AudioEngine.registerRobotMelody`).
+
+## Source Reference
+- `src/components/panels/screen/console/RobotAudioTab.tsx`, `src/stores/localeStore.ts`, `src/engine/melodyGenerator.ts`, `src/engine/AudioEngine.ts`
+
+---
+
+## [M8.3-12.d] Regenerate melody & melodyGenerator updates
+
+## Feature Description
+Implement a safe melody regeneration flow that respects per-robot octave bounds and registers the new melody with `AudioEngine` so playback reflects UI changes immediately.
+
+## Implementation Details
+- [ ] Update `src/engine/melodyGenerator.ts` to accept `octaveMin`/`octaveMax` parameters and expose `generateMelodyForRobot({ eventCount, octaveMin, octaveMax, ...})`.
+- [ ] Implement a helper `regenerateMelody(robot)` that: (1) calls the generator, (2) writes `melody` to `localeStore` via `updateRobot`, (3) calls `AudioEngine.registerRobotMelody(robotId, newMelody)`; run registration off the Transport tick.
+- [ ] Add unit tests for generator behaviour and the helper.
+
+### Rhythmic density & variance algorithm
+
+- Definitions:
+  - `rhythmicDensity: number` (integer, 4–12): number of onsets per loop/measure — higher values → denser steps and shorter average note durations. Default: `8`.
+  - `rhythmicVariance: number` (float, 0.0–1.0): per-onset probability of applying a rhythmic variation (syncopation, merge, dotted/triplet-like adjustment, or swing). Default: `0.1`.
+
+- High-level algorithm:
+  - Use a fixed subdivision grid per measure (example: `subdivisions = 16` sixteenth units).
+  - Choose `N = rhythmicDensity` unique grid positions (onsets) randomly (or via seeded RNG), then sort ascending.
+  - For each onset, with probability = `rhythmicVariance` apply one random variation:
+    - shift onset by ±1..2 grid units (syncopation)
+    - merge with the next onset (producing a longer note)
+    - replace duration with a dotted/triplet-like pattern (approximate by combining grid units)
+    - apply a small swing offset to timing
+    Resolve collisions deterministically (nearest free slot) or skip the variation when no valid slot is available.
+  - Compute durations as the difference to the next onset (last onset → measure end) and convert grid units to beats.
+  - Map each event to a `noteIndex` (0..7) and an `octave` in `[octaveMin, octaveMax]`.
+  - Return a serialisable Melody structure: events with `{ onsetBeats, durationBeats, noteIndex, octave, velocity }`.
+
+- API / file targets:
+  - `src/engine/melodyGenerator.ts`: add signature `generateMelodyForRobot(opts: { eventCount:number; rhythmicVariance:number; octaveMin:number; octaveMax:number; subdivisions?:number; measureBeats?:number; seed?:number }): Melody`.
+  - `regenerateMelody(robot)`: generator → `useLocaleStore.getState().updateRobot(localeId, id, { melody: newMelody })` → `AudioEngine.registerRobotMelody(id, newMelody)`; schedule registration via `queueMicrotask` or `setTimeout(...,0)` to avoid Transport-tick side-effects.
+
+- Tests (suggested):
+  - Seeded tests: `eventCount=4` → roughly quarter-note onsets; `eventCount=8` → eighth-note onsets.
+  - High `rhythmicVariance` should produce measurable onset shifts / merges in generated output.
+
+- Scheduling notes:
+  - Generator returns onset/duration in beats (or fraction of measure); `AudioEngine` must schedule relative to the Transport and robot loop boundary.
+  - Keep melody data serialisable for storage in Zustand.
+
+## Technical Notes
+- Ensure melody generation obeys the constraint "note indices (0..7)" and maps to octaves using `octaveMin`/`octaveMax`.
+
+## Acceptance Criteria
+- [ ] `generateMelodyForRobot` supports octave range.
+- [ ] `regenerateMelody` updates store and registers the melody with `AudioEngine`.
+
+## Source Reference
+- `src/engine/melodyGenerator.ts`, `src/stores/localeStore.ts`, `src/engine/AudioEngine.ts`
+
+---
+
+## [M8.3-12.e] Tests, fixtures & integration tests
+
+## Feature Description
+Add and update tests and fixtures to cover the new robot audio fields, melody generation, UI wiring and audio engine registration.
+
+## Implementation Details
+- [ ] Extend robot fixtures/factories to include new fields.
+- [ ] Add unit tests for `generateMelodyForRobot` (octave range, eventCount mapping).
+- [ ] Add an integration test that simulates a density change and asserts `AudioEngine.registerRobotMelody` is invoked and the store is updated.
+- [ ] Run test suite and document any downstream fixes required.
+
+## Technical Notes
+- Keep tests deterministic: use seeded randomness for melody generation where applicable.
+
+## Acceptance Criteria
+- [ ] Tests added and passing locally/CI.
+- [ ] Fixtures updated and referenced by tests.
+
+## Source Reference
+- `test/**`, `src/engine/__tests__`, fixtures
+
+---
+
+## [M8.3-12.f] Solo/Mute audio-mode enforcement (Medium)
+
+## Feature Description
+Define and implement the runtime behaviour for `robot.audioMode` (solo / mute / highlight) in the audio engine, or explicitly document a deferral strategy if enforcement will be implemented later.
+
+## Implementation Details
+- [ ] Implement simple enforcement in `src/engine/AudioEngine.ts`: `solo` mutes other robots, `mute` silences this robot, `highlight` reduces other robots' volume by 50% (applied at reservation/mix time to keep the selected robot prominent).
+- [ ] Add unit tests for reservation/mix behaviour reflecting `audioMode` (including `highlight` volume attenuation).
+- [ ] If enforcement is deferred, add documentation describing the expected behaviour and how UI will present the flag and note the deferral.
+
+## Technical Notes
+- Solo/mute/highlight policies should be applied at reservation or mix time and must be performant; consider maintaining a per-locale audioMode index for quick lookup.
+- `highlight` is implemented as a -6dB (50%) attenuation applied to non-selected robots at mix or reservation time; ensure this is applied deterministically and is reversible when selection changes.
+
+## Acceptance Criteria
+- [ ] `AudioEngine` enforces `audioMode` for `solo`, `mute`, and `highlight` (or there is a clearly documented deferral).
+- [ ] `highlight` reduces other robots' volume by ~50% when a robot is highlighted and restores levels when un-highlighted.
+- [ ] Unit/integration tests cover reservation/mix behaviour for `audioMode`.
 
 ---
 
