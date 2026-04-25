@@ -365,6 +365,8 @@ export function spawnRobot(localeId: string): void {
     ? () => getSeededVal(noiseMap, 'melody.rand', spawnCount * 100 + melodyCallIndex++)
     : Math.random;
 
+  const spawnMelody = generateMelodyForRobot({ octaveRange, rand: melodyRand });
+
   const robot: Robot = {
     id: crypto.randomUUID(),
     name: noiseMap ? generateRobotName(noiseMap, spawnCount) : generateRobotName({ x: 0, y: 0 } as unknown as NoiseFunction2D, spawnCount),
@@ -372,9 +374,12 @@ export function spawnRobot(localeId: string): void {
     position: noiseMap ? generateSpawnPosition(noiseMap, spawnCount) : generateSpawnPosition({ x: 0, y: 0 } as unknown as NoiseFunction2D, spawnCount),
     destination: null,
     direction: 'right', // Default facing direction (will be updated by idleSystem)
-    melody: generateMelodyForRobot({ octaveRange, rand: melodyRand }),
+    melody: spawnMelody,
     audioAttributes,
     octaveRange,
+    audioMode: 'none',
+    rhythmicDensity: spawnMelody.length,
+    rhythmicMotifLength: 8,
     masterVolume: noiseMap
       ? getSeededVal(noiseMap, 'robot.masterVolume', spawnCount, MASTER_VOLUME_MIN, MASTER_VOLUME_MAX)
       : MASTER_VOLUME_MIN + Math.random() * (MASTER_VOLUME_MAX - MASTER_VOLUME_MIN),
