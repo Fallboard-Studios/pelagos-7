@@ -149,7 +149,7 @@ Depends on: **Issue 0d** (`robot.name` must exist), **Issue 0k** (Radix installe
   - **Radix:** `@radix-ui/react-alert-dialog` for the confirmation
 - [ ] **Copy Robot:**
   - Dropdown (`@radix-ui/react-select`) listing all other robots as copy targets
-  - Action: copies current robot's `audioAttributes`, `melody`, and `rhythmicDensity`/`rhythmicVariance` to the selected target robot via `useLocaleStore.getState().updateRobot(localeId, targetId, ...)`
+  - Action: copies current robot's `audioAttributes`, `melody`, and `rhythmicDensity`/`rhythmicMotifLength` to the selected target robot via `useLocaleStore.getState().updateRobot(localeId, targetId, ...)`
 - [ ] **Link To Robot:**
   - Dropdown (`@radix-ui/react-select`) listing other robots
   - Action: links the current robot to the selected target (exact link semantics TBD — document the decision at implementation time)
@@ -188,7 +188,7 @@ Depends on: **Issue 0d** (`robot.name` must exist), **Issue 0k** (Radix installe
 ## [M8.3-12] Robot Audio Sub-Tab
 
 ## Feature Description
-Build the `RobotAudioTab` content panel that renders inside `RobotEditorTab` when the Robot Audio sub-tab is active. It exposes per-robot audio behaviour controls: solo/mute/highlight, rhythmic density and variance, octave range, and a melody regeneration action.
+Build the `RobotAudioTab` content panel that renders inside `RobotEditorTab` when the Robot Audio sub-tab is active. It exposes per-robot audio behaviour controls: solo/mute/highlight, rhythmic density and motif length, octave range, and a melody regeneration action.
 
 Renders inside: **Robot Editor Console** (`RobotEditorTab`, Issue 10) when Robot Audio sub-tab is active.
 Depends on: **Issue 0d** (robot audio fields), **Issue 0k** (Radix installed), **Issue 10** (editor shell must exist), **Issue 1** (design tokens).
@@ -205,9 +205,9 @@ Depends on: **Issue 0d** (robot audio fields), **Issue 0k** (Radix installed), *
   - Range: 4–12 (integer steps); mapped to `eventCount` in `generateMelodyForRobot()`
   - Reads `robot.rhythmicDensity`; on change: `useLocaleStore.getState().updateRobot(localeId, id, { rhythmicDensity: value })` then calls `regenerateMelody(robot)`
   - **Radix:** `@radix-ui/react-slider`
-- [ ] **Note Variance Slider:**
-  - Range: 0–1 (float); probability that `applyRhythmicVariance()` fires each loop
-  - Reads `robot.rhythmicVariance`; on change: `useLocaleStore.getState().updateRobot(localeId, id, { rhythmicVariance: value })`
+- [ ] **Motif Length Slider:**
+  - Range: 1–16 (integer steps; measured in 16th-note subdivisions; max = `subdivisions`). Controls `robot.rhythmicMotifLength` (motif length in 16th units).
+  - Reads `robot.rhythmicMotifLength`; on change: `useLocaleStore.getState().updateRobot(localeId, id, { rhythmicMotifLength: value })` then calls `regenerateMelody(robot)` to apply the change.
   - **Radix:** `@radix-ui/react-slider`
 - [ ] **Octave Range — Dual-Thumb Range Input:**
   - Two thumbs for min and max octave (range 1–7)
@@ -225,7 +225,7 @@ Depends on: **Issue 0d** (robot audio fields), **Issue 0k** (Radix installed), *
 - [ ] Tested locally (no console errors)
 
 ## Technical Notes
-- **`rhythmicDensity` and `rhythmicVariance`:** May have been introduced in a previous implementation of old Issue 11 (Synthesis Module A). If present on `Robot`, use them; if absent, add them here and update `Robot` interface, `spawnSystem`, and all test fixtures.
+-- **`rhythmicDensity` and `rhythmicMotifLength`:** May have been introduced in a previous implementation of old Issue 11 (Synthesis Module A). If present on `Robot`, use them; if absent, add them here and update `Robot` interface, `spawnSystem`, and all test fixtures.
 - **`audioMode`:** Solo = AudioEngine mutes all other robots; Mute = AudioEngine silences this robot; Highlight = visual-only trigger (no audio change). The AudioEngine integration for solo/mute can be deferred to a later issue if needed — store the flag now and document the deferral.
 - **`regenerateMelody(robot)`:** (1) calls `generateMelodyForRobot({ eventCount: robot.rhythmicDensity })`; (2) calls `useLocaleStore.getState().updateRobot(localeId, id, { melody: newMelody })`; (3) calls `AudioEngine.registerRobotMelody(id, newMelody)`. Must run outside the Transport tick — `queueMicrotask` if needed.
 - **Octave range fields:** `octaveMin` and `octaveMax` are new `Robot` fields — add to interface and `spawnSystem` (default 3 and 5). Melody generator must read these for octave assignment.
@@ -234,7 +234,7 @@ Depends on: **Issue 0d** (robot audio fields), **Issue 0k** (Radix installed), *
 - [ ] Renders inside the Robot Audio sub-tab of `RobotEditorTab`; empty state if no robot selected
 - [ ] Solo/Mute/Highlight radio group reads/writes `robot.audioMode`
 - [ ] Density slider (4–12) updates `robot.rhythmicDensity` and triggers melody regeneration
-- [ ] Variance slider (0–1) updates `robot.rhythmicVariance`
+- [ ] Motif length control (1..subdivisions) updates `robot.rhythmicMotifLength` and triggers melody regeneration
 - [ ] Octave Range dual-thumb slider updates `robot.octaveMin` and `robot.octaveMax`
 - [ ] New Melody confirmation regenerates the melody and registers it with AudioEngine
 - [ ] All controls meet 44×44px minimum touch target size
@@ -249,12 +249,13 @@ Depends on: **Issue 0d** (robot audio fields), **Issue 0k** (Radix installed), *
 ## [M8.3-12.a] Add Robot Audio Fields & Spawn Defaults
 
 ## Feature Description
-Add per-robot audio configuration fields required by `RobotAudioTab` and the melody system. New fields include `rhythmicDensity`, `rhythmicVariance`, `octaveMin`, `octaveMax`, and `audioMode`. Populate sensible defaults at spawn time so spawned robots are immediately usable by audio systems.
+Add per-robot audio configuration fields required by `RobotAudioTab` and the melody system. New fields include `rhythmicDensity`, `rhythmicMotifLength`, `octaveMin`, `octaveMax`, and `audioMode`. Populate sensible defaults at spawn time so spawned robots are immediately usable by audio systems.
 
 ## Implementation Details
 - [ ] Update `src/types/Robot.ts` to add fields with explicit types and short docs.
-- [ ] Update `src/systems/spawnSystem.ts` and any factories to populate defaults (suggested defaults: `rhythmicDensity: 8`, `rhythmicVariance: 0.1`, `octaveMin: 3`, `octaveMax: 5`, `audioMode: 'none'`).
+- [ ] Update `src/systems/spawnSystem.ts` and any factories to populate defaults (suggested defaults: `rhythmicDensity: 8`, `rhythmicMotifLength: 8`, `octaveMin: 3`, `octaveMax: 5`, `audioMode: 'none'`).
 - [ ] Update test fixtures and any component mocks to include the new fields.
+ - [ ] Add `noteVariance: number` (0..8) to `src/types/Robot.ts` and set default `0` in `src/systems/spawnSystem.ts`. When `0` the generator is unchanged; non-zero values constrain the unique notes used during melody generation.
 
 ## Technical Notes
 - Keep values serialisable (Zustand-only state).
@@ -295,7 +296,7 @@ Expose a stable API on `AudioEngine` to register or update a robot's melody so U
 ## [M8.3-12.c] Implement `RobotAudioTab` UI wiring
 
 ## Feature Description
-Implement the `RobotAudioTab` UI and hook its controls to `localeStore` so users can edit density, variance, octave range, and audio mode. Density updates should trigger melody regeneration.
+Implement the `RobotAudioTab` UI and hook its controls to `localeStore` so users can edit density, motif length, octave range, and audio mode. Density or motif-length updates should trigger melody regeneration.
 
 ## Implementation Details
 - [ ] Create `src/components/panels/screen/console/RobotAudioTab.tsx` and `RobotAudioTab.css`.
@@ -326,32 +327,34 @@ Implement a safe melody regeneration flow that respects per-robot octave bounds 
 - [ ] Implement a helper `regenerateMelody(robot)` that: (1) calls the generator, (2) writes `melody` to `localeStore` via `updateRobot`, (3) calls `AudioEngine.registerRobotMelody(robotId, newMelody)`; run registration off the Transport tick.
 - [ ] Add unit tests for generator behaviour and the helper.
 
-### Rhythmic density & variance algorithm
+### Rhythmic density & motif algorithm
 
 - Definitions:
   - `rhythmicDensity: number` (integer, 4–12): number of onsets per loop/measure — higher values → denser steps and shorter average note durations. Default: `8`.
-  - `rhythmicVariance: number` (float, 0.0–1.0): per-onset probability of applying a rhythmic variation (syncopation, merge, dotted/triplet-like adjustment, or swing). Default: `0.1`.
+  - `rhythmicMotifLength: number` (integer, 1..subdivisions): length of the repeating motif measured in 16th-note subdivisions (e.g., 1..16 for a 4/4 measure with `subdivisions=16`). Lower values produce short motifs that repeat multiple times per measure; higher values produce longer motifs and fewer repeats. Default: `8` (half-measure in 4/4).
 
 - High-level algorithm:
   - Use a fixed subdivision grid per measure (example: `subdivisions = 16` sixteenth units).
-  - Choose `N = rhythmicDensity` unique grid positions (onsets) randomly (or via seeded RNG), then sort ascending.
-  - For each onset, with probability = `rhythmicVariance` apply one random variation:
-    - shift onset by ±1..2 grid units (syncopation)
-    - merge with the next onset (producing a longer note)
-    - replace duration with a dotted/triplet-like pattern (approximate by combining grid units)
-    - apply a small swing offset to timing
-    Resolve collisions deterministically (nearest free slot) or skip the variation when no valid slot is available.
+  - Let `M = clamp(rhythmicMotifLength, 1, subdivisions)` and compute `repeats = Math.floor(subdivisions / M)`.
+  - If `repeats >= 2` (motif shorter than the measure):
+    - Determine onsets-per-motif `K = Math.max(1, Math.round(rhythmicDensity / repeats))` and remainder `R = rhythmicDensity - (K * repeats)`. Distribute the `R` extra onsets by adding one extra onset to the first `R` repeats.
+    - Generate a single motif of length `M` by choosing `K` unique grid positions inside the motif (seeded RNG recommended), then sort ascending.
+    - Construct the measure by repeating the motif `repeats` times, offsetting each repetition by `repeatIndex * M` grid units.
+    - Truncate any partial motif at the measure end — do not append incomplete repeats when `subdivisions` is not divisible by `M`.
+  - Else (no meaningful repeats, `M == subdivisions` or `repeats < 2`):
+    - Fall back to a non-repeating generation: choose `N = rhythmicDensity` unique grid positions across the full `subdivisions` grid.
+  - After selecting onsets, optionally apply small micro-variations (syncopation shifts or merges) only if a separate variation parameter is enabled; motif repetition should remain the dominant structure when a motif is requested.
   - Compute durations as the difference to the next onset (last onset → measure end) and convert grid units to beats.
   - Map each event to a `noteIndex` (0..7) and an `octave` in `[octaveMin, octaveMax]`.
   - Return a serialisable Melody structure: events with `{ onsetBeats, durationBeats, noteIndex, octave, velocity }`.
 
 - API / file targets:
-  - `src/engine/melodyGenerator.ts`: add signature `generateMelodyForRobot(opts: { eventCount:number; rhythmicVariance:number; octaveMin:number; octaveMax:number; subdivisions?:number; measureBeats?:number; seed?:number }): Melody`.
+  - `src/engine/melodyGenerator.ts`: add signature `generateMelodyForRobot(opts: { eventCount:number; rhythmicMotifLength:number; octaveMin:number; octaveMax:number; subdivisions?:number; measureBeats?:number; seed?:number }): Melody`.
   - `regenerateMelody(robot)`: generator → `useLocaleStore.getState().updateRobot(localeId, id, { melody: newMelody })` → `AudioEngine.registerRobotMelody(id, newMelody)`; schedule registration via `queueMicrotask` or `setTimeout(...,0)` to avoid Transport-tick side-effects.
 
 - Tests (suggested):
   - Seeded tests: `eventCount=4` → roughly quarter-note onsets; `eventCount=8` → eighth-note onsets.
-  - High `rhythmicVariance` should produce measurable onset shifts / merges in generated output.
+  - Short `rhythmicMotifLength` values (e.g., `1..4`) should produce repeating motifs across the measure; `rhythmicMotifLength == subdivisions` should produce non-repeating output.
 
 - Scheduling notes:
   - Generator returns onset/duration in beats (or fraction of measure); `AudioEngine` must schedule relative to the Transport and robot loop boundary.
@@ -412,6 +415,366 @@ Define and implement the runtime behaviour for `robot.audioMode` (solo / mute / 
 - [ ] Unit/integration tests cover reservation/mix behaviour for `audioMode`.
 
 ---
+
+## [M8.3-12.g] Note Variance — Controlled note-set selection
+
+## Feature Description
+Add a `noteVariance` numeric field (0..8) to each `Robot`. When `0` (default) generation is unchanged. When >0, the robot will choose at most `noteVariance` unique note indices (0..7) when generating a melody; the generator must prefer selecting new unique notes until the unique set reaches `noteVariance`, after which all subsequent notes are chosen only from that set. If `noteVariance === 8`, no note should repeat until all eight have appeared once.
+
+## Implementation Details
+- [ ] Add `noteVariance: number` (0..8) to `src/types/Robot.ts` with documentation and ensure it is serialisable in state.
+- [ ] Populate default `noteVariance: 0` in `src/systems/spawnSystem.ts` and update fixtures.
+- [ ] Update `generateMelodyForRobot` in `src/engine/melodyGenerator.ts` to accept `noteVariance` and implement selection rules:
+  - If `noteVariance === 0` → preserve existing selection behavior.
+  - Else: while the current unique-note set size < `noteVariance`, prefer selecting notes not yet in the set (randomly); once reached, restrict all future note choices to the established set.
+  - If `noteVariance === 8`, draw without replacement until all 8 notes have been used, then reshuffle if more events are required.
+- [ ] Use a seeded RNG option for deterministic tests.
+- [ ] Wire `regenerateMelody(robot)` to pass `robot.noteVariance` to the generator and continue to call `AudioEngine.registerRobotMelody` off the transport tick.
+- [ ] Add a UI control in `RobotAudioTab` (M8.3-12.c) — slider or stepper range `0..8` — to let users edit `noteVariance` (implementation of the control may be a separate subtask).
+
+## Technical Notes
+- Clamp values to `[0,8]` when reading from store or UI.
+- Store `noteVariance` in `localeStore` as part of `Robot` to keep it serialisable.
+- Document the deterministic behavior for tests and note any deferred runtime audio enforcement.
+
+## Acceptance Criteria
+- [ ] `Robot` type exports `noteVariance`.
+- [ ] Spawned robots include `noteVariance: 0` by default.
+- [ ] `generateMelodyForRobot` respects `noteVariance` semantics (0=unchanged; 8=no repeats until all used; N=restrict after N unique notes chosen).
+- [ ] Unit tests verify behavior deterministically (seeded RNG).
+- [ ] `RobotAudioTab` includes a UI control to edit `noteVariance` (or a TODO referencing the UI task).
+
+## Source Reference
+- Files: `src/types/Robot.ts`, `src/systems/spawnSystem.ts`, `src/engine/melodyGenerator.ts`, `src/stores/localeStore.ts`, `src/components/panels/screen/console/RobotAudioTab.tsx`
+
+
+
+## [M8.3-12.h] Link Robots — Parent → Child Inheritance
+
+## Feature Description
+Enable linking a robot (child) to another robot (parent) so the child inherits the parent's audio and compositional attributes live. The selected robot from the robot list is the child; the dropdown selects the parent. Links are locale-scoped and persisted via `linkedRobotId` on the child. Changes on the parent propagate to its children (transitively), subject to exclusions and cycle-avoidance rules.
+
+## Implementation Details
+- [ ] Add or reuse the `linkedRobotId: string | null` field on the `Robot` stored in `localeStore` (persisted state). The `Robot` type already contains `linkedRobotId`; ensure spawn/default fixtures include `null` where appropriate.
+- [ ] UI: `RobotMetaTab` (or Link control) — parent selection dropdown restricted to robots in the same `localeId` (current locale). Provide an explicit `Link` action and an `Unlink` action, and display a visible linked indicator when a robot is linked.
+- [ ] Confirmation: linking is reversible via `Unlink`, but linking should show a confirmation when creating the link if desired (UI detail).
+- [ ] Inheritance semantics (live mirror): when a robot is linked, the child becomes a live mirror for the parent's inherited fields. The child should immediately reflect changes made to the parent for the inherited attributes.
+  - Inherited fields: `audioAttributes` (synthType, `adsr`, `waveform`, `phase`, `detune`, `visualAudioMap`), `masterVolume`, `rhythmicDensity`, `rhythmicMotifLength`, `octaveRange`, `noteVariance`, `audioMode`, and rhythmic structure (see melody rules below).
+  - Explicit exclusions: never copy `id`/`robotId`, `name`, or `createdAt`. Do not copy event `noteIndex` values — only copy rhythmic structure (timing/durations). On melody inheritance, replace the child's event timings/lengths with the parent's (startStep/length); preserve the child's `noteIndex` values by mapping them positionally (cycle/truncate as needed) so the child keeps its pitch identity while adopting the parent's rhythm.
+- [ ] Propagation / chaining: support transitive propagation (A→B→C). When a parent updates, apply updates to immediate children; children that are parents for others will in turn propagate updates. Implement update propagation with careful ordering to avoid redundant work and race conditions.
+- [ ] Cycle prevention: prevent creating linking cycles in the UI and store APIs (reject link attempts that would introduce a cycle). Validate before setting `linkedRobotId`.
+- [ ] Unlink behavior: when a child is unlinked, it should keep the last inherited values as its new standalone state (no automatic revert to a pre-link backup). Provide an explicit `Unlink` control in the UI.
+- [ ] Parent deletion: when a parent is removed from the locale, children should be unlinked and keep the last inherited state.
+- [ ] Implementation approach suggestion:
+  - Record `linkedRobotId` on the child in `localeStore` via `updateRobot(localeId, childId, { linkedRobotId: parentId })` so it persists.
+  - Implement a small propagation service (`linkPropagationSystem`) that subscribes to locale store changes and, when a robot with children changes any of the inherited fields, computes child updates and applies them via `updateRobot` (run synchronously off-Transport to avoid audio tick side-effects). Use a simple dependency graph traversal to propagate and detect cycles.
+  - Melody rhythm handling: when updating child's melody timing, write a new melody array that uses the parent's startStep/length values but reuses child's `noteIndex` values aligned positionally (cycle if counts differ). After updating store, call `AudioEngine.unregisterRobotMelody(childId)` then `AudioEngine.registerRobotMelody(childId, newMelody)` and re-reserve voice (`releaseVoice` → `reserveVoice`) to apply audio attribute changes.
+- [ ] Tests & validation: add unit tests for propagation, cycle prevention, parent deletion, and melody-rhythm mapping (ensure child's `noteIndex` preserved; rhythm replaced). Use seeded scenarios for determinism.
+
+## Technical Notes
+- Links are locale-scoped — cross-locale linking is forbidden and must be rejected by the UI/store.
+- Persist `linkedRobotId` in `localeStore` so links survive reloads (session persistence noted; implement as store persistence to the app state). If session-layer undo/redo is added later, integrate with it — but do not rely on session features for initial implementation.
+- Keep propagation idempotent: applying the same parent state twice should not cause different child state.
+- For melody rhythm mapping, choose simple positional mapping: for i in 0..parentEvents-1, childEvent[i].startStep = parentEvent[i].startStep, childEvent[i].length = parentEvent[i].length; if child has fewer events than parent, cycle child noteIndices; if child has no melody, generate a minimal melody using parent's rhythm and the child's current `noteVariance`/octave settings.
+
+## Acceptance Criteria
+- [ ] `Robot` exposes `linkedRobotId` and links persist in `localeStore`.
+- [ ] Linking UI present in `RobotMetaTab`, restricted to robots in current locale.
+- [ ] Children live-mirror parent's inherited attributes (audioAttributes, masterVolume, rhythmic settings, rhythm structure), excluding `id`, `name`, `createdAt`, and `noteIndex` values.
+- [ ] Transitive links propagate changes along chains; link cycles are prevented.
+- [ ] Unlink leaves the child with the last inherited values as its new standalone state.
+- [ ] Deleting a parent unlinks children and preserves last state.
+- [ ] AudioEngine is updated (melody registration and voice reservation) when inherited attributes change.
+- [ ] Unit tests cover propagation, cycle prevention, and melody-rhythm mapping.
+
+## Source Reference
+- Files: `src/stores/localeStore.ts`, `src/components/panels/screen/console/RobotMetaTab.tsx`, `src/engine/AudioEngine.ts`, `src/engine/melodyGenerator.ts`, `src/systems/spawnSystem.ts`, and a new `src/systems/linkPropagationSystem.ts` (suggested).
+
+---
+
+## [M8.3-12.c.1] RobotAudioTab: UI Layout & Controls
+
+## Feature Description
+Create the visible layout and controls for `RobotAudioTab`: radio group for audio mode, rhythmic density slider, motif-length slider, and dual-thumb octave range.
+
+## Implementation Details
+- [ ] Add `src/components/panels/screen/console/RobotAudioTab.tsx` and `RobotAudioTab.css` (layout only).
+- [ ] Implement radio group (audio mode), density and motif sliders, and a dual-thumb octave range component; use Radix primitives for accessibility.
+- [ ] Ensure all controls meet 44×44px touch targets and use design tokens.
+- [ ] Controls write only to local component state or call `updateRobot` with normalized values; do not implement generator logic here.
+
+## Acceptance Criteria
+- [ ] Layout renders and is navigable by keyboard.
+- [ ] Each control exists and exposes an onChange that updates the store value.
+
+## Source Reference
+- `src/components/panels/screen/console/RobotAudioTab.tsx`, `src/stores/localeStore.ts`, `src/stores/uiStore.ts`
+
+---
+
+## [M8.3-12.c.2] RobotAudioTab: Store Wiring & Regeneration Triggers
+
+## Feature Description
+Wire `RobotAudioTab` controls to `localeStore` and call the melody regeneration flow when rhythmic settings change.
+
+## Implementation Details
+- [ ] On control change call `useLocaleStore.getState().updateRobot(localeId, id, { <field>: value })`.
+- [ ] For `rhythmicDensity` and `rhythmicMotifLength` changes, schedule `regenerateMelody(robot)` via `queueMicrotask` (avoid Transport-tick side-effects).
+- [ ] Clamp and validate inputs at the store entry point.
+
+## Acceptance Criteria
+- [ ] Store receives validated updates from the UI.
+- [ ] Density/motif changes invoke `regenerateMelody` off the transport tick.
+
+## Source Reference
+- `src/components/panels/screen/console/RobotAudioTab.tsx`, `src/stores/localeStore.ts`, `src/engine/melodyGenerator.ts`
+
+---
+
+## [M8.3-12.d.1] Melody Generator: API & Octave Support
+
+## Feature Description
+Add octave-range parameters to the melody generator API and expose `generateMelodyForRobot` signature used by regeneration flows.
+
+## Implementation Details
+- [ ] Update `src/engine/melodyGenerator.ts` to export `generateMelodyForRobot(opts)` with `octaveMin` and `octaveMax` args.
+- [ ] Ensure output event shape remains serialisable: `{ onsetBeats, durationBeats, noteIndex, octave, velocity }`.
+- [ ] Add unit tests asserting octave mapping and valid ranges.
+
+## Acceptance Criteria
+- [ ] Generator accepts octave bounds and returns events with `octave` within requested range.
+
+## Source Reference
+- `src/engine/melodyGenerator.ts`, `src/engine/__tests__`
+
+---
+
+## [M8.3-12.d.2] Melody Generator: Motif & Density Algorithm
+
+## Feature Description
+Implement the motif/repeat algorithm that produces repeating motifs when `rhythmicMotifLength` is shorter than the measure and distributes `rhythmicDensity` across repeats.
+
+## Implementation Details
+- [ ] Implement motif-based selection on a fixed subdivision grid (default 16 subdivisions).
+- [ ] Support repeat-distribution logic described in the epic and deterministic seeded RNG for tests.
+- [ ] Compute durations from onset differences and convert to beats.
+
+## Acceptance Criteria
+- [ ] Motif-based generation produces repeating motifs when `rhythmicMotifLength` < subdivisions.
+- [ ] Deterministic behaviour in unit tests with seeded RNG.
+
+## Source Reference
+- `src/engine/melodyGenerator.ts`, `src/engine/__tests__`
+
+---
+
+## [M8.3-12.d.3] Melody Regeneration Helper & AudioEngine Integration
+
+## Feature Description
+Provide `regenerateMelody(robot)` helper that updates the store and registers the new melody with `AudioEngine` safely.
+
+## Implementation Details
+- [ ] Implement `regenerateMelody(robot)` to call the generator, update `localeStore`, then call `AudioEngine.registerRobotMelody(robotId, newMelody)` via `queueMicrotask`.
+- [ ] Ensure helper avoids Transport-tick mutations and coordinates with voice reservation where necessary.
+- [ ] Add integration tests that mock `AudioEngine.registerRobotMelody`.
+
+## Acceptance Criteria
+- [ ] Regeneration updates store and invokes `AudioEngine.registerRobotMelody` on the main thread (off-Transport tick).
+
+## Source Reference
+- `src/engine/melodyGenerator.ts`, `src/engine/AudioEngine.ts`, `src/stores/localeStore.ts`
+
+---
+
+## [M8.3-12.e.1] Tests: Generator Unit Tests & Fixtures
+
+## Feature Description
+Add deterministic unit tests for the melody generator covering octave mapping, density, motif repetition, and `noteVariance` hooks.
+
+## Implementation Details
+- [ ] Add fixtures and seeded RNG helpers for tests in `src/engine/__tests__`.
+- [ ] Write tests for `eventCount` mapping and motif repetition behaviour.
+
+## Acceptance Criteria
+- [ ] Unit tests assert repeatable outputs given seeds and pass locally.
+
+## Source Reference
+- `src/engine/__tests__`, `test/**`
+
+---
+
+## [M8.3-12.e.2] Tests: Regeneration Integration (AudioEngine)
+
+## Feature Description
+Add an integration test that simulates a density change and verifies `AudioEngine.registerRobotMelody` is called and the store is updated.
+
+## Implementation Details
+- [ ] Mock `AudioEngine` in test environment and assert calls after `regenerateMelody`.
+- [ ] Verify `localeStore` contains the new melody object.
+
+## Acceptance Criteria
+- [ ] Integration test confirms store update and `registerRobotMelody` invocation.
+
+## Source Reference
+- `src/engine/__tests__`, `vitest.config.ts`
+
+---
+
+## [M8.3-12.f.1] Audio Mode: Spec & UI Behavior
+
+## Feature Description
+Define UX and spec for `robot.audioMode` (none/solo/mute/highlight) to guide engine implementation and UI labels.
+
+## Implementation Details
+- [ ] Create a short spec document for `audioMode` semantics and UI labeling.
+- [ ] Update relevant UI text in `RobotAudioTab` to match spec.
+
+## Acceptance Criteria
+- [ ] Spec exists and UI uses consistent labels for audio modes.
+
+## Source Reference
+- `docs/`, `src/components/panels/screen/console/RobotAudioTab.tsx`
+
+---
+
+## [M8.3-12.f.2] AudioEngine: Solo/Mute/Highlight Enforcement
+
+## Feature Description
+Implement enforcement of `robot.audioMode` within `AudioEngine` (or document deferral with clear UX notes).
+
+## Implementation Details
+- [ ] Implement simple policies at reservation or mix time: `solo` mutes others, `mute` silences robot, `highlight` attenuates others by ~6dB.
+- [ ] Add unit tests for reservation/mix logic.
+
+## Acceptance Criteria
+- [ ] Engine applies audioMode policies or the repo documents an explicit deferral.
+
+## Source Reference
+- `src/engine/AudioEngine.ts`, `src/engine/__tests__`
+
+---
+
+## [M8.3-12.g.1] noteVariance: Types & Spawn Defaults
+
+## Feature Description
+Add `noteVariance` to `Robot` types and ensure spawn defaults include `noteVariance: 0`.
+
+## Implementation Details
+- [ ] Update `src/types/Robot.ts` and `src/systems/spawnSystem.ts` to include `noteVariance: number` and default `0`.
+- [ ] Update fixtures and clamp values at store update entry points.
+
+## Acceptance Criteria
+- [ ] Type reflects `noteVariance` and new robots include `0` by default.
+
+## Source Reference
+- `src/types/Robot.ts`, `src/systems/spawnSystem.ts`, `src/stores/localeStore.ts`
+
+---
+
+## [M8.3-12.g.2] Generator: noteVariance Selection Mode
+
+## Feature Description
+Implement `noteVariance` semantics in the melody generator (prefer new notes until N unique chosen, then restrict selection to that set).
+
+## Implementation Details
+- [ ] Add `noteVariance` parameter support to `generateMelodyForRobot` and implement draw-without-replacement semantics for `8`.
+- [ ] Ensure deterministic behaviour with seeded RNG and add unit tests.
+
+## Acceptance Criteria
+- [ ] Generator respects `noteVariance` semantics in tests.
+
+## Source Reference
+- `src/engine/melodyGenerator.ts`, `src/engine/__tests__`
+
+---
+
+## [M8.3-12.g.3] RobotAudioTab: NoteVariance Control
+
+## Feature Description
+Add a UI control (slider/stepper) to edit `noteVariance` and persist it to the store.
+
+## Implementation Details
+- [ ] Add a `0..8` control to `RobotAudioTab` and write updates via `updateRobot`.
+- [ ] Clamp server-side and schedule regeneration when changed.
+
+## Acceptance Criteria
+- [ ] UI control updates `noteVariance` in store and triggers regeneration.
+
+## Source Reference
+- `src/components/panels/screen/console/RobotAudioTab.tsx`, `src/stores/localeStore.ts`
+
+---
+
+## [M8.3-12.h.1] Link Robots: Link UI & Persistence
+
+## Feature Description
+Add the parent-selection UI in `RobotMetaTab` and persist `linkedRobotId` on the child.
+
+## Implementation Details
+- [ ] Add dropdown in `RobotMetaTab` restricted to same-locale robots and `Link`/`Unlink` actions.
+- [ ] Persist `linkedRobotId` via `updateRobot(localeId, childId, { linkedRobotId: parentId })`.
+
+## Acceptance Criteria
+- [ ] Linking UI is present and `linkedRobotId` persists in `localeStore`.
+
+## Source Reference
+- `src/components/panels/screen/console/RobotMetaTab.tsx`, `src/stores/localeStore.ts`
+
+---
+
+## [M8.3-12.h.2] Link Robots: Propagation Engine & Cycle Detection
+
+## Feature Description
+Implement `linkPropagationSystem` to subscribe to locale changes, propagate parent updates to children transitively, and prevent cycles.
+
+## Implementation Details
+- [ ] Implement a small service in `src/systems/linkPropagationSystem.ts` that computes child diffs and applies `updateRobot` calls.
+- [ ] Validate link attempts to avoid cycles; reject in UI/store.
+
+## Acceptance Criteria
+- [ ] Propagation applies inherited fields to children and cycles are prevented.
+
+## Source Reference
+- `src/systems/linkPropagationSystem.ts`, `src/stores/localeStore.ts`
+
+---
+
+## [M8.3-12.h.3] Link Robots: Rhythm Mapping & AudioEngine Sync
+
+## Feature Description
+When inheriting melody rhythm from parent, map timings into child's melody while preserving child's `noteIndex` values and re-register child melody with `AudioEngine`.
+
+## Implementation Details
+- [ ] Implement positional mapping of `noteIndex` to parent's rhythm, cycling/truncating as needed.
+- [ ] After store update call `AudioEngine.unregisterRobotMelody(childId)` (if present) then `AudioEngine.registerRobotMelody(childId, newMelody)` and re-reserve voice.
+
+## Acceptance Criteria
+- [ ] Child melodies adopt parent's rhythm; `noteIndex` preserved; audio engine updated.
+
+## Source Reference
+- `src/systems/linkPropagationSystem.ts`, `src/engine/AudioEngine.ts`
+
+---
+
+## [M8.3-12.h.4] Link Robots: Tests & Validation
+
+## Feature Description
+Add unit tests for propagation, cycle prevention, parent deletion, and rhythm mapping.
+
+## Implementation Details
+- [ ] Create deterministic unit scenarios for A→B→C propagation and cycle-attempt rejection.
+- [ ] Test parent deletion unlinks children and preserves last inherited state.
+
+## Acceptance Criteria
+- [ ] Tests cover propagation, cycle prevention, and melody-rhythm mapping deterministically.
+
+## Source Reference
+- `src/systems/__tests__`, `src/systems/linkPropagationSystem.ts`
+
+<!-- ============================================================ -->
+<!-- ISSUE 13: Robot Oscillators Sub-Tab                          -->
+<!-- ============================================================ -->
+
 
 <!-- ============================================================ -->
 <!-- ISSUE 13: Robot Oscillators Sub-Tab                          -->
