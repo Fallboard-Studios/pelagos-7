@@ -103,16 +103,21 @@ export default function RobotMetaTab() {
     if (target.octaveRange) updates.octaveRange = target.octaveRange;
     if (typeof target.masterVolume === 'number') updates.masterVolume = target.masterVolume;
     // Optional fields (may not exist yet) — copy if present on the target
-    const optFields = ['rhythmicDensity', 'rhythmicMotifLength', 'noteVariance', 'audioMode'];
-    optFields.forEach((f) => {
-      if ((target as any)[f] !== undefined) (updates as any)[f] = (target as any)[f];
-    });
+    const copyIfPresent = <K extends 'rhythmicDensity' | 'rhythmicMotifLength' | 'noteVariance' | 'audioMode'>(
+      src: Robot,
+      dst: Partial<Robot>,
+      key: K
+    ) => {
+      if (src[key] !== undefined) dst[key] = src[key];
+    };
+
+    const optFields = ['rhythmicDensity', 'rhythmicMotifLength', 'noteVariance', 'audioMode'] as const;
+    for (const f of optFields) copyIfPresent(target, updates, f);
 
     // Backup current values for undo
-    const backup: Partial<Robot> = {};
-    Object.keys(updates).forEach((k) => {
-      (backup as any)[k] = (robot as any)[k];
-    });
+    const backup = Object.fromEntries(
+      (Object.keys(updates) as Array<keyof Robot>).map((k) => [k, robot[k]])
+    ) as Partial<Robot>;
     setLastBackup(backup);
 
     // Apply updates to the selected robot
@@ -122,8 +127,8 @@ export default function RobotMetaTab() {
     queueMicrotask(() => {
       try {
         AudioEngine.unregisterRobotMelody(robot.id);
-        if (updates.melody && (updates.melody as any).length > 0) {
-          AudioEngine.registerRobotMelody(robot.id, updates.melody as any);
+        if (updates.melody && updates.melody.length > 0) {
+          AudioEngine.registerRobotMelody(robot.id, updates.melody);
         }
       } catch (err) {
         console.warn('[RobotMetaTab] AudioEngine melody update error', err);
@@ -136,7 +141,7 @@ export default function RobotMetaTab() {
         const adsr = (updates.audioAttributes && updates.audioAttributes.adsr) ?? robot.audioAttributes?.adsr;
         const phase = (updates.audioAttributes && updates.audioAttributes.phase) ?? robot.audioAttributes?.phase;
         const detune = (updates.audioAttributes && updates.audioAttributes.detune) ?? robot.audioAttributes?.detune;
-        AudioEngine.reserveVoice(robot.id, synthType as any, waveform as any, adsr as any, phase as any, detune as any);
+        AudioEngine.reserveVoice(robot.id, synthType, waveform, adsr, phase, detune);
       } catch (err) {
         console.warn('[RobotMetaTab] AudioEngine voice re-reservation error', err);
       }
@@ -153,8 +158,8 @@ export default function RobotMetaTab() {
     queueMicrotask(() => {
       try {
         AudioEngine.unregisterRobotMelody(robot.id);
-        if ((lastBackup as any).melody && (lastBackup as any).melody.length > 0) {
-          AudioEngine.registerRobotMelody(robot.id, (lastBackup as any).melody as any);
+        if (lastBackup.melody && lastBackup.melody.length > 0) {
+          AudioEngine.registerRobotMelody(robot.id, lastBackup.melody);
         }
       } catch (err) {
         console.warn('[RobotMetaTab] AudioEngine melody undo error', err);
@@ -162,13 +167,13 @@ export default function RobotMetaTab() {
 
       try {
         AudioEngine.releaseVoice(robot.id);
-        const audioAttr = (lastBackup as any).audioAttributes ?? robot.audioAttributes;
+        const audioAttr = lastBackup.audioAttributes ?? robot.audioAttributes;
         const synthType = audioAttr?.synthType ?? 'default';
         const waveform = audioAttr?.waveform;
         const adsr = audioAttr?.adsr;
         const phase = audioAttr?.phase;
         const detune = audioAttr?.detune;
-        AudioEngine.reserveVoice(robot.id, synthType as any, waveform as any, adsr as any, phase as any, detune as any);
+        AudioEngine.reserveVoice(robot.id, synthType, waveform, adsr, phase, detune);
       } catch (err) {
         console.warn('[RobotMetaTab] AudioEngine voice re-reservation undo error', err);
       }
