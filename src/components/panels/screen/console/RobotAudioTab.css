@@ -1,0 +1,59 @@
+.robot-audio-tab {
+  padding: 12px;
+}
+
+.robot-audio-tab .row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.robot-audio-tab .label {
+  width: 160px;
+  font-size: 14px;
+}
+
+.robot-audio-tab .control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.robot-audio-tab .range {
+  flex: 1;
+  height: 32px;
+}
+
+.robot-audio-tab .value {
+  min-width: 36px;
+  text-align: center;
+}
+
+.robot-audio-tab .small-number {
+  width: 56px;
+  height: 44px;
+  /* ensure 44x44 touch target */
+}
+
+.robot-audio-tab .radio-group .radio-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+
+.robot-audio-tab .radio-btn input {
+  width: 20px;
+  height: 20px;
+}
+
+.robot-audio-tab .radio-btn.active {
+  background: var(--color-accent, #222);
+  color: var(--color-on-accent, #fff);
+}
+
+.robot-audio-tab .octave-range .sep {
+  padding: 0 8px;
+}
