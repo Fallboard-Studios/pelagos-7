@@ -6,6 +6,7 @@ import * as AlertDialog from '@radix-ui/react-alert-dialog';
 import { getActiveLocaleId } from '@/utils/localeHelpers';
 import { useUIStore } from '@/stores/uiStore';
 import { useLocaleStore } from '@/stores/localeStore';
+import { AudioEngine } from '@/engine/AudioEngine';
 import type { Robot } from '@/types/Robot';
 
 // Minimal preset type for UI usage — mirrors stored preset shape used by RobotMetaTab
@@ -80,15 +81,100 @@ export default function RobotMetaTab() {
   // Copy robot targets (other robots in the same locale)
   const otherRobots = localeRobots.filter((r) => robot && r.id !== robot.id);
   const [copyTarget, setCopyTarget] = useState<string | null>(null);
+  // Backup for undoing a copy operation
+  const [lastBackup, setLastBackup] = useState<Partial<Robot> | null>(null);
 
-  const copyToTarget = () => {
+  // Clear transient backup when selection or locale changes
+  useEffect(() => {
+    setLastBackup(null);
+  }, [selectedRobotId, localeId]);
+
+  // Perform copy: overwrite the currently selected robot with attributes from
+  // the chosen target robot (same-locale). Do not copy `id` or `name`.
+  const performCopyFromTarget = () => {
     if (!robot || !copyTarget || !localeId) return;
-    useLocaleStore.getState().updateRobot(localeId, copyTarget, {
-      audioAttributes: robot.audioAttributes,
-      melody: robot.melody,
-      octaveRange: robot.octaveRange,
-      masterVolume: robot.masterVolume,
+    const target = localeRobots.find((r) => r.id === copyTarget);
+    if (!target) return;
+
+    // Build updates from target (only copy audio/compositional attributes)
+    const updates: Partial<Robot> = {};
+    if (target.audioAttributes) updates.audioAttributes = target.audioAttributes;
+    if (target.melody) updates.melody = target.melody;
+    if (target.octaveRange) updates.octaveRange = target.octaveRange;
+    if (typeof target.masterVolume === 'number') updates.masterVolume = target.masterVolume;
+    // Optional fields (may not exist yet) — copy if present on the target
+    const optFields = ['rhythmicDensity', 'rhythmicMotifLength', 'noteVariance', 'audioMode'];
+    optFields.forEach((f) => {
+      if ((target as any)[f] !== undefined) (updates as any)[f] = (target as any)[f];
     });
+
+    // Backup current values for undo
+    const backup: Partial<Robot> = {};
+    Object.keys(updates).forEach((k) => {
+      (backup as any)[k] = (robot as any)[k];
+    });
+    setLastBackup(backup);
+
+    // Apply updates to the selected robot
+    useLocaleStore.getState().updateRobot(localeId, robot.id, updates as Partial<Robot>);
+
+    // Update AudioEngine to reflect the new attributes immediately
+    queueMicrotask(() => {
+      try {
+        AudioEngine.unregisterRobotMelody(robot.id);
+        if (updates.melody && (updates.melody as any).length > 0) {
+          AudioEngine.registerRobotMelody(robot.id, updates.melody as any);
+        }
+      } catch (err) {
+        console.warn('[RobotMetaTab] AudioEngine melody update error', err);
+      }
+
+      try {
+        AudioEngine.releaseVoice(robot.id);
+        const synthType = (updates.audioAttributes && updates.audioAttributes.synthType) ?? robot.audioAttributes?.synthType ?? 'default';
+        const waveform = (updates.audioAttributes && updates.audioAttributes.waveform) ?? robot.audioAttributes?.waveform;
+        const adsr = (updates.audioAttributes && updates.audioAttributes.adsr) ?? robot.audioAttributes?.adsr;
+        const phase = (updates.audioAttributes && updates.audioAttributes.phase) ?? robot.audioAttributes?.phase;
+        const detune = (updates.audioAttributes && updates.audioAttributes.detune) ?? robot.audioAttributes?.detune;
+        AudioEngine.reserveVoice(robot.id, synthType as any, waveform as any, adsr as any, phase as any, detune as any);
+      } catch (err) {
+        console.warn('[RobotMetaTab] AudioEngine voice re-reservation error', err);
+      }
+    });
+
+    // Clear selection so user must re-select for further copies
+    setCopyTarget(null);
+  };
+
+  const undoCopy = () => {
+    if (!robot || !localeId || !lastBackup) return;
+    useLocaleStore.getState().updateRobot(localeId, robot.id, lastBackup as Partial<Robot>);
+
+    queueMicrotask(() => {
+      try {
+        AudioEngine.unregisterRobotMelody(robot.id);
+        if ((lastBackup as any).melody && (lastBackup as any).melody.length > 0) {
+          AudioEngine.registerRobotMelody(robot.id, (lastBackup as any).melody as any);
+        }
+      } catch (err) {
+        console.warn('[RobotMetaTab] AudioEngine melody undo error', err);
+      }
+
+      try {
+        AudioEngine.releaseVoice(robot.id);
+        const audioAttr = (lastBackup as any).audioAttributes ?? robot.audioAttributes;
+        const synthType = audioAttr?.synthType ?? 'default';
+        const waveform = audioAttr?.waveform;
+        const adsr = audioAttr?.adsr;
+        const phase = audioAttr?.phase;
+        const detune = audioAttr?.detune;
+        AudioEngine.reserveVoice(robot.id, synthType as any, waveform as any, adsr as any, phase as any, detune as any);
+      } catch (err) {
+        console.warn('[RobotMetaTab] AudioEngine voice re-reservation undo error', err);
+      }
+    });
+
+    setLastBackup(null);
   };
 
   // Link-to-robot
@@ -204,11 +290,39 @@ export default function RobotMetaTab() {
               </option>
             ))}
           </select>
-          <button className="btn" onClick={copyToTarget} disabled={!copyTarget}>
-            Copy
-          </button>
+          <AlertDialog.Root>
+            <AlertDialog.Trigger className="btn" disabled={!copyTarget}>
+              Copy
+            </AlertDialog.Trigger>
+            <AlertDialog.Portal>
+              <AlertDialog.Overlay className="dialog-overlay" />
+              <AlertDialog.Content className="dialog-content">
+                <AlertDialog.Title>Copy Robot</AlertDialog.Title>
+                <AlertDialog.Description>
+                  Replace the current robot's audio and composition with the selected robot's settings. This will overwrite audio attributes, melody, and compositional fields. This action can be undone.
+                </AlertDialog.Description>
+                <div className="dialog-actions">
+                  <AlertDialog.Cancel className="btn">Cancel</AlertDialog.Cancel>
+                  <AlertDialog.Action className="btn destructive" onClick={performCopyFromTarget}>
+                    Confirm
+                  </AlertDialog.Action>
+                </div>
+              </AlertDialog.Content>
+            </AlertDialog.Portal>
+          </AlertDialog.Root>
         </div>
       </div>
+
+      {lastBackup && (
+        <div className="row">
+          <label className="label">Undo</label>
+          <div className="control">
+            <button className="btn" onClick={undoCopy}>
+              Undo Copy
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="row">
         <label className="label">Link To Robot</label>
