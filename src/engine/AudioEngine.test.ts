@@ -378,6 +378,32 @@ describe('AudioEngine - Melody Lifecycle', () => {
       // Verified by code inspection: stepRegistry.delete(step) when filtered.length === 0
     });
   });
+
+  describe('Integration: registered melody -> scheduling', () => {
+    it('schedules notes from newly-registered melody on processMelodyStep', async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+
+      const melody = [
+        { id: 'm1', startStep: 7, length: '8n' as const, noteIndex: 0, octave: 4 },
+      ];
+
+      const spy = vi.spyOn(AudioEngine, 'scheduleNote').mockImplementation((_params: unknown) => {});
+
+      AudioEngine.registerRobotMelody('int-1', melody);
+
+      // Simulate a transport tick for step 7 at time 0
+      AudioEngine.processMelodyStep(7, 0);
+
+      expect(spy).toHaveBeenCalled();
+
+      const calledWith = spy.mock.calls[0][0];
+      expect(calledWith.robotId).toBe('int-1');
+      expect(typeof calledWith.note).toBe('string');
+      expect(calledWith.note.endsWith('4')).toBe(true);
+
+      spy.mockRestore();
+    });
+  });
 });
 
 // Additional focused unit tests for reservation & isolation
