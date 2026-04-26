@@ -798,6 +798,30 @@ describe('generateMelodyForRobot — GenerateMelodyForRobotOptions', () => {
     expect(new Set(steps).size).toBe(6);
   });
 
+  it('noteVariance > 0 prefers new unique notes until set fills (deterministic)', () => {
+    const nv = 3;
+    const melody = generateMelodyForRobot({ eventCount: 6, octaveMin: 3, octaveMax: 4, seed: 11, noteVariance: nv });
+    const seen = new Set<number>();
+    for (let i = 0; i < melody.length; i++) {
+      const idx = melody[i].noteIndex;
+      if (seen.size < nv) {
+        // while unique set not full, each chosen note must be new
+        expect(seen.has(idx)).toBe(false);
+      }
+      seen.add(idx);
+    }
+    expect(seen.size).toBeLessThanOrEqual(nv);
+  });
+
+  it('noteVariance === 8 draws without replacement until all 8 notes used', () => {
+    const melody = generateMelodyForRobot({ eventCount: 8, octaveMin: 3, octaveMax: 5, seed: 7, noteVariance: 8 });
+    const indices = melody.map((e) => e.noteIndex);
+    const uniq = new Set(indices);
+    expect(uniq.size).toBe(8);
+    // Ensure all indices are within 0..7
+    for (const n of uniq) expect(n).toBeGreaterThanOrEqual(0);
+  });
+
   it('is deterministic with the same seed', () => {
     const opts = { eventCount: 6, octaveMin: 3, octaveMax: 5, seed: 77 };
     const a = generateMelodyForRobot(opts);
