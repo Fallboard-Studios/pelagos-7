@@ -17,6 +17,7 @@ import { removeRobotWithExit } from './removeSystem';
 import { initRobotIdleCounter } from './idleSystem';
 import { getLocaleNoiseMap } from '../utils/noiseMaps';
 import { getSeededVal } from '../utils/getSeededVal';
+import { swallow } from '../utils/helpers';
 
 // ========================================
 // CONSTANTS
@@ -468,6 +469,14 @@ export function removeNonPersistentRobots(localeId: string): void {
   // Remove robots that are not marked to persist (persists === true are kept).
   const robots = (useLocaleStore.getState().getLocaleById(localeId)?.robots || []).filter((r) => !r.persists);
   robots.forEach((robot) => {
+    // Ensure audio resources are released for each removed robot.
+    try {
+      AudioEngine.releaseVoice(robot.id);
+    } catch (err) {
+      if (DEV_TUNING) swallow(err, 'AudioEngine.releaseVoice');
+    }
+    AudioEngine.unregisterRobotMelody(robot.id);
+
     useLocaleStore.getState().removeRobot(localeId, robot.id);
   });
   if (DEV_TUNING) console.log(`[SpawnSystem] removeNonPersistentRobots: removed ${robots.length} non-persisting robots`);

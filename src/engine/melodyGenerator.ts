@@ -1,6 +1,7 @@
 // ========================================
 // IMPORTS
 // ========================================
+import alea from 'alea';
 import type { NoteDuration } from '../types/Robot';
 
 // ========================================
@@ -21,6 +22,44 @@ export interface MelodyGeneratorOptions {
   octaveRange?: [number, number]; // [min, max] octave band for this robot
 }
 
+/**
+ * New-style options for generateMelodyForRobot.
+ * Uses explicit octaveMin/octaveMax instead of a tuple, and adds rhythm
+ * parameters that will drive the motif algorithm (Step 2).
+ */
+export interface GenerateMelodyForRobotOptions {
+  /** Number of note events to generate (4–12). */
+  eventCount: number;
+  /** Minimum octave (inclusive). */
+  octaveMin: number;
+  /** Maximum octave (inclusive). Must be >= octaveMin. */
+  octaveMax: number;
+  /**
+   * Number of onsets per measure (4–12). Controls rhythmic density.
+   * Default: 8.
+   */
+  rhythmicDensity?: number;
+  /**
+   * Length of the repeating motif in 16th-note subdivisions (1..subdivisions).
+   * Default: 8 (half-measure in 4/4).
+   */
+  rhythmicMotifLength?: number;
+  /**
+   * Number of 16th-note subdivisions per measure.
+   * Default: 16.
+   */
+  subdivisions?: number;
+  /**
+   * Measure length in beats (default: 4 for 4/4).
+   */
+  measureBeats?: number;
+  /**
+   * Integer seed for deterministic RNG. When provided, a seeded PRNG is used
+   * instead of Math.random — useful for reproducible tests.
+   */
+  seed?: number;
+}
+
 // ========================================
 // CONSTANTS
 // ========================================
@@ -38,6 +77,15 @@ const LENGTHS: NoteDuration[] = ['8n', '4n', '2n', '16n'];
 
 const ON_BEAT_STEPS = [1, 3, 5, 7, 9, 11, 13, 15];
 const OFF_BEAT_STEPS = [2, 4, 6, 8, 10, 12, 14, 16];
+
+/** Default rhythmic density (onsets per measure). */
+export const DEFAULT_RHYTHMIC_DENSITY = 8;
+/** Default motif length in 16th-note subdivisions (half-measure in 4/4). */
+export const DEFAULT_RHYTHMIC_MOTIF_LENGTH = 8;
+/** Default subdivision grid per measure (16 sixteenth notes in 4/4). */
+export const DEFAULT_SUBDIVISIONS = 16;
+/** Default measure length in beats (4/4). */
+export const DEFAULT_MEASURE_BEATS = 4;
 
 /** Probability of applying rhythmic variance per 16-step loop (recommended: 0.2) */
 const DEFAULT_VARIANCE_PROBABILITY = 0.20;
@@ -158,20 +206,187 @@ export function applyTonalVariance(
   });
 }
 
+
+// ========================================
+// MOTIF ALGORITHM HELPERS
+// ========================================
+
 /**
- * Generates a melody for a robot at spawn time.
- * Returns 4-12 events with weighted note selection and procedural octave variation.
+ * Pick `count` unique integers from [0, n) via Fisher-Yates partial shuffle.
+ * Internal helper — use buildMotifOnsets for the public API.
+ */
+function pickUniqueInRange(n: number, count: number, rand: () => number): number[] {
+  const pool = Array.from({ length: n }, (_, i) => i);
+  const result: number[] = [];
+  const pickCount = Math.min(count, n);
+  for (let i = 0; i < pickCount; i++) {
+    const j = i + Math.floor(rand() * (n - i));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+    result.push(pool[i]);
+  }
+  return result;
+}
+
+/**
+ * Build sorted onset positions (0-indexed, 0..subdivisions-1) for one measure
+ * using the motif-repetition algorithm.
+ *
+ * Algorithm:
+ *   M = clamp(rhythmicMotifLength, 1, subdivisions)
+ *   repeats = floor(subdivisions / M)
+ *
+ *   If repeats >= 2 (motif path):
+ *     K = max(1, floor(density / repeats))  — onsets per motif copy
+ *     R = density - K * repeats             — extra onsets, distributed to first R copies
+ *     Generate one base motif of K unique positions in [0, M), sorted.
+ *     Tile it across the measure; first R copies get one extra position each.
+ *     Truncate any partial motif at subdivisions.
+ *
+ *   Else (non-repeating fallback):
+ *     Pick density unique positions from [0, subdivisions).
+ *
+ * @param rhythmicDensity    Target onset count (4–12)
+ * @param rhythmicMotifLength Motif length in subdivision grid units (1..subdivisions)
+ * @param subdivisions       Grid units per measure (default: 16)
+ * @param rand               RNG function
+ */
+export function buildMotifOnsets(
+  rhythmicDensity: number,
+  rhythmicMotifLength: number,
+  subdivisions: number,
+  rand: () => number,
+): number[] {
+  const M = Math.max(1, Math.min(rhythmicMotifLength, subdivisions));
+  const repeats = Math.floor(subdivisions / M);
+
+  if (repeats >= 2) {
+    // K onsets per base motif copy; R extra onsets distributed to first R copies.
+    const K = Math.max(1, Math.floor(rhythmicDensity / repeats));
+    const R = rhythmicDensity - K * repeats; // always >= 0
+
+    // Generate the base motif: K unique positions in [0, M)
+    const baseMotif = pickUniqueInRange(M, K, rand).sort((a, b) => a - b);
+
+    const onsetSet = new Set<number>();
+    for (let rep = 0; rep < repeats; rep++) {
+      const offset = rep * M;
+      const motifForRep = [...baseMotif];
+
+      // First R repeats get one extra position not in the base motif
+      if (rep < R) {
+        const usedInBase = new Set(baseMotif);
+        const available = Array.from({ length: M }, (_, i) => i).filter(p => !usedInBase.has(p));
+        if (available.length > 0) {
+          motifForRep.push(available[Math.floor(rand() * available.length)]);
+          motifForRep.sort((a, b) => a - b);
+        }
+      }
+
+      for (const pos of motifForRep) {
+        const gridPos = offset + pos;
+        // Truncate: do not emit positions beyond the measure
+        if (gridPos < subdivisions) onsetSet.add(gridPos);
+      }
+    }
+
+    return Array.from(onsetSet).sort((a, b) => a - b);
+  }
+
+  // Non-repeating fallback
+  const N = Math.min(rhythmicDensity, subdivisions);
+  return pickUniqueInRange(subdivisions, N, rand).sort((a, b) => a - b);
+}
+
+/**
+ * Map a duration in 16th-note subdivision grid units to the nearest NoteDuration.
+ *   ≤ 1  → '16n'
+ *   2–3  → '8n'
+ *   4–6  → '4n'
+ *   7+   → '2n'
+ */
+export function gridUnitsToDuration(units: number): NoteDuration {
+  if (units <= 1) return '16n';
+  if (units <= 3) return '8n';
+  if (units <= 6) return '4n';
+  return '2n';
+}
+
+// ========================================
+// OVERLOADS
+// ========================================
+
+export function generateMelodyForRobot(opts: GenerateMelodyForRobotOptions): RobotMelodyEvent[];
+export function generateMelodyForRobot(opts?: MelodyGeneratorOptions): RobotMelodyEvent[];
+
+/**
+ * Generates a melody for a robot.
+ *
+ * When called with GenerateMelodyForRobotOptions (has `octaveMin`), uses the
+ * motif-repetition density algorithm — onset positions are built by
+ * buildMotifOnsets() and durations are computed as the gap to the next onset.
+ *
+ * When called with the legacy MelodyGeneratorOptions (or no args), falls back
+ * to the original syncopation-biased step-picker so all existing callers are
+ * unaffected.
  */
 export function generateMelodyForRobot(
-  opts?: MelodyGeneratorOptions
+  opts?: MelodyGeneratorOptions | GenerateMelodyForRobotOptions
 ): RobotMelodyEvent[] {
-  const rand = opts?.rand ?? Math.random;
-  const eventsCount =
-    opts?.events ?? MIN_EVENTS + Math.floor(rand() * (MAX_EVENTS - MIN_EVENTS + 1));
-  const syncopationBias = opts?.syncopationBias ?? DEFAULT_SYNCOPATION_BIAS;
+  // ── New-style path: motif & density algorithm ──────────────────────────
+  if (opts !== undefined && 'octaveMin' in opts) {
+    const o = opts as GenerateMelodyForRobotOptions;
+    const rand = o.seed !== undefined ? alea(String(o.seed)) : Math.random;
+    const subdivisions = o.subdivisions ?? DEFAULT_SUBDIVISIONS;
+    const density = Math.max(
+      MIN_EVENTS,
+      Math.min(MAX_EVENTS, o.rhythmicDensity ?? o.eventCount),
+    );
+    const motifLength = o.rhythmicMotifLength ?? DEFAULT_RHYTHMIC_MOTIF_LENGTH;
+    const octMin = Math.min(o.octaveMin, o.octaveMax);
+    const octMax = Math.max(o.octaveMin, o.octaveMax);
 
-  const [octMin, octMax] = opts?.octaveRange ?? DEFAULT_OCTAVE_RANGE;
-  // Seed currentOctave to a random value within the robot's range
+    // Build onset grid positions (0-indexed, 0..subdivisions-1)
+    const onsets = buildMotifOnsets(density, motifLength, subdivisions, rand);
+
+    let currentOctave = octMin + Math.floor(rand() * (octMax - octMin + 1));
+    const melody: RobotMelodyEvent[] = [];
+
+    for (let i = 0; i < onsets.length; i++) {
+      // 15% chance to jump to a non-adjacent octave when range allows
+      if (i > 0 && rand() < OCTAVE_JUMP_CHANCE) {
+        const jumpCandidates: number[] = [];
+        for (let oct = octMin; oct <= octMax; oct++) {
+          if (Math.abs(oct - currentOctave) > 1) jumpCandidates.push(oct);
+        }
+        if (jumpCandidates.length > 0) {
+          currentOctave = jumpCandidates[Math.floor(rand() * jumpCandidates.length)];
+        }
+      }
+
+      // Duration = gap to next onset; last onset fills to measure end
+      const nextOnset = i < onsets.length - 1 ? onsets[i + 1] : subdivisions;
+      const durationUnits = nextOnset - onsets[i];
+
+      melody.push({
+        id: crypto.randomUUID(),
+        startStep: onsets[i] + 1, // 1-indexed to match existing RobotMelodyEvent convention
+        length: gridUnitsToDuration(durationUnits),
+        noteIndex: pickWeightedIndex(rand),
+        octave: currentOctave,
+      });
+    }
+
+    return melody;
+  }
+
+  // ── Legacy path: syncopation-biased step-picker (unchanged) ────────────
+  const legacyOpts = (opts as MelodyGeneratorOptions) ?? {};
+  const rand = legacyOpts.rand ?? Math.random;
+  const eventsCount =
+    legacyOpts.events ?? MIN_EVENTS + Math.floor(rand() * (MAX_EVENTS - MIN_EVENTS + 1));
+  const syncopationBias = legacyOpts.syncopationBias ?? DEFAULT_SYNCOPATION_BIAS;
+
+  const [octMin, octMax] = legacyOpts.octaveRange ?? DEFAULT_OCTAVE_RANGE;
   let currentOctave = octMin + Math.floor(rand() * (octMax - octMin + 1));
 
   const melody: RobotMelodyEvent[] = [];
@@ -187,7 +402,6 @@ export function generateMelodyForRobot(
       if (jumpCandidates.length > 0) {
         currentOctave = jumpCandidates[Math.floor(rand() * jumpCandidates.length)];
       }
-      // Range too narrow to jump — stay on current octave
     }
 
     // Pick step position (with syncopation bias)
@@ -204,17 +418,11 @@ export function generateMelodyForRobot(
     }
     usedSlots.add(startStep);
 
-    // Pick note index (weighted)
-    const noteIndex = pickWeightedIndex(rand);
-
-    // Pick duration (biased toward shorter)
-    const length = pickLength(rand);
-
     melody.push({
       id: crypto.randomUUID(),
       startStep,
-      length,
-      noteIndex,
+      length: pickLength(rand),
+      noteIndex: pickWeightedIndex(rand),
       octave: currentOctave,
     });
   }

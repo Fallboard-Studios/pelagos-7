@@ -4,6 +4,9 @@ import type { Locale, LocaleState } from '../types/locale';
 import { DEFAULT_LOCALE_ID } from './planetStore';
 import { usePlanetStore } from './planetStore';
 import { getLocaleNoiseMap, evictLocaleNoiseMap } from '../utils/noiseMaps';
+import { AudioEngine } from '../engine/AudioEngine';
+import { DEV_TUNING } from '../constants';
+import { swallow } from '../utils/helpers';
 
 const DEFAULT_LOCALE: Locale = {
   id: DEFAULT_LOCALE_ID,
@@ -99,6 +102,19 @@ export const useLocaleStore = create<LocaleState>((set, get) => ({
   },
 
   removeRobot: (localeId, robotId) => {
+    // Centralized audio cleanup: release reserved voice and unregister any
+    // registered melody for this robot before removing it from the store.
+    try {
+      AudioEngine.releaseVoice(robotId);
+    } catch (err) {
+      if (DEV_TUNING) swallow(err, 'AudioEngine.releaseVoice');
+    }
+    try {
+      AudioEngine.unregisterRobotMelody(robotId);
+    } catch (err) {
+      if (DEV_TUNING) swallow(err, 'AudioEngine.unregisterRobotMelody');
+    }
+
     set((state) => {
       const existing = state.locales[localeId];
       if (!existing) return state;

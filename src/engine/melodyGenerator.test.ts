@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { applyRhythmicVariance, applyTonalVariance, pickRandomIndices } from './melodyGenerator';
+import {
+  applyRhythmicVariance,
+  applyTonalVariance,
+  pickRandomIndices,
+  buildMotifOnsets,
+  gridUnitsToDuration,
+  generateMelodyForRobot,
+  DEFAULT_SUBDIVISIONS,
+} from './melodyGenerator';
 import type { RobotMelodyEvent } from './melodyGenerator';
 
 // ========================================
@@ -585,5 +593,229 @@ describe('applyTonalVariance', () => {
       // Only shifted events should have diff of ±1, unshifted should be 0
       expect([0, -1, 1]).toContain(diff);
     });
+  });
+});
+
+// ========================================
+// TEST SUITE: buildMotifOnsets
+// ========================================
+
+describe('buildMotifOnsets', () => {
+  const fixedRand = () => 0.5;
+
+  it('returns sorted unique onset positions in [0, subdivisions)', () => {
+    const onsets = buildMotifOnsets(8, 8, DEFAULT_SUBDIVISIONS, fixedRand);
+    expect(onsets.length).toBeGreaterThan(0);
+    expect(new Set(onsets).size).toBe(onsets.length); // unique
+    onsets.forEach((o) => {
+      expect(o).toBeGreaterThanOrEqual(0);
+      expect(o).toBeLessThan(DEFAULT_SUBDIVISIONS);
+    });
+    // sorted ascending
+    for (let i = 1; i < onsets.length; i++) {
+      expect(onsets[i]).toBeGreaterThan(onsets[i - 1]);
+    }
+  });
+
+  it('short motifLength (<=subdivisions/2) produces repeating pattern across the measure', () => {
+    // motifLength=4, subdivisions=16 → 4 repeats of the same base motif
+    // With a fixed RNG the base motif should tile: offsets 0, 4, 8, 12
+    const onsets = buildMotifOnsets(4, 4, 16, fixedRand);
+    // With 4 repeats and density 4: K=1 onset per motif, R=0 → exactly 4 onsets
+    expect(onsets).toHaveLength(4);
+    // Each onset should be in a different repeat window
+    const windows = onsets.map((o) => Math.floor(o / 4));
+    expect(new Set(windows).size).toBe(4); // one per window
+  });
+
+  it('motifLength === subdivisions falls back to non-repeating unique positions', () => {
+    const density = 8;
+    const onsets = buildMotifOnsets(density, DEFAULT_SUBDIVISIONS, DEFAULT_SUBDIVISIONS, fixedRand);
+    expect(onsets).toHaveLength(density);
+    expect(new Set(onsets).size).toBe(density);
+  });
+
+  it('motifLength > subdivisions is clamped to subdivisions (non-repeating)', () => {
+    const density = 4;
+    const onsets = buildMotifOnsets(density, 999, DEFAULT_SUBDIVISIONS, fixedRand);
+    expect(onsets).toHaveLength(density);
+    onsets.forEach((o) => expect(o).toBeLessThan(DEFAULT_SUBDIVISIONS));
+  });
+
+  it('density is capped at subdivisions (never more onsets than grid cells)', () => {
+    const onsets = buildMotifOnsets(99, 8, DEFAULT_SUBDIVISIONS, fixedRand);
+    expect(onsets.length).toBeLessThanOrEqual(DEFAULT_SUBDIVISIONS);
+    expect(new Set(onsets).size).toBe(onsets.length);
+  });
+
+  it('deterministic with the same RNG', () => {
+    // Build with a stateless fixed-value rand — same inputs → same output
+    const a = buildMotifOnsets(6, 4, 16, () => 0.3);
+    const b = buildMotifOnsets(6, 4, 16, () => 0.3);
+    expect(a).toEqual(b);
+  });
+
+  it('distributes remainder onsets to first R repeat copies', () => {
+    // density=5, motifLength=8, subdivisions=16 → repeats=2, K=2, R=1
+    // First repeat should have 3 onsets, second repeat should have 2
+    const onsets = buildMotifOnsets(5, 8, 16, fixedRand);
+    expect(onsets).toHaveLength(5);
+    const inFirstHalf = onsets.filter((o) => o < 8).length;
+    const inSecondHalf = onsets.filter((o) => o >= 8).length;
+    expect(inFirstHalf).toBe(3);
+    expect(inSecondHalf).toBe(2);
+  });
+});
+
+// ========================================
+// TEST SUITE: gridUnitsToDuration
+// ========================================
+
+describe('gridUnitsToDuration', () => {
+  it('1 unit → 16n', () => expect(gridUnitsToDuration(1)).toBe('16n'));
+  it('0 units → 16n', () => expect(gridUnitsToDuration(0)).toBe('16n'));
+  it('2 units → 8n',  () => expect(gridUnitsToDuration(2)).toBe('8n'));
+  it('3 units → 8n',  () => expect(gridUnitsToDuration(3)).toBe('8n'));
+  it('4 units → 4n',  () => expect(gridUnitsToDuration(4)).toBe('4n'));
+  it('6 units → 4n',  () => expect(gridUnitsToDuration(6)).toBe('4n'));
+  it('7 units → 2n',  () => expect(gridUnitsToDuration(7)).toBe('2n'));
+  it('16 units → 2n', () => expect(gridUnitsToDuration(16)).toBe('2n'));
+});
+
+// ========================================
+// TEST SUITE: generateMelodyForRobot (new-style opts)
+// ========================================
+
+describe('generateMelodyForRobot — GenerateMelodyForRobotOptions', () => {
+  it('returns the requested number of events', () => {
+    const melody = generateMelodyForRobot({ eventCount: 4, octaveMin: 3, octaveMax: 5, seed: 1 });
+    // density defaults to eventCount when rhythmicDensity is omitted
+    expect(melody.length).toBe(4);
+  });
+
+  it('all noteIndex values are in [0, 7]', () => {
+    const melody = generateMelodyForRobot({ eventCount: 12, octaveMin: 2, octaveMax: 6, seed: 42 });
+    melody.forEach((e) => {
+      expect(e.noteIndex).toBeGreaterThanOrEqual(0);
+      expect(e.noteIndex).toBeLessThanOrEqual(7);
+    });
+  });
+
+  it('all octave values are within [octaveMin, octaveMax]', () => {
+    const melody = generateMelodyForRobot({ eventCount: 8, octaveMin: 3, octaveMax: 5, seed: 7 });
+    melody.forEach((e) => {
+      expect(e.octave).toBeGreaterThanOrEqual(3);
+      expect(e.octave).toBeLessThanOrEqual(5);
+    });
+  });
+
+  it('octaveMin === octaveMax pins all events to that octave', () => {
+    const melody = generateMelodyForRobot({ eventCount: 6, octaveMin: 4, octaveMax: 4, seed: 99 });
+    melody.forEach((e) => expect(e.octave).toBe(4));
+  });
+
+  it('swapped octaveMin/octaveMax is normalised (no events out of range)', () => {
+    const melody = generateMelodyForRobot({ eventCount: 6, octaveMin: 5, octaveMax: 3, seed: 5 });
+    melody.forEach((e) => {
+      expect(e.octave).toBeGreaterThanOrEqual(3);
+      expect(e.octave).toBeLessThanOrEqual(5);
+    });
+  });
+
+  it('all startStep values are in [1, 16]', () => {
+    const melody = generateMelodyForRobot({ eventCount: 8, octaveMin: 3, octaveMax: 4, seed: 10 });
+    melody.forEach((e) => {
+      expect(e.startStep).toBeGreaterThanOrEqual(1);
+      expect(e.startStep).toBeLessThanOrEqual(16);
+    });
+  });
+
+  it('eventCount=4 with seed produces roughly quarter-note spacing', () => {
+    // 4 onsets across 16 subdivisions ≈ one per 4 grid units (quarter-note)
+    const melody = generateMelodyForRobot({
+      eventCount: 4,
+      rhythmicDensity: 4,
+      octaveMin: 3,
+      octaveMax: 4,
+      seed: 1,
+    });
+    expect(melody).toHaveLength(4);
+    // Average gap between consecutive startSteps should be ≥ 3 (grid units)
+    const steps = melody.map((e) => e.startStep).sort((a, b) => a - b);
+    const gaps = steps.slice(1).map((s, i) => s - steps[i]);
+    const avgGap = gaps.reduce((s, g) => s + g, 0) / gaps.length;
+    expect(avgGap).toBeGreaterThanOrEqual(3);
+  });
+
+  it('eventCount=8 with seed produces roughly eighth-note spacing', () => {
+    // 8 onsets across 16 subdivisions ≈ one per 2 grid units (eighth-note)
+    const melody = generateMelodyForRobot({
+      eventCount: 8,
+      rhythmicDensity: 8,
+      octaveMin: 3,
+      octaveMax: 4,
+      seed: 2,
+    });
+    expect(melody).toHaveLength(8);
+    // Steps should be reasonably spread — max gap < half the measure
+    const steps = melody.map((e) => e.startStep).sort((a, b) => a - b);
+    const gaps = steps.slice(1).map((s, i) => s - steps[i]);
+    const maxGap = Math.max(...gaps);
+    expect(maxGap).toBeLessThanOrEqual(8); // no gap larger than half-measure
+  });
+
+  it('short rhythmicMotifLength produces repeating onset pattern', () => {
+    // motifLength=4, subdivisions=16 → repeats=4; pattern tiles every 4 steps
+    const melody = generateMelodyForRobot({
+      eventCount: 4,
+      rhythmicDensity: 4,
+      rhythmicMotifLength: 4,
+      octaveMin: 3,
+      octaveMax: 4,
+      seed: 3,
+    });
+    expect(melody).toHaveLength(4);
+    // Each of the 4 repeat windows (0-3, 4-7, 8-11, 12-15) should contain exactly 1 onset
+    const steps = melody.map((e) => e.startStep - 1); // 0-indexed
+    const windowCounts = [0, 1, 2, 3].map(
+      (w) => steps.filter((s) => s >= w * 4 && s < (w + 1) * 4).length
+    );
+    windowCounts.forEach((count) => expect(count).toBe(1));
+  });
+
+  it('rhythmicMotifLength === subdivisions produces non-repeating output', () => {
+    const melody = generateMelodyForRobot({
+      eventCount: 6,
+      rhythmicDensity: 6,
+      rhythmicMotifLength: 16,
+      octaveMin: 3,
+      octaveMax: 4,
+      seed: 4,
+    });
+    expect(melody).toHaveLength(6);
+    // All startSteps should be unique
+    const steps = melody.map((e) => e.startStep);
+    expect(new Set(steps).size).toBe(6);
+  });
+
+  it('is deterministic with the same seed', () => {
+    const opts = { eventCount: 6, octaveMin: 3, octaveMax: 5, seed: 77 };
+    const a = generateMelodyForRobot(opts);
+    const b = generateMelodyForRobot(opts);
+    expect(a.map((e) => e.startStep)).toEqual(b.map((e) => e.startStep));
+    expect(a.map((e) => e.noteIndex)).toEqual(b.map((e) => e.noteIndex));
+    expect(a.map((e) => e.octave)).toEqual(b.map((e) => e.octave));
+  });
+
+  it('each event has a valid length (16n | 8n | 4n | 2n)', () => {
+    const melody = generateMelodyForRobot({ eventCount: 8, octaveMin: 3, octaveMax: 4, seed: 6 });
+    const valid = new Set(['16n', '8n', '4n', '2n']);
+    melody.forEach((e) => expect(valid.has(e.length)).toBe(true));
+  });
+
+  it('each event has a unique id', () => {
+    const melody = generateMelodyForRobot({ eventCount: 8, octaveMin: 3, octaveMax: 4, seed: 8 });
+    const ids = melody.map((e) => e.id);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 });
