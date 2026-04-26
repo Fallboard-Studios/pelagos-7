@@ -67,7 +67,33 @@ export const useLocaleStore = create<LocaleState>((set, get) => ({
     set((state) => {
       const existing = state.locales[localeId];
       if (!existing) return state;
-      const nextRobots = (existing.robots || []).map((r) => (r.id === robotId ? { ...r, ...updates } : r));
+
+      // Validate and clamp well-known numeric robot fields at store entry point.
+      const normalized = { ...updates } as any;
+      if (typeof normalized.rhythmicDensity === 'number') {
+        // valid range: 4..12
+        normalized.rhythmicDensity = Math.max(4, Math.min(12, Math.trunc(normalized.rhythmicDensity)));
+      }
+      if (typeof normalized.rhythmicMotifLength === 'number') {
+        // valid range: 1..16
+        normalized.rhythmicMotifLength = Math.max(1, Math.min(16, Math.trunc(normalized.rhythmicMotifLength)));
+      }
+      if (Array.isArray(normalized.octaveRange) && normalized.octaveRange.length === 2) {
+        let [minO, maxO] = normalized.octaveRange.map((v: any) => Number(v));
+        if (!Number.isFinite(minO) || !Number.isFinite(maxO)) {
+          // ignore invalid octaveRange
+          delete normalized.octaveRange;
+        } else {
+          minO = Math.max(1, Math.min(7, Math.trunc(minO)));
+          maxO = Math.max(1, Math.min(7, Math.trunc(maxO)));
+          if (maxO < minO) {
+            const tmp = minO; minO = maxO; maxO = tmp;
+          }
+          normalized.octaveRange = [minO, maxO];
+        }
+      }
+
+      const nextRobots = (existing.robots || []).map((r) => (r.id === robotId ? { ...r, ...normalized } : r));
       return { locales: { ...state.locales, [localeId]: { ...existing, robots: nextRobots } } };
     });
   },
