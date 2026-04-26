@@ -14,7 +14,7 @@ Pelagos-7's audio system is built on **Tone.js** and follows a strict singleton 
 
 - **Initialization (user gesture):** Always call `await Tone.start()` only from an explicit user gesture (for example, a Play button). Do not call `Tone.start()` during component mount, in `useEffect` without a gesture, or automatically at app boot.
 
-- **Transport is authoritative:** Use `Tone.Transport` as the single source of musical time. Schedule musical events with `Transport.schedule`, `Transport.scheduleRepeat`, or `AudioEngine` helpers. Avoid `setTimeout`/`setInterval`/`requestAnimationFrame` for music-aligned scheduling.
+- **Transport is authoritative:** Use `Tone.Transport` as the single source of musical time. Schedule musical events with `Transport.schedule`, `Transport.scheduleRepeat`, or `AudioEngine` helpers. Avoid `setTimeout`/`setInterval`/`requestAnimationFrame`/`queueMicrotask` for music-aligned scheduling.
 
 - **Use the scheduled `time` argument:** Inside `Transport.schedule`/`scheduleRepeat` callbacks prefer the `time` parameter passed by Tone for accurate scheduling; do not rely on reading `Transport.seconds` inside those callbacks.
 
@@ -143,7 +143,7 @@ export const AudioEngine = {
 - 1 measure = 4 beats (4/4 time signature)
 - 96 measures = 1 full day/night cycle
 
-**Never use `setTimeout`, `setInterval`, or `requestAnimationFrame` for musical timing.**
+**Never use `setTimeout`, `setInterval`, `requestAnimationFrame`, or `queueMicrotask` for musical timing.**
 
 **For complete BeatClock implementation details, see [BEAT_CLOCK.md](BEAT_CLOCK.md).**
 
@@ -155,7 +155,7 @@ The Harmony System provides dynamic 8-note palettes that change every 4 measures
 - Robots store note **indices (0-7)**, not pitch strings
 - 24-hour cycle with unique palette per hour
 - Melody remains immutable; only palette changes
-- All updates via BeatClock/Transport (no setTimeout/setInterval)
+- All updates via BeatClock/Transport (no setTimeout/setInterval/queueMicrotask)
 
 **For complete Harmony System implementation details, see [HARMONY_SYSTEM.md](HARMONY_SYSTEM.md).**
 
@@ -452,7 +452,7 @@ Before committing audio code:
 
 - [ ] No `new Tone.` outside `src/engine/`
 - [ ] No `import * as Tone` outside `src/engine/`
-- [ ] No `setTimeout`/`setInterval` for audio timing
+- [ ] No `setTimeout`/`setInterval`/`queueMicrotask` for audio timing
 - [ ] No synths/timelines in Zustand state
 - [ ] No audio scheduling in GSAP timelines
 - [ ] All timing uses BeatClock/Transport
@@ -525,7 +525,7 @@ const handlePlay = async () => {
 
 **Symptom:** Notes play at wrong times, drift from visual animation.
 
-**Cause:** Using `setTimeout` or `Date.now()` instead of Transport timing.
+**Cause:** Using `setTimeout`, `queueMicrotask` or `Date.now()` instead of Transport timing.
 
 **Fix:** Always use `Tone.Transport.schedule()` with lookahead:
 ```typescript
@@ -552,7 +552,7 @@ function triggerWithCap(synth, note, duration, time) {
   if (activeVoices >= MAX_POLYPHONY) return;  // Skip note
   activeVoices++;
   synth.triggerAttackRelease(note, duration, time);
-  // Schedule voice release on Transport for sample-accurate timing (avoid setTimeout)
+  // Schedule voice release on Transport for sample-accurate timing (avoid setTimeout/queueMicrotask)
   const durSec = Tone.Time(duration).toSeconds();
   const noteStart = time ?? AudioEngine.now();
   const releaseAt = noteStart + durSec + 0.04; // small buffer

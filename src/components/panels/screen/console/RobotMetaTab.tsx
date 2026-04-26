@@ -123,29 +123,29 @@ export default function RobotMetaTab() {
     // Apply updates to the selected robot
     useLocaleStore.getState().updateRobot(localeId, robot.id, updates as Partial<Robot>);
 
-    // Update AudioEngine to reflect the new attributes immediately
-    queueMicrotask(() => {
-      try {
-        AudioEngine.unregisterRobotMelody(robot.id);
-        if (updates.melody && updates.melody.length > 0) {
-          AudioEngine.registerRobotMelody(robot.id, updates.melody);
-        }
-      } catch (err) {
-        console.warn('[RobotMetaTab] AudioEngine melody update error', err);
+    // Update AudioEngine to reflect the new attributes immediately.
+    // Zustand is synchronous so updateRobot has already committed; AudioEngine calls
+    // are main-thread safe and require no deferral.
+    try {
+      AudioEngine.unregisterRobotMelody(robot.id);
+      if (updates.melody && updates.melody.length > 0) {
+        AudioEngine.registerRobotMelody(robot.id, updates.melody);
       }
+    } catch (err) {
+      console.warn('[RobotMetaTab] AudioEngine melody update error', err);
+    }
 
-      try {
-        AudioEngine.releaseVoice(robot.id);
-        const synthType = (updates.audioAttributes && updates.audioAttributes.synthType) ?? robot.audioAttributes?.synthType ?? 'default';
-        const waveform = (updates.audioAttributes && updates.audioAttributes.waveform) ?? robot.audioAttributes?.waveform;
-        const adsr = (updates.audioAttributes && updates.audioAttributes.adsr) ?? robot.audioAttributes?.adsr;
-        const phase = (updates.audioAttributes && updates.audioAttributes.phase) ?? robot.audioAttributes?.phase;
-        const detune = (updates.audioAttributes && updates.audioAttributes.detune) ?? robot.audioAttributes?.detune;
-        AudioEngine.reserveVoice(robot.id, synthType, waveform, adsr, phase, detune);
-      } catch (err) {
-        console.warn('[RobotMetaTab] AudioEngine voice re-reservation error', err);
-      }
-    });
+    try {
+      AudioEngine.releaseVoice(robot.id);
+      const synthType = (updates.audioAttributes && updates.audioAttributes.synthType) ?? robot.audioAttributes?.synthType ?? 'default';
+      const waveform = (updates.audioAttributes && updates.audioAttributes.waveform) ?? robot.audioAttributes?.waveform;
+      const adsr = (updates.audioAttributes && updates.audioAttributes.adsr) ?? robot.audioAttributes?.adsr;
+      const phase = (updates.audioAttributes && updates.audioAttributes.phase) ?? robot.audioAttributes?.phase;
+      const detune = (updates.audioAttributes && updates.audioAttributes.detune) ?? robot.audioAttributes?.detune;
+      AudioEngine.reserveVoice(robot.id, synthType, waveform, adsr, phase, detune);
+    } catch (err) {
+      console.warn('[RobotMetaTab] AudioEngine voice re-reservation error', err);
+    }
 
     // Clear selection so user must re-select for further copies
     setCopyTarget(null);
@@ -155,29 +155,27 @@ export default function RobotMetaTab() {
     if (!robot || !localeId || !lastBackup) return;
     useLocaleStore.getState().updateRobot(localeId, robot.id, lastBackup as Partial<Robot>);
 
-    queueMicrotask(() => {
-      try {
-        AudioEngine.unregisterRobotMelody(robot.id);
-        if (lastBackup.melody && lastBackup.melody.length > 0) {
-          AudioEngine.registerRobotMelody(robot.id, lastBackup.melody);
-        }
-      } catch (err) {
-        console.warn('[RobotMetaTab] AudioEngine melody undo error', err);
+    try {
+      AudioEngine.unregisterRobotMelody(robot.id);
+      if (lastBackup.melody && lastBackup.melody.length > 0) {
+        AudioEngine.registerRobotMelody(robot.id, lastBackup.melody);
       }
+    } catch (err) {
+      console.warn('[RobotMetaTab] AudioEngine melody undo error', err);
+    }
 
-      try {
-        AudioEngine.releaseVoice(robot.id);
-        const audioAttr = lastBackup.audioAttributes ?? robot.audioAttributes;
-        const synthType = audioAttr?.synthType ?? 'default';
-        const waveform = audioAttr?.waveform;
-        const adsr = audioAttr?.adsr;
-        const phase = audioAttr?.phase;
-        const detune = audioAttr?.detune;
-        AudioEngine.reserveVoice(robot.id, synthType, waveform, adsr, phase, detune);
-      } catch (err) {
-        console.warn('[RobotMetaTab] AudioEngine voice re-reservation undo error', err);
-      }
-    });
+    try {
+      AudioEngine.releaseVoice(robot.id);
+      const audioAttr = lastBackup.audioAttributes ?? robot.audioAttributes;
+      const synthType = audioAttr?.synthType ?? 'default';
+      const waveform = audioAttr?.waveform;
+      const adsr = audioAttr?.adsr;
+      const phase = audioAttr?.phase;
+      const detune = audioAttr?.detune;
+      AudioEngine.reserveVoice(robot.id, synthType, waveform, adsr, phase, detune);
+    } catch (err) {
+      console.warn('[RobotMetaTab] AudioEngine voice re-reservation undo error', err);
+    }
 
     setLastBackup(null);
   };

@@ -740,22 +740,22 @@ function startMelodyPlayback(): void {
     // ========================================
     // LOOP COMPLETION: Apply rhythmic variance
     // ========================================
-    // At loop boundary (16-step loop completed), defer the O(robots × registry) variance
-    // work via queueMicrotask so the Transport tick completes before we mutate state.
+    // At loop boundary (16-step loop completed), apply O(robots × registry) variance
+    // synchronously — Tone.js transport callbacks run on the main thread, so Zustand
+    // reads/writes and stepRegistry mutations are safe here without any deferral.
     if (stepCounter % 16 === 0) {
       if (DEV_TUNING) {
         console.log(`[AudioEngine] Loop boundary reached at step ${stepCounter}`);
       }
-      queueMicrotask(() => {
-        try {
-          const store = useLocaleStore.getState();
-          const robots = store.locales[getActiveLocaleId()]?.robots ?? [];
-          const robotCount = robots.length;
-          if (DEV_TUNING) {
-            console.log(`[AudioEngine] Checking variance for ${robotCount} robots`);
-          }
+      try {
+        const store = useLocaleStore.getState();
+        const robots = store.locales[getActiveLocaleId()]?.robots ?? [];
+        const robotCount = robots.length;
+        if (DEV_TUNING) {
+          console.log(`[AudioEngine] Checking variance for ${robotCount} robots`);
+        }
 
-          robots.forEach((robot) => {
+        robots.forEach((robot) => {
             // Store original data to detect changes
             const originalMelody = robot.melody;
             const originalSteps = originalMelody.map((e) => e.startStep);
@@ -789,7 +789,6 @@ function startMelodyPlayback(): void {
         } catch (err) {
           console.warn('[AudioEngine] Failed to apply rhythmic variance:', err);
         }
-      });
     }
   }, '8n');
 

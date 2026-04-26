@@ -72,7 +72,7 @@ This is the master document that GitHub Copilot reads automatically. It should c
 - All audio = AudioEngine (singleton)
 - All animation = GSAP (timelines in timelineMap, NOT state)
 - All state = Zustand (serializable only)
-- All timing = BeatClock/Transport (NO setTimeout/setInterval/rAF)
+- All timing = BeatClock/Transport (NO setTimeout/setInterval/rAF/queueMicrotask)
 - NO synths in React components
 - NO GSAP timelines in state
 - NO main loop
@@ -193,7 +193,7 @@ After completing Section 1.1, verify that your `.github/copilot-instructions.md`
 #### Architecture Compliance
 - [x] No Tone.js outside engine/ in examples
 - [x] No timelines in state examples
-- [x] No setTimeout/setInterval in timing examples
+- [x] No setTimeout/setInterval/queueMicrotask in timing examples
 - [x] All scheduling uses BeatClock/Transport
 - [x] GSAP timeline examples show timelineMap usage
 

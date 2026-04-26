@@ -177,7 +177,7 @@ See [M9-issues.md](poc_guides/M9-issues.md)
 ## Development Principles
 
 1. **Serializable state only** — Zustand stores JSON-compatible data; GSAP timelines live in `timelineMap`
-2. **One clock** — all timing routes through `Tone.Transport`; no `setTimeout` / `setInterval`
+2. **One clock** — all timing routes through `Tone.Transport`; no `setTimeout` / `setInterval` / `queueMicrotask`
 3. **One audio owner** — only `AudioEngine` touches Tone.js
 4. **Test utilities, skip visuals** — Vitest for engine logic and store actions; skip GSAP/Tone integration tests
 4. **AI-Assisted** - Use Copilot for implementation, Claude for planning

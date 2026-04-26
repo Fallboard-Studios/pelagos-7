@@ -50,7 +50,7 @@ describe('RobotAudioTab', () => {
     useLocaleStore.getState().setLocaleData(localeId, { robots: [] } as unknown as Partial<Locale>);
   });
 
-  it('updates the store when density changes and triggers regeneration', async () => {
+  it('updates the store when density changes and triggers regeneration', () => {
     const robot = makeRobot('robot-density');
     useLocaleStore.getState().addRobot(localeId, robot as unknown as Robot);
     // mark as selected so component's commitUpdate runs
@@ -73,14 +73,12 @@ describe('RobotAudioTab', () => {
 
     expect(updateSpy).toHaveBeenCalledWith(localeId, robot.id, { rhythmicDensity: 9 });
 
-    // Allow microtasks queued via queueMicrotask to run
-    await new Promise((r) => setTimeout(r, 0));
-
+    // scheduleRegenerate is now synchronous — no flush needed
     expect(genSpy).toHaveBeenCalled();
     expect(regSpy).toHaveBeenCalledWith(robot.id, sampleMelody as unknown as RobotMelodyEvent[]);
   });
 
-  it('updates the store when motif length changes and triggers regeneration', async () => {
+  it('updates the store when motif length changes and triggers regeneration', () => {
     const robot = makeRobot('robot-motif');
     useLocaleStore.getState().addRobot(localeId, robot as unknown as Robot);
     // mark as selected so component's commitUpdate runs
@@ -102,8 +100,7 @@ describe('RobotAudioTab', () => {
 
     expect(updateSpy).toHaveBeenCalledWith(localeId, robot.id, { rhythmicMotifLength: 12 });
 
-    await new Promise((r) => setTimeout(r, 0));
-
+    // scheduleRegenerate is now synchronous — no flush needed
     expect(genSpy).toHaveBeenCalled();
     expect(regSpy).toHaveBeenCalledWith(robot.id, sampleMelody as unknown as RobotMelodyEvent[]);
   });

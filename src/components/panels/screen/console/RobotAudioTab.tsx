@@ -18,20 +18,20 @@ export default function RobotAudioTab({ robot }: { robot: Robot }) {
   };
 
   const scheduleRegenerate = (robotId: string) => {
-    queueMicrotask(() => {
-      try {
-        const state = useLocaleStore.getState();
-        const current = state.getRobotById(localeId, robotId);
-        if (!current) return;
-        const events = current.rhythmicDensity ?? 8;
-        const octaveRange = current.octaveRange ?? [3, 4];
-        const melody = generateMelodyForRobot({ events, octaveRange });
-        AudioEngine.unregisterRobotMelody(current.id);
-        AudioEngine.registerRobotMelody(current.id, melody as never);
-      } catch (err) {
-        console.warn('[RobotAudioTab] regenerate error', err);
-      }
-    });
+    // Zustand is synchronous — updateRobot has already committed before this runs.
+    // AudioEngine methods are main-thread safe; no deferral needed.
+    try {
+      const state = useLocaleStore.getState();
+      const current = state.getRobotById(localeId, robotId);
+      if (!current) return;
+      const events = current.rhythmicDensity ?? 8;
+      const octaveRange = current.octaveRange ?? [3, 4];
+      const melody = generateMelodyForRobot({ events, octaveRange });
+      AudioEngine.unregisterRobotMelody(current.id);
+      AudioEngine.registerRobotMelody(current.id, melody as never);
+    } catch (err) {
+      console.warn('[RobotAudioTab] regenerate error', err);
+    }
   };
 
   // Handlers

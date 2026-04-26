@@ -232,7 +232,7 @@ import './debug/testHarmony';
 - [ ] Palette updates every 4 measures
 - [ ] Hour derived from measures (not stored)
 - [ ] Console logs show palette changes
-- [ ] No setTimeout/setInterval used
+- [ ] No setTimeout/setInterval/queueMicrotask used
 
 ### 1.5 Commit, Push, PR
 

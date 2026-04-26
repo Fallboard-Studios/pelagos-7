@@ -398,10 +398,10 @@ try {
 }
 ```
 
-**❌ DON'T: Use setTimeout for voice release**
+**❌ DON'T: Use setTimeout or queueMicrotask for voice release**
 
 ```typescript
-// BAD: setTimeout not aligned with musical timing
+// BAD: setTimeout or queueMicrotask not aligned with musical timing
 setTimeout(() => {
   activeVoices--;
 }, durationMs);
