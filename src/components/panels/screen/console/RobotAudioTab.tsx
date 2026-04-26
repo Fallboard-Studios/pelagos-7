@@ -1,6 +1,11 @@
-import { } from 'react';
+// ========================================
+// IMPORTS
+// ========================================
+import * as ToggleGroup from '@radix-ui/react-toggle-group';
+import * as Slider from '@radix-ui/react-slider';
+import * as AlertDialog from '@radix-ui/react-alert-dialog';
+
 import { getActiveLocaleId } from '@/utils/localeHelpers';
-import { useUIStore } from '@/stores/uiStore';
 import { useLocaleStore } from '@/stores/localeStore';
 import { AudioEngine } from '@/engine/AudioEngine';
 import { generateMelodyForRobot } from '@/engine/melodyGenerator';
@@ -8,134 +13,216 @@ import type { Robot } from '@/types/Robot';
 
 import './RobotAudioTab.css';
 
-export default function RobotAudioTab({ robot }: { robot: Robot }) {
+// ========================================
+// TYPES
+// ========================================
+type AudioMode = 'none' | 'solo' | 'mute' | 'highlight';
+
+// ========================================
+// CONSTANTS
+// ========================================
+const DENSITY_MIN = 4;
+const DENSITY_MAX = 12;
+const MOTIF_MIN = 1;
+const MOTIF_MAX = 16;
+const OCTAVE_MIN = 1;
+const OCTAVE_MAX = 7;
+
+const AUDIO_MODES: AudioMode[] = ['none', 'solo', 'mute', 'highlight'];
+
+// ========================================
+// HELPERS
+// ========================================
+
+/**
+ * Regenerate a robot's melody from its current attributes and register it with AudioEngine.
+ * Runs synchronously — Tone.js transport callbacks are main-thread, Zustand is synchronous,
+ * and AudioEngine methods are safe to call without any deferral.
+ */
+function regenerateMelody(robot: Robot, localeId: string): void {
+  const newMelody = generateMelodyForRobot({
+    events: robot.rhythmicDensity ?? 6,
+    octaveRange: robot.octaveRange,
+  });
+  useLocaleStore.getState().updateRobot(localeId, robot.id, { melody: newMelody });
+  AudioEngine.registerRobotMelody(robot.id, newMelody);
+}
+
+// ========================================
+// COMPONENT
+// ========================================
+
+interface RobotAudioTabProps {
+  robot: Robot;
+}
+
+export function RobotAudioTab({ robot }: RobotAudioTabProps) {
   const localeId = getActiveLocaleId();
-  const selectedRobotId = useUIStore((s) => s.selectedRobotId);
 
-  const commitUpdate = (updates: Partial<Robot>) => {
-    if (!localeId || !selectedRobotId) return;
-    useLocaleStore.getState().updateRobot(localeId, robot.id, updates);
+  if (!localeId) {
+    return <div className="rat-empty">No active locale.</div>;
+  }
+
+  const audioMode = (robot.audioMode ?? 'none') as AudioMode;
+  const rhythmicDensity = robot.rhythmicDensity ?? 6;
+  const rhythmicMotifLength = robot.rhythmicMotifLength ?? 8;
+  const [octMin, octMax] = robot.octaveRange;
+
+  const handleAudioModeChange = (value: string) => {
+    useLocaleStore.getState().updateRobot(localeId, robot.id, { audioMode: value as AudioMode });
   };
 
-  const scheduleRegenerate = (robotId: string) => {
-    // Zustand is synchronous — updateRobot has already committed before this runs.
-    // AudioEngine methods are main-thread safe; no deferral needed.
-    try {
-      const state = useLocaleStore.getState();
-      const current = state.getRobotById(localeId, robotId);
-      if (!current) return;
-      const events = current.rhythmicDensity ?? 8;
-      const octaveRange = current.octaveRange ?? [3, 4];
-      const melody = generateMelodyForRobot({ events, octaveRange });
-      AudioEngine.unregisterRobotMelody(current.id);
-      AudioEngine.registerRobotMelody(current.id, melody as never);
-    } catch (err) {
-      console.warn('[RobotAudioTab] regenerate error', err);
-    }
+  const handleDensityChange = (values: number[]) => {
+    const density = values[0];
+    useLocaleStore.getState().updateRobot(localeId, robot.id, { rhythmicDensity: density });
+    regenerateMelody({ ...robot, rhythmicDensity: density }, localeId);
   };
 
-  // Handlers
-  const onDensityChange = (v: number) => {
-    commitUpdate({ rhythmicDensity: v });
-    scheduleRegenerate(robot.id);
+  const handleMotifLengthChange = (values: number[]) => {
+    const length = values[0];
+    useLocaleStore.getState().updateRobot(localeId, robot.id, { rhythmicMotifLength: length });
+    regenerateMelody({ ...robot, rhythmicMotifLength: length }, localeId);
   };
 
-  const onMotifLengthChange = (v: number) => {
-    commitUpdate({ rhythmicMotifLength: v });
-    scheduleRegenerate(robot.id);
+  const handleOctaveRangeChange = (values: number[]) => {
+    const newRange: [number, number] = [values[0], values[1]];
+    useLocaleStore.getState().updateRobot(localeId, robot.id, { octaveRange: newRange });
   };
 
-  const onOctaveMinChange = (v: number) => {
-    const max = robot.octaveRange?.[1] ?? 4;
-    const min = Math.min(v, max);
-    commitUpdate({ octaveRange: [min, max] });
-  };
-
-  const onOctaveMaxChange = (v: number) => {
-    const min = robot.octaveRange?.[0] ?? 3;
-    const max = Math.max(v, min);
-    commitUpdate({ octaveRange: [min, max] });
-  };
-
-  const onAudioModeChange = (mode: string) => {
-    commitUpdate({ audioMode: mode as Robot['audioMode'] });
+  const handleConfirmNewMelody = () => {
+    regenerateMelody(robot, localeId);
   };
 
   return (
-    <div className="robot-audio-tab">
-      <div className="row">
-        <label className="label">Density</label>
-        <div className="control">
-          <input
-            aria-label="Rhythmic density"
-            className="range"
-            type="range"
-            min={4}
-            max={12}
-            value={robot.rhythmicDensity ?? 8}
-            onChange={(e) => onDensityChange(Number(e.target.value))}
-          />
-          <div className="value">{robot.rhythmicDensity ?? 8}</div>
-        </div>
-      </div>
+    <div className="rat-container">
 
-      <div className="row">
-        <label className="label">Motif Length</label>
-        <div className="control">
-          <input
-            aria-label="Motif length"
-            className="range"
-            type="range"
-            min={1}
-            max={16}
-            value={robot.rhythmicMotifLength ?? 8}
-            onChange={(e) => onMotifLengthChange(Number(e.target.value))}
-          />
-          <div className="value">{robot.rhythmicMotifLength ?? 8}</div>
-        </div>
-      </div>
-
-      <div className="row">
-        <label className="label">Octave Range</label>
-        <div className="control octave-range">
-          <input
-            aria-label="Octave min"
-            className="small-number"
-            type="number"
-            min={1}
-            max={8}
-            value={robot.octaveRange?.[0] ?? 3}
-            onChange={(e) => onOctaveMinChange(Number(e.target.value))}
-          />
-          <span className="sep">—</span>
-          <input
-            aria-label="Octave max"
-            className="small-number"
-            type="number"
-            min={1}
-            max={8}
-            value={robot.octaveRange?.[1] ?? 4}
-            onChange={(e) => onOctaveMaxChange(Number(e.target.value))}
-          />
-        </div>
-      </div>
-
-      <div className="row control-row">
-        <label className="label">Audio Mode</label>
-        <div className="control radio-group" role="radiogroup" aria-label="Audio mode">
-          {(['none', 'solo', 'mute', 'highlight'] as const).map((m) => (
-            <label key={m} className={`radio-btn ${(robot.audioMode ?? 'none') === m ? 'active' : ''}`}>
-              <input
-                type="radio"
-                name={`audio-mode-${robot.id}`}
-                checked={(robot.audioMode ?? 'none') === m}
-                onChange={() => onAudioModeChange(m)}
-              />
-              <span className="radio-label">{m}</span>
-            </label>
+      {/* ── Audio Mode ──────────────────────────── */}
+      <div className="rat-row">
+        <span className="rat-label">Audio Mode</span>
+        <ToggleGroup.Root
+          type="single"
+          className="rat-toggle-group"
+          value={audioMode}
+          onValueChange={(value) => { if (value) handleAudioModeChange(value); }}
+          aria-label="Audio mode"
+        >
+          {AUDIO_MODES.map((mode) => (
+            <ToggleGroup.Item
+              key={mode}
+              className="rat-toggle-item"
+              value={mode}
+              aria-label={mode.charAt(0).toUpperCase() + mode.slice(1)}
+            >
+              {mode.charAt(0).toUpperCase() + mode.slice(1)}
+            </ToggleGroup.Item>
           ))}
-        </div>
+        </ToggleGroup.Root>
       </div>
+
+      {/* ── Rhythmic Density ────────────────────── */}
+      <div className="rat-row rat-row--column">
+        <div className="rat-row-header">
+          <span className="rat-label">Density</span>
+          <span className="rat-value">{rhythmicDensity}</span>
+        </div>
+        <Slider.Root
+          className="rat-slider"
+          min={DENSITY_MIN}
+          max={DENSITY_MAX}
+          step={1}
+          value={[rhythmicDensity]}
+          onValueChange={handleDensityChange}
+          aria-label="Rhythmic density"
+        >
+          <Slider.Track className="rat-slider-track">
+            <Slider.Range className="rat-slider-range" />
+          </Slider.Track>
+          <Slider.Thumb className="rat-slider-thumb" aria-label="Density" />
+        </Slider.Root>
+      </div>
+
+      {/* ── Motif Length ────────────────────────── */}
+      <div className="rat-row rat-row--column">
+        <div className="rat-row-header">
+          <span className="rat-label">Motif Length</span>
+          <span className="rat-value">{rhythmicMotifLength}</span>
+        </div>
+        <Slider.Root
+          className="rat-slider"
+          min={MOTIF_MIN}
+          max={MOTIF_MAX}
+          step={1}
+          value={[rhythmicMotifLength]}
+          onValueChange={handleMotifLengthChange}
+          aria-label="Motif length"
+        >
+          <Slider.Track className="rat-slider-track">
+            <Slider.Range className="rat-slider-range" />
+          </Slider.Track>
+          <Slider.Thumb className="rat-slider-thumb" aria-label="Motif length" />
+        </Slider.Root>
+      </div>
+
+      {/* ── Octave Range ────────────────────────── */}
+      <div className="rat-row rat-row--column">
+        <div className="rat-row-header">
+          <span className="rat-label">Octave Range</span>
+          <span className="rat-value">{octMin}–{octMax}</span>
+        </div>
+        <Slider.Root
+          className="rat-slider"
+          min={OCTAVE_MIN}
+          max={OCTAVE_MAX}
+          step={1}
+          value={[octMin, octMax]}
+          minStepsBetweenThumbs={1}
+          onValueChange={handleOctaveRangeChange}
+          aria-label="Octave range"
+        >
+          <Slider.Track className="rat-slider-track">
+            <Slider.Range className="rat-slider-range" />
+          </Slider.Track>
+          <Slider.Thumb className="rat-slider-thumb" aria-label="Minimum octave" />
+          <Slider.Thumb className="rat-slider-thumb" aria-label="Maximum octave" />
+        </Slider.Root>
+      </div>
+
+      {/* ── New Melody ──────────────────────────── */}
+      <div className="rat-row">
+        <AlertDialog.Root>
+          <AlertDialog.Trigger asChild>
+            <button className="rat-btn" type="button">
+              New Melody
+            </button>
+          </AlertDialog.Trigger>
+          <AlertDialog.Portal>
+            <AlertDialog.Overlay className="rat-dialog-overlay" />
+            <AlertDialog.Content className="rat-dialog-content">
+              <AlertDialog.Title className="rat-dialog-title">
+                Regenerate melody?
+              </AlertDialog.Title>
+              <AlertDialog.Description className="rat-dialog-description">
+                The current melody will be replaced.
+              </AlertDialog.Description>
+              <div className="rat-dialog-actions">
+                <AlertDialog.Cancel asChild>
+                  <button className="rat-btn rat-btn--secondary" type="button">
+                    Cancel
+                  </button>
+                </AlertDialog.Cancel>
+                <AlertDialog.Action asChild>
+                  <button className="rat-btn" type="button" onClick={handleConfirmNewMelody}>
+                    Regenerate
+                  </button>
+                </AlertDialog.Action>
+              </div>
+            </AlertDialog.Content>
+          </AlertDialog.Portal>
+        </AlertDialog.Root>
+      </div>
+
     </div>
   );
 }
+
+export default RobotAudioTab;

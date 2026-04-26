@@ -103,6 +103,24 @@ export interface Robot {
   persists?: boolean;
   /** Optional link target for future follow/sync features. */
   linkedRobotId?: string | null;
+  /**
+   * Solo/mute/highlight mode set by the Robot Audio editor.
+   * AudioEngine applies solo/mute on next scheduled note.
+   * 'highlight' is visual-only (no audio change).
+   * Default: 'none'
+   */
+  audioMode?: 'none' | 'solo' | 'mute' | 'highlight';
+  /**
+   * Number of melody events (4–12). Maps to `events` in generateMelodyForRobot().
+   * Default: derived from initial melody length at spawn.
+   */
+  rhythmicDensity?: number;
+  /**
+   * Motif length in 16th-note subdivisions (1–16).
+   * Stored for the melody editor; passed to generator when supported.
+   * Default: 8
+   */
+  rhythmicMotifLength?: number;
   // Note: Visual appearance (shape, colors, scale, detail level) is derived
   // from audioAttributes and NOT stored in state - calculated at render time
   /**

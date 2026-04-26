@@ -364,6 +364,7 @@ export function spawnRobot(localeId: string): void {
   const melodyRand = noiseMap
     ? () => getSeededVal(noiseMap, 'melody.rand', spawnCount * 100 + melodyCallIndex++)
     : Math.random;
+
   const spawnMelody = generateMelodyForRobot({ octaveRange, rand: melodyRand });
 
   const robot: Robot = {

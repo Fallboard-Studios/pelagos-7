@@ -1,7 +1,7 @@
 import * as Tabs from '@radix-ui/react-tabs';
 
 import RobotMetaTab from './RobotMetaTab.tsx';
-import RobotAudioTab from './RobotAudioTab';
+import { RobotAudioTab } from './RobotAudioTab.tsx';
 import type { Robot } from '@/types/Robot';
 import { getActiveLocaleId } from '@/utils/localeHelpers';
 import { useUIStore } from '@/stores/uiStore';
@@ -66,8 +66,7 @@ export function RobotEditorTab() {
 }
 
 // Robot meta panel is implemented in its own file: RobotMetaTab.tsx
-
-// Robot audio panel moved to its own file: RobotAudioTab.tsx
+// Robot audio panel is implemented in its own file: RobotAudioTab.tsx
 
 function RobotOscillatorsPanel({ robot }: { robot: Robot }) {
   return (

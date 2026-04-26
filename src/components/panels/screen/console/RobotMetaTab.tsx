@@ -102,15 +102,11 @@ export default function RobotMetaTab() {
     if (target.melody) updates.melody = target.melody;
     if (target.octaveRange) updates.octaveRange = target.octaveRange;
     if (typeof target.masterVolume === 'number') updates.masterVolume = target.masterVolume;
-    // Optional fields (may not exist yet) — copy if present on the target
+    // Optional fields — copy if present on the target
+    // Generic helper is required so TypeScript can correlate key K between src and dst.
     const copyIfPresent = <K extends 'rhythmicDensity' | 'rhythmicMotifLength' | 'noteVariance' | 'audioMode'>(
-      src: Robot,
-      dst: Partial<Robot>,
-      key: K
-    ) => {
-      if (src[key] !== undefined) dst[key] = src[key];
-    };
-
+      src: Robot, dst: Partial<Robot>, k: K
+    ) => { if (src[k] !== undefined) dst[k] = src[k]; };
     const optFields = ['rhythmicDensity', 'rhythmicMotifLength', 'noteVariance', 'audioMode'] as const;
     for (const f of optFields) copyIfPresent(target, updates, f);
 
