@@ -48,3 +48,14 @@ vi.mock('gsap', () => {
   };
   return { default: mocked, ...mocked };
 });
+
+// Polyfill ResizeObserver for test environment (Radix use-size expects it).
+if ((globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver === undefined) {
+  // Minimal no-op ResizeObserver mock sufficient for tests
+  class MockResizeObserver {
+    observe(_target: Element) {}
+    unobserve(_target: Element) {}
+    disconnect() {}
+  }
+  (globalThis as unknown as { ResizeObserver?: typeof MockResizeObserver }).ResizeObserver = MockResizeObserver;
+}

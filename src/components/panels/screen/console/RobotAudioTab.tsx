@@ -125,6 +125,16 @@ export function RobotAudioTab({ robot }: RobotAudioTabProps) {
           <span className="rat-label">Density</span>
           <span className="rat-value">{rhythmicDensity}</span>
         </div>
+        {/* Accessible numeric input for testing and screen-readers; mirrors the slider value */}
+        <input
+          aria-label="Rhythmic density"
+          className="rat-sr"
+          type="number"
+          min={DENSITY_MIN}
+          max={DENSITY_MAX}
+          value={rhythmicDensity}
+          onChange={(e) => handleDensityChange([Number(e.target.value)])}
+        />
         <Slider.Root
           className="rat-slider"
           min={DENSITY_MIN}
@@ -132,7 +142,6 @@ export function RobotAudioTab({ robot }: RobotAudioTabProps) {
           step={1}
           value={[rhythmicDensity]}
           onValueChange={handleDensityChange}
-          aria-label="Rhythmic density"
         >
           <Slider.Track className="rat-slider-track">
             <Slider.Range className="rat-slider-range" />
@@ -147,6 +156,16 @@ export function RobotAudioTab({ robot }: RobotAudioTabProps) {
           <span className="rat-label">Motif Length</span>
           <span className="rat-value">{rhythmicMotifLength}</span>
         </div>
+        {/* Accessible numeric input for testing and screen-readers; mirrors the slider value */}
+        <input
+          aria-label="Motif length"
+          className="rat-sr"
+          type="number"
+          min={MOTIF_MIN}
+          max={MOTIF_MAX}
+          value={rhythmicMotifLength}
+          onChange={(e) => handleMotifLengthChange([Number(e.target.value)])}
+        />
         <Slider.Root
           className="rat-slider"
           min={MOTIF_MIN}
@@ -154,12 +173,11 @@ export function RobotAudioTab({ robot }: RobotAudioTabProps) {
           step={1}
           value={[rhythmicMotifLength]}
           onValueChange={handleMotifLengthChange}
-          aria-label="Motif length"
         >
           <Slider.Track className="rat-slider-track">
             <Slider.Range className="rat-slider-range" />
           </Slider.Track>
-          <Slider.Thumb className="rat-slider-thumb" aria-label="Motif length" />
+          <Slider.Thumb className="rat-slider-thumb" aria-label="Motif" />
         </Slider.Root>
       </div>
 
@@ -177,7 +195,6 @@ export function RobotAudioTab({ robot }: RobotAudioTabProps) {
           value={[octMin, octMax]}
           minStepsBetweenThumbs={1}
           onValueChange={handleOctaveRangeChange}
-          aria-label="Octave range"
         >
           <Slider.Track className="rat-slider-track">
             <Slider.Range className="rat-slider-range" />

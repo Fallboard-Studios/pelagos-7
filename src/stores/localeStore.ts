@@ -69,7 +69,7 @@ export const useLocaleStore = create<LocaleState>((set, get) => ({
       if (!existing) return state;
 
       // Validate and clamp well-known numeric robot fields at store entry point.
-      const normalized = { ...updates } as any;
+      const normalized = { ...updates } as Partial<import('../types/Robot').Robot>;
       if (typeof normalized.rhythmicDensity === 'number') {
         // valid range: 4..12
         normalized.rhythmicDensity = Math.max(4, Math.min(12, Math.trunc(normalized.rhythmicDensity)));
@@ -79,7 +79,7 @@ export const useLocaleStore = create<LocaleState>((set, get) => ({
         normalized.rhythmicMotifLength = Math.max(1, Math.min(16, Math.trunc(normalized.rhythmicMotifLength)));
       }
       if (Array.isArray(normalized.octaveRange) && normalized.octaveRange.length === 2) {
-        let [minO, maxO] = normalized.octaveRange.map((v: any) => Number(v));
+        let [minO, maxO] = (normalized.octaveRange as unknown[]).map((v: unknown) => Number(v));
         if (!Number.isFinite(minO) || !Number.isFinite(maxO)) {
           // ignore invalid octaveRange
           delete normalized.octaveRange;
