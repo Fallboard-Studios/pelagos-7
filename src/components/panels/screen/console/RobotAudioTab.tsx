@@ -26,6 +26,8 @@ const MOTIF_MIN = 1;
 const MOTIF_MAX = 16;
 const OCTAVE_MIN = 1;
 const OCTAVE_MAX = 7;
+const NOTE_VARIANCE_MIN = 0;
+const NOTE_VARIANCE_MAX = 8;
 
 const AUDIO_MODES: AudioMode[] = ['none', 'solo', 'mute', 'highlight'];
 
@@ -55,6 +57,7 @@ export function RobotAudioTab({ robot }: RobotAudioTabProps) {
   const rhythmicDensity = robot.rhythmicDensity ?? 6;
   const rhythmicMotifLength = robot.rhythmicMotifLength ?? 8;
   const [octMin, octMax] = robot.octaveRange;
+  const noteVariance = robot.noteVariance ?? 0;
 
   const handleAudioModeChange = (value: string) => {
     useLocaleStore.getState().updateRobot(localeId, robot.id, { audioMode: value as AudioMode });
@@ -70,6 +73,12 @@ export function RobotAudioTab({ robot }: RobotAudioTabProps) {
     const length = values[0];
     useLocaleStore.getState().updateRobot(localeId, robot.id, { rhythmicMotifLength: length });
     regenerateMelody({ ...robot, rhythmicMotifLength: length }, localeId);
+  };
+
+  const handleNoteVarianceChange = (values: number[]) => {
+    const nv = values[0];
+    useLocaleStore.getState().updateRobot(localeId, robot.id, { noteVariance: nv });
+    regenerateMelody({ ...robot, noteVariance: nv }, localeId);
   };
 
   const handleOctaveRangeChange = (values: number[]) => {
@@ -194,6 +203,35 @@ export function RobotAudioTab({ robot }: RobotAudioTabProps) {
       </div>
 
       {/* ── New Melody ──────────────────────────── */}
+      {/* ── Note Variance ───────────────────────── */}
+      <div className="rat-row rat-row--column">
+        <div className="rat-row-header">
+          <span className="rat-label">Note Variance</span>
+          <span className="rat-value">{noteVariance}</span>
+        </div>
+        <input
+          aria-label="Note variance"
+          className="rat-sr"
+          type="number"
+          min={NOTE_VARIANCE_MIN}
+          max={NOTE_VARIANCE_MAX}
+          value={noteVariance}
+          onChange={(e) => handleNoteVarianceChange([Number(e.target.value)])}
+        />
+        <Slider.Root
+          className="rat-slider"
+          min={NOTE_VARIANCE_MIN}
+          max={NOTE_VARIANCE_MAX}
+          step={1}
+          value={[noteVariance]}
+          onValueChange={handleNoteVarianceChange}
+        >
+          <Slider.Track className="rat-slider-track">
+            <Slider.Range className="rat-slider-range" />
+          </Slider.Track>
+          <Slider.Thumb className="rat-slider-thumb" aria-label="Note variance" />
+        </Slider.Root>
+      </div>
       <div className="rat-row">
         <AlertDialog.Root>
           <AlertDialog.Trigger asChild>

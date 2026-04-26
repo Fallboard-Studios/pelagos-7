@@ -20,6 +20,8 @@ export interface MelodyGeneratorOptions {
   rand?: () => number; // RNG for testing (default: Math.random)
   syncopationBias?: number; // 0-1, off-beat preference (default: 0.4)
   octaveRange?: [number, number]; // [min, max] octave band for this robot
+  /** When >0, constrains unique notes used during melody generation (0 = no constraint). */
+  noteVariance?: number;
 }
 
 /**
@@ -58,6 +60,8 @@ export interface GenerateMelodyForRobotOptions {
    * instead of Math.random — useful for reproducible tests.
    */
   seed?: number;
+  /** When >0, constrains unique notes used during melody generation (0 = no constraint). Valid range: 0..8 */
+  noteVariance?: number;
 }
 
 // ========================================
@@ -351,6 +355,19 @@ export function generateMelodyForRobot(
     let currentOctave = octMin + Math.floor(rand() * (octMax - octMin + 1));
     const melody: RobotMelodyEvent[] = [];
 
+    // Note-variance state
+    const noteVariance = Math.max(0, Math.min(8, Math.trunc(o.noteVariance ?? 0)));
+    const uniqueSet = new Set<number>();
+    let withoutReplacementPool: number[] | null = null;
+    if (noteVariance === 8) {
+      const pool = Array.from({ length: 8 }, (_, i) => i);
+      withoutReplacementPool = [];
+      while (pool.length > 0) {
+        const j = Math.floor(rand() * pool.length);
+        withoutReplacementPool.push(pool.splice(j, 1)[0]);
+      }
+    }
+
     for (let i = 0; i < onsets.length; i++) {
       // 15% chance to jump to a non-adjacent octave when range allows
       if (i > 0 && rand() < OCTAVE_JUMP_CHANCE) {
@@ -367,11 +384,45 @@ export function generateMelodyForRobot(
       const nextOnset = i < onsets.length - 1 ? onsets[i + 1] : subdivisions;
       const durationUnits = nextOnset - onsets[i];
 
+      // Pick noteIndex honoring noteVariance
+      let noteIndex: number;
+      if (noteVariance === 0) {
+        noteIndex = pickWeightedIndex(rand);
+      } else if (noteVariance === 8) {
+        if (!withoutReplacementPool || withoutReplacementPool.length === 0) {
+          const pool = Array.from({ length: 8 }, (_, i) => i);
+          withoutReplacementPool = [];
+          while (pool.length > 0) {
+            const j = Math.floor(rand() * pool.length);
+            withoutReplacementPool.push(pool.splice(j, 1)[0]);
+          }
+        }
+        noteIndex = withoutReplacementPool.shift()!;
+        uniqueSet.add(noteIndex);
+      } else {
+        if (uniqueSet.size < noteVariance) {
+          // prefer selecting notes not yet in the set (uniform among remaining)
+          const remaining = Array.from({ length: 8 }, (_, i) => i).filter((i) => !uniqueSet.has(i));
+          noteIndex = remaining[Math.floor(rand() * remaining.length)];
+          uniqueSet.add(noteIndex);
+        } else {
+          // choose among established set — weighted by NOTE_INDEX_WEIGHTS restricted to set
+          const setArray = Array.from(uniqueSet);
+          const totalW = setArray.reduce((s, idx) => s + NOTE_INDEX_WEIGHTS[idx], 0);
+          let r = rand() * totalW;
+          noteIndex = setArray[setArray.length - 1];
+          for (const idx of setArray) {
+            r -= NOTE_INDEX_WEIGHTS[idx];
+            if (r <= 0) { noteIndex = idx; break; }
+          }
+        }
+      }
+
       melody.push({
         id: crypto.randomUUID(),
         startStep: onsets[i] + 1, // 1-indexed to match existing RobotMelodyEvent convention
         length: gridUnitsToDuration(durationUnits),
-        noteIndex: pickWeightedIndex(rand),
+        noteIndex,
         octave: currentOctave,
       });
     }
@@ -382,6 +433,7 @@ export function generateMelodyForRobot(
   // ── Legacy path: syncopation-biased step-picker (unchanged) ────────────
   const legacyOpts = (opts as MelodyGeneratorOptions) ?? {};
   const rand = legacyOpts.rand ?? Math.random;
+  const legacyNoteVariance = Math.max(0, Math.min(8, Math.trunc(legacyOpts.noteVariance ?? 0)));
   const eventsCount =
     legacyOpts.events ?? MIN_EVENTS + Math.floor(rand() * (MAX_EVENTS - MIN_EVENTS + 1));
   const syncopationBias = legacyOpts.syncopationBias ?? DEFAULT_SYNCOPATION_BIAS;
@@ -391,6 +443,16 @@ export function generateMelodyForRobot(
 
   const melody: RobotMelodyEvent[] = [];
   const usedSlots = new Set<number>();
+  const legacyUniqueSet = new Set<number>();
+  let legacyPool: number[] | null = null;
+  if (legacyNoteVariance === 8) {
+    const pool = Array.from({ length: 8 }, (_, i) => i);
+    legacyPool = [];
+    while (pool.length > 0) {
+      const j = Math.floor(rand() * pool.length);
+      legacyPool.push(pool.splice(j, 1)[0]);
+    }
+  }
 
   for (let i = 0; i < eventsCount; i++) {
     // 15% chance to jump to a non-adjacent octave (requires span of at least 2)
@@ -418,11 +480,43 @@ export function generateMelodyForRobot(
     }
     usedSlots.add(startStep);
 
+    // select noteIndex honoring legacyNoteVariance
+    let noteIndex: number;
+    if (legacyNoteVariance === 0) {
+      noteIndex = pickWeightedIndex(rand);
+    } else if (legacyNoteVariance === 8) {
+      if (!legacyPool || legacyPool.length === 0) {
+        const pool = Array.from({ length: 8 }, (_, i) => i);
+        legacyPool = [];
+        while (pool.length > 0) {
+          const j = Math.floor(rand() * pool.length);
+          legacyPool.push(pool.splice(j, 1)[0]);
+        }
+      }
+      noteIndex = legacyPool.shift()!;
+      legacyUniqueSet.add(noteIndex);
+    } else {
+      if (legacyUniqueSet.size < legacyNoteVariance) {
+        const remaining = Array.from({ length: 8 }, (_, i) => i).filter((i) => !legacyUniqueSet.has(i));
+        noteIndex = remaining[Math.floor(rand() * remaining.length)];
+        legacyUniqueSet.add(noteIndex);
+      } else {
+        const setArray = Array.from(legacyUniqueSet);
+        const totalW = setArray.reduce((s, idx) => s + NOTE_INDEX_WEIGHTS[idx], 0);
+        let r = rand() * totalW;
+        noteIndex = setArray[setArray.length - 1];
+        for (const idx of setArray) {
+          r -= NOTE_INDEX_WEIGHTS[idx];
+          if (r <= 0) { noteIndex = idx; break; }
+        }
+      }
+    }
+
     melody.push({
       id: crypto.randomUUID(),
       startStep,
       length: pickLength(rand),
-      noteIndex: pickWeightedIndex(rand),
+      noteIndex,
       octave: currentOctave,
     });
   }

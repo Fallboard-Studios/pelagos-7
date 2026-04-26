@@ -34,6 +34,7 @@ export function regenerateMelody(robot: Robot, localeId: string): void {
     octaveMax: octMax,
     rhythmicDensity: robot.rhythmicDensity ?? 6,
     rhythmicMotifLength: robot.rhythmicMotifLength ?? 8,
+    noteVariance: robot.noteVariance ?? 0,
   });
 
   useLocaleStore.getState().updateRobot(localeId, robot.id, { melody: newMelody });

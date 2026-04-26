@@ -81,6 +81,10 @@ export const useLocaleStore = create<LocaleState>((set, get) => ({
         // valid range: 1..16
         normalized.rhythmicMotifLength = Math.max(1, Math.min(16, Math.trunc(normalized.rhythmicMotifLength)));
       }
+      if (typeof normalized.noteVariance === 'number') {
+        // valid range: 0..8
+        normalized.noteVariance = Math.max(0, Math.min(8, Math.trunc(normalized.noteVariance)));
+      }
       if (Array.isArray(normalized.octaveRange) && normalized.octaveRange.length === 2) {
         let [minO, maxO] = (normalized.octaveRange as unknown[]).map((v: unknown) => Number(v));
         if (!Number.isFinite(minO) || !Number.isFinite(maxO)) {
