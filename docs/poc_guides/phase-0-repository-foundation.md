@@ -332,7 +332,7 @@ Related to #[issue number]
 - [ ] Audio changes only in AudioEngine (no Tone.js elsewhere)
 - [ ] Animation changes only in GSAP timelines (no timelines in state)
 - [ ] State changes only in Zustand (no complex logic in components)
-- [ ] No setTimeout/setInterval (used BeatClock/Transport)
+- [ ] No setTimeout/setInterval/queueMicrotask (used BeatClock/Transport)
 - [ ] Types explicit (no `any`)
 - [ ] Imports ordered correctly
 

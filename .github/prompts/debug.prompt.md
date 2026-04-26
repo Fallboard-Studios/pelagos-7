@@ -13,7 +13,7 @@ What is failing? ${input:symptom:notes out of sync} (mode: ${input:mode:audio|me
 
 Mode: audio — common checks
 - Is `AudioEngine.start()` invoked from a user gesture? Is `Tone.context.state === 'running'`?
-- Are all musical events scheduled via `BeatClock` / `Tone.Transport` (no setTimeout)?
+- Are all musical events scheduled via `BeatClock` / `Tone.Transport` (no setTimeout/queueMicrotask)?
 - Is MIN_LEAD applied for lookahead?
 - Are melodies indexed (0..7) and `getAvailableNotes()` used at playback time?
 - Is MAX_POLYPHONY enforced?

@@ -300,7 +300,7 @@ chore/update-dependencies
    - [ ] No forbidden patterns (see AUDIO_SYSTEM.md, ANIMATION_SYSTEM.md)
    - [ ] No audio outside AudioEngine
    - [ ] No timelines in state
-   - [ ] No setTimeout/setInterval for timing
+  - [ ] No setTimeout/setInterval/queueMicrotask for timing
 
 ### PR Template
 
@@ -428,7 +428,7 @@ This keeps production consoles clean and centralizes debug logging behavior acro
 - **ONLY** AudioEngine touches Tone.js
 - No `import * as Tone` outside `src/engine/`
 - All timing uses BeatClock/Transport
-- No setTimeout/setInterval for audio
+- No setTimeout/setInterval/queueMicrotask for audio
 
 ### Animation
 
@@ -454,7 +454,7 @@ This keeps production consoles clean and centralizes debug logging behavior acro
 ### Timing
 
 - **ONLY** BeatClock/Transport for timing
-- No setTimeout/setInterval
+- No setTimeout/setInterval/queueMicrotask
 - All domain events use beat/measure timing
 - Real-time only for immediate UI feedback
 

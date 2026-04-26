@@ -29,7 +29,7 @@ Pelagos-7 is a generative music system. Autonomous robots swim through a post-ap
 
 - **Single global `AudioEngine`** — one synth pool shared across all robots; no per-robot Tone.js instances, polyphony capped at 16 voices
 - **`timelineMap` pattern** — all GSAP timelines stored in a `Map<id, Timeline>`, never in React or Zustand state
-- **`Tone.Transport` as the only clock** — scheduling uses `scheduleRepeat` and `scheduleOnce`. Runtime note: the project's `BeatClock` expects a transport-like instance (provided via `initBeatClock`, typically from `AudioEngine`) and preserves pending schedules until a transport is available; prefer Transport-based scheduling in examples. Avoid `setTimeout`/`requestAnimationFrame` for musical timing and apply a short lookahead when scheduling (MIN_LEAD ≈ 50–100ms).
+- **`Tone.Transport` as the only clock** — scheduling uses `scheduleRepeat` and `scheduleOnce`. Runtime note: the project's `BeatClock` expects a transport-like instance (provided via `initBeatClock`, typically from `AudioEngine`) and preserves pending schedules until a transport is available; prefer Transport-based scheduling in examples. Avoid `setTimeout`/`requestAnimationFrame`/`queueMicrotask` for musical timing and apply a short lookahead when scheduling (MIN_LEAD ≈ 50–100ms).
 - **Audio → Visual mapping** — synth type drives body shape, ADSR derives HSL color, pitch range sets scale, filter frequency controls greeble detail
 
 See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for full design decisions.

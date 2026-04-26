@@ -21,7 +21,7 @@ How do I implement: ${input:task:robot audio scheduling or robot animation}? (mo
 
 Key rules (short):
 - All audio lives in `AudioEngine` (Tone.js only in `src/engine`)
-- Use `BeatClock` / `Tone.Transport` for musical timing — never setTimeout/rAF
+- Use `BeatClock` / `Tone.Transport` for musical timing — never setTimeout/rAF/queueMicrotask
 - Use `AudioEngine.scheduleNote()` or `AudioEngine.registerRobotMelody()` for playback
 - Apply MIN_LEAD lookahead when scheduling
 - Melodies use note indices (0..7); harmony palettes are looked up at playback time
@@ -80,7 +80,7 @@ Reference docs: `.github/copilot-instructions.md` (animation section), `docs/ANI
 
 ## Quick troubleshooting checks (both domains)
 - Ensure you are not importing Tone.js outside `AudioEngine`
-- Ensure `BeatClock` is used for timing (no setInterval/setTimeout/rAF)
+- Ensure `BeatClock` is used for timing (no setInterval/setTimeout/rAF/queueMicrotask)
 - Ensure GSAP timelines are cleaned up and not stored in state
 - Verify state remains serializable (no timelines, synths, refs in Zustand)
 

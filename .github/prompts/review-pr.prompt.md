@@ -26,7 +26,7 @@ Review changed files against Pelagos-7 architectural patterns and generate a com
 ### Architectural Compliance
 - [ ] No Tone.js imports outside `src/engine/`
 - [ ] No GSAP timelines stored in state
-- [ ] No setTimeout/setInterval for timing
+- [ ] No setTimeout/setInterval/queueMicrotask for timing
 - [ ] All state is JSON-serializable
 - [ ] Audio uses AudioEngine only
 - [ ] Animation uses GSAP only

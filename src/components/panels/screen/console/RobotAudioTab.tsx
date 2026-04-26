@@ -36,17 +36,16 @@ const AUDIO_MODES: AudioMode[] = ['none', 'solo', 'mute', 'highlight'];
 
 /**
  * Regenerate a robot's melody from its current attributes and register it with AudioEngine.
- * Must run outside the Transport tick — queueMicrotask ensures this.
+ * Runs synchronously — Tone.js transport callbacks are main-thread, Zustand is synchronous,
+ * and AudioEngine methods are safe to call without any deferral.
  */
 function regenerateMelody(robot: Robot, localeId: string): void {
   const newMelody = generateMelodyForRobot({
     events: robot.rhythmicDensity ?? 6,
     octaveRange: robot.octaveRange,
   });
-  queueMicrotask(() => {
-    useLocaleStore.getState().updateRobot(localeId, robot.id, { melody: newMelody });
-    AudioEngine.registerRobotMelody(robot.id, newMelody);
-  });
+  useLocaleStore.getState().updateRobot(localeId, robot.id, { melody: newMelody });
+  AudioEngine.registerRobotMelody(robot.id, newMelody);
 }
 
 // ========================================

@@ -75,7 +75,7 @@ Trigger visual effects at measure boundaries. Use `Transport.scheduleOnce` or
 
 ❌ WRONG (time-anchored):
 ```ts
-setTimeout(() => handleEvent(), 5000);
+setTimeout(() => handleEvent(), 5000); // ❌ WRONG (also avoid queueMicrotask for timing)
 ```
 
 ✅ CORRECT (musical, one-shot):
@@ -84,7 +84,7 @@ Transport.scheduleOnce(handleEvent, '10m'); // schedule at measure 10 (beat stri
 ```
 
 ## Scheduling Reliability
-// setTimeout(() => handleEvent(), 5000);  // ❌ WRONG
+// setTimeout(() => handleEvent(), 5000);  // ❌ WRONG (avoid queueMicrotask too)
 **For Audio Events:**
 - The implemented `beatClock` ticks on `'16n'` (16th-note) and computes `currentBeat` as `measure*4 + beat + sixteenths/4` (a float, 0-based). Use `scheduleRepeat` to register musical intervals.
 - Schedule directly on Transport with a short lookahead (the project uses `MIN_LEAD`, default ~0.1s) and prefer the `time` parameter when available.
@@ -150,7 +150,7 @@ Transport.scheduleOnce(handleEvent, '10m');
 **Time-anchored events** (not recommended) shift their musical position:
 ```typescript
 // Avoid this pattern - event drifts when BPM changes
-setTimeout(() => handleEvent(), 5000);  // ❌ WRONG
+setTimeout(() => handleEvent(), 5000);  // ❌ WRONG (avoid queueMicrotask too)
 ```
 
 ## Pause/Seek Behavior
@@ -180,7 +180,7 @@ Gate with `import.meta.env.DEV && DEV_TUNING` flag.
 
 ## Common Pitfalls
 
-**❌ WRONG: Using setTimeout**
+**❌ WRONG: Using setTimeout/queueMicrotask**
 ```typescript
 setInterval(() => spawnRobot(), 5000);  // Drifts from music
 ```

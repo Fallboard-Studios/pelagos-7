@@ -740,22 +740,22 @@ function startMelodyPlayback(): void {
     // ========================================
     // LOOP COMPLETION: Apply rhythmic variance
     // ========================================
-    // At loop boundary (16-step loop completed), defer the O(robots × registry) variance
-    // work via queueMicrotask so the Transport tick completes before we mutate state.
+    // At loop boundary (16-step loop completed), apply O(robots × registry) variance
+    // synchronously — Tone.js transport callbacks run on the main thread, so Zustand
+    // reads/writes and stepRegistry mutations are safe here without any deferral.
     if (stepCounter % 16 === 0) {
       if (DEV_TUNING) {
         console.log(`[AudioEngine] Loop boundary reached at step ${stepCounter}`);
       }
-      queueMicrotask(() => {
-        try {
-          const store = useLocaleStore.getState();
-          const robots = store.locales[getActiveLocaleId()]?.robots ?? [];
-          const robotCount = robots.length;
-          if (DEV_TUNING) {
-            console.log(`[AudioEngine] Checking variance for ${robotCount} robots`);
-          }
+      try {
+        const store = useLocaleStore.getState();
+        const robots = store.locales[getActiveLocaleId()]?.robots ?? [];
+        const robotCount = robots.length;
+        if (DEV_TUNING) {
+          console.log(`[AudioEngine] Checking variance for ${robotCount} robots`);
+        }
 
-          robots.forEach((robot) => {
+        robots.forEach((robot) => {
             // Store original data to detect changes
             const originalMelody = robot.melody;
             const originalSteps = originalMelody.map((e) => e.startStep);
@@ -789,7 +789,6 @@ function startMelodyPlayback(): void {
         } catch (err) {
           console.warn('[AudioEngine] Failed to apply rhythmic variance:', err);
         }
-      });
     }
   }, '8n');
 
@@ -1409,6 +1408,21 @@ export const AudioEngine = {
 
 
 
+  /**
+   * Register or replace a robot's melody used by the engine's playback scheduler.
+   *
+   * Behavior:
+   * - Replaces any previously-registered events for `robotId` in the internal
+   *   `stepRegistry` so subsequent scheduler ticks will use the new melody.
+   * - This method is safe to call from the main thread; it mutates module-scoped
+   *   registry data but does not touch the Tone.Transport scheduling directly.
+   * - The scheduler reads `stepRegistry` on the transport tick; callers should
+   *   expect the new melody to take effect on the next scheduled tick after
+   *   registration.
+   *
+   * @param robotId - Unique robot identifier
+   * @param melody - Array of `RobotMelodyEvent` describing start steps and notes
+   */
   registerRobotMelody(robotId: string, melody: RobotMelodyEvent[]): void {
     // Purge any existing entries for this robot before adding new ones so this
     // method is idempotent regardless of call site — prevents duplicate triggers.
@@ -1456,6 +1470,42 @@ export const AudioEngine = {
         `[AudioEngine] Unregistered melody for robot ${robotId} (${removedCount} events removed)`
       );
     }
+  },
+
+  /**
+   * Test helper: return the currently registered melody events for a robot.
+   * This exposes a read-only snapshot of the internal `stepRegistry` for tests.
+   */
+  getRegisteredMelody(robotId: string): RobotMelodyEvent[] {
+    const out: RobotMelodyEvent[] = [];
+    stepRegistry.forEach((entries) => {
+      entries.forEach((e) => {
+        if (e.robotId === robotId) out.push(e.event);
+      });
+    });
+    return out;
+  },
+
+  /**
+   * Test helper: process a single melody step as the transport tick would.
+   * Invokes `AudioEngine.scheduleNote` for all registered events whose
+   * `startStep` equals `currentStep`.
+   *
+   * @param currentStep - 1..16 step to process
+   * @param time - absolute AudioContext time passed through from transport
+   */
+  processMelodyStep(currentStep: number, time: number): void {
+    const events = stepRegistry.get(currentStep) || [];
+    const notes = getAvailableNotes();
+
+    events.forEach(({ robotId, event }) => {
+      const noteName = notes[event.noteIndex];
+      if (!noteName) return;
+      const octave = event.octave ?? 4;
+      const note = `${noteName}${octave}`;
+
+      AudioEngine.scheduleNote({ robotId, note, duration: event.length, time: time + MIN_LEAD });
+    });
   },
 
 

@@ -35,7 +35,7 @@ export const TIME_PITCHES: Record<number, [string, string, ...]>
 - [ ] getAvailableNotes() returns current palette
 - [ ] Harmony changes every 4 measures
 - [ ] Changes synchronized to Transport
-- [ ] No setTimeout/setInterval used
+- [ ] No setTimeout/setInterval/queueMicrotask used
 - [ ] Console log shows palette changes (debug)
 
 ### Reference

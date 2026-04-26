@@ -165,7 +165,7 @@ interface Robot {
 
 - **Scheduling:**
 - Use `BeatClock.scheduleRepeat()` for recurring musical intervals or `Transport.schedule()`/`Transport.scheduleOnce()` for one-shot events. (`scheduleAtBeat` is a planned helper — the runtime provides `scheduleRepeat` and transport-backed APIs.)
-- NO `setTimeout` or `setInterval`
+- NO `setTimeout`/`setInterval`/`queueMicrotask`
 - NO `requestAnimationFrame` for timing
 
 ## Data Flow
@@ -219,7 +219,7 @@ npm run audit:patterns
 **Manual verification:**
 - [ ] No Tone.js imports outside `src/engine/`
 - [ ] No `timeline` fields in Zustand state
-- [ ] No `setTimeout`/`setInterval` in src/ (except beatClock)
+- [ ] No `setTimeout`/`setInterval`/`queueMicrotask` in src/ (except beatClock)
 - [ ] No `requestAnimationFrame` loops (except GSAP ticker)
 - [ ] All timing uses BeatClock/Transport
 
@@ -249,7 +249,7 @@ const tl = gsap.timeline();
 setTimeline(robot.id, tl);
 ```
 
-**Violation:** Animation loop with setTimeout
+**Violation:** Animation loop with setTimeout/queueMicrotask
 ```typescript
 // ❌ Wrong
 const swim = () => {
@@ -444,7 +444,7 @@ of `frontCornerX`.
 
 **Forbidden:**
 - ❌ Computing `frontCornerX` at render time (must use `config.frontCornerX` from spawn)
-- ❌ Connecting `eastLMultiplier` / `westLMultiplier` to `setTimeout` or `setInterval`
+- ❌ Connecting `eastLMultiplier` / `westLMultiplier` to `setTimeout`/`setInterval`/`queueMicrotask`
   (must use `Tone.Transport`-scheduled callbacks when implemented)
 
 ---
