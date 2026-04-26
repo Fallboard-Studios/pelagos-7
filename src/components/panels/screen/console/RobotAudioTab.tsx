@@ -7,8 +7,7 @@ import * as AlertDialog from '@radix-ui/react-alert-dialog';
 
 import { getActiveLocaleId } from '@/utils/localeHelpers';
 import { useLocaleStore } from '@/stores/localeStore';
-import { AudioEngine } from '@/engine/AudioEngine';
-import { generateMelodyForRobot } from '@/engine/melodyGenerator';
+import { regenerateMelody } from '@/engine/regenerateMelody';
 import type { Robot } from '@/types/Robot';
 
 import './RobotAudioTab.css';
@@ -29,24 +28,6 @@ const OCTAVE_MIN = 1;
 const OCTAVE_MAX = 7;
 
 const AUDIO_MODES: AudioMode[] = ['none', 'solo', 'mute', 'highlight'];
-
-// ========================================
-// HELPERS
-// ========================================
-
-/**
- * Regenerate a robot's melody from its current attributes and register it with AudioEngine.
- * Runs synchronously — Tone.js transport callbacks are main-thread, Zustand is synchronous,
- * and AudioEngine methods are safe to call without any deferral.
- */
-function regenerateMelody(robot: Robot, localeId: string): void {
-  const newMelody = generateMelodyForRobot({
-    events: robot.rhythmicDensity ?? 6,
-    octaveRange: robot.octaveRange,
-  });
-  useLocaleStore.getState().updateRobot(localeId, robot.id, { melody: newMelody });
-  AudioEngine.registerRobotMelody(robot.id, newMelody);
-}
 
 // ========================================
 // COMPONENT
