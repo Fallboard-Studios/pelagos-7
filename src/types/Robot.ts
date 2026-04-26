@@ -104,9 +104,12 @@ export interface Robot {
   /** Optional link target for future follow/sync features. */
   linkedRobotId?: string | null;
   /**
-   * Solo/mute/highlight mode set by the Robot Audio editor.
-   * AudioEngine applies solo/mute on next scheduled note.
-   * 'highlight' is visual-only (no audio change).
+  /** Solo/mute/highlight mode set by the Robot Audio editor.
+   * Runtime semantics (enforced by AudioEngine):
+   * - `none` (Off): no special routing.
+   * - `mute` (Mute): scheduled notes for this robot are suppressed.
+   * - `solo` (Solo): other robots in the same locale are suppressed.
+   * - `highlight` (Highlight): other robots are attenuated by ~50% at mix/scheduling time.
    * Default: 'none'
    */
   audioMode?: 'none' | 'solo' | 'mute' | 'highlight';

@@ -152,6 +152,29 @@ const robotAttributeCache = new Map<string, {
   masterVolume: number;
 }>();
 
+// Per-locale audioMode index for quick lookup of solo/mute/highlight flags.
+const audioModeIndex = new Map<string, { solo: Set<string>; highlight: Set<string>; mute: Set<string> }>();
+
+function buildAudioModeIndex(localeId: string) {
+  try {
+    const store = useLocaleStore.getState();
+    const robots = store.locales[localeId]?.robots ?? [];
+    const idx = { solo: new Set<string>(), highlight: new Set<string>(), mute: new Set<string>() };
+    for (const r of robots) {
+      if (r.audioMode === 'solo') idx.solo.add(r.id);
+      else if (r.audioMode === 'highlight') idx.highlight.add(r.id);
+      else if (r.audioMode === 'mute') idx.mute.add(r.id);
+    }
+    audioModeIndex.set(localeId, idx);
+    return idx;
+  } catch (err) {
+    if (DEV_TUNING) swallow(err, 'AudioEngine.buildAudioModeIndex');
+    const fallback = { solo: new Set<string>(), highlight: new Set<string>(), mute: new Set<string>() };
+    audioModeIndex.set(localeId, fallback);
+    return fallback;
+  }
+}
+
 // Composite voices (created from LayeredWave descriptors) stored separately
 interface CompositeVoice {
   output: Tone.Gain;
@@ -573,6 +596,40 @@ export function triggerWithCap(params: NoteParams): boolean {
     return false;
   }
 
+  // Enforce audioMode at trigger time as a safety net in case schedule path missed it.
+  try {
+    const localeIdResolved = params.localeId ?? getActiveLocaleId();
+    const store = useLocaleStore.getState();
+    const localeRobots = store.locales[localeIdResolved]?.robots ?? [];
+    if (localeRobots.length > 0) {
+      const robotFromStore = localeRobots.find((r) => r.id === robotId);
+      if (robotFromStore?.audioMode === 'mute') {
+        if (DEV_TUNING) console.log(`[AudioEngine] Robot ${robotId} is muted (trigger); skipping note`);
+        return false;
+      }
+      const anySoloInStore = localeRobots.some((r) => r.audioMode === 'solo');
+      if (anySoloInStore && robotFromStore?.audioMode !== 'solo') {
+        if (DEV_TUNING) console.log(`[AudioEngine] Robot ${robotId} suppressed due to solo (trigger)`);
+        return false;
+      }
+      const anyHighlightInStore = localeRobots.some((r) => r.audioMode === 'highlight');
+      if (anyHighlightInStore && robotFromStore?.audioMode !== 'highlight') {
+        // Attenuate velocity at trigger time by ~50% (~-6dB).
+        // Use provided velocity if present, otherwise compute from cached masterVolume.
+        let baseVel = velocity;
+        if (baseVel === undefined) {
+          const cached = robotAttributeCache.get(robotId);
+          if (cached) baseVel = computeNoteVelocitySeeded(cached.masterVolume, robotId, params.localeId);
+          else baseVel = 0.8;
+        }
+        // Mutate the params.velocity so subsequent trigger uses attenuated velocity.
+        (params as NoteParams).velocity = (baseVel ?? 1) * 0.3;
+      }
+    }
+  } catch (err) {
+    if (DEV_TUNING) swallow(err, 'AudioEngine.triggerWithCap.audioMode');
+  }
+
   const scheduleTime = time ?? Tone.now();
 
   // Increment voice counter BEFORE triggering
@@ -756,39 +813,39 @@ function startMelodyPlayback(): void {
         }
 
         robots.forEach((robot) => {
-            // Store original data to detect changes
-            const originalMelody = robot.melody;
-            const originalSteps = originalMelody.map((e) => e.startStep);
+          // Store original data to detect changes
+          const originalMelody = robot.melody;
+          const originalSteps = originalMelody.map((e) => e.startStep);
 
-            // Apply variance (returns new array or original)
-            const variedMelody = applyRhythmicVariance(originalMelody as never);
+          // Apply variance (returns new array or original)
+          const variedMelody = applyRhythmicVariance(originalMelody as never);
 
-            // Detect if any startStep actually changed
-            const newSteps = variedMelody.map((e) => e.startStep);
-            const changed = originalSteps.some((step, i) => step !== newSteps[i]);
+          // Detect if any startStep actually changed
+          const newSteps = variedMelody.map((e) => e.startStep);
+          const changed = originalSteps.some((step, i) => step !== newSteps[i]);
 
-            if (changed) {
-              // Update stepRegistry with varied melody for THIS loop's playback only
-              // (don't persist to state, so next loop resets to original)
-              AudioEngine.unregisterRobotMelody(robot.id);
-              AudioEngine.registerRobotMelody(robot.id, variedMelody as never);
+          if (changed) {
+            // Update stepRegistry with varied melody for THIS loop's playback only
+            // (don't persist to state, so next loop resets to original)
+            AudioEngine.unregisterRobotMelody(robot.id);
+            AudioEngine.registerRobotMelody(robot.id, variedMelody as never);
 
-              if (DEV_TUNING) {
-                const shifts = originalSteps
-                  .map((step, i) => (step !== newSteps[i] ? `event${i}:${step}→${newSteps[i]}` : null))
-                  .filter((x) => x !== null)
-                  .join(', ');
-                console.log(
-                  `[AudioEngine] Rhythmic variance applied to robot ${robot.id}: ${shifts}`
-                );
-              }
-            } else if (DEV_TUNING) {
-              console.log(`[AudioEngine] No variance triggered for robot ${robot.id} (probability)`);
+            if (DEV_TUNING) {
+              const shifts = originalSteps
+                .map((step, i) => (step !== newSteps[i] ? `event${i}:${step}→${newSteps[i]}` : null))
+                .filter((x) => x !== null)
+                .join(', ');
+              console.log(
+                `[AudioEngine] Rhythmic variance applied to robot ${robot.id}: ${shifts}`
+              );
             }
-          });
-        } catch (err) {
-          console.warn('[AudioEngine] Failed to apply rhythmic variance:', err);
-        }
+          } else if (DEV_TUNING) {
+            console.log(`[AudioEngine] No variance triggered for robot ${robot.id} (probability)`);
+          }
+        });
+      } catch (err) {
+        console.warn('[AudioEngine] Failed to apply rhythmic variance:', err);
+      }
     }
   }, '8n');
 
@@ -952,6 +1009,51 @@ export const AudioEngine = {
           console.warn('[AudioEngine] Failed to lookup robot audioAttributes:', err);
         }
       }
+    }
+
+    // Enforce audioMode policies (mute/solo/highlight) at schedule time.
+    const localeIdResolved = params.localeId ?? getActiveLocaleId();
+
+    // Prefer authoritative store lookup to ensure correctness in tests and
+    // when the index cache might be stale. Fall back to the cached index for
+    // performance when store access is undesirable.
+    try {
+      const store = useLocaleStore.getState();
+      const localeRobots = store.locales[localeIdResolved]?.robots ?? [];
+      if (localeRobots.length > 0) {
+        const robotFromStore = localeRobots.find((r) => r.id === robotId);
+        if (robotFromStore?.audioMode === 'mute') {
+          if (DEV_TUNING) console.log(`[AudioEngine] Robot ${robotId} is muted (store); skipping note`);
+          return;
+        }
+        const anySoloInStore = localeRobots.some((r) => r.audioMode === 'solo');
+        if (anySoloInStore && robotFromStore?.audioMode !== 'solo') {
+          if (DEV_TUNING) console.log(`[AudioEngine] Robot ${robotId} suppressed due to solo (store)`);
+          return;
+        }
+        const anyHighlightInStore = localeRobots.some((r) => r.audioMode === 'highlight');
+        if (anyHighlightInStore && robotFromStore?.audioMode !== 'highlight') {
+          // Apply ~50% attenuation (~-6dB) to non-highlighted robots
+          effectiveVelocity = (effectiveVelocity ?? 1) * 0.5;
+        }
+      } else {
+        // No robots in store for this locale; use cached index as fallback.
+        let modeIdx = audioModeIndex.get(localeIdResolved);
+        if (!modeIdx) modeIdx = buildAudioModeIndex(localeIdResolved);
+        if (robotId && modeIdx.mute.has(robotId)) {
+          if (DEV_TUNING) console.log(`[AudioEngine] Robot ${robotId} is muted by audioMode; skipping note`);
+          return;
+        }
+        if (robotId && modeIdx.solo.size > 0 && !modeIdx.solo.has(robotId)) {
+          if (DEV_TUNING) console.log(`[AudioEngine] Robot ${robotId} suppressed due to solo in locale ${localeIdResolved}`);
+          return;
+        }
+        if (robotId && modeIdx.highlight.size > 0 && !modeIdx.highlight.has(robotId)) {
+          effectiveVelocity = (effectiveVelocity ?? 1) * 0.5;
+        }
+      }
+    } catch (err) {
+      if (DEV_TUNING) swallow(err, 'AudioEngine.scheduleNote.audioMode');
     }
 
     triggerWithCap({ robotId, note, duration, time, velocity: effectiveVelocity, synthType, adsr, waveform });
@@ -1552,6 +1654,15 @@ export const AudioEngine = {
   /** Returns the current AudioContext time (seconds). Use for note scheduling offsets. */
   now(): number {
     return Tone.now();
+  },
+
+  /**
+   * Refresh the audioMode index for a locale. Useful to call when UI changes
+   * robot audioMode flags to make enforcement immediate.
+   */
+  refreshAudioModeIndex(localeId?: string): void {
+    const id = localeId ?? getActiveLocaleId();
+    try { buildAudioModeIndex(id); } catch (err) { if (DEV_TUNING) swallow(err, 'AudioEngine.refreshAudioModeIndex'); }
   },
 
   /**

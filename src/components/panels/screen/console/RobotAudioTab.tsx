@@ -29,6 +29,13 @@ const OCTAVE_MAX = 7;
 
 const AUDIO_MODES: AudioMode[] = ['none', 'solo', 'mute', 'highlight'];
 
+const AUDIO_MODE_LABELS: Record<AudioMode, { label: string; title: string }> = {
+  none: { label: 'Off', title: 'No special audio routing' },
+  solo: { label: 'Solo (isolate)', title: 'Isolate this robot; mute others' },
+  mute: { label: 'Mute', title: 'Silence this robot' },
+  highlight: { label: 'Highlight (attenuate others)', title: 'Make this robot prominent; attenuate others by ~50%' },
+};
+
 // ========================================
 // COMPONENT
 // ========================================
@@ -92,9 +99,10 @@ export function RobotAudioTab({ robot }: RobotAudioTabProps) {
               key={mode}
               className="rat-toggle-item"
               value={mode}
-              aria-label={mode.charAt(0).toUpperCase() + mode.slice(1)}
+              aria-label={AUDIO_MODE_LABELS[mode].label}
+              title={AUDIO_MODE_LABELS[mode].title}
             >
-              {mode.charAt(0).toUpperCase() + mode.slice(1)}
+              {AUDIO_MODE_LABELS[mode].label}
             </ToggleGroup.Item>
           ))}
         </ToggleGroup.Root>

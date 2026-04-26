@@ -135,6 +135,15 @@ vi.mock('../constants', () => ({
   WORLD_WIDTH: 1920,
 }));
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+// The following audioMode tests were merged from AudioEngine.audioMode.test.ts
+// They require importing the locale store after a module reset to ensure
+// the AudioEngine and test share the same store instance.
+
+let merged_useLocaleStore: any;
+let merged_DEFAULT_LOCALE_ID: string;
+
 describe('AudioEngine - Polyphony Management', () => {
   beforeEach(async () => {
     // Reset modules to clear state between tests
@@ -251,6 +260,135 @@ describe('AudioEngine - Polyphony Management', () => {
       expect(acceptedCount).toBe(16);
       expect(skippedCount).toBe(4);
     });
+  });
+});
+
+describe('AudioEngine - audioMode enforcement (solo/mute/highlight)', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    // ensure deterministic locale store defaults — import after resetModules
+    // so AudioEngine and tests reference the same store instance.
+    return (async () => {
+      const storeMod = await import('../stores/localeStore');
+      const planetMod = await import('../stores/planetStore');
+      merged_useLocaleStore = storeMod.useLocaleStore;
+      merged_DEFAULT_LOCALE_ID = planetMod.DEFAULT_LOCALE_ID;
+      merged_useLocaleStore.getState().setLocaleData(merged_DEFAULT_LOCALE_ID, { settings: { bpm: 120, maxRobots: 6, minRobots: 1 } });
+    })();
+  });
+
+  it('mutes robots with audioMode=\'mute\' (no synth calls)', async () => {
+    const Tone = await import('tone');
+    const { AudioEngine } = await import('./AudioEngine');
+
+    // Populate locale robots: one muted, one normal
+    merged_useLocaleStore.getState().setLocaleData(merged_DEFAULT_LOCALE_ID, {
+      robots: [
+        { id: 'r-muted', audioMode: 'mute', audioAttributes: { synthType: 'PolySynth', adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.2 }, waveform: 'sine', pitchRange: { min: 200, max: 400 }, filterFreq: 100 }, masterVolume: 0.8, melody: [], octaveRange: [3, 4], position: { x: 960, y: 0 }, createdAt: Date.now(), name: '', state: 'idle', direction: 'right' },
+        { id: 'r-other', audioMode: 'none', audioAttributes: { synthType: 'PolySynth', adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.2 }, waveform: 'sine', pitchRange: { min: 200, max: 400 }, filterFreq: 100 }, masterVolume: 0.8, melody: [], octaveRange: [3, 4], position: { x: 960, y: 0 }, createdAt: Date.now(), name: '', state: 'idle', direction: 'right' },
+      ],
+    });
+
+    await AudioEngine.start();
+    // Ensure index reflects current store
+    AudioEngine.refreshAudioModeIndex(merged_DEFAULT_LOCALE_ID);
+
+    // Clear prior calls on created synth instances
+    const polyResults = (Tone.PolySynth as unknown as any).mock.results;
+    polyResults.forEach((r: any) => r.value.triggerAttackRelease.mockClear());
+
+    // Use a unique note name to avoid background scheduler collisions
+    const targetMutedNote = 'G9';
+    AudioEngine.scheduleNote({ robotId: 'r-muted', note: targetMutedNote, duration: '4n', time: 0, localeId: merged_DEFAULT_LOCALE_ID });
+
+    // Ensure no PolySynth instance received a trigger call for our unique note
+    let foundMuted = false;
+    polyResults.forEach((r: any) => {
+      const inst = r.value;
+      inst.triggerAttackRelease.mock.calls.forEach((c: any) => { if (c[0] === targetMutedNote) foundMuted = true; });
+    });
+    expect(foundMuted).toBe(false);
+
+    // Non-muted should trigger with a different unique note
+    const targetOtherNote = 'G8';
+    AudioEngine.scheduleNote({ robotId: 'r-other', note: targetOtherNote, duration: '4n', time: 0, localeId: merged_DEFAULT_LOCALE_ID });
+    let foundOther = false;
+    polyResults.forEach((r: any) => {
+      const inst = r.value;
+      inst.triggerAttackRelease.mock.calls.forEach((c: any) => { if (c[0] === targetOtherNote) foundOther = true; });
+    });
+    expect(foundOther).toBe(true);
+  });
+
+  it('enforces solo: only solo robot produces audio', async () => {
+    const Tone = await import('tone');
+    const { AudioEngine } = await import('./AudioEngine');
+
+    merged_useLocaleStore.getState().setLocaleData(merged_DEFAULT_LOCALE_ID, {
+      robots: [
+        { id: 'r-solo', audioMode: 'solo', audioAttributes: { synthType: 'PolySynth', adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.2 }, waveform: 'sine', pitchRange: { min: 200, max: 400 }, filterFreq: 100 }, masterVolume: 0.9, melody: [], octaveRange: [3, 4], position: { x: 960, y: 0 }, createdAt: Date.now(), name: '', state: 'idle', direction: 'right' },
+        { id: 'r-other2', audioMode: 'none', audioAttributes: { synthType: 'PolySynth', adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.2 }, waveform: 'sine', pitchRange: { min: 200, max: 400 }, filterFreq: 100 }, masterVolume: 0.9, melody: [], octaveRange: [3, 4], position: { x: 960, y: 0 }, createdAt: Date.now(), name: '', state: 'idle', direction: 'right' },
+      ],
+    });
+
+    await AudioEngine.start();
+    AudioEngine.refreshAudioModeIndex(merged_DEFAULT_LOCALE_ID);
+    const polyResults2 = (Tone.PolySynth as unknown as any).mock.results;
+    polyResults2.forEach((r: any) => r.value.triggerAttackRelease.mockClear());
+
+    const targetOtherNote = 'G7';
+    AudioEngine.scheduleNote({ robotId: 'r-other2', note: targetOtherNote, duration: '4n', time: 0, localeId: merged_DEFAULT_LOCALE_ID });
+    let foundOther = false;
+    polyResults2.forEach((r: any) => {
+      const inst = r.value;
+      inst.triggerAttackRelease.mock.calls.forEach((c: any) => { if (c[0] === targetOtherNote) foundOther = true; });
+    });
+    expect(foundOther).toBe(false); // suppressed by solo
+
+    const targetSoloNote = 'G6';
+    AudioEngine.scheduleNote({ robotId: 'r-solo', note: targetSoloNote, duration: '4n', time: 0, localeId: merged_DEFAULT_LOCALE_ID });
+    let foundSolo = false;
+    polyResults2.forEach((r: any) => {
+      const inst = r.value;
+      inst.triggerAttackRelease.mock.calls.forEach((c: any) => { if (c[0] === targetSoloNote) foundSolo = true; });
+    });
+    expect(foundSolo).toBe(true);
+  });
+
+  it('applies ~50% attenuation to non-highlighted robots when one is highlighted', async () => {
+    const Tone = await import('tone');
+    const { AudioEngine } = await import('./AudioEngine');
+
+    merged_useLocaleStore.getState().setLocaleData(merged_DEFAULT_LOCALE_ID, {
+      robots: [
+        { id: 'r-h', audioMode: 'highlight', audioAttributes: { synthType: 'PolySynth', adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.2 }, waveform: 'sine', pitchRange: { min: 200, max: 400 }, filterFreq: 100 }, masterVolume: 0.8, melody: [], octaveRange: [3, 4], position: { x: 960, y: 0 }, createdAt: Date.now(), name: '', state: 'idle', direction: 'right' },
+        { id: 'r-nh', audioMode: 'none', audioAttributes: { synthType: 'PolySynth', adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.2 }, waveform: 'sine', pitchRange: { min: 200, max: 400 }, filterFreq: 100 }, masterVolume: 0.8, melody: [], octaveRange: [3, 4], position: { x: 960, y: 0 }, createdAt: Date.now(), name: '', state: 'idle', direction: 'right' },
+      ],
+    });
+
+    await AudioEngine.start();
+    AudioEngine.refreshAudioModeIndex(merged_DEFAULT_LOCALE_ID);
+    const polyResults = (Tone.PolySynth as unknown as any).mock.results;
+    polyResults.forEach((r: any) => r.value.triggerAttackRelease.mockClear());
+
+    // Schedule note for non-highlighted robot with a unique note
+    const targetNote = 'G5';
+    AudioEngine.scheduleNote({ robotId: 'r-nh', note: targetNote, duration: '4n', time: 0, localeId: merged_DEFAULT_LOCALE_ID });
+
+    // Find the call for our unique note and assert velocity ≈ 0.4
+    let found = false;
+    polyResults.forEach((r: any) => {
+      const inst = r.value;
+      inst.triggerAttackRelease.mock.calls.forEach((c: any) => {
+        if (c[0] === targetNote) {
+          const vel = c[3];
+          expect(typeof vel).toBe('number');
+          expect(Math.abs(vel - 0.4)).toBeLessThan(0.05);
+          found = true;
+        }
+      });
+    });
+    expect(found).toBe(true);
   });
 });
 
@@ -397,7 +535,7 @@ describe('AudioEngine - Melody Lifecycle', () => {
       expect(spy).toHaveBeenCalled();
 
       const calledWith = spy.mock.calls[0][0];
-      expect(calledWith.robotId).toBe('int-1');
+        expect(calledWith.robotId).toBe('int-1'); // Ensure previous file chunk ends cleanly
       expect(typeof calledWith.note).toBe('string');
       expect(calledWith.note.endsWith('4')).toBe(true);
 
