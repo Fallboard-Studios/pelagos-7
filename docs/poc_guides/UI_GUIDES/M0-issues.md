@@ -328,7 +328,7 @@ Replace the measure-coupled day-length system with a real wall-clock time-of-day
 
 ## Source Reference
  - File: `src/stores/oceanStore.ts`, `src/App.tsx` (time-of-day tick location)
-- Copilot instructions: "State: Zustand only; store JSON-serializable data only."; "All timing: Tone.Transport / BeatClock (measure-based). No setTimeout/setInterval for musical timing." (Note: the time-of-day interval is not musical timing and is explicitly permitted.)
+- Copilot instructions: "State: Zustand only; store JSON-serializable data only."; "All timing: Tone.Transport / BeatClock (measure-based). No setTimeout/setInterval/queueMicrotask for musical timing." (Note: the time-of-day interval is not musical timing and is explicitly permitted.)
 
 ---
 
@@ -598,7 +598,7 @@ Depends on: **Issue 0g** (the code being replaced must exist).
 
 ## Source Reference
 - File: `src/stores/oceanStore.ts`, `src/components/OceanScene.tsx`, `src/constants/index.ts`, `src/App.tsx`
-- Copilot instructions: "State: Zustand only; store JSON-serializable data only."; "All timing: Tone.Transport / BeatClock (measure-based). No setTimeout/setInterval for musical timing." (Note: the time-of-day interval is world/visual timing, not musical timing — `setInterval` is explicitly permitted here.)
+- Copilot instructions: "State: Zustand only; store JSON-serializable data only."; "All timing: Tone.Transport / BeatClock (measure-based). No setTimeout/setInterval/queueMicrotask for musical timing." (Note: the time-of-day interval is world/visual timing, not musical timing — `setInterval` is explicitly permitted here.)
 
 ---
 

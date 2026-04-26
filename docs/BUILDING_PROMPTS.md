@@ -684,7 +684,7 @@ Create src/components/actors/BubbleStream.tsx:
 7. Bubble fill: hsl(200, 40%, 75%) at opacity 0.55 (constant; GSAP drives
    per-tween opacity from 0.55 → 0).
 
-8. Do NOT use setTimeout, setInterval, or requestAnimationFrame directly.
+8. Do NOT use setTimeout, setInterval, requestAnimationFrame, or queueMicrotask directly.
 
 9. Add a unit smoke-test in BubbleStream.test.tsx verifying the component
    renders a <circle> and that timelineMap receives an entry.

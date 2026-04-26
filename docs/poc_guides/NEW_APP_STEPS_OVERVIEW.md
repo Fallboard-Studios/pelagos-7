@@ -199,7 +199,7 @@ This IS the portfolio piece. Audio/animation separation, beat-based timing, time
 - Tone.Transport as authoritative clock
 - GSAP timelines stored in separate Map (not state)
 - Zustand for serializable data only
-- No setTimeout/setInterval/rAF for timing
+- No setTimeout/setInterval/rAF/queueMicrotask for timing
 
 **Reference:** 
 - `src/engine/AudioEngine.ts` (port synth pooling, scheduleNote)

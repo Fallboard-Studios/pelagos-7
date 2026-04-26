@@ -55,7 +55,7 @@ BeatClock.scheduleRepeat('4m', (time) => {
 ## Key Points
 
 1. **Never import Tone.js** outside `src/engine/AudioEngine.ts`
-2. **Use BeatClock** for all timing (no setTimeout/setInterval)
+2. **Use BeatClock** for all timing (no setTimeout/setInterval/queueMicrotask)
 3. **Call AudioEngine.scheduleNote()** for all audio
 4. **Apply MIN_LEAD lookahead** for reliability (~40-80ms)
 5. **Express time in beats/measures**, not seconds

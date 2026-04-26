@@ -4,7 +4,7 @@ Purpose: a short, focused guidance file for Copilot-style assistants and contrib
 
 TL;DR (critical rules)
 - All audio: `AudioEngine` only (singleton). No local Tone.js synths in components.
-- All timing: `Tone.Transport` / `BeatClock` (measure-based). No `setTimeout`/`setInterval`/`requestAnimationFrame` for musical timing.
+	- All timing: `Tone.Transport` / `BeatClock` (measure-based). No `setTimeout`/`setInterval`/`requestAnimationFrame`/`queueMicrotask` for musical timing.
 - All animation: GSAP timelines only; store timelines in `timelineMap`, not in React/Zustand state.
 - State: Zustand only; store JSON-serializable data only.
 - Polyphony: default `MAX_POLYPHONY = 16`.

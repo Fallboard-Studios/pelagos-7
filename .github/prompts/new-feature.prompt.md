@@ -32,7 +32,7 @@ I want to implement a feature from a GitHub issue.
 
 4. **Analyze implementation**
    - Check what files need to be created/modified
-   - Identify architectural constraints (no classes, no setTimeout, etc.)
+   - Identify architectural constraints (no classes, no setTimeout/queueMicrotask, etc.)
    - Note dependencies on other systems
    - Consider what already exists vs. what's needed
 

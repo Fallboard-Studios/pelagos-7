@@ -49,14 +49,14 @@ This workspace provides specialized prompt files for common development tasks. T
 **Key Principles:**
 - AudioEngine for ALL audio (no Tone.js elsewhere)
 - GSAP for ALL animation (no state-driven motion)
-- BeatClock for ALL timing (no setTimeout/setInterval)
+- BeatClock for ALL timing (no setTimeout/setInterval/queueMicrotask)
 - State is ONLY serializable data
 - Timelines stored in timelineMap, NEVER in state
 
 **Forbidden Patterns:**
 - `import * as Tone` outside `src/engine/`
 - GSAP timelines in state
-- setTimeout/setInterval for game/audio timing
+- setTimeout/setInterval/queueMicrotask for game/audio timing
 - Synths in React components
 - Audio calls in GSAP callbacks
 
