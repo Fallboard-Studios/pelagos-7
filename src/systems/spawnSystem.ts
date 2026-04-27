@@ -382,6 +382,7 @@ export function spawnRobot(localeId: string): void {
     rhythmicDensity: spawnMelody.length,
     rhythmicMotifLength: 8,
     noteVariance: 0,
+    linkedRobotId: null,
     masterVolume: noiseMap
       ? getSeededVal(noiseMap, 'robot.masterVolume', spawnCount, MASTER_VOLUME_MIN, MASTER_VOLUME_MAX)
       : MASTER_VOLUME_MIN + Math.random() * (MASTER_VOLUME_MAX - MASTER_VOLUME_MIN),
