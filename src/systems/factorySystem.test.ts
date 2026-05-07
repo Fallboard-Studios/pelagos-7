@@ -42,6 +42,7 @@ vi.mock('../engine/beatClock', () => ({
 
 vi.mock('../engine/melodyGenerator', () => ({
   generateMelodyForRobot: vi.fn(() => []),
+  DEFAULT_RHYTHMIC_DENSITY: 8,
 }));
 
 vi.mock('./spawnSystem', () => ({

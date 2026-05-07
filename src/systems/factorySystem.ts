@@ -9,7 +9,7 @@ import { usePlanetStore } from '../stores/planetStore';
 import type { LocaleSettings } from '../types/locale';
 import { AudioEngine } from '../engine/AudioEngine';
 import { scheduleRepeat, cancelSchedule } from '../engine/beatClock';
-import { generateMelodyForRobot } from '../engine/melodyGenerator';
+import { generateMelodyForRobot, DEFAULT_RHYTHMIC_DENSITY } from '../engine/melodyGenerator';
 import { generateAudioAttributes } from './spawnSystem';
 import { getLocaleNoiseMap } from '../utils/noiseMaps';
 import { DEV_TUNING } from '../constants';
@@ -156,7 +156,7 @@ export function createRobotFromFactory(factory: Actor, localeId?: string): Robot
     position: { ...factory.position },
     destination: null,
     direction: 'right',
-    melody: generateMelodyForRobot(),
+    melody: generateMelodyForRobot({ octaveMin: 3, octaveMax: 5, onsetCount: DEFAULT_RHYTHMIC_DENSITY }),
     audioAttributes: noiseMap ? generateAudioAttributes(noiseMap, offset) : generateAudioAttributes(
       // Inline trivial fallback noise map (uniform midpoint) when locale is unavailable
       (() => { const fn = (_x: number, _y: number) => 0 as number; return fn; })() as Parameters<typeof generateAudioAttributes>[0],

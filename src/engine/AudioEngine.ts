@@ -12,7 +12,7 @@ import type { ReverbSettings, DelaySettings, ChorusSettings, FilterSettings, EQ3
 import { getAvailableNotes, scheduleHarmonyCycle, stopHarmonyCycle } from './harmonySystem';
 import { resetBeatClock, subscribeToMeasure, initBeatClock } from './beatClock';
 import type { RobotMelodyEvent } from './melodyGenerator';
-import { applyRhythmicVariance } from './melodyGenerator';
+import { applyRhythmicVariance, applyTonalVariance } from './melodyGenerator';
 import { DEV_TUNING, WORLD_WIDTH, MIN_LEAD as CONST_MIN_LEAD } from '../constants';
 
 // MIN_LEAD: prefer project constant, fall back to 0.1s for headless/tests
@@ -547,12 +547,17 @@ function startMelodyPlayback(): void {
           const originalMelody = robot.melody;
           const originalSteps = originalMelody.map((e) => e.startStep);
 
-          // Apply variance (returns new array or original)
-          const variedMelody = applyRhythmicVariance(originalMelody as never);
+          // Apply variance (returns new array or original); both apply independently
+          const rhythmicVaried = applyRhythmicVariance(originalMelody as never);
+          const variedMelody = applyTonalVariance(rhythmicVaried as never);
 
-          // Detect if any startStep actually changed
+          // Detect if any field changed across both passes
           const newSteps = variedMelody.map((e) => e.startStep);
-          const changed = originalSteps.some((step, i) => step !== newSteps[i]);
+          const newIndices = variedMelody.map((e) => e.noteIndex);
+          const originalIndices = originalMelody.map((e) => e.noteIndex);
+          const changed =
+            originalSteps.some((step, i) => step !== newSteps[i]) ||
+            originalIndices.some((idx, i) => idx !== newIndices[i]);
 
           if (changed) {
             // Update stepRegistry with varied melody for THIS loop's playback only
@@ -561,12 +566,17 @@ function startMelodyPlayback(): void {
             AudioEngine.registerRobotMelody(robot.id, variedMelody as never);
 
             if (DEV_TUNING) {
-              const shifts = originalSteps
-                .map((step, i) => (step !== newSteps[i] ? `event${i}:${step}→${newSteps[i]}` : null))
+              const stepShifts = originalSteps
+                .map((step, i) => (step !== newSteps[i] ? `step${i}:${step}→${newSteps[i]}` : null))
                 .filter((x) => x !== null)
                 .join(', ');
+              const noteShifts = originalIndices
+                .map((idx, i) => (idx !== newIndices[i] ? `note${i}:${idx}→${newIndices[i]}` : null))
+                .filter((x) => x !== null)
+                .join(', ');
+              const summary = [stepShifts, noteShifts].filter(Boolean).join(' | ');
               console.log(
-                `[AudioEngine] Rhythmic variance applied to robot ${robot.id}: ${shifts}`
+                `[AudioEngine] Variance applied to robot ${robot.id}: ${summary}`
               );
             }
           }

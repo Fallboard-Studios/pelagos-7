@@ -674,11 +674,11 @@ describe('buildMotifOnsets', () => {
 describe('gridUnitsToDuration', () => {
   it('1 unit → 16n', () => expect(gridUnitsToDuration(1)).toBe('16n'));
   it('0 units → 16n', () => expect(gridUnitsToDuration(0)).toBe('16n'));
-  it('2 units → 8n',  () => expect(gridUnitsToDuration(2)).toBe('8n'));
-  it('3 units → 8n',  () => expect(gridUnitsToDuration(3)).toBe('8n'));
-  it('4 units → 4n',  () => expect(gridUnitsToDuration(4)).toBe('4n'));
-  it('6 units → 4n',  () => expect(gridUnitsToDuration(6)).toBe('4n'));
-  it('7 units → 2n',  () => expect(gridUnitsToDuration(7)).toBe('2n'));
+  it('2 units → 8n', () => expect(gridUnitsToDuration(2)).toBe('8n'));
+  it('3 units → 8n', () => expect(gridUnitsToDuration(3)).toBe('8n'));
+  it('4 units → 4n', () => expect(gridUnitsToDuration(4)).toBe('4n'));
+  it('6 units → 4n', () => expect(gridUnitsToDuration(6)).toBe('4n'));
+  it('7 units → 2n', () => expect(gridUnitsToDuration(7)).toBe('2n'));
   it('16 units → 2n', () => expect(gridUnitsToDuration(16)).toBe('2n'));
 });
 
@@ -688,13 +688,13 @@ describe('gridUnitsToDuration', () => {
 
 describe('generateMelodyForRobot — GenerateMelodyForRobotOptions', () => {
   it('returns the requested number of events', () => {
-    const melody = generateMelodyForRobot({ eventCount: 4, octaveMin: 3, octaveMax: 5, seed: 1 });
+    const melody = generateMelodyForRobot({ onsetCount: 4, octaveMin: 3, octaveMax: 5, seed: 1 });
     // density defaults to eventCount when rhythmicDensity is omitted
     expect(melody.length).toBe(4);
   });
 
   it('all noteIndex values are in [0, 7]', () => {
-    const melody = generateMelodyForRobot({ eventCount: 12, octaveMin: 2, octaveMax: 6, seed: 42 });
+    const melody = generateMelodyForRobot({ onsetCount: 12, octaveMin: 2, octaveMax: 6, seed: 42 });
     melody.forEach((e) => {
       expect(e.noteIndex).toBeGreaterThanOrEqual(0);
       expect(e.noteIndex).toBeLessThanOrEqual(7);
@@ -702,7 +702,7 @@ describe('generateMelodyForRobot — GenerateMelodyForRobotOptions', () => {
   });
 
   it('all octave values are within [octaveMin, octaveMax]', () => {
-    const melody = generateMelodyForRobot({ eventCount: 8, octaveMin: 3, octaveMax: 5, seed: 7 });
+    const melody = generateMelodyForRobot({ onsetCount: 8, octaveMin: 3, octaveMax: 5, seed: 7 });
     melody.forEach((e) => {
       expect(e.octave).toBeGreaterThanOrEqual(3);
       expect(e.octave).toBeLessThanOrEqual(5);
@@ -710,12 +710,12 @@ describe('generateMelodyForRobot — GenerateMelodyForRobotOptions', () => {
   });
 
   it('octaveMin === octaveMax pins all events to that octave', () => {
-    const melody = generateMelodyForRobot({ eventCount: 6, octaveMin: 4, octaveMax: 4, seed: 99 });
+    const melody = generateMelodyForRobot({ onsetCount: 6, octaveMin: 4, octaveMax: 4, seed: 99 });
     melody.forEach((e) => expect(e.octave).toBe(4));
   });
 
   it('swapped octaveMin/octaveMax is normalised (no events out of range)', () => {
-    const melody = generateMelodyForRobot({ eventCount: 6, octaveMin: 5, octaveMax: 3, seed: 5 });
+    const melody = generateMelodyForRobot({ onsetCount: 6, octaveMin: 5, octaveMax: 3, seed: 5 });
     melody.forEach((e) => {
       expect(e.octave).toBeGreaterThanOrEqual(3);
       expect(e.octave).toBeLessThanOrEqual(5);
@@ -723,7 +723,7 @@ describe('generateMelodyForRobot — GenerateMelodyForRobotOptions', () => {
   });
 
   it('all startStep values are in [1, 16]', () => {
-    const melody = generateMelodyForRobot({ eventCount: 8, octaveMin: 3, octaveMax: 4, seed: 10 });
+    const melody = generateMelodyForRobot({ onsetCount: 8, octaveMin: 3, octaveMax: 4, seed: 10 });
     melody.forEach((e) => {
       expect(e.startStep).toBeGreaterThanOrEqual(1);
       expect(e.startStep).toBeLessThanOrEqual(16);
@@ -733,7 +733,7 @@ describe('generateMelodyForRobot — GenerateMelodyForRobotOptions', () => {
   it('eventCount=4 with seed produces roughly quarter-note spacing', () => {
     // 4 onsets across 16 subdivisions ≈ one per 4 grid units (quarter-note)
     const melody = generateMelodyForRobot({
-      eventCount: 4,
+      onsetCount: 4,
       rhythmicDensity: 4,
       octaveMin: 3,
       octaveMax: 4,
@@ -750,7 +750,7 @@ describe('generateMelodyForRobot — GenerateMelodyForRobotOptions', () => {
   it('eventCount=8 with seed produces roughly eighth-note spacing', () => {
     // 8 onsets across 16 subdivisions ≈ one per 2 grid units (eighth-note)
     const melody = generateMelodyForRobot({
-      eventCount: 8,
+      onsetCount: 8,
       rhythmicDensity: 8,
       octaveMin: 3,
       octaveMax: 4,
@@ -767,7 +767,7 @@ describe('generateMelodyForRobot — GenerateMelodyForRobotOptions', () => {
   it('short rhythmicMotifLength produces repeating onset pattern', () => {
     // motifLength=4, subdivisions=16 → repeats=4; pattern tiles every 4 steps
     const melody = generateMelodyForRobot({
-      eventCount: 4,
+      onsetCount: 4,
       rhythmicDensity: 4,
       rhythmicMotifLength: 4,
       octaveMin: 3,
@@ -785,7 +785,7 @@ describe('generateMelodyForRobot — GenerateMelodyForRobotOptions', () => {
 
   it('rhythmicMotifLength === subdivisions produces non-repeating output', () => {
     const melody = generateMelodyForRobot({
-      eventCount: 6,
+      onsetCount: 6,
       rhythmicDensity: 6,
       rhythmicMotifLength: 16,
       octaveMin: 3,
@@ -800,7 +800,7 @@ describe('generateMelodyForRobot — GenerateMelodyForRobotOptions', () => {
 
   it('noteVariance > 0 prefers new unique notes until set fills (deterministic)', () => {
     const nv = 3;
-    const melody = generateMelodyForRobot({ eventCount: 6, octaveMin: 3, octaveMax: 4, seed: 11, noteVariance: nv });
+    const melody = generateMelodyForRobot({ onsetCount: 6, octaveMin: 3, octaveMax: 4, seed: 11, noteVariance: nv });
     const seen = new Set<number>();
     for (let i = 0; i < melody.length; i++) {
       const idx = melody[i].noteIndex;
@@ -814,7 +814,7 @@ describe('generateMelodyForRobot — GenerateMelodyForRobotOptions', () => {
   });
 
   it('noteVariance === 8 draws without replacement until all 8 notes used', () => {
-    const melody = generateMelodyForRobot({ eventCount: 8, octaveMin: 3, octaveMax: 5, seed: 7, noteVariance: 8 });
+    const melody = generateMelodyForRobot({ onsetCount: 8, octaveMin: 3, octaveMax: 5, seed: 7, noteVariance: 8 });
     const indices = melody.map((e) => e.noteIndex);
     const uniq = new Set(indices);
     expect(uniq.size).toBe(8);
@@ -823,7 +823,7 @@ describe('generateMelodyForRobot — GenerateMelodyForRobotOptions', () => {
   });
 
   it('is deterministic with the same seed', () => {
-    const opts = { eventCount: 6, octaveMin: 3, octaveMax: 5, seed: 77 };
+    const opts = { onsetCount: 6, octaveMin: 3, octaveMax: 5, seed: 77 };
     const a = generateMelodyForRobot(opts);
     const b = generateMelodyForRobot(opts);
     expect(a.map((e) => e.startStep)).toEqual(b.map((e) => e.startStep));
@@ -832,13 +832,13 @@ describe('generateMelodyForRobot — GenerateMelodyForRobotOptions', () => {
   });
 
   it('each event has a valid length (16n | 8n | 4n | 2n)', () => {
-    const melody = generateMelodyForRobot({ eventCount: 8, octaveMin: 3, octaveMax: 4, seed: 6 });
+    const melody = generateMelodyForRobot({ onsetCount: 8, octaveMin: 3, octaveMax: 4, seed: 6 });
     const valid = new Set(['16n', '8n', '4n', '2n']);
     melody.forEach((e) => expect(valid.has(e.length)).toBe(true));
   });
 
   it('each event has a unique id', () => {
-    const melody = generateMelodyForRobot({ eventCount: 8, octaveMin: 3, octaveMax: 4, seed: 8 });
+    const melody = generateMelodyForRobot({ onsetCount: 8, octaveMin: 3, octaveMax: 4, seed: 8 });
     const ids = melody.map((e) => e.id);
     expect(new Set(ids).size).toBe(ids.length);
   });

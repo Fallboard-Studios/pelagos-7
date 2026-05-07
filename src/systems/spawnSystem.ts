@@ -5,7 +5,7 @@ import type { NoiseFunction2D } from 'simplex-noise';
 import type { Vec2 } from '../types/Vec2';
 import type { Robot, AudioAttributes, SynthType, WaveformType } from '../types/Robot';
 import { RobotState } from '../types/Robot';
-import { generateMelodyForRobot } from '../engine/melodyGenerator';
+import { generateMelodyForRobot, DEFAULT_RHYTHMIC_DENSITY } from '../engine/melodyGenerator';
 import { AudioEngine } from '../engine/AudioEngine';
 import type { LayeredWave, LayerDescriptor } from '../types/layeredAudio';
 import { scheduleRepeat, cancelSchedule } from '../engine/beatClock';
@@ -366,7 +366,7 @@ export function spawnRobot(localeId: string): void {
     ? () => getSeededVal(noiseMap, 'melody.rand', spawnCount * 100 + melodyCallIndex++)
     : Math.random;
 
-  const spawnMelody = generateMelodyForRobot({ octaveRange, rand: melodyRand });
+  const spawnMelody = generateMelodyForRobot({ octaveMin: octaveRange[0], octaveMax: octaveRange[1], onsetCount: DEFAULT_RHYTHMIC_DENSITY, rand: melodyRand });
 
   const robot: Robot = {
     id: crypto.randomUUID(),
