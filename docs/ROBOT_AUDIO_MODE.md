@@ -20,8 +20,7 @@ Modes
    - This is enforced at note scheduling/mix time so the highlighted robot remains perceptually louder.
 
 Engine contract
- - Enforcement point: `AudioEngine.scheduleNote()` (and a safety check in `triggerWithCap`) apply the above semantics at scheduling/trigger time.
- - `AudioEngine.refreshAudioModeIndex(localeId?)` is available to rebuild caches after store changes.
+ - Enforcement point: `AudioEngine.scheduleNote()` (and a safety check in `triggerWithCap`) apply the above semantics at scheduling/trigger time by reading `audioMode` directly from the store.
  - Highlight attenuation is multiplicative and applied on top of each robot's `masterVolume` and per-note velocity calculations.
 
 UI guidance

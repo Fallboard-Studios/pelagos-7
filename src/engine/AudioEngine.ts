@@ -84,6 +84,9 @@ const toneRecord = Tone as unknown as Record<string, unknown>;
 // MODULE STATE
 // ========================================
 let initialized = false;
+// instrumentsLoaded intentionally survives stop()/killAll() — the FX chain
+// (compressor, reverb, delay, etc.) is expensive to rebuild and remains valid
+// across start/stop cycles. Only a full page reload resets it.
 let instrumentsLoaded = false;
 // Reservation state
 let activeVoices = 0;
@@ -130,29 +133,6 @@ let _transport: ReturnType<typeof Tone.getTransport> | null = null;
 /** Robot masterVolume cache — keyed by robotId to avoid per-note Zustand store scans.
  * Populated on first note for a robot, cleared when its melody is unregistered. */
 const robotAttributeCache = new Map<string, { masterVolume: number }>();
-
-// Per-locale audioMode index for quick lookup of solo/mute/highlight flags.
-const audioModeIndex = new Map<string, { solo: Set<string>; highlight: Set<string>; mute: Set<string> }>();
-
-function buildAudioModeIndex(localeId: string) {
-  try {
-    const store = useLocaleStore.getState();
-    const robots = store.locales[localeId]?.robots ?? [];
-    const idx = { solo: new Set<string>(), highlight: new Set<string>(), mute: new Set<string>() };
-    for (const r of robots) {
-      if (r.audioMode === 'solo') idx.solo.add(r.id);
-      else if (r.audioMode === 'highlight') idx.highlight.add(r.id);
-      else if (r.audioMode === 'mute') idx.mute.add(r.id);
-    }
-    audioModeIndex.set(localeId, idx);
-    return idx;
-  } catch (err) {
-    if (DEV_TUNING) swallow(err, 'AudioEngine.buildAudioModeIndex');
-    const fallback = { solo: new Set<string>(), highlight: new Set<string>(), mute: new Set<string>() };
-    audioModeIndex.set(localeId, fallback);
-    return fallback;
-  }
-}
 
 // Composite voices (created from LayeredWave descriptors) stored separately
 interface CompositeVoice {
@@ -722,44 +702,23 @@ export const AudioEngine = {
 
     // Enforce audioMode policies (mute/solo/highlight) at schedule time.
     const localeIdResolved = getActiveLocaleId();
-
-    // Prefer authoritative store lookup to ensure correctness in tests and
-    // when the index cache might be stale. Fall back to the cached index for
-    // performance when store access is undesirable.
     try {
       const store = useLocaleStore.getState();
       const localeRobots = store.locales[localeIdResolved]?.robots ?? [];
-      if (localeRobots.length > 0) {
-        const robotFromStore = localeRobots.find((r) => r.id === robotId);
-        if (robotFromStore?.audioMode === 'mute') {
-          if (DEV_TUNING) console.log(`[AudioEngine] Robot ${robotId} is muted (store); skipping note`);
-          return;
-        }
-        const anySoloInStore = localeRobots.some((r) => r.audioMode === 'solo');
-        if (anySoloInStore && robotFromStore?.audioMode !== 'solo') {
-          if (DEV_TUNING) console.log(`[AudioEngine] Robot ${robotId} suppressed due to solo (store)`);
-          return;
-        }
-        const anyHighlightInStore = localeRobots.some((r) => r.audioMode === 'highlight');
-        if (anyHighlightInStore && robotFromStore?.audioMode !== 'highlight') {
-          // Apply ~50% attenuation (~-6dB) to non-highlighted robots
-          effectiveVelocity = (effectiveVelocity ?? 1) * 0.5;
-        }
-      } else {
-        // No robots in store for this locale; use cached index as fallback.
-        let modeIdx = audioModeIndex.get(localeIdResolved);
-        if (!modeIdx) modeIdx = buildAudioModeIndex(localeIdResolved);
-        if (robotId && modeIdx.mute.has(robotId)) {
-          if (DEV_TUNING) console.log(`[AudioEngine] Robot ${robotId} is muted by audioMode; skipping note`);
-          return;
-        }
-        if (robotId && modeIdx.solo.size > 0 && !modeIdx.solo.has(robotId)) {
-          if (DEV_TUNING) console.log(`[AudioEngine] Robot ${robotId} suppressed due to solo in locale ${localeIdResolved}`);
-          return;
-        }
-        if (robotId && modeIdx.highlight.size > 0 && !modeIdx.highlight.has(robotId)) {
-          effectiveVelocity = (effectiveVelocity ?? 1) * 0.5;
-        }
+      const robotFromStore = localeRobots.find((r) => r.id === robotId);
+      if (robotFromStore?.audioMode === 'mute') {
+        if (DEV_TUNING) console.log(`[AudioEngine] Robot ${robotId} is muted; skipping note`);
+        return;
+      }
+      const anySolo = localeRobots.some((r) => r.audioMode === 'solo');
+      if (anySolo && robotFromStore?.audioMode !== 'solo') {
+        if (DEV_TUNING) console.log(`[AudioEngine] Robot ${robotId} suppressed due to solo`);
+        return;
+      }
+      const anyHighlight = localeRobots.some((r) => r.audioMode === 'highlight');
+      if (anyHighlight && robotFromStore?.audioMode !== 'highlight') {
+        // Apply ~50% attenuation (~-6dB) to non-highlighted robots
+        effectiveVelocity = (effectiveVelocity ?? 1) * 0.5;
       }
     } catch (err) {
       if (DEV_TUNING) swallow(err, 'AudioEngine.scheduleNote.audioMode');
@@ -1128,6 +1087,7 @@ export const AudioEngine = {
 
   unregisterRobotMelody(robotId: string): void {
     robotAttributeCache.delete(robotId);
+    robotNoteIndex.delete(robotId);
     let removedCount = 0;
 
     stepRegistry.forEach((entries, step) => {
@@ -1197,15 +1157,6 @@ export const AudioEngine = {
   /** Returns the current AudioContext time (seconds). Use for note scheduling offsets. */
   now(): number {
     return Tone.now();
-  },
-
-  /**
-   * Refresh the audioMode index for a locale. Useful to call when UI changes
-   * robot audioMode flags to make enforcement immediate.
-   */
-  refreshAudioModeIndex(localeId?: string): void {
-    const id = localeId ?? getActiveLocaleId();
-    try { buildAudioModeIndex(id); } catch (err) { if (DEV_TUNING) swallow(err, 'AudioEngine.refreshAudioModeIndex'); }
   },
 
   /**

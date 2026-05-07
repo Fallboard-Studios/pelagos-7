@@ -305,8 +305,6 @@ describe('AudioEngine - audioMode enforcement (solo/mute/highlight)', () => {
     });
 
     await AudioEngine.start();
-    // Ensure index reflects current store
-    AudioEngine.refreshAudioModeIndex(merged_DEFAULT_LOCALE_ID);
 
     // Reserve composite voices for both robots
     const layered = { base: 'sine', layers: [{ type: 'sine', gain: 0.8 }] } as unknown as import('../types/layeredAudio').LayeredWave;
@@ -352,7 +350,6 @@ describe('AudioEngine - audioMode enforcement (solo/mute/highlight)', () => {
     });
 
     await AudioEngine.start();
-    AudioEngine.refreshAudioModeIndex(merged_DEFAULT_LOCALE_ID);
 
     // Reserve composite voices
     const layered = { base: 'sine', layers: [{ type: 'sine', gain: 0.8 }] } as unknown as import('../types/layeredAudio').LayeredWave;
@@ -393,7 +390,6 @@ describe('AudioEngine - audioMode enforcement (solo/mute/highlight)', () => {
     });
 
     await AudioEngine.start();
-    AudioEngine.refreshAudioModeIndex(merged_DEFAULT_LOCALE_ID);
 
     // Reserve composite voices
     const layered = { base: 'sine', layers: [{ type: 'sine', gain: 0.8 }] } as unknown as import('../types/layeredAudio').LayeredWave;
