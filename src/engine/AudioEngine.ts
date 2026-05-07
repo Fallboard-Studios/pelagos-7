@@ -6,15 +6,17 @@ import gsap from 'gsap';
 import { useLocaleStore } from '../stores/localeStore';
 import { getActiveLocaleId } from '../utils/localeHelpers';
 
-import type { NoteDuration, ADSREnvelope, SynthType, WaveformType, Robot } from '../types/Robot';
+import type { NoteDuration, WaveformType, Robot } from '../types/Robot';
 import type { LayeredWave, LayerDescriptor } from '../types/layeredAudio';
 import type { ReverbSettings, DelaySettings, ChorusSettings, FilterSettings, EQ3Settings, CompressorSettings } from '../types/globalAudio';
 import { getAvailableNotes, scheduleHarmonyCycle, stopHarmonyCycle } from './harmonySystem';
-import { resetBeatClock, subscribeToMeasure } from './beatClock';
-import { initBeatClock } from './beatClock';
+import { resetBeatClock, subscribeToMeasure, initBeatClock } from './beatClock';
 import type { RobotMelodyEvent } from './melodyGenerator';
 import { applyRhythmicVariance } from './melodyGenerator';
-import { DEV_TUNING, WORLD_WIDTH } from '../constants';
+import { DEV_TUNING, WORLD_WIDTH, MIN_LEAD as CONST_MIN_LEAD } from '../constants';
+
+// MIN_LEAD: prefer project constant, fall back to 0.1s for headless/tests
+const MIN_LEAD = CONST_MIN_LEAD ?? 0.1;
 import { getRef } from '../utils/refs';
 import { swallow } from '../utils/helpers';
 import { precomputeDataX } from '../utils/getSeededVal';
@@ -29,23 +31,12 @@ export interface NoteParams {
   duration: NoteDuration;
   time?: number;
   velocity?: number;
-  fatCount?: number;
-  fatSpread?: number;
-  synthType?: SynthType | string;
-  adsr?: ADSREnvelope;
-  waveform?: WaveformType;
-  harmonicity?: number;
-  vibratoAmount?: number;
-  localeId?: string;
 }
 
 interface MelodyEventEntry {
   robotId: string;
   event: RobotMelodyEvent;
 }
-
-type SynthPool = Record<string, Tone.PolySynth[]>;
-type PannerPool = Record<string, Tone.Panner[]>;
 
 // Minimal shape used for test/runtime fallbacks where Tone classes may be absent.
 interface MinimalToneNode {
@@ -74,7 +65,7 @@ interface SynthWithOscillator {
 // CONSTANTS
 // ========================================
 const MAX_POLYPHONY = 16;
-const MIN_LEAD = 0.1; // 50ms lookahead for scheduling
+// NOTE: MIN_LEAD is provided from src/constants for consistency across modules
 /** Fraction of notes that receive a random velocity offset for organic expressiveness. */
 const VELOCITY_VARIANCE_RATE = 0.15;
 /** Maximum ± deviation applied to a note's velocity when variance is triggered. */
@@ -93,11 +84,11 @@ const toneRecord = Tone as unknown as Record<string, unknown>;
 // MODULE STATE
 // ========================================
 let initialized = false;
+// instrumentsLoaded intentionally survives stop()/killAll() — the FX chain
+// (compressor, reverb, delay, etc.) is expensive to rebuild and remains valid
+// across start/stop cycles. Only a full page reload resets it.
 let instrumentsLoaded = false;
-let synthPool: SynthPool | null = null;
 // Reservation state
-const reservedVoices: Map<string, { type: string; index: number; reservedAt: number }> = new Map();
-let reservedSlots: Record<string, Array<string | null>> | null = null;
 let activeVoices = 0;
 // Prefixed with underscore to acknowledge it's intentionally kept for
 // potential external inspector/debugging while avoiding unused-var lint.
@@ -112,7 +103,6 @@ let _globalLPF: Tone.Filter | null = null;
 let _globalHPF: Tone.Filter | null = null;
 // Passthrough gain node used when global bypass is active — audio routes here, skipping FX chain
 let _fxBypassGain: Tone.Gain | null = null;
-let _globalBypassActive = false;
 // Master output gain controlling overall volume (used by setMasterVolume/getMasterVolume)
 let _masterGain: Tone.Gain | null = null;
 let _masterVolume = 1;
@@ -137,43 +127,12 @@ const stepRegistry = new Map<number, MelodyEventEntry[]>();
 let stepCounter = 0;
 let scheduledTickId: number | null = null;
 
-// Panner pool: each synth instance has its own panner for independent position control
-let pannerPool: PannerPool | null = null;
 // Cache Tone.Transport instance returned by Tone.getTransport() so repeated calls
 // return the same mock instance in tests and the same runtime transport in-app.
 let _transport: ReturnType<typeof Tone.getTransport> | null = null;
-/** Robot audio attribute cache — keyed by robotId to avoid per-note Zustand store scans.
- * Populated on first note for a robot, cleared when its melody is unregistered.
- * Audio attributes are immutable after spawn so this cache never goes stale. */
-const robotAttributeCache = new Map<string, {
-  synthType: string;
-  adsr: ADSREnvelope;
-  waveform?: WaveformType;
-  masterVolume: number;
-}>();
-
-// Per-locale audioMode index for quick lookup of solo/mute/highlight flags.
-const audioModeIndex = new Map<string, { solo: Set<string>; highlight: Set<string>; mute: Set<string> }>();
-
-function buildAudioModeIndex(localeId: string) {
-  try {
-    const store = useLocaleStore.getState();
-    const robots = store.locales[localeId]?.robots ?? [];
-    const idx = { solo: new Set<string>(), highlight: new Set<string>(), mute: new Set<string>() };
-    for (const r of robots) {
-      if (r.audioMode === 'solo') idx.solo.add(r.id);
-      else if (r.audioMode === 'highlight') idx.highlight.add(r.id);
-      else if (r.audioMode === 'mute') idx.mute.add(r.id);
-    }
-    audioModeIndex.set(localeId, idx);
-    return idx;
-  } catch (err) {
-    if (DEV_TUNING) swallow(err, 'AudioEngine.buildAudioModeIndex');
-    const fallback = { solo: new Set<string>(), highlight: new Set<string>(), mute: new Set<string>() };
-    audioModeIndex.set(localeId, fallback);
-    return fallback;
-  }
-}
+/** Robot masterVolume cache — keyed by robotId to avoid per-note Zustand store scans.
+ * Populated on first note for a robot, cleared when its melody is unregistered. */
+const robotAttributeCache = new Map<string, { masterVolume: number }>();
 
 // Composite voices (created from LayeredWave descriptors) stored separately
 interface CompositeVoice {
@@ -244,51 +203,8 @@ function getRobotVisualX(robotId: string): number {
 }
 
 /**
- * Get the synth and its corresponding panner from the pool.
- * Used to ensure each synth trigger updates the correct panner for that voice.
- *
- * @param type - Synth type (e.g., 'fm', 'am')
- * @returns { synth, panner } or { synth: null, panner: null } if not found
- */
-function getSynthAndPanner(type?: string): { synth: Tone.PolySynth | null; panner: Tone.Panner | null } {
-  if (!synthPool || !pannerPool) {
-    return { synth: null, panner: null };
-  }
-
-  const t = (type || '').toString().toLowerCase();
-  let synthArr: Tone.PolySynth[] | undefined;
-  let pannerArr: Tone.Panner[] | undefined;
-
-  switch (t) {
-    case 'fmsynth':
-    case 'fm':
-      synthArr = synthPool['fm'];
-      pannerArr = pannerPool['fm'];
-      break;
-    case 'amsynth':
-    case 'am':
-      synthArr = synthPool['am'];
-      pannerArr = pannerPool['am'];
-      break;
-    case 'duosynth':
-    case 'duo':
-      synthArr = synthPool['duo'];
-      pannerArr = pannerPool['duo'];
-      break;
-    default:
-      synthArr = synthPool['default'];
-      pannerArr = pannerPool['default'];
-  }
-
-  const synth = synthArr && synthArr.length > 0 ? synthArr[0] : null;
-  const panner = pannerArr && pannerArr.length > 0 ? pannerArr[0] : null;
-
-  return { synth, panner };
-}
-
-/**
- * Load synth pool with 4 types for timbral variety.
- * All synths route through individual panners to the compressor for position-based panning.
+ * Initialize the global FX chain and compressor.
+ * All composite voices route through this chain.
  */
 async function loadInstruments(): Promise<void> {
   if (instrumentsLoaded) return;
@@ -409,76 +325,10 @@ async function loadInstruments(): Promise<void> {
     } catch (err) { if (DEV_TUNING) swallow(err); }
   }
 
-  // Helper to try constructing a PolySynth for a voice constructor, with
-  // a fallback to a simpler Synth voice if the voice class is not present
-  // in the loaded Tone.js build or throws at construction time.
-  const PolySynthCtor = Tone.PolySynth as unknown as { new(voiceCtor: unknown): Tone.PolySynth };
-  const createPolyWithFallback = (voiceCtor: unknown, fallbackCtor: unknown): Tone.PolySynth => {
-    try {
-      if (!voiceCtor) throw new Error('voiceCtor not available');
-      if (typeof PolySynthCtor !== 'function') throw new Error('PolySynth constructor not available');
-      return new PolySynthCtor(voiceCtor);
-    } catch (err) {
-      if (DEV_TUNING) swallow(err, 'AudioEngine.createPolyWithFallback');
-      if (typeof PolySynthCtor !== 'function') throw err;
-      return new PolySynthCtor(fallbackCtor || (toneRecord.Synth ?? null));
-    }
-  };
-
-  const maxRobots = useLocaleStore.getState().locales[getActiveLocaleId()]?.settings?.maxRobots ?? 8;
-  const desiredTotal = Math.min(MAX_POLYPHONY, Math.max(1, Math.floor(maxRobots)));
-  if (DEV_TUNING) console.log(`[AudioEngine] Pool desiredTotal=${desiredTotal} (maxRobots=${maxRobots}, MAX_POLYPHONY=${MAX_POLYPHONY}) - guaranteeing one slot per robot when possible`);
-
-  // Flat pool sizing: allocate one identical slot per robot (clamped by MAX_POLYPHONY).
-  if (DEV_TUNING) console.log(`[AudioEngine] Flat pool desiredTotal=${desiredTotal} (maxRobots=${maxRobots}, MAX_POLYPHONY=${MAX_POLYPHONY}) - creating ${desiredTotal} identical slots`);
-
-  const POOL_SIZING: Record<string, number> = { default: desiredTotal };
-
-  synthPool = {} as SynthPool;
-  pannerPool = {} as PannerPool;
-  reservedSlots = {};
-
-  for (const [type, count] of Object.entries(POOL_SIZING)) {
-    const synthArr: Tone.PolySynth[] = [];
-    const pannerArr: Tone.Panner[] = [];
-    for (let i = 0; i < count; i++) {
-      let poly: Tone.PolySynth;
-      switch (type) {
-        case 'fm':
-          poly = createPolyWithFallback(toneRecord.FMSynth, toneRecord.Synth);
-          break;
-        case 'am':
-          poly = createPolyWithFallback(toneRecord.AMSynth, toneRecord.Synth);
-          break;
-        case 'duo':
-          poly = createPolyWithFallback(toneRecord.DuoSynth, toneRecord.Synth);
-          break;
-        default:
-          poly = createPolyWithFallback(toneRecord.Synth, toneRecord.Synth);
-      }
-      // Pull back hot synth types before the compressor.
-      // FM/AM synthesis produces loud harmonics; attenuate to prevent clipping.
-      if (poly.volume && typeof poly.volume.value === 'number') {
-        poly.volume.value = (type === 'fm' || type === 'am') ? -10 : -6;
-      }
-
-      // Create individual panner for this synth: synth → panner → compressor
-      const panner = new Tone.Panner({ pan: 0 }).connect(compressor);
-      poly.connect(panner);
-
-      synthArr.push(poly);
-      pannerArr.push(panner);
-    }
-    synthPool[type] = synthArr;
-    pannerPool[type] = pannerArr;
-    reservedSlots[type] = new Array(count).fill(null);
-  }
-
   instrumentsLoaded = true;
-  if (DEV_TUNING) console.log('[AudioEngine] Synth pool loaded');
+  if (DEV_TUNING) console.log('[AudioEngine] FX chain loaded');
 
-  // If robots spawned earlier than AudioEngine initialization, try to reserve
-  // slots for them now so per-robot parameters are applied safely.
+  // If robots spawned before AudioEngine initialized, reserve their composite voices now.
   try {
     const store = useLocaleStore.getState();
     const robots = store.locales[getActiveLocaleId()]?.robots ?? [];
@@ -486,17 +336,11 @@ async function loadInstruments(): Promise<void> {
       if (DEV_TUNING) console.log(`[AudioEngine] Attempting post-load reservations for ${robots.length} robots`);
       robots.forEach((robot: Robot) => {
         try {
-          const waveform = robot.audioAttributes?.waveform as string | undefined;
-          const adsr = robot.audioAttributes?.adsr as ADSREnvelope | undefined;
           const layered = (robot.audioAttributes as unknown as { visualAudioMap?: { layeredWave?: LayeredWave } })?.visualAudioMap?.layeredWave;
-          let ok = false;
           if (layered) {
-            ok = AudioEngine.reserveVoice(robot.id, layered as LayeredWave, undefined, undefined, robot.audioAttributes?.phase, robot.audioAttributes?.detune);
-          } else {
-            const requestedType = robot.audioAttributes?.synthType as string | undefined;
-            ok = AudioEngine.reserveVoice(robot.id, requestedType ?? 'default', waveform, adsr, robot.audioAttributes?.phase, robot.audioAttributes?.detune);
+            const ok = AudioEngine.reserveVoice(robot.id, layered as LayeredWave, robot.audioAttributes?.phase, robot.audioAttributes?.detune);
+            if (DEV_TUNING) console.log(`[AudioEngine] Post-load reserve for ${robot.id}: ${ok ? 'OK' : 'FAILED'}`);
           }
-          if (DEV_TUNING) console.log(`[AudioEngine] Post-load reserve for ${robot.id}: ${ok ? 'OK' : 'FAILED'}`);
         } catch (err) {
           if (DEV_TUNING) console.warn('[AudioEngine] Failed post-load reservation for robot', robot.id, err);
         }
@@ -522,9 +366,6 @@ function scheduleVoiceRelease(duration: NoteDuration, time: number): void {
     const transport = _transport ?? Tone.getTransport();
     transport.scheduleOnce(() => {
       activeVoices = Math.max(0, activeVoices - 1);
-      // if (DEV_TUNING) {
-      //   console.log(`[AudioEngine] Voice released: ${activeVoices}/${MAX_POLYPHONY}`);
-      // }
     }, `+${delayFromNow}`);
   } catch (err) {
     if (DEV_TUNING) swallow(err, 'AudioEngine.scheduleVoiceRelease');
@@ -539,26 +380,6 @@ function scheduleVoiceRelease(duration: NoteDuration, time: number): void {
  * Called from the Transport tick with the scheduled `time` for accuracy.
  */
 function updateAllPanners(_time?: number): void {
-  if (!pannerPool || !reservedVoices) return;
-
-  try {
-    for (const [robotId, entry] of reservedVoices.entries()) {
-      const panner = pannerPool[entry.type]?.[entry.index];
-      if (!panner) continue;
-      try {
-        const visualX = getRobotVisualX(robotId);
-        const panValue = calculatePanFromPosition(visualX);
-        // Set value directly — this is cheap and avoids reflow-inducing operations.
-        panner.pan.value = panValue;
-      } catch (err) {
-        if (DEV_TUNING) console.warn('[AudioEngine] Failed to update panner for', robotId, err);
-      }
-    }
-  } catch (err) {
-    if (DEV_TUNING) console.warn('[AudioEngine] updateAllPanners failed', err);
-  }
-
-  // Update composite voice panners as well
   try {
     for (const [robotId, entry] of compositeVoices.entries()) {
       try {
@@ -570,7 +391,7 @@ function updateAllPanners(_time?: number): void {
       }
     }
   } catch (err) {
-    if (DEV_TUNING) console.warn('[AudioEngine] update composite panners failed', err);
+    if (DEV_TUNING) console.warn('[AudioEngine] updateAllPanners failed', err);
   }
 }
 /**
@@ -579,12 +400,7 @@ function updateAllPanners(_time?: number): void {
  * Returns true if note was triggered, false if skipped due to cap.
  */
 export function triggerWithCap(params: NoteParams): boolean {
-  const { robotId, note, duration, time, velocity, synthType, adsr } = params;
-
-  if (!synthPool) {
-    console.warn('[AudioEngine] Synth pool not loaded');
-    return false;
-  }
+  const { robotId, note, duration, time } = params;
 
   // Check polyphony limit
   if (activeVoices >= MAX_POLYPHONY) {
@@ -598,9 +414,9 @@ export function triggerWithCap(params: NoteParams): boolean {
 
   // Enforce audioMode at trigger time as a safety net in case schedule path missed it.
   try {
-    const localeIdResolved = params.localeId ?? getActiveLocaleId();
+    const localeId = getActiveLocaleId();
     const store = useLocaleStore.getState();
-    const localeRobots = store.locales[localeIdResolved]?.robots ?? [];
+    const localeRobots = store.locales[localeId]?.robots ?? [];
     if (localeRobots.length > 0) {
       const robotFromStore = localeRobots.find((r) => r.id === robotId);
       if (robotFromStore?.audioMode === 'mute') {
@@ -612,104 +428,31 @@ export function triggerWithCap(params: NoteParams): boolean {
         if (DEV_TUNING) console.log(`[AudioEngine] Robot ${robotId} suppressed due to solo (trigger)`);
         return false;
       }
-      const anyHighlightInStore = localeRobots.some((r) => r.audioMode === 'highlight');
-      if (anyHighlightInStore && robotFromStore?.audioMode !== 'highlight') {
-        // Attenuate velocity at trigger time by ~50% (~-6dB).
-        // Use provided velocity if present, otherwise compute from cached masterVolume.
-        let baseVel = velocity;
-        if (baseVel === undefined) {
-          const cached = robotAttributeCache.get(robotId);
-          if (cached) baseVel = computeNoteVelocitySeeded(cached.masterVolume, robotId, params.localeId);
-          else baseVel = 0.8;
-        }
-        // Mutate the params.velocity so subsequent trigger uses attenuated velocity.
-        (params as NoteParams).velocity = (baseVel ?? 1) * 0.3;
-      }
+      // Highlight attenuation is handled in scheduleNote; skip here to avoid double-attenuation.
     }
   } catch (err) {
     if (DEV_TUNING) swallow(err, 'AudioEngine.triggerWithCap.audioMode');
   }
 
   const scheduleTime = time ?? Tone.now();
-
-  // Increment voice counter BEFORE triggering
   activeVoices++;
 
   try {
-    // Select synth and corresponding panner from the pool or composite map
-    // Prefer reserved synth slot or composite voice for this robot when present
-    const reserved = AudioEngine.getVoiceForRobot(robotId);
-    let synth: CompositeVoice | Tone.PolySynth | null = null;
-    let panner: Tone.Panner | null = null;
-    let usingComposite = false;
-
-    const reservation = reservedVoices.get(robotId);
-    if (reservation && reservation.type === 'composite') {
-      const comp = compositeVoices.get(robotId);
-      synth = comp?.composite ?? null;
-      panner = comp?.panner ?? null;
-      usingComposite = !!synth;
-    } else if (reserved) {
-      synth = reserved;
-      // Use stored type+index for O(1) panner lookup — avoids indexOf scan on every trigger.
-      panner = null;
-      if (reservation && pannerPool) {
-        panner = pannerPool[reservation.type]?.[reservation.index] ?? null;
-      }
-    } else {
-      // Use getSynthAndPanner to get both synth and its corresponding panner
-      const { synth: selectedSynth, panner: selectedPanner } = getSynthAndPanner(synthType);
-      synth = selectedSynth;
-      panner = selectedPanner;
-
-      // Fallback to default synth if still nothing available
-      if (!synth && synthPool) {
-        const defaultArr = synthPool['default'];
-        const defaultPannerArr = pannerPool ? pannerPool['default'] : undefined;
-        synth = defaultArr?.[0] ?? null;
-        panner = defaultPannerArr?.[0] ?? null;
-      }
+    if (!compositeVoices.has(robotId)) {
+      activeVoices = Math.max(0, activeVoices - 1);
+      if (DEV_TUNING) console.warn(`[AudioEngine] No composite voice reserved for ${robotId}, skipping note`);
+      return false;
     }
+
+    const comp = compositeVoices.get(robotId);
+    const synth = comp?.composite ?? null;
+    const panner = comp?.panner ?? null;
 
     if (!synth) {
-      // No synth available — restore voice counter and skip note
       activeVoices = Math.max(0, activeVoices - 1);
-      if (DEV_TUNING) console.warn('[AudioEngine] No synth available, skipping note');
+      if (DEV_TUNING) console.warn('[AudioEngine] No composite voice available, skipping note');
       return false;
     }
-
-    // If a robot supplied per-note parameters that require voice isolation (ADSR, harmonicity, vibrato),
-    // ensure the robot has a reserved voice. If not, skip the note to avoid mutating shared synths
-    // and corrupting concurrently sustaining voices.
-    const requiresIsolation = !!(
-      adsr || params.harmonicity || params.vibratoAmount
-    );
-    if (requiresIsolation && !reserved) {
-      // rollback the voice increment and skip note
-      activeVoices = Math.max(0, activeVoices - 1);
-      if (DEV_TUNING) {
-        console.warn(
-          `[AudioEngine] Robot ${robotId} requested per-note parameters but has no reserved voice; skipping note to avoid bleed.`
-        );
-      }
-      return false;
-    }
-
-    // Only apply ADSR on reserved synths/composites. Reserved voices should have their parameters set at reservation time
-    // (reserveVoice()). Applying here is a safety measure.
-    if (adsr && (reserved || usingComposite)) {
-      const maybeSetter = synth as unknown as { set?: (props: unknown) => void };
-      if (typeof maybeSetter?.set === 'function') {
-        try {
-          maybeSetter.set({ envelope: adsr });
-        } catch (err) {
-          console.warn('[AudioEngine] Failed to apply ADSR to synth/composite:', err);
-        }
-      }
-    }
-
-    // Waveform is applied once at reserveVoice() time, not per-trigger.
-    // Mid-playback oscillator rebuilds on a shared synth kill in-flight voices.
 
     // Validate note string before touching the synth — an invalid note can start
     // an oscillator attack before throwing, leaving voices permanently open.
@@ -720,30 +463,17 @@ export function triggerWithCap(params: NoteParams): boolean {
       return false;
     }
 
-    // ========================================
-    // PAN CALCULATION & UPDATE
-    // ========================================
-    // Look up robot's current visual X position (from DOM animation) and calculate stereo pan.
-    // Reads the GSAP-animated x transform for real-time panning that tracks visual movement.
-    // Falls back to stored position if DOM ref not available.
-    // Update the synth's individual panner before note trigger (synchronous, cheap).
-    if (robotId && panner) {
+    if (panner) {
       try {
         const visualX = getRobotVisualX(robotId);
-        const panValue = calculatePanFromPosition(visualX);
-        panner.pan.value = panValue;
+        panner.pan.value = calculatePanFromPosition(visualX);
       } catch (err) {
         console.warn('[AudioEngine] Failed to calculate/apply pan:', err);
       }
     }
 
-    if (usingComposite && typeof synth?.triggerAttackRelease === 'function') {
-      synth.triggerAttackRelease(note, duration, scheduleTime, velocity ?? 0.8);
-    } else {
-      synth.triggerAttackRelease(note, duration, scheduleTime, velocity ?? 0.8);
-    }
+    synth.triggerAttackRelease(note, duration, scheduleTime, params.velocity ?? 0.8);
     scheduleVoiceRelease(duration, scheduleTime);
-
     return true;
   } catch (err) {
     console.error('[AudioEngine] Failed to trigger note:', err);
@@ -839,8 +569,6 @@ function startMelodyPlayback(): void {
                 `[AudioEngine] Rhythmic variance applied to robot ${robot.id}: ${shifts}`
               );
             }
-          } else if (DEV_TUNING) {
-            console.log(`[AudioEngine] No variance triggered for robot ${robot.id} (probability)`);
           }
         });
       } catch (err) {
@@ -849,7 +577,7 @@ function startMelodyPlayback(): void {
     }
   }, '8n');
 
-  console.log('[AudioEngine] Melody playback started (8n tick)');
+  if (DEV_TUNING) console.log('[AudioEngine] Melody playback started (8n tick)');
 }
 
 // ========================================
@@ -857,28 +585,13 @@ function startMelodyPlayback(): void {
 // ========================================
 
 /**
- * Compute an effective note velocity from a robot's `masterVolume`.
- * 15% of calls apply a random ±25% offset, producing organic expressiveness.
- * All results are clamped to [VELOCITY_MIN, 1.0] and are never stored in state.
- *
- * @param masterVolume - Base velocity (0–1) from the robot's state
- * @returns Effective velocity clamped to [VELOCITY_MIN, 1.0]
- */
-export function computeNoteVelocity(masterVolume: number): number {
-  // Fallback: when no locale is provided, do not apply variance (clean, deterministic fallback).
-  return Math.min(1, Math.max(VELOCITY_MIN, masterVolume));
-}
-
-/**
  * Deterministic, locale-seeded velocity computation.
- * If a `localeId` is provided and a noise map exists, sample the map at
- * precomputed X positions and the per-robot note index (mod 97) to decide
- * whether to apply variance and its amount. Falls back to no variance when
- * the map is missing or `localeId` is omitted.
+ * Samples the active locale's noise map at precomputed X positions and the
+ * per-robot note index (mod 97) to decide whether to apply variance.
+ * Falls back to no variance when the noise map is unavailable.
  */
-function computeNoteVelocitySeeded(masterVolume: number, robotId?: string, localeId?: string): number {
-  if (!localeId) return Math.min(1, Math.max(VELOCITY_MIN, masterVolume));
-
+function computeNoteVelocitySeeded(masterVolume: number, robotId?: string): number {
+  const localeId = getActiveLocaleId();
   const noiseMap = tryGetLocaleNoiseMap(localeId);
   if (!noiseMap) return Math.min(1, Math.max(VELOCITY_MIN, masterVolume));
 
@@ -934,7 +647,7 @@ export const AudioEngine = {
     scheduleHarmonyCycle(transport);
 
     initialized = true;
-    console.log('[AudioEngine] Started');
+    if (DEV_TUNING) console.log('[AudioEngine] Started');
   },
 
   stop(): void {
@@ -957,7 +670,7 @@ export const AudioEngine = {
     activeVoices = 0;
     initialized = false;
 
-    console.log('[AudioEngine] Stopped');
+    if (DEV_TUNING) console.log('[AudioEngine] Stopped');
   },
 
   /**
@@ -967,334 +680,154 @@ export const AudioEngine = {
    */
   scheduleNote(params: NoteParams): void {
     const { robotId, note, duration, time } = params;
-
-    let synthType = params.synthType;
-    let adsr = params.adsr;
-    let waveform = params.waveform;
     let effectiveVelocity = params.velocity;
 
-    if (robotId && (!synthType || !adsr || effectiveVelocity === undefined)) {
-      // Check attribute cache first — avoids a per-note Zustand store scan inside the Transport tick.
+    if (robotId && effectiveVelocity === undefined) {
       const cached = robotAttributeCache.get(robotId);
       if (cached) {
-        if (!synthType) synthType = cached.synthType;
-        if (!adsr) adsr = cached.adsr;
-        if (!waveform) waveform = cached.waveform;
-        if (effectiveVelocity === undefined) {
-          effectiveVelocity = computeNoteVelocitySeeded(cached.masterVolume, params.robotId, params.localeId);
-        }
+        effectiveVelocity = computeNoteVelocitySeeded(cached.masterVolume, robotId);
       } else {
         try {
           const state = useLocaleStore.getState();
           const robot = state.locales[getActiveLocaleId()]?.robots.find((r) => r.id === robotId);
-
           if (robot) {
-            if (robot.audioAttributes) {
-              if (!synthType) synthType = robot.audioAttributes.synthType as SynthType | string;
-              if (!adsr) adsr = robot.audioAttributes.adsr;
-              if (!waveform) waveform = robot.audioAttributes.waveform;
-              // Populate cache — audio attributes are immutable after spawn.
-              robotAttributeCache.set(robotId, {
-                synthType: robot.audioAttributes.synthType,
-                adsr: robot.audioAttributes.adsr,
-                waveform: robot.audioAttributes.waveform,
-                masterVolume: robot.masterVolume ?? 0.7,
-              });
-            }
-            if (effectiveVelocity === undefined) {
-              effectiveVelocity = computeNoteVelocitySeeded(robot.masterVolume ?? 0.7, robot.id, params.localeId);
-            }
+            robotAttributeCache.set(robotId, { masterVolume: robot.masterVolume ?? 0.7 });
+            effectiveVelocity = computeNoteVelocitySeeded(robot.masterVolume ?? 0.7, robot.id);
           }
         } catch (err) {
-          console.warn('[AudioEngine] Failed to lookup robot audioAttributes:', err);
+          console.warn('[AudioEngine] Failed to lookup robot masterVolume:', err);
         }
       }
     }
 
     // Enforce audioMode policies (mute/solo/highlight) at schedule time.
-    const localeIdResolved = params.localeId ?? getActiveLocaleId();
-
-    // Prefer authoritative store lookup to ensure correctness in tests and
-    // when the index cache might be stale. Fall back to the cached index for
-    // performance when store access is undesirable.
+    const localeIdResolved = getActiveLocaleId();
     try {
       const store = useLocaleStore.getState();
       const localeRobots = store.locales[localeIdResolved]?.robots ?? [];
-      if (localeRobots.length > 0) {
-        const robotFromStore = localeRobots.find((r) => r.id === robotId);
-        if (robotFromStore?.audioMode === 'mute') {
-          if (DEV_TUNING) console.log(`[AudioEngine] Robot ${robotId} is muted (store); skipping note`);
-          return;
-        }
-        const anySoloInStore = localeRobots.some((r) => r.audioMode === 'solo');
-        if (anySoloInStore && robotFromStore?.audioMode !== 'solo') {
-          if (DEV_TUNING) console.log(`[AudioEngine] Robot ${robotId} suppressed due to solo (store)`);
-          return;
-        }
-        const anyHighlightInStore = localeRobots.some((r) => r.audioMode === 'highlight');
-        if (anyHighlightInStore && robotFromStore?.audioMode !== 'highlight') {
-          // Apply ~50% attenuation (~-6dB) to non-highlighted robots
-          effectiveVelocity = (effectiveVelocity ?? 1) * 0.5;
-        }
-      } else {
-        // No robots in store for this locale; use cached index as fallback.
-        let modeIdx = audioModeIndex.get(localeIdResolved);
-        if (!modeIdx) modeIdx = buildAudioModeIndex(localeIdResolved);
-        if (robotId && modeIdx.mute.has(robotId)) {
-          if (DEV_TUNING) console.log(`[AudioEngine] Robot ${robotId} is muted by audioMode; skipping note`);
-          return;
-        }
-        if (robotId && modeIdx.solo.size > 0 && !modeIdx.solo.has(robotId)) {
-          if (DEV_TUNING) console.log(`[AudioEngine] Robot ${robotId} suppressed due to solo in locale ${localeIdResolved}`);
-          return;
-        }
-        if (robotId && modeIdx.highlight.size > 0 && !modeIdx.highlight.has(robotId)) {
-          effectiveVelocity = (effectiveVelocity ?? 1) * 0.5;
-        }
+      const robotFromStore = localeRobots.find((r) => r.id === robotId);
+      if (robotFromStore?.audioMode === 'mute') {
+        if (DEV_TUNING) console.log(`[AudioEngine] Robot ${robotId} is muted; skipping note`);
+        return;
+      }
+      const anySolo = localeRobots.some((r) => r.audioMode === 'solo');
+      if (anySolo && robotFromStore?.audioMode !== 'solo') {
+        if (DEV_TUNING) console.log(`[AudioEngine] Robot ${robotId} suppressed due to solo`);
+        return;
+      }
+      const anyHighlight = localeRobots.some((r) => r.audioMode === 'highlight');
+      if (anyHighlight && robotFromStore?.audioMode !== 'highlight') {
+        // Apply ~50% attenuation (~-6dB) to non-highlighted robots
+        effectiveVelocity = (effectiveVelocity ?? 1) * 0.5;
       }
     } catch (err) {
       if (DEV_TUNING) swallow(err, 'AudioEngine.scheduleNote.audioMode');
     }
 
-    triggerWithCap({ robotId, note, duration, time, velocity: effectiveVelocity, synthType, adsr, waveform });
+    triggerWithCap({ robotId, note, duration, time, velocity: effectiveVelocity });
   },
 
   /**
-   * Reserve a dedicated synth slot for a robot and apply its waveform once at
-   * reservation time — the safe moment when the synth has no in-flight voices.
-   * Returns true if reserved, false if pool exhausted.
+   * Reserve a composite voice for a robot from a LayeredWave descriptor.
+   * Creates per-robot bus nodes (panner → gain → filter → compressor).
+   * Returns true if reserved, false if creation failed.
    *
    * @param robotId - Robot ID
-   * @param synthType - Synth type key (e.g. 'FMSynth')
-   * @param waveform - Optional oscillator type to apply immediately on the idle slot
+   * @param descriptor - LayeredWave descriptor from the robot's audioAttributes
+   * @param phase - Optional oscillator phase (degrees) applied across all layers
+   * @param detune - Optional detune (cents) applied across all layers
    */
   reserveVoice(
     robotId: string,
-    synthTypeOrLayered: string | LayeredWave,
-    waveform?: string,
-    adsr?: ADSREnvelope,
+    descriptor: LayeredWave,
     phase?: number,
     detune?: number,
   ): boolean {
-    // Allow composite reservations even if the synth pool hasn't been created yet
-    if (!synthPool || !reservedSlots) {
-      if (!(typeof synthTypeOrLayered === 'object' && synthTypeOrLayered !== null && (synthTypeOrLayered as LayeredWave).base)) {
-        return false;
-      }
-    }
+    try {
+      const composite = AudioEngine.createCompositeVoice(descriptor);
 
-    // If a layered descriptor was provided, create a composite voice routed into a per-robot sub-bus.
-    if (typeof synthTypeOrLayered === 'object' && synthTypeOrLayered !== null && (synthTypeOrLayered as LayeredWave).base) {
-      const descriptor = synthTypeOrLayered as LayeredWave;
+      // Create per-robot bus: panner -> gain -> filter -> master compressor/destination
+      const PannerCtor = toneRecord.Panner as unknown as (new (...args: unknown[]) => unknown) | undefined;
+      const GainCtorLocal = toneRecord.Gain as unknown as (new (...args: unknown[]) => unknown) | undefined;
+      const FilterCtor = toneRecord.Filter as unknown as (new (...args: unknown[]) => unknown) | undefined;
+
+      const panner = typeof PannerCtor === 'function' ? new (PannerCtor as unknown as (new (...args: unknown[]) => Tone.Panner))({ pan: 0 }) as Tone.Panner : ({ connect: () => { }, pan: { value: 0 }, disconnect: () => { } } as MinimalToneNode) as unknown as Tone.Panner;
+      const busGain = typeof GainCtorLocal === 'function' ? new (GainCtorLocal as unknown as (new (...args: unknown[]) => Tone.Gain))(1) as Tone.Gain : ({ connect: () => ({}), disconnect: () => { }, gain: { value: 1 }, toDestination: () => { } } as MinimalToneNode) as unknown as Tone.Gain;
+      const busFilter = typeof FilterCtor === 'function' ? new (FilterCtor as unknown as (new (...args: unknown[]) => Tone.Filter))({ frequency: 1200, Q: 1 }) as Tone.Filter : ({ connect: () => ({}), disconnect: () => { }, toDestination: () => { } } as MinimalToneNode) as unknown as Tone.Filter;
+
+      // Connect graph: composite.output -> panner -> busGain -> busFilter -> master compressor/destination
+      try { composite.output.connect(panner); } catch (e) { if (DEV_TUNING) console.warn('[AudioEngine] composite.output.connect failed', e); }
+      try { (panner as unknown as { connect?: (target?: unknown) => unknown }).connect?.(busGain); } catch (e) { if (DEV_TUNING) console.warn('[AudioEngine] panner.connect failed', e); }
+      try { (busGain as unknown as { connect?: (target?: unknown) => unknown }).connect?.(busFilter); } catch (e) { if (DEV_TUNING) console.warn('[AudioEngine] busGain.connect failed', e); }
       try {
-        const composite = AudioEngine.createCompositeVoice(descriptor);
-
-        // Create per-robot bus: panner -> gain -> filter -> master compressor/destination
-        const PannerCtor = toneRecord.Panner as unknown as (new (...args: unknown[]) => unknown) | undefined;
-        const GainCtorLocal = toneRecord.Gain as unknown as (new (...args: unknown[]) => unknown) | undefined;
-        const FilterCtor = toneRecord.Filter as unknown as (new (...args: unknown[]) => unknown) | undefined;
-
-        const panner = typeof PannerCtor === 'function' ? new (PannerCtor as unknown as (new (...args: unknown[]) => Tone.Panner))({ pan: 0 }) as Tone.Panner : ({ connect: () => { }, pan: { value: 0 }, disconnect: () => { } } as MinimalToneNode) as unknown as Tone.Panner;
-        const busGain = typeof GainCtorLocal === 'function' ? new (GainCtorLocal as unknown as (new (...args: unknown[]) => Tone.Gain))(1) as Tone.Gain : ({ connect: () => ({}), disconnect: () => { }, gain: { value: 1 }, toDestination: () => { } } as MinimalToneNode) as unknown as Tone.Gain;
-        const busFilter = typeof FilterCtor === 'function' ? new (FilterCtor as unknown as (new (...args: unknown[]) => Tone.Filter))({ frequency: 1200, Q: 1 }) as Tone.Filter : ({ connect: () => ({}), disconnect: () => { }, toDestination: () => { } } as MinimalToneNode) as unknown as Tone.Filter;
-
-        // Connect graph: composite.output -> panner -> busGain -> busFilter -> master compressor/destination
-        try { composite.output.connect(panner); } catch (e) { if (DEV_TUNING) console.warn('[AudioEngine] composite.output.connect failed', e); }
-        try { (panner as unknown as { connect?: (target?: unknown) => unknown }).connect?.(busGain); } catch (e) { if (DEV_TUNING) console.warn('[AudioEngine] panner.connect failed', e); }
-        try { (busGain as unknown as { connect?: (target?: unknown) => unknown }).connect?.(busFilter); } catch (e) { if (DEV_TUNING) console.warn('[AudioEngine] busGain.connect failed', e); }
-        try {
-          if (_masterCompressor) {
-            (busFilter as unknown as { connect?: (target?: unknown) => unknown }).connect?.(_masterCompressor);
-          } else {
-            (busFilter as unknown as { toDestination?: () => unknown }).toDestination?.();
-          }
-        } catch (e) {
-          if (DEV_TUNING) console.warn('[AudioEngine] busFilter connection failed', e);
+        if (_masterCompressor) {
+          (busFilter as unknown as { connect?: (target?: unknown) => unknown }).connect?.(_masterCompressor);
+        } else {
+          (busFilter as unknown as { toDestination?: () => unknown }).toDestination?.();
         }
-
-        compositeVoices.set(robotId, { composite, panner, busGain, busFilter });
-        // Apply optional top-level detune/phase across composite layers when provided
-        try {
-          if (typeof detune === 'number') {
-            const layersParam = (descriptor.layers ?? [{ type: descriptor.base }]).map((l) => ({ type: l.type, detune: (l.detune ?? 0) + detune }));
-            composite.set({ layers: layersParam });
-          }
-          if (typeof phase === 'number') {
-            const layersPhase = (descriptor.layers ?? [{ type: descriptor.base }]).map((l) => ({ type: l.type, phase }));
-            composite.set({ layers: layersPhase });
-          }
-        } catch (e) {
-          if (DEV_TUNING) console.warn('[AudioEngine] Failed to apply composite phase/detune at reservation time', e);
-        }
-        reservedVoices.set(robotId, { type: 'composite', index: -1, reservedAt: Date.now() });
-        if (DEV_TUNING) console.log(`[AudioEngine] Reserved composite voice for ${robotId}`);
-        return true;
-      } catch (err) {
-        if (DEV_TUNING) console.warn('[AudioEngine] Failed to create composite voice:', err);
-        // Fall back to a minimal, test-friendly composite stub so callers can reserve and trigger safely
-        const stubComposite = {
-          output: ({ connect: () => { } } as MinimalToneNode) as unknown as Tone.Gain,
-          triggerAttackRelease: (_note: string, _dur: NoteDuration | string, _time?: number, _vel?: number) => { },
-          set: (_params: unknown) => { },
-          dispose: () => { },
-        } as unknown as CompositeVoice;
-        const panner = ({ connect: () => { }, pan: { value: 0 }, disconnect: () => { } } as MinimalToneNode) as unknown as Tone.Panner;
-        const busGain = ({ connect: () => { }, disconnect: () => { }, gain: { value: 1 } } as MinimalToneNode) as unknown as Tone.Gain;
-        const busFilter = ({ connect: () => { }, disconnect: () => { }, toDestination: () => { } } as MinimalToneNode) as unknown as Tone.Filter;
-        compositeVoices.set(robotId, { composite: stubComposite, panner, busGain, busFilter });
-        reservedVoices.set(robotId, { type: 'composite', index: -1, reservedAt: Date.now() });
-        if (DEV_TUNING) console.log(`[AudioEngine] Reserved stub composite voice for ${robotId}`);
-        return true;
+      } catch (e) {
+        if (DEV_TUNING) console.warn('[AudioEngine] busFilter connection failed', e);
       }
+
+      compositeVoices.set(robotId, { composite, panner, busGain, busFilter });
+      // Apply optional top-level detune/phase across composite layers when provided
+      try {
+        if (typeof detune === 'number') {
+          const layersParam = (descriptor.layers ?? [{ type: descriptor.base }]).map((l) => ({ type: l.type, detune: (l.detune ?? 0) + detune }));
+          composite.set({ layers: layersParam });
+        }
+        if (typeof phase === 'number') {
+          const layersPhase = (descriptor.layers ?? [{ type: descriptor.base }]).map((l) => ({ type: l.type, phase }));
+          composite.set({ layers: layersPhase });
+        }
+      } catch (e) {
+        if (DEV_TUNING) console.warn('[AudioEngine] Failed to apply composite phase/detune at reservation time', e);
+      }
+      if (DEV_TUNING) console.log(`[AudioEngine] Reserved composite voice for ${robotId}`);
+      return true;
+    } catch (err) {
+      if (DEV_TUNING) console.warn('[AudioEngine] Failed to create composite voice:', err);
+      // Fall back to a minimal, test-friendly composite stub so callers can reserve and trigger safely
+      const stubComposite = {
+        output: ({ connect: () => { } } as MinimalToneNode) as unknown as Tone.Gain,
+        triggerAttackRelease: (_note: string, _dur: NoteDuration | string, _time?: number, _vel?: number) => { },
+        set: (_params: unknown) => { },
+        dispose: () => { },
+      } as unknown as CompositeVoice;
+      const panner = ({ connect: () => { }, pan: { value: 0 }, disconnect: () => { } } as MinimalToneNode) as unknown as Tone.Panner;
+      const busGain = ({ connect: () => { }, disconnect: () => { }, gain: { value: 1 } } as MinimalToneNode) as unknown as Tone.Gain;
+      const busFilter = ({ connect: () => { }, disconnect: () => { }, toDestination: () => { } } as MinimalToneNode) as unknown as Tone.Filter;
+      compositeVoices.set(robotId, { composite: stubComposite, panner, busGain, busFilter });
+      if (DEV_TUNING) console.log(`[AudioEngine] Reserved stub composite voice for ${robotId}`);
+      return true;
     }
-
-    const synthType = synthTypeOrLayered as string;
-    const requestedKey = (synthType || 'default').toString().toLowerCase();
-    // Normalize requested synth type to pool keys used by loadInstruments()
-    const typeKey = ((): string => {
-      switch (requestedKey) {
-        case 'fmsynth':
-        case 'fm':
-          return 'fm';
-        case 'amsynth':
-        case 'am':
-          return 'am';
-        case 'duosynth':
-        case 'duo':
-          return 'duo';
-        case 'polysynth':
-        case 'poly':
-          return 'poly';
-        default:
-          return 'default';
-      }
-    })();
-
-
-    // Try requested slot first; if missing or exhausted, pick any free slot across the flat pool.
-    let freeIndex = -1;
-    let assignedType = typeKey;
-
-    // Guard: ensure reservedSlots is initialized before we index into it.
-    if (!reservedSlots) {
-      if (DEV_TUNING) console.warn('[AudioEngine] reserveVoice called before reservedSlots initialized');
-      return false;
-    }
-
-    const requestedSlots = reservedSlots[typeKey];
-    if (requestedSlots) {
-      freeIndex = requestedSlots.findIndex((s) => s === null);
-    }
-
-    if (freeIndex === -1) {
-      for (const [otherType, otherSlots] of Object.entries(reservedSlots)) {
-        const idx = otherSlots.findIndex((s) => s === null);
-        if (idx !== -1) {
-          assignedType = otherType;
-          freeIndex = idx;
-          break;
-        }
-      }
-    }
-
-    if (freeIndex === -1) return false;
-
-    reservedSlots[assignedType][freeIndex] = robotId;
-    reservedVoices.set(robotId, { type: assignedType, index: freeIndex, reservedAt: Date.now() });
-
-    // Apply waveform and ADSR once on the now-dedicated, idle synth — safe because no
-    // notes are in flight on this slot yet. Avoids mid-playback oscillator rebuilds and
-    // eliminates redundant synth.set() calls on every note trigger.
-    const dedicatedSynth = synthPool && synthPool[assignedType]?.[freeIndex];
-    const maybeSetter = dedicatedSynth as unknown as { set?: (props: unknown) => void } | undefined;
-    if (maybeSetter && typeof maybeSetter.set === 'function') {
-      if (waveform) {
-        try {
-          maybeSetter.set({ oscillator: { type: waveform } });
-        } catch (err) {
-          console.warn('[AudioEngine] Failed to apply waveform at reservation time:', err);
-        }
-      }
-      if (adsr) {
-        try {
-          maybeSetter.set({ envelope: adsr });
-        } catch (err) {
-          console.warn('[AudioEngine] Failed to apply ADSR at reservation time:', err);
-        }
-      }
-      // Apply phase and detune when provided
-      if (typeof phase === 'number') {
-        try {
-          maybeSetter.set({ oscillator: { phase } });
-        } catch (err) {
-          console.warn('[AudioEngine] Failed to apply oscillator phase at reservation time:', err);
-        }
-      }
-      if (typeof detune === 'number') {
-        try {
-          maybeSetter.set({ detune });
-        } catch (err) {
-          console.warn('[AudioEngine] Failed to apply detune at reservation time:', err);
-        }
-      }
-    }
-
-    if (DEV_TUNING) console.log(`[AudioEngine] Reserved ${assignedType}[${freeIndex}] for ${robotId} (requested: ${typeKey})${waveform ? ` (waveform: ${waveform})` : ''}${adsr ? ' (adsr applied)' : ''}`);
-    return true;
   },
 
-  /** Release a previously reserved slot for the given robotId. */
+  /** Release a robot's composite voice and clean up its bus nodes. */
   releaseVoice(robotId: string): void {
-    if (!synthPool || !reservedSlots) return;
-    const entry = reservedVoices.get(robotId);
-    if (!entry) return;
-    // If this was a composite reservation, dispose composite and bus nodes
-    if (entry.type === 'composite') {
-      const comp = compositeVoices.get(robotId);
-      if (comp) {
-        try {
-          // call composite dispose to cleanup per-layer synths and internal nodes
-          try { comp.composite.dispose?.(); } catch (err) { if (DEV_TUNING) console.warn('[AudioEngine] composite.dispose failed', err); }
-          comp.panner.disconnect();
-          comp.busGain.disconnect();
-          comp.busFilter.disconnect();
-          // Tone nodes may implement dispose; call when available
-          try { comp.panner.dispose?.(); } catch { if (DEV_TUNING) console.warn('[AudioEngine] Failed disposing panner'); }
-          try { comp.busGain.dispose?.(); } catch { if (DEV_TUNING) console.warn('[AudioEngine] Failed disposing busGain'); }
-          try { comp.busFilter.dispose?.(); } catch { if (DEV_TUNING) console.warn('[AudioEngine] Failed disposing busFilter'); }
-        } catch (err) {
-          if (DEV_TUNING) console.warn('[AudioEngine] Failed to cleanup composite nodes', err);
-        }
-        compositeVoices.delete(robotId);
-      }
-      reservedVoices.delete(robotId);
-      if (DEV_TUNING) console.log(`[AudioEngine] Released composite voice for ${robotId}`);
-      return;
+    const comp = compositeVoices.get(robotId);
+    if (!comp) return;
+    try {
+      // call composite dispose to cleanup per-layer synths and internal nodes
+      try { comp.composite.dispose?.(); } catch (err) { if (DEV_TUNING) console.warn('[AudioEngine] composite.dispose failed', err); }
+      comp.panner.disconnect();
+      comp.busGain.disconnect();
+      comp.busFilter.disconnect();
+      // Tone nodes may implement dispose; call when available
+      try { comp.panner.dispose?.(); } catch { if (DEV_TUNING) console.warn('[AudioEngine] Failed disposing panner'); }
+      try { comp.busGain.dispose?.(); } catch { if (DEV_TUNING) console.warn('[AudioEngine] Failed disposing busGain'); }
+      try { comp.busFilter.dispose?.(); } catch { if (DEV_TUNING) console.warn('[AudioEngine] Failed disposing busFilter'); }
+    } catch (err) {
+      if (DEV_TUNING) console.warn('[AudioEngine] Failed to cleanup composite nodes', err);
     }
-
-    const slots = reservedSlots[entry.type];
-    if (!slots) {
-      reservedVoices.delete(robotId);
-      return;
-    }
-    slots[entry.index] = null;
-    reservedVoices.delete(robotId);
-    if (DEV_TUNING) console.log(`[AudioEngine] Released ${entry.type}[${entry.index}] from ${robotId}`);
+    compositeVoices.delete(robotId);
+    if (DEV_TUNING) console.log(`[AudioEngine] Released composite voice for ${robotId}`);
   },
 
-  /** Return the synth instance reserved for a robot, or null if none. */
-  getVoiceForRobot(robotId?: string): CompositeVoice | Tone.PolySynth | null {
+  /** Return the composite voice reserved for a robot, or null if none. */
+  getVoiceForRobot(robotId?: string): CompositeVoice | null {
     if (!robotId) return null;
-    const entry = reservedVoices.get(robotId);
-    if (!entry) return null;
-    if (entry.type === 'composite') {
-      const comp = compositeVoices.get(robotId);
-      return comp?.composite ?? null;
-    }
-    if (!synthPool || !reservedSlots) return null;
-    const pool = synthPool[entry.type];
-    if (!pool || !pool[entry.index]) return null;
-    return pool[entry.index];
+    return compositeVoices.get(robotId)?.composite ?? null;
   },
 
 
@@ -1554,6 +1087,7 @@ export const AudioEngine = {
 
   unregisterRobotMelody(robotId: string): void {
     robotAttributeCache.delete(robotId);
+    robotNoteIndex.delete(robotId);
     let removedCount = 0;
 
     stepRegistry.forEach((entries, step) => {
@@ -1612,37 +1146,6 @@ export const AudioEngine = {
 
 
 
-  /**
-   * Return a synth from the pool using a tolerant mapping for different
-   * synth type identifiers used across the codebase.
-   */
-  getSynth(type?: string): Tone.PolySynth | null {
-    if (!synthPool) {
-      console.warn('[AudioEngine] Synth pool not loaded');
-      return null;
-    }
-
-    const firstOf = (arr?: Tone.PolySynth[]) => (arr && arr.length > 0 ? arr[0] : null);
-
-    if (!type) return firstOf(synthPool['default']);
-
-    const t = (type || '').toString().toLowerCase();
-
-    switch (t) {
-      case 'fmsynth':
-      case 'fm':
-        return firstOf(synthPool['fm']);
-      case 'amsynth':
-      case 'am':
-        return firstOf(synthPool['am']);
-      case 'duosynth':
-      case 'duo':
-        return firstOf(synthPool['duo']);
-      default:
-        return firstOf(synthPool['default']);
-    }
-  },
-
   getPolyphonyStats(): { voices: number; maxVoices: number; step: number } {
     return {
       voices: activeVoices,
@@ -1654,15 +1157,6 @@ export const AudioEngine = {
   /** Returns the current AudioContext time (seconds). Use for note scheduling offsets. */
   now(): number {
     return Tone.now();
-  },
-
-  /**
-   * Refresh the audioMode index for a locale. Useful to call when UI changes
-   * robot audioMode flags to make enforcement immediate.
-   */
-  refreshAudioModeIndex(localeId?: string): void {
-    const id = localeId ?? getActiveLocaleId();
-    try { buildAudioModeIndex(id); } catch (err) { if (DEV_TUNING) swallow(err, 'AudioEngine.refreshAudioModeIndex'); }
   },
 
   /**
@@ -1704,16 +1198,6 @@ export const AudioEngine = {
       const transport = _transport ?? Tone.getTransport();
       try { transport.cancel(); } catch (err) { if (DEV_TUNING) swallow(err, 'transport.cancel'); }
 
-      // Attempt to release voices in synth pool
-      if (synthPool) {
-        Object.values(synthPool).forEach((arr) => {
-          arr.forEach((s) => {
-            try { (s as unknown as { releaseAll?: () => void }).releaseAll?.(); } catch { /* ignore */ }
-            try { (s as unknown as { triggerRelease?: (...args: unknown[]) => void }).triggerRelease?.(); } catch { /* ignore */ }
-          });
-        });
-      }
-
       stopHarmonyCycle();
 
       try {
@@ -1739,7 +1223,7 @@ export const AudioEngine = {
       // Reset beatClock so initBeatClock() re-registers its internal tick on next start.
       // transport.cancel() above cleared the old 16n tick; resetBeatClock() lets it be recreated.
       resetBeatClock();
-      console.log('[AudioEngine] killAll: transport cancelled, voices released, position reset');
+      if (DEV_TUNING) console.log('[AudioEngine] killAll: transport cancelled, voices released, position reset');
     } catch (err) {
       if (DEV_TUNING) console.warn('[AudioEngine] killAll failed', err);
     }
@@ -1869,8 +1353,7 @@ export const AudioEngine = {
    * When bypass=false, reconnect through the FX chain.
    */
   setGlobalBypass(bypass: boolean): void {
-    _globalBypassActive = bypass;
-    if (DEV_TUNING) console.log('[AudioEngine] global bypass state set to', _globalBypassActive);
+    if (DEV_TUNING) console.log('[AudioEngine] global bypass state set to', bypass);
     if (!_masterCompressor) return;
     const comp = _masterCompressor as unknown as { connect: (t: unknown) => void; disconnect: () => void; toDestination: () => void };
     try {

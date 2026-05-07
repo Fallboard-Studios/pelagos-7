@@ -406,16 +406,7 @@ export function spawnRobot(localeId: string): void {
   try {
     const layered = (robot.audioAttributes as unknown as { visualAudioMap?: { layeredWave?: LayeredWave } })?.visualAudioMap?.layeredWave as LayeredWave | undefined;
     if (layered) {
-      AudioEngine.reserveVoice(robot.id, layered, undefined, undefined, robot.audioAttributes.phase, robot.audioAttributes.detune);
-    } else {
-      AudioEngine.reserveVoice(
-        robot.id,
-        robot.audioAttributes.synthType as string,
-        robot.audioAttributes.waveform,
-        robot.audioAttributes.adsr,
-        robot.audioAttributes.phase,
-        robot.audioAttributes.detune,
-      );
+      AudioEngine.reserveVoice(robot.id, layered, robot.audioAttributes.phase, robot.audioAttributes.detune);
     }
   } catch (err) {
     if (DEV_TUNING) console.warn('[SpawnSystem] reserveVoice failed', err);
@@ -442,16 +433,7 @@ export function reRegisterAllRobotsAudio(localeId: string): void {
     try {
       const layered = (robot.audioAttributes as unknown as { visualAudioMap?: { layeredWave?: LayeredWave } })?.visualAudioMap?.layeredWave as LayeredWave | undefined;
       if (layered) {
-        AudioEngine.reserveVoice(robot.id, layered, undefined, undefined, robot.audioAttributes.phase, robot.audioAttributes.detune);
-      } else {
-        AudioEngine.reserveVoice(
-          robot.id,
-          robot.audioAttributes.synthType as string,
-          robot.audioAttributes.waveform,
-          robot.audioAttributes.adsr,
-          robot.audioAttributes.phase,
-          robot.audioAttributes.detune,
-        );
+        AudioEngine.reserveVoice(robot.id, layered, robot.audioAttributes.phase, robot.audioAttributes.detune);
       }
     } catch (err) {
       if (DEV_TUNING) console.warn('[SpawnSystem] reRegisterAllRobotsAudio: reserveVoice failed for', robot.id, err);

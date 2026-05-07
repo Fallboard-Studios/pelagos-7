@@ -7,8 +7,8 @@ Robots in Pelagos-7 are single unified SVG entities. Each robot's visual appeara
 ## Design Philosophy
 
 **Key Principle:** Audio attributes drive visual appearance
-- **Synth type** → Overall body shape and silhouette
-- **ADSR envelope** → Color palette and saturation
+- **LayeredWave descriptor** → Overall body shape and silhouette
+- **Averaged ADSR envelope** → Color palette and saturation
 - **Pitch range** → Size scaling
 - **Filter frequency** → Detail complexity and decorative elements
 
@@ -17,10 +17,10 @@ Robots in Pelagos-7 are single unified SVG entities. Each robot's visual appeara
 ### File Organization
 ```
 src/assets/robots/
-├── RobotSleek.tsx      # Smooth, flowing lines (AMSynth)
-├── RobotAngular.tsx    # Sharp, geometric (FMSynth)
-├── RobotOrganic.tsx    # Rounded, biological (PolySynth)
-└── RobotIndustrial.tsx # Mechanical, boxy (DuoSynth)
+├── RobotSleek.tsx      # Smooth, flowing lines (low-frequency layers)
+├── RobotAngular.tsx    # Sharp, geometric (high-frequency layers)
+├── RobotOrganic.tsx    # Rounded, biological (mixed sine/noise layers)
+└── RobotIndustrial.tsx # Mechanical, boxy (sawtooth-dominant layers)
 ```
 
 ### Component Pattern
@@ -55,11 +55,11 @@ export function RobotSleek({ colors, scale, detailLevel }: RobotSVGProps) {
 
 ## Attribute Mapping
 
-### Synth Type → Body Shape
-- **AMSynth** → Sleek profile (smooth curves, streamlined)
-- **FMSynth** → Angular profile (sharp edges, geometric)
-- **PolySynth** → Organic profile (rounded, flowing)
-- **DuoSynth** → Industrial profile (boxy, mechanical)
+### LayeredWave Base Waveform → Body Shape
+- **sine** → Sleek profile (smooth curves, streamlined)
+- **square** → Angular profile (sharp edges, geometric)
+- **triangle** → Organic profile (rounded, flowing)
+- **sawtooth** → Industrial profile (boxy, mechanical)
 
 ### ADSR → Color Palette
 - **Fast Attack** → Bright, saturated colors
@@ -139,22 +139,24 @@ const ROBOT_COLORS = {
 ### Generation Algorithm
 ```typescript
 function generateRobotVisuals(audioAttributes: AudioAttributes): RobotVisuals {
-  const { synthType, adsr, pitchRange, filterFreq } = audioAttributes;
-  
+  const { visualAudioMap } = audioAttributes;
+  const { layeredWave, averagedADSR, shapeParams } = visualAudioMap;
+
   return {
-    svgComponent: selectRobotShape(synthType),    // Which SVG shape variant
-    colors: generateColorPalette(adsr),           // Color scheme
-    scale: calculateScale(pitchRange),            // Size scaling
-    detailLevel: calculateDetailLevel(filterFreq), // Decoration complexity
+    svgComponent: selectRobotShape(layeredWave.base),  // Which SVG shape variant
+    colors: generateColorPalette(averagedADSR),        // Color scheme
+    scale: shapeParams.scale,                          // Size scaling
+    detailLevel: shapeParams.detail,                   // Decoration complexity
   };
 }
 
-function selectRobotShape(synthType: SynthType): RobotSVGComponent {
-  switch (synthType) {
-    case 'AMSynth': return RobotSleek;
-    case 'FMSynth': return RobotAngular;
-    case 'PolySynth': return RobotOrganic;
-    case 'DuoSynth': return RobotIndustrial;
+function selectRobotShape(base: WaveformType): RobotSVGComponent {
+  switch (base) {
+    case 'sine': return RobotSleek;
+    case 'square': return RobotAngular;
+    case 'triangle': return RobotOrganic;
+    case 'sawtooth': return RobotIndustrial;
+    default: return RobotSleek;
   }
 }
 

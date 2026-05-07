@@ -3,6 +3,7 @@
 // ========================================
 import alea from 'alea';
 import type { NoiseFunction2D } from 'simplex-noise';
+import { getGlobalPlanetSeedOverride } from './seedUtils';
 
 // ========================================
 // FUNCTIONS
@@ -25,7 +26,9 @@ import type { NoiseFunction2D } from 'simplex-noise';
  *   const value = noiseMap(MY_KEY_X, offset);
  */
 export function precomputeDataX(dataId: string): number {
-  return alea(dataId)();
+  const global = getGlobalPlanetSeedOverride();
+  const key = global ? `${global}:${dataId}` : dataId;
+  return alea(key)();
 }
 
 /**

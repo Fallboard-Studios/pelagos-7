@@ -4,7 +4,7 @@
 import alea from 'alea';
 import { createNoise2D, type NoiseFunction2D } from 'simplex-noise';
 
-import { derivePlanetSeed } from './seedUtils';
+import { derivePlanetSeed, getGlobalPlanetSeedOverride } from './seedUtils';
 
 // ========================================
 // REGISTRY (module-level, non-serialisable — must NOT be stored in Zustand)
@@ -47,7 +47,9 @@ export function getLocaleNoiseMap(
     const planetMap = getPlanetNoiseMap(planetId, planetName);
     const rawSeed = planetMap(x, y); // -1 to 1
     const intSeed = Math.round(((rawSeed + 1) / 2) * (360 * 360 - 1)); // 0–129,599
-    localeMaps.set(localeId, createNoise2D(alea(intSeed)));
+    const global = getGlobalPlanetSeedOverride();
+    const aleaSeed = global ? `${global}:${intSeed}` : intSeed;
+    localeMaps.set(localeId, createNoise2D(alea(aleaSeed)));
   }
   return localeMaps.get(localeId)!;
 }

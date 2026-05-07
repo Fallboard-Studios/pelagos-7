@@ -129,7 +129,7 @@ interface Robot {
 interface Robot {
   id: string;
   timeline: gsap.core.Timeline;  // not serializable!
-  synth: Tone.PolySynth;         // not serializable!
+  synth: Tone.Synth;             // not serializable!
   animate: () => void;            // not serializable!
 }
 ```

@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useLocaleStore } from '../stores/localeStore';
 import { DEFAULT_LOCALE_ID } from '../stores/planetStore';
-import type { ADSREnvelope } from '../types/Robot';
 
 // Mock Tone.js to avoid audio context initialization in tests
 vi.mock('tone', () => ({
@@ -26,7 +25,15 @@ vi.mock('tone', () => ({
     connect: vi.fn().mockReturnThis(),
     triggerAttackRelease: vi.fn(),
   })),
-  Synth: vi.fn(),
+  Synth: vi.fn(() => ({
+    connect: vi.fn().mockReturnThis(),
+    disconnect: vi.fn(),
+    dispose: vi.fn(),
+    triggerAttackRelease: vi.fn(),
+    set: vi.fn(),
+    oscillator: { detune: { value: 0 } },
+    volume: { value: -6 },
+  })),
   FMSynth: vi.fn(),
   AMSynth: vi.fn(),
   DuoSynth: vi.fn(),
@@ -42,6 +49,8 @@ vi.mock('tone', () => ({
   })),
   Panner: vi.fn(() => ({
     connect: vi.fn().mockReturnThis(),
+    disconnect: vi.fn(),
+    dispose: vi.fn(),
     pan: { value: 0 },
   })),
   Reverb: vi.fn(() => ({
@@ -133,6 +142,7 @@ vi.mock('gsap', () => ({
 vi.mock('../constants', () => ({
   DEV_TUNING: false,
   WORLD_WIDTH: 1920,
+  MIN_LEAD: 0.1,
 }));
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -145,6 +155,8 @@ let merged_useLocaleStore: any;
 let merged_DEFAULT_LOCALE_ID: string;
 
 describe('AudioEngine - Polyphony Management', () => {
+  const TEST_LAYERED = { base: 'sine', layers: [{ type: 'sine', gain: 0.8 }] } as unknown as import('../types/layeredAudio').LayeredWave;
+
   beforeEach(async () => {
     // Reset modules to clear state between tests
     vi.resetModules();
@@ -154,6 +166,9 @@ describe('AudioEngine - Polyphony Management', () => {
 
     // Initialize AudioEngine (loads synth pool)
     await AudioEngine.start();
+
+    // Reserve a composite voice for the shared 'test' robot so triggerWithCap can trigger it
+    AudioEngine.reserveVoice('test', TEST_LAYERED);
   });
 
   describe('triggerWithCap', () => {
@@ -290,32 +305,35 @@ describe('AudioEngine - audioMode enforcement (solo/mute/highlight)', () => {
     });
 
     await AudioEngine.start();
-    // Ensure index reflects current store
-    AudioEngine.refreshAudioModeIndex(merged_DEFAULT_LOCALE_ID);
 
-    // Clear prior calls on created synth instances
-    const polyResults = (Tone.PolySynth as unknown as any).mock.results;
-    polyResults.forEach((r: any) => r.value.triggerAttackRelease.mockClear());
+    // Reserve composite voices for both robots
+    const layered = { base: 'sine', layers: [{ type: 'sine', gain: 0.8 }] } as unknown as import('../types/layeredAudio').LayeredWave;
+    AudioEngine.reserveVoice('r-muted', layered);
+    AudioEngine.reserveVoice('r-other', layered);
+
+    // Clear prior calls on created Synth instances
+    const synthResults = (Tone.Synth as unknown as any).mock.results;
+    synthResults.forEach((r: any) => r.value?.triggerAttackRelease?.mockClear());
 
     // Use a unique note name to avoid background scheduler collisions
     const targetMutedNote = 'G9';
-    AudioEngine.scheduleNote({ robotId: 'r-muted', note: targetMutedNote, duration: '4n', time: 0, localeId: merged_DEFAULT_LOCALE_ID });
+    AudioEngine.scheduleNote({ robotId: 'r-muted', note: targetMutedNote, duration: '4n', time: 0 });
 
-    // Ensure no PolySynth instance received a trigger call for our unique note
+    // Ensure no Synth instance received a trigger call for our unique note
     let foundMuted = false;
-    polyResults.forEach((r: any) => {
+    synthResults.forEach((r: any) => {
       const inst = r.value;
-      inst.triggerAttackRelease.mock.calls.forEach((c: any) => { if (c[0] === targetMutedNote) foundMuted = true; });
+      inst?.triggerAttackRelease?.mock?.calls?.forEach((c: any) => { if (c[0] === targetMutedNote) foundMuted = true; });
     });
     expect(foundMuted).toBe(false);
 
     // Non-muted should trigger with a different unique note
     const targetOtherNote = 'G8';
-    AudioEngine.scheduleNote({ robotId: 'r-other', note: targetOtherNote, duration: '4n', time: 0, localeId: merged_DEFAULT_LOCALE_ID });
+    AudioEngine.scheduleNote({ robotId: 'r-other', note: targetOtherNote, duration: '4n', time: 0 });
     let foundOther = false;
-    polyResults.forEach((r: any) => {
+    synthResults.forEach((r: any) => {
       const inst = r.value;
-      inst.triggerAttackRelease.mock.calls.forEach((c: any) => { if (c[0] === targetOtherNote) foundOther = true; });
+      inst?.triggerAttackRelease?.mock?.calls?.forEach((c: any) => { if (c[0] === targetOtherNote) foundOther = true; });
     });
     expect(foundOther).toBe(true);
   });
@@ -332,25 +350,30 @@ describe('AudioEngine - audioMode enforcement (solo/mute/highlight)', () => {
     });
 
     await AudioEngine.start();
-    AudioEngine.refreshAudioModeIndex(merged_DEFAULT_LOCALE_ID);
-    const polyResults2 = (Tone.PolySynth as unknown as any).mock.results;
-    polyResults2.forEach((r: any) => r.value.triggerAttackRelease.mockClear());
+
+    // Reserve composite voices
+    const layered = { base: 'sine', layers: [{ type: 'sine', gain: 0.8 }] } as unknown as import('../types/layeredAudio').LayeredWave;
+    AudioEngine.reserveVoice('r-solo', layered);
+    AudioEngine.reserveVoice('r-other2', layered);
+
+    const synthResults = (Tone.Synth as unknown as any).mock.results;
+    synthResults.forEach((r: any) => r.value?.triggerAttackRelease?.mockClear());
 
     const targetOtherNote = 'G7';
-    AudioEngine.scheduleNote({ robotId: 'r-other2', note: targetOtherNote, duration: '4n', time: 0, localeId: merged_DEFAULT_LOCALE_ID });
+    AudioEngine.scheduleNote({ robotId: 'r-other2', note: targetOtherNote, duration: '4n', time: 0 });
     let foundOther = false;
-    polyResults2.forEach((r: any) => {
+    synthResults.forEach((r: any) => {
       const inst = r.value;
-      inst.triggerAttackRelease.mock.calls.forEach((c: any) => { if (c[0] === targetOtherNote) foundOther = true; });
+      inst?.triggerAttackRelease?.mock?.calls?.forEach((c: any) => { if (c[0] === targetOtherNote) foundOther = true; });
     });
     expect(foundOther).toBe(false); // suppressed by solo
 
     const targetSoloNote = 'G6';
-    AudioEngine.scheduleNote({ robotId: 'r-solo', note: targetSoloNote, duration: '4n', time: 0, localeId: merged_DEFAULT_LOCALE_ID });
+    AudioEngine.scheduleNote({ robotId: 'r-solo', note: targetSoloNote, duration: '4n', time: 0 });
     let foundSolo = false;
-    polyResults2.forEach((r: any) => {
+    synthResults.forEach((r: any) => {
       const inst = r.value;
-      inst.triggerAttackRelease.mock.calls.forEach((c: any) => { if (c[0] === targetSoloNote) foundSolo = true; });
+      inst?.triggerAttackRelease?.mock?.calls?.forEach((c: any) => { if (c[0] === targetSoloNote) foundSolo = true; });
     });
     expect(foundSolo).toBe(true);
   });
@@ -367,19 +390,24 @@ describe('AudioEngine - audioMode enforcement (solo/mute/highlight)', () => {
     });
 
     await AudioEngine.start();
-    AudioEngine.refreshAudioModeIndex(merged_DEFAULT_LOCALE_ID);
-    const polyResults = (Tone.PolySynth as unknown as any).mock.results;
-    polyResults.forEach((r: any) => r.value.triggerAttackRelease.mockClear());
+
+    // Reserve composite voices
+    const layered = { base: 'sine', layers: [{ type: 'sine', gain: 0.8 }] } as unknown as import('../types/layeredAudio').LayeredWave;
+    AudioEngine.reserveVoice('r-h', layered);
+    AudioEngine.reserveVoice('r-nh', layered);
+
+    const synthResults = (Tone.Synth as unknown as any).mock.results;
+    synthResults.forEach((r: any) => r.value?.triggerAttackRelease?.mockClear());
 
     // Schedule note for non-highlighted robot with a unique note
     const targetNote = 'G5';
-    AudioEngine.scheduleNote({ robotId: 'r-nh', note: targetNote, duration: '4n', time: 0, localeId: merged_DEFAULT_LOCALE_ID });
+    AudioEngine.scheduleNote({ robotId: 'r-nh', note: targetNote, duration: '4n', time: 0 });
 
     // Find the call for our unique note and assert velocity ≈ 0.4
     let found = false;
-    polyResults.forEach((r: any) => {
+    synthResults.forEach((r: any) => {
       const inst = r.value;
-      inst.triggerAttackRelease.mock.calls.forEach((c: any) => {
+      inst?.triggerAttackRelease?.mock?.calls?.forEach((c: any) => {
         if (c[0] === targetNote) {
           const vel = c[3];
           expect(typeof vel).toBe('number');
@@ -525,7 +553,7 @@ describe('AudioEngine - Melody Lifecycle', () => {
         { id: 'm1', startStep: 7, length: '8n' as const, noteIndex: 0, octave: 4 },
       ];
 
-      const spy = vi.spyOn(AudioEngine, 'scheduleNote').mockImplementation((_params: unknown) => {});
+      const spy = vi.spyOn(AudioEngine, 'scheduleNote').mockImplementation((_params: unknown) => { });
 
       AudioEngine.registerRobotMelody('int-1', melody);
 
@@ -535,7 +563,7 @@ describe('AudioEngine - Melody Lifecycle', () => {
       expect(spy).toHaveBeenCalled();
 
       const calledWith = spy.mock.calls[0][0];
-        expect(calledWith.robotId).toBe('int-1'); // Ensure previous file chunk ends cleanly
+      expect(calledWith.robotId).toBe('int-1'); // Ensure previous file chunk ends cleanly
       expect(typeof calledWith.note).toBe('string');
       expect(calledWith.note.endsWith('4')).toBe(true);
 
@@ -555,27 +583,27 @@ describe('AudioEngine - Reservation & Isolation (focused)', () => {
   it('reserves a voice and getVoiceForRobot returns a synth', async () => {
     const { AudioEngine } = await import('./AudioEngine');
     await AudioEngine.start();
-    const adsr = { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.2 } as ADSREnvelope;
-    const ok = AudioEngine.reserveVoice('robot-test-1', 'default', 'sine', adsr);
+    const layered = { base: 'sine', layers: [{ type: 'sine', gain: 0.8 }] } as unknown as import('../types/layeredAudio').LayeredWave;
+    const ok = AudioEngine.reserveVoice('robot-test-1', layered);
     expect(ok).toBe(true);
     const synth = AudioEngine.getVoiceForRobot('robot-test-1');
     expect(synth).not.toBeNull();
   });
 
-  it('skips trigger when ADSR provided but no reserved voice', async () => {
-    const { AudioEngine, triggerWithCap } = await import('./AudioEngine');
-    await AudioEngine.start();
-    const result = triggerWithCap({ robotId: 'unreserved-robot', note: 'C4', duration: '8n', adsr: { attack: 0.01 } as ADSREnvelope });
+  it('skips trigger when no composite voice is reserved', async () => {
+    const { triggerWithCap } = await import('./AudioEngine');
+    const result = triggerWithCap({ robotId: 'unreserved-robot', note: 'C4', duration: '8n' });
     expect(result).toBe(false);
   });
 
-  it('triggers when reserved even with ADSR', async () => {
+  it('triggers when composite voice is reserved', async () => {
     const { AudioEngine } = await import('./AudioEngine');
     await AudioEngine.start();
-    const ok = AudioEngine.reserveVoice('robot-test-2', 'default');
+    const layered = { base: 'sine', layers: [{ type: 'sine', gain: 0.8 }] } as unknown as import('../types/layeredAudio').LayeredWave;
+    const ok = AudioEngine.reserveVoice('robot-test-2', layered);
     expect(ok).toBe(true);
     const { triggerWithCap } = await import('./AudioEngine');
-    const result = triggerWithCap({ robotId: 'robot-test-2', note: 'C4', duration: '8n', adsr: { attack: 0.01 } as ADSREnvelope });
+    const result = triggerWithCap({ robotId: 'robot-test-2', note: 'C4', duration: '8n' });
     expect(result).toBe(true);
   });
 });

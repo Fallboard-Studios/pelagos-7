@@ -28,6 +28,8 @@ let currentBeat = 0;
 let currentMeasure = 0;
 let lastNotifiedMeasure = -1;
 let initialized = false;
+// Internal transport tick id for the 16n scheduler so we can clear it on reset
+let internalTickId: unknown | null = null;
 /** Map of scheduleId -> schedule entry. Stores pending schedules when transport is not yet available. */
 const scheduleMap = new Map<string, { transportId?: unknown; interval: string; callback: () => void }>();
 const measureListeners: Array<(measure: number) => void> = [];
@@ -46,7 +48,8 @@ export function initBeatClock(transport?: TransportLike): void {
   }
   transportInstance = transport;
   const transportLocal = transportInstance as TransportLike;
-  transportLocal.scheduleRepeat(() => {
+  // Register a 16n tick and remember its id so we can clear it on reset
+  internalTickId = transportLocal.scheduleRepeat(() => {
     // Calculate current beat and measure from Transport position
     // Defensive: fallback to 0 if not started
     const pos = String(transportLocal.position).split(':');
@@ -87,8 +90,13 @@ export function initBeatClock(transport?: TransportLike): void {
  *
  * @param callback - Called with the new wrapped measure on each measure tick.
  */
-export function subscribeToMeasure(callback: (measure: number) => void): void {
+export function subscribeToMeasure(callback: (measure: number) => void): () => void {
   measureListeners.push(callback);
+  // Return an unsubscribe function for safe removal by caller
+  return () => {
+    const idx = measureListeners.indexOf(callback);
+    if (idx !== -1) measureListeners.splice(idx, 1);
+  };
 }
 
 /**
@@ -192,6 +200,23 @@ export function cancelSchedule(scheduleId: string): void {
  */
 export function resetBeatClock(): void {
   initialized = false;
+  // Clear the internal 16n tick if it was registered
+  if (transportInstance && internalTickId !== null) {
+    try {
+      transportInstance.clear(internalTickId);
+    } catch (err) {
+      if (DEV_TUNING) console.warn('[BeatClock] reset: failed to clear internal tick', err);
+    }
+    internalTickId = null;
+  }
+  // Attempt to clear any transport-registered schedules owned by this module
+  if (transportInstance) {
+    scheduleMap.forEach((entry) => {
+      if (entry.transportId !== undefined) {
+        try { transportInstance!.clear(entry.transportId); } catch (err) { if (DEV_TUNING) console.warn('[BeatClock] reset: failed to clear schedule', err); }
+      }
+    });
+  }
   scheduleMap.clear();
   if (DEV_TUNING) console.log('[BeatClock] reset');
 }

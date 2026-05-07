@@ -11,7 +11,7 @@ import { Factory } from '@/components/actors/Factory';
 import { placeFactories, getRowConfig } from '@/systems/factoryPlacementSystem';
 import { ActorType } from '@/types/Actor';
 import { startFactoryProduction } from '@/systems/factorySystem';
-import { startCollisionDetection, stopCollisionDetection } from '@/systems/collisionSystem';
+
 import colorTheme from '@/constants/colorTheme.json';
 import { hslToString } from '@/utils/colorUtils';
 
@@ -100,12 +100,12 @@ export function OceanScene({
     startSpawnScheduler(localeId);
 
     // Start proximity-based robot interaction detection
-    startCollisionDetection(localeId);
+    // startCollisionDetection(localeId);
 
     // Cleanup on unmount
     return () => {
       stopSpawnScheduler();
-      stopCollisionDetection();
+      // stopCollisionDetection();
     };
     // Intentionally mount-only: localeId is stable (locale only changes via user menu)
     // and re-running would double-spawn robots/factories
