@@ -86,7 +86,6 @@ const toneRecord = Tone as unknown as Record<string, unknown>;
 let initialized = false;
 let instrumentsLoaded = false;
 // Reservation state
-const reservedVoices: Map<string, { type: string; index: number; reservedAt: number }> = new Map();
 let activeVoices = 0;
 // Prefixed with underscore to acknowledge it's intentionally kept for
 // potential external inspector/debugging while avoiding unused-var lint.
@@ -101,7 +100,6 @@ let _globalLPF: Tone.Filter | null = null;
 let _globalHPF: Tone.Filter | null = null;
 // Passthrough gain node used when global bypass is active — audio routes here, skipping FX chain
 let _fxBypassGain: Tone.Gain | null = null;
-let _globalBypassActive = false;
 // Master output gain controlling overall volume (used by setMasterVolume/getMasterVolume)
 let _masterGain: Tone.Gain | null = null;
 let _masterVolume = 1;
@@ -460,8 +458,7 @@ export function triggerWithCap(params: NoteParams): boolean {
   activeVoices++;
 
   try {
-    const reservation = reservedVoices.get(robotId);
-    if (!reservation || reservation.type !== 'composite') {
+    if (!compositeVoices.has(robotId)) {
       activeVoices = Math.max(0, activeVoices - 1);
       if (DEV_TUNING) console.warn(`[AudioEngine] No composite voice reserved for ${robotId}, skipping note`);
       return false;
@@ -592,8 +589,6 @@ function startMelodyPlayback(): void {
                 `[AudioEngine] Rhythmic variance applied to robot ${robot.id}: ${shifts}`
               );
             }
-          } else if (DEV_TUNING) {
-            console.log(`[AudioEngine] No variance triggered for robot ${robot.id} (probability)`);
           }
         });
       } catch (err) {
@@ -610,19 +605,6 @@ function startMelodyPlayback(): void {
 // ========================================
 
 /**
- * Compute an effective note velocity from a robot's `masterVolume`.
- * 15% of calls apply a random ±25% offset, producing organic expressiveness.
- * All results are clamped to [VELOCITY_MIN, 1.0] and are never stored in state.
- *
- * @param masterVolume - Base velocity (0–1) from the robot's state
- * @returns Effective velocity clamped to [VELOCITY_MIN, 1.0]
- */
-export function computeNoteVelocity(masterVolume: number): number {
-  // Fallback: when no locale is provided, do not apply variance (clean, deterministic fallback).
-  return Math.min(1, Math.max(VELOCITY_MIN, masterVolume));
-}
-
-/**
  * Deterministic, locale-seeded velocity computation.
  * Samples the active locale's noise map at precomputed X positions and the
  * per-robot note index (mod 97) to decide whether to apply variance.
@@ -631,7 +613,6 @@ export function computeNoteVelocity(masterVolume: number): number {
 function computeNoteVelocitySeeded(masterVolume: number, robotId?: string): number {
   const localeId = getActiveLocaleId();
   const noiseMap = tryGetLocaleNoiseMap(localeId);
-  if (!noiseMap) return Math.min(1, Math.max(VELOCITY_MIN, masterVolume));
   if (!noiseMap) return Math.min(1, Math.max(VELOCITY_MIN, masterVolume));
 
   const idx = robotId ? (robotNoteIndex.get(robotId) ?? 0) : 0;
@@ -843,7 +824,6 @@ export const AudioEngine = {
       } catch (e) {
         if (DEV_TUNING) console.warn('[AudioEngine] Failed to apply composite phase/detune at reservation time', e);
       }
-      reservedVoices.set(robotId, { type: 'composite', index: -1, reservedAt: Date.now() });
       if (DEV_TUNING) console.log(`[AudioEngine] Reserved composite voice for ${robotId}`);
       return true;
     } catch (err) {
@@ -859,7 +839,6 @@ export const AudioEngine = {
       const busGain = ({ connect: () => { }, disconnect: () => { }, gain: { value: 1 } } as MinimalToneNode) as unknown as Tone.Gain;
       const busFilter = ({ connect: () => { }, disconnect: () => { }, toDestination: () => { } } as MinimalToneNode) as unknown as Tone.Filter;
       compositeVoices.set(robotId, { composite: stubComposite, panner, busGain, busFilter });
-      reservedVoices.set(robotId, { type: 'composite', index: -1, reservedAt: Date.now() });
       if (DEV_TUNING) console.log(`[AudioEngine] Reserved stub composite voice for ${robotId}`);
       return true;
     }
@@ -867,36 +846,28 @@ export const AudioEngine = {
 
   /** Release a robot's composite voice and clean up its bus nodes. */
   releaseVoice(robotId: string): void {
-    const entry = reservedVoices.get(robotId);
-    if (!entry) return;
-    if (entry.type === 'composite') {
-      const comp = compositeVoices.get(robotId);
-      if (comp) {
-        try {
-          // call composite dispose to cleanup per-layer synths and internal nodes
-          try { comp.composite.dispose?.(); } catch (err) { if (DEV_TUNING) console.warn('[AudioEngine] composite.dispose failed', err); }
-          comp.panner.disconnect();
-          comp.busGain.disconnect();
-          comp.busFilter.disconnect();
-          // Tone nodes may implement dispose; call when available
-          try { comp.panner.dispose?.(); } catch { if (DEV_TUNING) console.warn('[AudioEngine] Failed disposing panner'); }
-          try { comp.busGain.dispose?.(); } catch { if (DEV_TUNING) console.warn('[AudioEngine] Failed disposing busGain'); }
-          try { comp.busFilter.dispose?.(); } catch { if (DEV_TUNING) console.warn('[AudioEngine] Failed disposing busFilter'); }
-        } catch (err) {
-          if (DEV_TUNING) console.warn('[AudioEngine] Failed to cleanup composite nodes', err);
-        }
-        compositeVoices.delete(robotId);
-      }
-      reservedVoices.delete(robotId);
-      if (DEV_TUNING) console.log(`[AudioEngine] Released composite voice for ${robotId}`);
+    const comp = compositeVoices.get(robotId);
+    if (!comp) return;
+    try {
+      // call composite dispose to cleanup per-layer synths and internal nodes
+      try { comp.composite.dispose?.(); } catch (err) { if (DEV_TUNING) console.warn('[AudioEngine] composite.dispose failed', err); }
+      comp.panner.disconnect();
+      comp.busGain.disconnect();
+      comp.busFilter.disconnect();
+      // Tone nodes may implement dispose; call when available
+      try { comp.panner.dispose?.(); } catch { if (DEV_TUNING) console.warn('[AudioEngine] Failed disposing panner'); }
+      try { comp.busGain.dispose?.(); } catch { if (DEV_TUNING) console.warn('[AudioEngine] Failed disposing busGain'); }
+      try { comp.busFilter.dispose?.(); } catch { if (DEV_TUNING) console.warn('[AudioEngine] Failed disposing busFilter'); }
+    } catch (err) {
+      if (DEV_TUNING) console.warn('[AudioEngine] Failed to cleanup composite nodes', err);
     }
+    compositeVoices.delete(robotId);
+    if (DEV_TUNING) console.log(`[AudioEngine] Released composite voice for ${robotId}`);
   },
 
   /** Return the composite voice reserved for a robot, or null if none. */
   getVoiceForRobot(robotId?: string): CompositeVoice | null {
     if (!robotId) return null;
-    const entry = reservedVoices.get(robotId);
-    if (!entry || entry.type !== 'composite') return null;
     return compositeVoices.get(robotId)?.composite ?? null;
   },
 
@@ -1431,8 +1402,7 @@ export const AudioEngine = {
    * When bypass=false, reconnect through the FX chain.
    */
   setGlobalBypass(bypass: boolean): void {
-    _globalBypassActive = bypass;
-    if (DEV_TUNING) console.log('[AudioEngine] global bypass state set to', _globalBypassActive);
+    if (DEV_TUNING) console.log('[AudioEngine] global bypass state set to', bypass);
     if (!_masterCompressor) return;
     const comp = _masterCompressor as unknown as { connect: (t: unknown) => void; disconnect: () => void; toDestination: () => void };
     try {
