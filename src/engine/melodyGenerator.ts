@@ -15,23 +15,17 @@ export interface RobotMelodyEvent {
   octave: number;   // Concrete octave assigned at spawn time
 }
 
-export interface MelodyGeneratorOptions {
-  events?: number; // Number of notes (default: 4-12)
-  rand?: () => number; // RNG for testing (default: Math.random)
-  syncopationBias?: number; // 0-1, off-beat preference (default: 0.4)
-  octaveRange?: [number, number]; // [min, max] octave band for this robot
-  /** When >0, constrains unique notes used during melody generation (0 = no constraint). */
-  noteVariance?: number;
-}
-
 /**
- * New-style options for generateMelodyForRobot.
- * Uses explicit octaveMin/octaveMax instead of a tuple, and adds rhythm
- * parameters that will drive the motif algorithm (Step 2).
+ * Options for generateMelodyForRobot.
+ * Uses explicit octaveMin/octaveMax and controls the motif-repetition density algorithm.
  */
 export interface GenerateMelodyForRobotOptions {
-  /** Number of note events to generate (4–12). */
-  eventCount: number;
+  /**
+   * Target number of note onsets per measure (4–12). Used as the density hint
+   * for buildMotifOnsets; the actual event count may differ slightly due to
+   * motif tiling and truncation.
+   */
+  onsetCount: number;
   /** Minimum octave (inclusive). */
   octaveMin: number;
   /** Maximum octave (inclusive). Must be >= octaveMin. */
@@ -52,14 +46,15 @@ export interface GenerateMelodyForRobotOptions {
    */
   subdivisions?: number;
   /**
-   * Measure length in beats (default: 4 for 4/4).
-   */
-  measureBeats?: number;
-  /**
    * Integer seed for deterministic RNG. When provided, a seeded PRNG is used
    * instead of Math.random — useful for reproducible tests.
    */
   seed?: number;
+  /**
+   * RNG function override. When provided, used instead of `seed` or `Math.random`.
+   * Useful when callers supply a deterministic noise-map-based PRNG.
+   */
+  rand?: () => number;
   /** When >0, constrains unique notes used during melody generation (0 = no constraint). Valid range: 0..8 */
   noteVariance?: number;
 }
@@ -69,18 +64,10 @@ export interface GenerateMelodyForRobotOptions {
 // ========================================
 const MIN_EVENTS = 4;
 const MAX_EVENTS = 12;
-const DEFAULT_SYNCOPATION_BIAS = 0.4;
 /** Probability that a successive note jumps more than one octave (when range allows). */
 const OCTAVE_JUMP_CHANCE = 0.15;
-const DEFAULT_OCTAVE_RANGE: [number, number] = [3, 4];
 
 const NOTE_INDEX_WEIGHTS = [0.35, 0.2, 0.15, 0.1, 0.07, 0.06, 0.04, 0.03];
-const LENGTH_WEIGHTS = [0.5, 0.25, 0.15, 0.1];
-// Order must align with LENGTH_WEIGHTS: 8n=50%, 4n=25%, 2n=15%, 16n=10%
-const LENGTHS: NoteDuration[] = ['8n', '4n', '2n', '16n'];
-
-const ON_BEAT_STEPS = [1, 3, 5, 7, 9, 11, 13, 15];
-const OFF_BEAT_STEPS = [2, 4, 6, 8, 10, 12, 14, 16];
 
 /** Default rhythmic density (onsets per measure). */
 export const DEFAULT_RHYTHMIC_DENSITY = 8;
@@ -88,8 +75,6 @@ export const DEFAULT_RHYTHMIC_DENSITY = 8;
 export const DEFAULT_RHYTHMIC_MOTIF_LENGTH = 8;
 /** Default subdivision grid per measure (16 sixteenth notes in 4/4). */
 export const DEFAULT_SUBDIVISIONS = 16;
-/** Default measure length in beats (4/4). */
-export const DEFAULT_MEASURE_BEATS = 4;
 
 /** Probability of applying rhythmic variance per 16-step loop (recommended: 0.2) */
 const DEFAULT_VARIANCE_PROBABILITY = 0.20;
@@ -316,192 +301,86 @@ export function gridUnitsToDuration(units: number): NoteDuration {
 }
 
 // ========================================
-// OVERLOADS
+// MELODY GENERATION
 // ========================================
 
-export function generateMelodyForRobot(opts: GenerateMelodyForRobotOptions): RobotMelodyEvent[];
-export function generateMelodyForRobot(opts?: MelodyGeneratorOptions): RobotMelodyEvent[];
-
 /**
- * Generates a melody for a robot.
- *
- * When called with GenerateMelodyForRobotOptions (has `octaveMin`), uses the
- * motif-repetition density algorithm — onset positions are built by
- * buildMotifOnsets() and durations are computed as the gap to the next onset.
- *
- * When called with the legacy MelodyGeneratorOptions (or no args), falls back
- * to the original syncopation-biased step-picker so all existing callers are
- * unaffected.
+ * Generates a melody for a robot using the motif-repetition density algorithm.
+ * Onset positions are built by buildMotifOnsets() and durations are computed
+ * as the gap to the next onset.
  */
 export function generateMelodyForRobot(
-  opts?: MelodyGeneratorOptions | GenerateMelodyForRobotOptions
+  opts: GenerateMelodyForRobotOptions
 ): RobotMelodyEvent[] {
-  // ── New-style path: motif & density algorithm ──────────────────────────
-  if (opts !== undefined && 'octaveMin' in opts) {
-    const o = opts as GenerateMelodyForRobotOptions;
-    const rand = o.seed !== undefined ? alea(String(o.seed)) : Math.random;
-    const subdivisions = o.subdivisions ?? DEFAULT_SUBDIVISIONS;
-    const density = Math.max(
-      MIN_EVENTS,
-      Math.min(MAX_EVENTS, o.rhythmicDensity ?? o.eventCount),
-    );
-    const motifLength = o.rhythmicMotifLength ?? DEFAULT_RHYTHMIC_MOTIF_LENGTH;
-    const octMin = Math.min(o.octaveMin, o.octaveMax);
-    const octMax = Math.max(o.octaveMin, o.octaveMax);
+  const rand = opts.rand ?? (opts.seed !== undefined ? alea(String(opts.seed)) : Math.random);
+  const subdivisions = opts.subdivisions ?? DEFAULT_SUBDIVISIONS;
+  const density = Math.max(
+    MIN_EVENTS,
+    Math.min(MAX_EVENTS, opts.rhythmicDensity ?? opts.onsetCount),
+  );
+  const motifLength = opts.rhythmicMotifLength ?? DEFAULT_RHYTHMIC_MOTIF_LENGTH;
+  const octMin = Math.min(opts.octaveMin, opts.octaveMax);
+  const octMax = Math.max(opts.octaveMin, opts.octaveMax);
 
-    // Build onset grid positions (0-indexed, 0..subdivisions-1)
-    const onsets = buildMotifOnsets(density, motifLength, subdivisions, rand);
+  // Build onset grid positions (0-indexed, 0..subdivisions-1)
+  const onsets = buildMotifOnsets(density, motifLength, subdivisions, rand);
 
-    let currentOctave = octMin + Math.floor(rand() * (octMax - octMin + 1));
-    const melody: RobotMelodyEvent[] = [];
-
-    // Note-variance state
-    const noteVariance = Math.max(0, Math.min(8, Math.trunc(o.noteVariance ?? 0)));
-    const uniqueSet = new Set<number>();
-    let withoutReplacementPool: number[] | null = null;
-    if (noteVariance === 8) {
-      const pool = Array.from({ length: 8 }, (_, i) => i);
-      withoutReplacementPool = [];
-      while (pool.length > 0) {
-        const j = Math.floor(rand() * pool.length);
-        withoutReplacementPool.push(pool.splice(j, 1)[0]);
-      }
-    }
-
-    for (let i = 0; i < onsets.length; i++) {
-      // 15% chance to jump to a non-adjacent octave when range allows
-      if (i > 0 && rand() < OCTAVE_JUMP_CHANCE) {
-        const jumpCandidates: number[] = [];
-        for (let oct = octMin; oct <= octMax; oct++) {
-          if (Math.abs(oct - currentOctave) > 1) jumpCandidates.push(oct);
-        }
-        if (jumpCandidates.length > 0) {
-          currentOctave = jumpCandidates[Math.floor(rand() * jumpCandidates.length)];
-        }
-      }
-
-      // Duration = gap to next onset; last onset fills to measure end
-      const nextOnset = i < onsets.length - 1 ? onsets[i + 1] : subdivisions;
-      const durationUnits = nextOnset - onsets[i];
-
-      // Pick noteIndex honoring noteVariance
-      let noteIndex: number;
-      if (noteVariance === 0) {
-        noteIndex = pickWeightedIndex(rand);
-      } else if (noteVariance === 8) {
-        if (!withoutReplacementPool || withoutReplacementPool.length === 0) {
-          const pool = Array.from({ length: 8 }, (_, i) => i);
-          withoutReplacementPool = [];
-          while (pool.length > 0) {
-            const j = Math.floor(rand() * pool.length);
-            withoutReplacementPool.push(pool.splice(j, 1)[0]);
-          }
-        }
-        noteIndex = withoutReplacementPool.shift()!;
-        uniqueSet.add(noteIndex);
-      } else {
-        if (uniqueSet.size < noteVariance) {
-          // prefer selecting notes not yet in the set (uniform among remaining)
-          const remaining = Array.from({ length: 8 }, (_, i) => i).filter((i) => !uniqueSet.has(i));
-          noteIndex = remaining[Math.floor(rand() * remaining.length)];
-          uniqueSet.add(noteIndex);
-        } else {
-          // choose among established set — weighted by NOTE_INDEX_WEIGHTS restricted to set
-          const setArray = Array.from(uniqueSet);
-          const totalW = setArray.reduce((s, idx) => s + NOTE_INDEX_WEIGHTS[idx], 0);
-          let r = rand() * totalW;
-          noteIndex = setArray[setArray.length - 1];
-          for (const idx of setArray) {
-            r -= NOTE_INDEX_WEIGHTS[idx];
-            if (r <= 0) { noteIndex = idx; break; }
-          }
-        }
-      }
-
-      melody.push({
-        id: crypto.randomUUID(),
-        startStep: onsets[i] + 1, // 1-indexed to match existing RobotMelodyEvent convention
-        length: gridUnitsToDuration(durationUnits),
-        noteIndex,
-        octave: currentOctave,
-      });
-    }
-
-    return melody;
-  }
-
-  // ── Legacy path: syncopation-biased step-picker (unchanged) ────────────
-  const legacyOpts = (opts as MelodyGeneratorOptions) ?? {};
-  const rand = legacyOpts.rand ?? Math.random;
-  const legacyNoteVariance = Math.max(0, Math.min(8, Math.trunc(legacyOpts.noteVariance ?? 0)));
-  const eventsCount =
-    legacyOpts.events ?? MIN_EVENTS + Math.floor(rand() * (MAX_EVENTS - MIN_EVENTS + 1));
-  const syncopationBias = legacyOpts.syncopationBias ?? DEFAULT_SYNCOPATION_BIAS;
-
-  const [octMin, octMax] = legacyOpts.octaveRange ?? DEFAULT_OCTAVE_RANGE;
   let currentOctave = octMin + Math.floor(rand() * (octMax - octMin + 1));
-
   const melody: RobotMelodyEvent[] = [];
-  const usedSlots = new Set<number>();
-  const legacyUniqueSet = new Set<number>();
-  let legacyPool: number[] | null = null;
-  if (legacyNoteVariance === 8) {
+
+  // Note-variance state
+  const noteVariance = Math.max(0, Math.min(8, Math.trunc(opts.noteVariance ?? 0)));
+  const uniqueSet = new Set<number>();
+  let withoutReplacementPool: number[] | null = null;
+  if (noteVariance === 8) {
     const pool = Array.from({ length: 8 }, (_, i) => i);
-    legacyPool = [];
+    withoutReplacementPool = [];
     while (pool.length > 0) {
       const j = Math.floor(rand() * pool.length);
-      legacyPool.push(pool.splice(j, 1)[0]);
+      withoutReplacementPool.push(pool.splice(j, 1)[0]);
     }
   }
 
-  for (let i = 0; i < eventsCount; i++) {
-    // 15% chance to jump to a non-adjacent octave (requires span of at least 2)
+  for (let i = 0; i < onsets.length; i++) {
+    // 15% chance to jump to a non-adjacent octave when range allows
     if (i > 0 && rand() < OCTAVE_JUMP_CHANCE) {
       const jumpCandidates: number[] = [];
-      for (let o = octMin; o <= octMax; o++) {
-        if (Math.abs(o - currentOctave) > 1) jumpCandidates.push(o);
+      for (let oct = octMin; oct <= octMax; oct++) {
+        if (Math.abs(oct - currentOctave) > 1) jumpCandidates.push(oct);
       }
       if (jumpCandidates.length > 0) {
         currentOctave = jumpCandidates[Math.floor(rand() * jumpCandidates.length)];
       }
     }
 
-    // Pick step position (with syncopation bias)
-    const useOffBeat = rand() < syncopationBias;
-    const candidateSteps = useOffBeat ? OFF_BEAT_STEPS : ON_BEAT_STEPS;
+    // Duration = gap to next onset; last onset fills to measure end
+    const nextOnset = i < onsets.length - 1 ? onsets[i + 1] : subdivisions;
+    const durationUnits = nextOnset - onsets[i];
 
-    let startStep = candidateSteps[Math.floor(rand() * candidateSteps.length)];
-
-    // Avoid duplicate slots (with retry limit)
-    let attempts = 0;
-    while (usedSlots.has(startStep) && attempts < 8) {
-      startStep = candidateSteps[Math.floor(rand() * candidateSteps.length)];
-      attempts++;
-    }
-    usedSlots.add(startStep);
-
-    // select noteIndex honoring legacyNoteVariance
+    // Pick noteIndex honoring noteVariance
     let noteIndex: number;
-    if (legacyNoteVariance === 0) {
+    if (noteVariance === 0) {
       noteIndex = pickWeightedIndex(rand);
-    } else if (legacyNoteVariance === 8) {
-      if (!legacyPool || legacyPool.length === 0) {
+    } else if (noteVariance === 8) {
+      if (!withoutReplacementPool || withoutReplacementPool.length === 0) {
         const pool = Array.from({ length: 8 }, (_, i) => i);
-        legacyPool = [];
+        withoutReplacementPool = [];
         while (pool.length > 0) {
           const j = Math.floor(rand() * pool.length);
-          legacyPool.push(pool.splice(j, 1)[0]);
+          withoutReplacementPool.push(pool.splice(j, 1)[0]);
         }
       }
-      noteIndex = legacyPool.shift()!;
-      legacyUniqueSet.add(noteIndex);
+      noteIndex = withoutReplacementPool.shift()!;
+      uniqueSet.add(noteIndex);
     } else {
-      if (legacyUniqueSet.size < legacyNoteVariance) {
-        const remaining = Array.from({ length: 8 }, (_, i) => i).filter((i) => !legacyUniqueSet.has(i));
+      if (uniqueSet.size < noteVariance) {
+        // prefer selecting notes not yet in the set (uniform among remaining)
+        const remaining = Array.from({ length: 8 }, (_, i) => i).filter((i) => !uniqueSet.has(i));
         noteIndex = remaining[Math.floor(rand() * remaining.length)];
-        legacyUniqueSet.add(noteIndex);
+        uniqueSet.add(noteIndex);
       } else {
-        const setArray = Array.from(legacyUniqueSet);
+        // choose among established set — weighted by NOTE_INDEX_WEIGHTS restricted to set
+        const setArray = Array.from(uniqueSet);
         const totalW = setArray.reduce((s, idx) => s + NOTE_INDEX_WEIGHTS[idx], 0);
         let r = rand() * totalW;
         noteIndex = setArray[setArray.length - 1];
@@ -514,8 +393,8 @@ export function generateMelodyForRobot(
 
     melody.push({
       id: crypto.randomUUID(),
-      startStep,
-      length: pickLength(rand),
+      startStep: onsets[i] + 1, // 1-indexed to match existing RobotMelodyEvent convention
+      length: gridUnitsToDuration(durationUnits),
       noteIndex,
       octave: currentOctave,
     });
@@ -538,20 +417,4 @@ export function pickWeightedIndex(rand: () => number = Math.random): number {
   }
 
   return NOTE_INDEX_WEIGHTS.length - 1;
-}
-
-/**
- * Picks a note length with bias toward shorter durations.
- * '16n' 10%, '8n' 50%, '4n' 25%, '2n' 15%
- */
-export function pickLength(rand: () => number = Math.random): NoteDuration {
-  const r = rand();
-  let acc = 0;
-
-  for (let i = 0; i < LENGTH_WEIGHTS.length; i++) {
-    acc += LENGTH_WEIGHTS[i];
-    if (r <= acc) return LENGTHS[i];
-  }
-
-  return '8n';
 }

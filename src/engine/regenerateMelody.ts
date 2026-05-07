@@ -29,7 +29,7 @@ export function regenerateMelody(robot: Robot, localeId: string): void {
   const [octMin, octMax] = robot.octaveRange;
 
   const newMelody = generateMelodyForRobot({
-    eventCount: robot.rhythmicDensity ?? 6,
+    onsetCount: robot.rhythmicDensity ?? 6,
     octaveMin: octMin,
     octaveMax: octMax,
     rhythmicDensity: robot.rhythmicDensity ?? 6,
