@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useLocaleStore } from '../stores/localeStore';
 import { DEFAULT_LOCALE_ID } from '../stores/planetStore';
 import type { ADSREnvelope } from '../types/Robot';
+import { MIN_LEAD } from '../constants';
 
 // Mock Tone.js to avoid audio context initialization in tests
 vi.mock('tone', () => ({
@@ -133,6 +134,7 @@ vi.mock('gsap', () => ({
 vi.mock('../constants', () => ({
   DEV_TUNING: false,
   WORLD_WIDTH: 1920,
+  MIN_LEAD: MIN_LEAD,
 }));
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -525,7 +527,7 @@ describe('AudioEngine - Melody Lifecycle', () => {
         { id: 'm1', startStep: 7, length: '8n' as const, noteIndex: 0, octave: 4 },
       ];
 
-      const spy = vi.spyOn(AudioEngine, 'scheduleNote').mockImplementation((_params: unknown) => {});
+      const spy = vi.spyOn(AudioEngine, 'scheduleNote').mockImplementation((_params: unknown) => { });
 
       AudioEngine.registerRobotMelody('int-1', melody);
 
@@ -535,7 +537,7 @@ describe('AudioEngine - Melody Lifecycle', () => {
       expect(spy).toHaveBeenCalled();
 
       const calledWith = spy.mock.calls[0][0];
-        expect(calledWith.robotId).toBe('int-1'); // Ensure previous file chunk ends cleanly
+      expect(calledWith.robotId).toBe('int-1'); // Ensure previous file chunk ends cleanly
       expect(typeof calledWith.note).toBe('string');
       expect(calledWith.note.endsWith('4')).toBe(true);
 

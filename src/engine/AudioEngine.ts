@@ -10,11 +10,13 @@ import type { NoteDuration, ADSREnvelope, SynthType, WaveformType, Robot } from 
 import type { LayeredWave, LayerDescriptor } from '../types/layeredAudio';
 import type { ReverbSettings, DelaySettings, ChorusSettings, FilterSettings, EQ3Settings, CompressorSettings } from '../types/globalAudio';
 import { getAvailableNotes, scheduleHarmonyCycle, stopHarmonyCycle } from './harmonySystem';
-import { resetBeatClock, subscribeToMeasure } from './beatClock';
-import { initBeatClock } from './beatClock';
+import { resetBeatClock, subscribeToMeasure, initBeatClock } from './beatClock';
 import type { RobotMelodyEvent } from './melodyGenerator';
 import { applyRhythmicVariance } from './melodyGenerator';
-import { DEV_TUNING, WORLD_WIDTH } from '../constants';
+import { DEV_TUNING, WORLD_WIDTH, MIN_LEAD as CONST_MIN_LEAD } from '../constants';
+
+// MIN_LEAD: prefer project constant, fall back to 0.1s for headless/tests
+const MIN_LEAD = typeof CONST_MIN_LEAD === 'number' ? CONST_MIN_LEAD : 0.1;
 import { getRef } from '../utils/refs';
 import { swallow } from '../utils/helpers';
 import { precomputeDataX } from '../utils/getSeededVal';
@@ -74,7 +76,7 @@ interface SynthWithOscillator {
 // CONSTANTS
 // ========================================
 const MAX_POLYPHONY = 16;
-const MIN_LEAD = 0.1; // 50ms lookahead for scheduling
+// NOTE: MIN_LEAD is provided from src/constants for consistency across modules
 /** Fraction of notes that receive a random velocity offset for organic expressiveness. */
 const VELOCITY_VARIANCE_RATE = 0.15;
 /** Maximum ± deviation applied to a note's velocity when variance is triggered. */
@@ -250,7 +252,7 @@ function getRobotVisualX(robotId: string): number {
  * @param type - Synth type (e.g., 'fm', 'am')
  * @returns { synth, panner } or { synth: null, panner: null } if not found
  */
-function getSynthAndPanner(type?: string): { synth: Tone.PolySynth | null; panner: Tone.Panner | null } {
+function getSynthAndPanner(type?: string, robotId?: string): { synth: Tone.PolySynth | null; panner: Tone.Panner | null } {
   if (!synthPool || !pannerPool) {
     return { synth: null, panner: null };
   }
@@ -280,10 +282,24 @@ function getSynthAndPanner(type?: string): { synth: Tone.PolySynth | null; panne
       pannerArr = pannerPool['default'];
   }
 
-  const synth = synthArr && synthArr.length > 0 ? synthArr[0] : null;
-  const panner = pannerArr && pannerArr.length > 0 ? pannerArr[0] : null;
+  // Distribute non-reserved triggers across the pool deterministically by robotId
+  if (synthArr && synthArr.length > 0) {
+    let idx = 0;
+    if (robotId && synthArr.length > 1) {
+      // simple stable hash for deterministic distribution
+      let h = 0;
+      for (let i = 0; i < robotId.length; i++) {
+        h = ((h << 5) - h) + robotId.charCodeAt(i);
+        h |= 0;
+      }
+      idx = Math.abs(h) % synthArr.length;
+    }
+    const synth = synthArr[idx] ?? null;
+    const panner = (pannerArr && pannerArr.length > idx) ? pannerArr[idx] : (pannerArr && pannerArr.length > 0 ? pannerArr[0] : null);
+    return { synth, panner };
+  }
 
-  return { synth, panner };
+  return { synth: null, panner: null };
 }
 
 /**
@@ -522,9 +538,6 @@ function scheduleVoiceRelease(duration: NoteDuration, time: number): void {
     const transport = _transport ?? Tone.getTransport();
     transport.scheduleOnce(() => {
       activeVoices = Math.max(0, activeVoices - 1);
-      // if (DEV_TUNING) {
-      //   console.log(`[AudioEngine] Voice released: ${activeVoices}/${MAX_POLYPHONY}`);
-      // }
     }, `+${delayFromNow}`);
   } catch (err) {
     if (DEV_TUNING) swallow(err, 'AudioEngine.scheduleVoiceRelease');
@@ -658,7 +671,7 @@ export function triggerWithCap(params: NoteParams): boolean {
       }
     } else {
       // Use getSynthAndPanner to get both synth and its corresponding panner
-      const { synth: selectedSynth, panner: selectedPanner } = getSynthAndPanner(synthType);
+      const { synth: selectedSynth, panner: selectedPanner } = getSynthAndPanner(synthType, robotId);
       synth = selectedSynth;
       panner = selectedPanner;
 
@@ -849,7 +862,7 @@ function startMelodyPlayback(): void {
     }
   }, '8n');
 
-  console.log('[AudioEngine] Melody playback started (8n tick)');
+  if (DEV_TUNING) console.log('[AudioEngine] Melody playback started (8n tick)');
 }
 
 // ========================================
@@ -934,7 +947,7 @@ export const AudioEngine = {
     scheduleHarmonyCycle(transport);
 
     initialized = true;
-    console.log('[AudioEngine] Started');
+    if (DEV_TUNING) console.log('[AudioEngine] Started');
   },
 
   stop(): void {
@@ -957,7 +970,7 @@ export const AudioEngine = {
     activeVoices = 0;
     initialized = false;
 
-    console.log('[AudioEngine] Stopped');
+    if (DEV_TUNING) console.log('[AudioEngine] Stopped');
   },
 
   /**
@@ -1739,7 +1752,7 @@ export const AudioEngine = {
       // Reset beatClock so initBeatClock() re-registers its internal tick on next start.
       // transport.cancel() above cleared the old 16n tick; resetBeatClock() lets it be recreated.
       resetBeatClock();
-      console.log('[AudioEngine] killAll: transport cancelled, voices released, position reset');
+      if (DEV_TUNING) console.log('[AudioEngine] killAll: transport cancelled, voices released, position reset');
     } catch (err) {
       if (DEV_TUNING) console.warn('[AudioEngine] killAll failed', err);
     }
