@@ -16,7 +16,7 @@ import { applyRhythmicVariance } from './melodyGenerator';
 import { DEV_TUNING, WORLD_WIDTH, MIN_LEAD as CONST_MIN_LEAD } from '../constants';
 
 // MIN_LEAD: prefer project constant, fall back to 0.1s for headless/tests
-const MIN_LEAD = typeof CONST_MIN_LEAD === 'number' ? CONST_MIN_LEAD : 0.1;
+const MIN_LEAD = CONST_MIN_LEAD ?? 0.1;
 import { getRef } from '../utils/refs';
 import { swallow } from '../utils/helpers';
 import { precomputeDataX } from '../utils/getSeededVal';
@@ -31,14 +31,11 @@ export interface NoteParams {
   duration: NoteDuration;
   time?: number;
   velocity?: number;
-  fatCount?: number;
-  fatSpread?: number;
   synthType?: SynthType | string;
   adsr?: ADSREnvelope;
   waveform?: WaveformType;
   harmonicity?: number;
   vibratoAmount?: number;
-  localeId?: string;
 }
 
 interface MelodyEventEntry {
@@ -611,9 +608,9 @@ export function triggerWithCap(params: NoteParams): boolean {
 
   // Enforce audioMode at trigger time as a safety net in case schedule path missed it.
   try {
-    const localeIdResolved = params.localeId ?? getActiveLocaleId();
+    const localeId = getActiveLocaleId();
     const store = useLocaleStore.getState();
-    const localeRobots = store.locales[localeIdResolved]?.robots ?? [];
+    const localeRobots = store.locales[localeId]?.robots ?? [];
     if (localeRobots.length > 0) {
       const robotFromStore = localeRobots.find((r) => r.id === robotId);
       if (robotFromStore?.audioMode === 'mute') {
@@ -632,7 +629,7 @@ export function triggerWithCap(params: NoteParams): boolean {
         let baseVel = velocity;
         if (baseVel === undefined) {
           const cached = robotAttributeCache.get(robotId);
-          if (cached) baseVel = computeNoteVelocitySeeded(cached.masterVolume, robotId, params.localeId);
+          if (cached) baseVel = computeNoteVelocitySeeded(cached.masterVolume, robotId);
           else baseVel = 0.8;
         }
         // Mutate the params.velocity so subsequent trigger uses attenuated velocity.
@@ -884,15 +881,14 @@ export function computeNoteVelocity(masterVolume: number): number {
 
 /**
  * Deterministic, locale-seeded velocity computation.
- * If a `localeId` is provided and a noise map exists, sample the map at
- * precomputed X positions and the per-robot note index (mod 97) to decide
- * whether to apply variance and its amount. Falls back to no variance when
- * the map is missing or `localeId` is omitted.
+ * Samples the active locale's noise map at precomputed X positions and the
+ * per-robot note index (mod 97) to decide whether to apply variance.
+ * Falls back to no variance when the noise map is unavailable.
  */
-function computeNoteVelocitySeeded(masterVolume: number, robotId?: string, localeId?: string): number {
-  if (!localeId) return Math.min(1, Math.max(VELOCITY_MIN, masterVolume));
-
+function computeNoteVelocitySeeded(masterVolume: number, robotId?: string): number {
+  const localeId = getActiveLocaleId();
   const noiseMap = tryGetLocaleNoiseMap(localeId);
+  if (!noiseMap) return Math.min(1, Math.max(VELOCITY_MIN, masterVolume));
   if (!noiseMap) return Math.min(1, Math.max(VELOCITY_MIN, masterVolume));
 
   const idx = robotId ? (robotNoteIndex.get(robotId) ?? 0) : 0;
@@ -994,7 +990,7 @@ export const AudioEngine = {
         if (!adsr) adsr = cached.adsr;
         if (!waveform) waveform = cached.waveform;
         if (effectiveVelocity === undefined) {
-          effectiveVelocity = computeNoteVelocitySeeded(cached.masterVolume, params.robotId, params.localeId);
+          effectiveVelocity = computeNoteVelocitySeeded(cached.masterVolume, params.robotId);
         }
       } else {
         try {
@@ -1015,7 +1011,7 @@ export const AudioEngine = {
               });
             }
             if (effectiveVelocity === undefined) {
-              effectiveVelocity = computeNoteVelocitySeeded(robot.masterVolume ?? 0.7, robot.id, params.localeId);
+              effectiveVelocity = computeNoteVelocitySeeded(robot.masterVolume ?? 0.7, robot.id);
             }
           }
         } catch (err) {
@@ -1025,7 +1021,7 @@ export const AudioEngine = {
     }
 
     // Enforce audioMode policies (mute/solo/highlight) at schedule time.
-    const localeIdResolved = params.localeId ?? getActiveLocaleId();
+    const localeIdResolved = getActiveLocaleId();
 
     // Prefer authoritative store lookup to ensure correctness in tests and
     // when the index cache might be stale. Fall back to the cached index for

@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useLocaleStore } from '../stores/localeStore';
 import { DEFAULT_LOCALE_ID } from '../stores/planetStore';
 import type { ADSREnvelope } from '../types/Robot';
-import { MIN_LEAD } from '../constants';
 
 // Mock Tone.js to avoid audio context initialization in tests
 vi.mock('tone', () => ({
@@ -134,7 +133,7 @@ vi.mock('gsap', () => ({
 vi.mock('../constants', () => ({
   DEV_TUNING: false,
   WORLD_WIDTH: 1920,
-  MIN_LEAD: MIN_LEAD,
+  MIN_LEAD: 0.1,
 }));
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -301,7 +300,7 @@ describe('AudioEngine - audioMode enforcement (solo/mute/highlight)', () => {
 
     // Use a unique note name to avoid background scheduler collisions
     const targetMutedNote = 'G9';
-    AudioEngine.scheduleNote({ robotId: 'r-muted', note: targetMutedNote, duration: '4n', time: 0, localeId: merged_DEFAULT_LOCALE_ID });
+    AudioEngine.scheduleNote({ robotId: 'r-muted', note: targetMutedNote, duration: '4n', time: 0 });
 
     // Ensure no PolySynth instance received a trigger call for our unique note
     let foundMuted = false;
@@ -313,7 +312,7 @@ describe('AudioEngine - audioMode enforcement (solo/mute/highlight)', () => {
 
     // Non-muted should trigger with a different unique note
     const targetOtherNote = 'G8';
-    AudioEngine.scheduleNote({ robotId: 'r-other', note: targetOtherNote, duration: '4n', time: 0, localeId: merged_DEFAULT_LOCALE_ID });
+    AudioEngine.scheduleNote({ robotId: 'r-other', note: targetOtherNote, duration: '4n', time: 0 });
     let foundOther = false;
     polyResults.forEach((r: any) => {
       const inst = r.value;
@@ -339,7 +338,7 @@ describe('AudioEngine - audioMode enforcement (solo/mute/highlight)', () => {
     polyResults2.forEach((r: any) => r.value.triggerAttackRelease.mockClear());
 
     const targetOtherNote = 'G7';
-    AudioEngine.scheduleNote({ robotId: 'r-other2', note: targetOtherNote, duration: '4n', time: 0, localeId: merged_DEFAULT_LOCALE_ID });
+    AudioEngine.scheduleNote({ robotId: 'r-other2', note: targetOtherNote, duration: '4n', time: 0 });
     let foundOther = false;
     polyResults2.forEach((r: any) => {
       const inst = r.value;
@@ -348,7 +347,7 @@ describe('AudioEngine - audioMode enforcement (solo/mute/highlight)', () => {
     expect(foundOther).toBe(false); // suppressed by solo
 
     const targetSoloNote = 'G6';
-    AudioEngine.scheduleNote({ robotId: 'r-solo', note: targetSoloNote, duration: '4n', time: 0, localeId: merged_DEFAULT_LOCALE_ID });
+    AudioEngine.scheduleNote({ robotId: 'r-solo', note: targetSoloNote, duration: '4n', time: 0 });
     let foundSolo = false;
     polyResults2.forEach((r: any) => {
       const inst = r.value;
@@ -375,7 +374,7 @@ describe('AudioEngine - audioMode enforcement (solo/mute/highlight)', () => {
 
     // Schedule note for non-highlighted robot with a unique note
     const targetNote = 'G5';
-    AudioEngine.scheduleNote({ robotId: 'r-nh', note: targetNote, duration: '4n', time: 0, localeId: merged_DEFAULT_LOCALE_ID });
+    AudioEngine.scheduleNote({ robotId: 'r-nh', note: targetNote, duration: '4n', time: 0 });
 
     // Find the call for our unique note and assert velocity ≈ 0.4
     let found = false;
