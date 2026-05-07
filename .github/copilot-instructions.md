@@ -17,7 +17,7 @@ Absolutely forbidden (quick list)
 - Calling audio scheduling inside GSAP timeline callbacks (use semantic callbacks).
 
 Critical architecture rules (short)
-- Audio: `AudioEngine` owns synth pools, scheduling, and voice management. Use `AudioEngine.scheduleNote()` and voice reservation APIs.
+- Audio: `AudioEngine` owns composite voices, scheduling, and voice management. Use `AudioEngine.scheduleNote()` and voice reservation APIs.
 - Timing: Initialize `BeatClock` with a transport-like instance via `initBeatClock(transport)` (AudioEngine provides this). Prefer `Transport.scheduleRepeat` / `scheduleOnce` and apply `MIN_LEAD` when scheduling.
 - Animation: Use `useGSAP` in components and store references in `timelineMap` (`setTimeline`, `killTimeline`, `killAllTimelines`). Register top-level SVG refs with `setRef(key, el)` and read them from animation modules with `getRef(key)`.
 - State: Keep only serialisable primitives/objects/arrays in Zustand. Derived values and complex objects belong in helpers or modules (e.g., timelines, synths, DOM refs).
@@ -64,7 +64,7 @@ See also (short pointers)
 - `docs/BEAT_CLOCK.md`: How to initialize and use the BeatClock/Transport for measure-based scheduling.
 - `docs/MELODY_SYSTEM.md`: Melody generation rules and step/registry semantics for robot melodies.
 - `docs/HARMONY_SYSTEM.md`: Harmony progression rules and chord selection used by the systems.
-- `docs/POLYPHONY_GUIDE.md`: Voice management, pool sizing, and voice-stealing policies.
+- `docs/POLYPHONY_GUIDE.md`: Voice management, polyphony budget, and voice-stealing policies.
 - `docs/ANIMATION_SYSTEM.md`: GSAP timeline patterns, `timelineMap` lifecycle, and ref registry usage.
 - `docs/BUILDING_DESIGN.md`: Factory and placement rules, production cooldowns, and placement algorithms.
 - `docs/ROBOT_DESIGN.md`: Robot visual design, audio→visual attribute mapping (synth/ADSR/phase/detune), and SVG generation rules.

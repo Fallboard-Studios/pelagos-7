@@ -20,9 +20,9 @@ Pelagos-7's audio system is built on **Tone.js** and follows a strict singleton 
 
  - **Lookahead (MIN_LEAD):** Apply a configurable lookahead (probably between 50–100ms) when scheduling note playback so synths/samplers can prepare. The `AudioEngine` centralizes this logic — the implementation uses `MIN_LEAD = 0.1` (100ms) by default.
 
- - **Pool synths & enforce polyphony:** Create and reuse synths in `AudioEngine`. The implementation enforces a global polyphony budget with `MAX_POLYPHONY = 16` by default; pool sizing is derived from `settings.maxRobots` and clamped by this limit. Implement a clear voice-stealing or skipping policy.
+ - **Composite voices & enforce polyphony:** Create voices in `AudioEngine` via `reserveVoice(robotId, descriptor)`. The implementation enforces a global polyphony budget with `MAX_POLYPHONY = 16` by default. Implement a clear voice-stealing or skipping policy.
 
-- **No synths in components:** Never instantiate Tone instruments in React components or hooks; use `AudioEngine` APIs (e.g., `scheduleNote`, `getSynth`) instead.
+- **No synths in components:** Never instantiate Tone instruments in React components or hooks; use `AudioEngine` APIs (e.g., `scheduleNote`) instead.
 
 - **Idempotent schedules & HMR:** Ensure scheduled callbacks are registered idempotently. On HMR or reload, cancel previous Transport schedules before re-registering to avoid duplicate callbacks.
 
@@ -42,7 +42,7 @@ Pelagos-7's audio system is built on **Tone.js** and follows a strict singleton 
 - Only ONE AudioEngine instance exists per application
 - All Tone.js interactions happen exclusively through this singleton
 - No components, hooks, or utilities directly import or use Tone.js
-- AudioEngine manages synth pooling, scheduling, and Transport control
+- AudioEngine manages composite voices, scheduling, and Transport control
 
 
 **2. Separation of Concerns**
@@ -77,10 +77,9 @@ Tone.start() + Transport.start()
 ┌─────────────────────────────────────┐
 │         AudioEngine                 │
 │  ┌──────────────────────────────┐  │
-│  │  Synth Pool (sized, MAX_POLYPHONY=16) │  │
-│  │  - AMSynth (robot type A)   │  │
-│  │  - FMSynth (robot type B)   │  │
-│  │  - PolySynth (shared)       │  │
+│  │  Composite Voices (MAX_POLYPHONY=16) │  │
+│  │  - Per-robot isolated sub-bus│  │
+│  │  - LayeredWave descriptor    │  │
 │  └──────────────────────────────┘  │
 │                                     │
 │  ┌──────────────────────────────┐  │
@@ -111,17 +110,15 @@ export const AudioEngine = {
   // Scheduling
   scheduleNote: (params: { robotId: string; note: string; duration?: string; time?: number; velocity?: number }) => void,
 
-  // Voice reservation & pool management
-  reserveVoice: (robotId: string, synthType: string, waveform?: string, adsr?: any) => boolean,
+  // Voice reservation & management
+  reserveVoice: (robotId: string, descriptor: LayeredWave, phase?: number, detune?: number) => boolean,
   releaseVoice: (robotId: string) => void,
-  getVoiceForRobot: (robotId?: string) => Tone.PolySynth | null,
 
   // Melody Management
   registerRobotMelody: (robotId: string, melody: RobotMelodyEvent[]) => void,
   unregisterRobotMelody: (robotId: string) => void,
 
-  // Synth access & metrics
-  getSynth: (type?: string) => Tone.PolySynth | null,
+  // Metrics
   getPolyphonyStats: () => { voices: number; maxVoices: number; step: number },
   now: () => number,
 }
@@ -177,8 +174,8 @@ Melody generation creates unique, procedurally-generated patterns for each robot
 Polyphony management controls the maximum number of simultaneous audio voices to prevent audio distortion, CPU overload, and maintain musical clarity.
 
 **Key principles:**
-- Global `MAX_POLYPHONY` limit (default `MAX_POLYPHONY = 16`); pool sizing is derived from `settings.maxRobots` and clamped to this limit
-- Shared synth pool (PolySynth slots sized to robots vs. `MAX_POLYPHONY`)
+- Global `MAX_POLYPHONY` limit (default `MAX_POLYPHONY = 16`)
+- Per-robot isolated composite voice (each robot owns its own sub-bus)
 - Fail-fast skipping when limit exceeded
 - Transport-based voice release scheduling
 - Centralized enforcement in AudioEngine
@@ -203,7 +200,7 @@ Key points:
 
 Recommended usage:
 - At spawn: generate and persist a compact `visualAudioMap` on the robot. This contains the `LayeredWave`, `averagedADSR`, `averagedGain`, `shapeParams`, and per-layer `layerVisuals`.
-- At audio init: attempt `AudioEngine.reserveVoice(robotId, layeredWave)` to allocate an isolated composite voice. If reservation fails (pool exhausted), AudioEngine will gracefully fall back to shared pool voices.
+- At audio init: attempt `AudioEngine.reserveVoice(robotId, layeredWave)` to allocate an isolated composite voice. If reservation fails (polyphony limit reached), the robot will play silently until a slot is freed.
 - In components: prefer reading `visualAudioMap` (or the `robotVisualMapper`) for visual properties; do not instantiate synths in components.
 
 See `src/types/layeredAudio.ts` and `src/systems/spawnSystem.ts` for the canonical descriptor shape and spawn-time averaging logic.
@@ -273,10 +270,10 @@ function cleanupRobotAudio(robotId: string): void {
 
 // Spawn-time audio notes
 // On spawn, callers should optionally unregister any existing melody id, attempt a
-// best-effort `AudioEngine.reserveVoice(robotId, synthType, waveform, adsr)` to give
-// the robot an isolated synth slot (waveform/ADSR applied at reservation time), and
-// then register the robot melody via `AudioEngine.registerRobotMelody(robot.id, robot.melody)`.
-// `reserveVoice` may return false if the pool is exhausted; code should continue gracefully.
+// best-effort `AudioEngine.reserveVoice(robotId, layeredWave, phase?, detune?)` to give
+// the robot an isolated composite voice, and then register the robot melody via
+// `AudioEngine.registerRobotMelody(robot.id, robot.melody)`.
+// `reserveVoice` may return false if MAX_POLYPHONY is reached; code should continue gracefully.
 
 
 ### React Component Cleanup
@@ -405,18 +402,20 @@ function onArrivalAt(robotId: string, position: Vec2) {
 **❌ Forbidden:**
 ```typescript
 interface Robot {
-  synth: Tone.PolySynth;  // not serializable!
+  synth: Tone.Synth;  // not serializable!
 }
 ```
 
 **Why:** Can't save/load, memory leaks, architecture violation.
 
-**✅ Fix:** Store only audio attributes:
+**✅ Fix:** Store only a serializable audio descriptor:
 ```typescript
 interface Robot {
-  audio: {
-    synthType: 'am' | 'fm' | 'poly';
-    adsr: { attack: number; decay: number; sustain: number; release: number };
+  audioAttributes: {
+    visualAudioMap: { layeredWave: LayeredWave; averagedADSR: ADSREnvelope; ... };
+    phase: number;
+    detune: number;
+    masterVolume: number;
   };
 }
 ```
@@ -468,7 +467,7 @@ Common audio issues and their solutions.
 
 The audio lifecycle for each robot consists of:
 
-1. **Spawn**: When a robot is created, generate and persist its `visualAudioMap` (see Layered/Composite Voices above). Attempt to reserve a dedicated synth voice for the robot using `AudioEngine.reserveVoice(robotId, layeredWave)`. If the pool is exhausted, fallback to a shared pool voice.
+1. **Spawn**: When a robot is created, generate and persist its `visualAudioMap` (see Layered/Composite Voices above). Attempt to reserve a dedicated composite voice using `AudioEngine.reserveVoice(robotId, layeredWave, phase?, detune?)`. If `MAX_POLYPHONY` is reached the call returns `false`; the robot is still registered and will play once a slot is freed.
 2. **Register Melody**: Register the robot's melody with `AudioEngine.registerRobotMelody(robot.id, robot.melody)`. Melodies store note indices, not literal pitches.
 3. **Parameter Application**: At reservation, apply oscillator parameters (waveform, detune, phase, ADSR) from the robot's `visualAudioMap` or audio attributes. These parameters are set on the reserved synth/voice and are not stored in state.
 4. **Update**: If a robot's audio parameters change (e.g., detune, phase, waveform), call `AudioEngine.updateVoiceParams(robotId, newParams)` to update the reserved synth. Do not mutate synths directly in components or state.
@@ -477,7 +476,7 @@ The audio lifecycle for each robot consists of:
 ### Synth/Voice Cleanup on Robot Destruction
 
 - Always call `AudioEngine.releaseVoice(robotId)` when a robot is destroyed or removed. This releases the reserved synth/voice and decrements the active voice count.
-- If the robot had a composite or custom voice, ensure any Tone.js objects (e.g., PolySynth, FMSynth) are disposed via their `.dispose()` method.
+- `AudioEngine.releaseVoice(robotId)` disposes all Tone.js nodes in the composite voice automatically — no manual `.dispose()` calls needed in callers.
 - Never store synths or voices in Zustand or React state. All synth management is handled by AudioEngine.
 - If a robot is replaced or respawned with the same ID, always release the old voice before reserving a new one.
 

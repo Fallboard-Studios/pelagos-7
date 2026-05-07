@@ -18,7 +18,7 @@ Polyphony management controls the maximum number of simultaneous audio voices to
 ## Core Principles
 
 1. **Global Voice Budget**: Single `MAX_POLYPHONY` limit (typically 8-16 voices)
-2. **Synth Pooling**: Reuse `Tone.PolySynth` instances across all robots
+2. **Composite Voices**: Each robot owns an isolated sub-bus (panner → gain → filter → compressor)
 3. **Fail-Fast Skipping**: When limit exceeded, skip notes (no voice stealing)
 4. **Automatic Release**: Track voice lifecycle with precise timing
 5. **Centralized Enforcement**: All polyphony logic in AudioEngine
@@ -46,11 +46,8 @@ Polyphony management controls the maximum number of simultaneous audio voices to
 const MAX_POLYPHONY = 16;  // Configurable: 8-16 recommended
 let activeVoices = 0;
 
-// Synth pool (reused by all robots)
-// Keys: 'default' | 'fm' | 'am' | 'duo'
-type SynthPool = Record<string, Tone.PolySynth[]>;
-
-let synthPool: SynthPool | null = null;
+// Per-robot composite voice map
+const compositeVoices = new Map<string, CompositeVoice>();
 ```
 
 ## Voice Lifecycle
@@ -59,12 +56,11 @@ let synthPool: SynthPool | null = null;
 
 ```typescript
 function triggerWithCap(
+  robotId: string,
   note: string,
   duration: string,
   time?: number,
-  velocity?: number,
-  synthType?: string,
-  envelope?: ADSREnvelope
+  velocity?: number
 ): boolean {
   // Guard: Check polyphony limit
   if (activeVoices >= MAX_POLYPHONY) {
@@ -75,27 +71,21 @@ function triggerWithCap(
     }
     return false;  // Reject note, skip gracefully
   }
-  
-  // Select synth from pool
-  const synth = synthType
-    ? (synthPool[synthType as keyof SynthPool] ?? synthPool.default)
-    : synthPool.default;
-  
+
+  // Get composite voice for this robot
+  const voice = compositeVoices.get(robotId);
+  if (!voice) return false;
+
   // Increment voice counter BEFORE triggering
   activeVoices++;
-  
+
   try {
-    // Apply per-robot envelope if provided
-    if (envelope) {
-      applySynthEnvelope(synth, envelope);
-    }
-    
     // Trigger note
-    synth.triggerAttackRelease(note, duration, time ?? Tone.now(), velocity);
-    
+    voice.triggerAttackRelease(note, duration, time ?? Tone.now(), velocity);
+
     // Schedule voice release (see below)
     scheduleVoiceRelease(duration, time);
-    
+
     return true;  // Note accepted
   } catch (err) {
     // If trigger fails, restore voice counter
@@ -152,47 +142,30 @@ try {
 }
 ```
 
-## Synth Pool Architecture
+## Composite Voice Architecture
 
-### Initialization (loadInstruments)
+### Initialization (reserveVoice)
+
+Each robot gets an isolated sub-bus created at spawn time:
 
 ```typescript
-async function loadInstruments(): Promise<void> {
-  // Create global compressor
-  const compressor = new Tone.Compressor({
-    threshold: -18,
-    ratio: 8,
-    attack: 0.003,
-    release: 0.25,
-  }).toDestination();
-  
-  // Create synth pool (4 types for timbral variety)
-  synthPool = {
-    default: [new Tone.PolySynth(Tone.Synth).connect(compressor)],
-    fm: [new Tone.PolySynth(Tone.FMSynth).connect(compressor)],
-    am: [new Tone.PolySynth(Tone.AMSynth).connect(compressor)],
-    duo: [new Tone.PolySynth(Tone.DuoSynth).connect(compressor)],
-  };
+function reserveVoice(robotId: string, descriptor: LayeredWave, phase = 0, detune = 0): boolean {
+  if (activeVoices >= MAX_POLYPHONY) return false;
+
+  // Build per-layer Tone.Synth instances routed through a private sub-bus
+  const voice = createCompositeVoice(descriptor, phase, detune);
+  compositeVoices.set(robotId, voice);
+  activeVoices++;
+  return true;
 }
 ```
 
-### Benefits of Pooling
+### Benefits of Composite Voices
 
-- **Memory efficiency**: 4 synths total vs. 1 per robot (12+ robots = huge savings)
-- **CPU efficiency**: Fewer audio nodes in Web Audio graph
-- **Instant availability**: No spawn-time latency for synth creation
-- **Consistent timbre**: All robots of same type share sonic characteristics
-
-### Synth Selection by Robot Type
-
-```typescript
-// In scheduleNote call
-const synthType = robot.audio.synthType;  // 'default' | 'fm' | 'am' | 'duo'
-const synth = synthPool[synthType] ?? synthPool['default'];
-
-// Each PolySynth has internal voice allocation (typically 32 voices)
-// Our MAX_POLYPHONY limit applies ACROSS all synths
-```
+- **Isolation**: Each robot has its own panner, gain, and filter — no parameter bleed between robots
+- **Deterministic timbre**: Visual appearance is derived from the same `LayeredWave` descriptor
+- **Serializable**: The `LayeredWave` descriptor is plain JSON, safe to store in Zustand
+- **Safe disposal**: `releaseVoice(robotId)` disposes all Tone.js nodes for that robot cleanly
 
 ## Polyphony Budget Guidelines
 
@@ -243,7 +216,7 @@ if (DEV_TUNING) {
   // Show polyphony metrics
   console.log(`Active Voices: ${activeVoices}/${MAX_POLYPHONY}`);
   console.log(`Skip Rate: ${skippedNotes}/${totalNoteRequests}`);
-  console.log(`Synth Pool Size: ${Object.keys(synthPool).length}`);
+  console.log(`Composite Voices: ${compositeVoices.size}`);
 }
 ```
 
