@@ -92,17 +92,6 @@ function reReserveVoice(robot: Robot): void {
       AudioEngine.reserveVoice(
         robot.id,
         layered,
-        undefined,
-        undefined,
-        robot.audioAttributes.phase,
-        robot.audioAttributes.detune,
-      );
-    } else {
-      AudioEngine.reserveVoice(
-        robot.id,
-        robot.audioAttributes.synthType as string,
-        robot.audioAttributes.waveform,
-        robot.audioAttributes.adsr,
         robot.audioAttributes.phase,
         robot.audioAttributes.detune,
       );

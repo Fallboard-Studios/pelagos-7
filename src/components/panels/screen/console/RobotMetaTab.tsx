@@ -9,6 +9,7 @@ import { useLocaleStore } from '@/stores/localeStore';
 import { hasCycle } from '@/stores/localeStore';
 import { AudioEngine } from '@/engine/AudioEngine';
 import type { Robot } from '@/types/Robot';
+import type { LayeredWave } from '@/types/layeredAudio';
 
 // Minimal preset type for UI usage — mirrors stored preset shape used by RobotMetaTab
 type RobotPreset = {
@@ -134,12 +135,10 @@ export default function RobotMetaTab() {
 
     try {
       AudioEngine.releaseVoice(robot.id);
-      const synthType = (updates.audioAttributes && updates.audioAttributes.synthType) ?? robot.audioAttributes?.synthType ?? 'default';
-      const waveform = (updates.audioAttributes && updates.audioAttributes.waveform) ?? robot.audioAttributes?.waveform;
-      const adsr = (updates.audioAttributes && updates.audioAttributes.adsr) ?? robot.audioAttributes?.adsr;
+      const layered = ((updates.audioAttributes ?? robot.audioAttributes) as unknown as { visualAudioMap?: { layeredWave?: LayeredWave } })?.visualAudioMap?.layeredWave;
       const phase = (updates.audioAttributes && updates.audioAttributes.phase) ?? robot.audioAttributes?.phase;
       const detune = (updates.audioAttributes && updates.audioAttributes.detune) ?? robot.audioAttributes?.detune;
-      AudioEngine.reserveVoice(robot.id, synthType, waveform, adsr, phase, detune);
+      if (layered) AudioEngine.reserveVoice(robot.id, layered, phase, detune);
     } catch (err) {
       console.warn('[RobotMetaTab] AudioEngine voice re-reservation error', err);
     }
@@ -164,12 +163,10 @@ export default function RobotMetaTab() {
     try {
       AudioEngine.releaseVoice(robot.id);
       const audioAttr = lastBackup.audioAttributes ?? robot.audioAttributes;
-      const synthType = audioAttr?.synthType ?? 'default';
-      const waveform = audioAttr?.waveform;
-      const adsr = audioAttr?.adsr;
+      const layered = (audioAttr as unknown as { visualAudioMap?: { layeredWave?: LayeredWave } })?.visualAudioMap?.layeredWave;
       const phase = audioAttr?.phase;
       const detune = audioAttr?.detune;
-      AudioEngine.reserveVoice(robot.id, synthType, waveform, adsr, phase, detune);
+      if (layered) AudioEngine.reserveVoice(robot.id, layered, phase, detune);
     } catch (err) {
       console.warn('[RobotMetaTab] AudioEngine voice re-reservation undo error', err);
     }
