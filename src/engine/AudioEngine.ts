@@ -338,7 +338,13 @@ async function loadInstruments(): Promise<void> {
         try {
           const layered = (robot.audioAttributes as unknown as { visualAudioMap?: { layeredWave?: LayeredWave } })?.visualAudioMap?.layeredWave;
           if (layered) {
-            const ok = AudioEngine.reserveVoice(robot.id, layered as LayeredWave, robot.audioAttributes?.phase, robot.audioAttributes?.detune);
+            const ok = AudioEngine.reserveVoice(
+              robot.id,
+              layered as LayeredWave,
+              robot.audioAttributes?.phase,
+              robot.audioAttributes?.detune,
+              robot.audioAttributes?.pulseWidth,
+            );
             if (DEV_TUNING) console.log(`[AudioEngine] Post-load reserve for ${robot.id}: ${ok ? 'OK' : 'FAILED'}`);
           }
         } catch (err) {
@@ -752,6 +758,7 @@ export const AudioEngine = {
     descriptor: LayeredWave,
     phase?: number,
     detune?: number,
+    pulseWidth?: number,
   ): boolean {
     try {
       const composite = AudioEngine.createCompositeVoice(descriptor);
@@ -780,18 +787,19 @@ export const AudioEngine = {
       }
 
       compositeVoices.set(robotId, { composite, panner, busGain, busFilter });
-      // Apply optional top-level detune/phase across composite layers when provided
+      // Apply optional top-level detune/phase/pulseWidth across composite layers when provided
       try {
-        if (typeof detune === 'number') {
-          const layersParam = (descriptor.layers ?? [{ type: descriptor.base }]).map((l) => ({ type: l.type, detune: (l.detune ?? 0) + detune }));
+        if (typeof detune === 'number' || typeof phase === 'number' || typeof pulseWidth === 'number') {
+          const layersParam = (descriptor.layers ?? [{ type: descriptor.base }]).map((l) => ({
+            type: l.type,
+            detune: typeof detune === 'number' ? (l.detune ?? 0) + detune : undefined,
+            phase: typeof phase === 'number' ? phase : undefined,
+            pulseWidth: typeof pulseWidth === 'number' ? pulseWidth : l.pulseWidth,
+          }));
           composite.set({ layers: layersParam });
         }
-        if (typeof phase === 'number') {
-          const layersPhase = (descriptor.layers ?? [{ type: descriptor.base }]).map((l) => ({ type: l.type, phase }));
-          composite.set({ layers: layersPhase });
-        }
       } catch (e) {
-        if (DEV_TUNING) console.warn('[AudioEngine] Failed to apply composite phase/detune at reservation time', e);
+        if (DEV_TUNING) console.warn('[AudioEngine] Failed to apply composite phase/detune/width at reservation time', e);
       }
       if (DEV_TUNING) console.log(`[AudioEngine] Reserved composite voice for ${robotId}`);
       return true;
@@ -879,8 +887,12 @@ export const AudioEngine = {
         if (Noise && typeof Noise.connect === 'function') Noise.connect(layerGain);
         synth = Noise as unknown as Tone.Synth | Tone.NoiseSynth | null;
       } else {
+        const oscConfig: Record<string, unknown> = { type: layer.type as WaveformType };
+        // Apply per-layer pulse width when provided (meaningful for pulse/square)
+        if (typeof layer.pulseWidth === 'number') oscConfig.width = layer.pulseWidth;
+
         const s = new Tone.Synth({
-          oscillator: { type: layer.type as WaveformType },
+          oscillator: oscConfig,
           envelope: {
             attack: layer.adsr?.attack ?? 0.01,
             decay: layer.adsr?.decay ?? 0.1,
@@ -895,7 +907,7 @@ export const AudioEngine = {
         if (layerGain && typeof s?.connect === 'function') s.connect(layerGain);
         synth = s;
       }
-      // apply detune if present and supported
+        // apply detune if present and supported
       try {
         if (layer.detune !== undefined) {
           try {
@@ -931,6 +943,28 @@ export const AudioEngine = {
             }
           } catch (err) {
             if (DEV_TUNING) console.warn('[AudioEngine] Failed to apply phase on composite layer', err);
+          }
+        }
+        // apply pulseWidth if present and supported
+        if (layer.pulseWidth !== undefined) {
+          try {
+            const osc = (synth as unknown as { oscillator?: { width?: number | { value?: number } } })?.oscillator;
+            if (osc) {
+              try { (synth as unknown as SynthWithOscillator).set?.({ oscillator: { width: layer.pulseWidth } }); } catch {
+                try {
+                  const oscWidth = (osc as unknown as { width?: { value?: number } | number })?.width;
+                  if (typeof oscWidth === 'object' && oscWidth !== null && 'value' in oscWidth) {
+                    (oscWidth as { value?: number }).value = layer.pulseWidth;
+                  } else {
+                    (osc as unknown as { width?: number }).width = layer.pulseWidth;
+                  }
+                } catch (err) {
+                  if (DEV_TUNING) console.warn('[AudioEngine] Failed to apply pulseWidth on composite layer', err);
+                }
+              }
+            }
+          } catch (err) {
+            if (DEV_TUNING) console.warn('[AudioEngine] Failed to apply pulseWidth on composite layer', err);
           }
         }
       } catch (err) {
@@ -1020,6 +1054,28 @@ export const AudioEngine = {
                   }
                 } catch (err) {
                   if (DEV_TUNING) console.warn('[AudioEngine] Failed to set phase on composite layer', err);
+                }
+              }
+              if (p.pulseWidth !== undefined) {
+                try {
+                  // Prefer Synth.set when available
+                  try { (synth as unknown as SynthWithOscillator).set?.({ oscillator: { width: p.pulseWidth } }); } catch {
+                    const osc = (synth as unknown as { oscillator?: { width?: { value?: number } | number } })?.oscillator;
+                    if (osc) {
+                      try {
+                        const oscWidth = (osc as unknown as { width?: { value?: number } | number })?.width;
+                        if (typeof oscWidth === 'object' && oscWidth !== null && 'value' in oscWidth) {
+                          (oscWidth as { value?: number }).value = p.pulseWidth;
+                        } else {
+                          (osc as unknown as { width?: number }).width = p.pulseWidth;
+                        }
+                      } catch (err) {
+                        if (DEV_TUNING) console.warn('[AudioEngine] Failed to set pulseWidth on composite layer', err);
+                      }
+                    }
+                  }
+                } catch (err) {
+                  if (DEV_TUNING) console.warn('[AudioEngine] Failed to set pulseWidth on composite layer', err);
                 }
               }
               if (p.adsr && typeof (synth as unknown as { set?: (props: unknown) => void }).set === 'function') {

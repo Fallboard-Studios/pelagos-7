@@ -14,6 +14,7 @@ export interface LayerDescriptor {
   gain?: number
   detune?: number // cents
   phase?: number // degrees
+  pulseWidth?: number // 0..1, meaningful for pulse/square oscillators
   adsr?: ADSTRaw
 }
 

@@ -26,7 +26,7 @@ export type RobotState = (typeof RobotState)[keyof typeof RobotState];
 /**
  * Oscillator waveform shapes for timbral variety
  */
-export type WaveformType = 'sine' | 'square' | 'triangle' | 'sawtooth';
+export type WaveformType = 'sine' | 'square' | 'triangle' | 'sawtooth' | 'pulse';
 
 /**
  * ADSR envelope parameters for synth
