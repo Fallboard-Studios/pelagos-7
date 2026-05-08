@@ -848,6 +848,37 @@ export const AudioEngine = {
     return compositeVoices.get(robotId)?.composite ?? null;
   },
 
+  /**
+   * Deterministic re-reservation helper used by UI/store updates.
+   * Reads the robot's current `audioAttributes` from the locale store,
+   * calls `releaseVoice(robotId)` then `reserveVoice(...)` with the
+   * freshly-read `phase`, `detune`, and `pulseWidth` values so
+   * updates from the store are applied immediately to the reserved voice.
+   * Returns true when reservation succeeded.
+   */
+  reReserveVoice(robotId: string): boolean {
+    try {
+      const state = useLocaleStore.getState();
+      const robot = state.locales[getActiveLocaleId()]?.robots.find((r: { id: string }) => r.id === robotId);
+      if (!robot) return false;
+
+      const layered = (robot.audioAttributes as unknown as { visualAudioMap?: { layeredWave?: LayeredWave } })?.visualAudioMap?.layeredWave;
+      if (!layered) return false;
+
+      AudioEngine.releaseVoice(robotId);
+      return AudioEngine.reserveVoice(
+        robotId,
+        layered as LayeredWave,
+        robot.audioAttributes?.phase,
+        robot.audioAttributes?.detune,
+        robot.audioAttributes?.pulseWidth,
+      );
+    } catch (err) {
+      if (DEV_TUNING) swallow(err, 'AudioEngine.reReserveVoice');
+      return false;
+    }
+  },
+
 
   /**
    * Create a composite voice made of multiple layers (oscillators and optional noise).
