@@ -61,8 +61,8 @@ const MASTER_VOLUME_MAX = 0.85;
 
 // (synthType removed) decisions use `waveform` and layered descriptors
 
-// Waveform types — even distribution gives ~25% each
-const WAVEFORMS: WaveformType[] = ['sine', 'square', 'triangle', 'sawtooth'];
+// Waveform types — even distribution gives ~20% each (includes pulse)
+const WAVEFORMS: WaveformType[] = ['sine', 'square', 'triangle', 'sawtooth', 'pulse'];
 
 // Simple word lists for deterministic-looking robot names
 const ADJECTIVES = ['Iron', 'Null', 'Silent', 'Drift', 'Azure', 'Rust', 'Neon', 'Glass', 'Solar', 'Tidal'];

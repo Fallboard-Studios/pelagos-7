@@ -34,6 +34,7 @@ const BASE_HUE: Record<WaveformType, number> = {
   square: 24,
   triangle: 280,
   sawtooth: 140,
+  pulse: 60,
 };
 
 // Safety guard to avoid divide-by-zero
