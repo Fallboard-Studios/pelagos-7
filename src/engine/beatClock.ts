@@ -200,23 +200,42 @@ export function cancelSchedule(scheduleId: string): void {
  */
 export function resetBeatClock(): void {
   initialized = false;
+
   // Clear the internal 16n tick if it was registered
-  if (transportInstance && internalTickId !== null) {
+  if (internalTickId !== null) {
     try {
-      transportInstance.clear(internalTickId);
+      transportInstance?.clear(internalTickId);
     } catch (err) {
       if (DEV_TUNING) console.warn('[BeatClock] reset: failed to clear internal tick', err);
     }
     internalTickId = null;
   }
+
   // Attempt to clear any transport-registered schedules owned by this module
-  if (transportInstance) {
-    scheduleMap.forEach((entry) => {
-      if (entry.transportId !== undefined) {
-        try { transportInstance!.clear(entry.transportId); } catch (err) { if (DEV_TUNING) console.warn('[BeatClock] reset: failed to clear schedule', err); }
+  scheduleMap.forEach((entry) => {
+    if (entry.transportId !== undefined) {
+      try {
+        transportInstance?.clear(entry.transportId);
+      } catch (err) {
+        if (DEV_TUNING) console.warn('[BeatClock] reset: failed to clear schedule', err);
       }
-    });
-  }
+    }
+  });
   scheduleMap.clear();
+
+  // Null the transport reference so scheduleRepeat() doesn't register events
+  // against a stale/cancelled transport between reset and the next initBeatClock().
+  transportInstance = null;
+
+  // Reset position counters so getters don't return stale values before the
+  // first 16n tick fires after re-initialization.
+  currentBeat = 0;
+  currentMeasure = 0;
+  lastNotifiedMeasure = -1;
+
+  // Clear listeners — stale subscribers from a previous session would otherwise
+  // fire on the new session's measure ticks.
+  measureListeners.length = 0;
+
   if (DEV_TUNING) console.log('[BeatClock] reset');
 }

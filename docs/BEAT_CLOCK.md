@@ -32,6 +32,9 @@ getCurrentHour(): number;       // derived hour 0..23 from measures
 scheduleRepeat(interval: string, callback: () => void): string; // returns scheduleId
 cancelSchedule(scheduleId: string): void;
 
+// Lifecycle
+resetBeatClock(): void;
+
 // Convenience / stubs
 scheduleAtBeat(beat: number, callback: () => void): string; // deprecated helper — prefer Transport.scheduleOnce or BeatClock.scheduleRepeat
 ```
@@ -39,6 +42,7 @@ scheduleAtBeat(beat: number, callback: () => void): string; // deprecated helper
 Notes:
 - `scheduleRepeat` persists requested schedules when a transport is not yet available; these pending schedules are registered automatically when `initBeatClock` runs.
 - `scheduleAtBeat` is deprecated in this documentation; implement one-shot scheduling with `Transport.scheduleOnce` or `BeatClock.scheduleRepeat` instead.
+- `resetBeatClock()` clears the transport reference, all pending/registered schedules, position counters (`currentBeat`, `currentMeasure`), and **all measure listeners**. After a reset, callers that used `subscribeToMeasure` must re-subscribe, and `initBeatClock(transport)` must be called again before any scheduling APIs are used.
 
 ## Usage Patterns
 
