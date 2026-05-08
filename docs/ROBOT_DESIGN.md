@@ -227,11 +227,12 @@ See `src/types/layeredAudio.ts`, `src/systems/spawnSystem.ts` and `src/component
 
 ## Examples
 
-### Example 1: High-Pitched Scout (AMSynth)
+### Example 1: High-Pitched Scout
 ```typescript
 {
   audioAttributes: {
-    synthType: 'AMSynth',
+    // Use a compact layered descriptor at spawn-time for both audio and visuals
+    layeredWave: { base: 'sine', layers: [] },
     adsr: { attack: 0.01, decay: 0.2, sustain: 0.3, release: 0.5 },
     pitchRange: { min: 600, max: 1200 },
     filterFreq: 2500,
@@ -249,11 +250,12 @@ See `src/types/layeredAudio.ts`, `src/systems/spawnSystem.ts` and `src/component
 }
 ```
 
-### Example 2: Low-Frequency Industrial (DuoSynth)
+### Example 2: Low-Frequency Industrial
 ```typescript
 {
   audioAttributes: {
-    synthType: 'DuoSynth',
+    // Layered descriptor with a lower-frequency base
+    layeredWave: { base: 'sawtooth', layers: [{ type: 'noise', gain: 0.2 }] },
     adsr: { attack: 0.1, decay: 0.5, sustain: 0.6, release: 1.0 },
     pitchRange: { min: 80, max: 200 },
     filterFreq: 400,

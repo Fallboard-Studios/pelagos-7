@@ -20,7 +20,6 @@ const makeRobot = (id: string): Robot => ({
   destination: null,
   melody: [],
   audioAttributes: {
-    synthType: 'AMSynth',
     waveform: 'sine',
     adsr: { attack: 0, decay: 0, sustain: 0, release: 0 },
     pitchRange: { min: 0, max: 0 },

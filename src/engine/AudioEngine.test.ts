@@ -34,9 +34,7 @@ vi.mock('tone', () => ({
     oscillator: { detune: { value: 0 } },
     volume: { value: -6 },
   })),
-  FMSynth: vi.fn(),
-  AMSynth: vi.fn(),
-  DuoSynth: vi.fn(),
+  // Legacy synth constructors removed from tests — use generic `Synth` or `PolySynth` mocks above
   Compressor: vi.fn(() => ({
     connect: vi.fn().mockReturnThis(),
     disconnect: vi.fn(),
@@ -299,8 +297,8 @@ describe('AudioEngine - audioMode enforcement (solo/mute/highlight)', () => {
     // Populate locale robots: one muted, one normal
     merged_useLocaleStore.getState().setLocaleData(merged_DEFAULT_LOCALE_ID, {
       robots: [
-        { id: 'r-muted', audioMode: 'mute', audioAttributes: { synthType: 'PolySynth', adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.2 }, waveform: 'sine', pitchRange: { min: 200, max: 400 }, filterFreq: 100 }, masterVolume: 0.8, melody: [], octaveRange: [3, 4], position: { x: 960, y: 0 }, createdAt: Date.now(), name: '', state: 'idle', direction: 'right' },
-        { id: 'r-other', audioMode: 'none', audioAttributes: { synthType: 'PolySynth', adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.2 }, waveform: 'sine', pitchRange: { min: 200, max: 400 }, filterFreq: 100 }, masterVolume: 0.8, melody: [], octaveRange: [3, 4], position: { x: 960, y: 0 }, createdAt: Date.now(), name: '', state: 'idle', direction: 'right' },
+        { id: 'r-muted', audioMode: 'mute', audioAttributes: { adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.2 }, waveform: 'sine', pitchRange: { min: 200, max: 400 }, filterFreq: 100 }, masterVolume: 0.8, melody: [], octaveRange: [3, 4], position: { x: 960, y: 0 }, createdAt: Date.now(), name: '', state: 'idle', direction: 'right' },
+        { id: 'r-other', audioMode: 'none', audioAttributes: { adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.2 }, waveform: 'sine', pitchRange: { min: 200, max: 400 }, filterFreq: 100 }, masterVolume: 0.8, melody: [], octaveRange: [3, 4], position: { x: 960, y: 0 }, createdAt: Date.now(), name: '', state: 'idle', direction: 'right' },
       ],
     });
 
@@ -344,8 +342,8 @@ describe('AudioEngine - audioMode enforcement (solo/mute/highlight)', () => {
 
     merged_useLocaleStore.getState().setLocaleData(merged_DEFAULT_LOCALE_ID, {
       robots: [
-        { id: 'r-solo', audioMode: 'solo', audioAttributes: { synthType: 'PolySynth', adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.2 }, waveform: 'sine', pitchRange: { min: 200, max: 400 }, filterFreq: 100 }, masterVolume: 0.9, melody: [], octaveRange: [3, 4], position: { x: 960, y: 0 }, createdAt: Date.now(), name: '', state: 'idle', direction: 'right' },
-        { id: 'r-other2', audioMode: 'none', audioAttributes: { synthType: 'PolySynth', adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.2 }, waveform: 'sine', pitchRange: { min: 200, max: 400 }, filterFreq: 100 }, masterVolume: 0.9, melody: [], octaveRange: [3, 4], position: { x: 960, y: 0 }, createdAt: Date.now(), name: '', state: 'idle', direction: 'right' },
+        { id: 'r-solo', audioMode: 'solo', audioAttributes: { adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.2 }, waveform: 'sine', pitchRange: { min: 200, max: 400 }, filterFreq: 100 }, masterVolume: 0.9, melody: [], octaveRange: [3, 4], position: { x: 960, y: 0 }, createdAt: Date.now(), name: '', state: 'idle', direction: 'right' },
+        { id: 'r-other2', audioMode: 'none', audioAttributes: { adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.2 }, waveform: 'sine', pitchRange: { min: 200, max: 400 }, filterFreq: 100 }, masterVolume: 0.9, melody: [], octaveRange: [3, 4], position: { x: 960, y: 0 }, createdAt: Date.now(), name: '', state: 'idle', direction: 'right' },
       ],
     });
 
@@ -384,8 +382,8 @@ describe('AudioEngine - audioMode enforcement (solo/mute/highlight)', () => {
 
     merged_useLocaleStore.getState().setLocaleData(merged_DEFAULT_LOCALE_ID, {
       robots: [
-        { id: 'r-h', audioMode: 'highlight', audioAttributes: { synthType: 'PolySynth', adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.2 }, waveform: 'sine', pitchRange: { min: 200, max: 400 }, filterFreq: 100 }, masterVolume: 0.8, melody: [], octaveRange: [3, 4], position: { x: 960, y: 0 }, createdAt: Date.now(), name: '', state: 'idle', direction: 'right' },
-        { id: 'r-nh', audioMode: 'none', audioAttributes: { synthType: 'PolySynth', adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.2 }, waveform: 'sine', pitchRange: { min: 200, max: 400 }, filterFreq: 100 }, masterVolume: 0.8, melody: [], octaveRange: [3, 4], position: { x: 960, y: 0 }, createdAt: Date.now(), name: '', state: 'idle', direction: 'right' },
+        { id: 'r-h', audioMode: 'highlight', audioAttributes: { adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.2 }, waveform: 'sine', pitchRange: { min: 200, max: 400 }, filterFreq: 100 }, masterVolume: 0.8, melody: [], octaveRange: [3, 4], position: { x: 960, y: 0 }, createdAt: Date.now(), name: '', state: 'idle', direction: 'right' },
+        { id: 'r-nh', audioMode: 'none', audioAttributes: { adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.2 }, waveform: 'sine', pitchRange: { min: 200, max: 400 }, filterFreq: 100 }, masterVolume: 0.8, melody: [], octaveRange: [3, 4], position: { x: 960, y: 0 }, createdAt: Date.now(), name: '', state: 'idle', direction: 'right' },
       ],
     });
 

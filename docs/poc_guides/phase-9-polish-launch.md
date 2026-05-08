@@ -115,8 +115,8 @@ export function RobotEditorPanel({ robot, onClose }: RobotEditorPanelProps) {
         <div className="section-header">Audio Attributes</div>
 
         <div className="info-group">
-          <label>Synth Type</label>
-          <div className="info-value">{robot.audio.synthType}</div>
+          <label>Timbre</label>
+          <div className="info-value">{robot.audio.waveform ?? robot.audio.synthType}</div>
         </div>
 
         <div className="info-group">

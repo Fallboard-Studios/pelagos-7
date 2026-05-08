@@ -34,7 +34,7 @@ interface RobotSVGProps {
 // COMPONENT
 // ========================================
 /**
- * RobotSleek - Smooth, streamlined design for AMSynth
+ * RobotSleek - Smooth, streamlined design for melodic synth voices
  * Industrial submarine aesthetic with curved hull sections
  * Future: Body curvature, position, and details controlled by audio attributes
  */

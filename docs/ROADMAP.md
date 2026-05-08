@@ -69,7 +69,7 @@
 - 8-note harmony palette with dynamic chord cycles (every 4 measures)
 - Melody playback via step registry in `AudioEngine`
 - Polyphony cap (16 voices) with voice tracking
-- Multiple synth pool entries (PolySynth, FMSynth, AMSynth, MembraneSynth)
+- Multiple synth pool entries historically documented (PolySynth, FMSynth, AMSynth, MembraneSynth) — runtime now favors `layeredWave`/composite voices keyed by waveform
 
 ---
 
@@ -124,7 +124,7 @@ See [M6-issues.md](poc_guides/M6-issues.md)
 **Goal:** Audio attributes drive every visual property
 
 **Key work:**
-- HSL color system: `synthType` → base hue family; ADSR formula shifts hue, attack → saturation, sustain → luminance
+		  - HSL color system: derive base hue from `layeredWave.base` / `waveform`; ADSR formula shifts hue, attack → saturation, sustain → luminance
 - Swim speed derived from `octaveOffset` (0 = fastest, 2 = slowest)
 - Trailing particle wake — GSAP fixed pool of circles, duration = `adsr.release`
 

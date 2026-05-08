@@ -1,7 +1,7 @@
 // ========================================
 // IMPORTS
 // ========================================
-import type { AudioAttributes, SynthType } from '../../types/Robot';
+import type { AudioAttributes, WaveformType } from '../../types/Robot';
 import { RobotSleek } from './RobotSleek';
 import { RobotAngular } from './RobotAngular';
 import { RobotOrganic } from './RobotOrganic';
@@ -28,12 +28,12 @@ const FAST_ATTACK_THRESHOLD = 0.1;   // seconds
 const HIGH_FILTER_THRESHOLD = 2000;  // Hz
 const LOW_FILTER_THRESHOLD = 500;    // Hz
 
-// Base hue per synth type (degrees)
-const BASE_HUE: Record<SynthType, number> = {
-  AMSynth: 210,
-  FMSynth: 24,
-  PolySynth: 280,
-  DuoSynth: 140,
+// Base hue per waveform (degrees)
+const BASE_HUE: Record<WaveformType, number> = {
+  sine: 210,
+  square: 24,
+  triangle: 280,
+  sawtooth: 140,
 };
 
 // Safety guard to avoid divide-by-zero
@@ -45,20 +45,20 @@ const MIN_DENOMINATOR = 1e-4;
 
 /**
  * Select robot shape component based on synth type
- * AMSynth → Sleek, FMSynth → Angular, PolySynth → Organic, DuoSynth → Industrial
+ * Specific synth subtypes removed; visual mapping uses `AudioAttributes` now.
  */
-export function selectRobotShape(synthType: SynthType): RobotSVGComponent {
-  switch (synthType) {
-    case 'AMSynth':
+export function selectRobotShape(waveform: WaveformType): RobotSVGComponent {
+  switch (waveform) {
+    case 'sine':
       return RobotSleek;
-    case 'FMSynth':
+    case 'square':
       return RobotAngular;
-    case 'PolySynth':
-      return RobotIndustrial;
-    case 'DuoSynth':
+    case 'triangle':
       return RobotOrganic;
+    case 'sawtooth':
+      return RobotIndustrial;
     default:
-      return RobotSleek; // Fallback
+      return RobotSleek;
   }
 }
 
@@ -104,9 +104,9 @@ export function toLuminance(sustain: number): number {
  * Generate colors from full AudioAttributes
  */
 export function generateColors(attrs: AudioAttributes): RobotColors {
-  const { synthType, adsr } = attrs;
+  const { adsr, waveform } = attrs;
 
-  const baseHue = BASE_HUE[synthType] ?? 200;
+  const baseHue = BASE_HUE[waveform] ?? 200;
   const offset = hueOffset(adsr);
   const primaryHue = ((baseHue + offset) % 360 + 360) % 360; // normalized
   const secondaryHue = ((primaryHue + 14) % 360 + 360) % 360;

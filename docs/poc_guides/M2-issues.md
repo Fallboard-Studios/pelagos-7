@@ -58,10 +58,10 @@ describe('BeatClock', () => {
 Create unified robot SVG components where each represents a complete robot with a distinct visual style determined by audio attributes.
 
 ### Implementation Details
-- Create `src/components/robot/RobotSleek.tsx` (AMSynth - smooth, flowing)
-- Create `src/components/robot/RobotAngular.tsx` (FMSynth - sharp, geometric)
-- Create `src/components/robot/RobotOrganic.tsx` (PolySynth - rounded, biological)
-- Create `src/components/robot/RobotIndustrial.tsx` (MembraneSynth - boxy, mechanical)
+ - Create `src/components/robot/RobotSleek.tsx` (waveform-driven: smooth, flowing)
+ - Create `src/components/robot/RobotAngular.tsx` (waveform-driven: sharp, geometric)
+ - Create `src/components/robot/RobotOrganic.tsx` (waveform-driven: rounded, biological)
+ - Create `src/components/robot/RobotIndustrial.tsx` (waveform-driven: boxy, mechanical)
 - Each receives colors, scale, and detailLevel props
 - Propeller element marked for GSAP rotation animation
 - Use CSS custom properties for dynamic coloring
@@ -118,7 +118,7 @@ Create a component that selects the appropriate robot shape variant based on aud
 - Create `src/components/robot/RobotBody.tsx`
 - Accept `robot: Robot` prop
 - Calculate visual properties from `robot.audioAttributes`:
-  - Shape variant from synthType
+  - Shape variant from `layeredWave.base` / `waveform` (do not use `synthType`)
   - Colors from ADSR envelope
   - Scale from pitchRange
   - Detail level from filterFreq
@@ -130,9 +130,10 @@ Create a component that selects the appropriate robot shape variant based on aud
 ```tsx
 export function RobotBody({ robot }: { robot: Robot }) {
   const visual = useMemo(() => {
-    const { synthType, adsr, pitchRange, filterFreq } = robot.audioAttributes;
+    const { layeredWave, waveform, adsr, pitchRange, filterFreq } = robot.audioAttributes;
+    const base = layeredWave?.base ?? waveform;
     return {
-      Component: selectRobotShape(synthType),  // Returns RobotSleek, etc.
+      Component: selectRobotShape(base),  // Returns RobotSleek, etc.
       colors: generateColors(adsr),
       scale: calculateScale(pitchRange),
       detailLevel: calculateDetailLevel(filterFreq),

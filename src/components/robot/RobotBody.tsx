@@ -42,7 +42,7 @@ export const RobotBody = memo(function RobotBody({ robot }: RobotBodyProps) {
   const lightnessMultiplier = 0.5 + 0.5 * Math.sin(((localTime - 6) / 24) * Math.PI * 2);
 
   const visual = useMemo(() => {
-    const { synthType, adsr, filterFreq, visualAudioMap } = robot.audioAttributes;
+    const { adsr, filterFreq, visualAudioMap, waveform } = robot.audioAttributes;
     const octaveRange = robot.audioAttributes.octaveRange ?? robot.octaveRange;
 
     const baseColors = generateColors(robot.audioAttributes);
@@ -81,7 +81,7 @@ export const RobotBody = memo(function RobotBody({ robot }: RobotBodyProps) {
     const greeblePlacementBias = calculateGreeblePlacementBias(adsr.decay, adsr.release);
 
     return {
-      Component: selectRobotShape(synthType),
+      Component: selectRobotShape(waveform),
       colors,
       scale: calculateScale(octaveRange),
       detailLevel: detail,

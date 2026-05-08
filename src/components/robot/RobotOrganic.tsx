@@ -34,7 +34,7 @@ interface RobotSVGProps {
 // COMPONENT
 // ========================================
 /**
- * RobotOrganic - Rounded, biomechanical design for PolySynth
+ * RobotOrganic - Rounded, biomechanical design for polyphonic synth voices
  * Industrial construction with curved organic hull
  * Future: Cell shape, membrane curves, and details controlled by audio attributes
  */
