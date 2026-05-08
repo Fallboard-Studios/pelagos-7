@@ -116,28 +116,29 @@ export function scheduleHarmonyCycle(transport: TransportLike): void {
     // Prefer hour-based palette index when beatClock.getCurrentHour is available
     // (keeps existing tests/behavior stable). Fall back to measure-driven
     // stepping (2-measure steps) when hour function is not present.
-    let paletteIndex: number | null = null;
     try {
-      const hour = typeof getCurrentHour === 'function' ? getCurrentHour() : undefined;
+      let paletteIndex: number | null = null;
+
+      const hour = getCurrentHour() ?? undefined;
       if (typeof hour === 'number') {
         paletteIndex = Math.floor(hour) % Object.keys(TIME_PITCHES).length;
       }
-    } catch (err) {
-      if (DEV_TUNING) swallow(err, '[HarmonySystem] getCurrentHour threw in palette cycle check');
-    }
 
-    if (paletteIndex === null) {
-      const measure = useLocaleStore.getState().locales[getActiveLocaleId()]?.currentMeasure ?? 0;
-      const step = Math.floor((measure % 96) / 2);
-      paletteIndex = step % Object.keys(TIME_PITCHES).length;
-    }
-
-    if (paletteIndex !== lastPaletteIndex) {
-      lastPaletteIndex = paletteIndex;
-      availableNotes = TIME_PITCHES[paletteIndex as number] ?? TIME_PITCHES[0];
-      if (DEV_TUNING) {
-        console.log(`[HarmonySystem] Palette changed to index ${paletteIndex}:`, availableNotes);
+      if (paletteIndex === null) {
+        const measure = useLocaleStore.getState().locales[getActiveLocaleId()]?.currentMeasure ?? 0;
+        const step = Math.floor((measure % 96) / 2);
+        paletteIndex = step % Object.keys(TIME_PITCHES).length;
       }
+
+      if (paletteIndex !== lastPaletteIndex) {
+        lastPaletteIndex = paletteIndex;
+        availableNotes = TIME_PITCHES[paletteIndex as number] ?? TIME_PITCHES[0];
+        if (DEV_TUNING) {
+          console.log(`[HarmonySystem] Palette changed to index ${paletteIndex}:`, availableNotes);
+        }
+      }
+    } catch (err) {
+      if (DEV_TUNING) swallow(err, '[HarmonySystem] palette cycle callback threw');
     }
   }, '2m');
 
@@ -150,8 +151,8 @@ export function scheduleHarmonyCycle(transport: TransportLike): void {
  * Stop the harmony cycle (for cleanup/testing).
  */
 export function stopHarmonyCycle(): void {
-  if (scheduledEventId !== null && transportInstance) {
-    transportInstance.clear(scheduledEventId);
+  if (scheduledEventId !== null) {
+    transportInstance?.clear(scheduledEventId);
     scheduledEventId = null;
     transportInstance = null;
     if (DEV_TUNING) {
