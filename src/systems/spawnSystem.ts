@@ -447,10 +447,10 @@ export function spawnRobot(localeId: string): void {
   AudioEngine.unregisterRobotMelody(robot.id);
   // Reserve a voice for this robot (best-effort) so its timbre/adsr are isolated.
   // Waveform is applied once here on the idle slot — no mid-playback oscillator rebuilds.
-  try {
+    try {
     const layered = (robot.audioAttributes as unknown as { visualAudioMap?: { layeredWave?: LayeredWave } })?.visualAudioMap?.layeredWave as LayeredWave | undefined;
     if (layered) {
-      AudioEngine.reserveVoice(robot.id, layered, robot.audioAttributes.phase, robot.audioAttributes.detune);
+      AudioEngine.reserveVoice(robot.id, layered, robot.audioAttributes.phase, robot.audioAttributes.detune, robot.audioAttributes.pulseWidth);
     }
   } catch (err) {
     if (DEV_TUNING) console.warn('[SpawnSystem] reserveVoice failed', err);
@@ -477,7 +477,7 @@ export function reRegisterAllRobotsAudio(localeId: string): void {
     try {
       const layered = (robot.audioAttributes as unknown as { visualAudioMap?: { layeredWave?: LayeredWave } })?.visualAudioMap?.layeredWave as LayeredWave | undefined;
       if (layered) {
-        AudioEngine.reserveVoice(robot.id, layered, robot.audioAttributes.phase, robot.audioAttributes.detune);
+        AudioEngine.reserveVoice(robot.id, layered, robot.audioAttributes.phase, robot.audioAttributes.detune, robot.audioAttributes.pulseWidth);
       }
     } catch (err) {
       if (DEV_TUNING) console.warn('[SpawnSystem] reRegisterAllRobotsAudio: reserveVoice failed for', robot.id, err);
