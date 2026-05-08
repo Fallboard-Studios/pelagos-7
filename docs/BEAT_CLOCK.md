@@ -4,7 +4,7 @@ BeatClock is the authoritative timing system that wraps **Tone.Transport** and p
 
 ## Purpose
 
-BeatClock ensures all systems in Pelagos-7 operate on **musical time** (beats/measures) rather than wall-clock time (seconds). This keeps robot spawning, factory production, harmony changes, and all timed events synchronized to the music regardless of BPM changes.
+BeatClock ensures all systems in Pelagos-7 operate on **musical time** (beats/measures) rather than wall-clock time (seconds). This keeps robot spawning, harmony changes, and all timed events synchronized to the music regardless of BPM changes.
 
 ## Implementation Strategy
 
