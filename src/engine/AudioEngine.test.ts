@@ -1,6 +1,10 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { useLocaleStore } from '../stores/localeStore';
-import { DEFAULT_LOCALE_ID } from '../stores/planetStore';
+/**
+ * @vitest-environment jsdom
+ */
+
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
+vi.mock('../utils/localeHelpers', () => ({ getActiveLocaleId: vi.fn(() => 'testLocale') }));
 
 // Mock Tone.js to avoid audio context initialization in tests
 vi.mock('tone', () => ({
@@ -144,6 +148,64 @@ vi.mock('../constants', () => ({
 }));
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
+import { AudioEngine } from './AudioEngine';
+import { useLocaleStore } from '../stores/localeStore';
+import { DEFAULT_LOCALE_ID } from '../stores/planetStore';
+
+describe('AudioEngine.reReserveVoice', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('releases and re-reserves using updated audioAttributes', () => {
+    vi.spyOn(useLocaleStore, 'getState').mockReturnValue({
+      locales: {
+        testLocale: {
+          robots: [
+            {
+              id: 'r1',
+              name: '',
+              state: 'idle',
+              direction: 'right',
+              position: { x: 960, y: 0 },
+              destination: null,
+              createdAt: Date.now(),
+              melody: [],
+              octaveRange: [3, 4],
+              masterVolume: 0.8,
+              audioMode: 'none',
+              audioAttributes: {
+                waveform: 'sine',
+                adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.5 },
+                filterFreq: 1200,
+                visualAudioMap: { layeredWave: { base: 'sine', layers: [{ type: 'sine' }] } },
+                phase: 37,
+                detune: 5,
+                pulseWidth: 0.42,
+              },
+            },
+          ],
+        },
+      },
+    } as any);
+
+    const reserveSpy = vi.spyOn(AudioEngine, 'reserveVoice').mockImplementation(() => true);
+    const releaseSpy = vi.spyOn(AudioEngine, 'releaseVoice').mockImplementation(() => { });
+
+    const res = AudioEngine.reReserveVoice('r1');
+
+    expect(res).toBe(true);
+    expect(releaseSpy).toHaveBeenCalledWith('r1');
+    expect(reserveSpy).toHaveBeenCalledWith(
+      'r1',
+      expect.objectContaining({ base: 'sine' }),
+      37,
+      5,
+      0.42,
+    );
+  });
+});
 
 // The following audioMode tests were merged from AudioEngine.audioMode.test.ts
 // They require importing the locale store after a module reset to ensure
@@ -293,6 +355,8 @@ describe('AudioEngine - audioMode enforcement (solo/mute/highlight)', () => {
   it('mutes robots with audioMode=\'mute\' (no synth calls)', async () => {
     const Tone = await import('tone');
     const { AudioEngine } = await import('./AudioEngine');
+    const helpers = await import('../utils/localeHelpers');
+    (helpers.getActiveLocaleId as ReturnType<typeof vi.fn>).mockReturnValue(merged_DEFAULT_LOCALE_ID);
 
     // Populate locale robots: one muted, one normal
     merged_useLocaleStore.getState().setLocaleData(merged_DEFAULT_LOCALE_ID, {
@@ -339,6 +403,8 @@ describe('AudioEngine - audioMode enforcement (solo/mute/highlight)', () => {
   it('enforces solo: only solo robot produces audio', async () => {
     const Tone = await import('tone');
     const { AudioEngine } = await import('./AudioEngine');
+    const helpers = await import('../utils/localeHelpers');
+    (helpers.getActiveLocaleId as ReturnType<typeof vi.fn>).mockReturnValue(merged_DEFAULT_LOCALE_ID);
 
     merged_useLocaleStore.getState().setLocaleData(merged_DEFAULT_LOCALE_ID, {
       robots: [
@@ -379,6 +445,8 @@ describe('AudioEngine - audioMode enforcement (solo/mute/highlight)', () => {
   it('applies ~50% attenuation to non-highlighted robots when one is highlighted', async () => {
     const Tone = await import('tone');
     const { AudioEngine } = await import('./AudioEngine');
+    const helpers = await import('../utils/localeHelpers');
+    (helpers.getActiveLocaleId as ReturnType<typeof vi.fn>).mockReturnValue(merged_DEFAULT_LOCALE_ID);
 
     merged_useLocaleStore.getState().setLocaleData(merged_DEFAULT_LOCALE_ID, {
       robots: [

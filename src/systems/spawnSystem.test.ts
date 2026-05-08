@@ -64,7 +64,7 @@ describe('spawnSystem', () => {
   describe('generateAudioAttributes', () => {
     it('generates valid synth type', () => {
       const attrs = generateAudioAttributes(mockNoiseMap, 0);
-      expect(['sine', 'square', 'triangle', 'sawtooth']).toContain(attrs.waveform);
+      expect(['sine', 'square', 'triangle', 'sawtooth', 'pulse']).toContain(attrs.waveform);
     });
 
     it('generates ADSR values in valid ranges', () => {
@@ -99,10 +99,10 @@ describe('spawnSystem', () => {
 
     it('generates varied attributes (not all the same)', () => {
       const attributes = Array.from({ length: 20 }, (_, i) => generateAudioAttributes(mockNoiseMap, i));
-        const uniqueWaveforms = new Set(attributes.map((a) => a.waveform));
+      const uniqueWaveforms = new Set(attributes.map((a) => a.waveform));
       const uniqueAttacks = new Set(attributes.map((a) => a.adsr.attack.toFixed(2)));
       // Synth type is now generic; ensure ADSR variety still exists
-        expect(uniqueWaveforms.size).toBeGreaterThan(1);
+      expect(uniqueWaveforms.size).toBeGreaterThan(1);
       expect(uniqueAttacks.size).toBeGreaterThan(10); // Should have variety
     });
 
