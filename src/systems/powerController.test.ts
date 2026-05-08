@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('../engine/AudioEngine', () => ({ AudioEngine: { start: vi.fn(), killAll: vi.fn() } }));
 vi.mock('../engine/harmonySystem', () => ({ resetHarmony: vi.fn() }));
 vi.mock('./spawnSystem', () => ({ reRegisterAllRobotsAudio: vi.fn(), removeNonPersistentRobots: vi.fn(), stopSpawnScheduler: vi.fn() }));
-vi.mock('./factorySystem', () => ({ stopAllFactoryProduction: vi.fn() }));
 vi.mock('./collisionSystem', () => ({ stopCollisionDetection: vi.fn() }));
 const setPowerOnSpy = vi.fn();
 const setPowerOffSpy = vi.fn();
@@ -16,7 +15,6 @@ import { powerController } from './powerController';
 import { AudioEngine } from '../engine/AudioEngine';
 import { resetHarmony } from '../engine/harmonySystem';
 import { reRegisterAllRobotsAudio, stopSpawnScheduler } from './spawnSystem';
-import { stopAllFactoryProduction } from './factorySystem';
 import { stopCollisionDetection } from './collisionSystem';
 import { useUIStore } from '../stores/uiStore';
 import { useLocaleStore } from '../stores/localeStore';
@@ -38,7 +36,6 @@ describe('powerController', () => {
     const p = powerController.shutdown();
     await p;
     expect(stopSpawnScheduler).toHaveBeenCalled();
-    expect(stopAllFactoryProduction).toHaveBeenCalled();
     expect(stopCollisionDetection).toHaveBeenCalled();
     expect(AudioEngine.killAll).toHaveBeenCalled();
     // locale actors cleared and ui setPowerOff should be called

@@ -10,7 +10,6 @@ import { spawnRobot, startSpawnScheduler, stopSpawnScheduler } from '@/systems/s
 import { Factory } from '@/components/actors/Factory';
 import { placeFactories, getRowConfig } from '@/systems/factoryPlacementSystem';
 import { ActorType } from '@/types/Actor';
-import { startFactoryProduction } from '@/systems/factorySystem';
 
 import colorTheme from '@/constants/colorTheme.json';
 import { hslToString } from '@/utils/colorUtils';
@@ -87,14 +86,6 @@ export function OceanScene({
 
     spawnRobot(localeId);
     spawnRobot(localeId);
-
-    // Start factory production for all placed factories
-    const { actors } = useLocaleStore.getState().locales[localeId] ?? { actors: [] };
-    actors.forEach((actor) => {
-      if (actor.type === ActorType.FACTORY) {
-        startFactoryProduction(actor.id);
-      }
-    });
 
     // Start periodic robot spawning
     startSpawnScheduler(localeId);

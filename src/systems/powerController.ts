@@ -1,7 +1,6 @@
 import { AudioEngine } from '../engine/AudioEngine';
 import { resetHarmony } from '../engine/harmonySystem';
 import { reRegisterAllRobotsAudio, removeNonPersistentRobots, stopSpawnScheduler } from './spawnSystem';
-import { stopAllFactoryProduction } from './factorySystem';
 import { stopCollisionDetection } from './collisionSystem';
 import { useUIStore } from '../stores/uiStore';
 import { useLocaleStore } from '../stores/localeStore';
@@ -24,7 +23,6 @@ export const powerController = {
     // Immediate stop (no UI animation). Use this when caller already handled
     // visuals or when a hard shutdown is required.
     stopSpawnScheduler();
-    stopAllFactoryProduction();
     stopCollisionDetection();
     AudioEngine.killAll();
     removeNonPersistentRobots(getActiveLocaleId());
@@ -43,7 +41,6 @@ export const powerController = {
   async shutdownWithAnimation() {
 
     stopSpawnScheduler();
-    stopAllFactoryProduction();
     stopCollisionDetection();
     AudioEngine.killAll();
     removeNonPersistentRobots(getActiveLocaleId());
