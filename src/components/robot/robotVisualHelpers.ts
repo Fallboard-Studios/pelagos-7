@@ -24,10 +24,6 @@ export type RobotSVGComponent = typeof RobotSleek | typeof RobotAngular | typeof
 // ADSR thresholds for color mapping
 const FAST_ATTACK_THRESHOLD = 0.1;   // seconds
 
-// Pitch thresholds for scale mapping
-const HIGH_PITCH_THRESHOLD = 600;    // Hz
-const LOW_PITCH_THRESHOLD = 200;     // Hz
-
 // Filter thresholds for detail level mapping
 const HIGH_FILTER_THRESHOLD = 2000;  // Hz
 const LOW_FILTER_THRESHOLD = 500;    // Hz
@@ -146,21 +142,23 @@ export interface MicroVariants {
  * Deterministically derive visual shape parameters from AudioAttributes.
  * Keeps values clamped to safe visual ranges.
  */
-export function shapeParamsFromAudio(attrs: AudioAttributes & { octaveOffset?: number }) {
-  const { pitchRange, filterFreq, waveform, adsr, octaveOffset } = attrs;
+export function shapeParamsFromAudio(attrs: AudioAttributes & { octaveOffset?: number }, octaveRange?: [number, number]) {
+  const { filterFreq, waveform, adsr, octaveOffset } = attrs;
 
-  const avgPitch = (pitchRange.min + pitchRange.max) / 2;
+  // Prefer caller-supplied octaveRange, then audioAttributes.octaveRange, then mid-register fallback
+  const register: [number, number] = octaveRange ?? attrs.octaveRange ?? [2, 4];
+  const mid = (register[0] + register[1]) / 2; // 2=bass, 3=mid, 4=treble
 
-  // torsoAspect: map avgPitch (LOW..HIGH) to 0.85..1.15 (lower pitch -> wider)
-  const pitchNorm = clamp01((avgPitch - LOW_PITCH_THRESHOLD) / (HIGH_PITCH_THRESHOLD - LOW_PITCH_THRESHOLD));
+  // torsoAspect: lower register -> wider (1.15), higher register -> narrower (0.85)
+  const pitchNorm = clamp01((mid - 1) / 4); // map [1..5] midpoints to 0..1
   const torsoAspect = 1.15 - pitchNorm * 0.3; // 1.15 -> 0.85
 
   // appendageLength: use filterFreq (more detail -> longer appendages)
   const detailNorm = calculateDetailLevel(filterFreq); // 0..1
   const appendageLength = 0.7 + detailNorm * 0.8; // 0.7..1.5
 
-  // scaleBias: derived from pitch (reuse calculateScale as anchor)
-  const baseScale = calculateScale(pitchRange); // 0.7|1|1.3
+  // scaleBias: derived from register (reuse calculateScale as anchor)
+  const baseScale = calculateScale(register); // 0.7|1|1.3
   const scaleBias = Math.round((baseScale - 1) * 100) / 100; // -0.3|0|0.3
 
   // octaveOffset nudges scale if provided (0 = fastest/smallest -> slight negative bias)
@@ -251,16 +249,11 @@ export function calculateGreeblePlacementBias(decay: number, release: number): n
  * Mid pitch → normal (1.0x)
  * Low pitch → larger (1.3x)
  */
-export function calculateScale(pitchRange: AudioAttributes['pitchRange']): number {
-  const avgPitch = (pitchRange.min + pitchRange.max) / 2;
-
-  if (avgPitch > HIGH_PITCH_THRESHOLD) {
-    return 0.7;
-  } else if (avgPitch < LOW_PITCH_THRESHOLD) {
-    return 1.3;
-  } else {
-    return 1.0;
-  }
+export function calculateScale(octaveRange: [number, number]): number {
+  const mid = (octaveRange[0] + octaveRange[1]) / 2;
+  if (mid <= 2) return 1.3;  // bass register [1,3]
+  if (mid >= 4) return 0.7;  // treble register [3,5]
+  return 1.0;                 // mid register [2,4]
 }
 
 /**

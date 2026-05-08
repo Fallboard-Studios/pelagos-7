@@ -51,10 +51,13 @@ export interface ADSREnvelope {
 export interface AudioAttributes {
   synthType: SynthType;
   adsr: ADSREnvelope;
-  pitchRange: {
+  /** @deprecated Use robot.octaveRange instead. Kept for test fixture compatibility; not populated at spawn time. */
+  pitchRange?: {
     min: number;       // Hz
     max: number;       // Hz
   };
+  /** Seeded octave register [min, max] — populated at spawn time via generateAudioAttributes */
+  octaveRange?: [number, number];
   filterFreq: number;  // Hz (cutoff frequency, 0 = no filter)
   waveform: WaveformType; // Oscillator shape applied once at voice reservation time
   /** Phase in degrees (0..360) applied to oscillator at reservation time */

@@ -116,22 +116,16 @@ describe('robotVisualHelpers', () => {
   });
 
   describe('calculateScale', () => {
-    it('returns 0.7 for high pitch range', () => {
-      const pitchRange = { min: 700, max: 900 };
-      const scale = calculateScale(pitchRange);
-      expect(scale).toBe(0.7);
+    it('returns 0.7 for treble register', () => {
+      expect(calculateScale([3, 5])).toBe(0.7);
     });
 
-    it('returns 1.0 for mid pitch range', () => {
-      const pitchRange = { min: 250, max: 450 };
-      const scale = calculateScale(pitchRange);
-      expect(scale).toBe(1.0);
+    it('returns 1.0 for mid register', () => {
+      expect(calculateScale([2, 4])).toBe(1.0);
     });
 
-    it('returns 1.3 for low pitch range', () => {
-      const pitchRange = { min: 80, max: 150 };
-      const scale = calculateScale(pitchRange);
-      expect(scale).toBe(1.3);
+    it('returns 1.3 for bass register', () => {
+      expect(calculateScale([1, 3])).toBe(1.3);
     });
   });
 

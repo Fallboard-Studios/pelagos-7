@@ -84,20 +84,16 @@ describe('spawnSystem', () => {
       expect(attrs.adsr.release).toBeLessThanOrEqual(1.2);
     });
 
-    it('generates pitch range from predefined options', () => {
+    it('generates octave range from predefined registers', () => {
       const attrs = generateAudioAttributes(mockNoiseMap, 0);
-      const validRanges = [
-        { min: 80, max: 150 },
-        { min: 250, max: 450 },
-        { min: 700, max: 900 },
-      ];
+      const validRegisters: [number, number][] = [[1, 3], [2, 4], [3, 5]];
 
-      const matchesRange = validRanges.some(
-        (range) =>
-          attrs.pitchRange.min === range.min && attrs.pitchRange.max === range.max
+      const matchesRegister = validRegisters.some(
+        ([min, max]) =>
+          attrs.octaveRange?.[0] === min && attrs.octaveRange?.[1] === max
       );
 
-      expect(matchesRange).toBe(true);
+      expect(matchesRegister).toBe(true);
     });
 
     it('generates filter frequency in valid range', () => {
