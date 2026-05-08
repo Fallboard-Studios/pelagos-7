@@ -838,7 +838,7 @@ Build the `RobotOscillatorsTab` UI that exposes oscillator controls (waveform, d
 - [ ] Read `selectedRobotId` from `useUIStore` and the robot from `useLocaleStore`; render an empty state when `null`.
 - [ ] Implement waveform dropdown (`@radix-ui/react-select`) bound to `robot.audioAttributes.waveform` and call `updateRobot` on change, then trigger voice re-reservation.
 - [ ] Implement detune and phase controls (dual-speed steppers / slider) and `masterVolume` stepper; call `useLocaleStore.getState().updateRobot(...)` on change and re-reserve voice where required.
-- [ ] Conditionally render `pulseWidth` stepper when `waveform === 'square'`.
+  - [ ] Conditionally render `pulseWidth` stepper when `waveform === 'square' || waveform === 'pulse'`.
 - [ ] Render `<ADSRCanvas robotId={selectedRobotId} />` (Issue 14) inside the panel — do not implement ADSR logic here.
 
 ## Technical Notes
