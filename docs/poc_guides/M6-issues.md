@@ -13,12 +13,12 @@
 **Labels:** feature, system: audio, size: M
 
 ### Feature Description
-Currently all notes play through the same `synthPool.default` PolySynth with shared options. Each robot already carries a `synthType` and `adsr` in its `audioAttributes`. This ticket wires those fields into note scheduling so each robot is heard as a distinct timbre.
+Currently all notes play through the same `synthPool.default` PolySynth with shared options. Each robot already carries a `layeredWave`/`waveform` and `adsr` in its `audioAttributes`. This ticket wires those fields into note scheduling so each robot is heard as a distinct timbre.
 
 ### Implementation Details
-- Update `triggerWithCap()` in `src/engine/AudioEngine.ts` to accept a full `NoteParams` (or extend it) that includes `adsr` and `synthType`
-- When scheduling a note, select the synth pool entry matching the robot's `synthType` (`default` → PolySynth, `fm`, `am`, `membrane`)
-- Apply the robot's `adsr` envelope options to the chosen synth before triggering — use `synth.set({ envelope: adsr })` (PolySynth) or the equivalent for FM/AM
+-- Update `triggerWithCap()` in `src/engine/AudioEngine.ts` to accept a full `NoteParams` (or extend it) that includes `adsr` and the robot's layered descriptor (e.g. `layeredWave` / `waveform`)
+-- When scheduling a note, select the synth pool entry matching the robot's `layeredWave.base` or `waveform` (fallback to default pool entry when missing)
+-- Apply the robot's `adsr` envelope options to the chosen synth before triggering — use `synth.set({ envelope: adsr })` (PolySynth) or the equivalent for other synth types
 - In `startMelodyPlayback()`, look up the robot from the store at tick time to pass its `audioAttributes` through to `triggerWithCap()`
 - Synth pool entries remain shared objects; `set()` is cheap and runs per-note, so no new allocations needed
 - Do not create per-robot Tone.js instances — the pool is intentional to cap polyphony
@@ -31,20 +31,26 @@ export interface NoteParams {
   duration: NoteDuration;
   time?: number;
   velocity?: number;
-  synthType?: SynthType;
+  // Use the compact layered descriptor or waveform to select timbre
+  layeredWave?: LayeredWave;
+  waveform?: 'sine' | 'square' | 'triangle' | 'sawtooth';
   adsr?: ADSREnvelope;
 }
 ```
 
 **Synth selection in triggerWithCap:**
 ```typescript
-const synth = selectSynth(synthType); // returns pool entry
+synth selection example:
+```typescript
+const key = layeredWave?.base ?? waveform;
+const synth = selectSynth(key); // returns pool entry
 if (adsr) synth.set({ envelope: adsr });
+```
 synth.triggerAttackRelease(note, duration, scheduleTime, velocity ?? 0.8);
 ```
 
 ### Acceptance Criteria
-- [ ] Each robot's `synthType` routes to the correct pool entry
+-- [ ] Each robot's `layeredWave`/`waveform` routes to the correct pool entry
 - [ ] Each robot's `adsr` is applied before note trigger
 - [ ] Multiple robots playing simultaneously sound tonally distinct
 - [ ] No new Tone.js synth instances created at runtime

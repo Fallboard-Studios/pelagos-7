@@ -1059,7 +1059,7 @@ export interface Vec2 {
  * Audio synthesis attributes
  */
 export interface AudioAttributes {
-  synthType: 'sine' | 'square' | 'triangle' | 'sawtooth';
+  waveform: 'sine' | 'square' | 'triangle' | 'sawtooth';
   attack: number;    // 0.01 - 0.5
   decay: number;     // 0.1 - 1.0
   sustain: number;   // 0.0 - 1.0
@@ -1106,7 +1106,7 @@ export interface Robot {
  */
 export function createDefaultAudioAttributes(): AudioAttributes {
   return {
-    synthType: 'sine',
+    waveform: 'sine',
     attack: 0.02,
     decay: 0.1,
     sustain: 0.3,
@@ -1196,7 +1196,7 @@ export function testRobotType() {
     console.log(`  Size: ${robot.size.toFixed(2)}`);
     console.log(`  Speed: ${robot.speed.toFixed(2)}`);
     console.log(`  Melody events: ${robot.melody.length}`);
-    console.log(`  Audio: ${robot.audioAttributes.synthType}, attack ${robot.audioAttributes.attack}`);
+    console.log(`  Audio: ${robot.audioAttributes.waveform ?? robot.audioAttributes['synthType']}, attack ${robot.audioAttributes.attack}`);
     console.log(`  Chassis: ${robot.svgParts.chassis}, head: ${robot.svgParts.head}`);
   }
   

@@ -4,7 +4,7 @@
 import alea from 'alea';
 import type { NoiseFunction2D } from 'simplex-noise';
 import type { Vec2 } from '../types/Vec2';
-import type { Robot, AudioAttributes, SynthType, WaveformType } from '../types/Robot';
+import type { Robot, AudioAttributes, WaveformType } from '../types/Robot';
 import { RobotState } from '../types/Robot';
 import { generateMelodyForRobot, DEFAULT_RHYTHMIC_DENSITY } from '../engine/melodyGenerator';
 import { AudioEngine } from '../engine/AudioEngine';
@@ -59,13 +59,7 @@ const FILTER_FREQ_RANGE = { min: 400, max: 2500 };
 const MASTER_VOLUME_MIN = 0.65;
 const MASTER_VOLUME_MAX = 0.85;
 
-// Synth types
-const SYNTH_TYPES: SynthType[] = [
-  'AMSynth',
-  'FMSynth',
-  'PolySynth',
-  'DuoSynth',
-];
+// (synthType removed) decisions use `waveform` and layered descriptors
 
 // Waveform types — even distribution gives ~25% each
 const WAVEFORMS: WaveformType[] = ['sine', 'square', 'triangle', 'sawtooth'];
@@ -183,8 +177,7 @@ export function generateSpawnPosition(noiseMap: NoiseFunction2D, offset: number)
  * Controls both sound synthesis and visual appearance
  */
 export function generateAudioAttributes(noiseMap: NoiseFunction2D, offset: number): AudioAttributes {
-  // Seeded synth type
-  const synthType = SYNTH_TYPES[Math.min(SYNTH_TYPES.length - 1, Math.floor(getSeededVal(noiseMap, 'robot.audio.synthType', offset, 0, SYNTH_TYPES.length)))];
+  // NOTE: synthType removed; decisions are driven by `waveform` and layered descriptors
 
   // Seeded ADSR envelope
   const adsr = {
@@ -292,7 +285,7 @@ export function generateAudioAttributes(noiseMap: NoiseFunction2D, offset: numbe
   // Detune: default 0 cents (fine pitch adjustment)
   const detune = Math.round(getSeededVal(noiseMap, 'robot.audio.detune', offset, -5, 5));
 
-  return { synthType, adsr, octaveRange, filterFreq, waveform, visualAudioMap, phase, detune };
+  return { adsr, octaveRange, filterFreq, waveform, visualAudioMap, phase, detune };
 }
 
 /**

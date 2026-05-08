@@ -42,11 +42,9 @@ function makeRobot(overrides: Partial<Robot> = {}): Robot {
     direction: 'right',
     melody: [],
     audioAttributes: {
-      synthType: 'AMSynth',
       adsr: { attack: 0.1, decay: 0.1, sustain: 0.5, release: 0.1 },
       pitchRange: { min: 100, max: 200 },
       filterFreq: 1000,
-      reverb: 0.5,
     },
     octaveRange: [3, 5],
     audioMode: 'none',

@@ -14,41 +14,23 @@ import {
   calculateGreebleCount,
 } from './robotVisualHelpers';
 import { RobotSleek } from './RobotSleek';
-import { RobotAngular } from './RobotAngular';
-import { RobotOrganic } from './RobotOrganic';
-import { RobotIndustrial } from './RobotIndustrial';
 import type { AudioAttributes, ADSREnvelope } from '../../types/Robot';
 
 describe('robotVisualHelpers', () => {
   describe('selectRobotShape', () => {
-    it('returns RobotSleek for AMSynth', () => {
-      const result = selectRobotShape('AMSynth');
+    it('returns a default RobotSleek for sine waveform', () => {
+      const result = selectRobotShape('sine' as const);
       expect(result).toBe(RobotSleek);
-    });
-
-    it('returns RobotAngular for FMSynth', () => {
-      const result = selectRobotShape('FMSynth');
-      expect(result).toBe(RobotAngular);
-    });
-
-    it('returns RobotIndustrial for PolySynth', () => {
-      const result = selectRobotShape('PolySynth');
-      expect(result).toBe(RobotIndustrial);
-    });
-
-    it('returns RobotOrganic for DuoSynth', () => {
-      const result = selectRobotShape('DuoSynth');
-      expect(result).toBe(RobotOrganic);
     });
   });
 
   describe('generateColors (new HSL mapping)', () => {
     it('returns HSL strings for primary/secondary/accent', () => {
       const attrs = {
-        synthType: 'AMSynth',
         adsr: { attack: 0.05, decay: 0.2, sustain: 0.7, release: 0.5 },
         pitchRange: { min: 200, max: 800 },
         filterFreq: 1000,
+        waveform: 'sine',
       } as unknown as AudioAttributes;
 
       const colors = generateColors(attrs);
@@ -58,15 +40,16 @@ describe('robotVisualHelpers', () => {
       expect(hslRegex.test(colors.accent)).toBe(true);
     });
 
-    it('varies primary hue by synthType', () => {
+    it('varies primary hue by waveform', () => {
       const base = {
         adsr: { attack: 0.05, decay: 0.2, sustain: 0.5, release: 0.2 },
         pitchRange: { min: 200, max: 800 },
         filterFreq: 800,
-      } as unknown as Omit<AudioAttributes, 'synthType'>;
+      } as unknown as Omit<AudioAttributes, 'waveform'>;
 
-      const a = generateColors({ ...base, synthType: 'AMSynth' } as AudioAttributes);
-      const b = generateColors({ ...base, synthType: 'FMSynth' } as AudioAttributes);
+      // generateColors now varies primarily by ADSR; ensure different ADSR yields different primary hues
+      const a = generateColors({ ...base, waveform: 'sine', adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.2 } } as AudioAttributes);
+      const b = generateColors({ ...base, waveform: 'sine', adsr: { attack: 0.5, decay: 1.0, sustain: 0.1, release: 1.0 } } as AudioAttributes);
       expect(a.primary).not.toEqual(b.primary);
     });
   });

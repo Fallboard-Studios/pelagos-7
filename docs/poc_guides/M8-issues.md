@@ -235,7 +235,7 @@ A secondary panel (or full-screen overlay) that lists all active robots and allo
 
 | Attribute | Control | Range |
 |---|---|---|
-| `synthType` | Select / button group | AMSynth / FMSynth / PolySynth / MembraneSynth |
+| `synthType` | Select / button group | waveform (sine / square / triangle / sawtooth) or `layeredWave` descriptor |
 | `adsr.attack` | Slider | 0.01–2.0 s |
 | `adsr.decay` | Slider | 0.05–2.0 s |
 | `adsr.sustain` | Slider | 0.0–1.0 |
@@ -256,7 +256,7 @@ A secondary panel (or full-screen overlay) that lists all active robots and allo
 - [ ] List updates in real time as robots spawn or are removed
 - [ ] Each attribute control updates the store on change
 - [ ] Visual changes (color, scale) reflect attribute edits without page reload
-- [ ] Audio changes (synth type, ADSR) apply on the next scheduled note
+ - [ ] Audio changes (waveform / layeredWave, ADSR) apply on the next scheduled note
 - [ ] "Spawn Robot" button works; new robot appears in list
 - [ ] "Remove" button removes robot from store and scene
 - [ ] No non-serialisable data stored in Zustand (no direct synth refs)

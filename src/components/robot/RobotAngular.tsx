@@ -34,7 +34,7 @@ interface RobotSVGProps {
 // COMPONENT
 // ========================================
 /**
- * RobotAngular - Sharp, geometric design for FMSynth
+ * RobotAngular - Sharp, geometric design for angular synth voices
  * Industrial hexagonal hull with aggressive angles
  * Future: Hexagon dimensions, angles, and details controlled by audio attributes
  */

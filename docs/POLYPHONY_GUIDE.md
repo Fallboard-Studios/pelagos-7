@@ -402,7 +402,11 @@ interface Robot {
 
 ```typescript
 // GOOD: Shared pool
-const synth = synthPool[robot.audio.synthType];
+synth selection: use the robot's layered descriptor or waveform
+```typescript
+const synthKey = robot.audio.layeredWave?.base ?? robot.audio.waveform;
+const synth = synthPool[synthKey];
+```
 synth.triggerAttackRelease(...);
 ```
 
@@ -468,7 +472,8 @@ BeatClock.scheduleRepeat('8n', (time) => {
       event.length,
       time + MIN_LEAD,
       velocity,
-      robot.audio.synthType
+      // synth selection is derived from the robot's layeredWave/base waveform
+      robot.audio.layeredWave?.base ?? robot.audio.waveform
     );
     
     if (!success && DEV_TUNING) {
@@ -513,14 +518,14 @@ Todo — Per‑Robot Voice Reservation
 ### 1
 Design pool & sizing
 Decide: voices-per-robot (recommend 1) and total pool size (<= MAX_POLYPHONY).
-Map: synth-type → voice count distribution.
+Map: waveform / layeredWave → voice count distribution.
 Constants: add config in AudioEngine.ts:1 (e.g., RESERVE_VOICES_PER_ROBOT, POOL_SIZING).
 
 ### 2
 AudioEngine changes (core)
 Pool shape: change synthPool → Record<string, Tone.PolySynth[]> (arrays of slots).
 Reservation map: add reservedVoices: Map<string,{type:string,index:number,reservedAt:number}>.
-APIs: implement reserveVoice(robotId: string, synthType: string): boolean, releaseVoice(robotId: string): void, getVoiceForRobot(robotId: string).
+APIs: implement reserveVoice(robotId: string, synthKey: string): boolean, releaseVoice(robotId: string): void, getVoiceForRobot(robotId: string).
 Scheduling: update scheduleNote / triggerWithCap to prefer getVoiceForRobot() and apply adsr on that reserved instance.
 Policy: implement fallback behavior (shared pool) and an optional LRU eviction/steal policy.
 

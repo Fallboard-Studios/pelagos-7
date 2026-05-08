@@ -20,15 +20,9 @@ export const RobotState = {
 export type RobotState = (typeof RobotState)[keyof typeof RobotState];
 
 /**
- * Synth type determines robot shape and sonic character
+ * Synth type identifier (kept generic)
+ * Use a single generic synth label; detailed voice type is handled inside AudioEngine
  */
-export type SynthType =
-  | 'AMSynth'
-  | 'FMSynth'
-  | 'PolySynth'
-  | 'DuoSynth'
-  ;
-
 /**
  * Oscillator waveform shapes for timbral variety
  */
@@ -49,7 +43,6 @@ export interface ADSREnvelope {
  * Visual appearance is derived from these at render time, not stored separately
  */
 export interface AudioAttributes {
-  synthType: SynthType;
   adsr: ADSREnvelope;
   /** @deprecated Use robot.octaveRange instead. Kept for test fixture compatibility; not populated at spawn time. */
   pitchRange?: {

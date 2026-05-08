@@ -10,7 +10,7 @@
 
 | Audio Attribute | Visual Effect |
 |---|---|
-| `synthType` | Body shape variant + base hue family |
+| `synthType` | Body shape variant + base hue family (deprecated — use `layeredWave.base` / `waveform`) |
 | `adsr.attack` | Color saturation (fast attack → vivid; slow → muted) |
 | `adsr.sustain` | Color luminance (high sustain → bright; low → dark) |
 | `adsr.decay` + `adsr.release` | Hue offset via `(D/R)` component of formula |
@@ -36,7 +36,7 @@
 
 **Acceptance criteria:**
 - `generateColors(audioAttributes)` implemented and typed
-- Uses `BASE_HUE` per `synthType` and a `MIN_DENOMINATOR` guard to avoid division-by-zero
+  - Uses `BASE_HUE` per `layeredWave.base` / `waveform` and a `MIN_DENOMINATOR` guard to avoid division-by-zero
 - Returns `primary`, `secondary`, `accent` as HSL strings
 - Removes unused hex palette constants
 - Call sites updated and TypeScript compiles
@@ -49,7 +49,7 @@
 
 **Title:** [M7.1b] Deterministic shape params from `AudioAttributes`
 
-**What:** Keep the `synthType` → hull variant mapping but expose `shapeParamsFromAudio(audioAttributes)` to compute proportions (torso aspect, appendage length), `microVariant` flags (waveform-driven SVG treatments), and any scale biases driven by `pitchRange` and `octaveOffset`.
+**What:** Keep the `layeredWave.base` / `waveform` → hull variant mapping but expose `shapeParamsFromAudio(audioAttributes)` to compute proportions (torso aspect, appendage length), `microVariant` flags (waveform-driven SVG treatments), and any scale biases driven by `pitchRange` and `octaveOffset`.
 
 **Acceptance criteria:**
 - `shapeParamsFromAudio()` exported and typed

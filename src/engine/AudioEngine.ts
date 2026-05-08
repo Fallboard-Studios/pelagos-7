@@ -684,8 +684,8 @@ export const AudioEngine = {
   },
 
   /**
-   * Schedule a note using NoteParams. If `synthType`/`adsr` are not provided
-   * the robot's current `audioAttributes` are looked up in the store and
+  * Schedule a note using NoteParams. If `adsr` are not provided
+  * the robot's current `audioAttributes` are looked up in the store and
    * applied at scheduling time.
    */
   scheduleNote(params: NoteParams): void {

@@ -191,7 +191,7 @@ describe('oceanStore', () => {
       destination: null,
       state: 'idle',
       melody: [],
-      audio: { synthType: 'am', adsr: { attack: 0.05, decay: 0.2, sustain: 0.3, release: 0.8 } },
+      audio: { layeredWave: { base: 'sine' }, adsr: { attack: 0.05, decay: 0.2, sustain: 0.3, release: 0.8 } },
     };
 
     useOceanStore.getState().addRobot(robot);
@@ -208,7 +208,7 @@ describe('oceanStore', () => {
       destination: null,
       state: 'idle',
       melody: [],
-      audio: { synthType: 'am', adsr: { attack: 0.05, decay: 0.2, sustain: 0.3, release: 0.8 } },
+      audio: { layeredWave: { base: 'sine' }, adsr: { attack: 0.05, decay: 0.2, sustain: 0.3, release: 0.8 } },
     };
 
     useOceanStore.getState().addRobot(robot);
@@ -225,7 +225,7 @@ describe('oceanStore', () => {
       destination: null,
       state: 'idle',
       melody: [],
-      audio: { synthType: 'am', adsr: { attack: 0.05, decay: 0.2, sustain: 0.3, release: 0.8 } },
+      audio: { layeredWave: { base: 'sine' }, adsr: { attack: 0.05, decay: 0.2, sustain: 0.3, release: 0.8 } },
     };
 
     useOceanStore.getState().addRobot(robot);

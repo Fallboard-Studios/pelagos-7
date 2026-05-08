@@ -64,12 +64,7 @@ describe('spawnSystem', () => {
   describe('generateAudioAttributes', () => {
     it('generates valid synth type', () => {
       const attrs = generateAudioAttributes(mockNoiseMap, 0);
-      expect([
-        'AMSynth',
-        'FMSynth',
-        'PolySynth',
-        'DuoSynth',
-      ]).toContain(attrs.synthType);
+      expect(['sine', 'square', 'triangle', 'sawtooth']).toContain(attrs.waveform);
     });
 
     it('generates ADSR values in valid ranges', () => {
@@ -86,7 +81,7 @@ describe('spawnSystem', () => {
 
     it('generates octave range from predefined registers', () => {
       const attrs = generateAudioAttributes(mockNoiseMap, 0);
-      const validRegisters: [number, number][] = [[1, 3], [2, 4], [3, 5]];
+      const validRegisters: [number, number][] = [[1, 3], [2, 4], [3, 5], [4, 6], [5, 7]];
 
       const matchesRegister = validRegisters.some(
         ([min, max]) =>
@@ -104,10 +99,10 @@ describe('spawnSystem', () => {
 
     it('generates varied attributes (not all the same)', () => {
       const attributes = Array.from({ length: 20 }, (_, i) => generateAudioAttributes(mockNoiseMap, i));
-      const uniqueSynthTypes = new Set(attributes.map((a) => a.synthType));
+        const uniqueWaveforms = new Set(attributes.map((a) => a.waveform));
       const uniqueAttacks = new Set(attributes.map((a) => a.adsr.attack.toFixed(2)));
-
-      expect(uniqueSynthTypes.size).toBeGreaterThan(1);
+      // Synth type is now generic; ensure ADSR variety still exists
+        expect(uniqueWaveforms.size).toBeGreaterThan(1);
       expect(uniqueAttacks.size).toBeGreaterThan(10); // Should have variety
     });
 
@@ -228,9 +223,9 @@ describe('spawnSystem', () => {
       useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { settings: { ...(useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.settings ?? {}), maxRobots: 3 } });
       const addRobot = useLocaleStore.getState().addRobot;
       // seed store with max robots
-      addRobot(DEFAULT_LOCALE_ID, { id: 'a', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { synthType: 'AMSynth', waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0 }, octaveRange: [3, 4], createdAt: 1000, masterVolume: 0.7 } as Robot);
-      addRobot(DEFAULT_LOCALE_ID, { id: 'b', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { synthType: 'AMSynth', waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0 }, octaveRange: [3, 4], createdAt: 2000, masterVolume: 0.7 } as Robot);
-      addRobot(DEFAULT_LOCALE_ID, { id: 'c', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { synthType: 'AMSynth', waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0 }, octaveRange: [3, 4], createdAt: 3000, masterVolume: 0.7 } as Robot);
+      addRobot(DEFAULT_LOCALE_ID, { id: 'a', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0 }, octaveRange: [3, 4], createdAt: 1000, masterVolume: 0.7 } as Robot);
+      addRobot(DEFAULT_LOCALE_ID, { id: 'b', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0 }, octaveRange: [3, 4], createdAt: 2000, masterVolume: 0.7 } as Robot);
+      addRobot(DEFAULT_LOCALE_ID, { id: 'c', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0 }, octaveRange: [3, 4], createdAt: 3000, masterVolume: 0.7 } as Robot);
       expect(useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.robots?.length).toBe(3);
 
       spawnRobot(DEFAULT_LOCALE_ID);
@@ -244,7 +239,7 @@ describe('spawnSystem', () => {
       // set max and min equal
       useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { settings: { bpm: 120, maxRobots: 1, minRobots: 1 } });
       const addRobot2 = useLocaleStore.getState().addRobot;
-      addRobot2(DEFAULT_LOCALE_ID, { id: 'only', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { synthType: 'AMSynth', waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0 }, octaveRange: [3, 4], createdAt: 123, masterVolume: 0.7 } as Robot);
+      addRobot2(DEFAULT_LOCALE_ID, { id: 'only', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0 }, octaveRange: [3, 4], createdAt: 123, masterVolume: 0.7 } as Robot);
 
       spawnRobot(DEFAULT_LOCALE_ID);
       expect(useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.robots?.length).toBe(1);

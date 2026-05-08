@@ -7,13 +7,21 @@
 ---
 
 ## M3.1: Integrate Melody Registration with Robot Spawner
-
-**Title:** [M3.1] Integrate melody registration with robot spawner
-
-**Labels:** feature, system: audio, size: M, priority: high
+  // Synth/pool guidance (legacy example shown). Prefer selecting timbre from
+  // the robot's `layeredWave` descriptor (base waveform + layers). If a
+  // shared pool is used, key it by `layeredWave.base` / `waveform` rather
+  // than old synth subtype strings to avoid reintroducing per‑robot synth types.
+  // Example (legacy):
+  // const synthPool = { default: Tone.PolySynth /* ... */ };
+  default: Tone.PolySynth,
+  fm: Tone.PolySynth<Tone.FMSynth>,
+  am: Tone.PolySynth<Tone.AMSynth>,
+  membrane: Tone.PolySynth<Tone.MembraneSynth>,
 
 ### Feature Description
 Connect the melody generation system (from M1) with the robot spawning system (from M2) so melodies are automatically registered with AudioEngine when robots spawn.
+// Use `layeredWave` / `waveform` in robot audio attributes (not `synthType`).
+// synthType?: string  (deprecated)
 
 ### Implementation Details
 - Update `src/systems/spawnSystem.ts`
@@ -198,7 +206,7 @@ function triggerWithCap(
   note: string,
   duration: string,
   time?: number,
-  synthType?: string
+  timbreKey?: string // prefer layeredWave.base or waveform
 ): boolean {
   // Check limit
   if (activeVoices >= MAX_POLYPHONY) {
@@ -212,7 +220,7 @@ function triggerWithCap(
   activeVoices++;
   
   try {
-    const synth = getSynth(synthType);
+    const synth = getSynth(timbreKey);
     synth.triggerAttackRelease(note, duration, time ?? Tone.now());
     
     // Schedule voice release
@@ -288,7 +296,8 @@ function startMelodyPlayback(): void {
           note,
           event.length,
           time + MIN_LEAD,
-          robot.audioAttributes.synthType
+          // pass base waveform or layered descriptor key instead of legacy synthType
+          robot.audioAttributes.layeredWave?.base ?? robot.audioAttributes.waveform
         );
       }
     });

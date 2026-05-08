@@ -174,7 +174,7 @@ Define TypeScript types for Robot, RobotState, AudioAttributes, and related type
 - Create `src/types/Robot.ts`
 - Define `Robot` interface (id, position, state, destination, melody, audioAttributes)
 - Define `RobotState` enum (idle, moving, interacting, selected, leaving)
-- Define `AudioAttributes` (synthType, adsr, pitchRange, filterFreq, reverb)
+ - Define `AudioAttributes` (`layeredWave`/`waveform`, adsr, pitchRange, filterFreq, reverb)
 - Define `MelodyEvent` (id, startStep, length, noteIndex)
 - Note: Visual appearance determined by audio attributes, not stored separately
 
