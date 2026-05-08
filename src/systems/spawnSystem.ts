@@ -354,10 +354,7 @@ export function spawnRobot(localeId: string): void {
   // Generate audio attributes first so octaveRange can be derived and passed to melody generator
   const audioAttributes = noiseMap
     ? generateAudioAttributes(noiseMap, spawnCount)
-    : generateAudioAttributes({
-      // fallback: create a trivial noise-like map from Math.random
-      // This path is only hit if locale/planet data is missing (should not happen in production)
-    } as unknown as NoiseFunction2D, spawnCount);
+    : generateAudioAttributes((_x: number, _y: number) => 0 as number, spawnCount);
   const octaveRange = pickOctaveRange(audioAttributes.pitchRange);
 
   // Seeded melody: each rand() call uses a unique offset within this robot's spawn slot
@@ -370,9 +367,9 @@ export function spawnRobot(localeId: string): void {
 
   const robot: Robot = {
     id: crypto.randomUUID(),
-    name: noiseMap ? generateRobotName(noiseMap, spawnCount) : generateRobotName({ x: 0, y: 0 } as unknown as NoiseFunction2D, spawnCount),
+    name: noiseMap ? generateRobotName(noiseMap, spawnCount) : generateRobotName((_x: number, _y: number) => 0 as number, spawnCount),
     state: RobotState.Idle,
-    position: noiseMap ? generateSpawnPosition(noiseMap, spawnCount) : generateSpawnPosition({ x: 0, y: 0 } as unknown as NoiseFunction2D, spawnCount),
+    position: noiseMap ? generateSpawnPosition(noiseMap, spawnCount) : generateSpawnPosition((_x: number, _y: number) => 0 as number, spawnCount),
     destination: null,
     direction: 'right', // Default facing direction (will be updated by idleSystem)
     melody: spawnMelody,
