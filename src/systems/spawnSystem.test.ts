@@ -75,13 +75,13 @@ describe('spawnSystem', () => {
     it('generates ADSR values in valid ranges', () => {
       const attrs = generateAudioAttributes(mockNoiseMap, 0);
       expect(attrs.adsr.attack).toBeGreaterThanOrEqual(0.01);
-      expect(attrs.adsr.attack).toBeLessThanOrEqual(0.5);
-      expect(attrs.adsr.decay).toBeGreaterThanOrEqual(0.1);
-      expect(attrs.adsr.decay).toBeLessThanOrEqual(1.5);
-      expect(attrs.adsr.sustain).toBeGreaterThanOrEqual(0.3);
-      expect(attrs.adsr.sustain).toBeLessThanOrEqual(0.9);
-      expect(attrs.adsr.release).toBeGreaterThanOrEqual(0.2);
-      expect(attrs.adsr.release).toBeLessThanOrEqual(1.2);
+      expect(attrs.adsr.attack).toBeLessThanOrEqual(2.0);
+      expect(attrs.adsr.decay).toBeGreaterThanOrEqual(0.05);
+      expect(attrs.adsr.decay).toBeLessThanOrEqual(2.0);
+      expect(attrs.adsr.sustain).toBeGreaterThanOrEqual(0.0);
+      expect(attrs.adsr.sustain).toBeLessThanOrEqual(1.0);
+      expect(attrs.adsr.release).toBeGreaterThanOrEqual(0.1);
+      expect(attrs.adsr.release).toBeLessThanOrEqual(5.0);
     });
 
     it('generates octave range from predefined registers', () => {
@@ -118,7 +118,7 @@ describe('spawnSystem', () => {
       expect(vm?.layeredWave).toBeDefined();
       const layers = vm?.layeredWave?.layers ?? [];
       expect(layers.length).toBeGreaterThanOrEqual(1);
-      expect(layers.length).toBeLessThanOrEqual(3);
+      expect(layers.length).toBeLessThanOrEqual(5);
       // averagedADSR should be within ADSR_MAX-derived bounds
       expect(vm?.averagedADSR).toBeDefined();
       expect(vm?.averagedADSR?.attack).toBeGreaterThanOrEqual(0);

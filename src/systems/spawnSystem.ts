@@ -33,23 +33,23 @@ const WORLD_HEIGHT = 1080;
 const OFFSCREEN_OFFSET = 150;
 
 // ADSR ranges (typical synth values)
-const ATTACK_RANGE = { min: 0.01, max: 0.5 };
-const DECAY_RANGE = { min: 0.1, max: 1.5 };
-const SUSTAIN_RANGE = { min: 0.3, max: 0.9 };
-const RELEASE_RANGE = { min: 0.2, max: 1.2 };
+const ATTACK_RANGE = { min: 0.01, max: 2.0 };
+const DECAY_RANGE = { min: 0.05, max: 2.0 };
+const SUSTAIN_RANGE = { min: 0.0, max: 1.0 };
+const RELEASE_RANGE = { min: 0.1, max: 5.0 };
 
 // M7.4: Layered presets and normalization constants
-const MAX_LAYERS = 3;
+const MAX_LAYERS = 5;
 const ADSR_MAX = { attack: 2, decay: 2, sustain: 1, release: 5 };
 
 // Octave registers — seed directly without Hz indirection
 // [min, max] inclusive; 3 tiers: bass, mid, treble
 const OCTAVE_REGISTERS = [
-  [2, 3],  // Bass (large robots)
-  [1, 4],
+  [1, 3],  // Bass (large robots)
+  [2, 4],
   [3, 5],  // Mid  (normal robots)
-  [4, 5],
-  [4, 6],  // Treble (small robots)
+  [4, 6],
+  [5, 7],  // Treble (small robots)
 ] as const;
 
 // Filter frequency range

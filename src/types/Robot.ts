@@ -5,7 +5,7 @@ import type { VisualAudioMap } from './layeredAudio';
  * Note duration values for Tone.js scheduling
  * Standard musical note lengths: 32nd, 16th, 8th, quarter, half
  */
-export type NoteDuration = '32n' | '16n' | '8n' | '4n' | '2n';
+export type NoteDuration = '32n' | '16n' | '8n' | '4n' | '2n' | '1n' | '2m' | '4m';
 
 /**
  * Robot state machine states
