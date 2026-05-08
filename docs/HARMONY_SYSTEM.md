@@ -67,12 +67,12 @@ export function stopHarmonyCycle(): void;
 let availableNotes: EighthNotes = TIME_PITCHES[0];
 
 export function scheduleHarmonyCycle(transport: TransportLike): void {
-  // Schedules a transport.repeat on '4m' and swaps the palette when the derived hour changes.
+  // Schedules a transport.repeat on '2m' and swaps the palette when the derived hour changes.
   // If scheduleHarmonyCycle is called twice, the implementation warns and ignores the second call.
 }
 ```
 
-The actual implementation calls `transport.scheduleRepeat(callback, '4m')`, uses `getCurrentHour()` inside the callback, and updates `availableNotes = TIME_PITCHES[currentHour] ?? TIME_PITCHES[0]` when the hour changes. `stopHarmonyCycle()` clears the transport id and resets internal references.
+The actual implementation calls `transport.scheduleRepeat(callback, '2m')`, uses `getCurrentHour()` inside the callback, and updates `availableNotes = TIME_PITCHES[currentHour] ?? TIME_PITCHES[0]` when the hour changes. The entire callback is wrapped in a `try/catch` so errors from `getCurrentHour()` or the locale store fallback do not break the schedule. `stopHarmonyCycle()` clears the transport id and resets internal references.
 
 ## Usage in Melody Playback
 
