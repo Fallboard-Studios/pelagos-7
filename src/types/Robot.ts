@@ -5,7 +5,7 @@ import type { VisualAudioMap } from './layeredAudio';
  * Note duration values for Tone.js scheduling
  * Standard musical note lengths: 32nd, 16th, 8th, quarter, half
  */
-export type NoteDuration = '32n' | '16n' | '8n' | '4n' | '2n';
+export type NoteDuration = '32n' | '16n' | '8n' | '4n' | '2n' | '1n' | '2m' | '4m';
 
 /**
  * Robot state machine states
@@ -51,10 +51,13 @@ export interface ADSREnvelope {
 export interface AudioAttributes {
   synthType: SynthType;
   adsr: ADSREnvelope;
-  pitchRange: {
+  /** @deprecated Use robot.octaveRange instead. Kept for test fixture compatibility; not populated at spawn time. */
+  pitchRange?: {
     min: number;       // Hz
     max: number;       // Hz
   };
+  /** Seeded octave register [min, max] — populated at spawn time via generateAudioAttributes */
+  octaveRange?: [number, number];
   filterFreq: number;  // Hz (cutoff frequency, 0 = no filter)
   waveform: WaveformType; // Oscillator shape applied once at voice reservation time
   /** Phase in degrees (0..360) applied to oscillator at reservation time */

@@ -42,7 +42,8 @@ export const RobotBody = memo(function RobotBody({ robot }: RobotBodyProps) {
   const lightnessMultiplier = 0.5 + 0.5 * Math.sin(((localTime - 6) / 24) * Math.PI * 2);
 
   const visual = useMemo(() => {
-    const { synthType, adsr, pitchRange, filterFreq, visualAudioMap } = robot.audioAttributes;
+    const { synthType, adsr, filterFreq, visualAudioMap } = robot.audioAttributes;
+    const octaveRange = robot.audioAttributes.octaveRange ?? robot.octaveRange;
 
     const baseColors = generateColors(robot.audioAttributes);
     const colors = applyLightnessMultiplier(baseColors, lightnessMultiplier);
@@ -53,18 +54,28 @@ export const RobotBody = memo(function RobotBody({ robot }: RobotBodyProps) {
     // Convert mapped bodyShapeProps (scale, roundness, detail) into the
     // component-specific ShapeParams expected by SVG components.
     const bodyShape = mapped.bodyShapeProps ?? { scale: 0.5, roundness: 0.5, detail: 0.3 };
+    const adsrTorso = Math.max(0.7, Math.min(1.3, 0.85 + (bodyShape.roundness - 0.5) * 0.6));
     const shapeParams = {
-      torsoAspect: Math.max(0.7, Math.min(1.3, 0.85 + (bodyShape.roundness - 0.5) * 0.6)),
+      torsoAspect: adsrTorso, // blended with register below after fromAudio is computed
       appendageLength: Math.max(0.6, Math.min(1.4, 0.8 + bodyShape.detail * 0.9)),
       scaleBias: Math.max(-0.4, Math.min(0.4, (bodyShape.scale - 0.5) * 0.6)),
     };
 
-    const microVariants = shapeParamsFromAudio(robot.audioAttributes).microVariants;
+    const fromAudio = shapeParamsFromAudio(robot.audioAttributes, octaveRange);
+    const microVariants = fromAudio.microVariants;
+    // Blend ADSR-driven torsoAspect (70%) with register-driven torsoAspect (30%)
+    // so bass robots are visibly wider even when their sustain says otherwise.
+    shapeParams.torsoAspect = Math.max(0.7, Math.min(1.3,
+      adsrTorso * 0.7 + fromAudio.shapeParams.torsoAspect * 0.3
+    ));
 
     // Greeble values come from mapped greebleProps when present, else fall back
     // to the original deterministic calculations.
     const detail = bodyShape.detail ?? calculateDetailLevel(filterFreq);
-    const greebleCount = mapped.greebleProps?.count ?? calculateGreebleCount(filterFreq, detail, robot.audioAttributes.waveform, adsr);
+    const registerMid = (octaveRange[0] + octaveRange[1]) / 2;
+    const registerGreebleBias = Math.round((registerMid - 3.5) * 2); // bass≈-2, mid≈0, treble≈+2
+    const baseGreebleCount = mapped.greebleProps?.count ?? calculateGreebleCount(filterFreq, detail, robot.audioAttributes.waveform, adsr);
+    const greebleCount = Math.max(0, Math.min(16, baseGreebleCount + registerGreebleBias));
     const greebleSize = mapped.greebleProps?.scale ? Math.max(1, Math.round(mapped.greebleProps.scale * 6)) : calculateGreebleSize(adsr.sustain);
     const greeblePersistence = calculateGreeblePersistence(adsr.release);
     const greeblePlacementBias = calculateGreeblePlacementBias(adsr.decay, adsr.release);
@@ -72,7 +83,7 @@ export const RobotBody = memo(function RobotBody({ robot }: RobotBodyProps) {
     return {
       Component: selectRobotShape(synthType),
       colors,
-      scale: calculateScale(pitchRange),
+      scale: calculateScale(octaveRange),
       detailLevel: detail,
       shapeParams,
       microVariants,
@@ -82,7 +93,7 @@ export const RobotBody = memo(function RobotBody({ robot }: RobotBodyProps) {
       greeblePlacementBias,
       lightsProps: mapped.lightsProps,
     };
-  }, [robot.audioAttributes, lightnessMultiplier]) as {
+  }, [robot.audioAttributes, robot.octaveRange, lightnessMultiplier]) as {
     Component: RobotSVGComponent;
     colors: RobotColors;
     scale: number;
