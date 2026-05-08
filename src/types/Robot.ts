@@ -54,9 +54,12 @@ export interface AudioAttributes {
   filterFreq: number;  // Hz (cutoff frequency, 0 = no filter)
   waveform: WaveformType; // Oscillator shape applied once at voice reservation time
   /** Phase in degrees (0..360) applied to oscillator at reservation time */
-  phase?: number;
+  /** Phase in degrees (0..360) applied to oscillator at reservation time */
+  phase?: number; // degrees (0..360)
   /** Detune in cents (e.g. -100..100) applied to synth at reservation time */
-  detune?: number;
+  detune?: number; // cents (e.g. -100..100)
+  /** Pulse width (0..1) for pulse/square oscillators. Default: 0.5 (50% duty) */
+  pulseWidth?: number; // 0..1
   /** Optional compact visual/audio mapping produced at spawn time and stored on the robot */
   visualAudioMap?: VisualAudioMap;
 }

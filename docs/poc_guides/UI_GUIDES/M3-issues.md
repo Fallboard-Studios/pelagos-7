@@ -289,7 +289,7 @@ Expose a stable API on `AudioEngine` to register or update a robot's melody so U
 - [ ] Registering a melody results in playback using the new melody on subsequent scheduling.
 
 ## Source Reference
-- `src/engine/AudioEngine.ts`, `src/engine/__tests__`
+- `src/engine/AudioEngine.ts`, related test files
 
 ---
 
@@ -391,7 +391,7 @@ Add and update tests and fixtures to cover the new robot audio fields, melody ge
 - [ ] Fixtures updated and referenced by tests.
 
 ## Source Reference
-- `test/**`, `src/engine/__tests__`, fixtures
+- `test/**`, related test files, fixtures
 
 ---
 
@@ -545,7 +545,7 @@ Add octave-range parameters to the melody generator API and expose `generateMelo
 - [ ] Generator accepts octave bounds and returns events with `octave` within requested range.
 
 ## Source Reference
-- `src/engine/melodyGenerator.ts`, `src/engine/__tests__`
+- `src/engine/melodyGenerator.ts`, related test files
 
 ---
 
@@ -564,7 +564,7 @@ Implement the motif/repeat algorithm that produces repeating motifs when `rhythm
 - [ ] Deterministic behaviour in unit tests with seeded RNG.
 
 ## Source Reference
-- `src/engine/melodyGenerator.ts`, `src/engine/__tests__`
+- `src/engine/melodyGenerator.ts`, related test files
 
 ---
 
@@ -592,14 +592,14 @@ Provide `regenerateMelody(robot)` helper that updates the store and registers th
 Add deterministic unit tests for the melody generator covering octave mapping, density, motif repetition, and `noteVariance` hooks.
 
 ## Implementation Details
-- [ ] Add fixtures and seeded RNG helpers for tests in `src/engine/__tests__`.
+- [ ] Add fixtures and seeded RNG helpers for tests in related test files.
 - [ ] Write tests for `eventCount` mapping and motif repetition behaviour.
 
 ## Acceptance Criteria
 - [ ] Unit tests assert repeatable outputs given seeds and pass locally.
 
 ## Source Reference
-- `src/engine/__tests__`, `test/**`
+- related test files, `test/**`
 
 ---
 
@@ -616,7 +616,7 @@ Add an integration test that simulates a density change and verifies `AudioEngin
 - [ ] Integration test confirms store update and `registerRobotMelody` invocation.
 
 ## Source Reference
-- `src/engine/__tests__`, `vitest.config.ts`
+- related test files, `vitest.config.ts`
 
 ---
 
@@ -650,7 +650,7 @@ Implement enforcement of `robot.audioMode` within `AudioEngine` (or document def
 - [ ] Engine applies audioMode policies or the repo documents an explicit deferral.
 
 ## Source Reference
-- `src/engine/AudioEngine.ts`, `src/engine/__tests__`
+- `src/engine/AudioEngine.ts`, related test files
 
 ---
 
@@ -684,7 +684,7 @@ Implement `noteVariance` semantics in the melody generator (prefer new notes unt
 - [ ] Generator respects `noteVariance` semantics in tests.
 
 ## Source Reference
-- `src/engine/melodyGenerator.ts`, `src/engine/__tests__`
+- `src/engine/melodyGenerator.ts`, related test files
 
 ---
 
@@ -769,7 +769,7 @@ Add unit tests for propagation, cycle prevention, parent deletion, and rhythm ma
 - [ ] Tests cover propagation, cycle prevention, and melody-rhythm mapping deterministically.
 
 ## Source Reference
-- `src/systems/__tests__`, `src/systems/linkPropagationSystem.ts`
+- related test files, `src/systems/linkPropagationSystem.ts`
 
 <!-- ============================================================ -->
 <!-- ISSUE 13: Robot Oscillators Sub-Tab                          -->
@@ -780,73 +780,116 @@ Add unit tests for propagation, cycle prevention, parent deletion, and rhythm ma
 <!-- ISSUE 13: Robot Oscillators Sub-Tab                          -->
 <!-- ============================================================ -->
 
-## [M8.3-13] Robot Oscillators Sub-Tab
+## [M8.3-13] Robot Oscillators Sub-Tab (split into sub-issues)
+
+To reduce risk and make review/testing tractable, the Robot Oscillators epic is split into focused sub-issues (3-13a..3-13e). Implement and land these in order to avoid wide TypeScript and runtime churn.
+
+### Sub-issues
+
+## [M8.3-13.a] Add `AudioAttributes` fields & spawn defaults
 
 ## Feature Description
-Build the `RobotOscillatorsTab` content panel that renders inside `RobotEditorTab` when the Robot Oscillators sub-tab is active. It combines waveform/oscillator parameter controls with the ADSR canvas graph — everything needed to shape the robot's timbral identity in one panel. No rotary knobs; all continuous controls are touch-friendly linear sliders, steppers, or Power Bars.
-
-Renders inside: **Robot Editor Console** (`RobotEditorTab`, Issue 10) when Robot Oscillators sub-tab is active.
-Depends on: **Issue 0d** (`phase`, `detune` in `AudioAttributes`), **Issue 0k** (Radix installed), **Issue 10** (editor shell), **Issue 1** (design tokens).
+Add missing per-oscillator audio attribute fields and populate safe spawn defaults so new robots are audio-ready.
 
 ## Implementation Details
-- [ ] Create `src/components/panels/screen/console/RobotOscillatorsTab.tsx` and `RobotOscillatorsTab.css`
-- [ ] Reads `selectedRobotId` from `useUIStore` and the robot from `useLocaleStore`; renders empty state if null
-- [ ] **Robot Oscillator Type Dropdown:**
-  - Reads `robot.audioAttributes.waveform`; on change: calls `updateRobot(id, { audioAttributes: { ...robot.audioAttributes, waveform: value } })` then triggers voice re-reservation
-  - **Radix:** `@radix-ui/react-select` → `Select.Root` + `Select.Trigger` + `Select.Content` + `Select.Item`
-  - When waveform changes to/from `square`, the Pulsewidth control appears/disappears
-- [ ] **Robot Oscillator Detune — Dual Speed Stepper:**
-  - Reads `robot.audioAttributes.detune` (added in Issue 0d); range −100 to +100 cents; step ±1/±10
-  - On change: `useLocaleStore.getState().updateRobot(localeId, id, { audioAttributes: { ...robot.audioAttributes, detune: value } })` + voice re-reservation
-- [ ] **Robot Oscillator Gain — Dual Speed Stepper:**
-  - This is `robot.masterVolume` (0–1 float); step ±0.01/±0.1
-  - On change: `useLocaleStore.getState().updateRobot(localeId, id, { masterVolume: value })`
-- [ ] **Robot Oscillator Phase — Slider:**
-  - Range: 0–360°; reads `robot.audioAttributes.phase` (Issue 0d)
-  - On change: `useLocaleStore.getState().updateRobot(localeId, id, { audioAttributes: { ...robot.audioAttributes, phase: value } })` + voice re-reservation
-  - **Radix:** `@radix-ui/react-slider`
-- [ ] **Robot Oscillator Pulsewidth — Dual Speed Stepper (conditional):**
-  - Only visible when `robot.audioAttributes.waveform === 'square'`
-  - Reads `audioAttributes.pulseWidth` (0.0–1.0); step ±0.01/±0.1
-  - Add `pulseWidth: number` to `AudioAttributes` if absent; default 0.5
-  - On change: `useLocaleStore.getState().updateRobot(localeId, id, { audioAttributes: { ...robot.audioAttributes, pulseWidth: value } })` + voice re-reservation
-- [ ] **Robot Oscillator ADSR Canvas:** renders `<ADSRCanvas robotId={selectedRobotId} />` — implemented in Issue 14
-- [ ] **Select Robot Oscillator Preset — Dropdown + Load Button With Confirmation:**
-  - **Radix:** `@radix-ui/react-select` + `@radix-ui/react-alert-dialog` for confirmation
-- [ ] **Delete This Oscillator — Button With Confirmation:**
-  - **Radix:** `@radix-ui/react-alert-dialog`
-- [ ] **New Oscillator — Button:** adds an oscillator layer to the selected robot
-- [ ] All controls meet minimum 44×44px touch target size (WCAG 2.5.5)
-- [ ] No rotary knobs — all continuous controls are touch-friendly linear sliders or steppers
-- [ ] Use only design tokens from Issue 1 for all styles
-- [ ] No architecture violations (audio/animation/state separation)
-- [ ] Code follows standards (imports ordered, explicit types)
-- [ ] Tested locally (no console errors)
+- [ ] Add `pulseWidth: number` to `AudioAttributes` in `src/types/Robot.ts` (default `0.5`).
+- [ ] Verify `phase` and `detune` exist and document their units (degrees / cents) and ranges in `src/types/Robot.ts`.
+- [ ] Update `src/systems/spawnSystem.ts` and any factory/test fixtures to populate the new fields for spawned robots.
+- [ ] Run TypeScript build check and adjust any places that construct `AudioAttributes` manually.
 
 ## Technical Notes
-- **Voice re-reservation on oscillator changes:** `AudioEngine.reserveVoice()` applies waveform, phase, and detune at reservation time. When any of these change: (1) `AudioEngine.releaseVoice(robotId)`, (2) `AudioEngine.reserveVoice(robotId, ...)` reading latest `AudioAttributes`. Ensure `reserveVoice()` reads `phase`, `detune`, and `pulseWidth` from `AudioAttributes` after Issue 0d.
-- **Pulsewidth in Tone.js:** `synth.set({ oscillator: { width: pulseWidth } })` — only audible effect on `PulseOscillator` type (waveform `pulse` or `square`). Conditional rendering ensures users only see it when relevant.
-- **`pulseWidth`:** New `AudioAttributes` field — add to `Robot` interface in `src/types/Robot.ts`, all `spawnSystem` construction sites, and all test fixtures.
-- **ADSR canvas:** see Issue 14 (`ADSRCanvas` component) for implementation details, bezier path calculation, hit targets, and voice re-reservation on drag-settle.
+- `pulseWidth` is meaningful only for pulse/square oscillator types; default `0.5` represents 50% duty.
+- Keep all fields serialisable (plain numbers) for Zustand storage.
 
 ## Acceptance Criteria
-- [ ] Renders inside the Robot Oscillators sub-tab of `RobotEditorTab`; empty state if no robot selected
-- [ ] Waveform dropdown reads and writes `robot.audioAttributes.waveform`; triggers voice re-reservation
-- [ ] Pulsewidth control is only visible when waveform is `square`
-- [ ] Detune, Gain, Phase, Pulsewidth controls update their respective fields and trigger re-reservation
-- [ ] `<ADSRCanvas />` renders inside the oscillators panel (Issue 14)
-- [ ] Preset Load confirmation uses AlertDialog
-- [ ] Delete Oscillator confirmation uses AlertDialog
-- [ ] New Oscillator button adds an oscillator layer
-- [ ] All new `AudioAttributes` fields are present in spawned robots
-- [ ] All existing tests pass after type/fixture updates
-- [ ] App compiles with no TypeScript errors
-- [ ] App remains functional after merge
-- [ ] No regression in audio playback or visual rendering
+- [ ] `src/types/Robot.ts` exports the added fields with explicit types and short docs.
+- [ ] `spawnSystem` populates defaults and the app compiles with no TypeScript errors.
 
 ## Source Reference
-- File: `src/types/Robot.ts` (`ADSREnvelope`, `AudioAttributes`), `src/systems/spawnSystem.ts`, `src/engine/AudioEngine.ts` (`reserveVoice`), `src/stores/localeStore.ts` (`updateRobot`), `src/stores/uiStore.ts` (`selectedRobotId`), `src/components/robot/robotVisualHelpers.ts`, `src/components/panels/screen/console/RobotOscillatorsTab.tsx`
-- Copilot instructions: "Visual Mapping: Robot visuals (shape/color) must map strictly to audio attributes (synth/ADSR/phase/detune) as defined in ROBOT_DESIGN.md."
+- Files: `src/types/Robot.ts`, `src/systems/spawnSystem.ts`, test fixtures
+
+## [M8.3-13.b] AudioEngine: voice re-reservation & melody registration
+
+## Feature Description
+Ensure the audio engine exposes stable APIs for registering melodies and that voice reservation applies updated oscillator attributes immediately.
+
+## Implementation Details
+- [ ] Confirm `AudioEngine.reserveVoice()` reads `phase`, `detune`, and `pulseWidth` from the robot's `AudioAttributes` at reservation time.
+- [ ] Add `AudioEngine.registerRobotMelody(robotId: string, melody: Melody)` if absent; document expected behaviour and thread-safety.
+- [ ] Implement a deterministic re-reservation flow used by UI/store updates: call `AudioEngine.releaseVoice(robotId)` then `AudioEngine.reserveVoice(robotId)` after `localeStore` updates.
+- [ ] Add unit tests that mock underlying synths to verify `reserveVoice` applies updated oscillator settings.
+
+## Technical Notes
+- Do not mutate the Transport or scheduling state directly from UI handlers or inside Transport ticks. Use the project's audio scheduling helpers (`AudioEngine`, `BeatClock`, or `Transport` wrappers) and apply the configured `MIN_LEAD` lookahead when scheduling or updating melody/voice state. If you need to update engine scheduling from UI code, call `AudioEngine.registerRobotMelody(...)` or `AudioEngine.releaseVoice`/`reserveVoice` which will coordinate with the BeatClock safely — avoid ad-hoc `setTimeout`/`queueMicrotask` hacks.
+
+## Acceptance Criteria
+- [ ] `AudioEngine` exposes `registerRobotMelody` and unit tests verify reservation reads new `AudioAttributes`.
+
+## Source Reference
+- Files: `src/engine/AudioEngine.ts`, related test files
+
+## [M8.3-13.c] `RobotOscillatorsTab`: UI layout & store wiring
+
+## Feature Description
+Build the `RobotOscillatorsTab` UI that exposes oscillator controls (waveform, detune, phase, pulseWidth when applicable) and wires them to `localeStore` with appropriate confirmations and voice re-reservation.
+
+## Implementation Details
+- [ ] Create `src/components/panels/screen/console/RobotOscillatorsTab.tsx` and `RobotOscillatorsTab.css`.
+- [ ] Read `selectedRobotId` from `useUIStore` and the robot from `useLocaleStore`; render an empty state when `null`.
+- [ ] Implement waveform dropdown (`@radix-ui/react-select`) bound to `robot.audioAttributes.waveform` and call `updateRobot` on change, then trigger voice re-reservation.
+- [ ] Implement detune and phase controls (dual-speed steppers / slider) and `masterVolume` stepper; call `useLocaleStore.getState().updateRobot(...)` on change and re-reserve voice where required.
+- [ ] Conditionally render `pulseWidth` stepper when `waveform === 'square'`.
+- [ ] Render `<ADSRCanvas robotId={selectedRobotId} />` (Issue 14) inside the panel — do not implement ADSR logic here.
+
+## Technical Notes
+- Keep touch targets >= 44×44px and use design tokens from Issue 1.
+- Do not write to store on high-frequency UI gestures; control stepper/slider commits should be throttled or commit on pointerup where appropriate.
+
+## Acceptance Criteria
+- [ ] Controls update `localeStore` fields and trigger voice re-reservation for waveform/phase/detune/pulseWidth changes.
+- [ ] `RobotOscillatorsTab` renders an `<ADSRCanvas />` placeholder and meets accessibility/touch target requirements.
+
+## Source Reference
+- Files: `src/components/panels/screen/console/RobotOscillatorsTab.tsx`, `src/stores/localeStore.ts`, `src/stores/uiStore.ts`, `src/engine/AudioEngine.ts`
+
+## [M8.3-13.d] Presets & oscillator management
+
+## Feature Description
+Add preset selection/load, oscillator addition, and delete flows with confirmation dialogs to manage oscillator layers and presets safely.
+
+## Implementation Details
+- [ ] Add preset `Select` UI and a `Load Preset` button; guard load with `@radix-ui/react-alert-dialog` confirmation.
+- [ ] Add `Delete Oscillator` button guarded by an AlertDialog; deletion should update the robot object via `updateRobot`.
+- [ ] Implement `New Oscillator` button that appends a new oscillator layer (with sensible defaults) to the selected robot and ensures `RobotList` updates.
+- [ ] Ensure UI actions call voice re-reservation as needed after store updates.
+
+## Technical Notes
+- Design presets as serialisable objects stored in project fixtures or a presets registry; avoid in-memory-only state for presets that must persist.
+
+## Acceptance Criteria
+- [ ] Preset load and delete flows present and guarded by confirmations.
+- [ ] New Oscillator adds a layer and RobotList reflects the change.
+
+## Source Reference
+- Files: `src/components/panels/screen/console/RobotOscillatorsTab.tsx`, presets fixtures
+
+## [M8.3-13.e] Tests & fixtures
+
+## Feature Description
+Add unit tests and update fixtures to cover the new audio attribute fields, engine registration, and UI wiring.
+
+## Implementation Details
+- [ ] Update test fixtures/factories to include new `AudioAttributes` fields (including `pulseWidth`).
+- [ ] Add unit tests for `AudioEngine.registerRobotMelody` and for `reserveVoice` reading updated attributes.
+- [ ] Add unit-level tests that simulate store updates and assert `localeStore.updateRobot` calls and that `AudioEngine` methods are invoked via mocks — avoid adding full end-to-end integration tests in this issue.
+
+## Technical Notes
+- Use seeded mocks or dependency injection for deterministic tests; mock `AudioEngine` internals to avoid real audio in CI.
+
+## Acceptance Criteria
+- [ ] Unit tests added and passing locally/CI; fixtures updated; no TypeScript errors.
+
+Note: the ADSR canvas remains Issue 14; `RobotOscillatorsTab` should render `<ADSRCanvas robotId={selectedRobotId} />` and rely on its contract for ADSR read/update on drag-settle.
 
 ---
 

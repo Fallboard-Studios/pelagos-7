@@ -284,8 +284,11 @@ export function generateAudioAttributes(noiseMap: NoiseFunction2D, offset: numbe
   const phase = Math.floor(getSeededVal(noiseMap, 'robot.audio.phase', offset, 0, 361));
   // Detune: default 0 cents (fine pitch adjustment)
   const detune = Math.round(getSeededVal(noiseMap, 'robot.audio.detune', offset, -5, 5));
+  // Pulse width: meaningful for pulse/square waves. Default ~0.5 (50% duty).
+  const rawPulse = getSeededVal(noiseMap, 'robot.audio.pulseWidth', offset, 0.05, 0.95);
+  const pulseWidth = Math.max(0.01, Math.min(0.99, rawPulse));
 
-  return { adsr, octaveRange, filterFreq, waveform, visualAudioMap, phase, detune };
+  return { adsr, octaveRange, filterFreq, waveform, visualAudioMap, phase, detune, pulseWidth };
 }
 
 /**
