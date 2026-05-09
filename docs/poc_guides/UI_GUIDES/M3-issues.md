@@ -786,174 +786,630 @@ To reduce risk and make review/testing tractable, the Robot Oscillators epic is 
 
 ### Sub-issues
 
-## [M8.3-13.a] Add `AudioAttributes` fields & spawn defaults
+## [M8.3-13.a] ~~Add `AudioAttributes` fields & spawn defaults~~ (completed — superseded by 13.0)
 
-## Feature Description
-Add missing per-oscillator audio attribute fields and populate safe spawn defaults so new robots are audio-ready.
+> **Status: completed.** `pulseWidth`, `phase`, and `detune` were added in this issue. The flat-layer refactor described in **13.0** below supersedes the shape introduced here; no further work needed against 13.a directly.
 
-## Implementation Details
-- [ ] Add `pulseWidth: number` to `AudioAttributes` in `src/types/Robot.ts` (default `0.5`).
-- [ ] Verify `phase` and `detune` exist and document their units (degrees / cents) and ranges in `src/types/Robot.ts`.
-- [ ] Update `src/systems/spawnSystem.ts` and any factory/test fixtures to populate the new fields for spawned robots.
-- [ ] Run TypeScript build check and adjust any places that construct `AudioAttributes` manually.
+---
 
-## Technical Notes
-- `pulseWidth` is meaningful only for pulse/square oscillator types; default `0.5` represents 50% duty.
-- Keep all fields serialisable (plain numbers) for Zustand storage.
+## [M8.3-13.b] ~~AudioEngine: voice re-reservation & melody registration~~ (completed — extended by 13.b.1)
 
-## Acceptance Criteria
-- [ ] `src/types/Robot.ts` exports the added fields with explicit types and short docs.
-- [ ] `spawnSystem` populates defaults and the app compiles with no TypeScript errors.
-
-## Source Reference
-- Files: `src/types/Robot.ts`, `src/systems/spawnSystem.ts`, test fixtures
-
-## [M8.3-13.b] AudioEngine: voice re-reservation & melody registration
-
-## Feature Description
-Ensure the audio engine exposes stable APIs for registering melodies and that voice reservation applies updated oscillator attributes immediately.
-
-## Implementation Details
-- [ ] Confirm `AudioEngine.reserveVoice()` reads `phase`, `detune`, and `pulseWidth` from the robot's `AudioAttributes` at reservation time.
-- [ ] Add `AudioEngine.registerRobotMelody(robotId: string, melody: Melody)` if absent; document expected behaviour and thread-safety.
-- [ ] Implement a deterministic re-reservation flow used by UI/store updates: call `AudioEngine.releaseVoice(robotId)` then `AudioEngine.reserveVoice(robotId)` after `localeStore` updates.
-- [ ] Add unit tests that mock underlying synths to verify `reserveVoice` applies updated oscillator settings.
-
-## Technical Notes
-- Do not mutate the Transport or scheduling state directly from UI handlers or inside Transport ticks. Use the project's audio scheduling helpers (`AudioEngine`, `BeatClock`, or `Transport` wrappers) and apply the configured `MIN_LEAD` lookahead when scheduling or updating melody/voice state. If you need to update engine scheduling from UI code, call `AudioEngine.registerRobotMelody(...)` or `AudioEngine.releaseVoice`/`reserveVoice` which will coordinate with the BeatClock safely — avoid ad-hoc `setTimeout`/`queueMicrotask` hacks.
-
-## Acceptance Criteria
-- [ ] `AudioEngine` exposes `registerRobotMelody` and unit tests verify reservation reads new `AudioAttributes`.
-
-## Source Reference
-- Files: `src/engine/AudioEngine.ts`, related test files
-
-## [M8.3-13.c] `RobotOscillatorsTab`: UI layout & store wiring
-
-## Feature Description
-Build the `RobotOscillatorsTab` UI that exposes oscillator controls (waveform, detune, phase, pulseWidth when applicable) and wires them to `localeStore` with appropriate confirmations and voice re-reservation.
-
-## Implementation Details
-- [ ] Create `src/components/panels/screen/console/RobotOscillatorsTab.tsx` and `RobotOscillatorsTab.css`.
-- [ ] Read `selectedRobotId` from `useUIStore` and the robot from `useLocaleStore`; render an empty state when `null`.
-- [ ] Implement waveform dropdown (`@radix-ui/react-select`) bound to `robot.audioAttributes.waveform` and call `updateRobot` on change, then trigger voice re-reservation.
-- [ ] Implement detune and phase controls (dual-speed steppers / slider) and `masterVolume` stepper; call `useLocaleStore.getState().updateRobot(...)` on change and re-reserve voice where required.
-  - [ ] Conditionally render `pulseWidth` stepper when `waveform === 'square' || waveform === 'pulse'`.
-- [ ] Render `<ADSRCanvas robotId={selectedRobotId} />` (Issue 14) inside the panel — do not implement ADSR logic here.
-
-## Technical Notes
-- Keep touch targets >= 44×44px and use design tokens from Issue 1.
-- Do not write to store on high-frequency UI gestures; control stepper/slider commits should be throttled or commit on pointerup where appropriate.
-
-## Acceptance Criteria
-- [ ] Controls update `localeStore` fields and trigger voice re-reservation for waveform/phase/detune/pulseWidth changes.
-- [ ] `RobotOscillatorsTab` renders an `<ADSRCanvas />` placeholder and meets accessibility/touch target requirements.
-
-## Source Reference
-- Files: `src/components/panels/screen/console/RobotOscillatorsTab.tsx`, `src/stores/localeStore.ts`, `src/stores/uiStore.ts`, `src/engine/AudioEngine.ts`
-
-## [M8.3-13.d] Presets & oscillator management
-
-## Feature Description
-Add preset selection/load, oscillator addition, and delete flows with confirmation dialogs to manage oscillator layers and presets safely.
-
-## Implementation Details
-- [ ] Add preset `Select` UI and a `Load Preset` button; guard load with `@radix-ui/react-alert-dialog` confirmation.
-- [ ] Add `Delete Oscillator` button guarded by an AlertDialog; deletion should update the robot object via `updateRobot`.
-- [ ] Implement `New Oscillator` button that appends a new oscillator layer (with sensible defaults) to the selected robot and ensures `RobotList` updates.
-- [ ] Ensure UI actions call voice re-reservation as needed after store updates.
-
-## Technical Notes
-- Design presets as serialisable objects stored in project fixtures or a presets registry; avoid in-memory-only state for presets that must persist.
-
-## Acceptance Criteria
-- [ ] Preset load and delete flows present and guarded by confirmations.
-- [ ] New Oscillator adds a layer and RobotList reflects the change.
-
-## Source Reference
-- Files: `src/components/panels/screen/console/RobotOscillatorsTab.tsx`, presets fixtures
-
-## [M8.3-13.e] Tests & fixtures
-
-## Feature Description
-Add unit tests and update fixtures to cover the new audio attribute fields, engine registration, and UI wiring.
-
-## Implementation Details
-- [ ] Update test fixtures/factories to include new `AudioAttributes` fields (including `pulseWidth`).
-- [ ] Add unit tests for `AudioEngine.registerRobotMelody` and for `reserveVoice` reading updated attributes.
-- [ ] Add unit-level tests that simulate store updates and assert `localeStore.updateRobot` calls and that `AudioEngine` methods are invoked via mocks — avoid adding full end-to-end integration tests in this issue.
-
-## Technical Notes
-- Use seeded mocks or dependency injection for deterministic tests; mock `AudioEngine` internals to avoid real audio in CI.
-
-## Acceptance Criteria
-- [ ] Unit tests added and passing locally/CI; fixtures updated; no TypeScript errors.
-
-Note: the ADSR canvas remains Issue 14; `RobotOscillatorsTab` should render `<ADSRCanvas robotId={selectedRobotId} />` and rely on its contract for ADSR read/update on drag-settle.
+> **Status: completed.** `registerRobotMelody`, `reReserveVoice`, and the `releaseVoice → reserveVoice` flow are implemented and tested. Issue **13.b.1** below adds the new `updateVoiceLayerParams` API required by the layer editor UI.
 
 ---
 
 <!-- ============================================================ -->
-<!-- ISSUE 14: ADSR Canvas Component                             -->
+<!-- ISSUE 13.0: Flatten AudioAttributes                         -->
 <!-- ============================================================ -->
 
-## [M8.3-14] Build ADSR Canvas Component
+## [M8.3-13.0] Flatten `AudioAttributes` — replace scattered fields with `layers[]`
 
 ## Feature Description
-Build a standalone `ADSRCanvas` component — an interactive HTML `<canvas>` that renders a bezier ADSR envelope shape with four draggable nodes. Used inside `RobotOscillatorsTab` (Issue 13) to let the user shape the robot's envelope. On drag-settle it writes the updated ADSR back to `localeStore` and triggers voice re-reservation in `AudioEngine`.
+`AudioAttributes` currently has two overlapping representations of the same oscillator data: flat top-level fields (`waveform`, `phase`, `detune`, `pulseWidth`) and a nested `visualAudioMap.layeredWave` used as the actual audio source by `AudioEngine`. This issue removes the duplication by introducing a canonical `layers: OscillatorLayer[]` array directly on `AudioAttributes`, capping layers at 4, and deleting the redundant flat fields and `layeredWave` nesting.
 
-Rendered by: **`RobotOscillatorsTab`** (Issue 13).
-Depends on: **Issue 0d** (`ADSREnvelope` type in `AudioAttributes`), **Issue 10** (editor shell), **Issue 13** (oscillators tab must exist to mount it).
+Depends on: **13.a**, **13.b** (both completed).
+Must land before: **13.b.1**, **13.c.1–13.c.3**, **13.e.1**.
 
 ## Implementation Details
-- [ ] Create `src/components/panels/screen/console/ADSRCanvas.tsx` and `ADSRCanvas.css`
-- [ ] Props: `{ robotId: string; localeId: string }` — reads ADSR from `useLocaleStore`; does not accept ADSR as a prop (avoids stale closure issues)
-- [ ] **Canvas rendering:**
-  - HTML `<canvas>` element; direct Canvas 2D API only — no GSAP, no SVG
-  - Renders a bezier curve ADSR shape using the path: `(0,0) → (A/T, 1.0) → ((A+D)/T, sustain) → ((A+D+sustainLen)/T, sustain) → (1.0, 0)`
-  - Use a fixed `SUSTAIN_DISPLAY_LEN` constant (e.g., `0.25` of total width) for a balanced visual
-  - Extract path calculation into a pure helper `computeADSRPath(adsr, width, height): Path2D` for testability
-  - Redraws via `clearRect` + path on every pointer move during drag
-- [ ] **Four draggable nodes:**
-  - Attack peak — horizontal drag only (time axis); range 0.001–4.0s
-  - Decay endpoint — horizontal drag (time) + vertical drag (curves to sustain level); range 0.001–4.0s
-  - Sustain level — vertical drag only (level axis); range 0.0–1.0 (displayed as %)
-  - Release endpoint — horizontal drag only; range 0.001–8.0s
-  - Each node rendered as a filled circle; hit area ≥ 44×44px (use radius check in `pointerdown`)
-- [ ] **Pointer event handling:** `pointerdown / pointermove / pointerup` + touch events; `setPointerCapture` on drag start for reliable tracking outside the canvas bounds
-- [ ] **Numeric readouts:** four labels beneath the canvas showing current A/D/S/R values with correct units (ms or s for time; % for sustain); update live on drag
-- [ ] **On drag-settle (`pointerup`):** call `useLocaleStore.getState().updateRobot(localeId, robotId, { audioAttributes: { ...robot.audioAttributes, adsr: newAdsr } })` then trigger voice re-reservation: `AudioEngine.releaseVoice(robotId)` → `AudioEngine.reserveVoice(robotId, ...)`
-- [ ] **On `robotId` change:** re-read ADSR from store and reset internal drag state
-- [ ] No GSAP anywhere in this component
-- [ ] Meets minimum 44×44px touch target size per node
-- [ ] Use only design tokens from Issue 1 for colours/fonts of the readout labels
-- [ ] No architecture violations
-- [ ] Code follows standards (imports ordered, explicit types)
-- [ ] Tested locally (no console errors)
+- [ ] In `src/types/layeredAudio.ts`:
+  - Rename `LayerDescriptor` → `OscillatorLayer`; keep all existing fields (`type`, `gain`, `detune`, `phase`, `pulseWidth`, `adsr`); make `gain`, `detune`, and `phase` required (default values 1, 0, 0) instead of optional.
+  - Remove `LayeredWave` interface entirely — it is replaced by `OscillatorLayer[]`.
+  - Remove `layeredWave` from `VisualAudioMap`; keep `averagedADSR`, `averagedGain`, `shapeParams`, `layerVisuals`.
+- [ ] In `src/types/Robot.ts`:
+  - Add `layers: OscillatorLayer[]` to `AudioAttributes` — the canonical ordered list of oscillators for this robot; index 0 is the base oscillator.
+  - Remove `waveform`, `phase`, `detune`, `pulseWidth`, `octaveRange` (deprecated), and `pitchRange` (deprecated) from `AudioAttributes`.
+  - `AudioAttributes.adsr` and `AudioAttributes.filterFreq` stay — they are robot-level, not layer-level.
+- [ ] In `src/systems/spawnSystem.ts`:
+  - Change `MAX_LAYERS` constant from `5` to `4`.
+  - Rewrite `generateAudioAttributes` to populate `audioAttributes.layers` directly (an array of `OscillatorLayer`) instead of building `layeredWave.layers` inside `visualAudioMap`.
+  - Remove the intermediate `LayeredWave` construction. `visualAudioMap` still receives `averagedADSR`, `averagedGain`, `shapeParams`, and `layerVisuals` — only `layeredWave` is dropped.
+- [ ] In `src/engine/AudioEngine.ts`:
+  - Update `reserveVoice`, `reReserveVoice`, and `createCompositeVoice` to accept/read `OscillatorLayer[]` from `robot.audioAttributes.layers` instead of `LayeredWave`.
+  - Remove all casts through `visualAudioMap?.layeredWave` in engine code.
+- [ ] In `src/components/robot/robotVisualHelpers.ts` and `src/components/robot/RobotBody.tsx`:
+  - Replace reads of `attrs.waveform` with `attrs.layers[0]?.type`.
+  - Replace reads of `attrs.phase` / `attrs.detune` / `attrs.pulseWidth` with `attrs.layers[0]?.phase` / `detune` / `pulseWidth`.
+- [ ] In `src/components/robot/robotVisualMapper.ts`: remove any reference to `visualAudioMap.layeredWave`.
+- [ ] Add a one-time migration shim in `localeStore` hydration: when loading persisted state, if a robot's `audioAttributes.layers` is absent but `audioAttributes.visualAudioMap?.layeredWave` exists, copy `layeredWave.layers` into `audioAttributes.layers` so old saves are not silently broken.
+- [ ] Run `tsc --noEmit` and fix all TypeScript errors before merging.
 
 ## Technical Notes
-- **Why a separate component:** the canvas pointer logic and path math are complex enough to warrant isolation — easier to test `computeADSRPath` in unit tests when it has no React dependencies.
-- **`setPointerCapture`:** call `canvas.setPointerCapture(e.pointerId)` on `pointerdown` so `pointermove` fires even when the pointer leaves the canvas area mid-drag.
-- **ADSR affects visual appearance:** `adsr` drives `generateColors()` and the greeble calculation helpers in `robotVisualHelpers.ts`. Writing back to `localeStore` on settle is sufficient — the robot visual will update on next render automatically.
-- **Canvas sizing:** use a `ResizeObserver` (or fixed intrinsic size) to keep the canvas pixel dimensions in sync with its CSS size. Avoid blurry rendering from mismatched `canvas.width`/`canvas.height` vs CSS.
-- **Do not write to store on every `pointermove`** — only on `pointerup` (drag-settle). Local component state holds the in-progress ADSR during drag.
+- `OscillatorLayer.gain` default value when adding a new layer: `1.0`. Detune: `0`. Phase: `0`.
+- All visual derivation that previously read `layeredWave.base` should now read `layers[0].type`.
+- The `VisualAudioMap.layerVisuals` array aligns by index with `layers[]`.
+- Keep all fields in `OscillatorLayer` as plain numbers/strings — no Tone.js types in state.
 
 ## Acceptance Criteria
-- [ ] `ADSRCanvas` renders a bezier curve envelope shape for the selected robot's ADSR
-- [ ] All four nodes are draggable within their constrained axes and ranges
-- [ ] Drag hit targets are at least 44×44px per node
-- [ ] Numeric readouts update live during drag with correct units
-- [ ] On drag-settle: `localeStore.updateRobot` is called with the new ADSR
-- [ ] On drag-settle: voice re-reservation fires; audible envelope change on next note
-- [ ] ADSR change updates robot colour/greebles on next render
-- [ ] Canvas re-reads ADSR when `robotId` prop changes
-- [ ] No GSAP used anywhere in the component
-- [ ] `computeADSRPath` is a pure function exported for unit testing
-- [ ] App compiles with no TypeScript errors
-- [ ] App remains functional after merge
-- [ ] No regression in audio playback or visual rendering
+- [ ] `AudioAttributes` exports `layers: OscillatorLayer[]`; the flat oscillator fields (`waveform`, `phase`, `detune`, `pulseWidth`) and deprecated fields (`octaveRange`, `pitchRange`) are removed.
+- [ ] `OscillatorLayer` is exported from `src/types/layeredAudio.ts`; `LayeredWave` is deleted.
+- [ ] `MAX_LAYERS = 4` in `spawnSystem`.
+- [ ] `AudioEngine` reads `audioAttributes.layers` without casting through `visualAudioMap`.
+- [ ] Migration shim runs on hydration and preserves existing saved robots.
+- [ ] `tsc --noEmit` passes with zero errors.
+- [ ] App spawns robots and audio plays correctly after the refactor.
 
 ## Source Reference
-- File: `src/types/Robot.ts` (`ADSREnvelope`), `src/engine/AudioEngine.ts` (`reserveVoice`, `releaseVoice`), `src/stores/localeStore.ts` (`updateRobot`), `src/components/robot/robotVisualHelpers.ts`, `src/components/panels/screen/console/ADSRCanvas.tsx`
+- Files: `src/types/Robot.ts`, `src/types/layeredAudio.ts`, `src/systems/spawnSystem.ts`, `src/engine/AudioEngine.ts`, `src/components/robot/robotVisualHelpers.ts`, `src/components/robot/RobotBody.tsx`, `src/components/robot/robotVisualMapper.ts`, `src/stores/localeStore.ts`
+
+---
+
+<!-- ============================================================ -->
+<!-- ISSUE 13.b.1: AudioEngine — updateVoiceLayerParams           -->
+<!-- ============================================================ -->
+
+## [M8.3-13.b.1] AudioEngine: add `updateVoiceLayerParams` for instant continuous-param updates
+
+## Feature Description
+Add a new `AudioEngine.updateVoiceLayerParams` method that applies updated oscillator layer parameters to the live `CompositeVoice` without tearing down and rebuilding the audio graph. This is the instant update path used by the layer editor UI for continuous-param changes (detune, phase, gain, pulseWidth). Waveform type changes and structural changes (add/delete layer) still use `reReserveVoice`.
+
+Depends on: **13.0** (flat `layers[]` shape must exist).
+
+## Implementation Details
+- [ ] Add `AudioEngine.updateVoiceLayerParams(robotId: string, layers: OscillatorLayer[]): void` to `src/engine/AudioEngine.ts`.
+  - Looks up the reserved `CompositeVoice` for `robotId` in `compositeVoices`.
+  - Calls `composite.set({ layers })` with the full updated layer array.
+  - Silently no-ops (with a `DEV_TUNING` warning) if no voice is reserved for the robot.
+- [ ] Document the two-tier update rule in a JSDoc comment on the method:
+  - **Continuous params** (`gain`, `detune`, `phase`, `pulseWidth`): use `updateVoiceLayerParams` — instant, no gap in audio.
+  - **Structural changes** (`type` / waveform, add layer, delete layer): use `reReserveVoice` — brief silence while the node graph is rebuilt.
+- [ ] Add unit tests verifying that `composite.set` is called with the supplied layers array and that the method no-ops gracefully when no voice is reserved.
+
+## Technical Notes
+- Pass the **full** `layers[]` array, not a delta — `composite.set` replaces the entire layer configuration.
+- Do not call this inside a Transport tick; it is safe to call from UI event handlers (pointerup, commit on blur).
+
+## Acceptance Criteria
+- [ ] `AudioEngine.updateVoiceLayerParams` exists and is exported/accessible on the `AudioEngine` object.
+- [ ] Unit tests confirm `composite.set` is invoked with the correct payload.
+- [ ] No-op path tested (no voice reserved → no throw).
+
+## Source Reference
+- Files: `src/engine/AudioEngine.ts`, `src/engine/AudioEngine.test.ts`
+
+---
+
+<!-- ============================================================ -->
+<!-- ISSUE 13.c.1: RobotOscillatorsTab — shell & empty state      -->
+<!-- ============================================================ -->
+
+## [M8.3-13.c.1] `RobotOscillatorsTab`: shell, empty state & store reads
+
+## Feature Description
+Create the `RobotOscillatorsTab` component file with its empty-state handling and store subscriptions. No controls yet — just the scaffold that the later sub-issues build on.
+
+Depends on: **13.0** (flat `layers[]` shape), **Issue 10** (editor shell must mount this tab).
+
+## Implementation Details
+- [ ] Create `src/components/panels/screen/console/RobotOscillatorsTab.tsx` and `RobotOscillatorsTab.css`.
+- [ ] Read `selectedRobotId` from `useUIStore((s) => s.selectedRobotId)`.
+- [ ] Read `localeId` via `usePlanetStore((s) => s.planets[0]?.currentLocaleId ?? '')`; read the robot from `useLocaleStore` using `selectedRobotId` and `localeId`; derive `layers` as `robot.audioAttributes.layers ?? []`.
+- [ ] If `selectedRobotId` is null or the robot is not found, render a descriptive empty state message.
+- [ ] Render a placeholder `<ul>` layer list and a disabled `Add Layer` button with `TODO` comment — wired up in later issues.
+- [ ] Reserve a mount-point for the envelope editor at the bottom of the tab. **Do not import or render `RobotEnvelopeEditor` here** — that component does not exist until Issue 14 lands. Leave a comment `{/* TODO Issue 14: <RobotEnvelopeEditor robotId={selectedRobotId} localeId={localeId} /> */}` so the wiring location is clear and TypeScript does not error.
+- [ ] Ensure the component is imported and rendered in `RobotEditorTab` when the Robot Oscillators sub-tab is active.
+- [ ] All touch targets >= 44×44px; use design tokens from Issue 1.
+
+## Acceptance Criteria
+- [ ] Tab renders without errors when a robot is selected and when none is selected.
+- [ ] `layers` array is correctly derived from `robot.audioAttributes.layers`.
+- [ ] `localeId` is read from `usePlanetStore`, not from a helper that does not exist.
+- [ ] The envelope editor mount-point comment is present; no import of `RobotEnvelopeEditor` (avoids TypeScript error before Issue 14 merges).
+- [ ] TypeScript compiles with no errors.
+
+## Source Reference
+- Files: `src/components/panels/screen/console/RobotOscillatorsTab.tsx`, `src/components/panels/screen/console/RobotEditorTab.tsx`
+
+---
+
+<!-- ============================================================ -->
+<!-- ISSUE 13.c.2: RobotOscillatorsTab — layer list rows          -->
+<!-- ============================================================ -->
+
+## [M8.3-13.c.2] `RobotOscillatorsTab`: render layer list rows (read-only display)
+
+## Feature Description
+Render each oscillator layer in `robot.audioAttributes.layers` as a distinct row in the tab. Rows display the layer's current attribute values as read-only labels — interactive controls are wired in the next issue.
+
+Depends on: **13.c.1**.
+
+## Implementation Details
+- [ ] For each `OscillatorLayer` in `layers`, render a collapsible/expandable row (native `<details>` or a simple toggle is fine).
+- [ ] Row header: `Layer {index + 1} — {layer.type}` (e.g. `Layer 1 — sine`).
+- [ ] Expanded content shows current values as labelled read-only text: `Type`, `Gain`, `Detune (cents)`, `Phase (°)`, and `Pulse Width` (only when `type === 'pulse' || type === 'square'`).
+- [ ] **Per-layer ADSR (read-only display):** each expanded row also shows a collapsible A/D/S/R section labelled `Envelope Override`. Display current values from `layer.adsr` if present, or the text `Inherits master` when `layer.adsr` is absent/undefined. No interactive controls yet — stub as read-only text marked `TODO`.
+- [ ] Layer count badge in the section header (e.g. `Oscillators (2)`).
+- [ ] No interactions yet — all inputs/buttons are stubs marked `TODO` or omitted.
+- [ ] Use design tokens for row styling; rows must be visually distinct.
+
+## Technical Notes
+- `OscillatorLayer.adsr?: ADSTRaw` is the optional per-layer override; when absent the engine falls back to `audioAttributes.adsr` (robot-level master). Always display the fallback label — never infer or synthesise values from the master.
+
+## Acceptance Criteria
+- [ ] Each layer renders a distinct labelled row.
+- [ ] `pulseWidth` row only appears for pulse/square layers.
+- [ ] Each expanded row shows an `Envelope Override` section; displays `layer.adsr` values when present or `Inherits master` when absent.
+- [ ] Layer count badge is correct.
+
+## Source Reference
+- Files: `src/components/panels/screen/console/RobotOscillatorsTab.tsx`, `src/components/panels/screen/console/RobotOscillatorsTab.css`
+
+---
+
+<!-- ============================================================ -->
+<!-- ISSUE 13.c.3: RobotOscillatorsTab — interactive layer controls -->
+<!-- ============================================================ -->
+
+## [M8.3-13.c.3] `RobotOscillatorsTab`: wire interactive controls per layer
+
+## Feature Description
+Replace the read-only layer row labels with interactive controls (waveform dropdown, steppers/sliders for gain/detune/phase/pulseWidth) and connect them to `localeStore` and `AudioEngine` using the two-tier update rule.
+
+Depends on: **13.c.2**, **13.b.1** (`updateVoiceLayerParams` must exist).
+
+## Implementation Details
+- [ ] **Waveform dropdown** (`@radix-ui/react-select`): bound to `layer.type`; on change calls `updateRobot` with the full updated `audioAttributes` (read-modify-write: replace the layer at its index), then calls `AudioEngine.reReserveVoice(robotId)` — structural change, brief audio gap expected.
+- [ ] **Gain stepper** (numeric input or slider, range 0–2, step 0.05): commits on `pointerup`/blur; calls `updateRobot` then `AudioEngine.updateVoiceLayerParams(robotId, updatedLayers)` — instant.
+- [ ] **Detune stepper** (range −100–100 cents, integer steps): same commit pattern as gain.
+- [ ] **Phase stepper** (range 0–360°, integer steps): same commit pattern.
+- [ ] **Pulse Width stepper** (range 0–1, step 0.01, conditional): same commit pattern; only rendered when `type === 'pulse' || type === 'square'`.
+- [ ] **Per-layer ADSR steppers** (collapsible section, labelled `Envelope Override`):
+  - Four numeric steppers for A (0.001–4.0 s), D (0.001–4.0 s), S (0.0–1.0), R (0.001–8.0 s).
+  - When `layer.adsr` is absent, render a `Use master` toggle (off by default = inherit). Enabling the toggle initialises `layer.adsr` by copying the current `audioAttributes.adsr` values as a starting point.
+  - When `layer.adsr` is present, each stepper edits its value; a `Reset to master` button removes the override (`layer.adsr = undefined`) and falls back to the robot-level envelope.
+  - Steppers commit on `blur`/Enter; call `updateRobot` with the full updated `audioAttributes` (same deep-merge pattern as other layer params), then call `AudioEngine.reReserveVoice(robotId)` — ADSR is a structural param, brief audio gap is acceptable.
+- [ ] All controls commit on `pointerup` or `blur`; do not write to store on every `pointermove` or each key repeat.
+- [ ] All touch targets >= 44×44px.
+- [ ] `updateRobot` calls must pass the full `audioAttributes` object — `layers` is a nested array and `updateRobot`'s shallow merge will not deep-patch it. Pattern: `{ ...robot.audioAttributes, layers: updatedLayers }`.
+
+## Technical Notes
+- Two-tier rule (must be documented in a code comment near the handlers):
+  - **Continuous params** (`gain`, `detune`, `phase`, `pulseWidth`): `updateRobot` + `AudioEngine.updateVoiceLayerParams` → instant
+  - **Structural** (`type`, add layer, delete layer, ADSR override add/edit/reset): `updateRobot` + `AudioEngine.reReserveVoice` → brief silence
+- Per-layer ADSR (`layer.adsr`) is an optional override; the engine falls back to `audioAttributes.adsr` when absent. Never write a default-value ADSR to `layer.adsr` automatically — only write when the user explicitly enables the override.
+
+## Acceptance Criteria
+- [ ] Each control updates the correct field in `localeStore` on commit.
+- [ ] Gain/detune/phase/pulseWidth changes are audible within the current note (no gap).
+- [ ] Waveform type changes trigger `reReserveVoice`; brief audio gap is acceptable.
+- [ ] Per-layer ADSR override can be enabled, edited, and reset to master via the `Envelope Override` section.
+- [ ] ADSR override add/edit/reset triggers `reReserveVoice`; no store write when `layer.adsr` remains absent.
+- [ ] No store writes on every pointer/key event.
+
+## Source Reference
+- Files: `src/components/panels/screen/console/RobotOscillatorsTab.tsx`, `src/stores/localeStore.ts`, `src/engine/AudioEngine.ts`
+
+---
+
+<!-- ============================================================ -->
+<!-- ISSUE 13.c.4: RobotOscillatorsTab — Add Layer & Delete Layer -->
+<!-- ============================================================ -->
+
+## [M8.3-13.c.4] `RobotOscillatorsTab`: Add Layer and Delete Layer actions
+
+## Feature Description
+Add the `Add Layer` button (below the layer list) and a `Delete Layer` button on each row, both wired to update `localeStore` and trigger voice re-reservation.
+
+Depends on: **13.c.3**.
+
+## Implementation Details
+- [ ] **Add Layer button** (below the layer list):
+  - Deep-clones the last `OscillatorLayer` in `layers`; if `layers` is empty, clones `{ type: 'sine', gain: 1, detune: 0, phase: 0 }`.
+  - **Delete `adsr` from the clone** before appending — new layers must inherit the robot-level master envelope, not carry over a per-layer override from the source layer.
+  - Appends the clone to `layers`, calls `updateRobot` with the full updated `audioAttributes`, then calls `AudioEngine.reReserveVoice(robotId)`.
+  - Disabled and visually distinct when `layers.length >= 4` (enforces `MAX_LAYERS`).
+  - Touch target >= 44×44px.
+- [ ] **Delete Layer button** (per row, rendered inside each layer row):
+  - Guarded by `@radix-ui/react-alert-dialog`: `"Delete this oscillator layer? This cannot be undone."` with Confirm / Cancel.
+  - On confirm: removes the layer at its index from `layers`, calls `updateRobot` with the full updated `audioAttributes`, then calls `AudioEngine.reReserveVoice(robotId)`.
+  - Disabled when `layers.length <= 1` (minimum one layer must remain); show a tooltip explaining why.
+  - Touch target >= 44×44px.
+
+## Technical Notes
+- Both actions are structural changes — they must use `reReserveVoice`, not `updateVoiceLayerParams`.
+- Do not mutate the `layers` array in place; always produce a new array for the store update.
+
+## Acceptance Criteria
+- [ ] Add Layer clones the last layer and appends it; button is disabled at 4 layers.
+- [ ] Cloned layer has no `adsr` property (inherits master).
+- [ ] Delete Layer removes the target layer after confirmation; button is disabled at 1 layer.
+- [ ] Both actions trigger `reReserveVoice` and the store is updated correctly.
+- [ ] AlertDialog fires for delete; cancel leaves the layer intact.
+
+## Source Reference
+- Files: `src/components/panels/screen/console/RobotOscillatorsTab.tsx`, `src/stores/localeStore.ts`, `src/engine/AudioEngine.ts`
+
+---
+
+<!-- ============================================================ -->
+<!-- ISSUE 13.d: Oscillator presets                               -->
+<!-- ============================================================ -->
+
+## [M8.3-13.d] Oscillator presets — load & apply
+
+## Feature Description
+Add a preset selector to `RobotOscillatorsTab` that lets the user load a named oscillator preset (a predefined `OscillatorLayer[]` configuration) onto the current robot, with a destructive-action confirmation.
+
+Depends on: **13.c.4** (layer list and actions must exist).
+
+## Implementation Details
+- [ ] Define a small serialisable presets registry at `src/constants/oscillatorPresets.ts`: an array of `{ name: string; layers: OscillatorLayer[] }` objects with 4–6 curated presets (e.g. `Warm Pad`, `Bright Lead`, `Bass Sub`, `Noisy Texture`).
+- [ ] Add a preset `Select` dropdown (`@radix-ui/react-select`) at the top of the tab; lists preset names.
+- [ ] Add a `Load Preset` button next to the dropdown; disabled when no preset is selected.
+- [ ] On `Load Preset`: open an `@radix-ui/react-alert-dialog` — `"Load preset? This will replace all current oscillator layers."` with Confirm / Cancel.
+- [ ] On confirm: replace `robot.audioAttributes.layers` with the preset's `layers` (deep copy), call `updateRobot` with the full updated `audioAttributes`, then call `AudioEngine.reReserveVoice(robotId)`.
+- [ ] The layer list rerenders to show the new layers immediately.
+
+## Technical Notes
+- Presets are static compile-time constants — no runtime fetch needed. Keep them serialisable (no functions).
+- `OscillatorLayer[]` from a preset must be a deep copy to avoid aliasing the preset array.
+- **Preset layers must not include `adsr` overrides.** All preset `OscillatorLayer` objects should omit the `adsr` field so the robot-level master envelope applies unchanged after a preset load. If a curated preset genuinely needs an envelope shape, document the intent explicitly and let the user adjust it via the envelope editor (Issue 14).
+
+## Acceptance Criteria
+- [ ] Preset dropdown lists all named presets from the registry.
+- [ ] `Load Preset` is disabled until a preset is chosen.
+- [ ] AlertDialog fires; confirm loads the preset layers; cancel does nothing.
+- [ ] After load: layer list reflects the preset's layers, audio changes via `reReserveVoice`.
+- [ ] TypeScript compiles; no errors.
+
+## Source Reference
+- Files: `src/components/panels/screen/console/RobotOscillatorsTab.tsx`, `src/constants/oscillatorPresets.ts`, `src/stores/localeStore.ts`, `src/engine/AudioEngine.ts`
+
+---
+
+<!-- ============================================================ -->
+<!-- ISSUE 13.e.1: Update fixtures for flat layers shape          -->
+<!-- ============================================================ -->
+
+## [M8.3-13.e.1] Update test fixtures for flat `OscillatorLayer[]` shape
+
+## Feature Description
+After the [M8.3-13.0] refactor, all test fixtures that construct `AudioAttributes` or `Robot` objects need updating to use `layers: OscillatorLayer[]` instead of the old `visualAudioMap.layeredWave` / flat-field shape.
+
+Depends on: **13.0**.
+
+## Implementation Details
+- [ ] Audit all test files and fixture helpers for `AudioAttributes` construction or inline robot objects.
+- [ ] Replace `{ waveform, phase, detune, pulseWidth, visualAudioMap: { layeredWave: ... } }` patterns with `{ layers: [...], adsr, filterFreq, visualAudioMap: { averagedADSR, ... } }`.
+- [ ] Remove `LayeredWave` imports from test files.
+- [ ] Add a unit test for the **hydration migration shim** (13.0): given a robot whose persisted state has `audioAttributes.visualAudioMap.layeredWave` but no `audioAttributes.layers`, assert the shim copies the layers and the resulting object is valid.
+- [ ] Add unit tests for **`computeADSRSVGPath`** (Issue 14): given known A/D/S/R values, assert the returned `d` string starts at the correct origin, reaches the peak at the expected x-fraction, and ends at zero. Tests should not require a DOM or SVG renderer — the function is pure.
+- [ ] Run the full test suite (`npm test`) and fix any failures caused by type or shape mismatches.
+
+## Acceptance Criteria
+- [ ] All tests compile and pass with no type errors after the fixture updates.
+- [ ] No fixture file still references `LayeredWave` or the old flat oscillator fields.
+- [ ] Migration shim test passes, covering the old-save → new-shape conversion.
+- [ ] `computeADSRSVGPath` has at least two deterministic unit test cases.
+
+## Source Reference
+- Files: `src/engine/AudioEngine.test.ts`, any other test fixtures referencing `AudioAttributes`
+
+---
+
+<!-- ============================================================ -->
+<!-- ISSUE 13.e.2: Unit tests for updateVoiceLayerParams          -->
+<!-- ============================================================ -->
+
+## [M8.3-13.e.2] Unit tests: `updateVoiceLayerParams` & two-tier update path
+
+## Feature Description
+Verify the two-tier audio update behaviour introduced in **13.b.1** and **13.c.3**: continuous-param changes call `composite.set` (instant), structural changes call `reReserveVoice` (re-reservation). Adds focused unit tests without requiring a running audio context.
+
+Depends on: **13.b.1**, **13.e.1**.
+
+## Implementation Details
+- [ ] Mock `compositeVoices` map (or inject a fake voice) and verify `AudioEngine.updateVoiceLayerParams` calls `composite.set` with the expected `layers` payload.
+- [ ] Verify `updateVoiceLayerParams` no-ops (does not throw) when no voice is reserved for the given `robotId`.
+- [ ] Add a test that simulates a gain change on a layer: calls `updateVoiceLayerParams` and asserts `composite.set` was called; assert `releaseVoice` was NOT called.
+- [ ] Add a test that simulates a waveform change: calls `reReserveVoice` and asserts both `releaseVoice` and `reserveVoice` are called.
+
+## Acceptance Criteria
+- [ ] Tests pass locally and in CI.
+- [ ] Coverage added for `updateVoiceLayerParams` method.
+- [ ] No real audio context needed (all Tone.js calls are mocked).
+
+## Source Reference
+- Files: `src/engine/AudioEngine.test.ts`
+
+---
+
+<!-- ============================================================ -->
+<!-- ISSUE 13.e.3: Integration test — layer edit → audio update  -->
+<!-- ============================================================ -->
+
+## [M8.3-13.e.3] Integration test: layer control edit updates store and audio engine
+
+## Feature Description
+Add a focused integration test that simulates a user editing a layer's `detune` value through the `RobotOscillatorsTab` flow and asserts both the `localeStore` state and `AudioEngine` are updated correctly.
+
+Depends on: **13.c.3**, **13.e.1**.
+
+## Implementation Details
+- [ ] Mock `AudioEngine.updateVoiceLayerParams` and `AudioEngine.reReserveVoice`.
+- [ ] Simulate a `detune` stepper commit event on layer 0; assert `localeStore.updateRobot` was called with the updated `layers` payload and `AudioEngine.updateVoiceLayerParams` was called (not `reReserveVoice`).
+- [ ] Simulate a `waveform` dropdown change on layer 0; assert `localeStore.updateRobot` was called and `AudioEngine.reReserveVoice` was called (not `updateVoiceLayerParams`).
+- [ ] Keep tests deterministic; use a seeded robot fixture from **13.e.1**.
+
+## Acceptance Criteria
+- [ ] Both test scenarios pass.
+- [ ] The two-tier rule is verified at the integration level.
+
+## Source Reference
+- Files: related test files, `src/components/panels/screen/console/RobotOscillatorsTab.tsx`
+
+---
+
+Note: the ADSR envelope editor remains Issue 14; `RobotOscillatorsTab` mounts `<RobotEnvelopeEditor robotId={selectedRobotId} localeId={localeId} />` as a placeholder and relies on Issue 14's contract for ADSR read/write on slider commit.
+
+---
+
+<!-- ============================================================ -->
+<!-- ISSUE 14: Robot Envelope Editor (split into sub-issues)     -->
+<!-- ============================================================ -->
+
+## [M8.3-14] `RobotEnvelopeEditor` — Radix Sliders + Reactive SVG Preview (split into sub-issues)
+
+To reduce review scope and allow incremental integration, the envelope editor epic is split into focused sub-issues (14.a–14.c). Implement and land these in order.
+
+### Sub-issues
+
+---
+
+<!-- ============================================================ -->
+<!-- ISSUE 14.a: Component shell + computeADSRSVGPath + static   -->
+<!--             SVG preview (read-only, no sliders)             -->
+<!-- ============================================================ -->
+
+## [M8.3-14.a] `RobotEnvelopeEditor`: component shell, `computeADSRSVGPath` helper & static SVG preview
+
+## Feature Description
+Create the `RobotEnvelopeEditor` component file and CSS, implement the pure `computeADSRSVGPath` helper, and render a **read-only** static SVG preview of the current robot's `audioAttributes.adsr`. No interactive controls yet — this is the foundation the later sub-issues build on.
+
+Depends on: **13.c.1** (oscillators tab shell must exist to receive the future import).
+
+## Implementation Details
+- [ ] Create `src/components/panels/screen/console/RobotEnvelopeEditor.tsx` and `RobotEnvelopeEditor.css`.
+- [ ] Props: `{ robotId: string; localeId: string }` — reads `robot.audioAttributes.adsr` from `useLocaleStore`; does not accept ADSR as a prop (avoids stale closure issues).
+- [ ] Read `localeId` and `selectedRobotId` via store hooks (same pattern as 13.c.1: `usePlanetStore` for `localeId`, `useLocaleStore` for the robot). Derive `adsr = robot.audioAttributes.adsr`.
+- [ ] Implement and **export** `computeADSRSVGPath(adsr: ADSREnvelope, width: number, height: number): string`:
+  - Pure function — no DOM access, no side effects; takes the ADSR values and canvas dimensions, returns a `d` attribute string.
+  - Shape: `M 0,H → A-peak at (aFrac * width, 0) → D-to-sustain at ((aFrac + dFrac) * width, sustainY) → S-level plateau to ((aFrac + dFrac + sFrac) * width, sustainY) → R-to-zero at (width, height)`.
+  - Use a fixed `SUSTAIN_DISPLAY_WIDTH` fraction (`0.25` of total SVG width) for the plateau segment so it is always visible.
+  - Clamp all time fractions so the path never overflows the SVG viewport.
+- [ ] Render a read-only `<svg>` using the current store `adsr` values passed through `computeADSRSVGPath`. Mark `aria-hidden="true"`.
+- [ ] No sliders, no draft state, no store writes in this issue.
+- [ ] Use design tokens for all colours, fonts, and spacing.
+- [ ] TypeScript must compile with no errors.
+
+## Technical Notes
+- `computeADSRSVGPath` must be a pure exported function so it can be unit-tested without a DOM or SVG renderer (see 13.e.1).
+- The time fractions for A, D, and R should be computed relative to the total displayed time budget (e.g. `totalTime = A + D + sustainDuration + R`); sustain duration uses `SUSTAIN_DISPLAY_WIDTH * width` as a fixed pixel allocation, not a time value.
+
+## Acceptance Criteria
+- [ ] `RobotEnvelopeEditor.tsx` and `RobotEnvelopeEditor.css` created.
+- [ ] `computeADSRSVGPath` is exported and covered by at least two deterministic unit tests (see 13.e.1).
+- [ ] Static SVG preview renders the current robot's `adsr` shape without errors.
+- [ ] No sliders or draft state present in this issue.
+- [ ] TypeScript compiles with no errors.
+
+## Source Reference
+- Files: `src/components/panels/screen/console/RobotEnvelopeEditor.tsx`, `src/types/Robot.ts` (`ADSREnvelope`), `src/stores/localeStore.ts`, `src/stores/uiStore.ts`
+
+---
+
+<!-- ============================================================ -->
+<!-- ISSUE 14.b: Four Radix sliders + draft state + live SVG     -->
+<!-- ============================================================ -->
+
+## [M8.3-14.b] `RobotEnvelopeEditor`: four Radix sliders, draft state & live SVG update
+
+## Feature Description
+Add the four accessible `@radix-ui/react-slider` controls (Attack, Decay, Sustain, Release) with local draft state. The SVG preview updates live on `onValueChange`. No store writes yet — commit path is wired in 14.c.
+
+Depends on: **14.a**.
+
+## Implementation Details
+- [ ] Add `useState` (or `useRef`) draft state initialised from `robot.audioAttributes.adsr` on mount.
+- [ ] **Four Radix Slider controls** (`@radix-ui/react-slider` → `Slider.Root` + `Slider.Track` + `Slider.Range` + `Slider.Thumb`):
+  - **Attack** (A): range 0.001–4.0 s, step 0.001, labelled `Attack`
+  - **Decay** (D): range 0.001–4.0 s, step 0.001, labelled `Decay`
+  - **Sustain** (S): range 0.0–1.0, step 0.01, labelled `Sustain`
+  - **Release** (R): range 0.001–8.0 s, step 0.001, labelled `Release`
+  - Each slider thumb meets minimum 44×44px touch target (enforce via CSS).
+  - Display current draft value as a live numeric readout beneath each slider (e.g. `0.12 s`, `63 %`).
+- [ ] On `onValueChange`: update draft state; recompute and update the SVG `<path>` `d` attribute via `computeADSRSVGPath` — **no store write on every move**.
+- [ ] `onValueCommit` handlers exist as stubs (no-ops) — wired in 14.c.
+- [ ] No architecture violations; no GSAP; no `<canvas>`.
+- [ ] All controls keyboard-navigable (Radix Slider handles arrow keys natively).
+- [ ] TypeScript compiles with no errors.
+
+## Technical Notes
+- **`onValueChange` vs `onValueCommit`:** update local draft (and SVG) on `onValueChange`; store writes happen only in `onValueCommit` (14.c). This avoids flooding the store with intermediate values.
+- Use the `computeADSRSVGPath` helper from 14.a for all path recomputation — do not duplicate the path logic.
+
+## Acceptance Criteria
+- [ ] Four Radix Slider controls render with correct ranges and labels.
+- [ ] SVG preview updates live as sliders move (no store write on move).
+- [ ] Numeric readouts update live beneath each slider with correct units (`s` / `%`).
+- [ ] All four slider thumbs are keyboard-navigable (arrow keys).
+- [ ] All slider thumbs meet 44×44px touch target minimum.
+- [ ] No store writes occur during slider movement.
+- [ ] TypeScript compiles with no errors.
+
+## Source Reference
+- Files: `src/components/panels/screen/console/RobotEnvelopeEditor.tsx`, `src/components/panels/screen/console/RobotEnvelopeEditor.css`
+
+---
+
+<!-- ============================================================ -->
+<!-- ISSUE 14.c: onValueCommit → store + reReserveVoice +        -->
+<!--             visualAudioMap recompute + robotId reset         -->
+<!-- ============================================================ -->
+
+## [M8.3-14.c] `RobotEnvelopeEditor`: commit path — store write, `reReserveVoice`, `visualAudioMap` recompute & `robotId` reset
+
+## Feature Description
+Wire the `onValueCommit` handlers to write the final ADSR value to `localeStore` (including a `visualAudioMap` recomputation in the same payload), call `AudioEngine.reReserveVoice`, and reset draft state when `robotId` changes. This is the issue that makes the `TODO` comment in 13.c.1 become a real import.
+
+Depends on: **14.b**, **13.b.1** (`reReserveVoice` must exist).
+
+## Implementation Details
+- [ ] **On `onValueCommit`** (slider mouse-up / keyboard end):
+  - Build the updated `adsr` object from draft state.
+  - Call the relevant helper (e.g. `deriveVisualAudioMap(robot.audioAttributes)`) with the new `adsr` to recompute `visualAudioMap.averagedADSR` and `visualAudioMap.averagedGain`.
+  - Call `useLocaleStore.getState().updateRobot(localeId, robotId, { audioAttributes: { ...robot.audioAttributes, adsr: draftAdsr, visualAudioMap: recomputedVisualAudioMap } })` — single `updateRobot` call; document which helper owns the derivation.
+  - Call `AudioEngine.reReserveVoice(robotId)` — envelope is a structural param; brief audio gap is acceptable.
+- [ ] **On `robotId` change** (`useEffect` on `robotId`): reset draft state from the new robot's `adsr` in the store; do not carry over a previous robot's in-progress edits.
+- [ ] **Integration with 13.c.1:** replace the `{/* TODO Issue 14: <RobotEnvelopeEditor ... /> */}` comment in `RobotOscillatorsTab` with a real import and render of `<RobotEnvelopeEditor robotId={selectedRobotId} localeId={localeId} />`.
+- [ ] No GSAP; no `<canvas>`; no store writes on every pointer/key event.
+- [ ] TypeScript compiles with no errors.
+
+## Technical Notes
+- **`visualAudioMap` recomputation on commit:** `visualAudioMap.averagedADSR` and `visualAudioMap.averagedGain` are derived from `layers[]` and `adsr`. Include the recomputed `visualAudioMap` in the same `updateRobot` payload so visual state stays in sync without a separate render cycle.
+- **ADSR affects visual appearance:** `adsr` drives `generateColors()` and greeble helpers in `robotVisualHelpers.ts`. Writing back to `localeStore` on commit is sufficient — the robot visual updates on next render automatically.
+- **Per-layer ADSR:** this component edits `audioAttributes.adsr` (robot-level master) only. Per-layer `OscillatorLayer.adsr` overrides are exposed inside each layer row in `RobotOscillatorsTab` (Issues 13.c.2/13.c.3).
+
+## Acceptance Criteria
+- [ ] On commit: `localeStore.updateRobot` is called with the new `adsr` and recomputed `visualAudioMap` in one call.
+- [ ] On commit: `AudioEngine.reReserveVoice(robotId)` fires; audible envelope change on next note.
+- [ ] ADSR change updates robot colour/greebles on next render.
+- [ ] Component resets to store values when `robotId` prop changes.
+- [ ] No store writes occur during slider movement (only on commit).
+- [ ] `RobotOscillatorsTab` (13.c.1) imports and renders `RobotEnvelopeEditor` (TODO comment replaced).
+- [ ] App compiles with no TypeScript errors.
+- [ ] App remains functional after merge; no regression in audio playback or visual rendering.
+- [ ] Integration test covers the commit path: assert `updateRobot` and `reReserveVoice` are called with correct payloads (similar scope to 13.e.3).
+
+## Source Reference
+- Files: `src/types/Robot.ts` (`ADSREnvelope`), `src/engine/AudioEngine.ts` (`reReserveVoice`), `src/stores/localeStore.ts` (`updateRobot`), `src/components/robot/robotVisualHelpers.ts`, `src/components/panels/screen/console/RobotEnvelopeEditor.tsx`, `src/components/panels/screen/console/RobotOscillatorsTab.tsx`
 - Copilot instructions: "Visual Mapping: Robot visuals (shape/color) must map strictly to audio attributes (synth/ADSR/phase/detune) as defined in ROBOT_DESIGN.md."
-- Copilot instructions: "GSAP timelines must only trigger semantic state changes, never call AudioEngine directly." (i.e. no GSAP here — Canvas 2D API only)
+- Copilot instructions: "GSAP timelines must only trigger semantic state changes, never call AudioEngine directly." (i.e. no GSAP here)
+---
+
+<!-- ============================================================ -->
+<!-- ISSUE 14.d: averagedADSR → ShapeParams (split into          -->
+<!--             sub-issues 14.d.1 and 14.d.2)                   -->
+<!-- ============================================================ -->
+
+## [M8.3-14.d] `deriveShapeParamsFromADSR` — map `averagedADSR` onto robot body silhouette (split into sub-issues)
+
+To keep review scope manageable, this epic is split into two focused sub-issues. Implement **14.d.1** first — it establishes the type contract and pure helper that **14.d.2** depends on for the SVG work.
+
+### Sub-issues
+
+---
+
+<!-- ============================================================ -->
+<!-- ISSUE 14.d.1: ShapeParams types, pure helper &              -->
+<!--               deriveVisualAudioMap integration + tests      -->
+<!-- ============================================================ -->
+
+## [M8.3-14.d.1] `ShapeParams` extension, `deriveShapeParamsFromADSR` helper & unit tests
+
+## Feature Description
+Extend `ShapeParams` with four ADSR-derived fields and implement the pure `deriveShapeParamsFromADSR` helper that computes them from `visualAudioMap.averagedADSR` — the gain-weighted average of all active oscillator layers' envelopes. Wire the call into `deriveVisualAudioMap` so the four new fields are populated on every ADSR commit and at spawn time. No component or SVG changes in this issue — pure TypeScript only.
+
+`averagedADSR` is the same source already used by `generateColorPalette` for robot colours, keeping audio→visual mapping consistent across colour and shape.
+
+Depends on: **14.c** (`deriveVisualAudioMap` must exist and be called on ADSR commit), **13.0** (`ShapeParams` lives in `visualAudioMap`; `averagedADSR` is computed there).
+Must land before: **14.d.2**.
+
+## Implementation Details
+- [ ] **Extend `ShapeParams`** in `src/types/layeredAudio.ts` with four new `number` (0..1) fields:
+  - `attackSharpness` — head geometry: `0` = fully rounded dome, `1` = sharp angular peak
+  - `decayDrop` — shoulder proportion below the head: `0` = broad gradual shoulders, `1` = sharp taper
+  - `bodyFullness` — torso horizontal extent: `0` = narrow/minimal body, `1` = wide/full body
+  - `baseFlare` — base/leg geometry: `0` = narrow feet, `1` = wide bell-curve flare
+- [ ] **Implement `deriveShapeParamsFromADSR(averagedADSR: ADSREnvelope): Pick<ShapeParams, 'attackSharpness' | 'decayDrop' | 'bodyFullness' | 'baseFlare'>`** in `src/components/robot/robotVisualMapper.ts` (or a co-located `src/components/robot/robotShapeHelpers.ts`):
+  - Pure function — no DOM access, no Tone.js, no store reads.
+  - Input is `visualAudioMap.averagedADSR` — the gain-weighted averaged ADSR across all layers; **not** `audioAttributes.adsr` (the master) and not any individual `OscillatorLayer.adsr`.
+  - Normalise each ADSR parameter to 0..1 using the slider ranges from Issue 14.a:
+    - `attackSharpness = 1 - clamp(averagedADSR.attack / 4.0, 0, 1)` — fast averaged attack (0.001 s) → `1`; slow (4.0 s) → `0`
+    - `decayDrop = clamp(averagedADSR.decay / 4.0, 0, 1)` — long averaged decay → `1`; short → `0`
+    - `bodyFullness = clamp(averagedADSR.sustain, 0, 1)` — sustain is already 0..1
+    - `baseFlare = clamp(averagedADSR.release / 8.0, 0, 1)` — long averaged release → `1`; short → `0`
+  - Export the function for unit testing.
+- [ ] **Call from `deriveVisualAudioMap`:** after `averagedADSR` is computed, pass it into `deriveShapeParamsFromADSR` and merge the four new fields into the `shapeParams` object. Existing `scale`, `roundness`, and `detail` derivations are unchanged — the four new fields are additive.
+- [ ] **Unit tests** for `deriveShapeParamsFromADSR` — no DOM or SVG renderer required:
+  - Fast averaged attack (0.001 s) → `attackSharpness ≈ 1`
+  - Slow averaged attack (4.0 s) → `attackSharpness ≈ 0`
+  - Full averaged sustain (1.0) → `bodyFullness = 1`
+  - Zero averaged sustain (0.0) → `bodyFullness = 0`
+  - Long averaged release (8.0 s) → `baseFlare ≈ 1`
+  - Short averaged release (0.001 s) → `baseFlare ≈ 0`
+
+## Technical Notes
+- **Input is `averagedADSR`, not `audioAttributes.adsr`:** `averagedADSR` is the gain-weighted average of all layers' envelopes (per-layer overrides included). A robot with per-layer ADSR overrides will have a different silhouette from one using only the master — accurately reflecting its composite sound.
+- **Call order inside `deriveVisualAudioMap`:** `averagedADSR` must be computed before `deriveShapeParamsFromADSR` is called. The existing implementation already computes `averagedADSR` first — the new call is appended in the same function before the return.
+- **Pure function requirement:** `deriveShapeParamsFromADSR` must be pure — same input always produces same output. No async, no side effects.
+- **Existing fields are untouched:** `scale` (pitch-derived) and `detail` (filter-derived) remain as-is.
+- **Spawn-time consistency:** `deriveVisualAudioMap` is called at spawn time and on ADSR commit. The four new shape params are present on all robots from first spawn — no migration shim needed.
+
+## Acceptance Criteria
+- [ ] `ShapeParams` exports `attackSharpness`, `decayDrop`, `bodyFullness`, `baseFlare` (all `number`, 0..1).
+- [ ] `deriveShapeParamsFromADSR` accepts `averagedADSR: ADSREnvelope` (not the master ADSR); is a pure exported function; all six boundary-case unit tests pass.
+- [ ] `deriveVisualAudioMap` passes `averagedADSR` into `deriveShapeParamsFromADSR` and merges the four new fields into `shapeParams`; existing `scale`, `roundness`, `detail` unchanged.
+- [ ] TypeScript compiles with no errors.
+- [ ] No regression in existing tests.
+
+## Source Reference
+- Files: `src/types/layeredAudio.ts` (`ShapeParams`), `src/components/robot/robotVisualMapper.ts` (`deriveVisualAudioMap`, `deriveShapeParamsFromADSR`)
+- Copilot instructions: "Visual Mapping: Robot visuals (shape/color) must map strictly to audio attributes (synth/ADSR/phase/detune) as defined in ROBOT_DESIGN.md."
+
+---
+
+<!-- ============================================================ -->
+<!-- ISSUE 14.d.2: RobotBody.tsx SVG geometry + ROBOT_DESIGN.md  -->
+<!-- ============================================================ -->
+
+## [M8.3-14.d.2] `RobotBody.tsx` SVG geometry application & `ROBOT_DESIGN.md` documentation
+
+## Feature Description
+Read the four new `shapeParams` fields introduced in **14.d.1** and apply them as secondary modifiers to `RobotBody.tsx` SVG path geometry via `lerp()` helpers. Update `ROBOT_DESIGN.md` with the normalisation table. No new types or store changes — this issue is purely visual.
+
+Depends on: **14.d.1** (`ShapeParams` must export the four new fields and `deriveShapeParamsFromADSR` must be wired into `deriveVisualAudioMap`).
+
+## Implementation Details
+- [ ] **Update `RobotBody.tsx`** to read `attackSharpness`, `decayDrop`, `bodyFullness`, and `baseFlare` from `shapeParams` and apply them to SVG path geometry using inline `lerp(a, b, t)` helpers (no GSAP — static geometry):
+  - `attackSharpness` → interpolate the robot head SVG path between a rounded arc (`t=0`) and a sharp chevron/peak (`t=1`).
+  - `decayDrop` → control the shoulder curve radius below the head (gradual slope vs. tight taper).
+  - `bodyFullness` → scale the torso `rx` (or equivalent horizontal extent of the body ellipse/rect).
+  - `baseFlare` → interpolate the base/legs between a narrow rectangle (`t=0`) and a trapezoidal/bell flare (`t=1`).
+  - Stay within the existing per-variant SVG path system; do not break the four shape variants (`RobotSleek`, `RobotAngular`, `RobotOrganic`, `RobotIndustrial`). Apply the four params as secondary modifiers on top of the base variant shape.
+- [ ] **Update `ROBOT_DESIGN.md`** — add a table documenting the four new `shapeParams` fields, that the input is `averagedADSR` (not master ADSR), and the normalisation formula for each.
+
+## Technical Notes
+- **No GSAP:** SVG interpolation uses simple `lerp(a, b, t)` calls. Shape is static geometry recomputed on render from store values.
+- **Secondary modifiers only:** the four params layer on top of the base variant shape; they do not replace or remove any existing per-variant geometry.
+- **All four variants must remain intact:** verify `RobotSleek`, `RobotAngular`, `RobotOrganic`, and `RobotIndustrial` each render correctly at the boundary values (`t=0` and `t=1`) for all four params.
+
+## Acceptance Criteria
+- [ ] `RobotBody.tsx` applies all four params to SVG geometry; a robot with a fast averaged attack is visually distinct from one with a slow averaged attack.
+- [ ] All four shape variants remain intact; new params are secondary modifiers.
+- [ ] `ROBOT_DESIGN.md` documents the four new fields, their `averagedADSR` source, and normalisation formulas.
+- [ ] TypeScript compiles with no errors.
+- [ ] No regression in existing robot visuals, audio playback, or passing tests.
+
+## Source Reference
+- Files: `src/components/robot/RobotBody.tsx`, `docs/ROBOT_DESIGN.md`
+- Copilot instructions: "Visual Mapping: Robot visuals (shape/color) must map strictly to audio attributes (synth/ADSR/phase/detune) as defined in ROBOT_DESIGN.md."
