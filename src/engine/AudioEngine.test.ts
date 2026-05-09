@@ -179,10 +179,9 @@ describe('AudioEngine.reReserveVoice', () => {
                 waveform: 'sine',
                 adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.5 },
                 filterFreq: 1200,
-                visualAudioMap: { layeredWave: { base: 'sine', layers: [{ type: 'sine' }] } },
+                layers: [{ type: 'sine', pulseWidth: 0.42 }],
                 phase: 37,
                 detune: 5,
-                pulseWidth: 0.42,
               },
             },
           ],
@@ -199,7 +198,7 @@ describe('AudioEngine.reReserveVoice', () => {
     expect(releaseSpy).toHaveBeenCalledWith('r1');
     expect(reserveSpy).toHaveBeenCalledWith(
       'r1',
-      expect.objectContaining({ base: 'sine' }),
+      expect.arrayContaining([expect.objectContaining({ type: 'sine' })]),
       37,
       5,
       0.42,
@@ -215,7 +214,7 @@ let merged_useLocaleStore: any;
 let merged_DEFAULT_LOCALE_ID: string;
 
 describe('AudioEngine - Polyphony Management', () => {
-  const TEST_LAYERED = { base: 'sine', layers: [{ type: 'sine', gain: 0.8 }] } as unknown as import('../types/layeredAudio').LayeredWave;
+  const TEST_LAYERED = { base: 'sine', layers: [{ type: 'sine', gain: 0.8 }] } as any;
 
   beforeEach(async () => {
     // Reset modules to clear state between tests
@@ -368,10 +367,10 @@ describe('AudioEngine - audioMode enforcement (solo/mute/highlight)', () => {
 
     await AudioEngine.start();
 
-    // Reserve composite voices for both robots
-    const layered = { base: 'sine', layers: [{ type: 'sine', gain: 0.8 }] } as unknown as import('../types/layeredAudio').LayeredWave;
-    AudioEngine.reserveVoice('r-muted', layered);
-    AudioEngine.reserveVoice('r-other', layered);
+    // Reserve composite voices for both robots using canonical layers array
+    const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0 }];
+    AudioEngine.reserveVoice('r-muted', layered as any);
+    AudioEngine.reserveVoice('r-other', layered as any);
 
     // Clear prior calls on created Synth instances
     const synthResults = (Tone.Synth as unknown as any).mock.results;
@@ -415,10 +414,10 @@ describe('AudioEngine - audioMode enforcement (solo/mute/highlight)', () => {
 
     await AudioEngine.start();
 
-    // Reserve composite voices
-    const layered = { base: 'sine', layers: [{ type: 'sine', gain: 0.8 }] } as unknown as import('../types/layeredAudio').LayeredWave;
-    AudioEngine.reserveVoice('r-solo', layered);
-    AudioEngine.reserveVoice('r-other2', layered);
+    // Reserve composite voices using canonical layers array
+    const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0 }];
+    AudioEngine.reserveVoice('r-solo', layered as any);
+    AudioEngine.reserveVoice('r-other2', layered as any);
 
     const synthResults = (Tone.Synth as unknown as any).mock.results;
     synthResults.forEach((r: any) => r.value?.triggerAttackRelease?.mockClear());
@@ -457,10 +456,10 @@ describe('AudioEngine - audioMode enforcement (solo/mute/highlight)', () => {
 
     await AudioEngine.start();
 
-    // Reserve composite voices
-    const layered = { base: 'sine', layers: [{ type: 'sine', gain: 0.8 }] } as unknown as import('../types/layeredAudio').LayeredWave;
-    AudioEngine.reserveVoice('r-h', layered);
-    AudioEngine.reserveVoice('r-nh', layered);
+    // Reserve composite voices using canonical layers array
+    const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0 }];
+    AudioEngine.reserveVoice('r-h', layered as any);
+    AudioEngine.reserveVoice('r-nh', layered as any);
 
     const synthResults = (Tone.Synth as unknown as any).mock.results;
     synthResults.forEach((r: any) => r.value?.triggerAttackRelease?.mockClear());
@@ -649,8 +648,8 @@ describe('AudioEngine - Reservation & Isolation (focused)', () => {
   it('reserves a voice and getVoiceForRobot returns a synth', async () => {
     const { AudioEngine } = await import('./AudioEngine');
     await AudioEngine.start();
-    const layered = { base: 'sine', layers: [{ type: 'sine', gain: 0.8 }] } as unknown as import('../types/layeredAudio').LayeredWave;
-    const ok = AudioEngine.reserveVoice('robot-test-1', layered);
+    const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0 }];
+    const ok = AudioEngine.reserveVoice('robot-test-1', layered as any);
     expect(ok).toBe(true);
     const synth = AudioEngine.getVoiceForRobot('robot-test-1');
     expect(synth).not.toBeNull();
@@ -665,8 +664,8 @@ describe('AudioEngine - Reservation & Isolation (focused)', () => {
   it('triggers when composite voice is reserved', async () => {
     const { AudioEngine } = await import('./AudioEngine');
     await AudioEngine.start();
-    const layered = { base: 'sine', layers: [{ type: 'sine', gain: 0.8 }] } as unknown as import('../types/layeredAudio').LayeredWave;
-    const ok = AudioEngine.reserveVoice('robot-test-2', layered);
+    const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0 }];
+    const ok = AudioEngine.reserveVoice('robot-test-2', layered as any);
     expect(ok).toBe(true);
     const { triggerWithCap } = await import('./AudioEngine');
     const result = triggerWithCap({ robotId: 'robot-test-2', note: 'C4', duration: '8n' });
@@ -683,8 +682,8 @@ describe('AudioEngine - Composite Voices (Layered)', () => {
   it('can reserve a composite voice from a LayeredWave descriptor', async () => {
     const { AudioEngine } = await import('./AudioEngine');
     await AudioEngine.start();
-    const layered = { base: 'sine', layers: [{ type: 'sine', gain: 0.8 }] } as unknown as import('../types/layeredAudio').LayeredWave;
-    const ok = AudioEngine.reserveVoice('composite-robot-1', layered);
+    const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0 }];
+    const ok = AudioEngine.reserveVoice('composite-robot-1', layered as any);
     expect(ok).toBe(true);
     const voice = AudioEngine.getVoiceForRobot('composite-robot-1');
     expect(voice).not.toBeNull();
@@ -693,8 +692,8 @@ describe('AudioEngine - Composite Voices (Layered)', () => {
   it('triggerWithCap uses composite voice when reserved and returns true', async () => {
     const { AudioEngine, triggerWithCap } = await import('./AudioEngine');
     await AudioEngine.start();
-    const layered = { base: 'sine', layers: [{ type: 'sine', gain: 0.6 }] } as unknown as import('../types/layeredAudio').LayeredWave;
-    const ok = AudioEngine.reserveVoice('composite-robot-2', layered);
+    const layered: any[] = [{ type: 'sine', gain: 0.6, detune: 0, phase: 0 }];
+    const ok = AudioEngine.reserveVoice('composite-robot-2', layered as any);
     expect(ok).toBe(true);
     const result = triggerWithCap({ robotId: 'composite-robot-2', note: 'C4', duration: '8n', time: 0 });
     expect(result).toBe(true);
@@ -703,8 +702,8 @@ describe('AudioEngine - Composite Voices (Layered)', () => {
   it('releases composite and cleans up internal maps on releaseVoice', async () => {
     const { AudioEngine } = await import('./AudioEngine');
     await AudioEngine.start();
-    const layered = { base: 'sine', layers: [{ type: 'sine', gain: 0.6 }] } as unknown as import('../types/layeredAudio').LayeredWave;
-    const ok = AudioEngine.reserveVoice('composite-robot-3', layered);
+    const layered: any[] = [{ type: 'sine', gain: 0.6, detune: 0, phase: 0 }];
+    const ok = AudioEngine.reserveVoice('composite-robot-3', layered as any);
     expect(ok).toBe(true);
     // ensure voice exists
     let voice = AudioEngine.getVoiceForRobot('composite-robot-3');

@@ -4,21 +4,21 @@ import { RobotSleek } from '../robot/RobotSleek';
 import { RobotOrganic } from '../robot/RobotOrganic';
 import { RobotAngular } from '../robot/RobotAngular';
 import { RobotIndustrial } from '../robot/RobotIndustrial';
-import type { LayeredWave } from '../../types/layeredAudio';
+import type { OscillatorLayer, VisualAudioMap } from '../../types/layeredAudio';
 
 const WAVEFORMS = ['sine', 'square', 'triangle', 'sawtooth'] as const;
 type Waveform = typeof WAVEFORMS[number];
 
 export function AudioVisualInspector(): React.ReactElement {
-  const [base, setBase] = useState<LayeredWave['base']>('sine');
+  const [base, setBase] = useState<Waveform>('sine');
   const [numLayers, setNumLayers] = useState(2);
-  const [layers, setLayers] = useState(() =>
-    Array.from({ length: 3 }, (_, i) => ({ type: WAVEFORMS[i % WAVEFORMS.length], gain: 0.6 + i * 0.2 }))
+  const [layers, setLayers] = useState<OscillatorLayer[]>(() =>
+    Array.from({ length: 3 }, (_, i) => ({ type: WAVEFORMS[i % WAVEFORMS.length], gain: 0.6 + i * 0.2, detune: 0, phase: 0 }))
   );
 
-  const vm: LayeredWave = useMemo(() => ({ base, layers: layers.slice(0, numLayers) }), [base, layers, numLayers]);
+  const vm: VisualAudioMap = useMemo(() => ({ averagedGain: layers.reduce((s, l) => s + (l.gain ?? 1), 0) / numLayers, layerVisuals: layers.slice(0, numLayers).map(() => ({ color: undefined })) }), [layers, numLayers]);
 
-  const mapped = mapVisualAudioToProps({ layeredWave: vm, averagedGain: layers.reduce((s, l) => s + (l.gain ?? 1), 0) / numLayers, shapeParams: undefined });
+  const mapped = mapVisualAudioToProps(vm);
 
   function setLayerGain(index: number, value: number) {
     setLayers((prev) => prev.map((l, i) => (i === index ? { ...l, gain: value } : l)));

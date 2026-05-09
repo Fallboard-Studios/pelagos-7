@@ -42,6 +42,7 @@ export const useLocaleStore = create<LocaleState>((set, get) => ({
 
   addLocale: (planetId, locale) => {
     const toAdd: Locale = { ...locale, planetId };
+    
     set((state) => ({ locales: { ...state.locales, [toAdd.id]: toAdd } }));
     const planet = usePlanetStore.getState().planets.find((p) => p.id === planetId);
     if (planet) {
@@ -50,13 +51,15 @@ export const useLocaleStore = create<LocaleState>((set, get) => ({
   },
 
   setLocaleData: (localeId, partial) => {
+    const cloned = { ...partial } as Partial<Locale>;
+
     set((state) => {
       const existing = state.locales[localeId];
       if (!existing) return state;
       return {
         locales: {
           ...state.locales,
-          [localeId]: { ...existing, ...partial },
+          [localeId]: { ...existing, ...cloned },
         },
       };
     });

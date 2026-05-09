@@ -7,7 +7,7 @@ import { useLocaleStore } from '../stores/localeStore';
 import { getActiveLocaleId } from '../utils/localeHelpers';
 
 import type { NoteDuration, WaveformType, Robot } from '../types/Robot';
-import type { LayeredWave, LayerDescriptor } from '../types/layeredAudio';
+import type { OscillatorLayer } from '../types/layeredAudio';
 import type { ReverbSettings, DelaySettings, ChorusSettings, FilterSettings, EQ3Settings, CompressorSettings } from '../types/globalAudio';
 import { getAvailableNotes, scheduleHarmonyCycle, stopHarmonyCycle } from './harmonySystem';
 import { resetBeatClock, subscribeToMeasure, initBeatClock } from './beatClock';
@@ -138,7 +138,7 @@ const robotAttributeCache = new Map<string, { masterVolume: number }>();
 interface CompositeVoice {
   output: Tone.Gain;
   triggerAttackRelease: (note: string, dur: NoteDuration | string, time?: number, velocity?: number) => void;
-  set: (params: { layers?: Partial<LayerDescriptor>[]; outputGain?: number }) => void;
+  set: (params: { layers?: Partial<OscillatorLayer>[]; outputGain?: number }) => void;
   dispose?: () => void;
 }
 
@@ -336,14 +336,14 @@ async function loadInstruments(): Promise<void> {
       if (DEV_TUNING) console.log(`[AudioEngine] Attempting post-load reservations for ${robots.length} robots`);
       robots.forEach((robot: Robot) => {
         try {
-          const layered = (robot.audioAttributes as unknown as { visualAudioMap?: { layeredWave?: LayeredWave } })?.visualAudioMap?.layeredWave;
-          if (layered) {
+          const layers = (robot.audioAttributes as unknown as { layers?: OscillatorLayer[] })?.layers;
+          if (Array.isArray(layers) && layers.length > 0) {
             const ok = AudioEngine.reserveVoice(
               robot.id,
-              layered as LayeredWave,
+              layers,
               robot.audioAttributes?.phase,
               robot.audioAttributes?.detune,
-              robot.audioAttributes?.pulseWidth,
+              (robot.audioAttributes as unknown as { layers?: OscillatorLayer[] })?.layers?.[0]?.pulseWidth,
             );
             if (DEV_TUNING) console.log(`[AudioEngine] Post-load reserve for ${robot.id}: ${ok ? 'OK' : 'FAILED'}`);
           }
@@ -755,7 +755,7 @@ export const AudioEngine = {
    */
   reserveVoice(
     robotId: string,
-    descriptor: LayeredWave,
+    descriptor: OscillatorLayer[] | { base?: WaveformType; layers?: OscillatorLayer[] },
     phase?: number,
     detune?: number,
     pulseWidth?: number,
@@ -790,13 +790,16 @@ export const AudioEngine = {
       // Apply optional top-level detune/phase/pulseWidth across composite layers when provided
       try {
         if (typeof detune === 'number' || typeof phase === 'number' || typeof pulseWidth === 'number') {
-          const layersParam = (descriptor.layers ?? [{ type: descriptor.base }]).map((l) => ({
+              const effectiveLayers = Array.isArray(descriptor)
+            ? descriptor
+            : (descriptor.layers && descriptor.layers.length > 0 ? descriptor.layers : [{ type: descriptor.base ?? 'sine', gain: 1, detune: 0, phase: 0 } as OscillatorLayer]);
+          const layersParam = effectiveLayers.map((l) => ({
             type: l.type,
             detune: typeof detune === 'number' ? (l.detune ?? 0) + detune : undefined,
             phase: typeof phase === 'number' ? phase : undefined,
             pulseWidth: typeof pulseWidth === 'number' ? pulseWidth : l.pulseWidth,
           }));
-          composite.set({ layers: layersParam });
+          composite.set({ layers: layersParam as Partial<OscillatorLayer>[] });
         }
       } catch (e) {
         if (DEV_TUNING) console.warn('[AudioEngine] Failed to apply composite phase/detune/width at reservation time', e);
@@ -861,17 +864,16 @@ export const AudioEngine = {
       const state = useLocaleStore.getState();
       const robot = state.locales[getActiveLocaleId()]?.robots.find((r: { id: string }) => r.id === robotId);
       if (!robot) return false;
-
-      const layered = (robot.audioAttributes as unknown as { visualAudioMap?: { layeredWave?: LayeredWave } })?.visualAudioMap?.layeredWave;
-      if (!layered) return false;
+      const layers = (robot.audioAttributes as unknown as { layers?: OscillatorLayer[] })?.layers;
+      if (!Array.isArray(layers) || layers.length === 0) return false;
 
       AudioEngine.releaseVoice(robotId);
       return AudioEngine.reserveVoice(
         robotId,
-        layered as LayeredWave,
+        layers,
         robot.audioAttributes?.phase,
         robot.audioAttributes?.detune,
-        robot.audioAttributes?.pulseWidth,
+        (robot.audioAttributes as unknown as { layers?: OscillatorLayer[] })?.layers?.[0]?.pulseWidth,
       );
     } catch (err) {
       if (DEV_TUNING) swallow(err, 'AudioEngine.reReserveVoice');
@@ -885,7 +887,7 @@ export const AudioEngine = {
    * The returned object exposes an `output` node which the caller should connect
    * into the global audio graph (panner/effects), plus `triggerAttackRelease` and `set`.
    */
-  createCompositeVoice(descriptor: LayeredWave): CompositeVoice {
+  createCompositeVoice(descriptor: OscillatorLayer[] | { base?: WaveformType; layers?: OscillatorLayer[] }): CompositeVoice {
     const GainCtor = toneRecord.Gain as unknown as (new (...args: unknown[]) => unknown) || undefined;
     const OutGain = GainCtor ? new (GainCtor as unknown as (new (...args: unknown[]) => Tone.Gain))(1) : (() => {
       // Minimal fallback gain node for test environments where Tone.Gain isn't mocked
@@ -899,9 +901,11 @@ export const AudioEngine = {
     })();
     const out = OutGain as unknown as Tone.Gain;
 
-    const layers = descriptor.layers && descriptor.layers.length > 0
-      ? descriptor.layers
-      : [{ type: descriptor.base } as LayerDescriptor];
+    const layers: OscillatorLayer[] = Array.isArray(descriptor)
+      ? descriptor
+      : (descriptor.layers && descriptor.layers.length > 0
+        ? descriptor.layers
+        : (descriptor.base ? [{ type: descriptor.base, gain: 1, detune: 0, phase: 0 } as OscillatorLayer] : []));
 
     const layerNodes = layers.map((layer) => {
       let synth: Tone.Synth | Tone.NoiseSynth | null;
@@ -1045,7 +1049,7 @@ export const AudioEngine = {
       });
     };
 
-    const set = (params: { layers?: Partial<LayerDescriptor>[]; outputGain?: number }) => {
+    const set = (params: { layers?: Partial<OscillatorLayer>[]; outputGain?: number }) => {
       if (params.outputGain !== undefined) out.gain.value = params.outputGain;
       if (params.layers) {
         params.layers.forEach((p) => {

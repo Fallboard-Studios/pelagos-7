@@ -106,12 +106,11 @@ describe('spawnSystem', () => {
       expect(uniqueAttacks.size).toBeGreaterThan(10); // Should have variety
     });
 
-    it('creates layeredWave with 1..3 layers and shapeParams in range', () => {
+    it('creates layers with 1..MAX_LAYERS and shapeParams in range', () => {
       const attrs = generateAudioAttributes(mockNoiseMap, 0);
       const vm = attrs.visualAudioMap;
       expect(vm).toBeDefined();
-      expect(vm?.layeredWave).toBeDefined();
-      const layers = vm?.layeredWave?.layers ?? [];
+      const layers = attrs.layers ?? [];
       expect(layers.length).toBeGreaterThanOrEqual(1);
       expect(layers.length).toBeLessThanOrEqual(5);
       // averagedADSR should be within ADSR_MAX-derived bounds
@@ -133,12 +132,11 @@ describe('spawnSystem', () => {
       // deterministicNoiseMap always returns -1, mapping every getSeededVal to its min.
       // numLayers = 1 + floor(0) = 1; all ADSR values = their respective minimums.
       const attrs = generateAudioAttributes(deterministicNoiseMap, 0);
-      const vm = attrs.visualAudioMap!;
-      const layers = vm.layeredWave?.layers ?? [];
+      const layers = attrs.layers ?? [];
       // With noiseMap always -1 we always get exactly 1 layer
       expect(layers.length).toBe(1);
       const layerAdsr = layers[0].adsr!;
-      const avg = vm.averagedADSR!;
+      const avg = attrs.visualAudioMap!.averagedADSR!;
       // Gain-weighted average of a single layer equals that layer's own values
       expect(avg.attack).toBeCloseTo(layerAdsr.attack as number, 6);
       expect(avg.decay).toBeCloseTo(layerAdsr.decay as number, 6);
