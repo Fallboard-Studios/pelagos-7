@@ -1,5 +1,5 @@
 import type { Vec2 } from './Vec2';
-import type { VisualAudioMap } from './layeredAudio';
+import type { VisualAudioMap, OscillatorLayer } from './layeredAudio';
 
 /**
  * Note duration values for Tone.js scheduling
@@ -52,14 +52,16 @@ export interface AudioAttributes {
   /** Seeded octave register [min, max] — populated at spawn time via generateAudioAttributes */
   octaveRange?: [number, number];
   filterFreq: number;  // Hz (cutoff frequency, 0 = no filter)
+  /** Canonical ordered list of oscillator layers (index 0 is base) */
+  layers?: OscillatorLayer[];
   waveform: WaveformType; // Oscillator shape applied once at voice reservation time
   /** Phase in degrees (0..360) applied to oscillator at reservation time */
   /** Phase in degrees (0..360) applied to oscillator at reservation time */
   phase?: number; // degrees (0..360)
   /** Detune in cents (e.g. -100..100) applied to synth at reservation time */
   detune?: number; // cents (e.g. -100..100)
-  /** Pulse width (0..1) for pulse/square oscillators. Default: 0.5 (50% duty) */
-  pulseWidth?: number; // 0..1
+  /** Deprecated: pulseWidth moved to per-layer `layers[].pulseWidth`. */
+  // pulseWidth?: number; // removed in favor of per-layer pulseWidth
   /** Optional compact visual/audio mapping produced at spawn time and stored on the robot */
   visualAudioMap?: VisualAudioMap;
 }

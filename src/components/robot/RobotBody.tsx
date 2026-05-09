@@ -3,7 +3,7 @@
 // ========================================
 import { memo, useMemo } from 'react';
 
-import type { Robot } from '../../types/Robot';
+import type { Robot, AudioAttributes } from '../../types/Robot';
 import {
   selectRobotShape,
   generateColors,
@@ -42,10 +42,14 @@ export const RobotBody = memo(function RobotBody({ robot }: RobotBodyProps) {
   const lightnessMultiplier = 0.5 + 0.5 * Math.sin(((localTime - 6) / 24) * Math.PI * 2);
 
   const visual = useMemo(() => {
-    const { adsr, filterFreq, visualAudioMap, waveform } = robot.audioAttributes;
+    const { adsr, filterFreq, visualAudioMap } = robot.audioAttributes;
     const octaveRange = robot.audioAttributes.octaveRange ?? robot.octaveRange;
 
-    const baseColors = generateColors(robot.audioAttributes);
+    const layerType = robot.audioAttributes.layers?.[0]?.type;
+    const waveform = (layerType && layerType !== 'noise' ? layerType : robot.audioAttributes.waveform) as import('../../types/Robot').WaveformType;
+    const attrsForColor = { ...robot.audioAttributes, waveform } as AudioAttributes;
+
+    const baseColors = generateColors(attrsForColor);
     const colors = applyLightnessMultiplier(baseColors, lightnessMultiplier);
 
     // Prefer the spawn-time visualAudioMap via mapper when available.

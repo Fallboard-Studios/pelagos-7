@@ -4,11 +4,11 @@
 import alea from 'alea';
 import type { NoiseFunction2D } from 'simplex-noise';
 import type { Vec2 } from '../types/Vec2';
-import type { Robot, AudioAttributes, WaveformType } from '../types/Robot';
+import type { AudioAttributes, WaveformType, Robot } from '../types/Robot';
 import { RobotState } from '../types/Robot';
 import { generateMelodyForRobot, DEFAULT_RHYTHMIC_DENSITY } from '../engine/melodyGenerator';
 import { AudioEngine } from '../engine/AudioEngine';
-import type { LayeredWave, LayerDescriptor } from '../types/layeredAudio';
+import type { OscillatorLayer } from '../types/layeredAudio';
 import { scheduleRepeat, cancelSchedule } from '../engine/beatClock';
 import { DEV_TUNING } from '../constants';
 import useLocaleStore from '../stores/localeStore';
@@ -39,7 +39,7 @@ const SUSTAIN_RANGE = { min: 0.0, max: 1.0 };
 const RELEASE_RANGE = { min: 0.1, max: 5.0 };
 
 // M7.4: Layered presets and normalization constants
-const MAX_LAYERS = 5;
+const MAX_LAYERS = 4;
 const ADSR_MAX = { attack: 2, decay: 2, sustain: 1, release: 5 };
 
 // Octave registers — seed directly without Hz indirection
@@ -207,14 +207,15 @@ export function generateAudioAttributes(noiseMap: NoiseFunction2D, offset: numbe
   const clamp = (v: number) => Math.max(0, Math.min(1, v));
 
   const numLayers = 1 + Math.floor(getSeededVal(noiseMap, 'robot.audio.numLayers', offset, 0, MAX_LAYERS)); // 1..MAX_LAYERS
-  const layers: LayeredWave['layers'] = [];
+  const layers: OscillatorLayer[] = [];
   for (let i = 0; i < numLayers; i++) {
     const layerOffset = offset * 10 + i;
     const isNoise = getSeededVal(noiseMap, 'robot.audio.layer.isNoise', layerOffset, 0, 1) < 0.18;
-    const layerWave: LayerDescriptor = {
+    const layerWave: OscillatorLayer = {
       type: isNoise ? 'noise' : WAVEFORMS[Math.floor(getSeededVal(noiseMap, 'robot.audio.layer.waveform', layerOffset, 0, WAVEFORMS.length))],
       gain: getSeededVal(noiseMap, 'robot.audio.layer.gain', layerOffset, 0.2, 1.2),
       detune: getSeededVal(noiseMap, 'robot.audio.layer.detune', layerOffset, -2, 2),
+      phase: Math.floor(getSeededVal(noiseMap, 'robot.audio.layer.phase', layerOffset, 0, 361)) || 0,
       adsr: {
         attack: getSeededVal(noiseMap, 'robot.audio.layer.attack', layerOffset, ATTACK_RANGE.min, ATTACK_RANGE.max),
         decay: getSeededVal(noiseMap, 'robot.audio.layer.decay', layerOffset, DECAY_RANGE.min, DECAY_RANGE.max),
@@ -273,7 +274,6 @@ export function generateAudioAttributes(noiseMap: NoiseFunction2D, offset: numbe
   const detail = clamp(averagedNorm.release);
 
   const visualAudioMap = {
-    layeredWave: { base: waveform, layers },
     averagedADSR,
     averagedGain,
     shapeParams: { scale, roundness, detail },
@@ -288,7 +288,8 @@ export function generateAudioAttributes(noiseMap: NoiseFunction2D, offset: numbe
   const rawPulse = getSeededVal(noiseMap, 'robot.audio.pulseWidth', offset, 0.05, 0.95);
   const pulseWidth = Math.max(0.01, Math.min(0.99, rawPulse));
 
-  return { adsr, octaveRange, filterFreq, waveform, visualAudioMap, phase, detune, pulseWidth };
+  // Include `layers` as the canonical audio description. Flat fields are left for compatibility.
+  return { adsr, octaveRange, filterFreq, waveform, visualAudioMap, phase, detune, pulseWidth, layers } as AudioAttributes;
 }
 
 /**
@@ -401,16 +402,16 @@ export function spawnRobot(localeId: string): void {
 
   const spawnMelody = generateMelodyForRobot({ octaveMin: octaveRange[0], octaveMax: octaveRange[1], onsetCount: DEFAULT_RHYTHMIC_DENSITY, rand: melodyRand });
 
-  // Seeded direction: 50/50 left or right
-  const spawnDirection: 'left' | 'right' =
-    (noiseMap ? getSeededVal(noiseMap, 'robot.direction', spawnCount, 0, 1) : alea(`${localeId}:${spawnCount}:dir`)()) < 0.5
-      ? 'left' : 'right';
+    // (Removed stray duplicate layer-generation fragment that caused a parsing error.)
+
+  const position = noiseMap ? generateSpawnPosition(noiseMap, spawnCount) : generateSpawnPosition((_x: number, _y: number) => 0 as number, spawnCount);
+  const spawnDirection: 'left' | 'right' = position.x < (WORLD_WIDTH / 2) ? 'left' : 'right';
 
   const robot: Robot = {
     id: crypto.randomUUID(),
     name: noiseMap ? generateRobotName(noiseMap, spawnCount) : generateRobotName((_x: number, _y: number) => 0 as number, spawnCount),
     state: RobotState.Idle,
-    position: noiseMap ? generateSpawnPosition(noiseMap, spawnCount) : generateSpawnPosition((_x: number, _y: number) => 0 as number, spawnCount),
+    position,
     destination: null,
     direction: spawnDirection,
     melody: spawnMelody,
@@ -447,10 +448,10 @@ export function spawnRobot(localeId: string): void {
   AudioEngine.unregisterRobotMelody(robot.id);
   // Reserve a voice for this robot (best-effort) so its timbre/adsr are isolated.
   // Waveform is applied once here on the idle slot — no mid-playback oscillator rebuilds.
-    try {
-    const layered = (robot.audioAttributes as unknown as { visualAudioMap?: { layeredWave?: LayeredWave } })?.visualAudioMap?.layeredWave as LayeredWave | undefined;
-    if (layered) {
-      AudioEngine.reserveVoice(robot.id, layered, robot.audioAttributes.phase, robot.audioAttributes.detune, robot.audioAttributes.pulseWidth);
+  try {
+    const layers = (robot.audioAttributes as unknown as { layers?: OscillatorLayer[] })?.layers;
+    if (Array.isArray(layers) && layers.length > 0) {
+      AudioEngine.reserveVoice(robot.id, layers, robot.audioAttributes.phase, robot.audioAttributes.detune, layers[0]?.pulseWidth);
     }
   } catch (err) {
     if (DEV_TUNING) console.warn('[SpawnSystem] reserveVoice failed', err);
@@ -475,9 +476,9 @@ export function reRegisterAllRobotsAudio(localeId: string): void {
   robots.forEach((robot) => {
     AudioEngine.releaseVoice(robot.id);
     try {
-      const layered = (robot.audioAttributes as unknown as { visualAudioMap?: { layeredWave?: LayeredWave } })?.visualAudioMap?.layeredWave as LayeredWave | undefined;
-      if (layered) {
-        AudioEngine.reserveVoice(robot.id, layered, robot.audioAttributes.phase, robot.audioAttributes.detune, robot.audioAttributes.pulseWidth);
+      const layers = (robot.audioAttributes as unknown as { layers?: OscillatorLayer[] })?.layers;
+      if (Array.isArray(layers) && layers.length > 0) {
+        AudioEngine.reserveVoice(robot.id, layers, robot.audioAttributes.phase, robot.audioAttributes.detune, layers[0]?.pulseWidth);
       }
     } catch (err) {
       if (DEV_TUNING) console.warn('[SpawnSystem] reRegisterAllRobotsAudio: reserveVoice failed for', robot.id, err);

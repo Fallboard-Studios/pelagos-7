@@ -2,7 +2,7 @@
 // IMPORTS
 // ========================================
 import type { Robot, MelodyEvent } from '../types/Robot';
-import type { LayeredWave } from '../types/layeredAudio';
+import type { OscillatorLayer } from '../types/layeredAudio';
 import useLocaleStore from '../stores/localeStore';
 import { AudioEngine } from '../engine/AudioEngine';
 import { DEV_TUNING } from '../constants';
@@ -82,18 +82,16 @@ function reReserveVoice(robot: Robot): void {
     if (DEV_TUNING) swallow(err, '[LinkPropagation] releaseVoice');
   }
   try {
-    const layered = (
-      robot.audioAttributes as unknown as {
-        visualAudioMap?: { layeredWave?: LayeredWave };
-      }
-    )?.visualAudioMap?.layeredWave as LayeredWave | undefined;
+    const layers = (
+      robot.audioAttributes as unknown as { layers?: OscillatorLayer[] }
+    )?.layers as OscillatorLayer[] | undefined;
 
-    if (layered) {
+    if (layers && layers.length > 0) {
       AudioEngine.reserveVoice(
         robot.id,
-        layered,
-        robot.audioAttributes.phase,
-        robot.audioAttributes.detune,
+        layers,
+        robot.audioAttributes?.phase,
+        robot.audioAttributes?.detune,
       );
     }
   } catch (err) {

@@ -8,20 +8,14 @@ export interface ADSTRaw {
   release?: number
 }
 
-/** Descriptor for a single layer within a layered wave */
-export interface LayerDescriptor {
+/** Canonical descriptor for a single oscillator layer */
+export interface OscillatorLayer {
   type: WaveformType | 'noise'
-  gain?: number
-  detune?: number // cents
-  phase?: number // degrees
+  gain: number // required: default 1.0 at creation
+  detune: number // cents (required; default 0)
+  phase: number // degrees (required; default 0)
   pulseWidth?: number // 0..1, meaningful for pulse/square oscillators
   adsr?: ADSTRaw
-}
-
-/** Compact layered wave descriptor stored on spawn */
-export interface LayeredWave {
-  base: WaveformType
-  layers?: LayerDescriptor[]
 }
 
 /** Small set of shape parameters derived from averaged audio values */
@@ -40,10 +34,11 @@ export interface LayerVisual {
 
 /** Visual mapping derived from audio for spawn-time storage on robots */
 export interface VisualAudioMap {
-  layeredWave?: LayeredWave
+  // Note: `layeredWave` removed — `audioAttributes.layers` is now canonical
   averagedADSR?: ADSREnvelope
   averagedGain?: number
   shapeParams?: ShapeParams
   layerVisuals?: LayerVisual[]
 }
+
 
