@@ -1,0 +1,8 @@
+.robot-oscillators { padding: 12px; }
+.robot-oscillators-header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.robot-oscillators-title { margin:0; font-size:16px; }
+.add-layer-btn { height:44px; min-width:88px; padding:0 12px; border-radius:6px; background-color:#eee; border:1px solid #ccc; cursor:not-allowed; }
+.layers-list { list-style: none; margin:12px 0 0 0; padding:0; }
+.layer-item, .layer-empty { padding:10px 8px; border-bottom:1px solid #f0f0f0; }
+.robot-oscillators-empty { padding:16px; color:#666; }
+.envelope-editor-mount { margin-top:16px; min-height:56px; }
