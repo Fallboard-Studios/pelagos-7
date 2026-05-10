@@ -2,7 +2,7 @@ import * as Tabs from '@radix-ui/react-tabs';
 
 import RobotMetaTab from './RobotMetaTab.tsx';
 import { RobotAudioTab } from './RobotAudioTab.tsx';
-import type { Robot } from '@/types/Robot';
+import RobotOscillatorsTab from './RobotOscillatorsTab.tsx';
 import { getActiveLocaleId } from '@/utils/localeHelpers';
 import { useUIStore } from '@/stores/uiStore';
 import { useLocaleStore } from '@/stores/localeStore';
@@ -57,7 +57,7 @@ export function RobotEditorTab() {
           </Tabs.Content>
 
           <Tabs.Content value="oscillators" className="tab-content">
-            {robot ? <RobotOscillatorsPanel robot={robot} /> : <div className="empty">Robot not found</div>}
+            <RobotOscillatorsTab />
           </Tabs.Content>
         </div>
       </Tabs.Root>
@@ -68,12 +68,5 @@ export function RobotEditorTab() {
 // Robot meta panel is implemented in its own file: RobotMetaTab.tsx
 // Robot audio panel is implemented in its own file: RobotAudioTab.tsx
 
-function RobotOscillatorsPanel({ robot }: { robot: Robot }) {
-  return (
-    <div className="robot-oscillators-panel">
-      <p>Oscillator settings for {robot.name ?? 'Unnamed Robot'} (placeholder)</p>
-    </div>
-  );
-}
-
 export default RobotEditorTab;
+
