@@ -399,6 +399,38 @@ describe('AudioEngine - audioMode enforcement (solo/mute/highlight)', () => {
     expect(foundOther).toBe(true);
   });
 
+  describe('AudioEngine.updateVoiceLayerParams', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('calls composite.set with provided layers when voice reserved', async () => {
+      vi.resetModules();
+      const { AudioEngine } = await import('./AudioEngine');
+
+      await AudioEngine.start();
+
+      const initialLayers: any[] = [{ type: 'sine', gain: 0.8 }];
+      AudioEngine.reserveVoice('v1', initialLayers as any);
+
+      const comp = AudioEngine.getVoiceForRobot('v1') as any;
+      const setSpy = vi.spyOn(comp, 'set');
+
+      const updatedLayers = [{ type: 'sine', gain: 0.5, detune: 3 }];
+      AudioEngine.updateVoiceLayerParams('v1', updatedLayers as any);
+
+      expect(setSpy).toHaveBeenCalledWith({ layers: expect.arrayContaining([expect.objectContaining({ type: 'sine' })]) });
+    });
+
+    it('no-ops (does not throw) when no voice reserved', async () => {
+      vi.resetModules();
+      const { AudioEngine } = await import('./AudioEngine');
+      await AudioEngine.start();
+
+      expect(() => AudioEngine.updateVoiceLayerParams('missing', [{ type: 'sine', gain: 0.5 } as any])).not.toThrow();
+    });
+  });
+
   it('enforces solo: only solo robot produces audio', async () => {
     const Tone = await import('tone');
     const { AudioEngine } = await import('./AudioEngine');

@@ -881,6 +881,34 @@ export const AudioEngine = {
     }
   },
 
+  /**
+   * Apply updated continuous-layer parameters to a reserved CompositeVoice
+   * without rebuilding the underlying node graph.
+   *
+   * Two-tier update rule (documented):
+   * - Continuous params (gain, detune, phase, pulseWidth): use this method — instant, no gap in audio.
+   * - Structural changes (type/waveform, add/delete layer): use `reReserveVoice` — may cause brief silence.
+   */
+  updateVoiceLayerParams(robotId: string, layers: OscillatorLayer[]): void {
+    try {
+      const entry = compositeVoices.get(robotId);
+      if (!entry) {
+        if (DEV_TUNING) console.warn(`[AudioEngine] updateVoiceLayerParams: no composite reserved for ${robotId}`);
+        return;
+      }
+
+      try {
+        // Pass the full layers array as required by the composite.set contract
+        entry.composite.set({ layers: layers as Partial<OscillatorLayer>[] });
+        if (DEV_TUNING) console.log(`[AudioEngine] updateVoiceLayerParams applied for ${robotId}`);
+      } catch (err) {
+        if (DEV_TUNING) console.warn('[AudioEngine] Failed to apply layer params on composite', err);
+      }
+    } catch (err) {
+      if (DEV_TUNING) swallow(err, 'AudioEngine.updateVoiceLayerParams');
+    }
+  },
+
 
   /**
    * Create a composite voice made of multiple layers (oscillators and optional noise).
