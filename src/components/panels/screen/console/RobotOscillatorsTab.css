@@ -6,3 +6,20 @@
 .layer-item, .layer-empty { padding:10px 8px; border-bottom:1px solid #f0f0f0; }
 .robot-oscillators-empty { padding:16px; color:#666; }
 .envelope-editor-mount { margin-top:16px; min-height:56px; }
+
+/* New styles for read-only layer rows */
+.layer-count-badge {
+	background: #eef6ff;
+	color: #0366d6;
+	padding: 2px 8px;
+	border-radius: 999px;
+	font-size: 12px;
+}
+.layer-summary { cursor: pointer; font-weight:600; }
+.layer-content { padding: 8px 12px; display:flex; flex-direction:column; gap:8px; }
+.field { display:flex; justify-content:space-between; gap:12px; }
+.label { color:#666; font-size:13px; }
+.value { color:#111; font-size:13px; }
+.adsr-details { margin-top:6px; }
+.adsr-content { padding:6px 0 0 0; display:flex; flex-direction:column; gap:6px; }
+.inherits-master { color:#666; margin:0; }

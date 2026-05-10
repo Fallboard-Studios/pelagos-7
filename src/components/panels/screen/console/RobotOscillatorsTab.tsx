@@ -28,7 +28,12 @@ export default function RobotOscillatorsTab() {
   return (
     <div className="robot-oscillators">
       <div className="robot-oscillators-header">
-        <h3 className="robot-oscillators-title">{robot.name ?? 'Unnamed Robot'}</h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <h3 className="robot-oscillators-title">{robot.name ?? 'Unnamed Robot'}</h3>
+          <span className="layer-count-badge" aria-hidden>
+            {layers.length}
+          </span>
+        </div>
         <button className="add-layer-btn" disabled>
           Add Layer
         </button>
@@ -38,9 +43,51 @@ export default function RobotOscillatorsTab() {
         {layers.length === 0 ? (
           <li className="layer-empty">No layers configured</li>
         ) : (
-          layers.map((_, idx) => (
+          layers.map((layer, idx) => (
             <li key={idx} className="layer-item">
-              {`Layer ${idx + 1}`}
+              <details>
+                <summary className="layer-summary">{`Layer ${idx + 1} — ${layer.type}`}</summary>
+                <div className="layer-content">
+                  <div className="field">
+                    <span className="label">Type</span>
+                    <span className="value">{layer.type}</span>
+                  </div>
+                  <div className="field">
+                    <span className="label">Gain</span>
+                    <span className="value">{layer.gain}</span>
+                  </div>
+                  <div className="field">
+                    <span className="label">Detune (cents)</span>
+                    <span className="value">{layer.detune}</span>
+                  </div>
+                  <div className="field">
+                    <span className="label">Phase (°)</span>
+                    <span className="value">{layer.phase}</span>
+                  </div>
+                  {(layer.type === 'pulse' || layer.type === 'square') && (
+                    <div className="field">
+                      <span className="label">Pulse Width</span>
+                      <span className="value">{typeof layer.pulseWidth === 'number' ? layer.pulseWidth : '—'}</span>
+                    </div>
+                  )}
+
+                  <details className="adsr-details">
+                    <summary>Envelope Override</summary>
+                    <div className="adsr-content">
+                      {layer.adsr ? (
+                        <>
+                          <div className="field"><span className="label">Attack</span><span className="value">{layer.adsr.attack ?? '—'}</span></div>
+                          <div className="field"><span className="label">Decay</span><span className="value">{layer.adsr.decay ?? '—'}</span></div>
+                          <div className="field"><span className="label">Sustain</span><span className="value">{layer.adsr.sustain ?? '—'}</span></div>
+                          <div className="field"><span className="label">Release</span><span className="value">{layer.adsr.release ?? '—'}</span></div>
+                        </>
+                      ) : (
+                        <p className="inherits-master">Inherits master</p>
+                      )}
+                    </div>
+                  </details>
+                </div>
+              </details>
             </li>
           ))
         )}
