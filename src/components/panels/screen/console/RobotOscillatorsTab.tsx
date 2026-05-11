@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import * as Select from '@radix-ui/react-select';
 import * as Switch from '@radix-ui/react-switch';
+import * as AlertDialog from '@radix-ui/react-alert-dialog';
 
 import { useUIStore } from '@/stores/uiStore';
 import { usePlanetStore } from '@/stores/planetStore';
@@ -45,15 +46,6 @@ interface LayerRowProps {
 // HELPERS
 // ========================================
 
-/**
- * Two-tier update rule (applied at all commit sites):
- *   Continuous params (gain, detune, phase, pulseWidth):
- *     updateRobot + AudioEngine.updateVoiceLayerParams — instant, no audio gap.
- *   Structural changes (type, ADSR override add/edit/reset):
- *     updateRobot + AudioEngine.reReserveVoice — brief silence expected.
- * Pass the full audioAttributes object; updateRobot performs a shallow merge
- * on the robot and will not deep-patch nested arrays without a full replacement.
- */
 function commitContinuous(
   robot: Robot,
   localeId: string,
@@ -296,6 +288,49 @@ function LayerRow({ layer, idx, robot, localeId, allLayers, updateRobot }: Layer
             </div>
           </details>
 
+          <div style={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end' }}>
+            <AlertDialog.Root>
+              <AlertDialog.Trigger asChild>
+                <button
+                  type="button"
+                  className="delete-layer-btn"
+                  disabled={allLayers.length <= 1}
+                  title={allLayers.length <= 1 ? 'At least one layer is required' : 'Delete this layer'}
+                  onClick={() => console.log('[RobotOscillatorsTab] delete trigger clicked', { robotId: robot.id, idx, layers: allLayers.length })}
+                >
+                  Delete
+                </button>
+              </AlertDialog.Trigger>
+              <AlertDialog.Portal>
+                <AlertDialog.Overlay className="alert-overlay" />
+                <AlertDialog.Content className="alert-content">
+                  <AlertDialog.Title>Delete this oscillator layer?</AlertDialog.Title>
+                  <AlertDialog.Description>
+                    This cannot be undone.
+                  </AlertDialog.Description>
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
+                    <AlertDialog.Cancel asChild>
+                      <button type="button" className="btn">Cancel</button>
+                    </AlertDialog.Cancel>
+                    <AlertDialog.Action asChild>
+                      <button
+                        type="button"
+                        className="btn btn-danger"
+                        onClick={() => {
+                          console.log('[RobotOscillatorsTab] delete confirmed', { robotId: robot.id, idx });
+                          const updated = allLayers.filter((_, i) => i !== idx);
+                          commitStructural(robot, localeId, updated, updateRobot);
+                        }}
+                      >
+                        Confirm
+                      </button>
+                    </AlertDialog.Action>
+                  </div>
+                </AlertDialog.Content>
+              </AlertDialog.Portal>
+            </AlertDialog.Root>
+          </div>
+
         </div>
       </details>
     </li>
@@ -325,6 +360,16 @@ export default function RobotOscillatorsTab() {
   }
 
   const layers = robot.audioAttributes?.layers ?? [];
+  const MAX_LAYERS = 4;
+
+  const handleAddLayer = () => {
+    const last = layers[layers.length - 1];
+    const cloneBase = last ? { ...last } : { type: 'sine' as WaveformType, gain: 1, detune: 0, phase: 0 };
+    const clone = { ...cloneBase } as OscillatorLayer & Record<string, unknown>;
+    if ('adsr' in clone) delete clone.adsr;
+    const updated = [...layers, clone as OscillatorLayer];
+    commitStructural(robot, localeId, updated, updateRobot);
+  };
 
   return (
     <div className="robot-oscillators">
@@ -335,7 +380,13 @@ export default function RobotOscillatorsTab() {
             {layers.length}
           </span>
         </div>
-        <button className="add-layer-btn" disabled>
+        <button
+          className="add-layer-btn"
+          disabled={layers.length >= MAX_LAYERS}
+          onClick={handleAddLayer}
+          aria-disabled={layers.length >= MAX_LAYERS}
+          title={layers.length >= MAX_LAYERS ? 'Maximum layers reached' : 'Add layer'}
+        >
           Add Layer
         </button>
       </div>
@@ -358,7 +409,6 @@ export default function RobotOscillatorsTab() {
         )}
       </ul>
 
-      {/* TODO Issue 14: <RobotEnvelopeEditor robotId={selectedRobotId} localeId={localeId} /> */}
       <div className="envelope-editor-mount" />
     </div>
   );
