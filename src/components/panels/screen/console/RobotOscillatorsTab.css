@@ -21,6 +21,11 @@
 	border-radius: 6px;
 	background-color: #eee;
 	border: 1px solid #ccc;
+	cursor: pointer;
+}
+
+.add-layer-btn:disabled {
+	opacity: 0.4;
 	cursor: not-allowed;
 }
 
@@ -214,6 +219,91 @@
 
 .switch-thumb[data-state="checked"] {
 	transform: translateX(21px);
+}
+
+/* Delete layer button (per row) */
+.delete-layer-btn {
+	min-height: 44px;
+	min-width: 80px;
+	padding: 0 14px;
+	border: 1px solid #d0021b;
+	border-radius: 6px;
+	background: #fff;
+	color: #d0021b;
+	font-size: 13px;
+	cursor: pointer;
+}
+
+.delete-layer-btn:hover:not(:disabled) {
+	background: #fff5f5;
+}
+
+.delete-layer-btn:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
+
+/* Generic action buttons (used in AlertDialog) */
+.btn {
+	min-height: 44px;
+	min-width: 80px;
+	padding: 0 14px;
+	border: 1px solid #ccc;
+	border-radius: 6px;
+	background: #fff;
+	color: #333;
+	font-size: 13px;
+	cursor: pointer;
+}
+
+.btn:hover {
+	background: #f5f5f5;
+}
+
+.btn-danger {
+	border-color: #d0021b;
+	color: #fff;
+	background: #d0021b;
+}
+
+.btn-danger:hover {
+	background: #b00119;
+}
+
+/* AlertDialog overlay + content */
+.alert-overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.45);
+	z-index: 10000;
+}
+
+.alert-content {
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	z-index: 10001;
+	background: #fff;
+	border-radius: 8px;
+	padding: 20px 24px;
+	min-width: 320px;
+	max-width: 480px;
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.24);
+}
+
+.alert-content h2,
+.alert-content [data-radix-alert-dialog-title] {
+	margin: 0 0 8px 0;
+	font-size: 16px;
+	font-weight: 700;
+}
+
+.alert-content p,
+.alert-content [data-radix-alert-dialog-description] {
+	margin: 0 0 16px 0;
+	font-size: 14px;
+	color: #555;
 }
 
 /* Reset to master button */
