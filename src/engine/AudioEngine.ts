@@ -101,8 +101,6 @@ let _globalChorus: Tone.Chorus | null = null;
 let _globalEQ: Tone.EQ3 | null = null;
 let _globalLPF: Tone.Filter | null = null;
 let _globalHPF: Tone.Filter | null = null;
-// Passthrough gain node used when global bypass is active — audio routes here, skipping FX chain
-let _fxBypassGain: Tone.Gain | null = null;
 // Master output gain controlling overall volume (used by setMasterVolume/getMasterVolume)
 let _masterGain: Tone.Gain | null = null;
 let _masterVolume = 1;
@@ -248,9 +246,7 @@ async function loadInstruments(): Promise<void> {
     _globalHPF = new FilterCtor({ type: 'highpass', frequency: 20, Q: 1 });
   }
   if (typeof GainCtorFX === 'function') {
-    _fxBypassGain = new GainCtorFX(1);
-    // Master gain sits after the FX chain (or final destination) so both bypass
-    // and FX-chain paths are routed through this single volume control.
+    // Master gain sits after the FX chain (or final destination) to control overall volume.
     try {
       _masterGain = new (GainCtorFX as unknown as (new (v: number) => Tone.Gain))(1);
     } catch {
@@ -285,17 +281,6 @@ async function loadInstruments(): Promise<void> {
         } else {
           try { chainNodes[chainNodes.length - 1].toDestination?.(); } catch (err) { if (DEV_TUNING) swallow(err, 'chain.toDestination'); }
         }
-
-        // also wire bypass gain → Master gain (so bypassed path respects master volume)
-        if (_fxBypassGain) {
-          try {
-            if (_masterGain) {
-              (_fxBypassGain as unknown as { connect: (t: unknown) => void }).connect(_masterGain);
-            } else {
-              (_fxBypassGain as unknown as { toDestination: () => void }).toDestination();
-            }
-          } catch (err) { if (DEV_TUNING) swallow(err); }
-        }
       } catch (err) {
         if (DEV_TUNING) swallow(err, 'AudioEngine.fxChain.connect');
         try { compressor.toDestination(); } catch { /* headless */ }
@@ -312,15 +297,6 @@ async function loadInstruments(): Promise<void> {
         try { _masterGain.toDestination?.(); } catch { /* headless */ }
       } else {
         compressor.toDestination();
-      }
-      if (_fxBypassGain) {
-        try {
-          if (_masterGain) {
-            (_fxBypassGain as unknown as { connect: (t: unknown) => void }).connect(_masterGain);
-          } else {
-            (_fxBypassGain as unknown as { toDestination: () => void }).toDestination();
-          }
-        } catch (err) { if (DEV_TUNING) swallow(err, 'fxBypass.connect'); }
       }
     } catch (err) { if (DEV_TUNING) swallow(err); }
   }
@@ -790,7 +766,7 @@ export const AudioEngine = {
       // Apply optional top-level detune/phase/pulseWidth across composite layers when provided
       try {
         if (typeof detune === 'number' || typeof phase === 'number' || typeof pulseWidth === 'number') {
-              const effectiveLayers = Array.isArray(descriptor)
+          const effectiveLayers = Array.isArray(descriptor)
             ? descriptor
             : (descriptor.layers && descriptor.layers.length > 0 ? descriptor.layers : [{ type: descriptor.base ?? 'sine', gain: 1, detune: 0, phase: 0 } as OscillatorLayer]);
           const layersParam = effectiveLayers.map((l) => ({
@@ -842,6 +818,8 @@ export const AudioEngine = {
       if (DEV_TUNING) console.warn('[AudioEngine] Failed to cleanup composite nodes', err);
     }
     compositeVoices.delete(robotId);
+    robotAttributeCache.delete(robotId);
+    robotNoteIndex.delete(robotId);
     if (DEV_TUNING) console.log(`[AudioEngine] Released composite voice for ${robotId}`);
   },
 
@@ -970,7 +948,7 @@ export const AudioEngine = {
         if (layerGain && typeof s?.connect === 'function') s.connect(layerGain);
         synth = s;
       }
-        // apply detune if present and supported
+      // apply detune if present and supported
       try {
         if (layer.detune !== undefined) {
           try {
@@ -1080,74 +1058,74 @@ export const AudioEngine = {
     const set = (params: { layers?: Partial<OscillatorLayer>[]; outputGain?: number }) => {
       if (params.outputGain !== undefined) out.gain.value = params.outputGain;
       if (params.layers) {
-        params.layers.forEach((p) => {
-          layerNodes.forEach(({ synth, gainNode, layer }) => {
-            if (p.type === layer.type) {
-              if (p.gain !== undefined && gainNode) {
-                try {
-                  gainNode.gain.value = p.gain as number;
-                } catch (err) {
-                  if (DEV_TUNING) console.warn('[AudioEngine] Failed to set layer gain on composite', err);
-                }
-              }
-              if (p.detune !== undefined) {
-                try {
-                  const osc = (synth as unknown as { oscillator?: { detune?: { value: number } } })?.oscillator;
-                  if (osc && osc.detune) osc.detune.value = p.detune;
-                } catch (err) {
-                  if (DEV_TUNING) console.warn('[AudioEngine] Failed to set detune on composite layer', err);
-                }
-              }
-              if (p.phase !== undefined) {
-                try {
-                  const osc = (synth as unknown as SynthWithOscillator)?.oscillator;
-                  if (osc) {
-                    try { (synth as unknown as SynthWithOscillator).set?.({ oscillator: { phase: p.phase } }); } catch {
-                      try {
-                        const oscPhase = (osc as unknown as { phase?: { value?: number } | number })?.phase;
-                        if (typeof oscPhase === 'object' && oscPhase !== null && 'value' in oscPhase) {
-                          (oscPhase as { value?: number }).value = p.phase;
-                        } else {
-                          (osc as unknown as { phase?: number }).phase = p.phase;
-                        }
-                      } catch (err) {
-                        if (DEV_TUNING) console.warn('[AudioEngine] Failed to set phase on composite layer', err);
-                      }
-                    }
-                  }
-                } catch (err) {
-                  if (DEV_TUNING) console.warn('[AudioEngine] Failed to set phase on composite layer', err);
-                }
-              }
-              if (p.pulseWidth !== undefined) {
-                try {
-                  // Prefer Synth.set when available
-                  try { (synth as unknown as SynthWithOscillator).set?.({ oscillator: { width: p.pulseWidth } }); } catch {
-                    const osc = (synth as unknown as { oscillator?: { width?: { value?: number } | number } })?.oscillator;
-                    if (osc) {
-                      try {
-                        const oscWidth = (osc as unknown as { width?: { value?: number } | number })?.width;
-                        if (typeof oscWidth === 'object' && oscWidth !== null && 'value' in oscWidth) {
-                          (oscWidth as { value?: number }).value = p.pulseWidth;
-                        } else {
-                          (osc as unknown as { width?: number }).width = p.pulseWidth;
-                        }
-                      } catch (err) {
-                        if (DEV_TUNING) console.warn('[AudioEngine] Failed to set pulseWidth on composite layer', err);
-                      }
-                    }
-                  }
-                } catch (err) {
-                  if (DEV_TUNING) console.warn('[AudioEngine] Failed to set pulseWidth on composite layer', err);
-                }
-              }
-              if (p.adsr && typeof (synth as unknown as { set?: (props: unknown) => void }).set === 'function') {
-                try { (synth as unknown as { set?: (props: unknown) => void }).set?.({ envelope: p.adsr }); } catch (err) {
-                  if (DEV_TUNING) console.warn('[AudioEngine] Failed to set ADSR on composite layer', err);
-                }
-              }
+        // Match by index so multi-layer voices with duplicate waveform types are updated correctly.
+        params.layers.forEach((p, i) => {
+          const node = layerNodes[i];
+          if (!node) return;
+          const { synth, gainNode } = node;
+          if (p.gain !== undefined && gainNode) {
+            try {
+              gainNode.gain.value = p.gain as number;
+            } catch (err) {
+              if (DEV_TUNING) console.warn('[AudioEngine] Failed to set layer gain on composite', err);
             }
-          });
+          }
+          if (p.detune !== undefined) {
+            try {
+              const osc = (synth as unknown as { oscillator?: { detune?: { value: number } } })?.oscillator;
+              if (osc && osc.detune) osc.detune.value = p.detune;
+            } catch (err) {
+              if (DEV_TUNING) console.warn('[AudioEngine] Failed to set detune on composite layer', err);
+            }
+          }
+          if (p.phase !== undefined) {
+            try {
+              const osc = (synth as unknown as SynthWithOscillator)?.oscillator;
+              if (osc) {
+                try { (synth as unknown as SynthWithOscillator).set?.({ oscillator: { phase: p.phase } }); } catch {
+                  try {
+                    const oscPhase = (osc as unknown as { phase?: { value?: number } | number })?.phase;
+                    if (typeof oscPhase === 'object' && oscPhase !== null && 'value' in oscPhase) {
+                      (oscPhase as { value?: number }).value = p.phase;
+                    } else {
+                      (osc as unknown as { phase?: number }).phase = p.phase;
+                    }
+                  } catch (err) {
+                    if (DEV_TUNING) console.warn('[AudioEngine] Failed to set phase on composite layer', err);
+                  }
+                }
+              }
+            } catch (err) {
+              if (DEV_TUNING) console.warn('[AudioEngine] Failed to set phase on composite layer', err);
+            }
+          }
+          if (p.pulseWidth !== undefined) {
+            try {
+              // Prefer Synth.set when available
+              try { (synth as unknown as SynthWithOscillator).set?.({ oscillator: { width: p.pulseWidth } }); } catch {
+                const osc = (synth as unknown as { oscillator?: { width?: { value?: number } | number } })?.oscillator;
+                if (osc) {
+                  try {
+                    const oscWidth = (osc as unknown as { width?: { value?: number } | number })?.width;
+                    if (typeof oscWidth === 'object' && oscWidth !== null && 'value' in oscWidth) {
+                      (oscWidth as { value?: number }).value = p.pulseWidth;
+                    } else {
+                      (osc as unknown as { width?: number }).width = p.pulseWidth;
+                    }
+                  } catch (err) {
+                    if (DEV_TUNING) console.warn('[AudioEngine] Failed to set pulseWidth on composite layer', err);
+                  }
+                }
+              }
+            } catch (err) {
+              if (DEV_TUNING) console.warn('[AudioEngine] Failed to set pulseWidth on composite layer', err);
+            }
+          }
+          if (p.adsr && typeof (synth as unknown as { set?: (props: unknown) => void }).set === 'function') {
+            try { (synth as unknown as { set?: (props: unknown) => void }).set?.({ envelope: p.adsr }); } catch (err) {
+              if (DEV_TUNING) console.warn('[AudioEngine] Failed to set ADSR on composite layer', err);
+            }
+          }
         });
       }
     };
@@ -1494,7 +1472,6 @@ export const AudioEngine = {
         // Reconnect through FX chain (first available node or destination)
         const firstFX = (_globalEQ ?? _globalLPF ?? _globalHPF ?? _globalChorus ?? _globalDelay ?? _globalReverb) as unknown as { connect?: (t: unknown) => void } | null;
         if (firstFX?.connect) {
-          firstFX.connect(_masterCompressor);
           comp.connect(firstFX);
         } else {
           comp.toDestination();

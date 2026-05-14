@@ -120,10 +120,15 @@ vi.mock('./beatClock', () => ({
   getCurrentHour: vi.fn(() => 0),
   getCurrentMeasure: vi.fn(() => 0),
   getCurrentBeat: vi.fn(() => 0),
+  subscribeToMeasure: vi.fn((_cb?: unknown) => undefined),  // ← add
+  resetBeatClock: vi.fn(() => undefined),
 }));
 
 // Mock melody generator
-vi.mock('./melodyGenerator', () => ({}));
+vi.mock('./melodyGenerator', () => ({
+  applyRhythmicVariance: vi.fn(<T>(m: T) => m),
+  applyTonalVariance: vi.fn(<T>(m: T) => m),
+}));
 
 // Mock refs utility
 vi.mock('../utils/refs', () => ({
