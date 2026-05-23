@@ -104,6 +104,9 @@ let _globalHPF: Tone.Filter | null = null;
 // Master output gain controlling overall volume (used by setMasterVolume/getMasterVolume)
 let _masterGain: Tone.Gain | null = null;
 let _masterVolume = 1;
+// Unsubscribe handle for the BeatClock measure listener; prevents duplicate
+// listeners if start() is called more than once without an intervening killAll().
+let _unsubscribeMeasure: (() => void) | null = null;
 
 /**
  * Cache of the last wet/level values for each FX node — used to restore values
@@ -629,7 +632,8 @@ export const AudioEngine = {
     // Ensure `currentMeasure` in the ocean store is driven by the BeatClock.
     // This updates visuals (lighting) and allows harmony to derive from measures.
     try {
-      subscribeToMeasure((m: number) => {
+      _unsubscribeMeasure?.();
+      _unsubscribeMeasure = subscribeToMeasure((m: number) => {
         useLocaleStore.getState().setLocaleData(getActiveLocaleId(), { currentMeasure: m });
       });
     } catch (err) {
@@ -1330,6 +1334,7 @@ export const AudioEngine = {
       // Reset beatClock so initBeatClock() re-registers its internal tick on next start.
       // transport.cancel() above cleared the old 16n tick; resetBeatClock() lets it be recreated.
       resetBeatClock();
+      _unsubscribeMeasure = null; // resetBeatClock cleared the listener array; drop the stale ref
       if (DEV_TUNING) console.log('[AudioEngine] killAll: transport cancelled, voices released, position reset');
     } catch (err) {
       if (DEV_TUNING) console.warn('[AudioEngine] killAll failed', err);
