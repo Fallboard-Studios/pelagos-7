@@ -7,8 +7,8 @@ import { DEV_TUNING } from '../constants';
 interface TransportLike {
   // Tone.Transport.position can be a Tone.Time (string/number-like), accept unknown
   position?: unknown;
-  scheduleRepeat(callback: (time?: unknown) => void, interval: string, startTime?: unknown): unknown;
-  clear(id: unknown): void;
+  scheduleRepeat(callback: (time?: unknown) => void, interval: string, startTime?: unknown): string | number;
+  clear(id: string | number): void;
 }
 
 // Transport instance is provided by AudioEngine to avoid importing Tone here.
@@ -29,9 +29,9 @@ let currentMeasure = 0;
 let lastNotifiedMeasure = -1;
 let initialized = false;
 // Internal transport tick id for the 16n scheduler so we can clear it on reset
-let internalTickId: unknown | null = null;
+let internalTickId: string | number | null = null;
 /** Map of scheduleId -> schedule entry. Stores pending schedules when transport is not yet available. */
-const scheduleMap = new Map<string, { transportId?: unknown; interval: string; callback: () => void }>();
+const scheduleMap = new Map<string, { transportId?: string | number; interval: string; callback: () => void }>();
 const measureListeners: Array<(measure: number) => void> = [];
 
 // ========================================
@@ -52,10 +52,7 @@ export function initBeatClock(transport?: TransportLike): void {
   internalTickId = transportLocal.scheduleRepeat(() => {
     // Calculate current beat and measure from Transport position
     // Defensive: fallback to 0 if not started
-    const pos = String(transportLocal.position).split(':');
-    const measure = parseInt(pos[0], 10) || 0;
-    const beat = parseInt(pos[1], 10) || 0;
-    const sixteenths = parseInt(pos[2], 10) || 0;
+    const { measure, beat, sixteenths } = parseTransportPosition(transportLocal.position);
     currentBeat = measure * BEATS_PER_MEASURE + beat + sixteenths / 4;
     currentMeasure = measure;
     // Fire measure listeners once per measure change
@@ -81,6 +78,16 @@ export function initBeatClock(transport?: TransportLike): void {
       }
     }
   });
+}
+
+// exported for testing
+export function parseTransportPosition(rawPosition: unknown): { measure: number; beat: number; sixteenths: number } {
+  const pos = String(rawPosition).split(':');
+  return {
+    measure: parseInt(pos[0], 10) || 0,
+    beat: parseInt(pos[1], 10) || 0,
+    sixteenths: parseInt(pos[2], 10) || 0,
+  };
 }
 
 /**
@@ -120,14 +127,6 @@ export function getCurrentMeasure(): number {
 export function getCurrentHour(): number {
   const derivedHour = Math.floor((currentMeasure % MEASURES_PER_CYCLE) / MEASURES_PER_HOUR);
   return Math.max(0, Math.min(23, derivedHour));
-}
-
-/**
- * Stub: schedule a callback at a specific beat (logs only)
- */
-export function scheduleAtBeat(beat: number, callback: () => void): string {
-  if (DEV_TUNING) console.log('[BeatClock] scheduleAtBeat (stub):', beat, callback);
-  return 'stub-id';
 }
 
 /**

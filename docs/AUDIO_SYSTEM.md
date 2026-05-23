@@ -1,4 +1,3 @@
-### Key Guarantees
 # Audio System Guide
 
 ## Overview
@@ -31,10 +30,6 @@ Pelagos-7's audio system is built on **Tone.js** and follows a strict singleton 
 - **Gate Dev diagnostics:** Put verbose timing or diagnostic logs behind a dev flag (e.g., `import.meta.env.DEV && DEV_TUNING`) so CI/headless runs remain quiet.
 
 - **Documentation links:** Link to Tone.js timing docs and the project `AudioEngine` API in this file so contributors know the correct entry points for audio work.
-
-## Overview
-
-Pelagos-7's audio system is built on **Tone.js** and follows a strict singleton architecture to ensure reliable musical timing and prevent common audio pitfalls.
 
 ### Core Principles
 

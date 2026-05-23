@@ -703,7 +703,7 @@ npm test
 
 # Should see output like:
 # ✓ src/engine/beatClock.test.ts (3 tests)
-# ✓ src/stores/oceanStore.test.ts (4 tests)
+# ✓ src/stores/localeStore.test.ts (4 tests)
 # Test Files  2 passed (2)
 #      Tests  7 passed (7)
 ```
