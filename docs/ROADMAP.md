@@ -41,7 +41,7 @@
 **Delivered:**
 - `AudioEngine` singleton (Tone.js wrapper, synth pool)
 - `BeatClock` (musical timing via `Tone.Transport`)
-- `oceanStore` (Zustand, serializable-only state)
+- `localeStore` / `planetStore` (Zustand, serializable-only state)
 - `timelineMap` (GSAP timeline registry, never in state)
 - Beat-synchronized scheduling patterns established
 

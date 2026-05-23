@@ -8,7 +8,7 @@ This document provides manual testing procedures for validating the complete mel
 - Open browser console (F12) to monitor logs
 - Audio should be enabled (click Play button)
 - `DEV_TUNING` flag enabled (default in dev mode)
-- Debug functions exposed on `window` object: `spawnRobot()`, `removeRobot(id)`, `oceanStore`
+- Debug functions exposed on `window` object: `spawnRobot()`, `removeRobot(id)`, `useLocaleStore`
 
 ## Test Checklist
 
@@ -52,7 +52,7 @@ This document provides manual testing procedures for validating the complete mel
 
 **Steps:**
 1. Note current robot count in AudioStatus
-2. Get a robot ID from console: `oceanStore.getState().robots[0].id`
+3. Get a robot ID from console: `useLocaleStore.getState().locales['pelagos-default'].robots[0].id`
 3. Remove robot via console: `removeRobot('robot-id-here')`
 4. Observe audio and console
 
@@ -104,7 +104,7 @@ This document provides manual testing procedures for validating the complete mel
 **Steps:**
 1. Open browser DevTools Performance/Memory tab
 2. Take heap snapshot (baseline)
-3. Run in console: `for(let i=0; i<20; i++) { spawnRobot(); const id = oceanStore.getState().robots[0]?.id; if(id) removeRobot(id); }`
+3. Run in console: `for(let i=0; i<20; i++) { spawnRobot(); const id = useLocaleStore.getState().locales['pelagos-default'].robots[0]?.id; if(id) removeRobot(id); }`
 4. Wait 10 seconds for cleanup
 5. Take second heap snapshot
 6. Force garbage collection (optional)

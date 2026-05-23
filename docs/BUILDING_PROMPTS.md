@@ -73,7 +73,7 @@ Update Actor type to support per-instance color shifts:
    - Add hueShift?: number
    - Add satShift?: number
 2. Document that these are deterministically seeded at spawn
-3. Update oceanStore.test.ts to verify serialization still works
+3. Update localeStore.test.ts to verify serialization still works
 ```
 
 ### Prompt 2.2: Update VARIANT_CONF Schema (Colors + Sizes)
@@ -738,13 +738,13 @@ Update src/components/actors/Factory.tsx:
    - isOffline?: boolean          // true while powered down
    - offlineSince?: number        // the measure at which offline started
 
-2. In src/stores/oceanStore.ts:
+2. In src/stores/localeStore.ts:
    - Add action setActorOffline(actorId: string, measure: number): void
      Sets actor.config.isOffline = true, actor.config.offlineSince = measure.
    - Add action setActorOnline(actorId: string): void
      Sets actor.config.isOffline = false, deletes offlineSince.
 
-3. Add unit tests in oceanStore.test.ts:
+3. Add unit tests in localeStore.test.ts:
    - setActorOffline sets fields correctly on the matching actor.
    - setActorOnline clears fields correctly.
    - State remains JSON-serialisable after both transitions.
@@ -762,7 +762,7 @@ Constants:
 Export function tickOfflineSystem(currentMeasure: number): void
 
 Logic:
-1. Get all actors from useOceanStore.getState().
+1. Get all actors from useLocaleStore.getState().
 2. For each factory actor:
    a. If actor.config.isOffline === true:
       - If currentMeasure - actor.config.offlineSince >= OFFLINE_DURATION:
@@ -795,10 +795,10 @@ Update src/App.tsx:
    also call tickOfflineSystem(m) after updating the store.
 
 The callback currently looks like:
-  subscribeToMeasure((m) => useOceanStore.getState().setCurrentMeasure(m));
+  subscribeToMeasure((m) => useLocaleStore.getState().setCurrentMeasure(m));
 Change it to:
   subscribeToMeasure((m) => {
-    useOceanStore.getState().setCurrentMeasure(m);
+    useLocaleStore.getState().setCurrentMeasure(m);
     tickOfflineSystem(m);
   });
 
