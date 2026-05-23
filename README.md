@@ -1,4 +1,7 @@
+
 # Pelagos-7
+
+![CI](https://img.shields.io/badge/ci-passing-brightgreen) ![tests](https://img.shields.io/badge/tests-vitest-blue) ![license](https://img.shields.io/badge/license-MIT-lightgrey) ![version](https://img.shields.io/badge/version-0.1.0-purple)
 
 **Interactive ambient robot symphony generator**
 
@@ -8,9 +11,28 @@ _A browser-based musical experience where autonomous robots swim through a post-
 
 ---
 
+## Table of Contents
+
+- [What it does](#what-it-does)
+- [Tech Stack](#tech-stack)
+- [Architecture Highlights](#architecture-highlights)
+- [Key Features](#key-features)
+- [Local Development](#local-development)
+- [Project Structure](#project-structure)
+- [Documentation](#documentation)
+- [Development Workflow](#development-workflow)
+- [Roadmap to v1.0](#roadmap-to-v10)
+- [Testing](#testing)
+- [License](#license)
+- [About Fallboard Studios](#about-fallboard-studios)
+
+---
+
 ## What it does
 
-Pelagos-7 is a generative music system. Autonomous robots swim through a post-apocalyptic ocean floor, each carrying a procedurally generated 16-step melody loop. Industrial factory structures periodically build new robots. Every robot looks and sounds unique — their synth type, ADSR envelope, and pitch range drive both their appearance and their sonic character. All audio and animation are locked to a shared musical beat clock, so the scene always sounds intentional.
+Pelagos-7 is a generative music system centered on autonomous mining robots exploring a post-apocalyptic ocean floor. Each robot carries a procedurally generated 16-step melody loop; industrial factory structures periodically build new robots. Every robot looks and sounds unique — their synth type, ADSR envelope, and pitch range drive both their appearance and their sonic character. All audio and animation are locked to a shared musical beat clock, so the scene always sounds intentional.
+
+A tablet UI lets users remotely view and update mining robots from afar (melody, synth parameters, behavior presets, and spawn controls), turning passive observation into light-weight remote management.
 
 ---
 
@@ -50,7 +72,7 @@ See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for full design decisions.
 - Audio-driven robot appearance (HSL colors, body shape, scale)
 - Per-robot synth types, ADSR, octave offset, volume, and stereo panning
 - Trailing particle wake animations
-- Persistent HUD: play/pause, volume slider, BPM control, robot editor
+- Tablet UI: view & update mining robots remotely (play/pause, volume slider, BPM control, robot editor)
 - GitHub Pages deployment
 
 ---
@@ -102,8 +124,7 @@ src/
 - [Melody System](docs/MELODY_SYSTEM.md)
 - [Robot Design](docs/ROBOT_DESIGN.md)
 - [Roadmap](docs/ROADMAP.md)
-- [Contribution Guide](docs/CONTRIBUTION_GUIDE.md) - Coding standards
-- [Roadmap](docs/ROADMAP.md) - Development plan and milestones
+- [Contribution Guide](docs/CONTRIBUTION_GUIDE.md) — Coding standards
 
 ---
 
@@ -118,7 +139,7 @@ src/
 
 ---
 
--## Roadmap to v1.0
+## Roadmap to v1.0
 
 **Current Phase:** M0..M4 Complete → M5 In Progress (placement, animation polish, docs)
 
@@ -157,7 +178,7 @@ npm run build
 
 ## License
 
-MIT (to be added)
+MIT — see [LICENSE](LICENSE)
 
 ---
 
