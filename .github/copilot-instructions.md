@@ -6,21 +6,31 @@ You must strictly ingest and execute the engineering workflows defined in your l
 
 # Pelagos-7 — Concise Copilot Instructions
 
-Purpose: a short, focused guidance file for Copilot-style assistants and contributors. Full implementation and examples live in the linked docs; use this file for quick rules and pointers.
+Purpose: a compact operating guide for agents and contributors. This file captures the repository’s non-negotiable architecture constraints and the default workflow expectations. Implementation details and examples live in the linked docs; keep this file concise and action-oriented.
 
-TL;DR (critical rules)
-- All audio: `AudioEngine` only (singleton). No local Tone.js synths in components.
-- All timing: `Tone.Transport` / `BeatClock` (measure-based). No `setTimeout`/`setInterval`/`requestAnimationFrame`/`queueMicrotask` for musical timing.
-- All animation: GSAP timelines only; store timelines in `timelineMap`, not in React/Zustand state.
-- State: Zustand only; store JSON-serializable data only.
-- Polyphony: default `MAX_POLYPHONY = 16`.
-- Lookahead: apply `MIN_LEAD ≈ 50–100ms` when scheduling audio.
+Authority and precedence
+- Local skill workflows in ./.github/skills/ are mandatory execution rules.
+- Repository-specific conventions in this file apply when they do not conflict with a higher-priority skill workflow.
+- If a repo rule and a skill workflow conflict, follow the skill workflow and document the exception in the task plan.
+
+Key terms
+- AudioEngine: the singleton audio controller for scheduling, voice management, and composite voices.
+- BeatClock: the measure-based scheduler used with the transport for musical timing.
+- timelineMap: the shared registry for GSAP timelines.
+- setRef/getRef: the helper registry for top-level SVG refs.
+
+TL;DR (core constraints)
+- Musical audio scheduling and synthesis must go through AudioEngine and the transport/BeatClock path; do not create Tone synths in components or use timers including `setTimeout`/`setInterval`/`requestAnimationFrame`/`queueMicrotask` for musical timing.
+- Animation must use GSAP timelines and keep timelines in timelineMap rather than in React or Zustand state.
+- State must stay in Zustand and remain JSON-serializable; keep runtime-only objects such as timelines, refs, and synth instances outside state.
+- Polyphony defaults to MAX_POLYPHONY = 16.
+- Apply MIN_LEAD ≈ 50–100ms when scheduling audio.
 
 Absolutely forbidden (quick list)
 - Creating Tone synths in React components.
 - Storing GSAP timelines, DOM refs, or synth instances in state.
-- Using `requestAnimationFrame` loops for game timing or animation (use GSAP ticker when needed).
-- Calling audio scheduling inside GSAP timeline callbacks (use semantic callbacks).
+- Using requestAnimationFrame loops for game timing or animation when GSAP or the transport can handle the work.
+- Calling audio scheduling inside GSAP timeline callbacks; use semantic callbacks instead.
 
 Critical architecture rules (short)
 - Audio: `AudioEngine` owns composite voices, scheduling, and voice management. Use `AudioEngine.scheduleNote()` and voice reservation APIs.
@@ -34,7 +44,7 @@ Guardrails (must not be relaxed)
 - Strict Separation: "GSAP timelines must only trigger semantic state changes, never call AudioEngine directly."
 - UI Shell: "All interactive UI (transport, navigation, controls) lives inside GlassViewport only — never in the decorative SleeveContainer."
 
-Where to find the full guidance (read these)
+Reference docs (read these)
 - Animation patterns: docs/ANIMATION_SYSTEM.md
 - Audio architecture & scheduling: docs/AUDIO_SYSTEM.md
 - Beat clock & scheduling: docs/BEAT_CLOCK.md
