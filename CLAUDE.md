@@ -2,6 +2,12 @@
 
 Purpose: a compact operating guide for agents and contributors. This file captures the repository's non-negotiable architecture constraints and default workflow expectations. Implementation details and examples live in the linked docs; keep this file concise and action-oriented.
 
+Tech stack
+- React 19, TypeScript 5.9, Vite 7, Zustand 5
+- GSAP 3 (`@gsap/react`) for animation, Tone.js 15 for audio
+- Radix UI primitives for accessible components
+- Vitest + Testing Library for tests, ESLint + Prettier for linting/formatting
+
 Authority and precedence
 - The architecture constraints and guardrails in this file are non-negotiable. No workflow skill — imported or otherwise — overrides them.
 - Skill workflows in `.claude/skills/` govern *process* (how to plan, test, and review changes), not architecture. Follow them for their intended phase of work.
@@ -63,13 +69,21 @@ Quick checklist for PRs
 - [ ] State remains JSON-serialisable
 
 Repo expectations
-<!-- TODO: replace with verified specifics (actual lint config, test runner, CI status) once confirmed -->
-- **PR process:** All PRs should be reviewed by at least one other contributor before merging.
+- **PR process:** All PRs should be reviewed by at least one other contributor before merging. There is no CI workflow configured yet — run lint, type-check, and tests locally before opening a PR.
 - **Accessibility & performance:** For audio, avoid autoplay without user intent; provide UI mute/volume controls. For animations, prefer GSAP for performant transforms and avoid large layout thrashing. Add basic a11y checks to PRs (focus/keyboard navigation, reduced-motion preference).
 
-Minimal commands
+Boundaries
+- Never commit secrets or `.env` files.
+- Ask before adding a new dependency or changing the audio/animation architecture described above.
+- Don't relax an "Absolutely forbidden" or "Guardrails" rule to make a task easier — surface the conflict instead (see Authority and precedence).
+
+Commands
 ```bash
 npm install
-npm run dev
-npm test
+npm run dev          # start Vite dev server
+npm test             # run Vitest
+npm run test:coverage
+npm run lint         # ESLint
+npm run build:types  # tsc --noEmit
+npm run format       # Prettier write
 ```
