@@ -47,7 +47,7 @@ Guardrails (must not be relaxed)
 - Melody Logic: "Melodies must store note indices (0..7), never literal pitch strings; 96 measures = 1 day cycle."
 - Visual Mapping: "Robot visuals (shape/color) must map strictly to audio attributes (synth/ADSR/phase/detune) as defined in ROBOT_DESIGN.md."
 - Strict Separation: "GSAP timelines must only trigger semantic state changes, never call AudioEngine directly."
-- UI Shell: "All interactive UI (transport, navigation, controls) lives inside GlassViewport only — never in the decorative SleeveContainer."
+- UI Shell: "All interactive UI (transport, navigation, controls) lives inside ScreenViewport only — never in the decorative SleeveContainer."
 
 Reference docs
 - `docs/AUDIO_SYSTEM.md`: AudioEngine architecture, MIN_LEAD, polyphony rules, and scheduling examples.
@@ -59,7 +59,7 @@ Reference docs
 - `docs/BUILDING_DESIGN.md`: Factory and placement rules, production cooldowns, and placement algorithms.
 - `docs/ROBOT_DESIGN.md`: Robot visual design, audio→visual attribute mapping (synth/ADSR/phase/detune), and SVG generation rules.
 - `docs/CONTRIBUTION_GUIDE.md`: PR process, testing expectations, and where to record exceptions.
-- `docs/poc_guides/UI_GUIDES/UI_ISSUE_OVERVIEW.md`: Sleeve & Glass UI architecture, store responsibilities, and milestone issue breakdown.
+- `docs/UI_SHELL.md`: Sleeve & Glass UI architecture, console navigation, and `uiStore` responsibilities.
 
 Quick checklist for PRs
 - [ ] No synths created in components
