@@ -23,3 +23,17 @@ export const MIN_LEAD = 0.1;
  * Small: 3 minutes, Medium: 6 minutes, Large: 9 minutes.
  */
 export { PLANET_DURATION_MS, computeLocalTime } from './time';
+
+/**
+ * Valid ranges for robot melody-generation parameters. Shared source of truth
+ * for melodyGenerator.ts's clamping, localeStore.ts's updateRobot validation,
+ * and the Robot Audio editor's sliders — keep these in sync across all three.
+ */
+export const RHYTHMIC_DENSITY_MIN = 4;
+export const RHYTHMIC_DENSITY_MAX = 12;
+export const RHYTHMIC_MOTIF_LENGTH_MIN = 1;
+export const RHYTHMIC_MOTIF_LENGTH_MAX = 16;
+export const NOTE_VARIANCE_MIN = 0;
+export const NOTE_VARIANCE_MAX = 8;
+export const OCTAVE_RANGE_MIN = 1;
+export const OCTAVE_RANGE_MAX = 7;

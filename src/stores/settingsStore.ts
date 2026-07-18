@@ -34,7 +34,7 @@ function getSystemReducedMotion(): boolean {
 // STORE
 // ========================================
 
-export const useSettingsStore = create<SettingsStore>((set, get) => {
+export const useSettingsStore = create<SettingsStore>((set, get, api) => {
   const store: SettingsStore = {
     reducedMotion: getSystemReducedMotion(),
     accessibilityMode: false,
@@ -74,8 +74,11 @@ export const useSettingsStore = create<SettingsStore>((set, get) => {
     },
   };
 
-  // Auto-persist on every state change
-  useSettingsStore.subscribe((state) => {
+  // Auto-persist on every state change. Subscribes via the `api` param rather than the
+  // module-level `useSettingsStore` binding — that binding doesn't exist yet while this
+  // initializer is still running (create() invokes it synchronously to build the initial
+  // state), so referencing it here would throw a temporal-dead-zone ReferenceError.
+  api.subscribe((state) => {
     const { reducedMotion, accessibilityMode, savedTheme, language } = state;
     try {
       localStorage.setItem(

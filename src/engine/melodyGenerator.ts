@@ -3,6 +3,7 @@
 // ========================================
 import alea from 'alea';
 import type { NoteDuration } from '../types/Robot';
+import { RHYTHMIC_DENSITY_MIN, RHYTHMIC_DENSITY_MAX, NOTE_VARIANCE_MIN, NOTE_VARIANCE_MAX } from '../constants';
 
 // ========================================
 // TYPES
@@ -62,8 +63,6 @@ export interface GenerateMelodyForRobotOptions {
 // ========================================
 // CONSTANTS
 // ========================================
-const MIN_EVENTS = 4;
-const MAX_EVENTS = 12;
 /** Probability that a successive note jumps more than one octave (when range allows). */
 const OCTAVE_JUMP_CHANCE = 0.15;
 
@@ -361,8 +360,8 @@ export function generateMelodyForRobot(
   const rand = opts.rand ?? (opts.seed !== undefined ? alea(String(opts.seed)) : Math.random);
   const subdivisions = opts.subdivisions ?? DEFAULT_SUBDIVISIONS;
   const density = Math.max(
-    MIN_EVENTS,
-    Math.min(MAX_EVENTS, opts.rhythmicDensity ?? opts.onsetCount),
+    RHYTHMIC_DENSITY_MIN,
+    Math.min(RHYTHMIC_DENSITY_MAX, opts.rhythmicDensity ?? opts.onsetCount),
   );
   const motifLength = opts.rhythmicMotifLength ?? DEFAULT_RHYTHMIC_MOTIF_LENGTH;
   const octMin = Math.min(opts.octaveMin, opts.octaveMax);
@@ -375,7 +374,7 @@ export function generateMelodyForRobot(
   const melody: RobotMelodyEvent[] = [];
 
   // Note-variance state
-  const noteVariance = Math.max(0, Math.min(8, Math.trunc(opts.noteVariance ?? 0)));
+  const noteVariance = Math.max(NOTE_VARIANCE_MIN, Math.min(NOTE_VARIANCE_MAX, Math.trunc(opts.noteVariance ?? 0)));
   const uniqueSet = new Set<number>();
   // Lazily built below on first use when noteVariance === 8 (shuffled draw-without-replacement pool).
   let withoutReplacementPool: number[] | null = null;

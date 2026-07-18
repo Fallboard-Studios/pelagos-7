@@ -9,6 +9,16 @@ import { getActiveLocaleId } from '@/utils/localeHelpers';
 import { useLocaleStore } from '@/stores/localeStore';
 import { regenerateMelody } from '@/engine/regenerateMelody';
 import type { Robot } from '@/types/Robot';
+import {
+  RHYTHMIC_DENSITY_MIN as DENSITY_MIN,
+  RHYTHMIC_DENSITY_MAX as DENSITY_MAX,
+  RHYTHMIC_MOTIF_LENGTH_MIN as MOTIF_MIN,
+  RHYTHMIC_MOTIF_LENGTH_MAX as MOTIF_MAX,
+  OCTAVE_RANGE_MIN as OCTAVE_MIN,
+  OCTAVE_RANGE_MAX as OCTAVE_MAX,
+  NOTE_VARIANCE_MIN,
+  NOTE_VARIANCE_MAX,
+} from '@/constants';
 
 import './RobotAudioTab.css';
 
@@ -16,18 +26,6 @@ import './RobotAudioTab.css';
 // TYPES
 // ========================================
 type AudioMode = 'none' | 'solo' | 'mute' | 'highlight';
-
-// ========================================
-// CONSTANTS
-// ========================================
-const DENSITY_MIN = 4;
-const DENSITY_MAX = 12;
-const MOTIF_MIN = 1;
-const MOTIF_MAX = 16;
-const OCTAVE_MIN = 1;
-const OCTAVE_MAX = 7;
-const NOTE_VARIANCE_MIN = 0;
-const NOTE_VARIANCE_MAX = 8;
 
 const AUDIO_MODES: AudioMode[] = ['none', 'solo', 'mute', 'highlight'];
 
