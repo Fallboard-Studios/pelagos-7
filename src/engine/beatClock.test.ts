@@ -63,6 +63,33 @@ describe('beatClock', () => {
     expect(mockTransport.scheduleRepeat).toHaveBeenCalledTimes(1);
   });
 
+  it('wraps the measure passed to listeners at the 96-measure cycle boundary', () => {
+    const listener = vi.fn();
+    subscribeToMeasure(listener);
+
+    mockTransport.position = '96:0:0';
+    callbacks[0]?.();
+    expect(listener).toHaveBeenCalledWith(0);
+
+    mockTransport.position = '97:0:0';
+    callbacks[0]?.();
+    expect(listener).toHaveBeenCalledWith(1);
+  });
+
+  it('isolates listener errors so one throwing subscriber does not block others', () => {
+    const throwing = vi.fn(() => {
+      throw new Error('boom');
+    });
+    const safe = vi.fn();
+    subscribeToMeasure(throwing);
+    subscribeToMeasure(safe);
+
+    mockTransport.position = '1:0:0';
+    expect(() => callbacks[0]?.()).not.toThrow();
+    expect(throwing).toHaveBeenCalled();
+    expect(safe).toHaveBeenCalledWith(1);
+  });
+
   describe('parseTransportPosition', () => {
     it('parses standard transport position strings', () => {
       expect(parseTransportPosition('2:1:2')).toEqual({ measure: 2, beat: 1, sixteenths: 2 });
