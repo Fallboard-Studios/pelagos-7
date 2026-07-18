@@ -31,32 +31,36 @@ export function killTimeline(id: string): void {
 }
 ```
 
+Two more exports exist alongside these: `getTimeline(id): Timeline | undefined` (plain lookup, no side effect) and `killAllTimelines(): void` (kills and clears every entry — used for full teardown/reset).
+
 This is the supported pattern for keeping timelines out of React state and cleaning them up reliably.
 
 ### Ref registry
-Top-level components register SVG elements with `setRef(key, element)` and animation helpers read them later with `getRef(key)`. This is how modules such as swim animation and interaction systems find robot DOM nodes without coupling them to React render state.
+Top-level components register SVG elements with `setRef(key, element)` and animation helpers read them later with `getRef(key)`. This is how modules such as swim animation and interaction systems find robot DOM nodes without coupling them to React render state. Two cleanup exports also exist: `deleteRef(key): void` (remove one) and `clearRefs(): void` (remove all — testing/reset).
 
 ## Current Runtime Pattern
 
 ### Swim animation
-The main reusable animation helper is [src/animation/swimAnimation.ts](../src/animation/swimAnimation.ts). It currently:
-
-- resolves the robot SVG via `getRef(`robot-${robot.id}`)`
-- flips orientation when direction changes
-- animates movement to the destination
-- rotates the `.propeller` element for the expected number of turns
-- applies a small tilt during propulsion
-- stores the timeline in `timelineMap` under the key `swim-${robot.id}`
-
-Example shape:
+The reusable animation helper is [src/animation/swimAnimation.ts](../src/animation/swimAnimation.ts):
 
 ```typescript
-const tl = gsap.timeline({ paused: true });
-tl.to(ref, { scaleX: targetScaleX, duration: 0.5 });
-tl.to(ref, { x: destination.x, y: destination.y, duration }, propulsionStart);
-setTimeline(`swim-${robot.id}`, tl);
-tl.play();
+function createSwimTimeline(
+  robot: Robot,
+  destination: Vec2,
+  targetDirection: 'left' | 'right',
+  onComplete?: (robotId: string) => void,
+): gsap.core.Timeline
 ```
+
+Constants: `SWIM_SPEED = 120` px/s (duration = distance / SWIM_SPEED) · `TILT_ANGLE = 5` degrees · `ORIENTATION_DURATION = 0.5` s · `PROPULSION_OVERLAP = 0.2` s · `PROPELLER_ROTATION_SPEED = 2` s per 360°.
+
+Sequence:
+- Resolves the robot SVG via `getRef(`robot-${robot.id}`)`. **If the ref isn't registered yet**, the function still returns an (empty) timeline and schedules `onComplete` via `gsap.delayedCall(estimatedDuration, ...)` so callers waiting on the callback don't hang.
+- Kills any existing `swim-${robot.id}` timeline, then flips orientation (`scaleX`) over `ORIENTATION_DURATION` only if direction actually changed.
+- Animates to the destination over `distance / SWIM_SPEED` seconds, starting at `propulsionStart = needsFlip ? ORIENTATION_DURATION - PROPULSION_OVERLAP : 0`. **`propulsionStart` must be an absolute timeline position, not a relative offset like `"-=0.2"`** — relative offsets drift as more tweens are added to the timeline and cause it to grow past the intended swim duration. This was a real bug; don't reintroduce it.
+- Rotates `.propeller` (if present) continuously for `ceil(duration / PROPELLER_ROTATION_SPEED)` full turns, in parallel with the movement tween.
+- Applies a body tilt (`± TILT_ANGLE`, direction-dependent) that ramps in over the first 30% of the duration and back out over the last 30%.
+- Stores the timeline in `timelineMap` under `swim-${robot.id}` and plays it (it's created `paused: true` so it can be registered before playing).
 
 ### UI and system animations
 Other systems follow the same model:
