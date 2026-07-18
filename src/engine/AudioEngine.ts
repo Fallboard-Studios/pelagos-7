@@ -468,7 +468,8 @@ export function triggerWithCap(params: NoteParams): boolean {
 }
 
 /**
- * Start the main melody playback loop (8th-note tick).
+ * Start the main melody playback loop (16th-note tick — 16 steps = 1 measure,
+ * matching melodyGenerator's own subdivision model).
  * At each 16-step loop completion, apply rhythmic variance to all active robots' melodies
  * and update their state for the next loop iteration.
  */
@@ -570,9 +571,9 @@ function startMelodyPlayback(): void {
         console.warn('[AudioEngine] Failed to apply rhythmic variance:', err);
       }
     }
-  }, '8n');
+  }, '16n');
 
-  if (DEV_TUNING) console.log('[AudioEngine] Melody playback started (8n tick)');
+  if (DEV_TUNING) console.log('[AudioEngine] Melody playback started (16n tick)');
 }
 
 // ========================================

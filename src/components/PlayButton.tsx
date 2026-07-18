@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { AudioEngine } from '../engine/AudioEngine';
+import { useAudioStore } from '../stores/audioStore';
 import { swallow } from '../utils/helpers';
 
 import './PlayButton.css';
@@ -44,6 +45,7 @@ export function PlayButton({ onSuccess }: PlayButtonProps) {
 
     try {
       await AudioEngine.start();
+      AudioEngine.setBPM(useAudioStore.getState().bpm);
       setPlayState('idle');
       onSuccess?.();
     } catch (err) {

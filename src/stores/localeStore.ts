@@ -16,7 +16,7 @@ const DEFAULT_LOCALE: Locale = {
   coordinates: { x: 0, y: 0 },
   robots: [],
   actors: [],
-  settings: { bpm: 240, maxRobots: 12, minRobots: 2, autoSpawn: true, spawnFrequency: 4 },
+  settings: { bpm: 60, maxRobots: 12, minRobots: 2, autoSpawn: true, spawnFrequency: 4 },
   currentMeasure: 0,
 };
 
@@ -42,7 +42,7 @@ export const useLocaleStore = create<LocaleState>((set, get) => ({
 
   addLocale: (planetId, locale) => {
     const toAdd: Locale = { ...locale, planetId };
-    
+
     set((state) => ({ locales: { ...state.locales, [toAdd.id]: toAdd } }));
     const planet = usePlanetStore.getState().planets.find((p) => p.id === planetId);
     if (planet) {
