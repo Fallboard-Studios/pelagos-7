@@ -6,7 +6,17 @@ import { DEFAULT_LOCALE_ID } from './planetStore';
 import { usePlanetStore } from './planetStore';
 import { getLocaleNoiseMap, evictLocaleNoiseMap } from '../utils/noiseMaps';
 import { AudioEngine } from '../engine/AudioEngine';
-import { DEV_TUNING } from '../constants';
+import {
+  DEV_TUNING,
+  RHYTHMIC_DENSITY_MIN,
+  RHYTHMIC_DENSITY_MAX,
+  RHYTHMIC_MOTIF_LENGTH_MIN,
+  RHYTHMIC_MOTIF_LENGTH_MAX,
+  NOTE_VARIANCE_MIN,
+  NOTE_VARIANCE_MAX,
+  OCTAVE_RANGE_MIN,
+  OCTAVE_RANGE_MAX,
+} from '../constants';
 import { swallow } from '../utils/helpers';
 
 const DEFAULT_LOCALE: Locale = {
@@ -93,16 +103,13 @@ export const useLocaleStore = create<LocaleState>((set, get) => ({
       // Validate and clamp well-known numeric robot fields at store entry point.
       const normalized = { ...updates } as Partial<import('../types/Robot').Robot>;
       if (typeof normalized.rhythmicDensity === 'number') {
-        // valid range: 4..12
-        normalized.rhythmicDensity = Math.max(4, Math.min(12, Math.trunc(normalized.rhythmicDensity)));
+        normalized.rhythmicDensity = Math.max(RHYTHMIC_DENSITY_MIN, Math.min(RHYTHMIC_DENSITY_MAX, Math.trunc(normalized.rhythmicDensity)));
       }
       if (typeof normalized.rhythmicMotifLength === 'number') {
-        // valid range: 1..16
-        normalized.rhythmicMotifLength = Math.max(1, Math.min(16, Math.trunc(normalized.rhythmicMotifLength)));
+        normalized.rhythmicMotifLength = Math.max(RHYTHMIC_MOTIF_LENGTH_MIN, Math.min(RHYTHMIC_MOTIF_LENGTH_MAX, Math.trunc(normalized.rhythmicMotifLength)));
       }
       if (typeof normalized.noteVariance === 'number') {
-        // valid range: 0..8
-        normalized.noteVariance = Math.max(0, Math.min(8, Math.trunc(normalized.noteVariance)));
+        normalized.noteVariance = Math.max(NOTE_VARIANCE_MIN, Math.min(NOTE_VARIANCE_MAX, Math.trunc(normalized.noteVariance)));
       }
       if (Array.isArray(normalized.octaveRange) && normalized.octaveRange.length === 2) {
         let [minO, maxO] = (normalized.octaveRange as unknown[]).map((v: unknown) => Number(v));
@@ -110,8 +117,8 @@ export const useLocaleStore = create<LocaleState>((set, get) => ({
           // ignore invalid octaveRange
           delete normalized.octaveRange;
         } else {
-          minO = Math.max(1, Math.min(7, Math.trunc(minO)));
-          maxO = Math.max(1, Math.min(7, Math.trunc(maxO)));
+          minO = Math.max(OCTAVE_RANGE_MIN, Math.min(OCTAVE_RANGE_MAX, Math.trunc(minO)));
+          maxO = Math.max(OCTAVE_RANGE_MIN, Math.min(OCTAVE_RANGE_MAX, Math.trunc(maxO)));
           if (maxO < minO) {
             const tmp = minO; minO = maxO; maxO = tmp;
           }
