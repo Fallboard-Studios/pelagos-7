@@ -15,12 +15,22 @@ import type { RobotMelodyEvent } from './melodyGenerator';
 import { applyRhythmicVariance, applyTonalVariance } from './melodyGenerator';
 import { DEV_TUNING, WORLD_WIDTH, MIN_LEAD as CONST_MIN_LEAD } from '../constants';
 
-// MIN_LEAD: prefer project constant, fall back to 0.1s for headless/tests
-const MIN_LEAD = CONST_MIN_LEAD ?? 0.1;
 import { getRef } from '../utils/refs';
-import { swallow } from '../utils/helpers';
 import { precomputeDataX } from '../utils/getSeededVal';
 import { tryGetLocaleNoiseMap } from '../utils/noiseMaps';
+
+// MIN_LEAD: prefer project constant, fall back to 0.1s for headless/tests
+const MIN_LEAD = CONST_MIN_LEAD ?? 0.1;
+
+/** Log informational messages only when DEV_TUNING is enabled. */
+function devLog(...args: unknown[]): void {
+  if (DEV_TUNING) console.log(...args);
+}
+
+/** Warn (e.g. on a caught/swallowed error) only when DEV_TUNING is enabled. */
+function devWarn(...args: unknown[]): void {
+  if (DEV_TUNING) console.warn(...args);
+}
 
 // ========================================
 // TYPES
@@ -214,7 +224,7 @@ function getRobotVisualX(robotId: string): number {
       }
     }
   } catch (err) {
-    if (DEV_TUNING) swallow(err, 'AudioEngine.getRobotVisualX');
+    devWarn('[AudioEngine] getRobotVisualX failed', err);
   }
 
   // Fallback: read position from state
@@ -222,7 +232,7 @@ function getRobotVisualX(robotId: string): number {
     const robot = findActiveRobot(robotId);
     return robot?.position.x ?? 960; // Default to center if not found
   } catch (err) {
-    if (DEV_TUNING) swallow(err, 'AudioEngine.getRobotVisualX.stateFallback');
+    devWarn('[AudioEngine] getRobotVisualX.stateFallback failed', err);
     return 960; // Default to center
   }
 }
@@ -263,7 +273,7 @@ async function loadInstruments(): Promise<void> {
   }
   if (ChorusCtor) {
     _globalChorus = new ChorusCtor({ rate: 1.5, depth: 0.2, delayTime: 0.012, feedback: 0.1, wet: 0 });
-    try { (_globalChorus as unknown as { start(): void }).start(); } catch (err) { if (DEV_TUNING) swallow(err, 'chorus.start'); }
+    try { (_globalChorus as unknown as { start(): void }).start(); } catch (err) { devWarn('[AudioEngine] chorus.start failed', err); }
   }
   if (EQ3Ctor) {
     _globalEQ = new EQ3Ctor({ low: 0, mid: 0, high: 0 });
@@ -304,17 +314,17 @@ async function loadInstruments(): Promise<void> {
       try {
         if (_masterGain) {
           chainNodes[chainNodes.length - 1].connect(_masterGain);
-          try { _masterGain.toDestination?.(); } catch (err) { if (DEV_TUNING) swallow(err, 'masterGain.toDestination'); }
+          try { _masterGain.toDestination?.(); } catch (err) { devWarn('[AudioEngine] masterGain.toDestination failed', err); }
         } else {
-          try { chainNodes[chainNodes.length - 1].toDestination?.(); } catch (err) { if (DEV_TUNING) swallow(err, 'chain.toDestination'); }
+          try { chainNodes[chainNodes.length - 1].toDestination?.(); } catch (err) { devWarn('[AudioEngine] chain.toDestination failed', err); }
         }
       } catch (err) {
-        if (DEV_TUNING) swallow(err, 'AudioEngine.fxChain.connect');
+        devWarn('[AudioEngine] fxChain.connect failed', err);
         try { compressor.toDestination(); } catch { /* headless */ }
       }
     } catch (err) {
-      if (DEV_TUNING) swallow(err, 'AudioEngine.fxChain.topLevel');
-      try { compressor.toDestination(); } catch (err) { if (DEV_TUNING) swallow(err, 'compressor.toDestination'); }
+      devWarn('[AudioEngine] fxChain.topLevel failed', err);
+      try { compressor.toDestination(); } catch (err) { devWarn('[AudioEngine] compressor.toDestination failed', err); }
     }
   } else {
     // No FX nodes available (test env) — route directly to destination
@@ -325,17 +335,17 @@ async function loadInstruments(): Promise<void> {
       } else {
         compressor.toDestination();
       }
-    } catch (err) { if (DEV_TUNING) swallow(err); }
+    } catch (err) { devWarn('[AudioEngine] failed', err); }
   }
 
   instrumentsLoaded = true;
-  if (DEV_TUNING) console.log('[AudioEngine] FX chain loaded');
+  devLog('[AudioEngine] FX chain loaded');
 
   // If robots spawned before AudioEngine initialized, reserve their composite voices now.
   try {
     const robots = getActiveLocaleRobots();
     if (robots.length > 0) {
-      if (DEV_TUNING) console.log(`[AudioEngine] Attempting post-load reservations for ${robots.length} robots`);
+      devLog(`[AudioEngine] Attempting post-load reservations for ${robots.length} robots`);
       robots.forEach((robot: Robot) => {
         try {
           const layers = (robot.audioAttributes as unknown as { layers?: OscillatorLayer[] })?.layers;
@@ -347,15 +357,15 @@ async function loadInstruments(): Promise<void> {
               robot.audioAttributes?.detune,
               (robot.audioAttributes as unknown as { layers?: OscillatorLayer[] })?.layers?.[0]?.pulseWidth,
             );
-            if (DEV_TUNING) console.log(`[AudioEngine] Post-load reserve for ${robot.id}: ${ok ? 'OK' : 'FAILED'}`);
+            devLog(`[AudioEngine] Post-load reserve for ${robot.id}: ${ok ? 'OK' : 'FAILED'}`);
           }
         } catch (err) {
-          if (DEV_TUNING) console.warn('[AudioEngine] Failed post-load reservation for robot', robot.id, err);
+          devWarn('[AudioEngine] Failed post-load reservation for robot', robot.id, err);
         }
       });
     }
   } catch (err) {
-    if (DEV_TUNING) console.warn('[AudioEngine] Post-load reservation pass failed', err);
+    devWarn('[AudioEngine] Post-load reservation pass failed', err);
   }
 }
 
@@ -376,9 +386,9 @@ function scheduleVoiceRelease(duration: NoteDuration, time: number): void {
       activeVoices = Math.max(0, activeVoices - 1);
     }, `+${delayFromNow}`);
   } catch (err) {
-    if (DEV_TUNING) swallow(err, 'AudioEngine.scheduleVoiceRelease');
+    devWarn('[AudioEngine] scheduleVoiceRelease failed', err);
     activeVoices = Math.max(0, activeVoices - 1);
-    if (DEV_TUNING) console.warn('[AudioEngine] Failed to schedule voice release, immediate fallback', err);
+    devWarn('[AudioEngine] Failed to schedule voice release, immediate fallback', err);
   }
 }
 
@@ -395,11 +405,11 @@ function updateAllPanners(_time?: number): void {
         const panValue = calculatePanFromPosition(visualX);
         entry.panner.pan.value = panValue;
       } catch (err) {
-        if (DEV_TUNING) console.warn('[AudioEngine] Failed to update composite panner for', robotId, err);
+        devWarn('[AudioEngine] Failed to update composite panner for', robotId, err);
       }
     }
   } catch (err) {
-    if (DEV_TUNING) console.warn('[AudioEngine] updateAllPanners failed', err);
+    devWarn('[AudioEngine] updateAllPanners failed', err);
   }
 }
 /**
@@ -412,11 +422,7 @@ export function triggerWithCap(params: NoteParams): boolean {
 
   // Check polyphony limit
   if (activeVoices >= MAX_POLYPHONY) {
-    if (DEV_TUNING) {
-      console.log(
-        `[AudioEngine] Polyphony capped: ${activeVoices}/${MAX_POLYPHONY}`
-      );
-    }
+    devLog(`[AudioEngine] Polyphony capped: ${activeVoices}/${MAX_POLYPHONY}`);
     return false;
   }
 
@@ -426,18 +432,18 @@ export function triggerWithCap(params: NoteParams): boolean {
     if (localeRobots.length > 0) {
       const robotFromStore = localeRobots.find((r) => r.id === robotId);
       if (robotFromStore?.audioMode === 'mute') {
-        if (DEV_TUNING) console.log(`[AudioEngine] Robot ${robotId} is muted (trigger); skipping note`);
+        devLog(`[AudioEngine] Robot ${robotId} is muted (trigger); skipping note`);
         return false;
       }
       const anySoloInStore = localeRobots.some((r) => r.audioMode === 'solo');
       if (anySoloInStore && robotFromStore?.audioMode !== 'solo') {
-        if (DEV_TUNING) console.log(`[AudioEngine] Robot ${robotId} suppressed due to solo (trigger)`);
+        devLog(`[AudioEngine] Robot ${robotId} suppressed due to solo (trigger)`);
         return false;
       }
       // Highlight attenuation is handled in scheduleNote; skip here to avoid double-attenuation.
     }
   } catch (err) {
-    if (DEV_TUNING) swallow(err, 'AudioEngine.triggerWithCap.audioMode');
+    devWarn('[AudioEngine] triggerWithCap.audioMode failed', err);
   }
 
   const scheduleTime = time ?? Tone.now();
@@ -446,7 +452,7 @@ export function triggerWithCap(params: NoteParams): boolean {
   try {
     if (!compositeVoices.has(robotId)) {
       activeVoices = Math.max(0, activeVoices - 1);
-      if (DEV_TUNING) console.warn(`[AudioEngine] No composite voice reserved for ${robotId}, skipping note`);
+      devWarn(`[AudioEngine] No composite voice reserved for ${robotId}, skipping note`);
       return false;
     }
 
@@ -456,7 +462,7 @@ export function triggerWithCap(params: NoteParams): boolean {
 
     if (!synth) {
       activeVoices = Math.max(0, activeVoices - 1);
-      if (DEV_TUNING) console.warn('[AudioEngine] No composite voice available, skipping note');
+      devWarn('[AudioEngine] No composite voice available, skipping note');
       return false;
     }
 
@@ -511,7 +517,7 @@ function startMelodyPlayback(): void {
       const noteName = notes[event.noteIndex]; // note name without octave, e.g. "C"
 
       if (!noteName) {
-        if (DEV_TUNING) console.warn(
+        devWarn(
           `[AudioEngine] Invalid note index ${event.noteIndex} for robot ${robotId}`
         );
         return;
@@ -538,15 +544,11 @@ function startMelodyPlayback(): void {
     // synchronously — Tone.js transport callbacks run on the main thread, so Zustand
     // reads/writes and stepRegistry mutations are safe here without any deferral.
     if (stepCounter % 16 === 0) {
-      if (DEV_TUNING) {
-        console.log(`[AudioEngine] Loop boundary reached at step ${stepCounter}`);
-      }
+      devLog(`[AudioEngine] Loop boundary reached at step ${stepCounter}`);
       try {
         const robots = getActiveLocaleRobots();
         const robotCount = robots.length;
-        if (DEV_TUNING) {
-          console.log(`[AudioEngine] Checking variance for ${robotCount} robots`);
-        }
+        devLog(`[AudioEngine] Checking variance for ${robotCount} robots`);
 
         robots.forEach((robot) => {
           // Store original data to detect changes
@@ -593,7 +595,7 @@ function startMelodyPlayback(): void {
     }
   }, '16n');
 
-  if (DEV_TUNING) console.log('[AudioEngine] Melody playback started (16n tick)');
+  devLog('[AudioEngine] Melody playback started (16n tick)');
 }
 
 // ========================================
@@ -638,7 +640,7 @@ export const AudioEngine = {
 
     // Reverb generates its impulse response asynchronously — wait before transport starts
     if (_globalReverb) {
-      try { await (_globalReverb as unknown as { ready: Promise<void> }).ready; } catch (err) { if (DEV_TUNING) swallow(err, 'reverb.ready'); }
+      try { await (_globalReverb as unknown as { ready: Promise<void> }).ready; } catch (err) { devWarn('[AudioEngine] reverb.ready failed', err); }
     }
 
     const transport = Tone.getTransport();
@@ -658,20 +660,20 @@ export const AudioEngine = {
         useLocaleStore.getState().setLocaleData(getActiveLocaleId(), { currentMeasure: m });
       });
     } catch (err) {
-      if (DEV_TUNING) console.warn('[AudioEngine] subscribeToMeasure failed', err);
+      devWarn('[AudioEngine] subscribeToMeasure failed', err);
     }
     startMelodyPlayback();
     scheduleHarmonyCycle(transport);
 
     initialized = true;
-    if (DEV_TUNING) console.log('[AudioEngine] Started');
+    devLog('[AudioEngine] Started');
   },
 
   stop(): void {
     const transport = _transport ?? Tone.getTransport();
 
     if (scheduledTickId !== null) {
-      try { transport.clear(scheduledTickId); } catch (err) { if (DEV_TUNING) swallow(err, 'transport.clear'); }
+      try { transport.clear(scheduledTickId); } catch (err) { devWarn('[AudioEngine] transport.clear failed', err); }
       scheduledTickId = null;
     }
 
@@ -687,7 +689,7 @@ export const AudioEngine = {
     activeVoices = 0;
     initialized = false;
 
-    if (DEV_TUNING) console.log('[AudioEngine] Stopped');
+    devLog('[AudioEngine] Stopped');
   },
 
   /**
@@ -721,12 +723,12 @@ export const AudioEngine = {
       const localeRobots = getActiveLocaleRobots();
       const robotFromStore = localeRobots.find((r) => r.id === robotId);
       if (robotFromStore?.audioMode === 'mute') {
-        if (DEV_TUNING) console.log(`[AudioEngine] Robot ${robotId} is muted; skipping note`);
+        devLog(`[AudioEngine] Robot ${robotId} is muted; skipping note`);
         return;
       }
       const anySolo = localeRobots.some((r) => r.audioMode === 'solo');
       if (anySolo && robotFromStore?.audioMode !== 'solo') {
-        if (DEV_TUNING) console.log(`[AudioEngine] Robot ${robotId} suppressed due to solo`);
+        devLog(`[AudioEngine] Robot ${robotId} suppressed due to solo`);
         return;
       }
       const anyHighlight = localeRobots.some((r) => r.audioMode === 'highlight');
@@ -735,7 +737,7 @@ export const AudioEngine = {
         effectiveVelocity = (effectiveVelocity ?? 1) * 0.5;
       }
     } catch (err) {
-      if (DEV_TUNING) swallow(err, 'AudioEngine.scheduleNote.audioMode');
+      devWarn('[AudioEngine] scheduleNote.audioMode failed', err);
     }
 
     triggerWithCap({ robotId, note, duration, time, velocity: effectiveVelocity });
@@ -771,9 +773,9 @@ export const AudioEngine = {
       const busFilter = FilterCtor ? new FilterCtor({ frequency: 1200, Q: 1 }) : ({ connect: () => ({}), disconnect: () => { }, toDestination: () => { } } as MinimalToneNode) as unknown as Tone.Filter;
 
       // Connect graph: composite.output -> panner -> busGain -> busFilter -> master compressor/destination
-      try { composite.output.connect(panner); } catch (e) { if (DEV_TUNING) console.warn('[AudioEngine] composite.output.connect failed', e); }
-      try { (panner as unknown as { connect?: (target?: unknown) => unknown }).connect?.(busGain); } catch (e) { if (DEV_TUNING) console.warn('[AudioEngine] panner.connect failed', e); }
-      try { (busGain as unknown as { connect?: (target?: unknown) => unknown }).connect?.(busFilter); } catch (e) { if (DEV_TUNING) console.warn('[AudioEngine] busGain.connect failed', e); }
+      try { composite.output.connect(panner); } catch (e) { devWarn('[AudioEngine] composite.output.connect failed', e); }
+      try { (panner as unknown as { connect?: (target?: unknown) => unknown }).connect?.(busGain); } catch (e) { devWarn('[AudioEngine] panner.connect failed', e); }
+      try { (busGain as unknown as { connect?: (target?: unknown) => unknown }).connect?.(busFilter); } catch (e) { devWarn('[AudioEngine] busGain.connect failed', e); }
       try {
         if (_masterCompressor) {
           (busFilter as unknown as { connect?: (target?: unknown) => unknown }).connect?.(_masterCompressor);
@@ -781,7 +783,7 @@ export const AudioEngine = {
           (busFilter as unknown as { toDestination?: () => unknown }).toDestination?.();
         }
       } catch (e) {
-        if (DEV_TUNING) console.warn('[AudioEngine] busFilter connection failed', e);
+        devWarn('[AudioEngine] busFilter connection failed', e);
       }
 
       compositeVoices.set(robotId, { composite, panner, busGain, busFilter });
@@ -800,12 +802,12 @@ export const AudioEngine = {
           composite.set({ layers: layersParam as Partial<OscillatorLayer>[] });
         }
       } catch (e) {
-        if (DEV_TUNING) console.warn('[AudioEngine] Failed to apply composite phase/detune/width at reservation time', e);
+        devWarn('[AudioEngine] Failed to apply composite phase/detune/width at reservation time', e);
       }
-      if (DEV_TUNING) console.log(`[AudioEngine] Reserved composite voice for ${robotId}`);
+      devLog(`[AudioEngine] Reserved composite voice for ${robotId}`);
       return true;
     } catch (err) {
-      if (DEV_TUNING) console.warn('[AudioEngine] Failed to create composite voice:', err);
+      devWarn('[AudioEngine] Failed to create composite voice:', err);
       // Fall back to a minimal, test-friendly composite stub so callers can reserve and trigger safely
       const stubComposite = {
         output: ({ connect: () => { } } as MinimalToneNode) as unknown as Tone.Gain,
@@ -817,7 +819,7 @@ export const AudioEngine = {
       const busGain = ({ connect: () => { }, disconnect: () => { }, gain: { value: 1 } } as MinimalToneNode) as unknown as Tone.Gain;
       const busFilter = ({ connect: () => { }, disconnect: () => { }, toDestination: () => { } } as MinimalToneNode) as unknown as Tone.Filter;
       compositeVoices.set(robotId, { composite: stubComposite, panner, busGain, busFilter });
-      if (DEV_TUNING) console.log(`[AudioEngine] Reserved stub composite voice for ${robotId}`);
+      devLog(`[AudioEngine] Reserved stub composite voice for ${robotId}`);
       return false;
     }
   },
@@ -828,21 +830,21 @@ export const AudioEngine = {
     if (!comp) return;
     try {
       // call composite dispose to cleanup per-layer synths and internal nodes
-      try { comp.composite.dispose?.(); } catch (err) { if (DEV_TUNING) console.warn('[AudioEngine] composite.dispose failed', err); }
+      try { comp.composite.dispose?.(); } catch (err) { devWarn('[AudioEngine] composite.dispose failed', err); }
       comp.panner.disconnect();
       comp.busGain.disconnect();
       comp.busFilter.disconnect();
       // Tone nodes may implement dispose; call when available
-      try { comp.panner.dispose?.(); } catch { if (DEV_TUNING) console.warn('[AudioEngine] Failed disposing panner'); }
-      try { comp.busGain.dispose?.(); } catch { if (DEV_TUNING) console.warn('[AudioEngine] Failed disposing busGain'); }
-      try { comp.busFilter.dispose?.(); } catch { if (DEV_TUNING) console.warn('[AudioEngine] Failed disposing busFilter'); }
+      try { comp.panner.dispose?.(); } catch { devWarn('[AudioEngine] Failed disposing panner'); }
+      try { comp.busGain.dispose?.(); } catch { devWarn('[AudioEngine] Failed disposing busGain'); }
+      try { comp.busFilter.dispose?.(); } catch { devWarn('[AudioEngine] Failed disposing busFilter'); }
     } catch (err) {
-      if (DEV_TUNING) console.warn('[AudioEngine] Failed to cleanup composite nodes', err);
+      devWarn('[AudioEngine] Failed to cleanup composite nodes', err);
     }
     compositeVoices.delete(robotId);
     robotAttributeCache.delete(robotId);
     robotNoteIndex.delete(robotId);
-    if (DEV_TUNING) console.log(`[AudioEngine] Released composite voice for ${robotId}`);
+    devLog(`[AudioEngine] Released composite voice for ${robotId}`);
   },
 
   /** Return the composite voice reserved for a robot, or null if none. */
@@ -875,7 +877,7 @@ export const AudioEngine = {
         (robot.audioAttributes as unknown as { layers?: OscillatorLayer[] })?.layers?.[0]?.pulseWidth,
       );
     } catch (err) {
-      if (DEV_TUNING) swallow(err, 'AudioEngine.reReserveVoice');
+      devWarn('[AudioEngine] reReserveVoice failed', err);
       return false;
     }
   },
@@ -892,19 +894,19 @@ export const AudioEngine = {
     try {
       const entry = compositeVoices.get(robotId);
       if (!entry) {
-        if (DEV_TUNING) console.warn(`[AudioEngine] updateVoiceLayerParams: no composite reserved for ${robotId}`);
+        devWarn(`[AudioEngine] updateVoiceLayerParams: no composite reserved for ${robotId}`);
         return;
       }
 
       try {
         // Pass the full layers array as required by the composite.set contract
         entry.composite.set({ layers: layers as Partial<OscillatorLayer>[] });
-        if (DEV_TUNING) console.log(`[AudioEngine] updateVoiceLayerParams applied for ${robotId}`);
+        devLog(`[AudioEngine] updateVoiceLayerParams applied for ${robotId}`);
       } catch (err) {
-        if (DEV_TUNING) console.warn('[AudioEngine] Failed to apply layer params on composite', err);
+        devWarn('[AudioEngine] Failed to apply layer params on composite', err);
       }
     } catch (err) {
-      if (DEV_TUNING) swallow(err, 'AudioEngine.updateVoiceLayerParams');
+      devWarn('[AudioEngine] updateVoiceLayerParams failed', err);
     }
   },
 
@@ -971,7 +973,7 @@ export const AudioEngine = {
             osc.detune.value = layer.detune;
           }
         } catch (err) {
-          if (DEV_TUNING) console.warn('[AudioEngine] Failed to apply detune on composite layer', err);
+          devWarn('[AudioEngine] Failed to apply detune on composite layer', err);
         }
       }
       // apply phase if present and supported
@@ -992,12 +994,12 @@ export const AudioEngine = {
                   (osc as unknown as { phase?: number }).phase = layer.phase;
                 }
               } catch (err) {
-                if (DEV_TUNING) console.warn('[AudioEngine] Failed to apply phase on composite layer', err);
+                devWarn('[AudioEngine] Failed to apply phase on composite layer', err);
               }
             }
           }
         } catch (err) {
-          if (DEV_TUNING) console.warn('[AudioEngine] Failed to apply phase on composite layer', err);
+          devWarn('[AudioEngine] Failed to apply phase on composite layer', err);
         }
       }
       // apply pulseWidth if present and supported
@@ -1014,12 +1016,12 @@ export const AudioEngine = {
                   (osc as unknown as { width?: number }).width = layer.pulseWidth;
                 }
               } catch (err) {
-                if (DEV_TUNING) console.warn('[AudioEngine] Failed to apply pulseWidth on composite layer', err);
+                devWarn('[AudioEngine] Failed to apply pulseWidth on composite layer', err);
               }
             }
           }
         } catch (err) {
-          if (DEV_TUNING) console.warn('[AudioEngine] Failed to apply pulseWidth on composite layer', err);
+          devWarn('[AudioEngine] Failed to apply pulseWidth on composite layer', err);
         }
       }
 
@@ -1061,7 +1063,7 @@ export const AudioEngine = {
             (synth as unknown as { triggerRelease?: (time?: number) => void }).triggerRelease?.(releaseAt + 0.01);
           }
         } catch (err) {
-          if (DEV_TUNING) console.warn('[AudioEngine] Composite layer trigger failed', err);
+          devWarn('[AudioEngine] Composite layer trigger failed', err);
         }
       });
     };
@@ -1078,7 +1080,7 @@ export const AudioEngine = {
             try {
               gainNode.gain.value = p.gain as number;
             } catch (err) {
-              if (DEV_TUNING) console.warn('[AudioEngine] Failed to set layer gain on composite', err);
+              devWarn('[AudioEngine] Failed to set layer gain on composite', err);
             }
           }
           if (p.detune !== undefined) {
@@ -1086,7 +1088,7 @@ export const AudioEngine = {
               const osc = (synth as unknown as { oscillator?: { detune?: { value: number } } })?.oscillator;
               if (osc && osc.detune) osc.detune.value = p.detune;
             } catch (err) {
-              if (DEV_TUNING) console.warn('[AudioEngine] Failed to set detune on composite layer', err);
+              devWarn('[AudioEngine] Failed to set detune on composite layer', err);
             }
           }
           if (p.phase !== undefined) {
@@ -1102,12 +1104,12 @@ export const AudioEngine = {
                       (osc as unknown as { phase?: number }).phase = p.phase;
                     }
                   } catch (err) {
-                    if (DEV_TUNING) console.warn('[AudioEngine] Failed to set phase on composite layer', err);
+                    devWarn('[AudioEngine] Failed to set phase on composite layer', err);
                   }
                 }
               }
             } catch (err) {
-              if (DEV_TUNING) console.warn('[AudioEngine] Failed to set phase on composite layer', err);
+              devWarn('[AudioEngine] Failed to set phase on composite layer', err);
             }
           }
           if (p.pulseWidth !== undefined) {
@@ -1124,17 +1126,17 @@ export const AudioEngine = {
                       (osc as unknown as { width?: number }).width = p.pulseWidth;
                     }
                   } catch (err) {
-                    if (DEV_TUNING) console.warn('[AudioEngine] Failed to set pulseWidth on composite layer', err);
+                    devWarn('[AudioEngine] Failed to set pulseWidth on composite layer', err);
                   }
                 }
               }
             } catch (err) {
-              if (DEV_TUNING) console.warn('[AudioEngine] Failed to set pulseWidth on composite layer', err);
+              devWarn('[AudioEngine] Failed to set pulseWidth on composite layer', err);
             }
           }
           if (p.adsr && typeof (synth as unknown as { set?: (props: unknown) => void }).set === 'function') {
             try { (synth as unknown as { set?: (props: unknown) => void }).set?.({ envelope: p.adsr }); } catch (err) {
-              if (DEV_TUNING) console.warn('[AudioEngine] Failed to set ADSR on composite layer', err);
+              devWarn('[AudioEngine] Failed to set ADSR on composite layer', err);
             }
           }
         });
@@ -1145,15 +1147,15 @@ export const AudioEngine = {
       // Disconnect and dispose per-layer synths and gains
       layerNodes.forEach(({ synth, gainNode }) => {
         try {
-          try { (synth as unknown as { dispose?: () => void }).dispose?.(); } catch (err) { if (DEV_TUNING) console.warn('[AudioEngine] Error disposing composite layer synth', err); }
+          try { (synth as unknown as { dispose?: () => void }).dispose?.(); } catch (err) { devWarn('[AudioEngine] Error disposing composite layer synth', err); }
         } catch (err) {
-          if (DEV_TUNING) console.warn('[AudioEngine] Error disposing composite layer synth', err);
+          devWarn('[AudioEngine] Error disposing composite layer synth', err);
         }
-        try { gainNode?.disconnect(); } catch { if (DEV_TUNING) console.warn('[AudioEngine] Failed disconnecting gainNode'); }
-        try { (gainNode as unknown as { dispose?: () => void })?.dispose?.(); } catch { if (DEV_TUNING) console.warn('[AudioEngine] Failed disposing gainNode'); }
+        try { gainNode?.disconnect(); } catch { devWarn('[AudioEngine] Failed disconnecting gainNode'); }
+        try { (gainNode as unknown as { dispose?: () => void })?.dispose?.(); } catch { devWarn('[AudioEngine] Failed disposing gainNode'); }
       });
-      try { out.disconnect(); } catch { if (DEV_TUNING) console.warn('[AudioEngine] Failed disconnecting composite output'); }
-      try { (out as unknown as { dispose?: () => void })?.dispose?.(); } catch { if (DEV_TUNING) console.warn('[AudioEngine] Failed disposing composite output'); }
+      try { out.disconnect(); } catch { devWarn('[AudioEngine] Failed disconnecting composite output'); }
+      try { (out as unknown as { dispose?: () => void })?.dispose?.(); } catch { devWarn('[AudioEngine] Failed disposing composite output'); }
     };
 
     return { output: out, triggerAttackRelease, set, dispose };
@@ -1196,11 +1198,7 @@ export const AudioEngine = {
       stepRegistry.set(event.startStep, entries);
     });
 
-    if (DEV_TUNING) {
-      console.log(
-        `[AudioEngine] Registered melody for robot ${robotId} (${melody.length} events)`
-      );
-    }
+    devLog(`[AudioEngine] Registered melody for robot ${robotId} (${melody.length} events)`);
   },
 
   unregisterRobotMelody(robotId: string): void {
@@ -1219,11 +1217,7 @@ export const AudioEngine = {
       }
     });
 
-    if (DEV_TUNING) {
-      console.log(
-        `[AudioEngine] Unregistered melody for robot ${robotId} (${removedCount} events removed)`
-      );
-    }
+    devLog(`[AudioEngine] Unregistered melody for robot ${robotId} (${removedCount} events removed)`);
   },
 
   /**
@@ -1284,7 +1278,7 @@ export const AudioEngine = {
   setBPM(bpm: number): void {
     if (!initialized) return;
     const transport = _transport ?? Tone.getTransport();
-    try { transport.bpm.value = bpm; } catch (err) { if (DEV_TUNING) console.warn('[AudioEngine] setBPM failed', err); }
+    try { transport.bpm.value = bpm; } catch (err) { devWarn('[AudioEngine] setBPM failed', err); }
   },
 
   /** Pause transport without resetting position (soft pause). */
@@ -1293,7 +1287,7 @@ export const AudioEngine = {
       const transport = _transport ?? Tone.getTransport();
       transport.pause();
     } catch (err) {
-      if (DEV_TUNING) console.warn('[AudioEngine] pause failed', err);
+      devWarn('[AudioEngine] pause failed', err);
     }
   },
 
@@ -1303,7 +1297,7 @@ export const AudioEngine = {
       const transport = _transport ?? Tone.getTransport();
       transport.start();
     } catch (err) {
-      if (DEV_TUNING) console.warn('[AudioEngine] resume failed', err);
+      devWarn('[AudioEngine] resume failed', err);
     }
   },
 
@@ -1314,7 +1308,7 @@ export const AudioEngine = {
   killAll(): void {
     try {
       const transport = _transport ?? Tone.getTransport();
-      try { transport.cancel(); } catch (err) { if (DEV_TUNING) swallow(err, 'transport.cancel'); }
+      try { transport.cancel(); } catch (err) { devWarn('[AudioEngine] transport.cancel failed', err); }
 
       stopHarmonyCycle();
 
@@ -1331,7 +1325,7 @@ export const AudioEngine = {
       } catch { /* ignore */ }
 
       if (scheduledTickId !== null) {
-        try { transport.clear(scheduledTickId); } catch (err) { if (DEV_TUNING) swallow(err, 'transport.clear'); }
+        try { transport.clear(scheduledTickId); } catch (err) { devWarn('[AudioEngine] transport.clear failed', err); }
         scheduledTickId = null;
       }
 
@@ -1342,9 +1336,9 @@ export const AudioEngine = {
       // transport.cancel() above cleared the old 16n tick; resetBeatClock() lets it be recreated.
       resetBeatClock();
       _unsubscribeMeasure = null; // resetBeatClock cleared the listener array; drop the stale ref
-      if (DEV_TUNING) console.log('[AudioEngine] killAll: transport cancelled, voices released, position reset');
+      devLog('[AudioEngine] killAll: transport cancelled, voices released, position reset');
     } catch (err) {
-      if (DEV_TUNING) console.warn('[AudioEngine] killAll failed', err);
+      devWarn('[AudioEngine] killAll failed', err);
     }
   },
 
@@ -1353,7 +1347,7 @@ export const AudioEngine = {
     const v = Math.max(0, Math.min(1, Number(volume) || 0));
     _masterVolume = v;
     if (_masterGain) {
-      try { (_masterGain as unknown as { gain: { value: number } }).gain.value = v; } catch (err) { if (DEV_TUNING) console.warn('[AudioEngine] setMasterVolume failed', err); }
+      try { (_masterGain as unknown as { gain: { value: number } }).gain.value = v; } catch (err) { devWarn('[AudioEngine] setMasterVolume failed', err); }
     }
   },
 
@@ -1380,7 +1374,7 @@ export const AudioEngine = {
       if (params.preDelay !== undefined) (_globalReverb as unknown as { preDelay: number }).preDelay = params.preDelay;
       if (params.dampening !== undefined) (_globalReverb as unknown as { dampening: number }).dampening = params.dampening;
     } catch (err) {
-      if (DEV_TUNING) console.warn('[AudioEngine] setGlobalReverb failed', err);
+      devWarn('[AudioEngine] setGlobalReverb failed', err);
     }
   },
 
@@ -1392,7 +1386,7 @@ export const AudioEngine = {
       if (params.delayTime !== undefined) (_globalDelay as unknown as { delayTime: { value: number } }).delayTime.value = params.delayTime;
       if (params.feedback !== undefined) (_globalDelay as unknown as { feedback: { value: number } }).feedback.value = params.feedback;
     } catch (err) {
-      if (DEV_TUNING) console.warn('[AudioEngine] setGlobalDelay failed', err);
+      devWarn('[AudioEngine] setGlobalDelay failed', err);
     }
   },
 
@@ -1406,7 +1400,7 @@ export const AudioEngine = {
       if (params.delayTime !== undefined) (_globalChorus as unknown as { delayTime: number }).delayTime = params.delayTime;
       if (params.feedback !== undefined) (_globalChorus as unknown as { feedback: { value: number } }).feedback.value = params.feedback;
     } catch (err) {
-      if (DEV_TUNING) console.warn('[AudioEngine] setGlobalChorus failed', err);
+      devWarn('[AudioEngine] setGlobalChorus failed', err);
     }
   },
 
@@ -1418,7 +1412,7 @@ export const AudioEngine = {
       if (params.frequency !== undefined) (_globalLPF as unknown as { frequency: { value: number } }).frequency.value = params.frequency;
       if (params.Q !== undefined) (_globalLPF as unknown as { Q: { value: number } }).Q.value = params.Q;
     } catch (err) {
-      if (DEV_TUNING) console.warn('[AudioEngine] setGlobalFilterLPF failed', err);
+      devWarn('[AudioEngine] setGlobalFilterLPF failed', err);
     }
   },
 
@@ -1430,7 +1424,7 @@ export const AudioEngine = {
       if (params.frequency !== undefined) (_globalHPF as unknown as { frequency: { value: number } }).frequency.value = params.frequency;
       if (params.Q !== undefined) (_globalHPF as unknown as { Q: { value: number } }).Q.value = params.Q;
     } catch (err) {
-      if (DEV_TUNING) console.warn('[AudioEngine] setGlobalFilterHPF failed', err);
+      devWarn('[AudioEngine] setGlobalFilterHPF failed', err);
     }
   },
 
@@ -1444,7 +1438,7 @@ export const AudioEngine = {
       if (params.mid !== undefined) (_globalEQ as unknown as { mid: { value: number } }).mid.value = params.mid;
       if (params.high !== undefined) (_globalEQ as unknown as { high: { value: number } }).high.value = params.high;
     } catch (err) {
-      if (DEV_TUNING) console.warn('[AudioEngine] setGlobalEQ failed', err);
+      devWarn('[AudioEngine] setGlobalEQ failed', err);
     }
   },
 
@@ -1462,7 +1456,7 @@ export const AudioEngine = {
       if (params.release !== undefined) _masterCompressor.release.value = params.release;
       if (params.knee !== undefined) _masterCompressor.knee.value = params.knee;
     } catch (err) {
-      if (DEV_TUNING) console.warn('[AudioEngine] setGlobalCompressor failed', err);
+      devWarn('[AudioEngine] setGlobalCompressor failed', err);
     }
   },
 
@@ -1472,14 +1466,14 @@ export const AudioEngine = {
    * When bypass=false, reconnect through the FX chain.
    */
   setGlobalBypass(bypass: boolean): void {
-    if (DEV_TUNING) console.log('[AudioEngine] global bypass state set to', bypass);
+    devLog('[AudioEngine] global bypass state set to', bypass);
     if (!_masterCompressor) return;
     const comp = _masterCompressor as unknown as { connect: (t: unknown) => void; disconnect: () => void; toDestination: () => void };
     try {
       comp.disconnect();
       if (bypass) {
         comp.toDestination();
-        if (DEV_TUNING) console.log('[AudioEngine] Global bypass ON — audio routed direct to destination');
+        devLog('[AudioEngine] Global bypass ON — audio routed direct to destination');
       } else {
         // Reconnect through FX chain (first available node or destination)
         const firstFX = (_globalEQ ?? _globalLPF ?? _globalHPF ?? _globalChorus ?? _globalDelay ?? _globalReverb) as unknown as { connect?: (t: unknown) => void } | null;
@@ -1488,10 +1482,10 @@ export const AudioEngine = {
         } else {
           comp.toDestination();
         }
-        if (DEV_TUNING) console.log('[AudioEngine] Global bypass OFF — audio routed through FX chain');
+        devLog('[AudioEngine] Global bypass OFF — audio routed through FX chain');
       }
     } catch (err) {
-      if (DEV_TUNING) console.warn('[AudioEngine] setGlobalBypass failed', err);
+      devWarn('[AudioEngine] setGlobalBypass failed', err);
     }
   },
 
@@ -1548,10 +1542,10 @@ export const AudioEngine = {
           }
           break;
         default:
-          if (DEV_TUNING) console.warn(`[AudioEngine] setEffectBypass: unknown effect "${effect}"`);
+          devWarn(`[AudioEngine] setEffectBypass: unknown effect "${effect}"`);
       }
     } catch (err) {
-      if (DEV_TUNING) console.warn(`[AudioEngine] setEffectBypass(${effect}, ${enabled}) failed`, err);
+      devWarn(`[AudioEngine] setEffectBypass(${effect}, ${enabled}) failed`, err);
     }
   },
 };
