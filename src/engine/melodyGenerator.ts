@@ -292,12 +292,44 @@ export function buildMotifOnsets(
  *   2–3  → '8n'
  *   4–6  → '4n'
  *   7+   → '2n'
+ *
+ * Kept as a general-purpose quantization utility; `generateMelodyForRobot` uses
+ * `pickDurationForGap` instead so notes can be shorter than the full gap to the
+ * next onset (leaving rests) rather than always filling it.
  */
 export function gridUnitsToDuration(units: number): NoteDuration {
   if (units <= 1) return '16n';
   if (units <= 3) return '8n';
   if (units <= 6) return '4n';
   return '2n';
+}
+
+/** Grid-unit length of each representable note duration, used by pickDurationForGap. */
+const DURATION_UNIT_VALUES: Array<[number, NoteDuration]> = [
+  [1, '16n'],
+  [2, '8n'],
+  [4, '4n'],
+  [8, '2n'],
+];
+
+/**
+ * Choose a note duration that fits within the available grid-unit gap to the next
+ * onset (or measure end), leaving any remainder as a rest rather than always filling
+ * the whole gap. Weighted toward longer durations (weight = unit value), so shorter
+ * notes — especially `16n` — are chosen less often while remaining possible.
+ *
+ * @param availableUnits Grid units available before the next onset. Always >= 1.
+ * @param rand Optional RNG function (default: Math.random)
+ */
+export function pickDurationForGap(availableUnits: number, rand: () => number = Math.random): NoteDuration {
+  const candidates = DURATION_UNIT_VALUES.filter(([units]) => units <= availableUnits);
+  const totalWeight = candidates.reduce((sum, [units]) => sum + units, 0);
+  let r = rand() * totalWeight;
+  for (const [units, duration] of candidates) {
+    r -= units;
+    if (r <= 0) return duration;
+  }
+  return candidates[candidates.length - 1][1];
 }
 
 // ========================================
@@ -394,7 +426,7 @@ export function generateMelodyForRobot(
     melody.push({
       id: crypto.randomUUID(),
       startStep: onsets[i] + 1, // 1-indexed to match existing RobotMelodyEvent convention
-      length: gridUnitsToDuration(durationUnits),
+      length: pickDurationForGap(durationUnits, rand),
       noteIndex,
       octave: currentOctave,
     });

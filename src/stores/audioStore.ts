@@ -32,7 +32,7 @@ export interface AudioStore {
 // STORE
 // ========================================
 export const useAudioStore = create<AudioStore>((set) => ({
-  bpm: 120,
+  bpm: 60,
   globalAudio: { ...DEFAULT_GLOBAL_AUDIO_SETTINGS },
   isMuted: false,
   preMuteVolume: 1.0,

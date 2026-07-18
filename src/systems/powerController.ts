@@ -1,4 +1,5 @@
 import { AudioEngine } from '../engine/AudioEngine';
+import { useAudioStore } from '../stores/audioStore';
 import { resetHarmony } from '../engine/harmonySystem';
 import { reRegisterAllRobotsAudio, removeNonPersistentRobots, stopSpawnScheduler } from './spawnSystem';
 import { stopCollisionDetection } from './collisionSystem';
@@ -15,6 +16,7 @@ import { DEV_TUNING } from '../constants';
 export const powerController = {
   async start() {
     await AudioEngine.start();
+    AudioEngine.setBPM(useAudioStore.getState().bpm);
     resetHarmony();
     reRegisterAllRobotsAudio(getActiveLocaleId());
   },

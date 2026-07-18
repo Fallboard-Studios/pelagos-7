@@ -1,6 +1,8 @@
-# Melody Generation Guide
+# Melody Generation Specification
 
-Melody generation creates procedurally generated musical patterns for each robot at spawn time. The current implementation in [src/engine/melodyGenerator.ts](../src/engine/melodyGenerator.ts) produces immutable `RobotMelodyEvent[]` values whose note choices are index-based and later resolved by the harmony palette at playback time.
+Source of truth: [`src/engine/melodyGenerator.ts`](../src/engine/melodyGenerator.ts).
+
+Melody generation creates procedurally generated musical patterns for each robot at spawn time, producing immutable `RobotMelodyEvent[]` values whose note choices are index-based and later resolved by the harmony palette at playback time.
 
 ## Core Principles
 
@@ -16,7 +18,7 @@ Melody generation creates procedurally generated musical patterns for each robot
 interface RobotMelodyEvent {
   id: string;
   startStep: number; // 1..16 (1-indexed slot in the 16-step grid)
-  length: '16n' | '8n' | '4n' | '2n';
+  length: NoteDuration; // full union is '32n'|'16n'|'8n'|'4n'|'2n'|'1n'|'2m'|'4m' (types/Robot.ts); gridUnitsToDuration() only ever produces '16n'|'8n'|'4n'|'2n'
   noteIndex: number; // 0..7, mapped into the active harmony palette
   octave: number; // concrete octave assigned at generation time
 }
@@ -56,7 +58,7 @@ The implementation uses a motif-repetition algorithm rather than the older step-
 2. The density is clamped to the range 4–12 events.
 3. Each event gets:
    - a `startStep` derived from the onset grid
-   - a duration derived from the gap to the next onset via `gridUnitsToDuration()`
+   - a duration chosen via `pickDurationForGap()` — not necessarily filling the whole gap to the next onset; the remainder becomes a rest
    - a `noteIndex` chosen with weighted probabilities
    - an `octave` selected within the provided range
 
@@ -69,19 +71,17 @@ The rhythmic pattern is driven by:
 
 The algorithm repeats a base motif across the measure and spreads extra onsets to the first copies of that motif. If the motif length is too short to support repetition, it falls back to picking unique positions directly.
 
-## Duration Mapping
+## Duration Selection
 
-Durations are not chosen from a separate random picker anymore. Instead, the generator maps the gap between successive onsets into Tone-style note lengths:
+Each event's duration is chosen by `pickDurationForGap(availableUnits, rand)`, not by deterministically filling the gap to the next onset:
 
 ```typescript
-export function gridUnitsToDuration(units: number): NoteDuration
+export function pickDurationForGap(availableUnits: number, rand?: () => number): NoteDuration
 ```
 
-Mapping:
-- `<= 1` → `16n`
-- `2–3` → `8n`
-- `4–6` → `4n`
-- `7+` → `2n`
+Candidates are every representable duration whose grid-unit length (`16n`=1, `8n`=2, `4n`=4, `2n`=8) is `<= availableUnits`, chosen with probability weighted by that unit length — so `16n` is deliberately the least likely candidate whenever a longer option is available, while remaining possible (a gap of exactly 1 unit has no other choice). When the chosen duration is shorter than the available gap, the remainder is silence — this is intentional: it creates space between notes instead of every onset's note always ringing until the instant the next one starts.
+
+`gridUnitsToDuration(units): NoteDuration` still exists as a general-purpose deterministic quantizer (`<=1→16n`, `2-3→8n`, `4-6→4n`, `7+→2n`) but is no longer used by `generateMelodyForRobot` — it's independently tested and kept as a utility.
 
 ## Note Selection
 
@@ -118,6 +118,7 @@ These helpers are pure and return a new melody array when a change occurs.
 - `DEFAULT_SUBDIVISIONS = 16`
 - `OCTAVE_JUMP_CHANCE = 0.15`
 - `DEFAULT_VARIANCE_PROBABILITY = 0.20`
+- `DURATION_UNIT_VALUES`: `[[1,'16n'], [2,'8n'], [4,'4n'], [8,'2n']]` — grid-unit lengths used to weight `pickDurationForGap()`'s choice (weight = unit value, so `2n` is ~8x more likely than `16n` whenever both fit)
 
 ## Integration at Spawn
 
@@ -143,12 +144,13 @@ The generated melody is later consumed by AudioEngine via a step registry keyed 
 
 The playback layer uses the melody events as index-based cues and applies the current harmony palette at scheduling time. The generator itself only produces the event structure; the actual pitch is resolved by the engine when the note is scheduled.
 
+`AudioEngine`'s playback scheduler ticks on `'16n'` — 16 ticks per measure — so the 16 `startStep` slots this generator produces map 1:1 onto a single measure, exactly matching the "one measure, 16 subdivisions" model above. (This alignment was previously broken — the scheduler ticked on `'8n'`, stretching every melody's loop to 2 measures at half the tuned density — and was fixed to match this generator's model rather than the other way around.)
+
 ## Testing Notes
 
 The current tests cover:
 - deterministic generation with `seed` or `rand`
 - rhythm and tonal variance behavior
+- duration selection through `pickDurationForGap()` (never exceeds the available gap, weighted toward longer durations)
 - duration mapping through `gridUnitsToDuration()`
 - onset construction through `buildMotifOnsets()`
-
-The old `events`, `syncopationBias`, and `pickLength` API names are not part of the current implementation.
