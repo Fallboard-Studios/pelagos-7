@@ -1,168 +1,91 @@
-# Polyphony Management Guide
+# Polyphony Management Specification
 
-This guide is still useful because the engine has a real global voice cap, but the file should describe the current implementation in [src/engine/AudioEngine.ts](../src/engine/AudioEngine.ts), not the older conceptual model.
+Source of truth: [`src/engine/AudioEngine.ts`](../src/engine/AudioEngine.ts).
+
+**Related docs:** [AUDIO_SYSTEM.md](AUDIO_SYSTEM.md) · [BEAT_CLOCK.md](BEAT_CLOCK.md)
 
 ## Current Behavior
 
-The current implementation uses a single global voice budget:
-
-- `MAX_POLYPHONY = 16`
-- `activeVoices` tracks currently active note windows
-- `triggerWithCap()` returns `false` when the cap is reached, so notes are skipped gracefully rather than stealing voices
-- each robot gets a reserved composite voice through `AudioEngine.reserveVoice()`
-- `AudioEngine.releaseVoice()` removes that voice from the map and disposes its bus nodes
+- `MAX_POLYPHONY = 16` — a single global cap on simultaneously **triggered** notes.
+- `activeVoices` — module-scoped counter tracking currently active note windows.
+- `triggerWithCap()` returns `false` and skips the note when the cap is reached — notes are dropped, never steal an existing voice.
+- Each robot gets its own **reserved composite voice** via `AudioEngine.reserveVoice()`. Reservation is **not** capped by `MAX_POLYPHONY` — a robot can hold a reserved voice indefinitely without ever triggering a note; only the act of triggering counts against the cap.
+- `AudioEngine.releaseVoice()` disposes a robot's composite voice and bus nodes and removes it from the internal map.
 
 ## Core Rules
 
-1. **Global cap**: the engine enforces a single shared polyphony limit.
-2. **Composite voices**: each robot uses a per-robot composite voice with its own bus nodes.
-3. **Skip-based limiting**: when the cap is full, notes are rejected rather than forcing a voice swap.
-4. **Transport-based release**: voice slots are freed when the scheduled note ends, using a transport-relative release delay.
-5. **Centralized enforcement**: all note triggering and voice lifecycle logic lives in AudioEngine.
+1. **Global cap**: one shared polyphony limit across all robots (`MAX_POLYPHONY`).
+2. **Composite voices**: each robot has its own composite voice with dedicated bus nodes (`panner → gain → filter → master compressor/destination`) — there is no shared or pooled synth keyed by waveform type.
+3. **Skip-based limiting**: when the cap is full, the note is rejected outright; no existing voice is stolen or reassigned.
+4. **Transport-based release**: voice slots free up on a transport-relative schedule tied to the note's actual end time, not a wall-clock timer.
+5. **Centralized enforcement**: all triggering and voice-lifecycle logic lives in `AudioEngine`.
 
-## How It Works
+## Trigger Path
 
-### Trigger path
+`AudioEngine.scheduleNote()` resolves velocity and `audioMode` policy (see [AUDIO_SYSTEM.md](AUDIO_SYSTEM.md)'s Note Resolution Pipeline) before delegating to `triggerWithCap(params: NoteParams): boolean`, which:
 
-`AudioEngine.scheduleNote()` delegates into `triggerWithCap()`. The trigger path:
+1. Rejects immediately if `activeVoices >= MAX_POLYPHONY`.
+2. Re-checks `audioMode` (mute / solo) as a safety net, in case a caller bypassed `scheduleNote`.
+3. Increments `activeVoices`.
+4. Verifies the robot has a reserved composite voice — rejects (rolling back the counter) if not.
+5. Validates the resolved note string against `/^[A-Ga-g][b#]{0,2}\d+$/` — rejects (rolling back) on an invalid note.
+6. Applies the current pan value, triggers the composite voice, and schedules its release.
 
-1. checks `activeVoices >= MAX_POLYPHONY`
-2. rejects the note if the cap is full
-3. increments the active voice counter
-4. verifies that the robot has a reserved composite voice
-5. triggers the note and schedules its release
+If any step after the increment fails, `activeVoices` is rolled back so the slot isn't left permanently occupied.
 
-If anything fails during note triggering, the active voice counter is rolled back so the slot is not left permanently occupied.
+## Reservation Path
 
-### Reservation path
+`AudioEngine.reserveVoice()` builds a composite voice and wires it into a per-robot bus: `panner → gain → filter → master compressor` (or straight to destination if no compressor exists). This keeps each robot's routing isolated while all robots still share the same global polyphony budget. Reservation is independent of the trigger-time cap — it only reports failure if voice construction itself throws (see [AUDIO_SYSTEM.md](AUDIO_SYSTEM.md) for the exact failure contract).
 
-`AudioEngine.reserveVoice()` creates a composite voice and wires it to a per-robot bus chain:
+## Release Path
 
-- panner
-- gain
-- filter
-- master compressor / destination
+`AudioEngine.releaseVoice()` disposes the composite voice's internal synths/gains, disconnects and disposes the per-robot bus nodes, and removes the robot from the composite-voice map.
 
-This keeps each robot's audio routing isolated while still sharing the global polyphony budget.
-
-### Release path
-
-`AudioEngine.releaseVoice()` disposes the composite voice and its bus nodes, then removes the robot from the composite voice map.
-
-## Public APIs to Use
+## Public APIs
 
 ```typescript
-AudioEngine.scheduleNote({ robotId, note, duration, time });
-AudioEngine.reserveVoice(robotId, descriptor, phase, detune, pulseWidth);
+AudioEngine.scheduleNote({ robotId, note, duration, time, velocity }); // void — see Timing/Trigger Path
+AudioEngine.reserveVoice(robotId, descriptor, phase, detune, pulseWidth); // boolean
 AudioEngine.releaseVoice(robotId);
-AudioEngine.reReserveVoice(robotId);
-AudioEngine.getPolyphonyStats();
+AudioEngine.reReserveVoice(robotId); // boolean
+AudioEngine.getPolyphonyStats(); // { voices: number; maxVoices: number; step: number }
 AudioEngine.getVoiceForRobot(robotId);
 ```
 
-## Timing Notes
+## Timing
 
-Release timing is not handled with `setTimeout` or `queueMicrotask`. Instead, the engine uses a transport-relative release delay derived from the scheduled note time and the note duration, with a small buffer added for cleanup. If transport scheduling fails, it falls back to an immediate release.
+Voice release is **not** handled with `setTimeout`/`queueMicrotask`. `scheduleVoiceRelease` computes a transport-relative delay (`(scheduledTime - Tone.now()) + noteDurationSeconds + 0.04s` cleanup buffer) and schedules the counter decrement via `transport.scheduleOnce('+delay', ...)`. If transport scheduling itself throws, it falls back to an immediate decrement so the slot is never left permanently occupied.
 
-## What This Means for Contributors
+## For Contributors
 
-- Do not create synths in components or hooks.
-- Do not store synth instances or composite voices in Zustand or React state.
-- Do not implement voice stealing unless the design explicitly requires it; the current engine uses skip-based limiting.
-- If a robot is removed, release its voice so the composite voice map and runtime nodes are cleaned up.
+- Never create synths in components or hooks — all synth construction lives in `AudioEngine`.
+- Never store synth instances or composite voices in Zustand or React state.
+- Don't implement voice stealing — the engine is skip-based by design; only add stealing if a design explicitly calls for it.
+- Release a robot's voice (`releaseVoice`) when it's removed, so the composite-voice map and its Tone nodes don't leak.
 
 ## Debugging
 
-Useful checks during development:
-
 ```typescript
-console.log(AudioEngine.getPolyphonyStats());
+console.log(AudioEngine.getPolyphonyStats()); // { voices, maxVoices, step }
 console.log(AudioEngine.getVoiceForRobot(robotId));
 ```
 
-The stats object reports the current active voice count, the global maximum, and the current melody step.
+## Integration: Melody Playback
 
-**✅ DO: Use shared synth pool**
-
-```typescript
-// GOOD: Shared pool
-synth selection: use the robot's layered descriptor or waveform
-```typescript
-const synthKey = robot.audio.layeredWave?.base ?? robot.audio.waveform;
-const synth = synthPool[synthKey];
-```
-synth.triggerAttackRelease(...);
-```
+`AudioEngine`'s internal playback tick (16 steps per measure — see [AUDIO_SYSTEM.md](AUDIO_SYSTEM.md)) calls `scheduleNote()` for every registered event at the current step. `scheduleNote` returns `void` — polyphony rejection is silent from the caller's perspective; `triggerWithCap`'s `boolean` result isn't surfaced there. To observe skip rate, poll `AudioEngine.getPolyphonyStats()` rather than expecting a per-call success/failure signal.
 
 ## Testing
 
-**Unit test examples** (see [CONTRIBUTION_GUIDE.md](CONTRIBUTION_GUIDE.md#testing) for full patterns):
+See `src/engine/AudioEngine.test.ts` for real coverage (polyphony-cap rejection, voice reservation/release, `audioMode` enforcement). Example pattern using the real API:
 
 ```typescript
-describe('Polyphony Management', () => {
-  it('should reject notes when limit exceeded', () => {
-    // Fill polyphony budget
-    for (let i = 0; i < MAX_POLYPHONY; i++) {
-      const result = triggerWithCap('C4', '1n');
-      expect(result).toBe(true);
-    }
-    
-    // Next note should be rejected
-    const overflow = triggerWithCap('C4', '1n');
-    expect(overflow).toBe(false);
-  });
-  
-  it('should release voices after note duration', async () => {
-    triggerWithCap('C4', '4n');  // activeVoices = 1
-    
-    await Tone.Transport.start();
-    await new Promise(resolve => setTimeout(resolve, 1000));  // Wait for release
-    
-    expect(activeVoices).toBe(0);
-  });
-});
-```
-
-**Load testing:**
-
-```typescript
-// Stress test: Spawn many robots and trigger all melodies
-async function stressTestPolyphony() {
-  const robots = Array(20).fill(0).map(() => spawnRobot());
-  
-  // Trigger all melodies simultaneously
-  robots.forEach(r => {
-    r.melody.forEach(event => {
-      scheduleNote({ robotId: r.id, note: 'C4', duration: event.length });
-    });
-  });
-  
-  // Monitor skip rate
-  console.log('Polyphony Stats:', getPolyphonyStats());
-}
-```
-
-## Integration with Other Systems
-
-### Melody Playback
-
-```typescript
-BeatClock.scheduleRepeat('8n', (time) => {
-  const entries = stepRegistry.get(currentStep) || [];
-  
-  entries.forEach(({ robotId, event }) => {
-    const success = triggerWithCap(
-      note,
-      event.length,
-      time + MIN_LEAD,
-      velocity,
-      // synth selection is derived from the robot's layeredWave/base waveform
-      robot.audio.layeredWave?.base ?? robot.audio.waveform
-    );
-    
-    if (!success && DEV_TUNING) {
-      console.debug(`[AudioEngine] Skipped note for ${robotId} (polyphony limit)`);
-    }
-  });
+it('rejects notes once the cap is reached', () => {
+  for (let i = 0; i < MAX_POLYPHONY; i++) {
+    AudioEngine.reserveVoice(`r${i}`, layers);
+    AudioEngine.scheduleNote({ robotId: `r${i}`, note: 'C4', duration: '4n' });
+  }
+  // Cap enforcement isn't directly observable via scheduleNote's return value (void);
+  // assert via the stats snapshot instead.
+  expect(AudioEngine.getPolyphonyStats().voices).toBeLessThanOrEqual(MAX_POLYPHONY);
 });
 ```
