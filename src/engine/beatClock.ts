@@ -1,7 +1,7 @@
 // ========================================
 // IMPORTS
 // ========================================
-import { DEV_TUNING } from '../constants';
+import { devLog, devWarn } from '../utils/helpers';
 
 // Minimal transport-like interface to avoid importing Tone.js here.
 interface TransportLike {
@@ -13,16 +13,6 @@ interface TransportLike {
 
 // Transport instance is provided by AudioEngine to avoid importing Tone here.
 let transportInstance: TransportLike | null = null;
-
-/** Log informational messages only when DEV_TUNING is enabled. */
-function devLog(...args: unknown[]): void {
-  if (DEV_TUNING) console.log(...args);
-}
-
-/** Warn (e.g. on a caught/swallowed error) only when DEV_TUNING is enabled. */
-function devWarn(...args: unknown[]): void {
-  if (DEV_TUNING) console.warn(...args);
-}
 
 // ========================================
 // CONSTANTS
