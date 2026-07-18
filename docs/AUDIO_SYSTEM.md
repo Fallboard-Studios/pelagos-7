@@ -56,22 +56,53 @@ Tone.start() + Transport.start()
 
 ### AudioEngine API
 
+`AudioEngine` is a plain object (no class). The methods below are the full export surface — roughly half of these were previously undocumented.
+
 ```typescript
 export const AudioEngine = {
-  start: async (): Promise<void>,
-  stop: () => void,
-  scheduleNote: (params: { robotId: string; note: string; duration?: string; time?: number; velocity?: number }) => void,
+  // Lifecycle
+  start: async (): Promise<void>,       // idempotent — no-ops if already initialized
+  stop: () => void,                     // stops transport, clears playback tick; does NOT reset position or beat clock
+  killAll: () => void,                  // full reset: cancels transport, resets position/counters, calls resetBeatClock()
+  pause: () => void,
+  resume: () => void,
+  setBPM: (bpm: number) => void,        // no-op if not initialized
+  now: () => number,
+
+  // Scheduling
+  scheduleNote: (params: { robotId: string; note: string; duration: NoteDuration; time?: number; velocity?: number }) => void,
+
+  // Voice management
   reserveVoice: (robotId: string, descriptor: OscillatorLayer[] | { base?: WaveformType; layers?: OscillatorLayer[] }, phase?: number, detune?: number, pulseWidth?: number) => boolean,
   releaseVoice: (robotId: string) => void,
   reReserveVoice: (robotId: string) => boolean,
   updateVoiceLayerParams: (robotId: string, layers: OscillatorLayer[]) => void,
   createCompositeVoice: (descriptor: OscillatorLayer[] | { base?: WaveformType; layers?: OscillatorLayer[] }) => CompositeVoice,
+  getVoiceForRobot: (robotId?: string) => CompositeVoice | null,
+
+  // Melody registry
   registerRobotMelody: (robotId: string, melody: RobotMelodyEvent[]) => void,
   unregisterRobotMelody: (robotId: string) => void,
+  getRegisteredMelody: (robotId: string) => RobotMelodyEvent[],   // test helper
+  processMelodyStep: (currentStep: number, time: number) => void, // test helper
   getPolyphonyStats: () => { voices: number; maxVoices: number; step: number },
-  now: () => number,
+
+  // Global FX control (all no-ops if the underlying Tone node wasn't constructed, e.g. headless tests)
+  setMasterVolume: (volume: number) => void,   // clamped [0,1]
+  getMasterVolume: () => number,
+  setGlobalReverb: (params: Partial<ReverbSettings>) => void,
+  setGlobalDelay: (params: Partial<DelaySettings>) => void,
+  setGlobalChorus: (params: Partial<ChorusSettings>) => void,
+  setGlobalFilterLPF: (params: Partial<FilterSettings>) => void,
+  setGlobalFilterHPF: (params: Partial<FilterSettings>) => void,
+  setGlobalEQ: (params: Partial<EQ3Settings>) => void,
+  setGlobalCompressor: (params: Partial<CompressorSettings>) => void,
+  setGlobalBypass: (bypass: boolean) => void,             // routes compressor straight to destination when true
+  setEffectBypass: (effect: 'reverb'|'delay'|'chorus'|'eq3'|'lpf'|'hpf'|'compressor', enabled: boolean) => void,
 }
 ```
+
+Note: `note` is resolved to a validated pitch string (`/^[A-Ga-g][b#]{0,2}\d+$/`) before triggering — an invalid note is warned-and-skipped, not thrown.
 
 ### Key Guarantees
 
@@ -83,7 +114,7 @@ export const AudioEngine = {
 
 ### Musical Time Authority
 
-**BeatClock wraps Tone.Transport** and serves as the single source of truth for musical time:
+`beatClock.ts` does not wrap or proxy Tone.Transport — it has no Tone import at all. It polls `transport.position` off whatever transport-like instance `AudioEngine.start()` hands it via `initBeatClock(transport)`, and there is no `BeatClock` object to import; every function below is a **named export** from `beatClock.ts`. It serves as the single source of truth for musical time:
 - All timing expressed in beats/measures, not seconds
 - 1 beat = quarter note at current BPM
 - 1 measure = 4 beats (4/4 time signature)
@@ -152,12 +183,33 @@ Recommended usage:
 - At audio init: call `AudioEngine.reserveVoice(robotId, layers, phase, detune, pulseWidth)` to allocate an isolated composite voice. Reservation returns `false` only if voice creation fails; polyphony enforcement happens later when notes are triggered via `AudioEngine.scheduleNote()`.
 - In components: prefer reading `audioAttributes.visualAudioMap` for visual properties; do not instantiate synths in components.
 
+## Signal Graph
+
+Two graphs compose: a **per-robot bus** (built per `reserveVoice` call) feeding a **global FX chain** (built once in `loadInstruments`, called from `start()`).
+
+```
+Per robot:  composite.output → panner → busGain → busFilter → ─┐
+Global:                                                        │
+  master compressor ←────────────────────────────────────────── ┘
+      → EQ3 → LPF → HPF → Chorus → Delay → Reverb → masterGain → Destination
+```
+
+Control the global chain via `AudioEngine.setGlobal*`/`setEffectBypass`/`setGlobalBypass` (see API above). None of this FX surface was previously documented here.
+
+## Note Resolution Pipeline
+
+`scheduleNote(params)` does more than forward to the transport — three real behaviors run on every note, none previously documented:
+
+1. **Velocity.** If `params.velocity` is omitted, velocity is derived via `computeNoteVelocitySeeded()`: it samples a per-locale seeded noise map plus a per-robot counter (mod 97, for a long non-repeating period) and, with probability `VELOCITY_VARIANCE_RATE` (0.15), applies a signed offset up to `± VELOCITY_VARIANCE_AMOUNT` (0.25) to the robot's `masterVolume`. Result is always clamped to `[VELOCITY_MIN, 1]` (floor `0.05` — never fully silent). Falls back to a plain clamp of `masterVolume` if no noise map exists for the active locale.
+2. **`audioMode` policy** (read fresh from the store each call, not cached): `mute` drops the note; if any robot in the locale is `solo`, all non-solo robots are suppressed; if any robot is `highlight`, non-highlighted robots have velocity multiplied by `0.5` (~-6dB). `triggerWithCap` re-checks mute/solo as a safety net in case a caller bypasses `scheduleNote`.
+3. **Panning.** Every reserved voice's pan is recomputed once per `8n` playback tick (not per note) via `calculatePanFromPosition(x) = (x / WORLD_WIDTH) - 0.5`, giving a range of `[-0.5, +0.5]` (intentionally narrower than full stereo width, to keep the mix centered). `x` comes from the robot's **live GSAP-animated transform** (`getRef('robot-' + robotId)`), falling back to the robot's stored `position.x` if the ref/transform isn't available.
+
 ## Scheduling Patterns
 
 Audio scheduling in Pelagos-7 is driven by the transport-backed BeatClock and AudioEngine for sample-accurate, musically-aligned timing.
 
 **Core APIs:**
-- `BeatClock.scheduleRepeat()` / `cancelSchedule()` - app-facing recurring musical work
+- `scheduleRepeat()` / `cancelSchedule()` — named exports from `beatClock.ts` (not a `BeatClock.` namespace) — app-facing recurring musical work
 - `AudioEngine.scheduleNote()` - note playback entry point
 - `Transport.scheduleOnce()` / `scheduleRepeat()` remain engine internals; app code should generally avoid calling them directly
 
@@ -301,12 +353,14 @@ Each robot follows a compact lifecycle:
 ## Debug Tools
 
 ```typescript
+import { getCurrentMeasure, getCurrentBeat, getCurrentHour } from '../engine/beatClock';
+
 console.log('Transport state:', Tone.Transport.state);
 console.log('BPM:', Tone.Transport.bpm.value);
 console.log('Position:', Tone.Transport.position);
 console.log('Polyphony:', AudioEngine.getPolyphonyStats());
 console.log('Voice for robot:', AudioEngine.getVoiceForRobot(robotId));
-console.log('Current measure:', BeatClock.getCurrentMeasure());
-console.log('Current beat:', BeatClock.getCurrentBeat());
-console.log('Current hour:', BeatClock.getCurrentHour());
+console.log('Current measure:', getCurrentMeasure());
+console.log('Current beat:', getCurrentBeat());
+console.log('Current hour:', getCurrentHour());
 ```

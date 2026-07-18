@@ -800,7 +800,7 @@ export const AudioEngine = {
       const busFilter = ({ connect: () => { }, disconnect: () => { }, toDestination: () => { } } as MinimalToneNode) as unknown as Tone.Filter;
       compositeVoices.set(robotId, { composite: stubComposite, panner, busGain, busFilter });
       if (DEV_TUNING) console.log(`[AudioEngine] Reserved stub composite voice for ${robotId}`);
-      return true;
+      return false;
     }
   },
 
