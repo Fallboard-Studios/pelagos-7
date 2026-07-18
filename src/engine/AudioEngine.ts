@@ -184,6 +184,17 @@ function calculatePanFromPosition(x: number): number {
   return (x / WORLD_WIDTH) * 1 - 0.5;
 }
 
+/** Robots in the currently active locale (empty array if locale/robots are absent). */
+function getActiveLocaleRobots(): Robot[] {
+  const store = useLocaleStore.getState();
+  return store.locales[getActiveLocaleId()]?.robots ?? [];
+}
+
+/** Find a robot by id within the currently active locale. */
+function findActiveRobot(robotId: string): Robot | undefined {
+  return getActiveLocaleRobots().find((r) => r.id === robotId);
+}
+
 /**
  * Get the robot's current visual X position from the DOM.
  * Reads the current GSAP-animated x transform value from the SVG element.
@@ -208,8 +219,7 @@ function getRobotVisualX(robotId: string): number {
 
   // Fallback: read position from state
   try {
-    const state = useLocaleStore.getState();
-    const robot = state.locales[getActiveLocaleId()]?.robots.find((r) => r.id === robotId);
+    const robot = findActiveRobot(robotId);
     return robot?.position.x ?? 960; // Default to center if not found
   } catch (err) {
     if (DEV_TUNING) swallow(err, 'AudioEngine.getRobotVisualX.stateFallback');
@@ -323,9 +333,8 @@ async function loadInstruments(): Promise<void> {
 
   // If robots spawned before AudioEngine initialized, reserve their composite voices now.
   try {
-    const store = useLocaleStore.getState();
-    const robots = store.locales[getActiveLocaleId()]?.robots ?? [];
-    if (store && Array.isArray(robots) && robots.length > 0) {
+    const robots = getActiveLocaleRobots();
+    if (robots.length > 0) {
       if (DEV_TUNING) console.log(`[AudioEngine] Attempting post-load reservations for ${robots.length} robots`);
       robots.forEach((robot: Robot) => {
         try {
@@ -413,9 +422,7 @@ export function triggerWithCap(params: NoteParams): boolean {
 
   // Enforce audioMode at trigger time as a safety net in case schedule path missed it.
   try {
-    const localeId = getActiveLocaleId();
-    const store = useLocaleStore.getState();
-    const localeRobots = store.locales[localeId]?.robots ?? [];
+    const localeRobots = getActiveLocaleRobots();
     if (localeRobots.length > 0) {
       const robotFromStore = localeRobots.find((r) => r.id === robotId);
       if (robotFromStore?.audioMode === 'mute') {
@@ -535,8 +542,7 @@ function startMelodyPlayback(): void {
         console.log(`[AudioEngine] Loop boundary reached at step ${stepCounter}`);
       }
       try {
-        const store = useLocaleStore.getState();
-        const robots = store.locales[getActiveLocaleId()]?.robots ?? [];
+        const robots = getActiveLocaleRobots();
         const robotCount = robots.length;
         if (DEV_TUNING) {
           console.log(`[AudioEngine] Checking variance for ${robotCount} robots`);
@@ -699,8 +705,7 @@ export const AudioEngine = {
         effectiveVelocity = computeNoteVelocitySeeded(cached.masterVolume, robotId);
       } else {
         try {
-          const state = useLocaleStore.getState();
-          const robot = state.locales[getActiveLocaleId()]?.robots.find((r) => r.id === robotId);
+          const robot = findActiveRobot(robotId);
           if (robot) {
             robotAttributeCache.set(robotId, { masterVolume: robot.masterVolume ?? 0.7 });
             effectiveVelocity = computeNoteVelocitySeeded(robot.masterVolume ?? 0.7, robot.id);
@@ -712,10 +717,8 @@ export const AudioEngine = {
     }
 
     // Enforce audioMode policies (mute/solo/highlight) at schedule time.
-    const localeIdResolved = getActiveLocaleId();
     try {
-      const store = useLocaleStore.getState();
-      const localeRobots = store.locales[localeIdResolved]?.robots ?? [];
+      const localeRobots = getActiveLocaleRobots();
       const robotFromStore = localeRobots.find((r) => r.id === robotId);
       if (robotFromStore?.audioMode === 'mute') {
         if (DEV_TUNING) console.log(`[AudioEngine] Robot ${robotId} is muted; skipping note`);
@@ -858,8 +861,7 @@ export const AudioEngine = {
    */
   reReserveVoice(robotId: string): boolean {
     try {
-      const state = useLocaleStore.getState();
-      const robot = state.locales[getActiveLocaleId()]?.robots.find((r: { id: string }) => r.id === robotId);
+      const robot = findActiveRobot(robotId);
       if (!robot) return false;
       const layers = (robot.audioAttributes as unknown as { layers?: OscillatorLayer[] })?.layers;
       if (!Array.isArray(layers) || layers.length === 0) return false;
