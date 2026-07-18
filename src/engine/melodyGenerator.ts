@@ -230,6 +230,9 @@ function pickUniqueInRange(n: number, count: number, rand: () => number): number
  *     Generate one base motif of K unique positions in [0, M), sorted.
  *     Tile it across the measure; first R copies get one extra position each.
  *     Truncate any partial motif at subdivisions.
+ *     K is floored to a minimum of 1, so when density < repeats (a short motif
+ *     relative to density), R goes negative and tiling alone overshoots density —
+ *     the result is trimmed back down to exactly `density` onsets in that case.
  *
  *   Else (non-repeating fallback):
  *     Pick density unique positions from [0, subdivisions).
@@ -250,8 +253,11 @@ export function buildMotifOnsets(
 
   if (repeats >= 2) {
     // K onsets per base motif copy; R extra onsets distributed to first R copies.
+    // K's floor of 1 means K * repeats can exceed rhythmicDensity when density < repeats
+    // (short motif, low density) — R goes negative in that case and is clamped to 0
+    // below; the resulting overshoot is trimmed after tiling.
     const K = Math.max(1, Math.floor(rhythmicDensity / repeats));
-    const R = rhythmicDensity - K * repeats; // always >= 0
+    const R = Math.max(0, rhythmicDensity - K * repeats);
 
     // Generate the base motif: K unique positions in [0, M)
     const baseMotif = pickUniqueInRange(M, K, rand).sort((a, b) => a - b);
@@ -278,7 +284,15 @@ export function buildMotifOnsets(
       }
     }
 
-    return Array.from(onsetSet).sort((a, b) => a - b);
+    const combined = Array.from(onsetSet).sort((a, b) => a - b);
+    if (combined.length <= rhythmicDensity) {
+      return combined;
+    }
+
+    // K's minimum of 1 per repeat window overshot the target density (short
+    // motif relative to density) — trim back down to exactly rhythmicDensity.
+    const keepIndices = pickUniqueInRange(combined.length, rhythmicDensity, rand).sort((a, b) => a - b);
+    return keepIndices.map(i => combined[i]);
   }
 
   // Non-repeating fallback
@@ -363,15 +377,8 @@ export function generateMelodyForRobot(
   // Note-variance state
   const noteVariance = Math.max(0, Math.min(8, Math.trunc(opts.noteVariance ?? 0)));
   const uniqueSet = new Set<number>();
+  // Lazily built below on first use when noteVariance === 8 (shuffled draw-without-replacement pool).
   let withoutReplacementPool: number[] | null = null;
-  if (noteVariance === 8) {
-    const pool = Array.from({ length: 8 }, (_, i) => i);
-    withoutReplacementPool = [];
-    while (pool.length > 0) {
-      const j = Math.floor(rand() * pool.length);
-      withoutReplacementPool.push(pool.splice(j, 1)[0]);
-    }
-  }
 
   for (let i = 0; i < onsets.length; i++) {
     // 15% chance to jump to a non-adjacent octave when range allows

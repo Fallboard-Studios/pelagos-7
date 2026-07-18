@@ -656,6 +656,25 @@ describe('buildMotifOnsets', () => {
     expect(a).toEqual(b);
   });
 
+  it('never returns more onsets than rhythmicDensity, even with a very short motif', () => {
+    // motifLength=1, subdivisions=16 → repeats=16, far more windows than density=4.
+    // K floors to 1 per window (16 raw onsets) before being trimmed back to density.
+    const onsets = buildMotifOnsets(4, 1, 16, fixedRand);
+    expect(onsets).toHaveLength(4);
+    expect(new Set(onsets).size).toBe(4);
+    onsets.forEach((o) => {
+      expect(o).toBeGreaterThanOrEqual(0);
+      expect(o).toBeLessThan(16);
+    });
+  });
+
+  it('never returns more onsets than rhythmicDensity for a moderately short motif', () => {
+    // motifLength=2, subdivisions=16 → repeats=8, still more than density=4.
+    const onsets = buildMotifOnsets(4, 2, 16, fixedRand);
+    expect(onsets).toHaveLength(4);
+    expect(new Set(onsets).size).toBe(4);
+  });
+
   it('distributes remainder onsets to first R repeat copies', () => {
     // density=5, motifLength=8, subdivisions=16 → repeats=2, K=2, R=1
     // First repeat should have 3 onsets, second repeat should have 2
@@ -828,6 +847,21 @@ describe('generateMelodyForRobot — GenerateMelodyForRobotOptions', () => {
       (w) => steps.filter((s) => s >= w * 4 && s < (w + 1) * 4).length
     );
     windowCounts.forEach((count) => expect(count).toBe(1));
+  });
+
+  it('short rhythmicMotifLength does not inflate the melody past rhythmicDensity', () => {
+    // Regression: motifLength=1 used to tile one onset per repeat window (16 of them),
+    // ignoring rhythmicDensity entirely. This is directly reachable via the Robot Audio
+    // editor's Density/Motif Length sliders.
+    const melody = generateMelodyForRobot({
+      onsetCount: 4,
+      rhythmicDensity: 4,
+      rhythmicMotifLength: 1,
+      octaveMin: 3,
+      octaveMax: 4,
+      seed: 12,
+    });
+    expect(melody).toHaveLength(4);
   });
 
   it('rhythmicMotifLength === subdivisions produces non-repeating output', () => {
