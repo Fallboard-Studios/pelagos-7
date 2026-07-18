@@ -14,18 +14,19 @@ Prefer `import type { Foo } from '...'` for type-only imports (used consistently
 
 ## Logging & Error Handling
 
-- **Gate debug logging with `DEV_TUNING`**, but do it through the `devLog()` / `devWarn()` wrapper helpers rather than inlining `if (DEV_TUNING) console.log(...)` at each call site — this was consolidated across `AudioEngine.ts` to standardize log formatting and cut repetition:
+- **Gate debug logging with `DEV_TUNING`**, but do it through the shared `devLog()` / `devWarn()` helpers (`src/utils/helpers.ts`) rather than inlining `if (DEV_TUNING) console.log(...)` at each call site:
 
 ```ts
 // ✅ Good
+import { devLog } from '../utils/helpers';
 devLog('[AudioEngine] voice reserved', robotId);
 
 // ❌ Avoid — repeats the DEV_TUNING check inline at every call site
 if (DEV_TUNING) console.log('[AudioEngine] voice reserved', robotId);
 ```
 
-  If a module doesn't already have local `devLog`/`devWarn` helpers, define them the same way `AudioEngine.ts` does rather than reaching for raw gated `console.*` calls.
-- **Use `swallow(err, ctx?)`** (`src/utils/helpers.ts`) in `catch` blocks for consistent error reporting; it only logs when `DEV_TUNING` is enabled.
+  `AudioEngine.ts`, `beatClock.ts`, and `harmonySystem.ts` all use these; prefer them over module-local reimplementations or raw gated `console.*` calls.
+- **`swallow(err, ctx?)`** (`src/utils/helpers.ts`) is a legacy catch-block logger, largely superseded by `devWarn()`. Unlike `devLog`/`devWarn`, it does **not** check `DEV_TUNING` itself — it always logs, prefixed `[swallow] ...` rather than the calling module's own tag, so callers historically wrapped it in `if (DEV_TUNING) swallow(err, ctx)`. Prefer `devWarn('[ModuleName] ...', err)` in new code for a consistent per-module log prefix.
 - Avoid empty `catch` blocks unless the ignore is intentional and commented.
 
 ## State: Store Structure

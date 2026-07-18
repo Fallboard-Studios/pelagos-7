@@ -18,19 +18,10 @@ import { DEV_TUNING, WORLD_WIDTH, MIN_LEAD as CONST_MIN_LEAD } from '../constant
 import { getRef } from '../utils/refs';
 import { precomputeDataX } from '../utils/getSeededVal';
 import { tryGetLocaleNoiseMap } from '../utils/noiseMaps';
+import { devLog, devWarn } from '../utils/helpers';
 
 // MIN_LEAD: prefer project constant, fall back to 0.1s for headless/tests
 const MIN_LEAD = CONST_MIN_LEAD ?? 0.1;
-
-/** Log informational messages only when DEV_TUNING is enabled. */
-function devLog(...args: unknown[]): void {
-  if (DEV_TUNING) console.log(...args);
-}
-
-/** Warn (e.g. on a caught/swallowed error) only when DEV_TUNING is enabled. */
-function devWarn(...args: unknown[]): void {
-  if (DEV_TUNING) console.warn(...args);
-}
 
 // ========================================
 // TYPES
