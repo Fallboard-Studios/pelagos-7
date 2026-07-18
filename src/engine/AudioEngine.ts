@@ -80,6 +80,20 @@ const VELOCITY_VARIANCE_X = precomputeDataX('audio.velocityVariance');
 // Lightweight record view of Tone to access constructors safely in test/runtime
 const toneRecord = Tone as unknown as Record<string, unknown>;
 
+/** Look up a Tone constructor by name, returning undefined when absent (test/headless envs). */
+function getToneCtor<T>(name: string): (new (...args: unknown[]) => T) | undefined {
+  const ctor = toneRecord[name];
+  return typeof ctor === 'function' ? (ctor as new (...args: unknown[]) => T) : undefined;
+}
+
+/** Create a per-layer gain node connected to `out`, falling back to a stub in headless/test envs. */
+function createLayerGain(value: number, out: Tone.Gain): Tone.Gain {
+  const GainCtor = getToneCtor<Tone.Gain>('Gain');
+  if (GainCtor) return new GainCtor(value).connect(out);
+  const node: MinimalToneNode = { gain: { value }, connect: function () { return node; } };
+  return node as unknown as Tone.Gain;
+}
+
 // ========================================
 // MODULE STATE
 // ========================================
@@ -224,34 +238,34 @@ async function loadInstruments(): Promise<void> {
   //          → _globalChorus → _globalDelay → _globalReverb → Destination
   // All nodes guarded with typeof checks for test/headless environments.
   // ========================================
-  const ReverbCtor = toneRecord.Reverb as unknown as (new (opts: object) => Tone.Reverb) | undefined;
-  const DelayCtor = toneRecord.FeedbackDelay as unknown as (new (opts: object) => Tone.FeedbackDelay) | undefined;
-  const ChorusCtor = toneRecord.Chorus as unknown as (new (opts: object) => Tone.Chorus) | undefined;
-  const EQ3Ctor = toneRecord.EQ3 as unknown as (new (opts: object) => Tone.EQ3) | undefined;
-  const FilterCtor = toneRecord.Filter as unknown as (new (opts: object) => Tone.Filter) | undefined;
-  const GainCtorFX = toneRecord.Gain as unknown as (new (v: number) => Tone.Gain) | undefined;
+  const ReverbCtor = getToneCtor<Tone.Reverb>('Reverb');
+  const DelayCtor = getToneCtor<Tone.FeedbackDelay>('FeedbackDelay');
+  const ChorusCtor = getToneCtor<Tone.Chorus>('Chorus');
+  const EQ3Ctor = getToneCtor<Tone.EQ3>('EQ3');
+  const FilterCtor = getToneCtor<Tone.Filter>('Filter');
+  const GainCtorFX = getToneCtor<Tone.Gain>('Gain');
 
-  if (typeof ReverbCtor === 'function') {
+  if (ReverbCtor) {
     _globalReverb = new ReverbCtor({ decay: 1.5, preDelay: 0.02, wet: 0.3 });
   }
-  if (typeof DelayCtor === 'function') {
+  if (DelayCtor) {
     _globalDelay = new DelayCtor({ delayTime: 0.25, feedback: 0.2, wet: 0 });
   }
-  if (typeof ChorusCtor === 'function') {
+  if (ChorusCtor) {
     _globalChorus = new ChorusCtor({ rate: 1.5, depth: 0.2, delayTime: 0.012, feedback: 0.1, wet: 0 });
     try { (_globalChorus as unknown as { start(): void }).start(); } catch (err) { if (DEV_TUNING) swallow(err, 'chorus.start'); }
   }
-  if (typeof EQ3Ctor === 'function') {
+  if (EQ3Ctor) {
     _globalEQ = new EQ3Ctor({ low: 0, mid: 0, high: 0 });
   }
-  if (typeof FilterCtor === 'function') {
+  if (FilterCtor) {
     _globalLPF = new FilterCtor({ type: 'lowpass', frequency: 20000, Q: 1 });
     _globalHPF = new FilterCtor({ type: 'highpass', frequency: 20, Q: 1 });
   }
-  if (typeof GainCtorFX === 'function') {
+  if (GainCtorFX) {
     // Master gain sits after the FX chain (or final destination) to control overall volume.
     try {
-      _masterGain = new (GainCtorFX as unknown as (new (v: number) => Tone.Gain))(1);
+      _masterGain = new GainCtorFX(1);
     } catch {
       _masterGain = null;
     }
@@ -745,13 +759,13 @@ export const AudioEngine = {
       const composite = AudioEngine.createCompositeVoice(descriptor);
 
       // Create per-robot bus: panner -> gain -> filter -> master compressor/destination
-      const PannerCtor = toneRecord.Panner as unknown as (new (...args: unknown[]) => unknown) | undefined;
-      const GainCtorLocal = toneRecord.Gain as unknown as (new (...args: unknown[]) => unknown) | undefined;
-      const FilterCtor = toneRecord.Filter as unknown as (new (...args: unknown[]) => unknown) | undefined;
+      const PannerCtor = getToneCtor<Tone.Panner>('Panner');
+      const GainCtorLocal = getToneCtor<Tone.Gain>('Gain');
+      const FilterCtor = getToneCtor<Tone.Filter>('Filter');
 
-      const panner = typeof PannerCtor === 'function' ? new (PannerCtor as unknown as (new (...args: unknown[]) => Tone.Panner))({ pan: 0 }) as Tone.Panner : ({ connect: () => { }, pan: { value: 0 }, disconnect: () => { } } as MinimalToneNode) as unknown as Tone.Panner;
-      const busGain = typeof GainCtorLocal === 'function' ? new (GainCtorLocal as unknown as (new (...args: unknown[]) => Tone.Gain))(1) as Tone.Gain : ({ connect: () => ({}), disconnect: () => { }, gain: { value: 1 }, toDestination: () => { } } as MinimalToneNode) as unknown as Tone.Gain;
-      const busFilter = typeof FilterCtor === 'function' ? new (FilterCtor as unknown as (new (...args: unknown[]) => Tone.Filter))({ frequency: 1200, Q: 1 }) as Tone.Filter : ({ connect: () => ({}), disconnect: () => { }, toDestination: () => { } } as MinimalToneNode) as unknown as Tone.Filter;
+      const panner = PannerCtor ? new PannerCtor({ pan: 0 }) : ({ connect: () => { }, pan: { value: 0 }, disconnect: () => { } } as MinimalToneNode) as unknown as Tone.Panner;
+      const busGain = GainCtorLocal ? new GainCtorLocal(1) : ({ connect: () => ({}), disconnect: () => { }, gain: { value: 1 }, toDestination: () => { } } as MinimalToneNode) as unknown as Tone.Gain;
+      const busFilter = FilterCtor ? new FilterCtor({ frequency: 1200, Q: 1 }) : ({ connect: () => ({}), disconnect: () => { }, toDestination: () => { } } as MinimalToneNode) as unknown as Tone.Filter;
 
       // Connect graph: composite.output -> panner -> busGain -> busFilter -> master compressor/destination
       try { composite.output.connect(panner); } catch (e) { if (DEV_TUNING) console.warn('[AudioEngine] composite.output.connect failed', e); }
@@ -899,8 +913,8 @@ export const AudioEngine = {
    * into the global audio graph (panner/effects), plus `triggerAttackRelease` and `set`.
    */
   createCompositeVoice(descriptor: OscillatorLayer[] | { base?: WaveformType; layers?: OscillatorLayer[] }): CompositeVoice {
-    const GainCtor = toneRecord.Gain as unknown as (new (...args: unknown[]) => unknown) || undefined;
-    const OutGain = GainCtor ? new (GainCtor as unknown as (new (...args: unknown[]) => Tone.Gain))(1) : (() => {
+    const GainCtor = getToneCtor<Tone.Gain>('Gain');
+    const OutGain = GainCtor ? new GainCtor(1) : (() => {
       // Minimal fallback gain node for test environments where Tone.Gain isn't mocked
       const node: MinimalToneNode = {
         gain: { value: 1 },
@@ -923,13 +937,10 @@ export const AudioEngine = {
       let layerGain: Tone.Gain | null = null;
       if (layer.type === 'noise') {
         // Use NoiseSynth if available, otherwise fall back to Synth for tests
-        const NoiseCtor = toneRecord.NoiseSynth as unknown as (new (...args: unknown[]) => MinimalToneNode) | undefined;
-        const SynthCtor = toneRecord.Synth as unknown as (new (...args: unknown[]) => MinimalToneNode) | undefined;
+        const NoiseCtor = getToneCtor<MinimalToneNode>('NoiseSynth');
+        const SynthCtor = getToneCtor<MinimalToneNode>('Synth');
         const Noise = NoiseCtor ? new NoiseCtor({ volume: -12 }) : (SynthCtor ? new SynthCtor() : null);
-        layerGain = (typeof toneRecord.Gain === 'function') ? new (toneRecord.Gain as unknown as (new (...args: unknown[]) => Tone.Gain))(layer.gain ?? 1).connect(out) : (() => {
-          const node: MinimalToneNode = { gain: { value: layer.gain ?? 1 }, connect: function () { return node; } };
-          return node as unknown as Tone.Gain;
-        })();
+        layerGain = createLayerGain(layer.gain ?? 1, out);
         if (Noise && typeof Noise.connect === 'function') Noise.connect(layerGain);
         synth = Noise as unknown as Tone.Synth | Tone.NoiseSynth | null;
       } else {
@@ -946,75 +957,68 @@ export const AudioEngine = {
             release: layer.adsr?.release ?? 0.5,
           },
         });
-        layerGain = (typeof toneRecord.Gain === 'function') ? new (toneRecord.Gain as unknown as (new (...args: unknown[]) => Tone.Gain))(layer.gain ?? 1).connect(out) : (() => {
-          const node: MinimalToneNode = { gain: { value: layer.gain ?? 1 }, connect: function () { return node; } };
-          return node as unknown as Tone.Gain;
-        })();
+        layerGain = createLayerGain(layer.gain ?? 1, out);
         if (layerGain && typeof s?.connect === 'function') s.connect(layerGain);
         synth = s;
       }
       // apply detune if present and supported
-      try {
-        if (layer.detune !== undefined) {
-          try {
-            const osc = (synth as unknown as { oscillator?: { detune?: { value: number } } })?.oscillator;
-            if (osc && osc.detune) {
-              osc.detune.value = layer.detune;
-            }
-          } catch (err) {
-            if (DEV_TUNING) console.warn('[AudioEngine] Failed to apply detune on composite layer', err);
+      if (layer.detune !== undefined) {
+        try {
+          const osc = (synth as unknown as { oscillator?: { detune?: { value: number } } })?.oscillator;
+          if (osc && osc.detune) {
+            osc.detune.value = layer.detune;
           }
+        } catch (err) {
+          if (DEV_TUNING) console.warn('[AudioEngine] Failed to apply detune on composite layer', err);
         }
-        // apply phase if present and supported
-        if (layer.phase !== undefined) {
-          try {
-            const osc = (synth as unknown as { oscillator?: { phase?: number | { value?: number } } })?.oscillator;
-            if (osc) {
-              // Tone oscillator may accept numeric phase or an object; attempt to set directly
+      }
+      // apply phase if present and supported
+      if (layer.phase !== undefined) {
+        try {
+          const osc = (synth as unknown as { oscillator?: { phase?: number | { value?: number } } })?.oscillator;
+          if (osc) {
+            // Tone oscillator may accept numeric phase or an object; attempt to set directly
+            try {
+              // Preferred: set via set({ oscillator: { phase } }) when available
+              (synth as unknown as SynthWithOscillator).set?.({ oscillator: { phase: layer.phase } });
+            } catch {
               try {
-                // Preferred: set via set({ oscillator: { phase } }) when available
-                (synth as unknown as SynthWithOscillator).set?.({ oscillator: { phase: layer.phase } });
-              } catch {
-                try {
-                  const oscPhase = (osc as unknown as { phase?: { value?: number } | number })?.phase;
-                  if (typeof oscPhase === 'object' && oscPhase !== null && 'value' in oscPhase) {
-                    (oscPhase as { value?: number }).value = layer.phase;
-                  } else {
-                    (osc as unknown as { phase?: number }).phase = layer.phase;
-                  }
-                } catch (err) {
-                  if (DEV_TUNING) console.warn('[AudioEngine] Failed to apply phase on composite layer', err);
+                const oscPhase = (osc as unknown as { phase?: { value?: number } | number })?.phase;
+                if (typeof oscPhase === 'object' && oscPhase !== null && 'value' in oscPhase) {
+                  (oscPhase as { value?: number }).value = layer.phase;
+                } else {
+                  (osc as unknown as { phase?: number }).phase = layer.phase;
                 }
+              } catch (err) {
+                if (DEV_TUNING) console.warn('[AudioEngine] Failed to apply phase on composite layer', err);
               }
             }
-          } catch (err) {
-            if (DEV_TUNING) console.warn('[AudioEngine] Failed to apply phase on composite layer', err);
           }
+        } catch (err) {
+          if (DEV_TUNING) console.warn('[AudioEngine] Failed to apply phase on composite layer', err);
         }
-        // apply pulseWidth if present and supported
-        if (layer.pulseWidth !== undefined) {
-          try {
-            const osc = (synth as unknown as { oscillator?: { width?: number | { value?: number } } })?.oscillator;
-            if (osc) {
-              try { (synth as unknown as SynthWithOscillator).set?.({ oscillator: { width: layer.pulseWidth } }); } catch {
-                try {
-                  const oscWidth = (osc as unknown as { width?: { value?: number } | number })?.width;
-                  if (typeof oscWidth === 'object' && oscWidth !== null && 'value' in oscWidth) {
-                    (oscWidth as { value?: number }).value = layer.pulseWidth;
-                  } else {
-                    (osc as unknown as { width?: number }).width = layer.pulseWidth;
-                  }
-                } catch (err) {
-                  if (DEV_TUNING) console.warn('[AudioEngine] Failed to apply pulseWidth on composite layer', err);
+      }
+      // apply pulseWidth if present and supported
+      if (layer.pulseWidth !== undefined) {
+        try {
+          const osc = (synth as unknown as { oscillator?: { width?: number | { value?: number } } })?.oscillator;
+          if (osc) {
+            try { (synth as unknown as SynthWithOscillator).set?.({ oscillator: { width: layer.pulseWidth } }); } catch {
+              try {
+                const oscWidth = (osc as unknown as { width?: { value?: number } | number })?.width;
+                if (typeof oscWidth === 'object' && oscWidth !== null && 'value' in oscWidth) {
+                  (oscWidth as { value?: number }).value = layer.pulseWidth;
+                } else {
+                  (osc as unknown as { width?: number }).width = layer.pulseWidth;
                 }
+              } catch (err) {
+                if (DEV_TUNING) console.warn('[AudioEngine] Failed to apply pulseWidth on composite layer', err);
               }
             }
-          } catch (err) {
-            if (DEV_TUNING) console.warn('[AudioEngine] Failed to apply pulseWidth on composite layer', err);
           }
+        } catch (err) {
+          if (DEV_TUNING) console.warn('[AudioEngine] Failed to apply pulseWidth on composite layer', err);
         }
-      } catch (err) {
-        if (DEV_TUNING) console.warn('[AudioEngine] Failed to apply detune on composite layer', err);
       }
 
       return { synth, gainNode: layerGain, layer };
