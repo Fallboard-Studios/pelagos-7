@@ -1,6 +1,6 @@
 # Harmony System Guide
 
-The Harmony System provides dynamic musical palettes that change throughout the day/night cycle, creating evolving ambient textures without requiring manual composition.
+The Harmony System provides dynamic musical palettes that change throughout the **measure-based** day/night cycle (96 `Tone.Transport` measures = 1 cycle), creating evolving ambient textures without requiring manual composition. **This is a distinct clock from each planet's own visual day/night cycle** (per-planet diameter and real-world day length — small/medium/large planets run 3/6/9-minute days, wall-clock-driven, see `src/constants/time.ts`). The two are deliberately decoupled: a planet's visual lighting always completes a day in its configured real-world duration regardless of tempo, while the harmony palette moves with musical measures. See "Hour Derivation" below for the implementation detail.
 
 ## Purpose
 
@@ -11,7 +11,7 @@ Robots do not store literal note strings in their melodies. Instead, they store 
 ```
 Robot Melody: [2, 0, 5, 3, ...]  (note indices, immutable)
                 ↓  ↓  ↓  ↓
-Available Notes: ['C', 'G', 'E', 'D', 'B', 'C', 'E', 'G']  (note names, no octave — changes every 4 measures)
+Available Notes: ['C', 'G', 'E', 'D', 'B', 'C', 'E', 'G']  (note names, no octave — checked every 2 measures, value typically changes at hour boundaries)
                 ↓  ↓  ↓  ↓
 Per-event octave: [4,  4,  4,  3,  ...]  (concrete octave stored on each MelodyEvent at spawn)
                 ↓  ↓  ↓  ↓
@@ -32,7 +32,7 @@ const TIME_PITCHES: Record<number, EighthNotes> = {
   0:  ['C',  'G',  'E',  'D',  'B',  'C',  'E',  'G' ],  // Midnight
   1:  ['C',  'G',  'F',  'D',  'A',  'C',  'F',  'F' ],  // 1am
   2:  ['D',  'A',  'F',  'D',  'A',  'C',  'F',  'D' ],  // 2am
-  // ... (24 total palettes)
+  // ... hours 12-23 are byte-for-byte identical to hours 0-11 — only 12 unique palettes, mirrored
   6:  ['Bb', 'D',  'C',  'G',  'F',  'C',  'Bb', 'F' ],  // Dawn
   12: ['C',  'G',  'E',  'D',  'B',  'C',  'E',  'G' ],  // Noon
   18: ['Bb', 'D',  'C',  'G',  'F',  'C',  'Bb', 'F' ],  // Dusk
@@ -78,8 +78,10 @@ The current implementation schedules a repeating transport callback on `'2m'`. I
 ## Usage in Melody Playback
 
 ```typescript
+import { scheduleRepeat } from '../engine/beatClock'; // named export — no `BeatClock` object
+
 // During 8th-note tick
-BeatClock.scheduleRepeat('8n', (time) => {
+scheduleRepeat('8n', (time) => {
   const currentStep = (stepCounter % 16) + 1;
   const eventsAtStep = melodyRegistry.get(currentStep) || [];
   
@@ -105,7 +107,7 @@ BeatClock.scheduleRepeat('8n', (time) => {
 **✅ DO:**
 - Store note indices (0-7) in robot melodies
 - Call `getAvailableNotes()` at playback time
-- Use BeatClock or Transport for palette updates
+- Use `scheduleHarmonyCycle`/Transport for palette updates
 - Keep melodies immutable after spawn
 
 **❌ DON'T:**
@@ -118,13 +120,15 @@ BeatClock.scheduleRepeat('8n', (time) => {
 ## Hour Derivation
 
 ```typescript
-// 96 measures = 1 full day/night cycle
-// 4 measures = 1 "hour equivalent"
-const currentMeasure = BeatClock.getCurrentMeasure();
-const derivedHour = Math.floor((currentMeasure % 96) / 4);  // 0..23
+import { getCurrentMeasure, getCurrentHour } from '../engine/beatClock'; // named exports, no `BeatClock` object
+
+// 96 measures = 1 full day/night cycle; 4 measures = 1 "hour equivalent"
+const derivedHour = getCurrentHour(); // equivalent to Math.floor((getCurrentMeasure() % 96) / 4), clamped 0..23
 ```
 
-**Important:** Hour is **derived** from measures, never stored in state. This keeps the system BPM-independent.
+**Important:** Hour is **derived** from measures, never stored in state.
+
+**This is a different clock from the visual day/night cycle.** The harmony palette's hour is driven by `Tone.Transport`'s measure position — it moves with musical tempo, not real time. Facade/window lighting (`Factory.tsx`, `src/utils/lightingUtils.ts`) instead derives its hour from real wall-clock elapsed time (`computePlanetHour` in `src/constants/time.ts`, scaled by `PLANET_DURATION_MS` per planet size). The two are **not synchronized** — a BPM change shifts the harmony palette's rate but has no effect on the visual lighting cycle, and vice versa.
 
 ## Palette Design Guidelines
 
@@ -159,19 +163,16 @@ setAvailableNotes(['C', 'E', 'G', 'B', 'D', 'F', 'A', 'C']);
 
 **Debug display:**
 ```typescript
-// Show current palette in dev overlay
-const currentMeasure = BeatClock.getCurrentMeasure();
+import { getCurrentHour } from '../engine/beatClock';
 console.log('Current notes:', getAvailableNotes());
-console.log('Derived hour:', Math.floor((currentMeasure % 96) / 4));
+console.log('Derived hour:', getCurrentHour());
 ```
-
-For unit testing patterns and examples, see [CONTRIBUTION_GUIDE.md](CONTRIBUTION_GUIDE.md#testing) Testing section.
 
 ## Performance
 
 - `getAvailableNotes()` returns a copy (safe, no mutation risk)
 - Array copy overhead is negligible (8 strings, ~1μs)
-- Palette updates happen max once per 4 measures (infrequent)
+- The palette check runs every 2 measures (`scheduleHarmonyCycle`'s `'2m'` schedule); the palette *value* only reassigns when the computed index actually differs from last time — via `getCurrentHour()` it typically differs at most once per 4-measure hour boundary, but the measure-based fallback path (used when `getCurrentHour()` is unavailable) divides by 2, not 4, so it can change every 2 measures
 - No iteration over robot arrays on harmony change
 
 ## Integration with Melody System
@@ -180,10 +181,10 @@ Robots generate melodies at spawn. Each event stores the note index *and* a conc
 ```typescript
 interface RobotMelodyEvent {
   id: string;
-  startStep: number;                  // 1..16
-  length: '16n' | '8n' | '4n' | '2n';
-  noteIndex: number;                  // 0..7 ← maps into note-name palette
-  octave: number;                     // concrete octave assigned at spawn time
+  startStep: number;   // 1..16
+  length: NoteDuration; // '32n'|'16n'|'8n'|'4n'|'2n'|'1n'|'2m'|'4m' (types/Robot.ts) — melody generation only ever produces '16n'|'8n'|'4n'|'2n', but the field's type is the full union
+  noteIndex: number;   // 0..7 ← maps into note-name palette
+  octave: number;      // concrete octave assigned at spawn time
 }
 ```
 
