@@ -6,7 +6,6 @@ import * as AlertDialog from '@radix-ui/react-alert-dialog';
 import { getActiveLocaleId } from '@/utils/localeHelpers';
 import { useUIStore } from '@/stores/uiStore';
 import { useLocaleStore } from '@/stores/localeStore';
-import { hasCycle } from '@/stores/localeStore';
 import { AudioEngine } from '@/engine/AudioEngine';
 import type { Robot } from '@/types/Robot';
 import type { OscillatorLayer } from '@/types/layeredAudio';
@@ -177,33 +176,6 @@ export default function RobotMetaTab() {
     setLastBackup(null);
   };
 
-  // Link-to-robot — use linkRobot (validates same-locale + cycle check)
-  const [linkTarget, setLinkTarget] = useState<string | null>(null);
-
-  // Reset the pending link target when the selected robot changes
-  useEffect(() => setLinkTarget(null), [selectedRobotId]);
-
-  // Robots eligible to be a parent: same locale, not self, and linking them
-  // would not create a cycle (i.e. they are not descendants of the current robot).
-  const linkableRobots = otherRobots.filter(
-    (r) => !hasCycle(localeRobots, r.id, robot?.id ?? '')
-  );
-
-  const currentParent = robot?.linkedRobotId
-    ? localeRobots.find((r) => r.id === robot.linkedRobotId)
-    : null;
-
-  const linkToRobot = () => {
-    if (!robot || !localeId || !linkTarget) return;
-    useLocaleStore.getState().linkRobot(localeId, robot.id, linkTarget);
-    setLinkTarget(null);
-  };
-
-  const unlinkRobot = () => {
-    if (!robot || !localeId) return;
-    useLocaleStore.getState().unlinkRobot(localeId, robot.id);
-  };
-
   // Preset handling — read from locale if available; otherwise empty list
   const presets = (useLocaleStore.getState().getLocaleById(localeId) as { robotPresets?: RobotPreset[] } | undefined)?.robotPresets ?? [];
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
@@ -343,42 +315,6 @@ export default function RobotMetaTab() {
           </div>
         </div>
       )}
-
-      <div className="row">
-        <label className="label">Link To Robot</label>
-        <div className="control link-control">
-          {currentParent ? (
-            <span className="link-indicator" aria-label={`Linked to ${currentParent.name ?? currentParent.id}`}>
-              → {currentParent.name ?? currentParent.id}
-            </span>
-          ) : null}
-          {!currentParent && (
-            <>
-              <select
-                className="native-select"
-                value={linkTarget ?? ''}
-                onChange={(e) => setLinkTarget(e.target.value || null)}
-                aria-label="Link to parent robot"
-              >
-                <option value="">Select parent</option>
-                {linkableRobots.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name ?? r.id}
-                  </option>
-                ))}
-              </select>
-              <button className="btn" onClick={linkToRobot} disabled={!linkTarget}>
-                Link
-              </button>
-            </>
-          )}
-          {currentParent && (
-            <button className="btn" onClick={unlinkRobot}>
-              Unlink
-            </button>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
