@@ -60,6 +60,7 @@ Reference docs
 - `docs/ROBOT_DESIGN.md`: Robot visual design, audio→visual attribute mapping (synth/ADSR/phase/detune), and SVG generation rules.
 - `docs/CONTRIBUTION_GUIDE.md`: PR process, testing expectations, and where to record exceptions.
 - `docs/UI_SHELL.md`: Sleeve & Glass UI architecture, console navigation, and `uiStore` responsibilities.
+- `docs/PROCEDURAL_GENERATION.md`: Seeded/deterministic world generation — noise-map registry, `getSeededVal`, and dataId conventions.
 
 Quick checklist for PRs
 - [ ] No synths created in components
