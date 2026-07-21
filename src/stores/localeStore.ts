@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 
 import type { Locale, LocaleState } from '../types/locale';
-import type { Robot } from '../types/Robot';
 import { DEFAULT_LOCALE_ID } from './planetStore';
 import { usePlanetStore } from './planetStore';
 import { getLocaleNoiseMap, evictLocaleNoiseMap } from '../utils/noiseMaps';
@@ -31,21 +30,6 @@ const DEFAULT_LOCALE: Locale = {
 };
 
 getLocaleNoiseMap(DEFAULT_LOCALE_ID, 'pelagos', 'Pelagos', 0, 0);
-
-/**
- * Pure cycle-detection helper. Returns true if linking `childId` → `parentId`
- * would introduce a cycle (i.e. `childId` is already an ancestor of `parentId`).
- * Exported for unit testing.
- */
-export function hasCycle(robots: Robot[], childId: string, parentId: string): boolean {
-  const robotMap = new Map(robots.map((r) => [r.id, r]));
-  let current: string | null | undefined = parentId;
-  while (current) {
-    if (current === childId) return true;
-    current = robotMap.get(current)?.linkedRobotId;
-  }
-  return false;
-}
 
 export const useLocaleStore = create<LocaleState>((set, get) => ({
   locales: { [DEFAULT_LOCALE_ID]: DEFAULT_LOCALE },
@@ -148,48 +132,12 @@ export const useLocaleStore = create<LocaleState>((set, get) => ({
     set((state) => {
       const existing = state.locales[localeId];
       if (!existing) return state;
-      // Remove the robot, and unlink any children that pointed to it.
-      // Children keep their last inherited values (linkedRobotId is cleared to null).
-      const nextRobots = (existing.robots || [])
-        .filter((r) => r.id !== robotId)
-        .map((r) => r.linkedRobotId === robotId ? { ...r, linkedRobotId: null } : r);
+      const nextRobots = (existing.robots || []).filter((r) => r.id !== robotId);
       return { locales: { ...state.locales, [localeId]: { ...existing, robots: nextRobots } } };
     });
   },
 
   getRobotById: (localeId, robotId) => get().locales[localeId]?.robots?.find((r) => r.id === robotId),
-
-  linkRobot: (localeId, childId, parentId) => {
-    if (childId === parentId) return false;
-    const locale = get().locales[localeId];
-    if (!locale) return false;
-    const robots = locale.robots ?? [];
-    // Both robots must exist in this locale
-    if (!robots.some((r) => r.id === childId)) return false;
-    if (!robots.some((r) => r.id === parentId)) return false;
-    // Cycle check: walk up the parent chain from parentId — if we reach childId, reject
-    if (hasCycle(robots, childId, parentId)) return false;
-    set((state) => {
-      const existing = state.locales[localeId];
-      if (!existing) return state;
-      const nextRobots = existing.robots.map((r) =>
-        r.id === childId ? { ...r, linkedRobotId: parentId } : r
-      );
-      return { locales: { ...state.locales, [localeId]: { ...existing, robots: nextRobots } } };
-    });
-    return true;
-  },
-
-  unlinkRobot: (localeId, childId) => {
-    set((state) => {
-      const existing = state.locales[localeId];
-      if (!existing) return state;
-      const nextRobots = existing.robots.map((r) =>
-        r.id === childId ? { ...r, linkedRobotId: null } : r
-      );
-      return { locales: { ...state.locales, [localeId]: { ...existing, robots: nextRobots } } };
-    });
-  },
 }));
 
 export default useLocaleStore;

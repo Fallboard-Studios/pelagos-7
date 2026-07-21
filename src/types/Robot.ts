@@ -102,8 +102,6 @@ export interface Robot {
   masterVolume: number;
   /** When true, this robot survives a power-off cycle and is not removed. */
   persists?: boolean;
-  /** Optional link target for future follow/sync features. */
-  linkedRobotId?: string | null;
   /**
   /** Solo/mute/highlight mode set by the Robot Audio editor.
    * Runtime semantics (enforced by AudioEngine):
