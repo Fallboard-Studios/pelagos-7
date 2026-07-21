@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import * as Switch from '@radix-ui/react-switch';
-import * as Select from '@radix-ui/react-select';
 import * as AlertDialog from '@radix-ui/react-alert-dialog';
 
 import { getActiveLocaleId } from '@/utils/localeHelpers';
@@ -9,15 +8,6 @@ import { useLocaleStore } from '@/stores/localeStore';
 import { AudioEngine } from '@/engine/AudioEngine';
 import type { Robot } from '@/types/Robot';
 import type { OscillatorLayer } from '@/types/layeredAudio';
-
-// Minimal preset type for UI usage — mirrors stored preset shape used by RobotMetaTab
-type RobotPreset = {
-  id: string;
-  name?: string;
-  audioAttributes?: Robot['audioAttributes'];
-  melody?: Robot['melody'];
-  [key: string]: unknown;
-};
 
 import './RobotMetaTab.css';
 
@@ -176,21 +166,6 @@ export default function RobotMetaTab() {
     setLastBackup(null);
   };
 
-  // Preset handling — read from locale if available; otherwise empty list
-  const presets = (useLocaleStore.getState().getLocaleById(localeId) as { robotPresets?: RobotPreset[] } | undefined)?.robotPresets ?? [];
-  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
-
-  const applyPreset = () => {
-    if (!robot || !localeId || !selectedPresetId) return;
-    const preset = presets.find((p) => p.id === selectedPresetId);
-    if (!preset) return;
-    const updates: Partial<Robot> = {};
-    if (preset.audioAttributes) updates.audioAttributes = preset.audioAttributes;
-    if (preset.melody) updates.melody = preset.melody;
-    useLocaleStore.getState().updateRobot(localeId, robot.id, updates);
-    setSelectedPresetId(null);
-  };
-
   if (!selectedRobotId) return <div className="robot-meta-empty">Select a robot to edit its meta.</div>;
   if (!robot) return <div className="robot-meta-empty">Robot not found</div>;
 
@@ -223,51 +198,6 @@ export default function RobotMetaTab() {
           <Switch.Root className="switch-root" checked={persists} onCheckedChange={togglePersists} aria-label="Persist robot">
             <Switch.Thumb className="switch-thumb" />
           </Switch.Root>
-        </div>
-      </div>
-
-      <div className="row">
-        <label className="label">Preset</label>
-        <div className="control preset-control">
-          <Select.Root value={selectedPresetId ?? ''} onValueChange={(v) => setSelectedPresetId(v || null)}>
-            <Select.Trigger className="select-trigger" aria-label="Preset select">
-              <Select.Value placeholder="Select preset" />
-            </Select.Trigger>
-            <Select.Content className="select-content">
-              <Select.Viewport>
-                {presets.length === 0 ? (
-                  <div className="select-empty">No presets available</div>
-                ) : (
-                  presets.map((p) => (
-                    <Select.Item key={p.id} value={p.id} className="select-item">
-                      <Select.ItemText>{p.name}</Select.ItemText>
-                    </Select.Item>
-                  ))
-                )}
-              </Select.Viewport>
-            </Select.Content>
-          </Select.Root>
-
-          <AlertDialog.Root>
-            <AlertDialog.Trigger className="btn" disabled={!selectedPresetId}>
-              Load Preset
-            </AlertDialog.Trigger>
-            <AlertDialog.Portal>
-              <AlertDialog.Overlay className="dialog-overlay" />
-              <AlertDialog.Content className="dialog-content">
-                <AlertDialog.Title>Load Preset</AlertDialog.Title>
-                <AlertDialog.Description>
-                  Loading a preset will overwrite the current robot's settings. This action cannot be undone.
-                </AlertDialog.Description>
-                <div className="dialog-actions">
-                  <AlertDialog.Cancel className="btn">Cancel</AlertDialog.Cancel>
-                  <AlertDialog.Action className="btn destructive" onClick={applyPreset}>
-                    Confirm
-                  </AlertDialog.Action>
-                </div>
-              </AlertDialog.Content>
-            </AlertDialog.Portal>
-          </AlertDialog.Root>
         </div>
       </div>
 

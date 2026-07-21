@@ -92,22 +92,6 @@
   transform: translateX(16px);
 }
 
-.select-trigger {
-  min-width: 180px;
-  min-height: 44px;
-  padding: 8px 10px;
-  border-radius: 6px;
-  background: var(--surface, #111);
-  color: var(--text, #fff);
-  display: inline-flex;
-  align-items: center;
-}
-
-.select-empty {
-  padding: 8px;
-  color: var(--text-muted, #9b9b9b);
-}
-
 .dialog-overlay {
   background: rgba(0, 0, 0, 0.6);
   position: fixed;
