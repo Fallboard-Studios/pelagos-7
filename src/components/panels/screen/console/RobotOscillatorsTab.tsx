@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import * as Select from '@radix-ui/react-select';
 import * as Switch from '@radix-ui/react-switch';
 import * as AlertDialog from '@radix-ui/react-alert-dialog';
@@ -72,10 +72,11 @@ function commitStructural(
 
 function NumericStepper({ label, value, min, max, step, onCommit }: NumericStepperProps) {
   const [draft, setDraft] = useState(String(value));
-
-  useEffect(() => {
+  const [prevValue, setPrevValue] = useState(value);
+  if (value !== prevValue) {
+    setPrevValue(value);
     setDraft(String(value));
-  }, [value]);
+  }
 
   return (
     <div className="field">
