@@ -105,8 +105,6 @@ let initialized = false;
 let instrumentsLoaded = false;
 // Reservation state
 let activeVoices = 0;
-// Prefixed with underscore to acknowledge it's intentionally kept for
-// potential external inspector/debugging while avoiding unused-var lint.
 let _masterCompressor: Tone.Compressor | null = null;
 
 // Global FX chain nodes (nullable; initialized in loadInstruments when Tone is available)
@@ -411,7 +409,6 @@ function updateAllPanners(_time?: number): void {
 export function triggerWithCap(params: NoteParams): boolean {
   const { robotId, note, duration, time } = params;
 
-  // Check polyphony limit
   if (activeVoices >= MAX_POLYPHONY) {
     devLog(`[AudioEngine] Polyphony capped: ${activeVoices}/${MAX_POLYPHONY}`);
     return false;
@@ -542,7 +539,6 @@ function startMelodyPlayback(): void {
         devLog(`[AudioEngine] Checking variance for ${robotCount} robots`);
 
         robots.forEach((robot) => {
-          // Store original data to detect changes
           const originalMelody = robot.melody;
           const originalSteps = originalMelody.map((e) => e.startStep);
 
@@ -550,7 +546,6 @@ function startMelodyPlayback(): void {
           const rhythmicVaried = applyRhythmicVariance(originalMelody as never);
           const variedMelody = applyTonalVariance(rhythmicVaried as never);
 
-          // Detect if any field changed across both passes
           const newSteps = variedMelody.map((e) => e.startStep);
           const newIndices = variedMelody.map((e) => e.noteIndex);
           const originalIndices = originalMelody.map((e) => e.noteIndex);
@@ -607,13 +602,11 @@ function computeNoteVelocitySeeded(masterVolume: number, robotId?: string): numb
   const idx = robotId ? (robotNoteIndex.get(robotId) ?? 0) : 0;
   const noteIndex = idx % 97; // prime period for long non-repeating patterns
 
-  // Determine roll to decide whether to apply variance
   const roll = (noiseMap(VELOCITY_ROLL_X, noteIndex) + 1) / 2; // map [-1,1] -> [0,1]
   if (roll < VELOCITY_VARIANCE_RATE) {
     const raw = noiseMap(VELOCITY_VARIANCE_X, noteIndex); // [-1,1]
     const variance = raw * VELOCITY_VARIANCE_AMOUNT; // signed
     const out = Math.min(1, Math.max(VELOCITY_MIN, masterVolume + variance));
-    // increment per-robot counter
     if (robotId) robotNoteIndex.set(robotId, (idx + 1) % 97);
     return out;
   }
@@ -684,8 +677,8 @@ export const AudioEngine = {
   },
 
   /**
-  * Schedule a note using NoteParams. If `adsr` are not provided
-  * the robot's current `audioAttributes` are looked up in the store and
+   * Schedule a note using NoteParams. If `adsr` are not provided
+   * the robot's current `audioAttributes` are looked up in the store and
    * applied at scheduling time.
    */
   scheduleNote(params: NoteParams): void {
@@ -754,7 +747,6 @@ export const AudioEngine = {
     try {
       const composite = AudioEngine.createCompositeVoice(descriptor);
 
-      // Create per-robot bus: panner -> gain -> filter -> master compressor/destination
       const PannerCtor = getToneCtor<Tone.Panner>('Panner');
       const GainCtorLocal = getToneCtor<Tone.Gain>('Gain');
       const FilterCtor = getToneCtor<Tone.Filter>('Filter');
@@ -820,7 +812,6 @@ export const AudioEngine = {
     const comp = compositeVoices.get(robotId);
     if (!comp) return;
     try {
-      // call composite dispose to cleanup per-layer synths and internal nodes
       try { comp.composite.dispose?.(); } catch (err) { devWarn('[AudioEngine] composite.dispose failed', err); }
       comp.panner.disconnect();
       comp.busGain.disconnect();
@@ -956,7 +947,6 @@ export const AudioEngine = {
         if (layerGain && typeof s?.connect === 'function') s.connect(layerGain);
         synth = s;
       }
-      // apply detune if present and supported
       if (layer.detune !== undefined) {
         try {
           const osc = (synth as unknown as { oscillator?: { detune?: { value: number } } })?.oscillator;
@@ -967,7 +957,6 @@ export const AudioEngine = {
           devWarn('[AudioEngine] Failed to apply detune on composite layer', err);
         }
       }
-      // apply phase if present and supported
       if (layer.phase !== undefined) {
         try {
           const osc = (synth as unknown as { oscillator?: { phase?: number | { value?: number } } })?.oscillator;
@@ -993,7 +982,6 @@ export const AudioEngine = {
           devWarn('[AudioEngine] Failed to apply phase on composite layer', err);
         }
       }
-      // apply pulseWidth if present and supported
       if (layer.pulseWidth !== undefined) {
         try {
           const osc = (synth as unknown as { oscillator?: { width?: number | { value?: number } } })?.oscillator;
@@ -1030,10 +1018,6 @@ export const AudioEngine = {
       const durStr = String(dur);
       layerNodes.forEach(({ synth, layer }, i) => {
         try {
-          // Guarantee strictly increasing time per layer: Tone Source nodes (Synth, NoiseSynth)
-          // require each scheduled time to be > the previous one on that same source instance.
-          // Multiple flurries in the same AudioContext quantum share the same Tone.now() value,
-          // so we advance by at least 1ms beyond both the requested time and the last used time.
           const t = Math.max(requested, Tone.now() + 0.001, layerLastTime[i] + 0.001);
           layerLastTime[i] = t;
           const isNoise = layer.type === 'noise';
@@ -1135,7 +1119,6 @@ export const AudioEngine = {
     };
 
     const dispose = () => {
-      // Disconnect and dispose per-layer synths and gains
       layerNodes.forEach(({ synth, gainNode }) => {
         try {
           try { (synth as unknown as { dispose?: () => void }).dispose?.(); } catch (err) { devWarn('[AudioEngine] Error disposing composite layer synth', err); }
@@ -1466,7 +1449,6 @@ export const AudioEngine = {
         comp.toDestination();
         devLog('[AudioEngine] Global bypass ON — audio routed direct to destination');
       } else {
-        // Reconnect through FX chain (first available node or destination)
         const firstFX = (_globalEQ ?? _globalLPF ?? _globalHPF ?? _globalChorus ?? _globalDelay ?? _globalReverb) as unknown as { connect?: (t: unknown) => void } | null;
         if (firstFX?.connect) {
           comp.connect(firstFX);
