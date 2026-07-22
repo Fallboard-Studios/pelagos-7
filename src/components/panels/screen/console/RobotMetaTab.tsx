@@ -24,7 +24,11 @@ export default function RobotMetaTab() {
 
   // Name editing (commit on blur or Enter)
   const [name, setName] = useState(robot?.name ?? '');
-  useEffect(() => setName(robot?.name ?? ''), [robot?.name]);
+  const [prevRobotName, setPrevRobotName] = useState(robot?.name);
+  if (robot?.name !== prevRobotName) {
+    setPrevRobotName(robot?.name);
+    setName(robot?.name ?? '');
+  }
 
   const commitName = () => {
     if (!robot || !localeId) return;
@@ -39,7 +43,7 @@ export default function RobotMetaTab() {
   };
 
   // Age display — update once per minute
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 60000);
     return () => clearInterval(id);
@@ -61,7 +65,11 @@ export default function RobotMetaTab() {
   // Persist toggle (uses `persists` property)
   const currentPersists = robot ? (robot.persists ?? false) : false;
   const [persists, setPersists] = useState<boolean>(currentPersists);
-  useEffect(() => setPersists(currentPersists), [currentPersists]);
+  const [prevPersists, setPrevPersists] = useState<boolean>(currentPersists);
+  if (currentPersists !== prevPersists) {
+    setPrevPersists(currentPersists);
+    setPersists(currentPersists);
+  }
 
   const togglePersists = (value: boolean) => {
     if (!robot || !localeId) return;
@@ -76,9 +84,12 @@ export default function RobotMetaTab() {
   const [lastBackup, setLastBackup] = useState<Partial<Robot> | null>(null);
 
   // Clear transient backup when selection or locale changes
-  useEffect(() => {
+  const currentSelectionKey = `${selectedRobotId}:${localeId}`;
+  const [prevSelectionKey, setPrevSelectionKey] = useState(currentSelectionKey);
+  if (currentSelectionKey !== prevSelectionKey) {
+    setPrevSelectionKey(currentSelectionKey);
     setLastBackup(null);
-  }, [selectedRobotId, localeId]);
+  }
 
   // Perform copy: overwrite the currently selected robot with attributes from
   // the chosen target robot (same-locale). Do not copy `id` or `name`.
