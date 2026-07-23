@@ -19,7 +19,7 @@ import { getSeededVal } from '../utils/getSeededVal';
 // ========================================
 // CONSTANTS
 // ========================================
-const INTERACTION_COOLDOWN_MEASURES = 8; // 8 measures between interactions
+const INTERACTION_COOLDOWN_MEASURES = 8;
 const INTERACTION_DURATION = 0.5; // 0.5 second interaction before returning to idle
 const FLURRY_NOTE_COUNT = 4; // Number of notes from each robot's melody
 
@@ -45,7 +45,6 @@ function playInteractionFlurry(localeId: string, robotAId: string, robotBId: str
     return;
   }
 
-  // Resolve locale noise map for deterministic event selection
   const locale = store.getLocaleById(localeId);
   const planet = locale ? usePlanetStore.getState().planets.find((p) => p.id === locale.planetId) : undefined;
   const noiseMap = locale && planet
@@ -59,7 +58,6 @@ function playInteractionFlurry(localeId: string, robotAId: string, robotBId: str
   const noteSpacing = 0.125; // 16th note spacing in seconds
   const baseTime = AudioEngine.now();
 
-  // Schedule flurry from Robot A (starting at baseTime)
   for (let i = 0; i < FLURRY_NOTE_COUNT && i < robotA.melody.length; i++) {
     const eventIndex = noiseMap
       ? Math.floor(getSeededVal(noiseMap, 'interaction.eventA', robotAIndex + i, 0, robotA.melody.length))
@@ -142,15 +140,12 @@ export function triggerInteraction(localeId: string, robotAId: string, robotBId:
   const store = useLocaleStore.getState();
   const currentMeasure = getCurrentMeasure();
 
-  // Kill any active swim timelines (stop current movement)
   killTimeline(`swim-${robotAId}`);
   killTimeline(`swim-${robotBId}`);
 
-  // Play interaction effects (audio + visual)
   playInteractionFlurry(localeId, robotAId, robotBId);
   playInteractionAnimation(robotAId, robotBId);
 
-  // Update both robots to interacting state with measure-based cooldown
   store.updateRobot(localeId, robotAId, {
     state: RobotState.Interacting,
     lastInteractionMeasure: currentMeasure,
@@ -219,5 +214,3 @@ export function cancelPendingInteractionRecovery(robotId: string): void {
     pendingInteractionRecoveries.delete(robotId);
   }
 }
-
-// (no default wrapper) callers must provide explicit localeId
