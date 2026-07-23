@@ -2,7 +2,6 @@ import { useEffect, useMemo } from 'react';
 
 import './OceanScene.css';
 
-// import { Robot } from '../robot/Robot';
 import { Robot } from '@/components/robot/Robot'
 import { useLocaleStore } from '@/stores/localeStore';
 import { usePlanetStore } from '@/stores/planetStore';
@@ -75,7 +74,8 @@ export function OceanScene({
 
   // Spawn initial robots and place factories on mount
   useEffect(() => {
-    // Place factories in 3 depth rows only if none exist in the store yet.
+    // Place factories (background/midground/foreground row groups) only if
+    // none exist in the store yet.
     // This prevents re-placing factories on power cycles where the scene
     // is unmounted/remounted — actors persist in the store and should not
     // be recreated.
@@ -87,13 +87,12 @@ export function OceanScene({
     spawnRobot(localeId);
     spawnRobot(localeId);
 
-    // Start periodic robot spawning
     startSpawnScheduler(localeId);
 
-    // Start proximity-based robot interaction detection
+    // Proximity-based robot interaction detection is on hold — current
+    // implementation is being reconsidered, not yet decided whether to keep it.
     // startCollisionDetection(localeId);
 
-    // Cleanup on unmount
     return () => {
       stopSpawnScheduler();
       // stopCollisionDetection();
@@ -130,13 +129,13 @@ export function OceanScene({
         <rect fill={backgroundColor} width={width} height={height} />
 
         {/* Factory rows rendered back-to-front for proper depth perception */}
+        {/* Background-row factories (rendered furthest back) */}
         <g id="factory-background-layer">
-          {/* center-type rows (should appear furthest back) */}
           {backgroundFactories.map((actor) => (
             <Factory key={actor.id} actor={actor} />
           ))}
         </g>
-        {/* Gradient between row 2 and row 1 */}
+        {/* Gradient between background and midground layers */}
         <rect
           id="gradient-back-mid"
           x="0"
@@ -153,7 +152,7 @@ export function OceanScene({
             <Factory key={actor.id} actor={actor} />
           ))}
         </g>
-        {/* Gradient between row 1 and row 0 */}
+        {/* Gradient between midground and foreground layers */}
         <rect
           id="gradient-mid-front"
           x="0"
@@ -171,8 +170,8 @@ export function OceanScene({
             <Robot key={robot.id} robot={robot} />
           ))}
         </g>
+        {/* Foreground-row factories (rendered closest to viewer) */}
         <g id="factory-foreground-layer">
-          {/* edge-type rows (foreground) */}
           {foregroundFactories.map((actor) => (
             <Factory key={actor.id} actor={actor} />
           ))}
