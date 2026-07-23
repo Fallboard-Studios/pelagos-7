@@ -98,7 +98,6 @@ export const useLocaleStore = create<LocaleState>((set, get) => ({
       if (Array.isArray(normalized.octaveRange) && normalized.octaveRange.length === 2) {
         let [minO, maxO] = (normalized.octaveRange as unknown[]).map((v: unknown) => Number(v));
         if (!Number.isFinite(minO) || !Number.isFinite(maxO)) {
-          // ignore invalid octaveRange
           delete normalized.octaveRange;
         } else {
           minO = Math.max(OCTAVE_RANGE_MIN, Math.min(OCTAVE_RANGE_MAX, Math.trunc(minO)));
