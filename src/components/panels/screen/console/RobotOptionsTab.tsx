@@ -52,7 +52,6 @@ export function RobotOptionsTab() {
   return (
     <div className="robot-options-tab" role="region" aria-label="Robot Options">
 
-      {/* Min / Max Robots */}
       <section className="robot-options-tab__section">
         <h3 className="robot-options-tab__label">Robot Count</h3>
         <div className="robot-options-tab__range-display">
@@ -83,7 +82,6 @@ export function RobotOptionsTab() {
         </Slider.Root>
       </section>
 
-      {/* Auto Spawn */}
       <section className="robot-options-tab__section">
         <label className="robot-options-tab__toggle-row" htmlFor="auto-spawn-switch">
           <span className="robot-options-tab__label">Auto Spawn</span>
@@ -99,7 +97,6 @@ export function RobotOptionsTab() {
         </label>
       </section>
 
-      {/* Spawn Frequency */}
       <section className="robot-options-tab__section">
         <h3 className="robot-options-tab__label">
           Spawn Frequency: <span className="robot-options-tab__value">{spawnFrequency} measures</span>
@@ -123,7 +120,6 @@ export function RobotOptionsTab() {
         </Slider.Root>
       </section>
 
-      {/* New Robot */}
       <section className="robot-options-tab__section">
         <button
           className="robot-options-tab__new-robot-btn"
