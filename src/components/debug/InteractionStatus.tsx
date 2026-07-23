@@ -42,7 +42,6 @@ export function InteractionStatus() {
     let tickerCallback: (() => void) | null = null;
 
     tickerCallback = () => {
-      // Count robots currently on cooldown (have lastInteractionMeasure and within cooldown window)
       const currentMeasure = getCurrentMeasure();
       const cooldownCount = robots.filter((robot: Robot) => {
         if (!robot.lastInteractionMeasure) return false;
