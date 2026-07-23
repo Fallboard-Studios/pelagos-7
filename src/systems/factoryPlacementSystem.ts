@@ -38,15 +38,10 @@ const FACTORY_ROWS: FactoryRowConfig[] = [
   { y: 1200, spreadType: 'edges', factoriesPerRow: 8, edgeWidth: 0.3, availableFactoryTypes: ['Warehouse'], row: 'foreground' },
 ];
 
-// no longer need global FACTORIES_PER_ROW; each row config knows how many factories it wants
-
 const PRODUCTION_INTERVAL = 60; // measures
 
-const DEFAULT_ROW_EDGE_WIDTH = 0.3; // 20% of screen width on each edge
-const DEFAULT_CENTER_WIDTH = 0.4; // 50% of screen width for center spread
-
-// MIN_BUILDING_GAP previously enforced gap between front row buildings, 
-// no longer necessary now that scale is random and available types fixed.
+const DEFAULT_ROW_EDGE_WIDTH = 0.3; // 30% of screen width on each edge
+const DEFAULT_CENTER_WIDTH = 0.4; // 40% of screen width for center spread
 
 // ========================================
 // EXPORTS
@@ -56,7 +51,6 @@ const DEFAULT_CENTER_WIDTH = 0.4; // 50% of screen width for center spread
  * Create a single factory actor with position and scale.
  */
 export function createFactory(position: { x: number; y: number }, row = 0): Actor {
-  // apply a small random scale variation independent of row
   const rand = 0.9 + Math.random() * 0.2; // 0.9–1.1
 
   const id = crypto.randomUUID();
@@ -65,7 +59,6 @@ export function createFactory(position: { x: number; y: number }, row = 0): Acto
   // and therefore greeble pools — are consistent between spawn and render.
   const availableTypes = getRowConfig(row)?.availableFactoryTypes;
 
-  // Generate deterministic color shifts and greeble choices from actor ID
   const { hueShift, satShift, rooftopGreeble, facadeGreeble, beltCourseCount, purpose } = selectVariantFromSeed(id, position.x, row, availableTypes);
 
   return {
@@ -91,19 +84,16 @@ export function createFactory(position: { x: number; y: number }, row = 0): Acto
 }
 
 /**
- * Place factories in 3 rows along the ocean floor.
+ * Place factories along the ocean floor using the `FACTORY_ROWS` config (9 rows
+ * across background/midground/foreground depth groups, each with its own y position,
+ * factory type filter, and spread type — 'edges', 'full', or 'center').
  * Random scale variation is applied uniformly to every factory (0.9–1.1) rather than
  * being tied to a row.
- * Row 0 (y=1080): foreground, placed only on left/right edges (outer 20% each)
- *   with enforced minimum gaps between adjacent buildings
- * Row 1 (y=960): mid-depth, 40px floor rect, full width
- * Row 2 (y=870): far depth, 60px floor rect, restricted to middle 20%
  * Returns array of actors (factories only; floor rects rendered in OceanScene)
  */
 export function placeFactories(): Actor[] {
   const actors: Actor[] = [];
 
-  // helper to advance x by the width of a newly spawned factory minus gap
   function computeFactoryWidth(
     factory: Actor,
     rowIndex: number,
@@ -120,14 +110,12 @@ export function placeFactories(): Actor[] {
     return calcSilhouetteSize(noiseValue, range).width;
   }
 
-  // Place factories in each row
   FACTORY_ROWS.forEach((rowConfig, rowIndex) => {
     const y = rowConfig.y;
 
     if (rowConfig.spreadType === 'edges') {
-      const FRONT_ROW_LEFT_MAX = WORLD_BOUNDS.width * (rowConfig.edgeWidth ?? DEFAULT_ROW_EDGE_WIDTH); // 0-384px
-      const FRONT_ROW_RIGHT_MIN = WORLD_BOUNDS.width * (1 - (rowConfig.edgeWidth ?? DEFAULT_ROW_EDGE_WIDTH)); // 1536px onwards
-      // fill left edge until left boundary reached
+      const FRONT_ROW_LEFT_MAX = WORLD_BOUNDS.width * (rowConfig.edgeWidth ?? DEFAULT_ROW_EDGE_WIDTH);
+      const FRONT_ROW_RIGHT_MIN = WORLD_BOUNDS.width * (1 - (rowConfig.edgeWidth ?? DEFAULT_ROW_EDGE_WIDTH));
       let currX = -20;
       const leftLimit = FRONT_ROW_LEFT_MAX;
       let placedLeft = 0;
@@ -140,7 +128,7 @@ export function placeFactories(): Actor[] {
         currX += w - 20;
       }
 
-      // fill right edge moving leftward
+      // fill right edge, currX increasing rightward from FRONT_ROW_RIGHT_MIN toward rightLimit
       currX = FRONT_ROW_RIGHT_MIN;
       const rightLimit = WORLD_BOUNDS.width + 100; // account for max factory width to prevent overflow
       let placedRight = 0;
@@ -153,7 +141,6 @@ export function placeFactories(): Actor[] {
         currX += w - 20;
       }
     } else if (rowConfig.spreadType === 'full') {
-      // fill entire row until right edge or max count
       let currX = -20;
       const rightBoundary = WORLD_BOUNDS.width;
       let placed = 0;
@@ -164,7 +151,6 @@ export function placeFactories(): Actor[] {
         currX = WORLD_BOUNDS.width / rowConfig.factoriesPerRow * placed; // ideal even spacing
       }
     } else if (rowConfig.spreadType === 'center') {
-      // center segment: fill from leftBound to rightBound or count
       let currX = (WORLD_BOUNDS.width * (1 - (rowConfig.centerWidth ?? DEFAULT_CENTER_WIDTH)) / 2) - 20; // start at left edge of center segment
       const rightBoundary = (WORLD_BOUNDS.width * (1 + (rowConfig.centerWidth ?? DEFAULT_CENTER_WIDTH)) / 2) + 20; // end at right edge of center segment, account for max factory width
       let placedCenter = 0;
