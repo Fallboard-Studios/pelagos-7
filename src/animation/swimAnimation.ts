@@ -66,7 +66,6 @@ export function createSwimTimeline(
   // (for edge cases where ref might be registered late)
   if (!ref) {
     if (DEV_TUNING) console.warn(`[SwimAnimation] No ref found for robot ${robot.id}, deferring animation`);
-    // Return empty timeline but still call onComplete after expected duration
     const tl = gsap.timeline();
     if (onComplete) {
       const estimatedDuration = calculateDuration(robot.position, destination);
@@ -75,7 +74,6 @@ export function createSwimTimeline(
     return tl;
   }
 
-  // Kill any existing swim timeline for this robot
   killTimeline(`swim-${robot.id}`);
 
   const duration = calculateDuration(robot.position, destination);
@@ -83,14 +81,9 @@ export function createSwimTimeline(
   // ========================================
   // INITIALIZATION: Ensure scaleX matches stored direction, set transform origin
   // ========================================
-  // Calculate what scaleX should be based on stored direction and target direction
   const currentScaleX = robot.direction === 'right' ? 1 : -1;
   const targetScaleX = targetDirection === 'right' ? 1 : -1;
   const needsFlip = currentScaleX !== targetScaleX;
-
-  // console.log(
-  //   `[SwimAnimation] Creating timeline for robot ${robot.id}, duration: ${duration.toFixed(2)}s, onComplete: ${onComplete ? 'YES' : 'NO'}`
-  // );
 
   // Create main timeline with optional arrival handler
   const tl = gsap.timeline({
@@ -177,7 +170,6 @@ export function createSwimTimeline(
     propulsionStart + duration * 0.7
   );
 
-  // Store timeline for external access/cleanup
   setTimeline(`swim-${robot.id}`, tl);
 
   if (DEV_TUNING) {

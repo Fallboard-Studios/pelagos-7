@@ -24,7 +24,6 @@ export const timelineMap = new Map<string, Timeline>();
  * it will be killed first to prevent memory leaks.
  */
 export function setTimeline(id: string, timeline: Timeline): void {
-  // Kill any existing timeline with this ID
   const existing = timelineMap.get(id);
   if (existing) {
     existing.kill();
