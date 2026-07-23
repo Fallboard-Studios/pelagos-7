@@ -101,7 +101,6 @@ export function scheduleHarmonyCycle(transport: TransportLike): void {
     return;
   }
 
-  // Advance palette every 2 measures, driven by the beat clock's derived hour.
   transportInstance = transport;
   scheduledEventId = transportInstance.scheduleRepeat(() => {
     try {

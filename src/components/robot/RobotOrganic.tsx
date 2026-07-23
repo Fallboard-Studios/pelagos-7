@@ -36,7 +36,6 @@ interface RobotSVGProps {
 /**
  * RobotOrganic - Rounded, biomechanical design for polyphonic synth voices
  * Industrial construction with curved organic hull
- * Future: Cell shape, membrane curves, and details controlled by audio attributes
  */
 export const RobotOrganic = React.memo(function RobotOrganic({ colors, scale, detailLevel, shapeParams }: RobotSVGProps) {
   const torsoAspect = shapeParams?.torsoAspect ?? 1;
@@ -81,7 +80,6 @@ export const RobotOrganic = React.memo(function RobotOrganic({ colors, scale, de
         <circle cx="20" cy="52" r="1.5" fill="#4f5458" />
         <circle cx="64" cy="52" r="1.5" fill="#4f5458" />
 
-        {/* Conditional details - shown when detailLevel > 0.5 */}
         {detailLevel > 0.5 && (
           <g className="details">
             {/* Panel seam lines */}

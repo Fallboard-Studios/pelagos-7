@@ -36,7 +36,6 @@ interface RobotSVGProps {
 /**
  * RobotIndustrial - Boxy, mechanical design for industrial synth voices
  * Heavy industrial construction with layered armor plates
- * Future: Panel dimensions, rivet placement, and weathering controlled by audio attributes
  */
 export const RobotIndustrial = React.memo(function RobotIndustrial({ colors, scale, detailLevel, shapeParams }: RobotSVGProps) {
   const torsoAspect = shapeParams?.torsoAspect ?? 1;
@@ -95,7 +94,6 @@ export const RobotIndustrial = React.memo(function RobotIndustrial({ colors, sca
         <circle cx="14" cy="58" r="1.5" fill="#4f5458" />
         <circle cx="66" cy="58" r="1.5" fill="#4f5458" />
 
-        {/* Conditional details - shown when detailLevel > 0.5 */}
         {detailLevel > 0.5 && (
           <g className="details">
             {/* Vent panel */}

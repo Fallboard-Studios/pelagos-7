@@ -80,7 +80,6 @@ export default function RobotMetaTab() {
   // Copy robot targets (other robots in the same locale)
   const otherRobots = localeRobots.filter((r) => robot && r.id !== robot.id);
   const [copyTarget, setCopyTarget] = useState<string | null>(null);
-  // Backup for undoing a copy operation
   const [lastBackup, setLastBackup] = useState<Partial<Robot> | null>(null);
 
   // Clear transient backup when selection or locale changes
@@ -98,7 +97,6 @@ export default function RobotMetaTab() {
     const target = localeRobots.find((r) => r.id === copyTarget);
     if (!target) return;
 
-    // Build updates from target (only copy audio/compositional attributes)
     const updates: Partial<Robot> = {};
     if (target.audioAttributes) updates.audioAttributes = target.audioAttributes;
     if (target.melody) updates.melody = target.melody;
@@ -112,13 +110,11 @@ export default function RobotMetaTab() {
     const optFields = ['rhythmicDensity', 'rhythmicMotifLength', 'noteVariance', 'audioMode'] as const;
     for (const f of optFields) copyIfPresent(target, updates, f);
 
-    // Backup current values for undo
     const backup = Object.fromEntries(
       (Object.keys(updates) as Array<keyof Robot>).map((k) => [k, robot[k]])
     ) as Partial<Robot>;
     setLastBackup(backup);
 
-    // Apply updates to the selected robot
     useLocaleStore.getState().updateRobot(localeId, robot.id, updates as Partial<Robot>);
 
     // Update AudioEngine to reflect the new attributes immediately.

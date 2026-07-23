@@ -21,7 +21,6 @@ export function RobotEditorTab() {
     return s.locales[localeId]?.robots?.find((r) => r.id === selectedRobotId);
   });
 
-  // If this tab isn't active, don't render anything.
   if (activeConsoleTab !== 'robotEditor') return null;
 
   if (!selectedRobotId) {
@@ -64,9 +63,6 @@ export function RobotEditorTab() {
     </div>
   );
 }
-
-// Robot meta panel is implemented in its own file: RobotMetaTab.tsx
-// Robot audio panel is implemented in its own file: RobotAudioTab.tsx
 
 export default RobotEditorTab;
 

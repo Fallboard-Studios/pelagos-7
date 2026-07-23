@@ -26,7 +26,6 @@ export function renderMachinery(ctx: GreebleRendererContext): GreebleElement | n
   const stackW = Math.max(4, colW * 0.4);
   const fill = hslToString(ctx.colors.accent);
 
-  // Local LCG for deterministic per-column randomness (seeded from ctx.seed)
   let r = seed;
   const prng = (): number => {
     r = (r * 1664525 + 1013904223) & 0xffffffff;
@@ -94,7 +93,6 @@ export function renderPitchedRoof(ctx: GreebleRendererContext): GreebleElement |
   const { buildingWidth: bw, roofY, frontCornerX, eastLMultiplier, westLMultiplier } = ctx;
 
   if (frontCornerX !== undefined && eastLMultiplier !== undefined && westLMultiplier !== undefined) {
-    // Ridge height = front-face width gives a 45° pitch on the visible slope.
     const h = frontCornerX;
     const ridgeY = roofY - h;
 
@@ -115,7 +113,6 @@ export function renderPitchedRoof(ctx: GreebleRendererContext): GreebleElement |
     );
   }
 
-  // Fallback: single centred triangle (no lighting context available).
   const h = bw;
   const apexX = frontCornerX ?? bw / 2;
   const points = `0,${roofY} ${bw},${roofY} ${apexX},${roofY - h}`;
@@ -149,7 +146,6 @@ export function renderCrownSpire(ctx: GreebleRendererContext): GreebleElement | 
   const elements: GreebleElement[] = [];
 
   if (frontCornerX !== undefined && eastLMultiplier !== undefined && westLMultiplier !== undefined) {
-    // Quasi-3D: two rects per tier — front face (west) + side face (east)
     const noShift = { hueShift: 0, satShift: 0 };
     const westFill = applyColorShift(ctx.colors.accent, noShift, westLMultiplier);
     const eastFill = applyColorShift(ctx.colors.accent, noShift, eastLMultiplier);
@@ -171,7 +167,6 @@ export function renderCrownSpire(ctx: GreebleRendererContext): GreebleElement | 
       );
     }
 
-    // Antenna: centred on the top tier’s front face, using west fill
     const topT = (stepCount - 1) / stepCount;
     const topLeftX = frontCornerX * topT * INSET_RATE;
     const topFrontW = frontCornerX - topLeftX;
@@ -183,7 +178,6 @@ export function renderCrownSpire(ctx: GreebleRendererContext): GreebleElement | 
       <rect key="antenna" x={antennaX} y={antennaY} width={antennaW} height={antennaH} fill={westFill} style={{ transition: FILL_TRANSITION }} />,
     );
   } else {
-    // Fallback: centered rectangles — original 2D silhouette
     const widthPcts2 = [1.0, 0.5] as const;
     const widthPcts3 = [1.0, 0.65, 0.3] as const;
     const widthPcts = stepCount === 2 ? widthPcts2 : widthPcts3;
@@ -240,7 +234,6 @@ export function renderAntennae(ctx: GreebleRendererContext): GreebleElement | nu
     <circle key="top-light" cx={bw / 2} cy={lineY} r={lightR} fill={lightFill} />,
   ];
 
-  // Static mid-point light for tall antennae (flicker deferred)
   if (isTall) {
     const midY = lineY + lineH * 0.5;
     elements.push(
@@ -274,18 +267,15 @@ export function renderWaterTower(ctx: GreebleRendererContext): GreebleElement | 
 
   const elements: GreebleElement[] = [];
 
-  // Middle third: tank body
   elements.push(
     <rect key="body" x={leftX} y={roofY - 2 * thirdH} width={totalW} height={thirdH} fill={fill} />,
   );
 
-  // Top third: triangular cap
   const capBaseY = roofY - 2 * thirdH; // bottom of cap = top of body
   const capPoints =
     `${leftX},${capBaseY} ${leftX + totalW},${capBaseY} ${leftX + totalW / 2},${roofY - totalH}`;
   elements.push(<polygon key="cap" points={capPoints} fill={fill} />);
 
-  // Bottom third: support stilts centred within the tower width
   const stiltCount = 2 + (seed % 3); // 2, 3, or 4 stilts
   const stiltW = 2;
   const stiltH = thirdH;
@@ -345,13 +335,11 @@ export function renderCupola(ctx: GreebleRendererContext): GreebleElement | null
  * @returns A cleanup function that removes the ticker listener (currently a no-op).
  */
 export function attachFlickerAnimation(_ref: React.RefObject<SVGCircleElement | null>): () => void {
-  // TODO: implement with gsap.ticker.add() when animation pass begins.
-  // Use _ref.current to access the element — never document.getElementById().
   return () => { };
 }
 
 // ---------------------------------------
-// pipes & valves renderer (new)
+// pipes & valves renderer
 // ---------------------------------------
 
 /**

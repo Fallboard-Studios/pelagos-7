@@ -81,7 +81,6 @@ export function getNightDepth(eastL: number, westL: number): number {
  * @returns `{ eastL, westL }` — lightness multipliers for east and west faces.
  */
 export function getLighting(measure: number): { eastL: number; westL: number } {
-  // Map measure 0-95 onto radians 0-2π
   const θ = ((measure % DAY_CYCLE_MEASURES) / DAY_CYCLE_MEASURES) * 2 * Math.PI;
 
   // Base formula: (sin(θ - π/2) + 1) / 2 → 0 at m=0 (midnight), 1 at m=48 (noon)
@@ -90,7 +89,6 @@ export function getLighting(measure: number): { eastL: number; westL: number } {
   const eastRaw = (Math.sin(θ - Math.PI / 2 + Math.PI / 4) + 1) / 2;
   const westRaw = (Math.sin(θ - Math.PI / 2 - Math.PI / 4) + 1) / 2;
 
-  // Apply perceptual gamma and scale to output range
   const eastL = NIGHT_L + (PEAK_L - NIGHT_L) * Math.pow(eastRaw, GAMMA);
   const westL = NIGHT_L + (PEAK_L - NIGHT_L) * Math.pow(westRaw, GAMMA);
 

@@ -200,7 +200,6 @@ export function RobotAudioTab({ robot }: RobotAudioTabProps) {
         </Slider.Root>
       </div>
 
-      {/* ── New Melody ──────────────────────────── */}
       {/* ── Note Variance ───────────────────────── */}
       <div className="rat-row rat-row--column">
         <div className="rat-row-header">

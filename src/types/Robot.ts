@@ -20,10 +20,6 @@ export const RobotState = {
 export type RobotState = (typeof RobotState)[keyof typeof RobotState];
 
 /**
- * Synth type identifier (kept generic)
- * Use a single generic synth label; detailed voice type is handled inside AudioEngine
- */
-/**
  * Oscillator waveform shapes for timbral variety
  */
 export type WaveformType = 'sine' | 'square' | 'triangle' | 'sawtooth' | 'pulse';
@@ -56,12 +52,10 @@ export interface AudioAttributes {
   layers?: OscillatorLayer[];
   waveform: WaveformType; // Oscillator shape applied once at voice reservation time
   /** Phase in degrees (0..360) applied to oscillator at reservation time */
-  /** Phase in degrees (0..360) applied to oscillator at reservation time */
   phase?: number; // degrees (0..360)
   /** Detune in cents (e.g. -100..100) applied to synth at reservation time */
   detune?: number; // cents (e.g. -100..100)
   /** Deprecated: pulseWidth moved to per-layer `layers[].pulseWidth`. */
-  // pulseWidth?: number; // removed in favor of per-layer pulseWidth
   /** Optional compact visual/audio mapping produced at spawn time and stored on the robot */
   visualAudioMap?: VisualAudioMap;
 }
@@ -103,7 +97,7 @@ export interface Robot {
   /** When true, this robot survives a power-off cycle and is not removed. */
   persists?: boolean;
   /**
-  /** Solo/mute/highlight mode set by the Robot Audio editor.
+   * Solo/mute/highlight mode set by the Robot Audio editor.
    * Runtime semantics (enforced by AudioEngine):
    * - `none` (Off): no special routing.
    * - `mute` (Mute): scheduled notes for this robot are suppressed.
@@ -113,7 +107,7 @@ export interface Robot {
    */
   audioMode?: 'none' | 'solo' | 'mute' | 'highlight';
   /**
-   * Number of melody events (4–12). Maps to `events` in generateMelodyForRobot().
+   * Number of melody events (4–12). Maps to `onsetCount` in generateMelodyForRobot().
    * Default: derived from initial melody length at spawn.
    */
   rhythmicDensity?: number;
@@ -123,8 +117,6 @@ export interface Robot {
    * Default: 8
    */
   rhythmicMotifLength?: number;
-  // Note: Visual appearance (shape, colors, scale, detail level) is derived
-  // from audioAttributes and NOT stored in state - calculated at render time
   /** When >0, constrains unique notes used during melody generation (0 = no constraint). */
   noteVariance?: number;
 }

@@ -44,11 +44,9 @@ export function calculateDistanceSquared(a: Vec2, b: Vec2): number {
  * Cooldown is measure-based: robots must wait 8 measures between interactions.
  */
 export function canInteract(robot: Robot): boolean {
-  // Must be in idle or moving state
   const validState =
     robot.state === RobotState.Idle || robot.state === RobotState.Moving;
 
-  // Check measure-based cooldown (8 measures = cooldown duration)
   const notOnCooldown = !robot.lastInteractionMeasure
     ? true
     : getCurrentMeasure() - robot.lastInteractionMeasure >= 8;
@@ -68,7 +66,6 @@ function getVisualPosition(robot: Robot): Vec2 {
     return robot.position;
   }
 
-  // Get actual visual position from DOM transform
   const x = gsap.getProperty(ref, 'x') as number;
   const y = gsap.getProperty(ref, 'y') as number;
 
@@ -104,7 +101,6 @@ export function startCollisionDetection(localeId: string): void {
     const robots = useLocaleStore.getState().getLocaleById(localeId)?.robots || [];
     const checkCount = (robots.length * (robots.length - 1)) / 2;
 
-    // Update collision checks per second metric
     frameCount += checkCount;
     const currentTime = gsap.ticker.time;
     if (currentTime - lastTime >= 1) {
@@ -113,13 +109,11 @@ export function startCollisionDetection(localeId: string): void {
       lastTime = currentTime;
     }
 
-    // Check all unique pairs
     for (let i = 0; i < robots.length; i++) {
       for (let j = i + 1; j < robots.length; j++) {
         const robotA = robots[i];
         const robotB = robots[j];
 
-        // Skip if either cannot interact
         if (!canInteract(robotA) || !canInteract(robotB)) {
           continue;
         }
@@ -128,7 +122,6 @@ export function startCollisionDetection(localeId: string): void {
         const posA = getVisualPosition(robotA);
         const posB = getVisualPosition(robotB);
 
-        // Check squared distance (avoid sqrt)
         const distSquared = calculateDistanceSquared(posA, posB);
 
         if (distSquared < INTERACTION_DISTANCE_SQUARED) {
@@ -141,8 +134,6 @@ export function startCollisionDetection(localeId: string): void {
   gsap.ticker.add(tickerCallback);
   if (DEV_TUNING) console.log('[CollisionSystem] Started');
 }
-
-// (no default wrapper) callers must provide explicit localeId
 
 /**
  * Stop collision detection.

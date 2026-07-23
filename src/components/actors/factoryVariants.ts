@@ -53,10 +53,8 @@ export type FactoryPurpose =
  *                     random split in the range 25–75.
  */
 export const VARIANT_CONF: Record<FactoryVariant, {
-  // size range replaced nativeSizes
   sizeRange: { minWidth: number; maxWidth: number; minHeight: number; maxHeight: number };
 
-  // colour slots now HSL
   colors: {
     body: HSL;
     accent: HSL;
@@ -212,12 +210,10 @@ export function selectVariantFromSeed(
   const variant = getVariantFromNoise(noiseValue, row, availableTypes);
   const scale = 0.8 + prng() * 0.4; // 0.8-1.2
 
-  // Generate per-instance color shifts from variant's allowed ranges
   const colorRanges = VARIANT_CONF[variant].colorRanges;
   const hueShift = lerp(colorRanges.hueShiftRange[0], colorRanges.hueShiftRange[1], prng());
   const satShift = lerp(colorRanges.satShiftRange[0], colorRanges.satShiftRange[1], prng());
 
-  // choose rooftop/facade greebles deterministically
   const gcfg = VARIANT_CONF[variant].greebleConfig;
   const rooftopPool = gcfg.allowedRooftop || [];
   const facadePool = gcfg.allowedFacade || [];
@@ -228,11 +224,9 @@ export function selectVariantFromSeed(
     ? facadePool[Math.floor(prng() * facadePool.length)]
     : undefined;
 
-  // uniform pick in [0 .. maxBeltCourses]
   const maxBeltCourses = gcfg.maxBeltCourses ?? 0;
   const beltCourseCount = maxBeltCourses === 0 ? 0 : Math.floor(prng() * (maxBeltCourses + 1));
 
-  // random east/west split point: 25-75 in 0-100 normalised SVG space
   const frontCornerX = 25 + Math.floor(prng() * 51);
 
   // purpose is purely derived from the variant, but we include it here so

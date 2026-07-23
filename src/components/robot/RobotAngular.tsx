@@ -36,7 +36,6 @@ interface RobotSVGProps {
 /**
  * RobotAngular - Sharp, geometric design for angular synth voices
  * Industrial hexagonal hull with aggressive angles
- * Future: Hexagon dimensions, angles, and details controlled by audio attributes
  */
 export const RobotAngular = React.memo(function RobotAngular({ colors, scale, detailLevel, shapeParams }: RobotSVGProps) {
   const torsoAspect = shapeParams?.torsoAspect ?? 1;
@@ -91,7 +90,6 @@ export const RobotAngular = React.memo(function RobotAngular({ colors, scale, de
           <circle cx="26" cy="56" r="1.5" fill="#4f5458" />
           <circle cx="70" cy="56" r="1.5" fill="#4f5458" />
 
-          {/* Conditional details - shown when detailLevel > 0.5 */}
           {detailLevel > 0.5 && (
             <g className="details">
               {/* Panel divider lines */}

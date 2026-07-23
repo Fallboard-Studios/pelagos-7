@@ -36,7 +36,6 @@ interface RobotSVGProps {
 /**
  * RobotSleek - Smooth, streamlined design for melodic synth voices
  * Industrial submarine aesthetic with curved hull sections
- * Future: Body curvature, position, and details controlled by audio attributes
  */
 export const RobotSleek = React.memo(function RobotSleek({ colors, scale, detailLevel, shapeParams }: RobotSVGProps) {
   const torsoAspect = shapeParams?.torsoAspect ?? 1;
@@ -92,7 +91,6 @@ export const RobotSleek = React.memo(function RobotSleek({ colors, scale, detail
           <circle cx="14" cy="58" r="1.5" fill="#4f5458" />
           <circle cx="70" cy="58" r="1.5" fill="#4f5458" />
 
-          {/* Conditional details - shown when detailLevel > 0.5 */}
           {detailLevel > 0.5 && (
             <g className="details">
               {/* Panel lines */}

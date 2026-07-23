@@ -72,48 +72,35 @@ export function pickDestination(noiseMap: NoiseFunction2D | null, spawnIndex: nu
  * Picks a random destination and triggers swim animation
  */
 export function handleRobotIdle(localeId: string, robotId: string): void {
-  // console.log(`[IdleSystem] handleRobotIdle called for robot ${robotId}`);
-
   const store = useLocaleStore.getState();
   const robot = store.getRobotById(localeId, robotId);
 
-  // Guard: robot must exist and be in idle state
   if (!robot || robot.state !== RobotState.Idle) {
     console.warn(`[IdleSystem] Robot ${robotId} not found or not Idle (state: ${robot?.state})`);
     return;
   }
 
-  // Resolve locale noise map for deterministic destination
   const locale = store.getLocaleById(localeId);
   const planet = locale ? usePlanetStore.getState().planets.find((p) => p.id === locale.planetId) : undefined;
   const noiseMap = locale && planet
     ? getLocaleNoiseMap(localeId, locale.planetId, planet.name, locale.coordinates.x, locale.coordinates.y)
     : null;
 
-  // Each robot has a unique spawnIndex (its noise channel) and an ever-incrementing
-  // move count. Together they guarantee a distinct, non-overlapping noise sequence
-  // for every robot across all time.
   const { spawnIndex, count } = getAndIncrementMoveCount(robotId);
 
   const destination = pickDestination(noiseMap, spawnIndex, count);
 
-  // Calculate direction based on destination x-coordinate relative to current position
   const direction = destination.x > robot.position.x ? 'right' : 'left';
 
   // Pass PRE-UPDATE robot to createSwimTimeline so it knows the old direction
   // and can correctly determine whether a flip animation is needed.
   createSwimTimeline(robot, destination, direction, () => handleRobotArrival(localeId, robotId));
 
-  // Update robot state to swimming with destination and new direction
   useLocaleStore.getState().updateRobot(localeId, robotId, {
     state: RobotState.Moving,
     destination,
     direction,
   });
-
-  // console.log(
-  //   `[IdleSystem] Robot ${robotId} swimming to (${Math.round(destination.x)}, ${Math.round(destination.y)})`
-  // );
 }
 
 /**
@@ -127,14 +114,11 @@ export function handleRobotArrival(localeId: string, robotId: string): void {
     return;
   }
 
-  // Update robot state to idle and sync position to destination
   useLocaleStore.getState().updateRobot(localeId, robotId, {
     state: RobotState.Idle,
     position: robot.destination, // Sync store position to where robot actually is
     destination: null,
   });
-
-  // console.log(`[IdleSystem] Robot ${robotId} arrived, entering idle state`);
 
   // Schedule next destination pick after delay (using GSAP instead of setTimeout)
   // Store the tween so we can cancel it if the robot is removed before it fires
@@ -158,5 +142,3 @@ export function cancelPendingIdleDelay(robotId: string): void {
   }
   idleMoveCounters.delete(robotId);
 }
-
-// (no default wrappers) callers must provide explicit localeId

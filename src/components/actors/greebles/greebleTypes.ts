@@ -18,7 +18,7 @@ export type RooftopGreeble =
   | 'crownSpire'
   | 'pitchedRoof'
   | 'steppeRoof'
-  | 'pipesValves'; // new decorative pipes and valve clusters
+  | 'pipesValves'; // decorative pipes and valve clusters
 
 /**
  * Facade greeble variants used on the sides of buildings.

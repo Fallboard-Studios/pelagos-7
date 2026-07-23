@@ -28,5 +28,5 @@ export const useSessionStore = create<SessionStore>((set) => ({
 // NOTES
 // ========================================
 // Keep state JSON-serializable. Session UUID generation should be
-// performed by callers (e.g., Issue 7) using `crypto.randomUUID()`.
+// performed by callers using `crypto.randomUUID()`.
 // No authentication is implemented for now per project requirements.

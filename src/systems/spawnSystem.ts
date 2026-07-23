@@ -38,7 +38,7 @@ const DECAY_RANGE = { min: 0.05, max: 2.0 };
 const SUSTAIN_RANGE = { min: 0.0, max: 1.0 };
 const RELEASE_RANGE = { min: 0.1, max: 5.0 };
 
-// M7.4: Layered presets and normalization constants
+// Layered presets and normalization constants
 const MAX_LAYERS = 4;
 const ADSR_MAX = { attack: 2, decay: 2, sustain: 1, release: 5 };
 
@@ -58,8 +58,6 @@ const FILTER_FREQ_RANGE = { min: 400, max: 2500 };
 // Master volume range: keep robots below full saturation
 const MASTER_VOLUME_MIN = 0.65;
 const MASTER_VOLUME_MAX = 0.85;
-
-// (synthType removed) decisions use `waveform` and layered descriptors
 
 // Waveform types — even distribution gives ~20% each (includes pulse)
 const WAVEFORMS: WaveformType[] = ['sine', 'square', 'triangle', 'sawtooth', 'pulse'];
@@ -177,8 +175,6 @@ export function generateSpawnPosition(noiseMap: NoiseFunction2D, offset: number)
  * Controls both sound synthesis and visual appearance
  */
 export function generateAudioAttributes(noiseMap: NoiseFunction2D, offset: number): AudioAttributes {
-  // NOTE: synthType removed; decisions are driven by `waveform` and layered descriptors
-
   // Seeded ADSR envelope
   const adsr = {
     attack: getSeededVal(noiseMap, 'robot.audio.attack', offset, ATTACK_RANGE.min, ATTACK_RANGE.max),
@@ -193,12 +189,12 @@ export function generateAudioAttributes(noiseMap: NoiseFunction2D, offset: numbe
   // Seeded filter frequency (determines detail level)
   const filterFreq = getSeededVal(noiseMap, 'robot.audio.filterFreq', offset, FILTER_FREQ_RANGE.min, FILTER_FREQ_RANGE.max);
 
-  // Seeded waveform — evenly distributed (~25% each)
+  // Seeded waveform — evenly distributed (~20% each)
   const waveform = WAVEFORMS[Math.min(WAVEFORMS.length - 1, Math.floor(getSeededVal(noiseMap, 'robot.audio.waveform', offset, 0, WAVEFORMS.length)))];
 
   // Derive a compact visualAudioMap to store on the robot at spawn time.
   // ---
-  // M7.4: Generate layered presets (1..MAX_LAYERS layers), each with gain and ADSR.
+  // Generate layered presets (1..MAX_LAYERS layers), each with gain and ADSR.
   // The mapping and normalization logic below is critical for visual/audio consistency:
   // - Each layer gets randomized ADSR and gain.
   // - Gain-weighted averaging and normalization (by ADSR_MAX) is used to produce a single averaged ADSR.
@@ -301,7 +297,6 @@ export function spawnRobot(localeId: string): void {
   const robots = locale?.robots ?? [];
   const settings = (locale?.settings as LocaleSettings) ?? { maxRobots: 12, minRobots: 2 };
 
-  // Resolve explicit max/min with safe defaults when settings omit them.
   const maxRobots = settings.maxRobots ?? 12;
   const minRobots = settings.minRobots ?? 2;
 
@@ -312,14 +307,12 @@ export function spawnRobot(localeId: string): void {
     const removable = robots.filter((r) => !r.persists);
     if (removable.length > 0) {
       if (robots.length > minRobots) {
-        // find the oldest non-persisting robot by creation timestamp
         let oldest = removable[0];
         for (const r of removable) {
           if (r.createdAt < oldest.createdAt) {
             oldest = r;
           }
         }
-        // Animate the oldest robot offscreen, then remove it
         removeRobotWithExit(localeId, oldest.id);
         if (DEV_TUNING) console.log(`[SpawnSystem] Max robots reached, removed oldest non-persisting ${oldest.id}`);
       } else {
@@ -402,8 +395,6 @@ export function spawnRobot(localeId: string): void {
 
   const spawnMelody = generateMelodyForRobot({ octaveMin: octaveRange[0], octaveMax: octaveRange[1], onsetCount: DEFAULT_RHYTHMIC_DENSITY, rand: melodyRand });
 
-    // (Removed stray duplicate layer-generation fragment that caused a parsing error.)
-
   const position = noiseMap ? generateSpawnPosition(noiseMap, spawnCount) : generateSpawnPosition((_x: number, _y: number) => 0 as number, spawnCount);
   const spawnDirection: 'left' | 'right' = position.x < (WORLD_WIDTH / 2) ? 'left' : 'right';
 
@@ -470,7 +461,6 @@ export function spawnRobot(localeId: string): void {
  * (removed by removeNonPersistentRobots on power-off).
  */
 export function reRegisterAllRobotsAudio(localeId: string): void {
-  // Re-register robots that are marked to persist across power cycles.
   const robots = (useLocaleStore.getState().getLocaleById(localeId)?.robots || []).filter((r) => r.persists);
   robots.forEach((robot) => {
     AudioEngine.releaseVoice(robot.id);
@@ -490,13 +480,11 @@ export function reRegisterAllRobotsAudio(localeId: string): void {
 
 /**
  * Remove all non-persistent robots from the store and release their audio resources.
- * Call on power-off. Persistent robots (robot.persistent === true) are kept.
+ * Call on power-off. Persistent robots (robot.persists === true) are kept.
  */
 export function removeNonPersistentRobots(localeId: string): void {
-  // Remove robots that are not marked to persist (persists === true are kept).
   const robots = (useLocaleStore.getState().getLocaleById(localeId)?.robots || []).filter((r) => !r.persists);
   robots.forEach((robot) => {
-    // Ensure audio resources are released for each removed robot.
     try {
       AudioEngine.releaseVoice(robot.id);
     } catch (err) {
@@ -508,6 +496,3 @@ export function removeNonPersistentRobots(localeId: string): void {
   });
   if (DEV_TUNING) console.log(`[SpawnSystem] removeNonPersistentRobots: removed ${robots.length} non-persisting robots`);
 }
-
-// Backwards-compatible defaults (deprecated) — prefer explicit localeId.
-// (no default wrappers) callers must provide explicit localeId
