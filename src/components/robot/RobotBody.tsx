@@ -52,7 +52,6 @@ export const RobotBody = memo(function RobotBody({ robot }: RobotBodyProps) {
     const baseColors = generateColors(attrsForColor);
     const colors = applyLightnessMultiplier(baseColors, lightnessMultiplier);
 
-    // Prefer the spawn-time visualAudioMap via mapper when available.
     const mapped = mapVisualAudioToProps(visualAudioMap);
 
     // Convert mapped bodyShapeProps (scale, roundness, detail) into the
