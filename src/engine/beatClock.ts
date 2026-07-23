@@ -50,12 +50,9 @@ export function initBeatClock(transport?: TransportLike): void {
   const transportLocal = transportInstance as TransportLike;
   // Register a 16n tick and remember its id so we can clear it on reset
   internalTickId = transportLocal.scheduleRepeat(() => {
-    // Calculate current beat and measure from Transport position
-    // Defensive: fallback to 0 if not started
     const { measure, beat, sixteenths } = parseTransportPosition(transportLocal.position);
     currentBeat = measure * BEATS_PER_MEASURE + beat + sixteenths / 4;
     currentMeasure = measure;
-    // Fire measure listeners once per measure change
     if (currentMeasure !== lastNotifiedMeasure) {
       lastNotifiedMeasure = currentMeasure;
       const wrappedMeasure = currentMeasure % MEASURES_PER_CYCLE;
@@ -105,7 +102,6 @@ export function parseTransportPosition(rawPosition: unknown): { measure: number;
  */
 export function subscribeToMeasure(callback: (measure: number) => void): () => void {
   measureListeners.push(callback);
-  // Return an unsubscribe function for safe removal by caller
   return () => {
     const idx = measureListeners.indexOf(callback);
     if (idx !== -1) measureListeners.splice(idx, 1);
@@ -143,7 +139,6 @@ export function getCurrentHour(): number {
  * @returns A schedule ID that can be passed to cancelSchedule
  */
 export function scheduleRepeat(interval: string, callback: () => void): string {
-  // Generate unique ID for this scheduled event
   const scheduleId = `schedule-${crypto.randomUUID()}`;
 
   // If transport isn't ready, persist the requested interval+callback so it
@@ -160,7 +155,6 @@ export function scheduleRepeat(interval: string, callback: () => void): string {
     callback();
   }, interval, interval);
 
-  // Store mapping for cancellation via cancelSchedule
   scheduleMap.set(scheduleId, { transportId, interval, callback });
 
   devLog('[BeatClock] scheduleRepeat:', interval, 'id:', scheduleId);
@@ -206,7 +200,6 @@ export function cancelSchedule(scheduleId: string): void {
 export function resetBeatClock(): void {
   initialized = false;
 
-  // Clear the internal 16n tick if it was registered
   if (internalTickId !== null) {
     try {
       transportInstance?.clear(internalTickId);
