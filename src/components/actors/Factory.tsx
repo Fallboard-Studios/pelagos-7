@@ -36,7 +36,6 @@ const LIGHTING_PRESETS = {
  * Set to `null` to use the live day/night cycle driven by `currentMeasure`.
  */
 const DEBUG_LIGHTING_PRESET = null as keyof typeof LIGHTING_PRESETS | null;
-// const DEBUG_LIGHTING_PRESET = "morning" as keyof typeof LIGHTING_PRESETS | null;
 
 // ========================================
 // CONSTANTS
@@ -45,7 +44,6 @@ const DEBUG_LIGHTING_PRESET = null as keyof typeof LIGHTING_PRESETS | null;
 /** Belt course thickness in normalised 0-100 SVG units. */
 const BELT_H = 2;
 
-// purposes eligible for bubble vents
 const BUBBLE_PURPOSES: Set<FactoryPurpose> = new Set([
   'heavyIndustry',
   'chemicalProcessing',
@@ -64,7 +62,6 @@ interface FactoryProps {
 
 
 const FactoryInner: React.FC<FactoryProps> = ({ actor }) => {
-  // Procedurally generate silhouette configuration
   const config = useMemo(() => {
     const row = actor.config?.row ?? 1;
     const rowCfg = getRowConfig(row);
@@ -75,7 +72,6 @@ const FactoryInner: React.FC<FactoryProps> = ({ actor }) => {
   const sizeRange = VARIANT_CONF[config.variant].sizeRange;
   const { width, height } = calcSilhouetteSize(config.noiseValue, sizeRange);
 
-  // compute body fills — east/west split prepares for day/night system
   const hueShift = actor.config?.hueShift ?? 0;
   const satShift = actor.config?.satShift ?? 0;
   const shift = { hueShift, satShift };
@@ -90,10 +86,6 @@ const FactoryInner: React.FC<FactoryProps> = ({ actor }) => {
   // Resolve east/west lightness multipliers:
   // debug preset overrides the live cycle (useful for visual testing).
   //
-  // lightMeasure: derived from the world time-of-day (fractional hour)
-  // so building fills update smoothly based on real wall-clock time. We
-  // convert `currentHour` (0..24 float) into the 0..DAY_CYCLE_MEASURES range
-  // expected by `getLighting`.
   // Derive lightMeasure from the active locale's local time so building
   // lighting tracks planet day/night, not the audio transport position.
   // activeLocaleLocalTime is a 0..24 float written by PlanetView every second.
@@ -158,12 +150,11 @@ const FactoryInner: React.FC<FactoryProps> = ({ actor }) => {
 
   // --- bubble vent coordinates (scene space) ---------------------------------
   const ventXnorm = (buildingSeed % 60) + 20; // 20–80% of normalised width
-  // ventXPx is the local building offset; add actor.position.x for world space
+  // ventXWorld combines the local building offset (ventXnorm) with actor.position.x for world space
   const ventXWorld = actor.position.x + (ventXnorm / 100) * actualWidth;
   // ventY is top edge of building in world coords
   const ventY = actor.position.y - actualHeight;
 
-  // build context for any greeble renderer
   const ctx: GreebleRendererContext = {
     buildingWidth: width,
     buildingHeight: height,
