@@ -87,10 +87,8 @@ export function applyColorShift(
   shift: ColorShift,
   lMultiplier: number,
 ): string {
-  // Apply hue shift with wraparound at 0/360
   const h = (base.h + shift.hueShift + 360) % 360;
 
-  // Apply saturation shift with clamping to valid range
   const s = clamp(base.s + shift.satShift, 0, 100);
 
   // Apply lightness multiplier (e.g., 0.8 for darkening, 1.2 for brightening)
