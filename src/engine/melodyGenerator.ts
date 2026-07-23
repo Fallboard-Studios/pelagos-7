@@ -122,27 +122,22 @@ export function applyRhythmicVariance(
   probability: number = DEFAULT_VARIANCE_PROBABILITY,
   rand: () => number = Math.random
 ): RobotMelodyEvent[] {
-  // Check if variance applies this loop
   if (rand() > probability) {
     return melody;
   }
 
-  // Pick 1–2 events to shift
   const numToShift = rand() < 0.5 ? 1 : 2;
   const indicesToShift = pickRandomIndices(melody, Math.min(numToShift, melody.length), rand);
 
-  // Apply shift to selected indices
   return melody.map((event, idx) => {
     if (!indicesToShift.includes(idx)) {
       return event;
     }
 
-    // Pick random shift from ±1 or ±2 steps
     const delta = SHIFT_OPTIONS[Math.floor(rand() * SHIFT_OPTIONS.length)];
     // Clamp to 1..16
     const newStep = Math.min(16, Math.max(1, event.startStep + delta));
 
-    // Return new event with shifted step, all other fields unchanged
     return {
       ...event,
       startStep: newStep,
@@ -166,27 +161,22 @@ export function applyTonalVariance(
   probability: number = DEFAULT_VARIANCE_PROBABILITY,
   rand: () => number = Math.random
 ): RobotMelodyEvent[] {
-  // Check if variance applies this loop
   if (rand() > probability) {
     return melody;
   }
 
-  // Pick 1–2 events to shift
   const numToShift = rand() < 0.5 ? 1 : 2;
   const indicesToShift = pickRandomIndices(melody, Math.min(numToShift, melody.length), rand);
 
-  // Apply shift to selected indices
   return melody.map((event, idx) => {
     if (!indicesToShift.includes(idx)) {
       return event;
     }
 
-    // Pick random shift from ±1
     const delta = NOTE_SHIFT_OPTIONS[Math.floor(rand() * NOTE_SHIFT_OPTIONS.length)];
     // Clamp to 0..7 (harmony palette size)
     const newIndex = Math.min(7, Math.max(0, event.noteIndex + delta));
 
-    // Return new event with shifted noteIndex, all other fields unchanged
     return {
       ...event,
       noteIndex: newIndex,
@@ -251,14 +241,9 @@ export function buildMotifOnsets(
   const repeats = Math.floor(subdivisions / M);
 
   if (repeats >= 2) {
-    // K onsets per base motif copy; R extra onsets distributed to first R copies.
-    // K's floor of 1 means K * repeats can exceed rhythmicDensity when density < repeats
-    // (short motif, low density) — R goes negative in that case and is clamped to 0
-    // below; the resulting overshoot is trimmed after tiling.
     const K = Math.max(1, Math.floor(rhythmicDensity / repeats));
     const R = Math.max(0, rhythmicDensity - K * repeats);
 
-    // Generate the base motif: K unique positions in [0, M)
     const baseMotif = pickUniqueInRange(M, K, rand).sort((a, b) => a - b);
 
     const onsetSet = new Set<number>();
@@ -367,7 +352,6 @@ export function generateMelodyForRobot(
   const octMin = Math.min(opts.octaveMin, opts.octaveMax);
   const octMax = Math.max(opts.octaveMin, opts.octaveMax);
 
-  // Build onset grid positions (0-indexed, 0..subdivisions-1)
   const onsets = buildMotifOnsets(density, motifLength, subdivisions, rand);
 
   let currentOctave = octMin + Math.floor(rand() * (octMax - octMin + 1));
