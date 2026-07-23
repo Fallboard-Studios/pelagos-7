@@ -64,13 +64,9 @@ export function removeRobotWithExit(localeId: string, robotId: string): void {
   const localeStore = useLocaleStore.getState();
   const robot = localeStore.getRobotById(localeId, robotId);
   const performCleanupAndRemove = (id: string) => {
-    // Clean up idle delay
     cancelPendingIdleDelay(id);
-
-    // Clean up interaction recovery delay
     cancelPendingInteractionRecovery(id);
 
-    // Clean up audio
     try {
       AudioEngine.releaseVoice(id);
     } catch (err) {
@@ -78,10 +74,8 @@ export function removeRobotWithExit(localeId: string, robotId: string): void {
     }
     AudioEngine.unregisterRobotMelody(id);
 
-    // Clean up animation
     killTimeline(`swim-${id}`);
 
-    // Remove from locale store
     useLocaleStore.getState().removeRobot(localeId, id);
 
     if (DEV_TUNING) {
@@ -95,7 +89,6 @@ export function removeRobotWithExit(localeId: string, robotId: string): void {
     return;
   }
 
-  // Determine exit destination
   const dest = pickExitDestination(robot.position);
   const targetDirection = dest.x > robot.position.x ? 'right' : 'left';
 
@@ -124,9 +117,7 @@ export function removeRobotWithExit(localeId: string, robotId: string): void {
   const duration = calculateDuration(robot.position, dest);
   const tl = gsap.timeline({
     onComplete: () => {
-      // Final cleanup: remove from locale store and perform audio/timeout cleanup
       performCleanupAndRemove(robotId);
-      // Remove this exit timeline from map
       killTimeline(`exit-${robotId}`);
     }
   });
@@ -154,10 +145,6 @@ export function removeRobotWithExit(localeId: string, robotId: string): void {
   const fadeDuration = Math.min(0.6, duration * 0.6);
   tl.to(ref, { opacity: 0, duration: fadeDuration, ease: 'power1.out' }, propulsionStart + Math.max(0, duration - fadeDuration));
 
-  // Store and play
   setTimeline(`exit-${robotId}`, tl);
   tl.play();
 }
-
-// Backwards-compatible default
-// (no default wrapper) callers must provide explicit localeId
