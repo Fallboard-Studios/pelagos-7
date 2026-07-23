@@ -6,7 +6,6 @@ import type { VisualAudioMap, ShapeParams } from '../../types/layeredAudio';
  * Keep outputs serializable and small — components may animate these values.
  */
 export function mapVisualAudioToProps(vm?: VisualAudioMap) {
-  // Fallback defaults for shape parameters if no audio mapping is present.
   // If you change the mapping logic, update spawnSystem and docs for consistency.
   const defaultShape: ShapeParams = { scale: 0.5, roundness: 0.5, detail: 0.3 };
 
@@ -20,7 +19,6 @@ export function mapVisualAudioToProps(vm?: VisualAudioMap) {
 
   const shape = vm.shapeParams ?? defaultShape;
 
-  // Body shape mapping: pass through but clamp to 0..1 for safety.
   // These props are used by SVG robot components for geometry.
   const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
   const bodyShapeProps = {
@@ -29,7 +27,6 @@ export function mapVisualAudioToProps(vm?: VisualAudioMap) {
     detail: clamp01(shape.detail),
   };
 
-  // Greebles: derive count from detail (more detail → more greebles)
   // If you want more/less greebles, adjust the multiplier here.
   const greebleCount = Math.max(0, Math.round(bodyShapeProps.detail * 6));
   const greebleProps = {
