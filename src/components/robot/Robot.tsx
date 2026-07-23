@@ -38,7 +38,6 @@ export function Robot({ robot }: RobotProps) {
   const isSelected = selectedRobotId === robot.id;
 
   // useLayoutEffect fires before paint, preventing a single frame at (0,0).
-  // Sets initial position and scaleX via GSAP so it owns all transforms.
   // Intentionally run this effect only on mount so GSAP owns transforms
 
   useLayoutEffect(() => {
