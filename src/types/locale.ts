@@ -39,15 +39,4 @@ export interface LocaleState {
   updateRobot: (localeId: string, robotId: string, updates: Partial<Robot>) => void;
   removeRobot: (localeId: string, robotId: string) => void;
   getRobotById: (localeId: string, robotId: string) => Robot | undefined;
-  /**
-   * Link a child robot to a parent robot. Both must be in the same locale.
-   * Rejects cross-locale links and cycles. Returns false if the link would
-   * create a cycle or if either robot is not found.
-   */
-  linkRobot: (localeId: string, childId: string, parentId: string) => boolean;
-  /**
-   * Unlink a child robot from its parent. The child keeps its last inherited
-   * values as its new standalone state.
-   */
-  unlinkRobot: (localeId: string, childId: string) => void;
 }

@@ -218,6 +218,44 @@ interface MenuPanelProps {
 
 ---
 
+## M8.6a: Robot Envelope Editor Helper
+
+**Title:** [M8.6a] Build Robot Envelope Editor helper and preview
+
+**Labels:** feature, system: ui, size: S
+
+### Feature Description
+Add an ADSR envelope helper into the Robot Editor workflow that makes robot timbre editing more intuitive. The helper should expose the selected robot's `adsr.attack`, `adsr.decay`, `adsr.sustain`, and `adsr.release` values using accessible controls and a live envelope preview. A separate preview action should play one test note using the selected robot's current synth settings so the user can hear the change immediately.
+
+### Implementation Details
+- Add a dedicated helper panel inside the Robot Editor or Robot Audio sub-tab
+- Render four labelled sliders for:
+  - `adsr.attack` — 0.01–2.0 s
+  - `adsr.decay` — 0.05–2.0 s
+  - `adsr.sustain` — 0.0–1.0
+  - `adsr.release` — 0.05–4.0 s
+- Display a small visual ADSR graph that updates in real time as slider values change
+- Add a `Preview` button that triggers one test note through `AudioEngine` using the selected robot's current synth and envelope
+- Ensure slider controls are keyboard accessible and include visible labels
+- Store only serialisable ADSR values in Zustand; do not store Tone objects or synth instances in state
+- Changes should persist to store immediately and be used by the next scheduled note
+
+### Acceptance Criteria
+- [ ] Robot envelope helper renders in the Robot Editor flow
+- [ ] ADSR sliders are labelled and keyboard accessible
+- [ ] Envelope graph updates live when sliders change
+- [ ] Preview button plays the selected robot's envelope and synth on demand
+- [ ] Parameter changes persist to store and affect the next scheduled note
+- [ ] No non-serialisable data is stored in Zustand
+- [ ] App compiles with no TypeScript errors
+
+### Reference
+- `src/stores/localeStore.ts` — robot audio attribute persistence
+- `src/engine/AudioEngine.ts` — preview playback and note scheduling
+- `src/types/Robot.ts` — `AudioAttributes.adsr`
+
+---
+
 ## M8.6: Robot Editor Sub-Menu
 
 **Title:** [M8.6] Implement robot editor with real-time CRUD of audio attributes

@@ -67,18 +67,3 @@ export function planetInitialHour(seed: string): number {
   const hour = Math.floor(avg);
   return hour >= 0 && hour <= 23 ? hour : 0;
 }
-
-/**
- * Convert a locale's (x, y) integer coordinates into a unique seed integer.
- *
- * Coordinates are assumed to be integers in the range -179…179.
- * The total number of distinct (x, y) pairs is 359 × 359 = 128,881.
- * Using 360 × 360 = 129,600 as the upper-bound constant is safe and
- * slightly conservative (128,881 < 129,600).
- *
- * The resulting integer is then passed to `alea()` to seed the locale
- * noise map via `createNoise2D(alea(localeCoordSeed(x, y)))`.
- */
-export function localeCoordSeed(x: number, y: number): number {
-  return (x + 180) * 360 + (y + 180); // 0 … 129,599
-}

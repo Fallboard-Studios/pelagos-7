@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../engine/AudioEngine', () => ({ AudioEngine: { start: vi.fn(), killAll: vi.fn() } }));
+vi.mock('../engine/AudioEngine', () => ({ AudioEngine: { start: vi.fn(), killAll: vi.fn(), setBPM: vi.fn() } }));
 vi.mock('../engine/harmonySystem', () => ({ resetHarmony: vi.fn() }));
+vi.mock('../stores/audioStore', () => ({ useAudioStore: { getState: () => ({ bpm: 60 }) } }));
 vi.mock('./spawnSystem', () => ({ reRegisterAllRobotsAudio: vi.fn(), removeNonPersistentRobots: vi.fn(), stopSpawnScheduler: vi.fn() }));
 vi.mock('./collisionSystem', () => ({ stopCollisionDetection: vi.fn() }));
 const setPowerOnSpy = vi.fn();
@@ -27,6 +28,7 @@ describe('powerController', () => {
   it('start calls audio start, resetHarmony and reRegisterAllRobotsAudio', async () => {
     await powerController.start();
     expect(AudioEngine.start).toHaveBeenCalled();
+    expect(AudioEngine.setBPM).toHaveBeenCalledWith(60);
     expect(resetHarmony).toHaveBeenCalled();
     expect(reRegisterAllRobotsAudio).toHaveBeenCalled();
   });

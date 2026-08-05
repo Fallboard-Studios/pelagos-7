@@ -5,6 +5,7 @@ import {
   pickRandomIndices,
   buildMotifOnsets,
   gridUnitsToDuration,
+  pickDurationForGap,
   generateMelodyForRobot,
   DEFAULT_SUBDIVISIONS,
 } from './melodyGenerator';
@@ -655,6 +656,25 @@ describe('buildMotifOnsets', () => {
     expect(a).toEqual(b);
   });
 
+  it('never returns more onsets than rhythmicDensity, even with a very short motif', () => {
+    // motifLength=1, subdivisions=16 → repeats=16, far more windows than density=4.
+    // K floors to 1 per window (16 raw onsets) before being trimmed back to density.
+    const onsets = buildMotifOnsets(4, 1, 16, fixedRand);
+    expect(onsets).toHaveLength(4);
+    expect(new Set(onsets).size).toBe(4);
+    onsets.forEach((o) => {
+      expect(o).toBeGreaterThanOrEqual(0);
+      expect(o).toBeLessThan(16);
+    });
+  });
+
+  it('never returns more onsets than rhythmicDensity for a moderately short motif', () => {
+    // motifLength=2, subdivisions=16 → repeats=8, still more than density=4.
+    const onsets = buildMotifOnsets(4, 2, 16, fixedRand);
+    expect(onsets).toHaveLength(4);
+    expect(new Set(onsets).size).toBe(4);
+  });
+
   it('distributes remainder onsets to first R repeat copies', () => {
     // density=5, motifLength=8, subdivisions=16 → repeats=2, K=2, R=1
     // First repeat should have 3 onsets, second repeat should have 2
@@ -680,6 +700,52 @@ describe('gridUnitsToDuration', () => {
   it('6 units → 4n', () => expect(gridUnitsToDuration(6)).toBe('4n'));
   it('7 units → 2n', () => expect(gridUnitsToDuration(7)).toBe('2n'));
   it('16 units → 2n', () => expect(gridUnitsToDuration(16)).toBe('2n'));
+});
+
+// ========================================
+// TEST SUITE: pickDurationForGap
+// ========================================
+
+describe('pickDurationForGap', () => {
+  it('never returns a duration longer than the available gap', () => {
+    // grid units: 16n=1, 8n=2, 4n=4, 2n=8
+    const maxUnitsFor: Record<string, number> = { '16n': 1, '8n': 2, '4n': 4, '2n': 8 };
+    for (let gap = 1; gap <= 16; gap++) {
+      for (let i = 0; i < 20; i++) {
+        const duration = pickDurationForGap(gap, () => i / 20);
+        expect(maxUnitsFor[duration]).toBeLessThanOrEqual(gap);
+      }
+    }
+  });
+
+  it('gap of 1 always returns 16n (only candidate)', () => {
+    expect(pickDurationForGap(1, () => 0)).toBe('16n');
+    expect(pickDurationForGap(1, () => 0.999)).toBe('16n');
+  });
+
+  it('gap of 2 only ever returns 16n or 8n', () => {
+    for (let i = 0; i < 10; i++) {
+      const duration = pickDurationForGap(2, () => i / 10);
+      expect(['16n', '8n']).toContain(duration);
+    }
+  });
+
+  it('is deterministic for a given rand function', () => {
+    const a = pickDurationForGap(8, () => 0.42);
+    const b = pickDurationForGap(8, () => 0.42);
+    expect(a).toBe(b);
+  });
+
+  it('favors longer durations over many samples with a large gap', () => {
+    const counts: Record<string, number> = { '16n': 0, '8n': 0, '4n': 0, '2n': 0 };
+    for (let i = 0; i < 2000; i++) {
+      counts[pickDurationForGap(8, Math.random)]++;
+    }
+    // Weighted by unit value (1/2/4/8 of 15 total) — 16n should be the rarest by far.
+    expect(counts['16n']).toBeLessThan(counts['2n']);
+    expect(counts['16n']).toBeLessThan(counts['4n']);
+    expect(counts['16n']).toBeLessThan(counts['8n']);
+  });
 });
 
 // ========================================
@@ -781,6 +847,21 @@ describe('generateMelodyForRobot — GenerateMelodyForRobotOptions', () => {
       (w) => steps.filter((s) => s >= w * 4 && s < (w + 1) * 4).length
     );
     windowCounts.forEach((count) => expect(count).toBe(1));
+  });
+
+  it('short rhythmicMotifLength does not inflate the melody past rhythmicDensity', () => {
+    // Regression: motifLength=1 used to tile one onset per repeat window (16 of them),
+    // ignoring rhythmicDensity entirely. This is directly reachable via the Robot Audio
+    // editor's Density/Motif Length sliders.
+    const melody = generateMelodyForRobot({
+      onsetCount: 4,
+      rhythmicDensity: 4,
+      rhythmicMotifLength: 1,
+      octaveMin: 3,
+      octaveMax: 4,
+      seed: 12,
+    });
+    expect(melody).toHaveLength(4);
   });
 
   it('rhythmicMotifLength === subdivisions produces non-repeating output', () => {

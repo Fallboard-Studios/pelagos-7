@@ -45,8 +45,7 @@ const MIN_DENOMINATOR = 1e-4;
 // ========================================
 
 /**
- * Select robot shape component based on synth type
- * Specific synth subtypes removed; visual mapping uses `AudioAttributes` now.
+ * Select robot shape component based on waveform.
  */
 export function selectRobotShape(waveform: WaveformType): RobotSVGComponent {
   switch (waveform) {
@@ -63,11 +62,6 @@ export function selectRobotShape(waveform: WaveformType): RobotSVGComponent {
   }
 }
 
-/**
- * Generate color palette from ADSR envelope
- * Fast attack + short decay → bright neon colors (energetic)
- * Slow attack + long decay → muted corroded colors (atmospheric)
- */
 /**
  * Compute a hue offset (degrees) from ADSR components.
  * Uses decay/release and attack/sustain ratios to produce a small deterministic offset.
@@ -171,15 +165,12 @@ export function shapeParamsFromAudio(attrs: AudioAttributes & { octaveOffset?: n
 
   const finalScaleBias = clamp01(0.5 + (scaleBias + octaveBias)) - 0.5; // keep within roughly -0.5..0.5 then recentre
 
-  // MicroVariants from waveform and ADSR attack
   const micro: MicroVariants = {};
   if (waveform === 'square') micro.stripes = true;
   if (waveform === 'sine') micro.smooth = true;
   if (waveform === 'triangle' || waveform === 'sawtooth') micro.spikes = true;
-  // fast attack -> highlight micro variant
   if (adsr.attack < FAST_ATTACK_THRESHOLD) micro.stripes = true;
 
-  // Clamp ergonomics
   const clamped: ShapeParams = {
     torsoAspect: Math.max(0.7, Math.min(1.3, torsoAspect)),
     appendageLength: Math.max(0.6, Math.min(1.4, appendageLength)),
@@ -209,7 +200,6 @@ export function calculateGreebleCount(
   // Weighted combination: favor filter freq and explicit detailLevel
   const base = freqDetail * 0.6 + clamp01(detailLevel) * 0.25 + sustainFactor * 0.15;
 
-  // waveform bias: sawtooth & square produce slightly more greebles
   const waveformBias = waveform === 'sawtooth' || waveform === 'square' ? 1 : 0;
 
   const raw = Math.round(base * 15) + waveformBias; // 0..15 + bias -> up to 16
@@ -269,7 +259,6 @@ export function calculateDetailLevel(filterFreq: number): number {
   } else if (filterFreq >= HIGH_FILTER_THRESHOLD) {
     return 1.0;
   } else {
-    // Linear interpolation
     return (filterFreq - LOW_FILTER_THRESHOLD) / (HIGH_FILTER_THRESHOLD - LOW_FILTER_THRESHOLD);
   }
 }
@@ -315,8 +304,7 @@ function adjustHslLightness(input: string, multiplier: number) {
 // ========================================
 
 /**
- * Darken a hex color by a factor (0-1)
- * Used internally for shading calculations
+ * Darken an HSL color string by a factor (0-1).
  */
 export function darken(hsl: string, factor: number): string {
   const parsed = parseHslString(hsl);

@@ -4,7 +4,6 @@ import Tablet from './components/tablet/Tablet';
 
 import { usePlanetStore } from '@/stores/planetStore';
 import useLocaleStore from '@/stores/localeStore';
-import { initLinkPropagation, teardownLinkPropagation } from '@/systems/linkPropagationSystem';
 
 import './App.css';
 
@@ -20,13 +19,6 @@ function App() {
     }
     // run only once on mount — localeId is stable; re-running would re-sync an already-current value
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Start the robot-link propagation subscriber once on app mount.
-  // Runs off the Transport tick (Zustand subscriber + queueMicrotask).
-  useEffect(() => {
-    initLinkPropagation();
-    return () => teardownLinkPropagation();
   }, []);
 
   return (

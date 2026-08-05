@@ -1,7 +1,7 @@
 // ========================================
 // IMPORTS
 // ========================================
-import { DEV_TUNING } from '../constants';
+import { devLog, devWarn } from '../utils/helpers';
 
 // Minimal transport-like interface to avoid importing Tone.js here.
 interface TransportLike {
@@ -50,20 +50,23 @@ export function initBeatClock(transport?: TransportLike): void {
   const transportLocal = transportInstance as TransportLike;
   // Register a 16n tick and remember its id so we can clear it on reset
   internalTickId = transportLocal.scheduleRepeat(() => {
-    // Calculate current beat and measure from Transport position
-    // Defensive: fallback to 0 if not started
     const { measure, beat, sixteenths } = parseTransportPosition(transportLocal.position);
     currentBeat = measure * BEATS_PER_MEASURE + beat + sixteenths / 4;
     currentMeasure = measure;
-    // Fire measure listeners once per measure change
     if (currentMeasure !== lastNotifiedMeasure) {
       lastNotifiedMeasure = currentMeasure;
       const wrappedMeasure = currentMeasure % MEASURES_PER_CYCLE;
-      measureListeners.forEach(fn => fn(wrappedMeasure));
+      measureListeners.forEach(fn => {
+        try {
+          fn(wrappedMeasure);
+        } catch (err) {
+          devWarn('[BeatClock] measure listener threw', err);
+        }
+      });
     }
   }, '16n');
   initialized = true;
-  if (DEV_TUNING) console.log('[BeatClock] initialized');
+  devLog('[BeatClock] initialized');
   // Register any schedules that were requested before transport initialization
   scheduleMap.forEach((entry, scheduleId) => {
     if (entry.transportId === undefined) {
@@ -72,9 +75,9 @@ export function initBeatClock(transport?: TransportLike): void {
           entry.callback();
         }, entry.interval, entry.interval);
         entry.transportId = transportId;
-        if (DEV_TUNING) console.log('[BeatClock] Registered pending schedule:', scheduleId, entry.interval);
+        devLog('[BeatClock] Registered pending schedule:', scheduleId, entry.interval);
       } catch (err) {
-        if (DEV_TUNING) console.warn('[BeatClock] Failed to register pending schedule:', scheduleId, err);
+        devWarn('[BeatClock] Failed to register pending schedule:', scheduleId, err);
       }
     }
   });
@@ -99,7 +102,6 @@ export function parseTransportPosition(rawPosition: unknown): { measure: number;
  */
 export function subscribeToMeasure(callback: (measure: number) => void): () => void {
   measureListeners.push(callback);
-  // Return an unsubscribe function for safe removal by caller
   return () => {
     const idx = measureListeners.indexOf(callback);
     if (idx !== -1) measureListeners.splice(idx, 1);
@@ -137,14 +139,13 @@ export function getCurrentHour(): number {
  * @returns A schedule ID that can be passed to cancelSchedule
  */
 export function scheduleRepeat(interval: string, callback: () => void): string {
-  // Generate unique ID for this scheduled event
   const scheduleId = `schedule-${crypto.randomUUID()}`;
 
   // If transport isn't ready, persist the requested interval+callback so it
   // can be registered once initBeatClock provides the transport instance.
   if (!transportInstance) {
     scheduleMap.set(scheduleId, { interval, callback });
-    if (DEV_TUNING) console.log('[BeatClock] scheduleRepeat (pending):', interval, 'id:', scheduleId);
+    devLog('[BeatClock] scheduleRepeat (pending):', interval, 'id:', scheduleId);
     return scheduleId;
   }
 
@@ -154,10 +155,9 @@ export function scheduleRepeat(interval: string, callback: () => void): string {
     callback();
   }, interval, interval);
 
-  // Store mapping for cancellation via cancelSchedule
   scheduleMap.set(scheduleId, { transportId, interval, callback });
 
-  if (DEV_TUNING) console.log('[BeatClock] scheduleRepeat:', interval, 'id:', scheduleId);
+  devLog('[BeatClock] scheduleRepeat:', interval, 'id:', scheduleId);
 
   return scheduleId;
 }
@@ -170,7 +170,7 @@ export function scheduleRepeat(interval: string, callback: () => void): string {
 export function cancelSchedule(scheduleId: string): void {
   const entry = scheduleMap.get(scheduleId);
   if (entry === undefined) {
-    if (DEV_TUNING) console.log('[BeatClock] cancelSchedule: no schedule found for', scheduleId);
+    devLog('[BeatClock] cancelSchedule: no schedule found for', scheduleId);
     return;
   }
 
@@ -178,17 +178,17 @@ export function cancelSchedule(scheduleId: string): void {
   // transport, just remove it from the map.
   if (!transportInstance || entry.transportId === undefined) {
     scheduleMap.delete(scheduleId);
-    if (DEV_TUNING) console.log('[BeatClock] cancelSchedule (pending):', scheduleId);
+    devLog('[BeatClock] cancelSchedule (pending):', scheduleId);
     return;
   }
 
   try {
     transportInstance.clear(entry.transportId);
   } catch (err) {
-    if (DEV_TUNING) console.warn('[BeatClock] cancelSchedule: failed to clear transport id', entry.transportId, err);
+    devWarn('[BeatClock] cancelSchedule: failed to clear transport id', entry.transportId, err);
   }
   scheduleMap.delete(scheduleId);
-  if (DEV_TUNING) console.log('[BeatClock] cancelSchedule: cleared', scheduleId);
+  devLog('[BeatClock] cancelSchedule: cleared', scheduleId);
 }
 
 /**
@@ -200,12 +200,11 @@ export function cancelSchedule(scheduleId: string): void {
 export function resetBeatClock(): void {
   initialized = false;
 
-  // Clear the internal 16n tick if it was registered
   if (internalTickId !== null) {
     try {
       transportInstance?.clear(internalTickId);
     } catch (err) {
-      if (DEV_TUNING) console.warn('[BeatClock] reset: failed to clear internal tick', err);
+      devWarn('[BeatClock] reset: failed to clear internal tick', err);
     }
     internalTickId = null;
   }
@@ -216,7 +215,7 @@ export function resetBeatClock(): void {
       try {
         transportInstance?.clear(entry.transportId);
       } catch (err) {
-        if (DEV_TUNING) console.warn('[BeatClock] reset: failed to clear schedule', err);
+        devWarn('[BeatClock] reset: failed to clear schedule', err);
       }
     }
   });
@@ -236,5 +235,5 @@ export function resetBeatClock(): void {
   // fire on the new session's measure ticks.
   measureListeners.length = 0;
 
-  if (DEV_TUNING) console.log('[BeatClock] reset');
+  devLog('[BeatClock] reset');
 }

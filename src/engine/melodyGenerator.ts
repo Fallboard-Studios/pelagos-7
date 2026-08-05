@@ -3,6 +3,7 @@
 // ========================================
 import alea from 'alea';
 import type { NoteDuration } from '../types/Robot';
+import { RHYTHMIC_DENSITY_MIN, RHYTHMIC_DENSITY_MAX, NOTE_VARIANCE_MIN, NOTE_VARIANCE_MAX } from '../constants';
 
 // ========================================
 // TYPES
@@ -62,8 +63,6 @@ export interface GenerateMelodyForRobotOptions {
 // ========================================
 // CONSTANTS
 // ========================================
-const MIN_EVENTS = 4;
-const MAX_EVENTS = 12;
 /** Probability that a successive note jumps more than one octave (when range allows). */
 const OCTAVE_JUMP_CHANCE = 0.15;
 
@@ -123,27 +122,22 @@ export function applyRhythmicVariance(
   probability: number = DEFAULT_VARIANCE_PROBABILITY,
   rand: () => number = Math.random
 ): RobotMelodyEvent[] {
-  // Check if variance applies this loop
   if (rand() > probability) {
     return melody;
   }
 
-  // Pick 1–2 events to shift
   const numToShift = rand() < 0.5 ? 1 : 2;
   const indicesToShift = pickRandomIndices(melody, Math.min(numToShift, melody.length), rand);
 
-  // Apply shift to selected indices
   return melody.map((event, idx) => {
     if (!indicesToShift.includes(idx)) {
       return event;
     }
 
-    // Pick random shift from ±1 or ±2 steps
     const delta = SHIFT_OPTIONS[Math.floor(rand() * SHIFT_OPTIONS.length)];
     // Clamp to 1..16
     const newStep = Math.min(16, Math.max(1, event.startStep + delta));
 
-    // Return new event with shifted step, all other fields unchanged
     return {
       ...event,
       startStep: newStep,
@@ -167,27 +161,22 @@ export function applyTonalVariance(
   probability: number = DEFAULT_VARIANCE_PROBABILITY,
   rand: () => number = Math.random
 ): RobotMelodyEvent[] {
-  // Check if variance applies this loop
   if (rand() > probability) {
     return melody;
   }
 
-  // Pick 1–2 events to shift
   const numToShift = rand() < 0.5 ? 1 : 2;
   const indicesToShift = pickRandomIndices(melody, Math.min(numToShift, melody.length), rand);
 
-  // Apply shift to selected indices
   return melody.map((event, idx) => {
     if (!indicesToShift.includes(idx)) {
       return event;
     }
 
-    // Pick random shift from ±1
     const delta = NOTE_SHIFT_OPTIONS[Math.floor(rand() * NOTE_SHIFT_OPTIONS.length)];
     // Clamp to 0..7 (harmony palette size)
     const newIndex = Math.min(7, Math.max(0, event.noteIndex + delta));
 
-    // Return new event with shifted noteIndex, all other fields unchanged
     return {
       ...event,
       noteIndex: newIndex,
@@ -230,6 +219,9 @@ function pickUniqueInRange(n: number, count: number, rand: () => number): number
  *     Generate one base motif of K unique positions in [0, M), sorted.
  *     Tile it across the measure; first R copies get one extra position each.
  *     Truncate any partial motif at subdivisions.
+ *     K is floored to a minimum of 1, so when density < repeats (a short motif
+ *     relative to density), R goes negative and tiling alone overshoots density —
+ *     the result is trimmed back down to exactly `density` onsets in that case.
  *
  *   Else (non-repeating fallback):
  *     Pick density unique positions from [0, subdivisions).
@@ -249,11 +241,9 @@ export function buildMotifOnsets(
   const repeats = Math.floor(subdivisions / M);
 
   if (repeats >= 2) {
-    // K onsets per base motif copy; R extra onsets distributed to first R copies.
     const K = Math.max(1, Math.floor(rhythmicDensity / repeats));
-    const R = rhythmicDensity - K * repeats; // always >= 0
+    const R = Math.max(0, rhythmicDensity - K * repeats);
 
-    // Generate the base motif: K unique positions in [0, M)
     const baseMotif = pickUniqueInRange(M, K, rand).sort((a, b) => a - b);
 
     const onsetSet = new Set<number>();
@@ -278,7 +268,15 @@ export function buildMotifOnsets(
       }
     }
 
-    return Array.from(onsetSet).sort((a, b) => a - b);
+    const combined = Array.from(onsetSet).sort((a, b) => a - b);
+    if (combined.length <= rhythmicDensity) {
+      return combined;
+    }
+
+    // K's minimum of 1 per repeat window overshot the target density (short
+    // motif relative to density) — trim back down to exactly rhythmicDensity.
+    const keepIndices = pickUniqueInRange(combined.length, rhythmicDensity, rand).sort((a, b) => a - b);
+    return keepIndices.map(i => combined[i]);
   }
 
   // Non-repeating fallback
@@ -292,12 +290,44 @@ export function buildMotifOnsets(
  *   2–3  → '8n'
  *   4–6  → '4n'
  *   7+   → '2n'
+ *
+ * Kept as a general-purpose quantization utility; `generateMelodyForRobot` uses
+ * `pickDurationForGap` instead so notes can be shorter than the full gap to the
+ * next onset (leaving rests) rather than always filling it.
  */
 export function gridUnitsToDuration(units: number): NoteDuration {
   if (units <= 1) return '16n';
   if (units <= 3) return '8n';
   if (units <= 6) return '4n';
   return '2n';
+}
+
+/** Grid-unit length of each representable note duration, used by pickDurationForGap. */
+const DURATION_UNIT_VALUES: Array<[number, NoteDuration]> = [
+  [1, '16n'],
+  [2, '8n'],
+  [4, '4n'],
+  [8, '2n'],
+];
+
+/**
+ * Choose a note duration that fits within the available grid-unit gap to the next
+ * onset (or measure end), leaving any remainder as a rest rather than always filling
+ * the whole gap. Weighted toward longer durations (weight = unit value), so shorter
+ * notes — especially `16n` — are chosen less often while remaining possible.
+ *
+ * @param availableUnits Grid units available before the next onset. Always >= 1.
+ * @param rand Optional RNG function (default: Math.random)
+ */
+export function pickDurationForGap(availableUnits: number, rand: () => number = Math.random): NoteDuration {
+  const candidates = DURATION_UNIT_VALUES.filter(([units]) => units <= availableUnits);
+  const totalWeight = candidates.reduce((sum, [units]) => sum + units, 0);
+  let r = rand() * totalWeight;
+  for (const [units, duration] of candidates) {
+    r -= units;
+    if (r <= 0) return duration;
+  }
+  return candidates[candidates.length - 1][1];
 }
 
 // ========================================
@@ -315,31 +345,23 @@ export function generateMelodyForRobot(
   const rand = opts.rand ?? (opts.seed !== undefined ? alea(String(opts.seed)) : Math.random);
   const subdivisions = opts.subdivisions ?? DEFAULT_SUBDIVISIONS;
   const density = Math.max(
-    MIN_EVENTS,
-    Math.min(MAX_EVENTS, opts.rhythmicDensity ?? opts.onsetCount),
+    RHYTHMIC_DENSITY_MIN,
+    Math.min(RHYTHMIC_DENSITY_MAX, opts.rhythmicDensity ?? opts.onsetCount),
   );
   const motifLength = opts.rhythmicMotifLength ?? DEFAULT_RHYTHMIC_MOTIF_LENGTH;
   const octMin = Math.min(opts.octaveMin, opts.octaveMax);
   const octMax = Math.max(opts.octaveMin, opts.octaveMax);
 
-  // Build onset grid positions (0-indexed, 0..subdivisions-1)
   const onsets = buildMotifOnsets(density, motifLength, subdivisions, rand);
 
   let currentOctave = octMin + Math.floor(rand() * (octMax - octMin + 1));
   const melody: RobotMelodyEvent[] = [];
 
   // Note-variance state
-  const noteVariance = Math.max(0, Math.min(8, Math.trunc(opts.noteVariance ?? 0)));
+  const noteVariance = Math.max(NOTE_VARIANCE_MIN, Math.min(NOTE_VARIANCE_MAX, Math.trunc(opts.noteVariance ?? 0)));
   const uniqueSet = new Set<number>();
+  // Lazily built below on first use when noteVariance === 8 (shuffled draw-without-replacement pool).
   let withoutReplacementPool: number[] | null = null;
-  if (noteVariance === 8) {
-    const pool = Array.from({ length: 8 }, (_, i) => i);
-    withoutReplacementPool = [];
-    while (pool.length > 0) {
-      const j = Math.floor(rand() * pool.length);
-      withoutReplacementPool.push(pool.splice(j, 1)[0]);
-    }
-  }
 
   for (let i = 0; i < onsets.length; i++) {
     // 15% chance to jump to a non-adjacent octave when range allows
@@ -394,7 +416,7 @@ export function generateMelodyForRobot(
     melody.push({
       id: crypto.randomUUID(),
       startStep: onsets[i] + 1, // 1-indexed to match existing RobotMelodyEvent convention
-      length: gridUnitsToDuration(durationUnits),
+      length: pickDurationForGap(durationUnits, rand),
       noteIndex,
       octave: currentOctave,
     });

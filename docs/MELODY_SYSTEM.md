@@ -1,363 +1,156 @@
-# Melody Generation Guide
+# Melody Generation Specification
 
-Melody generation creates unique, procedurally-generated musical patterns for each robot at spawn time. Melodies are **immutable** after creation and consist of note indices that map into the current harmony palette.
+Source of truth: [`src/engine/melodyGenerator.ts`](../src/engine/melodyGenerator.ts).
+
+Melody generation creates procedurally generated musical patterns for each robot at spawn time, producing immutable `RobotMelodyEvent[]` values whose note choices are index-based and later resolved by the harmony palette at playback time.
 
 ## Core Principles
 
-1. **Spawn-Time Only**: Melodies are generated once when robot spawns, never regenerated
-2. **Index-Based**: Store note indices (0-7), not literal pitches
-3. **16-Step Grid**: 2-measure loop quantized to 8th notes (16 possible positions)
-4. **Weighted Distribution**: Lower indices (0-2) more common than higher (6-7)
-5. **Syncopation Control**: Balance between on-beat and off-beat events
+1. **Spawn-time only**: melodies are generated once per robot and then registered with AudioEngine.
+2. **Index-based**: each event stores a `noteIndex` (0–7), not a literal pitch string.
+3. **16-subdivision grid**: onset positions are chosen across a one-measure grid of 16 subdivisions.
+4. **Motif-based density**: rhythmic structure comes from a motif repetition algorithm rather than a simple random step picker.
+5. **Optional variance**: the generator can bias note choices and shift timings in a controlled way for variation.
 
 ## Data Structure
 
 ```typescript
 interface RobotMelodyEvent {
-  id: string;                          // Unique identifier (UUID)
-  startStep: number;                   // 1..16 (8th-note position in 2-measure loop)
-  length: '16n' | '8n' | '4n' | '2n'; // Note duration
-  noteIndex: number;                   // 0..7 (maps into note-name palette)
-  octave: number;                      // Concrete octave assigned at spawn time
-}
-
-interface Robot {
-  // ... other fields
-  octaveRange: [number, number];   // [min, max] octave band for this robot
-  melody: RobotMelodyEvent[];      // 4-12 events per robot
+  id: string;
+  startStep: number; // 1..16 (1-indexed slot in the 16-step grid)
+  length: NoteDuration; // full union is '32n'|'16n'|'8n'|'4n'|'2n'|'1n'|'2m'|'4m' (types/Robot.ts); gridUnitsToDuration() only ever produces '16n'|'8n'|'4n'|'2n'
+  noteIndex: number; // 0..7, mapped into the active harmony palette
+  octave: number; // concrete octave assigned at generation time
 }
 ```
 
-`noteIndex` maps into the **note-name** palette (e.g. `'C'`, `'Bb'`). `octave` is baked in at spawn and stays stable across harmony changes. The full pitch is composed at scheduling time: `noteName + octave`.
+`noteIndex` is resolved later by the harmony system and playback layer. `octave` stays fixed once the melody is generated.
+
+## Current Generation API
+
+The current generator entry point is:
+
+```typescript
+export function generateMelodyForRobot(opts: GenerateMelodyForRobotOptions): RobotMelodyEvent[]
+```
+
+Supported options:
+
+```typescript
+interface GenerateMelodyForRobotOptions {
+  onsetCount: number;
+  octaveMin: number;
+  octaveMax: number;
+  rhythmicDensity?: number;
+  rhythmicMotifLength?: number;
+  subdivisions?: number;
+  seed?: number;
+  rand?: () => number;
+  noteVariance?: number;
+}
+```
 
 ## Generation Algorithm
 
-**File: `src/engine/melodyGenerator.ts`**
+The implementation uses a motif-repetition algorithm rather than the older step-selection approach.
 
-```typescript
-export function generateMelodyForRobot(opts?: {
-  events?: number;                  // Number of notes (default: 4-12)
-  rand?: () => number;              // RNG for testing (default: Math.random)
-  syncopationBias?: number;         // 0-1, off-beat preference (default: 0.4)
-  octaveRange?: [number, number];   // [min, max] octave band for this robot
-}): RobotMelodyEvent[] {
-  const eventsCount = opts?.events ?? (4 + Math.floor(Math.random() * 9));
-  const [octMin, octMax] = opts?.octaveRange ?? [3, 4];
+1. `buildMotifOnsets()` builds a sorted list of onset positions for one measure.
+2. The density is clamped to the range 4–12 events.
+3. Each event gets:
+   - a `startStep` derived from the onset grid
+   - a duration chosen via `pickDurationForGap()` — not necessarily filling the whole gap to the next onset; the remainder becomes a rest
+   - a `noteIndex` chosen with weighted probabilities
+   - an `octave` selected within the provided range
 
-  // Seed a random starting octave within the robot's range
-  let currentOctave = octMin + Math.floor(Math.random() * (octMax - octMin + 1));
+### Rhythm model
 
-  const melody: RobotMelodyEvent[] = [];
-  const usedSlots = new Set<number>();
-  
-  for (let i = 0; i < eventsCount; i++) {
-    // 15% chance to jump more than one octave (when range allows)
-    if (i > 0 && Math.random() < 0.15) {
-      const jumpCandidates = [];
-      for (let o = octMin; o <= octMax; o++) {
-        if (Math.abs(o - currentOctave) > 1) jumpCandidates.push(o);
-      }
-      if (jumpCandidates.length > 0) {
-        currentOctave = jumpCandidates[Math.floor(Math.random() * jumpCandidates.length)];
-      }
-      // Span too narrow to jump — stay on current octave
-    }
+The rhythmic pattern is driven by:
+- `rhythmicDensity` (target onsets per measure)
+- `rhythmicMotifLength` (motif length in subdivision units)
+- `subdivisions` (default `16`)
 
-    // 1. Pick step position
-    const useOffBeat = Math.random() < (opts?.syncopationBias ?? 0.4);
-    const candidateSteps = useOffBeat 
-      ? [2, 4, 6, 8, 10, 12, 14, 16]   // Even steps (off-beat)
-      : [1, 3, 5, 7, 9, 11, 13, 15];   // Odd steps (on-beat)
-    
-    let startStep = candidateSteps[Math.floor(Math.random() * candidateSteps.length)];
-    
-    // Avoid duplicate slots (with retry limit)
-    let attempts = 0;
-    while (usedSlots.has(startStep) && attempts < 8) {
-      startStep = candidateSteps[Math.floor(Math.random() * candidateSteps.length)];
-      attempts++;
-    }
-    usedSlots.add(startStep);
-    
-    // 2. Pick note index (weighted)
-    const noteIndex = pickWeightedIndex();
-    
-    // 3. Pick duration (biased toward shorter)
-    const length = pickLength();
-    
-    melody.push({
-      id: crypto.randomUUID(),
-      startStep,
-      length,
-      noteIndex,
-      octave: currentOctave,  // concrete octave for this note
-    });
-  }
-  
-  return melody;
-}
-```
-
-## Weighted Index Selection
-
-The `pickWeightedIndex()` function creates a natural melodic distribution favoring lower indices (which typically map to lower, more fundamental pitches in the palette).
-
-```typescript
-export function pickWeightedIndex(rand = Math.random): number {
-  const weights = [0.35, 0.20, 0.15, 0.10, 0.07, 0.06, 0.04, 0.03];
-  const r = rand();
-  let acc = 0;
-  
-  for (let i = 0; i < weights.length; i++) {
-    acc += weights[i];
-    if (r <= acc) return i;
-  }
-  
-  return weights.length - 1;  // Fallback to last index
-}
-```
-
-**Distribution:**
-- Index 0: **35%** (most common, typically root/tonic)
-- Index 1: **20%** (second most common)
-- Index 2: **15%**
-- Index 3: **10%**
-- Index 4: **7%**
-- Index 5: **6%**
-- Index 6: **4%**
-- Index 7: **3%** (rarest, typically highest pitch)
-
-## Exported Utilities & Variance
-
-The melody generator exposes a few helpers used by playback and tests. Key functions and defaults:
-
-- `pickRandomIndices(arr, count, rand?)` — pick indices without replacement (used by variance helpers).
-- `applyRhythmicVariance(melody, probability = 0.20, rand?)` — with default 20% chance per 16-step loop, shifts 1–2 events by ±1 or ±2 steps (options: `[-2,-1,1,2]`). Returns a new melody array (or original if no change).
-- `applyTonalVariance(melody, probability = 0.20, rand?)` — with default 20% chance, shifts 1–2 events' `noteIndex` by ±1 (options: `[-1,1]`), clamped to 0–7. Returns a new melody array (or original if no change).
-- `pickWeightedIndex(rand?)` — picks a note index (0..7) using weights `[0.35,0.20,0.15,0.10,0.07,0.06,0.04,0.03]`.
-- `pickLength(rand?)` — picks durations using weights `[0.5,0.25,0.15,0.1]` mapping to `['8n','4n','2n','16n']`.
-
-Constants of interest:
-
-- `OCTAVE_JUMP_CHANCE = 0.15` — 15% chance to jump more than one octave when range allows.
-- `DEFAULT_VARIANCE_PROBABILITY = 0.20` — default per-loop probability for variance functions.
-- `SHIFT_OPTIONS = [-2, -1, 1, 2]` — allowed step offsets for rhythmic variance.
-- `NOTE_SHIFT_OPTIONS = [-1, 1]` — allowed index offsets for tonal variance.
-
-These helpers accept an optional `rand` function for deterministic testing.
+The algorithm repeats a base motif across the measure and spreads extra onsets to the first copies of that motif. If the motif length is too short to support repetition, it falls back to picking unique positions directly.
 
 ## Duration Selection
 
-```typescript
-function pickLength(rand = Math.random): NoteDuration {
-  // Order: 8n, 4n, 2n, 16n
-  const weights = [0.5, 0.25, 0.15, 0.1];
-  const lengths: NoteDuration[] = ['8n', '4n', '2n', '16n'];
-  const r = rand();
-  let acc = 0;
-
-  for (let i = 0; i < weights.length; i++) {
-    acc += weights[i];
-    if (r <= acc) return lengths[i];
-  }
-
-  return '8n';
-}
-```
-
-**Distribution:**
-- `8n` (eighth note): **50%**
-- `4n` (quarter note): **25%**
-- `2n` (half note): **15%**
-- `16n` (sixteenth note): **10%**
-
-## Syncopation Control
+Each event's duration is chosen by `pickDurationForGap(availableUnits, rand)`, not by deterministically filling the gap to the next onset:
 
 ```typescript
-const syncopationBias = 0.4;  // 40% off-beat preference
-
-// On-beat positions (odd steps): 1, 3, 5, 7, 9, 11, 13, 15
-// Off-beat positions (even steps): 2, 4, 6, 8, 10, 12, 14, 16
-
-const useOffBeat = Math.random() < syncopationBias;
+export function pickDurationForGap(availableUnits: number, rand?: () => number): NoteDuration
 ```
 
-**Effect:**
-- Lower bias (0.0-0.3): More predictable, "square" rhythms
-- Medium bias (0.4-0.6): Balanced, natural syncopation
-- Higher bias (0.7-1.0): Heavily syncopated, jazzy feel
+Candidates are every representable duration whose grid-unit length (`16n`=1, `8n`=2, `4n`=4, `2n`=8) is `<= availableUnits`, chosen with probability weighted by that unit length — so `16n` is deliberately the least likely candidate whenever a longer option is available, while remaining possible (a gap of exactly 1 unit has no other choice). When the chosen duration is shorter than the available gap, the remainder is silence — this is intentional: it creates space between notes instead of every onset's note always ringing until the instant the next one starts.
+
+`gridUnitsToDuration(units): NoteDuration` still exists as a general-purpose deterministic quantizer (`<=1→16n`, `2-3→8n`, `4-6→4n`, `7+→2n`) but is no longer used by `generateMelodyForRobot` — it's independently tested and kept as a utility.
+
+## Note Selection
+
+The weighted note selection is still the core melodic bias:
+
+```typescript
+const NOTE_INDEX_WEIGHTS = [0.35, 0.2, 0.15, 0.1, 0.07, 0.06, 0.04, 0.03];
+```
+
+This makes lower indices more common than higher ones.
+
+### Note variance controls
+
+The `noteVariance` option constrains how many unique note indices are used:
+- `0` → no constraint; use weighted selection normally
+- `1..7` → prefer a limited set of unique notes
+- `8` → use all eight note indices without replacement
+
+## Variance Helpers
+
+The module also exposes two helpers used by playback and tests:
+
+- `applyRhythmicVariance(melody, probability = 0.20, rand?)` — shifts 1–2 events by `[-2, -1, 1, 2]` steps with a default 20% chance.
+- `applyTonalVariance(melody, probability = 0.20, rand?)` — shifts 1–2 `noteIndex` values by `[-1, 1]` with a default 20% chance.
+
+These helpers are pure and return a new melody array when a change occurs.
+
+## Constants of Interest
+
+- `MIN_EVENTS = 4`
+- `MAX_EVENTS = 12`
+- `DEFAULT_RHYTHMIC_DENSITY = 8`
+- `DEFAULT_RHYTHMIC_MOTIF_LENGTH = 8`
+- `DEFAULT_SUBDIVISIONS = 16`
+- `OCTAVE_JUMP_CHANCE = 0.15`
+- `DEFAULT_VARIANCE_PROBABILITY = 0.20`
+- `DURATION_UNIT_VALUES`: `[[1,'16n'], [2,'8n'], [4,'4n'], [8,'2n']]` — grid-unit lengths used to weight `pickDurationForGap()`'s choice (weight = unit value, so `2n` is ~8x more likely than `16n` whenever both fit)
 
 ## Integration at Spawn
 
 ```typescript
-// In robot spawner
-function spawnRobot(): Robot {
-  const audioAttributes = generateAudioAttributes();
-  const octaveRange = pickOctaveRange(audioAttributes.pitchRange);
-  // low pitch bucket → [2,3], mid → [3,4], high → [4,5]
+import { generateMelodyForRobot } from '../engine/melodyGenerator';
+import { AudioEngine } from '../engine/AudioEngine';
 
-  const melody = generateMelodyForRobot({ octaveRange });
-  // Each event has .octave set; stays stable across harmony changes
-
-  // Note: `generateAudioAttributes()` produces the `audioAttributes` used here
-  // — ADSR envelope (attack/decay/sustain/release), a `pitchRange` bucket (used to
-  // derive `octaveRange`), `filterFreq`, `waveform`, and a `masterVolume` in the
-  // configured range. `pickOctaveRange(pitchRange)` maps pitch buckets to
-  // octave bands: low→[2,3], mid→[3,4], high→[4,5].
-
-  return {
-    id: crypto.randomUUID(),
-    state: 'idle',
-    audioAttributes,
-    octaveRange,
-    melody,  // Immutable from this point forward
-    // ...
-  };
-}
-```
-
-## Melody Registration
-
-After spawning, register melody with AudioEngine for scheduling:
-
-```typescript
-AudioEngine.registerRobotMelody(robot.id, robot.melody);
-```
-
-This creates a step registry for O(1) lookup:
-
-```typescript
-// Internal AudioEngine structure
-const stepRegistry = new Map<number, Array<{ robotId: string; event: RobotMelodyEvent }>>();
-
-// Registration populates registry
-robot.melody.forEach(event => {
-  const entries = stepRegistry.get(event.startStep) || [];
-  entries.push({ robotId: robot.id, event });
-  stepRegistry.set(event.startStep, entries);
+const melody = generateMelodyForRobot({
+  onsetCount: 6,
+  octaveMin: 2,
+  octaveMax: 5,
+  rhythmicDensity: 6,
+  rhythmicMotifLength: 8,
+  noteVariance: 2,
 });
+
+AudioEngine.registerRobotMelody(robot.id, melody);
 ```
+
+The generated melody is later consumed by AudioEngine via a step registry keyed by `startStep`.
 
 ## Playback Integration
 
-```typescript
-// AudioEngine schedules 8n tick
-BeatClock.scheduleRepeat('8n', (time) => {
-  const currentStep = (stepCounter % 16) + 1;  // 1..16
-  const events = stepRegistry.get(currentStep) || [];
-  const notes = getAvailableNotes();
-  
-  events.forEach(({ robotId, event }) => {
-    const noteName = notes[event.noteIndex];    // e.g. 'C' (from note-name palette)
-    const note = `${noteName}${event.octave}`; // e.g. 'C4'
-    
-    scheduleNote({
-      robotId,
-      note,
-      duration: event.length,
-      time: time + MIN_LEAD,
-    });
-  });
-  
-  stepCounter++;
-});
-```
+The playback layer uses the melody events as index-based cues and applies the current harmony palette at scheduling time. The generator itself only produces the event structure; the actual pitch is resolved by the engine when the note is scheduled.
 
-## Melody Removal
+`AudioEngine`'s playback scheduler ticks on `'16n'` — 16 ticks per measure — so the 16 `startStep` slots this generator produces map 1:1 onto a single measure, exactly matching the "one measure, 16 subdivisions" model above. (This alignment was previously broken — the scheduler ticked on `'8n'`, stretching every melody's loop to 2 measures at half the tuned density — and was fixed to match this generator's model rather than the other way around.)
 
-When robot is removed, unregister melody:
+## Testing Notes
 
-```typescript
-AudioEngine.unregisterRobotMelody(robot.id);
-
-// Cleanup step registry
-stepRegistry.forEach((entries, step) => {
-  const filtered = entries.filter(e => e.robotId !== robot.id);
-  if (filtered.length > 0) {
-    stepRegistry.set(step, filtered);
-  } else {
-    stepRegistry.delete(step);
-  }
-});
-```
-
-## Configuration & Tuning
-
-**Configurable parameters:**
-```typescript
-interface MelodyConfig {
-  minEvents: number;           // Default: 4
-  maxEvents: number;           // Default: 12
-  syncopationBias: number;     // Default: 0.4 (0-1)
-  durationWeights: [number, number, number, number]; // Default: [0.5, 0.25, 0.15, 0.1]
-  noteIndexWeights: number[];  // Default: [0.35,0.20,0.15,0.10,0.07,0.06,0.04,0.03]
-}
-```
-
-**Per-robot variation:**
-```typescript
-// Vary melody complexity by robot attributes
-const eventCount = robot.audio.pitchRangeMax > 600 
-  ? 8   // High-pitched robots: more notes
-  : 5;  // Low-pitched robots: fewer notes
-
-const melody = generateMelodyForRobot({ events: eventCount });
-```
-
-## Testing
-
-**Unit test examples** (see [CONTRIBUTION_GUIDE.md](CONTRIBUTION_GUIDE.md#testing) for full patterns):
-
-```typescript
-describe('pickWeightedIndex', () => {
-  it('should favor lower indices', () => {
-    const results = Array(1000).fill(0).map(() => pickWeightedIndex());
-    const zeros = results.filter(x => x === 0).length;
-    expect(zeros).toBeGreaterThan(300);  // ~35% should be index 0
-  });
-});
-
-describe('generateMelodyForRobot', () => {
-  it('should respect event count', () => {
-    const melody = generateMelodyForRobot({ events: 7 });
-    expect(melody).toHaveLength(7);
-  });
-  
-  it('should use deterministic RNG', () => {
-    let seed = 42;
-    const rand = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
-    
-    const melody1 = generateMelodyForRobot({ rand });
-    seed = 42;
-    const melody2 = generateMelodyForRobot({ rand });
-    
-    expect(melody1).toEqual(melody2);
-  });
-});
-```
-
-## Debugging
-
-**Dev overlay display:**
-```typescript
-// Show melody for selected robot
-if (selectedRobot) {
-  console.log('Melody Events:', selectedRobot.melody);
-  console.log('Step distribution:', countSteps(selectedRobot.melody));
-  console.log('Index distribution:', countIndices(selectedRobot.melody));
-}
-```
-
-**Visual timeline:**
-```
-Step: [1] [2] [3] [4] [5] [6] [7] [8] [9] [10] [11] [12] [13] [14] [15] [16]
-Note:  ●       ●   ●       ●           ●             ●            ●
-Index: 2       0   4       1           3             2            0
-```
-
-## Performance Notes
-
-- Generation time: < 1ms per melody (negligible at spawn)
-- Step registry lookup: O(1) per tick
-- No per-frame allocations during playback
-- Melody immutability allows safe sharing/cloning
+The current tests cover:
+- deterministic generation with `seed` or `rand`
+- rhythm and tonal variance behavior
+- duration selection through `pickDurationForGap()` (never exceeds the available gap, weighted toward longer durations)
+- duration mapping through `gridUnitsToDuration()`
+- onset construction through `buildMotifOnsets()`

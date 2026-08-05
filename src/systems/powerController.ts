@@ -1,4 +1,5 @@
 import { AudioEngine } from '../engine/AudioEngine';
+import { useAudioStore } from '../stores/audioStore';
 import { resetHarmony } from '../engine/harmonySystem';
 import { reRegisterAllRobotsAudio, removeNonPersistentRobots, stopSpawnScheduler } from './spawnSystem';
 import { stopCollisionDetection } from './collisionSystem';
@@ -15,6 +16,7 @@ import { DEV_TUNING } from '../constants';
 export const powerController = {
   async start() {
     await AudioEngine.start();
+    AudioEngine.setBPM(useAudioStore.getState().bpm);
     resetHarmony();
     reRegisterAllRobotsAudio(getActiveLocaleId());
   },
@@ -26,7 +28,6 @@ export const powerController = {
     stopCollisionDetection();
     AudioEngine.killAll();
     removeNonPersistentRobots(getActiveLocaleId());
-    // clear ocean actors and flip UI state
     try {
       useLocaleStore.getState().setLocaleData(getActiveLocaleId(), { actors: [] });
     } catch (e) {
@@ -58,11 +59,8 @@ export const powerController = {
 
   // High-level power-on sequence that mounts UI in caller when appropriate.
   async powerOnSequence() {
-    // ensure audio ready and systems primed
     await this.start();
-    // flip app state
     useUIStore.getState().setPowerOn();
-    // play UI brighten sequence
     try {
       playTabletPowerOn();
     } catch (e) {

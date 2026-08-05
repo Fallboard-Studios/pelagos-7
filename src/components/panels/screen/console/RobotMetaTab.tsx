@@ -1,24 +1,13 @@
 import { useEffect, useState } from 'react';
 import * as Switch from '@radix-ui/react-switch';
-import * as Select from '@radix-ui/react-select';
 import * as AlertDialog from '@radix-ui/react-alert-dialog';
 
 import { getActiveLocaleId } from '@/utils/localeHelpers';
 import { useUIStore } from '@/stores/uiStore';
 import { useLocaleStore } from '@/stores/localeStore';
-import { hasCycle } from '@/stores/localeStore';
 import { AudioEngine } from '@/engine/AudioEngine';
 import type { Robot } from '@/types/Robot';
 import type { OscillatorLayer } from '@/types/layeredAudio';
-
-// Minimal preset type for UI usage — mirrors stored preset shape used by RobotMetaTab
-type RobotPreset = {
-  id: string;
-  name?: string;
-  audioAttributes?: Robot['audioAttributes'];
-  melody?: Robot['melody'];
-  [key: string]: unknown;
-};
 
 import './RobotMetaTab.css';
 
@@ -35,7 +24,11 @@ export default function RobotMetaTab() {
 
   // Name editing (commit on blur or Enter)
   const [name, setName] = useState(robot?.name ?? '');
-  useEffect(() => setName(robot?.name ?? ''), [robot?.name]);
+  const [prevRobotName, setPrevRobotName] = useState(robot?.name);
+  if (robot?.name !== prevRobotName) {
+    setPrevRobotName(robot?.name);
+    setName(robot?.name ?? '');
+  }
 
   const commitName = () => {
     if (!robot || !localeId) return;
@@ -50,7 +43,7 @@ export default function RobotMetaTab() {
   };
 
   // Age display — update once per minute
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 60000);
     return () => clearInterval(id);
@@ -72,7 +65,11 @@ export default function RobotMetaTab() {
   // Persist toggle (uses `persists` property)
   const currentPersists = robot ? (robot.persists ?? false) : false;
   const [persists, setPersists] = useState<boolean>(currentPersists);
-  useEffect(() => setPersists(currentPersists), [currentPersists]);
+  const [prevPersists, setPrevPersists] = useState<boolean>(currentPersists);
+  if (currentPersists !== prevPersists) {
+    setPrevPersists(currentPersists);
+    setPersists(currentPersists);
+  }
 
   const togglePersists = (value: boolean) => {
     if (!robot || !localeId) return;
@@ -83,13 +80,15 @@ export default function RobotMetaTab() {
   // Copy robot targets (other robots in the same locale)
   const otherRobots = localeRobots.filter((r) => robot && r.id !== robot.id);
   const [copyTarget, setCopyTarget] = useState<string | null>(null);
-  // Backup for undoing a copy operation
   const [lastBackup, setLastBackup] = useState<Partial<Robot> | null>(null);
 
   // Clear transient backup when selection or locale changes
-  useEffect(() => {
+  const currentSelectionKey = `${selectedRobotId}:${localeId}`;
+  const [prevSelectionKey, setPrevSelectionKey] = useState(currentSelectionKey);
+  if (currentSelectionKey !== prevSelectionKey) {
+    setPrevSelectionKey(currentSelectionKey);
     setLastBackup(null);
-  }, [selectedRobotId, localeId]);
+  }
 
   // Perform copy: overwrite the currently selected robot with attributes from
   // the chosen target robot (same-locale). Do not copy `id` or `name`.
@@ -98,7 +97,6 @@ export default function RobotMetaTab() {
     const target = localeRobots.find((r) => r.id === copyTarget);
     if (!target) return;
 
-    // Build updates from target (only copy audio/compositional attributes)
     const updates: Partial<Robot> = {};
     if (target.audioAttributes) updates.audioAttributes = target.audioAttributes;
     if (target.melody) updates.melody = target.melody;
@@ -112,13 +110,11 @@ export default function RobotMetaTab() {
     const optFields = ['rhythmicDensity', 'rhythmicMotifLength', 'noteVariance', 'audioMode'] as const;
     for (const f of optFields) copyIfPresent(target, updates, f);
 
-    // Backup current values for undo
     const backup = Object.fromEntries(
       (Object.keys(updates) as Array<keyof Robot>).map((k) => [k, robot[k]])
     ) as Partial<Robot>;
     setLastBackup(backup);
 
-    // Apply updates to the selected robot
     useLocaleStore.getState().updateRobot(localeId, robot.id, updates as Partial<Robot>);
 
     // Update AudioEngine to reflect the new attributes immediately.
@@ -177,48 +173,6 @@ export default function RobotMetaTab() {
     setLastBackup(null);
   };
 
-  // Link-to-robot — use linkRobot (validates same-locale + cycle check)
-  const [linkTarget, setLinkTarget] = useState<string | null>(null);
-
-  // Reset the pending link target when the selected robot changes
-  useEffect(() => setLinkTarget(null), [selectedRobotId]);
-
-  // Robots eligible to be a parent: same locale, not self, and linking them
-  // would not create a cycle (i.e. they are not descendants of the current robot).
-  const linkableRobots = otherRobots.filter(
-    (r) => !hasCycle(localeRobots, r.id, robot?.id ?? '')
-  );
-
-  const currentParent = robot?.linkedRobotId
-    ? localeRobots.find((r) => r.id === robot.linkedRobotId)
-    : null;
-
-  const linkToRobot = () => {
-    if (!robot || !localeId || !linkTarget) return;
-    useLocaleStore.getState().linkRobot(localeId, robot.id, linkTarget);
-    setLinkTarget(null);
-  };
-
-  const unlinkRobot = () => {
-    if (!robot || !localeId) return;
-    useLocaleStore.getState().unlinkRobot(localeId, robot.id);
-  };
-
-  // Preset handling — read from locale if available; otherwise empty list
-  const presets = (useLocaleStore.getState().getLocaleById(localeId) as { robotPresets?: RobotPreset[] } | undefined)?.robotPresets ?? [];
-  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
-
-  const applyPreset = () => {
-    if (!robot || !localeId || !selectedPresetId) return;
-    const preset = presets.find((p) => p.id === selectedPresetId);
-    if (!preset) return;
-    const updates: Partial<Robot> = {};
-    if (preset.audioAttributes) updates.audioAttributes = preset.audioAttributes;
-    if (preset.melody) updates.melody = preset.melody;
-    useLocaleStore.getState().updateRobot(localeId, robot.id, updates);
-    setSelectedPresetId(null);
-  };
-
   if (!selectedRobotId) return <div className="robot-meta-empty">Select a robot to edit its meta.</div>;
   if (!robot) return <div className="robot-meta-empty">Robot not found</div>;
 
@@ -251,51 +205,6 @@ export default function RobotMetaTab() {
           <Switch.Root className="switch-root" checked={persists} onCheckedChange={togglePersists} aria-label="Persist robot">
             <Switch.Thumb className="switch-thumb" />
           </Switch.Root>
-        </div>
-      </div>
-
-      <div className="row">
-        <label className="label">Preset</label>
-        <div className="control preset-control">
-          <Select.Root value={selectedPresetId ?? ''} onValueChange={(v) => setSelectedPresetId(v || null)}>
-            <Select.Trigger className="select-trigger" aria-label="Preset select">
-              <Select.Value placeholder="Select preset" />
-            </Select.Trigger>
-            <Select.Content className="select-content">
-              <Select.Viewport>
-                {presets.length === 0 ? (
-                  <div className="select-empty">No presets available</div>
-                ) : (
-                  presets.map((p) => (
-                    <Select.Item key={p.id} value={p.id} className="select-item">
-                      <Select.ItemText>{p.name}</Select.ItemText>
-                    </Select.Item>
-                  ))
-                )}
-              </Select.Viewport>
-            </Select.Content>
-          </Select.Root>
-
-          <AlertDialog.Root>
-            <AlertDialog.Trigger className="btn" disabled={!selectedPresetId}>
-              Load Preset
-            </AlertDialog.Trigger>
-            <AlertDialog.Portal>
-              <AlertDialog.Overlay className="dialog-overlay" />
-              <AlertDialog.Content className="dialog-content">
-                <AlertDialog.Title>Load Preset</AlertDialog.Title>
-                <AlertDialog.Description>
-                  Loading a preset will overwrite the current robot's settings. This action cannot be undone.
-                </AlertDialog.Description>
-                <div className="dialog-actions">
-                  <AlertDialog.Cancel className="btn">Cancel</AlertDialog.Cancel>
-                  <AlertDialog.Action className="btn destructive" onClick={applyPreset}>
-                    Confirm
-                  </AlertDialog.Action>
-                </div>
-              </AlertDialog.Content>
-            </AlertDialog.Portal>
-          </AlertDialog.Root>
         </div>
       </div>
 
@@ -343,42 +252,6 @@ export default function RobotMetaTab() {
           </div>
         </div>
       )}
-
-      <div className="row">
-        <label className="label">Link To Robot</label>
-        <div className="control link-control">
-          {currentParent ? (
-            <span className="link-indicator" aria-label={`Linked to ${currentParent.name ?? currentParent.id}`}>
-              → {currentParent.name ?? currentParent.id}
-            </span>
-          ) : null}
-          {!currentParent && (
-            <>
-              <select
-                className="native-select"
-                value={linkTarget ?? ''}
-                onChange={(e) => setLinkTarget(e.target.value || null)}
-                aria-label="Link to parent robot"
-              >
-                <option value="">Select parent</option>
-                {linkableRobots.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name ?? r.id}
-                  </option>
-                ))}
-              </select>
-              <button className="btn" onClick={linkToRobot} disabled={!linkTarget}>
-                Link
-              </button>
-            </>
-          )}
-          {currentParent && (
-            <button className="btn" onClick={unlinkRobot}>
-              Unlink
-            </button>
-          )}
-        </div>
-      </div>
     </div>
   );
 }

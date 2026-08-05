@@ -74,7 +74,6 @@ export function bottomAnchorTransform(actor: Actor, height: number): string {
  * This helps catch accidental mixing of pixel/native coordinate math with viewBox units.
  */
 export function assertInViewBox(value: number, name = 'coord') {
-  // Guard so this only runs in development
   // `import.meta.env.DEV` is Vite-specific and will be truthy in dev/test runs
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   if (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.DEV) {

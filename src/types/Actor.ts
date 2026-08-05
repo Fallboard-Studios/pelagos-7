@@ -33,7 +33,7 @@ export interface Actor {
   config?: {
     robotBlueprint?: string;
     productionInterval?: number;
-    /** Factory depth row (0 = front, 1 = mid, 2 = back). */
+    /** Index into FACTORY_ROWS (systems/factoryPlacementSystem.ts); use getRowConfig(row)?.row for the depth group ('background'/'midground'/'foreground'). */
     row?: number;
     /**
      * Degrees of hue rotation applied to the variant's base body color.
@@ -62,7 +62,7 @@ export interface Actor {
     purpose?: import('../components/actors/factoryVariants').FactoryPurpose;
     /** Convenience flag set when a factory has been powered down. */
     isOffline?: boolean;
-    /** Measure at which the factory went offline. Used by offlineSystem. */
+    /** Measure at which the factory went offline. */
     offlineSince?: number;
   };
 }

@@ -1,11 +1,8 @@
 // ========================================
 // IMPORTS
 // ========================================
-import { DEV_TUNING } from '../constants';
-import { useLocaleStore } from '../stores/localeStore';
-import { getActiveLocaleId } from '../utils/localeHelpers';
-import { swallow } from '../utils/helpers';
 import { getCurrentHour } from './beatClock';
+import { devLog, devWarn } from '../utils/helpers';
 
 // Minimal transport-like interface to avoid importing Tone.js here.
 interface TransportLike {
@@ -90,61 +87,36 @@ export function resetHarmony(): void {
  */
 export function setAvailableNotes(notes: EighthNotes): void {
   availableNotes = notes;
-  if (DEV_TUNING) {
-    console.log('[HarmonySystem] Palette manually set:', notes);
-  }
+  devLog('[HarmonySystem] Palette manually set:', notes);
 }
 
 /**
  * Initialize automatic palette updates synchronized to Transport.
- * Checks every 4 measures if the derived hour has changed.
+ * Checks every 2 measures if the derived hour has changed.
  * Call once after Transport starts.
  */
 export function scheduleHarmonyCycle(transport: TransportLike): void {
   if (scheduledEventId !== null) {
-    if (DEV_TUNING) {
-
-      console.warn('[HarmonySystem] Harmony cycle already scheduled');
-    }
+    devWarn('[HarmonySystem] Harmony cycle already scheduled');
     return;
   }
 
-  // Advance palette every 2 measures. Compute palette index from currentMeasure
-  // so harmony is driven by the beat clock independent of planetSize/time-of-day.
   transportInstance = transport;
   scheduledEventId = transportInstance.scheduleRepeat(() => {
-    // Prefer hour-based palette index when beatClock.getCurrentHour is available
-    // (keeps existing tests/behavior stable). Fall back to measure-driven
-    // stepping (2-measure steps) when hour function is not present.
     try {
-      let paletteIndex: number | null = null;
-
-      const hour = getCurrentHour() ?? undefined;
-      if (typeof hour === 'number') {
-        paletteIndex = Math.floor(hour) % Object.keys(TIME_PITCHES).length;
-      }
-
-      if (paletteIndex === null) {
-        const measure = useLocaleStore.getState().locales[getActiveLocaleId()]?.currentMeasure ?? 0;
-        const step = Math.floor((measure % 96) / 2);
-        paletteIndex = step % Object.keys(TIME_PITCHES).length;
-      }
+      const paletteIndex = Math.floor(getCurrentHour()) % Object.keys(TIME_PITCHES).length;
 
       if (paletteIndex !== lastPaletteIndex) {
         lastPaletteIndex = paletteIndex;
-        availableNotes = TIME_PITCHES[paletteIndex as number] ?? TIME_PITCHES[0];
-        if (DEV_TUNING) {
-          console.log(`[HarmonySystem] Palette changed to index ${paletteIndex}:`, availableNotes);
-        }
+        availableNotes = TIME_PITCHES[paletteIndex] ?? TIME_PITCHES[0];
+        devLog(`[HarmonySystem] Palette changed to index ${paletteIndex}:`, availableNotes);
       }
     } catch (err) {
-      if (DEV_TUNING) swallow(err, '[HarmonySystem] palette cycle callback threw');
+      devWarn('[HarmonySystem] palette cycle callback threw', err);
     }
   }, '2m');
 
-  if (DEV_TUNING) {
-    console.log('[HarmonySystem] Harmony cycle scheduled (updates every 4 measures)');
-  }
+  devLog('[HarmonySystem] Harmony cycle scheduled (updates every 2 measures)');
 }
 
 /**
@@ -155,9 +127,6 @@ export function stopHarmonyCycle(): void {
     transportInstance?.clear(scheduledEventId);
     scheduledEventId = null;
     transportInstance = null;
-    if (DEV_TUNING) {
-
-      console.log('[HarmonySystem] Harmony cycle stopped');
-    }
+    devLog('[HarmonySystem] Harmony cycle stopped');
   }
 }

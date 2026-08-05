@@ -27,6 +27,7 @@ type TestTransport = {
 
 let getAvailableNotes: () => string[];
 let setAvailableNotes: (notes: [string, string, string, string, string, string, string, string]) => void;
+let resetHarmony: () => void;
 let scheduleHarmonyCycle: (transport: TestTransport) => void;
 let stopHarmonyCycle: () => void;
 
@@ -40,6 +41,7 @@ describe('harmonySystem', () => {
     ({
       getAvailableNotes,
       setAvailableNotes,
+      resetHarmony,
       scheduleHarmonyCycle,
       stopHarmonyCycle,
     } = await import('./harmonySystem'));
@@ -54,6 +56,14 @@ describe('harmonySystem', () => {
     expect(updated).toEqual(custom);
     updated.push('X');
     expect(getAvailableNotes()).toHaveLength(8);
+  });
+
+  it('resetHarmony restores the hour-0 palette', () => {
+    setAvailableNotes(['A1', 'B1', 'C2', 'D2', 'E2', 'F2', 'G2', 'A2']);
+    expect(getAvailableNotes()[0]).not.toBe('C');
+
+    resetHarmony();
+    expect(getAvailableNotes()).toEqual(['C', 'G', 'E', 'D', 'B', 'C', 'E', 'G']);
   });
 
   it('schedules harmony cycle once and updates when hour changes', () => {

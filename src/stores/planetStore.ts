@@ -4,6 +4,7 @@ import type { Planet, PlanetSize } from '../types/planet';
 import { PLANET_DURATION_MS } from '../constants/time';
 import { derivePlanetSeed, planetInitialHour } from '../utils/seedUtils';
 import { getPlanetNoiseMap, evictPlanetNoiseMap, evictLocaleNoiseMap } from '../utils/noiseMaps';
+import { devWarn } from '../utils/helpers';
 
 export const DEFAULT_LOCALE_ID = 'pelagos-default';
 
@@ -45,7 +46,7 @@ export const usePlanetStore = create<PlanetStore>((set) => ({
         (p) => p.name.toLowerCase() === planet.name.toLowerCase()
       );
       if (nameTaken) {
-        console.warn(
+        devWarn(
           `[planetStore] addPlanet: planet name "${planet.name}" is already taken. Planet not added.`
         );
         return state;

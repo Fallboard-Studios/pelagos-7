@@ -1,400 +1,96 @@
 # Animation System Guide
 
 ## Overview
-All animation in Pelagos-7 uses GSAP. This document covers patterns, timeline management, and best practices.
+Animation in Pelagos-7 is driven by GSAP and SVG transforms. The runtime is centered around a small set of helpers rather than a large abstraction layer:
 
-## Timeline Management
+- [src/animation/timelineMap.ts](../src/animation/timelineMap.ts) manages timeline lifecycle
+- [src/utils/refs.ts](../src/utils/refs.ts) stores top-level SVG refs for helpers outside React
+- [src/animation/swimAnimation.ts](../src/animation/swimAnimation.ts) contains the current reusable robot swim timeline pattern
 
-### Timeline Map Pattern
+## Core Architecture
+
+### Timeline registry
+The timeline registry is a simple string-keyed map:
+
 ```typescript
-// src/animation/timelineMap.ts
-const timelineMap = new Map<string, gsap.core.Timeline>();
+export function setTimeline(id: string, timeline: Timeline): void {
+  const existing = timelineMap.get(id);
+  if (existing) {
+    existing.kill();
+  }
 
-export function setTimeline(id: string, timeline: gsap.core.Timeline): void {
-  killTimeline(id); // Clean up old timeline
   timelineMap.set(id, timeline);
 }
 
-export function getTimeline(id: string): gsap.core.Timeline | undefined {
-  return timelineMap.get(id);
-}
-
 export function killTimeline(id: string): void {
-  const tl = timelineMap.get(id);
-  if (tl) {
-    tl.kill();
+  const timeline = timelineMap.get(id);
+  if (timeline) {
+    timeline.kill();
     timelineMap.delete(id);
   }
 }
 ```
 
-Note: the runtime implementation (src/animation/timelineMap.ts) exposes a `killAllTimelines()` helper and `setTimeline()` will kill any existing timeline with the same id before storing the new one. This prevents leaks when recreating timelines for the same entity.
+Two more exports exist alongside these: `getTimeline(id): Timeline | undefined` (plain lookup, no side effect) and `killAllTimelines(): void` (kills and clears every entry — used for full teardown/reset).
 
-### React Integration
+This is the supported pattern for keeping timelines out of React state and cleaning them up reliably.
+
+### Ref registry
+Top-level components register SVG elements with `setRef(key, element)` and animation helpers read them later with `getRef(key)`. This is how modules such as swim animation and interaction systems find robot DOM nodes without coupling them to React render state. Two cleanup exports also exist: `deleteRef(key): void` (remove one) and `clearRefs(): void` (remove all — testing/reset).
+
+## Current Runtime Pattern
+
+### Swim animation
+The reusable animation helper is [src/animation/swimAnimation.ts](../src/animation/swimAnimation.ts):
+
 ```typescript
-import { useGSAP } from '@gsap/react';
-
-function Robot({ robot }: { robot: Robot }) {
-  const ref = useRef<SVGGElement>(null);
-  
-  useGSAP(() => {
-    if (!ref.current || !robot.destination) return;
-    
-    const tl = gsap.timeline({
-      onComplete: () => handleArrival(robot.id)
-    });
-    
-    tl.to(ref.current, {
-      x: robot.destination.x,
-      y: robot.destination.y,
-      duration: 5,
-      ease: 'none'
-    });
-    
-    setTimeline(robot.id, tl);
-    
-    return () => killTimeline(robot.id);
-  }, { dependencies: [robot.destination], scope: ref });
-  
-  return <g ref={ref}>{/* robot parts */}</g>;
-}
+function createSwimTimeline(
+  robot: Robot,
+  destination: Vec2,
+  targetDirection: 'left' | 'right',
+  onComplete?: (robotId: string) => void,
+): gsap.core.Timeline
 ```
 
-Ref registry: The codebase uses a simple ref registry so external animation helpers can find SVG elements. Top-level components call `setRef(key, element)` (see `src/utils/refs.ts`) and animation modules use `getRef(key)` (e.g. `getRef(`robot-${id}`)`) to locate elements outside React render. Prefer setting refs in mount-only effects so GSAP remains the single owner of transforms.
+Constants: `SWIM_SPEED = 120` px/s (duration = distance / SWIM_SPEED) · `TILT_ANGLE = 5` degrees · `ORIENTATION_DURATION = 0.5` s · `PROPULSION_OVERLAP = 0.2` s · `PROPELLER_ROTATION_SPEED = 2` s per 360°.
 
-## Common Animation Types
+Sequence:
+- Resolves the robot SVG via `getRef(`robot-${robot.id}`)`. **If the ref isn't registered yet**, the function still returns an (empty) timeline and schedules `onComplete` via `gsap.delayedCall(estimatedDuration, ...)` so callers waiting on the callback don't hang.
+- Kills any existing `swim-${robot.id}` timeline, then flips orientation (`scaleX`) over `ORIENTATION_DURATION` only if direction actually changed.
+- Animates to the destination over `distance / SWIM_SPEED` seconds, starting at `propulsionStart = needsFlip ? ORIENTATION_DURATION - PROPULSION_OVERLAP : 0`. **`propulsionStart` must be an absolute timeline position, not a relative offset like `"-=0.2"`** — relative offsets drift as more tweens are added to the timeline and cause it to grow past the intended swim duration. This was a real bug; don't reintroduce it.
+- Rotates `.propeller` (if present) continuously for `ceil(duration / PROPELLER_ROTATION_SPEED)` full turns, in parallel with the movement tween.
+- Applies a body tilt (`± TILT_ANGLE`, direction-dependent) that ramps in over the first 30% of the duration and back out over the last 30%.
+- Stores the timeline in `timelineMap` under `swim-${robot.id}` and plays it (it's created `paused: true` so it can be registered before playing).
 
-### Movement Animation
+### UI and system animations
+Other systems follow the same model:
 
-Point-to-point movement with propeller spin and body tilt.
+- [src/components/ui/physical/PowerRockerSwitch.tsx](../src/components/ui/physical/PowerRockerSwitch.tsx) for SVG button/transport animations
+- [src/components/actors/BubbleStream.tsx](../src/components/actors/BubbleStream.tsx) for looping particle effects
+- [src/systems/removeSystem.ts](../src/systems/removeSystem.ts) for exit animations
 
-**Pattern:**
-```typescript
-function createMovementTimeline(robot: Robot, destination: Vec2): gsap.core.Timeline {
-  // Use distance-driven durations (runtime uses SWIM_SPEED constant)
-  // Example: duration = distance / SWIM_SPEED
-  const SWIM_SPEED = 120; // px/s (see src/animation/swimAnimation.ts)
-  const distance = Math.hypot(destination.x - robot.position.x, destination.y - robot.position.y);
-  const duration = distance / SWIM_SPEED;
+These modules register timelines in the shared map and clean them up during teardown.
 
-  const tl = gsap.timeline({ onComplete: () => handleArrival(robot.id) });
+## Contributor Rules
 
-  // Main movement (duration derived from SWIM_SPEED)
-  tl.to(robotRef.current, { x: destination.x, y: destination.y, duration, ease: 'power1.inOut' });
-  
-  // Body tilt toward destination
-  const angle = Math.atan2(
-    destination.y - robot.position.y,
-    destination.x - robot.position.x
-  ) * (180 / Math.PI);
-  
-  tl.to(robotRef.current, {
-    rotation: angle * 0.15,  // Subtle tilt
-    duration: 0.5
-  }, 0);  // Start immediately
-  
-  // Propeller fast spin
-  tl.to(propellerRef.current, {
-    rotation: '+=360',
-    duration: 0.3,
-    repeat: -1,
-    ease: 'none'
-  }, 0);
-  
-  return tl;
-}
-```
+- Keep timelines and refs outside Zustand and React state.
+- Prefer GSAP timelines over `setInterval` or `requestAnimationFrame` for motion.
+- Use transforms such as `x`, `y`, `rotation`, and `scale` rather than layout properties.
+- Keep semantic state changes in handlers; do not schedule audio directly inside GSAP timeline callbacks.
+- Kill timelines on unmount or teardown when the owning entity is removed.
 
-**Key points:**
-- Use `power1.inOut` for natural acceleration/deceleration
-- Tilt robot toward destination (10-15% of angle)
-- Propeller spins continuously during movement
-- Timeline stored in timelineMap, NOT state
+## What to Avoid
 
----
-
-### Idle Animation
-
-Looping bob and sway for stationary robots.
-
-**Pattern:**
-```typescript
-function createIdleTimeline(robotRef: RefObject<SVGGElement>): gsap.core.Timeline {
-  const tl = gsap.timeline({ repeat: -1 });
-  
-  // Vertical bob
-  tl.to(robotRef.current, {
-    y: '+=5',
-    duration: 2,
-    yoyo: true,
-    repeat: -1,
-    ease: 'sine.inOut'
-  }, 0);
-  
-  // Slight rotation
-  tl.to(robotRef.current, {
-    rotation: '+=3',
-    duration: 3,
-    yoyo: true,
-    repeat: -1,
-    ease: 'sine.inOut'
-  }, 0);
-  
-  // Slow propeller spin
-  tl.to(propellerRef.current, {
-    rotation: '+=360',
-    duration: 2,
-    repeat: -1,
-    ease: 'none'
-  }, 0);
-  
-  return tl;
-}
-```
-
-**Key points:**
-- Use `sine.inOut` for smooth, organic motion
-- Small values (±3-5px, ±2-3°) for subtle effect
-- All animations start simultaneously (position `0`)
-- Slower propeller (2s vs 0.3s when swimming)
-
-Runtime nuance: the swim animation uses a finite number of propeller rotations based on the swim duration (see `src/animation/swimAnimation.ts`) rather than an infinite `repeat: -1`. Idle propellers use continuous rotation (`repeat: -1`) while movement propellers compute `numRotations = Math.ceil(duration / PROPELLER_ROTATION_SPEED)` and animate that many cycles.
-
----
-
-### Interaction Burst
-
-Scale pulse and rotation for robot-robot interactions.
-
-**Pattern:**
-```typescript
-function playInteractionBurst(robotRef: RefObject<SVGGElement>): void {
-  gsap.timeline()
-    .to(robotRef.current, {
-      scale: 1.15,
-      duration: 0.2,
-      ease: 'back.out(2)'
-    })
-    .to(robotRef.current, {
-      scale: 1,
-      duration: 0.2,
-      ease: 'back.in(2)'
-    })
-    .to(robotRef.current, {
-      rotation: '+=15',
-      duration: 0.1,
-      yoyo: true,
-      repeat: 1
-    }, 0);  // Rotate during scale
-}
-```
-
-**Key points:**
-- Short duration (0.4s total)
-- `back` easing for "pop" effect
-- Don't store timeline (fire-and-forget)
-- Rotation happens simultaneously with scale
-
----
-
-### Propeller Spin
-
-Continuous rotation with variable speed based on robot state.
-
-**Pattern:**
-```typescript
-// Note: RobotState defined in src/types/Robot.ts
-// Example states: 'idle' | 'moving' | 'interacting'
-function updatePropellerSpeed(
-  propellerRef: RefObject<SVGGElement>,
-  state: RobotState
-): void {
-  gsap.killTweensOf(propellerRef.current);
-  
-  const speeds = {
-    idle: 2,       // seconds per rotation
-    moving: 0.3,
-    interacting: 0.15
-  };
-  
-  gsap.to(propellerRef.current, {
-    rotation: '+=360',
-    duration: speeds[state],
-    repeat: -1,
-    ease: 'none'
-  });
-}
-```
-
-**Key points:**
-- Kill existing tweens before creating new one
-- Use `ease: 'none'` for constant rotation speed
-- Faster spin = more thrust (swimming/interacting)
-- State-driven speed variations
-
-## Performance
-
-### Best Practices
-- Use CSS transforms (GPU-accelerated)
-- Avoid animating many properties simultaneously
-- Pool and reuse timelines where possible
-- Kill timelines on cleanup
-
-### Avoid
-- Per-frame path updates (`d` attribute)
-- Layout-triggering properties (width, height)
-- Nested timeline complexity (>3 levels deep)
-
-## Forbidden Patterns
-Quick reference of animation anti-patterns and their fixes.
-
-### 1. Timeline in State
-
-**❌ Forbidden:**
-```typescript
-const [timeline, setTimeline] = useState<gsap.core.Timeline>();
-```
-
-**Why:** Timelines are not serializable, cause memory leaks, trigger unnecessary re-renders.
-
-**✅ Fix:**
-```typescript
-// Use timelineMap (outside React state)
-setTimeline(robotId, tl);
-```
-
----
-
-### 2. Animation via State Updates
-
-**❌ Forbidden:**
-```typescript
-useEffect(() => {
-  const interval = setInterval(() => {
-    setPosition(pos => ({ x: pos.x + 1, y: pos.y }));
-  }, 16);
-  return () => clearInterval(interval);
-}, []);
-```
-
-**Why:** Not GPU-accelerated, triggers re-renders, not synchronized with BeatClock.
-
-**✅ Fix:**
-```typescript
-useGSAP(() => {
-  gsap.to(ref.current, { x: '+=100', duration: 2, ease: 'none' });
-}, { scope: ref });
-```
-
----
-
-### 3. GSAP Triggering Audio
-
-**❌ Forbidden:**
-```typescript
-timeline.call(() => AudioEngine.scheduleNote({ robotId, note: 'C4' }));
-```
-
-**Why:** Couples animation to audio, violates separation of concerns.
-
-**✅ Fix:** Use semantic callbacks:
-```typescript
-timeline.to(ref.current, {
-  x: 100,
-  onComplete: () => onArrival(robotId)  // semantic event
-});
-
-// Separate handler triggers audio
-function onArrival(robotId: string) {
-  updateRobotState(robotId, 'idle');
-  AudioEngine.scheduleNote({ robotId, note: 'C4' });
-}
-```
-
----
-
-### 4. requestAnimationFrame Loop
-
-**❌ Forbidden:**
-```typescript
-function animate() {
-  updatePosition();
-  requestAnimationFrame(animate);
-}
-```
-
-**Why:** Duplicates GSAP's internal ticker, causes performance issues.
-
-**✅ Fix:** Use GSAP timeline or `gsap.ticker.add()` for custom logic.
-
----
-
-### 5. No Timeline Cleanup
-
-**❌ Forbidden:**
-```typescript
-useEffect(() => {
-  gsap.to(ref.current, { x: 100, duration: 2 });
-  // Missing cleanup!
-}, [trigger]);
-```
-
-**Why:** Timeline continues after unmount, memory leak, stale refs.
-
-**✅ Fix:**
-```typescript
-useGSAP(() => {
-  const tl = gsap.to(ref.current, { x: 100, duration: 2 });
-  return () => tl.kill();
-}, { scope: ref });
-```
-
----
-
-### 6. Animating Layout Properties
-
-**❌ Forbidden:**
-```typescript
-gsap.to(ref.current, { width: 200, height: 100 });
-```
-
-**Why:** Triggers layout reflow, not GPU-accelerated, poor performance.
-
-**✅ Fix:** Use `scale` (transform):
-```typescript
-gsap.to(ref.current, { scale: 2 });
-```
-
----
-
-### 7. Per-Frame Path Updates
-
-**❌ Forbidden:**
-```typescript
-gsap.ticker.add(() => {
-  const newPath = computePath();
-  pathRef.current.setAttribute('d', newPath);  // Every frame!
-});
-```
-
-**Why:** Heavy DOM manipulation, forces layout, kills performance with many robots.
-
-**✅ Fix:** Use CSS transforms for movement, reserve path updates for shape morphing only.
-
----
+- Storing timelines in component state or Zustand
+- Creating one-off animation loops with `requestAnimationFrame`
+- Animating `width`, `height`, or other layout-affecting properties
+- Triggering audio directly from timeline callbacks
+- Leaving timelines running after cleanup
 
 ## Audit Checklist
 
-Before committing animation code:
-
-- [ ] No timelines in React/Zustand state
-- [ ] No `setInterval`/`requestAnimationFrame` for animation
-- [ ] No audio calls in GSAP timelines
-- [ ] All timelines have cleanup (kill on unmount)
-- [ ] Using transforms (`x`, `y`, `rotation`, `scale`), not layout properties
-- [ ] useGSAP hook used for React components
-- [ ] Timeline references stored in timelineMap
- - [ ] Top-level components register SVG refs with `setRef(key, element)` and external animation code uses `getRef(key)`
- - [ ] Movement durations derived from speed constants (e.g., `SWIM_SPEED`) rather than hard-coded seconds
- - [ ] Timelines paused/played for `isActive` state (use `timeline.play()` / `timeline.pause()`)
- - [ ] Use `gsap.delayedCall` as a fallback to call `onComplete` when refs are not yet available
+- [ ] Timeline references live in the shared registry
+- [ ] SVG refs are registered through `setRef` / `getRef`
+- [ ] Cleanup uses `killTimeline` when the entity is removed
+- [ ] Motion uses GSAP transforms instead of layout changes
+- [ ] Audio scheduling stays outside animation callbacks

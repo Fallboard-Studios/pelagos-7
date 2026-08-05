@@ -34,7 +34,6 @@ export interface LayerVisual {
 
 /** Visual mapping derived from audio for spawn-time storage on robots */
 export interface VisualAudioMap {
-  // Note: `layeredWave` removed — `audioAttributes.layers` is now canonical
   averagedADSR?: ADSREnvelope
   averagedGain?: number
   shapeParams?: ShapeParams

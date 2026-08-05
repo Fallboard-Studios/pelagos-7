@@ -245,7 +245,6 @@ export function renderTallWindows(ctx: GreebleRendererContext): GreebleElement |
  */
 export function renderPipesValvesFacade(ctx: GreebleRendererContext): GreebleElement | null {
   const { buildingWidth: bw, buildingHeight: bh, zoneY = 0, zoneHeight = bh, seed, frontCornerX } = ctx;
-  // reduce saturation by 15% for a slightly desaturated, watery look
   const desat: HSL = { ...ctx.colors.greeble, s: clamp(ctx.colors.greeble.s - 15, 0, 100) };
   const fill = hslToString(desat);
   let s = seed + 800;
@@ -284,7 +283,6 @@ export function renderPipesValvesFacade(ctx: GreebleRendererContext): GreebleEle
     }
   };
 
-  // draw primary run
   drawSide(primarySide);
   // sometimes also draw on opposite facade (33% chance)
   if (prng() < 0.33) {
@@ -315,7 +313,6 @@ export function renderBeltCourse(ctx: GreebleRendererContext): GreebleElement | 
   const count = deriveBeltCourses(bh);
   if (count === 0) return null;
 
-  // LCG for deterministic per-course height variation
   let s = seed + 300;
   const prng = () => {
     s = (s * 1664525 + 1013904223) % 4294967296;
@@ -327,7 +324,6 @@ export function renderBeltCourse(ctx: GreebleRendererContext): GreebleElement | 
   const courses: GreebleElement[] = [];
 
   for (let i = 0; i < count; i++) {
-    // Course height: 2–3% of building height, seeded
     const courseH = bh * (0.02 + prng() * 0.01);
     const y = i * spacing + spacing / 2 - courseH / 2;
     courses.push(

@@ -30,7 +30,7 @@ export function getPlanetNoiseMap(planetId: string, planetName: string): NoiseFu
  *
  * The locale seed is derived by:
  *   1. Sampling the planet's noise map at the locale's coordinates (returns [-1, 1])
- *   2. Mapping that float to an integer in [0, 129,599] via localeCoordSeed
+ *   2. Rescaling that float to an integer in [0, 129,599]
  *   3. Seeding createNoise2D with alea(integer)
  *
  * Two locales with identical coordinates on different planets will have

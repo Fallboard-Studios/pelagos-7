@@ -161,41 +161,22 @@ reaches `applyColorShift`, so variant code doesn't need to be aware of it.
 
 ## Day/Night Cycle (Lightness Curve)
 
-Pelagos-7 uses a **96-measure day/night cycle** (4 measures ≈ 1 "hour").
-All non-illuminated factory colours have their L driven by a piecewise
-linear function of the current measure. The function returns separate
-multipliers for the east and west facades.
+Pelagos-7 uses a **96-measure day/night cycle** in the lighting helpers, but the
+current renderer does not pull these values from the audio transport. Instead,
+`Factory.tsx` reads the active locale's local time from the UI store, converts it
+into a 0–95 measure-like value, and passes it to `getLighting()` from
+`src/utils/lightingUtils.ts`.
 
-### Clock Mapping (2400-style reference)
+### Current lighting implementation
 
-| Measure | Clock | East L | West L | Description |
-|---------|-------|--------|--------|-------------|
-| 0–24 | 0000–0600 | 0% → 25% | 0% → 25% | Pre-dawn, uniform rise |
-| 24–36 | 0600–0900 | 25% → 100% | 25% → 50% | Morning sun from east |
-| 36–60 | 0900–1500 | 100% → 50% | 50% → 100% | Midday crossover |
-| 60–72 | 1500–1800 | 50% → 25% | 100% → 25% | Afternoon fade |
-| 72–96 | 1800–2400 | 25% → 0% | 25% → 0% | Dusk to midnight |
-
-```typescript
-function getFacadeLightness(
-  currentMeasure: number,
-  facing: 'east' | 'west',
-): number {
-  const m = currentMeasure % 96;
-  // Piecewise linear interpolation returning 0–1
-  // (implementation uses a lookup table of breakpoints)
-}
-```
-
-### Integration
-
-- A `Transport.scheduleRepeat` callback fires every 4 measures and writes
-  `{ eastL, westL }` to the Zustand store. Components read these values
-  reactively.
-- The per-row atmospheric cap is applied on top:
+- `getLighting(measure)` uses a sine-based 96-step cycle to produce separate
+  east and west lightness multipliers.
+- The renderer derives `lightMeasure` from the locale's local time using:
+  `lightMeasure = (localTime / 24) * DAY_CYCLE_MEASURES`.
+- The per-row atmospheric cap is still applied at render time:
   `effectiveL = facadeL * rowMaxL`.
-- **Illuminated windows** (see §Greebles / Facade) use the *inverse* of
-  the facade L curve: they brighten as the facade darkens.
+- **Illuminated windows** are driven by `nightDepth` and the per-building
+  `flickerEpoch`, not by a separate per-window state machine.
 
 ### Front Corner Rendering
 
@@ -369,13 +350,15 @@ type RooftopGreeble =
   | 'cupola'
   | 'crownSpire'
   | 'pitchedRoof'
-  | 'steppeRoof';
+  | 'steppeRoof'
+  | 'pipesValves';
 
 type FacadeGreeble =
   | 'squareWindows'
   | 'wideWindows'
   | 'tallWindows'
-  | 'beltCourse';
+  | 'beltCourse'
+  | 'pipesValves';
 ```
 
 ### Greeble Renderers
@@ -504,21 +487,22 @@ Margins are computed from the remaining space.
 
 ### Window Illumination
 
-Windows can individually turn on or off over time to give the impression
-of life inside the buildings without creating a visually distracting sea
-of flickering.
+The current implementation does not track a per-window `isLit` state. Instead,
+illumination is derived from the current lightness curve and a deterministic
+per-building flicker epoch.
 
-**Rules:**
-- Each window has an `isLit` state seeded deterministically at spawn.
-- At night (facade L < 25%), lit windows crossfade from `greeble` HSL to
-  `illuminated` HSL over several measures.
-- Periodically (every 8–16 measures, per-window seed), a small percentage
-  of windows (~5–10%) toggle their `isLit` state. The transition is a
-  slow opacity fade (1–2 measures), **not** a flicker.
-- During daytime (facade L > 50%), all windows render at `greeble` HSL
-  regardless of `isLit` — the illumination only manifests in darkness.
-- The antennae light flicker is the **only** rapid-rate luminance change
-  on buildings. Everything else is slow and sparse.
+**Current rules:**
+- `Factory.tsx` computes `eastLMultiplier`, `westLMultiplier`, and
+  `nightDepth` from the current day/night cycle.
+- Facade greebles use the appropriate face multiplier for their local side,
+  while rooftop greebles use a blended roof multiplier.
+- Windows and other illuminated details transition toward the variant's
+  `illuminated` HSL colour as `nightDepth` rises.
+- `FLICKER_PERIOD` controls how often the renderer re-rolls lighting-related
+  window states per building; this produces sparse, staggered flicker without
+  making every window animate continuously.
+- The antennae and other greeble accents are still the main fast-moving visual
+  elements; the rest of the facade lighting remains comparatively stable.
 
 ---
 

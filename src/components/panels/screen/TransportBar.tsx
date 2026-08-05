@@ -35,6 +35,7 @@ function TransportBar() {
       AudioEngine.killAll();
       useLocaleStore.getState().setLocaleData(localeId, { currentMeasure: 0 });
       await AudioEngine.start();
+      AudioEngine.setBPM(useAudioStore.getState().bpm);
       setIsPaused(false);
     } catch (err) {
       swallow(err, '[TransportBar] Restart failed');

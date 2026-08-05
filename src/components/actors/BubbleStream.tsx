@@ -137,7 +137,6 @@ export const BubbleStream: React.FC<BubbleStreamProps> = ({
       const { risePx, riseDuration, wobbleAmp, wobblePeriod, wobbleDir } = bubbleParams[i];
       const bubbleTl = gsap.timeline();
 
-      // Reset to start position before each burst replay.
       bubbleTl.set(ref.current, { attr: { cx: ventX, cy: ventY, r: radius }, opacity: 0 });
 
       // Wobble: oscillate cx for the full rise duration (concurrent at t=0).
@@ -188,7 +187,6 @@ export const BubbleStream: React.FC<BubbleStreamProps> = ({
     return () => killTimeline(`bubble-${actorId}`);
   }, { dependencies: [config, ventX, ventY, depthScale], revertOnUpdate: true });
 
-  // Pause / resume when isActive changes.
   useEffect(() => {
     const tl = timelineMap.get(`bubble-${actorId}`);
     if (!tl) return;
@@ -202,7 +200,6 @@ export const BubbleStream: React.FC<BubbleStreamProps> = ({
     }
   }, [actorId, isActive, circleRefs]);
 
-  // Compute bubble fill color with subtle tint from bodyHue.
   const bubbleFill = React.useMemo(() => {
     const hsl = `hsl(${bodyHue}, 30%, 70%)`;
     return hsl;
