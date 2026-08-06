@@ -43,7 +43,6 @@ function makeRobot(overrides: Partial<Robot> = {}): Robot {
     melody: [],
     audioAttributes: {
       adsr: { attack: 0.1, decay: 0.1, sustain: 0.5, release: 0.1 },
-      pitchRange: { min: 100, max: 200 },
       filterFreq: 1000,
     },
     octaveRange: [3, 5],

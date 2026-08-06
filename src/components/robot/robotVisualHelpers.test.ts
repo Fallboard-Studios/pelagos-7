@@ -28,7 +28,6 @@ describe('robotVisualHelpers', () => {
     it('returns HSL strings for primary/secondary/accent', () => {
       const attrs = {
         adsr: { attack: 0.05, decay: 0.2, sustain: 0.7, release: 0.5 },
-        pitchRange: { min: 200, max: 800 },
         filterFreq: 1000,
         waveform: 'sine',
       } as unknown as AudioAttributes;
@@ -43,7 +42,6 @@ describe('robotVisualHelpers', () => {
     it('varies primary hue by waveform', () => {
       const base = {
         adsr: { attack: 0.05, decay: 0.2, sustain: 0.5, release: 0.2 },
-        pitchRange: { min: 200, max: 800 },
         filterFreq: 800,
       } as unknown as Omit<AudioAttributes, 'waveform'>;
 

@@ -22,7 +22,6 @@ const makeRobot = (id = 'r1') => ({
   melody: [],
       audioAttributes: {
       adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.3 },
-      pitchRange: { min: 100, max: 1000 },
       filterFreq: 0,
       waveform: 'sine',
     },

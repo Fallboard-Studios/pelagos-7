@@ -221,9 +221,9 @@ describe('spawnSystem', () => {
       useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { settings: { ...(useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.settings ?? {}), maxRobots: 3 } });
       const addRobot = useLocaleStore.getState().addRobot;
       // seed store with max robots
-      addRobot(DEFAULT_LOCALE_ID, { id: 'a', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0 }, octaveRange: [3, 4], createdAt: 1000, masterVolume: 0.7 } as Robot);
-      addRobot(DEFAULT_LOCALE_ID, { id: 'b', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0 }, octaveRange: [3, 4], createdAt: 2000, masterVolume: 0.7 } as Robot);
-      addRobot(DEFAULT_LOCALE_ID, { id: 'c', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0 }, octaveRange: [3, 4], createdAt: 3000, masterVolume: 0.7 } as Robot);
+      addRobot(DEFAULT_LOCALE_ID, { id: 'a', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, filterFreq: 0 }, octaveRange: [3, 4], createdAt: 1000, masterVolume: 0.7 } as Robot);
+      addRobot(DEFAULT_LOCALE_ID, { id: 'b', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, filterFreq: 0 }, octaveRange: [3, 4], createdAt: 2000, masterVolume: 0.7 } as Robot);
+      addRobot(DEFAULT_LOCALE_ID, { id: 'c', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, filterFreq: 0 }, octaveRange: [3, 4], createdAt: 3000, masterVolume: 0.7 } as Robot);
       expect(useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.robots?.length).toBe(3);
 
       spawnRobot(DEFAULT_LOCALE_ID);
@@ -237,7 +237,7 @@ describe('spawnSystem', () => {
       // set max and min equal
       useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { settings: { bpm: 120, maxRobots: 1, minRobots: 1 } });
       const addRobot2 = useLocaleStore.getState().addRobot;
-      addRobot2(DEFAULT_LOCALE_ID, { id: 'only', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, pitchRange: { min: 0, max: 0 }, filterFreq: 0 }, octaveRange: [3, 4], createdAt: 123, masterVolume: 0.7 } as Robot);
+      addRobot2(DEFAULT_LOCALE_ID, { id: 'only', state: RobotState.Idle, direction: 'right', position: { x: 0, y: 0 }, destination: null, melody: [], audioAttributes: { waveform: 'sine', adsr: { attack: 0, decay: 0, sustain: 0, release: 0 }, filterFreq: 0 }, octaveRange: [3, 4], createdAt: 123, masterVolume: 0.7 } as Robot);
 
       spawnRobot(DEFAULT_LOCALE_ID);
       expect(useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.robots?.length).toBe(1);

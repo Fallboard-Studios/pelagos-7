@@ -40,11 +40,6 @@ export interface ADSREnvelope {
  */
 export interface AudioAttributes {
   adsr: ADSREnvelope;
-  /** @deprecated Use robot.octaveRange instead. Kept for test fixture compatibility; not populated at spawn time. */
-  pitchRange?: {
-    min: number;       // Hz
-    max: number;       // Hz
-  };
   /** Seeded octave register [min, max] — populated at spawn time via generateAudioAttributes */
   octaveRange?: [number, number];
   filterFreq: number;  // Hz (cutoff frequency, 0 = no filter)

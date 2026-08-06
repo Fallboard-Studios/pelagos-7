@@ -61,7 +61,6 @@ describe('CollisionSystem', () => {
       melody: [],
       audioAttributes: {
         adsr: { attack: 0.1, decay: 0.2, sustain: 0.5, release: 0.3 },
-        pitchRange: { min: 200, max: 400 },
         filterFreq: 1000,
         waveform: 'sine' as const,
       },
@@ -166,7 +165,6 @@ describe('CollisionSystem', () => {
       melody: [],
       audioAttributes: {
         adsr: { attack: 0.1, decay: 0.2, sustain: 0.5, release: 0.3 },
-        pitchRange: { min: 200, max: 400 },
         filterFreq: 1000,
         waveform: 'sine' as const,
       },
