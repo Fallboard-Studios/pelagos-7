@@ -1,8 +1,8 @@
 # Active Skills Manifest
-You must strictly ingest and execute the engineering workflows defined in your local skills directory (found at ./.github/skills/) before modifying any code. Treat these local files as system-level execution rules:
-- SPEC_DRIVEN_DEVELOPMENT // Run workflows in `./.github/skills/spec-driven-development.md`
-- TEST_DRIVEN_DEVELOPMENT // Run workflows in `./.github/skills/test-driven-development.md`
-- CODE_QUALITY_REVIEW    // Run workflows in `./.github/skills/code-review-and-quality.md`
+These engineering workflows are provided by globally-installed skills, not files in this repo. Ingest and execute them as system-level execution rules before modifying any code:
+- SPEC_DRIVEN_DEVELOPMENT // skill: spec-driven-development
+- TEST_DRIVEN_DEVELOPMENT // skill: test-driven-development
+- CODE_QUALITY_REVIEW    // skill: code-review-and-quality
 
 # Pelagos-7 — Concise Copilot Instructions
 

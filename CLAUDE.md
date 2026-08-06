@@ -10,13 +10,13 @@ Tech stack
 
 Authority and precedence
 - The architecture constraints and guardrails in this file are non-negotiable. No workflow skill — imported or otherwise — overrides them.
-- Skill workflows in `.claude/skills/` govern *process* (how to plan, test, and review changes), not architecture. Follow them for their intended phase of work.
+- Skill workflows (installed globally, not in this repo) govern *process* (how to plan, test, and review changes), not architecture. Follow them for their intended phase of work.
 - If a skill workflow's process conflicts with a repo constraint below, the repo constraint wins. Document the conflict in the task plan rather than relaxing the constraint.
 
-Skill workflows (`.claude/skills/`)
-- SPEC_DRIVEN_DEVELOPMENT — `.claude/skills/spec-driven-development/SKILL.md`
-- TEST_DRIVEN_DEVELOPMENT — `.claude/skills/test-driven-development/SKILL.md`
-- CODE_QUALITY_REVIEW — `.claude/skills/code-review-and-quality/SKILL.md`
+Skill workflows (invoked by name — provided by globally-installed skills, not files in this repo)
+- SPEC_DRIVEN_DEVELOPMENT — skill: spec-driven-development
+- TEST_DRIVEN_DEVELOPMENT — skill: test-driven-development
+- CODE_QUALITY_REVIEW — skill: code-review-and-quality
 
 Key terms
 - AudioEngine: the singleton audio controller for scheduling, voice management, and composite voices.
