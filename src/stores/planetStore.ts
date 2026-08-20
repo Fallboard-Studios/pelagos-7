@@ -28,16 +28,29 @@ getPlanetNoiseMap('pelagos', 'Pelagos');
 
 export interface PlanetStore {
   planets: Planet[];
+  currentPlanetId: string;
   addPlanet: (planet: Planet) => boolean;
   removePlanet: (planetId: string) => void;
   setPlanetSize: (planetId: string, size: PlanetSize) => void;
   setDayStartTimestamp: (planetId: string, ts: number) => void;
   setCurrentHour: (planetId: string, hour: number) => void;
   setCurrentLocale: (planetId: string, localeId: string) => void;
+  setCurrentPlanetId: (planetId: string) => void;
+}
+
+/**
+ * Resolve the actively-selected planet from `currentPlanetId`. Returns
+ * `undefined` (never throws) if `currentPlanetId` doesn't match any planet
+ * in `planets` — e.g. the selected planet was removed, or no planet has
+ * been selected yet.
+ */
+export function selectCurrentPlanet(state: PlanetStore): Planet | undefined {
+  return state.planets.find((p) => p.id === state.currentPlanetId);
 }
 
 export const usePlanetStore = create<PlanetStore>((set) => ({
   planets: [DEFAULT_PELAGOS],
+  currentPlanetId: DEFAULT_PELAGOS.id,
 
   addPlanet: (planet) => {
     let added = false;
@@ -99,6 +112,8 @@ export const usePlanetStore = create<PlanetStore>((set) => ({
         p.id === planetId ? { ...p, currentLocaleId: localeId } : p
       ),
     })),
+
+  setCurrentPlanetId: (planetId) => set({ currentPlanetId: planetId }),
 }));
 
 export default usePlanetStore;

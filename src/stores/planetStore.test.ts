@@ -3,7 +3,7 @@
 // ========================================
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { usePlanetStore, DEFAULT_PELAGOS } from './planetStore';
+import { usePlanetStore, DEFAULT_PELAGOS, selectCurrentPlanet } from './planetStore';
 
 // ========================================
 // TESTS
@@ -11,7 +11,7 @@ import { usePlanetStore, DEFAULT_PELAGOS } from './planetStore';
 
 describe('planetStore', () => {
   beforeEach(() => {
-    usePlanetStore.setState({ planets: [{ ...DEFAULT_PELAGOS }] });
+    usePlanetStore.setState({ planets: [{ ...DEFAULT_PELAGOS }], currentPlanetId: DEFAULT_PELAGOS.id });
   });
 
   describe('initial state', () => {
@@ -100,6 +100,49 @@ describe('planetStore', () => {
       usePlanetStore.getState().removePlanet('pelagos');
       expect(usePlanetStore.getState().planets).toHaveLength(1);
       expect(usePlanetStore.getState().planets[0].id).toBe('extra');
+    });
+  });
+
+  describe('currentPlanetId', () => {
+    it('defaults to the default planet on init', () => {
+      expect(usePlanetStore.getState().currentPlanetId).toBe('pelagos');
+    });
+
+    it('updates via setCurrentPlanetId', () => {
+      usePlanetStore.getState().addPlanet({ ...DEFAULT_PELAGOS, id: 'other', name: 'Other' });
+      usePlanetStore.getState().setCurrentPlanetId('other');
+      expect(usePlanetStore.getState().currentPlanetId).toBe('other');
+    });
+
+    it('does not validate the id against the planets list', () => {
+      // setCurrentPlanetId is a plain setter — selectCurrentPlanet is what resolves
+      // a currentPlanetId that doesn't match any planet (see below).
+      usePlanetStore.getState().setCurrentPlanetId('does-not-exist');
+      expect(usePlanetStore.getState().currentPlanetId).toBe('does-not-exist');
+    });
+  });
+
+  describe('selectCurrentPlanet', () => {
+    it('returns the planet matching currentPlanetId', () => {
+      expect(selectCurrentPlanet(usePlanetStore.getState())?.id).toBe('pelagos');
+    });
+
+    it('returns the newly selected planet after setCurrentPlanetId', () => {
+      usePlanetStore.getState().addPlanet({ ...DEFAULT_PELAGOS, id: 'other', name: 'Other', size: 'large' });
+      usePlanetStore.getState().setCurrentPlanetId('other');
+      expect(selectCurrentPlanet(usePlanetStore.getState())?.id).toBe('other');
+    });
+
+    it('returns undefined without throwing when no planet is selected', () => {
+      usePlanetStore.getState().setCurrentPlanetId('does-not-exist');
+      expect(() => selectCurrentPlanet(usePlanetStore.getState())).not.toThrow();
+      expect(selectCurrentPlanet(usePlanetStore.getState())).toBeUndefined();
+    });
+
+    it('returns undefined without throwing when the planets list is empty', () => {
+      usePlanetStore.getState().removePlanet('pelagos');
+      expect(() => selectCurrentPlanet(usePlanetStore.getState())).not.toThrow();
+      expect(selectCurrentPlanet(usePlanetStore.getState())).toBeUndefined();
     });
   });
 });
