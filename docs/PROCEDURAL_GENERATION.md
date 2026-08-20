@@ -39,6 +39,8 @@ evictLocaleNoiseMap(localeId: string): void
 
 - **Planet map:** `createNoise2D(alea(derivePlanetSeed(planetName)))`, cached by `planetId`.
 - **Locale map:** samples the planet map at `(x, y)` → a float in `[-1, 1]` → rescaled to an integer in `[0, 129599]` → that integer seeds `createNoise2D(alea(...))`, cached by `localeId`. Two locales with identical `(x, y)` on *different* planets get different noise maps, because the intermediate sample comes from a planet-specific function.
+
+  **Planned change (not yet implemented):** [Roadmap Phase 6](roadmap/roadmap.md) calls for robot spawn attributes to derive from a planet-agnostic lat/long coordinate seed instead — i.e. identical coordinates would produce identical robot attributes regardless of which planet they're on, a reversal of the guarantee stated above. This section still describes current behavior; update it once that phase lands.
 - **Lifecycle:** `planetStore.ts` and `localeStore.ts` prime the default planet/locale's maps eagerly at module scope (so they exist before first render) and again inside `addPlanet`/`addLocale`. `removePlanet`/`removeLocale` call the matching `evict*` function; `removePlanet` also evicts every locale map belonging to that planet.
 - `tryGetLocaleNoiseMap` exists specifically for hot-path callers (`AudioEngine`) that must not throw or block if a locale hasn't been registered yet.
 
