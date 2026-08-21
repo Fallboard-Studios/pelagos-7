@@ -163,26 +163,29 @@ Tasks 6, 12, 13 ──→ Task 14 (dev-only audible check hook)
 
   **Estimated scope:** S (ended up as code + the filter-split fix, not the originally-planned "no code")
 
-- [ ] **Task 5: `src/utils/globalAudioSeed.ts` — `generateGlobalAudioSettings`**
+- [x] **Task 5: `src/utils/globalAudioSeed.ts` — `generateGlobalAudioSettings`** — done
 
   **Description:** Implement `generateGlobalAudioSettings(planetId: string, planetName: string): GlobalAudioSettings`, sampling `getPlanetNoiseMap(planetId, planetName)` directly via `getSeededVal` for every field in Task 4's table (log-scaled fields sample in log space then exponentiate back into range). `enabled` is not seeded — set per spec §3 (see Task 6 for the "force true" override point). `dataId` keys are dot-namespaced (e.g. `'globalAudio.eq3.low'`), per `PROCEDURAL_GENERATION.md` convention.
 
+  **Implementation note:** the log/linear scaling logic is its own exported pure function, `scaleUnitValue(t, range)` — `getSeededVal` owns the seeded-noise-to-`[0,1]` draw, `scaleUnitValue` owns range + log/linear mapping, kept separately testable. This let the "log vs. linear" acceptance criterion below be proven deterministically (exact geometric-vs-arithmetic-mean math at `t=0.5`) instead of via statistical distribution sampling.
+
   **Acceptance criteria:**
-  - [ ] `generateGlobalAudioSettings(planetId, planetName)` returns a fully-populated `GlobalAudioSettings`.
-  - [ ] Same `(planetId, planetName)` input always produces identical output (determinism).
-  - [ ] Different planet names produce different values for at least one field (non-degenerate).
-  - [ ] Log-scaled fields (frequency, attack, release, decay, dampening) produce a log-distributed spread across repeated `offset` samples, not a linear one.
-  - [ ] All values fall within Task 4's documented min/max per field.
+  - [x] `generateGlobalAudioSettings(planetId, planetName)` returns a fully-populated `GlobalAudioSettings`.
+  - [x] Same `(planetId, planetName)` input always produces identical output (determinism) — tested both against the cached noise map and after an explicit `evictPlanetNoiseMap` forces a fresh one.
+  - [x] Different planet names produce different values for at least one field (non-degenerate).
+  - [x] Log-scaled fields produce a log-distributed (geometric) spread, not a linear (arithmetic) one — proven exactly via `scaleUnitValue`, not statistically.
+  - [x] All values fall within Task 4's documented min/max per field.
 
   **Verification:**
-  - [ ] `npm test -- globalAudioSeed` passes, covering determinism, range-bounding, and log-vs-linear distribution shape.
-  - [ ] `npm run build:types` clean.
+  - [x] `npx vitest run src/utils/globalAudioSeed.test.ts` — 11/11 passing.
+  - [x] `npm run build:types`, `npm run lint` clean (one import-order fix needed).
+  - [x] Full suite: 31 files, 456/456 passing (+11 from before).
 
   **Dependencies:** Task 4.
 
   **Files:** `src/utils/globalAudioSeed.ts`, `src/utils/globalAudioSeed.test.ts`
 
-  **Estimated scope:** M (1 new file + test, ~29-field mapping)
+  **Estimated scope:** M (1 new file + test, 24-field mapping)
 
 - [ ] **Task 6: Wire seeded global audio into `audioStore` on planet change**
 
