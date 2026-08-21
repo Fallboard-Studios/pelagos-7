@@ -5,6 +5,12 @@
 }
 
 .sc-text-input__el {
+  /* Without an explicit width, a bare <input> keeps its browser-default
+     intrinsic size (wider still for type="number", which adds spinner UI)
+     instead of filling its container — the fix for the mobile overflow
+     this caused inside CoordsInput's side-by-side X/Y layout. */
+  width: 100%;
+  box-sizing: border-box;
   padding: 6px 8px;
   border: 1px solid var(--color-border);
   border-radius: 4px;
