@@ -80,4 +80,17 @@ describe('AccordionContainer', () => {
     expect(trigger.getAttribute('aria-expanded')).toBe('true');
     expect(setTimeline).toHaveBeenCalled();
   });
+
+  it('sets the content height to auto on mount when defaultOpen is true, so it is not visually collapsed despite aria-expanded="true"', () => {
+    const { container } = render(<AccordionContainer schema={schema} defaultOpen>Content</AccordionContainer>);
+    expect(screen.getByRole('button').getAttribute('aria-expanded')).toBe('true');
+    const content = container.querySelector('.sc-accordion__content') as HTMLElement;
+    expect(content.style.height).toBe('auto');
+  });
+
+  it('leaves the content height unset on mount when defaultOpen is false (the default)', () => {
+    const { container } = render(<AccordionContainer schema={schema}>Content</AccordionContainer>);
+    const content = container.querySelector('.sc-accordion__content') as HTMLElement;
+    expect(content.style.height).toBe('');
+  });
 });
