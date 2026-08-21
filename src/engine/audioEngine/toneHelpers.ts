@@ -31,3 +31,17 @@ export function getToneCtor<T>(name: string): (new (...args: unknown[]) => T) | 
   const ctor = toneRecord[name];
   return typeof ctor === 'function' ? (ctor as new (...args: unknown[]) => T) : undefined;
 }
+
+/**
+ * A live, connectable Tone Signal or Param of any unit type — the return type
+ * of AudioEngine.getRobotModulationTarget and getGlobalModulationTarget
+ * (docs/tasks/LFO_INTEGRATION_PLAN.md Tasks 9-10). `any` is unavoidable here,
+ * not a shortcut: Tone.Signal/Param's real generic bound, UnitName, is
+ * defined in tone's internal build path (core/type/Units.d.ts) and is not
+ * re-exported from the public `tone` package — importing it would mean
+ * depending on an unsupported, version-fragile internal path. Declared once
+ * here so the `any` exists at exactly one site instead of being repeated at
+ * every call site.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type ModulationTarget = Tone.Signal<any> | Tone.Param<any>;
