@@ -271,20 +271,27 @@ Tasks 6, 12, 13 ──→ Task 14 (dev-only audible check hook)
 
   **Estimated scope:** S (2 files)
 
-- [ ] **Task 9: `AudioEngine.ts` — expose robot-voice modulation targets**
+- [x] **Task 9: `AudioEngine.ts` — expose robot-voice modulation targets** — done
 
   **Description:** Add `getRobotModulationTarget(robotId: string, target: RobotLfoTargetId): Tone.Signal<any> | Tone.Param<any> | null` to `AudioEngine`, returning the live `Signal`/`Param` for Gain and Detune, and `null` for Phase/pulseWidth-on-square (handled at the `lfoEngine` layer per Task 12, not here — this function only returns real connectable signals, never a polling proxy).
 
+  **Implementation notes:**
+  - `CompositeVoice` gained a new `layers` field exposing per-layer `{ synth, gainNode, layer }` — previously fully closure-private inside `createCompositeVoice`, with no way for anything outside it to reach a layer's live synth/gain nodes. This wasn't explicitly called out in the plan text, but is the necessary plumbing the task's whole premise requires — `layerNodes` already existed in exactly the needed shape inside the closure, so this was a one-line additive change (new interface field + appending `layers: layerNodes` to the existing return statement), not a restructure.
+  - `'volume'` (the 13th `RobotLfoTargetId`, the composite voice's overall output gain) isn't mentioned in the task's acceptance criteria list, but the function signature takes the full `RobotLfoTargetId` union, so it needed real handling too — resolved to `voice.output.gain`, tested explicitly.
+  - The existing `AudioEngine.test.ts` mock for `Tone.Synth` ignored its constructor entirely (always returned the same flat `oscillator: { detune: { value: 0 } }`, no `width`). Made it parameter-aware — `width` only appears when `oscillator.type === 'pulse'` — so the pulse-vs-square branch is genuinely exercised rather than trivially passing against an always-present mock field. Verified this change alone didn't break any of the file's other 57 pre-existing tests before adding new ones.
+  - **Follow-up cleanup:** the initial implementation repeated `Tone.Signal<any> | Tone.Param<any>` at 5 call sites (10 `no-explicit-any` lint warnings). Checked first whether a real non-`any` type existed — Tone's actual generic bound, `UnitName`, is defined in `tone/build/esm/core/type/Units.d.ts` and is **not re-exported from the public `tone` package**, so importing it would mean depending on an unsupported, version-fragile internal path; `any` is genuinely correct here, not a shortcut, since the function returns signals of different concrete unit types (gain, cents, audioRange) depending on the branch. Refactored to a single module-scope `ModulationTarget` type alias with one documented `eslint-disable-next-line`, used at every call site instead of repeating the union — `any` now exists at exactly one declaration site instead of ten. `npm run lint` is now 0 errors, 0 warnings. `ModulationTarget` is directly reusable by Task 10's `getGlobalModulationTarget`, which needs the identical return type.
+
   **Acceptance criteria:**
-  - [ ] Returns the composite voice's per-layer `Tone.Gain.gain` for `'layerN.gain'` targets.
-  - [ ] Returns the synth's `oscillator.detune` for `'layerN.detune'` targets.
-  - [ ] Returns `null` (not throw) for `'layerN.phase'` and for `'layerN.pulseWidth'` when that layer's type isn't `'pulse'`.
-  - [ ] Returns the `PulseOscillator.width` signal for `'layerN.pulseWidth'` when the layer type is `'pulse'`.
-  - [ ] Returns `null` for an unreserved/missing `robotId` — never throws.
+  - [x] Returns the composite voice's per-layer `Tone.Gain.gain` for `'layerN.gain'` targets.
+  - [x] Returns the synth's `oscillator.detune` for `'layerN.detune'` targets.
+  - [x] Returns `null` (not throw) for `'layerN.phase'` and for `'layerN.pulseWidth'` when that layer's type isn't `'pulse'`.
+  - [x] Returns the `PulseOscillator.width` signal for `'layerN.pulseWidth'` when the layer type is `'pulse'`.
+  - [x] Returns `null` for an unreserved/missing `robotId` — never throws.
 
   **Verification:**
-  - [ ] `npm test -- AudioEngine` passes, including new cases for each of the above.
-  - [ ] `npm run build:types` clean.
+  - [x] `npx vitest run src/engine/AudioEngine.test.ts` — 65/65 passing (8 new + 57 pre-existing, all still green). New cases cover every branch above plus `'volume'` and an out-of-range layer index.
+  - [x] `npm run build:types` clean. `npm run lint` — 0 errors, 0 warnings (after the `ModulationTarget` refactor above).
+  - [x] Full suite: 34 files, 499/499 passing (+8). `npm run build` clean.
 
   **Dependencies:** Task 7.
 
