@@ -19,6 +19,8 @@ const SHAPE_OPTIONS = LFO_SHAPES.map((shape) => ({ value: shape, label: shape.to
  * (active) per the grid's OSCILLATION rows. `LfoValue` is a type-only reuse
  * of the real Phase 0 engine type (src/types/lfo.ts) — no import of
  * src/engine/lfoEngine.ts or any Tone object, so this stays presentation-only.
+ * The root also carries a plain `isActive` class (see Toggle.tsx) so a
+ * consumer can write `.sc-lfo.isActive { ... }`.
  */
 export function Lfo({ schema, value, onChange }: LfoProps) {
   const shapeSchema: RadioButtonSchema = { id: `${schema.id}.shape`, type: 'radio', humanLabel: 'Shape', options: SHAPE_OPTIONS };
@@ -27,7 +29,7 @@ export function Lfo({ schema, value, onChange }: LfoProps) {
   const activeSchema: ToggleSchema = { id: `${schema.id}.active`, type: 'toggle', humanLabel: 'Active' };
 
   return (
-    <div className="sc-lfo">
+    <div className={`sc-lfo${value.active ? ' isActive' : ''}`}>
       <DualLabel loreLabel={schema.loreLabel} humanLabel={schema.humanLabel} />
       <RadioButton
         schema={shapeSchema}

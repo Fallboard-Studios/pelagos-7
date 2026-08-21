@@ -37,4 +37,15 @@ describe('StepperWithToggle', () => {
     fireEvent.click(screen.getByRole('button', { name: /increment/i }));
     expect(onChange).toHaveBeenCalledWith({ active: true, value: 4 });
   });
+
+  it('adds an isActive class to the component root when value.active is true', () => {
+    const { container } = render(<StepperWithToggle schema={schema} value={{ active: true, value: 3 }} onChange={() => {}} />);
+    expect(container.querySelector('.sc-stepper-toggle.isActive')).toBeTruthy();
+  });
+
+  it('omits the isActive class from the component root when value.active is false', () => {
+    const { container } = render(<StepperWithToggle schema={schema} value={{ active: false, value: 3 }} onChange={() => {}} />);
+    expect(container.querySelector('.sc-stepper-toggle.isActive')).toBeNull();
+    expect(container.querySelector('.sc-stepper-toggle')).toBeTruthy();
+  });
 });

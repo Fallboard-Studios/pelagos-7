@@ -46,4 +46,15 @@ describe('Lfo', () => {
     fireEvent.click(screen.getByRole('switch'));
     expect(onChange).toHaveBeenCalledWith({ shape: 'sine', rate: 2, depth: 40, active: false });
   });
+
+  it('adds an isActive class to the component root when value.active is true', () => {
+    const { container } = render(<Lfo schema={schema} value={value} onChange={() => {}} />);
+    expect(container.querySelector('.sc-lfo.isActive')).toBeTruthy();
+  });
+
+  it('omits the isActive class from the component root when value.active is false', () => {
+    const { container } = render(<Lfo schema={schema} value={{ ...value, active: false }} onChange={() => {}} />);
+    expect(container.querySelector('.sc-lfo.isActive')).toBeNull();
+    expect(container.querySelector('.sc-lfo')).toBeTruthy();
+  });
 });

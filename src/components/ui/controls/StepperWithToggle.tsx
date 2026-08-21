@@ -15,13 +15,15 @@ interface StepperWithToggleProps {
 }
 
 /** Composes Toggle + Stepper (Note Variance row). The Stepper is disabled
- *  (non-interactive) when value.active is false. */
+ *  (non-interactive) when value.active is false. The root also carries a
+ *  plain `isActive` class (see Toggle.tsx) so a consumer can write
+ *  `.sc-stepper-toggle.isActive { ... }`. */
 export function StepperWithToggle({ schema, value, onChange }: StepperWithToggleProps) {
   const toggleSchema: ToggleSchema = { id: `${schema.id}.active`, type: 'toggle', loreLabel: schema.loreLabel, humanLabel: schema.humanLabel };
   const stepperSchema: StepperSchema = { id: schema.id, type: 'stepper', min: schema.min, max: schema.max };
 
   return (
-    <div className="sc-stepper-toggle">
+    <div className={`sc-stepper-toggle${value.active ? ' isActive' : ''}`}>
       <Toggle
         schema={toggleSchema}
         value={value.active}
