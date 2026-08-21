@@ -113,9 +113,11 @@ Tasks 6, 12, 13 ──→ Task 14 (dev-only audible check hook)
 
 ### Phase 2: Global effect seed generation
 
-- [ ] **Task 4: Per-field seed range table for `GlobalAudioSettings`**
+- [x] **Task 4: Per-field seed range table for `GlobalAudioSettings`** — done
 
-  **Description:** Produce the (min, max, scale) table for all ~29 fields across the 7 global effects, resolving spec §7.3. Adopt the ranges already documented as comments in `globalAudio.ts`; assign `log`/`linear` scale by cross-referencing `GLOBAL_CHAIN_GRID.md`'s UI column (`SLIDER (Logarithmic)` → log, everything else → linear; `EQ`'s Center-Zero stays linear around 0).
+  **Description:** Produce the (min, max, scale) table for all 24 fields across the 7 global effects, resolving spec §7.3. Adopt the ranges already documented as comments in `globalAudio.ts`; assign `log`/`linear` scale by cross-referencing `GLOBAL_CHAIN_GRID.md`'s UI column (`SLIDER (Logarithmic)` → log, everything else → linear; `EQ`'s Center-Zero stays linear around 0).
+
+  **Deviation from plan, resolved before implementing:** `GlobalAudioSettings.filter` was a single `FilterSettings` field, but `AudioEngine.ts` has always built two independent Tone filter nodes (`_globalLPF`/`_globalHPF`) with separate setters (`setGlobalFilterLPF`/`setGlobalFilterHPF`), matching this table's own LPF/HPF split below and `GLOBAL_CHAIN_GRID.md`. The type never got updated to match. Fixed as part of this task (zero consumer blast radius — nothing in `src/` read `.filter`): `filter` → `filterLPF` + `filterHPF` in `src/types/globalAudio.ts` and `DEFAULT_GLOBAL_AUDIO_SETTINGS`, TDD'd in `src/types/globalAudio.test.ts`. Field count is 24, not the ~29 originally estimated (the plan's original estimate treated `filter` as a bigger group than it actually is).
 
   **Table (ship as a comment block or co-located const in `globalAudioSeed.ts`, per Task 5):**
 
@@ -147,18 +149,19 @@ Tasks 6, 12, 13 ──→ Task 14 (dev-only audible check hook)
   | Reverb | wet | 0 | 1 | linear |
 
   **Acceptance criteria:**
-  - [ ] Every field in `GlobalAudioSettings` (excluding `enabled`, `globalBypass`, `type`) has an entry.
-  - [ ] Each entry's min/max matches the existing doc comment in `src/types/globalAudio.ts` exactly (no silent range changes).
-  - [ ] Each entry's scale matches `GLOBAL_CHAIN_GRID.md`'s UI column.
+  - [x] Every field in `GlobalAudioSettings` (excluding `enabled`, `globalBypass`, `type`) has an entry.
+  - [x] Each entry's min/max matches the existing doc comment in `src/types/globalAudio.ts` exactly (no silent range changes).
+  - [x] Each entry's scale matches `GLOBAL_CHAIN_GRID.md`'s UI column.
 
   **Verification:**
-  - [ ] Table reviewed against both source files side-by-side (manual check, no test needed — this task produces data, not behavior).
+  - [x] Promoted from "manual review, no test" to real TDD'd code, per explicit request: RED tests written first in `globalAudioSeedRanges.test.ts` (module didn't exist), then `globalAudioSeedRanges.ts` implemented to GREEN. 6/6 tests pass, including cross-checking every `DEFAULT_GLOBAL_AUDIO_SETTINGS` value falls within its own range (inclusive) and that EQ3's center-zero fields are explicitly linear, not log.
+  - [x] `npm run build:types`, `npm run lint`, full suite (30 files, 445/445) all clean.
 
   **Dependencies:** None (pure research/documentation task; can run any time before Task 5).
 
-  **Files:** none yet (table is consumed by Task 5); may be committed as a standalone comment in that file.
+  **Files:** `src/data/globalAudioSeedRanges.ts`, `src/data/globalAudioSeedRanges.test.ts`, `src/types/globalAudio.ts` (filterLPF/filterHPF split), `src/types/globalAudio.test.ts` (new).
 
-  **Estimated scope:** XS (no code)
+  **Estimated scope:** S (ended up as code + the filter-split fix, not the originally-planned "no code")
 
 - [ ] **Task 5: `src/utils/globalAudioSeed.ts` — `generateGlobalAudioSettings`**
 
