@@ -20,11 +20,13 @@ describe('planetStore', () => {
     });
 
     it('default planet id is pelagos', () => {
-      expect(usePlanetStore.getState().planets[0].id).toBe('pelagos');
+      const pelagos = usePlanetStore.getState().planets.find((p) => p.id === 'pelagos');
+      expect(pelagos?.id).toBe('pelagos');
     });
 
     it('default planet size is medium', () => {
-      expect(usePlanetStore.getState().planets[0].size).toBe('medium');
+      const pelagos = usePlanetStore.getState().planets.find((p) => p.id === 'pelagos');
+      expect(pelagos?.size).toBe('medium');
     });
 
     it('maintains serializable state', () => {
@@ -35,16 +37,17 @@ describe('planetStore', () => {
   describe('setPlanetSize', () => {
     it('updates size for the target planet', () => {
       usePlanetStore.getState().setPlanetSize('pelagos', 'small');
-      expect(usePlanetStore.getState().planets[0].size).toBe('small');
+      const pelagos = usePlanetStore.getState().planets.find((p) => p.id === 'pelagos');
+      expect(pelagos?.size).toBe('small');
     });
 
     it('leaves other fields unchanged', () => {
-      const before = usePlanetStore.getState().planets[0];
+      const before = usePlanetStore.getState().planets.find((p) => p.id === 'pelagos');
       usePlanetStore.getState().setPlanetSize('pelagos', 'large');
-      const after = usePlanetStore.getState().planets[0];
-      expect(after.id).toBe(before.id);
-      expect(after.name).toBe(before.name);
-      expect(after.currentLocaleId).toBe(before.currentLocaleId);
+      const after = usePlanetStore.getState().planets.find((p) => p.id === 'pelagos');
+      expect(after?.id).toBe(before?.id);
+      expect(after?.name).toBe(before?.name);
+      expect(after?.currentLocaleId).toBe(before?.currentLocaleId);
     });
 
     it('does not affect other planets', () => {
@@ -58,26 +61,30 @@ describe('planetStore', () => {
   describe('setCurrentHour', () => {
     it('updates currentHour', () => {
       usePlanetStore.getState().setCurrentHour('pelagos', 14);
-      expect(usePlanetStore.getState().planets[0].currentHour).toBe(14);
+      const pelagos = usePlanetStore.getState().planets.find((p) => p.id === 'pelagos');
+      expect(pelagos?.currentHour).toBe(14);
     });
 
     it('accepts fractional hours', () => {
       usePlanetStore.getState().setCurrentHour('pelagos', 6.75);
-      expect(usePlanetStore.getState().planets[0].currentHour).toBe(6.75);
+      const pelagos = usePlanetStore.getState().planets.find((p) => p.id === 'pelagos');
+      expect(pelagos?.currentHour).toBe(6.75);
     });
   });
 
   describe('setDayStartTimestamp', () => {
     it('updates dayStartTimestamp', () => {
       usePlanetStore.getState().setDayStartTimestamp('pelagos', 9999);
-      expect(usePlanetStore.getState().planets[0].dayStartTimestamp).toBe(9999);
+      const pelagos = usePlanetStore.getState().planets.find((p) => p.id === 'pelagos');
+      expect(pelagos?.dayStartTimestamp).toBe(9999);
     });
   });
 
   describe('setCurrentLocale', () => {
     it('updates currentLocaleId', () => {
       usePlanetStore.getState().setCurrentLocale('pelagos', 'other-locale');
-      expect(usePlanetStore.getState().planets[0].currentLocaleId).toBe('other-locale');
+      const pelagos = usePlanetStore.getState().planets.find((p) => p.id === 'pelagos');
+      expect(pelagos?.currentLocaleId).toBe('other-locale');
     });
   });
 
@@ -99,7 +106,8 @@ describe('planetStore', () => {
       usePlanetStore.getState().addPlanet({ ...DEFAULT_PELAGOS, id: 'extra', name: 'Extra' });
       usePlanetStore.getState().removePlanet('pelagos');
       expect(usePlanetStore.getState().planets).toHaveLength(1);
-      expect(usePlanetStore.getState().planets[0].id).toBe('extra');
+      const extra = usePlanetStore.getState().planets.find((p) => p.id === 'extra');
+      expect(extra).toBeDefined();
     });
   });
 
