@@ -2,6 +2,7 @@ import { DualLabel } from './DualLabel';
 import { RadioButton } from './RadioButton';
 import { SliderLinear } from './SliderLinear';
 import { Toggle } from './Toggle';
+import { withActiveClass } from './activeClass';
 import { LFO_SHAPES, LFO_RATE_MIN, LFO_RATE_MAX, LFO_DEPTH_MIN, LFO_DEPTH_MAX } from '@/types/lfo';
 import type { LfoSchema, LfoValue, RadioButtonSchema, SliderLinearSchema, ToggleSchema } from '@/types/controls';
 import './Lfo.css';
@@ -29,7 +30,7 @@ export function Lfo({ schema, value, onChange }: LfoProps) {
   const activeSchema: ToggleSchema = { id: `${schema.id}.active`, type: 'toggle', humanLabel: 'Active' };
 
   return (
-    <div className={`sc-lfo${value.active ? ' isActive' : ''}`}>
+    <div className={withActiveClass('sc-lfo', value.active)}>
       <DualLabel loreLabel={schema.loreLabel} humanLabel={schema.humanLabel} />
       <RadioButton
         schema={shapeSchema}

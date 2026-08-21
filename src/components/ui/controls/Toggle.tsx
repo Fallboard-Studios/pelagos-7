@@ -2,6 +2,7 @@ import * as Switch from '@radix-ui/react-switch';
 
 import { DualLabel } from './DualLabel';
 import { resolveAccessibleName } from './accessibleName';
+import { withActiveClass } from './activeClass';
 import type { ToggleSchema } from '@/types/controls';
 import './Toggle.css';
 
@@ -18,7 +19,7 @@ interface ToggleProps {
  *  attribute selector. */
 export function Toggle({ schema, value, onChange }: ToggleProps) {
   return (
-    <div className={`sc-toggle${value ? ' isActive' : ''}`}>
+    <div className={withActiveClass('sc-toggle', value)}>
       <DualLabel loreLabel={schema.loreLabel} humanLabel={schema.humanLabel} />
       <Switch.Root
         className="sc-toggle__root"
