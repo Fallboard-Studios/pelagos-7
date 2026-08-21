@@ -12,7 +12,7 @@ import type { LfoSettings } from './lfo';
 // BASE
 // ========================================
 
-interface ControlSchemaBase {
+export interface ControlSchemaBase {
   id: string;
   /** Both optional — a schema entry may supply neither, either, or both.
    *  Rendered by this control's own internally-composed <DualLabel />. */

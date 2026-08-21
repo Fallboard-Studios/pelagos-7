@@ -1,3 +1,5 @@
+import type { ControlSchemaBase } from '@/types/controls';
+
 /**
  * Every interactive primitive needs a real accessible name (spec §5 pt 6),
  * but `loreLabel`/`humanLabel` are both optional (ControlSchemaBase) — a
@@ -7,6 +9,6 @@
  * `schema.id` is the one field every schema is guaranteed to have, so it's
  * the last-resort fallback — not a great label, but never silent.
  */
-export function resolveAccessibleName(schema: { humanLabel?: string; loreLabel?: string; id: string }): string {
+export function resolveAccessibleName(schema: ControlSchemaBase): string {
   return schema.humanLabel ?? schema.loreLabel ?? schema.id;
 }
