@@ -9,7 +9,7 @@ import { getActiveLocaleId } from '../utils/localeHelpers';
 import type { NoteDuration, WaveformType, Robot } from '../types/Robot';
 import type { OscillatorLayer } from '../types/layeredAudio';
 import type { ReverbSettings, DelaySettings, ChorusSettings, FilterSettings, EQ3Settings, CompressorSettings } from '../types/globalAudio';
-import type { RobotLfoTargetId } from '../types/lfo';
+import type { RobotLfoTargetId, GlobalLfoTargetId } from '../types/lfo';
 import { getAvailableNotes, scheduleHarmonyCycle, stopHarmonyCycle } from './harmonySystem';
 import { resetBeatClock, subscribeToMeasure, initBeatClock } from './beatClock';
 import type { RobotMelodyEvent } from './melodyGenerator';
@@ -905,6 +905,47 @@ export const AudioEngine = {
       return null;
     } catch (err) {
       devWarn('[AudioEngine] getRobotModulationTarget failed', err);
+      return null;
+    }
+  },
+
+  /**
+   * Resolve the live, connectable Tone Signal/Param for a global-chain LFO
+   * modulation target (docs/tasks/LFO_INTEGRATION_PLAN.md Task 10). Returns
+   * null — never throws — before AudioEngine.start() has constructed the FX
+   * chain (module-scope _global* nodes are null until then), and for
+   * 'chorus.delayTime' unconditionally: Tone.Chorus.delayTime is a plain
+   * get/set number, not a Signal — Chorus already runs its own internal LFO
+   * on delayTime, so Tone.js exposes no connectable Signal for it at all,
+   * independent of anything built here (verified against tone's own
+   * Chorus.d.ts, which declares `get/set delayTime(): Milliseconds`).
+   */
+  getGlobalModulationTarget(target: GlobalLfoTargetId): ModulationTarget | null {
+    try {
+      switch (target) {
+        case 'eq3.low':
+          return ((_globalEQ as unknown as { low?: unknown })?.low as ModulationTarget) ?? null;
+        case 'eq3.mid':
+          return ((_globalEQ as unknown as { mid?: unknown })?.mid as ModulationTarget) ?? null;
+        case 'eq3.high':
+          return ((_globalEQ as unknown as { high?: unknown })?.high as ModulationTarget) ?? null;
+        case 'lpf.frequency':
+          return ((_globalLPF as unknown as { frequency?: unknown })?.frequency as ModulationTarget) ?? null;
+        case 'lpf.Q':
+          return ((_globalLPF as unknown as { Q?: unknown })?.Q as ModulationTarget) ?? null;
+        case 'hpf.frequency':
+          return ((_globalHPF as unknown as { frequency?: unknown })?.frequency as ModulationTarget) ?? null;
+        case 'hpf.Q':
+          return ((_globalHPF as unknown as { Q?: unknown })?.Q as ModulationTarget) ?? null;
+        case 'chorus.delayTime':
+          return null;
+        case 'delay.delayTime':
+          return ((_globalDelay as unknown as { delayTime?: unknown })?.delayTime as ModulationTarget) ?? null;
+        default:
+          return null;
+      }
+    } catch (err) {
+      devWarn('[AudioEngine] getGlobalModulationTarget failed', err);
       return null;
     }
   },

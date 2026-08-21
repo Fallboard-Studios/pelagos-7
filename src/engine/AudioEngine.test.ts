@@ -1166,3 +1166,67 @@ describe('AudioEngine - getRobotModulationTarget', () => {
     expect(AudioEngine.getRobotModulationTarget('mod-target-oob', 'layer2.gain')).toBeNull();
   });
 });
+
+describe('AudioEngine - getGlobalModulationTarget', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it('returns null (not throw) for every target before AudioEngine.start() constructs the FX chain', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    const targets = [
+      'eq3.low', 'eq3.mid', 'eq3.high',
+      'lpf.frequency', 'lpf.Q',
+      'hpf.frequency', 'hpf.Q',
+      'chorus.delayTime',
+      'delay.delayTime',
+    ] as const;
+    for (const target of targets) {
+      expect(() => AudioEngine.getGlobalModulationTarget(target)).not.toThrow();
+      expect(AudioEngine.getGlobalModulationTarget(target)).toBeNull();
+    }
+  });
+
+  it('returns the live EQ3 low/mid/high Params after start()', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+    expect(AudioEngine.getGlobalModulationTarget('eq3.low')).toHaveProperty('value');
+    expect(AudioEngine.getGlobalModulationTarget('eq3.mid')).toHaveProperty('value');
+    expect(AudioEngine.getGlobalModulationTarget('eq3.high')).toHaveProperty('value');
+  });
+
+  it('returns the live LPF frequency/Q Signals after start()', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+    expect(AudioEngine.getGlobalModulationTarget('lpf.frequency')).toHaveProperty('value');
+    expect(AudioEngine.getGlobalModulationTarget('lpf.Q')).toHaveProperty('value');
+  });
+
+  it('returns the live HPF frequency/Q Signals after start()', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+    expect(AudioEngine.getGlobalModulationTarget('hpf.frequency')).toHaveProperty('value');
+    expect(AudioEngine.getGlobalModulationTarget('hpf.Q')).toHaveProperty('value');
+  });
+
+  it('returns the live Delay delayTime Param after start()', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+    expect(AudioEngine.getGlobalModulationTarget('delay.delayTime')).toHaveProperty('value');
+  });
+
+  it('returns null (not throw) for "chorus.delayTime" even after start() — Tone.Chorus.delayTime is a plain number, not a connectable Signal', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+    expect(() => AudioEngine.getGlobalModulationTarget('chorus.delayTime')).not.toThrow();
+    expect(AudioEngine.getGlobalModulationTarget('chorus.delayTime')).toBeNull();
+  });
+
+  it('distinguishes LPF and HPF — they are separate Filter instances, not the same node read twice', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+    const lpf = AudioEngine.getGlobalModulationTarget('lpf.frequency');
+    const hpf = AudioEngine.getGlobalModulationTarget('hpf.frequency');
+    expect(lpf).not.toBe(hpf);
+  });
+});

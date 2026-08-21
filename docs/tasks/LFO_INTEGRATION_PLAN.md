@@ -299,17 +299,20 @@ Tasks 6, 12, 13 ──→ Task 14 (dev-only audible check hook)
 
   **Estimated scope:** M (1 file, several new branches; well-isolated by existing composite-voice structure)
 
-- [ ] **Task 10: `AudioEngine.ts` — expose global-chain modulation targets**
+- [x] **Task 10: `AudioEngine.ts` — expose global-chain modulation targets** — done
 
-  **Description:** Add `getGlobalModulationTarget(target: GlobalLfoTargetId): Tone.Signal<any> | Tone.Param<any> | null` to `AudioEngine`, returning the live nodes already constructed in `loadInstruments` for the 9 global-chain `Has LFO` fields.
+  **Description:** Add `getGlobalModulationTarget(target: GlobalLfoTargetId): ModulationTarget | null` to `AudioEngine`, returning the live nodes already constructed in `loadInstruments` for the 9 global-chain `Has LFO` fields. Reuse Task 9's `ModulationTarget` type alias (already defined module-scope in `AudioEngine.ts`) rather than re-writing `Tone.Signal<any> | Tone.Param<any>` here — that repetition is exactly what Task 9's follow-up cleanup eliminated.
+
+  **Real finding — `'chorus.delayTime'` is NOT connectable, verified against Tone's own `.d.ts`, not assumed.** `GLOBAL_CHAIN_GRID.md` flags it `LFO: X`, but `Tone.Chorus.delayTime` is a plain `get/set` number (`Chorus.d.ts`: `get delayTime(): Milliseconds`), not a `Signal`/`Param` — Chorus already runs its own internal LFO on delayTime, so Tone.js exposes no connectable Signal for it at all. Checked every other target's real type too, not just this one: `EQ3.low/mid/high: Param<"decibels">`, `Filter.frequency: Signal<"frequency">`/`Filter.Q: Signal<"positive">` (both LPF and HPF, separate instances), `FeedbackDelay.delayTime: Param<"time">` — all 8 of those are genuinely connectable. `getGlobalModulationTarget('chorus.delayTime', …)` returns `null` unconditionally, documented in the function's own comment, not silently dropped. This is the same class of grid-says-yes-but-Tone.js-says-no finding as Task 9's Phase caveat (spec §7.1) — now two confirmed cases, not one.
 
   **Acceptance criteria:**
-  - [ ] Returns the correct live signal for all 9 `GlobalLfoTargetId` values (EQ3 low/mid/high, LPF freq/Q, HPF freq/Q, Chorus delayTime, Delay delayTime).
-  - [ ] Returns `null` (not throw) before `AudioEngine.start()` has constructed the FX chain.
+  - [x] Returns the correct live signal for all 9 `GlobalLfoTargetId` values (EQ3 low/mid/high, LPF freq/Q, HPF freq/Q, Chorus delayTime, Delay delayTime) — 8 real, 1 (`chorus.delayTime`) structurally `null` per the finding above.
+  - [x] Returns `null` (not throw) before `AudioEngine.start()` has constructed the FX chain.
 
   **Verification:**
-  - [ ] `npm test -- AudioEngine` passes, including a case per target and the pre-`start()` `null` case.
-  - [ ] `npm run build:types` clean.
+  - [x] `npx vitest run src/engine/AudioEngine.test.ts` — 72/72 passing (7 new + 65 pre-existing). New cases cover every target both pre- and post-`start()`, the `chorus.delayTime` null case explicitly, and that LPF/HPF resolve to genuinely distinct `Filter` instances (not the same node read twice).
+  - [x] `npm run build:types`, `npm run lint` clean — 0 errors, 0 warnings (reusing `ModulationTarget` meant zero new `any` warnings this time).
+  - [x] Full suite: 34 files, 506/506 passing (+7). `npm run build` clean.
 
   **Dependencies:** Task 7.
 
