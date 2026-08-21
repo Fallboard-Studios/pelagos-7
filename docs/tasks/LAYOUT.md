@@ -182,9 +182,13 @@ Task 11 (decorative rail/gradient flip) ── gated on human decision, no code 
 
 ### Phase 3: Cutaway + rebuilt mute/metadata bar
 
-- [ ] **Task 7: `SleeveContainer` — cutaway structure**
+- [x] **Task 7: `SleeveContainer` — cutaway structure** — done
 
   **Description:** Per this plan's Architecture Decision above, split the `hasPowerSwitch` instance into `.sleeve-container__power-corner` (houses `PowerRockerSwitch`, `position: absolute`, sized to the switch's real rendered footprint — measure it, don't guess) and `.sleeve-container__top-strip` (thin 16px decorative lip to its right, `position: absolute`, `aria-hidden`), both above `ScreenViewport` in stacking order. Define `--power-corner-width` (measured value) as a CSS custom property so Task 8 can reference the same number. The non-power `SleeveContainer` instance (bottom bar) is unchanged — still the plain full-width bar from Phase 1.
+
+  **Deviation from plan, caught and fixed before completion:** `--power-corner-width` was first defined on `.sleeve-container` itself, but `ScreenViewport.css` (Task 8) is a *sibling* under `.tablet`, not a descendant of `.sleeve-container` — a `var()` reference from a sibling stylesheet can't see a custom property scoped to another element. Moved the definition to `:root` in `index.css`, alongside `--sleeve-width`, matching that file's existing convention for shared layout tokens. `SleeveContainer.css` now only consumes it via `var()`.
+
+  **Implementation note — `--power-corner-width: 150px` is a reasoned estimate, not a live measurement.** `PowerRockerSwitch`'s own box is ~59px wide × ~147px tall before its 90° rotation (computed from `PowerRockerSwitch.css`'s `rocker-light-housing`/`rocker-bezel`/`rocker-el` dimensions plus the `.rocker-panel` gap); CSS transforms are paint-only and don't reflow around the rotated visual footprint, so 150px is this session's best estimate of that footprint's width without a live browser to measure against. Flagged in code comments in both `index.css` and this task — needs visual confirmation.
 
   **Acceptance criteria:**
   - [ ] `hasPowerSwitch` instance renders both `.sleeve-container__power-corner` (containing `PowerRockerSwitch`) and `.sleeve-container__top-strip`.
@@ -193,15 +197,16 @@ Task 11 (decorative rail/gradient flip) ── gated on human decision, no code 
   - [ ] No interactive element other than `PowerRockerSwitch` exists inside `SleeveContainer`'s markup (guardrail check).
 
   **Verification:**
-  - [ ] `npx vitest run SleeveContainer` — new `SleeveContainer.test.tsx`: `hasPowerSwitch` instance renders the corner + strip + `PowerRockerSwitch`; non-power instance renders only the logo.
-  - [ ] `npm run build:types`, `npm run lint`, `npm run build` clean.
-  - [ ] Manual: confirm the power switch renders in its corner, doesn't visually break, and the thin strip is visible to its right.
+  - [x] `npx vitest run SleeveContainer` — `SleeveContainer.test.tsx` (7 tests, real `PowerRockerSwitch` rendered with the same dependency mocks `PowerRockerSwitch.test.tsx` already uses): `hasPowerSwitch` instance renders the corner + strip + `PowerRockerSwitch`'s button, no `sleeve-logo`, and exactly one interactive element (guardrail check); non-power instance renders only the logo, no cutaway markup, zero interactive elements.
+  - [x] `SleeveContainer.css.test.ts` extended (Task 3's 4 tests kept, Task 7 added 3 more) + `index.css.test.ts` extended with 2 tests for the `:root`-scoped token — all stylesheet-source assertions, same jsdom-has-no-cascade approach as prior tasks.
+  - [x] `npm run build:types`, `npm run lint` clean. Full suite: 61 files, 710/710 passing (+13 net from this task: 7 in the new component test, 3 in the extended CSS test, 2 in `index.css.test.ts`, minus the 1 assertion rewritten in place). `npm run build` clean (1170 modules).
+  - [ ] Manual: confirm the power switch renders in its corner, doesn't visually break, and the thin strip is visible to its right — not yet performed this session (no browser/devtools tool loaded); **the 150px width estimate above specifically needs this check**.
 
   **Dependencies:** Task 2 (needs `.tablet`'s `position: relative`).
 
-  **Files:** `src/components/panels/physical/SleeveContainer.tsx`, `src/components/panels/physical/SleeveContainer.css`, `src/components/panels/physical/SleeveContainer.test.tsx` (new)
+  **Files:** `src/components/panels/physical/SleeveContainer.tsx`, `src/components/panels/physical/SleeveContainer.css`, `src/components/panels/physical/SleeveContainer.test.tsx` (new), `src/components/panels/physical/SleeveContainer.css.test.ts` (extended), `src/index.css` (`--power-corner-width` added), `src/index.css.test.ts` (extended)
 
-  **Estimated scope:** M (new structure + CSS + new test file)
+  **Estimated scope:** M (new structure + CSS + new test file) — grew slightly beyond plan due to the cross-file custom-property scoping fix.
 
 - [ ] **Task 8: `ScreenViewport` — reserve space for the cutaway**
 

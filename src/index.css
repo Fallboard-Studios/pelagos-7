@@ -7,6 +7,16 @@
 
   /* Sleeve layout */
   --sleeve-width: 64px;
+  /* Cutaway geometry (Task 7 of docs/tasks/LAYOUT.md). PowerRockerSwitch's
+     own box is ~59px wide x ~147px tall before its 90deg rotation; CSS
+     transforms are paint-only and don't reflow around the rotated visual
+     footprint, so this is a reasoned estimate of that footprint's width,
+     not a live measurement — confirm against the real rendered switch in a
+     browser and adjust if it clips or leaves too large a gap. Lives at
+     :root (not scoped to .sleeve-container) because ScreenViewport.css
+     (Task 8) is a sibling under .tablet, not a descendant, and needs the
+     same value. */
+  --power-corner-width: 150px;
 
   /* Color tokens (fallbacks; prefer assets/color-theme.json mapping elsewhere) */
   --color-bg: #121212;

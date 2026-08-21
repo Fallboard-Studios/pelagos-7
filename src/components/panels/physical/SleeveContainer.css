@@ -17,6 +17,34 @@
     0 2px 5px rgba(0, 0, 0, 0.55);
 }
 
+/* ─── Cutaway (hasPowerSwitch instance only) ──────────────────────────────── */
+/* Both pieces sit above ScreenViewport (which grows to fill the space this
+   sleeve instance no longer occupies as a full-height bar — see Tablet.css's
+   position: relative and ScreenViewport.css's corner exclusion, Task 8). */
+
+.sleeve-container__power-corner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--power-corner-width);
+  height: var(--sleeve-width);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.sleeve-container__top-strip {
+  position: absolute;
+  top: 0;
+  left: var(--power-corner-width);
+  right: 0;
+  height: 16px;
+  background: var(--color-surface);
+  pointer-events: none;
+}
+
 /* ─── Sleeve Logo ─────────────────────────────────────────────────────────── */
 .sleeve-logo {
   position: relative;

@@ -35,3 +35,19 @@ describe('index.css — dead sleeve-width tokens (Task 1)', () => {
     expect(css).toMatch(/@media \(prefers-color-scheme: light\)/);
   });
 });
+
+describe('index.css — --power-corner-width lives at :root (Task 7)', () => {
+  it('defines --power-corner-width exactly once', () => {
+    // Per docs/tasks/LAYOUT.md Task 7: SleeveContainer.css and
+    // ScreenViewport.css (Task 8) are siblings under .tablet, not
+    // ancestor/descendant — a var() defined on .sleeve-container wouldn't be
+    // visible to ScreenViewport.css. It has to live at :root, alongside
+    // --sleeve-width, so both files can reference the same value.
+    const definitions = css.match(/--power-corner-width\s*:\s*[^;]+;/g) ?? [];
+    expect(definitions.length).toBe(1);
+  });
+
+  it('defines it inside :root, not some other selector', () => {
+    expect(css).toMatch(/:root\s*{[^}]*--power-corner-width\s*:/s);
+  });
+});

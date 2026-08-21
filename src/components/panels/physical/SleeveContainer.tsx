@@ -8,8 +8,16 @@ interface SleeveContainerProps {
 function SleeveContainer({ hasPowerSwitch = false }: SleeveContainerProps) {
   return (
     <aside className="sleeve-container" aria-label="Device controls">
-      {hasPowerSwitch && <PowerRockerSwitch />}
-      <div className="sleeve-logo" role="img" aria-hidden="true">PELAGOS</div>
+      {hasPowerSwitch ? (
+        <>
+          <div className="sleeve-container__power-corner">
+            <PowerRockerSwitch />
+          </div>
+          <div className="sleeve-container__top-strip" aria-hidden="true" />
+        </>
+      ) : (
+        <div className="sleeve-logo" role="img" aria-hidden="true">PELAGOS</div>
+      )}
     </aside>
   );
 }
