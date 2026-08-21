@@ -1,6 +1,7 @@
 import * as Slider from '@radix-ui/react-slider';
 
 import { DualLabel } from './DualLabel';
+import { resolveAccessibleName } from './accessibleName';
 import { sliderLogTToValue, sliderLogValueToT } from './sliderLogMath';
 import type { SliderLogSchema } from '@/types/controls';
 import './SliderLog.css';
@@ -34,7 +35,7 @@ export function SliderLog({ schema, value, onChange }: SliderLogProps) {
         <Slider.Track className="sc-slider-log__track">
           <Slider.Range className="sc-slider-log__range" />
         </Slider.Track>
-        <Slider.Thumb className="sc-slider-log__thumb" aria-label={schema.humanLabel ?? schema.loreLabel} />
+        <Slider.Thumb className="sc-slider-log__thumb" aria-label={resolveAccessibleName(schema)} />
       </Slider.Root>
       {schema.unit && <span className="sc-slider-log__value">{value}{schema.unit}</span>}
     </div>

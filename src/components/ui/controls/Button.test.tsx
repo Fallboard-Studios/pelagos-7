@@ -31,4 +31,10 @@ describe('Button', () => {
     render(<Button schema={schema} onClick={() => {}} />);
     expect(screen.getByRole('button', { name: 'CALIBRATE PING' })).toBeTruthy();
   });
+
+  it('falls back to schema.id for the accessible name when neither label is present, never leaving it unlabeled', () => {
+    const schema: ButtonSchema = { id: 'resetMelody', type: 'button' };
+    render(<Button schema={schema} onClick={() => {}} />);
+    expect(screen.getByRole('button', { name: 'resetMelody' })).toBeTruthy();
+  });
 });

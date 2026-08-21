@@ -1,6 +1,7 @@
 import * as ToggleGroup from '@radix-ui/react-toggle-group';
 
 import { DualLabel } from './DualLabel';
+import { resolveAccessibleName } from './accessibleName';
 import type { RadioButtonSchema } from '@/types/controls';
 import './RadioButton.css';
 
@@ -22,7 +23,7 @@ export function RadioButton({ schema, value, onChange }: RadioButtonProps) {
         className="sc-radio-button__root"
         value={value}
         onValueChange={(next) => { if (next) onChange(next); }}
-        aria-label={schema.humanLabel ?? schema.loreLabel}
+        aria-label={resolveAccessibleName(schema)}
       >
         {schema.options.map((option) => (
           <ToggleGroup.Item

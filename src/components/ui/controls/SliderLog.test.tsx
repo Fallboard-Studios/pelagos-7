@@ -71,4 +71,10 @@ describe('SliderLog component', () => {
     expect(received).not.toBe(rawTDelta);
     expect(received).toBeCloseTo(sliderLogTToValue(rawTDelta, schema.min, schema.max), 10);
   });
+
+  it('falls back to schema.id for the accessible name when neither label is present, never leaving it unlabeled', () => {
+    const bareSchema: SliderLogSchema = { id: 'attack', type: 'sliderLog', min: 0, max: 10 };
+    render(<SliderLog schema={bareSchema} value={2} onChange={() => {}} />);
+    expect(screen.getByRole('slider', { name: 'attack' })).toBeTruthy();
+  });
 });

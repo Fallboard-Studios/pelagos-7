@@ -1,4 +1,5 @@
 import { DualLabel } from './DualLabel';
+import { resolveAccessibleName } from './accessibleName';
 import type { StepperSchema } from '@/types/controls';
 import './Stepper.css';
 
@@ -13,7 +14,7 @@ interface StepperProps {
  *  schema.step (default 1), never calls onChange with an out-of-bounds value. */
 export function Stepper({ schema, value, onChange, disabled }: StepperProps) {
   const step = schema.step ?? 1;
-  const accessibleName = schema.humanLabel ?? schema.loreLabel ?? schema.id;
+  const accessibleName = resolveAccessibleName(schema);
 
   function decrement() {
     const next = value - step;

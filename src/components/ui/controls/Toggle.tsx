@@ -1,6 +1,7 @@
 import * as Switch from '@radix-ui/react-switch';
 
 import { DualLabel } from './DualLabel';
+import { resolveAccessibleName } from './accessibleName';
 import type { ToggleSchema } from '@/types/controls';
 import './Toggle.css';
 
@@ -22,7 +23,7 @@ export function Toggle({ schema, value, onChange }: ToggleProps) {
       <Switch.Root
         className="sc-toggle__root"
         checked={value}
-        aria-label={schema.humanLabel ?? schema.loreLabel}
+        aria-label={resolveAccessibleName(schema)}
         onCheckedChange={(checked) => onChange(checked)}
       >
         <Switch.Thumb className="sc-toggle__thumb" />

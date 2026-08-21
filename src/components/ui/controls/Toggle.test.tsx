@@ -52,4 +52,10 @@ describe('Toggle', () => {
     expect(container.querySelector('.sc-toggle.isActive')).toBeNull();
     expect(container.querySelector('.sc-toggle')).toBeTruthy();
   });
+
+  it('falls back to schema.id for the accessible name when neither label is present, never leaving it unlabeled', () => {
+    const bareSchema: ToggleSchema = { id: 'layerActive', type: 'toggle' };
+    render(<Toggle schema={bareSchema} value={false} onChange={() => {}} />);
+    expect(screen.getByRole('switch', { name: 'layerActive' })).toBeTruthy();
+  });
 });

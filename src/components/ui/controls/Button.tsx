@@ -1,4 +1,5 @@
 import { DualLabel } from './DualLabel';
+import { resolveAccessibleName } from './accessibleName';
 import type { ButtonSchema } from '@/types/controls';
 import './Button.css';
 
@@ -13,7 +14,7 @@ interface ButtonProps {
  * label renders exactly once.
  */
 export function Button({ schema, onClick }: ButtonProps) {
-  const accessibleName = schema.humanLabel ?? schema.loreLabel;
+  const accessibleName = resolveAccessibleName(schema);
   return (
     <button
       type="button"

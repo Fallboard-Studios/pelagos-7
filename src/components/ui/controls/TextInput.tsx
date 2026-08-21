@@ -1,4 +1,5 @@
 import { DualLabel } from './DualLabel';
+import { resolveAccessibleName } from './accessibleName';
 import type { TextInputSchema } from '@/types/controls';
 import './TextInput.css';
 
@@ -24,7 +25,7 @@ export function TextInput({ schema, value, onChange, numeric }: TextInputProps) 
         inputMode={numeric ? 'decimal' : undefined}
         step={numeric ? 'any' : undefined}
         className="sc-text-input__el"
-        aria-label={schema.humanLabel ?? schema.loreLabel}
+        aria-label={resolveAccessibleName(schema)}
         placeholder={schema.placeholder}
         maxLength={schema.maxLength}
         value={value}

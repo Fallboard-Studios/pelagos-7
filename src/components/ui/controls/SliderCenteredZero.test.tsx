@@ -61,4 +61,10 @@ describe('SliderCenteredZero component', () => {
     expect(thumb.getAttribute('aria-valuemax')).toBe('50');
     expect(thumb.getAttribute('aria-valuenow')).toBe('10');
   });
+
+  it('falls back to schema.id for the accessible name when neither label is present, never leaving it unlabeled', () => {
+    const bareSchema: SliderCenteredZeroSchema = { id: 'detune', type: 'sliderCenteredZero', min: -50, max: 50 };
+    render(<SliderCenteredZero schema={bareSchema} value={0} onChange={() => {}} />);
+    expect(screen.getByRole('slider', { name: 'detune' })).toBeTruthy();
+  });
 });

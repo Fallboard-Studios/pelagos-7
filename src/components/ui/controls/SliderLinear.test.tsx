@@ -30,4 +30,10 @@ describe('SliderLinear', () => {
     render(<SliderLinear schema={schema} value={2} onChange={() => {}} />);
     expect(screen.getByText('Oscillation Rate')).toBeTruthy();
   });
+
+  it('falls back to schema.id for the accessible name when neither label is present, never leaving it unlabeled', () => {
+    const bareSchema: SliderLinearSchema = { id: 'lfoRate', type: 'sliderLinear', min: 0.1, max: 10 };
+    render(<SliderLinear schema={bareSchema} value={2} onChange={() => {}} />);
+    expect(screen.getByRole('slider', { name: 'lfoRate' })).toBeTruthy();
+  });
 });

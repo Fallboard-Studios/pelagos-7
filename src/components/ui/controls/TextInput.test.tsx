@@ -53,4 +53,10 @@ describe('TextInput', () => {
     expect(input.getAttribute('inputmode')).toBe('decimal');
     expect(input.value).toBe('12');
   });
+
+  it('falls back to schema.id for the accessible name when neither label is present, never leaving it unlabeled', () => {
+    const schema: TextInputSchema = { id: 'robotName', type: 'textInput' };
+    render(<TextInput schema={schema} value="" onChange={() => {}} />);
+    expect(screen.getByRole('textbox', { name: 'robotName' })).toBeTruthy();
+  });
 });

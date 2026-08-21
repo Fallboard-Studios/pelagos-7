@@ -44,4 +44,10 @@ describe('RadioButton', () => {
     fireEvent.click(screen.getByRole('radio', { name: 'SINE' }));
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it('falls back to schema.id for the group\'s accessible name when neither label is present, never leaving it unlabeled', () => {
+    const bareSchema: RadioButtonSchema = { id: 'lfoShape', type: 'radio', options: schema.options };
+    render(<RadioButton schema={bareSchema} value="sine" onChange={() => {}} />);
+    expect(screen.getByRole('group', { name: 'lfoShape' })).toBeTruthy();
+  });
 });
