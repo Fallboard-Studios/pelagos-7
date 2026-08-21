@@ -24,6 +24,21 @@ interface ControlSchemaBase {
 
 **Every primitive composes `DualLabel` internally for its own label rendering** — `Stepper`, `SliderLinear`, `RadioButton`, `AccordionContainer`, and every other control below render their `loreLabel`/`humanLabel` through an internally-rendered `<DualLabel />`, reading those fields off their *own* schema entry. There is no separate `DualLabelSchema` entry paired alongside a control's schema — one schema entry supplies both the control's bounds/options and its label pair. The standalone `type: 'dualLabel'` variant exists only for pure display-only rows with no other control (Robot Name, Job Data, Battery Data, Docked Status). `DualLabel` itself renders whichever subset of the pair is present — neither (renders nothing), one, or both.
 
+## Accessible names always resolve to something
+
+Because `loreLabel`/`humanLabel` are both optional (`ControlSchemaBase`), a schema entry can supply neither. Every interactive primitive computes its `aria-label` through `src/components/ui/controls/accessibleName.ts`'s `resolveAccessibleName(schema)`, which prefers `humanLabel`, falls back to `loreLabel`, and — if both are absent — falls back to `schema.id` (the one field every schema is guaranteed to have). This guarantees no control is ever left with an empty computed accessible name (WCAG 4.1.2), even though `schema.id` alone isn't a great human-facing label. Used by `Button`, `Toggle`, `TextInput`, `RadioButton`, `SliderLinear`, `SliderLog`, `SliderCenteredZero`, and `Stepper` (the last via its own `Increment {name}` / `Decrement {name}` template).
+
+## The `isActive` CSS hook
+
+`Toggle`, `StepperWithToggle`, `Lfo`, and `AccordionContainer` each add a plain `isActive` class to their own root element whenever their represented state is "on" (`Toggle`/`StepperWithToggle`/`Lfo`: their `active` value is `true`; `AccordionContainer`: currently expanded) — alongside whatever `data-state` Radix already sets internally on its own primitive. This exists so a consumer can write a plain compound selector instead of an attribute `:has()` query:
+
+```css
+.sc-toggle.isActive { }
+.sc-stepper-toggle.isActive { }
+.sc-lfo.isActive { }
+.sc-accordion.isActive { }
+```
+
 ## Primitives
 
 All 13 live in `src/components/ui/controls/`. Naming: PascalCase files, CSS class prefix `sc-` (schema control) to avoid collisions with the existing `rat-`/`rocker-` prefixes.
@@ -33,14 +48,14 @@ All 13 live in `src/components/ui/controls/`. Naming: PascalCase files, CSS clas
 | `DualLabel` | `DualLabelSchema` (standalone) or composed inside every other primitive | `{ loreLabel?: string; humanLabel?: string }` | Robot Name, Job Data, Battery Data, Docked Status |
 | `Button` | `ButtonSchema` | `{ schema: ButtonSchema; onClick: () => void }` | Reset Melody |
 | `Toggle` | `ToggleSchema` | `{ schema: ToggleSchema; value: boolean; onChange: (value: boolean) => void }` | Layer 2/3 Active, LFO Active |
-| `TextInput` | `TextInputSchema` | `{ schema: TextInputSchema; value: string; onChange: (value: string) => void }` | Not in the robot grid — roadmap Phase 5's Sector Settings (About text) |
+| `TextInput` | `TextInputSchema` | `{ schema: TextInputSchema; value: string; onChange: (value: string) => void; numeric?: boolean }` — `numeric` renders `type="number"`/`inputMode="decimal"` instead of plain text; it's a rendering-only prop, not part of `TextInputSchema` (the schema still describes generic text entry) | Not in the robot grid — roadmap Phase 5's Sector Settings (About text) |
 | `Stepper` | `StepperSchema` | `{ schema: StepperSchema; value: number; onChange: (value: number) => void; disabled?: boolean }` | Density, Motif Length, Octave Range Min/Max |
 | `StepperWithToggle` | `StepperWithToggleSchema` | `{ schema: StepperWithToggleSchema; value: { active: boolean; value: number }; onChange: (value) => void }` — composes `Toggle` + `Stepper` (disabled when `!active`) | Note Variance |
 | `RadioButton` | `RadioButtonSchema` | `{ schema: RadioButtonSchema; value: string; onChange: (value: string) => void }` — wraps `@radix-ui/react-toggle-group` (`type="single"`) | Audio Setting, Layer Type, LFO Shape |
 | `SliderLinear` | `SliderLinearSchema` | `{ schema: SliderLinearSchema; value: number; onChange: (value: number) => void }` | Volume, Sustain, Gain, Phase, Interval, LFO Rate/Depth |
 | `SliderLog` | `SliderLogSchema` | `{ schema: SliderLogSchema; value: number; onChange: (value: number) => void }` — epsilon-floor log curve, see below | Attack, Decay, Release |
 | `SliderCenteredZero` | `SliderCenteredZeroSchema` | `{ schema: SliderCenteredZeroSchema; value: number; onChange: (value: number) => void }` — zero-anchored custom fill, see below | Detune (all 3 layers) |
-| `CoordsInput` | `CoordsInputSchema` | `{ schema: CoordsInputSchema; value: { x: number; y: number }; onChange: (value) => void }` — composes two `TextInput`s | Not in the robot grid — roadmap Phase 5's Sector Settings |
+| `CoordsInput` | `CoordsInputSchema` | `{ schema: CoordsInputSchema; value: { x: number; y: number }; onChange: (value) => void }` — composes two `TextInput`s with `numeric` set, so X/Y render as native numeric inputs; a blank or non-numeric field is guarded and does not call `onChange` | Not in the robot grid — roadmap Phase 5's Sector Settings |
 | `AccordionContainer` | `AccordionSchema` | `{ schema: AccordionSchema; children: ReactNode; defaultOpen?: boolean }` — one independent collapsible section, not a group coordinator | Ping Controls, Ping Contour, Signature Array (drawer rows) |
 | `Lfo` | `LfoSchema` | `{ schema: LfoSchema; value: LfoValue; onChange: (value: LfoValue) => void }` — composes `RadioButton` + 2×`SliderLinear` + `Toggle` | OSCILLATION rows (LFO Active/Shape/Rate/Depth) |
 
