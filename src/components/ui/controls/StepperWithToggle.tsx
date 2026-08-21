@@ -1,5 +1,6 @@
 import { Toggle } from './Toggle';
 import { Stepper } from './Stepper';
+import { withActiveClass } from './activeClass';
 import type { StepperWithToggleSchema, ToggleSchema, StepperSchema } from '@/types/controls';
 import './StepperWithToggle.css';
 
@@ -23,7 +24,7 @@ export function StepperWithToggle({ schema, value, onChange }: StepperWithToggle
   const stepperSchema: StepperSchema = { id: schema.id, type: 'stepper', min: schema.min, max: schema.max };
 
   return (
-    <div className={`sc-stepper-toggle${value.active ? ' isActive' : ''}`}>
+    <div className={withActiveClass('sc-stepper-toggle', value.active)}>
       <Toggle
         schema={toggleSchema}
         value={value.active}

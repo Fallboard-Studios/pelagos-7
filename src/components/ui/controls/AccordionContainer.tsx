@@ -4,6 +4,7 @@ import gsap from 'gsap';
 
 import { DualLabel } from './DualLabel';
 import { getAccordionDuration } from './accordionAnimation';
+import { withActiveClass } from './activeClass';
 import { setTimeline, killTimeline } from '@/animation/timelineMap';
 import type { AccordionSchema } from '@/types/controls';
 import './AccordionContainer.css';
@@ -32,6 +33,19 @@ export function AccordionContainer({ schema, children, defaultOpen = false }: Ac
   useEffect(() => {
     return () => killTimeline(timelineKey);
   }, [timelineKey]);
+
+  // If mounted already-open, the content still needs its height freed from
+  // the CSS default (height: 0) — animateTo() only runs from user
+  // interaction (handleValueChange), so without this the section renders
+  // visually collapsed despite aria-expanded="true" on mount.
+  useEffect(() => {
+    if (defaultOpen && contentRef.current) {
+      contentRef.current.style.height = 'auto';
+    }
+    // Intentionally mount-only: defaultOpen only describes the initial
+    // state: post-mount opens/closes go through animateTo() instead.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function animateTo(nextOpen: boolean) {
     const el = contentRef.current;
@@ -65,7 +79,7 @@ export function AccordionContainer({ schema, children, defaultOpen = false }: Ac
     <Accordion.Root
       type="single"
       collapsible
-      className={`sc-accordion${open ? ' isActive' : ''}`}
+      className={withActiveClass('sc-accordion', open)}
       value={open ? schema.id : ''}
       onValueChange={handleValueChange}
     >
