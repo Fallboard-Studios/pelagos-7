@@ -223,21 +223,25 @@ Tasks 6, 12, 13 ──→ Task 14 (dev-only audible check hook)
 
 ### Phase 3: LFO types, config, and engine core
 
-- [ ] **Task 7: `src/types/lfo.ts`**
+- [x] **Task 7: `src/types/lfo.ts`** — done
 
   **Description:** Define `LfoShape` (`'triangle' | 'sine' | 'square' | 'sawtooth'`), `RobotLfoTargetId` (13 values: `'volume'`, and `'layer{0,1,2}.{gain,detune,phase,pulseWidth}'`), `GlobalLfoTargetId` (9 values: `'eq3.low'`, `'eq3.mid'`, `'eq3.high'`, `'lpf.frequency'`, `'lpf.Q'`, `'hpf.frequency'`, `'hpf.Q'`, `'chorus.delayTime'`, `'delay.delayTime'`), and `LfoSettings { shape: LfoShape; rate: number; depth: number }` (rate 0.1–10 Hz, depth 0–100%, per `ROBOT_DATA_GRID.md`'s LFO MODULE rows).
 
+  **Implementation note:** each union type is paired with a `readonly` const array (`LFO_SHAPES`, `ROBOT_LFO_TARGET_IDS`, `GLOBAL_LFO_TARGET_IDS`) so the "matches the grids exactly" acceptance criterion is genuinely runtime-testable rather than needing a new compile-time type-testing pattern this codebase doesn't otherwise use — and the arrays are what Task 8's `lfoConfig.ts` will iterate over to build `DEFAULT_LFO_SETTINGS`. Rate/depth bounds are also exported as named constants (`LFO_RATE_MIN/MAX`, `LFO_DEPTH_MIN/MAX`), not just documented in comments, so Task 8/11 have something to import instead of re-hardcoding.
+
   **Acceptance criteria:**
-  - [ ] All three target-id union types match the grids exactly (13 + 9 members).
-  - [ ] `LfoSettings` fields and bounds are documented in comments citing `ROBOT_DATA_GRID.md`.
-  - [ ] No `any` types.
+  - [x] All three target-id union types match the grids exactly (13 + 9 members).
+  - [x] `LfoSettings` fields and bounds are documented in comments citing `ROBOT_DATA_GRID.md`.
+  - [x] No `any` types.
 
   **Verification:**
-  - [ ] `npm run build:types` clean.
+  - [x] `npx vitest run src/types/lfo.test.ts` — 11/11 passing (exact membership, no duplicates, no cross-set overlap, bounds match the grid, a valid `LfoSettings` object type-checks).
+  - [x] `npm run build:types`, `npm run lint` clean.
+  - [x] Full suite: 33 files, 484/484 passing (+11 from before).
 
   **Dependencies:** None.
 
-  **Files:** `src/types/lfo.ts`
+  **Files:** `src/types/lfo.ts`, `src/types/lfo.test.ts`
 
   **Estimated scope:** XS (1 file, types only)
 
