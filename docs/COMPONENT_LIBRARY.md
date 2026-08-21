@@ -26,11 +26,11 @@ interface ControlSchemaBase {
 
 ## Accessible names always resolve to something
 
-Because `loreLabel`/`humanLabel` are both optional (`ControlSchemaBase`), a schema entry can supply neither. Every interactive primitive computes its `aria-label` through `src/components/ui/controls/accessibleName.ts`'s `resolveAccessibleName(schema)`, which prefers `humanLabel`, falls back to `loreLabel`, and — if both are absent — falls back to `schema.id` (the one field every schema is guaranteed to have). This guarantees no control is ever left with an empty computed accessible name (WCAG 4.1.2), even though `schema.id` alone isn't a great human-facing label. Used by `Button`, `Toggle`, `TextInput`, `RadioButton`, `SliderLinear`, `SliderLog`, `SliderCenteredZero`, and `Stepper` (the last via its own `Increment {name}` / `Decrement {name}` template).
+Because `loreLabel`/`humanLabel` are both optional (`ControlSchemaBase`, exported from `src/types/controls.ts`), a schema entry can supply neither. Every interactive primitive computes its `aria-label` through `src/components/ui/controls/accessibleName.ts`'s `resolveAccessibleName(schema: ControlSchemaBase)`, which prefers `humanLabel`, falls back to `loreLabel`, and — if both are absent — falls back to `schema.id` (the one field every schema is guaranteed to have). This guarantees no control is ever left with an empty computed accessible name (WCAG 4.1.2), even though `schema.id` alone isn't a great human-facing label. Used by `Button`, `Toggle`, `TextInput`, `RadioButton`, `SliderLinear`, `SliderLog`, `SliderCenteredZero`, and `Stepper` (the last via its own `Increment {name}` / `Decrement {name}` template).
 
 ## The `isActive` CSS hook
 
-`Toggle`, `StepperWithToggle`, `Lfo`, and `AccordionContainer` each add a plain `isActive` class to their own root element whenever their represented state is "on" (`Toggle`/`StepperWithToggle`/`Lfo`: their `active` value is `true`; `AccordionContainer`: currently expanded) — alongside whatever `data-state` Radix already sets internally on its own primitive. This exists so a consumer can write a plain compound selector instead of an attribute `:has()` query:
+`Toggle`, `StepperWithToggle`, `Lfo`, and `AccordionContainer` each add a plain `isActive` class to their own root element whenever their represented state is "on" (`Toggle`/`StepperWithToggle`/`Lfo`: their `active` value is `true`; `AccordionContainer`: currently expanded) — alongside whatever `data-state` Radix already sets internally on its own primitive. This exists so a consumer can write a plain compound selector instead of an attribute `:has()` query. All four share one implementation, `src/components/ui/controls/activeClass.ts`'s `withActiveClass(base, active)`:
 
 ```css
 .sc-toggle.isActive { }
