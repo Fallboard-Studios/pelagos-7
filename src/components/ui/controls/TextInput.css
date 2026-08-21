@@ -1,0 +1,19 @@
+.sc-text-input {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sc-text-input__el {
+  padding: 6px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  font: inherit;
+}
+
+.sc-text-input__el:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
