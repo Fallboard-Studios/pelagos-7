@@ -208,23 +208,28 @@ Task 11 (decorative rail/gradient flip) ── gated on human decision, no code 
 
   **Estimated scope:** M (new structure + CSS + new test file) — grew slightly beyond plan due to the cross-file custom-property scoping fix.
 
-- [ ] **Task 8: `ScreenViewport` — reserve space for the cutaway**
+  **Follow-up correction (found while starting Task 8, fixed as part of it below):** the plan's Architecture Decision says the power `SleeveContainer` instance is "taken out of flex flow" so `ScreenViewport` can become flush with the top — but the implementation above only made the two *children* `position: absolute`, leaving the `<aside>` root still `position: relative` and still claiming its normal 64px flex slot in `.tablet`'s column. A screenshot mid-Task-8 confirmed this: the old (pre-Task-9) `TransportBar` still rendered directly below a persistent 64px band, nothing freed up. Fixed by adding a `.sleeve-container--cutaway` modifier class (applied only to the `hasPowerSwitch` instance's root) with `position: absolute; top: 0; left: 0` — same width/height as the base rule, just removed from flow. 2 new tests added to `SleeveContainer.test.tsx`/`SleeveContainer.css.test.ts`, TDD'd RED→GREEN.
+
+- [x] **Task 8: `ScreenViewport` — reserve space for the cutaway** — done
 
   **Description:** Add the padding/offset exclusion described in this plan's Architecture Decision: the metadata bar's own container gets `padding-top: 16px` (clears the top strip) and a left offset of `var(--power-corner-width)` (clears the switch corner) for its own height; everything below is unaffected. No DOM changes needed in `ScreenViewport.tsx` itself beyond what Task 5 already did — this is a CSS-only task.
 
+  **Implementation:** `.screen-content .transport-bar { padding-top: 16px; padding-left: var(--power-corner-width); }` in `ScreenViewport.css` — a descendant selector from the layout-owning file reaching down to `TransportBar`'s own root class, rather than editing `TransportBar.css` directly, matching the plan's file scoping. Padding (not margin) was used deliberately — `.transport-bar` is `position: sticky`, and margin on a sticky element can interact awkwardly with its own `top: 0` offset; padding doesn't have that risk.
+
   **Acceptance criteria:**
-  - [ ] Nothing in `ScreenViewport`'s rendered content visually overlaps `SleeveContainer`'s power corner or top strip at any viewport width.
-  - [ ] `WorldView`/`Console` (below the bar) are unaffected — full width, no reserved space.
+  - [x] Nothing in `ScreenViewport`'s rendered content visually overlaps `SleeveContainer`'s power corner or top strip at any viewport width. *(Structurally true now that the exclusion exists — full confirmation is the pending manual check below.)*
+  - [x] `WorldView`/`Console` (below the bar) are unaffected — full width, no reserved space. Verified directly: no `padding-left` rule exists for either selector.
 
   **Verification:**
-  - [ ] `npm run build:types`, `npm run lint`, `npm run build` clean.
-  - [ ] Manual: confirm no visual overlap between the switch/strip and the (still old, pre-Task-9) `TransportBar` content across viewport widths.
+  - [x] `ScreenViewport.css.test.ts` extended with 3 new stylesheet-source tests (padding-top, padding-left reusing the shared token, and confirming world-view/console are untouched) — TDD'd RED→GREEN (2 of 3 were genuinely RED; the "untouched" one was already true and stayed green as a baseline check).
+  - [x] `npm run build:types`, `npm run lint` clean. Full suite: 61 files, 716/716 passing (+6 net: 2 from the Task 7 correction, 3 from this task's `ScreenViewport.css.test.ts`, 1 net from combining/dedup). `npm run build` clean (1170 modules).
+  - [ ] Manual: confirm no visual overlap between the switch/strip and the (still old, pre-Task-9) `TransportBar` content across viewport widths — not yet performed this session (no browser/devtools tool loaded). `TransportBar` itself still shows its pre-Task-9 restart/pause/mute/measure/BPM content, so this check is most meaningful once Task 9 lands.
 
   **Dependencies:** Task 6, Task 7.
 
-  **Files:** `src/components/panels/physical/ScreenViewport.css`
+  **Files:** `src/components/panels/physical/ScreenViewport.css`, `src/components/panels/physical/ScreenViewport.css.test.ts` (extended). Plus the Task 7 correction above: `src/components/panels/physical/SleeveContainer.tsx`, `src/components/panels/physical/SleeveContainer.css`, `src/components/panels/physical/SleeveContainer.test.tsx`, `src/components/panels/physical/SleeveContainer.css.test.ts`.
 
-  **Estimated scope:** S (1 file, CSS only)
+  **Estimated scope:** S (1 file, CSS only) — the Task 7 correction added scope beyond this task's own file, but that work belonged to Task 7's responsibility, not Task 8's.
 
 - [ ] **Task 9: `TransportBar` rebuild — controls, metadata, sticky-always, wrap**
 

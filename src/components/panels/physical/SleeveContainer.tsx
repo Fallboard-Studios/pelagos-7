@@ -6,8 +6,10 @@ interface SleeveContainerProps {
   hasPowerSwitch?: boolean;
 }
 function SleeveContainer({ hasPowerSwitch = false }: SleeveContainerProps) {
+  const className = hasPowerSwitch ? 'sleeve-container sleeve-container--cutaway' : 'sleeve-container';
+
   return (
-    <aside className="sleeve-container" aria-label="Device controls">
+    <aside className={className} aria-label="Device controls">
       {hasPowerSwitch ? (
         <>
           <div className="sleeve-container__power-corner">

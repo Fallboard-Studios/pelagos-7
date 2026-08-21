@@ -55,4 +55,13 @@ describe('SleeveContainer.css — cutaway structure (Task 7)', () => {
     expect(css).toMatch(/\.sleeve-container__power-corner\s*{[^}]*position:\s*absolute/s);
     expect(css).toMatch(/\.sleeve-container__top-strip\s*{[^}]*position:\s*absolute/s);
   });
+
+  it('takes the whole cutaway instance out of flex flow via a --cutaway modifier', () => {
+    // Correction found while starting Task 8: making only the two children
+    // absolute leaves the <aside> root still claiming its normal 64px flex
+    // slot in .tablet's column — ScreenViewport never actually becomes
+    // flush with the top. The modifier must position the root itself.
+    expect(css).toMatch(/\.sleeve-container--cutaway\s*{[^}]*position:\s*absolute/s);
+    expect(css).toMatch(/\.sleeve-container--cutaway\s*{[^}]*top:\s*0/s);
+  });
 });

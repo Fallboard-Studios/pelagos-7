@@ -18,9 +18,17 @@
 }
 
 /* ─── Cutaway (hasPowerSwitch instance only) ──────────────────────────────── */
-/* Both pieces sit above ScreenViewport (which grows to fill the space this
-   sleeve instance no longer occupies as a full-height bar — see Tablet.css's
-   position: relative and ScreenViewport.css's corner exclusion, Task 8). */
+/* The whole instance is taken out of .tablet's flex flow (not just its two
+   children below) so ScreenViewport can rise to become flush with the true
+   top of the tablet — see Tablet.css's position: relative (the containing
+   block this positions against) and ScreenViewport.css's corner exclusion
+   (Task 8). Own width/height are unchanged from the base rule above; only
+   position/top/left move it out of flow. */
+.sleeve-container--cutaway {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
 
 .sleeve-container__power-corner {
   position: absolute;

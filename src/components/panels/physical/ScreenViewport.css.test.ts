@@ -53,3 +53,22 @@ describe('ScreenViewport.css — drop two-column grid + robotlist area (Task 6)'
     expect(css).toMatch(/@media screen and \(min-width: 48em\)/);
   });
 });
+
+describe('ScreenViewport.css — reserve space for the cutaway (Task 8)', () => {
+  it('pushes .transport-bar down to clear the 16px top strip', () => {
+    expect(css).toMatch(/\.screen-content \.transport-bar\s*{[^}]*padding-top:\s*16px/s);
+  });
+
+  it('pushes .transport-bar right to clear the power corner, reusing the shared token', () => {
+    // Reuses --power-corner-width (defined once at :root, index.css) rather
+    // than a second hardcoded number that could drift from SleeveContainer's.
+    expect(css).toMatch(/\.screen-content \.transport-bar\s*{[^}]*padding-left:\s*var\(--power-corner-width\)/s);
+  });
+
+  it('does not apply either exclusion to world-view or console', () => {
+    // Edge case: the exclusion is scoped to the metadata bar's own row only
+    // — WorldView/Console (below it) must stay full-width, untouched.
+    expect(css).not.toMatch(/\.world-view\s*{[^}]*padding-left/s);
+    expect(css).not.toMatch(/\.console\s*{[^}]*padding-left/s);
+  });
+});

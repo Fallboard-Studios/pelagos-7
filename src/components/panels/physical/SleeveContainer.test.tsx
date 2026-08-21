@@ -55,6 +55,18 @@ describe('SleeveContainer (Task 7 — cutaway structure)', () => {
       const interactive = container.querySelectorAll(INTERACTIVE_SELECTOR);
       expect(interactive.length).toBe(1);
     });
+
+    it('carries the --cutaway modifier on its own root element', () => {
+      // Correction found while starting Task 8: the plan's Architecture
+      // Decision says the power instance is "taken out of flex flow" so
+      // ScreenViewport can become flush with the top of .tablet — that
+      // requires the <aside> ROOT to be position: absolute, not just its
+      // two children. Without this modifier class, the root stays a normal
+      // 64px-tall flex child and nothing is actually freed up.
+      const { container } = render(<SleeveContainer hasPowerSwitch />);
+      const root = container.querySelector('.sleeve-container');
+      expect(root?.classList.contains('sleeve-container--cutaway')).toBe(true);
+    });
   });
 
   describe('non-power instance', () => {
@@ -75,6 +87,12 @@ describe('SleeveContainer (Task 7 — cutaway structure)', () => {
     it('has no interactive elements at all', () => {
       const { container } = render(<SleeveContainer />);
       expect(container.querySelectorAll(INTERACTIVE_SELECTOR).length).toBe(0);
+    });
+
+    it('does not carry the --cutaway modifier — stays a normal flex child', () => {
+      const { container } = render(<SleeveContainer />);
+      const root = container.querySelector('.sleeve-container');
+      expect(root?.classList.contains('sleeve-container--cutaway')).toBe(false);
     });
   });
 });

@@ -127,3 +127,13 @@
     "worldview"
     "console";
 }
+
+/* Reserve space for SleeveContainer's cutaway (Task 7/8 of
+   docs/tasks/LAYOUT.md): the top strip is 16px tall, and the power corner
+   is --power-corner-width wide (both defined in index.css / SleeveContainer.css)
+   — .transport-bar is the only row anywhere near that corner, so only it
+   needs to clear them. WorldView/Console stay full-width, untouched. */
+.screen-content .transport-bar {
+  padding-top: 16px;
+  padding-left: var(--power-corner-width);
+}
