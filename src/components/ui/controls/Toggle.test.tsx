@@ -41,4 +41,15 @@ describe('Toggle', () => {
     expect(screen.getByText('LAYER ACTIVE')).toBeTruthy();
     expect(screen.getByText('Layer Active')).toBeTruthy();
   });
+
+  it('adds an isActive class to the component root when value is true, for a plain CSS hook (e.g. .sc-toggle.isActive)', () => {
+    const { container } = render(<Toggle schema={schema} value={true} onChange={() => {}} />);
+    expect(container.querySelector('.sc-toggle.isActive')).toBeTruthy();
+  });
+
+  it('omits the isActive class from the component root when value is false', () => {
+    const { container } = render(<Toggle schema={schema} value={false} onChange={() => {}} />);
+    expect(container.querySelector('.sc-toggle.isActive')).toBeNull();
+    expect(container.querySelector('.sc-toggle')).toBeTruthy();
+  });
 });

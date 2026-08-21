@@ -11,10 +11,13 @@ interface ToggleProps {
 }
 
 /** Binary ON/OFF control wrapping @radix-ui/react-switch. Controlled — never
- *  manages its own selection state. */
+ *  manages its own selection state. The root also carries a plain `isActive`
+ *  class (alongside Radix's own `data-state` on the switch itself) so a
+ *  consumer can write `.sc-toggle.isActive { ... }` instead of a `:has()`
+ *  attribute selector. */
 export function Toggle({ schema, value, onChange }: ToggleProps) {
   return (
-    <div className="sc-toggle">
+    <div className={`sc-toggle${value ? ' isActive' : ''}`}>
       <DualLabel loreLabel={schema.loreLabel} humanLabel={schema.humanLabel} />
       <Switch.Root
         className="sc-toggle__root"
