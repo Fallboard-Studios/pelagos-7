@@ -357,6 +357,39 @@ describe('lfoEngine', () => {
       expect(instance.connect).toHaveBeenCalledWith(signal);
     });
 
+    it('is idempotent when called twice in a row on the same target/signal — never issues a second .connect(), so the same LFO can never double-modulate a target', async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      const signal = fakeSignal();
+      (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValue(signal);
+
+      const { lfoEngine } = await import('./lfoEngine');
+      const first = lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+      const second = lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+
+      expect(first).toBe(true);
+      expect(second).toBe(true);
+      const instance = await latestLfoInstance();
+      expect(instance.connect).toHaveBeenCalledTimes(1);
+    });
+
+    it('reconnects (disconnect + connect) rather than silently ignoring a change when the resolved signal differs from what was last connected — e.g. a rebuilt composite voice', async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      const firstSignal = fakeSignal();
+      const secondSignal = fakeSignal();
+      (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>)
+        .mockReturnValueOnce(firstSignal)
+        .mockReturnValueOnce(secondSignal);
+
+      const { lfoEngine } = await import('./lfoEngine');
+      lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+      const instance = await latestLfoInstance();
+      lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+
+      expect(instance.disconnect).toHaveBeenCalledTimes(1);
+      expect(instance.connect).toHaveBeenNthCalledWith(1, firstSignal);
+      expect(instance.connect).toHaveBeenNthCalledWith(2, secondSignal);
+    });
+
     describe('output range scaling — Tone.LFO defaults to min:0/max:1, which is functionally inaudible against any real target', () => {
       it('scales min/max to the target\'s real range for a robot Gain target (0-2, per ROBOT_DATA_GRID.md)', async () => {
         const { AudioEngine } = await import('./AudioEngine');
