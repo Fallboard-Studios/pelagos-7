@@ -2,14 +2,16 @@
 // IMPORTS
 // ========================================
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { NoiseFunction2D } from 'simplex-noise';
+import alea from 'alea';
+import { createNoise2D, type NoiseFunction2D } from 'simplex-noise';
 import type { Robot } from '../types/Robot';
 
-import { generateSpawnPosition, generateAudioAttributes, spawnRobot } from './spawnSystem';
+import { generateSpawnPosition, generateAudioAttributes, generateRobotLfoSettings, spawnRobot } from './spawnSystem';
 import { useLocaleStore, DEFAULT_LOCALE } from '../stores/localeStore';
 import { DEFAULT_LOCALE_ID } from '../stores/planetStore';
 import { AudioEngine } from '../engine/AudioEngine';
 import { RobotState } from '../types/Robot';
+import { ROBOT_LFO_TARGET_IDS, LFO_SHAPES, LFO_RATE_MIN, LFO_RATE_MAX, LFO_DEPTH_MIN, LFO_DEPTH_MAX } from '../types/lfo';
 
 /** General-purpose mock: returns a pseudo-random value in [-1, 1]. */
 const mockNoiseMap: NoiseFunction2D = () => Math.random() * 2 - 1;
@@ -145,6 +147,45 @@ describe('spawnSystem', () => {
     });
   });
 
+  describe('generateRobotLfoSettings', () => {
+    it('generates LfoSettings for all 13 RobotLfoTargetId values, no extras', () => {
+      const settings = generateRobotLfoSettings(mockNoiseMap, 0);
+      expect(Object.keys(settings).sort()).toEqual([...ROBOT_LFO_TARGET_IDS].sort());
+    });
+
+    it('every target\'s shape/rate/depth falls within documented bounds', () => {
+      const settings = generateRobotLfoSettings(mockNoiseMap, 0);
+      for (const target of ROBOT_LFO_TARGET_IDS) {
+        const s = settings[target];
+        expect(LFO_SHAPES, `${target}.shape`).toContain(s.shape);
+        expect(s.rate, `${target}.rate >= min`).toBeGreaterThanOrEqual(LFO_RATE_MIN);
+        expect(s.rate, `${target}.rate <= max`).toBeLessThanOrEqual(LFO_RATE_MAX);
+        expect(s.depth, `${target}.depth >= min`).toBeGreaterThanOrEqual(LFO_DEPTH_MIN);
+        expect(s.depth, `${target}.depth <= max`).toBeLessThanOrEqual(LFO_DEPTH_MAX);
+      }
+    });
+
+    it('gives different targets different values within the same call — dataIds are genuinely distinct, not colliding', () => {
+      const settings = generateRobotLfoSettings(mockNoiseMap, 0);
+      const rates = ROBOT_LFO_TARGET_IDS.map((t) => settings[t].rate);
+      expect(new Set(rates.map((r) => r.toFixed(6))).size).toBeGreaterThan(1);
+    });
+
+    it('is deterministic — the same real seeded noise map + offset always produces identical LfoSettings', () => {
+      const noiseMap = createNoise2D(alea('lfo-determinism-test-seed'));
+      const first = generateRobotLfoSettings(noiseMap, 5);
+      const second = generateRobotLfoSettings(noiseMap, 5);
+      expect(second).toEqual(first);
+    });
+
+    it('produces different LfoSettings for a different spawn offset (non-degenerate)', () => {
+      const noiseMap = createNoise2D(alea('lfo-determinism-test-seed'));
+      const a = generateRobotLfoSettings(noiseMap, 0);
+      const b = generateRobotLfoSettings(noiseMap, 1);
+      expect(b).not.toEqual(a);
+    });
+  });
+
   describe('spawnRobot', () => {
     beforeEach(() => {
       // Reset locale store before each test
@@ -168,8 +209,30 @@ describe('spawnSystem', () => {
       expect(robot.melody).toBeDefined();
       expect(robot.melody.length).toBeGreaterThan(0);
       expect(robot.audioAttributes).toBeDefined();
+      expect(robot.lfoSettings).toBeDefined();
+      expect(Object.keys(robot.lfoSettings ?? {}).sort()).toEqual([...ROBOT_LFO_TARGET_IDS].sort());
 
       expect(registerSpy).toHaveBeenCalledWith(robot.id, robot.melody);
+    });
+
+    it('a copied robot inherits the source\'s lfoSettings rather than generating fresh ones', () => {
+      // Raise maxRobots so 30 spawns don't trigger the oldest-robot removal
+      // churn (default cap is 12) — that's an orthogonal system this test
+      // isn't about. 30 spawns at a ~30% copy chance per spawn makes at
+      // least one copy virtually certain (P(zero copies) ≈ 0.7^29 ≈ 0.00002).
+      useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, {
+        settings: { ...DEFAULT_LOCALE.settings, maxRobots: 100 },
+      });
+      for (let i = 0; i < 30; i++) spawnRobot(DEFAULT_LOCALE_ID);
+      const robots = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.robots ?? [];
+      const bySettings = new Map<Robot['lfoSettings'], Robot[]>();
+      for (const r of robots) {
+        const group = bySettings.get(r.lfoSettings) ?? [];
+        group.push(r);
+        bySettings.set(r.lfoSettings, group);
+      }
+      const sharedGroup = [...bySettings.values()].find((g) => g.length > 1);
+      expect(sharedGroup, 'expected at least one copy to share its source\'s lfoSettings reference').toBeDefined();
     });
 
     it('enforces MAX_ROBOTS limit', () => {

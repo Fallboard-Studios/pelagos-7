@@ -51,6 +51,31 @@ export function getGlobalPlanetSeedOverride(): string | null {
 }
 
 /**
+ * Generate a fresh random alphanumeric planet name (lowercase a-z0-9, 8
+ * chars). No lore/flavor generation yet — nothing in the UI displays the
+ * planet name today; a lore-style generator can replace this later
+ * (Sector Settings, roadmap Phase 5) without changing this function's
+ * callers.
+ */
+export function generateRandomPlanetName(): string {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+/**
+ * Resolve the name to use for the app's default planet on load.
+ *
+ * If a global seed override is active (`?seed=`, `window.__GLOBAL_PLANET_SEED__`,
+ * or `setGlobalPlanetSeedOverride`), returns that override deterministically —
+ * preserving the override's documented purpose of reproducible bug
+ * reports/screenshots end-to-end, not just for downstream data-key hashing.
+ * Otherwise returns a fresh random name each call.
+ */
+export function resolveDefaultPlanetName(): string {
+  const override = getGlobalPlanetSeedOverride();
+  return override ?? generateRandomPlanetName();
+}
+
+/**
  * Compute the planet's deterministic initial in-world hour (integer 0–23)
  * from the planet seed.
  *

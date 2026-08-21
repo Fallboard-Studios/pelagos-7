@@ -8,6 +8,7 @@ This guide documents the current Pelagos-7 audio architecture and the convention
 - [BeatClock Guide](BEAT_CLOCK.md) - Musical timing and scheduling
 - [Harmony System Guide](HARMONY_SYSTEM.md) - Dynamic note palettes
 - [Melody Generation Guide](MELODY_SYSTEM.md) - Procedural melody creation
+- [LFO Modulation](#lfo-modulation) - Audio-rate parameter modulation for robot and global-chain targets (below, no separate file yet)
 
 ## Core Audio Rules
 
@@ -195,6 +196,61 @@ Global:                                                        │
 ```
 
 Control the global chain via `AudioEngine.setGlobal*`/`setEffectBypass`/`setGlobalBypass` (see API above). None of this FX surface was previously documented here.
+
+## LFO Modulation
+
+Audio-rate parameter modulation for both robot voices and the global FX chain, built in `src/engine/lfoEngine.ts`. LFOs are lazily instantiated per `(target, robotId?)` pair — nothing is constructed until a setter or `connectLfoTarget` first touches that pair — and every LFO's rate is a free-running Hz value; only start/stop are transport-gated, never the rate itself (`Tone.LFO.sync()` is deliberately never called — per its own doc comment it also ties frequency to the transport's BPM, which would violate that).
+
+### Target ids
+
+22 targets total, defined in `src/types/lfo.ts`, each traced to a reference grid:
+
+- **`RobotLfoTargetId`** (13, from [ROBOT_DATA_GRID.md](reference/ROBOT_DATA_GRID.md)'s `Has LFO` column): `'volume'`, and `'layer{0,1,2}.{gain,detune,phase,pulseWidth}'`.
+- **`GlobalLfoTargetId`** (9, from [GLOBAL_CHAIN_GRID.md](reference/GLOBAL_CHAIN_GRID.md)'s `LFO?` column): `'eq3.low'`, `'eq3.mid'`, `'eq3.high'`, `'lpf.frequency'`, `'lpf.Q'`, `'hpf.frequency'`, `'hpf.Q'`, `'chorus.delayTime'`, `'delay.delayTime'`. Uses the `'lpf'`/`'hpf'` short form `AudioEngine.setEffectBypass` already uses, not `GlobalAudioSettings`' `filterLPF`/`filterHPF` field names.
+
+`LfoSettings` is `{ shape: 'triangle' | 'sine' | 'square' | 'sawtooth'; rate: number; depth: number }` — rate `0.1–10 Hz`, depth `0–100%` (`LFO_RATE_MIN/MAX`, `LFO_DEPTH_MIN/MAX` in `types/lfo.ts`).
+
+### lfoEngine API
+
+`lfoEngine` is a plain object (no class, matching `AudioEngine`'s own shape), exported from `src/engine/lfoEngine.ts`. Every function takes an optional `robotId?: string` — required in practice for robot-scoped targets (omitting it is a no-op/`false`, never a throw), irrelevant for global-chain targets.
+
+```typescript
+export const lfoEngine = {
+  getLfoSettings: (target: RobotLfoTargetId | GlobalLfoTargetId, robotId?: string) => LfoSettings,
+  setLfoRate: (target, hz: number, robotId?: string) => void,     // clamped to [0.1, 10]
+  setLfoDepth: (target, percent: number, robotId?: string) => void, // clamped to [0, 100]
+  setLfoShape: (target, shape: LfoShape, robotId?: string) => void,
+  start: (target, robotId?: string) => void,  // no-ops unless a node already exists AND the transport is running
+  stop: (target, robotId?: string) => void,   // always safe — idempotent if already stopped or never created
+  connectLfoTarget: (target, robotId?: string) => boolean,
+  disconnectLfoTarget: (target, robotId?: string) => void,
+}
+```
+
+- **`getLfoSettings`** never constructs a node. Falls back to `DEFAULT_LFO_SETTINGS[target]` (`src/data/lfoConfig.ts` — inert: `{ shape: 'sine', rate: LFO_RATE_MIN, depth: LFO_DEPTH_MIN }` for every target) until a setter has run for that instance.
+- **`setLfoRate`/`setLfoDepth`/`setLfoShape`** lazily construct the underlying `Tone.LFO` on first call (via `new Tone.LFO(settings.rate)`), then update both the persisted `LfoSettings` and the live node — `depth` maps onto `Tone.LFO.amplitude` (a `0–1` normalRange Param; Tone.LFO has no `depth` property of its own).
+- **Instance keying:** robot-scoped targets are keyed `` `${robotId}:${target}` ``, global-chain targets by the bare target id — so robot A and robot B each get their own independent `layer0.gain` LFO, never a shared one.
+- **`connectLfoTarget`** resolves the live Signal via `AudioEngine.getRobotModulationTarget(robotId, target)` / `AudioEngine.getGlobalModulationTarget(target)`, then — critically — sets the LFO's `min`/`max` to the target's *real* value range before calling `.connect()`. `Tone.LFO` defaults to `min: 0, max: 1` regardless of what it's connected to; left unset, modulating e.g. an EQ band (±12 dB) or detune (±50 cents) by only 0–1 units is functionally inaudible. Robot fields resolve from a small `ROBOT_LFO_FIELD_RANGE` table (gain `0–2`, detune `±50` cents, pulseWidth `0–1`, volume `0–1`); global targets reuse `GLOBAL_AUDIO_SEED_RANGES` (below), translating `lpf.`/`hpf.` target ids to that table's `filterLPF.`/`filterHPF.` keys.
+- **`disconnectLfoTarget`** reverses `connectLfoTarget` — disconnects the live node, or cancels the phase-polling schedule (below). Safe to call on a target that was never connected.
+
+### Two Tone.js divergences (not every target is truly `.connect()`-able)
+
+Both verified directly against Tone.js's own source/type declarations, not assumed from the reference grids:
+
+1. **Phase has no live Signal at all.** `Tone.Oscillator.phase` is a plain get/set number, not a `Signal`/`Param`. `connectLfoTarget('layerN.phase', robotId)` instead starts a **manual-polling fallback**: `scheduleRepeat('16n', …)` (from `beatClock.ts` — Transport-driven, never a raw JS timer) recomputes a waveform value every tick from the target's current `LfoSettings` and reapplies it via `AudioEngine.updateVoiceLayerParams(robotId, [...])`. It modulates around a fixed `PHASE_CENTER_DEGREES = 180` (the midpoint of the 0–360° range `ROBOT_DATA_GRID.md` documents for Phase), not the layer's own live phase value — reading a robot's current `audioAttributes` from inside `lfoEngine.ts` would mean reaching into `useLocaleStore` directly, which stays `AudioEngine`/store territory. A deliberate Phase-0 engine-scope simplification.
+2. **pulseWidth only has a Signal for `'pulse'`-type layers.** `Tone.PulseOscillator.width` is a real `Signal`, but `'square'` has no adjustable width in Tone.js at all — a structural limitation, not a bug. `AudioEngine.getRobotModulationTarget` already returns `null` for that case, so `connectLfoTarget` simply no-ops and returns `false`, never throws.
+
+A related, non-robot case: `getGlobalModulationTarget('chorus.delayTime')` also always returns `null` — `Tone.Chorus.delayTime` is a plain get/set number (Chorus already runs its own internal LFO on delayTime), so no connectable Signal exists there either.
+
+### Seeding
+
+- **Robot-level `LfoSettings`** are generated once at spawn time in `src/systems/spawnSystem.ts`'s `generateRobotLfoSettings(noiseMap, offset)`, stored on `Robot.lfoSettings: Record<RobotLfoTargetId, LfoSettings>`, the same way the rest of a robot's `AudioAttributes` are generated — one `getSeededVal` call per field, dataIds dot-namespaced as `robot.lfo.<target>.<field>`. When a robot's audio personality is copied (spawnSystem's ~30% copy chance), `lfoSettings` is copied wholesale from the source robot, not regenerated.
+- **Global-chain effect *values*** (the parameters an LFO would modulate — EQ dB, filter Hz, etc., not the LFO settings themselves) are seed-generated per planet in `src/utils/globalAudioSeed.ts`'s `generateGlobalAudioSettings(planetId, planetName)`, sampling the **planet** noise map directly (a first — previously the planet map was only ever used to derive locale maps). Ranges and log/linear scale per field live in `src/data/globalAudioSeedRanges.ts`'s `GLOBAL_AUDIO_SEED_RANGES`. Wired into `audioStore` automatically on planet load/change via a `usePlanetStore.subscribe()` in `audioStore.ts` — no call site has to remember to re-seed. All 7 global effects' `enabled` is currently forced `true` (not seeded) so the whole chain stays audible while this is still Phase 0/1 engine work.
+- **Global-chain `LfoSettings`** (the modulation shape/rate/depth for the 9 global targets) are **not** seed-generated — out of scope for this phase; they fall back to `DEFAULT_LFO_SETTINGS` like any other unconfigured target until a later phase's UI or seeding work sets them.
+
+### Dev-only audible check
+
+`src/engine/lfoDebug.ts` exposes `window.__lfoDebug.audition()` / `.stop()`, gated by `if (DEV_TUNING && typeof window !== 'undefined')` — genuinely stripped from production builds (verified by grepping the built bundle, not just runtime-guarded). `audition()` connects+starts a robot's `layer0.detune` and the global `eq3.low` band with clearly audible rate/depth values, for manual confirmation from the browser console during development. Not real UI — imported once from `main.tsx` purely for its registration side effect, never referenced by any component or store.
 
 ## Note Resolution Pipeline
 

@@ -8,7 +8,7 @@ import { RobotState } from '../../../types/Robot';
 import { RobotBody } from '../../robot/RobotBody';
 
 import { useLocaleStore } from '../../../stores/localeStore';
-import { usePlanetStore } from '../../../stores/planetStore';
+import { usePlanetStore, selectCurrentPlanet } from '../../../stores/planetStore';
 import { useUIStore } from '../../../stores/uiStore';
 
 import './RobotList.css';
@@ -65,7 +65,7 @@ const RobotListItem = memo(function RobotListItem({ robot, isSelected, onSelect 
 // COMPONENT
 // ========================================
 function RobotList() {
-  const localeId = usePlanetStore((s) => s.planets[0]?.currentLocaleId ?? '');
+  const localeId = usePlanetStore((s) => selectCurrentPlanet(s)?.currentLocaleId ?? '');
   const robots = useLocaleStore((s) => s.locales[localeId]?.robots ?? []);
   const selectedRobotId = useUIStore((s) => s.selectedRobotId);
 

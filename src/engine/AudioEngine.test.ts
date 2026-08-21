@@ -29,15 +29,25 @@ vi.mock('tone', () => ({
     connect: vi.fn().mockReturnThis(),
     triggerAttackRelease: vi.fn(),
   })),
-  Synth: vi.fn(() => ({
-    connect: vi.fn().mockReturnThis(),
-    disconnect: vi.fn(),
-    dispose: vi.fn(),
-    triggerAttackRelease: vi.fn(),
-    set: vi.fn(),
-    oscillator: { detune: { value: 0 } },
-    volume: { value: -6 },
-  })),
+  Synth: vi.fn((config?: { oscillator?: { type?: string; width?: number } }) => {
+    // PulseOscillator exposes a connectable width Signal; other oscillator
+    // types don't — mirror that here so getRobotModulationTarget's
+    // type === 'pulse' branch (Task 9) is genuinely exercised, not just
+    // trivially passing against a flat always-present mock field.
+    const oscillator: Record<string, unknown> = { detune: { value: 0 } };
+    if (config?.oscillator?.type === 'pulse') {
+      oscillator.width = { value: config.oscillator.width ?? 0.5 };
+    }
+    return {
+      connect: vi.fn().mockReturnThis(),
+      disconnect: vi.fn(),
+      dispose: vi.fn(),
+      triggerAttackRelease: vi.fn(),
+      set: vi.fn(),
+      oscillator,
+      volume: { value: -6 },
+    };
+  }),
   // Legacy synth constructors removed from tests — use generic `Synth` or `PolySynth` mocks above
   Compressor: vi.fn(() => ({
     connect: vi.fn().mockReturnThis(),
@@ -501,9 +511,16 @@ describe('AudioEngine - audioMode enforcement (solo/mute/highlight)', () => {
     const synthResults = (Tone.Synth as unknown as any).mock.results;
     synthResults.forEach((r: any) => r.value?.triggerAttackRelease?.mockClear());
 
-    // Schedule note for non-highlighted robot with a unique note
+    // Schedule note for non-highlighted robot with a unique note. Pass an
+    // explicit velocity (0.8) so this test isolates the highlight-attenuation
+    // step (scheduleNote's audioMode logic unconditionally applies × 0.5,
+    // whether velocity came from the caller or from computeNoteVelocitySeeded)
+    // rather than depending on the active locale's seeded noise map landing in
+    // its "no variance" branch — that incidental coupling is exactly what
+    // broke when the default locale's noise-map coordinates were fixed off
+    // their (0, 0) dead zone (docs/roadmap/roadmap.md § 5 "Known Issue").
     const targetNote = 'G5';
-    AudioEngine.scheduleNote({ robotId: 'r-nh', note: targetNote, duration: '4n', time: 0 });
+    AudioEngine.scheduleNote({ robotId: 'r-nh', note: targetNote, duration: '4n', time: 0, velocity: 0.8 });
 
     // Find the call for our unique note and assert velocity ≈ 0.4
     let found = false;
@@ -1057,5 +1074,159 @@ describe('AudioEngine - Transport methods & Master Volume (Issue #220)', () => {
       AudioEngine.setMasterVolume(1); // restore
       expect(AudioEngine.getMasterVolume()).toBe(1);
     });
+  });
+});
+
+describe('AudioEngine - getRobotModulationTarget', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { settings: { bpm: 120, maxRobots: 6, minRobots: 1 } });
+  });
+
+  it('returns null (not throw) for an unreserved robotId', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+    expect(() => AudioEngine.getRobotModulationTarget('never-reserved', 'volume')).not.toThrow();
+    expect(AudioEngine.getRobotModulationTarget('never-reserved', 'volume')).toBeNull();
+  });
+
+  it('returns the composite voice\'s output gain Signal for "volume"', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+    const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0 }];
+    AudioEngine.reserveVoice('mod-target-volume', layered as any);
+
+    const target = AudioEngine.getRobotModulationTarget('mod-target-volume', 'volume');
+    expect(target).not.toBeNull();
+    expect(target).toHaveProperty('value');
+  });
+
+  it('returns the per-layer Tone.Gain.gain Signal for "layerN.gain"', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+    const layered: any[] = [
+      { type: 'sine', gain: 0.8, detune: 0, phase: 0 },
+      { type: 'triangle', gain: 0.5, detune: 0, phase: 0 },
+    ];
+    AudioEngine.reserveVoice('mod-target-gain', layered as any);
+
+    expect(AudioEngine.getRobotModulationTarget('mod-target-gain', 'layer0.gain')).toHaveProperty('value');
+    expect(AudioEngine.getRobotModulationTarget('mod-target-gain', 'layer1.gain')).toHaveProperty('value');
+  });
+
+  it('returns the oscillator detune Signal for "layerN.detune"', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+    const layered: any[] = [{ type: 'sine', gain: 0.8, detune: -5, phase: 0 }];
+    AudioEngine.reserveVoice('mod-target-detune', layered as any);
+
+    const target = AudioEngine.getRobotModulationTarget('mod-target-detune', 'layer0.detune');
+    expect(target).not.toBeNull();
+    expect(target).toHaveProperty('value');
+  });
+
+  it('returns null (not throw) for "layerN.phase" — no live Signal exists for oscillator phase in Tone.js', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+    const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 45 }];
+    AudioEngine.reserveVoice('mod-target-phase', layered as any);
+
+    expect(() => AudioEngine.getRobotModulationTarget('mod-target-phase', 'layer0.phase')).not.toThrow();
+    expect(AudioEngine.getRobotModulationTarget('mod-target-phase', 'layer0.phase')).toBeNull();
+  });
+
+  it('returns the PulseOscillator width Signal for "layerN.pulseWidth" when the layer type is \'pulse\'', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+    const layered: any[] = [{ type: 'pulse', gain: 0.8, detune: 0, phase: 0, pulseWidth: 0.3 }];
+    AudioEngine.reserveVoice('mod-target-pulse', layered as any);
+
+    const target = AudioEngine.getRobotModulationTarget('mod-target-pulse', 'layer0.pulseWidth');
+    expect(target).not.toBeNull();
+    expect(target).toHaveProperty('value');
+  });
+
+  it('returns null (not throw) for "layerN.pulseWidth" when the layer type is \'square\' — no adjustable width exists in Tone.js', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+    const layered: any[] = [{ type: 'square', gain: 0.8, detune: 0, phase: 0 }];
+    AudioEngine.reserveVoice('mod-target-square', layered as any);
+
+    expect(() => AudioEngine.getRobotModulationTarget('mod-target-square', 'layer0.pulseWidth')).not.toThrow();
+    expect(AudioEngine.getRobotModulationTarget('mod-target-square', 'layer0.pulseWidth')).toBeNull();
+  });
+
+  it('returns null (not throw) for an out-of-range layer index', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+    const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0 }]; // only layer0 exists
+    AudioEngine.reserveVoice('mod-target-oob', layered as any);
+
+    expect(() => AudioEngine.getRobotModulationTarget('mod-target-oob', 'layer2.gain')).not.toThrow();
+    expect(AudioEngine.getRobotModulationTarget('mod-target-oob', 'layer2.gain')).toBeNull();
+  });
+});
+
+describe('AudioEngine - getGlobalModulationTarget', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it('returns null (not throw) for every target before AudioEngine.start() constructs the FX chain', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    const targets = [
+      'eq3.low', 'eq3.mid', 'eq3.high',
+      'lpf.frequency', 'lpf.Q',
+      'hpf.frequency', 'hpf.Q',
+      'chorus.delayTime',
+      'delay.delayTime',
+    ] as const;
+    for (const target of targets) {
+      expect(() => AudioEngine.getGlobalModulationTarget(target)).not.toThrow();
+      expect(AudioEngine.getGlobalModulationTarget(target)).toBeNull();
+    }
+  });
+
+  it('returns the live EQ3 low/mid/high Params after start()', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+    expect(AudioEngine.getGlobalModulationTarget('eq3.low')).toHaveProperty('value');
+    expect(AudioEngine.getGlobalModulationTarget('eq3.mid')).toHaveProperty('value');
+    expect(AudioEngine.getGlobalModulationTarget('eq3.high')).toHaveProperty('value');
+  });
+
+  it('returns the live LPF frequency/Q Signals after start()', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+    expect(AudioEngine.getGlobalModulationTarget('lpf.frequency')).toHaveProperty('value');
+    expect(AudioEngine.getGlobalModulationTarget('lpf.Q')).toHaveProperty('value');
+  });
+
+  it('returns the live HPF frequency/Q Signals after start()', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+    expect(AudioEngine.getGlobalModulationTarget('hpf.frequency')).toHaveProperty('value');
+    expect(AudioEngine.getGlobalModulationTarget('hpf.Q')).toHaveProperty('value');
+  });
+
+  it('returns the live Delay delayTime Param after start()', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+    expect(AudioEngine.getGlobalModulationTarget('delay.delayTime')).toHaveProperty('value');
+  });
+
+  it('returns null (not throw) for "chorus.delayTime" even after start() — Tone.Chorus.delayTime is a plain number, not a connectable Signal', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+    expect(() => AudioEngine.getGlobalModulationTarget('chorus.delayTime')).not.toThrow();
+    expect(AudioEngine.getGlobalModulationTarget('chorus.delayTime')).toBeNull();
+  });
+
+  it('distinguishes LPF and HPF — they are separate Filter instances, not the same node read twice', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+    const lpf = AudioEngine.getGlobalModulationTarget('lpf.frequency');
+    const hpf = AudioEngine.getGlobalModulationTarget('hpf.frequency');
+    expect(lpf).not.toBe(hpf);
   });
 });

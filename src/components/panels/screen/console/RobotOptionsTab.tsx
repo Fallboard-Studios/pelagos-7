@@ -2,14 +2,14 @@ import * as Switch from '@radix-ui/react-switch';
 import * as Slider from '@radix-ui/react-slider';
 
 import { useLocaleStore } from '@/stores/localeStore';
-import { usePlanetStore } from '@/stores/planetStore';
+import { usePlanetStore, selectCurrentPlanet } from '@/stores/planetStore';
 import { useUIStore } from '@/stores/uiStore';
 import { spawnRobot } from '@/systems/spawnSystem';
 import type { LocaleSettings } from '@/types/locale';
 import './RobotOptionsTab.css';
 
 export function RobotOptionsTab() {
-  const localeId = usePlanetStore((s) => s.planets[0]?.currentLocaleId ?? '');
+  const localeId = usePlanetStore((s) => selectCurrentPlanet(s)?.currentLocaleId ?? '');
   const settings = useLocaleStore(
     (s) => s.locales[localeId]?.settings as LocaleSettings | undefined
   );

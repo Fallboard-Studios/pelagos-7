@@ -58,6 +58,18 @@ describe('localeStore', () => {
     it('maintains serializable state', () => {
       expect(() => JSON.stringify(useLocaleStore.getState())).not.toThrow();
     });
+
+    it('default locale coordinates avoid (0, 0) — a structural dead zone where simplex noise always evaluates to exactly 0 for every seed, which made the default locale\'s noise map invariant to the planet seed', () => {
+      expect(DEFAULT_LOCALE.coordinates).not.toEqual({ x: 0, y: 0 });
+    });
+
+    it('sampling the planet noise map at the default locale\'s coordinates varies by planet seed', async () => {
+      const { getPlanetNoiseMap } = await import('../utils/noiseMaps');
+      const mapA = getPlanetNoiseMap('locale-dead-zone-check-a', 'seed-alpha');
+      const mapB = getPlanetNoiseMap('locale-dead-zone-check-b', 'seed-beta');
+      const { x, y } = DEFAULT_LOCALE.coordinates;
+      expect(mapA(x, y)).not.toBe(mapB(x, y));
+    });
   });
 
   describe('addRobot', () => {

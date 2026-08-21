@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 import type { Locale, LocaleState } from '../types/locale';
-import { DEFAULT_LOCALE_ID } from './planetStore';
+import { DEFAULT_LOCALE_ID, DEFAULT_PLANET_NAME } from './planetStore';
 import { usePlanetStore } from './planetStore';
 import { getLocaleNoiseMap, evictLocaleNoiseMap } from '../utils/noiseMaps';
 import { AudioEngine } from '../engine/AudioEngine';
@@ -22,14 +22,31 @@ const DEFAULT_LOCALE: Locale = {
   id: DEFAULT_LOCALE_ID,
   planetId: 'pelagos',
   name: 'Pelagos Ocean',
-  coordinates: { x: 0, y: 0 },
+  // NOT (0, 0), and NOT any other "clean" short-decimal point — simplex
+  // noise collapses to a low-entropy (sometimes exactly 0) result at
+  // integer AND half-integer-style aligned coordinates for every seed
+  // (verified against 8 different alea seeds: (0,0) gave 1 unique value,
+  // (0.5,0.5) gave 3, (1,1) gave 5 — vs. 8/8 unique at a higher-precision,
+  // non-aligned point like this one). That made this locale's noise map
+  // invariant (or near-invariant) to the planet seed regardless of which
+  // planet name was chosen. See docs/roadmap/roadmap.md § 5 "Known Issue" —
+  // the same dead-zone class applies to any locale's coordinates, and
+  // matters more for Phase 5's coordinate-entry UI than just this default.
+  coordinates: { x: 12.3456, y: 67.891 },
   robots: [],
   actors: [],
   settings: { bpm: 60, maxRobots: 12, minRobots: 2, autoSpawn: true, spawnFrequency: 4 },
   currentMeasure: 0,
 };
 
-getLocaleNoiseMap(DEFAULT_LOCALE_ID, 'pelagos', 'Pelagos', 0, 0);
+// Must reuse planetStore.ts's DEFAULT_PLANET_NAME, not its own literal —
+// getPlanetNoiseMap caches by planetId and only honors the *name* argument
+// on first creation, so a second, independently-hardcoded name here would
+// silently be ignored (or worse, win a module-evaluation-order race) if it
+// ever diverged from planetStore.ts's. Same reasoning for the coordinates:
+// reuse DEFAULT_LOCALE.coordinates rather than a second hardcoded x/y pair
+// that could silently drift back onto the (0, 0) dead zone above.
+getLocaleNoiseMap(DEFAULT_LOCALE_ID, 'pelagos', DEFAULT_PLANET_NAME, DEFAULT_LOCALE.coordinates.x, DEFAULT_LOCALE.coordinates.y);
 
 export const useLocaleStore = create<LocaleState>((set, get) => ({
   locales: { [DEFAULT_LOCALE_ID]: DEFAULT_LOCALE },

@@ -10,7 +10,7 @@ import { ROOFTOP_RENDERERS } from './greebles/rooftopGreebles';
 import { FACADE_RENDERERS } from './greebles/facadeGreebles';
 import type { GreebleRendererContext } from './greebles/greebleTypes';
 import useLocaleStore from '../../stores/localeStore';
-import { usePlanetStore } from '../../stores/planetStore';
+import { usePlanetStore, selectCurrentPlanet } from '../../stores/planetStore';
 import { useUIStore } from '../../stores/uiStore';
 import BubbleStream from './BubbleStream';
 import type { FactoryPurpose } from './factoryVariants';
@@ -95,7 +95,7 @@ const FactoryInner: React.FC<FactoryProps> = ({ actor }) => {
   // FLICKER_PERIOD consecutive measures rather than all firing at once.
   const flickerEpoch = Math.floor((lightMeasure + buildingPhase) / FLICKER_PERIOD);
 
-  const localeId = usePlanetStore((s) => s.planets[0]?.currentLocaleId ?? '');
+  const localeId = usePlanetStore((s) => selectCurrentPlanet(s)?.currentLocaleId ?? '');
   const bpm = useLocaleStore((s) => s.locales[localeId]?.settings?.bpm ?? 120);
 
   const preset = DEBUG_LIGHTING_PRESET ? LIGHTING_PRESETS[DEBUG_LIGHTING_PRESET] : null;

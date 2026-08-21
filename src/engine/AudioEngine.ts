@@ -9,6 +9,7 @@ import { getActiveLocaleId } from '../utils/localeHelpers';
 import type { NoteDuration, WaveformType, Robot } from '../types/Robot';
 import type { OscillatorLayer } from '../types/layeredAudio';
 import type { ReverbSettings, DelaySettings, ChorusSettings, FilterSettings, EQ3Settings, CompressorSettings } from '../types/globalAudio';
+import type { RobotLfoTargetId, GlobalLfoTargetId } from '../types/lfo';
 import { getAvailableNotes, scheduleHarmonyCycle, stopHarmonyCycle } from './harmonySystem';
 import { resetBeatClock, subscribeToMeasure, initBeatClock } from './beatClock';
 import type { RobotMelodyEvent } from './melodyGenerator';
@@ -148,12 +149,36 @@ let _transport: ReturnType<typeof Tone.getTransport> | null = null;
  * Populated on first note for a robot, cleared when its melody is unregistered. */
 const robotAttributeCache = new Map<string, { masterVolume: number }>();
 
+/**
+ * A live, connectable Tone Signal or Param of any unit type — the return
+ * type of getRobotModulationTarget (Task 9) and getGlobalModulationTarget
+ * (Task 10). `any` is unavoidable here, not a shortcut: Tone.Signal/Param's
+ * real generic bound, UnitName, is defined in tone's internal build path
+ * (core/type/Units.d.ts) and is not re-exported from the public `tone`
+ * package — importing it would mean depending on an unsupported, version-
+ * fragile internal path. Declared once here so the `any` exists at exactly
+ * one site instead of being repeated at every call site.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ModulationTarget = Tone.Signal<any> | Tone.Param<any>;
+
 // Composite voices (created from LayeredWave descriptors) stored separately
 interface CompositeVoice {
   output: Tone.Gain;
   triggerAttackRelease: (note: string, dur: NoteDuration | string, time?: number, velocity?: number) => void;
   set: (params: { layers?: Partial<OscillatorLayer>[]; outputGain?: number }) => void;
   dispose?: () => void;
+  /**
+   * Per-layer live node references — synth (for oscillator.detune/width) and
+   * gain node (for gain). Exposed for getRobotModulationTarget (Task 9) to
+   * resolve a connectable Signal without duplicating layer-construction logic
+   * outside createCompositeVoice.
+   */
+  layers?: ReadonlyArray<{
+    synth: Tone.Synth | Tone.NoiseSynth | null;
+    gainNode: Tone.Gain | null;
+    layer: OscillatorLayer;
+  }>;
 }
 
 const compositeVoices: Map<string, {
@@ -836,6 +861,96 @@ export const AudioEngine = {
   },
 
   /**
+   * Resolve the live, connectable Tone Signal/Param for a robot-level LFO
+   * modulation target (docs/tasks/LFO_INTEGRATION_PLAN.md Task 9). Returns
+   * null — never throws — for: an unreserved robotId, an out-of-range layer
+   * index, 'layerN.phase' (Tone.js has no live Signal for oscillator phase;
+   * handled via a manual-polling fallback at the lfoEngine layer, Task 12),
+   * and 'layerN.pulseWidth' when that layer's type isn't 'pulse' (only
+   * PulseOscillator exposes a connectable width Signal — 'square' has no
+   * adjustable width in Tone.js at all, independent of anything built here).
+   */
+  getRobotModulationTarget(robotId: string, target: RobotLfoTargetId): ModulationTarget | null {
+    try {
+      const voice = AudioEngine.getVoiceForRobot(robotId);
+      if (!voice) return null;
+
+      if (target === 'volume') {
+        const gain = (voice.output as unknown as { gain?: unknown })?.gain;
+        return (gain as ModulationTarget | undefined) ?? null;
+      }
+
+      const match = /^layer(\d+)\.(gain|detune|phase|pulseWidth)$/.exec(target);
+      if (!match) return null;
+      const layerEntry = voice.layers?.[Number(match[1])];
+      if (!layerEntry) return null;
+      const field = match[2];
+
+      if (field === 'gain') {
+        const gain = (layerEntry.gainNode as unknown as { gain?: unknown })?.gain;
+        return (gain as ModulationTarget | undefined) ?? null;
+      }
+      if (field === 'detune') {
+        const osc = (layerEntry.synth as unknown as { oscillator?: { detune?: unknown } })?.oscillator;
+        return (osc?.detune as ModulationTarget | undefined) ?? null;
+      }
+      if (field === 'phase') {
+        return null;
+      }
+      if (field === 'pulseWidth') {
+        if (layerEntry.layer.type !== 'pulse') return null;
+        const osc = (layerEntry.synth as unknown as { oscillator?: { width?: unknown } })?.oscillator;
+        return (osc?.width as ModulationTarget | undefined) ?? null;
+      }
+      return null;
+    } catch (err) {
+      devWarn('[AudioEngine] getRobotModulationTarget failed', err);
+      return null;
+    }
+  },
+
+  /**
+   * Resolve the live, connectable Tone Signal/Param for a global-chain LFO
+   * modulation target (docs/tasks/LFO_INTEGRATION_PLAN.md Task 10). Returns
+   * null — never throws — before AudioEngine.start() has constructed the FX
+   * chain (module-scope _global* nodes are null until then), and for
+   * 'chorus.delayTime' unconditionally: Tone.Chorus.delayTime is a plain
+   * get/set number, not a Signal — Chorus already runs its own internal LFO
+   * on delayTime, so Tone.js exposes no connectable Signal for it at all,
+   * independent of anything built here (verified against tone's own
+   * Chorus.d.ts, which declares `get/set delayTime(): Milliseconds`).
+   */
+  getGlobalModulationTarget(target: GlobalLfoTargetId): ModulationTarget | null {
+    try {
+      switch (target) {
+        case 'eq3.low':
+          return ((_globalEQ as unknown as { low?: unknown })?.low as ModulationTarget) ?? null;
+        case 'eq3.mid':
+          return ((_globalEQ as unknown as { mid?: unknown })?.mid as ModulationTarget) ?? null;
+        case 'eq3.high':
+          return ((_globalEQ as unknown as { high?: unknown })?.high as ModulationTarget) ?? null;
+        case 'lpf.frequency':
+          return ((_globalLPF as unknown as { frequency?: unknown })?.frequency as ModulationTarget) ?? null;
+        case 'lpf.Q':
+          return ((_globalLPF as unknown as { Q?: unknown })?.Q as ModulationTarget) ?? null;
+        case 'hpf.frequency':
+          return ((_globalHPF as unknown as { frequency?: unknown })?.frequency as ModulationTarget) ?? null;
+        case 'hpf.Q':
+          return ((_globalHPF as unknown as { Q?: unknown })?.Q as ModulationTarget) ?? null;
+        case 'chorus.delayTime':
+          return null;
+        case 'delay.delayTime':
+          return ((_globalDelay as unknown as { delayTime?: unknown })?.delayTime as ModulationTarget) ?? null;
+        default:
+          return null;
+      }
+    } catch (err) {
+      devWarn('[AudioEngine] getGlobalModulationTarget failed', err);
+      return null;
+    }
+  },
+
+  /**
    * Deterministic re-reservation helper used by UI/store updates.
    * Reads the robot's current `audioAttributes` from the locale store,
    * calls `releaseVoice(robotId)` then `reserveVoice(...)` with the
@@ -1132,7 +1247,7 @@ export const AudioEngine = {
       try { (out as unknown as { dispose?: () => void })?.dispose?.(); } catch { devWarn('[AudioEngine] Failed disposing composite output'); }
     };
 
-    return { output: out, triggerAttackRelease, set, dispose };
+    return { output: out, triggerAttackRelease, set, dispose, layers: layerNodes };
   },
 
 

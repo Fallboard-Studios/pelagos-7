@@ -83,7 +83,10 @@ export interface GlobalAudioSettings {
   delay: DelaySettings;
   compressor: CompressorSettings;
   eq3: EQ3Settings;
-  filter: FilterSettings;
+  /** Low-pass filter — AudioEngine builds this as its own Tone.Filter node (`_globalLPF`), independent of filterHPF. */
+  filterLPF: FilterSettings;
+  /** High-pass filter — AudioEngine builds this as its own Tone.Filter node (`_globalHPF`), independent of filterLPF. */
+  filterHPF: FilterSettings;
   chorus: ChorusSettings;
 }
 
@@ -93,6 +96,7 @@ export const DEFAULT_GLOBAL_AUDIO_SETTINGS: GlobalAudioSettings = {
   delay: { enabled: false, delayTime: 0.25, feedback: 0.2, wet: 0.15 },
   compressor: { enabled: false, threshold: -24, ratio: 2, attack: 0.003, release: 0.25, knee: 6 },
   eq3: { enabled: false, low: 0, mid: 0, high: 0 },
-  filter: { enabled: false, type: 'lowpass', frequency: 20000, Q: 1 },
+  filterLPF: { enabled: false, type: 'lowpass', frequency: 20000, Q: 1 },
+  filterHPF: { enabled: false, type: 'highpass', frequency: 20, Q: 1 },
   chorus: { enabled: false, rate: 1.5, depth: 0.2, delayTime: 12, feedback: 0.1, wet: 0.2 },
 };
