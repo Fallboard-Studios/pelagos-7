@@ -245,22 +245,29 @@ Tasks 6, 12, 13 ──→ Task 14 (dev-only audible check hook)
 
   **Estimated scope:** XS (1 file, types only)
 
-- [ ] **Task 8: `src/data/lfoConfig.ts`**
+- [x] **Task 8: `src/data/lfoConfig.ts`** — done
 
   **Description:** Default `LfoSettings` per target id (both robot and global), following the `globalAudio.ts` `DEFAULT_*` const pattern. Also extend `src/types/layeredAudio.ts` if `OscillatorLayer`/voice-descriptor types need a modulation-input field to type-check against `lfoEngine.ts`'s connect signatures (spec §2).
 
+  **`layeredAudio.ts` decision — left untouched, deliberately.** No field was added. `connectLfoTarget` (Task 12) resolves what to connect to via `AudioEngine.getRobotModulationTarget(robotId, target)` (Task 9) — a live-Signal lookup by robot id + target id against the already-constructed composite voice, not by reading anything off the spawn-time `OscillatorLayer` descriptor. Nothing in the connect path needs the descriptor to carry LFO state. Adding a speculative field now, before Task 9–12 prove it's actually needed, would violate incremental-implementation's Rule 0 (don't build for hypothetical requirements). If Task 9/11/12 later reveal a real need, it'll come with a concrete signature to satisfy, not a guess.
+
+  **Implementation notes:**
+  - `makeDefaultLfoSettings()` returns `{ shape: 'sine', rate: LFO_RATE_MIN, depth: LFO_DEPTH_MIN }` for every target — depth pinned to 0 (inert until a human or Task 13's seeded generation sets a real value), rate pinned to `LFO_RATE_MIN` rather than an arbitrary "typical" pick, both importing Task 7's constants directly rather than re-hardcoding.
+  - Each of the 22 targets gets its **own** settings object, not a shared reference — `lfoEngine.ts`'s setters (Task 11) will mutate these in place, so sharing one object across targets would have been a real, easy-to-miss bug (mutating one target's rate would've silently mutated all 22). Verified with an explicit mutation-isolation test.
+
   **Acceptance criteria:**
-  - [ ] `DEFAULT_LFO_SETTINGS: Record<RobotLfoTargetId | GlobalLfoTargetId, LfoSettings>` covers all 22 targets.
-  - [ ] No magic numbers — every default cites its source range from Task 7.
-  - [ ] `layeredAudio.ts` changes (if any) are additive/optional fields — no existing `OscillatorLayer` consumer breaks.
+  - [x] `DEFAULT_LFO_SETTINGS: Record<RobotLfoTargetId | GlobalLfoTargetId, LfoSettings>` covers all 22 targets.
+  - [x] No magic numbers — every default cites its source range from Task 7.
+  - [x] `layeredAudio.ts` changes (if any) are additive/optional fields — no existing `OscillatorLayer` consumer breaks. *(No changes made — see decision above.)*
 
   **Verification:**
-  - [ ] `npm run build:types` clean.
-  - [ ] `npm test` — existing `layeredAudio`-dependent tests (if any) still pass unmodified.
+  - [x] `npx vitest run src/data/lfoConfig.test.ts` — 7/7 passing: exact 22-key coverage, valid shape/rate/depth bounds for every entry, rate/depth exactly match Task 7's `MIN` constants (not just "within bounds"), per-target object isolation, JSON-serializability.
+  - [x] `npm run build:types`, `npm run lint` clean.
+  - [x] Full suite: 34 files, 491/491 passing (+7 from before) — no `layeredAudio`-dependent test needed updating, since the file wasn't touched.
 
   **Dependencies:** Task 7.
 
-  **Files:** `src/data/lfoConfig.ts`, `src/types/layeredAudio.ts`
+  **Files:** `src/data/lfoConfig.ts`, `src/data/lfoConfig.test.ts`
 
   **Estimated scope:** S (2 files)
 
