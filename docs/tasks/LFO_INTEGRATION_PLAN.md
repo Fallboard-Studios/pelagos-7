@@ -391,22 +391,28 @@ Tasks 6, 12, 13 ──→ Task 14 (dev-only audible check hook)
 
   **Estimated scope:** M (extends Task 11's file; the phase-polling fallback is the highest-risk logic in this whole plan)
 
-- [ ] **Task 13: `spawnSystem.ts` — robot-level `LfoSettings` generation**
+- [x] **Task 13: `spawnSystem.ts` — robot-level `LfoSettings` generation** — done
 
   **Description:** Generate `LfoSettings` for each of a robot's 13 targets at spawn time, via `getSeededVal` against the locale noise map, matching the existing pattern used for the rest of `AudioAttributes`.
 
+  **Implementation notes:**
+  - Added `Robot.lfoSettings?: Record<RobotLfoTargetId, LfoSettings>` (`types/Robot.ts`) — a new field, not nested under `AudioAttributes`, since LFO is a modulation layer on top of a robot's audio attributes, not itself one.
+  - `generateRobotLfoSettings(noiseMap, offset)` mirrors `generateAudioAttributes`'s existing shape exactly. Each of the 13 targets gets its own dot-namespaced dataId (`` `robot.lfo.${target}.rate` `` etc.) — since the target name is baked into the dataId string itself, a single shared `offset` naturally yields distinct per-target values, unlike the oscillator-layer loop nearby which needs a `layerOffset = offset * 10 + i` multiplier (only necessary when multiple items share one dataId string).
+  - Wired into `spawnRobot` alongside `audioAttributes`: generated fresh in the normal branch, and — per the confirmed intent ("LFO attributes should be generated in the same way that its parent effect is generated, seed-wise") — **copied wholesale in the `shouldCopy` branch**, same as `audioAttributes` itself, rather than re-generated. Verified with a test that spawns enough robots to make at least one copy virtually certain (P(zero copies) ≈ 0.7²⁹ ≈ 0.00002) and confirms a shared `lfoSettings` object reference exists among them, not just look-alike values.
+
   **Acceptance criteria:**
-  - [ ] Every spawned robot has `LfoSettings` for all 13 `RobotLfoTargetId` values.
-  - [ ] Same locale seed + spawn index → identical `LfoSettings` every time (determinism, matching existing `spawnSystem.test.ts` assertions for other attributes).
-  - [ ] `dataId` keys follow the `'robot.lfo.<target>.<field>'` dot-namespaced convention.
+  - [x] Every spawned robot has `LfoSettings` for all 13 `RobotLfoTargetId` values.
+  - [x] Same locale seed + spawn index → identical `LfoSettings` every time (determinism, matching existing `spawnSystem.test.ts` assertions for other attributes) — tested against a real `createNoise2D(alea(seed))` map, not just a mock.
+  - [x] `dataId` keys follow the `'robot.lfo.<target>.<field>'` dot-namespaced convention.
 
   **Verification:**
-  - [ ] `npm test -- spawnSystem` passes, including new determinism assertions for generated `LfoSettings`.
-  - [ ] `npm run build:types` clean.
+  - [x] `npx vitest run src/systems/spawnSystem.test.ts` — 25/25 passing (7 new: 5 for the pure generator function, 1 integration check that a spawned robot's `lfoSettings` covers all 13 targets, 1 copy-inheritance check; all 18 pre-existing tests unaffected).
+  - [x] `npm run build:types`, `npm run lint` clean.
+  - [x] Full suite: 35 files, 548/548 passing (+7). `npm run build` clean.
 
   **Dependencies:** Task 8.
 
-  **Files:** `src/systems/spawnSystem.ts`, `src/systems/spawnSystem.test.ts`
+  **Files:** `src/systems/spawnSystem.ts`, `src/systems/spawnSystem.test.ts`, `src/types/Robot.ts`
 
   **Estimated scope:** S (extends an existing, well-understood generation path)
 

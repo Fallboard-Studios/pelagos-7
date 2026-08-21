@@ -1,5 +1,6 @@
 import type { Vec2 } from './Vec2';
 import type { VisualAudioMap, OscillatorLayer } from './layeredAudio';
+import type { RobotLfoTargetId, LfoSettings } from './lfo';
 
 /**
  * Note duration values for Tone.js scheduling
@@ -114,4 +115,12 @@ export interface Robot {
   rhythmicMotifLength?: number;
   /** When >0, constrains unique notes used during melody generation (0 = no constraint). */
   noteVariance?: number;
+  /**
+   * Seeded LFO settings for all 13 RobotLfoTargetId modulation targets,
+   * generated once at spawn time (src/systems/spawnSystem.ts) the same way
+   * as the rest of audioAttributes. Inert until a target is actually
+   * connected (see src/engine/lfoEngine.ts) — this is the starting point an
+   * activated LFO would use, not evidence that anything is currently modulating.
+   */
+  lfoSettings?: Record<RobotLfoTargetId, LfoSettings>;
 }

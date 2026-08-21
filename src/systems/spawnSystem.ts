@@ -19,6 +19,8 @@ import { initRobotIdleCounter } from './idleSystem';
 import { getLocaleNoiseMap } from '../utils/noiseMaps';
 import { getSeededVal } from '../utils/getSeededVal';
 import { swallow } from '../utils/helpers';
+import type { RobotLfoTargetId, LfoSettings } from '../types/lfo';
+import { ROBOT_LFO_TARGET_IDS, LFO_SHAPES, LFO_RATE_MIN, LFO_RATE_MAX, LFO_DEPTH_MIN, LFO_DEPTH_MAX } from '../types/lfo';
 
 // ========================================
 // CONSTANTS
@@ -289,6 +291,31 @@ export function generateAudioAttributes(noiseMap: NoiseFunction2D, offset: numbe
 }
 
 /**
+ * Generate seeded LfoSettings for all 13 RobotLfoTargetId modulation targets,
+ * the same way as the rest of a robot's audio personality (generateAudioAttributes
+ * above) — per docs/tasks/LFO_INTEGRATION_PLAN.md Task 13. Each target gets its
+ * own dot-namespaced dataId ('robot.lfo.<target>.<field>'), so a single shared
+ * `offset` naturally yields distinct values per target without needing the
+ * per-index offset multiplier the oscillator-layer loop above uses (that's only
+ * needed when multiple items share one dataId string).
+ */
+export function generateRobotLfoSettings(noiseMap: NoiseFunction2D, offset: number): Record<RobotLfoTargetId, LfoSettings> {
+  const entries = ROBOT_LFO_TARGET_IDS.map((target) => {
+    const shapeIdx = Math.min(
+      LFO_SHAPES.length - 1,
+      Math.floor(getSeededVal(noiseMap, `robot.lfo.${target}.shape`, offset, 0, LFO_SHAPES.length))
+    );
+    const settings: LfoSettings = {
+      shape: LFO_SHAPES[shapeIdx],
+      rate: getSeededVal(noiseMap, `robot.lfo.${target}.rate`, offset, LFO_RATE_MIN, LFO_RATE_MAX),
+      depth: getSeededVal(noiseMap, `robot.lfo.${target}.depth`, offset, LFO_DEPTH_MIN, LFO_DEPTH_MAX),
+    };
+    return [target, settings] as const;
+  });
+  return Object.fromEntries(entries) as Record<RobotLfoTargetId, LfoSettings>;
+}
+
+/**
  * Spawn a new robot with randomized attributes
  * Enforces MAX_ROBOTS limit and registers melody with AudioEngine
  */
@@ -334,7 +361,7 @@ export function spawnRobot(localeId: string): void {
   const spawnCount = getAndIncrementSpawnCount(localeId);
 
   // 30% seeded chance to copy an existing robot's audio personality instead of generating fresh.
-  // Copied robots inherit: audioAttributes, octaveRange, rhythmicMotifLength, noteVariance.
+  // Copied robots inherit: audioAttributes, octaveRange, rhythmicMotifLength, noteVariance, lfoSettings.
   // Always fresh: id, name, position, direction, melody (regenerated from copied octaveRange).
   const copyRoll = noiseMap
     ? getSeededVal(noiseMap, 'robot.copyChance', spawnCount, 0, 1)
@@ -345,6 +372,7 @@ export function spawnRobot(localeId: string): void {
   let octaveRange: [number, number];
   let spawnRhythmicMotifLength: 3 | 4 | 6 | 8 | 12 | 16;
   let spawnNoteVariance: number;
+  let spawnLfoSettings: ReturnType<typeof generateRobotLfoSettings>;
 
   if (shouldCopy) {
     const srcIdx = Math.min(
@@ -360,6 +388,7 @@ export function spawnRobot(localeId: string): void {
     octaveRange = source.octaveRange;
     spawnRhythmicMotifLength = (source.rhythmicMotifLength ?? 8) as 3 | 4 | 6 | 8 | 12 | 16;
     spawnNoteVariance = source.noteVariance ?? 0;
+    spawnLfoSettings = source.lfoSettings ?? generateRobotLfoSettings(noiseMap ?? ((_x: number, _y: number) => 0 as number), spawnCount);
     if (DEV_TUNING) console.log(`[SpawnSystem] Robot copying audio personality from ${source.id}`);
   } else {
     // Generate audio attributes — octaveRange is seeded directly inside generateAudioAttributes
@@ -367,6 +396,9 @@ export function spawnRobot(localeId: string): void {
       ? generateAudioAttributes(noiseMap, spawnCount)
       : generateAudioAttributes((_x: number, _y: number) => 0 as number, spawnCount);
     octaveRange = audioAttributes.octaveRange ?? [2, 4] as [number, number];
+    spawnLfoSettings = noiseMap
+      ? generateRobotLfoSettings(noiseMap, spawnCount)
+      : generateRobotLfoSettings((_x: number, _y: number) => 0 as number, spawnCount);
 
     const motifRaw = noiseMap
       ? getSeededVal(noiseMap, 'robot.rhythmicMotifLength', spawnCount, 0, 5)
@@ -412,6 +444,7 @@ export function spawnRobot(localeId: string): void {
     rhythmicDensity: spawnMelody.length,
     rhythmicMotifLength: spawnRhythmicMotifLength,
     noteVariance: spawnNoteVariance,
+    lfoSettings: spawnLfoSettings,
     masterVolume: (() => {
       const seeded = noiseMap
         ? getSeededVal(noiseMap, 'robot.masterVolume', spawnCount, MASTER_VOLUME_MIN, MASTER_VOLUME_MAX)
