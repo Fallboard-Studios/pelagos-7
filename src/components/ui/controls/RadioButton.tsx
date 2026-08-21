@@ -11,9 +11,12 @@ interface RadioButtonProps {
   onChange: (value: string) => void;
 }
 
-/** Single-select control wrapping @radix-ui/react-toggle-group (type="single"),
- *  matching RobotAudioTab.tsx's existing Audio Mode pattern. A deselect-to-empty
- *  event is guarded and does not call onChange. */
+/** Single-select control wrapping @radix-ui/react-toggle-group (type="single")
+ *  — already installed elsewhere in the codebase (e.g. RobotAudioTab.tsx's
+ *  Audio Mode row, pre-Phase-9), so this avoids adding a redundant
+ *  @radix-ui/react-radio-group dependency for the same job. A deselect-to-empty
+ *  event (Radix's single-mode ToggleGroup emits '' when the active item is
+ *  clicked again) is guarded and does not call onChange. */
 export function RadioButton({ schema, value, onChange }: RadioButtonProps) {
   return (
     <div className="sc-radio-button">
