@@ -5,7 +5,7 @@ import { useState } from 'react';
 import * as Toolbar from '@radix-ui/react-toolbar';
 
 import { useLocaleStore } from '../../../stores/localeStore';
-import { usePlanetStore } from '../../../stores/planetStore';
+import { usePlanetStore, selectCurrentPlanet } from '../../../stores/planetStore';
 import { useUIStore } from '../../../stores/uiStore';
 import { useAudioStore } from '../../../stores/audioStore';
 import { AudioEngine } from '../../../engine/AudioEngine';
@@ -20,7 +20,7 @@ import './TransportBar.css';
 function TransportBar() {
   const isPoweredOn = useUIStore((s) => s.isPoweredOn);
   const activeLocaleLocalTime = useUIStore((s) => s.activeLocaleLocalTime);
-  const localeId = usePlanetStore((s) => s.planets[0]?.currentLocaleId ?? '');
+  const localeId = usePlanetStore((s) => selectCurrentPlanet(s)?.currentLocaleId ?? '');
   const currentMeasure = useLocaleStore((s) => s.locales[localeId]?.currentMeasure ?? 0);
   const _localTime = activeLocaleLocalTime ?? 0;
   const planetHour = Math.floor(_localTime);

@@ -2,13 +2,13 @@ import { useEffect } from 'react';
 
 import Tablet from './components/tablet/Tablet';
 
-import { usePlanetStore } from '@/stores/planetStore';
+import { usePlanetStore, selectCurrentPlanet } from '@/stores/planetStore';
 import useLocaleStore from '@/stores/localeStore';
 
 import './App.css';
 
 function App() {
-  const localeId = usePlanetStore((s) => s.planets[0]?.currentLocaleId ?? '');
+  const localeId = usePlanetStore((s) => selectCurrentPlanet(s)?.currentLocaleId ?? '');
 
   // Ensure derived time-dependent values are computed from the initial measure
   // so visuals reflect the loaded time immediately on app mount.

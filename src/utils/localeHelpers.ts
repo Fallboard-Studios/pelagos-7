@@ -1,7 +1,7 @@
-import { usePlanetStore } from '@/stores/planetStore';
+import { usePlanetStore, selectCurrentPlanet } from '@/stores/planetStore';
 
 export function getActiveLocaleId(): string {
   const planetState = usePlanetStore.getState();
-  const p = planetState.planets[0];
+  const p = selectCurrentPlanet(planetState);
   return p?.currentLocaleId ?? '';
 }

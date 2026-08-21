@@ -21,7 +21,7 @@ let transportInstance: TransportLike | null = null;
 // Exactly 8 note-name strings (no octave digit) per hour-equivalent.
 // Octave is determined per-robot at spawn time; melody events store note index + octave separately.
 // Hour is now derived from the world time-of-day (driven by planet size),
-// provided by `usePlanetStore.getState().planets[0].currentHour` (float 0..24).
+// provided by `selectCurrentPlanet(usePlanetStore.getState())?.currentHour` (float 0..24).
 export type EighthNotes = [string, string, string, string, string, string, string, string];
 
 // ========================================

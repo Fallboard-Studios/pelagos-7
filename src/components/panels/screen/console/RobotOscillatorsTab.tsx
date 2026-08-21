@@ -4,7 +4,7 @@ import * as Switch from '@radix-ui/react-switch';
 import * as AlertDialog from '@radix-ui/react-alert-dialog';
 
 import { useUIStore } from '@/stores/uiStore';
-import { usePlanetStore } from '@/stores/planetStore';
+import { usePlanetStore, selectCurrentPlanet } from '@/stores/planetStore';
 import { useLocaleStore } from '@/stores/localeStore';
 import { AudioEngine } from '@/engine/AudioEngine';
 import type { Robot, WaveformType } from '@/types/Robot';
@@ -344,7 +344,7 @@ function LayerRow({ layer, idx, robot, localeId, allLayers, updateRobot }: Layer
 
 export default function RobotOscillatorsTab() {
   const selectedRobotId = useUIStore((s) => s.selectedRobotId);
-  const localeId = usePlanetStore((s) => s.planets[0]?.currentLocaleId ?? '');
+  const localeId = usePlanetStore((s) => selectCurrentPlanet(s)?.currentLocaleId ?? '');
   const updateRobot = useLocaleStore((s) => s.updateRobot);
 
   const robot: Robot | undefined = useLocaleStore((s) => {

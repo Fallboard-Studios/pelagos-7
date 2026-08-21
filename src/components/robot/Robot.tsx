@@ -8,7 +8,7 @@ import type { Robot as RobotType } from '../../types/Robot';
 import { RobotBody } from './RobotBody';
 import { setRef, deleteRef } from '../../utils/refs';
 import { useUIStore } from '../../stores/uiStore';
-import { usePlanetStore } from '../../stores/planetStore';
+import { usePlanetStore, selectCurrentPlanet } from '../../stores/planetStore';
 import { handleRobotIdle } from '../../systems/idleSystem';
 
 // ========================================
@@ -34,7 +34,7 @@ export function Robot({ robot }: RobotProps) {
   const ref = useRef<SVGGElement>(null);
   const selectedRobotId = useUIStore((s) => s.selectedRobotId);
   const selectRobot = useUIStore((s) => s.selectRobot);
-  const localeId = usePlanetStore((s) => s.planets[0]?.currentLocaleId ?? '');
+  const localeId = usePlanetStore((s) => selectCurrentPlanet(s)?.currentLocaleId ?? '');
   const isSelected = selectedRobotId === robot.id;
 
   // useLayoutEffect fires before paint, preventing a single frame at (0,0).
