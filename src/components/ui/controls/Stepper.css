@@ -1,0 +1,42 @@
+.sc-stepper {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sc-stepper__controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sc-stepper__btn {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  line-height: 1;
+}
+
+.sc-stepper__btn:hover:not(:disabled) {
+  border-color: var(--color-accent);
+}
+
+.sc-stepper__btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.sc-stepper__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.sc-stepper__value {
+  min-width: 2ch;
+  text-align: center;
+  color: var(--color-text-primary);
+}
