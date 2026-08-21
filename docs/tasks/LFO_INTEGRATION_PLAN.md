@@ -360,19 +360,30 @@ Tasks 6, 12, 13 ──→ Task 14 (dev-only audible check hook)
 
   **Estimated scope:** M (1 new file, core lifecycle logic)
 
-- [ ] **Task 12: `connectLfoTarget`/`disconnectLfoTarget` — real signal wiring**
+- [x] **Task 12: `connectLfoTarget`/`disconnectLfoTarget` — real signal wiring** — done
 
   **Description:** Implement `connectLfoTarget`/`disconnectLfoTarget` against `AudioEngine.getRobotModulationTarget`/`getGlobalModulationTarget`. Handle the two documented divergences from spec §7.1 explicitly: Phase uses a manual polling fallback (re-`.set()` each LFO-internal tick, not `.connect()`); pulseWidth on a non-`'pulse'` layer is a documented no-op, not a throw.
 
+  **Scheduling mechanism — resolved before implementing, not assumed:** the phase-polling fallback needs *some* periodic trigger, but CLAUDE.md forbids raw JS timers for this class of work. Used `beatClock.ts`'s existing sanctioned `scheduleRepeat`/`cancelSchedule` (Transport-driven, already the app's established wrapper for exactly this kind of recurring work) rather than `Tone.getTransport().scheduleRepeat` directly or any `setInterval`/`requestAnimationFrame`. Polling interval is `'16n'`, matching BeatClock's own internal tick granularity.
+
+  **Phase-modulation math — a deliberate, documented simplification, not hidden:** with no live Signal to drive, the fallback needs its own waveform generator. It modulates around a fixed `PHASE_CENTER_DEGREES = 180` (the midpoint of the 0–360° range `ROBOT_DATA_GRID.md` documents for Phase) rather than the layer's own current phase value at connect time — reading a robot's live `audioAttributes` from inside `lfoEngine.ts` would mean reaching into `useLocaleStore` directly, which stays `AudioEngine`/store territory architecturally. Depth scales the swing from that center (`±depth% × 180°`); shape drives a small local `waveformUnit()` sine/triangle/square/sawtooth generator, since Tone.LFO's own audio-rate output isn't readable from the main thread without an analyser node. Flagged as a Phase-0 engine-scope simplification to revisit once real UI/audible testing (Task 14) shows what "center" should actually mean.
+
+  **Implementation notes:**
+  - `connectLfoTarget` still calls `getOrCreateLfo` for phase targets (constructing/reusing the `Tone.LFO` node for rate/depth/shape bookkeeping) even though that node is never actually `.connect()`-ed anywhere — keeps `getLfoSettings`/`setLfoRate` etc. behaving identically for phase as for every other target; only the *connection* mechanism differs.
+  - `updateVoiceLayerParams`'s partial-merge-by-index contract (verified by reading `AudioEngine.ts`'s `set()` implementation directly, not assumed) means a sparse `Partial<OscillatorLayer>[]` with only the target index populated leaves every other layer — and every other field of the target layer — untouched. Explicitly tested.
+  - `connectLfoTarget`'s `signal` variable relies on TypeScript inferring `AudioEngine`'s own return type rather than redeclaring the `any`-containing union locally — avoided introducing a second `any` site outside the one `ModulationTarget` alias Task 9 already established.
+  - Test-only: shares captured `scheduleRepeat` callbacks between the hoisted mock factory and test bodies via `vi.hoisted()`, since the real `scheduleRepeat` only actually fires once a real transport runs — tests manually invoke the captured callback to simulate ticks, per the acceptance criterion's own "e.g. via fake timers/mocked LFO ticks" wording.
+
   **Acceptance criteria:**
-  - [ ] `connectLfoTarget` on a Gain/Detune/global-chain/pulse-width-on-pulse-layer target calls the real `.connect()`.
-  - [ ] `connectLfoTarget('layerN.phase', …)` uses the polling fallback and is covered by a test asserting the fallback actually mutates phase over time (e.g. via fake timers/mocked LFO ticks).
-  - [ ] `connectLfoTarget` on pulseWidth for a non-`'pulse'` layer no-ops and returns `false` (not throw).
-  - [ ] `disconnectLfoTarget` cleanly reverses `connectLfoTarget` for every case above, including canceling the phase-polling fallback.
+  - [x] `connectLfoTarget` on a Gain/Detune/global-chain/pulse-width-on-pulse-layer target calls the real `.connect()`.
+  - [x] `connectLfoTarget('layerN.phase', …)` uses the polling fallback and is covered by a test asserting the fallback actually mutates phase over time (e.g. via fake timers/mocked LFO ticks).
+  - [x] `connectLfoTarget` on pulseWidth for a non-`'pulse'` layer no-ops and returns `false` (not throw).
+  - [x] `disconnectLfoTarget` cleanly reverses `connectLfoTarget` for every case above, including canceling the phase-polling fallback.
 
   **Verification:**
-  - [ ] `npm test -- lfoEngine` passes, including all four branches above.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/engine/lfoEngine.test.ts` — 36/36 passing (14 new + 22 from Task 11), all green on the first GREEN attempt. Covers every branch above plus: missing-robotId on both the Signal and phase paths, idempotent re-connect, and the sparse-array layer-isolation case.
+  - [x] `npm run build:types`, `npm run lint` clean — 0 errors, 0 warnings.
+  - [x] Full suite: 35 files, 542/542 passing (+14). `npm run build` clean.
 
   **Dependencies:** Task 9, Task 10, Task 11.
 

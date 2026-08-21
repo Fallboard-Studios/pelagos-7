@@ -3,10 +3,14 @@
 // ========================================
 import * as Tone from 'tone';
 
+import { AudioEngine } from './AudioEngine';
+import { scheduleRepeat, cancelSchedule } from './beatClock';
 import { DEFAULT_LFO_SETTINGS } from '../data/lfoConfig';
 
-import type { LfoSettings, RobotLfoTargetId, GlobalLfoTargetId } from '../types/lfo';
-import { LFO_RATE_MIN, LFO_RATE_MAX, LFO_DEPTH_MIN, LFO_DEPTH_MAX } from '../types/lfo';
+import type { OscillatorLayer } from '../types/layeredAudio';
+import type { LfoSettings, LfoShape, RobotLfoTargetId, GlobalLfoTargetId } from '../types/lfo';
+import { LFO_RATE_MIN, LFO_RATE_MAX, LFO_DEPTH_MIN, LFO_DEPTH_MAX, ROBOT_LFO_TARGET_IDS } from '../types/lfo';
+import { devWarn } from '../utils/helpers';
 
 // ========================================
 // TYPES
@@ -28,6 +32,29 @@ const activeLfos = new Map<string, Tone.LFO>();
 /** Persisted LfoSettings per instance key, independent of whether a live node exists yet. */
 const settingsByKey = new Map<string, LfoSettings>();
 
+/**
+ * Manual-polling fallback state for 'layerN.phase' targets — Tone.js has no
+ * connectable Signal for oscillator phase (verified against the real synth
+ * construction code in AudioEngine.ts, not assumed; see spec §7.1). Keyed
+ * the same as activeLfos/settingsByKey.
+ */
+interface PhaseFallback {
+  scheduleId: string;
+  robotId: string;
+  layerIndex: number;
+  startTime: number;
+}
+const phaseFallbacks = new Map<string, PhaseFallback>();
+
+/** Phase modulates around this center (degrees) — the midpoint of the 0-360 range
+ * ROBOT_DATA_GRID.md's Phase field documents. Depth scales how far it swings from
+ * there, not around the layer's own current phase value (that would require
+ * lfoEngine to read robot state directly, which stays AudioEngine/store territory —
+ * a deliberate Phase-0 scope choice, revisit once UI/testing calls for it). */
+const PHASE_CENTER_DEGREES = 180;
+/** Polling granularity for the phase fallback — matches BeatClock's own internal tick. */
+const PHASE_POLL_INTERVAL = '16n';
+
 // ========================================
 // INTERNAL FUNCTIONS
 // ========================================
@@ -43,6 +70,29 @@ function clamp(value: number, min: number, max: number): number {
  */
 function instanceKey(target: LfoTargetId, robotId?: string): string {
   return robotId ? `${robotId}:${target}` : target;
+}
+
+/** Whether a target belongs to the per-robot set (needs a robotId) vs. the global-chain set (doesn't). */
+function isRobotTarget(target: LfoTargetId): boolean {
+  return (ROBOT_LFO_TARGET_IDS as readonly string[]).includes(target);
+}
+
+/** Unit-amplitude waveform value in [-1, 1] for a given shape at a given phase angle (radians). */
+function waveformUnit(shape: LfoShape, phaseRadians: number): number {
+  const twoPi = Math.PI * 2;
+  const t = ((phaseRadians % twoPi) + twoPi) % twoPi;
+  switch (shape) {
+    case 'sine':
+      return Math.sin(t);
+    case 'triangle':
+      return (2 / Math.PI) * Math.asin(Math.sin(t));
+    case 'square':
+      return t < Math.PI ? 1 : -1;
+    case 'sawtooth':
+      return t / Math.PI - 1;
+    default:
+      return 0;
+  }
 }
 
 function isTransportRunning(): boolean {
@@ -143,6 +193,91 @@ function stop(target: LfoTargetId, robotId?: string): void {
   activeLfos.get(instanceKey(target, robotId))?.stop();
 }
 
+/**
+ * Start the manual-polling fallback for a 'layerN.phase' target: recomputes
+ * a waveform value each tick from the target's current LfoSettings and
+ * reapplies it via AudioEngine.updateVoiceLayerParams — a periodic re-.set(),
+ * not a native .connect(). Uses beatClock's Transport-driven scheduleRepeat
+ * (never a raw JS timer, per CLAUDE.md), matching the same transport-gated
+ * spirit as start()/stop() above.
+ */
+function startPhaseFallback(key: string, target: RobotLfoTargetId, robotId: string, layerIndex: number): void {
+  const startTime = Tone.now();
+  const scheduleId = scheduleRepeat(PHASE_POLL_INTERVAL, () => {
+    const settings = getLfoSettings(target, robotId);
+    const elapsed = Tone.now() - startTime;
+    const angle = 2 * Math.PI * settings.rate * elapsed;
+    const unit = waveformUnit(settings.shape, angle);
+    const swing = (settings.depth / 100) * PHASE_CENTER_DEGREES;
+    const phase = clamp(PHASE_CENTER_DEGREES + unit * swing, 0, 360);
+
+    const layers: Partial<OscillatorLayer>[] = [];
+    layers[layerIndex] = { phase };
+    AudioEngine.updateVoiceLayerParams(robotId, layers as OscillatorLayer[]);
+  });
+  phaseFallbacks.set(key, { scheduleId, robotId, layerIndex, startTime });
+}
+
+function stopPhaseFallback(key: string): void {
+  const entry = phaseFallbacks.get(key);
+  if (!entry) return;
+  cancelSchedule(entry.scheduleId);
+  phaseFallbacks.delete(key);
+}
+
+/**
+ * Connect this target's LFO to its live modulation destination. Returns
+ * false — never throws — when: a robot-scoped target is called without a
+ * robotId (nothing to resolve against), or AudioEngine has no live Signal
+ * for the target (pulseWidth on a non-'pulse' layer, chorus.delayTime —
+ * structural Tone.js limitations documented at the AudioEngine layer,
+ * Tasks 9/10). 'layerN.phase' is handled entirely separately via the
+ * manual-polling fallback above, since no live Signal exists for it at all.
+ */
+function connectLfoTarget(target: LfoTargetId, robotId?: string): boolean {
+  const key = instanceKey(target, robotId);
+
+  const phaseMatch = /^layer(\d+)\.phase$/.exec(target);
+  if (phaseMatch) {
+    if (!robotId) return false;
+    getOrCreateLfo(key, target, robotId); // keep rate/depth/shape bookkeeping consistent with every other target
+    if (phaseFallbacks.has(key)) return true; // already connected — idempotent
+    startPhaseFallback(key, target as RobotLfoTargetId, robotId, Number(phaseMatch[1]));
+    return true;
+  }
+
+  // signal's type is inferred from AudioEngine's own return types (Tasks 9/10) —
+  // no local `any` needed here even though that union isn't re-exported by name.
+  if (isRobotTarget(target) && !robotId) return false;
+  const signal = isRobotTarget(target)
+    ? AudioEngine.getRobotModulationTarget(robotId!, target as RobotLfoTargetId)
+    : AudioEngine.getGlobalModulationTarget(target as GlobalLfoTargetId);
+  if (!signal) return false;
+
+  const lfo = getOrCreateLfo(key, target, robotId);
+  try {
+    lfo.connect(signal as unknown as Tone.InputNode);
+  } catch (err) {
+    devWarn('[lfoEngine] connectLfoTarget: connect failed', err);
+    return false;
+  }
+  return true;
+}
+
+/** Reverse connectLfoTarget: disconnects the live node, or cancels the phase-polling schedule. Safe/no-op if nothing was connected. */
+function disconnectLfoTarget(target: LfoTargetId, robotId?: string): void {
+  const key = instanceKey(target, robotId);
+  if (phaseFallbacks.has(key)) {
+    stopPhaseFallback(key);
+    return;
+  }
+  try {
+    activeLfos.get(key)?.disconnect();
+  } catch (err) {
+    devWarn('[lfoEngine] disconnectLfoTarget: disconnect failed', err);
+  }
+}
+
 export const lfoEngine = {
   getLfoSettings,
   setLfoRate,
@@ -150,4 +285,6 @@ export const lfoEngine = {
   setLfoShape,
   start,
   stop,
+  connectLfoTarget,
+  disconnectLfoTarget,
 };

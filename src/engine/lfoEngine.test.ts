@@ -15,10 +15,47 @@ vi.mock('tone', () => ({
     start: vi.fn(),
     stop: vi.fn(),
     connect: vi.fn().mockReturnThis(),
+    disconnect: vi.fn(),
     dispose: vi.fn(),
   })),
   getTransport: vi.fn(() => ({ get state() { return mockTransportState; } })),
+  now: vi.fn(() => mockToneNow),
 }));
+
+vi.mock('./AudioEngine', () => ({
+  AudioEngine: {
+    getRobotModulationTarget: vi.fn(),
+    getGlobalModulationTarget: vi.fn(),
+    updateVoiceLayerParams: vi.fn(),
+  },
+}));
+
+// Shares captured schedule callbacks between the hoisted beatClock mock
+// factory and test bodies, so a test can manually fire a "tick" — this is
+// the "mocked LFO ticks" mechanism the phase-fallback tests need, since the
+// real scheduleRepeat only actually fires once a real transport is running.
+const { scheduleCallbacks, mockScheduleRepeat, mockCancelSchedule } = vi.hoisted(() => {
+  const callbacks = new Map<string, () => void>();
+  let counter = 0;
+  return {
+    scheduleCallbacks: callbacks,
+    mockScheduleRepeat: (_interval: string, callback: () => void): string => {
+      const id = `mock-schedule-${counter++}`;
+      callbacks.set(id, callback);
+      return id;
+    },
+    mockCancelSchedule: (id: string): void => {
+      callbacks.delete(id);
+    },
+  };
+});
+
+vi.mock('./beatClock', () => ({
+  scheduleRepeat: vi.fn(mockScheduleRepeat),
+  cancelSchedule: vi.fn(mockCancelSchedule),
+}));
+
+let mockToneNow = 0;
 
 // ========================================
 // HELPERS
@@ -38,6 +75,8 @@ interface MockLfoInstance {
   type: string;
   start: ReturnType<typeof vi.fn>;
   stop: ReturnType<typeof vi.fn>;
+  connect: ReturnType<typeof vi.fn>;
+  disconnect: ReturnType<typeof vi.fn>;
 }
 
 async function callCountDelta(action: () => void): Promise<number> {
@@ -53,6 +92,11 @@ async function latestLfoInstance(): Promise<MockLfoInstance> {
   return (Tone.LFO as unknown as ReturnType<typeof vi.fn>).mock.results.at(-1)!.value;
 }
 
+/** A minimal fake Signal-like object, distinct per call so tests can assert connect() received the right one. */
+function fakeSignal(): { value: number } {
+  return { value: 0 };
+}
+
 // ========================================
 // TESTS
 // ========================================
@@ -61,6 +105,8 @@ describe('lfoEngine', () => {
   beforeEach(async () => {
     vi.resetModules();
     mockTransportState = 'stopped';
+    mockToneNow = 0;
+    scheduleCallbacks.clear();
   });
 
   describe('lazy instantiation', () => {
@@ -250,6 +296,178 @@ describe('lfoEngine', () => {
       mockTransportState = 'stopped';
       lfoEngine.stop('volume');
       expect(instance.stop).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('connectLfoTarget', () => {
+    it('connects to the real Signal for a robot-scoped Gain target', async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      const signal = fakeSignal();
+      (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(signal);
+
+      const { lfoEngine } = await import('./lfoEngine');
+      const result = lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+
+      expect(result).toBe(true);
+      expect(AudioEngine.getRobotModulationTarget).toHaveBeenLastCalledWith('robot-a', 'layer0.gain');
+      const instance = await latestLfoInstance();
+      expect(instance.connect).toHaveBeenCalledWith(signal);
+    });
+
+    it('connects to the real Signal for a robot-scoped Detune target', async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      const signal = fakeSignal();
+      (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(signal);
+
+      const { lfoEngine } = await import('./lfoEngine');
+      lfoEngine.connectLfoTarget('layer1.detune', 'robot-a');
+
+      const instance = await latestLfoInstance();
+      expect(instance.connect).toHaveBeenCalledWith(signal);
+    });
+
+    it('connects to the real Signal for a global-chain target — no robotId involved', async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      const signal = fakeSignal();
+      (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(signal);
+
+      const { lfoEngine } = await import('./lfoEngine');
+      const result = lfoEngine.connectLfoTarget('eq3.low');
+
+      expect(result).toBe(true);
+      expect(AudioEngine.getGlobalModulationTarget).toHaveBeenLastCalledWith('eq3.low');
+      const instance = await latestLfoInstance();
+      expect(instance.connect).toHaveBeenCalledWith(signal);
+    });
+
+    it('connects to the real Signal for pulseWidth on a \'pulse\'-type layer', async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      const signal = fakeSignal();
+      (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(signal);
+
+      const { lfoEngine } = await import('./lfoEngine');
+      const result = lfoEngine.connectLfoTarget('layer0.pulseWidth', 'robot-a');
+
+      expect(result).toBe(true);
+      const instance = await latestLfoInstance();
+      expect(instance.connect).toHaveBeenCalledWith(signal);
+    });
+
+    it('returns false (not throw) for pulseWidth on a non-\'pulse\' layer — AudioEngine already returns null for that case', async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(null);
+
+      const { lfoEngine } = await import('./lfoEngine');
+      let result: boolean | undefined;
+      expect(() => { result = lfoEngine.connectLfoTarget('layer0.pulseWidth', 'robot-a'); }).not.toThrow();
+      expect(result).toBe(false);
+    });
+
+    it('returns false (not throw) for a robot-scoped target called without a robotId', async () => {
+      const { lfoEngine } = await import('./lfoEngine');
+      let result: boolean | undefined;
+      expect(() => { result = lfoEngine.connectLfoTarget('layer0.gain'); }).not.toThrow();
+      expect(result).toBe(false);
+    });
+
+    describe('phase — manual polling fallback', () => {
+      it('does not call .connect() — no live Signal exists for phase', async () => {
+        const { lfoEngine } = await import('./lfoEngine');
+        const delta = await callCountDelta(() => {
+          lfoEngine.connectLfoTarget('layer0.phase', 'robot-a');
+        });
+        // a Tone.LFO IS still constructed (for rate/depth/shape bookkeeping,
+        // matching every other target), but nothing should be connected.
+        expect(delta).toBe(1);
+        const instance = await latestLfoInstance();
+        expect(instance.connect).not.toHaveBeenCalled();
+      });
+
+      it('returns true and registers a scheduleRepeat tick', async () => {
+        const { lfoEngine } = await import('./lfoEngine');
+        const before = scheduleCallbacks.size;
+        const result = lfoEngine.connectLfoTarget('layer0.phase', 'robot-a');
+        expect(result).toBe(true);
+        expect(scheduleCallbacks.size).toBe(before + 1);
+      });
+
+      it('returns false (not throw) when called without a robotId — phase fallback needs to know which robot\'s voice to update', async () => {
+        const { lfoEngine } = await import('./lfoEngine');
+        let result: boolean | undefined;
+        expect(() => { result = lfoEngine.connectLfoTarget('layer0.phase'); }).not.toThrow();
+        expect(result).toBe(false);
+      });
+
+      it('mutates phase over time — each simulated tick produces a different value applied via AudioEngine.updateVoiceLayerParams', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        const { lfoEngine } = await import('./lfoEngine');
+        lfoEngine.setLfoRate('layer0.phase', 1, 'robot-a');
+        lfoEngine.setLfoDepth('layer0.phase', 100, 'robot-a');
+        lfoEngine.connectLfoTarget('layer0.phase', 'robot-a');
+
+        const callback = [...scheduleCallbacks.values()].at(-1)!;
+
+        mockToneNow = 0;
+        callback();
+        const firstCall = (AudioEngine.updateVoiceLayerParams as ReturnType<typeof vi.fn>).mock.calls.at(-1)!;
+        const firstPhase = (firstCall[1] as Array<{ phase?: number }>)[0]?.phase;
+
+        mockToneNow = 0.25; // a quarter-period later at 1 Hz
+        callback();
+        const secondCall = (AudioEngine.updateVoiceLayerParams as ReturnType<typeof vi.fn>).mock.calls.at(-1)!;
+        const secondPhase = (secondCall[1] as Array<{ phase?: number }>)[0]?.phase;
+
+        expect(firstCall[0]).toBe('robot-a');
+        expect(typeof firstPhase).toBe('number');
+        expect(typeof secondPhase).toBe('number');
+        expect(secondPhase).not.toBe(firstPhase);
+      });
+
+      it('only patches the target layer index, leaving other layers untouched (sparse array)', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        const { lfoEngine } = await import('./lfoEngine');
+        lfoEngine.connectLfoTarget('layer2.phase', 'robot-a');
+        const callback = [...scheduleCallbacks.values()].at(-1)!;
+        callback();
+
+        const call = (AudioEngine.updateVoiceLayerParams as ReturnType<typeof vi.fn>).mock.calls.at(-1)!;
+        const layers = call[1] as Array<{ phase?: number } | undefined>;
+        expect(layers[0]).toBeUndefined();
+        expect(layers[1]).toBeUndefined();
+        expect(layers[2]?.phase).toBeTypeOf('number');
+      });
+    });
+  });
+
+  describe('disconnectLfoTarget', () => {
+    it('disconnects a Signal-connected target', async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal());
+
+      const { lfoEngine } = await import('./lfoEngine');
+      lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+      const instance = await latestLfoInstance();
+
+      lfoEngine.disconnectLfoTarget('layer0.gain', 'robot-a');
+      expect(instance.disconnect).toHaveBeenCalledTimes(1);
+    });
+
+    it('cancels the phase-polling fallback schedule', async () => {
+      const { cancelSchedule } = await import('./beatClock');
+      const { lfoEngine } = await import('./lfoEngine');
+      lfoEngine.connectLfoTarget('layer0.phase', 'robot-a');
+      const sizeBeforeDisconnect = scheduleCallbacks.size;
+
+      lfoEngine.disconnectLfoTarget('layer0.phase', 'robot-a');
+
+      expect(cancelSchedule).toHaveBeenCalled();
+      expect(scheduleCallbacks.size).toBe(sizeBeforeDisconnect - 1);
+    });
+
+    it('does not throw when nothing was ever connected', async () => {
+      const { lfoEngine } = await import('./lfoEngine');
+      expect(() => lfoEngine.disconnectLfoTarget('volume')).not.toThrow();
+      expect(() => lfoEngine.disconnectLfoTarget('layer0.phase', 'robot-a')).not.toThrow();
     });
   });
 });
