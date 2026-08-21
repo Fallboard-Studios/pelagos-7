@@ -18,12 +18,6 @@
   transform: translateX(100%) rotate(90deg);
 }
 
-@media screen and (min-width: 48em) {
-  .rocker-panel {
-    transform: none;
-  }
-}
-
 /* ----------------------------------------
    Indicator light housing — recessed pocket
    mounted above the rocker switch

@@ -7,8 +7,6 @@
 
   /* Sleeve layout */
   --sleeve-width: 64px;
-  --sleeve-width-tablet: 48px;
-  --sleeve-width-desktop: 64px;
 
   /* Color tokens (fallbacks; prefer assets/color-theme.json mapping elsewhere) */
   --color-bg: #121212;

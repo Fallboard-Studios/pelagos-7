@@ -1,6 +1,7 @@
 .tablet {
   --tablet-max-width: calc(100% - 32px);
 
+  position: relative;
   width: var(--tablet-max-width);
   max-width: var(--tablet-max-width);
   height: var(--tablet-max-width);
@@ -8,35 +9,4 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-}
-
-@media screen and (min-width: 48em) {
-  .tablet {
-    flex-direction: row;
-  }
-}
-
-@media screen and (min-width: 64em) {
-  .tablet {
-    --tablet-width: 960px;
-    --tablet-aspect-ratio: 16 / 9;
-
-    width: var(--tablet-width);
-    max-width: var(--tablet-width);
-    height: calc(var(--tablet-width) / (var(--tablet-aspect-ratio)));
-    flex-direction: row;
-  }
-}
-
-@media screen and (min-width: 80em) {
-  .tablet {
-    --tablet-width: 1200px;
-
-  }
-}
-
-@media screen and (min-width: 92em) {
-  .tablet {
-    --tablet-width: 1440px;
-  }
 }
