@@ -11,11 +11,26 @@ import { setGlobalPlanetSeedOverride } from './utils/seedUtils'
 // the whole thing dead code Vite strips from production builds.
 import './engine/lfoDebug'
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+// THROWAWAY dev-only preview hook for docs/COMPONENT_LIBRARY.md's 13
+// primitives (?preview=controls). Not part of Phase 1's committed scope —
+// remove this block and src/dev/ControlsPreview.tsx together when done.
+const isControlsPreview = typeof window !== 'undefined'
+  && new URLSearchParams(window.location.search).get('preview') === 'controls';
+
+if (isControlsPreview) {
+  const { ControlsPreview } = await import('./dev/ControlsPreview');
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <ControlsPreview />
+    </StrictMode>,
+  );
+} else {
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  );
+}
 
 // Support global seed override via URL param e.g. ?seed=myspecialseed
 const seedParam = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('seed') : null;

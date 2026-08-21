@@ -65,7 +65,7 @@ export function AccordionContainer({ schema, children, defaultOpen = false }: Ac
     <Accordion.Root
       type="single"
       collapsible
-      className="sc-accordion"
+      className={`sc-accordion${open ? ' isActive' : ''}`}
       value={open ? schema.id : ''}
       onValueChange={handleValueChange}
     >
