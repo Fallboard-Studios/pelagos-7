@@ -329,19 +329,30 @@ Tasks 6, 12, 13 ──→ Task 14 (dev-only audible check hook)
 
 ### Phase 4: LFO engine lifecycle and connection
 
-- [ ] **Task 11: `src/engine/lfoEngine.ts` — core lifecycle**
+- [x] **Task 11: `src/engine/lfoEngine.ts` — core lifecycle** — done
 
   **Description:** Implement `getLfoSettings`, `setLfoRate`, `setLfoDepth`, `setLfoShape`, and transport-gated `start`/`stop` for a per-target `Tone.LFO`, with lazy instantiation (no node created until first use). Unit-test against a mocked `Signal`-like object — this task does not depend on `AudioEngine`'s real exposure.
 
+  **Real findings, verified against Tone.js's actual `.d.ts` before designing — not assumed:**
+  - `Tone.LFO.sync()`'s own doc comment states it syncs "the frequency to the bpm of the transport" (its example shows a note-division rate string like `"8n"`) — calling it would tempo-couple the rate, directly violating the confirmed intent that rate stays free-running Hz. **`sync()` is deliberately never called.** `start()`/`stop()` gate by checking `Tone.getTransport().state === 'started'` directly instead.
+  - `Tone.LFO` has no `depth` property — only `amplitude: Param<"normalRange">` (0–1). `setLfoDepth`'s 0–100% maps to `amplitude.value = depth / 100`.
+
+  **Multi-robot key design (not fully pinned down by the plan text, resolved here):** `DEFAULT_LFO_SETTINGS` (Task 8) is a flat `Record<target, LfoSettings>` — one entry per target id, not per robot. But robot-scoped targets need one *live* LFO per robot (12 robots could each be modulating their own `layer0.gain` independently), so every function takes an optional `robotId?: string`; the internal instance key is `` `${robotId}:${target}` `` when provided, or the bare target id for global-chain targets (no robot). `getLfoSettings` falls back to `DEFAULT_LFO_SETTINGS[target]` per-instance, so each robot starts from the same default and diverges independently once set.
+
+  **Implementation notes:**
+  - `start()`/`stop()` deliberately never lazily construct a node — only setters (and, later, Task 12's `connectLfoTarget`) do, matching the acceptance criterion's literal "setter or connect" wording. Calling `start()`/`stop()` before anything has been set for a target is a safe no-op.
+  - **Debugging note worth recording:** the first test-writing pass used absolute `toHaveBeenCalledTimes(N)` assertions and grabbed `mock.results[0]` for inspecting constructed instances — both wrong for this codebase's established Tone-mock pattern, where `vi.resetModules()` gives `lfoEngine.ts` a fresh module instance per test but does **not** reset the hoisted `tone` mock's own call history (`AudioEngine.test.ts` already documents this exact constraint and works around it with `.at(-2)`/`.at(-1)`). Caught immediately by the RED→GREEN cycle itself (9 failures on first run, not silently passing wrong), then fixed by asserting call-count *deltas* around each action and reading `mock.results.at(-1)` for the most-recently-constructed instance.
+
   **Acceptance criteria:**
-  - [ ] No `Tone.LFO` is constructed until a setter or connect is first called for a given target.
-  - [ ] `setLfoRate`/`setLfoDepth`/`setLfoShape` update both the live node (if instantiated) and the persisted `LfoSettings`.
-  - [ ] Rate is a plain Hz value — no BeatClock/Transport import for the rate itself.
-  - [ ] `start`/`stop` are gated by the transport per spec §3 (confirmed intent's "transport gates start/stop only").
+  - [x] No `Tone.LFO` is constructed until a setter or connect is first called for a given target.
+  - [x] `setLfoRate`/`setLfoDepth`/`setLfoShape` update both the live node (if instantiated) and the persisted `LfoSettings`.
+  - [x] Rate is a plain Hz value — no BeatClock/Transport import for the rate itself.
+  - [x] `start`/`stop` are gated by the transport per spec §3 (confirmed intent's "transport gates start/stop only").
 
   **Verification:**
-  - [ ] `npm test -- lfoEngine` passes.
-  - [ ] `npm run build:types` clean.
+  - [x] `npx vitest run src/engine/lfoEngine.test.ts` — 22/22 passing: lazy instantiation (module load, settings-only reads, first-setter-triggers, reuse-across-setters), settings persistence, rate/depth clamping at both bounds, per-robot instance isolation (including the global-vs-robot-scoped-same-target-id collision check), and transport gating for both `start` and `stop`.
+  - [x] `npm run build:types`, `npm run lint` clean — 0 errors, 0 warnings.
+  - [x] Full suite: 35 files, 528/528 passing (+22). `npm run build` clean.
 
   **Dependencies:** Task 8.
 
