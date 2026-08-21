@@ -47,6 +47,17 @@ interface PhaseFallback {
 }
 const phaseFallbacks = new Map<string, PhaseFallback>();
 
+/**
+ * The specific Signal/Param object each instance key is currently connected
+ * to (Signal-based targets only — phase's fallback tracks its own state via
+ * phaseFallbacks). Makes repeated connectLfoTarget calls idempotent by our
+ * own bookkeeping rather than leaning on the Web Audio spec's connect()
+ * dedup guarantee (real, but not something a unit test against a mocked
+ * Tone.LFO can verify) — and lets a changed signal (e.g. a rebuilt composite
+ * voice) be detected and re-wired instead of silently left stale.
+ */
+const connectedSignals = new Map<string, unknown>();
+
 /** Phase modulates around this center (degrees) — the midpoint of the 0-360 range
  * ROBOT_DATA_GRID.md's Phase field documents. Depth scales how far it swings from
  * there, not around the layer's own current phase value (that would require
@@ -304,12 +315,27 @@ function connectLfoTarget(target: LfoTargetId, robotId?: string): boolean {
     lfo.min = range.min;
     lfo.max = range.max;
   }
+
+  if (connectedSignals.get(key) === signal) return true; // already connected to this exact signal — no-op, never a second .connect()
+
+  if (connectedSignals.has(key)) {
+    // Connected to a different (stale) signal — e.g. a rebuilt composite
+    // voice resolved a new Gain node for the same target — reverse the old
+    // connection before wiring the new one, rather than leaving both live.
+    try {
+      lfo.disconnect();
+    } catch (err) {
+      devWarn('[lfoEngine] connectLfoTarget: disconnect of stale signal failed', err);
+    }
+  }
+
   try {
     lfo.connect(signal as unknown as Tone.InputNode);
   } catch (err) {
     devWarn('[lfoEngine] connectLfoTarget: connect failed', err);
     return false;
   }
+  connectedSignals.set(key, signal);
   return true;
 }
 
@@ -320,6 +346,7 @@ function disconnectLfoTarget(target: LfoTargetId, robotId?: string): void {
     stopPhaseFallback(key);
     return;
   }
+  connectedSignals.delete(key);
   try {
     activeLfos.get(key)?.disconnect();
   } catch (err) {
