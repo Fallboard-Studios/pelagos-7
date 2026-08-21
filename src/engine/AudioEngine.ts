@@ -14,12 +14,13 @@ import { getAvailableNotes, scheduleHarmonyCycle, stopHarmonyCycle } from './har
 import { resetBeatClock, subscribeToMeasure, initBeatClock } from './beatClock';
 import type { RobotMelodyEvent } from './melodyGenerator';
 import { applyRhythmicVariance, applyTonalVariance } from './melodyGenerator';
-import { DEV_TUNING, WORLD_WIDTH, MIN_LEAD as CONST_MIN_LEAD } from '../constants';
+import { DEV_TUNING, MIN_LEAD as CONST_MIN_LEAD } from '../constants';
 
 import { getRef } from '../utils/refs';
 import { precomputeDataX } from '../utils/getSeededVal';
 import { tryGetLocaleNoiseMap } from '../utils/noiseMaps';
 import { devLog, devWarn } from '../utils/helpers';
+import { calculatePanFromPosition } from './audioEngine/panning';
 
 // MIN_LEAD: prefer project constant, fall back to 0.1s for headless/tests
 const MIN_LEAD = CONST_MIN_LEAD ?? 0.1;
@@ -195,18 +196,6 @@ const robotNoteIndex = new Map<string, number>();
 // ========================================
 // INTERNAL FUNCTIONS
 // ========================================
-
-/**
- * Calculate stereo pan value from robot's X position.
- * Returns −0.5 (left) to +0.5 (right) mapped from world coordinate [0, WORLD_WIDTH].
- * Reduced range keeps voices more centered for a cohesive mix.
- *
- * @param x - Robot X position in world space
- * @returns Pan value in range [−0.5, +0.5]
- */
-function calculatePanFromPosition(x: number): number {
-  return (x / WORLD_WIDTH) * 1 - 0.5;
-}
 
 /** Robots in the currently active locale (empty array if locale/robots are absent). */
 function getActiveLocaleRobots(): Robot[] {
