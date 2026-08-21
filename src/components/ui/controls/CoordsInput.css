@@ -1,0 +1,14 @@
+.sc-coords-input {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sc-coords-input__fields {
+  display: flex;
+  gap: 8px;
+}
+
+.sc-coords-input__fields > * {
+  flex: 1;
+}
