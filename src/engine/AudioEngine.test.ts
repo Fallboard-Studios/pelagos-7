@@ -501,9 +501,16 @@ describe('AudioEngine - audioMode enforcement (solo/mute/highlight)', () => {
     const synthResults = (Tone.Synth as unknown as any).mock.results;
     synthResults.forEach((r: any) => r.value?.triggerAttackRelease?.mockClear());
 
-    // Schedule note for non-highlighted robot with a unique note
+    // Schedule note for non-highlighted robot with a unique note. Pass an
+    // explicit velocity (0.8) so this test isolates the highlight-attenuation
+    // step (scheduleNote's audioMode logic unconditionally applies × 0.5,
+    // whether velocity came from the caller or from computeNoteVelocitySeeded)
+    // rather than depending on the active locale's seeded noise map landing in
+    // its "no variance" branch — that incidental coupling is exactly what
+    // broke when the default locale's noise-map coordinates were fixed off
+    // their (0, 0) dead zone (docs/roadmap/roadmap.md § 5 "Known Issue").
     const targetNote = 'G5';
-    AudioEngine.scheduleNote({ robotId: 'r-nh', note: targetNote, duration: '4n', time: 0 });
+    AudioEngine.scheduleNote({ robotId: 'r-nh', note: targetNote, duration: '4n', time: 0, velocity: 0.8 });
 
     // Find the call for our unique note and assert velocity ≈ 0.4
     let found = false;
