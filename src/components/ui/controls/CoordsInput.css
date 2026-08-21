@@ -1,0 +1,19 @@
+.sc-coords-input {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sc-coords-input__fields {
+  display: flex;
+  gap: 8px;
+}
+
+.sc-coords-input__fields > * {
+  flex: 1;
+  /* Flex items default to min-width: auto, which floors shrinking at the
+     content's intrinsic size — without this, the X/Y fields refuse to
+     shrink below their <input>'s default width and overflow on narrow
+     (mobile) viewports instead of sharing the row. */
+  min-width: 0;
+}

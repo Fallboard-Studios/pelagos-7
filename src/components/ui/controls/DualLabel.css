@@ -1,0 +1,17 @@
+.sc-dual-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sc-dual-label__lore {
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.sc-dual-label__human {
+  font-size: 0.85rem;
+  color: var(--color-text-primary);
+}
