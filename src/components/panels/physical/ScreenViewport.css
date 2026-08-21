@@ -121,33 +121,9 @@
   overflow: auto;
   display: grid;
   grid-template-columns: 1fr;
-  grid-template-rows: auto auto 1fr 1fr;
+  grid-template-rows: auto 1fr 1fr;
   grid-template-areas:
     "transport"
     "worldview"
-    "console"
-    "robotlist";
-
-
-}
-
-@media screen and (min-width: 64em) {
-  .screen-content {
-    height: 100%;
-    grid-template-columns: 2fr 1fr;
-    grid-template-rows: var(--transport-height) auto 1fr;
-    grid-template-areas:
-      "transport   robotlist"
-      "worldview   robotlist"
-      "console     console";
-  }
-
-  .screen-occlusion {
-    height: 100%;
-    width: 20px;
-    top: 0;
-    left: 0;
-    background: linear-gradient(to right, rgba(0, 0, 0, 0.4), transparent);
-
-  }
+    "console";
 }

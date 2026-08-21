@@ -134,7 +134,7 @@ Task 11 (decorative rail/gradient flip) ── gated on human decision, no code 
 
 ### Phase 2: Content grid cleanup (independent of the cutaway)
 
-- [ ] **Task 5: Delete `RobotList`**
+- [x] **Task 5: Delete `RobotList`** — done
 
   **Description:** Delete `RobotList.tsx`/`RobotList.css` and drop `{isPoweredOn && <RobotList />}` from `ScreenViewport.tsx`. No replacement, no parking for reuse — per the confirmed intent, Phase 8's Robot Selection tile is different enough in shape.
 
@@ -149,11 +149,11 @@ Task 11 (decorative rail/gradient flip) ── gated on human decision, no code 
 
   **Dependencies:** None.
 
-  **Files:** `src/components/panels/screen/RobotList.tsx` (deleted), `src/components/panels/screen/RobotList.css` (deleted), `src/components/panels/physical/ScreenViewport.tsx`
+  **Files:** `src/components/panels/screen/RobotList.tsx` (deleted), `src/components/panels/screen/RobotList.css` (deleted), `src/components/panels/physical/ScreenViewport.tsx`, `src/components/panels/physical/ScreenViewport.test.tsx` (new)
 
   **Estimated scope:** S (2 deletions + 1 edit)
 
-- [ ] **Task 6: `ScreenViewport.css` — remove two-column grid, drop `robotlist` area**
+- [x] **Task 6: `ScreenViewport.css` — remove two-column grid, drop `robotlist` area** — done
 
   **Description:** Delete the `min-width: 64em` block (the two-column `.screen-content` grid + its `.screen-occlusion` override). Update the base `.screen-content` to 3 grid areas (`transport worldview console`, one per row) with `grid-template-rows: auto 1fr 1fr` per this plan's Architecture Decision above — the `robotlist` area is gone, no reflow logic replaces it.
 
@@ -168,13 +168,14 @@ Task 11 (decorative rail/gradient flip) ── gated on human decision, no code 
 
   **Dependencies:** Task 5 (grid areas reference `RobotList`'s old slot; sequence after its removal to avoid an intermediate broken state).
 
-  **Files:** `src/components/panels/physical/ScreenViewport.css`
+  **Files:** `src/components/panels/physical/ScreenViewport.css`, `src/components/panels/physical/ScreenViewport.css.test.ts` (new)
 
   **Estimated scope:** S (1 file)
 
 ### Checkpoint: Content grid cleanup
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] `RobotList` is fully gone; `WorldView`/`Console` render correctly in a single column at every width.
+- [x] `npm run build:types`, `npm run lint`, `npm test` (60 files, 697/697 passing), `npm run build` all clean.
+- [x] `RobotList` is fully gone — deleted files, no remaining references anywhere in `src/` outside the new tests' own comments/assertions. `.screen-content` is single-column with exactly 3 areas at every width.
+- [ ] Manual visual check in a running browser (`npm run dev`) — not yet performed this session; recommended before merging, alongside Phase 1's outstanding manual check.
 - [ ] Review with human before proceeding.
 
 ---
