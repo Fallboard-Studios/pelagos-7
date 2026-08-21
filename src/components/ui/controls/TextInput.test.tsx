@@ -38,4 +38,19 @@ describe('TextInput', () => {
     expect(screen.getByText('DESIGNATION')).toBeTruthy();
     expect(screen.getByText('Robot Name')).toBeTruthy();
   });
+
+  it('renders as a plain text input by default (numeric prop omitted)', () => {
+    const schema: TextInputSchema = { id: 'robotName', type: 'textInput' };
+    render(<TextInput schema={schema} value="" onChange={() => {}} />);
+    expect((screen.getByRole('textbox') as HTMLInputElement).type).toBe('text');
+  });
+
+  it('renders as a native numeric input when numeric is true', () => {
+    const schema: TextInputSchema = { id: 'coordX', type: 'textInput', humanLabel: 'X' };
+    render(<TextInput schema={schema} value="12" onChange={() => {}} numeric />);
+    const input = screen.getByRole('spinbutton') as HTMLInputElement;
+    expect(input.type).toBe('number');
+    expect(input.getAttribute('inputmode')).toBe('decimal');
+    expect(input.value).toBe('12');
+  });
 });
