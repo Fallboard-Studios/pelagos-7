@@ -187,19 +187,26 @@ Tasks 6, 12, 13 ──→ Task 14 (dev-only audible check hook)
 
   **Estimated scope:** M (1 new file + test, 24-field mapping)
 
-- [ ] **Task 6: Wire seeded global audio into `audioStore` on planet change**
+- [x] **Task 6: Wire seeded global audio into `audioStore` on planet change** — done
 
   **Description:** Call `generateGlobalAudioSettings` wherever `setCurrentPlanetId` fires (or equivalently, whenever the active planet resolves), and replace `audioStore`'s `globalAudio` with the result — with every effect's `enabled` forced `true` per spec §3/§6. Replaces `DEFAULT_GLOBAL_AUDIO_SETTINGS` as the live source for the current planet.
 
+  **Implementation notes:**
+  - `regenerateGlobalAudioFromSeed(planetId, planetName)` is the explicit action; a module-scope `usePlanetStore.subscribe(...)` in `audioStore.ts` calls it once at import time (covers "app init") and again on every future `currentPlanetId` change (covers "any future planet switch"), mirroring `planetStore.ts`'s own module-scope noise-map priming. This means no future planet-switch call site has to remember to also call the regenerate action — the same class of "forgot to update every call site" bug this whole task list has been closing elsewhere (`planets[0]`, `filter`/`filterLPF`/`filterHPF`).
+  - `AudioEngine.setEffectBypass(effect, true)` is called for all 7 effects alongside the `setGlobal*` setters — `setGlobal*` alone already writes live values directly regardless of any bypass state, but calling `setEffectBypass` too keeps AudioEngine's own enable/bypass bookkeeping consistent for a future disable-then-re-enable flow.
+  - Found and fixed a real test-mock staleness issue along the way: `audioStore.test.ts`'s existing `vi.mock('../engine/AudioEngine', ...)` only stubbed `setBPM` — harmless before, but this task's module-scope side effect now calls 8 more `AudioEngine` methods at import time, which would throw against the old mock. Expanded the mock to match the module's real dependency surface rather than working around it.
+
   **Acceptance criteria:**
-  - [ ] `audioStore` gains an action (e.g. `regenerateGlobalAudioFromSeed(planetId, planetName)`) that calls `generateGlobalAudioSettings` and forces every effect's `enabled: true` before writing to `globalAudio`.
-  - [ ] The action is invoked at the same point `setCurrentPlanetId` is called (app init and any future planet switch).
-  - [ ] `AudioEngine`'s existing `setGlobal*` setters are called with the new values so the live Tone FX chain actually updates (not just the Zustand snapshot).
+  - [x] `audioStore` gains an action (e.g. `regenerateGlobalAudioFromSeed(planetId, planetName)`) that calls `generateGlobalAudioSettings` and forces every effect's `enabled: true` before writing to `globalAudio`.
+  - [x] The action is invoked at the same point `setCurrentPlanetId` is called (app init and any future planet switch) — via the module-scope subscription above.
+  - [x] `AudioEngine`'s existing `setGlobal*` setters are called with the new values so the live Tone FX chain actually updates (not just the Zustand snapshot).
 
   **Verification:**
-  - [ ] `npm test -- audioStore` passes, including a test that `regenerateGlobalAudioFromSeed` produces `enabled: true` on all 7 effects regardless of what the generator returns.
-  - [ ] `npm run build:types`, `npm run lint` clean.
-  - [ ] Manual/audible check (can piggyback on Task 14): starting the app with two different planet names produces audibly different global FX character.
+  - [x] `npx vitest run src/stores/audioStore.test.ts` — 11/11 passing, including determinism, non-degeneracy across planets, forced-`enabled`, `setEffectBypass` coverage for all 7 effects, the no-planet-matches edge case (no throw, no change), and the same-value-no-redundant-recompute edge case.
+  - [x] `npm run build:types`, `npm run lint` clean.
+  - [x] Full suite: 31 files, 466/466 passing (+10 from before) — including files that transitively import `audioStore.ts`.
+  - [x] `npm run build` — production bundle builds cleanly with the new module-scope side effect.
+  - [ ] Manual/audible check — deferred to Task 14 as originally planned (no speakers exercised yet, just the Tone node graph via mocked/headless tests).
 
   **Dependencies:** Task 1, Task 5.
 
