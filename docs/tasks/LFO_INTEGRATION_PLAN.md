@@ -370,6 +370,9 @@ Tasks 6, 12, 13 ──→ Task 14 (dev-only audible check hook)
 
   **Implementation notes:**
   - `connectLfoTarget` still calls `getOrCreateLfo` for phase targets (constructing/reusing the `Tone.LFO` node for rate/depth/shape bookkeeping) even though that node is never actually `.connect()`-ed anywhere — keeps `getLfoSettings`/`setLfoRate` etc. behaving identically for phase as for every other target; only the *connection* mechanism differs.
+  - **Follow-up fix (found while implementing Task 14, applied here since it's this task's code):** `getOrCreateLfo` only ever passed `rate` to `new Tone.LFO(...)`, leaving `min`/`max` at Tone's own defaults (`min: 0, max: 1` — verified directly in `LFO.getDefaults()`, not assumed). Every connected LFO was therefore scoped to a 0–1 output range regardless of target — modulating `eq3.low` (±12 dB) or `layer.detune` (±50 cents) by only 0–1 units is functionally inaudible, silently defeating the entire point of connecting. Fixed by resolving each target's real range at connect time (`resolveLfoOutputRange`) and setting `lfo.min`/`lfo.max` before `.connect()`: robot fields (`volume`/`gain`/`detune`/`pulseWidth`) from a small `ROBOT_LFO_FIELD_RANGE` table per `ROBOT_DATA_GRID.md`; global-chain targets by reusing Task 4/5's `GLOBAL_AUDIO_SEED_RANGES` rather than a second table, translating the `lpf.`/`hpf.` short-form target ids to the `filterLPF.`/`filterHPF.` keys that table actually uses. 6 new tests, TDD'd, covering every field-range case plus both filter-key translations.
+
+  **Verification (updated):** `npx vitest run src/engine/lfoEngine.test.ts` — 42/42 passing (36 prior + 6 new for the range fix). `npm run build:types`, `npm run lint` clean.
   - `updateVoiceLayerParams`'s partial-merge-by-index contract (verified by reading `AudioEngine.ts`'s `set()` implementation directly, not assumed) means a sparse `Partial<OscillatorLayer>[]` with only the target index populated leaves every other layer — and every other field of the target layer — untouched. Explicitly tested.
   - `connectLfoTarget`'s `signal` variable relies on TypeScript inferring `AudioEngine`'s own return type rather than redeclaring the `any`-containing union locally — avoided introducing a second `any` site outside the one `ModulationTarget` alias Task 9 already established.
   - Test-only: shares captured `scheduleRepeat` callbacks between the hoisted mock factory and test bodies via `vi.hoisted()`, since the real `scheduleRepeat` only actually fires once a real transport runs — tests manually invoke the captured callback to simulate ticks, per the acceptance criterion's own "e.g. via fake timers/mocked LFO ticks" wording.
@@ -425,36 +428,47 @@ Tasks 6, 12, 13 ──→ Task 14 (dev-only audible check hook)
 
 ### Phase 5: Audible verification and docs
 
-- [ ] **Task 14: Temporary dev-only audible check hook**
+- [x] **Task 14: Temporary dev-only audible check hook** — done, fully verified
 
   **Description:** Add a `DEV_TUNING`-gated hook (e.g. exposed on `window` only in dev builds, per the existing `Debug Tools` pattern in `AUDIO_SYSTEM.md`) that connects one robot-layer target and one global-chain target to an active LFO, so the seeded/connected chain can be confirmed by ear. Explicitly not real UI (spec §3).
 
+  **Discovered this task's real premise was broken, and fixed it as a prerequisite (see Task 12's updated entry):** before writing the hook, checked whether `connectLfoTarget` would actually produce audible modulation — it wouldn't have. Every LFO was constructed with Tone's default `min:0/max:1` output range regardless of target, so even a "successful" connection to e.g. an EQ band would only swing it by 0–1 dB out of a ±12 dB range. Fixed in `lfoEngine.ts` (range-scaling, TDD'd, 6 new tests) before building this hook on top of it — otherwise Task 14 would have "succeeded" at connecting while still producing no audible effect.
+
+  **Implementation:** new `src/engine/lfoDebug.ts` (per the plan's own suggestion, kept out of `lfoEngine.ts`'s and `AudioEngine.ts`'s public surface). Exposes `window.__lfoDebug.audition()` / `.stop()`, gated by `if (DEV_TUNING && typeof window !== 'undefined')`. `audition()` starts `AudioEngine`, finds the first robot in the active locale, connects+starts `layer0.detune` (3 Hz, 100% depth — an audible pitch wobble) and `eq3.low` (0.5 Hz, 100% depth — a slow tonal sweep across the mix), and returns a descriptive string. Imported once from `main.tsx` purely for its registration side effect — not from any component or store, matching the "not real UI" requirement literally.
+
   **Acceptance criteria:**
-  - [ ] Hook only exists when `DEV_TUNING` is true (stripped from production builds, matching existing `DEV_TUNING`-gated code elsewhere).
-  - [ ] Connecting an LFO to a robot's Detune (or Gain) and a global EQ band is audibly confirmable in `npm run dev`.
-  - [ ] No component or store references this hook — it's a standalone dev utility, not wired into any UI.
+  - [x] Hook only exists when `DEV_TUNING` is true (stripped from production builds, matching existing `DEV_TUNING`-gated code elsewhere) — verified two ways: a unit test flipping a mocked `DEV_TUNING` to `false` and confirming `window.__lfoDebug` never gets set, *and* directly grepping the built `dist/assets/*.js` for `lfoDebug`/`__lfoDebug`/`auditionLfo` after `npm run build` — zero matches, confirming genuine dead-code elimination, not just a runtime guard that happens to be false.
+  - [x] Connecting an LFO to a robot's Detune (or Gain) and a global EQ band is audibly confirmable in `npm run dev` — **confirmed by the user, listening in the running app**: "I hear the LFO effects!"
+  - [x] No component or store references this hook — it's a standalone dev utility, not wired into any UI. Only `main.tsx` imports it, for the registration side effect only (never calls `audition()`/`stop()` itself).
 
   **Verification:**
-  - [ ] Manual/audible check: run `npm run dev`, invoke the hook from the browser console, confirm audible modulation on both a robot voice and the global chain.
-  - [ ] `npm run build` — confirm the hook does not appear in the production bundle (or is a documented no-op there).
+  - [x] `npx vitest run src/engine/lfoDebug.test.ts` — 8/8 passing: DEV_TUNING gating (both directions), connect+start on both targets, audible rate/depth/shape values (not left at defaults), the no-robot-in-locale case (message + no throw), and `stop()` reversing both targets.
+  - [x] `npm run build:types`, `npm run lint` clean. Full suite: 36 files, 562/562 passing (+8, plus Task 12's +6). `npm run build` clean — 1168 modules.
+  - [x] `grep -c "lfoDebug\|__lfoDebug\|auditionLfo" dist/assets/*.js` → `0`. Confirmed stripped, not assumed.
+  - [x] Manual/audible check — confirmed by the user: "I hear the LFO effects!"
 
   **Dependencies:** Task 6, Task 12, Task 13.
 
-  **Files:** `src/engine/lfoEngine.ts` (or a small new `src/engine/lfoDebug.ts` if it doesn't belong inside the engine's public surface — decide during implementation, keep it out of `AudioEngine.ts`'s exported surface either way)
+  **Files:** `src/engine/lfoDebug.ts`, `src/engine/lfoDebug.test.ts`, `src/main.tsx` (dev-gated import), plus Task 12's `src/engine/lfoEngine.ts`/`.test.ts` follow-up fix.
 
   **Estimated scope:** S
 
-- [ ] **Task 15: `docs/AUDIO_SYSTEM.md` — "LFO Modulation" section**
+- [x] **Task 15: `docs/AUDIO_SYSTEM.md` — "LFO Modulation" section** — done
 
   **Description:** Document `lfoEngine.ts`'s final API (mirroring the existing "AudioEngine API" section's style), the 22 target ids, the Phase-polling and BINARY-pulseWidth divergences from spec §7.1, and how global/robot LFO settings are seeded.
 
+  **Note on this being a docs-only task:** per the test-driven-development skill's own scope ("When NOT to use: ... documentation updates... that have no behavioral impact"), no RED/GREEN cycle applied here — verification was a direct spot-check of every documented signature against the shipped source (`lfoEngine.ts`'s full current body, `AudioEngine.ts`'s `getRobotModulationTarget`/`getGlobalModulationTarget`/`ModulationTarget` grepped directly) rather than a re-derivation from memory, per the task's own stated verification method.
+
+  **Placement:** new `## LFO Modulation` section inserted after `## Signal Graph` (readers already understand the per-robot bus + global FX chain before learning how LFO taps into both) and before `## Note Resolution Pipeline`. "Related references" at the top gets a self-link (`#lfo-modulation`) rather than a separate-file link, since this phase documents LFO inline rather than in its own guide.
+
   **Acceptance criteria:**
-  - [ ] New "LFO Modulation" section added, cross-linked from the existing "Related references" list at the top of the doc.
-  - [ ] Documents the Phase/pulseWidth divergences explicitly (not glossed over).
-  - [ ] Documents the global-chain seed-from-planet-map behavior added in Phase 2.
+  - [x] New "LFO Modulation" section added, cross-linked from the existing "Related references" list at the top of the doc.
+  - [x] Documents the Phase/pulseWidth divergences explicitly (not glossed over) — plus a third, related divergence surfaced by the same verification pass: `chorus.delayTime` is also never connectable (`Tone.Chorus.delayTime` is a plain number, not a Signal), documented alongside the other two rather than only mentioning the two the task text names.
+  - [x] Documents the global-chain seed-from-planet-map behavior added in Phase 2 — and draws the distinction the task text doesn't spell out but the doc needs to be honest about: seeded global-chain *effect values* (Task 4-6) vs. **not** seeded global-chain *LFO settings* (out of scope this phase, falls back to `DEFAULT_LFO_SETTINGS` like any unconfigured target).
 
   **Verification:**
-  - [ ] Manual review — doc accurately reflects the shipped API (spot-check every documented function signature against the actual source).
+  - [x] Manual review — every documented function signature spot-checked against the actual source, not reconstructed from memory.
+  - [x] `npm run build:types`, `npm run lint`, full suite (36 files, 562/562 — unchanged, as expected for a docs-only change), `npm run build` all clean.
 
   **Dependencies:** Task 14.
 
@@ -463,10 +477,10 @@ Tasks 6, 12, 13 ──→ Task 14 (dev-only audible check hook)
   **Estimated scope:** XS (docs only)
 
 ### Checkpoint: Complete
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] All acceptance criteria across all 15 tasks are met.
-- [ ] `docs/AUDIO_SYSTEM.md` reflects the shipped API.
-- [ ] Ready for human review / PR.
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [x] All acceptance criteria across all 15 tasks are met — including Task 14's audible check, confirmed by the user directly in the running app ("I hear the LFO effects!").
+- [x] `docs/AUDIO_SYSTEM.md` reflects the shipped API — every signature spot-checked against source, not reconstructed from memory.
+- [ ] Ready for human review / PR — code is uncommitted, per the standing policy for this task list (commit only when explicitly told).
 
 ## Risks and Mitigations
 

@@ -12,6 +12,8 @@ vi.mock('tone', () => ({
     frequency: { value: frequency ?? 1 },
     amplitude: { value: 1 },
     type: 'sine',
+    min: 0, // Tone.LFO's real default (LFO.getDefaults())
+    max: 1, // Tone.LFO's real default — modulating a target with these left unset is functionally inaudible
     start: vi.fn(),
     stop: vi.fn(),
     connect: vi.fn().mockReturnThis(),
@@ -73,6 +75,8 @@ interface MockLfoInstance {
   frequency: { value: number };
   amplitude: { value: number };
   type: string;
+  min: number;
+  max: number;
   start: ReturnType<typeof vi.fn>;
   stop: ReturnType<typeof vi.fn>;
   connect: ReturnType<typeof vi.fn>;
@@ -351,6 +355,68 @@ describe('lfoEngine', () => {
       expect(result).toBe(true);
       const instance = await latestLfoInstance();
       expect(instance.connect).toHaveBeenCalledWith(signal);
+    });
+
+    describe('output range scaling — Tone.LFO defaults to min:0/max:1, which is functionally inaudible against any real target', () => {
+      it('scales min/max to the target\'s real range for a robot Gain target (0-2, per ROBOT_DATA_GRID.md)', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal());
+        const { lfoEngine } = await import('./lfoEngine');
+        lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+        const instance = await latestLfoInstance();
+        expect(instance.min).toBe(0);
+        expect(instance.max).toBe(2);
+      });
+
+      it('scales min/max to the target\'s real range for a robot Detune target (-50..50 cents)', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal());
+        const { lfoEngine } = await import('./lfoEngine');
+        lfoEngine.connectLfoTarget('layer0.detune', 'robot-a');
+        const instance = await latestLfoInstance();
+        expect(instance.min).toBe(-50);
+        expect(instance.max).toBe(50);
+      });
+
+      it('scales min/max to the target\'s real range for the robot Volume target (0-1)', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal());
+        const { lfoEngine } = await import('./lfoEngine');
+        lfoEngine.connectLfoTarget('volume', 'robot-a');
+        const instance = await latestLfoInstance();
+        expect(instance.min).toBe(0);
+        expect(instance.max).toBe(1);
+      });
+
+      it('scales min/max to the target\'s real range for a global EQ3 band (-12..12 dB, from GLOBAL_AUDIO_SEED_RANGES)', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal());
+        const { lfoEngine } = await import('./lfoEngine');
+        lfoEngine.connectLfoTarget('eq3.low');
+        const instance = await latestLfoInstance();
+        expect(instance.min).toBe(-12);
+        expect(instance.max).toBe(12);
+      });
+
+      it('scales min/max to the target\'s real range for LPF frequency, translating the lpf.* short-form target id to filterLPF.* seed-range key', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal());
+        const { lfoEngine } = await import('./lfoEngine');
+        lfoEngine.connectLfoTarget('lpf.frequency');
+        const instance = await latestLfoInstance();
+        expect(instance.min).toBe(20);
+        expect(instance.max).toBe(20000);
+      });
+
+      it('scales min/max to the target\'s real range for HPF Q, translating hpf.* to filterHPF.*', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal());
+        const { lfoEngine } = await import('./lfoEngine');
+        lfoEngine.connectLfoTarget('hpf.Q');
+        const instance = await latestLfoInstance();
+        expect(instance.min).toBe(0.1);
+        expect(instance.max).toBe(20);
+      });
     });
 
     it('returns false (not throw) for pulseWidth on a non-\'pulse\' layer — AudioEngine already returns null for that case', async () => {

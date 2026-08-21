@@ -6,6 +6,7 @@ import * as Tone from 'tone';
 import { AudioEngine } from './AudioEngine';
 import { scheduleRepeat, cancelSchedule } from './beatClock';
 import { DEFAULT_LFO_SETTINGS } from '../data/lfoConfig';
+import { GLOBAL_AUDIO_SEED_RANGES, type GlobalAudioSeedFieldKey } from '../data/globalAudioSeedRanges';
 
 import type { OscillatorLayer } from '../types/layeredAudio';
 import type { LfoSettings, LfoShape, RobotLfoTargetId, GlobalLfoTargetId } from '../types/lfo';
@@ -75,6 +76,49 @@ function instanceKey(target: LfoTargetId, robotId?: string): string {
 /** Whether a target belongs to the per-robot set (needs a robotId) vs. the global-chain set (doesn't). */
 function isRobotTarget(target: LfoTargetId): boolean {
   return (ROBOT_LFO_TARGET_IDS as readonly string[]).includes(target);
+}
+
+/**
+ * Real value range per robot field, per docs/reference/ROBOT_DATA_GRID.md —
+ * shared across all 3 layers, since the range depends on the field (gain,
+ * detune, pulseWidth), not which layer index it's on. 'phase' is
+ * deliberately absent — the phase-polling fallback computes its own range
+ * independently (PHASE_CENTER_DEGREES), it never reaches this lookup.
+ */
+const ROBOT_LFO_FIELD_RANGE: Record<string, { min: number; max: number }> = {
+  volume: { min: 0, max: 1 },
+  gain: { min: 0, max: 2 },
+  detune: { min: -50, max: 50 },
+  pulseWidth: { min: 0, max: 1 },
+};
+
+/** Translates a GlobalLfoTargetId's 'lpf.'/'hpf.' short form (matching AudioEngine.setEffectBypass's
+ * effect keys) to the 'filterLPF.'/'filterHPF.' keys GLOBAL_AUDIO_SEED_RANGES actually uses. */
+function globalSeedRangeKey(target: GlobalLfoTargetId): GlobalAudioSeedFieldKey {
+  if (target.startsWith('lpf.')) return `filterLPF.${target.slice(4)}` as GlobalAudioSeedFieldKey;
+  if (target.startsWith('hpf.')) return `filterHPF.${target.slice(4)}` as GlobalAudioSeedFieldKey;
+  return target as GlobalAudioSeedFieldKey; // eq3.*, delay.delayTime already match directly
+}
+
+/**
+ * Resolve the real min/max a target's Signal actually operates in — Tone.LFO
+ * defaults to min:0/max:1 regardless of what it's connected to (verified:
+ * LFO.getDefaults() in Tone's own source), which is functionally inaudible
+ * against, e.g., a ±12dB EQ band or ±50-cent detune. Reuses
+ * GLOBAL_AUDIO_SEED_RANGES (Task 4/5) for global targets rather than
+ * maintaining a second range table. Returns null for targets with no
+ * meaningful output range here (phase, handled entirely separately).
+ */
+function resolveLfoOutputRange(target: LfoTargetId): { min: number; max: number } | null {
+  if (target === 'volume') return ROBOT_LFO_FIELD_RANGE.volume;
+  const robotFieldMatch = /^layer\d+\.(gain|detune|pulseWidth)$/.exec(target);
+  if (robotFieldMatch) return ROBOT_LFO_FIELD_RANGE[robotFieldMatch[1]];
+  if (!isRobotTarget(target)) {
+    // Anything that isn't a robot target and isn't 'volume' is a global-chain target.
+    const range = GLOBAL_AUDIO_SEED_RANGES[globalSeedRangeKey(target as GlobalLfoTargetId)];
+    return range ? { min: range.min, max: range.max } : null;
+  }
+  return null;
 }
 
 /** Unit-amplitude waveform value in [-1, 1] for a given shape at a given phase angle (radians). */
@@ -255,6 +299,11 @@ function connectLfoTarget(target: LfoTargetId, robotId?: string): boolean {
   if (!signal) return false;
 
   const lfo = getOrCreateLfo(key, target, robotId);
+  const range = resolveLfoOutputRange(target);
+  if (range) {
+    lfo.min = range.min;
+    lfo.max = range.max;
+  }
   try {
     lfo.connect(signal as unknown as Tone.InputNode);
   } catch (err) {

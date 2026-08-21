@@ -5,6 +5,12 @@ import App from './App.tsx'
 import './index.css'
 import { setGlobalPlanetSeedOverride } from './utils/seedUtils'
 
+// Dev-only manual audible check (LFO_INTEGRATION_PLAN.md Task 14) — not real
+// UI, no component/store references it. This import exists only so the
+// file's own DEV_TUNING-gated registration runs; import.meta.env.DEV makes
+// the whole thing dead code Vite strips from production builds.
+import './engine/lfoDebug'
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
