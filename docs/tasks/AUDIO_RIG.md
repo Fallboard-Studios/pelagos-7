@@ -190,19 +190,22 @@ Task 9 ─────────────┴──→ Task 14 (AUDIO_SYSTEM
 
   **Estimated scope:** S
 
-- [ ] **Task 8: `audioStore.ts` — `globalLfo` state, `setGlobalLfo`, and seeded planet-sync**
+- [x] **Task 8: `audioStore.ts` — `globalLfo` state, `setGlobalLfo`, and seeded planet-sync** — done, plan corrected mid-task
 
-  **Description:** Add `globalLfo: Record<GlobalLfoTargetId, LfoSettings & { active: boolean }>` to `AudioStore`, defaulting from `DEFAULT_LFO_SETTINGS` (with `active: false`) until first seeded. Add `setGlobalLfo(target, value)` per spec §4 — updates state, always calls `lfoEngine.setLfoShape`/`setLfoRate`/`setLfoDepth`, and calls `connectLfoTarget`/`disconnectLfoTarget` (+`stop` when deactivating) based on `value.active`. Extend the existing `usePlanetStore.subscribe`-driven sync (`syncGlobalAudioToCurrentPlanet`) to also call `generateGlobalLfoSettings`, write the result into `globalLfo`, and — mirroring `regenerateGlobalAudioFromSeed`'s own inline-call style, not routing through `setGlobalLfo` — directly call `lfoEngine.setLfoShape`/`setLfoRate`/`setLfoDepth` for every target and `connectLfoTarget` for every target seeded `active: true`. Does **not** call `lfoEngine.start()` here — Task 9 covers that.
+  **Description:** Add `globalLfo: Record<GlobalLfoTargetId, LfoSettings & { active: boolean }>` to `AudioStore`, defaulting from `DEFAULT_LFO_SETTINGS` (with `active: false`) until first seeded. Add `setGlobalLfo(target, value)` per spec §4 — updates state, always calls `lfoEngine.setLfoShape`/`setLfoRate`/`setLfoDepth`, and calls `connectLfoTarget`/`disconnectLfoTarget` (+`stop` when deactivating) based on `value.active`. Extend the existing `usePlanetStore.subscribe`-driven sync (`syncGlobalAudioToCurrentPlanet`) to also call `generateGlobalLfoSettings` and write the result into `globalLfo`.
+
+  **Deviation from plan, found via the Phase 2 checkpoint's full suite run, not assumed:** the original plan (and the spec's own §4 snippet) had planet-sync also directly call `lfoEngine.setLfoShape`/`setLfoRate`/`setLfoDepth` + `connectLfoTarget` for every seeded target, mirroring `regenerateGlobalAudioFromSeed`'s inline-call style. This is unsafe — planet-sync runs at module load / on every planet switch, **before any user gesture**, and `lfoEngine`'s setters unconditionally construct a real `Tone.LFO` node (`getOrCreateLfo` → `new Tone.LFO(...)`) on first call for a target, with no headless/no-context guard the way `AudioEngine`'s own `setGlobal*` methods have. `TransportBar.test.tsx` (imports the real, unmocked `audioStore` module) failed with `param must be an AudioParam` the instant this ran. Fixed by making `regenerateGlobalLfoFromSeed` **data-only** — it writes `globalLfo` state and touches nothing in `lfoEngine`. All lfoEngine priming/connecting moves entirely into Task 9's `AudioEngine.start()`, the only point guaranteed to run after `Tone.start()` succeeds. `setGlobalLfo` (the interactive path) is unaffected and needed no change — the Audio Rig drawer is only reachable after power-on, by which point `AudioEngine.start()` has already resolved (`powerController.start()` awaits it before `uiStore.setPowerOn()`).
 
   **Acceptance criteria:**
-  - [ ] `globalLfo` is present in `AudioStore`'s initial state, JSON-serializable.
-  - [ ] `setGlobalLfo` calls `setLfoShape`/`setLfoRate`/`setLfoDepth` unconditionally, and `connectLfoTarget` only when `active: true` / `disconnectLfoTarget`+`stop` only when `active: false`.
-  - [ ] Planet-sync seeds `globalLfo` for the current planet at module load and on every future planet change, alongside the existing `globalAudio` seeding.
-  - [ ] Planet-sync calls `connectLfoTarget` for every target seeded `active: true` (but not `start`).
+  - [x] `globalLfo` is present in `AudioStore`'s initial state, JSON-serializable.
+  - [x] `setGlobalLfo` calls `setLfoShape`/`setLfoRate`/`setLfoDepth` unconditionally, and `connectLfoTarget`+`start` only when `active: true` (and only if `connectLfoTarget` itself returns `true`) / `disconnectLfoTarget`+`stop` only when `active: false`.
+  - [x] Planet-sync seeds `globalLfo` for the current planet at module load and on every future planet change, alongside the existing `globalAudio` seeding.
+  - [x] ~~Planet-sync calls `connectLfoTarget` for every target seeded `active: true`~~ — superseded by the deviation above: planet-sync calls **no** `lfoEngine` method at all; connecting active-seeded targets is Task 9's job.
 
   **Verification:**
-  - [ ] `npx vitest run src/stores/audioStore.test.ts` — mock `lfoEngine` (`setLfoShape`/`setLfoRate`/`setLfoDepth`/`connectLfoTarget`/`disconnectLfoTarget`/`start`/`stop`) alongside the existing `AudioEngine` mock; assert `setGlobalLfo`'s both branches and planet-sync's seeding+conditional-connect behavior.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/stores/audioStore.test.ts` — 26/26 passing. Mocked `lfoEngine` (`setLfoShape`/`setLfoRate`/`setLfoDepth`/`connectLfoTarget`/`disconnectLfoTarget`/`start`/`stop`) alongside the existing `AudioEngine` mock; covers `setGlobalLfo`'s branches (including connect-fails-so-no-start) and an explicit "planet-sync touches no lfoEngine method" regression guard. Noted: the `lfoEngine` mock's call history persists across `vi.resetModules()` (same quirk `LFO_INTEGRATION_PLAN.md`'s Task 11 documented for the Tone mock) — the planet-sync describe block clears mocks in `beforeEach`.
+  - [x] `npm run build:types`, `npm run lint` clean.
+  - [x] Full suite re-run after the fix: `TransportBar.test.tsx` (previously failing) now passes — 62 files, 781/781.
 
   **Dependencies:** Task 6.
 
@@ -211,25 +214,26 @@ Task 9 ─────────────┴──→ Task 14 (AUDIO_SYSTEM
   **Estimated scope:** M (extends Task 7's file — sequence after it to avoid merge overlap)
 
 ### Checkpoint: Store wiring
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] `audioStore`'s full new action surface (`setGlobalAudio` push-through, `setEffectEnabled`, `setGlobalBypassEnabled`, `setGlobalLfo`) is covered by tests, mocked against both `AudioEngine` and `lfoEngine`.
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [x] `audioStore`'s full new action surface (`setGlobalAudio` push-through, `setEffectEnabled`, `setGlobalBypassEnabled`, `setGlobalLfo`) is covered by tests, mocked against both `AudioEngine` and `lfoEngine`.
 - [ ] Review with human before proceeding.
 
 ---
 
 ### Phase 3: Engine lifecycle fix
 
-- [ ] **Task 9: `AudioEngine.start()` — re-trigger seeded-active global LFOs**
+- [ ] **Task 9: `AudioEngine.start()` — prime, connect, and start seeded global LFOs**
 
-  **Description:** After `transport.start()` succeeds, read `useAudioStore.getState().globalLfo` and call `lfoEngine.start(target)` for every `GlobalLfoTargetId` currently marked `active: true`, per spec §7.2. This closes the gap where Task 8's planet-sync connects a seeded-active LFO before the transport is running, at which point `lfoEngine.start()` silently no-ops.
+  **Description (expanded per Task 8's deviation above — this task now owns all of the lfoEngine priming/connecting planet-sync used to do):** After `transport.start()` succeeds, read `useAudioStore.getState().globalLfo` and, for every `GlobalLfoTargetId`: call `lfoEngine.setLfoShape`/`setLfoRate`/`setLfoDepth` (priming lfoEngine's own settings from the seeded state — this is now the *first* time any of them touch lfoEngine at all), then if `active: true`, call `connectLfoTarget` and, only if that returns `true`, `start`. This is the one point guaranteed to run after `Tone.start()` has succeeded, so it's the only safe place to construct the underlying `Tone.LFO` nodes.
 
   **Acceptance criteria:**
-  - [ ] Every target in `useAudioStore.getState().globalLfo` with `active: true` gets `lfoEngine.start(target)` called on it, after `transport.start()`, inside `AudioEngine.start()`.
-  - [ ] No target with `active: false` gets `start()` called.
+  - [ ] Every one of the 9 `GlobalLfoTargetId`s gets `setLfoShape`/`setLfoRate`/`setLfoDepth` called with its current `useAudioStore.getState().globalLfo` values, after `transport.start()`, inside `AudioEngine.start()`.
+  - [ ] Every target with `active: true` additionally gets `connectLfoTarget` called, and `start` only if `connectLfoTarget` returned `true`.
+  - [ ] No target with `active: false` gets `connectLfoTarget` or `start` called.
   - [ ] `AudioEngine.start()`'s existing behavior (instrument loading, beat clock init, reverb-ready wait, `useLocaleStore` measure subscription) is unchanged.
 
   **Verification:**
-  - [ ] `npx vitest run src/engine/AudioEngine.test.ts` — mock `useAudioStore.getState().globalLfo` with a mix of active/inactive targets, assert `lfoEngine.start` is called only for the active ones, only after transport start.
+  - [ ] `npx vitest run src/engine/AudioEngine.test.ts` — mock `useAudioStore.getState().globalLfo` with a mix of active/inactive targets and a `connectLfoTarget` mock that returns `false` for at least one active target, assert the full prime/connect/start matrix above.
   - [ ] `npm run build:types`, `npm run lint` clean.
   - [ ] Manual/audible check (paired with Task 12's, not required standalone): a planet seeded with at least one `active: true` global LFO is audibly modulating immediately after pressing power-on, with no control touched.
 
