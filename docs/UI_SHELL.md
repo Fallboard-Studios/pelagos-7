@@ -11,7 +11,7 @@ Pelagos-7's UI is a "Sleeve & Glass" tablet shell. `Tablet.tsx` composes two dec
 ```
 
 - `SleeveContainer` (`src/components/panels/physical/`) is purely decorative housing — a logo mark, and the `PowerRockerSwitch` when `hasPowerSwitch` is set. No interactive UI besides the power switch itself lives here.
-- `ScreenViewport` (`src/components/panels/physical/`) is the actual interactive surface. When `isPoweredOn`, it renders `TransportBar`, `WorldView`, `RobotList`, and `Console` (all under `src/components/panels/screen/`).
+- `ScreenViewport` (`src/components/panels/physical/`) is the actual interactive surface. When `isPoweredOn`, it renders `TransportBar`, `WorldView`, and `Console` (all under `src/components/panels/screen/`). `TransportBar` is a sticky mute+metadata bar — a mute toggle plus a read-only readout of planet name, locale coordinates, local time, and BPM; it has no restart or pause/play controls. `RobotList` was removed in Roadmap Phase 2 (Layout) — Phase 8's Robot Selection tile replaces it.
 
 **Guardrail** (see [CLAUDE.md](../CLAUDE.md)): all interactive UI — transport, navigation, controls — lives inside `ScreenViewport` only, never in `SleeveContainer`.
 

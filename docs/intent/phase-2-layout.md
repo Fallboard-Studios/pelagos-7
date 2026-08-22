@@ -7,6 +7,14 @@ roadmap's own framing; this doc resolves the decisions its prose left open (and 
 two lines that don't match the current codebase — the roadmap was partially drafted by
 Gemini without repo access).
 
+**Amendment (2026-08-21, during Task 7/8 implementation):** the sleeve's width was
+changed to a fixed `200px` for both `SleeveContainer` instances (was `100%`), confirmed by
+Crawford after reviewing a screenshot. One consequence, confirmed as accepted rather than
+a regression: the "strip runs along the top of the viewport" description below no longer
+holds literally — capped at 200px total width, the strip is now a small ~10px sliver next
+to the power corner, not a strip spanning the rest of the tablet's width. See
+[docs/tasks/LAYOUT.md](../tasks/LAYOUT.md) Task 7 for the implementation-level detail.
+
 ## Outcome
 
 Collapse the sleeve's power-switch column down to a small cutaway so `ScreenViewport`

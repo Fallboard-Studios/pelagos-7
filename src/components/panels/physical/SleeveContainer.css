@@ -3,7 +3,7 @@
 .sleeve-container {
   position: relative;
   height: var(--sleeve-width);
-  width: 100%;
+  width: var(--sleeve-bar-width);
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -22,12 +22,21 @@
    children below) so ScreenViewport can rise to become flush with the true
    top of the tablet — see Tablet.css's position: relative (the containing
    block this positions against) and ScreenViewport.css's corner exclusion
-   (Task 8). Own width/height are unchanged from the base rule above; only
-   position/top/left move it out of flow. */
+   (Task 8). The corner is taller (--power-corner-height) than the base
+   64px sleeve bar, so the root's own height is overridden to match its
+   actual tallest content rather than leaving a stale 64px claim that
+   doesn't match what's inside it.
+   background: transparent is deliberate — the base rule's solid
+   background + width: 100% would otherwise paint a full-width, opaque
+   rectangle across the whole top of the tablet (a real bug this fixes:
+   it was covering the stepped edge, the strip, and ScreenViewport's
+   content underneath). The root is a pure positioning anchor; only its
+   two children below paint anything visible. */
 .sleeve-container--cutaway {
   position: absolute;
   top: 0;
   left: 0;
+  height: var(--power-corner-height);
 }
 
 .sleeve-container__power-corner {
@@ -35,7 +44,7 @@
   top: 0;
   left: 0;
   width: var(--power-corner-width);
-  height: var(--sleeve-width);
+  height: var(--power-corner-height);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -48,7 +57,7 @@
   top: 0;
   left: var(--power-corner-width);
   right: 0;
-  height: 16px;
+  height: var(--power-corner-margin);
   background: var(--color-surface);
   pointer-events: none;
 }
@@ -69,4 +78,3 @@
   pointer-events: none;
   filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.25));
 }
-

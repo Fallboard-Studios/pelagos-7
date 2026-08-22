@@ -87,28 +87,6 @@
   background: linear-gradient(to right, rgba(255, 255, 255, 0.12), transparent);
 }
 
-@media screen and (min-width: 48em) {
-  .screen-viewport::before {
-    --direction: to bottom;
-    /* Switch to horizontal stripes on larger screens */
-  }
-
-  .screen-rail {
-    height: var(--bevel-width);
-    width: 100%;
-  }
-
-  .top-rail {
-    top: 0;
-    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.12), transparent);
-  }
-
-  .bottom-rail {
-    bottom: 0;
-    background: linear-gradient(to top, rgba(255, 255, 255, 0.12), transparent);
-  }
-}
-
 .screen-rail line {
   stroke: rgba(255, 255, 255, 0.12);
   vector-effect: non-scaling-stroke;
@@ -129,11 +107,14 @@
 }
 
 /* Reserve space for SleeveContainer's cutaway (Task 7/8 of
-   docs/tasks/LAYOUT.md): the top strip is 16px tall, and the power corner
-   is --power-corner-width wide (both defined in index.css / SleeveContainer.css)
-   — .transport-bar is the only row anywhere near that corner, so only it
-   needs to clear them. WorldView/Console stay full-width, untouched. */
+   docs/tasks/LAYOUT.md, simplified after Crawford fixed the sleeve's width
+   at --sleeve-bar-width instead of spanning the rest of the top): the
+   entire "shared area with the power switch" is now just x: 0..
+   --sleeve-bar-width, at any height — nothing in the sleeve extends past
+   that width at all. A single horizontal push clears the corner and the
+   strip in one move; no separate vertical (padding-top) exclusion is
+   needed. .transport-bar is the only row anywhere near that width;
+   WorldView/Console stay full-width, untouched. */
 .screen-content .transport-bar {
-  padding-top: 16px;
-  padding-left: var(--power-corner-width);
+  padding-left: var(--sleeve-bar-width);
 }
