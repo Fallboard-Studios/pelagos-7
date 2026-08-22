@@ -36,4 +36,18 @@ describe('SliderLinear', () => {
     render(<SliderLinear schema={bareSchema} value={2} onChange={() => {}} />);
     expect(screen.getByRole('slider', { name: 'lfoRate' })).toBeTruthy();
   });
+
+  it('is not disabled by default — no existing behavior changes', () => {
+    render(<SliderLinear schema={schema} value={2} onChange={() => {}} />);
+    const thumb = screen.getByRole('slider');
+    expect(thumb.getAttribute('data-disabled')).toBeNull();
+    expect(thumb.getAttribute('tabindex')).toBe('0');
+  });
+
+  it('marks the thumb data-disabled and removes it from tab order when disabled is true', () => {
+    render(<SliderLinear schema={schema} value={2} onChange={() => {}} disabled />);
+    const thumb = screen.getByRole('slider');
+    expect(thumb.getAttribute('data-disabled')).toBe('');
+    expect(thumb.getAttribute('tabindex')).toBeNull();
+  });
 });

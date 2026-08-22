@@ -9,10 +9,11 @@ interface SliderLinearProps {
   schema: SliderLinearSchema;
   value: number;
   onChange: (value: number) => void;
+  disabled?: boolean;
 }
 
 /** Linear-scale slider wrapping @radix-ui/react-slider. */
-export function SliderLinear({ schema, value, onChange }: SliderLinearProps) {
+export function SliderLinear({ schema, value, onChange, disabled }: SliderLinearProps) {
   return (
     <div className="sc-slider-linear">
       <DualLabel loreLabel={schema.loreLabel} humanLabel={schema.humanLabel} />
@@ -23,6 +24,7 @@ export function SliderLinear({ schema, value, onChange }: SliderLinearProps) {
         step={schema.step ?? 1}
         value={[value]}
         onValueChange={(values) => onChange(values[0])}
+        disabled={disabled}
       >
         <Slider.Track className="sc-slider-linear__track">
           <Slider.Range className="sc-slider-linear__range" />
