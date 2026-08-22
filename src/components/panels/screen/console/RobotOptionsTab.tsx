@@ -46,7 +46,7 @@ export function RobotOptionsTab() {
     const newRobot = afterRobots.find((r) => !beforeIds.has(r.id));
     if (!newRobot) return;
     useUIStore.getState().selectRobot(newRobot.id);
-    useUIStore.getState().setActiveConsoleTab('robotEditor');
+    useUIStore.getState().setActiveHubTile('robotEditor');
   }
 
   return (
