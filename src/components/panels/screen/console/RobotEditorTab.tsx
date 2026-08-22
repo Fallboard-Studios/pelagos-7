@@ -10,7 +10,6 @@ import { useLocaleStore } from '@/stores/localeStore';
 import './RobotEditorTab.css';
 
 export function RobotEditorTab() {
-  const activeHubTile = useUIStore((s) => s.activeHubTile);
   const selectedRobotId = useUIStore((s) => s.selectedRobotId);
 
   // Localize the active locale id and look up the selected robot safely.
@@ -21,12 +20,12 @@ export function RobotEditorTab() {
     return s.locales[localeId]?.robots?.find((r) => r.id === selectedRobotId);
   });
 
-  if (activeHubTile !== 'robotEditor') return null;
-
+  // ConsolePanel only mounts this component once a robot is selected; this
+  // stays as a defensive fallback, not the primary guard.
   if (!selectedRobotId) {
     return (
       <div className="robot-editor-empty">
-        Select a robot from the list, or use Robot Options to spawn one.
+        Select a robot from the list, or use Robots to spawn one.
       </div>
     );
   }

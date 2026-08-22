@@ -6,11 +6,14 @@
 import type { ButtonSchema } from './controls';
 
 /**
- * The four hub tiles surviving Roadmap Phase 3 (Session and Composition are
- * dropped outright). `robotOptions`/`robotEditor` are removed/replaced in
- * Phases 7-9; `audioRig`/`settings` get real content in Phases 4-5.
+ * The three hub tiles surviving Roadmap Phase 3 (Session and Composition are
+ * dropped outright). `robots` shows a list of every robot in the active
+ * locale; selecting one shows its editor within the same tile (tracked via
+ * uiStore's existing selectedRobotId, not a separate HubTile value) — see
+ * docs/intent/phase-3-hub.md's Amendment. `audioRig`/`settings` get real
+ * content in Phases 4-5.
  */
-export type HubTile = 'robotOptions' | 'robotEditor' | 'audioRig' | 'settings';
+export type HubTile = 'robots' | 'audioRig' | 'settings';
 
 /**
  * One entry in HUB_NAV_ITEMS (src/data/hubNavConfig.ts) — a HubNav tile

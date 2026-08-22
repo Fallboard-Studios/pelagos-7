@@ -8,12 +8,8 @@ import type { HubNavItem } from '@/types/hub';
 
 export const HUB_NAV_ITEMS: HubNavItem[] = [
   {
-    schema: { id: 'robotOptions', type: 'button', loreLabel: 'UNIT ROSTER', humanLabel: 'Robot Options' },
-    target: 'robotOptions',
-  },
-  {
-    schema: { id: 'robotEditor', type: 'button', loreLabel: 'UNIT DIAGNOSTICS', humanLabel: 'Robot Editor' },
-    target: 'robotEditor',
+    schema: { id: 'robots', type: 'button', loreLabel: 'UNIT ROSTER', humanLabel: 'Robots' },
+    target: 'robots',
   },
   {
     schema: { id: 'audioRig', type: 'button', loreLabel: 'SIGNAL CHAIN', humanLabel: 'Audio Rig' },
