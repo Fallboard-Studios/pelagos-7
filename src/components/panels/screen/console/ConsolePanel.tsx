@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { HubNav } from './HubNav';
 import { RobotsTab } from './RobotsTab';
 import { RobotEditorTab } from './RobotEditorTab';
@@ -9,24 +10,27 @@ import './ConsolePanel.css';
 
 const BACK_SCHEMA: ButtonSchema = { id: 'hubNavBack', type: 'button', humanLabel: 'Back' };
 
-function renderTile(tile: HubTile, selectedRobotId: string | null) {
-  switch (tile) {
-    case 'robots':
-      return selectedRobotId ? <RobotEditorTab /> : <RobotsTab />;
-    case 'audioRig':
-      return (
-        <div className="console-panel__stub" id="console-tab-audioRig">
-          Audio Rig
-        </div>
-      );
-    case 'settings':
-      return (
-        <div className="console-panel__stub" id="console-tab-settings">
-          Settings
-        </div>
-      );
-  }
-}
+/**
+ * One entry per HubTile, keyed by a Record so TypeScript itself enforces
+ * every tile is covered — a new HubTile value that's missing an entry here
+ * is a compile error, not a silent blank render. Adding a future tile is one
+ * new entry, not a switch case to remember. `selectedRobotId` is threaded
+ * through for `robots`, which nests a list/detail switch of its own; other
+ * tiles ignore it.
+ */
+const TILE_CONTENT: Record<HubTile, (selectedRobotId: string | null) => ReactNode> = {
+  robots: (selectedRobotId) => (selectedRobotId ? <RobotEditorTab /> : <RobotsTab />),
+  audioRig: () => (
+    <div className="console-panel__stub" id="console-tab-audioRig">
+      Audio Rig
+    </div>
+  ),
+  settings: () => (
+    <div className="console-panel__stub" id="console-tab-settings">
+      Settings
+    </div>
+  ),
+};
 
 export function ConsolePanel() {
   const activeHubTile = useUIStore((s) => s.activeHubTile);
@@ -58,7 +62,7 @@ export function ConsolePanel() {
       <div className="console-panel__back">
         <Button schema={BACK_SCHEMA} onClick={handleBack} />
       </div>
-      <div className="console-panel__content">{renderTile(activeHubTile, selectedRobotId)}</div>
+      <div className="console-panel__content">{TILE_CONTENT[activeHubTile](selectedRobotId)}</div>
     </div>
   );
 }

@@ -38,7 +38,9 @@ export function RobotsTab() {
       </div>
       <ul className="robots-tab__list">
         {robots.map((robot) => {
-          const schema: ButtonSchema = { id: robot.id, type: 'button', humanLabel: robot.name ?? robot.id };
+          // `||`, not `??` — a blank (empty-string) name should fall back to
+          // the id too, not just a missing one.
+          const schema: ButtonSchema = { id: robot.id, type: 'button', humanLabel: robot.name || robot.id };
           return (
             <li key={robot.id} className="robots-tab__row">
               <Button schema={schema} onClick={() => selectRobot(robot.id)} />

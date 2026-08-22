@@ -57,6 +57,15 @@ describe('RobotsTab', () => {
     expect(screen.getByRole('button', { name: 'unnamed-1' })).toBeTruthy();
   });
 
+  it('falls back to the robot id when a robot has a blank (empty-string) name', () => {
+    resetStores();
+    useLocaleStore.getState().addRobot(localeId, makeRobot('blank-1', '') as unknown as Robot);
+
+    render(<RobotsTab />);
+
+    expect(screen.getByRole('button', { name: 'blank-1' })).toBeTruthy();
+  });
+
   it('clicking a robot selects it', () => {
     resetStores();
     useLocaleStore.getState().addRobot(localeId, makeRobot('r1', 'Unit One') as unknown as Robot);
