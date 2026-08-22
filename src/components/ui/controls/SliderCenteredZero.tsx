@@ -10,6 +10,7 @@ interface SliderCenteredZeroProps {
   schema: SliderCenteredZeroSchema;
   value: number;
   onChange: (value: number) => void;
+  disabled?: boolean;
 }
 
 /**
@@ -20,7 +21,7 @@ interface SliderCenteredZeroProps {
  * one documented exception to "no inline style objects" (the fill's
  * left/width are a computed transform, not a static value).
  */
-export function SliderCenteredZero({ schema, value, onChange }: SliderCenteredZeroProps) {
+export function SliderCenteredZero({ schema, value, onChange, disabled }: SliderCenteredZeroProps) {
   const fill = computeFillRect(value, schema.min, schema.max);
 
   return (
@@ -33,6 +34,7 @@ export function SliderCenteredZero({ schema, value, onChange }: SliderCenteredZe
         step={1}
         value={[value]}
         onValueChange={(values) => onChange(values[0])}
+        disabled={disabled}
       >
         <Slider.Track className="sc-slider-centered-zero__track">
           <Slider.Range className="sc-slider-centered-zero__range" />
