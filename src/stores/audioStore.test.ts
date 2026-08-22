@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
+import { GLOBAL_LFO_TARGET_IDS } from '../types/lfo';
+
 // Ensure AudioEngine is mocked before importing the store so the module's
 // import of AudioEngine receives the mock. The store now calls the full
 // global-FX setter surface (Task 6), not just setBPM — keep this mock's
@@ -16,6 +18,19 @@ vi.mock('../engine/AudioEngine', () => ({
     setGlobalReverb: vi.fn(),
     setEffectBypass: vi.fn(),
     setGlobalBypass: vi.fn(),
+  },
+}));
+
+vi.mock('../engine/lfoEngine', () => ({
+  lfoEngine: {
+    getLfoSettings: vi.fn(),
+    setLfoRate: vi.fn(),
+    setLfoDepth: vi.fn(),
+    setLfoShape: vi.fn(),
+    start: vi.fn(),
+    stop: vi.fn(),
+    connectLfoTarget: vi.fn(() => true),
+    disconnectLfoTarget: vi.fn(),
   },
 }));
 
@@ -242,5 +257,138 @@ describe('useAudioStore - setGlobalBypassEnabled', () => {
 
     useAudioStore.getState().setGlobalBypassEnabled(false);
     expect(AudioEngine.setGlobalBypass).toHaveBeenCalledWith(false);
+  });
+});
+
+describe('useAudioStore - globalLfo state', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it('has one entry per GlobalLfoTargetId, JSON-serializable', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const { globalLfo } = useAudioStore.getState();
+    expect(Object.keys(globalLfo).sort()).toEqual([...GLOBAL_LFO_TARGET_IDS].sort());
+    expect(() => JSON.stringify(globalLfo)).not.toThrow();
+  });
+});
+
+describe('useAudioStore - setGlobalLfo', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it('updates globalLfo state for the given target', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    useAudioStore.getState().setGlobalLfo('eq3.low', { shape: 'square', rate: 3, depth: 40, active: false });
+    expect(useAudioStore.getState().globalLfo['eq3.low']).toEqual({ shape: 'square', rate: 3, depth: 40, active: false });
+  });
+
+  it('always calls setLfoShape/setLfoRate/setLfoDepth with the value\'s fields', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const { lfoEngine } = await import('../engine/lfoEngine');
+    vi.clearAllMocks();
+
+    useAudioStore.getState().setGlobalLfo('lpf.frequency', { shape: 'triangle', rate: 5, depth: 60, active: false });
+
+    expect(lfoEngine.setLfoShape).toHaveBeenCalledWith('lpf.frequency', 'triangle');
+    expect(lfoEngine.setLfoRate).toHaveBeenCalledWith('lpf.frequency', 5);
+    expect(lfoEngine.setLfoDepth).toHaveBeenCalledWith('lpf.frequency', 60);
+  });
+
+  it('connects and starts when active is true and connect succeeds', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const { lfoEngine } = await import('../engine/lfoEngine');
+    vi.clearAllMocks();
+    vi.mocked(lfoEngine.connectLfoTarget).mockReturnValue(true);
+
+    useAudioStore.getState().setGlobalLfo('delay.delayTime', { shape: 'sine', rate: 1, depth: 20, active: true });
+
+    expect(lfoEngine.connectLfoTarget).toHaveBeenCalledWith('delay.delayTime');
+    expect(lfoEngine.start).toHaveBeenCalledWith('delay.delayTime');
+    expect(lfoEngine.disconnectLfoTarget).not.toHaveBeenCalled();
+    expect(lfoEngine.stop).not.toHaveBeenCalled();
+  });
+
+  it('does not call start when active is true but connect fails', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const { lfoEngine } = await import('../engine/lfoEngine');
+    vi.clearAllMocks();
+    vi.mocked(lfoEngine.connectLfoTarget).mockReturnValue(false);
+
+    useAudioStore.getState().setGlobalLfo('chorus.delayTime', { shape: 'sine', rate: 1, depth: 20, active: true });
+
+    expect(lfoEngine.connectLfoTarget).toHaveBeenCalledWith('chorus.delayTime');
+    expect(lfoEngine.start).not.toHaveBeenCalled();
+  });
+
+  it('disconnects and stops when active is false', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const { lfoEngine } = await import('../engine/lfoEngine');
+    vi.clearAllMocks();
+
+    useAudioStore.getState().setGlobalLfo('eq3.high', { shape: 'sine', rate: 1, depth: 20, active: false });
+
+    expect(lfoEngine.disconnectLfoTarget).toHaveBeenCalledWith('eq3.high');
+    expect(lfoEngine.stop).toHaveBeenCalledWith('eq3.high');
+    expect(lfoEngine.connectLfoTarget).not.toHaveBeenCalled();
+    expect(lfoEngine.start).not.toHaveBeenCalled();
+  });
+});
+
+describe('useAudioStore - globalLfo planet-sync seeding', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    // The lfoEngine mock's call history persists across vi.resetModules() (same
+    // established quirk documented in LFO_INTEGRATION_PLAN.md's Task 11 notes for
+    // the Tone mock) — clear it so each test only sees its own fresh import's calls.
+    vi.clearAllMocks();
+  });
+
+  it('seeds globalLfo for the current planet on module load (app init)', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const { globalLfo } = useAudioStore.getState();
+    // Seeded, not left at the DEFAULT_LFO_SETTINGS-inert values (rate would be
+    // pinned to LFO_RATE_MIN and depth to LFO_DEPTH_MIN for every target if
+    // seeding hadn't run) — at least one target should differ from the inert default.
+    const rates = GLOBAL_LFO_TARGET_IDS.map((t) => globalLfo[t].rate);
+    expect(new Set(rates).size).toBeGreaterThan(1);
+  });
+
+  it('calls setLfoShape/setLfoRate/setLfoDepth for every target on seed', async () => {
+    await import('./audioStore');
+    const { lfoEngine } = await import('../engine/lfoEngine');
+
+    for (const target of GLOBAL_LFO_TARGET_IDS) {
+      expect(lfoEngine.setLfoShape).toHaveBeenCalledWith(target, expect.any(String));
+      expect(lfoEngine.setLfoRate).toHaveBeenCalledWith(target, expect.any(Number));
+      expect(lfoEngine.setLfoDepth).toHaveBeenCalledWith(target, expect.any(Number));
+    }
+  });
+
+  it('calls connectLfoTarget only for targets seeded active: true, and never calls start', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const { lfoEngine } = await import('../engine/lfoEngine');
+    const { globalLfo } = useAudioStore.getState();
+
+    for (const target of GLOBAL_LFO_TARGET_IDS) {
+      if (globalLfo[target].active) {
+        expect(lfoEngine.connectLfoTarget).toHaveBeenCalledWith(target);
+      } else {
+        expect(lfoEngine.connectLfoTarget).not.toHaveBeenCalledWith(target);
+      }
+    }
+    expect(lfoEngine.start).not.toHaveBeenCalled();
+  });
+
+  it('follows setCurrentPlanetId — switching the active planet reseeds globalLfo automatically', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const { usePlanetStore, DEFAULT_PELAGOS } = await import('./planetStore');
+
+    const before = useAudioStore.getState().globalLfo;
+    usePlanetStore.getState().addPlanet({ ...DEFAULT_PELAGOS, id: 'zenith-lfo', name: 'ZenithLfo' });
+    usePlanetStore.getState().setCurrentPlanetId('zenith-lfo');
+
+    expect(useAudioStore.getState().globalLfo).not.toEqual(before);
   });
 });

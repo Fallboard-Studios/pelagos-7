@@ -4,11 +4,14 @@
 import { create } from 'zustand';
 
 import { AudioEngine } from '../engine/AudioEngine';
-import { generateGlobalAudioSettings } from '../utils/globalAudioSeed';
+import { lfoEngine } from '../engine/lfoEngine';
+import { generateGlobalAudioSettings, generateGlobalLfoSettings } from '../utils/globalAudioSeed';
 import { usePlanetStore, selectCurrentPlanet } from './planetStore';
+import { DEFAULT_LFO_SETTINGS } from '../data/lfoConfig';
 
 import type { GlobalAudioSettings } from '../types/globalAudio';
 import { DEFAULT_GLOBAL_AUDIO_SETTINGS } from '../types/globalAudio';
+import { GLOBAL_LFO_TARGET_IDS, type GlobalLfoTargetId, type LfoSettings } from '../types/lfo';
 
 // ========================================
 // TYPES
@@ -42,9 +45,21 @@ const BYPASS_KEY: Record<EffectKey, (typeof BYPASS_EFFECT_KEYS)[number]> = {
   reverb: 'reverb',
 };
 
+/** Initial globalLfo — DEFAULT_LFO_SETTINGS' 9 global entries, each starting inactive
+ *  (not connected) until the planet-sync below seeds real values. */
+function buildDefaultGlobalLfo(): Record<GlobalLfoTargetId, LfoSettings & { active: boolean }> {
+  const result = {} as Record<GlobalLfoTargetId, LfoSettings & { active: boolean }>;
+  for (const target of GLOBAL_LFO_TARGET_IDS) {
+    result[target] = { ...DEFAULT_LFO_SETTINGS[target], active: false };
+  }
+  return result;
+}
+
 export interface AudioStore {
   bpm: number;
   globalAudio: GlobalAudioSettings;
+  /** Global-chain LFO settings, one entry per GlobalLfoTargetId — seeded per planet, see regenerateGlobalLfoFromSeed. */
+  globalLfo: Record<GlobalLfoTargetId, LfoSettings & { active: boolean }>;
   isMuted: boolean;
   preMuteVolume: number;
   setBPM: (bpm: number) => void;
@@ -56,6 +71,12 @@ export interface AudioStore {
   setEffectEnabled: (effect: EffectKey, enabled: boolean) => void;
   /** Sets the rig-wide bypass — updates `globalBypass` and calls AudioEngine.setGlobalBypass. */
   setGlobalBypassEnabled: (bypass: boolean) => void;
+  /**
+   * Sets one global LFO target's settings — updates state, always pushes
+   * shape/rate/depth to lfoEngine, and connects+starts (active: true) or
+   * disconnects+stops (active: false) the live node.
+   */
+  setGlobalLfo: (target: GlobalLfoTargetId, value: LfoSettings & { active: boolean }) => void;
   setMuted: (muted: boolean) => void;
   setPreMuteVolume: (volume: number) => void;
   /**
@@ -65,6 +86,15 @@ export interface AudioStore {
    * result into AudioEngine's live Tone FX chain.
    */
   regenerateGlobalAudioFromSeed: (planetId: string, planetName: string) => void;
+  /**
+   * Regenerate `globalLfo` for the given planet from the seed
+   * (generateGlobalLfoSettings), push shape/rate/depth to lfoEngine for
+   * every target, and connectLfoTarget for every target seeded active:
+   * true. Does NOT call lfoEngine.start() — AudioEngine.start() re-triggers
+   * already-connected active targets once the transport actually runs
+   * (Task 9), since start() itself no-ops before that.
+   */
+  regenerateGlobalLfoFromSeed: (planetId: string, planetName: string) => void;
 }
 
 // ========================================
@@ -73,6 +103,7 @@ export interface AudioStore {
 export const useAudioStore = create<AudioStore>((set) => ({
   bpm: 60,
   globalAudio: { ...DEFAULT_GLOBAL_AUDIO_SETTINGS },
+  globalLfo: buildDefaultGlobalLfo(),
   isMuted: false,
   preMuteVolume: 1.0,
 
@@ -116,6 +147,19 @@ export const useAudioStore = create<AudioStore>((set) => ({
     AudioEngine.setGlobalBypass(bypass);
   },
 
+  setGlobalLfo: (target, value) => {
+    set((state) => ({ globalLfo: { ...state.globalLfo, [target]: value } }));
+    lfoEngine.setLfoShape(target, value.shape);
+    lfoEngine.setLfoRate(target, value.rate);
+    lfoEngine.setLfoDepth(target, value.depth);
+    if (value.active) {
+      if (lfoEngine.connectLfoTarget(target)) lfoEngine.start(target);
+    } else {
+      lfoEngine.disconnectLfoTarget(target);
+      lfoEngine.stop(target);
+    }
+  },
+
   setMuted: (muted) => {
     set({ isMuted: muted });
   },
@@ -148,6 +192,21 @@ export const useAudioStore = create<AudioStore>((set) => ({
       AudioEngine.setEffectBypass(effect, true);
     }
   },
+
+  regenerateGlobalLfoFromSeed: (planetId, planetName) => {
+    const globalLfo = generateGlobalLfoSettings(planetId, planetName);
+    set({ globalLfo });
+
+    for (const target of GLOBAL_LFO_TARGET_IDS) {
+      const settings = globalLfo[target];
+      lfoEngine.setLfoShape(target, settings.shape);
+      lfoEngine.setLfoRate(target, settings.rate);
+      lfoEngine.setLfoDepth(target, settings.depth);
+      if (settings.active) {
+        lfoEngine.connectLfoTarget(target);
+      }
+    }
+  },
 }));
 
 // ========================================
@@ -163,6 +222,7 @@ function syncGlobalAudioToCurrentPlanet(): void {
   const planet = selectCurrentPlanet(usePlanetStore.getState());
   if (!planet) return;
   useAudioStore.getState().regenerateGlobalAudioFromSeed(planet.id, planet.name);
+  useAudioStore.getState().regenerateGlobalLfoFromSeed(planet.id, planet.name);
 }
 
 syncGlobalAudioToCurrentPlanet();
