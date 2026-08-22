@@ -87,12 +87,13 @@ export interface AudioStore {
    */
   regenerateGlobalAudioFromSeed: (planetId: string, planetName: string) => void;
   /**
-   * Regenerate `globalLfo` for the given planet from the seed
-   * (generateGlobalLfoSettings), push shape/rate/depth to lfoEngine for
-   * every target, and connectLfoTarget for every target seeded active:
-   * true. Does NOT call lfoEngine.start() — AudioEngine.start() re-triggers
-   * already-connected active targets once the transport actually runs
-   * (Task 9), since start() itself no-ops before that.
+   * Regenerate `globalLfo` state for the given planet from the seed
+   * (generateGlobalLfoSettings). Data-only — does NOT touch lfoEngine.
+   * Runs at module load / on every planet switch, before any user gesture,
+   * so it must never construct a real Tone.LFO node. AudioEngine.start()
+   * (Task 9) is what primes lfoEngine from this state and connects/starts
+   * already-seeded-active targets, since that's the only point guaranteed
+   * to run after an AudioContext actually exists.
    */
   regenerateGlobalLfoFromSeed: (planetId: string, planetName: string) => void;
 }
@@ -193,19 +194,19 @@ export const useAudioStore = create<AudioStore>((set) => ({
     }
   },
 
+  // Data-only, deliberately: this runs at module load / on every planet switch,
+  // long before any user gesture — pushing to lfoEngine here would construct a
+  // real Tone.LFO (getOrCreateLfo -> new Tone.LFO(...)) before an AudioContext
+  // exists, violating "initialize audio only from an explicit user gesture"
+  // (CLAUDE.md) and throwing outright in headless/test environments (found via
+  // the Phase 2 checkpoint's full suite run — TransportBar.test.tsx, which
+  // imports the real audioStore module, threw "param must be an AudioParam").
+  // AudioEngine.start() (Task 9) is the only safe point to prime lfoEngine and
+  // connect/start already-seeded-active targets, since it runs after
+  // Tone.start()/transport.start() succeed.
   regenerateGlobalLfoFromSeed: (planetId, planetName) => {
     const globalLfo = generateGlobalLfoSettings(planetId, planetName);
     set({ globalLfo });
-
-    for (const target of GLOBAL_LFO_TARGET_IDS) {
-      const settings = globalLfo[target];
-      lfoEngine.setLfoShape(target, settings.shape);
-      lfoEngine.setLfoRate(target, settings.rate);
-      lfoEngine.setLfoDepth(target, settings.depth);
-      if (settings.active) {
-        lfoEngine.connectLfoTarget(target);
-      }
-    }
   },
 }));
 

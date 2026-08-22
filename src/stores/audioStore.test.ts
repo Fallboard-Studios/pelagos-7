@@ -355,29 +355,19 @@ describe('useAudioStore - globalLfo planet-sync seeding', () => {
     expect(new Set(rates).size).toBeGreaterThan(1);
   });
 
-  it('calls setLfoShape/setLfoRate/setLfoDepth for every target on seed', async () => {
+  it('does not touch lfoEngine during seeding — data-only, deferred to AudioEngine.start() (Task 9)', async () => {
+    // Planet-sync runs at module load / on every planet switch, before any user
+    // gesture — pushing to lfoEngine here would construct a real Tone.LFO node
+    // before an AudioContext exists (found via the Phase 2 checkpoint's full
+    // suite run: TransportBar.test.tsx, which imports the real audioStore
+    // module, threw "param must be an AudioParam" until this was fixed).
     await import('./audioStore');
     const { lfoEngine } = await import('../engine/lfoEngine');
 
-    for (const target of GLOBAL_LFO_TARGET_IDS) {
-      expect(lfoEngine.setLfoShape).toHaveBeenCalledWith(target, expect.any(String));
-      expect(lfoEngine.setLfoRate).toHaveBeenCalledWith(target, expect.any(Number));
-      expect(lfoEngine.setLfoDepth).toHaveBeenCalledWith(target, expect.any(Number));
-    }
-  });
-
-  it('calls connectLfoTarget only for targets seeded active: true, and never calls start', async () => {
-    const { useAudioStore } = await import('./audioStore');
-    const { lfoEngine } = await import('../engine/lfoEngine');
-    const { globalLfo } = useAudioStore.getState();
-
-    for (const target of GLOBAL_LFO_TARGET_IDS) {
-      if (globalLfo[target].active) {
-        expect(lfoEngine.connectLfoTarget).toHaveBeenCalledWith(target);
-      } else {
-        expect(lfoEngine.connectLfoTarget).not.toHaveBeenCalledWith(target);
-      }
-    }
+    expect(lfoEngine.setLfoShape).not.toHaveBeenCalled();
+    expect(lfoEngine.setLfoRate).not.toHaveBeenCalled();
+    expect(lfoEngine.setLfoDepth).not.toHaveBeenCalled();
+    expect(lfoEngine.connectLfoTarget).not.toHaveBeenCalled();
     expect(lfoEngine.start).not.toHaveBeenCalled();
   });
 
