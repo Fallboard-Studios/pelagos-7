@@ -1,56 +1,53 @@
-import { ConsoleNavigation } from './ConsoleNavigation';
+import { HubNav } from './HubNav';
 import { RobotOptionsTab } from './RobotOptionsTab';
 import { RobotEditorTab } from './RobotEditorTab';
-import type { ConsoleTab } from '@/stores/uiStore';
+import { Button } from '@/components/ui/controls/Button';
+import type { ButtonSchema } from '@/types/controls';
+import type { HubTile } from '@/types/hub';
 import { useUIStore } from '@/stores/uiStore';
 import './ConsolePanel.css';
 
-export function ConsolePanel() {
-  const activeConsoleTab = useUIStore((s) => s.activeConsoleTab);
+const BACK_SCHEMA: ButtonSchema = { id: 'hubNavBack', type: 'button', humanLabel: 'Back' };
 
-  const renderStub = (tab: ConsoleTab | null) => {
-    switch (tab) {
-      case 'session':
-        return (
-          <div className="console-panel__stub" id="console-tab-session">
-            Session
-          </div>
-        );
-      case 'composition':
-        return (
-          <div className="console-panel__stub" id="console-tab-composition">
-            Composition
-          </div>
-        );
-      case 'robotOptions':
-        return <RobotOptionsTab />;
-      case 'robotEditor':
-        return <RobotEditorTab />;
-      case 'audioRig':
-        return (
-          <div className="console-panel__stub" id="console-tab-audioRig">
-            Audio Rig
-          </div>
-        );
-      case 'settings':
-        return (
-          <div className="console-panel__stub" id="console-tab-settings">
-            Settings
-          </div>
-        );
-      default:
-        return (
-          <div className="console-panel__stub" id="console-tab-empty">
-            No tab selected
-          </div>
-        );
-    }
-  };
+function renderTile(tile: HubTile) {
+  switch (tile) {
+    case 'robotOptions':
+      return <RobotOptionsTab />;
+    case 'robotEditor':
+      return <RobotEditorTab />;
+    case 'audioRig':
+      return (
+        <div className="console-panel__stub" id="console-tab-audioRig">
+          Audio Rig
+        </div>
+      );
+    case 'settings':
+      return (
+        <div className="console-panel__stub" id="console-tab-settings">
+          Settings
+        </div>
+      );
+  }
+}
+
+export function ConsolePanel() {
+  const activeHubTile = useUIStore((s) => s.activeHubTile);
+  const setActiveHubTile = useUIStore((s) => s.setActiveHubTile);
+
+  if (activeHubTile === null) {
+    return (
+      <div className="console-panel" role="region" aria-label="Console Panel">
+        <HubNav />
+      </div>
+    );
+  }
 
   return (
     <div className="console-panel" role="region" aria-label="Console Panel">
-      <ConsoleNavigation />
-      <div className="console-panel__content">{renderStub(activeConsoleTab)}</div>
+      <div className="console-panel__back">
+        <Button schema={BACK_SCHEMA} onClick={() => setActiveHubTile(null)} />
+      </div>
+      <div className="console-panel__content">{renderTile(activeHubTile)}</div>
     </div>
   );
 }
