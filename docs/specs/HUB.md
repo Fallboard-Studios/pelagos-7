@@ -220,3 +220,42 @@ Carried forward from Specify — resolve in the Plan phase before implementation
 2. **Full-screen takeover layout is unspecified.** The intent doc confirms *that* a tile takes over the hub-nav area with a back button, but not the visual arrangement (back button position — top-left corner vs. inline above content; grid column/row count for the tile buttons; whether the grid is 2×2, a single row, or responsive). This is presentational and lower-risk than the Layout phase's cutaway math, but should still get a concrete answer in Plan rather than being improvised per-component during Implement.
 3. **`RobotEditorTab`'s internal `activeHubTile !== 'robotEditor'` guard is now provably redundant** (§3) but is being kept as defensive code per this spec's "hands-off internals" boundary. Flagging in case Crawford would rather have it removed now than carry dead logic forward — a one-line judgment call, not a blocking question.
 4. **No test currently exists for `uiStore.ts` itself.** Whether to add one as part of this phase (covering just the `activeHubTile` default/setter) or leave store testing implicit through component tests, as today, is a Plan-phase call, not answered by the intent doc.
+
+**Resolution note:** item 3 above is superseded by §8's amendment below — the guard isn't
+just redundant now, it references a `HubTile` value (`'robotEditor'`) that no longer exists
+in the type, so it must be removed, not merely left as harmless dead code.
+
+---
+
+## 8. Amendment: `robots` list+detail flow (post-ship revision)
+
+Resolves two open items with Crawford after the original four-tile version of this spec
+shipped on `feature/hub`. Full rationale in
+[docs/intent/phase-3-hub.md](../intent/phase-3-hub.md)'s Amendment section.
+
+**`HubTile` shrinks to three values:** `'robots' | 'audioRig' | 'settings'`. The
+`robotOptions` tile is renamed `robots`; the standalone `robotEditor` tile is retired —
+it's reached only by selecting a robot from the `robots` list, not directly from the grid.
+
+**Nested state reuses `selectedRobotId`, no new store field:** within the `robots` tile,
+`selectedRobotId === null` shows a new list component; `selectedRobotId` set shows today's
+`RobotEditorTab`, unchanged. Back's behavior becomes tile-aware: from the robot editor, it
+clears `selectedRobotId` (→ list, same tile); from the list or any other tile, it clears
+`activeHubTile` (→ grid).
+
+**File changes on top of §2's original structure:**
+```text
+src/
+├── types/hub.ts                                    # MODIFIED — HubTile: 'robotOptions' | 'robotEditor' | ... → 'robots' | 'audioRig' | 'settings'
+├── data/hubNavConfig.ts                             # MODIFIED — robotOptions + robotEditor entries collapse into one 'robots' entry (humanLabel "Robots", loreLabel kept as "UNIT ROSTER" — fits a roster/list even better than it fit the old spawn-config screen)
+└── components/panels/screen/console/
+    ├── RobotOptionsTab.tsx/.css/.test.tsx           # DELETED — min/max slider and auto-spawn toggle are dropped outright (Phase 7 removes them anyway); "+ New Robot" moves to RobotsTab
+    ├── RobotsTab.tsx                                # NEW — lists every robot in the active locale (name + click, via the Button primitive — no avatar/job/battery card, that's Phase 8's job once Battery/Job data exists) plus a "+ New Robot" action reusing today's spawnRobot call
+    ├── RobotsTab.css                                # NEW
+    ├── RobotsTab.test.tsx                           # NEW
+    ├── RobotEditorTab.tsx                           # MODIFIED — remove the now type-invalid `activeHubTile !== 'robotEditor'` guard (that HubTile value no longer exists); keep the existing `!selectedRobotId` empty-state fallback as-is
+    └── ConsolePanel.tsx                              # MODIFIED — renderTile's 'robots' case switches on selectedRobotId (null → RobotsTab, set → RobotEditorTab); back button clears selectedRobotId first when set, otherwise clears activeHubTile
+```
+
+**Still hands-off:** `RobotEditorTab`'s own internals (Meta/Audio/Oscillators sub-tabs) —
+only the now-invalid guard changes. This is still not Phase 9's rebuild.

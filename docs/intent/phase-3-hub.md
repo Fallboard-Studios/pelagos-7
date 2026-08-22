@@ -6,6 +6,34 @@ resolved decisions behind Phase 3's scope in
 own framing; this doc resolves the decisions its prose left open, informed by a
 `/context-engineering` prep pass against the current repo state.
 
+**Amendment (2026-08-22, after initial implementation shipped on `feature/hub`):**
+Crawford asked, mid-branch, to fold the `robotOptions` tile into a nested list+detail flow
+instead of leaving it a standalone spawn-config screen. Two questions resolved directly
+with Crawford (not just inferred):
+- **Back-button nesting:** from a selected robot's editor, Back returns to the robot list
+  (not straight to the grid) — a second nesting level inside the tile, not a flat one.
+- **Spawn controls' fate:** the min/max robot count slider and auto-spawn toggle are
+  dropped outright (Phase 7 removes them anyway once the Battery/Docking/Job lifecycle
+  creates every robot once). Only "+ New Robot" survives, moved into the new list view.
+
+**Revised shape:** the hub tile named "Robot Options" (`robotOptions`) becomes "Robots"
+(`robots`) — clicking it shows a list of every robot in the active locale plus a
+"+ New Robot" action, not a spawn-config panel. Clicking a robot in that list shows its
+existing editor (today's `RobotEditorTab`, reused as-is — **not** a new build; Phase 9's
+"Robot Options" rebuild with four schema-driven drawers is unrelated future work and out
+of scope here). The standalone `robotEditor` hub tile is retired — it's no longer directly
+selectable from the grid, only reachable by first going through the robot list.
+`HubTile` shrinks from four values to three: `robots`, `audioRig`, `settings`.
+`selectedRobotId` (already in `uiStore`) doubles as the list/detail switch within the
+`robots` tile — no new store field needed: `null` shows the list, set shows the editor.
+
+This does **not** pull Phase 8 (Robot Selection) forward — that phase's richer list
+(avatar SVG, job title, audio status, battery status per card) depends on data
+(Battery/Job) that Phase 7 hasn't built yet. The list built here is a minimal stand-in
+(robot name + click), not Phase 8's real card UI. Phase 8 still has real work to do later;
+this just gives the hub a working, non-flat path to an individual robot's editor now
+instead of a dead-end spawn-config tile.
+
 ## Outcome
 
 Replace `ConsoleNavigation` (the Radix `Tabs.Root` bar) with a real tile grid, `HubNav`,

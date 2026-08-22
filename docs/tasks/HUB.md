@@ -313,7 +313,131 @@ Task 1 (src/types/hub.ts: HubTile, HubNavItem)                    ── indepen
 
   **Estimated scope:** S (docs only)
 
-### Final Checkpoint
+### Final Checkpoint (original four-tile scope)
 - [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
 - [x] Manual a11y check: keyboard/focus navigation through the tile grid and back button. Confirmed by Crawford.
+- [ ] Review with human before merging. — superseded by Phase 5 below; re-review after it lands.
+
+---
+
+## Phase 5 (Amendment): Fold `robots` into a list+detail flow
+
+Source: [docs/intent/phase-3-hub.md](../intent/phase-3-hub.md)'s Amendment section,
+[docs/specs/HUB.md §8](../specs/HUB.md). Requested by Crawford after the four-tile version
+above shipped; two open questions (back-button nesting, spawn-controls fate) resolved
+directly with him before starting.
+
+### Dependency graph
+
+```
+Task 10 (types/hub.ts: HubTile -> 3 values)
+    │
+    ├── Task 11 (hubNavConfig.ts: collapse robotOptions+robotEditor -> robots)
+    │
+    └── Task 12 (RobotEditorTab.tsx: remove now-invalid activeHubTile guard)
+            │
+            └── Task 13 (RobotsTab.tsx/.css/.test.tsx: new list + New Robot)
+                    │
+                    └── Task 14 (ConsolePanel.tsx: nested render/back logic;
+                                 delete RobotOptionsTab.tsx/.css/.test.tsx)
+                            │
+                            └── Task 15 (docs/UI_SHELL.md update)
+```
+
+- [ ] **Task 10: `src/types/hub.ts` — `HubTile` shrinks to `'robots' | 'audioRig' | 'settings'`**
+
+  **Description:** Drop `'robotOptions'`/`'robotEditor'`, add `'robots'`. `HubNavItem` shape unchanged.
+
+  **Acceptance criteria:**
+  - [ ] `HubTile` has exactly the three values above.
+
+  **Verification:**
+  - [ ] `npm run build:types` — expected red at every call site still using the old values, same pattern as Task 3.
+
+  **Dependencies:** None.
+
+  **Files:** `src/types/hub.ts`
+
+- [ ] **Task 11: `hubNavConfig.ts` — collapse `robotOptions` + `robotEditor` into one `robots` entry**
+
+  **Description:** Remove the `robotEditor` entry entirely (no longer grid-selectable). Rename the `robotOptions` entry's `id`/`target` to `robots`, `humanLabel` to `"Robots"`, keep `loreLabel: 'UNIT ROSTER'` (fits a roster/list at least as well as it fit the old spawn-config screen).
+
+  **Acceptance criteria:**
+  - [ ] Exactly three entries: `robots`, `audioRig`, `settings`.
+
+  **Verification:**
+  - [ ] `npm run build:types` clean.
+
+  **Dependencies:** Task 10.
+
+  **Files:** `src/data/hubNavConfig.ts`
+
+- [ ] **Task 12: `RobotEditorTab.tsx` — remove the now type-invalid `activeHubTile` guard**
+
+  **Description:** `if (activeHubTile !== 'robotEditor') return null;` no longer type-checks (`'robotEditor'` isn't a `HubTile` value). Remove the guard and its `activeHubTile` read entirely — `ConsolePanel` (Task 14) will only mount this component when `selectedRobotId` is already set, and the existing `if (!selectedRobotId) return <div>...` fallback stays as the real defensive check.
+
+  **Acceptance criteria:**
+  - [ ] No reference to `activeHubTile` remains in this file.
+  - [ ] The `!selectedRobotId` empty-state fallback is unchanged.
+
+  **Verification:**
+  - [ ] `npm run build:types` clean for this file.
+
+  **Dependencies:** Task 10.
+
+  **Files:** `src/components/panels/screen/console/RobotEditorTab.tsx`
+
+- [ ] **Task 13: Create `RobotsTab.tsx`/`.css`/`.test.tsx`**
+
+  **Description:** Lists every robot in the active locale (name via the `Button` primitive, `humanLabel: robot.name ?? robot.id`) plus a `"+ New Robot"` action at the top, reusing the spawn logic `RobotOptionsTab.handleNewRobot` had — minus the tile-switch, since we're already inside the `robots` tile: spawn, then `selectRobot(newRobot.id)` only. Clicking a robot row calls `selectRobot(robot.id)`. No avatar/job/battery card — that's Phase 8's job once Battery/Job data exists (see intent doc's Amendment).
+
+  **Acceptance criteria:**
+  - [ ] Renders one `Button` per robot in the active locale, `humanLabel` = robot name (or id fallback).
+  - [ ] Clicking a robot row calls `selectRobot` with that robot's id.
+  - [ ] "+ New Robot" spawns a robot and selects it (`selectRobot`), without touching `activeHubTile`.
+
+  **Verification:**
+  - [ ] `npm test` — new test passes (test-first, per this phase's established pattern).
+
+  **Dependencies:** Task 12 (sequenced after, not a hard code dependency — grouped to land alongside the tile it replaces).
+
+  **Files:** `src/components/panels/screen/console/RobotsTab.tsx` (new), `.css` (new), `.test.tsx` (new)
+
+- [ ] **Task 14: `ConsolePanel.tsx` — nested render/back logic; delete `RobotOptionsTab.tsx`/`.css`/`.test.tsx`**
+
+  **Description:** `renderTile('robots')` switches on `selectedRobotId`: `null` → `RobotsTab`, set → `RobotEditorTab`. Back button becomes tile-aware: if `activeHubTile === 'robots' && selectedRobotId`, clear `selectedRobotId` (stay on `robots`, return to list); otherwise clear `activeHubTile` (return to grid). Delete `RobotOptionsTab.tsx`/`.css`/`.test.tsx` — fully superseded.
+
+  **Acceptance criteria:**
+  - [ ] Selecting `robots` with no robot selected shows `RobotsTab`.
+  - [ ] Selecting a robot (from `RobotsTab` or carried over from a prior session) shows `RobotEditorTab`.
+  - [ ] Back from the robot editor returns to `RobotsTab`, same tile, `activeHubTile` unchanged.
+  - [ ] Back from `RobotsTab` (no robot selected) or any other tile returns to the grid.
+  - [ ] `RobotOptionsTab.tsx`/`.css`/`.test.tsx` no longer exist; no remaining import anywhere in `src/`.
+
+  **Verification:**
+  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [ ] `npm test` — full suite passes.
+  - [ ] `npm run build` clean.
+
+  **Dependencies:** Task 11, Task 12, Task 13.
+
+  **Files:** `src/components/panels/screen/console/ConsolePanel.tsx`, `RobotOptionsTab.tsx` (deleted), `RobotOptionsTab.css` (deleted), `RobotOptionsTab.test.tsx` (deleted)
+
+- [ ] **Task 15: `docs/UI_SHELL.md` update**
+
+  **Description:** Update the "Console Navigation" section's implementation-status bullets for the `robots` tile (list + New Robot, nested editor) and note `robotEditor` is no longer a standalone tile.
+
+  **Acceptance criteria:**
+  - [ ] No remaining reference to a standalone `robotOptions`/`robotEditor` tile pair.
+
+  **Verification:**
+  - [ ] Manual read-through against shipped behavior.
+
+  **Dependencies:** Task 14.
+
+  **Files:** `docs/UI_SHELL.md`
+
+### Final Checkpoint (Phase 5)
+- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [ ] Manual check: Robots tile shows a list, "+ New Robot" works, selecting a robot shows its editor, back returns to the list, back again returns to the grid.
 - [ ] Review with human before merging.
