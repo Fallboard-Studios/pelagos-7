@@ -65,18 +65,18 @@ Task 9 ─────────────┴──→ Task 14 (AUDIO_SYSTEM
 
   **Estimated scope:** M (1 new file, 7×~3-4 params each, but pure data)
 
-- [ ] **Task 2: `SliderLinear` — add `disabled` prop**
+- [x] **Task 2: `SliderLinear` — add `disabled` prop** — done
 
   **Description:** Add optional `disabled?: boolean` (default `false`), passed through to Radix `Slider.Root`'s own `disabled` prop. Purely additive.
 
   **Acceptance criteria:**
-  - [ ] `disabled` prop threads to `Slider.Root disabled={disabled}`.
-  - [ ] Omitting the prop behaves exactly as before (default `false`).
-  - [ ] A disabled slider doesn't call `onChange` on interaction attempts.
+  - [x] `disabled` prop threads to `Slider.Root disabled={disabled}`.
+  - [x] Omitting the prop behaves exactly as before (default `false`).
+  - [x] A disabled slider doesn't call `onChange` on interaction attempts.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/ui/controls/SliderLinear.test.tsx` — all prior tests still pass, plus new disabled-state coverage.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/components/ui/controls/SliderLinear.test.tsx` — 8/8 passing (5 prior unchanged + 3 new: default-not-disabled, data-disabled/tabindex when disabled, onChange doesn't fire on a disabled keyboard step attempt).
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** None.
 
@@ -84,18 +84,18 @@ Task 9 ─────────────┴──→ Task 14 (AUDIO_SYSTEM
 
   **Estimated scope:** XS
 
-- [ ] **Task 3: `SliderLog` — add `disabled` prop**
+- [x] **Task 3: `SliderLog` — add `disabled` prop** — done
 
   **Description:** Same as Task 2, for `SliderLog`.
 
   **Acceptance criteria:**
-  - [ ] `disabled` prop threads to `Slider.Root disabled={disabled}`.
-  - [ ] Omitting the prop behaves exactly as before.
-  - [ ] A disabled slider doesn't call `onChange` on interaction attempts.
+  - [x] `disabled` prop threads to `Slider.Root disabled={disabled}`.
+  - [x] Omitting the prop behaves exactly as before.
+  - [x] A disabled slider doesn't call `onChange` on interaction attempts.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/ui/controls/SliderLog.test.tsx` — all prior tests still pass, plus new disabled-state coverage.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/components/ui/controls/SliderLog.test.tsx` — 13/13 passing (10 prior unchanged + 3 new, same shape as Task 2).
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** None.
 
@@ -103,18 +103,18 @@ Task 9 ─────────────┴──→ Task 14 (AUDIO_SYSTEM
 
   **Estimated scope:** XS
 
-- [ ] **Task 4: `SliderCenteredZero` — add `disabled` prop**
+- [x] **Task 4: `SliderCenteredZero` — add `disabled` prop** — done
 
   **Description:** Same as Task 2, for `SliderCenteredZero`. Its custom zero-anchored fill (`sliderCenteredZeroMath.ts`) is untouched — only the `disabled` passthrough is new.
 
   **Acceptance criteria:**
-  - [ ] `disabled` prop threads to `Slider.Root disabled={disabled}`.
-  - [ ] Omitting the prop behaves exactly as before, including the existing zero-anchored fill rendering.
-  - [ ] A disabled slider doesn't call `onChange` on interaction attempts.
+  - [x] `disabled` prop threads to `Slider.Root disabled={disabled}`.
+  - [x] Omitting the prop behaves exactly as before, including the existing zero-anchored fill rendering.
+  - [x] A disabled slider doesn't call `onChange` on interaction attempts.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/ui/controls/SliderCenteredZero.test.tsx` — all prior tests still pass, plus new disabled-state coverage.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/components/ui/controls/SliderCenteredZero.test.tsx` — 14/14 passing (9 prior unchanged + 5 new, including an explicit check that the zero-anchored fill's computed left/width are unaffected by `disabled`).
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** None.
 
@@ -122,18 +122,18 @@ Task 9 ─────────────┴──→ Task 14 (AUDIO_SYSTEM
 
   **Estimated scope:** XS
 
-- [ ] **Task 5: `Toggle` — add `disabled` prop**
+- [x] **Task 5: `Toggle` — add `disabled` prop** — done
 
   **Description:** Add optional `disabled?: boolean` (default `false`), passed through to Radix `Switch.Root`'s own `disabled` prop.
 
   **Acceptance criteria:**
-  - [ ] `disabled` prop threads to `Switch.Root disabled={disabled}`.
-  - [ ] Omitting the prop behaves exactly as before.
-  - [ ] A disabled toggle doesn't call `onChange` on interaction attempts.
+  - [x] `disabled` prop threads to `Switch.Root disabled={disabled}`.
+  - [x] Omitting the prop behaves exactly as before.
+  - [x] A disabled toggle doesn't call `onChange` on interaction attempts.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/ui/controls/Toggle.test.tsx` — all prior tests still pass, plus new disabled-state coverage.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/components/ui/controls/Toggle.test.tsx` — 11/11 passing (8 prior unchanged + 3 new). Radix `Switch.Root` renders as a native `<button>` with the `disabled` HTML attribute spread directly — verified via `.disabled` on the element rather than a jest-dom matcher (`@testing-library/jest-dom` is installed but not registered anywhere in this codebase's test setup; not wired in here either, to avoid an unrelated setup change).
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** None.
 
