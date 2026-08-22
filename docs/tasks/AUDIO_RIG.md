@@ -45,19 +45,19 @@ Task 9 ─────────────┴──→ Task 14 (AUDIO_SYSTEM
 
 ### Phase 1: Independent foundations
 
-- [ ] **Task 1: `src/data/audioRigConfig.ts` — effect block schemas**
+- [x] **Task 1: `src/data/audioRigConfig.ts` — effect block schemas** — done
 
   **Description:** Define `AudioRigEffectBlock`/`AudioRigParamSchema` and the `AUDIO_RIG_CONFIG` array covering all 7 effects (Compressor, EQ3, Filter LPF, Filter HPF, Chorus, Delay, Reverb), per spec §4. Every `loreLabel`/`humanLabel`/unit/min/max/default traces to a specific `GLOBAL_CHAIN_GRID.md` row — no invented copy. The 9 grid-flagged rows carry `lfoTarget`/`lfoAccordion`.
 
   **Acceptance criteria:**
-  - [ ] All 7 effects present, each with an `accordion` schema, an `enabledSchema`, and every param row the grid lists for that effect (24 params total).
-  - [ ] Every param's `schema.type` matches the grid's UI column (`SLIDER` → `sliderLinear`, `SLIDER (Logarithmic)` → `sliderLog`, `SLIDER (Center-Zero)` → `sliderCenteredZero`, `STEPPER` → `stepper`).
-  - [ ] Exactly the 9 grid-flagged (`LFO?: X`) rows carry a `lfoTarget` that's a valid `GlobalLfoTargetId`, plus an `lfoAccordion` schema.
-  - [ ] Param `schema.id`s match `GlobalAudioSettings`' own field paths (e.g. `'filterLPF.frequency'`, not the `lpf.frequency` short form).
+  - [x] All 7 effects present, each with an `accordion` schema, an `enabledSchema`, and every param row the grid lists for that effect (24 params total).
+  - [x] Every param's `schema.type` matches the grid's UI column (`SLIDER` → `sliderLinear`, `SLIDER (Logarithmic)` → `sliderLog`, `SLIDER (Center-Zero)` → `sliderCenteredZero`, `STEPPER` → `stepper`).
+  - [x] Exactly the 9 grid-flagged (`LFO?: X`) rows carry a `lfoTarget` that's a valid `GlobalLfoTargetId`, plus an `lfoAccordion` schema.
+  - [x] Param `schema.id`s match `GlobalAudioSettings`' own field paths (e.g. `'filterLPF.frequency'`, not the `lpf.frequency` short form).
 
   **Verification:**
-  - [ ] `npx vitest run src/data/audioRigConfig.test.ts` — every row spot-checked against `GLOBAL_CHAIN_GRID.md` (label/unit/range/default), not just a count assertion.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/data/audioRigConfig.test.ts` — 35/35 passing, every row spot-checked against `GLOBAL_CHAIN_GRID.md` (label/unit/range/default), not just a count assertion. Includes an explicit check that `reverb.dampening` is NOT LFO-flagged despite being a log-scaled Hz field like the LFO-flagged filter frequencies (easy to miscopy).
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** None.
 
