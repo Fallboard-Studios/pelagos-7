@@ -14,7 +14,7 @@ describe('HubNav', () => {
     render(<HubNav />);
     const buttons = screen.getAllByRole('button');
     expect(buttons).toHaveLength(HUB_NAV_ITEMS.length);
-    expect(buttons).toHaveLength(4);
+    expect(buttons).toHaveLength(3);
   });
 
   it("renders each entry's lore and human labels via the Button primitive", () => {
@@ -27,8 +27,8 @@ describe('HubNav', () => {
 
   it('clicking a tile sets activeHubTile to that entry\'s target', () => {
     render(<HubNav />);
-    fireEvent.click(screen.getByRole('button', { name: 'Robot Editor' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Robots' }));
 
-    expect(useUIStore.getState().activeHubTile).toBe('robotEditor');
+    expect(useUIStore.getState().activeHubTile).toBe('robots');
   });
 });

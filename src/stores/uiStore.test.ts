@@ -12,9 +12,9 @@ describe('uiStore — activeHubTile', () => {
     expect(useUIStore.getState().activeHubTile).toBeNull();
   });
 
-  it('setActiveHubTile sets one of the four surviving hub tiles', () => {
-    useUIStore.getState().setActiveHubTile('robotEditor');
-    expect(useUIStore.getState().activeHubTile).toBe('robotEditor');
+  it('setActiveHubTile sets one of the three surviving hub tiles', () => {
+    useUIStore.getState().setActiveHubTile('robots');
+    expect(useUIStore.getState().activeHubTile).toBe('robots');
   });
 
   it('setActiveHubTile(null) returns to the grid', () => {
