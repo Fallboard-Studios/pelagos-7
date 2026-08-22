@@ -162,7 +162,7 @@ Task 9 ─────────────┴──→ Task 14 (AUDIO_SYSTEM
   **Estimated scope:** M (1 modified file + test, 9-target mapping)
 
 ### Checkpoint: Independent foundations
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean — full suite 62 files, 766/766 passing.
 - [ ] `audioRigConfig.ts`'s data is spot-checked against `GLOBAL_CHAIN_GRID.md` by a human, not just by its own test.
 - [ ] Review with human before proceeding.
 
