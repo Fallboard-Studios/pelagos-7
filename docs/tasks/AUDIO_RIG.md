@@ -1,0 +1,381 @@
+# Implementation Plan: Audio Rig (Roadmap Phase 4)
+
+Source spec: [docs/specs/AUDIO_RIG.md](../specs/AUDIO_RIG.md). Source intent: [docs/intent/audio-rig.md](../intent/audio-rig.md).
+
+## Overview
+
+Turn the Audio Rig hub tile from a placeholder into a live console: data-drive all 7 global effect blocks from `GLOBAL_CHAIN_GRID.md`, wire every control through to the already-built `AudioEngine`/`lfoEngine` surface (not just Zustand), add real per-effect and rig-wide bypass with visual+functional disabling, and seed global LFO settings (including `active`) per planet so a freshly loaded planet can already be audibly modulating. Verification is unit tests plus a manual/audible check at the end — the same two-tier pattern `LFO_INTEGRATION_PLAN.md` used.
+
+## Architecture Decisions
+
+- **Foundations before wiring before UI, same ordering principle as the LFO Integration plan.** `audioRigConfig.ts` (pure data), the 4 primitive `disabled` prop additions, and `generateGlobalLfoSettings` (pure function) share no dependencies on each other or on anything new — they're Phase 1, buildable and independently testable in any order or in parallel. `audioStore.ts`'s extension is Phase 2, depending only on Phase 1's seed function. The drawer is Phase 4, the last thing that needs everything below it finished.
+- **`audioStore.ts`'s extension is two tasks, not one.** The non-LFO half (`setGlobalAudio` pushing to `AudioEngine`, `setEffectEnabled`, `setGlobalBypassEnabled`) needs nothing this plan hasn't already got — it's wiring against setters that have existed since Phase 0. The `globalLfo` half (state slice, `setGlobalLfo`, planet-sync seeding+connecting) needs `generateGlobalLfoSettings` to exist first. Splitting means the first half can start immediately without waiting on the seed function, mirroring how the LFO plan split `AudioEngine.ts`'s two getters (Tasks 9/10) by subsystem rather than bundling them.
+- **The seeded-active-LFO transport gap gets its own task, not a footnote.** Spec §7.2 flags that `lfoEngine.start()` no-ops before the transport runs, so a planet seeded with `active: true` targets would connect but stay silent until something re-triggers `start()` post-transport-start. `AudioEngine.start()` already reads a Zustand store directly in its own body (`useLocaleStore.getState().setLocaleData(...)`), so Task 9 adds the same pattern for `useAudioStore.getState().globalLfo` — resolved here, not left for implementation to improvise.
+- **`generateGlobalLfoSettings`'s `active` seeding probability is decided now, not left at the spec's placeholder.** Spec §7.3 flagged `activeT >= 0.5` (a flat 50/50 per target) as unconfirmed, noting 9 independent coin-flips at 50% would load most planets with several concurrently-modulating effects. Resolved here the same way the LFO plan's Task 4 resolved its own open seed-range question during planning: **`activeT >= 0.8`** (a 20% per-target chance), so a typical planet seeds roughly 1–2 active LFOs out of 9, not 4–5 — enough to make "already modulating on load" a real, noticeable, occasional event rather than the default state of every planet. Documented in Task 6's acceptance criteria, not silently chosen mid-implementation.
+- **The drawer splits into "bypass + params" and "nested LFO," not one task.** Both touch the same 3 files (`AudioRigDrawer.tsx`/`.css`/`.test.tsx`), so this isn't a dependency split — it's an acceptance-criteria split. Bundling "7 accordions render + both bypass levels disable correctly + all 9 LFO accordions wire correctly" into one task's criteria would blow past the "3 or fewer bullet points" sizing guideline; splitting means each task has a tight, independently-verifiable criteria list, and the first half is a complete, demoable slice (a working bypass-capable rig with no modulation yet) before the second half lands.
+- **Doc fixes land last, but aren't blocked on everything.** `roadmap.md`'s stale-framing fix has no code dependency at all and could technically move earlier; it's sequenced last because it's a wrap-up note about the whole phase, not because anything requires it. `AUDIO_SYSTEM.md`'s fix genuinely does depend on Task 8/9 (it's documenting behavior that doesn't exist until then).
+
+## Dependency Graph
+
+```
+Task 1 (audioRigConfig.ts)                         ─┐
+Task 2 (SliderLinear disabled)                       │
+Task 3 (SliderLog disabled)                          ├──→ Task 10 (Drawer: bypass + params)
+Task 4 (SliderCenteredZero disabled)                 │            │
+Task 5 (Toggle disabled)                            ─┘            │
+Task 6 (generateGlobalLfoSettings)                                │
+    │                                                              │
+    ├──→ Task 8 (audioStore: globalLfo + setGlobalLfo + seeding)   │
+    │            │                                                 │
+    │            ├──→ Task 9 (AudioEngine.start() LFO retrigger)   │
+    │            │                                                 │
+    │            └─────────────────────────→ Task 11 (Drawer: nested LFO accordions)
+    │                                                 │
+Task 7 (audioStore: setGlobalAudio/enable/bypass) ────┘
+    │
+    └──────────────────────────────────────────────→ Task 10
+
+Task 11 ──→ Task 12 (ConsolePanel wiring)
+                    │
+                    ├──→ Task 13 (roadmap.md doc-fix)
+Task 9 ─────────────┴──→ Task 14 (AUDIO_SYSTEM.md doc-fix)
+```
+
+## Task List
+
+### Phase 1: Independent foundations
+
+- [ ] **Task 1: `src/data/audioRigConfig.ts` — effect block schemas**
+
+  **Description:** Define `AudioRigEffectBlock`/`AudioRigParamSchema` and the `AUDIO_RIG_CONFIG` array covering all 7 effects (Compressor, EQ3, Filter LPF, Filter HPF, Chorus, Delay, Reverb), per spec §4. Every `loreLabel`/`humanLabel`/unit/min/max/default traces to a specific `GLOBAL_CHAIN_GRID.md` row — no invented copy. The 9 grid-flagged rows carry `lfoTarget`/`lfoAccordion`.
+
+  **Acceptance criteria:**
+  - [ ] All 7 effects present, each with an `accordion` schema, an `enabledSchema`, and every param row the grid lists for that effect (24 params total).
+  - [ ] Every param's `schema.type` matches the grid's UI column (`SLIDER` → `sliderLinear`, `SLIDER (Logarithmic)` → `sliderLog`, `SLIDER (Center-Zero)` → `sliderCenteredZero`, `STEPPER` → `stepper`).
+  - [ ] Exactly the 9 grid-flagged (`LFO?: X`) rows carry a `lfoTarget` that's a valid `GlobalLfoTargetId`, plus an `lfoAccordion` schema.
+  - [ ] Param `schema.id`s match `GlobalAudioSettings`' own field paths (e.g. `'filterLPF.frequency'`, not the `lpf.frequency` short form).
+
+  **Verification:**
+  - [ ] `npx vitest run src/data/audioRigConfig.test.ts` — every row spot-checked against `GLOBAL_CHAIN_GRID.md` (label/unit/range/default), not just a count assertion.
+  - [ ] `npm run build:types`, `npm run lint` clean.
+
+  **Dependencies:** None.
+
+  **Files:** `src/data/audioRigConfig.ts`, `src/data/audioRigConfig.test.ts`
+
+  **Estimated scope:** M (1 new file, 7×~3-4 params each, but pure data)
+
+- [ ] **Task 2: `SliderLinear` — add `disabled` prop**
+
+  **Description:** Add optional `disabled?: boolean` (default `false`), passed through to Radix `Slider.Root`'s own `disabled` prop. Purely additive.
+
+  **Acceptance criteria:**
+  - [ ] `disabled` prop threads to `Slider.Root disabled={disabled}`.
+  - [ ] Omitting the prop behaves exactly as before (default `false`).
+  - [ ] A disabled slider doesn't call `onChange` on interaction attempts.
+
+  **Verification:**
+  - [ ] `npx vitest run src/components/ui/controls/SliderLinear.test.tsx` — all prior tests still pass, plus new disabled-state coverage.
+  - [ ] `npm run build:types`, `npm run lint` clean.
+
+  **Dependencies:** None.
+
+  **Files:** `src/components/ui/controls/SliderLinear.tsx`, `src/components/ui/controls/SliderLinear.test.tsx`
+
+  **Estimated scope:** XS
+
+- [ ] **Task 3: `SliderLog` — add `disabled` prop**
+
+  **Description:** Same as Task 2, for `SliderLog`.
+
+  **Acceptance criteria:**
+  - [ ] `disabled` prop threads to `Slider.Root disabled={disabled}`.
+  - [ ] Omitting the prop behaves exactly as before.
+  - [ ] A disabled slider doesn't call `onChange` on interaction attempts.
+
+  **Verification:**
+  - [ ] `npx vitest run src/components/ui/controls/SliderLog.test.tsx` — all prior tests still pass, plus new disabled-state coverage.
+  - [ ] `npm run build:types`, `npm run lint` clean.
+
+  **Dependencies:** None.
+
+  **Files:** `src/components/ui/controls/SliderLog.tsx`, `src/components/ui/controls/SliderLog.test.tsx`
+
+  **Estimated scope:** XS
+
+- [ ] **Task 4: `SliderCenteredZero` — add `disabled` prop**
+
+  **Description:** Same as Task 2, for `SliderCenteredZero`. Its custom zero-anchored fill (`sliderCenteredZeroMath.ts`) is untouched — only the `disabled` passthrough is new.
+
+  **Acceptance criteria:**
+  - [ ] `disabled` prop threads to `Slider.Root disabled={disabled}`.
+  - [ ] Omitting the prop behaves exactly as before, including the existing zero-anchored fill rendering.
+  - [ ] A disabled slider doesn't call `onChange` on interaction attempts.
+
+  **Verification:**
+  - [ ] `npx vitest run src/components/ui/controls/SliderCenteredZero.test.tsx` — all prior tests still pass, plus new disabled-state coverage.
+  - [ ] `npm run build:types`, `npm run lint` clean.
+
+  **Dependencies:** None.
+
+  **Files:** `src/components/ui/controls/SliderCenteredZero.tsx`, `src/components/ui/controls/SliderCenteredZero.test.tsx`
+
+  **Estimated scope:** XS
+
+- [ ] **Task 5: `Toggle` — add `disabled` prop**
+
+  **Description:** Add optional `disabled?: boolean` (default `false`), passed through to Radix `Switch.Root`'s own `disabled` prop.
+
+  **Acceptance criteria:**
+  - [ ] `disabled` prop threads to `Switch.Root disabled={disabled}`.
+  - [ ] Omitting the prop behaves exactly as before.
+  - [ ] A disabled toggle doesn't call `onChange` on interaction attempts.
+
+  **Verification:**
+  - [ ] `npx vitest run src/components/ui/controls/Toggle.test.tsx` — all prior tests still pass, plus new disabled-state coverage.
+  - [ ] `npm run build:types`, `npm run lint` clean.
+
+  **Dependencies:** None.
+
+  **Files:** `src/components/ui/controls/Toggle.tsx`, `src/components/ui/controls/Toggle.test.tsx`
+
+  **Estimated scope:** XS
+
+- [ ] **Task 6: `src/utils/globalAudioSeed.ts` — `generateGlobalLfoSettings`**
+
+  **Description:** Implement `generateGlobalLfoSettings(planetId, planetName): Record<GlobalLfoTargetId, LfoSettings & { active: boolean }>`, sampling the planet noise map via `getSeededVal`, one call per field per target (`rate`/`depth`/`shape`/`active`), dot-namespaced as `` `globalLfo.${target}.${field}` ``. Reuses `LFO_RATE_MIN/MAX`, `LFO_DEPTH_MIN/MAX`, `LFO_SHAPES` from `src/types/lfo.ts` — no new range table. `active` resolves `activeT >= 0.8` per this plan's Architecture Decisions (≈20% chance per target, not the spec's 50% placeholder).
+
+  **Acceptance criteria:**
+  - [ ] Returns a fully-populated record for all 9 `GlobalLfoTargetId`s.
+  - [ ] Same `(planetId, planetName)` input always produces identical output (determinism).
+  - [ ] `rate`/`depth` stay within `LFO_RATE_MIN/MAX`/`LFO_DEPTH_MIN/MAX`; `shape` is always a valid `LfoShape`.
+  - [ ] `active` uses the `>= 0.8` threshold; across a sample of differently-seeded planets, `active` is `true` for roughly 1-in-5 targets, not roughly half.
+
+  **Verification:**
+  - [ ] `npx vitest run src/utils/globalAudioSeed.test.ts` — determinism, bounds, threshold behavior (statistical spot-check across several seeded planets, matching `globalAudioSeed.test.ts`'s existing non-degeneracy style).
+  - [ ] `npm run build:types`, `npm run lint` clean.
+
+  **Dependencies:** None.
+
+  **Files:** `src/utils/globalAudioSeed.ts`, `src/utils/globalAudioSeed.test.ts`
+
+  **Estimated scope:** M (1 modified file + test, 9-target mapping)
+
+### Checkpoint: Independent foundations
+- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [ ] `audioRigConfig.ts`'s data is spot-checked against `GLOBAL_CHAIN_GRID.md` by a human, not just by its own test.
+- [ ] Review with human before proceeding.
+
+---
+
+### Phase 2: Store wiring
+
+- [ ] **Task 7: `audioStore.ts` — push `setGlobalAudio` to `AudioEngine`, add bypass actions**
+
+  **Description:** Add the `GLOBAL_SETTER`/`BYPASS_KEY` maps from spec §4. Extend `setGlobalAudio` to call the matching `AudioEngine.setGlobal*` setter after updating state. Add `setEffectEnabled(effect, enabled)` (updates state, calls `AudioEngine.setEffectBypass(BYPASS_KEY[effect], enabled)`) and `setGlobalBypassEnabled(bypass)` (updates state, calls `AudioEngine.setGlobalBypass(bypass)`). Per spec §3: `EffectKey` naming stays `GlobalAudioSettings`' own field names throughout — only `BYPASS_KEY`'s values use the `'lpf'`/`'hpf'` short form, matching `BYPASS_EFFECT_KEYS`'s existing convention.
+
+  **Acceptance criteria:**
+  - [ ] `setGlobalAudio(effect, partial)` updates `globalAudio` state **and** calls the matching `GLOBAL_SETTER[effect]` with `partial`.
+  - [ ] `setEffectEnabled(effect, enabled)` updates that effect's `enabled` field and calls `AudioEngine.setEffectBypass` with the correct short-form key.
+  - [ ] `setGlobalBypassEnabled(bypass)` updates `globalBypass` and calls `AudioEngine.setGlobalBypass(bypass)`.
+  - [ ] No behavior change to `regenerateGlobalAudioFromSeed` — it keeps its own existing inline calls.
+
+  **Verification:**
+  - [ ] `npx vitest run src/stores/audioStore.test.ts` — extend the existing `vi.mock('../engine/AudioEngine', ...)` to also stub `setEffectBypass`/`setGlobalBypass` (already partially mocked) and assert each new action's call-through.
+  - [ ] `npm run build:types`, `npm run lint` clean.
+
+  **Dependencies:** None.
+
+  **Files:** `src/stores/audioStore.ts`, `src/stores/audioStore.test.ts`
+
+  **Estimated scope:** S
+
+- [ ] **Task 8: `audioStore.ts` — `globalLfo` state, `setGlobalLfo`, and seeded planet-sync**
+
+  **Description:** Add `globalLfo: Record<GlobalLfoTargetId, LfoSettings & { active: boolean }>` to `AudioStore`, defaulting from `DEFAULT_LFO_SETTINGS` (with `active: false`) until first seeded. Add `setGlobalLfo(target, value)` per spec §4 — updates state, always calls `lfoEngine.setLfoShape`/`setLfoRate`/`setLfoDepth`, and calls `connectLfoTarget`/`disconnectLfoTarget` (+`stop` when deactivating) based on `value.active`. Extend the existing `usePlanetStore.subscribe`-driven sync (`syncGlobalAudioToCurrentPlanet`) to also call `generateGlobalLfoSettings`, write the result into `globalLfo`, and — mirroring `regenerateGlobalAudioFromSeed`'s own inline-call style, not routing through `setGlobalLfo` — directly call `lfoEngine.setLfoShape`/`setLfoRate`/`setLfoDepth` for every target and `connectLfoTarget` for every target seeded `active: true`. Does **not** call `lfoEngine.start()` here — Task 9 covers that.
+
+  **Acceptance criteria:**
+  - [ ] `globalLfo` is present in `AudioStore`'s initial state, JSON-serializable.
+  - [ ] `setGlobalLfo` calls `setLfoShape`/`setLfoRate`/`setLfoDepth` unconditionally, and `connectLfoTarget` only when `active: true` / `disconnectLfoTarget`+`stop` only when `active: false`.
+  - [ ] Planet-sync seeds `globalLfo` for the current planet at module load and on every future planet change, alongside the existing `globalAudio` seeding.
+  - [ ] Planet-sync calls `connectLfoTarget` for every target seeded `active: true` (but not `start`).
+
+  **Verification:**
+  - [ ] `npx vitest run src/stores/audioStore.test.ts` — mock `lfoEngine` (`setLfoShape`/`setLfoRate`/`setLfoDepth`/`connectLfoTarget`/`disconnectLfoTarget`/`start`/`stop`) alongside the existing `AudioEngine` mock; assert `setGlobalLfo`'s both branches and planet-sync's seeding+conditional-connect behavior.
+  - [ ] `npm run build:types`, `npm run lint` clean.
+
+  **Dependencies:** Task 6.
+
+  **Files:** `src/stores/audioStore.ts`, `src/stores/audioStore.test.ts`
+
+  **Estimated scope:** M (extends Task 7's file — sequence after it to avoid merge overlap)
+
+### Checkpoint: Store wiring
+- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [ ] `audioStore`'s full new action surface (`setGlobalAudio` push-through, `setEffectEnabled`, `setGlobalBypassEnabled`, `setGlobalLfo`) is covered by tests, mocked against both `AudioEngine` and `lfoEngine`.
+- [ ] Review with human before proceeding.
+
+---
+
+### Phase 3: Engine lifecycle fix
+
+- [ ] **Task 9: `AudioEngine.start()` — re-trigger seeded-active global LFOs**
+
+  **Description:** After `transport.start()` succeeds, read `useAudioStore.getState().globalLfo` and call `lfoEngine.start(target)` for every `GlobalLfoTargetId` currently marked `active: true`, per spec §7.2. This closes the gap where Task 8's planet-sync connects a seeded-active LFO before the transport is running, at which point `lfoEngine.start()` silently no-ops.
+
+  **Acceptance criteria:**
+  - [ ] Every target in `useAudioStore.getState().globalLfo` with `active: true` gets `lfoEngine.start(target)` called on it, after `transport.start()`, inside `AudioEngine.start()`.
+  - [ ] No target with `active: false` gets `start()` called.
+  - [ ] `AudioEngine.start()`'s existing behavior (instrument loading, beat clock init, reverb-ready wait, `useLocaleStore` measure subscription) is unchanged.
+
+  **Verification:**
+  - [ ] `npx vitest run src/engine/AudioEngine.test.ts` — mock `useAudioStore.getState().globalLfo` with a mix of active/inactive targets, assert `lfoEngine.start` is called only for the active ones, only after transport start.
+  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [ ] Manual/audible check (paired with Task 12's, not required standalone): a planet seeded with at least one `active: true` global LFO is audibly modulating immediately after pressing power-on, with no control touched.
+
+  **Dependencies:** Task 8.
+
+  **Files:** `src/engine/AudioEngine.ts`, `src/engine/AudioEngine.test.ts`
+
+  **Estimated scope:** S
+
+### Checkpoint: Engine lifecycle
+- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [ ] Review with human before proceeding.
+
+---
+
+### Phase 4: Drawer UI
+
+- [ ] **Task 10: `AudioRigDrawer.tsx` — 7 accordions, params, bypass (no LFO nesting yet)**
+
+  **Description:** Build `AudioRigDrawer` per spec §4: maps `AUDIO_RIG_CONFIG` to 7 `AccordionContainer`s via `renderParamControl`'s dispatcher (`sliderLinear`/`sliderLog`/`sliderCenteredZero`/`stepper`), each effect's bypass `Toggle` rendered as a sibling row above its `AccordionContainer` (not inside it — spec §3, `AccordionContainer` itself is not modified), plus one rig-wide bypass `Toggle` above all 7. Wires every control to `audioStore`'s `setGlobalAudio`/`setEffectEnabled`/`setGlobalBypassEnabled`. Implements the disabled cascade: effect bypass off → that effect's params disabled; rig-wide bypass on → every effect's own bypass toggle also disabled. No `Lfo` rendering yet — `param.lfoTarget`/`lfoAccordion` are ignored this task.
+
+  **Acceptance criteria:**
+  - [ ] Renders all 7 accordions with `AUDIO_RIG_CONFIG`'s labels, zero hardcoded display strings.
+  - [ ] Dragging/toggling a param control calls `setGlobalAudio(block.key, { [field]: value })` with the right effect/field/value.
+  - [ ] Toggling an effect's own bypass calls `setEffectEnabled` and disables that effect's other param controls (`disabled` prop, from Tasks 2–5).
+  - [ ] Toggling the rig-wide bypass calls `setGlobalBypassEnabled` and disables all 7 effects' own bypass toggles.
+  - [ ] Bypass `Toggle`s are labeled per their real polarity (spec §3) — the rig-wide one reads as "Bypass" (ON = silenced), not inverted to match `enabled`'s "ON = audible" polarity.
+
+  **Verification:**
+  - [ ] `npx vitest run src/components/panels/screen/console/AudioRigDrawer.test.tsx` — covers every bullet above.
+  - [ ] `npm run build:types`, `npm run lint` clean.
+
+  **Dependencies:** Task 1, Task 2, Task 3, Task 4, Task 5, Task 7.
+
+  **Files:** `src/components/panels/screen/console/AudioRigDrawer.tsx`, `src/components/panels/screen/console/AudioRigDrawer.css`, `src/components/panels/screen/console/AudioRigDrawer.test.tsx`
+
+  **Estimated scope:** M (3 files, but the bulk of this phase's UI logic)
+
+- [ ] **Task 11: `AudioRigDrawer.tsx` — nested LFO accordions**
+
+  **Description:** Extend Task 10's drawer: for every param with `lfoTarget`/`lfoAccordion` set, nest an `AccordionContainer` (the `lfoAccordion` schema) inside that param's row, containing an `Lfo` primitive bound to `globalLfo[param.lfoTarget]`, wired to `setGlobalLfo`. Per spec §3/§7.5: the `Lfo` control is **not** included in the disabled cascade — it stays interactive even when its parent effect is bypassed.
+
+  **Acceptance criteria:**
+  - [ ] All 9 `GlobalLfoTargetId`-flagged params render a nested LFO accordion; the other 15 params don't.
+  - [ ] Each `Lfo`'s value reflects `globalLfo[target]` (seeded shape/rate/depth/active from Task 8, not `DEFAULT_LFO_SETTINGS`).
+  - [ ] Changing any of `Lfo`'s shape/rate/depth/active calls `setGlobalLfo(target, updatedValue)`.
+  - [ ] The nested `Lfo` control remains interactive when its parent effect's bypass is off (deliberate, per spec §7.5 — not a bug to fix here).
+
+  **Verification:**
+  - [ ] `npx vitest run src/components/panels/screen/console/AudioRigDrawer.test.tsx` — new cases for all 9 LFO accordions plus the 15-param exclusion check.
+  - [ ] `npm run build:types`, `npm run lint` clean.
+
+  **Dependencies:** Task 10, Task 8.
+
+  **Files:** `src/components/panels/screen/console/AudioRigDrawer.tsx`, `src/components/panels/screen/console/AudioRigDrawer.css`, `src/components/panels/screen/console/AudioRigDrawer.test.tsx`
+
+  **Estimated scope:** S (extends Task 10's file)
+
+### Checkpoint: Drawer
+- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [ ] Every one of the 24 params and 9 LFO accordions has a passing render+interaction test.
+- [ ] Review with human before proceeding.
+
+---
+
+### Phase 5: Integration
+
+- [ ] **Task 12: Wire `AudioRigDrawer` into `ConsolePanel`**
+
+  **Description:** Replace `ConsolePanel.tsx`'s `TILE_CONTENT.audioRig` stub `<div>` with `<AudioRigDrawer />`. Update the existing `ConsolePanel.test.tsx` "renders the carried-forward stub content for audioRig" test to assert the drawer renders instead.
+
+  **Acceptance criteria:**
+  - [ ] Selecting the `audioRig` hub tile renders `AudioRigDrawer`, not the stub.
+  - [ ] Back navigation from the `audioRig` tile still returns to the hub grid (unchanged behavior).
+  - [ ] No other `TILE_CONTENT` entry changes.
+
+  **Verification:**
+  - [ ] `npx vitest run src/components/panels/screen/console/ConsolePanel.test.tsx` — updated stub test + unchanged back-navigation test both pass.
+  - [ ] `npm run build:types`, `npm run lint`, full suite, `npm run build` all clean.
+  - [ ] Manual/audible check: `npm run dev`, power on, open the Audio Rig tile, confirm at least one slider drag is audible, one per-effect bypass audibly silences that effect, the rig-wide bypass audibly silences everything, and (pairing with Task 9's check) a planet seeded with an active LFO is already modulating on load.
+
+  **Dependencies:** Task 11.
+
+  **Files:** `src/components/panels/screen/console/ConsolePanel.tsx`, `src/components/panels/screen/console/ConsolePanel.test.tsx`
+
+  **Estimated scope:** XS
+
+### Checkpoint: Integration complete
+- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [ ] Full manual/audible check (Task 12) confirmed by a human, not just by tests.
+- [ ] Review with human before proceeding.
+
+---
+
+### Phase 6: Docs
+
+- [ ] **Task 13: `docs/roadmap/roadmap.md` — Phase 4 doc-fix**
+
+  **Description:** Rewrite Phase 4's "About" paragraph: remove the stale "leaving clean parameter IDs ready for Web Audio setter bindings in subsequent phases" framing (that Web Audio side already existed before this phase started) and add a sentence covering the net-new global LFO seeding this phase added, per spec §7.1.
+
+  **Acceptance criteria:**
+  - [ ] No remaining claim that Web Audio wiring is deferred to a later phase.
+  - [ ] Global LFO seeding (`generateGlobalLfoSettings`, seeded `active`) is mentioned.
+  - [ ] Roadmap's "Create"/"About" structure and surrounding phases are otherwise untouched.
+
+  **Verification:**
+  - [ ] Manual review — read the updated paragraph against what actually shipped (Tasks 1–12), not against the original spec's plan.
+
+  **Dependencies:** Task 12 (describes the finished phase).
+
+  **Files:** `docs/roadmap/roadmap.md`
+
+  **Estimated scope:** XS (docs only)
+
+- [ ] **Task 14: `docs/AUDIO_SYSTEM.md` — correct the LFO seeding claim**
+
+  **Description:** Update the "LFO Modulation § Seeding" section's line stating global-chain `LfoSettings` are "not seed-generated... out of scope for this phase" — they now are, per Task 6/8/9.
+
+  **Acceptance criteria:**
+  - [ ] The "not seed-generated" claim for global-chain `LfoSettings` is corrected to describe `generateGlobalLfoSettings` and the `active`-seeding behavior.
+  - [ ] The existing robot-level seeding description (unchanged this phase) is left as-is.
+
+  **Verification:**
+  - [ ] Manual review — every claim spot-checked against the shipped source (`globalAudioSeed.ts`, `audioStore.ts`), not reconstructed from memory, matching `LFO_INTEGRATION_PLAN.md`'s Task 15 verification style.
+
+  **Dependencies:** Task 9.
+
+  **Files:** `docs/AUDIO_SYSTEM.md`
+
+  **Estimated scope:** XS (docs only)
+
+### Checkpoint: Complete
+- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [ ] All acceptance criteria across all 14 tasks are met, including the manual/audible checks (Tasks 9, 12) confirmed by a human.
+- [ ] Both docs (`roadmap.md`, `AUDIO_SYSTEM.md`) reflect the shipped behavior, spot-checked against source.
+- [ ] Ready for human review / PR.
+
+## Risks and Mitigations
+
+| Risk | Impact | Mitigation |
+|---|---|---|
+| `audioStore.ts` becomes a large single file across Tasks 7/8/9's combined surface | Medium — merge/readability risk | Split into two sequential tasks by concern (non-LFO vs. LFO), same pattern `LFO_INTEGRATION_PLAN.md` used for `AudioEngine.ts`'s two getters |
+| `AudioRigDrawer.tsx` is the first component this codebase renders from a config array this large (7 effects × up to 5 params × conditional nested accordions) | Medium — could reveal the dispatcher pattern doesn't scale cleanly | Task 10 ships without LFO nesting first, proving the base dispatcher/bypass-cascade pattern before Task 11 adds the more complex nested case |
+| `activeT >= 0.8` (Task 6) is a judgment call, not derived from any spec/grid value | Low | Documented with explicit rationale in Architecture Decisions; easy to tune later since it's one constant in one function, not scattered logic |
+| Four already-shipped Phase 1 primitives (Tasks 2–5) get touched — regression risk to Phase 1's own shipped behavior | Low | Each task is purely additive (`disabled` prop, defaults `false`), one task per file, existing tests must stay green unmodified |
+
+## Open Questions
+
+None remaining from the spec — all five items in spec §7 are resolved: §7.1 (roadmap wording) → Task 13; §7.2 (transport retrigger seam) → Task 9; §7.3 (active threshold) → Task 6's Architecture Decision; §7.4 (dispatcher exhaustiveness) and §7.5 (LFO controls excluded from disabled cascade) → confirmed as this phase's scope boundaries, not tasks, per the spec's own framing.
