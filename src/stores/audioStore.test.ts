@@ -15,6 +15,7 @@ vi.mock('../engine/AudioEngine', () => ({
     setGlobalDelay: vi.fn(),
     setGlobalReverb: vi.fn(),
     setEffectBypass: vi.fn(),
+    setGlobalBypass: vi.fn(),
   },
 }));
 
@@ -151,5 +152,95 @@ describe('useAudioStore - regenerateGlobalAudioFromSeed', () => {
     usePlanetStore.getState().setCurrentPlanetId(usePlanetStore.getState().currentPlanetId);
 
     expect(AudioEngine.setGlobalReverb).not.toHaveBeenCalled();
+  });
+});
+
+describe('useAudioStore - setGlobalAudio pushes to AudioEngine', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it('updates globalAudio state for the given effect/partial', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    useAudioStore.getState().setGlobalAudio('compressor', { threshold: -30 });
+    expect(useAudioStore.getState().globalAudio.compressor.threshold).toBe(-30);
+  });
+
+  it('calls the matching AudioEngine setter with the partial', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const { AudioEngine } = await import('../engine/AudioEngine');
+    vi.clearAllMocks();
+
+    useAudioStore.getState().setGlobalAudio('compressor', { threshold: -30 });
+    expect(AudioEngine.setGlobalCompressor).toHaveBeenCalledWith({ threshold: -30 });
+
+    useAudioStore.getState().setGlobalAudio('eq3', { low: 4 });
+    expect(AudioEngine.setGlobalEQ).toHaveBeenCalledWith({ low: 4 });
+
+    useAudioStore.getState().setGlobalAudio('filterLPF', { frequency: 8000 });
+    expect(AudioEngine.setGlobalFilterLPF).toHaveBeenCalledWith({ frequency: 8000 });
+
+    useAudioStore.getState().setGlobalAudio('filterHPF', { Q: 5 });
+    expect(AudioEngine.setGlobalFilterHPF).toHaveBeenCalledWith({ Q: 5 });
+
+    useAudioStore.getState().setGlobalAudio('chorus', { rate: 2 });
+    expect(AudioEngine.setGlobalChorus).toHaveBeenCalledWith({ rate: 2 });
+
+    useAudioStore.getState().setGlobalAudio('delay', { feedback: 0.4 });
+    expect(AudioEngine.setGlobalDelay).toHaveBeenCalledWith({ feedback: 0.4 });
+
+    useAudioStore.getState().setGlobalAudio('reverb', { wet: 0.6 });
+    expect(AudioEngine.setGlobalReverb).toHaveBeenCalledWith({ wet: 0.6 });
+  });
+});
+
+describe('useAudioStore - setEffectEnabled', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it('updates the given effect\'s enabled field in state', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    useAudioStore.getState().setEffectEnabled('reverb', false);
+    expect(useAudioStore.getState().globalAudio.reverb.enabled).toBe(false);
+  });
+
+  it('calls AudioEngine.setEffectBypass with the short-form key and the enabled value', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const { AudioEngine } = await import('../engine/AudioEngine');
+    vi.clearAllMocks();
+
+    useAudioStore.getState().setEffectEnabled('filterLPF', false);
+    expect(AudioEngine.setEffectBypass).toHaveBeenCalledWith('lpf', false);
+
+    useAudioStore.getState().setEffectEnabled('filterHPF', true);
+    expect(AudioEngine.setEffectBypass).toHaveBeenCalledWith('hpf', true);
+
+    useAudioStore.getState().setEffectEnabled('compressor', false);
+    expect(AudioEngine.setEffectBypass).toHaveBeenCalledWith('compressor', false);
+  });
+});
+
+describe('useAudioStore - setGlobalBypassEnabled', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it('updates globalBypass in state', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    useAudioStore.getState().setGlobalBypassEnabled(true);
+    expect(useAudioStore.getState().globalAudio.globalBypass).toBe(true);
+  });
+
+  it('calls AudioEngine.setGlobalBypass with the value', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const { AudioEngine } = await import('../engine/AudioEngine');
+    vi.clearAllMocks();
+
+    useAudioStore.getState().setGlobalBypassEnabled(true);
+    expect(AudioEngine.setGlobalBypass).toHaveBeenCalledWith(true);
+
+    useAudioStore.getState().setGlobalBypassEnabled(false);
+    expect(AudioEngine.setGlobalBypass).toHaveBeenCalledWith(false);
   });
 });

@@ -20,6 +20,28 @@ type EffectKey = Exclude<keyof GlobalAudioSettings, 'globalBypass'>;
 /** `AudioEngine.setEffectBypass`'s effect keys — note 'lpf'/'hpf', not 'filterLPF'/'filterHPF'. */
 const BYPASS_EFFECT_KEYS = ['reverb', 'delay', 'chorus', 'eq3', 'lpf', 'hpf', 'compressor'] as const;
 
+/** Routes a setGlobalAudio(effect, partial) call to its matching AudioEngine setter. */
+const GLOBAL_SETTER: { [K in EffectKey]: (params: Partial<GlobalAudioSettings[K]>) => void } = {
+  compressor: AudioEngine.setGlobalCompressor,
+  eq3: AudioEngine.setGlobalEQ,
+  filterLPF: AudioEngine.setGlobalFilterLPF,
+  filterHPF: AudioEngine.setGlobalFilterHPF,
+  chorus: AudioEngine.setGlobalChorus,
+  delay: AudioEngine.setGlobalDelay,
+  reverb: AudioEngine.setGlobalReverb,
+};
+
+/** EffectKey -> AudioEngine.setEffectBypass's short-form key — same mapping BYPASS_EFFECT_KEYS implies. */
+const BYPASS_KEY: Record<EffectKey, (typeof BYPASS_EFFECT_KEYS)[number]> = {
+  compressor: 'compressor',
+  eq3: 'eq3',
+  filterLPF: 'lpf',
+  filterHPF: 'hpf',
+  chorus: 'chorus',
+  delay: 'delay',
+  reverb: 'reverb',
+};
+
 export interface AudioStore {
   bpm: number;
   globalAudio: GlobalAudioSettings;
@@ -30,6 +52,10 @@ export interface AudioStore {
     effect: K,
     partial: Partial<GlobalAudioSettings[K]>
   ) => void;
+  /** Sets one effect's own bypass — updates its `enabled` field and calls AudioEngine.setEffectBypass. */
+  setEffectEnabled: (effect: EffectKey, enabled: boolean) => void;
+  /** Sets the rig-wide bypass — updates `globalBypass` and calls AudioEngine.setGlobalBypass. */
+  setGlobalBypassEnabled: (bypass: boolean) => void;
   setMuted: (muted: boolean) => void;
   setPreMuteVolume: (volume: number) => void;
   /**
@@ -67,7 +93,29 @@ export const useAudioStore = create<AudioStore>((set) => ({
         },
       },
     }));
+    // GLOBAL_SETTER's per-key parameter types are correct individually; TS can't
+    // narrow the union across the generic K at the call site without this cast,
+    // the same shape AudioEngine.ts's own ModulationTarget alias resolves for its
+    // own unavoidable union return type.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (GLOBAL_SETTER[effect] as (params: any) => void)(partial);
   },
+
+  setEffectEnabled: (effect, enabled) => {
+    set((state) => ({
+      globalAudio: {
+        ...state.globalAudio,
+        [effect]: { ...(state.globalAudio[effect] as object), enabled },
+      },
+    }));
+    AudioEngine.setEffectBypass(BYPASS_KEY[effect], enabled);
+  },
+
+  setGlobalBypassEnabled: (bypass) => {
+    set((state) => ({ globalAudio: { ...state.globalAudio, globalBypass: bypass } }));
+    AudioEngine.setGlobalBypass(bypass);
+  },
+
   setMuted: (muted) => {
     set({ isMuted: muted });
   },
