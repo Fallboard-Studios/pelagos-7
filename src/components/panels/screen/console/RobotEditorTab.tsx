@@ -10,7 +10,7 @@ import { useLocaleStore } from '@/stores/localeStore';
 import './RobotEditorTab.css';
 
 export function RobotEditorTab() {
-  const activeConsoleTab = useUIStore((s) => s.activeConsoleTab);
+  const activeHubTile = useUIStore((s) => s.activeHubTile);
   const selectedRobotId = useUIStore((s) => s.selectedRobotId);
 
   // Localize the active locale id and look up the selected robot safely.
@@ -21,7 +21,7 @@ export function RobotEditorTab() {
     return s.locales[localeId]?.robots?.find((r) => r.id === selectedRobotId);
   });
 
-  if (activeConsoleTab !== 'robotEditor') return null;
+  if (activeHubTile !== 'robotEditor') return null;
 
   if (!selectedRobotId) {
     return (
