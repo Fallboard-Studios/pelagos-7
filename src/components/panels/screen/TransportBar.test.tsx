@@ -47,8 +47,12 @@ describe('TransportBar (Task 9 — rebuild)', () => {
   });
 
   it('shows the planet name', () => {
+    // Regex, not an exact string match: the field's accessible label is
+    // real (visually-hidden) text sharing the same node, per the
+    // aria-label-on-a-bare-span fix below — the node's full text is
+    // "Planet: Glaxos", not just "Glaxos".
     render(<TransportBar />);
-    expect(screen.getByText('Glaxos')).toBeTruthy();
+    expect(screen.getByText(/Glaxos/)).toBeTruthy();
   });
 
   it('shows the locale coordinates, rounded', () => {
@@ -58,12 +62,36 @@ describe('TransportBar (Task 9 — rebuild)', () => {
 
   it('shows the local time as HH:MM', () => {
     render(<TransportBar />);
-    expect(screen.getByText('14:30')).toBeTruthy();
+    expect(screen.getByText(/14:30/)).toBeTruthy();
   });
 
   it('shows BPM', () => {
     render(<TransportBar />);
-    expect(screen.getByText('128 BPM')).toBeTruthy();
+    expect(screen.getByText(/128 BPM/)).toBeTruthy();
+  });
+
+  it('labels each metadata field with real text, not aria-label on a bare span', () => {
+    // A plain <span> has an implicit ARIA role of "generic", which per the
+    // ARIA spec doesn't support an author-supplied accessible name —
+    // aria-label on one is liable to be ignored by assistive tech. Real
+    // (visually-hidden) text inside the node works regardless of role
+    // support, since it's part of the element's actual text content.
+    const { container } = render(<TransportBar />);
+
+    const fields: Array<[selector: string, label: string, value: string]> = [
+      ['.transport-bar__planet', 'Planet', 'Glaxos'],
+      ['.transport-bar__coords', 'Locale coordinates', '-17'],
+      ['.transport-bar__time', 'Local time', '14:30'],
+      ['.transport-bar__bpm', 'Beats per minute', '128 BPM'],
+    ];
+
+    for (const [selector, label, value] of fields) {
+      const el = container.querySelector(selector);
+      expect(el, `expected ${selector} to exist`).toBeTruthy();
+      expect(el?.getAttribute('aria-label')).toBeNull();
+      expect(el?.textContent).toContain(label);
+      expect(el?.textContent).toContain(value);
+    }
   });
 
   it('renders no restart or pause/play controls', () => {

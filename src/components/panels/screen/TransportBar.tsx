@@ -2,6 +2,7 @@
 // IMPORTS
 // ========================================
 import * as Toolbar from '@radix-ui/react-toolbar';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 
 import { useLocaleStore } from '../../../stores/localeStore';
 import { usePlanetStore, selectCurrentPlanet } from '../../../stores/planetStore';
@@ -70,16 +71,24 @@ function TransportBar() {
       <Toolbar.Separator className="transport-bar__separator" />
 
       <div className={`transport-bar__displays${isPoweredOn ? '' : ' transport-bar__displays--dim'}`}>
-        <span className="transport-bar__planet" aria-label="Planet">
+        {/* A bare <span>'s implicit ARIA role ("generic") doesn't support
+            aria-label per the ARIA spec, so labels are real (visually
+            hidden) text instead — that reaches assistive tech regardless
+            of role support, since it's part of the element's own content. */}
+        <span className="transport-bar__planet">
+          <VisuallyHidden>Planet: </VisuallyHidden>
           {planetName}
         </span>
-        <span className="transport-bar__coords" aria-label="Locale coordinates">
+        <span className="transport-bar__coords">
+          <VisuallyHidden>Locale coordinates: </VisuallyHidden>
           {coordX !== null && coordY !== null ? `@ ${coordX}, ${coordY}` : '—'}
         </span>
-        <span className="transport-bar__time" aria-label="Local time">
+        <span className="transport-bar__time">
+          <VisuallyHidden>Local time: </VisuallyHidden>
           {hh}:{mm}
         </span>
-        <span className="transport-bar__bpm" aria-label="Beats per minute">
+        <span className="transport-bar__bpm">
+          <VisuallyHidden>Beats per minute: </VisuallyHidden>
           {bpm} BPM
         </span>
       </div>
