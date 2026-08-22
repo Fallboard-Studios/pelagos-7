@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
 
 import { SliderLinear } from './SliderLinear';
 import type { SliderLinearSchema } from '@/types/controls';
@@ -49,5 +49,14 @@ describe('SliderLinear', () => {
     const thumb = screen.getByRole('slider');
     expect(thumb.getAttribute('data-disabled')).toBe('');
     expect(thumb.getAttribute('tabindex')).toBeNull();
+  });
+
+  it('does not call onChange on a disabled slider when a keyboard step is attempted', () => {
+    const onChange = vi.fn();
+    render(<SliderLinear schema={schema} value={2} onChange={onChange} disabled />);
+    const thumb = screen.getByRole('slider');
+    thumb.focus();
+    fireEvent.keyDown(thumb, { key: 'ArrowRight' });
+    expect(onChange).not.toHaveBeenCalled();
   });
 });
