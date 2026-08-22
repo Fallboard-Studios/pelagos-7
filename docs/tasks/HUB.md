@@ -268,7 +268,7 @@ Task 1 (src/types/hub.ts: HubTile, HubNavItem)                    ── indepen
 
 ### Checkpoint: Navigation rebuild complete
 - [x] `npm run build:types`, `npm run lint`, `npm run build` all clean.
-- [ ] Manual: dev server opens on the tile grid; each tile takes over full-screen with a working back button; spawning a robot from Robot Options still lands on Robot Editor.
+- [x] Manual: dev server opens on the tile grid; each tile takes over full-screen with a working back button; spawning a robot from Robot Options still lands on Robot Editor. Confirmed by Crawford. Noted in passing: the New Robot button/spawn system is superseded by Phase 7's Battery/Docking/Job lifecycle — out of scope here, no action needed this phase.
 
 ---
 
@@ -315,5 +315,5 @@ Task 1 (src/types/hub.ts: HubTile, HubNavItem)                    ── indepen
 
 ### Final Checkpoint
 - [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] Manual a11y check: keyboard/focus navigation through the tile grid and back button.
+- [x] Manual a11y check: keyboard/focus navigation through the tile grid and back button. Confirmed by Crawford.
 - [ ] Review with human before merging.
