@@ -9,6 +9,16 @@ import { getSeededVal } from './getSeededVal';
 import type { GlobalAudioSettings } from '@/types/globalAudio';
 import { DEFAULT_GLOBAL_AUDIO_SETTINGS } from '@/types/globalAudio';
 import { GLOBAL_AUDIO_SEED_RANGES, type GlobalAudioSeedFieldKey, type SeedRange } from '@/data/globalAudioSeedRanges';
+import {
+  GLOBAL_LFO_TARGET_IDS,
+  LFO_RATE_MIN,
+  LFO_RATE_MAX,
+  LFO_DEPTH_MIN,
+  LFO_DEPTH_MAX,
+  LFO_SHAPES,
+  type GlobalLfoTargetId,
+  type LfoSettings,
+} from '@/types/lfo';
 
 // ========================================
 // FUNCTIONS
@@ -101,4 +111,46 @@ export function generateGlobalAudioSettings(planetId: string, planetName: string
       wet: sampleField(noiseMap, 'reverb.wet'),
     },
   };
+}
+
+/**
+ * Probability threshold an `active` seed draw ([0, 1]) must clear to seed
+ * `true` — docs/tasks/AUDIO_RIG.md's Architecture Decisions: ~20% chance per
+ * target (not a flat 50/50), so a typical planet seeds roughly 1-2 active
+ * LFOs out of 9, not 4-5.
+ */
+const LFO_ACTIVE_THRESHOLD = 0.8;
+
+/**
+ * Generate deterministic global-chain LFO settings for a planet, sampled
+ * from the planet noise map (same source as generateGlobalAudioSettings).
+ * Unlike the per-field GLOBAL_AUDIO_SEED_RANGES table, every target shares
+ * the same single global rate/depth bounds (LFO_RATE_MIN/MAX,
+ * LFO_DEPTH_MIN/MAX) — GLOBAL_CHAIN_GRID.md's LFO? column is a flat flag,
+ * not per-field bounds. `active` is seeded too, unlike the robot-level
+ * precedent (spawnSystem.ts's generateRobotLfoSettings, where connected/
+ * active is a runtime UI concern never part of the generated data) — a
+ * freshly loaded planet can already have real, audible modulation running.
+ */
+export function generateGlobalLfoSettings(
+  planetId: string,
+  planetName: string,
+): Record<GlobalLfoTargetId, LfoSettings & { active: boolean }> {
+  const noiseMap = getPlanetNoiseMap(planetId, planetName);
+  const result = {} as Record<GlobalLfoTargetId, LfoSettings & { active: boolean }>;
+
+  for (const target of GLOBAL_LFO_TARGET_IDS) {
+    const rateT = getSeededVal(noiseMap, `globalLfo.${target}.rate`, 0, 0, 1);
+    const depthT = getSeededVal(noiseMap, `globalLfo.${target}.depth`, 0, 0, 1);
+    const shapeT = getSeededVal(noiseMap, `globalLfo.${target}.shape`, 0, 0, 1);
+    const activeT = getSeededVal(noiseMap, `globalLfo.${target}.active`, 0, 0, 1);
+
+    result[target] = {
+      rate: scaleUnitValue(rateT, { min: LFO_RATE_MIN, max: LFO_RATE_MAX, scale: 'linear' }),
+      depth: scaleUnitValue(depthT, { min: LFO_DEPTH_MIN, max: LFO_DEPTH_MAX, scale: 'linear' }),
+      shape: LFO_SHAPES[Math.min(LFO_SHAPES.length - 1, Math.floor(shapeT * LFO_SHAPES.length))],
+      active: activeT >= LFO_ACTIVE_THRESHOLD,
+    };
+  }
+  return result;
 }
