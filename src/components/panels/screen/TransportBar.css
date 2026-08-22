@@ -2,10 +2,10 @@
   position: sticky;
   top: 0;
   width: 100%;
-  height: var(--transport-height);
   min-height: var(--transport-height);
   z-index: var(--z-header);
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   padding: 0 var(--spacing-md);
@@ -13,7 +13,6 @@
   background: var(--color-surface);
   border-bottom: var(--border-width) solid var(--border-color);
   grid-area: transport;
-  /* border: yellow 1px solid; */
 }
 
 /* ----------------------------------------
@@ -71,7 +70,9 @@
 }
 
 .transport-bar__displays,
-.transport-bar__measure,
+.transport-bar__planet,
+.transport-bar__coords,
+.transport-bar__time,
 .transport-bar__bpm {
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
@@ -79,9 +80,7 @@
   letter-spacing: 0.05em;
 }
 
-.transport-bar__displays--dim,
-.transport-bar__measure--dim,
-.transport-bar__bpm--dim {
+.transport-bar__displays--dim {
   color: var(--color-text-muted);
   opacity: 0.45;
 }
@@ -95,10 +94,4 @@
   background: var(--border-color);
   margin: 0 var(--spacing-sm);
   flex-shrink: 0;
-}
-
-@media screen and (min-width: 48em) {
-  .transport-bar {
-    position: relative;
-  }
 }

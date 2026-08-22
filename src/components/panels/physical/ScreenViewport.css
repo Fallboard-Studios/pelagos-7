@@ -87,28 +87,6 @@
   background: linear-gradient(to right, rgba(255, 255, 255, 0.12), transparent);
 }
 
-@media screen and (min-width: 48em) {
-  .screen-viewport::before {
-    --direction: to bottom;
-    /* Switch to horizontal stripes on larger screens */
-  }
-
-  .screen-rail {
-    height: var(--bevel-width);
-    width: 100%;
-  }
-
-  .top-rail {
-    top: 0;
-    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.12), transparent);
-  }
-
-  .bottom-rail {
-    bottom: 0;
-    background: linear-gradient(to top, rgba(255, 255, 255, 0.12), transparent);
-  }
-}
-
 .screen-rail line {
   stroke: rgba(255, 255, 255, 0.12);
   vector-effect: non-scaling-stroke;
@@ -121,33 +99,22 @@
   overflow: auto;
   display: grid;
   grid-template-columns: 1fr;
-  grid-template-rows: auto auto 1fr 1fr;
+  grid-template-rows: auto 1fr 1fr;
   grid-template-areas:
     "transport"
     "worldview"
-    "console"
-    "robotlist";
-
-
+    "console";
 }
 
-@media screen and (min-width: 64em) {
-  .screen-content {
-    height: 100%;
-    grid-template-columns: 2fr 1fr;
-    grid-template-rows: var(--transport-height) auto 1fr;
-    grid-template-areas:
-      "transport   robotlist"
-      "worldview   robotlist"
-      "console     console";
-  }
-
-  .screen-occlusion {
-    height: 100%;
-    width: 20px;
-    top: 0;
-    left: 0;
-    background: linear-gradient(to right, rgba(0, 0, 0, 0.4), transparent);
-
-  }
+/* Reserve space for SleeveContainer's cutaway (Task 7/8 of
+   docs/tasks/LAYOUT.md, simplified after Crawford fixed the sleeve's width
+   at --sleeve-bar-width instead of spanning the rest of the top): the
+   entire "shared area with the power switch" is now just x: 0..
+   --sleeve-bar-width, at any height — nothing in the sleeve extends past
+   that width at all. A single horizontal push clears the corner and the
+   strip in one move; no separate vertical (padding-top) exclusion is
+   needed. .transport-bar is the only row anywhere near that width;
+   WorldView/Console stay full-width, untouched. */
+.screen-content .transport-bar {
+  padding-left: var(--sleeve-bar-width);
 }

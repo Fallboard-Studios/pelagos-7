@@ -11,17 +11,8 @@
   gap: var(--spacing-sm, 8px);
   pointer-events: auto;
   z-index: 1;
-}
-
-.rocker-panel {
   transform-origin: center;
-  transform: translateX(100%) rotate(90deg);
-}
-
-@media screen and (min-width: 48em) {
-  .rocker-panel {
-    transform: none;
-  }
+  transform: rotate(90deg);
 }
 
 /* ----------------------------------------

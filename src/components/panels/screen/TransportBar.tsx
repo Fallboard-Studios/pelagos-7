@@ -1,8 +1,8 @@
 // ========================================
 // IMPORTS
 // ========================================
-import { useState } from 'react';
 import * as Toolbar from '@radix-ui/react-toolbar';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 
 import { useLocaleStore } from '../../../stores/localeStore';
 import { usePlanetStore, selectCurrentPlanet } from '../../../stores/planetStore';
@@ -20,42 +20,15 @@ import './TransportBar.css';
 function TransportBar() {
   const isPoweredOn = useUIStore((s) => s.isPoweredOn);
   const activeLocaleLocalTime = useUIStore((s) => s.activeLocaleLocalTime);
+  const planetName = usePlanetStore((s) => selectCurrentPlanet(s)?.name ?? '—');
   const localeId = usePlanetStore((s) => selectCurrentPlanet(s)?.currentLocaleId ?? '');
-  const currentMeasure = useLocaleStore((s) => s.locales[localeId]?.currentMeasure ?? 0);
+  const coordinates = useLocaleStore((s) => s.locales[localeId]?.coordinates);
   const _localTime = activeLocaleLocalTime ?? 0;
   const planetHour = Math.floor(_localTime);
   const planetMinute = Math.floor((_localTime % 1) * 60);
   const bpm = useAudioStore((s) => s.bpm);
 
-  const [isPaused, setIsPaused] = useState(false);
   const isMuted = useAudioStore((s) => s.isMuted);
-
-  const handleRestartClick = async () => {
-    try {
-      AudioEngine.killAll();
-      useLocaleStore.getState().setLocaleData(localeId, { currentMeasure: 0 });
-      await AudioEngine.start();
-      AudioEngine.setBPM(useAudioStore.getState().bpm);
-      setIsPaused(false);
-    } catch (err) {
-      swallow(err, '[TransportBar] Restart failed');
-    }
-  };
-
-  const handlePauseClick = async () => {
-    if (!isPoweredOn) return;
-    try {
-      if (!isPaused) {
-        await AudioEngine.pause();
-        setIsPaused(true);
-      } else {
-        await AudioEngine.resume();
-        setIsPaused(false);
-      }
-    } catch (err) {
-      swallow(err, '[TransportBar] Pause toggle failed');
-    }
-  };
 
   const handleMuteClick = async () => {
     if (!isPoweredOn) return;
@@ -76,68 +49,46 @@ function TransportBar() {
     }
   };
 
-  const padMeasure = (m: number) => String(m).padStart(3, '0');
   const hh = String(Math.max(0, Math.min(23, Math.floor(planetHour ?? 0)))).padStart(2, '0');
   const mm = String(Math.max(0, Math.min(59, Math.floor(planetMinute ?? 0)))).padStart(2, '0');
-  const measureLabel = isPoweredOn ? `M: ${padMeasure(currentMeasure)} H: ${hh}:${mm}` : `M: --- H: ${hh}:${mm}`;
+  const coordX = coordinates ? Math.round(coordinates.x) : null;
+  const coordY = coordinates ? Math.round(coordinates.y) : null;
 
   return (
     <Toolbar.Root className="transport-bar" aria-label="Transport controls">
       <div className="transport-bar__buttons">
         <Toolbar.Button
-          className="transport-bar__btn transport-bar__btn--restart"
-          aria-label="Restart"
+          className={`transport-bar__btn transport-bar__btn--mute${isMuted ? ' transport-bar__btn--muted' : ''}`}
+          aria-label="Mute"
+          aria-pressed={isMuted}
           disabled={!isPoweredOn}
-          onClick={handleRestartClick}
+          onClick={handleMuteClick}
         >
-          ⏮
+          {isMuted ? '🔇' : '🔊'}
         </Toolbar.Button>
-
-        <Toolbar.ToggleGroup
-          type="single"
-          value={isPaused ? 'pause' : undefined}
-          aria-label="Playback controls"
-          className="transport-bar__toggle-group"
-        >
-          <Toolbar.ToggleItem
-            value="pause"
-            className={`transport-bar__btn transport-bar__btn--pause${isPaused ? ' transport-bar__btn--active' : ''}`}
-            aria-label="Pause"
-            disabled={!isPoweredOn}
-            onClick={handlePauseClick}
-          >
-            {isPaused ? '▶' : '⏸'}
-          </Toolbar.ToggleItem>
-        </Toolbar.ToggleGroup>
-
-        <Toolbar.ToggleGroup
-          type="single"
-          value={isMuted ? 'mute' : undefined}
-          aria-label="Mute controls"
-          className="transport-bar__toggle-group"
-        >
-          <Toolbar.ToggleItem
-            value="mute"
-            className={`transport-bar__btn transport-bar__btn--mute${isMuted ? ' transport-bar__btn--muted' : ''}`}
-            aria-label="Mute"
-            disabled={!isPoweredOn}
-            onClick={handleMuteClick}
-          >
-            {isMuted ? '🔇' : '🔊'}
-          </Toolbar.ToggleItem>
-        </Toolbar.ToggleGroup>
       </div>
 
       <Toolbar.Separator className="transport-bar__separator" />
 
       <div className={`transport-bar__displays${isPoweredOn ? '' : ' transport-bar__displays--dim'}`}>
-        <span className="transport-bar__measure" aria-label="Current measure">
-          {measureLabel}
+        {/* A bare <span>'s implicit ARIA role ("generic") doesn't support
+            aria-label per the ARIA spec, so labels are real (visually
+            hidden) text instead — that reaches assistive tech regardless
+            of role support, since it's part of the element's own content. */}
+        <span className="transport-bar__planet">
+          <VisuallyHidden>Planet: </VisuallyHidden>
+          {planetName}
         </span>
-        <span
-          className={`transport-bar__bpm${isPoweredOn ? '' : ' transport-bar__bpm--dim'}`}
-          aria-label="Beats per minute"
-        >
+        <span className="transport-bar__coords">
+          <VisuallyHidden>Locale coordinates: </VisuallyHidden>
+          {coordX !== null && coordY !== null ? `@ ${coordX}, ${coordY}` : '—'}
+        </span>
+        <span className="transport-bar__time">
+          <VisuallyHidden>Local time: </VisuallyHidden>
+          {hh}:{mm}
+        </span>
+        <span className="transport-bar__bpm">
+          <VisuallyHidden>Beats per minute: </VisuallyHidden>
           {bpm} BPM
         </span>
       </div>
