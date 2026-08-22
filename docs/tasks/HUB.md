@@ -93,7 +93,7 @@ Task 1 (src/types/hub.ts: HubTile, HubNavItem)                    ── indepen
 
 ### Phase 1: Shared types and store rename
 
-- [ ] **Task 1: Create `src/types/hub.ts`**
+- [x] **Task 1: Create `src/types/hub.ts`** — done
 
   **Description:** New file defining `HubTile` (`'robotOptions' | 'robotEditor' |
   'audioRig' | 'settings'`) and `HubNavItem` (`{ schema: ButtonSchema; target: HubTile }`).
@@ -101,12 +101,12 @@ Task 1 (src/types/hub.ts: HubTile, HubNavItem)                    ── indepen
   than one importing from the other.
 
   **Acceptance criteria:**
-  - [ ] `HubTile` has exactly the four values above — no `session`/`composition`.
-  - [ ] `HubNavItem.schema` is typed as `ButtonSchema` (imported from `./controls`), not a
+  - [x] `HubTile` has exactly the four values above — no `session`/`composition`.
+  - [x] `HubNavItem.schema` is typed as `ButtonSchema` (imported from `./controls`), not a
         new schema variant.
 
   **Verification:**
-  - [ ] `npm run build:types` clean.
+  - [x] `npm run build:types` clean.
 
   **Dependencies:** None.
 
@@ -114,19 +114,19 @@ Task 1 (src/types/hub.ts: HubTile, HubNavItem)                    ── indepen
 
   **Estimated scope:** XS (1 file, types only)
 
-- [ ] **Task 2: Create `src/data/hubNavConfig.ts`**
+- [x] **Task 2: Create `src/data/hubNavConfig.ts`** — done
 
   **Description:** `HUB_NAV_ITEMS: HubNavItem[]`, one entry per tile using the copy table
   in Architecture Decisions above. No labels live anywhere else after this.
 
   **Acceptance criteria:**
-  - [ ] Exactly four entries, `target` values matching `HubTile` exhaustively (order
+  - [x] Exactly four entries, `target` values matching `HubTile` exhaustively (order
         doesn't need to match the old `TABS` array, but must cover all four).
-  - [ ] Every entry's `schema.id` is unique and matches its `target` (e.g.
+  - [x] Every entry's `schema.id` is unique and matches its `target` (e.g.
         `id: 'robotOptions'`).
 
   **Verification:**
-  - [ ] `npm run build:types` clean.
+  - [x] `npm run build:types` clean.
 
   **Dependencies:** Task 1.
 
@@ -134,7 +134,7 @@ Task 1 (src/types/hub.ts: HubTile, HubNavItem)                    ── indepen
 
   **Estimated scope:** XS (1 file, data only)
 
-- [ ] **Task 3: `uiStore.ts` — rename `ConsoleTab`/`activeConsoleTab` to `HubTile`/`activeHubTile`**
+- [x] **Task 3: `uiStore.ts` — rename `ConsoleTab`/`activeConsoleTab` to `HubTile`/`activeHubTile`** — done
 
   **Description:** Remove the local `ConsoleTab` type (import `HubTile` from
   `@/types/hub.ts` instead). Rename `activeConsoleTab` → `activeHubTile`, default `null`
@@ -142,18 +142,18 @@ Task 1 (src/types/hub.ts: HubTile, HubNavItem)                    ── indepen
   `uiStore.test.ts` per the Architecture Decision above.
 
   **Acceptance criteria:**
-  - [ ] `useUIStore.getState().activeHubTile` is `null` on store init.
-  - [ ] `setActiveHubTile` only accepts `HubTile | null`.
-  - [ ] No remaining reference to `ConsoleTab`/`activeConsoleTab`/`setActiveConsoleTab`
+  - [x] `useUIStore.getState().activeHubTile` is `null` on store init.
+  - [x] `setActiveHubTile` only accepts `HubTile | null`.
+  - [x] No remaining reference to `ConsoleTab`/`activeConsoleTab`/`setActiveConsoleTab`
         anywhere in `src/` (this task only touches the store itself — Tasks 4–7 fix the
         call sites; the grep check belongs to the Phase 1 checkpoint below, not this task).
 
   **Verification:**
-  - [ ] `npm run build:types` — will show type errors at every un-migrated call site
+  - [x] `npm run build:types` — will show type errors at every un-migrated call site
         (`RobotEditorTab.tsx`, `RobotOptionsTab.tsx`, `ConsoleNavigation.tsx`,
         `ConsolePanel.tsx`) until Tasks 4–7 land; expected to be red until this whole
         phase's Task 7 completes.
-  - [ ] `npm test` — new `uiStore.test.ts` passes.
+  - [x] `npm test` — new `uiStore.test.ts` passes.
 
   **Dependencies:** Task 1.
 
@@ -163,17 +163,17 @@ Task 1 (src/types/hub.ts: HubTile, HubNavItem)                    ── indepen
 
 ### Phase 2: Migrate existing call sites
 
-- [ ] **Task 4: `RobotEditorTab.tsx` — rename `activeConsoleTab` read**
+- [x] **Task 4: `RobotEditorTab.tsx` — rename `activeConsoleTab` read** — done
 
   **Description:** `const activeHubTile = useUIStore((s) => s.activeHubTile);` and the
   guard `if (activeHubTile !== 'robotEditor') return null;`. No other change — component
   internals are hands-off per spec §3.
 
   **Acceptance criteria:**
-  - [ ] Component behavior is identical to today when `activeHubTile === 'robotEditor'`.
+  - [x] Component behavior is identical to today when `activeHubTile === 'robotEditor'`.
 
   **Verification:**
-  - [ ] `npm run build:types` clean for this file.
+  - [x] `npm run build:types` clean for this file.
 
   **Dependencies:** Task 3.
 
@@ -181,7 +181,7 @@ Task 1 (src/types/hub.ts: HubTile, HubNavItem)                    ── indepen
 
   **Estimated scope:** XS (1 file, rename only)
 
-- [ ] **Task 5: `RobotOptionsTab.tsx` — rename `setActiveConsoleTab` call**
+- [x] **Task 5: `RobotOptionsTab.tsx` — rename `setActiveConsoleTab` call** — done
 
   **Description:** `handleNewRobot`'s `useUIStore.getState().setActiveConsoleTab('robotEditor')`
   becomes `useUIStore.getState().setActiveHubTile('robotEditor')`. This is the one existing
@@ -189,12 +189,12 @@ Task 1 (src/types/hub.ts: HubTile, HubNavItem)                    ── indepen
   spawning a robot) — must survive the rename, not be dropped.
 
   **Acceptance criteria:**
-  - [ ] Spawning a robot via `handleNewRobot` still results in `activeHubTile ===
+  - [x] Spawning a robot via `handleNewRobot` still results in `activeHubTile ===
         'robotEditor'` and `selectedRobotId` set to the new robot's id.
 
   **Verification:**
-  - [ ] `npm run build:types` clean for this file.
-  - [ ] `npm test` — existing `RobotOptionsTab`-adjacent coverage (via `RobotAudioTab.test.tsx`
+  - [x] `npm run build:types` clean for this file.
+  - [x] `npm test` — existing `RobotOptionsTab`-adjacent coverage (via `RobotAudioTab.test.tsx`
         or a new assertion) confirms the post-spawn navigation still lands correctly.
 
   **Dependencies:** Task 3.
@@ -204,14 +204,14 @@ Task 1 (src/types/hub.ts: HubTile, HubNavItem)                    ── indepen
   **Estimated scope:** XS (1 file, rename only)
 
 ### Checkpoint: Rename cascade complete
-- [ ] `npm run build:types` clean — confirms no leftover `ConsoleTab`/`activeConsoleTab`/`setActiveConsoleTab` references outside `ConsoleNavigation.tsx`/`ConsolePanel.tsx` (fixed next).
-- [ ] `grep -rn "ConsoleTab\|activeConsoleTab\|setActiveConsoleTab" src/` shows matches only in the two files Task 7 replaces.
+- [x] `npm run build:types` clean — confirms no leftover `ConsoleTab`/`activeConsoleTab`/`setActiveConsoleTab` references outside `ConsoleNavigation.tsx`/`ConsolePanel.tsx` (fixed next).
+- [x] `grep -rn "ConsoleTab\|activeConsoleTab\|setActiveConsoleTab" src/` shows matches only in the two files Task 7 replaces.
 
 ---
 
 ### Phase 3: Build `HubNav`, rebuild `ConsolePanel`, delete `ConsoleNavigation`
 
-- [ ] **Task 6: Create `HubNav.tsx` + `HubNav.css`**
+- [x] **Task 6: Create `HubNav.tsx` + `HubNav.css`** — done (test-first: `HubNav.test.tsx` written before the component, not deferred to Task 8)
 
   **Description:** Maps `HUB_NAV_ITEMS` to `<Button>` primitives inside a
   `.hub-nav__grid` (CSS Grid, `repeat(auto-fit, minmax(140px, 1fr))` per the Architecture
@@ -219,13 +219,13 @@ Task 1 (src/types/hub.ts: HubTile, HubNavItem)                    ── indepen
   `Tabs.Root`, no hardcoded label array — matches the Code Style example in spec §4.
 
   **Acceptance criteria:**
-  - [ ] Renders exactly four `Button`s, one per `HUB_NAV_ITEMS` entry.
-  - [ ] Clicking a tile calls `setActiveHubTile` with that entry's `target`.
-  - [ ] No literal label strings appear in `HubNav.tsx` — all text traces to
+  - [x] Renders exactly four `Button`s, one per `HUB_NAV_ITEMS` entry.
+  - [x] Clicking a tile calls `setActiveHubTile` with that entry's `target`.
+  - [x] No literal label strings appear in `HubNav.tsx` — all text traces to
         `hubNavConfig.ts`.
 
   **Verification:**
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** Task 2, Task 3.
 
@@ -233,7 +233,7 @@ Task 1 (src/types/hub.ts: HubTile, HubNavItem)                    ── indepen
 
   **Estimated scope:** S (2 new files)
 
-- [ ] **Task 7: Rebuild `ConsolePanel.tsx`/`.css`; delete `ConsoleNavigation.tsx`/`.css`**
+- [x] **Task 7: Rebuild `ConsolePanel.tsx`/`.css`; delete `ConsoleNavigation.tsx`/`.css`** — done (test-first: `ConsolePanel.test.tsx` written before the rewrite, not deferred to Task 8)
 
   **Description:** `ConsolePanel` renders `<HubNav />` when `activeHubTile === null`;
   otherwise a back `Button` (local `ButtonSchema` constant, per spec §4) plus the active
@@ -246,19 +246,19 @@ Task 1 (src/types/hub.ts: HubTile, HubNavItem)                    ── indepen
   `ConsoleNavigation.tsx` and its unused CSS rules once nothing imports it.
 
   **Acceptance criteria:**
-  - [ ] `activeHubTile === null` renders `HubNav` and nothing else.
-  - [ ] Each of the four tile values renders its correct content plus the back button.
-  - [ ] Clicking the back button calls `setActiveHubTile(null)`.
-  - [ ] `ConsoleNavigation.tsx`/`.css` no longer exist; no remaining import of either
+  - [x] `activeHubTile === null` renders `HubNav` and nothing else.
+  - [x] Each of the four tile values renders its correct content plus the back button.
+  - [x] Clicking the back button calls `setActiveHubTile(null)`.
+  - [x] `ConsoleNavigation.tsx`/`.css` no longer exist; no remaining import of either
         anywhere in `src/`.
-  - [ ] `grep -rn "session\|composition" src/components/panels/screen/console/` returns
+  - [x] `grep -rn "session\|composition" src/components/panels/screen/console/` returns
         nothing tied to the old tab values (matches on unrelated words like "session" in
         comments are fine — check for the literal tab-value usage, not the substring).
 
   **Verification:**
-  - [ ] `npm run build:types`, `npm run lint` clean — this is the point where the rename
+  - [x] `npm run build:types`, `npm run lint` clean — this is the point where the rename
         cascade started in Task 3 goes fully green.
-  - [ ] `npm run build` clean.
+  - [x] `npm run build` clean.
 
   **Dependencies:** Task 3, Task 4, Task 5, Task 6.
 
@@ -267,36 +267,29 @@ Task 1 (src/types/hub.ts: HubTile, HubNavItem)                    ── indepen
   **Estimated scope:** M (2 rewritten files + 1–2 deletions)
 
 ### Checkpoint: Navigation rebuild complete
-- [ ] `npm run build:types`, `npm run lint`, `npm run build` all clean.
+- [x] `npm run build:types`, `npm run lint`, `npm run build` all clean.
 - [ ] Manual: dev server opens on the tile grid; each tile takes over full-screen with a working back button; spawning a robot from Robot Options still lands on Robot Editor.
 
 ---
 
 ### Phase 4: Tests and docs
 
-- [ ] **Task 8: `HubNav.test.tsx` + `ConsolePanel.test.tsx`**
+- [x] **Task 8: `HubNav.test.tsx` + `ConsolePanel.test.tsx`** — superseded, folded into Tasks 6/7
 
-  **Description:** New test files per spec §5's coverage targets. `ConsolePanel.test.tsx`
-  mocks `RobotOptionsTab`/`RobotEditorTab` the way `ScreenViewport.test.tsx` mocks `Console`
-  (isolating `ConsolePanel`'s own switch logic from real Tone.js/GSAP-touching children).
+  **What actually happened:** rather than deferring both test files to this task, each was
+  written test-first as part of the component that needed it — `HubNav.test.tsx` before
+  `HubNav.tsx` in Task 6, `ConsolePanel.test.tsx` before the `ConsolePanel.tsx` rewrite in
+  Task 7 — giving a real red→green cycle instead of writing tests against already-built
+  code. All of this task's acceptance criteria are satisfied by what Tasks 6/7 shipped;
+  see those entries for detail. One coverage item not in the original criteria: `HubNav`'s
+  click assertion checks the real resulting `activeHubTile` store state rather than a
+  mocked setter, after an early version that monkey-patched `setActiveHubTile` mid-test
+  produced a React "not wrapped in act()" warning (the mounted component was subscribed to
+  the action reference; replacing it while mounted amounted to an unwrapped state update).
+  Reading real state back matches the pattern already used elsewhere in the suite (e.g.
+  `RobotAudioTab.test.tsx`).
 
-  **Acceptance criteria:**
-  - [ ] `HubNav.test.tsx`: renders four tiles with configured labels; click → correct
-        `setActiveHubTile` call; no Session/Composition remnants.
-  - [ ] `ConsolePanel.test.tsx`: grid renders when `activeHubTile` is `null`; each tile
-        value renders its expected (mocked) content + back button; back button resets to
-        `null`; `audioRig`/`settings` render the carried-forward stub text.
-
-  **Verification:**
-  - [ ] `npm test` — full suite passes, including these two new files.
-
-  **Dependencies:** Task 6, Task 7.
-
-  **Files:** `src/components/panels/screen/console/HubNav.test.tsx` (new), `src/components/panels/screen/console/ConsolePanel.test.tsx` (new)
-
-  **Estimated scope:** S (2 new test files)
-
-- [ ] **Task 9: `docs/UI_SHELL.md` update**
+- [x] **Task 9: `docs/UI_SHELL.md` update** — done
 
   **Description:** Per the roadmap's Docs note and spec §2: fold "Planned Replacement:
   Hub Tiles" into a renamed "Console Navigation" section for the tab→tile,
@@ -306,13 +299,13 @@ Task 1 (src/types/hub.ts: HubTile, HubNavItem)                    ── indepen
   internals, so the doc shouldn't claim they're done.
 
   **Acceptance criteria:**
-  - [ ] No section titled "Planned Replacement: Hub Tiles" remains.
-  - [ ] "Console Navigation" section accurately describes `HubNav` + the full-screen
+  - [x] No section titled "Planned Replacement: Hub Tiles" remains.
+  - [x] "Console Navigation" section accurately describes `HubNav` + the full-screen
         takeover model as shipped, for the points confirmed this phase.
-  - [ ] `robotOptions`/`robotEditor` still read as planned/unfinished, matching reality.
+  - [x] `robotOptions`/`robotEditor` still read as planned/unfinished, matching reality.
 
   **Verification:**
-  - [ ] Manual read-through against the actual shipped behavior from Task 7/8.
+  - [x] Manual read-through against the actual shipped behavior from Task 7/8.
 
   **Dependencies:** Task 7, Task 8.
 
@@ -321,6 +314,6 @@ Task 1 (src/types/hub.ts: HubTile, HubNavItem)                    ── indepen
   **Estimated scope:** S (docs only)
 
 ### Final Checkpoint
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
 - [ ] Manual a11y check: keyboard/focus navigation through the tile grid and back button.
 - [ ] Review with human before merging.
