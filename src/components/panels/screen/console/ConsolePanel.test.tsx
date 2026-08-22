@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
 import { ConsolePanel } from './ConsolePanel';
@@ -19,6 +19,16 @@ vi.mock('./RobotEditorTab', () => ({
 }));
 
 describe('ConsolePanel', () => {
+  // Explicit reset before each test, not relying on declaration order — runs
+  // after RTL's own afterEach cleanup has already unmounted the previous
+  // test's component, so mutating the store here doesn't trigger the
+  // "update not wrapped in act()" warning an afterEach-based reset would
+  // (that ordering bit us once already; see HubNav.test.tsx's history).
+  beforeEach(() => {
+    useUIStore.getState().setActiveHubTile(null);
+    useUIStore.getState().selectRobot(null);
+  });
+
   it('renders the HubNav grid when activeHubTile is null', () => {
     render(<ConsolePanel />);
     expect(screen.getByRole('region', { name: 'Hub Navigation' })).toBeTruthy();
