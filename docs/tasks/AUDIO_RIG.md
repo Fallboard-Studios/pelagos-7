@@ -341,17 +341,17 @@ Task 9 ─────────────┴──→ Task 14 (AUDIO_SYSTEM
 
 ### Phase 6: Docs
 
-- [ ] **Task 13: `docs/roadmap/roadmap.md` — Phase 4 doc-fix**
+- [x] **Task 13: `docs/roadmap/roadmap.md` — Phase 4 doc-fix** — done
 
   **Description:** Rewrite Phase 4's "About" paragraph: remove the stale "leaving clean parameter IDs ready for Web Audio setter bindings in subsequent phases" framing (that Web Audio side already existed before this phase started) and add a sentence covering the net-new global LFO seeding this phase added, per spec §7.1.
 
   **Acceptance criteria:**
-  - [ ] No remaining claim that Web Audio wiring is deferred to a later phase.
-  - [ ] Global LFO seeding (`generateGlobalLfoSettings`, seeded `active`) is mentioned.
-  - [ ] Roadmap's "Create"/"About" structure and surrounding phases are otherwise untouched.
+  - [x] No remaining claim that Web Audio wiring is deferred to a later phase.
+  - [x] Global LFO seeding (`generateGlobalLfoSettings`, seeded `active`) is mentioned.
+  - [x] Roadmap's "Create"/"About" structure and surrounding phases are otherwise untouched.
 
   **Verification:**
-  - [ ] Manual review — read the updated paragraph against what actually shipped (Tasks 1–12), not against the original spec's plan.
+  - [x] Manual review — read the updated paragraph against what actually shipped (Tasks 1–12), not against the original spec's plan.
 
   **Dependencies:** Task 12 (describes the finished phase).
 
@@ -359,16 +359,16 @@ Task 9 ─────────────┴──→ Task 14 (AUDIO_SYSTEM
 
   **Estimated scope:** XS (docs only)
 
-- [ ] **Task 14: `docs/AUDIO_SYSTEM.md` — correct the LFO seeding claim**
+- [x] **Task 14: `docs/AUDIO_SYSTEM.md` — correct the LFO seeding claim** — done
 
   **Description:** Update the "LFO Modulation § Seeding" section's line stating global-chain `LfoSettings` are "not seed-generated... out of scope for this phase" — they now are, per Task 6/8/9.
 
   **Acceptance criteria:**
-  - [ ] The "not seed-generated" claim for global-chain `LfoSettings` is corrected to describe `generateGlobalLfoSettings` and the `active`-seeding behavior.
-  - [ ] The existing robot-level seeding description (unchanged this phase) is left as-is.
+  - [x] The "not seed-generated" claim for global-chain `LfoSettings` is corrected to describe `generateGlobalLfoSettings` and the `active`-seeding behavior.
+  - [x] The existing robot-level seeding description (unchanged this phase) is left as-is.
 
   **Verification:**
-  - [ ] Manual review — every claim spot-checked against the shipped source (`globalAudioSeed.ts`, `audioStore.ts`), not reconstructed from memory, matching `LFO_INTEGRATION_PLAN.md`'s Task 15 verification style.
+  - [x] Manual review — every claim spot-checked against the shipped source (`globalAudioSeed.ts`, `audioStore.ts`), not reconstructed from memory, matching `LFO_INTEGRATION_PLAN.md`'s Task 15 verification style.
 
   **Dependencies:** Task 9.
 
@@ -377,7 +377,7 @@ Task 9 ─────────────┴──→ Task 14 (AUDIO_SYSTEM
   **Estimated scope:** XS (docs only)
 
 ### Checkpoint: Complete
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
 - [ ] All acceptance criteria across all 14 tasks are met, including the manual/audible checks (Tasks 9, 12) confirmed by a human.
 - [ ] Both docs (`roadmap.md`, `AUDIO_SYSTEM.md`) reflect the shipped behavior, spot-checked against source.
 - [ ] Ready for human review / PR.
