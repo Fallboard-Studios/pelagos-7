@@ -162,6 +162,23 @@ vi.mock('../constants', () => ({
   MIN_LEAD: 0.1,
 }));
 
+// Mock lfoEngine (Task 9) — AudioEngine.start() primes/connects/starts global
+// LFOs through this, but exercising the real lfoEngine here would mean also
+// mocking a real Tone.LFO, which is out of scope for testing AudioEngine's own
+// orchestration logic (which target got which call, in what order).
+vi.mock('./lfoEngine', () => ({
+  lfoEngine: {
+    getLfoSettings: vi.fn(),
+    setLfoRate: vi.fn(),
+    setLfoDepth: vi.fn(),
+    setLfoShape: vi.fn(),
+    start: vi.fn(),
+    stop: vi.fn(),
+    connectLfoTarget: vi.fn(() => true),
+    disconnectLfoTarget: vi.fn(),
+  },
+}));
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { AudioEngine } from './AudioEngine';
@@ -1228,5 +1245,92 @@ describe('AudioEngine - getGlobalModulationTarget', () => {
     const lpf = AudioEngine.getGlobalModulationTarget('lpf.frequency');
     const hpf = AudioEngine.getGlobalModulationTarget('hpf.frequency');
     expect(lpf).not.toBe(hpf);
+  });
+});
+
+describe('AudioEngine.start - prime, connect, and start seeded global LFOs (Task 9)', () => {
+  // One entry per GlobalLfoTargetId, with a deliberate mix: some active, some
+  // not, and one active target ('eq3.mid') whose connectLfoTarget call will be
+  // made to return false, to prove start() is conditioned on a real connect.
+  const FIXTURE_GLOBAL_LFO = {
+    'eq3.low': { shape: 'sine', rate: 2, depth: 30, active: true },
+    'eq3.mid': { shape: 'square', rate: 3, depth: 40, active: true },
+    'eq3.high': { shape: 'triangle', rate: 1, depth: 10, active: false },
+    'lpf.frequency': { shape: 'sawtooth', rate: 4, depth: 50, active: true },
+    'lpf.Q': { shape: 'sine', rate: 0.5, depth: 20, active: false },
+    'hpf.frequency': { shape: 'sine', rate: 1.5, depth: 60, active: false },
+    'hpf.Q': { shape: 'square', rate: 2.5, depth: 70, active: false },
+    'chorus.delayTime': { shape: 'sine', rate: 3.5, depth: 80, active: true },
+    'delay.delayTime': { shape: 'triangle', rate: 5, depth: 90, active: false },
+  } as const;
+
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  async function startWithFixture() {
+    const { AudioEngine } = await import('./AudioEngine');
+    const { useAudioStore } = await import('../stores/audioStore');
+    const { lfoEngine } = await import('./lfoEngine');
+
+    useAudioStore.setState({ globalLfo: FIXTURE_GLOBAL_LFO as any });
+    // The lfoEngine mock's call history persists across vi.resetModules() (same
+    // quirk LFO_INTEGRATION_PLAN.md's Task 11 and audioStore.test.ts's planet-sync
+    // block both document for the Tone/lfoEngine mocks) — clear it so each test
+    // only sees this start() call's own calls.
+    vi.clearAllMocks();
+    vi.mocked(lfoEngine.connectLfoTarget).mockImplementation((target: unknown) => target !== 'eq3.mid');
+
+    await AudioEngine.start();
+    return { lfoEngine };
+  }
+
+  it('primes setLfoShape/setLfoRate/setLfoDepth for every one of the 9 targets from globalLfo state', async () => {
+    const { lfoEngine } = await startWithFixture();
+
+    for (const [target, settings] of Object.entries(FIXTURE_GLOBAL_LFO)) {
+      expect(lfoEngine.setLfoShape).toHaveBeenCalledWith(target, settings.shape);
+      expect(lfoEngine.setLfoRate).toHaveBeenCalledWith(target, settings.rate);
+      expect(lfoEngine.setLfoDepth).toHaveBeenCalledWith(target, settings.depth);
+    }
+  });
+
+  it('connects every active target and starts it when connect succeeds', async () => {
+    const { lfoEngine } = await startWithFixture();
+
+    expect(lfoEngine.connectLfoTarget).toHaveBeenCalledWith('eq3.low');
+    expect(lfoEngine.start).toHaveBeenCalledWith('eq3.low');
+
+    expect(lfoEngine.connectLfoTarget).toHaveBeenCalledWith('lpf.frequency');
+    expect(lfoEngine.start).toHaveBeenCalledWith('lpf.frequency');
+
+    expect(lfoEngine.connectLfoTarget).toHaveBeenCalledWith('chorus.delayTime');
+    expect(lfoEngine.start).toHaveBeenCalledWith('chorus.delayTime');
+  });
+
+  it('does not call start for an active target whose connect fails', async () => {
+    const { lfoEngine } = await startWithFixture();
+
+    expect(lfoEngine.connectLfoTarget).toHaveBeenCalledWith('eq3.mid');
+    expect(lfoEngine.start).not.toHaveBeenCalledWith('eq3.mid');
+  });
+
+  it('never connects or starts an inactive target', async () => {
+    const { lfoEngine } = await startWithFixture();
+
+    for (const target of ['eq3.high', 'lpf.Q', 'hpf.frequency', 'hpf.Q', 'delay.delayTime']) {
+      expect(lfoEngine.connectLfoTarget).not.toHaveBeenCalledWith(target);
+      expect(lfoEngine.start).not.toHaveBeenCalledWith(target);
+    }
+  });
+
+  it('does not throw and existing start() behavior (instrument loading, beat clock) still runs', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    const { useAudioStore } = await import('../stores/audioStore');
+    useAudioStore.setState({ globalLfo: FIXTURE_GLOBAL_LFO as any });
+
+    await expect(AudioEngine.start()).resolves.not.toThrow();
+    const beatClock = await import('./beatClock');
+    expect(beatClock.initBeatClock).toHaveBeenCalled();
   });
 });

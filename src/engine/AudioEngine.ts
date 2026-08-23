@@ -5,10 +5,11 @@ import * as Tone from 'tone';
 import gsap from 'gsap';
 import { useLocaleStore } from '../stores/localeStore';
 import { getActiveLocaleId } from '../utils/localeHelpers';
+import { lfoEngine } from './lfoEngine';
 
 import type { NoteDuration, WaveformType, Robot } from '../types/Robot';
 import type { OscillatorLayer } from '../types/layeredAudio';
-import type { RobotLfoTargetId } from '../types/lfo';
+import { GLOBAL_LFO_TARGET_IDS, type RobotLfoTargetId } from '../types/lfo';
 import { getAvailableNotes, scheduleHarmonyCycle, stopHarmonyCycle } from './harmonySystem';
 import { resetBeatClock, subscribeToMeasure, initBeatClock } from './beatClock';
 import type { RobotMelodyEvent } from './melodyGenerator';
@@ -477,6 +478,35 @@ export const AudioEngine = {
     // of the world time. Do NOT realign transport.position with store.
     if (transport.state !== 'started') {
       await transport.start();
+    }
+
+    // Prime lfoEngine from the current globalLfo state and connect+start
+    // already-active targets — this is the one point guaranteed to run after
+    // Tone.start()/transport.start() have succeeded, so it's the only safe
+    // place to construct the underlying Tone.LFO nodes. Planet-sync's
+    // regenerateGlobalLfoFromSeed (audioStore.ts) is deliberately data-only
+    // for exactly this reason — it runs before any user gesture.
+    // Dynamic import, deliberately: audioStore.ts's GLOBAL_SETTER reads
+    // AudioEngine.setGlobal* eagerly at its own module scope, so a top-level
+    // `import { useAudioStore } from '../stores/audioStore'` here would force
+    // audioStore.ts to evaluate mid-way through AudioEngine.ts's own module
+    // evaluation, before the `AudioEngine` export exists yet (verified: this
+    // threw "Cannot read properties of undefined (reading 'setGlobalCompressor')"
+    // when tried as a static import).
+    try {
+      const { useAudioStore } = await import('../stores/audioStore');
+      const { globalLfo } = useAudioStore.getState();
+      for (const target of GLOBAL_LFO_TARGET_IDS) {
+        const settings = globalLfo[target];
+        lfoEngine.setLfoShape(target, settings.shape);
+        lfoEngine.setLfoRate(target, settings.rate);
+        lfoEngine.setLfoDepth(target, settings.depth);
+        if (settings.active && lfoEngine.connectLfoTarget(target)) {
+          lfoEngine.start(target);
+        }
+      }
+    } catch (err) {
+      devWarn('[AudioEngine] priming global LFOs failed', err);
     }
 
     initBeatClock(transport);
