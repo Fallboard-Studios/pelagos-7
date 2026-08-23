@@ -222,20 +222,23 @@ Task 9 ─────────────┴──→ Task 14 (AUDIO_SYSTEM
 
 ### Phase 3: Engine lifecycle fix
 
-- [ ] **Task 9: `AudioEngine.start()` — prime, connect, and start seeded global LFOs**
+- [x] **Task 9: `AudioEngine.start()` — prime, connect, and start seeded global LFOs** — done
 
   **Description (expanded per Task 8's deviation above — this task now owns all of the lfoEngine priming/connecting planet-sync used to do):** After `transport.start()` succeeds, read `useAudioStore.getState().globalLfo` and, for every `GlobalLfoTargetId`: call `lfoEngine.setLfoShape`/`setLfoRate`/`setLfoDepth` (priming lfoEngine's own settings from the seeded state — this is now the *first* time any of them touch lfoEngine at all), then if `active: true`, call `connectLfoTarget` and, only if that returns `true`, `start`. This is the one point guaranteed to run after `Tone.start()` has succeeded, so it's the only safe place to construct the underlying `Tone.LFO` nodes.
 
+  **Real finding, fixed before landing:** a static top-level `import { useAudioStore } from '../stores/audioStore'` in `AudioEngine.ts` broke immediately — `audioStore.ts`'s `GLOBAL_SETTER` (Task 7) reads `AudioEngine.setGlobalCompressor` etc. eagerly at its own module scope, so importing `audioStore.ts` from partway through `AudioEngine.ts`'s own module evaluation handed it a not-yet-fully-formed `AudioEngine` export — threw `Cannot read properties of undefined (reading 'setGlobalCompressor')`. `lfoEngine.ts`'s existing (pre-Task-9) circular import of `AudioEngine` never hit this because it only reads off `AudioEngine` inside function bodies, never at module scope. Fixed with a dynamic `await import('../stores/audioStore')` inside `start()` instead — defers `audioStore.ts`'s evaluation to when `start()` actually runs, by which point the real app has already loaded it through a non-cyclic path (confirmed by a Vite build note: `audioStore.ts` is also statically imported by `TransportBar.tsx`/`powerController.ts`, so the dynamic import is purely an ordering fix, not a code-split).
+
   **Acceptance criteria:**
-  - [ ] Every one of the 9 `GlobalLfoTargetId`s gets `setLfoShape`/`setLfoRate`/`setLfoDepth` called with its current `useAudioStore.getState().globalLfo` values, after `transport.start()`, inside `AudioEngine.start()`.
-  - [ ] Every target with `active: true` additionally gets `connectLfoTarget` called, and `start` only if `connectLfoTarget` returned `true`.
-  - [ ] No target with `active: false` gets `connectLfoTarget` or `start` called.
-  - [ ] `AudioEngine.start()`'s existing behavior (instrument loading, beat clock init, reverb-ready wait, `useLocaleStore` measure subscription) is unchanged.
+  - [x] Every one of the 9 `GlobalLfoTargetId`s gets `setLfoShape`/`setLfoRate`/`setLfoDepth` called with its current `useAudioStore.getState().globalLfo` values, after `transport.start()`, inside `AudioEngine.start()`.
+  - [x] Every target with `active: true` additionally gets `connectLfoTarget` called, and `start` only if `connectLfoTarget` returned `true`.
+  - [x] No target with `active: false` gets `connectLfoTarget` or `start` called.
+  - [x] `AudioEngine.start()`'s existing behavior (instrument loading, beat clock init, reverb-ready wait, `useLocaleStore` measure subscription) is unchanged.
 
   **Verification:**
-  - [ ] `npx vitest run src/engine/AudioEngine.test.ts` — mock `useAudioStore.getState().globalLfo` with a mix of active/inactive targets and a `connectLfoTarget` mock that returns `false` for at least one active target, assert the full prime/connect/start matrix above.
-  - [ ] `npm run build:types`, `npm run lint` clean.
-  - [ ] Manual/audible check (paired with Task 12's, not required standalone): a planet seeded with at least one `active: true` global LFO is audibly modulating immediately after pressing power-on, with no control touched.
+  - [x] `npx vitest run src/engine/AudioEngine.test.ts` — 77/77 passing (72 prior unchanged + 5 new). Mocked `../lfoEngine` (module-relative, resolves to the same file `audioStore.ts`'s `'../engine/lfoEngine'` import does) and drove `useAudioStore.setState({ globalLfo: <9-target fixture> })` directly, with a mix of active/inactive targets and one active target (`eq3.mid`) whose `connectLfoTarget` mock returns `false`, to prove `start` is conditioned on a real connect.
+  - [x] `npm run build:types`, `npm run lint` clean.
+  - [x] Full suite: 62 files, 786/786. `npm run build` clean.
+  - [ ] Manual/audible check (paired with Task 12's, not required standalone): a planet seeded with at least one `active: true` global LFO is audibly modulating immediately after pressing power-on, with no control touched. *(Deferred to Task 12 — no UI to power on through yet.)*
 
   **Dependencies:** Task 8.
 
@@ -244,7 +247,7 @@ Task 9 ─────────────┴──→ Task 14 (AUDIO_SYSTEM
   **Estimated scope:** S
 
 ### Checkpoint: Engine lifecycle
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean — full suite 62 files, 786/786.
 - [ ] Review with human before proceeding.
 
 ---
