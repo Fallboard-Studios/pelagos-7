@@ -17,6 +17,12 @@ vi.mock('./RobotEditorTab', () => ({
   RobotEditorTab: () => <div data-testid="robot-editor-stub" />,
   default: () => <div data-testid="robot-editor-stub" />,
 }));
+// AudioRigDrawer has its own full test suite (AudioRigDrawer.test.tsx) — this
+// file is about ConsolePanel's own tile switch, not re-testing its content.
+vi.mock('./AudioRigDrawer', () => ({
+  AudioRigDrawer: () => <div data-testid="audio-rig-drawer-stub" />,
+  default: () => <div data-testid="audio-rig-drawer-stub" />,
+}));
 
 describe('ConsolePanel', () => {
   // Explicit reset before each test, not relying on declaration order — runs
@@ -50,10 +56,10 @@ describe('ConsolePanel', () => {
     expect(screen.getByRole('button', { name: 'Back' })).toBeTruthy();
   });
 
-  it('renders the carried-forward stub content for audioRig', () => {
+  it('renders AudioRigDrawer when audioRig is active', () => {
     useUIStore.getState().setActiveHubTile('audioRig');
     render(<ConsolePanel />);
-    expect(screen.getByText('Audio Rig')).toBeTruthy();
+    expect(screen.getByTestId('audio-rig-drawer-stub')).toBeTruthy();
   });
 
   it('renders the carried-forward stub content for settings', () => {
