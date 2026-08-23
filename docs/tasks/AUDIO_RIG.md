@@ -254,24 +254,28 @@ Task 9 ─────────────┴──→ Task 14 (AUDIO_SYSTEM
 
 ### Phase 4: Drawer UI
 
-- [ ] **Task 10: `AudioRigDrawer.tsx` — 7 accordions, params, bypass (no LFO nesting yet)**
+- [x] **Task 10: `AudioRigDrawer.tsx` — 7 accordions, params, bypass (no LFO nesting yet)** — done, one upstream fix along the way
 
   **Description:** Build `AudioRigDrawer` per spec §4: maps `AUDIO_RIG_CONFIG` to 7 `AccordionContainer`s via `renderParamControl`'s dispatcher (`sliderLinear`/`sliderLog`/`sliderCenteredZero`/`stepper`), each effect's bypass `Toggle` rendered as a sibling row above its `AccordionContainer` (not inside it — spec §3, `AccordionContainer` itself is not modified), plus one rig-wide bypass `Toggle` above all 7. Wires every control to `audioStore`'s `setGlobalAudio`/`setEffectEnabled`/`setGlobalBypassEnabled`. Implements the disabled cascade: effect bypass off → that effect's params disabled; rig-wide bypass on → every effect's own bypass toggle also disabled. No `Lfo` rendering yet — `param.lfoTarget`/`lfoAccordion` are ignored this task.
 
+  **Real findings, both fixed before/while landing:**
+  - **Task 1 fix (its own commit):** every effect's `enabledSchema.humanLabel` was the literal string `'Enabled'` — all 7 bypass toggles resolved to the identical accessible name via `resolveAccessibleName`, indistinguishable to a screen reader (and to `getByRole` in this task's own tests). Changed to `` `${effect name} Enabled` `` per block.
+  - **Test-fixture bug, caught by the RED→GREEN cycle itself, not the component:** `DEFAULT_GLOBAL_AUDIO_SETTINGS.compressor.enabled` is `false` (only `reverb` defaults `true` — see `src/types/globalAudio.ts`). Three tests initially assumed `compressor.enabled: true` out of the box; fixed the test fixtures, not the component, which was already disabling correctly per the real default.
+
   **Acceptance criteria:**
-  - [ ] Renders all 7 accordions with `AUDIO_RIG_CONFIG`'s labels, zero hardcoded display strings.
-  - [ ] Dragging/toggling a param control calls `setGlobalAudio(block.key, { [field]: value })` with the right effect/field/value.
-  - [ ] Toggling an effect's own bypass calls `setEffectEnabled` and disables that effect's other param controls (`disabled` prop, from Tasks 2–5).
-  - [ ] Toggling the rig-wide bypass calls `setGlobalBypassEnabled` and disables all 7 effects' own bypass toggles.
-  - [ ] Bypass `Toggle`s are labeled per their real polarity (spec §3) — the rig-wide one reads as "Bypass" (ON = silenced), not inverted to match `enabled`'s "ON = audible" polarity.
+  - [x] Renders all 7 accordions with `AUDIO_RIG_CONFIG`'s labels, zero hardcoded display strings.
+  - [x] Dragging/toggling a param control calls `setGlobalAudio(block.key, { [field]: value })` with the right effect/field/value.
+  - [x] Toggling an effect's own bypass calls `setEffectEnabled` and disables that effect's other param controls (`disabled` prop, from Tasks 2–5).
+  - [x] Toggling the rig-wide bypass calls `setGlobalBypassEnabled` and disables all 7 effects' own bypass toggles.
+  - [x] Bypass `Toggle`s are labeled per their real polarity (spec §3) — the rig-wide one reads as "Bypass" (ON = silenced), not inverted to match `enabled`'s "ON = audible" polarity.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/panels/screen/console/AudioRigDrawer.test.tsx` — covers every bullet above.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/components/panels/screen/console/AudioRigDrawer.test.tsx` — 10/10 passing, covers every bullet above (uses the real `useAudioStore`, no mocking — `AudioEngine`'s `setGlobal*`/`setEffectBypass`/`setGlobalBypass` are all documented no-ops before `buildGlobalFxChain()` has run, so this is safe headless, matching `RobotsTab.test.tsx`'s simpler real-store pattern rather than `audioStore.test.ts`'s mocked one).
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** Task 1, Task 2, Task 3, Task 4, Task 5, Task 7.
 
-  **Files:** `src/components/panels/screen/console/AudioRigDrawer.tsx`, `src/components/panels/screen/console/AudioRigDrawer.css`, `src/components/panels/screen/console/AudioRigDrawer.test.tsx`
+  **Files:** `src/components/panels/screen/console/AudioRigDrawer.tsx`, `src/components/panels/screen/console/AudioRigDrawer.css`, `src/components/panels/screen/console/AudioRigDrawer.test.tsx`, plus `src/data/audioRigConfig.ts`/`.test.ts` (the Task 1 label fix)
 
   **Estimated scope:** M (3 files, but the bulk of this phase's UI logic)
 
