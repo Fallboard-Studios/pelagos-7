@@ -37,6 +37,14 @@ describe('AUDIO_RIG_CONFIG', () => {
     }
   });
 
+  it('every block\'s enabled toggle has a distinct human label — never a shared "Enabled" indistinguishable across all 7', () => {
+    const labels = AUDIO_RIG_CONFIG.map((b) => b.enabledSchema.humanLabel);
+    expect(new Set(labels).size).toBe(AUDIO_RIG_CONFIG.length);
+    for (const label of labels) {
+      expect(label).not.toBe('Enabled');
+    }
+  });
+
   it('every param schema id matches GlobalAudioSettings\' own field path — never the GlobalLfoTargetId short form', () => {
     for (const block of AUDIO_RIG_CONFIG) {
       for (const param of block.params) {

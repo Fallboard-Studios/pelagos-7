@@ -43,8 +43,11 @@ function accordionSchema(key: AudioRigEffectKey, loreLabel: string, humanLabel: 
   return { id: `audioRig.${key}`, type: 'accordion', loreLabel, humanLabel };
 }
 
-function enabledSchema(key: AudioRigEffectKey): ToggleSchema {
-  return { id: `audioRig.${key}.enabled`, type: 'toggle', humanLabel: 'Enabled' };
+// humanLabel is "${effect name} Enabled", not a shared "Enabled" — all 7 toggles
+// would otherwise resolve to the identical accessible name via
+// resolveAccessibleName, indistinguishable to a screen reader.
+function enabledSchema(key: AudioRigEffectKey, effectHumanName: string): ToggleSchema {
+  return { id: `audioRig.${key}.enabled`, type: 'toggle', humanLabel: `${effectHumanName} Enabled` };
 }
 
 function lfoAccordionSchema(key: AudioRigEffectKey, field: string): AccordionSchema {
@@ -59,7 +62,7 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
   {
     key: 'compressor',
     accordion: accordionSchema('compressor', 'DYNAMIC RANGE CONDENSER', 'Compressor'),
-    enabledSchema: enabledSchema('compressor'),
+    enabledSchema: enabledSchema('compressor', 'Compressor'),
     params: [
       { field: 'threshold', schema: { id: 'compressor.threshold', type: 'sliderLinear', loreLabel: 'ATTENUATION THRESHOLD', humanLabel: 'Threshold', min: -60, max: 0, unit: 'dB' } },
       { field: 'ratio', schema: { id: 'compressor.ratio', type: 'stepper', loreLabel: 'COMPRESSION RATIO', humanLabel: 'Ratio', min: 1, max: 20 } },
@@ -71,7 +74,7 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
   {
     key: 'eq3',
     accordion: accordionSchema('eq3', 'SPECTRAL FREQUENCY EQUALIZER', '3-Band EQ'),
-    enabledSchema: enabledSchema('eq3'),
+    enabledSchema: enabledSchema('eq3', '3-Band EQ'),
     params: [
       {
         field: 'low',
@@ -96,7 +99,7 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
   {
     key: 'filterLPF',
     accordion: accordionSchema('filterLPF', 'HIGH-FREQUENCY MASK', 'Low-Pass Filter'),
-    enabledSchema: enabledSchema('filterLPF'),
+    enabledSchema: enabledSchema('filterLPF', 'Low-Pass Filter'),
     params: [
       {
         field: 'frequency',
@@ -115,7 +118,7 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
   {
     key: 'filterHPF',
     accordion: accordionSchema('filterHPF', 'LOW-FREQUENCY MASK', 'High-Pass Filter'),
-    enabledSchema: enabledSchema('filterHPF'),
+    enabledSchema: enabledSchema('filterHPF', 'High-Pass Filter'),
     params: [
       {
         field: 'frequency',
@@ -134,7 +137,7 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
   {
     key: 'chorus',
     accordion: accordionSchema('chorus', 'PHASE DISPERSION ARRAY', 'Chorus'),
-    enabledSchema: enabledSchema('chorus'),
+    enabledSchema: enabledSchema('chorus', 'Chorus'),
     params: [
       { field: 'rate', schema: { id: 'chorus.rate', type: 'sliderLinear', loreLabel: 'OSCILLATION RATE', humanLabel: 'Rate', min: 0.1, max: 10, unit: 'Hz' } },
       { field: 'depth', schema: { id: 'chorus.depth', type: 'sliderLinear', loreLabel: 'DISPERSION DEPTH', humanLabel: 'Depth', min: 0, max: 1 } },
@@ -151,7 +154,7 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
   {
     key: 'delay',
     accordion: accordionSchema('delay', 'TEMPORAL REFLECTION MATRIX', 'Delay'),
-    enabledSchema: enabledSchema('delay'),
+    enabledSchema: enabledSchema('delay', 'Delay'),
     params: [
       {
         field: 'delayTime',
@@ -166,7 +169,7 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
   {
     key: 'reverb',
     accordion: accordionSchema('reverb', 'SPATIAL DIFFUSION MATRIX', 'Reverb'),
-    enabledSchema: enabledSchema('reverb'),
+    enabledSchema: enabledSchema('reverb', 'Reverb'),
     params: [
       { field: 'decay', schema: { id: 'reverb.decay', type: 'sliderLog', loreLabel: 'DISSIPATION DURATION', humanLabel: 'Decay', min: 0.1, max: 10, unit: 's' } },
       { field: 'preDelay', schema: { id: 'reverb.preDelay', type: 'sliderLinear', loreLabel: 'INITIAL LAG', humanLabel: 'Pre-Delay', min: 0, max: 0.5, unit: 's' } },
