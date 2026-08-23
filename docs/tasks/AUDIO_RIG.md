@@ -216,7 +216,7 @@ Task 9 ─────────────┴──→ Task 14 (AUDIO_SYSTEM
 ### Checkpoint: Store wiring
 - [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
 - [x] `audioStore`'s full new action surface (`setGlobalAudio` push-through, `setEffectEnabled`, `setGlobalBypassEnabled`, `setGlobalLfo`) is covered by tests, mocked against both `AudioEngine` and `lfoEngine`.
-- [ ] Review with human before proceeding.
+- [x] Review with human before proceeding.
 
 ---
 
