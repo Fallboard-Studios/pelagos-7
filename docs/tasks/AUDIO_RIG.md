@@ -279,19 +279,21 @@ Task 9 ─────────────┴──→ Task 14 (AUDIO_SYSTEM
 
   **Estimated scope:** M (3 files, but the bulk of this phase's UI logic)
 
-- [ ] **Task 11: `AudioRigDrawer.tsx` — nested LFO accordions**
+- [x] **Task 11: `AudioRigDrawer.tsx` — nested LFO accordions** — done
 
   **Description:** Extend Task 10's drawer: for every param with `lfoTarget`/`lfoAccordion` set, nest an `AccordionContainer` (the `lfoAccordion` schema) inside that param's row, containing an `Lfo` primitive bound to `globalLfo[param.lfoTarget]`, wired to `setGlobalLfo`. Per spec §3/§7.5: the `Lfo` control is **not** included in the disabled cascade — it stays interactive even when its parent effect is bypassed.
 
+  **Implementation note:** `AccordionContainer` renders its content with Radix's `forceMount` (always in the DOM, visually collapsed via CSS height), so nested `Lfo` controls are queryable in tests without simulating an open click — confirmed directly from `AccordionContainer.tsx`, not assumed.
+
   **Acceptance criteria:**
-  - [ ] All 9 `GlobalLfoTargetId`-flagged params render a nested LFO accordion; the other 15 params don't.
-  - [ ] Each `Lfo`'s value reflects `globalLfo[target]` (seeded shape/rate/depth/active from Task 8, not `DEFAULT_LFO_SETTINGS`).
-  - [ ] Changing any of `Lfo`'s shape/rate/depth/active calls `setGlobalLfo(target, updatedValue)`.
-  - [ ] The nested `Lfo` control remains interactive when its parent effect's bypass is off (deliberate, per spec §7.5 — not a bug to fix here).
+  - [x] All 9 `GlobalLfoTargetId`-flagged params render a nested LFO accordion; the other 15 params don't.
+  - [x] Each `Lfo`'s value reflects `globalLfo[target]` (seeded shape/rate/depth/active from Task 8, not `DEFAULT_LFO_SETTINGS`).
+  - [x] Changing any of `Lfo`'s shape/rate/depth/active calls `setGlobalLfo(target, updatedValue)`.
+  - [x] The nested `Lfo` control remains interactive when its parent effect's bypass is off (deliberate, per spec §7.5 — not a bug to fix here).
 
   **Verification:**
-  - [ ] `npx vitest run src/components/panels/screen/console/AudioRigDrawer.test.tsx` — new cases for all 9 LFO accordions plus the 15-param exclusion check.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/components/panels/screen/console/AudioRigDrawer.test.tsx` — 15/15 passing (10 prior unchanged + 5 new). `lfoEngine` mocked in this test file too (same reason as `AudioEngine.test.ts`/`audioStore.test.ts` — `setGlobalLfo`'s real implementation constructs a live `Tone.LFO` on first call).
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** Task 10, Task 8.
 
@@ -300,8 +302,8 @@ Task 9 ─────────────┴──→ Task 14 (AUDIO_SYSTEM
   **Estimated scope:** S (extends Task 10's file)
 
 ### Checkpoint: Drawer
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] Every one of the 24 params and 9 LFO accordions has a passing render+interaction test.
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean — full suite 63 files, 802/802.
+- [x] Every one of the 24 params and 9 LFO accordions has a passing render+interaction test.
 - [ ] Review with human before proceeding.
 
 ---
