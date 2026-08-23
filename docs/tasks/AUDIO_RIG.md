@@ -310,19 +310,21 @@ Task 9 ─────────────┴──→ Task 14 (AUDIO_SYSTEM
 
 ### Phase 5: Integration
 
-- [ ] **Task 12: Wire `AudioRigDrawer` into `ConsolePanel`**
+- [x] **Task 12: Wire `AudioRigDrawer` into `ConsolePanel`** — done, manual/audible check deferred to human
 
   **Description:** Replace `ConsolePanel.tsx`'s `TILE_CONTENT.audioRig` stub `<div>` with `<AudioRigDrawer />`. Update the existing `ConsolePanel.test.tsx` "renders the carried-forward stub content for audioRig" test to assert the drawer renders instead.
 
+  **Test note:** `AudioRigDrawer` is mocked in `ConsolePanel.test.tsx` (a simple `data-testid` stub), matching the file's existing `RobotsTab`/`RobotEditorTab` convention — it has its own full test suite, and this file's own stated scope is ConsolePanel's tile switch, not re-testing tile content.
+
   **Acceptance criteria:**
-  - [ ] Selecting the `audioRig` hub tile renders `AudioRigDrawer`, not the stub.
-  - [ ] Back navigation from the `audioRig` tile still returns to the hub grid (unchanged behavior).
-  - [ ] No other `TILE_CONTENT` entry changes.
+  - [x] Selecting the `audioRig` hub tile renders `AudioRigDrawer`, not the stub.
+  - [x] Back navigation from the `audioRig` tile still returns to the hub grid (unchanged behavior).
+  - [x] No other `TILE_CONTENT` entry changes.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/panels/screen/console/ConsolePanel.test.tsx` — updated stub test + unchanged back-navigation test both pass.
-  - [ ] `npm run build:types`, `npm run lint`, full suite, `npm run build` all clean.
-  - [ ] Manual/audible check: `npm run dev`, power on, open the Audio Rig tile, confirm at least one slider drag is audible, one per-effect bypass audibly silences that effect, the rig-wide bypass audibly silences everything, and (pairing with Task 9's check) a planet seeded with an active LFO is already modulating on load.
+  - [x] `npx vitest run src/components/panels/screen/console/ConsolePanel.test.tsx` — 8/8 passing (updated stub test + unchanged back-navigation test).
+  - [x] `npm run build:types`, `npm run lint`, full suite (63 files, 802/802), `npm run build` all clean.
+  - [ ] Manual/audible check: `npm run dev`, power on, open the Audio Rig tile, confirm at least one slider drag is audible, one per-effect bypass audibly silences that effect, the rig-wide bypass audibly silences everything, and (pairing with Task 9's check) a planet seeded with an active LFO is already modulating on load. **Not run this session — no browser/audio-capable environment available; needs a human with speakers.**
 
   **Dependencies:** Task 11.
 
@@ -331,7 +333,7 @@ Task 9 ─────────────┴──→ Task 14 (AUDIO_SYSTEM
   **Estimated scope:** XS
 
 ### Checkpoint: Integration complete
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
 - [ ] Full manual/audible check (Task 12) confirmed by a human, not just by tests.
 - [ ] Review with human before proceeding.
 
