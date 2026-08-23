@@ -248,7 +248,7 @@ Task 9 ─────────────┴──→ Task 14 (AUDIO_SYSTEM
 
 ### Checkpoint: Engine lifecycle
 - [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean — full suite 62 files, 786/786.
-- [ ] Review with human before proceeding.
+- [x] Review with human before proceeding. Human noted a general dislike of dynamic imports but accepted the `AudioEngine.start()` dynamic import (line ~497) as the right call for this specific circular-import fix.
 
 ---
 
