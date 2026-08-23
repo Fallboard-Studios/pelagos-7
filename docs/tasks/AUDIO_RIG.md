@@ -304,7 +304,7 @@ Task 9 ─────────────┴──→ Task 14 (AUDIO_SYSTEM
 ### Checkpoint: Drawer
 - [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean — full suite 63 files, 802/802.
 - [x] Every one of the 24 params and 9 LFO accordions has a passing render+interaction test.
-- [ ] Review with human before proceeding.
+- [x] Review with human before proceeding.
 
 ---
 
