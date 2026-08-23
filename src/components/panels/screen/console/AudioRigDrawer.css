@@ -1,0 +1,31 @@
+.audio-rig-drawer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.audio-rig-drawer__master-row {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.audio-rig-drawer__effect-block {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+}
+
+.audio-rig-drawer__effect-header {
+  display: flex;
+  justify-content: flex-end;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.audio-rig-drawer__param-row {
+  padding: 8px 10px;
+}
