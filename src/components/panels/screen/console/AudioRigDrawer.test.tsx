@@ -1,12 +1,38 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+
+// Real lfoEngine would construct a real Tone.LFO on first setter call
+// (getOrCreateLfo -> new Tone.LFO(...)), which throws without a real
+// AudioContext — the same class of bug fixed in Tasks 8/9. Mocked here so
+// setGlobalLfo's own Zustand-state-update logic still runs for real, but its
+// calls into lfoEngine land on mocks instead.
+vi.mock('../../../../engine/lfoEngine', () => ({
+  lfoEngine: {
+    getLfoSettings: vi.fn(),
+    setLfoRate: vi.fn(),
+    setLfoDepth: vi.fn(),
+    setLfoShape: vi.fn(),
+    start: vi.fn(),
+    stop: vi.fn(),
+    connectLfoTarget: vi.fn(() => true),
+    disconnectLfoTarget: vi.fn(),
+  },
+}));
 
 import { AudioRigDrawer } from './AudioRigDrawer';
 import { useAudioStore } from '@/stores/audioStore';
 import { DEFAULT_GLOBAL_AUDIO_SETTINGS } from '@/types/globalAudio';
+import { DEFAULT_LFO_SETTINGS } from '@/data/lfoConfig';
+import { GLOBAL_LFO_TARGET_IDS, type GlobalLfoTargetId } from '@/types/lfo';
 
 function resetAudioStore() {
-  useAudioStore.setState({ globalAudio: { ...DEFAULT_GLOBAL_AUDIO_SETTINGS } });
+  const globalLfo = {} as Record<GlobalLfoTargetId, ReturnType<typeof buildLfoValue>>;
+  for (const target of GLOBAL_LFO_TARGET_IDS) globalLfo[target] = buildLfoValue(target);
+  useAudioStore.setState({ globalAudio: { ...DEFAULT_GLOBAL_AUDIO_SETTINGS }, globalLfo });
+}
+
+function buildLfoValue(target: GlobalLfoTargetId) {
+  return { ...DEFAULT_LFO_SETTINGS[target], active: false };
 }
 
 describe('AudioRigDrawer', () => {
@@ -98,5 +124,54 @@ describe('AudioRigDrawer', () => {
   it('the rig-wide bypass off leaves every effect\'s own bypass toggle enabled', () => {
     render(<AudioRigDrawer />);
     expect((screen.getByRole('switch', { name: 'Compressor Enabled' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  describe('nested LFO accordions (Task 11)', () => {
+    it('renders exactly 9 nested LFO accordions — one per GlobalLfoTargetId', () => {
+      render(<AudioRigDrawer />);
+      expect(screen.getAllByText('Modulation')).toHaveLength(9);
+    });
+
+    it('renders no LFO accordion for the 15 non-flagged params (e.g. compressor.threshold)', () => {
+      render(<AudioRigDrawer />);
+      // Threshold's own row shouldn't contain a nested "Modulation" trigger —
+      // scope by walking up from the Threshold slider to its param row.
+      const thresholdSlider = screen.getByRole('slider', { name: 'Threshold' });
+      const paramRow = thresholdSlider.closest('.audio-rig-drawer__param-row');
+      expect(paramRow?.textContent).not.toContain('Modulation');
+    });
+
+    it('binds the first LFO accordion (eq3.low) to its own globalLfo entry, not DEFAULT_LFO_SETTINGS', () => {
+      useAudioStore.setState((s) => ({
+        globalLfo: { ...s.globalLfo, 'eq3.low': { shape: 'square', rate: 5, depth: 60, active: true } },
+      }));
+      render(<AudioRigDrawer />);
+
+      const rateSlider = screen.getAllByRole('slider', { name: 'Rate' })[0];
+      const depthSlider = screen.getAllByRole('slider', { name: 'Depth' })[0];
+      const activeToggle = screen.getAllByRole('switch', { name: 'Active' })[0];
+
+      expect(rateSlider.getAttribute('aria-valuenow')).toBe('5');
+      expect(depthSlider.getAttribute('aria-valuenow')).toBe('60');
+      expect(activeToggle.getAttribute('aria-checked')).toBe('true');
+    });
+
+    it('changing the active toggle on an LFO accordion calls setGlobalLfo with the updated value', () => {
+      render(<AudioRigDrawer />);
+      const activeToggle = screen.getAllByRole('switch', { name: 'Active' })[0]; // eq3.low, per AUDIO_RIG_CONFIG's row order
+      expect(useAudioStore.getState().globalLfo['eq3.low'].active).toBe(false);
+
+      fireEvent.click(activeToggle);
+
+      expect(useAudioStore.getState().globalLfo['eq3.low'].active).toBe(true);
+    });
+
+    it('the nested LFO control stays interactive even when its parent effect is bypassed off', () => {
+      // eq3 defaults enabled: false (DEFAULT_GLOBAL_AUDIO_SETTINGS) — its own
+      // params are disabled, but the nested Lfo control must not be.
+      render(<AudioRigDrawer />);
+      const activeToggle = screen.getAllByRole('switch', { name: 'Active' })[0]; // eq3.low
+      expect((activeToggle as HTMLButtonElement).disabled).toBe(false);
+    });
   });
 });
