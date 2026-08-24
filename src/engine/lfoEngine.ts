@@ -112,13 +112,13 @@ function globalSeedRangeKey(target: GlobalLfoTargetId): GlobalAudioSeedFieldKey 
 }
 
 /**
- * Resolve the real min/max a target's Signal actually operates in — Tone.LFO
- * defaults to min:0/max:1 regardless of what it's connected to (verified:
- * LFO.getDefaults() in Tone's own source), which is functionally inaudible
- * against, e.g., a ±12dB EQ band or ±50-cent detune. Reuses
+ * Resolve the real min/max a target's Signal actually operates in. Reuses
  * GLOBAL_AUDIO_SEED_RANGES (Task 4/5) for global targets rather than
  * maintaining a second range table. Returns null for targets with no
  * meaningful output range here (phase, handled entirely separately).
+ *
+ * This is the field's own absolute range — NOT what gets applied directly to
+ * lfo.min/lfo.max. See centeredSwingFromRange() below for why.
  */
 function resolveLfoOutputRange(target: LfoTargetId): { min: number; max: number } | null {
   if (target === 'volume') return ROBOT_LFO_FIELD_RANGE.volume;
@@ -130,6 +130,35 @@ function resolveLfoOutputRange(target: LfoTargetId): { min: number; max: number 
     return range ? { min: range.min, max: range.max } : null;
   }
   return null;
+}
+
+/**
+ * Convert a field's absolute range into the zero-centered ADDITIVE delta
+ * lfo.min/lfo.max should actually be set to.
+ *
+ * Tone.LFO.connect() sums onto the destination Param's existing value —
+ * native Web Audio AudioParam behavior: connecting an input signal ADDS to
+ * whatever the param's own intrinsic value already is, it never overrides
+ * it. Using a field's raw absolute range (e.g. LPF frequency, 20-20000)
+ * directly as lfo.min/lfo.max was a real bug: that adds up to +20000 Hz on
+ * top of whatever the slider is already at, trivially pushing the actual
+ * cutoff past Nyquist (filter wide open — an audible burst of unfiltered
+ * harmonics) the instant the LFO connects, and — the same bug's mirror
+ * image — requires pinning the base slider very low to avoid that, which
+ * then reads as near-total silence once the LFO disconnects and stops
+ * contributing anything on top.
+ *
+ * A swing sized at HALF the field's own span, centered on zero, fixes both:
+ * added to whatever the base value is, it moves the result by a bounded
+ * amount in either direction — the target's own dial still matters, the LFO
+ * genuinely modulates around it rather than being able to run away from it.
+ * For a field already naturally centered on zero (EQ dB bands, robot
+ * detune), this is numerically identical to using the raw range — no
+ * change in behavior for those.
+ */
+function centeredSwingFromRange(range: { min: number; max: number }): { min: number; max: number } {
+  const halfSpan = (range.max - range.min) / 2;
+  return { min: -halfSpan, max: halfSpan };
 }
 
 /** Unit-amplitude waveform value in [-1, 1] for a given shape at a given phase angle (radians). */
@@ -312,8 +341,9 @@ function connectLfoTarget(target: LfoTargetId, robotId?: string): boolean {
   const lfo = getOrCreateLfo(key, target, robotId);
   const range = resolveLfoOutputRange(target);
   if (range) {
-    lfo.min = range.min;
-    lfo.max = range.max;
+    const swing = centeredSwingFromRange(range);
+    lfo.min = swing.min;
+    lfo.max = swing.max;
   }
 
   if (connectedSignals.get(key) === signal) return true; // already connected to this exact signal — no-op, never a second .connect()

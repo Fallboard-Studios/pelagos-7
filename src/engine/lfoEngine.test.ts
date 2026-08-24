@@ -390,18 +390,34 @@ describe('lfoEngine', () => {
       expect(instance.connect).toHaveBeenNthCalledWith(2, secondSignal);
     });
 
-    describe('output range scaling — Tone.LFO defaults to min:0/max:1, which is functionally inaudible against any real target', () => {
-      it('scales min/max to the target\'s real range for a robot Gain target (0-2, per ROBOT_DATA_GRID.md)', async () => {
+    describe('output range scaling — a zero-centered ADDITIVE delta, not the target\'s absolute range', () => {
+      // Tone.LFO.connect() sums onto the destination Param's existing value
+      // (native Web Audio AudioParam behavior — connecting an input ADDS to
+      // whatever the param's own intrinsic value is, it never overrides it).
+      // Using the target's raw absolute min/max as the LFO's own min/max was
+      // a real bug: for a non-zero-centered field like LPF frequency
+      // (20-20000), that adds up to +20000 Hz on top of whatever the slider
+      // is already at — trivially pushing the actual cutoff past Nyquist
+      // (filter wide open, an audible "crash" of unfiltered harmonics) the
+      // moment the LFO connects, and — the mirror image — leaves the base
+      // slider value pinned very low (to avoid that crash) with nothing to
+      // compensate once the LFO disconnects, which sounds like the whole
+      // mix went silent. The fix: min/max are a symmetric zero-centered
+      // swing sized at HALF the field's own real span — an additive delta
+      // bounded by the field's own range, not the raw range itself. For
+      // fields already naturally centered on zero (EQ dB, robot detune)
+      // this is numerically identical to the old behavior — no regression.
+      it('derives a zero-centered swing (not the raw range) for a robot Gain target (0-2 -> +-1, per ROBOT_DATA_GRID.md)', async () => {
         const { AudioEngine } = await import('./AudioEngine');
         (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal());
         const { lfoEngine } = await import('./lfoEngine');
         lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
         const instance = await latestLfoInstance();
-        expect(instance.min).toBe(0);
-        expect(instance.max).toBe(2);
+        expect(instance.min).toBe(-1);
+        expect(instance.max).toBe(1);
       });
 
-      it('scales min/max to the target\'s real range for a robot Detune target (-50..50 cents)', async () => {
+      it('leaves an already zero-centered range unchanged for a robot Detune target (-50..50 cents)', async () => {
         const { AudioEngine } = await import('./AudioEngine');
         (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal());
         const { lfoEngine } = await import('./lfoEngine');
@@ -411,17 +427,17 @@ describe('lfoEngine', () => {
         expect(instance.max).toBe(50);
       });
 
-      it('scales min/max to the target\'s real range for the robot Volume target (0-1)', async () => {
+      it('derives a zero-centered swing for the robot Volume target (0-1 -> +-0.5)', async () => {
         const { AudioEngine } = await import('./AudioEngine');
         (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal());
         const { lfoEngine } = await import('./lfoEngine');
         lfoEngine.connectLfoTarget('volume', 'robot-a');
         const instance = await latestLfoInstance();
-        expect(instance.min).toBe(0);
-        expect(instance.max).toBe(1);
+        expect(instance.min).toBe(-0.5);
+        expect(instance.max).toBe(0.5);
       });
 
-      it('scales min/max to the target\'s real range for a global EQ3 band (-12..12 dB, from GLOBAL_AUDIO_SEED_RANGES)', async () => {
+      it('leaves an already zero-centered range unchanged for a global EQ3 band (-12..12 dB, from GLOBAL_AUDIO_SEED_RANGES)', async () => {
         const { AudioEngine } = await import('./AudioEngine');
         (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal());
         const { lfoEngine } = await import('./lfoEngine');
@@ -431,24 +447,24 @@ describe('lfoEngine', () => {
         expect(instance.max).toBe(12);
       });
 
-      it('scales min/max to the target\'s real range for LPF frequency, translating the lpf.* short-form target id to filterLPF.* seed-range key', async () => {
+      it('derives a zero-centered +-9990 swing for LPF frequency (20-20000), translating the lpf.* short-form target id to filterLPF.* seed-range key', async () => {
         const { AudioEngine } = await import('./AudioEngine');
         (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal());
         const { lfoEngine } = await import('./lfoEngine');
         lfoEngine.connectLfoTarget('lpf.frequency');
         const instance = await latestLfoInstance();
-        expect(instance.min).toBe(20);
-        expect(instance.max).toBe(20000);
+        expect(instance.min).toBe(-9990);
+        expect(instance.max).toBe(9990);
       });
 
-      it('scales min/max to the target\'s real range for HPF Q, translating hpf.* to filterHPF.*', async () => {
+      it('derives a zero-centered swing for HPF Q (0.1-20 -> +-9.95), translating hpf.* to filterHPF.*', async () => {
         const { AudioEngine } = await import('./AudioEngine');
         (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal());
         const { lfoEngine } = await import('./lfoEngine');
         lfoEngine.connectLfoTarget('hpf.Q');
         const instance = await latestLfoInstance();
-        expect(instance.min).toBe(0.1);
-        expect(instance.max).toBe(20);
+        expect(instance.min).toBe(-9.95);
+        expect(instance.max).toBe(9.95);
       });
     });
 
