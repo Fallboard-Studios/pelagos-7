@@ -15,15 +15,15 @@ describe('SliderLinear', () => {
     expect(thumb.getAttribute('aria-valuenow')).toBe('2');
   });
 
-  it('renders {value}{unit} only when schema.unit is present', () => {
+  it('renders {value}{unit} when schema.unit is present', () => {
     render(<SliderLinear schema={schema} value={2} onChange={() => {}} />);
     expect(screen.getByText('2Hz')).toBeTruthy();
   });
 
-  it('omits the value/unit label when schema.unit is absent', () => {
+  it('still renders the bare value when schema.unit is absent — a unitless param like Resonance/Q must not be left blank', () => {
     const noUnitSchema: SliderLinearSchema = { id: 'x', type: 'sliderLinear', min: 0, max: 1 };
     render(<SliderLinear schema={noUnitSchema} value={0.5} onChange={() => {}} />);
-    expect(screen.queryByText('0.5')).toBeNull();
+    expect(screen.getByText('0.5')).toBeTruthy();
   });
 
   it('renders its own schema labels via an internally-composed DualLabel', () => {

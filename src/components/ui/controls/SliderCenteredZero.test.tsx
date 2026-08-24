@@ -54,6 +54,12 @@ describe('SliderCenteredZero component', () => {
     expect(screen.getByText('-15ct')).toBeTruthy();
   });
 
+  it('still renders the bare value when schema.unit is absent', () => {
+    const noUnitSchema: SliderCenteredZeroSchema = { id: 'x', type: 'sliderCenteredZero', min: -50, max: 50 };
+    render(<SliderCenteredZero schema={noUnitSchema} value={-15} onChange={() => {}} />);
+    expect(screen.getByText('-15')).toBeTruthy();
+  });
+
   it('reflects min/max/value on the underlying slider', () => {
     render(<SliderCenteredZero schema={detuneSchema} value={10} onChange={() => {}} />);
     const thumb = screen.getByRole('slider');

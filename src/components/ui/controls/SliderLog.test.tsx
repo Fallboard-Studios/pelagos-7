@@ -56,6 +56,12 @@ describe('SliderLog component', () => {
     expect(screen.getByText('2s')).toBeTruthy();
   });
 
+  it('still renders the bare value when schema.unit is absent — a unitless param like Resonance/Q must not be left blank', () => {
+    const noUnitSchema: SliderLogSchema = { id: 'q', type: 'sliderLog', min: 0.1, max: 20, humanLabel: 'Resonance' };
+    render(<SliderLog schema={noUnitSchema} value={5} onChange={() => {}} />);
+    expect(screen.getByText('5')).toBeTruthy();
+  });
+
   it('onChange receives the mapped display value, never the raw internal t', () => {
     const onChange = vi.fn();
     render(<SliderLog schema={schema} value={0} onChange={onChange} />);

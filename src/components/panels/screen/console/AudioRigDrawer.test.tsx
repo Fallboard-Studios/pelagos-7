@@ -67,6 +67,21 @@ describe('AudioRigDrawer', () => {
     expect(thresholdSlider.getAttribute('aria-valuenow')).toBe('-12');
   });
 
+  it('shows a visible numeric value for unitless params (Resonance/Q on LPF and HPF) — regression: the value text used to be hidden entirely when schema.unit was absent', () => {
+    useAudioStore.setState((s) => ({
+      globalAudio: {
+        ...s.globalAudio,
+        filterLPF: { ...s.globalAudio.filterLPF, Q: 5 },
+        filterHPF: { ...s.globalAudio.filterHPF, Q: 8 },
+      },
+    }));
+    render(<AudioRigDrawer />);
+    // LPF and HPF both have a "Resonance" param — LPF's accordion renders first.
+    const [lpfResonance, hpfResonance] = screen.getAllByRole('slider', { name: 'Resonance' });
+    expect(lpfResonance.closest('.sc-slider-log')?.textContent).toContain('5');
+    expect(hpfResonance.closest('.sc-slider-log')?.textContent).toContain('8');
+  });
+
   it('dragging a param control calls setGlobalAudio with the right effect/field/value', () => {
     // compressor.enabled defaults to false (only reverb defaults true) — enable
     // it first so its param controls aren't disabled for this interaction test.

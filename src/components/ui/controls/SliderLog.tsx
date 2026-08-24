@@ -39,7 +39,7 @@ export function SliderLog({ schema, value, onChange, disabled }: SliderLogProps)
         </Slider.Track>
         <Slider.Thumb className="sc-slider-log__thumb" aria-label={resolveAccessibleName(schema)} />
       </Slider.Root>
-      {schema.unit && <span className="sc-slider-log__value">{value}{schema.unit}</span>}
+      <span className="sc-slider-log__value">{value}{schema.unit}</span>
     </div>
   );
 }

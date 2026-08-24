@@ -45,7 +45,7 @@ export function SliderCenteredZero({ schema, value, onChange, disabled }: Slider
         </Slider.Track>
         <Slider.Thumb className="sc-slider-centered-zero__thumb" aria-label={resolveAccessibleName(schema)} />
       </Slider.Root>
-      {schema.unit && <span className="sc-slider-centered-zero__value">{value}{schema.unit}</span>}
+      <span className="sc-slider-centered-zero__value">{value}{schema.unit}</span>
     </div>
   );
 }
