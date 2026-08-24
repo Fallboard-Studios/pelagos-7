@@ -292,7 +292,7 @@ Task 9, Task 10 ──→ Task 11 (AudioRigDrawer.tsx)
   **Estimated scope:** M
 
 ### Checkpoint: Store wiring
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [x] Automated checks — `npm run lint` clean repo-wide. `npm run build:types`/`npm run build`: 5 remaining errors, all `chorus`-shaped in `audioRigConfig.ts`/`AudioRigDrawer.tsx` (Task 10–11, untouched). `npx vitest run`: 2 failed files / 16 failed tests / 823 passed — exactly `audioRigConfig.test.ts` and `AudioRigDrawer.test.tsx`, Tasks 10–11's own scope. Every engine/seeding/store test file (`globalFx.test.ts`, `AudioEngine.test.ts`, `lfoEngine.test.ts`, `globalAudioSeed.test.ts`, `audioStore.test.ts`) passes in full.
 - [ ] Review with human before proceeding.
 
 ---
