@@ -25,17 +25,17 @@ import { getToneCtor, type MinimalToneNode, type ModulationTarget } from './audi
 import { createCompositeVoice, type CompositeVoice } from './audioEngine/compositeVoice';
 import {
   buildGlobalFxChain,
-  getMasterCompressor,
+  getGlobalChainEntry,
   waitForGlobalReverbReady,
   setMasterVolume,
   getMasterVolume,
   setGlobalReverb,
   setGlobalDelay,
-  setGlobalChorus,
   setGlobalFilterLPF,
   setGlobalFilterHPF,
   setGlobalEQ,
   setGlobalCompressor,
+  setGlobalLimiter,
   setGlobalBypass,
   setEffectBypass,
   getGlobalModulationTarget,
@@ -86,7 +86,7 @@ let initialized = false;
 let instrumentsLoaded = false;
 // Reservation state
 let activeVoices = 0;
-// Global FX chain (master compressor, reverb/delay/chorus/EQ/filters, master
+// Global FX chain (compressor, reverb/delay/limiter/EQ/filters, master
 // gain) lives in src/engine/audioEngine/globalFx.ts as its own module state.
 // Unsubscribe handle for the BeatClock measure listener; prevents duplicate
 // listeners if start() is called more than once without an intervening killAll().
@@ -634,9 +634,9 @@ export const AudioEngine = {
       try { (panner as unknown as { connect?: (target?: unknown) => unknown }).connect?.(busGain); } catch (e) { devWarn('[AudioEngine] panner.connect failed', e); }
       try { (busGain as unknown as { connect?: (target?: unknown) => unknown }).connect?.(busFilter); } catch (e) { devWarn('[AudioEngine] busGain.connect failed', e); }
       try {
-        const masterCompressor = getMasterCompressor();
-        if (masterCompressor) {
-          (busFilter as unknown as { connect?: (target?: unknown) => unknown }).connect?.(masterCompressor);
+        const chainEntry = getGlobalChainEntry();
+        if (chainEntry) {
+          (busFilter as unknown as { connect?: (target?: unknown) => unknown }).connect?.(chainEntry);
         } else {
           (busFilter as unknown as { toDestination?: () => unknown }).toDestination?.();
         }
@@ -1020,11 +1020,11 @@ export const AudioEngine = {
   getMasterVolume,
   setGlobalReverb,
   setGlobalDelay,
-  setGlobalChorus,
   setGlobalFilterLPF,
   setGlobalFilterHPF,
   setGlobalEQ,
   setGlobalCompressor,
+  setGlobalLimiter,
   setGlobalBypass,
   setEffectBypass,
 };

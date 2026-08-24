@@ -73,7 +73,6 @@ vi.mock('tone', () => ({
     wet: { value: 0.3 },
     decay: 1.5,
     preDelay: 0.02,
-    dampening: 3000,
   })),
   FeedbackDelay: vi.fn(() => ({
     connect: vi.fn().mockReturnThis(),
@@ -83,16 +82,11 @@ vi.mock('tone', () => ({
     delayTime: { value: 0.25 },
     feedback: { value: 0.2 },
   })),
-  Chorus: vi.fn(() => ({
+  Limiter: vi.fn(() => ({
     connect: vi.fn().mockReturnThis(),
     disconnect: vi.fn(),
     toDestination: vi.fn(),
-    start: vi.fn(),
-    wet: { value: 0 },
-    frequency: { value: 1.5 },
-    depth: 0.2,
-    delayTime: 0.012,
-    feedback: { value: 0.1 },
+    threshold: { value: -12 },
   })),
   EQ3: vi.fn(() => ({
     connect: vi.fn().mockReturnThis(),
@@ -830,14 +824,14 @@ describe('AudioEngine - Global FX Chain', () => {
     });
   });
 
-  describe('setGlobalChorus', () => {
-    it('updates wet value on the chorus node', async () => {
+  describe('setGlobalLimiter', () => {
+    it('updates threshold on the limiter node', async () => {
       const Tone = await import('tone');
       const { AudioEngine } = await import('./AudioEngine');
       await AudioEngine.start();
-      const chorusNode = lastInstance(Tone.Chorus) ?? { wet: { value: 0 } };
-      AudioEngine.setGlobalChorus({ wet: 0.4 });
-      expect(chorusNode.wet.value).toBe(0.4);
+      const limiterNode = lastInstance(Tone.Limiter) ?? { threshold: { value: -12 } };
+      AudioEngine.setGlobalLimiter({ threshold: -6 });
+      expect(limiterNode.threshold.value).toBe(-6);
     });
   });
 
@@ -877,6 +871,22 @@ describe('AudioEngine - Global FX Chain', () => {
       AudioEngine.setGlobalCompressor({ threshold: -30, ratio: 4 });
       expect(compNode.threshold.value).toBe(-30);
       expect(compNode.ratio.value).toBe(4);
+    });
+  });
+
+  describe('reserveVoice — bus wiring', () => {
+    it('connects each robot bus into getGlobalChainEntry()\'s node (EQ3), not a compressor-specific accessor', async () => {
+      const Tone = await import('tone');
+      const { AudioEngine } = await import('./AudioEngine');
+      await AudioEngine.start();
+      const eqNode = lastInstance(Tone.EQ3) ?? { connect: vi.fn() };
+      const layered = { base: 'sine', layers: [{ type: 'sine', gain: 0.8 }] } as any;
+      AudioEngine.reserveVoice('bus-wiring-test', layered);
+      // busFilter is a Tone.Filter instance — it's the third Filter construction
+      // per reserveVoice call site (after LPF/HPF from loadInstruments), so grab
+      // the freshest one and confirm it was connected into the chain entry.
+      const busFilterNode = lastInstance(Tone.Filter);
+      expect(busFilterNode.connect).toHaveBeenCalledWith(eqNode);
     });
   });
 
@@ -922,14 +932,14 @@ describe('AudioEngine - Global FX Chain', () => {
   });
 
   describe('setGlobalBypass', () => {
-    it('calls disconnect then toDestination on the compressor when bypass=true', async () => {
+    it('calls disconnect then toDestination on the chain entry (EQ3) when bypass=true', async () => {
       const Tone = await import('tone');
       const { AudioEngine } = await import('./AudioEngine');
       await AudioEngine.start();
-      const compNode = lastInstance(Tone.Compressor) ?? { disconnect: vi.fn(), toDestination: vi.fn(), connect: vi.fn() };
+      const eqNode = lastInstance(Tone.EQ3) ?? { disconnect: vi.fn(), toDestination: vi.fn(), connect: vi.fn() };
       AudioEngine.setGlobalBypass(true);
-      expect(compNode.disconnect).toHaveBeenCalled();
-      expect(compNode.toDestination).toHaveBeenCalled();
+      expect(eqNode.disconnect).toHaveBeenCalled();
+      expect(eqNode.toDestination).toHaveBeenCalled();
     });
 
     it('is a no-op when AudioEngine not started', async () => {
@@ -1195,7 +1205,6 @@ describe('AudioEngine - getGlobalModulationTarget', () => {
       'eq3.low', 'eq3.mid', 'eq3.high',
       'lpf.frequency', 'lpf.Q',
       'hpf.frequency', 'hpf.Q',
-      'chorus.delayTime',
       'delay.delayTime',
     ] as const;
     for (const target of targets) {
@@ -1230,13 +1239,6 @@ describe('AudioEngine - getGlobalModulationTarget', () => {
     const { AudioEngine } = await import('./AudioEngine');
     await AudioEngine.start();
     expect(AudioEngine.getGlobalModulationTarget('delay.delayTime')).toHaveProperty('value');
-  });
-
-  it('returns null (not throw) for "chorus.delayTime" even after start() — Tone.Chorus.delayTime is a plain number, not a connectable Signal', async () => {
-    const { AudioEngine } = await import('./AudioEngine');
-    await AudioEngine.start();
-    expect(() => AudioEngine.getGlobalModulationTarget('chorus.delayTime')).not.toThrow();
-    expect(AudioEngine.getGlobalModulationTarget('chorus.delayTime')).toBeNull();
   });
 
   it('distinguishes LPF and HPF — they are separate Filter instances, not the same node read twice', async () => {
