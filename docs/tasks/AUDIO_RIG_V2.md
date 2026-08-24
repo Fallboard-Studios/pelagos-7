@@ -371,17 +371,17 @@ Task 9, Task 10 ──→ Task 11 (AudioRigDrawer.tsx)
 
   **Estimated scope:** S (docs only, but 4 sections)
 
-- [ ] **Task 13: `docs/reference/GLOBAL_CHAIN_GRID.md` — remove Chorus rows and the dampening row, add Limiter row**
+- [x] **Task 13: `docs/reference/GLOBAL_CHAIN_GRID.md` — remove Chorus rows and the dampening row, add Limiter row**
 
-  **Description:** Remove the 5 Chorus rows and the `reverb.dampening` row. Add a Limiter row (`setGlobalLimiter()`, `threshold`, matching Task 3's range, effect/param labels matching Task 10's UI labels, `LFO?: –`). Note the new default chain order and the two named topologies somewhere in the doc — this table is currently one-row-per-param with no "chain order" column, so exactly how to represent "Compressor's position depends on a toggle" is a small design call for whoever implements this task (a header note above the table is the simplest option, per spec §7.5).
+  **Already done, no changes needed:** this file was rewritten earlier in this session, before implementation began, per the user's explicit instruction to make it the source of truth first ("we'll need to remove the chorus info from the grid, add the limiter, and please review the values to ensure they're appropriate with tonejs... interview me about each effect and we'll set the loading min max values"). This task's real remaining content is the verification pass, run now against the actually-shipped code rather than assumed from that earlier work.
 
   **Acceptance criteria:**
-  - [ ] No Chorus rows or `reverb.dampening` row remain; a Limiter row exists, consistent in shape with the other rows.
-  - [ ] Reverb has exactly 3 rows (`decay`, `preDelay`, `wet`).
-  - [ ] The new chain order and the Natural/Controlled Decay distinction are documented somewhere in this file, not just implied by row order.
+  - [x] No Chorus rows or `reverb.dampening` row remain; a Limiter row exists, consistent in shape with the other rows.
+  - [x] Reverb has exactly 3 rows (`decay`, `preDelay`, `wet`).
+  - [x] The new chain order and the Natural/Controlled Decay distinction are documented somewhere in this file, not just implied by row order — two header notes above the table (lines 3, 5).
 
   **Verification:**
-  - [ ] Manual review against `audioRigConfig.ts`'s shipped labels/ranges (Task 10) — this table is the authoritative source `audioRigConfig.ts` itself is supposed to trace to, so it must match exactly, not approximately.
+  - [x] Manual review against `audioRigConfig.ts`'s shipped labels/ranges (Task 10) — row by row, every Effect/Param/Unit-Range/Effect Label/Param Label/UI-type/LFO-flag cell checked against the actual shipped `AUDIO_RIG_CONFIG` block, not approximately: all 19 rows match exactly, including the 8 `LFO?: X` flags matching `GlobalLfoTargetId`'s 8 members precisely. Also cross-checked every "Default" cell against `DEFAULT_GLOBAL_AUDIO_SETTINGS` (Task 1) — all match.
 
   **Dependencies:** Task 11.
 
