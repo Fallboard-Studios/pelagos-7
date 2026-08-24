@@ -389,16 +389,16 @@ Task 9, Task 10 ──→ Task 11 (AudioRigDrawer.tsx)
 
   **Estimated scope:** S
 
-- [ ] **Task 14: `docs/roadmap/roadmap.md` + `docs/SESSION_STORAGE.md` — remaining living-reference touch-ups**
+- [x] **Task 14: `docs/roadmap/roadmap.md` + `docs/SESSION_STORAGE.md` — remaining living-reference touch-ups**
 
   **Description:** `roadmap.md`'s Phase 4 "About" text (already rewritten once, by V1's own Task 13) needs another pass — its effect list/count and any behavior description are stale again post-V2. `SESSION_STORAGE.md`'s one-line "what's persisted" bullet lists `Chorus` among the global effects — swap it for `Limiter` (or the current 7-effect list generally), a one-line fix, low priority but bundled here since it's the same class of trivial drift.
 
   **Acceptance criteria:**
-  - [ ] `roadmap.md`'s Phase 4 text lists the current 7 effects (no Chorus, includes Limiter) and doesn't misdescribe the chain order/seeding behavior.
-  - [ ] `SESSION_STORAGE.md`'s effect list no longer names Chorus.
+  - [x] `roadmap.md`'s Phase 4 text lists the current 7 effects (no Chorus, includes Limiter) and doesn't misdescribe the chain order/seeding behavior.
+  - [x] `SESSION_STORAGE.md`'s effect list no longer names Chorus.
 
   **Verification:**
-  - [ ] Manual review against what actually shipped (Tasks 1–11), not the original spec's plan — same standard V1's own Task 13 used.
+  - [x] Manual review against what actually shipped (Tasks 1–11), not the original spec's plan — same standard V1's own Task 13 used. `roadmap.md`'s Phase 4 About paragraph rewritten: 7 effects listed in signal-chain order (Chorus mentioned once, explicitly as historical "was cut" context), the Decay toggle and its dynamic label described, LFO target count 9→8 with a note that Limiter never gets one, and the seeded-`enabled` behavior (all true except Delay's ~25%) replacing the old "wires it through" framing that never mentioned enabled at all. `SESSION_STORAGE.md`'s one effect-list bullet: `Chorus` → `Limiter`.
 
   **Dependencies:** Task 11.
 
