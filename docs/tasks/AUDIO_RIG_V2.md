@@ -319,20 +319,23 @@ Task 9, Task 10 ──→ Task 11 (AudioRigDrawer.tsx)
 
   **Estimated scope:** M
 
-- [ ] **Task 11: `AudioRigDrawer.tsx` — drop chorus accordion, add limiter accordion, Decay toggle row**
+- [x] **Task 11: `AudioRigDrawer.tsx` — drop chorus accordion, add limiter accordion, Decay toggle row**
 
   **Description:** With `AUDIO_RIG_CONFIG` already reordered (Task 10), the drawer's existing `.map()` over the config array naturally renders the new order and drops chorus / adds limiter without needing its own reordering logic — verify this is actually true (no hardcoded chorus-specific branch exists in the drawer today to also remove; confirm via a direct read, not assumed, since `renderParamControl`'s dispatcher is schema-driven and shouldn't need any chorus-specific code, but the removed 5th-param edge case is worth a specific look). The same schema-driven reasoning means reverb's dead `dampening` slider disappears automatically once Task 10's config no longer lists it — no drawer-specific change needed for that, just confirm it's actually gone. Add the Decay toggle row (master-row area, alongside the existing rig-wide Bypass toggle) — `<Toggle schema={globalAudio.compressorBeforeDelay ? CONTROLLED_DECAY_SCHEMA : NATURAL_DECAY_SCHEMA} value={globalAudio.compressorBeforeDelay} onChange={setCompressorBeforeDelay} />`.
 
+  **Confirmed, as predicted:** direct read of `AudioRigDrawer.tsx` showed no chorus-specific or dampening-specific branch anywhere — `renderParamControl`'s dispatcher and the whole component are purely schema-driven off `AUDIO_RIG_CONFIG`. Task 10 alone made Chorus disappear, Limiter appear, dampening disappear, and the block order update, all with zero drawer changes (verified via the full test suite immediately after Task 10 landed — `AudioRigDrawer.tsx` itself type-checked clean before this task touched it at all). The only real functional gap was the Decay toggle, exactly as scoped.
+
   **Acceptance criteria:**
-  - [ ] No Chorus accordion renders; a Limiter accordion renders with exactly its one param, no nested LFO accordion.
-  - [ ] Reverb's accordion renders exactly 3 params — no dampening slider.
-  - [ ] Accordion render order matches the new chain order.
-  - [ ] The Decay toggle renders, defaults to showing "Natural Decay" (given `compressorBeforeDelay: false`), and clicking it calls `setCompressorBeforeDelay(true)`.
-  - [ ] After the store's `compressorBeforeDelay` becomes `true`, the same toggle's visible label reads "Controlled Decay" (re-render picks up the schema swap).
+  - [x] No Chorus accordion renders; a Limiter accordion renders with exactly its one param, no nested LFO accordion.
+  - [x] Reverb's accordion renders exactly 3 params — no dampening slider.
+  - [x] Accordion render order matches the new chain order.
+  - [x] The Decay toggle renders, defaults to showing "Natural Decay" (given `compressorBeforeDelay: false`), and clicking it calls `setCompressorBeforeDelay(true)`.
+  - [x] After the store's `compressorBeforeDelay` becomes `true`, the same toggle's visible label reads "Controlled Decay" (re-render picks up the schema swap).
 
   **Verification:**
-  - [ ] `npx vitest run src/components/panels/screen/console/AudioRigDrawer.test.tsx` — chorus-accordion-absence assertion (replacing any prior chorus-presence assertion), limiter-accordion assertions, Decay-toggle render+label-swap+click-calls-action assertions.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/components/panels/screen/console/AudioRigDrawer.test.tsx` — 21/21 passing. Chorus-accordion-absence assertion added; every existing "Threshold" slider query updated to `getAllByRole(...)[0]`/`[1]` (Compressor and Limiter now share the humanLabel "Threshold" by design, per the grid — Compressor's accordion renders first in the new chain order); Limiter-accordion assertions (single param, no nested LFO accordion); Reverb-no-dampening assertion; Decay-toggle render+label-swap+click-calls-action assertions; LFO-accordion count updated 9→8, non-flagged-param count 15→11.
+  - [x] `npm run build:types`, `npm run lint` clean. Full suite: **65/65 files, 843/843 tests passing** — the entire V2 feature is green end to end. `npm run build` succeeds too (the one warning is the pre-existing V1 dynamic-import chunking note, not new).
+  - [x] Minor CSS follow-through: `.audio-rig-drawer__master-row` gained `align-items: center` and `gap: 16px` — it previously held one toggle only; adding the Decay toggle alongside Bypass left them touching with no spacing.
 
   **Dependencies:** Task 9, Task 10.
 
