@@ -266,19 +266,24 @@ Task 9, Task 10 ──→ Task 11 (AudioRigDrawer.tsx)
 
 ### Phase 4: Store wiring
 
-- [ ] **Task 9: `src/stores/audioStore.ts` — drop chorus/add limiter from lookup maps, remove force-`enabled` override, `compressorBeforeDelay` state**
+- [x] **Task 9: `src/stores/audioStore.ts` — drop chorus/add limiter from lookup maps, remove force-`enabled` override, `compressorBeforeDelay` state**
 
   **Description:** `GLOBAL_SETTER`, `BYPASS_KEY`, and `BYPASS_EFFECT_KEYS` drop their `chorus`/`'chorus'` entries and gain `limiter`/`'limiter'` ones. `regenerateGlobalAudioFromSeed`'s existing force-every-effect-`enabled`-true block (the whole `compressor: { ...generated.compressor, enabled: true }` construction, repeated per effect) is removed entirely — `generateGlobalAudioSettings`'s own output (Task 8) is now used as-is, `enabled` included, since seeding is where that decision now lives. Add `compressorBeforeDelay: boolean` to initial state (default `false`) and a `setCompressorBeforeDelay(value: boolean)` action — updates state and calls `globalFx.ts`'s `wireGlobalFxChain(value)` (imported the same dynamic-import way `regenerateGlobalLfoFromSeed`'s AudioEngine-adjacent calls already are, if a circular-import issue surfaces the same way it did in `AUDIO_RIG.md`'s Task 9 — check for it here rather than assume it won't recur, since this is the same `audioStore.ts` ↔ `engine/*` boundary that bit that task).
 
+  **Correction found during implementation:** `EffectKey` was defined as `Exclude<keyof GlobalAudioSettings, 'globalBypass'>` — with Task 1's new top-level `compressorBeforeDelay: boolean` field, that would have silently pulled `'compressorBeforeDelay'` into `EffectKey` (and therefore into `GLOBAL_SETTER`/`BYPASS_KEY`, which have no sensible entry for it). Fixed to `Exclude<keyof GlobalAudioSettings, 'globalBypass' | 'compressorBeforeDelay'>`. Also: `regenerateGlobalAudioFromSeed`'s seed-time bypass-push loop previously called `setEffectBypass(effect, true)` unconditionally for all 7 effects — with `enabled` now genuinely seeded (Task 8), that would have force-unbypassed Delay even when its seed rolled `enabled: false`, directly contradicting the acceptance criterion below. Changed to push each effect's own `globalAudio[effectKey].enabled`, via `Object.entries(BYPASS_KEY)` (replacing the old flat `BYPASS_EFFECT_KEYS` iteration, which is now a plain type alias — the runtime array was dropped, it was never read as a value elsewhere and ESLint correctly flagged it once the loop stopped iterating it).
+
+  **Second correction, found via the full suite run (not this file, but exposed by fixing it):** `AudioEngine.test.ts`'s own `FIXTURE_GLOBAL_LFO` (Task 6's file) still had a `'chorus.delayTime'` entry, cast through `as any` into `useAudioStore.setState(...)` — invisible to `tsc` because of the cast, so Task 6's own build:types/lint pass never caught it, and its test failures were previously masked entirely by `audioStore.ts`'s chorus crash (the whole describe block errored before reaching its real assertions). Fixing `audioStore.ts` here exposed it. Removed the fixture entry and its two dedicated assertions, fixed the stale "9 targets" test title to "8".
+
   **Acceptance criteria:**
-  - [ ] No `chorus`/`'chorus'` entry remains in any of the three lookup maps; `limiter`/`'limiter'` entries exist in all three.
-  - [ ] `regenerateGlobalAudioFromSeed` no longer overrides `enabled` — a planet whose seed produces `delay.enabled: false` keeps that value in `globalAudio.delay.enabled` after regeneration, not forced to `true`.
-  - [ ] `setCompressorBeforeDelay(true)` updates `globalAudio.compressorBeforeDelay` and calls `wireGlobalFxChain(true)`; `setCompressorBeforeDelay(false)` the reverse.
-  - [ ] Initial `globalAudio.compressorBeforeDelay` is `false` before any seed/action runs.
+  - [x] No `chorus`/`'chorus'` entry remains in any of the three lookup maps; `limiter`/`'limiter'` entries exist in all three.
+  - [x] `regenerateGlobalAudioFromSeed` no longer overrides `enabled` — a planet whose seed produces `delay.enabled: false` keeps that value in `globalAudio.delay.enabled` after regeneration, not forced to `true`.
+  - [x] `setCompressorBeforeDelay(true)` updates `globalAudio.compressorBeforeDelay` and calls `wireGlobalFxChain(true)`; `setCompressorBeforeDelay(false)` the reverse.
+  - [x] Initial `globalAudio.compressorBeforeDelay` is `false` before any seed/action runs.
 
   **Verification:**
-  - [ ] `npx vitest run src/stores/audioStore.test.ts` — mock `globalFx`'s `wireGlobalFxChain` (or `AudioEngine`'s re-export of it, whichever the implementation actually calls) alongside the existing `AudioEngine`/`lfoEngine` mocks; assert the override-removal behavior explicitly (a seed that produces `delay.enabled: false` survives `regenerateGlobalAudioFromSeed` unchanged) — this is the one most likely to regress silently, since removing code that previously masked seeded values is easy to under-test.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/stores/audioStore.test.ts` — 30/30 passing. Mocked `wireGlobalFxChain` directly from `../engine/audioEngine/globalFx` (a plain static import — confirmed no circular-import risk this time, since `globalFx.ts` has zero store-layer imports, unlike the `AudioEngine.ts`↔`audioStore.ts` boundary that bit V1's Task 9). The override-removal behavior is asserted via a 40-planet statistical spot-check (mirroring `globalAudioSeed.test.ts`'s own style) showing `delay.enabled` lands both `true` and `false` across samples, not pinned.
+  - [x] `npm run build:types`, `npm run lint` clean for `audioStore.ts`/`.test.ts`. `AudioEngine.test.ts` fixed and re-verified too (77/77 passing) per the second correction above.
+  - [x] Full suite: down to 2 failed files / 16 failed tests (`AudioRigDrawer.test.tsx`, `audioRigConfig.test.ts` — exactly Tasks 10–11's own remaining scope) / 823 passed. `AudioEngine.test.ts` and `TransportBar.test.tsx` are both fully clean now — their earlier failures were `audioStore.ts`'s transitive chorus crash and its own fixture leftover, both fixed above.
 
   **Dependencies:** Task 5, Task 6, Task 8.
 
