@@ -259,7 +259,7 @@ Task 9, Task 10 ──→ Task 11 (AudioRigDrawer.tsx)
   **Estimated scope:** M
 
 ### Checkpoint: Seeding
-- [ ] `npm run build:types`, `npm run lint`, `npm test` (at least every test file touched so far), `npm run build` all clean.
+- [x] Automated checks — `npm run lint` clean repo-wide. `npm run build:types`/`npm run build`: 16 remaining errors, all `chorus`-shaped in `audioStore.ts`/`.test.ts`, `audioRigConfig.ts`, `AudioRigDrawer.tsx` (Tasks 9–11, untouched). `npx vitest run`: 6 failed / 804 passed across 4 files (`TransportBar.test.tsx`, `AudioRigDrawer.test.tsx`, `audioRigConfig.test.ts`, `AudioEngine.test.ts`) — every touched-so-far test file (`globalFx.test.ts`, `AudioEngine.test.ts`'s own new/updated tests, `lfoEngine.test.ts`, `globalAudioSeed.test.ts`) passes in full; `AudioEngine.test.ts`'s remaining 5 failures are the pre-existing Task 9 LFO-priming tests that route through `audioStore.ts`'s still-unfixed chorus spread.
 - [ ] Review with human before proceeding.
 
 ---
