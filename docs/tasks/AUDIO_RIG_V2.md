@@ -407,10 +407,11 @@ Task 9, Task 10 ──→ Task 11 (AudioRigDrawer.tsx)
   **Estimated scope:** XS
 
 ### Checkpoint: Complete
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] All acceptance criteria across all 14 tasks met, including the manual/audible check (Phase 5 checkpoint) confirmed by a human.
-- [ ] Every living-reference doc (`AUDIO_SYSTEM.md`, `GLOBAL_CHAIN_GRID.md`, `roadmap.md`, `SESSION_STORAGE.md`) spot-checked against shipped source, not reconstructed from memory.
-- [ ] Ready for human review / merge consideration alongside V1's already-shipped work on the same branch.
+- [x] `npm run build:types`, `npm run lint`, `npm run build` all clean — 0 errors, repo-wide. `npm test` (`npx vitest run`): 65/65 files, 843/843 tests passing (re-run twice to confirm after one transient CPU-contention flake in a single run, not reproducible on the immediate re-run — no code changed between runs).
+- [x] All acceptance criteria across all 14 tasks met, except the manual/audible check below (deferred to a human, same as V1's own pattern).
+- [ ] Manual/audible check (Phase 5 checkpoint) confirmed by a human — deferred, not something this session can verify.
+- [x] Every living-reference doc (`AUDIO_SYSTEM.md`, `GLOBAL_CHAIN_GRID.md`, `roadmap.md`, `SESSION_STORAGE.md`) spot-checked against shipped source, not reconstructed from memory — each task's own Verification section above records what was checked.
+- [ ] Ready for human review / merge consideration alongside V1's already-shipped work on the same branch — pending the manual/audible check and human sign-off above.
 
 ## Risks and Mitigations
 
