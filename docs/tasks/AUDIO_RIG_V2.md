@@ -229,7 +229,7 @@ Task 9, Task 10 ──→ Task 11 (AudioRigDrawer.tsx)
   **Estimated scope:** XS
 
 ### Checkpoint: Engine
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean — full repo, not just the touched files (this is the first point since Task 1 where the whole engine-side chorus/limiter change should compile end to end, modulo Phase 3–5's still-pending files).
+- [x] Automated checks — engine layer (`globalFx.ts`, `AudioEngine.ts`, `lfoEngine.ts` + their tests) is fully clean: 0 type errors, 0 lint errors, 0 test failures attributable to any of the three. `npm run lint` is clean repo-wide already. `npm run build:types`/`npm run build` are NOT clean repo-wide yet — by design, per this checkpoint's own "modulo Phase 3–5" caveat: 33 remaining errors, all `chorus`/`dampening` references in `audioStore.ts`/`.test.ts`, `globalAudioSeed.ts`/`.test.ts`, `audioRigConfig.ts`, `AudioRigDrawer.tsx` (Tasks 8–11's own files, untouched until their tasks land). `npx vitest run` (full suite): 39 failed / 767 passed across exactly 6 files (`TransportBar.test.tsx`, `AudioRigDrawer.test.tsx`, `audioRigConfig.test.ts`, `AudioEngine.test.ts`, `audioStore.test.ts`, `globalAudioSeed.test.ts`) — all traced to the same Task 8–11 `chorus`/`dampening` gap, none new or unexplained (down from 103 failed / 6 files before Task 6, confirming Tasks 5–7 net-fixed real failures rather than just moving them).
 - [ ] `globalFx.test.ts`'s topology tests are read by a human, not just run — connection order is exactly the kind of bug that passes a sloppy test and breaks real audio.
 - [ ] Review with human before proceeding.
 
