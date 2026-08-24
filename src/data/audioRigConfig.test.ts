@@ -160,10 +160,11 @@ describe('AUDIO_RIG_CONFIG', () => {
       }
     });
 
-    it('delayTime is a linear slider, seconds, 0 to 1, LFO-flagged as delay.delayTime', () => {
+    it('delayTime is a linear slider, seconds, 0 to 1, not LFO-flagged — LFO removed from Delay\'s delayTime', () => {
       const param = findParam('delay', 'delayTime');
       expect(param.schema).toMatchObject({ type: 'sliderLinear', loreLabel: 'PROPAGATION LAG', min: 0, max: 1, unit: 's' });
-      expect(param.lfoTarget).toBe('delay.delayTime');
+      expect(param.lfoTarget).toBeUndefined();
+      expect(param.lfoAccordion).toBeUndefined();
     });
 
     it('feedback is a linear slider, 0 to 0.95, not LFO-flagged', () => {
@@ -228,7 +229,7 @@ describe('AUDIO_RIG_CONFIG', () => {
     expect(AUDIO_RIG_CONFIG.map((b) => b.key as string)).not.toContain('chorus');
   });
 
-  it('flags exactly the 8 GlobalLfoTargetId params — no more, no fewer', () => {
+  it('flags exactly the 7 GlobalLfoTargetId params — no more, no fewer', () => {
     const lfoTargets = AUDIO_RIG_CONFIG.flatMap((b) => b.params.map((p) => p.lfoTarget).filter(Boolean));
     expect([...lfoTargets].sort()).toEqual([...GLOBAL_LFO_TARGET_IDS].sort());
   });

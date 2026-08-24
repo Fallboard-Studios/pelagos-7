@@ -5,11 +5,12 @@
  * label/unit/range/default traces field-for-field to
  * docs/reference/GLOBAL_CHAIN_GRID.md — no invented copy. Field paths
  * (`${key}.${field}`) match GlobalAudioSettings' own field names
- * (src/types/globalAudio.ts); the 8 params the grid flags `LFO?: X`
+ * (src/types/globalAudio.ts); the 7 params the grid flags `LFO?: X`
  * additionally carry a `lfoTarget` in GlobalLfoTargetId's short form
- * (src/types/lfo.ts) and their own nested `lfoAccordion` schema. Limiter
- * never carries one — it's not a GlobalLfoTargetId member (spec: no LFO on
- * the Limiter, by design).
+ * (src/types/lfo.ts) and their own nested `lfoAccordion` schema. Neither
+ * Limiter nor Delay's delayTime carries one — Limiter was never a
+ * GlobalLfoTargetId member (no LFO on the Limiter, by design); delayTime's
+ * was removed after shipping (LFO judged unwanted on Delay's own time param).
  */
 import type { ControlSchema, ToggleSchema, AccordionSchema } from '@/types/controls';
 import type { GlobalLfoTargetId } from '@/types/lfo';
@@ -25,7 +26,7 @@ export interface AudioRigParamSchema {
   /** Matches the field path on GlobalAudioSettings[block.key], e.g. 'threshold', 'low', 'frequency'. */
   field: string;
   schema: ControlSchema;
-  /** Present only for the 9 rows GLOBAL_CHAIN_GRID.md flags LFO?: X. Short form, matching GlobalLfoTargetId directly. */
+  /** Present only for the 7 rows GLOBAL_CHAIN_GRID.md flags LFO?: X. Short form, matching GlobalLfoTargetId directly. */
   lfoTarget?: GlobalLfoTargetId;
   /** The nested accordion wrapping this param's Lfo control — present iff lfoTarget is. */
   lfoAccordion?: AccordionSchema;
@@ -131,12 +132,10 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
     accordion: accordionSchema('delay', 'TEMPORAL REFLECTION MATRIX', 'Delay'),
     enabledSchema: enabledSchema('delay', 'Delay'),
     params: [
-      {
-        field: 'delayTime',
-        schema: { id: 'delay.delayTime', type: 'sliderLinear', loreLabel: 'PROPAGATION LAG', humanLabel: 'Time', min: 0, max: 1, step: 0.01, unit: 's' },
-        lfoTarget: 'delay.delayTime',
-        lfoAccordion: lfoAccordionSchema('delay', 'delayTime'),
-      },
+      // No lfoTarget/lfoAccordion — LFO removed from delayTime; the effect
+      // still seeds/edits its value normally (GlobalAudioSeedFieldKey is a
+      // separate, unrelated type from GlobalLfoTargetId).
+      { field: 'delayTime', schema: { id: 'delay.delayTime', type: 'sliderLinear', loreLabel: 'PROPAGATION LAG', humanLabel: 'Time', min: 0, max: 1, step: 0.01, unit: 's' } },
       { field: 'feedback', schema: { id: 'delay.feedback', type: 'sliderLinear', loreLabel: 'RECIRCULATION RATE', humanLabel: 'Feedback', min: 0, max: 0.95, step: 0.01 } },
       { field: 'wet', schema: { id: 'delay.wet', type: 'sliderLinear', loreLabel: 'REFLECTED SIGNAL BALANCE', humanLabel: 'Mix', min: 0, max: 1, step: 0.01 } },
     ],

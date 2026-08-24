@@ -364,10 +364,10 @@ describe('useAudioStore - setGlobalLfo', () => {
     vi.clearAllMocks();
     vi.mocked(lfoEngine.connectLfoTarget).mockReturnValue(true);
 
-    useAudioStore.getState().setGlobalLfo('delay.delayTime', { shape: 'sine', rate: 1, depth: 20, active: true });
+    useAudioStore.getState().setGlobalLfo('hpf.Q', { shape: 'sine', rate: 1, depth: 20, active: true });
 
-    expect(lfoEngine.connectLfoTarget).toHaveBeenCalledWith('delay.delayTime');
-    expect(lfoEngine.start).toHaveBeenCalledWith('delay.delayTime');
+    expect(lfoEngine.connectLfoTarget).toHaveBeenCalledWith('hpf.Q');
+    expect(lfoEngine.start).toHaveBeenCalledWith('hpf.Q');
     expect(lfoEngine.disconnectLfoTarget).not.toHaveBeenCalled();
     expect(lfoEngine.stop).not.toHaveBeenCalled();
   });

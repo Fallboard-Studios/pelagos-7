@@ -1205,7 +1205,6 @@ describe('AudioEngine - getGlobalModulationTarget', () => {
       'eq3.low', 'eq3.mid', 'eq3.high',
       'lpf.frequency', 'lpf.Q',
       'hpf.frequency', 'hpf.Q',
-      'delay.delayTime',
     ] as const;
     for (const target of targets) {
       expect(() => AudioEngine.getGlobalModulationTarget(target)).not.toThrow();
@@ -1235,12 +1234,6 @@ describe('AudioEngine - getGlobalModulationTarget', () => {
     expect(AudioEngine.getGlobalModulationTarget('hpf.Q')).toHaveProperty('value');
   });
 
-  it('returns the live Delay delayTime Param after start()', async () => {
-    const { AudioEngine } = await import('./AudioEngine');
-    await AudioEngine.start();
-    expect(AudioEngine.getGlobalModulationTarget('delay.delayTime')).toHaveProperty('value');
-  });
-
   it('distinguishes LPF and HPF — they are separate Filter instances, not the same node read twice', async () => {
     const { AudioEngine } = await import('./AudioEngine');
     await AudioEngine.start();
@@ -1262,7 +1255,6 @@ describe('AudioEngine.start - prime, connect, and start seeded global LFOs (Task
     'lpf.Q': { shape: 'sine', rate: 0.5, depth: 20, active: false },
     'hpf.frequency': { shape: 'sine', rate: 1.5, depth: 60, active: false },
     'hpf.Q': { shape: 'square', rate: 2.5, depth: 70, active: false },
-    'delay.delayTime': { shape: 'triangle', rate: 5, depth: 90, active: false },
   } as const;
 
   beforeEach(() => {
@@ -1286,7 +1278,7 @@ describe('AudioEngine.start - prime, connect, and start seeded global LFOs (Task
     return { lfoEngine };
   }
 
-  it('primes setLfoShape/setLfoRate/setLfoDepth for every one of the 8 targets from globalLfo state', async () => {
+  it('primes setLfoShape/setLfoRate/setLfoDepth for every one of the 7 targets from globalLfo state', async () => {
     const { lfoEngine } = await startWithFixture();
 
     for (const [target, settings] of Object.entries(FIXTURE_GLOBAL_LFO)) {
@@ -1316,7 +1308,7 @@ describe('AudioEngine.start - prime, connect, and start seeded global LFOs (Task
   it('never connects or starts an inactive target', async () => {
     const { lfoEngine } = await startWithFixture();
 
-    for (const target of ['eq3.high', 'lpf.Q', 'hpf.frequency', 'hpf.Q', 'delay.delayTime']) {
+    for (const target of ['eq3.high', 'lpf.Q', 'hpf.frequency', 'hpf.Q']) {
       expect(lfoEngine.connectLfoTarget).not.toHaveBeenCalledWith(target);
       expect(lfoEngine.start).not.toHaveBeenCalledWith(target);
     }

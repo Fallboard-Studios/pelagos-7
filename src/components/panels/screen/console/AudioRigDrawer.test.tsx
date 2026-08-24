@@ -148,12 +148,12 @@ describe('AudioRigDrawer', () => {
   });
 
   describe('nested LFO accordions (Task 11)', () => {
-    it('renders exactly 8 nested LFO accordions — one per GlobalLfoTargetId', () => {
+    it('renders exactly 7 nested LFO accordions — one per GlobalLfoTargetId', () => {
       render(<AudioRigDrawer />);
-      expect(screen.getAllByText('Modulation')).toHaveLength(8);
+      expect(screen.getAllByText('Modulation')).toHaveLength(7);
     });
 
-    it('renders no LFO accordion for the 11 non-flagged params (e.g. compressor.threshold)', () => {
+    it('renders no LFO accordion for the 12 non-flagged params (e.g. compressor.threshold)', () => {
       render(<AudioRigDrawer />);
       // Threshold's own row shouldn't contain a nested "Modulation" trigger —
       // scope by walking up from the Threshold slider to its param row.
@@ -166,6 +166,13 @@ describe('AudioRigDrawer', () => {
       render(<AudioRigDrawer />);
       const limiterThresholdSlider = screen.getAllByRole('slider', { name: 'Threshold' })[1];
       const paramRow = limiterThresholdSlider.closest('.audio-rig-drawer__param-row');
+      expect(paramRow?.textContent).not.toContain('Modulation');
+    });
+
+    it('renders no LFO accordion for Delay\'s Time either — LFO removed from delay.delayTime', () => {
+      render(<AudioRigDrawer />);
+      const delayTimeSlider = screen.getByRole('slider', { name: 'Time' });
+      const paramRow = delayTimeSlider.closest('.audio-rig-drawer__param-row');
       expect(paramRow?.textContent).not.toContain('Modulation');
     });
 

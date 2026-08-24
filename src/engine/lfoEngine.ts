@@ -108,7 +108,7 @@ const ROBOT_LFO_FIELD_RANGE: Record<string, { min: number; max: number }> = {
 function globalSeedRangeKey(target: GlobalLfoTargetId): GlobalAudioSeedFieldKey {
   if (target.startsWith('lpf.')) return `filterLPF.${target.slice(4)}` as GlobalAudioSeedFieldKey;
   if (target.startsWith('hpf.')) return `filterHPF.${target.slice(4)}` as GlobalAudioSeedFieldKey;
-  return target as GlobalAudioSeedFieldKey; // eq3.*, delay.delayTime already match directly
+  return target as GlobalAudioSeedFieldKey; // eq3.* already matches directly
 }
 
 /**

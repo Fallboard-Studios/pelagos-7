@@ -411,8 +411,9 @@ export function setEffectBypass(effect: string, enabled: boolean): void {
  * Resolve the live, connectable Tone Signal/Param for a global-chain LFO
  * modulation target (docs/tasks/LFO_INTEGRATION_PLAN.md Task 10). Returns
  * null — never throws — before buildGlobalFxChain() has run (module-scope
- * _global* nodes are null until then). Limiter never appears here: it isn't a
- * GlobalLfoTargetId member at all (no LFO on the Limiter, by design).
+ * _global* nodes are null until then). Neither Limiter nor Delay's
+ * delayTime ever appears here: neither is a GlobalLfoTargetId member (no
+ * LFO on the Limiter by design; delayTime's LFO was removed after shipping).
  */
 export function getGlobalModulationTarget(target: GlobalLfoTargetId): ModulationTarget | null {
   try {
@@ -431,8 +432,6 @@ export function getGlobalModulationTarget(target: GlobalLfoTargetId): Modulation
         return ((_globalHPF as unknown as { frequency?: unknown })?.frequency as ModulationTarget) ?? null;
       case 'hpf.Q':
         return ((_globalHPF as unknown as { Q?: unknown })?.Q as ModulationTarget) ?? null;
-      case 'delay.delayTime':
-        return ((_globalDelay as unknown as { delayTime?: unknown })?.delayTime as ModulationTarget) ?? null;
       default:
         return null;
     }
