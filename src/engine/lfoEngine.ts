@@ -284,10 +284,10 @@ function stopPhaseFallback(key: string): void {
  * Connect this target's LFO to its live modulation destination. Returns
  * false — never throws — when: a robot-scoped target is called without a
  * robotId (nothing to resolve against), or AudioEngine has no live Signal
- * for the target (pulseWidth on a non-'pulse' layer, chorus.delayTime —
- * structural Tone.js limitations documented at the AudioEngine layer,
- * Tasks 9/10). 'layerN.phase' is handled entirely separately via the
- * manual-polling fallback above, since no live Signal exists for it at all.
+ * for the target (pulseWidth on a non-'pulse' layer — a structural Tone.js
+ * limitation documented at the AudioEngine layer, Tasks 9/10). 'layerN.phase'
+ * is handled entirely separately via the manual-polling fallback above,
+ * since no live Signal exists for it at all.
  */
 function connectLfoTarget(target: LfoTargetId, robotId?: string): boolean {
   const key = instanceKey(target, robotId);

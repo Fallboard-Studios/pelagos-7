@@ -159,10 +159,10 @@ describe('lfoEngine', () => {
 
     it('reflects a previously-set rate/depth/shape', async () => {
       const { lfoEngine } = await import('./lfoEngine');
-      lfoEngine.setLfoRate('chorus.delayTime', 3);
-      lfoEngine.setLfoDepth('chorus.delayTime', 75);
-      lfoEngine.setLfoShape('chorus.delayTime', 'square');
-      expect(lfoEngine.getLfoSettings('chorus.delayTime')).toEqual({ shape: 'square', rate: 3, depth: 75 });
+      lfoEngine.setLfoRate('delay.delayTime', 3);
+      lfoEngine.setLfoDepth('delay.delayTime', 75);
+      lfoEngine.setLfoShape('delay.delayTime', 'square');
+      expect(lfoEngine.getLfoSettings('delay.delayTime')).toEqual({ shape: 'square', rate: 3, depth: 75 });
     });
   });
 
