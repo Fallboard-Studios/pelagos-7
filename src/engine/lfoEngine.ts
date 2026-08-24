@@ -133,8 +133,8 @@ function resolveLfoOutputRange(target: LfoTargetId): { min: number; max: number 
 }
 
 /**
- * Convert a field's absolute range into the zero-centered ADDITIVE delta
- * lfo.min/lfo.max should actually be set to.
+ * Convert a field's absolute range AND its current base value into the
+ * ADDITIVE delta lfo.min/lfo.max should actually be set to.
  *
  * Tone.LFO.connect() sums onto the destination Param's existing value —
  * native Web Audio AudioParam behavior: connecting an input signal ADDS to
@@ -143,21 +143,32 @@ function resolveLfoOutputRange(target: LfoTargetId): { min: number; max: number 
  * directly as lfo.min/lfo.max was a real bug: that adds up to +20000 Hz on
  * top of whatever the slider is already at, trivially pushing the actual
  * cutoff past Nyquist (filter wide open — an audible burst of unfiltered
- * harmonics) the instant the LFO connects, and — the same bug's mirror
- * image — requires pinning the base slider very low to avoid that, which
- * then reads as near-total silence once the LFO disconnects and stops
- * contributing anything on top.
+ * harmonics) the instant the LFO connects.
  *
- * A swing sized at HALF the field's own span, centered on zero, fixes both:
- * added to whatever the base value is, it moves the result by a bounded
- * amount in either direction — the target's own dial still matters, the LFO
- * genuinely modulates around it rather than being able to run away from it.
- * For a field already naturally centered on zero (EQ dB bands, robot
- * detune), this is numerically identical to using the raw range — no
- * change in behavior for those.
+ * A first fix used a FIXED zero-centered swing (half the field's own total
+ * span) — better, but still a constant, independent of where the base value
+ * actually sits. That reintroduced the same bug from the other direction:
+ * for a base value anywhere off-center (e.g. left low, as a workaround for
+ * the original crash), a fixed swing still large enough to swing the OTHER
+ * way pushed the combined value below the field's own minimum for roughly
+ * half of every cycle — heard as the mix muting for half the time.
+ *
+ * The real fix: bound the swing by the base value's own distance to
+ * whichever edge of the range is nearer — min(value - rangeMin, rangeMax -
+ * value). Added to the base value, this can never leave [rangeMin, rangeMax]
+ * in either direction, for any starting position. A value sitting exactly at
+ * the range's own midpoint (both distances equal) still gets the same "half
+ * the total span" swing as the simpler fixed version — no regression for
+ * fields whose typical resting value already is the midpoint (EQ dB bands,
+ * robot detune both default to 0, the center of a symmetric range).
  */
-function centeredSwingFromRange(range: { min: number; max: number }): { min: number; max: number } {
-  const halfSpan = (range.max - range.min) / 2;
+function centeredSwingFromRange(
+  range: { min: number; max: number },
+  currentValue: number
+): { min: number; max: number } {
+  const distanceToMin = currentValue - range.min;
+  const distanceToMax = range.max - currentValue;
+  const halfSpan = Math.max(0, Math.min(distanceToMin, distanceToMax));
   return { min: -halfSpan, max: halfSpan };
 }
 
@@ -341,7 +352,11 @@ function connectLfoTarget(target: LfoTargetId, robotId?: string): boolean {
   const lfo = getOrCreateLfo(key, target, robotId);
   const range = resolveLfoOutputRange(target);
   if (range) {
-    const swing = centeredSwingFromRange(range);
+    // Read the target's CURRENT base value (both Signal and Param expose a
+    // plain numeric .value getter) so the swing can be bounded relative to
+    // where it actually sits, not just the field's own total span.
+    const currentValue = (signal as unknown as { value: number }).value;
+    const swing = centeredSwingFromRange(range, currentValue);
     lfo.min = swing.min;
     lfo.max = swing.max;
   }

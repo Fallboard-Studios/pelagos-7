@@ -97,8 +97,8 @@ async function latestLfoInstance(): Promise<MockLfoInstance> {
 }
 
 /** A minimal fake Signal-like object, distinct per call so tests can assert connect() received the right one. */
-function fakeSignal(): { value: number } {
-  return { value: 0 };
+function fakeSignal(value = 0): { value: number } {
+  return { value };
 }
 
 // ========================================
@@ -390,36 +390,39 @@ describe('lfoEngine', () => {
       expect(instance.connect).toHaveBeenNthCalledWith(2, secondSignal);
     });
 
-    describe('output range scaling — a zero-centered ADDITIVE delta, not the target\'s absolute range', () => {
+    describe('output range scaling — an ADDITIVE delta bounded by the CURRENT base value\'s position, not a fixed constant', () => {
       // Tone.LFO.connect() sums onto the destination Param's existing value
       // (native Web Audio AudioParam behavior — connecting an input ADDS to
       // whatever the param's own intrinsic value is, it never overrides it).
-      // Using the target's raw absolute min/max as the LFO's own min/max was
-      // a real bug: for a non-zero-centered field like LPF frequency
-      // (20-20000), that adds up to +20000 Hz on top of whatever the slider
-      // is already at — trivially pushing the actual cutoff past Nyquist
-      // (filter wide open, an audible "crash" of unfiltered harmonics) the
-      // moment the LFO connects, and — the mirror image — leaves the base
-      // slider value pinned very low (to avoid that crash) with nothing to
-      // compensate once the LFO disconnects, which sounds like the whole
-      // mix went silent. The fix: min/max are a symmetric zero-centered
-      // swing sized at HALF the field's own real span — an additive delta
-      // bounded by the field's own range, not the raw range itself. For
-      // fields already naturally centered on zero (EQ dB, robot detune)
-      // this is numerically identical to the old behavior — no regression.
-      it('derives a zero-centered swing (not the raw range) for a robot Gain target (0-2 -> +-1, per ROBOT_DATA_GRID.md)', async () => {
+      // A first fix used a FIXED zero-centered swing (half the field's own
+      // total span) — better than the raw range, but still a constant,
+      // independent of where the base value actually sits. That reintroduced
+      // the same class of bug from the other direction: for a base value
+      // anywhere off-center (e.g. LPF frequency left low, as a workaround for
+      // the original crash), a fixed swing still large enough to swing the
+      // OTHER way pushed the combined value below the field's own minimum for
+      // roughly half of every cycle — reported as "mutes all audio half the
+      // time". The real fix: the swing is bounded by the CURRENT base value's
+      // own distance to whichever edge of the range is nearer
+      // (min(value-rangeMin, rangeMax-value)) — base +- swing can now never
+      // leave [rangeMin, rangeMax], for any starting position. A value sitting
+      // exactly at the range's midpoint still gets the same "half the total
+      // span" swing as before (both distances are then equal) — no regression
+      // for already-centered fields (EQ dB, robot detune, whose typical
+      // resting value is 0, itself the midpoint of a symmetric range).
+      it('derives a swing bounded by the base value\'s own distance to the nearer edge, for a robot Gain target (0-2, base 0.5 -> +-0.5, not +-1)', async () => {
         const { AudioEngine } = await import('./AudioEngine');
-        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal());
+        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(0.5));
         const { lfoEngine } = await import('./lfoEngine');
         lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
         const instance = await latestLfoInstance();
-        expect(instance.min).toBe(-1);
-        expect(instance.max).toBe(1);
+        expect(instance.min).toBe(-0.5);
+        expect(instance.max).toBe(0.5);
       });
 
-      it('leaves an already zero-centered range unchanged for a robot Detune target (-50..50 cents)', async () => {
+      it('gets the full half-span swing when the base value sits at the range\'s own midpoint, for a robot Detune target (-50..50 cents, base 0)', async () => {
         const { AudioEngine } = await import('./AudioEngine');
-        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal());
+        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(0));
         const { lfoEngine } = await import('./lfoEngine');
         lfoEngine.connectLfoTarget('layer0.detune', 'robot-a');
         const instance = await latestLfoInstance();
@@ -427,19 +430,21 @@ describe('lfoEngine', () => {
         expect(instance.max).toBe(50);
       });
 
-      it('derives a zero-centered swing for the robot Volume target (0-1 -> +-0.5)', async () => {
+      it('shrinks the swing when the base value sits near the top of its range, for the robot Volume target (0-1, base 0.8 -> +-0.2, not +-0.5)', async () => {
         const { AudioEngine } = await import('./AudioEngine');
-        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal());
+        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(0.8));
         const { lfoEngine } = await import('./lfoEngine');
         lfoEngine.connectLfoTarget('volume', 'robot-a');
         const instance = await latestLfoInstance();
-        expect(instance.min).toBe(-0.5);
-        expect(instance.max).toBe(0.5);
+        // toBeCloseTo, not toBe — 1 - 0.8 is a well-known floating-point
+        // representation artifact (0.19999999999999996), not a logic bug.
+        expect(instance.min).toBeCloseTo(-0.2, 10);
+        expect(instance.max).toBeCloseTo(0.2, 10);
       });
 
-      it('leaves an already zero-centered range unchanged for a global EQ3 band (-12..12 dB, from GLOBAL_AUDIO_SEED_RANGES)', async () => {
+      it('gets the full half-span swing when the base value sits at the range\'s own midpoint, for a global EQ3 band (-12..12 dB, base 0)', async () => {
         const { AudioEngine } = await import('./AudioEngine');
-        (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal());
+        (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(0));
         const { lfoEngine } = await import('./lfoEngine');
         lfoEngine.connectLfoTarget('eq3.low');
         const instance = await latestLfoInstance();
@@ -447,24 +452,35 @@ describe('lfoEngine', () => {
         expect(instance.max).toBe(12);
       });
 
-      it('derives a zero-centered +-9990 swing for LPF frequency (20-20000), translating the lpf.* short-form target id to filterLPF.* seed-range key', async () => {
+      it('shrinks the swing for LPF frequency (20-20000) when the base value sits low (base 3000 -> +-2980, not a constant +-9990), translating the lpf.* short-form target id to filterLPF.* seed-range key', async () => {
         const { AudioEngine } = await import('./AudioEngine');
-        (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal());
+        (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(3000));
         const { lfoEngine } = await import('./lfoEngine');
         lfoEngine.connectLfoTarget('lpf.frequency');
         const instance = await latestLfoInstance();
-        expect(instance.min).toBe(-9990);
-        expect(instance.max).toBe(9990);
+        expect(instance.min).toBe(-2980);
+        expect(instance.max).toBe(2980);
       });
 
-      it('derives a zero-centered swing for HPF Q (0.1-20 -> +-9.95), translating hpf.* to filterHPF.*', async () => {
+      it('shrinks the swing for HPF Q (0.1-20) when the base value sits low (base 5 -> +-4.9), translating hpf.* to filterHPF.*', async () => {
         const { AudioEngine } = await import('./AudioEngine');
-        (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal());
+        (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(5));
         const { lfoEngine } = await import('./lfoEngine');
         lfoEngine.connectLfoTarget('hpf.Q');
         const instance = await latestLfoInstance();
-        expect(instance.min).toBe(-9.95);
-        expect(instance.max).toBe(9.95);
+        expect(instance.min).toBe(-4.9);
+        expect(instance.max).toBe(4.9);
+      });
+
+      it('regression: base + swing never leaves the field\'s own [min, max] range, for any base position — the direct fix for "mutes audio half the time"', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        const baseValue = 3000; // low in LPF frequency's 20-20000 range, exactly the kind of position that used to dip negative at the trough
+        (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(baseValue));
+        const { lfoEngine } = await import('./lfoEngine');
+        lfoEngine.connectLfoTarget('lpf.frequency');
+        const instance = await latestLfoInstance();
+        expect(baseValue + instance.min).toBeGreaterThanOrEqual(20);
+        expect(baseValue + instance.max).toBeLessThanOrEqual(20000);
       });
     });
 
