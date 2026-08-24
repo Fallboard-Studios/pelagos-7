@@ -299,19 +299,19 @@ Task 9, Task 10 ──→ Task 11 (AudioRigDrawer.tsx)
 
 ### Phase 5: UI
 
-- [ ] **Task 10: `src/data/audioRigConfig.ts` — drop chorus block, add limiter block, reorder, Decay toggle schemas**
+- [x] **Task 10: `src/data/audioRigConfig.ts` — drop chorus block, add limiter block, reorder, Decay toggle schemas**
 
   **Description:** Remove the `chorus` entry from `AUDIO_RIG_CONFIG` entirely (block + its 5 params). Remove `reverb`'s `dampening` param (dead — see Task 1/5/8; reverb keeps `decay`/`preDelay`/`wet`). Add a `limiter` block: one param (`threshold`, `sliderLinear`, dB — reuse whatever range Task 3 assigned `limiter.threshold`, with a lore/human label pair following this file's existing per-param labeling convention; no `lfoTarget`/`lfoAccordion` on it — Limiter never gets one). Reorder `AUDIO_RIG_CONFIG`'s array to match the new chain order: `eq3, filterLPF, filterHPF, delay, reverb, compressor, limiter` (was `compressor, eq3, filterLPF, filterHPF, chorus, delay, reverb`). Add `NATURAL_DECAY_SCHEMA`/`CONTROLLED_DECAY_SCHEMA` (both `ToggleSchema`, `id: 'audioRig.compressorBeforeDelay'`, `humanLabel` "Natural Decay"/"Controlled Decay" respectively) as new exports alongside `AUDIO_RIG_CONFIG` — chain-level, not nested inside any one effect block.
 
   **Acceptance criteria:**
-  - [ ] No `chorus` block remains; a `limiter` block exists with exactly one param, no LFO target.
-  - [ ] `reverb`'s block has exactly 3 params (`decay`, `preDelay`, `wet`) — no `dampening`.
-  - [ ] `AUDIO_RIG_CONFIG`'s block order is `eq3, filterLPF, filterHPF, delay, reverb, compressor, limiter`.
-  - [ ] `NATURAL_DECAY_SCHEMA`/`CONTROLLED_DECAY_SCHEMA` exported, same `id`, distinct `humanLabel`s, both `type: 'toggle'`.
+  - [x] No `chorus` block remains; a `limiter` block exists with exactly one param, no LFO target.
+  - [x] `reverb`'s block has exactly 3 params (`decay`, `preDelay`, `wet`) — no `dampening`.
+  - [x] `AUDIO_RIG_CONFIG`'s block order is `eq3, filterLPF, filterHPF, delay, reverb, compressor, limiter`.
+  - [x] `NATURAL_DECAY_SCHEMA`/`CONTROLLED_DECAY_SCHEMA` exported, same `id`, distinct `humanLabel`s, both `type: 'toggle'`.
 
   **Verification:**
-  - [ ] `npx vitest run src/data/audioRigConfig.test.ts` — chorus assertions removed; reverb's param-count assertion updated to 3 (no dampening); limiter block assertions added (single param, no `lfoTarget`); block-order assertion updated; new schema-export assertions.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/data/audioRigConfig.test.ts` — 34/34 passing. Chorus describe block removed; reverb's param-count assertion updated to 3 (no dampening); new Limiter describe block (single `threshold` param, `TERMINAL CEILING GATE`/`OUTPUT CEILING` labels straight from the grid, no `lfoTarget`/`lfoAccordion`); block-order assertion updated; new `NATURAL_DECAY_SCHEMA`/`CONTROLLED_DECAY_SCHEMA` describe block.
+  - [x] `npm run build:types`, `npm run lint` clean — and notably, `build:types` is now clean **repo-wide** (0 errors anywhere), one task early: `AudioRigDrawer.tsx`'s chorus-shaped errors were purely downstream of `AudioRigEffectKey`/`AUDIO_RIG_CONFIG`'s stale shape, not anything hardcoded in the drawer itself — exactly as Task 11's own description predicted. Full suite: down to 1 failed file / 8 failed tests (`AudioRigDrawer.test.tsx`, Task 11's own scope) / 829 passed.
 
   **Dependencies:** Task 1.
 
