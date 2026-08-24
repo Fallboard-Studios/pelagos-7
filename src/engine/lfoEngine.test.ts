@@ -482,6 +482,16 @@ describe('lfoEngine', () => {
         expect(baseValue + instance.min).toBeGreaterThanOrEqual(20);
         expect(baseValue + instance.max).toBeLessThanOrEqual(20000);
       });
+
+      it('never assigns NaN to lfo.min/lfo.max when the resolved signal\'s current value is non-finite — a NaN Param value would silence the whole downstream chain, not just this target', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(NaN));
+        const { lfoEngine } = await import('./lfoEngine');
+        lfoEngine.connectLfoTarget('lpf.frequency');
+        const instance = await latestLfoInstance();
+        expect(Number.isNaN(instance.min)).toBe(false);
+        expect(Number.isNaN(instance.max)).toBe(false);
+      });
     });
 
     it('returns false (not throw) for pulseWidth on a non-\'pulse\' layer — AudioEngine already returns null for that case', async () => {

@@ -166,6 +166,12 @@ function centeredSwingFromRange(
   range: { min: number; max: number },
   currentValue: number
 ): { min: number; max: number } {
+  // A non-finite currentValue (NaN/Infinity — e.g. the resolved Signal not
+  // actually initialized yet) must never reach lfo.min/lfo.max: connecting
+  // an LFO whose output is NaN poisons the live Web Audio graph downstream
+  // of whatever it's connected to, not just this one target. Fall back to
+  // zero swing (the LFO contributes nothing) rather than propagate it.
+  if (!Number.isFinite(currentValue)) return { min: 0, max: 0 };
   const distanceToMin = currentValue - range.min;
   const distanceToMax = range.max - currentValue;
   const halfSpan = Math.max(0, Math.min(distanceToMin, distanceToMax));
