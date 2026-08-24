@@ -57,9 +57,11 @@ export const ROBOT_LFO_TARGET_IDS: readonly RobotLfoTargetId[] = [
 // ========================================
 
 /**
- * Global-chain LFO modulation targets — the 9 targets
+ * Global-chain LFO modulation targets — the 8 targets
  * docs/reference/GLOBAL_CHAIN_GRID.md flags `LFO?: X`: EQ3 low/mid/high,
- * LPF frequency/Q, HPF frequency/Q, Chorus delayTime, Delay delayTime.
+ * LPF frequency/Q, HPF frequency/Q, Delay delayTime. (V2: was 9 — Chorus,
+ * and 'chorus.delayTime' with it, was removed entirely; the effect didn't
+ * suit this music.)
  *
  * Uses the 'lpf'/'hpf' short-form AudioEngine.setEffectBypass already uses
  * for its effect keys — not GlobalAudioSettings' filterLPF/filterHPF field
@@ -74,14 +76,12 @@ export type GlobalLfoTargetId =
   | 'lpf.Q'
   | 'hpf.frequency'
   | 'hpf.Q'
-  | 'chorus.delayTime'
   | 'delay.delayTime';
 
 export const GLOBAL_LFO_TARGET_IDS: readonly GlobalLfoTargetId[] = [
   'eq3.low', 'eq3.mid', 'eq3.high',
   'lpf.frequency', 'lpf.Q',
   'hpf.frequency', 'hpf.Q',
-  'chorus.delayTime',
   'delay.delayTime',
 ];
 
