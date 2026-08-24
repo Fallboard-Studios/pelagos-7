@@ -93,13 +93,13 @@ export const AudioEngine = {
   getMasterVolume: () => number,
   setGlobalReverb: (params: Partial<ReverbSettings>) => void,
   setGlobalDelay: (params: Partial<DelaySettings>) => void,
-  setGlobalChorus: (params: Partial<ChorusSettings>) => void,
   setGlobalFilterLPF: (params: Partial<FilterSettings>) => void,
   setGlobalFilterHPF: (params: Partial<FilterSettings>) => void,
   setGlobalEQ: (params: Partial<EQ3Settings>) => void,
   setGlobalCompressor: (params: Partial<CompressorSettings>) => void,
-  setGlobalBypass: (bypass: boolean) => void,             // routes compressor straight to destination when true
-  setEffectBypass: (effect: 'reverb'|'delay'|'chorus'|'eq3'|'lpf'|'hpf'|'compressor', enabled: boolean) => void,
+  setGlobalLimiter: (params: Partial<LimiterSettings>) => void,
+  setGlobalBypass: (bypass: boolean) => void,             // routes the chain entry (EQ3) straight to destination when true
+  setEffectBypass: (effect: 'reverb'|'delay'|'eq3'|'lpf'|'hpf'|'compressor'|'limiter', enabled: boolean) => void,
 }
 ```
 
@@ -175,7 +175,7 @@ Pelagos-7 uses serializable audio descriptors at spawn time so visuals and audio
 Key points:
 - Each layer is an `OscillatorLayer` with `type`, `gain`, `detune`, `phase`, and optional `adsr`/`pulseWidth` fields.
 - Spawn-time logic in `src/systems/spawnSystem.ts` creates layered presets, computes averaged ADSR/gain values, and derives compact `shapeParams` for robot visuals.
-- `AudioEngine.reserveVoice()` consumes those layers to create a runtime composite voice and route it through a per-robot sub-bus (panner → gain → filter → master compressor).
+- `AudioEngine.reserveVoice()` consumes those layers to create a runtime composite voice and route it through a per-robot sub-bus (panner → gain → filter → global chain entry, EQ3 — see Signal Graph below).
 - Composite voices expose `triggerAttackRelease`, `set`, and `dispose` semantics so scheduling code can use a single high-level API.
 - Because the mapping is stored on the robot as serializable data, visuals can be rendered in non-audio contexts without requiring Tone.js objects.
 
@@ -186,16 +186,19 @@ Recommended usage:
 
 ## Signal Graph
 
-Two graphs compose: a **per-robot bus** (built per `reserveVoice` call) feeding a **global FX chain** (built once in `loadInstruments`, called from `start()`).
+Two graphs compose: a **per-robot bus** (built per `reserveVoice` call) feeding a **global FX chain** (built once in `loadInstruments`, called from `start()`). The chain entry point is **EQ3**, first in both topologies below — every robot bus connects into whichever node `src/engine/audioEngine/globalFx.ts`'s `getGlobalChainEntry()` returns (`AudioEngine.reserveVoice()`'s only caller), not a hardcoded compressor reference.
 
 ```
 Per robot:  composite.output → panner → busGain → busFilter → ─┐
 Global:                                                        │
-  master compressor ←────────────────────────────────────────── ┘
-      → EQ3 → LPF → HPF → Chorus → Delay → Reverb → masterGain → Destination
+  EQ3 (chain entry) ←──────────────────────────────────────────┘
+      → LPF → HPF → Delay → Reverb → Compressor → Limiter → masterGain → Destination   ("Natural Decay" — default)
+      → LPF → HPF → Compressor → Delay → Reverb → Limiter → masterGain → Destination   ("Controlled Decay")
 ```
 
-Control the global chain via `AudioEngine.setGlobal*`/`setEffectBypass`/`setGlobalBypass` (see API above). None of this FX surface was previously documented here.
+Two fixed topologies, not a general reorder mechanism — selected by one boolean, `audioStore`'s `globalAudio.compressorBeforeDelay` (default `false` = Natural Decay, not seeded, only a direct user toggle changes it). "Natural Decay" leaves Compressor after both time-based effects so their tails ring out uncompressed; "Controlled Decay" moves Compressor before both Delay and Reverb, tightening them. `globalFx.ts`'s `wireGlobalFxChain(controlledDecay: boolean)` disconnects every node and reconnects the full sequence for whichever topology — called once at build time and again whenever `audioStore`'s `setCompressorBeforeDelay(value)` action flips it (a brief audio glitch on toggle is expected and acceptable, since the user is intentionally changing routing).
+
+Control the global chain via `AudioEngine.setGlobal*`/`setEffectBypass`/`setGlobalBypass` (see API above) for individual effect parameters and bypass; `audioStore.setCompressorBeforeDelay` (not part of the `AudioEngine` surface — it calls `globalFx.ts` directly) for the topology swap.
 
 ## LFO Modulation
 
@@ -203,10 +206,10 @@ Audio-rate parameter modulation for both robot voices and the global FX chain, b
 
 ### Target ids
 
-22 targets total, defined in `src/types/lfo.ts`, each traced to a reference grid:
+21 targets total, defined in `src/types/lfo.ts`, each traced to a reference grid:
 
 - **`RobotLfoTargetId`** (13, from [ROBOT_DATA_GRID.md](reference/ROBOT_DATA_GRID.md)'s `Has LFO` column): `'volume'`, and `'layer{0,1,2}.{gain,detune,phase,pulseWidth}'`.
-- **`GlobalLfoTargetId`** (9, from [GLOBAL_CHAIN_GRID.md](reference/GLOBAL_CHAIN_GRID.md)'s `LFO?` column): `'eq3.low'`, `'eq3.mid'`, `'eq3.high'`, `'lpf.frequency'`, `'lpf.Q'`, `'hpf.frequency'`, `'hpf.Q'`, `'chorus.delayTime'`, `'delay.delayTime'`. Uses the `'lpf'`/`'hpf'` short form `AudioEngine.setEffectBypass` already uses, not `GlobalAudioSettings`' `filterLPF`/`filterHPF` field names.
+- **`GlobalLfoTargetId`** (8, from [GLOBAL_CHAIN_GRID.md](reference/GLOBAL_CHAIN_GRID.md)'s `LFO?` column): `'eq3.low'`, `'eq3.mid'`, `'eq3.high'`, `'lpf.frequency'`, `'lpf.Q'`, `'hpf.frequency'`, `'hpf.Q'`, `'delay.delayTime'`. Uses the `'lpf'`/`'hpf'` short form `AudioEngine.setEffectBypass` already uses, not `GlobalAudioSettings`' `filterLPF`/`filterHPF` field names. Neither Compressor, Reverb, nor Limiter ever gets an LFO target — dynamics/tail processors don't get one in this app's pattern.
 
 `LfoSettings` is `{ shape: 'triangle' | 'sine' | 'square' | 'sawtooth'; rate: number; depth: number }` — rate `0.1–10 Hz`, depth `0–100%` (`LFO_RATE_MIN/MAX`, `LFO_DEPTH_MIN/MAX` in `types/lfo.ts`).
 
@@ -240,13 +243,13 @@ Both verified directly against Tone.js's own source/type declarations, not assum
 1. **Phase has no live Signal at all.** `Tone.Oscillator.phase` is a plain get/set number, not a `Signal`/`Param`. `connectLfoTarget('layerN.phase', robotId)` instead starts a **manual-polling fallback**: `scheduleRepeat('16n', …)` (from `beatClock.ts` — Transport-driven, never a raw JS timer) recomputes a waveform value every tick from the target's current `LfoSettings` and reapplies it via `AudioEngine.updateVoiceLayerParams(robotId, [...])`. It modulates around a fixed `PHASE_CENTER_DEGREES = 180` (the midpoint of the 0–360° range `ROBOT_DATA_GRID.md` documents for Phase), not the layer's own live phase value — reading a robot's current `audioAttributes` from inside `lfoEngine.ts` would mean reaching into `useLocaleStore` directly, which stays `AudioEngine`/store territory. A deliberate Phase-0 engine-scope simplification.
 2. **pulseWidth only has a Signal for `'pulse'`-type layers.** `Tone.PulseOscillator.width` is a real `Signal`, but `'square'` has no adjustable width in Tone.js at all — a structural limitation, not a bug. `AudioEngine.getRobotModulationTarget` already returns `null` for that case, so `connectLfoTarget` simply no-ops and returns `false`, never throws.
 
-A related, non-robot case: `getGlobalModulationTarget('chorus.delayTime')` also always returns `null` — `Tone.Chorus.delayTime` is a plain get/set number (Chorus already runs its own internal LFO on delayTime), so no connectable Signal exists there either.
+(A third divergence — `Tone.Chorus.delayTime` having no connectable Signal — no longer applies: Chorus was removed from the global chain entirely, see [GLOBAL_CHAIN_GRID.md](reference/GLOBAL_CHAIN_GRID.md).)
 
 ### Seeding
 
 - **Robot-level `LfoSettings`** are generated once at spawn time in `src/systems/spawnSystem.ts`'s `generateRobotLfoSettings(noiseMap, offset)`, stored on `Robot.lfoSettings: Record<RobotLfoTargetId, LfoSettings>`, the same way the rest of a robot's `AudioAttributes` are generated — one `getSeededVal` call per field, dataIds dot-namespaced as `robot.lfo.<target>.<field>`. When a robot's audio personality is copied (spawnSystem's ~30% copy chance), `lfoSettings` is copied wholesale from the source robot, not regenerated.
-- **Global-chain effect *values*** (the parameters an LFO would modulate — EQ dB, filter Hz, etc., not the LFO settings themselves) are seed-generated per planet in `src/utils/globalAudioSeed.ts`'s `generateGlobalAudioSettings(planetId, planetName)`, sampling the **planet** noise map directly (a first — previously the planet map was only ever used to derive locale maps). Ranges and log/linear scale per field live in `src/data/globalAudioSeedRanges.ts`'s `GLOBAL_AUDIO_SEED_RANGES`. Wired into `audioStore` automatically on planet load/change via a `usePlanetStore.subscribe()` in `audioStore.ts` — no call site has to remember to re-seed. All 7 global effects' `enabled` is currently forced `true` (not seeded) so the whole chain stays audible while this is still Phase 0/1 engine work.
-- **Global-chain `LfoSettings`** (shape/rate/depth, plus whether each target starts active) are seed-generated per planet in `src/utils/globalAudioSeed.ts`'s `generateGlobalLfoSettings(planetId, planetName)`, sampling the same planet noise map `generateGlobalAudioSettings` uses, dataIds dot-namespaced as `globalLfo.<target>.<field>`. Unlike `GLOBAL_AUDIO_SEED_RANGES`, every target shares one global rate/depth range (`LFO_RATE_MIN/MAX`, `LFO_DEPTH_MIN/MAX`) rather than a per-field table, since `GLOBAL_CHAIN_GRID.md`'s `LFO?` column is a flat flag, not per-field bounds. `active` is seeded too — unlike the robot-level precedent above, where connected/active is purely a runtime UI concern never part of the generated data — using an `activeT >= 0.8` threshold (~20% chance per target, chosen so a typical planet seeds roughly 1–2 already-active LFOs out of 9, not several at once). Wired into `audioStore` via the same planet-sync subscription as `generateGlobalAudioSettings`, but deliberately **data-only** at that point (`regenerateGlobalLfoFromSeed` never calls `lfoEngine`) — planet-sync runs before any user gesture, and `lfoEngine`'s setters unconditionally construct a real `Tone.LFO` node on first use. `AudioEngine.start()` is what actually primes `lfoEngine` from this seeded state and connects+starts every already-active target, since that's the one point guaranteed to run after `Tone.start()` has succeeded.
+- **Global-chain effect *values*** (the parameters an LFO would modulate — EQ dB, filter Hz, etc., not the LFO settings themselves) are seed-generated per planet in `src/utils/globalAudioSeed.ts`'s `generateGlobalAudioSettings(planetId, planetName)`, sampling the **planet** noise map directly (a first — previously the planet map was only ever used to derive locale maps). Two ranges exist per field: `src/data/globalAudioSeedRanges.ts`'s `GLOBAL_AUDIO_SEED_RANGES` is the full/UI-matching range (what `resolveLfoOutputRange` above always uses, so an LFO can swing across a parameter's entire usable range); `src/data/globalAudioLoadingRanges.ts`'s `GLOBAL_AUDIO_LOADING_RANGES` is a narrower seed-sampling sub-range — what a fresh planet is actually allowed to roll — and is what `sampleField()` samples against, never the wider table. Wired into `audioStore` automatically on planet load/change via a `usePlanetStore.subscribe()` in `audioStore.ts` — no call site has to remember to re-seed. `enabled` is genuinely seeded, not forced: every effect (Compressor, EQ3, LPF, HPF, Reverb, Limiter) seeds `true` unconditionally; Delay alone gets a real ~25% chance via a `delayEnabledT >= 0.75` threshold (same `getSeededVal`/dot-namespaced-dataId pattern as every other seeded field, dataId `globalAudio.delay.enabled`) — the sole global effect a fresh planet can load already bypassed. `audioStore`'s `regenerateGlobalAudioFromSeed` pushes each effect's own seeded `enabled` straight through to `AudioEngine.setEffectBypass`, no override.
+- **Global-chain `LfoSettings`** (shape/rate/depth, plus whether each target starts active) are seed-generated per planet in `src/utils/globalAudioSeed.ts`'s `generateGlobalLfoSettings(planetId, planetName)`, sampling the same planet noise map `generateGlobalAudioSettings` uses, dataIds dot-namespaced as `globalLfo.<target>.<field>`. Unlike `GLOBAL_AUDIO_SEED_RANGES`, every target shares one global rate/depth range (`LFO_RATE_MIN/MAX`, `LFO_DEPTH_MIN/MAX`) rather than a per-field table, since `GLOBAL_CHAIN_GRID.md`'s `LFO?` column is a flat flag, not per-field bounds. `active` is seeded too — unlike the robot-level precedent above, where connected/active is purely a runtime UI concern never part of the generated data — using an `activeT >= 0.8` threshold (~20% chance per target, chosen so a typical planet seeds roughly 1–2 already-active LFOs out of 8, not several at once). Wired into `audioStore` via the same planet-sync subscription as `generateGlobalAudioSettings`, but deliberately **data-only** at that point (`regenerateGlobalLfoFromSeed` never calls `lfoEngine`) — planet-sync runs before any user gesture, and `lfoEngine`'s setters unconditionally construct a real `Tone.LFO` node on first use. `AudioEngine.start()` is what actually primes `lfoEngine` from this seeded state and connects+starts every already-active target, since that's the one point guaranteed to run after `Tone.start()` has succeeded.
 
 ### Dev-only audible check
 
