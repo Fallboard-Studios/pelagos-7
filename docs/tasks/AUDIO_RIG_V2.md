@@ -209,18 +209,18 @@ Task 9, Task 10 ──→ Task 11 (AudioRigDrawer.tsx)
 
   **Estimated scope:** S
 
-- [ ] **Task 7: `src/engine/lfoEngine.ts` — audit for the 8-target `GlobalLfoTargetId`**
+- [x] **Task 7: `src/engine/lfoEngine.ts` — audit for the 8-target `GlobalLfoTargetId`**
 
   **Description:** No chorus-specific branch exists in this file to remove (verified: `globalSeedRangeKey()` only special-cases the `'lpf.'`/`'hpf.'` prefixes, never chorus) — this task is an audit + test update, not a rewrite. Confirm `resolveLfoOutputRange`, `connectLfoTarget`, and `disconnectLfoTarget` all continue to behave correctly against the narrowed 8-member `GlobalLfoTargetId` type with no special-casing needed. `AUDIO_SYSTEM.md`'s documented divergence ("`getGlobalModulationTarget('chorus.delayTime')` always returns null") is not this file's concern to remove — that's `globalFx.ts`, already handled by Task 5 dropping the whole target; the doc-comment cleanup here is this file's own internal comments only, if any reference chorus specifically (a grep-and-check, not assumed).
 
   **Acceptance criteria:**
-  - [ ] `npx tsc --noEmit` on this file shows no chorus-shaped type errors once Task 2 has landed (confirming no chorus-specific logic silently existed here).
-  - [ ] Any internal comment referencing chorus/9-targets is corrected or removed.
-  - [ ] All 8 remaining `GlobalLfoTargetId`s still connect/disconnect/resolve correctly (no behavior regression for the targets that survive).
+  - [x] `npx tsc --noEmit` on this file shows no chorus-shaped type errors once Task 2 has landed (confirming no chorus-specific logic silently existed here).
+  - [x] Any internal comment referencing chorus/9-targets is corrected or removed. Found and fixed one: `connectLfoTarget`'s doc comment listed `chorus.delayTime` alongside `pulseWidth` as an example of a "no live Signal" target — trimmed to just `pulseWidth`.
+  - [x] All 8 remaining `GlobalLfoTargetId`s still connect/disconnect/resolve correctly (no behavior regression for the targets that survive) — confirmed `globalSeedRangeKey`/`resolveLfoOutputRange` never special-cased chorus at all (only `'lpf.'`/`'hpf.'` prefixes), so no logic change was needed there, exactly as predicted.
 
   **Verification:**
-  - [ ] `npx vitest run src/engine/lfoEngine.test.ts` — target-count/membership assertions updated (8, not 9); any test fixture literally using `'chorus.delayTime'` as a target replaced with a surviving target (e.g. `'delay.delayTime'`).
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/engine/lfoEngine.test.ts` — 44/44 passing. No target-count assertion existed to update (counts are derived dynamically from the arrays, not hardcoded). One fixture (`'reflects a previously-set rate/depth/shape'`) used `'chorus.delayTime'` as its target literal — replaced with `'delay.delayTime'`.
+  - [x] `npm run build:types`, `npm run lint` clean — zero references to `lfoEngine.ts`/`lfoEngine.test.ts` remain in either output.
 
   **Dependencies:** Task 2.
 
