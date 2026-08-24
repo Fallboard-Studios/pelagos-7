@@ -152,6 +152,14 @@ describe('AUDIO_RIG_CONFIG', () => {
       expect(findBlock('delay').params.map((p) => p.field)).toEqual(['delayTime', 'feedback', 'wet']);
     });
 
+    it('every sliderLinear param carries an explicit fine-grained step — bug repro: a full range <= 1 with no explicit step defaults to step=1 in SliderLinear, collapsing the whole slider into just min/max (reported: "acting as a toggle")', () => {
+      for (const field of ['delayTime', 'feedback', 'wet']) {
+        const schema = findParam('delay', field).schema as { step?: number; min: number; max: number };
+        expect(schema.step, `delay.${field}.step`).toBeDefined();
+        expect(schema.step!, `delay.${field}.step should be well under its own range`).toBeLessThan(schema.max - schema.min);
+      }
+    });
+
     it('delayTime is a linear slider, seconds, 0 to 1, LFO-flagged as delay.delayTime', () => {
       const param = findParam('delay', 'delayTime');
       expect(param.schema).toMatchObject({ type: 'sliderLinear', loreLabel: 'PROPAGATION LAG', min: 0, max: 1, unit: 's' });
@@ -192,6 +200,14 @@ describe('AUDIO_RIG_CONFIG', () => {
       const param = findParam('reverb', 'wet');
       expect(param.schema).toMatchObject({ type: 'sliderLinear', loreLabel: 'DIFFUSED SIGNAL BALANCE', min: 0, max: 1 });
       expect(param.lfoTarget).toBeUndefined();
+    });
+
+    it('preDelay and wet (both sliderLinear, full range <= 1) carry an explicit fine-grained step — same toggle-collapse bug as Delay\'s params', () => {
+      for (const field of ['preDelay', 'wet']) {
+        const schema = findParam('reverb', field).schema as { step?: number; min: number; max: number };
+        expect(schema.step, `reverb.${field}.step`).toBeDefined();
+        expect(schema.step!, `reverb.${field}.step should be well under its own range`).toBeLessThan(schema.max - schema.min);
+      }
     });
   });
 

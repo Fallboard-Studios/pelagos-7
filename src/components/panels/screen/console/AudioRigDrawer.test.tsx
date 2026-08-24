@@ -80,6 +80,20 @@ describe('AudioRigDrawer', () => {
     expect(useAudioStore.getState().globalAudio.compressor.threshold).toBe(-23);
   });
 
+  it('a single arrow-key press on a Delay slider moves by a small increment, not straight to max — regression: sliderLinear schemas with a full range <= 1 and no explicit step used to act like toggles', () => {
+    useAudioStore.setState((s) => ({
+      globalAudio: { ...s.globalAudio, delay: { ...s.globalAudio.delay, enabled: true, delayTime: 0.5 } },
+    }));
+    render(<AudioRigDrawer />);
+    const delayTimeSlider = screen.getByRole('slider', { name: 'Time' });
+    delayTimeSlider.focus();
+    fireEvent.keyDown(delayTimeSlider, { key: 'ArrowRight' });
+
+    const newValue = useAudioStore.getState().globalAudio.delay.delayTime;
+    expect(newValue).toBeGreaterThan(0.5);
+    expect(newValue).toBeLessThan(1); // must not jump straight to max in one press
+  });
+
   it('toggling an effect\'s own bypass calls setEffectEnabled and updates state', () => {
     render(<AudioRigDrawer />);
     const compressorToggle = screen.getByRole('switch', { name: 'Compressor Enabled' });
