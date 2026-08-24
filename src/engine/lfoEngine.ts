@@ -196,9 +196,20 @@ function waveformUnit(shape: LfoShape, phaseRadians: number): number {
   }
 }
 
-function isTransportRunning(): boolean {
+/**
+ * Whether it's safe to actually start an oscillator right now. Gates on the
+ * AudioContext itself, not Transport state — Transport can still be mid-
+ * startup (instrument loading, waiting on reverb) well after Tone.start()
+ * has already made the context running, and gating on Transport left a real
+ * window where an LFO could connect to a live target but never actually
+ * start oscillating: Tone.LFO outputs a raw, undepth-scaled "stopped" value
+ * (its waveform's value at its resting phase — not necessarily 0, e.g. for
+ * square/sawtooth/triangle shapes) for as long as it never starts, which
+ * gets summed straight into whatever it's connected to indefinitely.
+ */
+function isAudioContextRunning(): boolean {
   try {
-    return Tone.getTransport().state === 'started';
+    return Tone.getContext().state === 'running';
   } catch {
     return false;
   }
@@ -273,19 +284,20 @@ function setLfoShape(target: LfoTargetId, shape: LfoSettings['shape'], robotId?:
 }
 
 /**
- * Start an already-created LFO, gated by the transport: no-ops (does not
- * call the underlying node's start()) unless Tone.getTransport().state is
- * 'started'. Deliberately does NOT call Tone.LFO.sync() — per its own doc
- * comment, sync() ties frequency to the transport's BPM as well as
- * start/stop, which would tempo-couple the rate and violate the confirmed
- * intent that rate stays a free-running Hz value. If no node has been
- * created yet for this target (no setter/connect called), this is a no-op —
- * start() itself never lazily constructs a node.
+ * Start an already-created LFO, gated by the AudioContext: no-ops (does not
+ * call the underlying node's start()) unless Tone.getContext().state is
+ * 'running' (not Transport state — see isAudioContextRunning() above).
+ * Deliberately does NOT call Tone.LFO.sync() — per its own doc comment,
+ * sync() ties frequency to the transport's BPM as well as start/stop, which
+ * would tempo-couple the rate and violate the confirmed intent that rate
+ * stays a free-running Hz value. If no node has been created yet for this
+ * target (no setter/connect called), this is a no-op — start() itself never
+ * lazily constructs a node.
  */
 function start(target: LfoTargetId, robotId?: string): void {
   const lfo = activeLfos.get(instanceKey(target, robotId));
   if (!lfo) return;
-  if (!isTransportRunning()) return;
+  if (!isAudioContextRunning()) return;
   lfo.start();
 }
 

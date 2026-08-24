@@ -3,9 +3,16 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 // ========================================
 // MOCKS
 // ========================================
-// Mutable so individual tests can flip transport state to exercise the
-// start-is-gated-by-transport behavior without re-mocking per test.
+// Mutable so individual tests can flip transport/context state without
+// re-mocking per test.
 let mockTransportState: 'started' | 'stopped' = 'stopped';
+// start() gates on the AudioContext itself being 'running', not Transport
+// state — the Transport can still be mid-startup (loading instruments,
+// waiting on reverb) well after Tone.start() has already made the context
+// running, and gating on Transport left a real window where an LFO could
+// connect to a live target but never actually start oscillating, stuck
+// forever outputting Tone.LFO's raw, undepth-scaled "stopped" value.
+let mockContextState: 'running' | 'suspended' = 'suspended';
 
 vi.mock('tone', () => ({
   LFO: vi.fn((frequency?: number) => ({
@@ -21,6 +28,7 @@ vi.mock('tone', () => ({
     dispose: vi.fn(),
   })),
   getTransport: vi.fn(() => ({ get state() { return mockTransportState; } })),
+  getContext: vi.fn(() => ({ get state() { return mockContextState; } })),
   now: vi.fn(() => mockToneNow),
 }));
 
@@ -109,6 +117,7 @@ describe('lfoEngine', () => {
   beforeEach(async () => {
     vi.resetModules();
     mockTransportState = 'stopped';
+    mockContextState = 'suspended';
     mockToneNow = 0;
     scheduleCallbacks.clear();
   });
@@ -253,7 +262,7 @@ describe('lfoEngine', () => {
     });
   });
 
-  describe('start (transport-gated)', () => {
+  describe('start (audio-context-gated)', () => {
     it('does not construct a node and does not throw when nothing has been set/connected yet', async () => {
       const { lfoEngine } = await import('./lfoEngine');
       let threw = false;
@@ -268,22 +277,32 @@ describe('lfoEngine', () => {
       expect(delta).toBe(0);
     });
 
-    it('starts the node when the transport is running', async () => {
+    it('starts the node when the AudioContext is running', async () => {
       const { lfoEngine } = await import('./lfoEngine');
       lfoEngine.setLfoRate('volume', 2); // creates the node
       const instance = await latestLfoInstance();
-      mockTransportState = 'started';
+      mockContextState = 'running';
       lfoEngine.start('volume');
       expect(instance.start).toHaveBeenCalledTimes(1);
     });
 
-    it('does not start the node when the transport is stopped', async () => {
+    it('does not start the node when the AudioContext is suspended', async () => {
       const { lfoEngine } = await import('./lfoEngine');
       lfoEngine.setLfoRate('volume', 2); // creates the node
       const instance = await latestLfoInstance();
-      mockTransportState = 'stopped';
+      mockContextState = 'suspended';
       lfoEngine.start('volume');
       expect(instance.start).not.toHaveBeenCalled();
+    });
+
+    it('starts the node based on the AudioContext, independent of Transport state — the real bug: Transport can still be starting up well after the context itself is already running', async () => {
+      const { lfoEngine } = await import('./lfoEngine');
+      lfoEngine.setLfoRate('volume', 2); // creates the node
+      const instance = await latestLfoInstance();
+      mockContextState = 'running';
+      mockTransportState = 'stopped'; // Transport not yet started
+      lfoEngine.start('volume');
+      expect(instance.start).toHaveBeenCalledTimes(1);
     });
   });
 
