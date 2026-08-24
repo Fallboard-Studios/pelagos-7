@@ -352,18 +352,18 @@ Task 9, Task 10 ──→ Task 11 (AudioRigDrawer.tsx)
 
 ### Phase 6: Docs
 
-- [ ] **Task 12: `docs/AUDIO_SYSTEM.md` — Signal Graph, API listing, LFO Modulation, Seeding**
+- [x] **Task 12: `docs/AUDIO_SYSTEM.md` — Signal Graph, API listing, LFO Modulation, Seeding**
 
   **Description:** Four sections need updating in this one file: Signal Graph (the new chain order, both topologies, and what the Decay toggle does structurally), the `AudioEngine` API code-block listing (`setGlobalLimiter` added, `setGlobalChorus` removed, `setEffectBypass`'s documented union updated), LFO Modulation (8 targets not 9; remove the now-moot "`chorus.delayTime` always returns null" divergence note — that whole caveat stops applying once chorus doesn't exist, not just the one case), and Seeding (rewrite the `enabled`-forced-true note — it's no longer forced, each effect seeds for real per Task 8's rule).
 
   **Acceptance criteria:**
-  - [ ] No remaining mention of Chorus anywhere in this file except as historical context if genuinely useful (judgment call — err toward removing rather than leaving stale references).
-  - [ ] Signal Graph section shows the new order and both named topologies.
-  - [ ] LFO target count is 8 everywhere it's stated; the chorus.delayTime divergence note is gone.
-  - [ ] Seeding section accurately describes the new per-effect `enabled` behavior (all-true-except-Delay's-25%).
+  - [x] No remaining mention of Chorus anywhere in this file except as historical context if genuinely useful — kept exactly one: a note in the "Two Tone.js divergences" section explaining why the list only has 2 items now, explicitly framed as "no longer applies."
+  - [x] Signal Graph section shows the new order and both named topologies.
+  - [x] LFO target count is 8 everywhere it's stated (21 total, 13+8); the chorus.delayTime divergence note is gone.
+  - [x] Seeding section accurately describes the new per-effect `enabled` behavior (all-true-except-Delay's-25%).
 
   **Verification:**
-  - [ ] Manual review — every claim spot-checked against the shipped source (Tasks 1–11), matching this project's established doc-verification style, not reconstructed from memory.
+  - [x] Manual review — every claim spot-checked against the shipped source: `wireGlobalFxChain`/`getGlobalChainEntry` signatures (globalFx.ts), `setCompressorBeforeDelay` (audioStore.ts), `DELAY_ENABLED_THRESHOLD`/dataId `globalAudio.delay.enabled` (globalAudioSeed.ts), `GLOBAL_AUDIO_LOADING_RANGES` vs `GLOBAL_AUDIO_SEED_RANGES`'s split roles, the 8/13/21 target counts. Also fixed one stale reference the task didn't explicitly name but the same read surfaced: the Layered/Composite Voices section's "→ master compressor" phrase (now "→ global chain entry, EQ3").
 
   **Dependencies:** Task 11.
 
