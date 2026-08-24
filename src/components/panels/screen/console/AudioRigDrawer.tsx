@@ -6,7 +6,7 @@ import { SliderLog } from '@/components/ui/controls/SliderLog';
 import { SliderCenteredZero } from '@/components/ui/controls/SliderCenteredZero';
 import { Stepper } from '@/components/ui/controls/Stepper';
 import { Lfo } from '@/components/ui/controls/Lfo';
-import { AUDIO_RIG_CONFIG, type AudioRigParamSchema, type AudioRigEffectKey } from '@/data/audioRigConfig';
+import { AUDIO_RIG_CONFIG, NATURAL_DECAY_SCHEMA, CONTROLLED_DECAY_SCHEMA, type AudioRigParamSchema, type AudioRigEffectKey } from '@/data/audioRigConfig';
 import type { ToggleSchema } from '@/types/controls';
 import type { GlobalAudioSettings } from '@/types/globalAudio';
 import './AudioRigDrawer.css';
@@ -32,10 +32,13 @@ function renderParamControl(param: AudioRigParamSchema, value: number, onChange:
 }
 
 /**
- * Live Audio Rig console — resolves docs/tasks/AUDIO_RIG.md Task 10 (bypass +
- * params; nested LFO accordions land in Task 11). Renders purely from
- * AUDIO_RIG_CONFIG, wired to audioStore's setGlobalAudio/setEffectEnabled/
- * setGlobalBypassEnabled — every control here is live, not presentational.
+ * Live Audio Rig console — resolves docs/tasks/AUDIO_RIG.md Task 10/11 (V1:
+ * bypass + params + nested LFO accordions) and docs/tasks/AUDIO_RIG_V2.md
+ * Task 11 (V2: Decay toggle — the rest of V2 needed no drawer-specific
+ * change at all, purely a consequence of AUDIO_RIG_CONFIG being schema-
+ * driven). Renders purely from AUDIO_RIG_CONFIG, wired to audioStore's
+ * setGlobalAudio/setEffectEnabled/setGlobalBypassEnabled/
+ * setCompressorBeforeDelay — every control here is live, not presentational.
  */
 export function AudioRigDrawer() {
   const globalAudio = useAudioStore((s) => s.globalAudio);
@@ -44,6 +47,7 @@ export function AudioRigDrawer() {
   const setEffectEnabled = useAudioStore((s) => s.setEffectEnabled);
   const setGlobalBypassEnabled = useAudioStore((s) => s.setGlobalBypassEnabled);
   const setGlobalLfo = useAudioStore((s) => s.setGlobalLfo);
+  const setCompressorBeforeDelay = useAudioStore((s) => s.setCompressorBeforeDelay);
 
   const rigDisabled = globalAudio.globalBypass;
 
@@ -51,6 +55,11 @@ export function AudioRigDrawer() {
     <div className="audio-rig-drawer">
       <div className="audio-rig-drawer__master-row">
         <Toggle schema={GLOBAL_BYPASS_SCHEMA} value={globalAudio.globalBypass} onChange={setGlobalBypassEnabled} />
+        <Toggle
+          schema={globalAudio.compressorBeforeDelay ? CONTROLLED_DECAY_SCHEMA : NATURAL_DECAY_SCHEMA}
+          value={globalAudio.compressorBeforeDelay}
+          onChange={setCompressorBeforeDelay}
+        />
       </div>
       {AUDIO_RIG_CONFIG.map((block) => {
         // Every param field on every effect is a number (GLOBAL_CHAIN_GRID.md has

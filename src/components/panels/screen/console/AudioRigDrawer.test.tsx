@@ -46,9 +46,14 @@ describe('AudioRigDrawer', () => {
     expect(screen.getByText('3-Band EQ')).toBeTruthy();
     expect(screen.getByText('Low-Pass Filter')).toBeTruthy();
     expect(screen.getByText('High-Pass Filter')).toBeTruthy();
-    expect(screen.getByText('Chorus')).toBeTruthy();
     expect(screen.getByText('Delay')).toBeTruthy();
     expect(screen.getByText('Reverb')).toBeTruthy();
+    expect(screen.getByText('Limiter')).toBeTruthy();
+  });
+
+  it('no longer renders a Chorus accordion', () => {
+    render(<AudioRigDrawer />);
+    expect(screen.queryByText('Chorus')).toBeNull();
   });
 
   it('renders a param control bound to its live store value', () => {
@@ -56,7 +61,9 @@ describe('AudioRigDrawer', () => {
       globalAudio: { ...s.globalAudio, compressor: { ...s.globalAudio.compressor, threshold: -12 } },
     }));
     render(<AudioRigDrawer />);
-    const thresholdSlider = screen.getByRole('slider', { name: 'Threshold' });
+    // Compressor and Limiter both have a "Threshold" param — Compressor's
+    // accordion renders first in the new chain order, so index [0] is its own.
+    const thresholdSlider = screen.getAllByRole('slider', { name: 'Threshold' })[0];
     expect(thresholdSlider.getAttribute('aria-valuenow')).toBe('-12');
   });
 
@@ -67,7 +74,7 @@ describe('AudioRigDrawer', () => {
       globalAudio: { ...s.globalAudio, compressor: { ...s.globalAudio.compressor, enabled: true } },
     }));
     render(<AudioRigDrawer />);
-    const thresholdSlider = screen.getByRole('slider', { name: 'Threshold' });
+    const thresholdSlider = screen.getAllByRole('slider', { name: 'Threshold' })[0];
     thresholdSlider.focus();
     fireEvent.keyDown(thresholdSlider, { key: 'ArrowRight' }); // default step 1, from default -24
     expect(useAudioStore.getState().globalAudio.compressor.threshold).toBe(-23);
@@ -86,7 +93,7 @@ describe('AudioRigDrawer', () => {
       globalAudio: { ...s.globalAudio, compressor: { ...s.globalAudio.compressor, enabled: false } },
     }));
     render(<AudioRigDrawer />);
-    const thresholdSlider = screen.getByRole('slider', { name: 'Threshold' });
+    const thresholdSlider = screen.getAllByRole('slider', { name: 'Threshold' })[0];
     expect(thresholdSlider.getAttribute('data-disabled')).toBe('');
   });
 
@@ -95,7 +102,7 @@ describe('AudioRigDrawer', () => {
       globalAudio: { ...s.globalAudio, compressor: { ...s.globalAudio.compressor, enabled: true } },
     }));
     render(<AudioRigDrawer />);
-    const thresholdSlider = screen.getByRole('slider', { name: 'Threshold' });
+    const thresholdSlider = screen.getAllByRole('slider', { name: 'Threshold' })[0];
     expect(thresholdSlider.getAttribute('data-disabled')).toBeNull();
   });
 
@@ -117,7 +124,7 @@ describe('AudioRigDrawer', () => {
   it('the rig-wide bypass on also disables every effect\'s param controls, even ones individually enabled', () => {
     useAudioStore.setState((s) => ({ globalAudio: { ...s.globalAudio, globalBypass: true } }));
     render(<AudioRigDrawer />);
-    const thresholdSlider = screen.getByRole('slider', { name: 'Threshold' });
+    const thresholdSlider = screen.getAllByRole('slider', { name: 'Threshold' })[0];
     expect(thresholdSlider.getAttribute('data-disabled')).toBe('');
   });
 
@@ -127,17 +134,24 @@ describe('AudioRigDrawer', () => {
   });
 
   describe('nested LFO accordions (Task 11)', () => {
-    it('renders exactly 9 nested LFO accordions — one per GlobalLfoTargetId', () => {
+    it('renders exactly 8 nested LFO accordions — one per GlobalLfoTargetId', () => {
       render(<AudioRigDrawer />);
-      expect(screen.getAllByText('Modulation')).toHaveLength(9);
+      expect(screen.getAllByText('Modulation')).toHaveLength(8);
     });
 
-    it('renders no LFO accordion for the 15 non-flagged params (e.g. compressor.threshold)', () => {
+    it('renders no LFO accordion for the 11 non-flagged params (e.g. compressor.threshold)', () => {
       render(<AudioRigDrawer />);
       // Threshold's own row shouldn't contain a nested "Modulation" trigger —
       // scope by walking up from the Threshold slider to its param row.
-      const thresholdSlider = screen.getByRole('slider', { name: 'Threshold' });
+      const thresholdSlider = screen.getAllByRole('slider', { name: 'Threshold' })[0];
       const paramRow = thresholdSlider.closest('.audio-rig-drawer__param-row');
+      expect(paramRow?.textContent).not.toContain('Modulation');
+    });
+
+    it('renders no LFO accordion for Limiter\'s threshold either — Limiter never gets one', () => {
+      render(<AudioRigDrawer />);
+      const limiterThresholdSlider = screen.getAllByRole('slider', { name: 'Threshold' })[1];
+      const paramRow = limiterThresholdSlider.closest('.audio-rig-drawer__param-row');
       expect(paramRow?.textContent).not.toContain('Modulation');
     });
 
@@ -172,6 +186,38 @@ describe('AudioRigDrawer', () => {
       render(<AudioRigDrawer />);
       const activeToggle = screen.getAllByRole('switch', { name: 'Active' })[0]; // eq3.low
       expect((activeToggle as HTMLButtonElement).disabled).toBe(false);
+    });
+  });
+
+  describe('Reverb (Task 11)', () => {
+    it('renders no dampening slider — dead, removed', () => {
+      render(<AudioRigDrawer />);
+      expect(screen.queryByRole('slider', { name: 'Dampening' })).toBeNull();
+    });
+  });
+
+  describe('Decay toggle (Task 11)', () => {
+    it('renders, defaulting to "Natural Decay" (compressorBeforeDelay: false)', () => {
+      render(<AudioRigDrawer />);
+      expect(screen.getByRole('switch', { name: 'Natural Decay' })).toBeTruthy();
+    });
+
+    it('clicking it calls setCompressorBeforeDelay(true)', () => {
+      render(<AudioRigDrawer />);
+      const decayToggle = screen.getByRole('switch', { name: 'Natural Decay' });
+      expect(useAudioStore.getState().globalAudio.compressorBeforeDelay).toBe(false);
+
+      fireEvent.click(decayToggle);
+
+      expect(useAudioStore.getState().globalAudio.compressorBeforeDelay).toBe(true);
+    });
+
+    it('once compressorBeforeDelay is true, the same toggle\'s visible label reads "Controlled Decay"', () => {
+      useAudioStore.setState((s) => ({ globalAudio: { ...s.globalAudio, compressorBeforeDelay: true } }));
+      render(<AudioRigDrawer />);
+
+      expect(screen.getByRole('switch', { name: 'Controlled Decay' })).toBeTruthy();
+      expect(screen.queryByRole('switch', { name: 'Natural Decay' })).toBeNull();
     });
   });
 });
