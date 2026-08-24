@@ -5,7 +5,8 @@ import { describe, it, expect, afterEach } from 'vitest';
 
 import { generateGlobalAudioSettings, generateGlobalLfoSettings, scaleUnitValue } from './globalAudioSeed';
 import { evictPlanetNoiseMap } from './noiseMaps';
-import { GLOBAL_AUDIO_SEED_RANGES, type GlobalAudioSeedFieldKey } from '@/data/globalAudioSeedRanges';
+import { GLOBAL_AUDIO_LOADING_RANGES } from '@/data/globalAudioLoadingRanges';
+import { type GlobalAudioSeedFieldKey } from '@/data/globalAudioSeedRanges';
 import { GLOBAL_LFO_TARGET_IDS, LFO_SHAPES, LFO_RATE_MIN, LFO_RATE_MAX, LFO_DEPTH_MIN, LFO_DEPTH_MAX } from '@/types/lfo';
 
 // ========================================
@@ -51,9 +52,15 @@ describe('generateGlobalAudioSettings', () => {
     expect(settings.eq3).toBeDefined();
     expect(settings.filterLPF).toBeDefined();
     expect(settings.filterHPF).toBeDefined();
-    expect(settings.chorus).toBeDefined();
     expect(settings.delay).toBeDefined();
     expect(settings.reverb).toBeDefined();
+    expect(settings.limiter).toBeDefined();
+  });
+
+  it('returns no chorus field and no reverb.dampening field', () => {
+    const settings = generateGlobalAudioSettings('seed-test-planet', 'Nova');
+    expect('chorus' in settings).toBe(false);
+    expect('dampening' in settings.reverb).toBe(false);
   });
 
   it('fixes filterLPF/filterHPF type to their identity, not seeded', () => {
@@ -81,7 +88,7 @@ describe('generateGlobalAudioSettings', () => {
     expect(b).not.toEqual(a);
   });
 
-  it('keeps every field within its documented range', () => {
+  it('keeps every sampled field within its narrower LOADING range, not just the wider full range', () => {
     const settings = generateGlobalAudioSettings('seed-test-planet', 'Nova');
     const valueByKey: Record<GlobalAudioSeedFieldKey, number> = {
       'compressor.threshold': settings.compressor.threshold,
@@ -96,35 +103,65 @@ describe('generateGlobalAudioSettings', () => {
       'filterLPF.Q': settings.filterLPF.Q,
       'filterHPF.frequency': settings.filterHPF.frequency,
       'filterHPF.Q': settings.filterHPF.Q,
-      'chorus.rate': settings.chorus.rate,
-      'chorus.depth': settings.chorus.depth,
-      'chorus.delayTime': settings.chorus.delayTime,
-      'chorus.feedback': settings.chorus.feedback,
-      'chorus.wet': settings.chorus.wet,
       'delay.delayTime': settings.delay.delayTime,
       'delay.feedback': settings.delay.feedback,
       'delay.wet': settings.delay.wet,
       'reverb.decay': settings.reverb.decay,
       'reverb.preDelay': settings.reverb.preDelay,
-      'reverb.dampening': settings.reverb.dampening,
       'reverb.wet': settings.reverb.wet,
+      'limiter.threshold': settings.limiter.threshold,
     };
-    for (const key of Object.keys(GLOBAL_AUDIO_SEED_RANGES) as GlobalAudioSeedFieldKey[]) {
-      const { min, max } = GLOBAL_AUDIO_SEED_RANGES[key];
+    for (const key of Object.keys(GLOBAL_AUDIO_LOADING_RANGES) as GlobalAudioSeedFieldKey[]) {
+      const { min, max } = GLOBAL_AUDIO_LOADING_RANGES[key];
       expect(valueByKey[key], `${key} should be >= ${min}`).toBeGreaterThanOrEqual(min);
       expect(valueByKey[key], `${key} should be <= ${max}`).toBeLessThanOrEqual(max);
     }
   });
 
-  it('does not seed the enabled/globalBypass flags — they come from DEFAULT_GLOBAL_AUDIO_SETTINGS', () => {
-    // Task 6 forces every effect's `enabled` to true; this task only needs to
-    // NOT randomize it. Two different planets should agree on `enabled` even
-    // though their numeric fields differ.
+  it('does not seed globalBypass — it comes from DEFAULT_GLOBAL_AUDIO_SETTINGS unchanged', () => {
     const a = generateGlobalAudioSettings('seed-test-planet', 'Nova');
     const b = generateGlobalAudioSettings('seed-test-planet-b', 'Zenith');
     expect(a.globalBypass).toBe(b.globalBypass);
-    expect(a.reverb.enabled).toBe(b.reverb.enabled);
-    expect(a.compressor.enabled).toBe(b.compressor.enabled);
+  });
+
+  it('seeds enabled: true unconditionally for every effect except delay', () => {
+    // Two differently-seeded planets should agree on every non-delay effect's
+    // `enabled` (always true) even though their numeric fields differ.
+    const a = generateGlobalAudioSettings('seed-test-planet', 'Nova');
+    const b = generateGlobalAudioSettings('seed-test-planet-b', 'Zenith');
+    expect(a.compressor.enabled).toBe(true);
+    expect(a.eq3.enabled).toBe(true);
+    expect(a.filterLPF.enabled).toBe(true);
+    expect(a.filterHPF.enabled).toBe(true);
+    expect(a.reverb.enabled).toBe(true);
+    expect(a.limiter.enabled).toBe(true);
+    expect(b.compressor.enabled).toBe(true);
+    expect(b.eq3.enabled).toBe(true);
+    expect(b.filterLPF.enabled).toBe(true);
+    expect(b.filterHPF.enabled).toBe(true);
+    expect(b.reverb.enabled).toBe(true);
+    expect(b.limiter.enabled).toBe(true);
+  });
+
+  it('seeds delay.enabled true for roughly 1-in-4 planets, not roughly all or none (>= 0.75 threshold)', () => {
+    const SAMPLE_PLANETS = 40;
+    let enabledCount = 0;
+    for (let i = 0; i < SAMPLE_PLANETS; i++) {
+      const settings = generateGlobalAudioSettings(`seed-delay-sample-${i}`, `DelaySample${i}`);
+      if (settings.delay.enabled) enabledCount++;
+      evictPlanetNoiseMap(`seed-delay-sample-${i}`);
+    }
+    const enabledRate = enabledCount / SAMPLE_PLANETS;
+    // ~25% expected; a wide tolerance band avoids flakiness while still
+    // clearly distinguishing this from "always true" or "always false".
+    expect(enabledRate).toBeGreaterThan(0.05);
+    expect(enabledRate).toBeLessThan(0.5);
+  });
+
+  it('is deterministic for delay.enabled too — same planetId + planetName always agrees', () => {
+    const first = generateGlobalAudioSettings('seed-test-planet', 'Nova');
+    const second = generateGlobalAudioSettings('seed-test-planet', 'Nova');
+    expect(second.delay.enabled).toBe(first.delay.enabled);
   });
 });
 
@@ -135,7 +172,7 @@ describe('generateGlobalLfoSettings', () => {
     for (let i = 0; i < 40; i++) evictPlanetNoiseMap(`seed-lfo-sample-${i}`);
   });
 
-  it('returns a fully-populated record for all 9 GlobalLfoTargetIds', () => {
+  it('returns a fully-populated record for all 8 GlobalLfoTargetIds', () => {
     const settings = generateGlobalLfoSettings('seed-test-planet', 'Nova');
     expect(Object.keys(settings).sort()).toEqual([...GLOBAL_LFO_TARGET_IDS].sort());
   });

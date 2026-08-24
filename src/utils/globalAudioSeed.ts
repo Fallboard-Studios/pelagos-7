@@ -8,6 +8,7 @@ import { getSeededVal } from './getSeededVal';
 
 import type { GlobalAudioSettings } from '@/types/globalAudio';
 import { DEFAULT_GLOBAL_AUDIO_SETTINGS } from '@/types/globalAudio';
+import { GLOBAL_AUDIO_LOADING_RANGES } from '@/data/globalAudioLoadingRanges';
 import { GLOBAL_AUDIO_SEED_RANGES, type GlobalAudioSeedFieldKey, type SeedRange } from '@/data/globalAudioSeedRanges';
 import {
   GLOBAL_LFO_TARGET_IDS,
@@ -40,7 +41,11 @@ export function scaleUnitValue(t: number, range: SeedRange): number {
 }
 
 function sampleField(noiseMap: NoiseFunction2D, key: GlobalAudioSeedFieldKey): number {
-  const range = GLOBAL_AUDIO_SEED_RANGES[key];
+  // Sample within the narrower LOADING range (initial-seed sub-window), but
+  // honor the full range's log/linear scale — GLOBAL_AUDIO_LOADING_RANGES
+  // doesn't carry its own `scale`, it's purely a narrower min/max over the
+  // same field GLOBAL_AUDIO_SEED_RANGES already describes.
+  const range: SeedRange = { ...GLOBAL_AUDIO_LOADING_RANGES[key], scale: GLOBAL_AUDIO_SEED_RANGES[key].scale };
   // getSeededVal handles the seeded noise → [0, 1] draw; scaleUnitValue owns
   // range + log/linear mapping, so the two concerns stay separately testable.
   const t = getSeededVal(noiseMap, `globalAudio.${key}`, 0, 0, 1);
@@ -48,23 +53,36 @@ function sampleField(noiseMap: NoiseFunction2D, key: GlobalAudioSeedFieldKey): n
 }
 
 /**
+ * Probability threshold Delay's `enabled` seed draw ([0, 1]) must clear to
+ * seed `true` — spec §5: a 25% chance, the sole exception among global
+ * effects (every other effect always seeds enabled: true). Mirrors the
+ * shipped LFO_ACTIVE_THRESHOLD pattern below, just a different field/odds.
+ */
+const DELAY_ENABLED_THRESHOLD = 0.75;
+
+/**
  * Generate deterministic GlobalAudioSettings for a planet, sampled from the
  * planet noise map — a new direct sample; previously the planet map was only
  * used to derive locale maps (see PROCEDURAL_GENERATION.md).
  *
- * `enabled`/`type`/`globalBypass` are NOT seeded — they're carried over from
- * DEFAULT_GLOBAL_AUDIO_SETTINGS unchanged. Task 6 forces every effect's
- * `enabled` to true when wiring this into audioStore; this function only
- * needs to not randomize it.
+ * `type`/`globalBypass` are NOT seeded — carried over from
+ * DEFAULT_GLOBAL_AUDIO_SETTINGS unchanged. `enabled` IS seeded (V2 — see
+ * spec §5, superseding the Phase 0 force-true shim that used to live in
+ * audioStore.ts's regenerateGlobalAudioFromSeed): every effect seeds
+ * enabled: true unconditionally except Delay, which gets a real ~25% chance
+ * via DELAY_ENABLED_THRESHOLD — the sole global effect a fresh planet can
+ * load with off.
  */
 export function generateGlobalAudioSettings(planetId: string, planetName: string): GlobalAudioSettings {
   const noiseMap = getPlanetNoiseMap(planetId, planetName);
   const defaults = DEFAULT_GLOBAL_AUDIO_SETTINGS;
+  const delayEnabledT = getSeededVal(noiseMap, 'globalAudio.delay.enabled', 0, 0, 1);
 
   return {
     globalBypass: defaults.globalBypass,
+    compressorBeforeDelay: defaults.compressorBeforeDelay,
     compressor: {
-      enabled: defaults.compressor.enabled,
+      enabled: true,
       threshold: sampleField(noiseMap, 'compressor.threshold'),
       ratio: sampleField(noiseMap, 'compressor.ratio'),
       attack: sampleField(noiseMap, 'compressor.attack'),
@@ -72,43 +90,38 @@ export function generateGlobalAudioSettings(planetId: string, planetName: string
       knee: sampleField(noiseMap, 'compressor.knee'),
     },
     eq3: {
-      enabled: defaults.eq3.enabled,
+      enabled: true,
       low: sampleField(noiseMap, 'eq3.low'),
       mid: sampleField(noiseMap, 'eq3.mid'),
       high: sampleField(noiseMap, 'eq3.high'),
     },
     filterLPF: {
-      enabled: defaults.filterLPF.enabled,
+      enabled: true,
       type: 'lowpass',
       frequency: sampleField(noiseMap, 'filterLPF.frequency'),
       Q: sampleField(noiseMap, 'filterLPF.Q'),
     },
     filterHPF: {
-      enabled: defaults.filterHPF.enabled,
+      enabled: true,
       type: 'highpass',
       frequency: sampleField(noiseMap, 'filterHPF.frequency'),
       Q: sampleField(noiseMap, 'filterHPF.Q'),
     },
-    chorus: {
-      enabled: defaults.chorus.enabled,
-      rate: sampleField(noiseMap, 'chorus.rate'),
-      depth: sampleField(noiseMap, 'chorus.depth'),
-      delayTime: sampleField(noiseMap, 'chorus.delayTime'),
-      feedback: sampleField(noiseMap, 'chorus.feedback'),
-      wet: sampleField(noiseMap, 'chorus.wet'),
-    },
     delay: {
-      enabled: defaults.delay.enabled,
+      enabled: delayEnabledT >= DELAY_ENABLED_THRESHOLD,
       delayTime: sampleField(noiseMap, 'delay.delayTime'),
       feedback: sampleField(noiseMap, 'delay.feedback'),
       wet: sampleField(noiseMap, 'delay.wet'),
     },
     reverb: {
-      enabled: defaults.reverb.enabled,
+      enabled: true,
       decay: sampleField(noiseMap, 'reverb.decay'),
       preDelay: sampleField(noiseMap, 'reverb.preDelay'),
-      dampening: sampleField(noiseMap, 'reverb.dampening'),
       wet: sampleField(noiseMap, 'reverb.wet'),
+    },
+    limiter: {
+      enabled: true,
+      threshold: sampleField(noiseMap, 'limiter.threshold'),
     },
   };
 }
@@ -117,7 +130,7 @@ export function generateGlobalAudioSettings(planetId: string, planetName: string
  * Probability threshold an `active` seed draw ([0, 1]) must clear to seed
  * `true` — docs/tasks/AUDIO_RIG.md's Architecture Decisions: ~20% chance per
  * target (not a flat 50/50), so a typical planet seeds roughly 1-2 active
- * LFOs out of 9, not 4-5.
+ * LFOs out of 8, not 4-5.
  */
 const LFO_ACTIVE_THRESHOLD = 0.8;
 
