@@ -2,22 +2,25 @@ import * as Tone from 'tone';
 
 import { getToneCtor, type ModulationTarget } from './toneHelpers';
 import { devLog, devWarn } from '@/utils/helpers';
-import type { ReverbSettings, DelaySettings, ChorusSettings, FilterSettings, EQ3Settings, CompressorSettings } from '@/types/globalAudio';
+import type { ReverbSettings, DelaySettings, FilterSettings, EQ3Settings, CompressorSettings, LimiterSettings } from '@/types/globalAudio';
 import type { GlobalLfoTargetId } from '@/types/lfo';
 
 // ========================================
 // MODULE STATE (module-scoped, runtime-only — never put these in Zustand)
 // ========================================
-let _masterCompressor: Tone.Compressor | null = null;
+let _globalCompressor: Tone.Compressor | null = null;
 let _globalReverb: Tone.Reverb | null = null;
 let _globalDelay: Tone.FeedbackDelay | null = null;
-let _globalChorus: Tone.Chorus | null = null;
 let _globalEQ: Tone.EQ3 | null = null;
 let _globalLPF: Tone.Filter | null = null;
 let _globalHPF: Tone.Filter | null = null;
+let _globalLimiter: Tone.Limiter | null = null;
 // Master output gain controlling overall volume (used by setMasterVolume/getMasterVolume)
 let _masterGain: Tone.Gain | null = null;
 let _masterVolume = 1;
+// Which of the two fixed topologies wireGlobalFxChain() last wired — read by
+// setGlobalBypass() to restore the correct order when un-bypassing.
+let _currentControlledDecay = false;
 
 /**
  * Cache of the last wet/level values for each FX node — used to restore values
@@ -26,46 +29,45 @@ let _masterVolume = 1;
 const _fxParamCache = {
   reverb: { wet: 0.3 },
   delay: { wet: 0.15 },
-  chorus: { wet: 0.2 },
   eq3: { low: 0, mid: 0, high: 0 },
   lpf: { frequency: 20000, Q: 1 },
   hpf: { frequency: 20, Q: 1 },
   compressor: { threshold: -18, ratio: 6, attack: 0.003, release: 0.15, knee: 0 },
+  limiter: { threshold: -12 },
 };
 
 /**
- * Build the master compressor + global FX chain and wire them together:
- * _masterCompressor → _globalEQ → _globalLPF → _globalHPF → _globalChorus →
- * _globalDelay → _globalReverb → _masterGain → Destination. All nodes are
- * guarded with typeof checks for test/headless environments. Idempotent
- * relative to AudioEngine.ts's own instrumentsLoaded guard — this function
- * itself doesn't guard re-entry, that stays the caller's job (loadInstruments).
+ * Build every global FX node and wire them into the default "Natural Decay"
+ * topology via wireGlobalFxChain(false). All nodes are guarded with
+ * getToneCtor() checks for test/headless environments. Idempotent relative to
+ * AudioEngine.ts's own instrumentsLoaded guard — this function itself doesn't
+ * guard re-entry, that stays the caller's job (loadInstruments).
  */
 export function buildGlobalFxChain(): void {
-  const compressor = new Tone.Compressor({
+  _globalCompressor = new Tone.Compressor({
     threshold: -18,  // engage earlier to tame FM/AM harmonics before clipping
     ratio: 6,        // softer compression ratio; not a hard limiter
     attack: 0.003,
     release: 0.15,
   });
-  _masterCompressor = compressor;
 
   const ReverbCtor = getToneCtor<Tone.Reverb>('Reverb');
   const DelayCtor = getToneCtor<Tone.FeedbackDelay>('FeedbackDelay');
-  const ChorusCtor = getToneCtor<Tone.Chorus>('Chorus');
   const EQ3Ctor = getToneCtor<Tone.EQ3>('EQ3');
   const FilterCtor = getToneCtor<Tone.Filter>('Filter');
   const GainCtorFX = getToneCtor<Tone.Gain>('Gain');
+  const LimiterCtor = getToneCtor<Tone.Limiter>('Limiter');
 
   if (ReverbCtor) {
     _globalReverb = new ReverbCtor({ decay: 1.5, preDelay: 0.02, wet: 0.3 });
   }
   if (DelayCtor) {
-    _globalDelay = new DelayCtor({ delayTime: 0.25, feedback: 0.2, wet: 0 });
-  }
-  if (ChorusCtor) {
-    _globalChorus = new ChorusCtor({ rate: 1.5, depth: 0.2, delayTime: 0.012, feedback: 0.1, wet: 0 });
-    try { (_globalChorus as unknown as { start(): void }).start(); } catch (err) { devWarn('[AudioEngine] chorus.start failed', err); }
+    // maxDelay is explicit on purpose: it must stay >= the max of
+    // GLOBAL_AUDIO_SEED_RANGES['delay.delayTime'] (1s). Previously this was
+    // an unset, implicit reliance on Tone.FeedbackDelay's own default of 1 —
+    // correct today only by coincidence, and silently driftable if either
+    // side changed independently.
+    _globalDelay = new DelayCtor({ delayTime: 0.25, feedback: 0.2, wet: 0, maxDelay: 1 });
   }
   if (EQ3Ctor) {
     _globalEQ = new EQ3Ctor({ low: 0, mid: 0, high: 0 });
@@ -73,6 +75,9 @@ export function buildGlobalFxChain(): void {
   if (FilterCtor) {
     _globalLPF = new FilterCtor({ type: 'lowpass', frequency: 20000, Q: 1 });
     _globalHPF = new FilterCtor({ type: 'highpass', frequency: 20, Q: 1 });
+  }
+  if (LimiterCtor) {
+    _globalLimiter = new LimiterCtor({ threshold: -12 });
   }
   if (GainCtorFX) {
     // Master gain sits after the FX chain (or final destination) to control overall volume.
@@ -83,61 +88,104 @@ export function buildGlobalFxChain(): void {
     }
   }
 
-  // Wire chain: compressor → EQ → LPF → HPF → Chorus → Delay → Reverb → Destination
-  // Fall back gracefully: connect compressor directly to destination when nodes are missing.
-  const chainNodes = [
+  wireGlobalFxChain(false);
+}
+
+/**
+ * Disconnect every constructed global FX node from whatever it's currently
+ * connected to. Tone.js's (and the underlying Web Audio) disconnect() with no
+ * arguments detaches a node from ALL of its outputs, so this doesn't need to
+ * track exact prior edges — safe to call even if nothing was ever connected.
+ */
+function disconnectAllFxNodes(): void {
+  const nodes = [
     _globalEQ,
     _globalLPF,
     _globalHPF,
-    _globalChorus,
     _globalDelay,
     _globalReverb,
-  ].filter(Boolean) as Array<{ connect: (t: unknown) => unknown; toDestination?: () => void }>;
-
-  if (chainNodes.length > 0) {
+    _globalCompressor,
+    _globalLimiter,
+    _masterGain,
+  ].filter(Boolean) as Array<{ disconnect: () => void }>;
+  for (const node of nodes) {
     try {
-      // connect compressor → first FX node
-      (compressor as unknown as { connect: (t: unknown) => void }).connect(chainNodes[0]);
-      // connect each FX node to the next
-      for (let i = 0; i < chainNodes.length - 1; i++) {
-        chainNodes[i].connect(chainNodes[i + 1]);
-      }
-      // connect last FX node → Master gain → Destination (masterGain optional)
-      try {
-        if (_masterGain) {
-          chainNodes[chainNodes.length - 1].connect(_masterGain);
-          try { _masterGain.toDestination?.(); } catch (err) { devWarn('[AudioEngine] masterGain.toDestination failed', err); }
-        } else {
-          try { chainNodes[chainNodes.length - 1].toDestination?.(); } catch (err) { devWarn('[AudioEngine] chain.toDestination failed', err); }
-        }
-      } catch (err) {
-        devWarn('[AudioEngine] fxChain.connect failed', err);
-        try { compressor.toDestination(); } catch { /* headless */ }
-      }
+      node.disconnect();
     } catch (err) {
-      devWarn('[AudioEngine] fxChain.topLevel failed', err);
-      try { compressor.toDestination(); } catch (err) { devWarn('[AudioEngine] compressor.toDestination failed', err); }
+      devWarn('[AudioEngine] disconnect failed during FX rewire', err);
     }
-  } else {
-    // No FX nodes available (test env) — route directly to destination
-    try {
-      if (_masterGain) {
-        (compressor as unknown as { connect: (t: unknown) => void }).connect(_masterGain);
-        try { _masterGain.toDestination?.(); } catch { /* headless */ }
-      } else {
-        compressor.toDestination();
-      }
-    } catch (err) { devWarn('[AudioEngine] failed', err); }
   }
-
-  devLog('[AudioEngine] FX chain loaded');
 }
 
-/** The live master compressor — read by AudioEngine.ts's reserveVoice() to
- *  connect each robot's per-voice bus into the global chain. Null until
- *  buildGlobalFxChain() has run. */
-export function getMasterCompressor(): Tone.Compressor | null {
-  return _masterCompressor;
+/**
+ * Wire the global FX chain into one of two fixed topologies, tearing down
+ * whatever was previously connected first:
+ *
+ * - Natural Decay (controlledDecay=false, default): EQ3 → LPF → HPF → Delay →
+ *   Reverb → Compressor → Limiter — the two time-based effects' tails ring
+ *   out before compression.
+ * - Controlled Decay (controlledDecay=true): EQ3 → LPF → HPF → Compressor →
+ *   Delay → Reverb → Limiter — compression happens before both Delay and
+ *   Reverb, tightening their tails.
+ *
+ * Both topologies terminate at masterGain → Destination (or straight to
+ * Destination if masterGain wasn't constructed). Called once from
+ * buildGlobalFxChain() and again whenever the "Natural Decay" / "Controlled
+ * Decay" toggle flips (src/stores/audioStore.ts's setCompressorBeforeDelay).
+ */
+export function wireGlobalFxChain(controlledDecay: boolean): void {
+  _currentControlledDecay = controlledDecay;
+  disconnectAllFxNodes();
+
+  const orderedNodes = controlledDecay
+    ? [_globalEQ, _globalLPF, _globalHPF, _globalCompressor, _globalDelay, _globalReverb, _globalLimiter]
+    : [_globalEQ, _globalLPF, _globalHPF, _globalDelay, _globalReverb, _globalCompressor, _globalLimiter];
+
+  const chainNodes = orderedNodes.filter(Boolean) as Array<{
+    connect: (t: unknown) => unknown;
+    toDestination?: () => void;
+  }>;
+
+  if (chainNodes.length === 0) {
+    // No FX nodes available at all (fully headless env) — nothing to wire.
+    devLog('[AudioEngine] FX chain wired — no nodes constructed (headless env)');
+    return;
+  }
+
+  try {
+    for (let i = 0; i < chainNodes.length - 1; i++) {
+      chainNodes[i].connect(chainNodes[i + 1]);
+    }
+    const last = chainNodes[chainNodes.length - 1];
+    if (_masterGain) {
+      last.connect(_masterGain);
+      try {
+        _masterGain.toDestination?.();
+      } catch (err) {
+        devWarn('[AudioEngine] masterGain.toDestination failed', err);
+      }
+    } else {
+      try {
+        last.toDestination?.();
+      } catch (err) {
+        devWarn('[AudioEngine] chain.toDestination failed', err);
+      }
+    }
+  } catch (err) {
+    devWarn('[AudioEngine] wireGlobalFxChain failed', err);
+  }
+
+  devLog('[AudioEngine] FX chain wired', controlledDecay ? '(Controlled Decay)' : '(Natural Decay)');
+}
+
+/** The live chain-entry node — EQ3, first in both Natural and Controlled
+ *  Decay topologies — read by AudioEngine.ts's reserveVoice() to connect each
+ *  robot's per-voice bus into the global chain. Null until
+ *  buildGlobalFxChain() has run. Replaces the old getMasterCompressor(),
+ *  which stopped being accurate once the V2 reorder moved Compressor off the
+ *  front of the chain. */
+export function getGlobalChainEntry(): Tone.EQ3 | null {
+  return _globalEQ;
 }
 
 /** Reverb generates its impulse response asynchronously — AudioEngine.start()
@@ -157,7 +205,11 @@ export function setMasterVolume(volume: number): void {
   const v = Math.max(0, Math.min(1, Number(volume) || 0));
   _masterVolume = v;
   if (_masterGain) {
-    try { (_masterGain as unknown as { gain: { value: number } }).gain.value = v; } catch (err) { devWarn('[AudioEngine] setMasterVolume failed', err); }
+    try {
+      (_masterGain as unknown as { gain: { value: number } }).gain.value = v;
+    } catch (err) {
+      devWarn('[AudioEngine] setMasterVolume failed', err);
+    }
   }
 }
 
@@ -167,7 +219,9 @@ export function getMasterVolume(): number {
     if (_masterGain && typeof (_masterGain as unknown as { gain?: { value?: number } }).gain?.value === 'number') {
       return (_masterGain as unknown as { gain?: { value?: number } }).gain!.value ?? _masterVolume;
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return _masterVolume;
 }
 
@@ -182,7 +236,6 @@ export function setGlobalReverb(params: Partial<ReverbSettings>): void {
     if (params.wet !== undefined) (_globalReverb as unknown as { wet: { value: number } }).wet.value = params.wet;
     if (params.decay !== undefined) (_globalReverb as unknown as { decay: number }).decay = params.decay;
     if (params.preDelay !== undefined) (_globalReverb as unknown as { preDelay: number }).preDelay = params.preDelay;
-    if (params.dampening !== undefined) (_globalReverb as unknown as { dampening: number }).dampening = params.dampening;
   } catch (err) {
     devWarn('[AudioEngine] setGlobalReverb failed', err);
   }
@@ -197,20 +250,6 @@ export function setGlobalDelay(params: Partial<DelaySettings>): void {
     if (params.feedback !== undefined) (_globalDelay as unknown as { feedback: { value: number } }).feedback.value = params.feedback;
   } catch (err) {
     devWarn('[AudioEngine] setGlobalDelay failed', err);
-  }
-}
-
-export function setGlobalChorus(params: Partial<ChorusSettings>): void {
-  if (params.wet !== undefined) _fxParamCache.chorus.wet = params.wet;
-  if (!_globalChorus) return;
-  try {
-    if (params.wet !== undefined) (_globalChorus as unknown as { wet: { value: number } }).wet.value = params.wet;
-    if (params.rate !== undefined) (_globalChorus as unknown as { frequency: { value: number } }).frequency.value = params.rate;
-    if (params.depth !== undefined) (_globalChorus as unknown as { depth: number }).depth = params.depth;
-    if (params.delayTime !== undefined) (_globalChorus as unknown as { delayTime: number }).delayTime = params.delayTime;
-    if (params.feedback !== undefined) (_globalChorus as unknown as { feedback: { value: number } }).feedback.value = params.feedback;
-  } catch (err) {
-    devWarn('[AudioEngine] setGlobalChorus failed', err);
   }
 }
 
@@ -258,39 +297,45 @@ export function setGlobalCompressor(params: Partial<CompressorSettings>): void {
   if (params.attack !== undefined) _fxParamCache.compressor.attack = params.attack;
   if (params.release !== undefined) _fxParamCache.compressor.release = params.release;
   if (params.knee !== undefined) _fxParamCache.compressor.knee = params.knee;
-  if (!_masterCompressor) return;
+  if (!_globalCompressor) return;
   try {
-    if (params.threshold !== undefined) _masterCompressor.threshold.value = params.threshold;
-    if (params.ratio !== undefined) _masterCompressor.ratio.value = params.ratio;
-    if (params.attack !== undefined) _masterCompressor.attack.value = params.attack;
-    if (params.release !== undefined) _masterCompressor.release.value = params.release;
-    if (params.knee !== undefined) _masterCompressor.knee.value = params.knee;
+    if (params.threshold !== undefined) _globalCompressor.threshold.value = params.threshold;
+    if (params.ratio !== undefined) _globalCompressor.ratio.value = params.ratio;
+    if (params.attack !== undefined) _globalCompressor.attack.value = params.attack;
+    if (params.release !== undefined) _globalCompressor.release.value = params.release;
+    if (params.knee !== undefined) _globalCompressor.knee.value = params.knee;
   } catch (err) {
     devWarn('[AudioEngine] setGlobalCompressor failed', err);
   }
 }
 
+export function setGlobalLimiter(params: Partial<LimiterSettings>): void {
+  if (params.threshold !== undefined) _fxParamCache.limiter.threshold = params.threshold;
+  if (!_globalLimiter) return;
+  try {
+    if (params.threshold !== undefined) (_globalLimiter as unknown as { threshold: { value: number } }).threshold.value = params.threshold;
+  } catch (err) {
+    devWarn('[AudioEngine] setGlobalLimiter failed', err);
+  }
+}
+
 /**
  * Short-circuit the entire FX chain.
- * When bypass=true, disconnect _masterCompressor from the FX chain and connect directly to Destination.
- * When bypass=false, reconnect through the FX chain.
+ * When bypass=true, disconnect the chain entry (EQ3) and connect it directly
+ * to Destination. When bypass=false, re-run wireGlobalFxChain() for whichever
+ * topology (Natural/Controlled Decay) was last selected, restoring it exactly.
  */
 export function setGlobalBypass(bypass: boolean): void {
   devLog('[AudioEngine] global bypass state set to', bypass);
-  if (!_masterCompressor) return;
-  const comp = _masterCompressor as unknown as { connect: (t: unknown) => void; disconnect: () => void; toDestination: () => void };
+  if (!_globalEQ) return;
   try {
-    comp.disconnect();
     if (bypass) {
-      comp.toDestination();
+      const entry = _globalEQ as unknown as { disconnect: () => void; toDestination: () => void };
+      entry.disconnect();
+      entry.toDestination();
       devLog('[AudioEngine] Global bypass ON — audio routed direct to destination');
     } else {
-      const firstFX = (_globalEQ ?? _globalLPF ?? _globalHPF ?? _globalChorus ?? _globalDelay ?? _globalReverb) as unknown as { connect?: (t: unknown) => void } | null;
-      if (firstFX?.connect) {
-        comp.connect(firstFX);
-      } else {
-        comp.toDestination();
-      }
+      wireGlobalFxChain(_currentControlledDecay);
       devLog('[AudioEngine] Global bypass OFF — audio routed through FX chain');
     }
   } catch (err) {
@@ -300,11 +345,13 @@ export function setGlobalBypass(bypass: boolean): void {
 
 /**
  * Enable or disable an individual effect in the chain.
- * For wet effects (reverb, delay, chorus): sets wet=0 to disable, restores cached wet to enable.
+ * For wet effects (reverb, delay): sets wet=0 to disable, restores cached wet to enable.
  * For dry effects (eq3): zeros all bands to disable, restores cached values to enable.
  * For filters (lpf, hpf): sets frequency to passthrough value to disable, restores cached freq to enable.
+ * For dynamics processors with no wet mix (compressor, limiter): neutralizes
+ * via parameter (ratio→1/threshold→0) rather than physically rerouting the graph.
  *
- * @param effect - 'reverb' | 'delay' | 'chorus' | 'eq3' | 'lpf' | 'hpf' | 'compressor'
+ * @param effect - 'reverb' | 'delay' | 'eq3' | 'lpf' | 'hpf' | 'compressor' | 'limiter'
  * @param enabled - true to enable, false to bypass
  */
 export function setEffectBypass(effect: string, enabled: boolean): void {
@@ -318,11 +365,6 @@ export function setEffectBypass(effect: string, enabled: boolean): void {
       case 'delay':
         if (_globalDelay) {
           (_globalDelay as unknown as { wet: { value: number } }).wet.value = enabled ? _fxParamCache.delay.wet : 0;
-        }
-        break;
-      case 'chorus':
-        if (_globalChorus) {
-          (_globalChorus as unknown as { wet: { value: number } }).wet.value = enabled ? _fxParamCache.chorus.wet : 0;
         }
         break;
       case 'eq3':
@@ -345,9 +387,16 @@ export function setEffectBypass(effect: string, enabled: boolean): void {
         break;
       case 'compressor':
         // Compressor bypass: restore or clamp to passthrough (ratio=1, threshold=0)
-        if (_masterCompressor) {
-          _masterCompressor.ratio.value = enabled ? _fxParamCache.compressor.ratio : 1;
-          _masterCompressor.threshold.value = enabled ? _fxParamCache.compressor.threshold : 0;
+        if (_globalCompressor) {
+          _globalCompressor.ratio.value = enabled ? _fxParamCache.compressor.ratio : 1;
+          _globalCompressor.threshold.value = enabled ? _fxParamCache.compressor.threshold : 0;
+        }
+        break;
+      case 'limiter':
+        // Limiter bypass: push threshold to 0dB (transparent), same neutralize-
+        // via-parameter approach as Compressor — Limiter has no wet mix either.
+        if (_globalLimiter) {
+          (_globalLimiter as unknown as { threshold: { value: number } }).threshold.value = enabled ? _fxParamCache.limiter.threshold : 0;
         }
         break;
       default:
@@ -362,12 +411,8 @@ export function setEffectBypass(effect: string, enabled: boolean): void {
  * Resolve the live, connectable Tone Signal/Param for a global-chain LFO
  * modulation target (docs/tasks/LFO_INTEGRATION_PLAN.md Task 10). Returns
  * null — never throws — before buildGlobalFxChain() has run (module-scope
- * _global* nodes are null until then), and for 'chorus.delayTime'
- * unconditionally: Tone.Chorus.delayTime is a plain get/set number, not a
- * Signal — Chorus already runs its own internal LFO on delayTime, so Tone.js
- * exposes no connectable Signal for it at all, independent of anything built
- * here (verified against tone's own Chorus.d.ts, which declares
- * `get/set delayTime(): Milliseconds`).
+ * _global* nodes are null until then). Limiter never appears here: it isn't a
+ * GlobalLfoTargetId member at all (no LFO on the Limiter, by design).
  */
 export function getGlobalModulationTarget(target: GlobalLfoTargetId): ModulationTarget | null {
   try {
@@ -386,8 +431,6 @@ export function getGlobalModulationTarget(target: GlobalLfoTargetId): Modulation
         return ((_globalHPF as unknown as { frequency?: unknown })?.frequency as ModulationTarget) ?? null;
       case 'hpf.Q':
         return ((_globalHPF as unknown as { Q?: unknown })?.Q as ModulationTarget) ?? null;
-      case 'chorus.delayTime':
-        return null;
       case 'delay.delayTime':
         return ((_globalDelay as unknown as { delayTime?: unknown })?.delayTime as ModulationTarget) ?? null;
       default:
