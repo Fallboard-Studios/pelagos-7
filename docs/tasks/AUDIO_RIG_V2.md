@@ -237,20 +237,20 @@ Task 9, Task 10 ──→ Task 11 (AudioRigDrawer.tsx)
 
 ### Phase 3: Seeding logic
 
-- [ ] **Task 8: `src/utils/globalAudioSeed.ts` — Limiter sampling, Delay-only 25% `enabled`, loading-range sampling**
+- [x] **Task 8: `src/utils/globalAudioSeed.ts` — Limiter sampling, Delay-only 25% `enabled`, loading-range sampling**
 
   **Description:** Remove chorus's 5 `sampleField` calls and reverb's `dampening` sampling call; add `limiter: { enabled: true, threshold: sampleField(noiseMap, 'limiter.threshold') }`. Move `enabled` seeding here per spec §5: every effect except Delay gets `enabled: true` unconditionally (Compressor, EQ3, LPF, HPF, Reverb, Limiter); Delay gets `enabled: delayEnabledT >= 0.75` where `delayEnabledT = getSeededVal(noiseMap, 'globalAudio.delay.enabled', 0, 0, 1)` — same pattern as the shipped LFO `activeT >= 0.8` threshold, just a different field/probability. `sampleField()`'s internals switch from `scaleUnitValue(t, GLOBAL_AUDIO_SEED_RANGES[key])` to `scaleUnitValue(t, GLOBAL_AUDIO_LOADING_RANGES[key])` — the `t` draw itself is unchanged, only which range it's mapped into.
 
   **Acceptance criteria:**
-  - [ ] `generateGlobalAudioSettings` returns no `chorus` field and no `reverb.dampening`; returns a fully-populated `limiter`.
-  - [ ] `compressor.enabled`, `eq3.enabled`, `filterLPF.enabled`, `filterHPF.enabled`, `reverb.enabled`, `limiter.enabled` are `true` on every call, for every planet (deterministic, not seeded).
-  - [ ] `delay.enabled` is seeded via the `>= 0.75` threshold — a statistical spot-check across many differently-seeded planets shows roughly 1-in-4 come back `true`, not roughly all or none (same style as `audioRigConfig.test.ts`'s own `activeT` statistical test from V1).
-  - [ ] Every sampled numeric value falls within `GLOBAL_AUDIO_LOADING_RANGES[key]`, not just the wider `GLOBAL_AUDIO_SEED_RANGES[key]`.
-  - [ ] Determinism preserved: same `(planetId, planetName)` → identical output, including the `delay.enabled` roll.
+  - [x] `generateGlobalAudioSettings` returns no `chorus` field and no `reverb.dampening`; returns a fully-populated `limiter`.
+  - [x] `compressor.enabled`, `eq3.enabled`, `filterLPF.enabled`, `filterHPF.enabled`, `reverb.enabled`, `limiter.enabled` are `true` on every call, for every planet (deterministic, not seeded).
+  - [x] `delay.enabled` is seeded via the `>= 0.75` threshold — a statistical spot-check across many differently-seeded planets shows roughly 1-in-4 come back `true`, not roughly all or none (same style as `audioRigConfig.test.ts`'s own `activeT` statistical test from V1).
+  - [x] Every sampled numeric value falls within `GLOBAL_AUDIO_LOADING_RANGES[key]`, not just the wider `GLOBAL_AUDIO_SEED_RANGES[key]`.
+  - [x] Determinism preserved: same `(planetId, planetName)` → identical output, including the `delay.enabled` roll.
 
   **Verification:**
-  - [ ] `npx vitest run src/utils/globalAudioSeed.test.ts` — chorus assertions removed, limiter assertions added, `enabled`-per-effect assertions added (including the statistical delay check), loading-range-bounds assertions replacing the old seed-range-bounds ones for sampled values.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/utils/globalAudioSeed.test.ts` — 22/22 passing. Chorus assertions removed, limiter assertions added, per-effect `enabled` assertions added (non-delay effects always `true`; delay's statistical ~25% spot-check across 40 sampled planets, plus its own determinism check), loading-range-bounds assertions replacing the old seed-range-bounds ones for sampled values.
+  - [x] `npm run build:types`, `npm run lint` clean for this file and its test — both fully absent from either output now. Full-repo `npx vitest run`: down to 6 failed / 804 passed across 4 files (`TransportBar.test.tsx`, `AudioRigDrawer.test.tsx`, `audioRigConfig.test.ts`, `AudioEngine.test.ts`) — `audioStore.test.ts` and `globalAudioSeed.test.ts` are now fully clean too, since the runtime crash source (`defaults.chorus.enabled` on now-`undefined` `defaults.chorus`) no longer exists; `audioStore.ts` itself still spreads a nonexistent `generated.chorus` and calls the removed `AudioEngine.setGlobalChorus` (Task 9's job — currently masked at runtime by `audioStore.test.ts`'s own AudioEngine mock still defining `setGlobalChorus`, and by `{...undefined}` not throwing in JS, only under `tsc`).
 
   **Dependencies:** Task 3, Task 4.
 
