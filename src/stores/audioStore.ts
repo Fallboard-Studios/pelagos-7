@@ -4,6 +4,7 @@
 import { create } from 'zustand';
 
 import { AudioEngine } from '../engine/AudioEngine';
+import { wireGlobalFxChain } from '../engine/audioEngine/globalFx';
 import { lfoEngine } from '../engine/lfoEngine';
 import { generateGlobalAudioSettings, generateGlobalLfoSettings } from '../utils/globalAudioSeed';
 import { usePlanetStore, selectCurrentPlanet } from './planetStore';
@@ -17,11 +18,11 @@ import { GLOBAL_LFO_TARGET_IDS, type GlobalLfoTargetId, type LfoSettings } from 
 // TYPES
 // ========================================
 
-/** Keys of GlobalAudioSettings that are effect-param objects (excludes `globalBypass`). */
-type EffectKey = Exclude<keyof GlobalAudioSettings, 'globalBypass'>;
+/** Keys of GlobalAudioSettings that are effect-param objects (excludes the two top-level flags). */
+type EffectKey = Exclude<keyof GlobalAudioSettings, 'globalBypass' | 'compressorBeforeDelay'>;
 
 /** `AudioEngine.setEffectBypass`'s effect keys — note 'lpf'/'hpf', not 'filterLPF'/'filterHPF'. */
-const BYPASS_EFFECT_KEYS = ['reverb', 'delay', 'chorus', 'eq3', 'lpf', 'hpf', 'compressor'] as const;
+type BypassEffectKey = 'reverb' | 'delay' | 'limiter' | 'eq3' | 'lpf' | 'hpf' | 'compressor';
 
 /** Routes a setGlobalAudio(effect, partial) call to its matching AudioEngine setter. */
 const GLOBAL_SETTER: { [K in EffectKey]: (params: Partial<GlobalAudioSettings[K]>) => void } = {
@@ -29,18 +30,18 @@ const GLOBAL_SETTER: { [K in EffectKey]: (params: Partial<GlobalAudioSettings[K]
   eq3: AudioEngine.setGlobalEQ,
   filterLPF: AudioEngine.setGlobalFilterLPF,
   filterHPF: AudioEngine.setGlobalFilterHPF,
-  chorus: AudioEngine.setGlobalChorus,
+  limiter: AudioEngine.setGlobalLimiter,
   delay: AudioEngine.setGlobalDelay,
   reverb: AudioEngine.setGlobalReverb,
 };
 
-/** EffectKey -> AudioEngine.setEffectBypass's short-form key — same mapping BYPASS_EFFECT_KEYS implies. */
-const BYPASS_KEY: Record<EffectKey, (typeof BYPASS_EFFECT_KEYS)[number]> = {
+/** EffectKey -> AudioEngine.setEffectBypass's short-form key. */
+const BYPASS_KEY: Record<EffectKey, BypassEffectKey> = {
   compressor: 'compressor',
   eq3: 'eq3',
   filterLPF: 'lpf',
   filterHPF: 'hpf',
-  chorus: 'chorus',
+  limiter: 'limiter',
   delay: 'delay',
   reverb: 'reverb',
 };
@@ -80,10 +81,18 @@ export interface AudioStore {
   setMuted: (muted: boolean) => void;
   setPreMuteVolume: (volume: number) => void;
   /**
-   * Regenerate `globalAudio` for the given planet from the seed (Task 5's
-   * generateGlobalAudioSettings), forcing every effect's `enabled` to true
-   * (spec §3/§6 — not seeded, pinned on for this phase), and push the
-   * result into AudioEngine's live Tone FX chain.
+   * Swap the compressor's chain position — false (default) = "Natural Decay"
+   * (compressor after Delay+Reverb), true = "Controlled Decay" (compressor
+   * before both). Updates state and rewires the live Tone FX chain via
+   * globalFx.ts's wireGlobalFxChain().
+   */
+  setCompressorBeforeDelay: (value: boolean) => void;
+  /**
+   * Regenerate `globalAudio` for the given planet from the seed
+   * (generateGlobalAudioSettings, src/utils/globalAudioSeed.ts) and push the
+   * result into AudioEngine's live Tone FX chain. `enabled` is used exactly
+   * as seeded — every effect true except Delay's real ~25% chance (spec §5)
+   * — no override here; that force-true shim was Phase 0-only and is gone.
    */
   regenerateGlobalAudioFromSeed: (planetId: string, planetName: string) => void;
   /**
@@ -148,6 +157,11 @@ export const useAudioStore = create<AudioStore>((set) => ({
     AudioEngine.setGlobalBypass(bypass);
   },
 
+  setCompressorBeforeDelay: (value) => {
+    set((state) => ({ globalAudio: { ...state.globalAudio, compressorBeforeDelay: value } }));
+    wireGlobalFxChain(value);
+  },
+
   setGlobalLfo: (target, value) => {
     set((state) => ({ globalLfo: { ...state.globalLfo, [target]: value } }));
     lfoEngine.setLfoShape(target, value.shape);
@@ -169,28 +183,22 @@ export const useAudioStore = create<AudioStore>((set) => ({
   },
 
   regenerateGlobalAudioFromSeed: (planetId, planetName) => {
-    const generated = generateGlobalAudioSettings(planetId, planetName);
-    const globalAudio: GlobalAudioSettings = {
-      ...generated,
-      compressor: { ...generated.compressor, enabled: true },
-      eq3: { ...generated.eq3, enabled: true },
-      filterLPF: { ...generated.filterLPF, enabled: true },
-      filterHPF: { ...generated.filterHPF, enabled: true },
-      chorus: { ...generated.chorus, enabled: true },
-      delay: { ...generated.delay, enabled: true },
-      reverb: { ...generated.reverb, enabled: true },
-    };
+    // generateGlobalAudioSettings's own output is used as-is, `enabled`
+    // included — seeding is where that decision lives now (V2, spec §5).
+    const globalAudio: GlobalAudioSettings = generateGlobalAudioSettings(planetId, planetName);
     set({ globalAudio });
 
     AudioEngine.setGlobalCompressor(globalAudio.compressor);
     AudioEngine.setGlobalEQ(globalAudio.eq3);
     AudioEngine.setGlobalFilterLPF(globalAudio.filterLPF);
     AudioEngine.setGlobalFilterHPF(globalAudio.filterHPF);
-    AudioEngine.setGlobalChorus(globalAudio.chorus);
+    AudioEngine.setGlobalLimiter(globalAudio.limiter);
     AudioEngine.setGlobalDelay(globalAudio.delay);
     AudioEngine.setGlobalReverb(globalAudio.reverb);
-    for (const effect of BYPASS_EFFECT_KEYS) {
-      AudioEngine.setEffectBypass(effect, true);
+    // Push each effect's OWN seeded enabled value, not a blanket true —
+    // Delay in particular may have seeded false and must stay bypassed.
+    for (const [effectKey, bypassKey] of Object.entries(BYPASS_KEY) as [EffectKey, BypassEffectKey][]) {
+      AudioEngine.setEffectBypass(bypassKey, globalAudio[effectKey].enabled);
     }
   },
 

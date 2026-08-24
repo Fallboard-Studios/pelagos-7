@@ -1262,7 +1262,6 @@ describe('AudioEngine.start - prime, connect, and start seeded global LFOs (Task
     'lpf.Q': { shape: 'sine', rate: 0.5, depth: 20, active: false },
     'hpf.frequency': { shape: 'sine', rate: 1.5, depth: 60, active: false },
     'hpf.Q': { shape: 'square', rate: 2.5, depth: 70, active: false },
-    'chorus.delayTime': { shape: 'sine', rate: 3.5, depth: 80, active: true },
     'delay.delayTime': { shape: 'triangle', rate: 5, depth: 90, active: false },
   } as const;
 
@@ -1287,7 +1286,7 @@ describe('AudioEngine.start - prime, connect, and start seeded global LFOs (Task
     return { lfoEngine };
   }
 
-  it('primes setLfoShape/setLfoRate/setLfoDepth for every one of the 9 targets from globalLfo state', async () => {
+  it('primes setLfoShape/setLfoRate/setLfoDepth for every one of the 8 targets from globalLfo state', async () => {
     const { lfoEngine } = await startWithFixture();
 
     for (const [target, settings] of Object.entries(FIXTURE_GLOBAL_LFO)) {
@@ -1305,9 +1304,6 @@ describe('AudioEngine.start - prime, connect, and start seeded global LFOs (Task
 
     expect(lfoEngine.connectLfoTarget).toHaveBeenCalledWith('lpf.frequency');
     expect(lfoEngine.start).toHaveBeenCalledWith('lpf.frequency');
-
-    expect(lfoEngine.connectLfoTarget).toHaveBeenCalledWith('chorus.delayTime');
-    expect(lfoEngine.start).toHaveBeenCalledWith('chorus.delayTime');
   });
 
   it('does not call start for an active target whose connect fails', async () => {

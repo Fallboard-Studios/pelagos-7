@@ -13,12 +13,18 @@ vi.mock('../engine/AudioEngine', () => ({
     setGlobalEQ: vi.fn(),
     setGlobalFilterLPF: vi.fn(),
     setGlobalFilterHPF: vi.fn(),
-    setGlobalChorus: vi.fn(),
+    setGlobalLimiter: vi.fn(),
     setGlobalDelay: vi.fn(),
     setGlobalReverb: vi.fn(),
     setEffectBypass: vi.fn(),
     setGlobalBypass: vi.fn(),
   },
+}));
+
+// audioStore.ts imports wireGlobalFxChain directly from globalFx.ts (Task 9) —
+// no circular-import risk here since globalFx.ts has zero store-layer imports.
+vi.mock('../engine/audioEngine/globalFx', () => ({
+  wireGlobalFxChain: vi.fn(),
 }));
 
 vi.mock('../engine/lfoEngine', () => ({
@@ -73,7 +79,7 @@ describe('useAudioStore - regenerateGlobalAudioFromSeed', () => {
     expect(AudioEngine.setGlobalCompressor).toHaveBeenCalled();
   });
 
-  it('forces every effect enabled, regardless of the seeded generator output', async () => {
+  it('seeds enabled: true unconditionally for every effect except delay', async () => {
     const { useAudioStore } = await import('./audioStore');
     const { globalAudio } = useAudioStore.getState();
 
@@ -81,9 +87,27 @@ describe('useAudioStore - regenerateGlobalAudioFromSeed', () => {
     expect(globalAudio.eq3.enabled).toBe(true);
     expect(globalAudio.filterLPF.enabled).toBe(true);
     expect(globalAudio.filterHPF.enabled).toBe(true);
-    expect(globalAudio.chorus.enabled).toBe(true);
-    expect(globalAudio.delay.enabled).toBe(true);
     expect(globalAudio.reverb.enabled).toBe(true);
+    expect(globalAudio.limiter.enabled).toBe(true);
+  });
+
+  it('no longer forces delay.enabled to true — the seeded ~25% chance survives regeneration unchanged', async () => {
+    // The regression this task explicitly calls out as most likely to slip
+    // back in silently: removing the force-enabled-true override must not be
+    // masked by every sampled planet coincidentally seeding delay.enabled true.
+    // Same statistical-spot-check style as globalAudioSeed.test.ts's own
+    // delay.enabled test — a wide tolerance band instead of an exact count,
+    // to avoid flakiness while still clearly distinguishing this from "always true".
+    const { useAudioStore } = await import('./audioStore');
+    const SAMPLE_PLANETS = 40;
+    let enabledCount = 0;
+    for (let i = 0; i < SAMPLE_PLANETS; i++) {
+      useAudioStore.getState().regenerateGlobalAudioFromSeed(`store-delay-sample-${i}`, `StoreDelaySample${i}`);
+      if (useAudioStore.getState().globalAudio.delay.enabled) enabledCount++;
+    }
+    const enabledRate = enabledCount / SAMPLE_PLANETS;
+    expect(enabledRate).toBeGreaterThan(0.05);
+    expect(enabledRate).toBeLessThan(0.5);
   });
 
   it('fixes filterLPF/filterHPF type to their identity', async () => {
@@ -102,19 +126,23 @@ describe('useAudioStore - regenerateGlobalAudioFromSeed', () => {
     expect(AudioEngine.setGlobalEQ).toHaveBeenCalledWith(globalAudio.eq3);
     expect(AudioEngine.setGlobalFilterLPF).toHaveBeenCalledWith(globalAudio.filterLPF);
     expect(AudioEngine.setGlobalFilterHPF).toHaveBeenCalledWith(globalAudio.filterHPF);
-    expect(AudioEngine.setGlobalChorus).toHaveBeenCalledWith(globalAudio.chorus);
+    expect(AudioEngine.setGlobalLimiter).toHaveBeenCalledWith(globalAudio.limiter);
     expect(AudioEngine.setGlobalDelay).toHaveBeenCalledWith(globalAudio.delay);
     expect(AudioEngine.setGlobalReverb).toHaveBeenCalledWith(globalAudio.reverb);
   });
 
-  it('calls AudioEngine.setEffectBypass(effect, true) for all 7 effects', async () => {
+  it('calls AudioEngine.setEffectBypass with each effect\'s actual seeded enabled value — not hardcoded true', async () => {
     const { useAudioStore } = await import('./audioStore');
-    void useAudioStore.getState(); // ensure the store (and its init sync) has run
     const { AudioEngine } = await import('../engine/AudioEngine');
+    const { globalAudio } = useAudioStore.getState();
 
-    for (const effect of ['reverb', 'delay', 'chorus', 'eq3', 'lpf', 'hpf', 'compressor']) {
-      expect(AudioEngine.setEffectBypass).toHaveBeenCalledWith(effect, true);
-    }
+    expect(AudioEngine.setEffectBypass).toHaveBeenCalledWith('reverb', globalAudio.reverb.enabled);
+    expect(AudioEngine.setEffectBypass).toHaveBeenCalledWith('delay', globalAudio.delay.enabled);
+    expect(AudioEngine.setEffectBypass).toHaveBeenCalledWith('eq3', globalAudio.eq3.enabled);
+    expect(AudioEngine.setEffectBypass).toHaveBeenCalledWith('lpf', globalAudio.filterLPF.enabled);
+    expect(AudioEngine.setEffectBypass).toHaveBeenCalledWith('hpf', globalAudio.filterHPF.enabled);
+    expect(AudioEngine.setEffectBypass).toHaveBeenCalledWith('compressor', globalAudio.compressor.enabled);
+    expect(AudioEngine.setEffectBypass).toHaveBeenCalledWith('limiter', globalAudio.limiter.enabled);
   });
 
   it('is deterministic — calling it twice with the same planet produces the same globalAudio', async () => {
@@ -198,8 +226,8 @@ describe('useAudioStore - setGlobalAudio pushes to AudioEngine', () => {
     useAudioStore.getState().setGlobalAudio('filterHPF', { Q: 5 });
     expect(AudioEngine.setGlobalFilterHPF).toHaveBeenCalledWith({ Q: 5 });
 
-    useAudioStore.getState().setGlobalAudio('chorus', { rate: 2 });
-    expect(AudioEngine.setGlobalChorus).toHaveBeenCalledWith({ rate: 2 });
+    useAudioStore.getState().setGlobalAudio('limiter', { threshold: -6 });
+    expect(AudioEngine.setGlobalLimiter).toHaveBeenCalledWith({ threshold: -6 });
 
     useAudioStore.getState().setGlobalAudio('delay', { feedback: 0.4 });
     expect(AudioEngine.setGlobalDelay).toHaveBeenCalledWith({ feedback: 0.4 });
@@ -260,6 +288,40 @@ describe('useAudioStore - setGlobalBypassEnabled', () => {
   });
 });
 
+describe('useAudioStore - setCompressorBeforeDelay', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it('starts false (Natural Decay) before any action runs', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    expect(useAudioStore.getState().globalAudio.compressorBeforeDelay).toBe(false);
+  });
+
+  it('setting true updates state and calls wireGlobalFxChain(true)', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const { wireGlobalFxChain } = await import('../engine/audioEngine/globalFx');
+    vi.clearAllMocks();
+
+    useAudioStore.getState().setCompressorBeforeDelay(true);
+
+    expect(useAudioStore.getState().globalAudio.compressorBeforeDelay).toBe(true);
+    expect(wireGlobalFxChain).toHaveBeenCalledWith(true);
+  });
+
+  it('setting false updates state and calls wireGlobalFxChain(false)', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const { wireGlobalFxChain } = await import('../engine/audioEngine/globalFx');
+    useAudioStore.getState().setCompressorBeforeDelay(true);
+    vi.clearAllMocks();
+
+    useAudioStore.getState().setCompressorBeforeDelay(false);
+
+    expect(useAudioStore.getState().globalAudio.compressorBeforeDelay).toBe(false);
+    expect(wireGlobalFxChain).toHaveBeenCalledWith(false);
+  });
+});
+
 describe('useAudioStore - globalLfo state', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -316,9 +378,9 @@ describe('useAudioStore - setGlobalLfo', () => {
     vi.clearAllMocks();
     vi.mocked(lfoEngine.connectLfoTarget).mockReturnValue(false);
 
-    useAudioStore.getState().setGlobalLfo('chorus.delayTime', { shape: 'sine', rate: 1, depth: 20, active: true });
+    useAudioStore.getState().setGlobalLfo('hpf.frequency', { shape: 'sine', rate: 1, depth: 20, active: true });
 
-    expect(lfoEngine.connectLfoTarget).toHaveBeenCalledWith('chorus.delayTime');
+    expect(lfoEngine.connectLfoTarget).toHaveBeenCalledWith('hpf.frequency');
     expect(lfoEngine.start).not.toHaveBeenCalled();
   });
 
