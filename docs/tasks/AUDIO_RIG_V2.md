@@ -344,7 +344,7 @@ Task 9, Task 10 ──→ Task 11 (AudioRigDrawer.tsx)
   **Estimated scope:** M
 
 ### Checkpoint: UI
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean — this is the first point the whole feature compiles and renders end to end.
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean — confirmed genuinely, not just "no new errors": 0 type errors repo-wide, 0 lint errors repo-wide, 65/65 test files and 843/843 tests passing, production build succeeds. This is the first point the whole feature compiles and renders end to end.
 - [ ] Manual/audible check, deferred to a human (same pattern as V1): power on, confirm Chorus is genuinely gone from the console, Limiter's accordion works and is audibly transparent at default, and toggling Natural/Controlled Decay is audibly distinct.
 - [ ] Review with human before proceeding.
 
