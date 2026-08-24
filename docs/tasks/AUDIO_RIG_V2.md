@@ -154,7 +154,7 @@ Task 9, Task 10 ──→ Task 11 (AudioRigDrawer.tsx)
 
 ### Phase 2: Engine — chain reorder & Limiter
 
-- [ ] **Task 5: `src/engine/audioEngine/globalFx.ts` — remove Chorus, add Limiter, `wireGlobalFxChain`, `getGlobalChainEntry`, drop dead `dampening`, explicit `maxDelay`**
+- [x] **Task 5: `src/engine/audioEngine/globalFx.ts` — remove Chorus, add Limiter, `wireGlobalFxChain`, `getGlobalChainEntry`, drop dead `dampening`, explicit `maxDelay`**
 
   **Description:** The largest single task in this plan. Remove the `Tone.Chorus` node, `setGlobalChorus`, and its `setEffectBypass` case entirely. Add a `Tone.Limiter` node (`_globalLimiter`), `setGlobalLimiter(params: Partial<LimiterSettings>)` (same pattern as every other `setGlobal*` — `_fxParamCache` entry, guarded no-op if the node wasn't constructed), and a `setEffectBypass` case for `'limiter'` (neutralize via `threshold` pushed to `0` dB — effectively transparent — matching the Compressor bypass precedent of neutralizing via parameter rather than physically rerouting). Replace `buildGlobalFxChain`'s static one-shot connection logic with `wireGlobalFxChain(controlledDecay: boolean)`, disconnecting every node and reconnecting the full sequence for whichever topology:
   - Natural (`controlledDecay: false`, default): `_globalEQ → _globalLPF → _globalHPF → _globalDelay → _globalReverb → _globalCompressor → _globalLimiter → masterGain → Destination`
@@ -167,19 +167,20 @@ Task 9, Task 10 ──→ Task 11 (AudioRigDrawer.tsx)
   **Design decision, stated not deferred:** rename `_masterCompressor` → `_globalCompressor` in this same task (matching its siblings' naming — `_globalReverb`/`_globalDelay`/`_globalEQ`/`_globalLPF`/`_globalHPF`), since it's touching every line that references the compressor node anyway and a later separate rename-only task would just be diff noise on the same lines. `getMasterCompressor` is removed outright (not kept as a deprecated alias) — its one caller is updated in Task 6, in the same phase.
 
   **Acceptance criteria:**
-  - [ ] No `Tone.Chorus`, `setGlobalChorus`, or `'chorus'` bypass case remains.
-  - [ ] `_globalLimiter` constructed in `buildGlobalFxChain`; `setGlobalLimiter` updates both `_fxParamCache.limiter` and the live node's `threshold`, no-ops safely if the node wasn't constructed (headless/test env).
-  - [ ] `setEffectBypass('limiter', false)` sets `threshold` to `0`; `setEffectBypass('limiter', true)` restores the cached threshold — mirroring the compressor case's restore-from-cache pattern.
-  - [ ] `wireGlobalFxChain(false)` produces the exact Natural sequence above; `wireGlobalFxChain(true)` produces the exact Controlled sequence above — both terminating at `masterGain → Destination`.
-  - [ ] Calling `wireGlobalFxChain` a second time (simulating a toggle flip) correctly disconnects the prior topology before reconnecting the new one — no node ends up connected to two different next-nodes simultaneously.
-  - [ ] `getGlobalChainEntry()` returns `_globalEQ`; returns `null` before `buildGlobalFxChain()` has run (same headless-safety pattern `getGlobalModulationTarget` already uses).
-  - [ ] `getMasterCompressor` no longer exists as an export.
-  - [ ] `setGlobalReverb` no longer references `dampening` anywhere; `_fxParamCache.reverb` has no `dampening` key.
-  - [ ] The `Tone.FeedbackDelay` constructor call includes an explicit `maxDelay: 1`, with a comment stating the `>= delay.delayTime`'s max dependency.
+  - [x] No `Tone.Chorus`, `setGlobalChorus`, or `'chorus'` bypass case remains.
+  - [x] `_globalLimiter` constructed in `buildGlobalFxChain`; `setGlobalLimiter` updates both `_fxParamCache.limiter` and the live node's `threshold`, no-ops safely if the node wasn't constructed (headless/test env).
+  - [x] `setEffectBypass('limiter', false)` sets `threshold` to `0`; `setEffectBypass('limiter', true)` restores the cached threshold — mirroring the compressor case's restore-from-cache pattern.
+  - [x] `wireGlobalFxChain(false)` produces the exact Natural sequence above; `wireGlobalFxChain(true)` produces the exact Controlled sequence above — both terminating at `masterGain → Destination`.
+  - [x] Calling `wireGlobalFxChain` a second time (simulating a toggle flip) correctly disconnects the prior topology before reconnecting the new one — no node ends up connected to two different next-nodes simultaneously.
+  - [x] `getGlobalChainEntry()` returns `_globalEQ`; returns `null` before `buildGlobalFxChain()` has run (same headless-safety pattern `getGlobalModulationTarget` already uses).
+  - [x] `getMasterCompressor` no longer exists as an export.
+  - [x] `setGlobalReverb` no longer references `dampening` anywhere; `_fxParamCache.reverb` has no `dampening` key.
+  - [x] The `Tone.FeedbackDelay` constructor call includes an explicit `maxDelay: 1`, with a comment stating the `>= delay.delayTime`'s max dependency.
 
   **Verification:**
-  - [ ] `npx vitest run src/engine/audioEngine/globalFx.test.ts` — **new file** (see Architecture Decisions). Mocked `Tone` (same mock shape `AudioEngine.test.ts` already uses, extended with a `Limiter` constructor mock). Asserts the literal `.connect()` call sequence for both topologies, the toggle-flip disconnect/reconnect behavior, `setGlobalLimiter`'s cache+node update, the limiter bypass case, `getGlobalChainEntry()`'s pre/post-build behavior, that `setGlobalReverb` never touches a `dampening` property on the mocked node, and that the `Tone.FeedbackDelay` mock is constructed with `maxDelay: 1`.
-  - [ ] `npm run build:types` — this file clean; `AudioEngine.ts` (Task 6) still has the one expected `getMasterCompressor` reference until that task lands.
+  - [x] `npx vitest run src/engine/audioEngine/globalFx.test.ts` — **new file** (see Architecture Decisions). Mocked `Tone` (same mock shape `AudioEngine.test.ts` already uses, extended with a `Limiter` constructor mock, minus `Chorus`). 18/18 passing — asserts the literal `.connect()` call sequence for both topologies, the toggle-flip disconnect/reconnect behavior (incl. flipping back to Natural after Controlled), `setGlobalLimiter`'s cache+node update, the limiter bypass case, `getGlobalChainEntry()`'s pre/post-build behavior, `getMasterCompressor`/`setGlobalChorus` no longer exported, that `setGlobalReverb` never touches a `dampening` property on the mocked node, that the `Tone.FeedbackDelay` mock is constructed with `maxDelay: 1`, and `setGlobalBypass`'s updated EQ3-entry-based routing (a necessary follow-on change not spelled out line-by-line above: it referenced `_masterCompressor` and a `_globalChorus`-inclusive fallback chain, both gone — now disconnects/routes the chain entry (`_globalEQ`) directly to Destination on bypass, and calls `wireGlobalFxChain(_currentControlledDecay)` to restore the currently-selected topology on un-bypass, reusing Task 5's own rewiring function instead of duplicating "find the next node" logic).
+  - [x] `npm run build:types` — this file (and its test) clean. Remaining errors are exactly the expected downstream surface in files this task doesn't touch: `AudioEngine.ts`/`AudioEngine.test.ts` (Task 6, `getMasterCompressor`/`setGlobalChorus` references), `lfoEngine.test.ts` (Task 7, `'chorus.delayTime'` fixtures), `audioStore.ts`/`audioStore.test.ts` (Task 9), `globalAudioSeed.ts`/`.test.ts` (Task 8), `audioRigConfig.ts` (Task 10), `AudioRigDrawer.tsx` (Task 11). One unrelated pre-existing error (`src/systems/interactionSystem.test.ts:199`, a `vi.mocked` type-narrowing issue with no connection to chorus/globalFx/limiter, present before this task) — out of scope, not touched. `npm run lint` clean on both changed files.
+  - [x] `npx vitest run` (full suite): 6 failed files / 103 failed tests, all within the same expected-downstream set above (plus `TransportBar.test.tsx`, which exercises `AudioEngine.start()` transitively and fails at runtime on the now-missing `getMasterCompressor` export — the same Task 6 gap, not a new one). 703 passing elsewhere, including all 18 new `globalFx.test.ts` tests.
 
   **Dependencies:** Task 1.
 
