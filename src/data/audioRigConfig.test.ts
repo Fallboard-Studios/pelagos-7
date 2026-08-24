@@ -3,15 +3,15 @@
 // ========================================
 import { describe, it, expect } from 'vitest';
 
-import { AUDIO_RIG_CONFIG } from './audioRigConfig';
+import { AUDIO_RIG_CONFIG, NATURAL_DECAY_SCHEMA, CONTROLLED_DECAY_SCHEMA } from './audioRigConfig';
 import { GLOBAL_LFO_TARGET_IDS } from '../types/lfo';
 
 // ========================================
 // TESTS
 // ========================================
 
-// Effect key order matches docs/reference/GLOBAL_CHAIN_GRID.md's row order.
-const EFFECT_KEYS = ['compressor', 'eq3', 'filterLPF', 'filterHPF', 'chorus', 'delay', 'reverb'] as const;
+// Effect key order matches the new V2 chain order (docs/reference/GLOBAL_CHAIN_GRID.md).
+const EFFECT_KEYS = ['eq3', 'filterLPF', 'filterHPF', 'delay', 'reverb', 'compressor', 'limiter'] as const;
 
 function findBlock(key: (typeof EFFECT_KEYS)[number]) {
   const block = AUDIO_RIG_CONFIG.find((b) => b.key === key);
@@ -147,44 +147,6 @@ describe('AUDIO_RIG_CONFIG', () => {
     });
   });
 
-  describe('Chorus', () => {
-    it('has all 5 params, matching GLOBAL_CHAIN_GRID.md exactly', () => {
-      expect(findBlock('chorus').params.map((p) => p.field)).toEqual([
-        'rate', 'depth', 'delayTime', 'feedback', 'wet',
-      ]);
-    });
-
-    it('rate is a linear slider, Hz, 0.1 to 10, not LFO-flagged', () => {
-      const param = findParam('chorus', 'rate');
-      expect(param.schema).toMatchObject({ type: 'sliderLinear', loreLabel: 'OSCILLATION RATE', min: 0.1, max: 10, unit: 'Hz' });
-      expect(param.lfoTarget).toBeUndefined();
-    });
-
-    it('depth is a linear slider, 0 to 1, not LFO-flagged', () => {
-      const param = findParam('chorus', 'depth');
-      expect(param.schema).toMatchObject({ type: 'sliderLinear', loreLabel: 'DISPERSION DEPTH', min: 0, max: 1 });
-      expect(param.lfoTarget).toBeUndefined();
-    });
-
-    it('delayTime is a linear slider, ms, 2 to 20, LFO-flagged as chorus.delayTime', () => {
-      const param = findParam('chorus', 'delayTime');
-      expect(param.schema).toMatchObject({ type: 'sliderLinear', loreLabel: 'PHASE OFFSET', min: 2, max: 20, unit: 'ms' });
-      expect(param.lfoTarget).toBe('chorus.delayTime');
-    });
-
-    it('feedback is a linear slider, 0 to 1, not LFO-flagged', () => {
-      const param = findParam('chorus', 'feedback');
-      expect(param.schema).toMatchObject({ type: 'sliderLinear', loreLabel: 'RECIRCULATION', min: 0, max: 1 });
-      expect(param.lfoTarget).toBeUndefined();
-    });
-
-    it('wet is a linear slider, 0 to 1, not LFO-flagged', () => {
-      const param = findParam('chorus', 'wet');
-      expect(param.schema).toMatchObject({ type: 'sliderLinear', loreLabel: 'SIGNAL DISPERSION BALANCE', min: 0, max: 1 });
-      expect(param.lfoTarget).toBeUndefined();
-    });
-  });
-
   describe('Delay', () => {
     it('has all 3 params, matching GLOBAL_CHAIN_GRID.md exactly', () => {
       expect(findBlock('delay').params.map((p) => p.field)).toEqual(['delayTime', 'feedback', 'wet']);
@@ -210,8 +172,8 @@ describe('AUDIO_RIG_CONFIG', () => {
   });
 
   describe('Reverb', () => {
-    it('has all 4 params, matching GLOBAL_CHAIN_GRID.md exactly', () => {
-      expect(findBlock('reverb').params.map((p) => p.field)).toEqual(['decay', 'preDelay', 'dampening', 'wet']);
+    it('has all 3 params, matching GLOBAL_CHAIN_GRID.md exactly — no dampening (dead, Tone.Reverb has no such property)', () => {
+      expect(findBlock('reverb').params.map((p) => p.field)).toEqual(['decay', 'preDelay', 'wet']);
     });
 
     it('decay is a log slider, seconds, 0.1 to 10, not LFO-flagged', () => {
@@ -226,14 +188,6 @@ describe('AUDIO_RIG_CONFIG', () => {
       expect(param.lfoTarget).toBeUndefined();
     });
 
-    it('dampening is a log slider, Hz, 100 to 8000 — NOT LFO-flagged despite being log-scaled like the LFO-flagged filter frequencies', () => {
-      // GLOBAL_CHAIN_GRID.md marks this row "–", unlike filterLPF/HPF.frequency's "X" —
-      // easy to miscopy since both are "SLIDER (Logarithmic)" Hz fields.
-      const param = findParam('reverb', 'dampening');
-      expect(param.schema).toMatchObject({ type: 'sliderLog', loreLabel: 'ABSORPTION THRESHOLD', min: 100, max: 8000, unit: 'Hz' });
-      expect(param.lfoTarget).toBeUndefined();
-    });
-
     it('wet is a linear slider, 0 to 1, not LFO-flagged', () => {
       const param = findParam('reverb', 'wet');
       expect(param.schema).toMatchObject({ type: 'sliderLinear', loreLabel: 'DIFFUSED SIGNAL BALANCE', min: 0, max: 1 });
@@ -241,7 +195,24 @@ describe('AUDIO_RIG_CONFIG', () => {
     });
   });
 
-  it('flags exactly the 9 GlobalLfoTargetId params — no more, no fewer', () => {
+  describe('Limiter', () => {
+    it('has exactly one param, threshold', () => {
+      expect(findBlock('limiter').params.map((p) => p.field)).toEqual(['threshold']);
+    });
+
+    it('threshold is a linear slider, dB, -20 to 0, not LFO-flagged — Limiter never gets an LFO', () => {
+      const param = findParam('limiter', 'threshold');
+      expect(param.schema).toMatchObject({ type: 'sliderLinear', loreLabel: 'OUTPUT CEILING', min: -20, max: 0, unit: 'dB' });
+      expect(param.lfoTarget).toBeUndefined();
+      expect(param.lfoAccordion).toBeUndefined();
+    });
+  });
+
+  it('has no chorus block at all', () => {
+    expect(AUDIO_RIG_CONFIG.map((b) => b.key as string)).not.toContain('chorus');
+  });
+
+  it('flags exactly the 8 GlobalLfoTargetId params — no more, no fewer', () => {
     const lfoTargets = AUDIO_RIG_CONFIG.flatMap((b) => b.params.map((p) => p.lfoTarget).filter(Boolean));
     expect([...lfoTargets].sort()).toEqual([...GLOBAL_LFO_TARGET_IDS].sort());
   });
@@ -261,5 +232,19 @@ describe('AUDIO_RIG_CONFIG', () => {
 
   it('remains JSON-serializable', () => {
     expect(() => JSON.stringify(AUDIO_RIG_CONFIG)).not.toThrow();
+  });
+});
+
+describe('NATURAL_DECAY_SCHEMA / CONTROLLED_DECAY_SCHEMA', () => {
+  it('share the same id — one toggle, schema swapped by current state', () => {
+    expect(NATURAL_DECAY_SCHEMA.id).toBe('audioRig.compressorBeforeDelay');
+    expect(CONTROLLED_DECAY_SCHEMA.id).toBe('audioRig.compressorBeforeDelay');
+  });
+
+  it('are both toggle schemas with distinct human labels', () => {
+    expect(NATURAL_DECAY_SCHEMA.type).toBe('toggle');
+    expect(CONTROLLED_DECAY_SCHEMA.type).toBe('toggle');
+    expect(NATURAL_DECAY_SCHEMA.humanLabel).toBe('Natural Decay');
+    expect(CONTROLLED_DECAY_SCHEMA.humanLabel).toBe('Controlled Decay');
   });
 });
