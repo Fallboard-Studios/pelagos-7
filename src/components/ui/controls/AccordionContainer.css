@@ -23,6 +23,21 @@
 }
 
 /* ----------------------------------------
+   Open-state indicator — +/- to the left of the label (the label and light
+   shift right to make room, via the trigger's own flex gap). A fixed
+   width keeps the label's left edge stable when the glyph swaps, since
+   "+" and "−" aren't guaranteed identical width in every font.
+   ---------------------------------------- */
+.sc-accordion__indicator {
+  display: inline-block;
+  width: 12px;
+  flex-shrink: 0;
+  text-align: center;
+  font-weight: 600;
+  line-height: 1;
+}
+
+/* ----------------------------------------
    Status light — round indicator mirroring PowerRockerSwitch's power light:
    red when the caller's contentActive is false, green when true, a plain
    unlit dot (inherits the trigger's own text color, no glow/pulse) when

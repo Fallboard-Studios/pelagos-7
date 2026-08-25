@@ -96,6 +96,12 @@ export function AccordionContainer({ schema, children, defaultOpen = false, cont
       <Accordion.Item value={schema.id} className="sc-accordion__item">
         <Accordion.Header className="sc-accordion__header">
           <Accordion.Trigger className="sc-accordion__trigger">
+            {/* Decorative — the open/closed affordance itself. aria-expanded
+                already carries the real state accessibly; this is purely so
+                a sighted user can tell at a glance the section can be
+                opened. Driven directly by the same `open` state as
+                everything else here, not a separate Radix data-state hook. */}
+            <span className="sc-accordion__indicator" aria-hidden="true">{open ? '−' : '+'}</span>
             <DualLabel loreLabel={schema.loreLabel} humanLabel={schema.humanLabel} />
             {/* Decorative — reflects contentActive, a domain concept the
                 caller supplies (e.g. this effect's own Enabled toggle, or an

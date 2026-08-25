@@ -81,6 +81,31 @@ describe('AccordionContainer', () => {
     expect(setTimeline).toHaveBeenCalled();
   });
 
+  it('renders a decorative +/- open-state indicator to the left of the label, showing + when closed', () => {
+    const { container } = render(<AccordionContainer schema={schema}>Content</AccordionContainer>);
+    const indicator = container.querySelector('.sc-accordion__indicator');
+    expect(indicator).toBeTruthy();
+    expect(indicator?.getAttribute('aria-hidden')).toBe('true');
+    expect(indicator?.textContent).toBe('+');
+  });
+
+  it('flips the open-state indicator to − when expanded', () => {
+    const { container } = render(<AccordionContainer schema={schema}>Content</AccordionContainer>);
+    fireEvent.click(screen.getByRole('button'));
+    const indicator = container.querySelector('.sc-accordion__indicator');
+    expect(indicator?.textContent).toBe('−');
+  });
+
+  it('places the indicator before the label in the trigger, not after', () => {
+    const { container } = render(<AccordionContainer schema={schema}>Content</AccordionContainer>);
+    const trigger = container.querySelector('.sc-accordion__trigger');
+    const children = Array.from(trigger?.children ?? []);
+    const indicatorIndex = children.findIndex((el) => el.classList.contains('sc-accordion__indicator'));
+    const labelIndex = children.findIndex((el) => el.classList.contains('sc-dual-label'));
+    expect(indicatorIndex).toBeGreaterThanOrEqual(0);
+    expect(indicatorIndex).toBeLessThan(labelIndex);
+  });
+
   it('renders a decorative status light in the trigger, hidden from the accessibility tree', () => {
     const { container } = render(<AccordionContainer schema={schema}>Content</AccordionContainer>);
     const light = container.querySelector('.sc-accordion__light');
