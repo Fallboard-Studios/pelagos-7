@@ -192,9 +192,10 @@ export function getGlobalChainEntry(): Tone.EQ3 | null {
  *  awaits this before starting the transport. No-op if reverb wasn't built
  *  (headless/test env) or has no `.ready` promise. */
 export async function waitForGlobalReverbReady(): Promise<void> {
-  if (!_globalReverb) return;
+  const reverb = _globalReverb;
+  if (!reverb) return;
   try {
-    await (_globalReverb as unknown as { ready: Promise<void> }).ready;
+    await reverb.ready;
   } catch (err) {
     devWarn('[AudioEngine] reverb.ready failed', err);
   }
@@ -204,9 +205,10 @@ export async function waitForGlobalReverbReady(): Promise<void> {
 export function setMasterVolume(volume: number): void {
   const v = Math.max(0, Math.min(1, Number(volume) || 0));
   _masterVolume = v;
-  if (_masterGain) {
+  const masterGain = _masterGain;
+  if (masterGain) {
     try {
-      (_masterGain as unknown as { gain: { value: number } }).gain.value = v;
+      masterGain.gain.value = v;
     } catch (err) {
       devWarn('[AudioEngine] setMasterVolume failed', err);
     }
@@ -216,8 +218,8 @@ export function setMasterVolume(volume: number): void {
 /** Get the current master volume (0..1). */
 export function getMasterVolume(): number {
   try {
-    if (_masterGain && typeof (_masterGain as unknown as { gain?: { value?: number } }).gain?.value === 'number') {
-      return (_masterGain as unknown as { gain?: { value?: number } }).gain!.value ?? _masterVolume;
+    if (_masterGain && typeof _masterGain.gain.value === 'number') {
+      return _masterGain.gain.value ?? _masterVolume;
     }
   } catch {
     /* ignore */
@@ -231,11 +233,12 @@ export function getMasterVolume(): number {
 
 export function setGlobalReverb(params: Partial<ReverbSettings>): void {
   if (params.wet !== undefined) _fxParamCache.reverb.wet = params.wet;
-  if (!_globalReverb) return;
+  const reverb = _globalReverb;
+  if (!reverb) return;
   try {
-    if (params.wet !== undefined) (_globalReverb as unknown as { wet: { value: number } }).wet.value = params.wet;
-    if (params.decay !== undefined) (_globalReverb as unknown as { decay: number }).decay = params.decay;
-    if (params.preDelay !== undefined) (_globalReverb as unknown as { preDelay: number }).preDelay = params.preDelay;
+    if (params.wet !== undefined) reverb.wet.value = params.wet;
+    if (params.decay !== undefined) reverb.decay = params.decay;
+    if (params.preDelay !== undefined) reverb.preDelay = params.preDelay;
   } catch (err) {
     devWarn('[AudioEngine] setGlobalReverb failed', err);
   }
@@ -243,11 +246,12 @@ export function setGlobalReverb(params: Partial<ReverbSettings>): void {
 
 export function setGlobalDelay(params: Partial<DelaySettings>): void {
   if (params.wet !== undefined) _fxParamCache.delay.wet = params.wet;
-  if (!_globalDelay) return;
+  const delay = _globalDelay;
+  if (!delay) return;
   try {
-    if (params.wet !== undefined) (_globalDelay as unknown as { wet: { value: number } }).wet.value = params.wet;
-    if (params.delayTime !== undefined) (_globalDelay as unknown as { delayTime: { value: number } }).delayTime.value = params.delayTime;
-    if (params.feedback !== undefined) (_globalDelay as unknown as { feedback: { value: number } }).feedback.value = params.feedback;
+    if (params.wet !== undefined) delay.wet.value = params.wet;
+    if (params.delayTime !== undefined) delay.delayTime.value = params.delayTime;
+    if (params.feedback !== undefined) delay.feedback.value = params.feedback;
   } catch (err) {
     devWarn('[AudioEngine] setGlobalDelay failed', err);
   }
@@ -256,10 +260,11 @@ export function setGlobalDelay(params: Partial<DelaySettings>): void {
 export function setGlobalFilterLPF(params: Partial<FilterSettings>): void {
   if (params.frequency !== undefined) _fxParamCache.lpf.frequency = params.frequency;
   if (params.Q !== undefined) _fxParamCache.lpf.Q = params.Q;
-  if (!_globalLPF) return;
+  const lpf = _globalLPF;
+  if (!lpf) return;
   try {
-    if (params.frequency !== undefined) (_globalLPF as unknown as { frequency: { value: number } }).frequency.value = params.frequency;
-    if (params.Q !== undefined) (_globalLPF as unknown as { Q: { value: number } }).Q.value = params.Q;
+    if (params.frequency !== undefined) lpf.frequency.value = params.frequency;
+    if (params.Q !== undefined) lpf.Q.value = params.Q;
   } catch (err) {
     devWarn('[AudioEngine] setGlobalFilterLPF failed', err);
   }
@@ -268,10 +273,11 @@ export function setGlobalFilterLPF(params: Partial<FilterSettings>): void {
 export function setGlobalFilterHPF(params: Partial<FilterSettings>): void {
   if (params.frequency !== undefined) _fxParamCache.hpf.frequency = params.frequency;
   if (params.Q !== undefined) _fxParamCache.hpf.Q = params.Q;
-  if (!_globalHPF) return;
+  const hpf = _globalHPF;
+  if (!hpf) return;
   try {
-    if (params.frequency !== undefined) (_globalHPF as unknown as { frequency: { value: number } }).frequency.value = params.frequency;
-    if (params.Q !== undefined) (_globalHPF as unknown as { Q: { value: number } }).Q.value = params.Q;
+    if (params.frequency !== undefined) hpf.frequency.value = params.frequency;
+    if (params.Q !== undefined) hpf.Q.value = params.Q;
   } catch (err) {
     devWarn('[AudioEngine] setGlobalFilterHPF failed', err);
   }
@@ -281,11 +287,12 @@ export function setGlobalEQ(params: Partial<EQ3Settings>): void {
   if (params.low !== undefined) _fxParamCache.eq3.low = params.low;
   if (params.mid !== undefined) _fxParamCache.eq3.mid = params.mid;
   if (params.high !== undefined) _fxParamCache.eq3.high = params.high;
-  if (!_globalEQ) return;
+  const eq = _globalEQ;
+  if (!eq) return;
   try {
-    if (params.low !== undefined) (_globalEQ as unknown as { low: { value: number } }).low.value = params.low;
-    if (params.mid !== undefined) (_globalEQ as unknown as { mid: { value: number } }).mid.value = params.mid;
-    if (params.high !== undefined) (_globalEQ as unknown as { high: { value: number } }).high.value = params.high;
+    if (params.low !== undefined) eq.low.value = params.low;
+    if (params.mid !== undefined) eq.mid.value = params.mid;
+    if (params.high !== undefined) eq.high.value = params.high;
   } catch (err) {
     devWarn('[AudioEngine] setGlobalEQ failed', err);
   }
@@ -311,9 +318,10 @@ export function setGlobalCompressor(params: Partial<CompressorSettings>): void {
 
 export function setGlobalLimiter(params: Partial<LimiterSettings>): void {
   if (params.threshold !== undefined) _fxParamCache.limiter.threshold = params.threshold;
-  if (!_globalLimiter) return;
+  const limiter = _globalLimiter;
+  if (!limiter) return;
   try {
-    if (params.threshold !== undefined) (_globalLimiter as unknown as { threshold: { value: number } }).threshold.value = params.threshold;
+    if (params.threshold !== undefined) limiter.threshold.value = params.threshold;
   } catch (err) {
     devWarn('[AudioEngine] setGlobalLimiter failed', err);
   }
@@ -327,10 +335,10 @@ export function setGlobalLimiter(params: Partial<LimiterSettings>): void {
  */
 export function setGlobalBypass(bypass: boolean): void {
   devLog('[AudioEngine] global bypass state set to', bypass);
-  if (!_globalEQ) return;
+  const entry = _globalEQ;
+  if (!entry) return;
   try {
     if (bypass) {
-      const entry = _globalEQ as unknown as { disconnect: () => void; toDestination: () => void };
       entry.disconnect();
       entry.toDestination();
       devLog('[AudioEngine] Global bypass ON — audio routed direct to destination');
@@ -359,30 +367,29 @@ export function setEffectBypass(effect: string, enabled: boolean): void {
     switch (effect) {
       case 'reverb':
         if (_globalReverb) {
-          (_globalReverb as unknown as { wet: { value: number } }).wet.value = enabled ? _fxParamCache.reverb.wet : 0;
+          _globalReverb.wet.value = enabled ? _fxParamCache.reverb.wet : 0;
         }
         break;
       case 'delay':
         if (_globalDelay) {
-          (_globalDelay as unknown as { wet: { value: number } }).wet.value = enabled ? _fxParamCache.delay.wet : 0;
+          _globalDelay.wet.value = enabled ? _fxParamCache.delay.wet : 0;
         }
         break;
       case 'eq3':
         if (_globalEQ) {
-          const e = _globalEQ as unknown as { low: { value: number }; mid: { value: number }; high: { value: number } };
-          e.low.value = enabled ? _fxParamCache.eq3.low : 0;
-          e.mid.value = enabled ? _fxParamCache.eq3.mid : 0;
-          e.high.value = enabled ? _fxParamCache.eq3.high : 0;
+          _globalEQ.low.value = enabled ? _fxParamCache.eq3.low : 0;
+          _globalEQ.mid.value = enabled ? _fxParamCache.eq3.mid : 0;
+          _globalEQ.high.value = enabled ? _fxParamCache.eq3.high : 0;
         }
         break;
       case 'lpf':
         if (_globalLPF) {
-          (_globalLPF as unknown as { frequency: { value: number } }).frequency.value = enabled ? _fxParamCache.lpf.frequency : 20000;
+          _globalLPF.frequency.value = enabled ? _fxParamCache.lpf.frequency : 20000;
         }
         break;
       case 'hpf':
         if (_globalHPF) {
-          (_globalHPF as unknown as { frequency: { value: number } }).frequency.value = enabled ? _fxParamCache.hpf.frequency : 20;
+          _globalHPF.frequency.value = enabled ? _fxParamCache.hpf.frequency : 20;
         }
         break;
       case 'compressor':
@@ -396,7 +403,7 @@ export function setEffectBypass(effect: string, enabled: boolean): void {
         // Limiter bypass: push threshold to 0dB (transparent), same neutralize-
         // via-parameter approach as Compressor — Limiter has no wet mix either.
         if (_globalLimiter) {
-          (_globalLimiter as unknown as { threshold: { value: number } }).threshold.value = enabled ? _fxParamCache.limiter.threshold : 0;
+          _globalLimiter.threshold.value = enabled ? _fxParamCache.limiter.threshold : 0;
         }
         break;
       default:
@@ -419,19 +426,19 @@ export function getGlobalModulationTarget(target: GlobalLfoTargetId): Modulation
   try {
     switch (target) {
       case 'eq3.low':
-        return ((_globalEQ as unknown as { low?: unknown })?.low as ModulationTarget) ?? null;
+        return _globalEQ?.low ?? null;
       case 'eq3.mid':
-        return ((_globalEQ as unknown as { mid?: unknown })?.mid as ModulationTarget) ?? null;
+        return _globalEQ?.mid ?? null;
       case 'eq3.high':
-        return ((_globalEQ as unknown as { high?: unknown })?.high as ModulationTarget) ?? null;
+        return _globalEQ?.high ?? null;
       case 'lpf.frequency':
-        return ((_globalLPF as unknown as { frequency?: unknown })?.frequency as ModulationTarget) ?? null;
+        return _globalLPF?.frequency ?? null;
       case 'lpf.Q':
-        return ((_globalLPF as unknown as { Q?: unknown })?.Q as ModulationTarget) ?? null;
+        return _globalLPF?.Q ?? null;
       case 'hpf.frequency':
-        return ((_globalHPF as unknown as { frequency?: unknown })?.frequency as ModulationTarget) ?? null;
+        return _globalHPF?.frequency ?? null;
       case 'hpf.Q':
-        return ((_globalHPF as unknown as { Q?: unknown })?.Q as ModulationTarget) ?? null;
+        return _globalHPF?.Q ?? null;
       default:
         return null;
     }
