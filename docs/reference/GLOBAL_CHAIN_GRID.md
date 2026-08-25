@@ -8,27 +8,27 @@
 - **Unit / Range** — the full range: what the UI slider exposes and what the app itself supports. Verified directly against Tone.js v15.1.22's own source (`@min`/`@max` doc comments where Tone documents them; its own reference-range prose where it doesn't) — see the notes at the bottom.
 - **Loading Range** — a narrower sub-range of the above, the only window a *fresh seed* is allowed to land a value in. Never presented in the UI, never a cap on what the app can do — purely bounds what `generateGlobalAudioSettings` rolls at planet-load time. Confirmed with the user per-effect; `src/data/globalAudioLoadingRanges.ts` is a direct, mechanical transcription of this column, not an independent source.
 
-| Effect | Setter | Param | Unit / Range | Loading Range | Default | Effect Label | Param Label | UI | LFO? |
-|---|---|---|---|---|---|---|---|---|---|
-| EQ (3-band) | `setGlobalEQ()` | low | dB, −12 to 12 | −6 to 6 | 0 | SPECTRAL FREQUENCY EQUALIZER | SUB-BAND DENSITY | SLIDER (Center-Zero) | X |
-| EQ (3-band) | `setGlobalEQ()` | mid | dB, −12 to 12 | −6 to 6 | 0 | SPECTRAL FREQUENCY EQUALIZER | MEDIAL-BAND DENSITY | SLIDER (Center-Zero) | X |
-| EQ (3-band) | `setGlobalEQ()` | high | dB, −12 to 12 | −6 to 6 | 0 | SPECTRAL FREQUENCY EQUALIZER | APICAL-BAND DENSITY | SLIDER (Center-Zero) | X |
-| Low-Pass Filter | `setGlobalFilterLPF()` | frequency | Hz, 20–20000 | 2000–20000 | 20000 | HIGH-FREQUENCY MASK | CUTOFF FREQUENCY | SLIDER (Logarithmic) | X |
-| Low-Pass Filter | `setGlobalFilterLPF()` | Q | 0.1–20 | 0.1–5 | 1 | HIGH-FREQUENCY MASK | BOUNDARY RESONANCE | SLIDER (Logarithmic) | X |
-| High-Pass Filter | `setGlobalFilterHPF()` | frequency | Hz, 20–20000 | 20–500 | 20 | LOW-FREQUENCY MASK | CUTOFF FREQUENCY | SLIDER (Logarithmic) | X |
-| High-Pass Filter | `setGlobalFilterHPF()` | Q | 0.1–20 | 0.1–5 | 1 | LOW-FREQUENCY MASK | BOUNDARY RESONANCE | SLIDER (Logarithmic) | X |
-| Delay | `setGlobalDelay()` | delayTime | seconds, 0–1 | 0.05–0.5 | 0.25 | TEMPORAL REFLECTION MATRIX | PROPAGATION LAG | SLIDER | – |
-| Delay | `setGlobalDelay()` | feedback | 0–0.95 | 0–0.4 | 0.2 | TEMPORAL REFLECTION MATRIX | RECIRCULATION RATE | SLIDER | – |
-| Delay | `setGlobalDelay()` | wet | 0–1 | 0–0.3 | 0.15 | TEMPORAL REFLECTION MATRIX | REFLECTED SIGNAL BALANCE | SLIDER | – |
-| Reverb | `setGlobalReverb()` | decay | seconds, 0.1–10 | 0.5–4 | 1.5 | SPATIAL DIFFUSION MATRIX | DISSIPATION DURATION | SLIDER (Logarithmic) | – |
-| Reverb | `setGlobalReverb()` | preDelay | seconds, 0–0.5 | 0–0.1 | 0.02 | SPATIAL DIFFUSION MATRIX | INITIAL LAG | SLIDER | – |
-| Reverb | `setGlobalReverb()` | wet | 0–1 | 0.1–0.4 | 0.3 | SPATIAL DIFFUSION MATRIX | DIFFUSED SIGNAL BALANCE | SLIDER | – |
-| Compressor | `setGlobalCompressor()` | threshold | dB, −60 to 0 | −55 to −45 | −24 | DYNAMIC RANGE CONDENSER | ATTENUATION THRESHOLD | SLIDER | – |
-| Compressor | `setGlobalCompressor()` | ratio | 1–20 | 10–20 | 2 | DYNAMIC RANGE CONDENSER | COMPRESSION RATIO | STEPPER (`[ - ] ( 2:1 ) [ + ]`) | – |
-| Compressor | `setGlobalCompressor()` | attack | seconds, 0.001–1 | 0.003–0.05 | 0.003 | DYNAMIC RANGE CONDENSER | COMPRESSION RATE | SLIDER (Logarithmic) | – |
-| Compressor | `setGlobalCompressor()` | release | seconds, 0.01–1 | 0.05–0.3 | 0.25 | DYNAMIC RANGE CONDENSER | RAREFACTION RATE | SLIDER (Logarithmic) | – |
-| Compressor | `setGlobalCompressor()` | knee | dB, 0–40 | 1–15 | 6 | DYNAMIC RANGE CONDENSER | CURVATURE DAMPING | SLIDER | – |
-| Limiter | `setGlobalLimiter()` | threshold | dB, −20 to 0 | −3 to −1 | −12 | TERMINAL CEILING GATE | OUTPUT CEILING | SLIDER | – |
+| Effect | Setter | Param | Unit / Range | Loading Range | Effect Label | Param Label | UI | LFO? |
+|---|---|---|---|---|---|---|---|---|
+| EQ (3-band) | `setGlobalEQ()` | low | dB, −12 to 12 | −6 to 6 | SPECTRAL FREQUENCY EQUALIZER | SUB-BAND DENSITY | SLIDER (Center-Zero) | X |
+| EQ (3-band) | `setGlobalEQ()` | mid | dB, −12 to 12 | −6 to 6 | SPECTRAL FREQUENCY EQUALIZER | MEDIAL-BAND DENSITY | SLIDER (Center-Zero) | X |
+| EQ (3-band) | `setGlobalEQ()` | high | dB, −12 to 12 | −6 to 6 | SPECTRAL FREQUENCY EQUALIZER | APICAL-BAND DENSITY | SLIDER (Center-Zero) | X |
+| Low-Pass Filter | `setGlobalFilterLPF()` | frequency | Hz, 20–20000 | 2000–20000 | HIGH-FREQUENCY MASK | CUTOFF FREQUENCY | SLIDER (Logarithmic) | X |
+| Low-Pass Filter | `setGlobalFilterLPF()` | Q | 0.1–20 | 0.1–5 | HIGH-FREQUENCY MASK | BOUNDARY RESONANCE | SLIDER (Logarithmic) | X |
+| High-Pass Filter | `setGlobalFilterHPF()` | frequency | Hz, 20–20000 | 20–500 | LOW-FREQUENCY MASK | CUTOFF FREQUENCY | SLIDER (Logarithmic) | X |
+| High-Pass Filter | `setGlobalFilterHPF()` | Q | 0.1–20 | 0.1–5 | LOW-FREQUENCY MASK | BOUNDARY RESONANCE | SLIDER (Logarithmic) | X |
+| Delay | `setGlobalDelay()` | delayTime | seconds, 0–1 | 0.05–0.5 | TEMPORAL REFLECTION MATRIX | PROPAGATION LAG | SLIDER | – |
+| Delay | `setGlobalDelay()` | feedback | 0–0.95 | 0–0.4 | TEMPORAL REFLECTION MATRIX | RECIRCULATION RATE | SLIDER | – |
+| Delay | `setGlobalDelay()` | wet | 0–1 | 0–0.3 | TEMPORAL REFLECTION MATRIX | REFLECTED SIGNAL BALANCE | SLIDER | – |
+| Reverb | `setGlobalReverb()` | decay | seconds, 0.1–10 | 0.5–4 | SPATIAL DIFFUSION MATRIX | DISSIPATION DURATION | SLIDER (Logarithmic) | – |
+| Reverb | `setGlobalReverb()` | preDelay | seconds, 0–0.5 | 0–0.1 | SPATIAL DIFFUSION MATRIX | INITIAL LAG | SLIDER | – |
+| Reverb | `setGlobalReverb()` | wet | 0–1 | 0.1–0.4 | SPATIAL DIFFUSION MATRIX | DIFFUSED SIGNAL BALANCE | SLIDER | – |
+| Compressor | `setGlobalCompressor()` | threshold | dB, −60 to 0 | −55 to −45 | DYNAMIC RANGE CONDENSER | ATTENUATION THRESHOLD | SLIDER | – |
+| Compressor | `setGlobalCompressor()` | ratio | 1–20 | 10–20 | DYNAMIC RANGE CONDENSER | COMPRESSION RATIO | STEPPER (`[ - ] ( 2:1 ) [ + ]`) | – |
+| Compressor | `setGlobalCompressor()` | attack | seconds, 0.001–1 | 0.003–0.05 | DYNAMIC RANGE CONDENSER | COMPRESSION RATE | SLIDER (Logarithmic) | – |
+| Compressor | `setGlobalCompressor()` | release | seconds, 0.01–1 | 0.05–0.3 | DYNAMIC RANGE CONDENSER | RAREFACTION RATE | SLIDER (Logarithmic) | – |
+| Compressor | `setGlobalCompressor()` | knee | dB, 0–40 | 1–15 | DYNAMIC RANGE CONDENSER | CURVATURE DAMPING | SLIDER | – |
+| Limiter | `setGlobalLimiter()` | threshold | dB, −20 to 0 | −3 to −1 | TERMINAL CEILING GATE | OUTPUT CEILING | SLIDER | – |
 
 ## Notes from the Tone.js verification pass (V2)
 
