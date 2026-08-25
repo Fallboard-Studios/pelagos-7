@@ -1,17 +1,24 @@
 .console {
-  grid-area: console;
-  /* Renders above WorldView (z-index: 0, now a full-bleed backdrop behind
-     every row) rather than relying on DOM-order stacking. */
+  /* position: absolute (not a grid row) — see .screen-content's own comment
+     (ScreenViewport.css) for why. inset: 0 gives it the full screen area;
+     margin-top pushes just its top edge down to clear both obstacles that
+     sit in that space: the transport bar (--transport-height) and, further
+     down and to the left, the sleeve's power-switch corner
+     (--power-corner-height, :root in index.css). Using the taller of the
+     two (power-corner-height) for the whole width is a deliberate
+     simplicity trade-off — the corner only occupies the left ~190px, so
+     the rest of the width gets more clearance than it strictly needs, in
+     exchange for one clearance value instead of a width-dependent one.
+     Applied here rather than on .console-panel__back specifically —
+     .console-panel's OTHER direct child, HubNav (rendered when no tile is
+     selected — ConsolePanel.tsx), has no clearance of its own otherwise,
+     and needs exactly the same protection the back-button screen does. */
+  position: absolute;
+  inset: 0;
+  margin-top: var(--power-corner-height);
+  /* Renders above WorldView (z-index: 0, a full-bleed backdrop behind
+     everything) rather than relying on DOM-order stacking. */
   z-index: 1;
-  /* A grid item's default min-height is auto (its content's intrinsic
-     size), which lets tall hub content (many accordions, a long robot
-     list, ...) grow this row past its 1fr share instead of being
-     constrained to it. Without this, .console-panel__content's own
-     overflow-y: auto (ConsolePanel.css) never gets a bounded box to
-     actually overflow against, so it never shows a scrollbar — the
-     content just grows past .screen-content's own overflow: hidden and
-     gets silently clipped instead. */
-  min-height: 0;
   /* border: yellow 1px solid; */
   /* Every descendant surface (accordion triggers, buttons, effect blocks,
      text inputs, ...) paints its background from var(--color-surface) —

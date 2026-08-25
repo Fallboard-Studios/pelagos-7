@@ -12,7 +12,6 @@
   box-sizing: border-box;
   background: var(--color-surface);
   border-bottom: var(--border-width) solid var(--border-color);
-  grid-area: transport;
 }
 
 /* ----------------------------------------
