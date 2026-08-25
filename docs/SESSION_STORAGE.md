@@ -9,7 +9,7 @@
 Robot attributes are already fully derived from the active planet seed and locale coordinates — [PROCEDURAL_GENERATION.md](PROCEDURAL_GENERATION.md) guarantees the same seed always regenerates the same world. So this design does **not** persist full robot state. It persists the minimum needed to reproduce a session exactly:
 
 1. Active planet seed and plot coordinates (X, Y) — Sector Settings (Phase 5)
-2. Global Audio Rig FX settings (Compressor, EQ3, LPF, HPF, Chorus, Delay, Reverb) — not seed-derived; set explicitly by the operator (Phase 4)
+2. Global Audio Rig FX settings (Compressor, EQ3, LPF, HPF, Delay, Reverb, Limiter) — not seed-derived; set explicitly by the operator (Phase 4)
 3. Per-robot manual overrides from Robot Options, keyed by robot ID — only the fields an operator explicitly changed (job assignment, docking-state override, battery warning threshold, transducer pressure ratio, oscillator layer params, ADSR envelope, rhythmic density/motif length/octave bounds/note variance). Every other field regenerates fresh from the seed.
 
 The payload is a **diff on top of a regenerated roster**, not a snapshot of the whole world. This keeps saves small and keeps reload/share behavior predictable: regenerate from the seed, then reapply the override diff.

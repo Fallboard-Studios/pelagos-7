@@ -56,7 +56,7 @@ All 13 live in `src/components/ui/controls/`. Naming: PascalCase files, CSS clas
 | `SliderLog` | `SliderLogSchema` | `{ schema: SliderLogSchema; value: number; onChange: (value: number) => void }` — epsilon-floor log curve, see below | Attack, Decay, Release |
 | `SliderCenteredZero` | `SliderCenteredZeroSchema` | `{ schema: SliderCenteredZeroSchema; value: number; onChange: (value: number) => void }` — zero-anchored custom fill, see below | Detune (all 3 layers) |
 | `CoordsInput` | `CoordsInputSchema` | `{ schema: CoordsInputSchema; value: { x: number; y: number }; onChange: (value) => void }` — composes two `TextInput`s with `numeric` set, so X/Y render as native numeric inputs; a blank or non-numeric field is guarded and does not call `onChange` | Not in the robot grid — roadmap Phase 5's Sector Settings |
-| `AccordionContainer` | `AccordionSchema` | `{ schema: AccordionSchema; children: ReactNode; defaultOpen?: boolean }` — one independent collapsible section, not a group coordinator | Ping Controls, Ping Contour, Signature Array (drawer rows) |
+| `AccordionContainer` | `AccordionSchema` | `{ schema: AccordionSchema; children: ReactNode; defaultOpen?: boolean; contentActive?: boolean }` — one independent collapsible section, not a group coordinator; `contentActive` drives the trigger's status light, see below | Ping Controls, Ping Contour, Signature Array (drawer rows) |
 | `Lfo` | `LfoSchema` | `{ schema: LfoSchema; value: LfoValue; onChange: (value: LfoValue) => void }` — composes `RadioButton` + 2×`SliderLinear` + `Toggle` | OSCILLATION rows (LFO Active/Shape/Rate/Depth) |
 
 ### `SliderLog`'s epsilon-floor curve
@@ -67,9 +67,18 @@ A pure `value = min * (max/min)^t` exponential is undefined at `min = 0` (Attack
 
 Radix's own `Slider.Range` fills from the track start, not a center zero-point. `src/components/ui/controls/sliderCenteredZeroMath.ts` computes the zero point generally — `(0 - min) / (max - min) * 100%`, not hardcoded to 50% — and a custom fill `<div>` spans from that zero point to the thumb's position via computed inline `left`/`width` styles (the code style's documented exception to "no inline style objects"). Radix's own `Range` stays in the DOM (visually hidden) for structural/a11y parity.
 
+### Displayed-value precision cap
+
+`SliderLinear`, `SliderLog`, `SliderCenteredZero`, and `Stepper` all round their visible `{value}{unit}` label through `src/components/ui/controls/formatDisplayValue.ts` before rendering — at most 3 decimal places, rounded rather than truncated (`5` stays `5`, not `5.000`). This exists to hide floating-point noise (log-scale math, repeated range conversions) that would otherwise surface as e.g. `4999.999999999999Hz`. It's display-only: the value passed to `onChange`/stored in Zustand, and `SliderLinear`/`SliderLog`/`SliderCenteredZero`'s underlying `aria-valuenow`, stay full precision — only the human-readable label is capped.
+
 ### `AccordionContainer`
 
 Wraps exactly one Radix `Accordion.Root type="single" collapsible` + one `Item` — a single independent collapsible section, not a group coordinator. A drawer wanting several independently-open sections renders multiple `AccordionContainer` instances side by side. Open/closed is local ephemeral `useState` (presentational, not a domain value). Expand/collapse animates via a GSAP timeline registered in `timelineMap` (`setTimeline`/`killTimeline`), following `PowerRockerSwitch.tsx`'s pattern, and respects `prefers-reduced-motion` (`src/components/ui/controls/accordionAnimation.ts`'s `getAccordionDuration`) the same way `PowerRockerSwitch.css` does. This phase adds `@radix-ui/react-accordion` (^1.2.20) — the one new dependency, confirmed with the user.
+
+The trigger's contents, left to right: a decorative `+`/`−` open-state indicator, the label, then a decorative status light — the label and light both shift right to make room for the indicator, via the trigger's own flex `gap` rather than fixed offsets. Both side indicators are `aria-hidden`; `aria-expanded` on the trigger itself already carries the real open/closed state accessibly, so neither needs to.
+
+- **The `+`/`−` indicator** shows whether the section can be expanded — `+` closed, `−` open — driven directly by the same `open` state as everything else here (not a separate data-state hook). A fixed-width span keeps the label's left edge stable when the glyph swaps.
+- **The status light** does **not** reflect open/closed — it reflects the caller-supplied `contentActive?: boolean` prop instead: green when `true`, red when `false`, a plain unlit dot (no glow/pulse, inherits the trigger's own text color) when omitted entirely, for accordions with no domain "active" concept (Ping Controls, Ping Contour, Signature Array). `AudioRigDrawer` passes each effect block's own `enabled` state to its top-level accordion, and each LFO's own `active` state to its nested `lfoAccordion` — two independent domain values, not the accordion's own expand state. Color is keyed in CSS purely off `data-content-active` on the light itself, no ref/imperative DOM mutation involved.
 
 ## CSS tokens
 

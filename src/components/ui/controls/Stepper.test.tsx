@@ -49,4 +49,15 @@ describe('Stepper', () => {
     expect(screen.getByText('DENSITY')).toBeTruthy();
     expect(screen.getByText('Rhythmic Density')).toBeTruthy();
   });
+
+  it('renders the current value between the two buttons', () => {
+    render(<Stepper schema={densitySchema} value={5} onChange={() => {}} />);
+    expect(screen.getByText('5')).toBeTruthy();
+  });
+
+  it('caps the displayed value at 3 decimal places, hiding floating-point noise', () => {
+    const schema: StepperSchema = { id: 'x', type: 'stepper', min: 0, max: 20 };
+    render(<Stepper schema={schema} value={4.999999999999999} onChange={() => {}} />);
+    expect(screen.getByText('5')).toBeTruthy();
+  });
 });

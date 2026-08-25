@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { HubNav } from './HubNav';
 import { RobotsTab } from './RobotsTab';
 import { RobotEditorTab } from './RobotEditorTab';
+import { AudioRigDrawer } from './AudioRigDrawer';
 import { Button } from '@/components/ui/controls/Button';
 import type { ButtonSchema } from '@/types/controls';
 import type { HubTile } from '@/types/hub';
@@ -20,11 +21,7 @@ const BACK_SCHEMA: ButtonSchema = { id: 'hubNavBack', type: 'button', humanLabel
  */
 const TILE_CONTENT: Record<HubTile, (selectedRobotId: string | null) => ReactNode> = {
   robots: (selectedRobotId) => (selectedRobotId ? <RobotEditorTab /> : <RobotsTab />),
-  audioRig: () => (
-    <div className="console-panel__stub" id="console-tab-audioRig">
-      Audio Rig
-    </div>
-  ),
+  audioRig: () => <AudioRigDrawer />,
   settings: () => (
     <div className="console-panel__stub" id="console-tab-settings">
       Settings

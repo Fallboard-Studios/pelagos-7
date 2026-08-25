@@ -7,12 +7,25 @@
 }
 
 .console-panel__back {
+  /* Power-switch/transport clearance lives on .console itself now
+     (Console.css) — it covers every direct child uniformly (this back-
+     button screen AND the plain HubNav tile-grid screen, which has no
+     clearance of its own), not just this one. */
   padding: 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .console-panel__content {
   flex: 1;
+  /* A flex item's default min-height is auto (its content's intrinsic
+     size), which lets tall content (many expanded accordions, a long
+     robot list, ...) grow this element past its flex:1 share instead of
+     being constrained to it — so overflow-y: auto below never actually
+     gets a bounded box to overflow against, and never shows a scrollbar.
+     (.console itself, one level up, doesn't need the same fix now that
+     it's absolutely positioned — Console.css — but this flex item still
+     does; that failure mode is specific to flex/grid track sizing.) */
+  min-height: 0;
   overflow-y: auto;
   padding: 12px;
 }

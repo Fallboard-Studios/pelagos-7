@@ -49,21 +49,27 @@ describe('ROBOT_LFO_TARGET_IDS', () => {
 });
 
 describe('GLOBAL_LFO_TARGET_IDS', () => {
-  it('matches GLOBAL_CHAIN_GRID.md\'s 9 LFO-flagged targets exactly', () => {
+  it('matches GLOBAL_CHAIN_GRID.md\'s 7 LFO-flagged targets exactly (delay.delayTime removed)', () => {
     expect([...GLOBAL_LFO_TARGET_IDS].sort()).toEqual(
       [
         'eq3.low', 'eq3.mid', 'eq3.high',
         'lpf.frequency', 'lpf.Q',
         'hpf.frequency', 'hpf.Q',
-        'chorus.delayTime',
-        'delay.delayTime',
       ].sort()
     );
   });
 
-  it('has exactly 9 members, no duplicates', () => {
-    expect(GLOBAL_LFO_TARGET_IDS).toHaveLength(9);
-    expect(new Set(GLOBAL_LFO_TARGET_IDS).size).toBe(9);
+  it('has exactly 7 members, no duplicates', () => {
+    expect(GLOBAL_LFO_TARGET_IDS).toHaveLength(7);
+    expect(new Set(GLOBAL_LFO_TARGET_IDS).size).toBe(7);
+  });
+
+  it('does not include chorus.delayTime — Chorus was removed in V2', () => {
+    expect(GLOBAL_LFO_TARGET_IDS).not.toContain('chorus.delayTime');
+  });
+
+  it('does not include delay.delayTime — LFO removed from Delay\'s delayTime', () => {
+    expect(GLOBAL_LFO_TARGET_IDS).not.toContain('delay.delayTime');
   });
 
   it('does not overlap with ROBOT_LFO_TARGET_IDS', () => {

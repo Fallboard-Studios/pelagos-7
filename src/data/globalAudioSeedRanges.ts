@@ -1,15 +1,19 @@
 /**
- * Per-field seed ranges for GlobalAudioSettings, resolving
- * docs/specs/LFO_INTEGRATION.md Task 4.
+ * Per-field FULL/UI-matching ranges for GlobalAudioSettings — this is the
+ * "Unit / Range" column, not the narrower "Loading Range" column
+ * (src/data/globalAudioLoadingRanges.ts). docs/reference/GLOBAL_CHAIN_GRID.md
+ * is the source of truth for both; this file is a mechanical transcription.
  *
  * min/max mirror the doc-comment ranges already in src/types/globalAudio.ts —
  * do not change one without the other. `scale` is 'log' only for the fields
- * docs/reference/GLOBAL_CHAIN_GRID.md's UI column marks "SLIDER (Logarithmic)";
- * everything else (including EQ3's center-zero sliders, which are a UI
- * presentation choice, not a sampling one) is 'linear'.
+ * GLOBAL_CHAIN_GRID.md's UI column marks "SLIDER (Logarithmic)"; everything
+ * else (including EQ3's center-zero sliders, which are a UI presentation
+ * choice, not a sampling one) is 'linear'.
  *
- * Consumed by globalAudioSeed.ts (Task 5) to seed-generate the global FX
- * chain from the planet noise map.
+ * Consumed by globalAudioSeed.ts to seed-generate the global FX chain from
+ * the planet noise map, and by lfoEngine.ts's resolveLfoOutputRange (the full
+ * range an LFO can swing a modulated parameter across — never the narrower
+ * loading range).
  */
 
 export type SeedScale = 'log' | 'linear';
@@ -33,19 +37,20 @@ export type GlobalAudioSeedFieldKey =
   | 'filterLPF.Q'
   | 'filterHPF.frequency'
   | 'filterHPF.Q'
-  | 'chorus.rate'
-  | 'chorus.depth'
-  | 'chorus.delayTime'
-  | 'chorus.feedback'
-  | 'chorus.wet'
   | 'delay.delayTime'
   | 'delay.feedback'
   | 'delay.wet'
   | 'reverb.decay'
   | 'reverb.preDelay'
-  | 'reverb.dampening'
-  | 'reverb.wet';
+  | 'reverb.wet'
+  | 'limiter.threshold';
 
+// V2: Chorus (rate/depth/delayTime/feedback/wet) removed entirely — the
+// effect doesn't suit this music. reverb.dampening removed — Tone.Reverb has
+// no such property; it was a dead cast in globalFx.ts since Phase 0.
+// limiter.threshold added — Tone.Limiter's only controllable param.
+// See docs/reference/GLOBAL_CHAIN_GRID.md, the source of truth for every
+// value below.
 export const GLOBAL_AUDIO_SEED_RANGES: Record<GlobalAudioSeedFieldKey, SeedRange> = {
   'compressor.threshold': { min: -60, max: 0, scale: 'linear' },
   'compressor.ratio': { min: 1, max: 20, scale: 'linear' },
@@ -62,18 +67,13 @@ export const GLOBAL_AUDIO_SEED_RANGES: Record<GlobalAudioSeedFieldKey, SeedRange
   'filterHPF.frequency': { min: 20, max: 20000, scale: 'log' },
   'filterHPF.Q': { min: 0.1, max: 20, scale: 'log' },
 
-  'chorus.rate': { min: 0.1, max: 10, scale: 'linear' },
-  'chorus.depth': { min: 0, max: 1, scale: 'linear' },
-  'chorus.delayTime': { min: 2, max: 20, scale: 'linear' },
-  'chorus.feedback': { min: 0, max: 1, scale: 'linear' },
-  'chorus.wet': { min: 0, max: 1, scale: 'linear' },
-
   'delay.delayTime': { min: 0, max: 1, scale: 'linear' },
   'delay.feedback': { min: 0, max: 0.95, scale: 'linear' },
   'delay.wet': { min: 0, max: 1, scale: 'linear' },
 
   'reverb.decay': { min: 0.1, max: 10, scale: 'log' },
   'reverb.preDelay': { min: 0, max: 0.5, scale: 'linear' },
-  'reverb.dampening': { min: 100, max: 8000, scale: 'log' },
   'reverb.wet': { min: 0, max: 1, scale: 'linear' },
+
+  'limiter.threshold': { min: -20, max: 0, scale: 'linear' },
 };

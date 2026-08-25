@@ -1,6 +1,6 @@
 .transport-bar {
   position: sticky;
-  top: 0;
+  top: 8px;
   width: 100%;
   min-height: var(--transport-height);
   z-index: var(--z-header);
@@ -12,7 +12,6 @@
   box-sizing: border-box;
   background: var(--color-surface);
   border-bottom: var(--border-width) solid var(--border-color);
-  grid-area: transport;
 }
 
 /* ----------------------------------------

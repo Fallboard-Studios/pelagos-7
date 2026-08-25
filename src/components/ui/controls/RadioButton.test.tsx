@@ -50,4 +50,24 @@ describe('RadioButton', () => {
     render(<RadioButton schema={bareSchema} value="sine" onChange={() => {}} />);
     expect(screen.getByRole('group', { name: 'lfoShape' })).toBeTruthy();
   });
+
+  it('is not disabled by default — no existing behavior changes', () => {
+    render(<RadioButton schema={schema} value="sine" onChange={() => {}} />);
+    const item = screen.getByRole('radio', { name: 'SINE' });
+    expect(item.getAttribute('data-disabled')).toBeNull();
+    expect(item.getAttribute('tabindex')).not.toBeNull();
+  });
+
+  it('marks every item data-disabled when disabled is true', () => {
+    render(<RadioButton schema={schema} value="sine" onChange={() => {}} disabled />);
+    expect(screen.getByRole('radio', { name: 'SINE' }).getAttribute('data-disabled')).toBe('');
+    expect(screen.getByRole('radio', { name: 'TRIANGLE' }).getAttribute('data-disabled')).toBe('');
+  });
+
+  it('does not call onChange on a disabled item when clicked', () => {
+    const onChange = vi.fn();
+    render(<RadioButton schema={schema} value="sine" onChange={onChange} disabled />);
+    fireEvent.click(screen.getByRole('radio', { name: 'SQUARE' }));
+    expect(onChange).not.toHaveBeenCalled();
+  });
 });

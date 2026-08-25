@@ -96,14 +96,19 @@
   position: relative;
   z-index: 0;
   height: 100%;
-  overflow: auto;
-  display: grid;
-  grid-template-columns: 1fr;
-  grid-template-rows: auto 1fr 1fr;
-  grid-template-areas:
-    "transport"
-    "worldview"
-    "console";
+  /* Plain positioning context, not a grid — WorldView, Transport, and
+     Console each position themselves (WorldView.css/TransportBar.css/
+     Console.css) rather than sharing grid tracks. Grid's own row-sizing
+     kept leaking (a track growing to fit a descendant's content despite
+     min-height: 0 fixes one level down, coupling WorldView's size to
+     Console's whenever that happened) — absolute positioning doesn't have
+     that failure mode at all: each child's box is fully determined by its
+     own inset/margin values, never by what any sibling's content does.
+     Nothing here should ever need to scroll itself — Console's own content
+     scrolls internally (.console-panel__content, ConsolePanel.css) — so
+     hidden, not auto: a future sizing bug fails as a visible clip, not a
+     silent scrollbar appearing where none should. */
+  overflow: hidden;
 }
 
 /* Reserve space for SleeveContainer's cutaway (Task 7/8 of

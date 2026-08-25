@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
 
 import { SliderCenteredZero } from './SliderCenteredZero';
 import { computeFillRect, zeroPointPercent } from './sliderCenteredZeroMath';
@@ -54,6 +54,17 @@ describe('SliderCenteredZero component', () => {
     expect(screen.getByText('-15ct')).toBeTruthy();
   });
 
+  it('caps the displayed value at 3 decimal places, hiding floating-point noise', () => {
+    render(<SliderCenteredZero schema={detuneSchema} value={-14.999999999999998} onChange={() => {}} />);
+    expect(screen.getByText('-15ct')).toBeTruthy();
+  });
+
+  it('still renders the bare value when schema.unit is absent', () => {
+    const noUnitSchema: SliderCenteredZeroSchema = { id: 'x', type: 'sliderCenteredZero', min: -50, max: 50 };
+    render(<SliderCenteredZero schema={noUnitSchema} value={-15} onChange={() => {}} />);
+    expect(screen.getByText('-15')).toBeTruthy();
+  });
+
   it('reflects min/max/value on the underlying slider', () => {
     render(<SliderCenteredZero schema={detuneSchema} value={10} onChange={() => {}} />);
     const thumb = screen.getByRole('slider');
@@ -66,5 +77,36 @@ describe('SliderCenteredZero component', () => {
     const bareSchema: SliderCenteredZeroSchema = { id: 'detune', type: 'sliderCenteredZero', min: -50, max: 50 };
     render(<SliderCenteredZero schema={bareSchema} value={0} onChange={() => {}} />);
     expect(screen.getByRole('slider', { name: 'detune' })).toBeTruthy();
+  });
+
+  it('is not disabled by default — no existing behavior changes', () => {
+    render(<SliderCenteredZero schema={detuneSchema} value={0} onChange={() => {}} />);
+    const thumb = screen.getByRole('slider');
+    expect(thumb.getAttribute('data-disabled')).toBeNull();
+    expect(thumb.getAttribute('tabindex')).toBe('0');
+  });
+
+  it('marks the thumb data-disabled and removes it from tab order when disabled is true', () => {
+    render(<SliderCenteredZero schema={detuneSchema} value={0} onChange={() => {}} disabled />);
+    const thumb = screen.getByRole('slider');
+    expect(thumb.getAttribute('data-disabled')).toBe('');
+    expect(thumb.getAttribute('tabindex')).toBeNull();
+  });
+
+  it('does not call onChange on a disabled slider when a keyboard step is attempted', () => {
+    const onChange = vi.fn();
+    render(<SliderCenteredZero schema={detuneSchema} value={0} onChange={onChange} disabled />);
+    const thumb = screen.getByRole('slider');
+    thumb.focus();
+    fireEvent.keyDown(thumb, { key: 'ArrowRight' });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('still renders the correct zero-anchored fill when disabled (visual state unaffected)', () => {
+    const { container } = render(<SliderCenteredZero schema={detuneSchema} value={25} onChange={() => {}} disabled />);
+    const fillEl = container.querySelector<HTMLDivElement>('.sc-slider-centered-zero__fill');
+    const rect = computeFillRect(25, -50, 50);
+    expect(fillEl?.style.left).toBe(`${rect.left}%`);
+    expect(fillEl?.style.width).toBe(`${rect.width}%`);
   });
 });

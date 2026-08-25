@@ -36,13 +36,6 @@ describe('SleeveContainer (Task 7 — cutaway structure)', () => {
       expect(corner?.querySelector('button')).toBeTruthy();
     });
 
-    it('renders a decorative top strip', () => {
-      const { container } = render(<SleeveContainer hasPowerSwitch />);
-      const strip = container.querySelector('.sleeve-container__top-strip');
-      expect(strip).toBeTruthy();
-      expect(strip?.getAttribute('aria-hidden')).toBe('true');
-    });
-
     it('does not also render the plain sleeve-logo bar', () => {
       // Edge case: the cutaway structure replaces this instance's markup
       // entirely — it must not render both the old bar AND the new corner/strip.

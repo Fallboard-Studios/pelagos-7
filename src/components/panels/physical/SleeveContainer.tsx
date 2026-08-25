@@ -9,13 +9,12 @@ function SleeveContainer({ hasPowerSwitch = false }: SleeveContainerProps) {
   const className = hasPowerSwitch ? 'sleeve-container sleeve-container--cutaway' : 'sleeve-container';
 
   return (
-    <aside className={className} aria-label="Device controls">
+    <aside className={className} aria-label={hasPowerSwitch ? "Device controls" : undefined}>
       {hasPowerSwitch ? (
         <>
           <div className="sleeve-container__power-corner">
             <PowerRockerSwitch />
           </div>
-          <div className="sleeve-container__top-strip" aria-hidden="true" />
         </>
       ) : (
         <div className="sleeve-logo" role="img" aria-hidden="true">PELAGOS</div>

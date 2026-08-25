@@ -9,8 +9,6 @@ export interface ReverbSettings {
   decay: number;
   /** seconds (0 - 0.5) */
   preDelay: number;
-  /** Hz (100 - 8000) */
-  dampening: number;
   /** 0 - 1 */
   wet: number;
 }
@@ -60,18 +58,10 @@ export interface FilterSettings {
   Q: number;
 }
 
-export interface ChorusSettings {
+export interface LimiterSettings {
   enabled: boolean;
-  /** Hz (0.1 - 10) */
-  rate: number;
-  /** 0 - 1 */
-  depth: number;
-  /** ms (2 - 20) */
-  delayTime: number;
-  /** 0 - 1 */
-  feedback: number;
-  /** 0 - 1 */
-  wet: number;
+  /** dB (-20 - 0) — Tone.Limiter's only controllable param; wraps a fixed ratio=20/attack=0.003/release=0.01 Compressor internally. */
+  threshold: number;
 }
 
 /**
@@ -79,6 +69,10 @@ export interface ChorusSettings {
  */
 export interface GlobalAudioSettings {
   globalBypass: boolean;
+  /** false = Natural Decay (Compressor after Delay+Reverb, tails ring out uncompressed).
+   *  true = Controlled Decay (Compressor moved before both Delay and Reverb). Not seeded —
+   *  always starts false; only a direct user toggle changes it. */
+  compressorBeforeDelay: boolean;
   reverb: ReverbSettings;
   delay: DelaySettings;
   compressor: CompressorSettings;
@@ -87,16 +81,17 @@ export interface GlobalAudioSettings {
   filterLPF: FilterSettings;
   /** High-pass filter — AudioEngine builds this as its own Tone.Filter node (`_globalHPF`), independent of filterLPF. */
   filterHPF: FilterSettings;
-  chorus: ChorusSettings;
+  limiter: LimiterSettings;
 }
 
 export const DEFAULT_GLOBAL_AUDIO_SETTINGS: GlobalAudioSettings = {
   globalBypass: false,
-  reverb: { enabled: true, decay: 1.5, preDelay: 0.02, dampening: 3000, wet: 0.3 },
+  compressorBeforeDelay: false,
+  reverb: { enabled: false, decay: 1.5, preDelay: 0.02, wet: 0.3 },
   delay: { enabled: false, delayTime: 0.25, feedback: 0.2, wet: 0.15 },
   compressor: { enabled: false, threshold: -24, ratio: 2, attack: 0.003, release: 0.25, knee: 6 },
   eq3: { enabled: false, low: 0, mid: 0, high: 0 },
   filterLPF: { enabled: false, type: 'lowpass', frequency: 20000, Q: 1 },
   filterHPF: { enabled: false, type: 'highpass', frequency: 20, Q: 1 },
-  chorus: { enabled: false, rate: 1.5, depth: 0.2, delayTime: 12, feedback: 0.1, wet: 0.2 },
+  limiter: { enabled: false, threshold: -12 },
 };

@@ -17,6 +17,12 @@
     0 2px 5px rgba(0, 0, 0, 0.55);
 }
 
+.sleeve-container:not(.sleeve-container--cutaway) {
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  width: 100%;
+  height: 8px;
+}
+
 /* ─── Cutaway (hasPowerSwitch instance only) ──────────────────────────────── */
 /* The whole instance is taken out of .tablet's flex flow (not just its two
    children below) so ScreenViewport can rise to become flush with the true
@@ -56,13 +62,19 @@
 }
 
 .sleeve-container__top-strip {
+  --offset: calc(var(--sleeve-bar-width) + 1px);
   position: absolute;
   top: 0;
-  left: var(--power-corner-width);
   right: 0;
-  height: var(--power-corner-margin);
+  left: var(--offset);
+  width: calc(var(--tablet-max-width) + 32px - var(--offset));
+  max-width: calc(var(--tablet-max-width) + 32px - var(--offset));
+  height: 8px;
   background: var(--color-surface);
   pointer-events: none;
+  z-index: 1;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 5px rgba(0, 0, 0, 0.55);
+
 }
 
 /* ─── Sleeve Logo ─────────────────────────────────────────────────────────── */

@@ -56,6 +56,17 @@ describe('SliderLog component', () => {
     expect(screen.getByText('2s')).toBeTruthy();
   });
 
+  it('still renders the bare value when schema.unit is absent — a unitless param like Resonance/Q must not be left blank', () => {
+    const noUnitSchema: SliderLogSchema = { id: 'q', type: 'sliderLog', min: 0.1, max: 20, humanLabel: 'Resonance' };
+    render(<SliderLog schema={noUnitSchema} value={5} onChange={() => {}} />);
+    expect(screen.getByText('5')).toBeTruthy();
+  });
+
+  it('caps the displayed value at 3 decimal places, hiding floating-point noise', () => {
+    render(<SliderLog schema={schema} value={4.999999999999999} onChange={() => {}} />);
+    expect(screen.getByText('5s')).toBeTruthy();
+  });
+
   it('onChange receives the mapped display value, never the raw internal t', () => {
     const onChange = vi.fn();
     render(<SliderLog schema={schema} value={0} onChange={onChange} />);
@@ -76,5 +87,28 @@ describe('SliderLog component', () => {
     const bareSchema: SliderLogSchema = { id: 'attack', type: 'sliderLog', min: 0, max: 10 };
     render(<SliderLog schema={bareSchema} value={2} onChange={() => {}} />);
     expect(screen.getByRole('slider', { name: 'attack' })).toBeTruthy();
+  });
+
+  it('is not disabled by default — no existing behavior changes', () => {
+    render(<SliderLog schema={schema} value={2} onChange={() => {}} />);
+    const thumb = screen.getByRole('slider');
+    expect(thumb.getAttribute('data-disabled')).toBeNull();
+    expect(thumb.getAttribute('tabindex')).toBe('0');
+  });
+
+  it('marks the thumb data-disabled and removes it from tab order when disabled is true', () => {
+    render(<SliderLog schema={schema} value={2} onChange={() => {}} disabled />);
+    const thumb = screen.getByRole('slider');
+    expect(thumb.getAttribute('data-disabled')).toBe('');
+    expect(thumb.getAttribute('tabindex')).toBeNull();
+  });
+
+  it('does not call onChange on a disabled slider when a keyboard step is attempted', () => {
+    const onChange = vi.fn();
+    render(<SliderLog schema={schema} value={2} onChange={onChange} disabled />);
+    const thumb = screen.getByRole('slider');
+    thumb.focus();
+    fireEvent.keyDown(thumb, { key: 'ArrowRight' });
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

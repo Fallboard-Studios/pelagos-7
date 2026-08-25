@@ -39,4 +39,26 @@ describe('DEFAULT_GLOBAL_AUDIO_SETTINGS', () => {
   it('remains JSON-serializable', () => {
     expect(() => JSON.stringify(DEFAULT_GLOBAL_AUDIO_SETTINGS)).not.toThrow();
   });
+
+  it('no longer has a chorus field', () => {
+    // V2: Chorus removed entirely — "the effect isn't correct for this music."
+    expect('chorus' in DEFAULT_GLOBAL_AUDIO_SETTINGS).toBe(false);
+  });
+
+  it('reverb no longer has a dampening field', () => {
+    // V2: dampening was a dead cast in globalFx.ts — Tone.Reverb has no such
+    // property and never read it. Reverb keeps exactly decay/preDelay/wet.
+    expect('dampening' in DEFAULT_GLOBAL_AUDIO_SETTINGS.reverb).toBe(false);
+  });
+
+  it('has a limiter field matching Tone.Limiter\'s own default threshold', () => {
+    expect(DEFAULT_GLOBAL_AUDIO_SETTINGS.limiter).toEqual({
+      enabled: false,
+      threshold: -12,
+    });
+  });
+
+  it('defaults compressorBeforeDelay to false (Natural Decay)', () => {
+    expect(DEFAULT_GLOBAL_AUDIO_SETTINGS.compressorBeforeDelay).toBe(false);
+  });
 });

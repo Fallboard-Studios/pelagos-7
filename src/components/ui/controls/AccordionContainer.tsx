@@ -13,6 +13,16 @@ interface AccordionContainerProps {
   schema: AccordionSchema;
   children: ReactNode;
   defaultOpen?: boolean;
+  /**
+   * Drives the trigger's status light — green when true, red when false, a
+   * plain unlit dot when omitted (this accordion has no domain concept of
+   * "active" to show). Deliberately independent of the accordion's own
+   * open/closed state: a caller passes its own domain value here (e.g. an
+   * effect's own Enabled toggle, or an LFO's Active toggle) — the light
+   * never reflects expand/collapse, which aria-expanded already carries
+   * accessibly.
+   */
+  contentActive?: boolean;
 }
 
 /**
@@ -25,7 +35,7 @@ interface AccordionContainerProps {
  * following PowerRockerSwitch.tsx's pattern, and respects
  * prefers-reduced-motion the same way PowerRockerSwitch.css does.
  */
-export function AccordionContainer({ schema, children, defaultOpen = false }: AccordionContainerProps) {
+export function AccordionContainer({ schema, children, defaultOpen = false, contentActive }: AccordionContainerProps) {
   const [open, setOpen] = useState(defaultOpen);
   const contentRef = useRef<HTMLDivElement>(null);
   const timelineKey = `accordion-${schema.id}`;
@@ -86,7 +96,22 @@ export function AccordionContainer({ schema, children, defaultOpen = false }: Ac
       <Accordion.Item value={schema.id} className="sc-accordion__item">
         <Accordion.Header className="sc-accordion__header">
           <Accordion.Trigger className="sc-accordion__trigger">
+            {/* Decorative — the open/closed affordance itself. aria-expanded
+                already carries the real state accessibly; this is purely so
+                a sighted user can tell at a glance the section can be
+                opened. Driven directly by the same `open` state as
+                everything else here, not a separate Radix data-state hook. */}
+            <span className="sc-accordion__indicator" aria-hidden="true">{open ? '−' : '+'}</span>
             <DualLabel loreLabel={schema.loreLabel} humanLabel={schema.humanLabel} />
+            {/* Decorative — reflects contentActive, a domain concept the
+                caller supplies (e.g. this effect's own Enabled toggle, or an
+                LFO's Active toggle), never the accordion's own open/closed
+                state, which aria-expanded already carries accessibly. */}
+            <span
+              className="sc-accordion__light"
+              aria-hidden="true"
+              data-content-active={contentActive === undefined ? undefined : String(contentActive)}
+            />
           </Accordion.Trigger>
         </Accordion.Header>
         <Accordion.Content ref={contentRef} className="sc-accordion__content" forceMount>

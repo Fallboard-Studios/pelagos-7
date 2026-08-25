@@ -108,17 +108,17 @@ const ROBOT_LFO_FIELD_RANGE: Record<string, { min: number; max: number }> = {
 function globalSeedRangeKey(target: GlobalLfoTargetId): GlobalAudioSeedFieldKey {
   if (target.startsWith('lpf.')) return `filterLPF.${target.slice(4)}` as GlobalAudioSeedFieldKey;
   if (target.startsWith('hpf.')) return `filterHPF.${target.slice(4)}` as GlobalAudioSeedFieldKey;
-  return target as GlobalAudioSeedFieldKey; // eq3.*, delay.delayTime already match directly
+  return target as GlobalAudioSeedFieldKey; // eq3.* already matches directly
 }
 
 /**
- * Resolve the real min/max a target's Signal actually operates in — Tone.LFO
- * defaults to min:0/max:1 regardless of what it's connected to (verified:
- * LFO.getDefaults() in Tone's own source), which is functionally inaudible
- * against, e.g., a ±12dB EQ band or ±50-cent detune. Reuses
+ * Resolve the real min/max a target's Signal actually operates in. Reuses
  * GLOBAL_AUDIO_SEED_RANGES (Task 4/5) for global targets rather than
  * maintaining a second range table. Returns null for targets with no
  * meaningful output range here (phase, handled entirely separately).
+ *
+ * This is the field's own absolute range — NOT what gets applied directly to
+ * lfo.min/lfo.max. See centeredSwingFromRange() below for why.
  */
 function resolveLfoOutputRange(target: LfoTargetId): { min: number; max: number } | null {
   if (target === 'volume') return ROBOT_LFO_FIELD_RANGE.volume;
@@ -130,6 +130,52 @@ function resolveLfoOutputRange(target: LfoTargetId): { min: number; max: number 
     return range ? { min: range.min, max: range.max } : null;
   }
   return null;
+}
+
+/**
+ * Convert a field's absolute range AND its current base value into the
+ * ADDITIVE delta lfo.min/lfo.max should actually be set to.
+ *
+ * Tone.LFO.connect() sums onto the destination Param's existing value —
+ * native Web Audio AudioParam behavior: connecting an input signal ADDS to
+ * whatever the param's own intrinsic value already is, it never overrides
+ * it. Using a field's raw absolute range (e.g. LPF frequency, 20-20000)
+ * directly as lfo.min/lfo.max was a real bug: that adds up to +20000 Hz on
+ * top of whatever the slider is already at, trivially pushing the actual
+ * cutoff past Nyquist (filter wide open — an audible burst of unfiltered
+ * harmonics) the instant the LFO connects.
+ *
+ * A first fix used a FIXED zero-centered swing (half the field's own total
+ * span) — better, but still a constant, independent of where the base value
+ * actually sits. That reintroduced the same bug from the other direction:
+ * for a base value anywhere off-center (e.g. left low, as a workaround for
+ * the original crash), a fixed swing still large enough to swing the OTHER
+ * way pushed the combined value below the field's own minimum for roughly
+ * half of every cycle — heard as the mix muting for half the time.
+ *
+ * The real fix: bound the swing by the base value's own distance to
+ * whichever edge of the range is nearer — min(value - rangeMin, rangeMax -
+ * value). Added to the base value, this can never leave [rangeMin, rangeMax]
+ * in either direction, for any starting position. A value sitting exactly at
+ * the range's own midpoint (both distances equal) still gets the same "half
+ * the total span" swing as the simpler fixed version — no regression for
+ * fields whose typical resting value already is the midpoint (EQ dB bands,
+ * robot detune both default to 0, the center of a symmetric range).
+ */
+function centeredSwingFromRange(
+  range: { min: number; max: number },
+  currentValue: number
+): { min: number; max: number } {
+  // A non-finite currentValue (NaN/Infinity — e.g. the resolved Signal not
+  // actually initialized yet) must never reach lfo.min/lfo.max: connecting
+  // an LFO whose output is NaN poisons the live Web Audio graph downstream
+  // of whatever it's connected to, not just this one target. Fall back to
+  // zero swing (the LFO contributes nothing) rather than propagate it.
+  if (!Number.isFinite(currentValue)) return { min: 0, max: 0 };
+  const distanceToMin = currentValue - range.min;
+  const distanceToMax = range.max - currentValue;
+  const halfSpan = Math.max(0, Math.min(distanceToMin, distanceToMax));
+  return { min: -halfSpan, max: halfSpan };
 }
 
 /** Unit-amplitude waveform value in [-1, 1] for a given shape at a given phase angle (radians). */
@@ -150,9 +196,20 @@ function waveformUnit(shape: LfoShape, phaseRadians: number): number {
   }
 }
 
-function isTransportRunning(): boolean {
+/**
+ * Whether it's safe to actually start an oscillator right now. Gates on the
+ * AudioContext itself, not Transport state — Transport can still be mid-
+ * startup (instrument loading, waiting on reverb) well after Tone.start()
+ * has already made the context running, and gating on Transport left a real
+ * window where an LFO could connect to a live target but never actually
+ * start oscillating: Tone.LFO outputs a raw, undepth-scaled "stopped" value
+ * (its waveform's value at its resting phase — not necessarily 0, e.g. for
+ * square/sawtooth/triangle shapes) for as long as it never starts, which
+ * gets summed straight into whatever it's connected to indefinitely.
+ */
+function isAudioContextRunning(): boolean {
   try {
-    return Tone.getTransport().state === 'started';
+    return Tone.getContext().state === 'running';
   } catch {
     return false;
   }
@@ -227,19 +284,20 @@ function setLfoShape(target: LfoTargetId, shape: LfoSettings['shape'], robotId?:
 }
 
 /**
- * Start an already-created LFO, gated by the transport: no-ops (does not
- * call the underlying node's start()) unless Tone.getTransport().state is
- * 'started'. Deliberately does NOT call Tone.LFO.sync() — per its own doc
- * comment, sync() ties frequency to the transport's BPM as well as
- * start/stop, which would tempo-couple the rate and violate the confirmed
- * intent that rate stays a free-running Hz value. If no node has been
- * created yet for this target (no setter/connect called), this is a no-op —
- * start() itself never lazily constructs a node.
+ * Start an already-created LFO, gated by the AudioContext: no-ops (does not
+ * call the underlying node's start()) unless Tone.getContext().state is
+ * 'running' (not Transport state — see isAudioContextRunning() above).
+ * Deliberately does NOT call Tone.LFO.sync() — per its own doc comment,
+ * sync() ties frequency to the transport's BPM as well as start/stop, which
+ * would tempo-couple the rate and violate the confirmed intent that rate
+ * stays a free-running Hz value. If no node has been created yet for this
+ * target (no setter/connect called), this is a no-op — start() itself never
+ * lazily constructs a node.
  */
 function start(target: LfoTargetId, robotId?: string): void {
   const lfo = activeLfos.get(instanceKey(target, robotId));
   if (!lfo) return;
-  if (!isTransportRunning()) return;
+  if (!isAudioContextRunning()) return;
   lfo.start();
 }
 
@@ -284,10 +342,10 @@ function stopPhaseFallback(key: string): void {
  * Connect this target's LFO to its live modulation destination. Returns
  * false — never throws — when: a robot-scoped target is called without a
  * robotId (nothing to resolve against), or AudioEngine has no live Signal
- * for the target (pulseWidth on a non-'pulse' layer, chorus.delayTime —
- * structural Tone.js limitations documented at the AudioEngine layer,
- * Tasks 9/10). 'layerN.phase' is handled entirely separately via the
- * manual-polling fallback above, since no live Signal exists for it at all.
+ * for the target (pulseWidth on a non-'pulse' layer — a structural Tone.js
+ * limitation documented at the AudioEngine layer, Tasks 9/10). 'layerN.phase'
+ * is handled entirely separately via the manual-polling fallback above,
+ * since no live Signal exists for it at all.
  */
 function connectLfoTarget(target: LfoTargetId, robotId?: string): boolean {
   const key = instanceKey(target, robotId);
@@ -310,10 +368,15 @@ function connectLfoTarget(target: LfoTargetId, robotId?: string): boolean {
   if (!signal) return false;
 
   const lfo = getOrCreateLfo(key, target, robotId);
+  // Read the target's CURRENT base value (both Signal and Param expose a
+  // plain numeric .value getter) — used to bound the swing below AND to
+  // restore the value after connecting (see the comment further down).
+  const currentValue = (signal as unknown as { value: number }).value;
   const range = resolveLfoOutputRange(target);
   if (range) {
-    lfo.min = range.min;
-    lfo.max = range.max;
+    const swing = centeredSwingFromRange(range, currentValue);
+    lfo.min = swing.min;
+    lfo.max = swing.max;
   }
 
   if (connectedSignals.get(key) === signal) return true; // already connected to this exact signal — no-op, never a second .connect()
@@ -329,12 +392,45 @@ function connectLfoTarget(target: LfoTargetId, robotId?: string): boolean {
     }
   }
 
+  // Tone.Signal defaults `override: true`, which makes Tone's own
+  // connectSignal() (invoked internally by lfo.connect() below) immediately
+  // cancelScheduledValues + setValueAtTime(0, 0) on the destination and
+  // permanently mark it "overridden" — the INSTANT .connect() runs, before
+  // the LFO has even started oscillating, and regardless of what lfo.min/
+  // lfo.max are set to. For a filter's frequency Signal, that's a step
+  // change to an invalid 0 Hz cutoff every single time an LFO connects —
+  // verified directly against Tone.js's own source (signal/Signal.ts). It
+  // also silently discards whatever the target's own value was, which is
+  // exactly the "additive on top of the current value" assumption
+  // centeredSwingFromRange() above depends on. Disabling `override` first
+  // restores plain additive Web Audio summing. Has no effect on a Tone.Param
+  // destination (e.g. robot Gain targets) — Param has no `override` concept
+  // at all; that case is handled separately below.
+  (signal as unknown as { override?: boolean }).override = false;
+
   try {
     lfo.connect(signal as unknown as Tone.InputNode);
   } catch (err) {
     devWarn('[lfoEngine] connectLfoTarget: connect failed', err);
     return false;
   }
+
+  // Tone.Param (e.g. robot Gain targets — Tone.Gain.gain) has no `override`
+  // escape hatch — connecting to it ALWAYS resets its own value to 0 the
+  // instant .connect() runs (verified: connectSignal()'s `destination
+  // instanceof Param` branch is unconditional, unlike Signal's). Unlike
+  // Signal, though, Param never gets marked permanently "overridden" by
+  // this — a plain write immediately after restores it, and the LFO's
+  // contribution sums on top of it normally from then on, same as the
+  // Signal case once override is disabled above. Harmless no-op for a
+  // Signal destination — override being false already meant connect()
+  // never touched its value in the first place. Guarded against a
+  // non-finite currentValue for the same reason centeredSwingFromRange()
+  // does — never write NaN into a live Web Audio graph.
+  if (Number.isFinite(currentValue)) {
+    (signal as unknown as { value: number }).value = currentValue;
+  }
+
   connectedSignals.set(key, signal);
   return true;
 }

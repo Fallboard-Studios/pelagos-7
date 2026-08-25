@@ -10,26 +10,28 @@ import { DEFAULT_GLOBAL_AUDIO_SETTINGS } from '@/types/globalAudio';
 // TESTS
 // ========================================
 
-// Every seedable field across all 7 global effects, per docs/specs/LFO_INTEGRATION.md
-// Task 4 and the doc-comment ranges in src/types/globalAudio.ts. `enabled`, `type`,
-// and `globalBypass` are excluded — they're not seeded (see spec §3/§7.2).
+// Every seedable field across all 7 global effects (V2: Compressor, EQ3, LPF,
+// HPF, Delay, Reverb, Limiter — Chorus removed, Limiter added). `enabled`,
+// `type`, `globalBypass`, and `compressorBeforeDelay` are excluded — not
+// seeded as continuous ranges (see docs/specs/AUDIO_RIG_V2.md §3).
 const EXPECTED_KEYS = [
   'compressor.threshold', 'compressor.ratio', 'compressor.attack', 'compressor.release', 'compressor.knee',
   'eq3.low', 'eq3.mid', 'eq3.high',
   'filterLPF.frequency', 'filterLPF.Q',
   'filterHPF.frequency', 'filterHPF.Q',
-  'chorus.rate', 'chorus.depth', 'chorus.delayTime', 'chorus.feedback', 'chorus.wet',
   'delay.delayTime', 'delay.feedback', 'delay.wet',
-  'reverb.decay', 'reverb.preDelay', 'reverb.dampening', 'reverb.wet',
+  'reverb.decay', 'reverb.preDelay', 'reverb.wet',
+  'limiter.threshold',
 ] as const;
 
 // Fields that GLOBAL_CHAIN_GRID.md's UI column marks "SLIDER (Logarithmic)" —
-// everything else (including EQ's center-zero sliders) is linear.
+// everything else (including EQ's center-zero sliders and Limiter's linear
+// dB slider) is linear.
 const EXPECTED_LOG_KEYS = new Set([
   'compressor.attack', 'compressor.release',
   'filterLPF.frequency', 'filterLPF.Q',
   'filterHPF.frequency', 'filterHPF.Q',
-  'reverb.decay', 'reverb.dampening',
+  'reverb.decay',
 ]);
 
 describe('GLOBAL_AUDIO_SEED_RANGES', () => {
@@ -37,7 +39,14 @@ describe('GLOBAL_AUDIO_SEED_RANGES', () => {
     expect(Object.keys(GLOBAL_AUDIO_SEED_RANGES).sort()).toEqual([...EXPECTED_KEYS].sort());
   });
 
-  it('matches the documented ranges in src/types/globalAudio.ts', () => {
+  it('has no chorus.* key and no reverb.dampening key', () => {
+    for (const key of Object.keys(GLOBAL_AUDIO_SEED_RANGES)) {
+      expect(key.startsWith('chorus.')).toBe(false);
+    }
+    expect('reverb.dampening' in GLOBAL_AUDIO_SEED_RANGES).toBe(false);
+  });
+
+  it('matches the documented ranges in src/types/globalAudio.ts and GLOBAL_CHAIN_GRID.md', () => {
     expect(GLOBAL_AUDIO_SEED_RANGES['compressor.threshold']).toMatchObject({ min: -60, max: 0 });
     expect(GLOBAL_AUDIO_SEED_RANGES['compressor.ratio']).toMatchObject({ min: 1, max: 20 });
     expect(GLOBAL_AUDIO_SEED_RANGES['compressor.attack']).toMatchObject({ min: 0.001, max: 1 });
@@ -50,18 +59,13 @@ describe('GLOBAL_AUDIO_SEED_RANGES', () => {
     expect(GLOBAL_AUDIO_SEED_RANGES['filterLPF.Q']).toMatchObject({ min: 0.1, max: 20 });
     expect(GLOBAL_AUDIO_SEED_RANGES['filterHPF.frequency']).toMatchObject({ min: 20, max: 20000 });
     expect(GLOBAL_AUDIO_SEED_RANGES['filterHPF.Q']).toMatchObject({ min: 0.1, max: 20 });
-    expect(GLOBAL_AUDIO_SEED_RANGES['chorus.rate']).toMatchObject({ min: 0.1, max: 10 });
-    expect(GLOBAL_AUDIO_SEED_RANGES['chorus.depth']).toMatchObject({ min: 0, max: 1 });
-    expect(GLOBAL_AUDIO_SEED_RANGES['chorus.delayTime']).toMatchObject({ min: 2, max: 20 });
-    expect(GLOBAL_AUDIO_SEED_RANGES['chorus.feedback']).toMatchObject({ min: 0, max: 1 });
-    expect(GLOBAL_AUDIO_SEED_RANGES['chorus.wet']).toMatchObject({ min: 0, max: 1 });
     expect(GLOBAL_AUDIO_SEED_RANGES['delay.delayTime']).toMatchObject({ min: 0, max: 1 });
     expect(GLOBAL_AUDIO_SEED_RANGES['delay.feedback']).toMatchObject({ min: 0, max: 0.95 });
     expect(GLOBAL_AUDIO_SEED_RANGES['delay.wet']).toMatchObject({ min: 0, max: 1 });
     expect(GLOBAL_AUDIO_SEED_RANGES['reverb.decay']).toMatchObject({ min: 0.1, max: 10 });
     expect(GLOBAL_AUDIO_SEED_RANGES['reverb.preDelay']).toMatchObject({ min: 0, max: 0.5 });
-    expect(GLOBAL_AUDIO_SEED_RANGES['reverb.dampening']).toMatchObject({ min: 100, max: 8000 });
     expect(GLOBAL_AUDIO_SEED_RANGES['reverb.wet']).toMatchObject({ min: 0, max: 1 });
+    expect(GLOBAL_AUDIO_SEED_RANGES['limiter.threshold']).toMatchObject({ min: -20, max: 0 });
   });
 
   it('marks only the GLOBAL_CHAIN_GRID.md-flagged fields as log-scaled', () => {
@@ -78,6 +82,10 @@ describe('GLOBAL_AUDIO_SEED_RANGES', () => {
     expect(GLOBAL_AUDIO_SEED_RANGES['eq3.low'].scale).toBe('linear');
     expect(GLOBAL_AUDIO_SEED_RANGES['eq3.mid'].scale).toBe('linear');
     expect(GLOBAL_AUDIO_SEED_RANGES['eq3.high'].scale).toBe('linear');
+  });
+
+  it('marks limiter.threshold linear, matching compressor.threshold\'s own dB-slider convention', () => {
+    expect(GLOBAL_AUDIO_SEED_RANGES['limiter.threshold'].scale).toBe('linear');
   });
 
   it('never has min >= max for any field', () => {
@@ -105,18 +113,13 @@ describe('GLOBAL_AUDIO_SEED_RANGES', () => {
       'filterLPF.Q': defaults.filterLPF.Q,
       'filterHPF.frequency': defaults.filterHPF.frequency,
       'filterHPF.Q': defaults.filterHPF.Q,
-      'chorus.rate': defaults.chorus.rate,
-      'chorus.depth': defaults.chorus.depth,
-      'chorus.delayTime': defaults.chorus.delayTime,
-      'chorus.feedback': defaults.chorus.feedback,
-      'chorus.wet': defaults.chorus.wet,
       'delay.delayTime': defaults.delay.delayTime,
       'delay.feedback': defaults.delay.feedback,
       'delay.wet': defaults.delay.wet,
       'reverb.decay': defaults.reverb.decay,
       'reverb.preDelay': defaults.reverb.preDelay,
-      'reverb.dampening': defaults.reverb.dampening,
       'reverb.wet': defaults.reverb.wet,
+      'limiter.threshold': defaults.limiter.threshold,
     };
     for (const key of EXPECTED_KEYS) {
       const { min, max } = GLOBAL_AUDIO_SEED_RANGES[key];

@@ -5,10 +5,11 @@ import * as Tone from 'tone';
 import gsap from 'gsap';
 import { useLocaleStore } from '../stores/localeStore';
 import { getActiveLocaleId } from '../utils/localeHelpers';
+import { lfoEngine } from './lfoEngine';
 
 import type { NoteDuration, WaveformType, Robot } from '../types/Robot';
 import type { OscillatorLayer } from '../types/layeredAudio';
-import type { RobotLfoTargetId } from '../types/lfo';
+import { GLOBAL_LFO_TARGET_IDS, type RobotLfoTargetId } from '../types/lfo';
 import { getAvailableNotes, scheduleHarmonyCycle, stopHarmonyCycle } from './harmonySystem';
 import { resetBeatClock, subscribeToMeasure, initBeatClock } from './beatClock';
 import type { RobotMelodyEvent } from './melodyGenerator';
@@ -24,17 +25,17 @@ import { getToneCtor, type MinimalToneNode, type ModulationTarget } from './audi
 import { createCompositeVoice, type CompositeVoice } from './audioEngine/compositeVoice';
 import {
   buildGlobalFxChain,
-  getMasterCompressor,
+  getGlobalChainEntry,
   waitForGlobalReverbReady,
   setMasterVolume,
   getMasterVolume,
   setGlobalReverb,
   setGlobalDelay,
-  setGlobalChorus,
   setGlobalFilterLPF,
   setGlobalFilterHPF,
   setGlobalEQ,
   setGlobalCompressor,
+  setGlobalLimiter,
   setGlobalBypass,
   setEffectBypass,
   getGlobalModulationTarget,
@@ -85,7 +86,7 @@ let initialized = false;
 let instrumentsLoaded = false;
 // Reservation state
 let activeVoices = 0;
-// Global FX chain (master compressor, reverb/delay/chorus/EQ/filters, master
+// Global FX chain (compressor, reverb/delay/limiter/EQ/filters, master
 // gain) lives in src/engine/audioEngine/globalFx.ts as its own module state.
 // Unsubscribe handle for the BeatClock measure listener; prevents duplicate
 // listeners if start() is called more than once without an intervening killAll().
@@ -479,6 +480,44 @@ export const AudioEngine = {
       await transport.start();
     }
 
+    // Prime lfoEngine from the current globalLfo state and connect+start
+    // already-active targets — this is the one point guaranteed to run after
+    // Tone.start()/transport.start() have succeeded, so it's the only safe
+    // place to construct the underlying Tone.LFO nodes. Planet-sync's
+    // regenerateGlobalLfoFromSeed (audioStore.ts) is deliberately data-only
+    // for exactly this reason — it runs before any user gesture.
+    // Dynamic import, deliberately: audioStore.ts's GLOBAL_SETTER reads
+    // AudioEngine.setGlobal* eagerly at its own module scope, so a top-level
+    // `import { useAudioStore } from '../stores/audioStore'` here would force
+    // audioStore.ts to evaluate mid-way through AudioEngine.ts's own module
+    // evaluation, before the `AudioEngine` export exists yet (verified: this
+    // threw "Cannot read properties of undefined (reading 'setGlobalCompressor')"
+    // when tried as a static import).
+    try {
+      const { useAudioStore, applyGlobalAudioToEngine } = await import('../stores/audioStore');
+      const { globalAudio, globalLfo } = useAudioStore.getState();
+      // buildGlobalFxChain() (above) just constructed every FX node from its
+      // own hardcoded literal defaults — not whatever's already seeded in
+      // globalAudio. regenerateGlobalAudioFromSeed's own push (planet-sync,
+      // module load) ran long before these nodes existed, so it landed as a
+      // no-op; re-apply the current state now that real nodes exist. Must
+      // run before the LFO priming loop below: connectLfoTarget's swing math
+      // reads each target's CURRENT value, so EQ/filter values need to be
+      // correct first.
+      applyGlobalAudioToEngine(globalAudio);
+      for (const target of GLOBAL_LFO_TARGET_IDS) {
+        const settings = globalLfo[target];
+        lfoEngine.setLfoShape(target, settings.shape);
+        lfoEngine.setLfoRate(target, settings.rate);
+        lfoEngine.setLfoDepth(target, settings.depth);
+        if (settings.active && lfoEngine.connectLfoTarget(target)) {
+          lfoEngine.start(target);
+        }
+      }
+    } catch (err) {
+      devWarn('[AudioEngine] priming global LFOs failed', err);
+    }
+
     initBeatClock(transport);
     // Ensure `currentMeasure` in the ocean store is driven by the BeatClock.
     // This updates visuals (lighting) and allows harmony to derive from measures.
@@ -604,9 +643,9 @@ export const AudioEngine = {
       try { (panner as unknown as { connect?: (target?: unknown) => unknown }).connect?.(busGain); } catch (e) { devWarn('[AudioEngine] panner.connect failed', e); }
       try { (busGain as unknown as { connect?: (target?: unknown) => unknown }).connect?.(busFilter); } catch (e) { devWarn('[AudioEngine] busGain.connect failed', e); }
       try {
-        const masterCompressor = getMasterCompressor();
-        if (masterCompressor) {
-          (busFilter as unknown as { connect?: (target?: unknown) => unknown }).connect?.(masterCompressor);
+        const chainEntry = getGlobalChainEntry();
+        if (chainEntry) {
+          (busFilter as unknown as { connect?: (target?: unknown) => unknown }).connect?.(chainEntry);
         } else {
           (busFilter as unknown as { toDestination?: () => unknown }).toDestination?.();
         }
@@ -990,11 +1029,11 @@ export const AudioEngine = {
   getMasterVolume,
   setGlobalReverb,
   setGlobalDelay,
-  setGlobalChorus,
   setGlobalFilterLPF,
   setGlobalFilterHPF,
   setGlobalEQ,
   setGlobalCompressor,
+  setGlobalLimiter,
   setGlobalBypass,
   setEffectBypass,
 };

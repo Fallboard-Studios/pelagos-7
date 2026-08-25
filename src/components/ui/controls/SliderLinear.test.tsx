@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
 
 import { SliderLinear } from './SliderLinear';
 import type { SliderLinearSchema } from '@/types/controls';
@@ -15,15 +15,21 @@ describe('SliderLinear', () => {
     expect(thumb.getAttribute('aria-valuenow')).toBe('2');
   });
 
-  it('renders {value}{unit} only when schema.unit is present', () => {
+  it('renders {value}{unit} when schema.unit is present', () => {
     render(<SliderLinear schema={schema} value={2} onChange={() => {}} />);
     expect(screen.getByText('2Hz')).toBeTruthy();
   });
 
-  it('omits the value/unit label when schema.unit is absent', () => {
+  it('still renders the bare value when schema.unit is absent — a unitless param like Resonance/Q must not be left blank', () => {
     const noUnitSchema: SliderLinearSchema = { id: 'x', type: 'sliderLinear', min: 0, max: 1 };
     render(<SliderLinear schema={noUnitSchema} value={0.5} onChange={() => {}} />);
-    expect(screen.queryByText('0.5')).toBeNull();
+    expect(screen.getByText('0.5')).toBeTruthy();
+  });
+
+  it('caps the displayed value at 3 decimal places, hiding floating-point noise — but leaves aria-valuenow at full precision', () => {
+    render(<SliderLinear schema={schema} value={4.999999999999999} onChange={() => {}} />);
+    expect(screen.getByText('5Hz')).toBeTruthy();
+    expect(screen.getByRole('slider').getAttribute('aria-valuenow')).toBe('4.999999999999999');
   });
 
   it('renders its own schema labels via an internally-composed DualLabel', () => {
@@ -35,5 +41,28 @@ describe('SliderLinear', () => {
     const bareSchema: SliderLinearSchema = { id: 'lfoRate', type: 'sliderLinear', min: 0.1, max: 10 };
     render(<SliderLinear schema={bareSchema} value={2} onChange={() => {}} />);
     expect(screen.getByRole('slider', { name: 'lfoRate' })).toBeTruthy();
+  });
+
+  it('is not disabled by default — no existing behavior changes', () => {
+    render(<SliderLinear schema={schema} value={2} onChange={() => {}} />);
+    const thumb = screen.getByRole('slider');
+    expect(thumb.getAttribute('data-disabled')).toBeNull();
+    expect(thumb.getAttribute('tabindex')).toBe('0');
+  });
+
+  it('marks the thumb data-disabled and removes it from tab order when disabled is true', () => {
+    render(<SliderLinear schema={schema} value={2} onChange={() => {}} disabled />);
+    const thumb = screen.getByRole('slider');
+    expect(thumb.getAttribute('data-disabled')).toBe('');
+    expect(thumb.getAttribute('tabindex')).toBeNull();
+  });
+
+  it('does not call onChange on a disabled slider when a keyboard step is attempted', () => {
+    const onChange = vi.fn();
+    render(<SliderLinear schema={schema} value={2} onChange={onChange} disabled />);
+    const thumb = screen.getByRole('slider');
+    thumb.focus();
+    fireEvent.keyDown(thumb, { key: 'ArrowRight' });
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

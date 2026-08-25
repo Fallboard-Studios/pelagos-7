@@ -9,6 +9,7 @@ interface RadioButtonProps {
   schema: RadioButtonSchema;
   value: string;
   onChange: (value: string) => void;
+  disabled?: boolean;
 }
 
 /** Single-select control wrapping @radix-ui/react-toggle-group (type="single")
@@ -16,8 +17,11 @@ interface RadioButtonProps {
  *  Audio Mode row, pre-Phase-9), so this avoids adding a redundant
  *  @radix-ui/react-radio-group dependency for the same job. A deselect-to-empty
  *  event (Radix's single-mode ToggleGroup emits '' when the active item is
- *  clicked again) is guarded and does not call onChange. */
-export function RadioButton({ schema, value, onChange }: RadioButtonProps) {
+ *  clicked again) is guarded and does not call onChange. `disabled` disables
+ *  the whole group at once (Radix's own `ToggleGroup.Root` prop) — there's no
+ *  per-item disabled here, matching every other control primitive's single
+ *  `disabled` flag. */
+export function RadioButton({ schema, value, onChange, disabled }: RadioButtonProps) {
   return (
     <div className="sc-radio-button">
       <DualLabel loreLabel={schema.loreLabel} humanLabel={schema.humanLabel} />
@@ -27,6 +31,7 @@ export function RadioButton({ schema, value, onChange }: RadioButtonProps) {
         value={value}
         onValueChange={(next) => { if (next) onChange(next); }}
         aria-label={resolveAccessibleName(schema)}
+        disabled={disabled}
       >
         {schema.options.map((option) => (
           <ToggleGroup.Item

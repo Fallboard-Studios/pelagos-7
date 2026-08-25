@@ -1,5 +1,6 @@
 import { DualLabel } from './DualLabel';
 import { resolveAccessibleName } from './accessibleName';
+import { formatDisplayValue } from './formatDisplayValue';
 import type { StepperSchema } from '@/types/controls';
 import './Stepper.css';
 
@@ -41,7 +42,7 @@ export function Stepper({ schema, value, onChange, disabled }: StepperProps) {
         >
           −
         </button>
-        <span className="sc-stepper__value">{value}</span>
+        <span className="sc-stepper__value">{formatDisplayValue(value)}</span>
         <button
           type="button"
           className="sc-stepper__btn"

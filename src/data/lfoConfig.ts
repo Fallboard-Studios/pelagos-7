@@ -28,7 +28,8 @@ function makeDefaultLfoSettings(): LfoSettings {
 }
 
 /**
- * One entry per target — 13 robot + 9 global = 22. Each target gets its own
+ * One entry per target — 13 robot + 8 global = 21 (V2: global was 9 until
+ * Chorus, and its 'chorus.delayTime' LFO target, was removed). Each target gets its own
  * settings object (not a shared reference), since lfoEngine.ts's setters
  * (Task 11) will mutate these in place.
  */

@@ -73,7 +73,6 @@ vi.mock('tone', () => ({
     wet: { value: 0.3 },
     decay: 1.5,
     preDelay: 0.02,
-    dampening: 3000,
   })),
   FeedbackDelay: vi.fn(() => ({
     connect: vi.fn().mockReturnThis(),
@@ -83,16 +82,11 @@ vi.mock('tone', () => ({
     delayTime: { value: 0.25 },
     feedback: { value: 0.2 },
   })),
-  Chorus: vi.fn(() => ({
+  Limiter: vi.fn(() => ({
     connect: vi.fn().mockReturnThis(),
     disconnect: vi.fn(),
     toDestination: vi.fn(),
-    start: vi.fn(),
-    wet: { value: 0 },
-    frequency: { value: 1.5 },
-    depth: 0.2,
-    delayTime: 0.012,
-    feedback: { value: 0.1 },
+    threshold: { value: -12 },
   })),
   EQ3: vi.fn(() => ({
     connect: vi.fn().mockReturnThis(),
@@ -160,6 +154,23 @@ vi.mock('../constants', () => ({
   DEV_TUNING: false,
   WORLD_WIDTH: 1920,
   MIN_LEAD: 0.1,
+}));
+
+// Mock lfoEngine (Task 9) — AudioEngine.start() primes/connects/starts global
+// LFOs through this, but exercising the real lfoEngine here would mean also
+// mocking a real Tone.LFO, which is out of scope for testing AudioEngine's own
+// orchestration logic (which target got which call, in what order).
+vi.mock('./lfoEngine', () => ({
+  lfoEngine: {
+    getLfoSettings: vi.fn(),
+    setLfoRate: vi.fn(),
+    setLfoDepth: vi.fn(),
+    setLfoShape: vi.fn(),
+    start: vi.fn(),
+    stop: vi.fn(),
+    connectLfoTarget: vi.fn(() => true),
+    disconnectLfoTarget: vi.fn(),
+  },
 }));
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -813,14 +824,14 @@ describe('AudioEngine - Global FX Chain', () => {
     });
   });
 
-  describe('setGlobalChorus', () => {
-    it('updates wet value on the chorus node', async () => {
+  describe('setGlobalLimiter', () => {
+    it('updates threshold on the limiter node', async () => {
       const Tone = await import('tone');
       const { AudioEngine } = await import('./AudioEngine');
       await AudioEngine.start();
-      const chorusNode = lastInstance(Tone.Chorus) ?? { wet: { value: 0 } };
-      AudioEngine.setGlobalChorus({ wet: 0.4 });
-      expect(chorusNode.wet.value).toBe(0.4);
+      const limiterNode = lastInstance(Tone.Limiter) ?? { threshold: { value: -12 } };
+      AudioEngine.setGlobalLimiter({ threshold: -6 });
+      expect(limiterNode.threshold.value).toBe(-6);
     });
   });
 
@@ -860,6 +871,22 @@ describe('AudioEngine - Global FX Chain', () => {
       AudioEngine.setGlobalCompressor({ threshold: -30, ratio: 4 });
       expect(compNode.threshold.value).toBe(-30);
       expect(compNode.ratio.value).toBe(4);
+    });
+  });
+
+  describe('reserveVoice — bus wiring', () => {
+    it('connects each robot bus into getGlobalChainEntry()\'s node (EQ3), not a compressor-specific accessor', async () => {
+      const Tone = await import('tone');
+      const { AudioEngine } = await import('./AudioEngine');
+      await AudioEngine.start();
+      const eqNode = lastInstance(Tone.EQ3) ?? { connect: vi.fn() };
+      const layered = { base: 'sine', layers: [{ type: 'sine', gain: 0.8 }] } as any;
+      AudioEngine.reserveVoice('bus-wiring-test', layered);
+      // busFilter is a Tone.Filter instance — it's the third Filter construction
+      // per reserveVoice call site (after LPF/HPF from loadInstruments), so grab
+      // the freshest one and confirm it was connected into the chain entry.
+      const busFilterNode = lastInstance(Tone.Filter);
+      expect(busFilterNode.connect).toHaveBeenCalledWith(eqNode);
     });
   });
 
@@ -905,14 +932,14 @@ describe('AudioEngine - Global FX Chain', () => {
   });
 
   describe('setGlobalBypass', () => {
-    it('calls disconnect then toDestination on the compressor when bypass=true', async () => {
+    it('calls disconnect then toDestination on the chain entry (EQ3) when bypass=true', async () => {
       const Tone = await import('tone');
       const { AudioEngine } = await import('./AudioEngine');
       await AudioEngine.start();
-      const compNode = lastInstance(Tone.Compressor) ?? { disconnect: vi.fn(), toDestination: vi.fn(), connect: vi.fn() };
+      const eqNode = lastInstance(Tone.EQ3) ?? { disconnect: vi.fn(), toDestination: vi.fn(), connect: vi.fn() };
       AudioEngine.setGlobalBypass(true);
-      expect(compNode.disconnect).toHaveBeenCalled();
-      expect(compNode.toDestination).toHaveBeenCalled();
+      expect(eqNode.disconnect).toHaveBeenCalled();
+      expect(eqNode.toDestination).toHaveBeenCalled();
     });
 
     it('is a no-op when AudioEngine not started', async () => {
@@ -1178,8 +1205,6 @@ describe('AudioEngine - getGlobalModulationTarget', () => {
       'eq3.low', 'eq3.mid', 'eq3.high',
       'lpf.frequency', 'lpf.Q',
       'hpf.frequency', 'hpf.Q',
-      'chorus.delayTime',
-      'delay.delayTime',
     ] as const;
     for (const target of targets) {
       expect(() => AudioEngine.getGlobalModulationTarget(target)).not.toThrow();
@@ -1209,24 +1234,175 @@ describe('AudioEngine - getGlobalModulationTarget', () => {
     expect(AudioEngine.getGlobalModulationTarget('hpf.Q')).toHaveProperty('value');
   });
 
-  it('returns the live Delay delayTime Param after start()', async () => {
-    const { AudioEngine } = await import('./AudioEngine');
-    await AudioEngine.start();
-    expect(AudioEngine.getGlobalModulationTarget('delay.delayTime')).toHaveProperty('value');
-  });
-
-  it('returns null (not throw) for "chorus.delayTime" even after start() — Tone.Chorus.delayTime is a plain number, not a connectable Signal', async () => {
-    const { AudioEngine } = await import('./AudioEngine');
-    await AudioEngine.start();
-    expect(() => AudioEngine.getGlobalModulationTarget('chorus.delayTime')).not.toThrow();
-    expect(AudioEngine.getGlobalModulationTarget('chorus.delayTime')).toBeNull();
-  });
-
   it('distinguishes LPF and HPF — they are separate Filter instances, not the same node read twice', async () => {
     const { AudioEngine } = await import('./AudioEngine');
     await AudioEngine.start();
     const lpf = AudioEngine.getGlobalModulationTarget('lpf.frequency');
     const hpf = AudioEngine.getGlobalModulationTarget('hpf.frequency');
     expect(lpf).not.toBe(hpf);
+  });
+});
+
+describe('AudioEngine.start - prime, connect, and start seeded global LFOs (Task 9)', () => {
+  // One entry per GlobalLfoTargetId, with a deliberate mix: some active, some
+  // not, and one active target ('eq3.mid') whose connectLfoTarget call will be
+  // made to return false, to prove start() is conditioned on a real connect.
+  const FIXTURE_GLOBAL_LFO = {
+    'eq3.low': { shape: 'sine', rate: 2, depth: 30, active: true },
+    'eq3.mid': { shape: 'square', rate: 3, depth: 40, active: true },
+    'eq3.high': { shape: 'triangle', rate: 1, depth: 10, active: false },
+    'lpf.frequency': { shape: 'sawtooth', rate: 4, depth: 50, active: true },
+    'lpf.Q': { shape: 'sine', rate: 0.5, depth: 20, active: false },
+    'hpf.frequency': { shape: 'sine', rate: 1.5, depth: 60, active: false },
+    'hpf.Q': { shape: 'square', rate: 2.5, depth: 70, active: false },
+  } as const;
+
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  async function startWithFixture() {
+    const { AudioEngine } = await import('./AudioEngine');
+    const { useAudioStore } = await import('../stores/audioStore');
+    const { lfoEngine } = await import('./lfoEngine');
+
+    useAudioStore.setState({ globalLfo: FIXTURE_GLOBAL_LFO as any });
+    // The lfoEngine mock's call history persists across vi.resetModules() (same
+    // quirk LFO_INTEGRATION_PLAN.md's Task 11 and audioStore.test.ts's planet-sync
+    // block both document for the Tone/lfoEngine mocks) — clear it so each test
+    // only sees this start() call's own calls.
+    vi.clearAllMocks();
+    vi.mocked(lfoEngine.connectLfoTarget).mockImplementation((target: unknown) => target !== 'eq3.mid');
+
+    await AudioEngine.start();
+    return { lfoEngine };
+  }
+
+  it('primes setLfoShape/setLfoRate/setLfoDepth for every one of the 7 targets from globalLfo state', async () => {
+    const { lfoEngine } = await startWithFixture();
+
+    for (const [target, settings] of Object.entries(FIXTURE_GLOBAL_LFO)) {
+      expect(lfoEngine.setLfoShape).toHaveBeenCalledWith(target, settings.shape);
+      expect(lfoEngine.setLfoRate).toHaveBeenCalledWith(target, settings.rate);
+      expect(lfoEngine.setLfoDepth).toHaveBeenCalledWith(target, settings.depth);
+    }
+  });
+
+  it('connects every active target and starts it when connect succeeds', async () => {
+    const { lfoEngine } = await startWithFixture();
+
+    expect(lfoEngine.connectLfoTarget).toHaveBeenCalledWith('eq3.low');
+    expect(lfoEngine.start).toHaveBeenCalledWith('eq3.low');
+
+    expect(lfoEngine.connectLfoTarget).toHaveBeenCalledWith('lpf.frequency');
+    expect(lfoEngine.start).toHaveBeenCalledWith('lpf.frequency');
+  });
+
+  it('does not call start for an active target whose connect fails', async () => {
+    const { lfoEngine } = await startWithFixture();
+
+    expect(lfoEngine.connectLfoTarget).toHaveBeenCalledWith('eq3.mid');
+    expect(lfoEngine.start).not.toHaveBeenCalledWith('eq3.mid');
+  });
+
+  it('never connects or starts an inactive target', async () => {
+    const { lfoEngine } = await startWithFixture();
+
+    for (const target of ['eq3.high', 'lpf.Q', 'hpf.frequency', 'hpf.Q']) {
+      expect(lfoEngine.connectLfoTarget).not.toHaveBeenCalledWith(target);
+      expect(lfoEngine.start).not.toHaveBeenCalledWith(target);
+    }
+  });
+
+  it('does not throw and existing start() behavior (instrument loading, beat clock) still runs', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    const { useAudioStore } = await import('../stores/audioStore');
+    useAudioStore.setState({ globalLfo: FIXTURE_GLOBAL_LFO as any });
+
+    await expect(AudioEngine.start()).resolves.not.toThrow();
+    const beatClock = await import('./beatClock');
+    expect(beatClock.initBeatClock).toHaveBeenCalled();
+  });
+});
+
+describe('AudioEngine.start — primes the just-built global FX chain from currently-seeded globalAudio state', () => {
+  // Deliberately far from globalFx.ts's own hardcoded construction defaults
+  // (compressor threshold -18/ratio 6, EQ bands 0, LPF/HPF passthrough,
+  // delay wet 0, reverb wet 0.3, limiter threshold -12) — if start() actually
+  // applies this fixture, the resulting node values can only have come from
+  // the seeded globalAudio state, not buildGlobalFxChain()'s own literals.
+  const FIXTURE_GLOBAL_AUDIO = {
+    globalBypass: false,
+    compressorBeforeDelay: false,
+    compressor: { enabled: true, threshold: -50, ratio: 15, attack: 0.02, release: 0.22, knee: 9 },
+    eq3: { enabled: true, low: 4, mid: -3, high: 2 },
+    filterLPF: { enabled: true, type: 'lowpass', frequency: 9000, Q: 3 },
+    filterHPF: { enabled: true, type: 'highpass', frequency: 250, Q: 2 },
+    delay: { enabled: true, delayTime: 0.4, feedback: 0.3, wet: 0.25 },
+    reverb: { enabled: true, decay: 3, preDelay: 0.05, wet: 0.35 },
+    limiter: { enabled: true, threshold: -2 },
+  };
+
+  type AnyMock = ReturnType<typeof vi.fn>;
+  const lastInstance = (ctor: unknown) =>
+    (ctor as unknown as AnyMock).mock.results.at(-1)?.value;
+
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  async function startWithFixture() {
+    const Tone = await import('tone');
+    const { AudioEngine } = await import('./AudioEngine');
+    const { useAudioStore } = await import('../stores/audioStore');
+    useAudioStore.setState({ globalAudio: FIXTURE_GLOBAL_AUDIO as any });
+    await AudioEngine.start();
+    return { Tone };
+  }
+
+  it('applies the current globalAudio.compressor values to the freshly-built Compressor node', async () => {
+    const { Tone } = await startWithFixture();
+    const compNode = lastInstance(Tone.Compressor);
+    expect(compNode.threshold.value).toBe(-50);
+    expect(compNode.ratio.value).toBe(15);
+    expect(compNode.attack.value).toBe(0.02);
+    expect(compNode.release.value).toBe(0.22);
+    expect(compNode.knee.value).toBe(9);
+  });
+
+  it('applies the current globalAudio.eq3/filterLPF/filterHPF/reverb/limiter values to their freshly-built nodes', async () => {
+    const { Tone } = await startWithFixture();
+    expect(lastInstance(Tone.EQ3).low.value).toBe(4);
+    expect(lastInstance(Tone.EQ3).mid.value).toBe(-3);
+    expect(lastInstance(Tone.EQ3).high.value).toBe(2);
+    // Filter is constructed twice in loadInstruments (LPF then HPF) — at(-2)/at(-1).
+    const filterResults = (Tone.Filter as unknown as AnyMock).mock.results;
+    expect(filterResults.at(-2)?.value.frequency.value).toBe(9000);
+    expect(filterResults.at(-2)?.value.Q.value).toBe(3);
+    expect(filterResults.at(-1)?.value.frequency.value).toBe(250);
+    expect(filterResults.at(-1)?.value.Q.value).toBe(2);
+    expect(lastInstance(Tone.Reverb).wet.value).toBe(0.35);
+    expect(lastInstance(Tone.Limiter).threshold.value).toBe(-2);
+    expect(lastInstance(Tone.FeedbackDelay).wet.value).toBe(0.25);
+  });
+
+  it('bypasses an effect at start() when its seeded enabled is false — bypass state, not just its param values, gets applied', async () => {
+    const Tone = await import('tone');
+    const { AudioEngine } = await import('./AudioEngine');
+    const { useAudioStore } = await import('../stores/audioStore');
+    useAudioStore.setState({
+      globalAudio: {
+        ...FIXTURE_GLOBAL_AUDIO,
+        compressor: { enabled: false, threshold: -50, ratio: 15, attack: 0.02, release: 0.22, knee: 9 },
+      } as any,
+    });
+    await AudioEngine.start();
+    const compNode = lastInstance(Tone.Compressor);
+    // Neither the raw seeded values (-50/15) nor buildGlobalFxChain()'s own
+    // literal construction defaults (-18/6) — the seeded bypass-off state
+    // must win, neutralizing the node exactly like setEffectBypass('compressor',
+    // false) always does (ratio -> 1, threshold -> 0).
+    expect(compNode.threshold.value).toBe(0);
+    expect(compNode.ratio.value).toBe(1);
   });
 });

@@ -3,24 +3,61 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 // ========================================
 // MOCKS
 // ========================================
-// Mutable so individual tests can flip transport state to exercise the
-// start-is-gated-by-transport behavior without re-mocking per test.
+// Mutable so individual tests can flip transport/context state without
+// re-mocking per test.
 let mockTransportState: 'started' | 'stopped' = 'stopped';
+// start() gates on the AudioContext itself being 'running', not Transport
+// state — the Transport can still be mid-startup (loading instruments,
+// waiting on reverb) well after Tone.start() has already made the context
+// running, and gating on Transport left a real window where an LFO could
+// connect to a live target but never actually start oscillating, stuck
+// forever outputting Tone.LFO's raw, undepth-scaled "stopped" value.
+let mockContextState: 'running' | 'suspended' = 'suspended';
+
+// Tags a fakeParam() object as "Param-like" for the mocked LFO.connect()
+// below, independent of whatever plain properties our own production code
+// happens to assign onto the object (a Symbol key can't collide with the
+// string-keyed `.override` our fix writes onto every resolved signal).
+const fakeParamMarker = Symbol('fakeParamMarker');
 
 vi.mock('tone', () => ({
-  LFO: vi.fn((frequency?: number) => ({
-    frequency: { value: frequency ?? 1 },
-    amplitude: { value: 1 },
-    type: 'sine',
-    min: 0, // Tone.LFO's real default (LFO.getDefaults())
-    max: 1, // Tone.LFO's real default — modulating a target with these left unset is functionally inaudible
-    start: vi.fn(),
-    stop: vi.fn(),
-    connect: vi.fn().mockReturnThis(),
-    disconnect: vi.fn(),
-    dispose: vi.fn(),
-  })),
+  LFO: vi.fn((frequency?: number) => {
+    const instance = {
+      frequency: { value: frequency ?? 1 },
+      amplitude: { value: 1 },
+      type: 'sine',
+      min: 0, // Tone.LFO's real default (LFO.getDefaults())
+      max: 1, // Tone.LFO's real default — modulating a target with these left unset is functionally inaudible
+      start: vi.fn(),
+      stop: vi.fn(),
+      // Faithfully mirrors Tone.js's own connectSignal() (verified against
+      // signal/Signal.ts): a Tone.Param destination is ALWAYS reset to 0 the
+      // instant something connects to it, regardless of any `override`
+      // property (Param has no such concept — connectSignal's real check is
+      // `instanceof Param`, not a property value); a Tone.Signal destination
+      // is reset only while its own `override` flag (default true) is still
+      // true. fakeParamMarker identifies a "Param-like" fake independent of
+      // whatever plain properties our own code happens to assign onto it
+      // (e.g. our fix below deliberately writes `.override = false` onto
+      // EVERY resolved signal, Param-shaped or not — that write must not be
+      // able to fool this simulation into skipping the Param reset).
+      connect: vi.fn((dest: unknown) => {
+        if (dest && typeof dest === 'object' && 'value' in dest) {
+          const d = dest as { value: number; override?: boolean };
+          const isParamLike = fakeParamMarker in (d as object);
+          if (isParamLike || d.override !== false) {
+            d.value = 0;
+          }
+        }
+        return instance;
+      }),
+      disconnect: vi.fn(),
+      dispose: vi.fn(),
+    };
+    return instance;
+  }),
   getTransport: vi.fn(() => ({ get state() { return mockTransportState; } })),
+  getContext: vi.fn(() => ({ get state() { return mockContextState; } })),
   now: vi.fn(() => mockToneNow),
 }));
 
@@ -96,9 +133,21 @@ async function latestLfoInstance(): Promise<MockLfoInstance> {
   return (Tone.LFO as unknown as ReturnType<typeof vi.fn>).mock.results.at(-1)!.value;
 }
 
-/** A minimal fake Signal-like object, distinct per call so tests can assert connect() received the right one. */
-function fakeSignal(): { value: number } {
-  return { value: 0 };
+/** A minimal fake Signal-like object, distinct per call so tests can assert
+ * connect() received the right one. `override` defaults to `true`, matching
+ * Tone.Signal's own real default (verified against Tone's source). */
+function fakeSignal(value = 0): { value: number; override: boolean } {
+  return { value, override: true };
+}
+
+/** A minimal fake Param-like object — deliberately no `override` field at
+ * all, matching Tone.Param's real shape (unlike Tone.Signal, Param has no
+ * such property), tagged with fakeParamMarker so the mocked LFO.connect()
+ * above can tell the two destination shapes apart and simulate each one's
+ * real reset behavior, even after our own code writes a plain `.override`
+ * property onto it. */
+function fakeParam(value = 0): { value: number; [fakeParamMarker]: true } {
+  return { value, [fakeParamMarker]: true };
 }
 
 // ========================================
@@ -109,6 +158,7 @@ describe('lfoEngine', () => {
   beforeEach(async () => {
     vi.resetModules();
     mockTransportState = 'stopped';
+    mockContextState = 'suspended';
     mockToneNow = 0;
     scheduleCallbacks.clear();
   });
@@ -159,10 +209,10 @@ describe('lfoEngine', () => {
 
     it('reflects a previously-set rate/depth/shape', async () => {
       const { lfoEngine } = await import('./lfoEngine');
-      lfoEngine.setLfoRate('chorus.delayTime', 3);
-      lfoEngine.setLfoDepth('chorus.delayTime', 75);
-      lfoEngine.setLfoShape('chorus.delayTime', 'square');
-      expect(lfoEngine.getLfoSettings('chorus.delayTime')).toEqual({ shape: 'square', rate: 3, depth: 75 });
+      lfoEngine.setLfoRate('hpf.Q', 3);
+      lfoEngine.setLfoDepth('hpf.Q', 75);
+      lfoEngine.setLfoShape('hpf.Q', 'square');
+      expect(lfoEngine.getLfoSettings('hpf.Q')).toEqual({ shape: 'square', rate: 3, depth: 75 });
     });
   });
 
@@ -253,7 +303,7 @@ describe('lfoEngine', () => {
     });
   });
 
-  describe('start (transport-gated)', () => {
+  describe('start (audio-context-gated)', () => {
     it('does not construct a node and does not throw when nothing has been set/connected yet', async () => {
       const { lfoEngine } = await import('./lfoEngine');
       let threw = false;
@@ -268,22 +318,32 @@ describe('lfoEngine', () => {
       expect(delta).toBe(0);
     });
 
-    it('starts the node when the transport is running', async () => {
+    it('starts the node when the AudioContext is running', async () => {
       const { lfoEngine } = await import('./lfoEngine');
       lfoEngine.setLfoRate('volume', 2); // creates the node
       const instance = await latestLfoInstance();
-      mockTransportState = 'started';
+      mockContextState = 'running';
       lfoEngine.start('volume');
       expect(instance.start).toHaveBeenCalledTimes(1);
     });
 
-    it('does not start the node when the transport is stopped', async () => {
+    it('does not start the node when the AudioContext is suspended', async () => {
       const { lfoEngine } = await import('./lfoEngine');
       lfoEngine.setLfoRate('volume', 2); // creates the node
       const instance = await latestLfoInstance();
-      mockTransportState = 'stopped';
+      mockContextState = 'suspended';
       lfoEngine.start('volume');
       expect(instance.start).not.toHaveBeenCalled();
+    });
+
+    it('starts the node based on the AudioContext, independent of Transport state — the real bug: Transport can still be starting up well after the context itself is already running', async () => {
+      const { lfoEngine } = await import('./lfoEngine');
+      lfoEngine.setLfoRate('volume', 2); // creates the node
+      const instance = await latestLfoInstance();
+      mockContextState = 'running';
+      mockTransportState = 'stopped'; // Transport not yet started
+      lfoEngine.start('volume');
+      expect(instance.start).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -390,20 +450,39 @@ describe('lfoEngine', () => {
       expect(instance.connect).toHaveBeenNthCalledWith(2, secondSignal);
     });
 
-    describe('output range scaling — Tone.LFO defaults to min:0/max:1, which is functionally inaudible against any real target', () => {
-      it('scales min/max to the target\'s real range for a robot Gain target (0-2, per ROBOT_DATA_GRID.md)', async () => {
+    describe('output range scaling — an ADDITIVE delta bounded by the CURRENT base value\'s position, not a fixed constant', () => {
+      // Tone.LFO.connect() sums onto the destination Param's existing value
+      // (native Web Audio AudioParam behavior — connecting an input ADDS to
+      // whatever the param's own intrinsic value is, it never overrides it).
+      // A first fix used a FIXED zero-centered swing (half the field's own
+      // total span) — better than the raw range, but still a constant,
+      // independent of where the base value actually sits. That reintroduced
+      // the same class of bug from the other direction: for a base value
+      // anywhere off-center (e.g. LPF frequency left low, as a workaround for
+      // the original crash), a fixed swing still large enough to swing the
+      // OTHER way pushed the combined value below the field's own minimum for
+      // roughly half of every cycle — reported as "mutes all audio half the
+      // time". The real fix: the swing is bounded by the CURRENT base value's
+      // own distance to whichever edge of the range is nearer
+      // (min(value-rangeMin, rangeMax-value)) — base +- swing can now never
+      // leave [rangeMin, rangeMax], for any starting position. A value sitting
+      // exactly at the range's midpoint still gets the same "half the total
+      // span" swing as before (both distances are then equal) — no regression
+      // for already-centered fields (EQ dB, robot detune, whose typical
+      // resting value is 0, itself the midpoint of a symmetric range).
+      it('derives a swing bounded by the base value\'s own distance to the nearer edge, for a robot Gain target (0-2, base 0.5 -> +-0.5, not +-1)', async () => {
         const { AudioEngine } = await import('./AudioEngine');
-        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal());
+        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(0.5));
         const { lfoEngine } = await import('./lfoEngine');
         lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
         const instance = await latestLfoInstance();
-        expect(instance.min).toBe(0);
-        expect(instance.max).toBe(2);
+        expect(instance.min).toBe(-0.5);
+        expect(instance.max).toBe(0.5);
       });
 
-      it('scales min/max to the target\'s real range for a robot Detune target (-50..50 cents)', async () => {
+      it('gets the full half-span swing when the base value sits at the range\'s own midpoint, for a robot Detune target (-50..50 cents, base 0)', async () => {
         const { AudioEngine } = await import('./AudioEngine');
-        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal());
+        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(0));
         const { lfoEngine } = await import('./lfoEngine');
         lfoEngine.connectLfoTarget('layer0.detune', 'robot-a');
         const instance = await latestLfoInstance();
@@ -411,19 +490,21 @@ describe('lfoEngine', () => {
         expect(instance.max).toBe(50);
       });
 
-      it('scales min/max to the target\'s real range for the robot Volume target (0-1)', async () => {
+      it('shrinks the swing when the base value sits near the top of its range, for the robot Volume target (0-1, base 0.8 -> +-0.2, not +-0.5)', async () => {
         const { AudioEngine } = await import('./AudioEngine');
-        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal());
+        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(0.8));
         const { lfoEngine } = await import('./lfoEngine');
         lfoEngine.connectLfoTarget('volume', 'robot-a');
         const instance = await latestLfoInstance();
-        expect(instance.min).toBe(0);
-        expect(instance.max).toBe(1);
+        // toBeCloseTo, not toBe — 1 - 0.8 is a well-known floating-point
+        // representation artifact (0.19999999999999996), not a logic bug.
+        expect(instance.min).toBeCloseTo(-0.2, 10);
+        expect(instance.max).toBeCloseTo(0.2, 10);
       });
 
-      it('scales min/max to the target\'s real range for a global EQ3 band (-12..12 dB, from GLOBAL_AUDIO_SEED_RANGES)', async () => {
+      it('gets the full half-span swing when the base value sits at the range\'s own midpoint, for a global EQ3 band (-12..12 dB, base 0)', async () => {
         const { AudioEngine } = await import('./AudioEngine');
-        (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal());
+        (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(0));
         const { lfoEngine } = await import('./lfoEngine');
         lfoEngine.connectLfoTarget('eq3.low');
         const instance = await latestLfoInstance();
@@ -431,24 +512,98 @@ describe('lfoEngine', () => {
         expect(instance.max).toBe(12);
       });
 
-      it('scales min/max to the target\'s real range for LPF frequency, translating the lpf.* short-form target id to filterLPF.* seed-range key', async () => {
+      it('shrinks the swing for LPF frequency (20-20000) when the base value sits low (base 3000 -> +-2980, not a constant +-9990), translating the lpf.* short-form target id to filterLPF.* seed-range key', async () => {
         const { AudioEngine } = await import('./AudioEngine');
-        (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal());
+        (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(3000));
         const { lfoEngine } = await import('./lfoEngine');
         lfoEngine.connectLfoTarget('lpf.frequency');
         const instance = await latestLfoInstance();
-        expect(instance.min).toBe(20);
-        expect(instance.max).toBe(20000);
+        expect(instance.min).toBe(-2980);
+        expect(instance.max).toBe(2980);
       });
 
-      it('scales min/max to the target\'s real range for HPF Q, translating hpf.* to filterHPF.*', async () => {
+      it('shrinks the swing for HPF Q (0.1-20) when the base value sits low (base 5 -> +-4.9), translating hpf.* to filterHPF.*', async () => {
         const { AudioEngine } = await import('./AudioEngine');
-        (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal());
+        (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(5));
         const { lfoEngine } = await import('./lfoEngine');
         lfoEngine.connectLfoTarget('hpf.Q');
         const instance = await latestLfoInstance();
-        expect(instance.min).toBe(0.1);
-        expect(instance.max).toBe(20);
+        expect(instance.min).toBe(-4.9);
+        expect(instance.max).toBe(4.9);
+      });
+
+      it('regression: base + swing never leaves the field\'s own [min, max] range, for any base position — the direct fix for "mutes audio half the time"', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        const baseValue = 3000; // low in LPF frequency's 20-20000 range, exactly the kind of position that used to dip negative at the trough
+        (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(baseValue));
+        const { lfoEngine } = await import('./lfoEngine');
+        lfoEngine.connectLfoTarget('lpf.frequency');
+        const instance = await latestLfoInstance();
+        expect(baseValue + instance.min).toBeGreaterThanOrEqual(20);
+        expect(baseValue + instance.max).toBeLessThanOrEqual(20000);
+      });
+
+      it('never assigns NaN to lfo.min/lfo.max when the resolved signal\'s current value is non-finite — a NaN Param value would silence the whole downstream chain, not just this target', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(NaN));
+        const { lfoEngine } = await import('./lfoEngine');
+        lfoEngine.connectLfoTarget('lpf.frequency');
+        const instance = await latestLfoInstance();
+        expect(Number.isNaN(instance.min)).toBe(false);
+        expect(Number.isNaN(instance.max)).toBe(false);
+      });
+    });
+
+    describe('disabling Signal.override before connecting — the real "explosion" root cause', () => {
+      // Verified directly against Tone.js's own source (signal/Signal.ts,
+      // connectSignal()): connecting ANYTHING to a Signal whose `override`
+      // flag is true (the default) makes Tone immediately
+      // cancelScheduledValues + setValueAtTime(0, 0) on the destination and
+      // permanently mark it "overridden" — BEFORE the connected source (the
+      // LFO) has even started oscillating, and regardless of what lfo.min/
+      // lfo.max are set to. For a filter's frequency Signal, that's a
+      // step-change to an invalid 0 Hz cutoff the instant the LFO connects
+      // — independent of every previous swing-math fix, since none of them
+      // touch this. This is the actual, complete explanation for the
+      // reported "explosion, then nothing, reproducible on a fresh reload,
+      // regardless of how long you wait first" — a structural side effect
+      // of calling .connect() at all, not a timing race. Disabling
+      // `override` first restores plain additive Web Audio summing, which
+      // the swing math above is designed for.
+      it('sets override to false on the resolved global Signal before connecting', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        const signal = fakeSignal(3000);
+        (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(signal);
+        const { lfoEngine } = await import('./lfoEngine');
+        lfoEngine.connectLfoTarget('lpf.frequency');
+        expect(signal.override).toBe(false);
+      });
+
+      it('sets override to false on the resolved robot Signal before connecting too', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        const signal = fakeSignal(1);
+        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(signal);
+        const { lfoEngine } = await import('./lfoEngine');
+        lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+        expect(signal.override).toBe(false);
+      });
+
+      it('restores a Tone.Param destination\'s own current value immediately after connecting — Param has no override escape hatch and always resets to 0 on connect, but (unlike Signal) is never permanently locked, so a plain restore write fixes it going forward', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        const param = fakeParam(1.5); // e.g. a robot layer's current gain
+        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(param);
+        const { lfoEngine } = await import('./lfoEngine');
+        lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+        expect(param.value).toBe(1.5);
+      });
+
+      it('restoring the Param\'s value is a harmless no-op for a Signal destination — override is already disabled by then, so the mocked connect() never zeroed it in the first place', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        const signal = fakeSignal(5000);
+        (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(signal);
+        const { lfoEngine } = await import('./lfoEngine');
+        lfoEngine.connectLfoTarget('lpf.frequency');
+        expect(signal.value).toBe(5000);
       });
     });
 

@@ -58,4 +58,21 @@ describe('Toggle', () => {
     render(<Toggle schema={bareSchema} value={false} onChange={() => {}} />);
     expect(screen.getByRole('switch', { name: 'layerActive' })).toBeTruthy();
   });
+
+  it('is not disabled by default — no existing behavior changes', () => {
+    render(<Toggle schema={schema} value={false} onChange={() => {}} />);
+    expect((screen.getByRole('switch') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('disables the underlying switch when disabled is true', () => {
+    render(<Toggle schema={schema} value={false} onChange={() => {}} disabled />);
+    expect((screen.getByRole('switch') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('does not call onChange when clicked while disabled', () => {
+    const onChange = vi.fn();
+    render(<Toggle schema={schema} value={false} onChange={onChange} disabled />);
+    fireEvent.click(screen.getByRole('switch'));
+    expect(onChange).not.toHaveBeenCalled();
+  });
 });
