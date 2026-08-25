@@ -6,9 +6,13 @@
      and Console are unaffected — they keep their own exact rows/sizing
      (ScreenViewport.css's grid) and simply render on top via z-index, so
      neither's own footprint (including what captures clicks) changes.
-     The SVG scene inside still centers/letterboxes itself within whatever
-     box this ends up being, via its own viewBox + default
-     preserveAspectRatio="xMidYMid meet" — no aspect-ratio CSS needed here. */
+     The SVG scene inside (OceanScene.tsx) covers whatever box this ends up
+     being via its own viewBox + preserveAspectRatio="xMidYMid slice" —
+     scaled up and cropped as needed so its background rect is never
+     smaller than the tablet in either direction — never scaled down with
+     letterbox bars outside it. overflow: hidden here (redundant with the
+     SVG's own default clip, but explicit) is what turns that crop into a
+     clean edge instead of visible bleed; nothing ever needs to scroll. */
   grid-row: 1 / -1;
   grid-column: 1 / -1;
   z-index: 0;

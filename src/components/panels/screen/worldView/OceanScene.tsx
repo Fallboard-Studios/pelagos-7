@@ -113,6 +113,14 @@ export function OceanScene({
         className="ocean-scene"
         width={width}
         height={height}
+        // "slice" (cover), not the default "meet" (contain) — the background
+        // rect a few lines down fills the whole viewBox, and it must never be
+        // smaller than the tablet screen in either direction. slice scales
+        // the scene UP until both dimensions cover the box, centered,
+        // cropping whichever axis overflows — never scaled down to fit with
+        // letterbox bars outside it. The SVG's own default overflow:hidden
+        // (and .world-view's, WorldView.css) clips the crop; nothing scrolls.
+        preserveAspectRatio="xMidYMid slice"
       >
         <defs>
           {/* Gradients between factory rows */}
