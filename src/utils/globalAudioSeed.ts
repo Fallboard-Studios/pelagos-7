@@ -12,10 +12,6 @@ import { GLOBAL_AUDIO_LOADING_RANGES } from '@/data/globalAudioLoadingRanges';
 import { GLOBAL_AUDIO_SEED_RANGES, type GlobalAudioSeedFieldKey, type SeedRange } from '@/data/globalAudioSeedRanges';
 import {
   GLOBAL_LFO_TARGET_IDS,
-  LFO_RATE_MIN,
-  LFO_RATE_MAX,
-  LFO_DEPTH_MIN,
-  LFO_DEPTH_MAX,
   LFO_SHAPES,
   type GlobalLfoTargetId,
   type LfoSettings,
@@ -128,19 +124,33 @@ export function generateGlobalAudioSettings(planetId: string, planetName: string
 
 /**
  * Probability threshold an `active` seed draw ([0, 1]) must clear to seed
- * `true` — docs/tasks/AUDIO_RIG.md's Architecture Decisions: ~20% chance per
- * target (not a flat 50/50), so a typical planet seeds roughly 1-2 active
- * LFOs out of 8, not 4-5.
+ * `true` — ~33% chance per target (not a flat 50/50), so a typical planet
+ * seeds roughly 2 active LFOs out of 7.
  */
-const LFO_ACTIVE_THRESHOLD = 0.8;
+const LFO_ACTIVE_THRESHOLD = 0.67;
+
+/**
+ * Loading-range sub-window for global-chain LFO rate/depth — narrower than
+ * LFO_RATE_MIN/MAX and LFO_DEPTH_MIN/MAX (the full/UI-facing range every
+ * other LFO consumer still uses unchanged: the Rate/Depth sliders in
+ * Lfo.tsx, and lfoEngine.ts's setLfoRate/setLfoDepth clamp bounds). Mirrors
+ * globalAudioLoadingRanges.ts's pattern for effect params — bounds what a
+ * FRESH SEED can roll, never what the UI exposes or what the app can do.
+ * Robot-level LFO seeding (spawnSystem.ts) has no equivalent split and keeps
+ * sampling the full range; this only narrows the global-chain seed.
+ */
+export const LFO_RATE_LOADING_MIN = 0.1;
+export const LFO_RATE_LOADING_MAX = 1;
+export const LFO_DEPTH_LOADING_MIN = 10;
+export const LFO_DEPTH_LOADING_MAX = 25;
 
 /**
  * Generate deterministic global-chain LFO settings for a planet, sampled
  * from the planet noise map (same source as generateGlobalAudioSettings).
  * Unlike the per-field GLOBAL_AUDIO_SEED_RANGES table, every target shares
- * the same single global rate/depth bounds (LFO_RATE_MIN/MAX,
- * LFO_DEPTH_MIN/MAX) — GLOBAL_CHAIN_GRID.md's LFO? column is a flat flag,
- * not per-field bounds. `active` is seeded too, unlike the robot-level
+ * the same single global rate/depth loading bounds (LFO_RATE_LOADING_MIN/MAX,
+ * LFO_DEPTH_LOADING_MIN/MAX) — GLOBAL_CHAIN_GRID.md's LFO? column is a flat
+ * flag, not per-field bounds. `active` is seeded too, unlike the robot-level
  * precedent (spawnSystem.ts's generateRobotLfoSettings, where connected/
  * active is a runtime UI concern never part of the generated data) — a
  * freshly loaded planet can already have real, audible modulation running.
@@ -159,8 +169,8 @@ export function generateGlobalLfoSettings(
     const activeT = getSeededVal(noiseMap, `globalLfo.${target}.active`, 0, 0, 1);
 
     result[target] = {
-      rate: scaleUnitValue(rateT, { min: LFO_RATE_MIN, max: LFO_RATE_MAX, scale: 'linear' }),
-      depth: scaleUnitValue(depthT, { min: LFO_DEPTH_MIN, max: LFO_DEPTH_MAX, scale: 'linear' }),
+      rate: scaleUnitValue(rateT, { min: LFO_RATE_LOADING_MIN, max: LFO_RATE_LOADING_MAX, scale: 'linear' }),
+      depth: scaleUnitValue(depthT, { min: LFO_DEPTH_LOADING_MIN, max: LFO_DEPTH_LOADING_MAX, scale: 'linear' }),
       shape: LFO_SHAPES[Math.min(LFO_SHAPES.length - 1, Math.floor(shapeT * LFO_SHAPES.length))],
       active: activeT >= LFO_ACTIVE_THRESHOLD,
     };

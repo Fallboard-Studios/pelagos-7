@@ -3,7 +3,15 @@
 // ========================================
 import { describe, it, expect, afterEach } from 'vitest';
 
-import { generateGlobalAudioSettings, generateGlobalLfoSettings, scaleUnitValue } from './globalAudioSeed';
+import {
+  generateGlobalAudioSettings,
+  generateGlobalLfoSettings,
+  scaleUnitValue,
+  LFO_RATE_LOADING_MIN,
+  LFO_RATE_LOADING_MAX,
+  LFO_DEPTH_LOADING_MIN,
+  LFO_DEPTH_LOADING_MAX,
+} from './globalAudioSeed';
 import { evictPlanetNoiseMap } from './noiseMaps';
 import { GLOBAL_AUDIO_LOADING_RANGES } from '@/data/globalAudioLoadingRanges';
 import { type GlobalAudioSeedFieldKey } from '@/data/globalAudioSeedRanges';
@@ -196,16 +204,23 @@ describe('generateGlobalLfoSettings', () => {
     expect(b).not.toEqual(a);
   });
 
-  it('keeps rate/depth within their documented bounds and shape a valid LfoShape, for every target', () => {
+  it('samples rate/depth from their narrower loading range (0.1-1Hz, 10-25%), not the full LFO_RATE/DEPTH_MIN/MAX range', () => {
     const settings = generateGlobalLfoSettings('seed-test-planet', 'Nova');
     for (const target of GLOBAL_LFO_TARGET_IDS) {
       const { rate, depth, shape } = settings[target];
-      expect(rate, `${target}.rate`).toBeGreaterThanOrEqual(LFO_RATE_MIN);
-      expect(rate, `${target}.rate`).toBeLessThanOrEqual(LFO_RATE_MAX);
-      expect(depth, `${target}.depth`).toBeGreaterThanOrEqual(LFO_DEPTH_MIN);
-      expect(depth, `${target}.depth`).toBeLessThanOrEqual(LFO_DEPTH_MAX);
+      expect(rate, `${target}.rate`).toBeGreaterThanOrEqual(LFO_RATE_LOADING_MIN);
+      expect(rate, `${target}.rate`).toBeLessThanOrEqual(LFO_RATE_LOADING_MAX);
+      expect(depth, `${target}.depth`).toBeGreaterThanOrEqual(LFO_DEPTH_LOADING_MIN);
+      expect(depth, `${target}.depth`).toBeLessThanOrEqual(LFO_DEPTH_LOADING_MAX);
       expect(LFO_SHAPES, `${target}.shape`).toContain(shape);
     }
+  });
+
+  it('the LFO rate/depth loading range is a genuine subset of the full LFO_RATE/DEPTH_MIN/MAX range', () => {
+    expect(LFO_RATE_LOADING_MIN).toBeGreaterThanOrEqual(LFO_RATE_MIN);
+    expect(LFO_RATE_LOADING_MAX).toBeLessThanOrEqual(LFO_RATE_MAX);
+    expect(LFO_DEPTH_LOADING_MIN).toBeGreaterThanOrEqual(LFO_DEPTH_MIN);
+    expect(LFO_DEPTH_LOADING_MAX).toBeLessThanOrEqual(LFO_DEPTH_MAX);
   });
 
   it('seeds active as a real boolean for every target', () => {
@@ -215,7 +230,7 @@ describe('generateGlobalLfoSettings', () => {
     }
   });
 
-  it('seeds active true for roughly 1-in-5 targets across many planets, not roughly half (>= 0.8 threshold, not a flat 50/50)', () => {
+  it('seeds active true for roughly 1-in-3 targets across many planets, not roughly half (>= 0.67 threshold, not a flat 50/50)', () => {
     const SAMPLE_PLANETS = 40;
     let activeCount = 0;
     let totalCount = 0;
@@ -227,9 +242,9 @@ describe('generateGlobalLfoSettings', () => {
       }
     }
     const activeRate = activeCount / totalCount;
-    // ~20% expected; a wide tolerance band avoids flakiness while still
-    // clearly distinguishing this from a ~50% flat coin-flip.
-    expect(activeRate).toBeGreaterThan(0.05);
-    expect(activeRate).toBeLessThan(0.35);
+    // ~33% expected; a wide tolerance band avoids flakiness while still
+    // clearly distinguishing this from both ~20% and a ~50% flat coin-flip.
+    expect(activeRate).toBeGreaterThan(0.2);
+    expect(activeRate).toBeLessThan(0.45);
   });
 });
