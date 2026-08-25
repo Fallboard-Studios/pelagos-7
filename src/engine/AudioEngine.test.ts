@@ -1324,3 +1324,85 @@ describe('AudioEngine.start - prime, connect, and start seeded global LFOs (Task
     expect(beatClock.initBeatClock).toHaveBeenCalled();
   });
 });
+
+describe('AudioEngine.start — primes the just-built global FX chain from currently-seeded globalAudio state', () => {
+  // Deliberately far from globalFx.ts's own hardcoded construction defaults
+  // (compressor threshold -18/ratio 6, EQ bands 0, LPF/HPF passthrough,
+  // delay wet 0, reverb wet 0.3, limiter threshold -12) — if start() actually
+  // applies this fixture, the resulting node values can only have come from
+  // the seeded globalAudio state, not buildGlobalFxChain()'s own literals.
+  const FIXTURE_GLOBAL_AUDIO = {
+    globalBypass: false,
+    compressorBeforeDelay: false,
+    compressor: { enabled: true, threshold: -50, ratio: 15, attack: 0.02, release: 0.22, knee: 9 },
+    eq3: { enabled: true, low: 4, mid: -3, high: 2 },
+    filterLPF: { enabled: true, type: 'lowpass', frequency: 9000, Q: 3 },
+    filterHPF: { enabled: true, type: 'highpass', frequency: 250, Q: 2 },
+    delay: { enabled: true, delayTime: 0.4, feedback: 0.3, wet: 0.25 },
+    reverb: { enabled: true, decay: 3, preDelay: 0.05, wet: 0.35 },
+    limiter: { enabled: true, threshold: -2 },
+  };
+
+  type AnyMock = ReturnType<typeof vi.fn>;
+  const lastInstance = (ctor: unknown) =>
+    (ctor as unknown as AnyMock).mock.results.at(-1)?.value;
+
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  async function startWithFixture() {
+    const Tone = await import('tone');
+    const { AudioEngine } = await import('./AudioEngine');
+    const { useAudioStore } = await import('../stores/audioStore');
+    useAudioStore.setState({ globalAudio: FIXTURE_GLOBAL_AUDIO as any });
+    await AudioEngine.start();
+    return { Tone };
+  }
+
+  it('applies the current globalAudio.compressor values to the freshly-built Compressor node', async () => {
+    const { Tone } = await startWithFixture();
+    const compNode = lastInstance(Tone.Compressor);
+    expect(compNode.threshold.value).toBe(-50);
+    expect(compNode.ratio.value).toBe(15);
+    expect(compNode.attack.value).toBe(0.02);
+    expect(compNode.release.value).toBe(0.22);
+    expect(compNode.knee.value).toBe(9);
+  });
+
+  it('applies the current globalAudio.eq3/filterLPF/filterHPF/reverb/limiter values to their freshly-built nodes', async () => {
+    const { Tone } = await startWithFixture();
+    expect(lastInstance(Tone.EQ3).low.value).toBe(4);
+    expect(lastInstance(Tone.EQ3).mid.value).toBe(-3);
+    expect(lastInstance(Tone.EQ3).high.value).toBe(2);
+    // Filter is constructed twice in loadInstruments (LPF then HPF) — at(-2)/at(-1).
+    const filterResults = (Tone.Filter as unknown as AnyMock).mock.results;
+    expect(filterResults.at(-2)?.value.frequency.value).toBe(9000);
+    expect(filterResults.at(-2)?.value.Q.value).toBe(3);
+    expect(filterResults.at(-1)?.value.frequency.value).toBe(250);
+    expect(filterResults.at(-1)?.value.Q.value).toBe(2);
+    expect(lastInstance(Tone.Reverb).wet.value).toBe(0.35);
+    expect(lastInstance(Tone.Limiter).threshold.value).toBe(-2);
+    expect(lastInstance(Tone.FeedbackDelay).wet.value).toBe(0.25);
+  });
+
+  it('bypasses an effect at start() when its seeded enabled is false — bypass state, not just its param values, gets applied', async () => {
+    const Tone = await import('tone');
+    const { AudioEngine } = await import('./AudioEngine');
+    const { useAudioStore } = await import('../stores/audioStore');
+    useAudioStore.setState({
+      globalAudio: {
+        ...FIXTURE_GLOBAL_AUDIO,
+        compressor: { enabled: false, threshold: -50, ratio: 15, attack: 0.02, release: 0.22, knee: 9 },
+      } as any,
+    });
+    await AudioEngine.start();
+    const compNode = lastInstance(Tone.Compressor);
+    // Neither the raw seeded values (-50/15) nor buildGlobalFxChain()'s own
+    // literal construction defaults (-18/6) — the seeded bypass-off state
+    // must win, neutralizing the node exactly like setEffectBypass('compressor',
+    // false) always does (ratio -> 1, threshold -> 0).
+    expect(compNode.threshold.value).toBe(0);
+    expect(compNode.ratio.value).toBe(1);
+  });
+});

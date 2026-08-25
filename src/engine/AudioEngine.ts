@@ -494,8 +494,17 @@ export const AudioEngine = {
     // threw "Cannot read properties of undefined (reading 'setGlobalCompressor')"
     // when tried as a static import).
     try {
-      const { useAudioStore } = await import('../stores/audioStore');
-      const { globalLfo } = useAudioStore.getState();
+      const { useAudioStore, applyGlobalAudioToEngine } = await import('../stores/audioStore');
+      const { globalAudio, globalLfo } = useAudioStore.getState();
+      // buildGlobalFxChain() (above) just constructed every FX node from its
+      // own hardcoded literal defaults — not whatever's already seeded in
+      // globalAudio. regenerateGlobalAudioFromSeed's own push (planet-sync,
+      // module load) ran long before these nodes existed, so it landed as a
+      // no-op; re-apply the current state now that real nodes exist. Must
+      // run before the LFO priming loop below: connectLfoTarget's swing math
+      // reads each target's CURRENT value, so EQ/filter values need to be
+      // correct first.
+      applyGlobalAudioToEngine(globalAudio);
       for (const target of GLOBAL_LFO_TARGET_IDS) {
         const settings = globalLfo[target];
         lfoEngine.setLfoShape(target, settings.shape);
