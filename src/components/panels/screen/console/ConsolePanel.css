@@ -7,6 +7,12 @@
 }
 
 .console-panel__back {
+  /* Clears the power switch's absolutely-positioned corner
+     (--power-corner-height, :root in index.css — the sleeve's cutaway
+     sits at top:0 against .tablet, taller than the transport row it
+     shares horizontal space with) so the Back button never renders
+     underneath it. */
+  margin-top: var(--power-corner-height);
   padding: 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
