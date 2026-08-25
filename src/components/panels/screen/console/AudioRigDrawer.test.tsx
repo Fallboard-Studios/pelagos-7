@@ -137,7 +137,7 @@ describe('AudioRigDrawer', () => {
 
   it('toggling the rig-wide bypass calls setGlobalBypassEnabled and updates state', () => {
     render(<AudioRigDrawer />);
-    const rigBypass = screen.getByRole('switch', { name: 'Bypass' });
+    const rigBypass = screen.getByRole('switch', { name: 'Bypass (this may be loud or distorted)' });
     expect(useAudioStore.getState().globalAudio.globalBypass).toBe(false);
     fireEvent.click(rigBypass);
     expect(useAudioStore.getState().globalAudio.globalBypass).toBe(true);

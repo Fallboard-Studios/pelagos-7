@@ -12,7 +12,7 @@ import type { ToggleSchema } from '@/types/controls';
 import type { GlobalAudioSettings } from '@/types/globalAudio';
 import './AudioRigDrawer.css';
 
-const GLOBAL_BYPASS_SCHEMA: ToggleSchema = { id: 'audioRig.globalBypass', type: 'toggle', humanLabel: 'Bypass' };
+const GLOBAL_BYPASS_SCHEMA: ToggleSchema = { id: 'audioRig.globalBypass', type: 'toggle', humanLabel: 'Bypass (this may be loud or distorted)' };
 
 /** Dispatches a param's ControlSchema to its matching primitive. Covers only
  *  the 4 variants GLOBAL_CHAIN_GRID.md's UI column actually uses for this
