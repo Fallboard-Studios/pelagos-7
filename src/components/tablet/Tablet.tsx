@@ -10,6 +10,7 @@ function Tablet() {
 
   return (
     <div className="tablet">
+      <div className="sleeve-container__top-strip" aria-hidden="true" />
       <SleeveContainer hasPowerSwitch={true} />
       <ScreenViewport isPoweredOn={isPoweredOn} />
       <SleeveContainer />
