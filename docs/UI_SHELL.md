@@ -24,13 +24,13 @@ Selecting a tile replaces the hub-nav area with that tile's full screen (`Consol
 **`robots` nests one level deeper than the other tiles.** It has no standalone editor tile anymore — selecting it shows `RobotsTab`, a list of every robot in the active locale (name + a "+ New Robot" spawn action, both via the `Button` primitive), and `uiStore.selectedRobotId` (already existing state, not a new field) doubles as the list/detail switch: `null` shows the list, set shows `RobotEditorTab` for that robot. Back is tile-aware: from a selected robot's editor it clears `selectedRobotId` and returns to the list (same tile); from the list, or any other tile, it clears `activeHubTile` and returns to the grid.
 
 **Current implementation status:**
-- Built: `robots` → `RobotsTab` (list) → `RobotEditorTab` (with sub-tabs `RobotMetaTab`, `RobotAudioTab`, `RobotOscillatorsTab`) once a robot is selected — all render inside the new full-screen tile shell, but `RobotEditorTab`'s own internals are untouched by Phase 3.
-- Stub only: `audioRig`, `settings` — each still renders the same placeholder `<div>` it did under the old tab model, now reached through the tile shell instead of a tab switch.
+- Built: `robots` → `RobotsTab` (list) → `RobotEditorTab` (with sub-tabs `RobotMetaTab`, `RobotAudioTab`, `RobotOscillatorsTab`) once a robot is selected — all render inside the new full-screen tile shell, but `RobotEditorTab`'s own internals are untouched by Phase 3. `audioRig` → `AudioRigDrawer` (Phase 4, shipped) — every control is live, wired straight to `AudioEngine`/`audioStore`, not a placeholder.
+- Stub only: `settings` — still renders the same placeholder `<div>` it did under the old tab model, now reached through the tile shell instead of a tab switch.
 
 **Still planned (not yet built):**
 - **`RobotsTab`'s list is a minimal stand-in**, not Phase 8's real Robot Selection card UI (avatar SVG, job title, audio status, battery status per card) — that depends on Battery/Job data Phase 7 hasn't built yet. The old `robotOptions` tab's min/max robot count slider and auto-spawn toggle were dropped outright (not migrated) when `RobotsTab` replaced it — they have no purpose once the Battery/Docking/Job lifecycle (Phase 7) creates every robot once instead of dynamically spawning/despawning them; only "+ New Robot" survived, moved into the list.
 - **`RobotEditorTab` will eventually be replaced by Robot Options (Phase 9)**, reached the same way it is today (selecting a robot from the list), scoped to just that robot. `RobotMetaTab`, `RobotAudioTab`, and `RobotOscillatorsTab`'s hand-built Radix controls will be torn out and rebuilt as four schema-driven drawers (Robot Display, Ping Controls, Ping Contour, Signature Array) using the Phase 1 primitive library, each paired with a DualLabel.
-- **`audioRig`/`settings`** get real content in Phases 4 and 5 (Audio Rig, Sector Settings) respectively.
+- **`settings`** gets real content in Phase 5 (Sector Settings) — `audioRig` already has its own, per Phase 4 above.
 
 ## uiStore
 
