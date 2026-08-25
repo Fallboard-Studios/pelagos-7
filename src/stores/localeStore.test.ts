@@ -59,10 +59,14 @@ describe('localeStore', () => {
       expect(() => JSON.stringify(useLocaleStore.getState())).not.toThrow();
     });
 
-    it('default locale coordinates avoid (0, 0) — a structural dead zone where simplex noise always evaluates to exactly 0 for every seed, which made the default locale\'s noise map invariant to the planet seed', () => {
+    it('default locale coordinates still avoid the old (0, 0) default — kept for continuity, though no coordinate is unsafe anymore now that getLocaleNoiseMap hashes (x, y) directly instead of sampling simplex noise at the point (see docs/specs/LOCALE_SEED_DECOUPLING.md)', () => {
       expect(DEFAULT_LOCALE.coordinates).not.toEqual({ x: 0, y: 0 });
     });
 
+    // Note: this tests getPlanetNoiseMap directly, not locale generation —
+    // getLocaleNoiseMap no longer derives from the planet map at all (see
+    // docs/specs/LOCALE_SEED_DECOUPLING.md), so this assertion is unaffected
+    // by that change; it's still true and still worth asserting on its own.
     it('sampling the planet noise map at the default locale\'s coordinates varies by planet seed', async () => {
       const { getPlanetNoiseMap } = await import('../utils/noiseMaps');
       const mapA = getPlanetNoiseMap('locale-dead-zone-check-a', 'seed-alpha');
