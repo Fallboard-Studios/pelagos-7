@@ -12,9 +12,9 @@ import { GLOBAL_AUDIO_LOADING_RANGES } from '@/data/globalAudioLoadingRanges';
 import { GLOBAL_AUDIO_SEED_RANGES, type GlobalAudioSeedFieldKey, type SeedRange } from '@/data/globalAudioSeedRanges';
 import {
   GLOBAL_LFO_TARGET_IDS,
-  LFO_SHAPES,
   type GlobalLfoTargetId,
   type LfoSettings,
+  type LfoShape,
 } from '@/types/lfo';
 
 // ========================================
@@ -145,6 +145,16 @@ export const LFO_DEPTH_LOADING_MIN = 20;
 export const LFO_DEPTH_LOADING_MAX = 50;
 
 /**
+ * Loading-set restriction for global-chain LFO shape — narrower than
+ * LFO_SHAPES (all 4: triangle/sine/square/sawtooth, still the full set the
+ * Shape radio in Lfo.tsx offers). A fresh seed only ever rolls the two
+ * smoothest shapes; square/sawtooth stay reachable, just not as a starting
+ * state. Same loading-vs-full split as rate/depth above, applied to a
+ * discrete set instead of a numeric range.
+ */
+const LFO_LOADING_SHAPES: readonly LfoShape[] = ['triangle', 'sine'];
+
+/**
  * Generate deterministic global-chain LFO settings for a planet, sampled
  * from the planet noise map (same source as generateGlobalAudioSettings).
  * Unlike the per-field GLOBAL_AUDIO_SEED_RANGES table, every target shares
@@ -171,7 +181,7 @@ export function generateGlobalLfoSettings(
     result[target] = {
       rate: scaleUnitValue(rateT, { min: LFO_RATE_LOADING_MIN, max: LFO_RATE_LOADING_MAX, scale: 'linear' }),
       depth: scaleUnitValue(depthT, { min: LFO_DEPTH_LOADING_MIN, max: LFO_DEPTH_LOADING_MAX, scale: 'linear' }),
-      shape: LFO_SHAPES[Math.min(LFO_SHAPES.length - 1, Math.floor(shapeT * LFO_SHAPES.length))],
+      shape: LFO_LOADING_SHAPES[Math.min(LFO_LOADING_SHAPES.length - 1, Math.floor(shapeT * LFO_LOADING_SHAPES.length))],
       active: activeT >= LFO_ACTIVE_THRESHOLD,
     };
   }

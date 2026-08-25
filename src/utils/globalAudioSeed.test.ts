@@ -178,6 +178,7 @@ describe('generateGlobalLfoSettings', () => {
     evictPlanetNoiseMap('seed-test-planet');
     evictPlanetNoiseMap('seed-test-planet-b');
     for (let i = 0; i < 40; i++) evictPlanetNoiseMap(`seed-lfo-sample-${i}`);
+    for (let i = 0; i < 40; i++) evictPlanetNoiseMap(`seed-lfo-shape-${i}`);
   });
 
   it('returns a fully-populated record for all 8 GlobalLfoTargetIds', () => {
@@ -221,6 +222,28 @@ describe('generateGlobalLfoSettings', () => {
     expect(LFO_RATE_LOADING_MAX).toBeLessThanOrEqual(LFO_RATE_MAX);
     expect(LFO_DEPTH_LOADING_MIN).toBeGreaterThanOrEqual(LFO_DEPTH_MIN);
     expect(LFO_DEPTH_LOADING_MAX).toBeLessThanOrEqual(LFO_DEPTH_MAX);
+  });
+
+  it('only ever seeds triangle or sine for shape, never square or sawtooth', () => {
+    const SAMPLE_PLANETS = 40;
+    for (let i = 0; i < SAMPLE_PLANETS; i++) {
+      const settings = generateGlobalLfoSettings(`seed-lfo-shape-${i}`, `ShapeSample${i}`);
+      for (const target of GLOBAL_LFO_TARGET_IDS) {
+        expect(['triangle', 'sine'], `${target}.shape (planet ${i})`).toContain(settings[target].shape);
+      }
+    }
+  });
+
+  it('actually produces both triangle and sine across many planets, not always just one (non-degenerate)', () => {
+    const SAMPLE_PLANETS = 40;
+    const seenShapes = new Set<string>();
+    for (let i = 0; i < SAMPLE_PLANETS; i++) {
+      const settings = generateGlobalLfoSettings(`seed-lfo-shape-${i}`, `ShapeSample${i}`);
+      for (const target of GLOBAL_LFO_TARGET_IDS) {
+        seenShapes.add(settings[target].shape);
+      }
+    }
+    expect(seenShapes).toEqual(new Set(['triangle', 'sine']));
   });
 
   it('seeds active as a real boolean for every target', () => {
