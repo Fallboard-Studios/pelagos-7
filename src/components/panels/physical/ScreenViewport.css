@@ -96,7 +96,11 @@
   position: relative;
   z-index: 0;
   height: 100%;
-  overflow: auto;
+  /* WorldView now spans every row as a full-bleed backdrop (WorldView.css)
+     and Transport/Console each fit exactly within their own row — nothing
+     here should ever need to scroll. hidden, not auto, so a future sizing
+     bug fails as a visible clip rather than a silent scrollbar. */
+  overflow: hidden;
   display: grid;
   grid-template-columns: 1fr;
   grid-template-rows: auto 1fr 1fr;

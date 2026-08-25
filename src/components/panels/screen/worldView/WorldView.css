@@ -1,18 +1,17 @@
 .world-view {
-  grid-area: worldview;
-  aspect-ratio: 16 / 9;
-  /* Shrink to fit its grid row instead of forcing it to grow: a grid item's
-     default min-height is auto (its content's intrinsic size), which lets
-     an aspect-ratio box push past its 1fr share and force .screen-content
-     to scroll. max-width/max-height cap it at the row's own size once it's
-     actually allowed to shrink below that intrinsic size. margin: auto then
-     centers it within the row on whichever axis it doesn't fill, the same
-     way it centers a smaller block in normal flow. */
-  min-width: 0;
-  min-height: 0;
-  max-width: 100%;
-  max-height: 100%;
-  margin: auto;
+  /* Spans every row of .screen-content's grid (transport + worldview +
+     console), not just its own named row — a full-bleed backdrop behind
+     everything else, always filling the entire screen, rather than a box
+     confined to (and letterboxed within) its own dedicated row. Transport
+     and Console are unaffected — they keep their own exact rows/sizing
+     (ScreenViewport.css's grid) and simply render on top via z-index, so
+     neither's own footprint (including what captures clicks) changes.
+     The SVG scene inside still centers/letterboxes itself within whatever
+     box this ends up being, via its own viewBox + default
+     preserveAspectRatio="xMidYMid meet" — no aspect-ratio CSS needed here. */
+  grid-row: 1 / -1;
+  grid-column: 1 / -1;
+  z-index: 0;
   overflow: hidden;
   /* border: yellow 1px solid; */
 }

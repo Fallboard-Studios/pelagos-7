@@ -1,5 +1,8 @@
 .console {
   grid-area: console;
+  /* Renders above WorldView (z-index: 0, now a full-bleed backdrop behind
+     every row) rather than relying on DOM-order stacking. */
+  z-index: 1;
   /* border: yellow 1px solid; */
   /* Every descendant surface (accordion triggers, buttons, effect blocks,
      text inputs, ...) paints its background from var(--color-surface) —
