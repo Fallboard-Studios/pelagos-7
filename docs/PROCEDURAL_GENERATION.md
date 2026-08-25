@@ -8,7 +8,7 @@ Source of truth: [`src/utils/seedUtils.ts`](../src/utils/seedUtils.ts) · [`src/
 
 Pelagos-7 replaces `Math.random()` with a deterministic noise-based sampler almost everywhere game logic needs randomness. The guarantee: **the same planet name + the same locale coordinates always produce the same world** — same robot names, spawn positions, audio attributes, melodies, and idle/interaction behavior. Nothing about the generated world is persisted beyond the seed inputs themselves.
 
-This is a two-tier system: a **planet noise map**, seeded from the planet's name, and a **locale noise map** per locale, seeded by sampling the planet map at that locale's coordinates. Individual values (a robot's attack time, a spawn X position, an idle target) are then sampled from the relevant locale's noise map via a stable string key.
+A **planet noise map** is seeded from the planet's name and used for genuinely planet-level generation (`planetInitialHour`, the global Audio Rig chain and global LFOs — see [AUDIO_SYSTEM.md](AUDIO_SYSTEM.md)). A **locale noise map** per locale is seeded independently, derived directly from that locale's own `(x, y)` coordinates — **not** from the planet at all. Individual values (a robot's attack time, a spawn X position, an idle target) are then sampled from the relevant locale's noise map via a stable string key.
 
 **Not covered here:** factory/building variant selection (`selectVariantFromSeed` in `src/components/actors/factoryVariants.ts`) is a separate, self-contained deterministic mechanism — it seeds its own `Alea(actorId)` PRNG per call and never touches the noise-map registry described below. See [BUILDING_DESIGN.md](BUILDING_DESIGN.md) for that system.
 
@@ -31,16 +31,14 @@ Two module-scoped `Map`s — **non-serializable, never put these or their conten
 
 ```typescript
 getPlanetNoiseMap(planetId: string, planetName: string): NoiseFunction2D
-getLocaleNoiseMap(localeId: string, planetId: string, planetName: string, x: number, y: number): NoiseFunction2D
+getLocaleNoiseMap(localeId: string, x: number, y: number): NoiseFunction2D
 tryGetLocaleNoiseMap(localeId: string): NoiseFunction2D | null   // non-throwing; null if not yet registered
 evictPlanetNoiseMap(planetId: string): void
 evictLocaleNoiseMap(localeId: string): void
 ```
 
 - **Planet map:** `createNoise2D(alea(derivePlanetSeed(planetName)))`, cached by `planetId`.
-- **Locale map:** samples the planet map at `(x, y)` → a float in `[-1, 1]` → rescaled to an integer in `[0, 129599]` → that integer seeds `createNoise2D(alea(...))`, cached by `localeId`. Two locales with identical `(x, y)` on *different* planets get different noise maps, because the intermediate sample comes from a planet-specific function.
-
-  **Planned change (not yet implemented):** [Roadmap Phase 6](roadmap/roadmap.md) calls for robot spawn attributes to derive from a planet-agnostic lat/long coordinate seed instead — i.e. identical coordinates would produce identical robot attributes regardless of which planet they're on, a reversal of the guarantee stated above. This section still describes current behavior; update it once that phase lands.
+- **Locale map:** `(x, y)` are concatenated into a single string key (`` `${x}:${y}` ``, folding in the global seed override the same way `derivePlanetSeed` does) and that string seeds `createNoise2D(alea(...))` directly, cached by `localeId`. **Two locales with identical `(x, y)` — regardless of which planet either one is on — get identical noise maps.** This is a deliberate design guarantee, not an accident: `x` and `y` are two independent inputs at the UI layer (Sector Settings' coordinate entry), but they collapse into exactly one seed value here, never two separate dimensions sampled through a noise function. This also structurally eliminates the coordinate "dead zone" bug the old planet-sampled derivation had (simplex noise degenerating toward zero at lattice-aligned points like `(0,0)`) — there's no simplex sampling left in the derivation step to collapse. See [docs/specs/LOCALE_SEED_DECOUPLING.md](specs/LOCALE_SEED_DECOUPLING.md) for the full rationale.
 - **Lifecycle:** `planetStore.ts` and `localeStore.ts` prime the default planet/locale's maps eagerly at module scope (so they exist before first render) and again inside `addPlanet`/`addLocale`. `removePlanet`/`removeLocale` call the matching `evict*` function; `removePlanet` also evicts every locale map belonging to that planet.
 - `tryGetLocaleNoiseMap` exists specifically for hot-path callers (`AudioEngine`) that must not throw or block if a locale hasn't been registered yet.
 
