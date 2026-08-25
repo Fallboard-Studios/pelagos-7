@@ -104,9 +104,11 @@ async function latestLfoInstance(): Promise<MockLfoInstance> {
   return (Tone.LFO as unknown as ReturnType<typeof vi.fn>).mock.results.at(-1)!.value;
 }
 
-/** A minimal fake Signal-like object, distinct per call so tests can assert connect() received the right one. */
-function fakeSignal(value = 0): { value: number } {
-  return { value };
+/** A minimal fake Signal-like object, distinct per call so tests can assert
+ * connect() received the right one. `override` defaults to `true`, matching
+ * Tone.Signal's own real default (verified against Tone's source). */
+function fakeSignal(value = 0): { value: number; override: boolean } {
+  return { value, override: true };
 }
 
 // ========================================
@@ -510,6 +512,41 @@ describe('lfoEngine', () => {
         const instance = await latestLfoInstance();
         expect(Number.isNaN(instance.min)).toBe(false);
         expect(Number.isNaN(instance.max)).toBe(false);
+      });
+    });
+
+    describe('disabling Signal.override before connecting — the real "explosion" root cause', () => {
+      // Verified directly against Tone.js's own source (signal/Signal.ts,
+      // connectSignal()): connecting ANYTHING to a Signal whose `override`
+      // flag is true (the default) makes Tone immediately
+      // cancelScheduledValues + setValueAtTime(0, 0) on the destination and
+      // permanently mark it "overridden" — BEFORE the connected source (the
+      // LFO) has even started oscillating, and regardless of what lfo.min/
+      // lfo.max are set to. For a filter's frequency Signal, that's a
+      // step-change to an invalid 0 Hz cutoff the instant the LFO connects
+      // — independent of every previous swing-math fix, since none of them
+      // touch this. This is the actual, complete explanation for the
+      // reported "explosion, then nothing, reproducible on a fresh reload,
+      // regardless of how long you wait first" — a structural side effect
+      // of calling .connect() at all, not a timing race. Disabling
+      // `override` first restores plain additive Web Audio summing, which
+      // the swing math above is designed for.
+      it('sets override to false on the resolved global Signal before connecting', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        const signal = fakeSignal(3000);
+        (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(signal);
+        const { lfoEngine } = await import('./lfoEngine');
+        lfoEngine.connectLfoTarget('lpf.frequency');
+        expect(signal.override).toBe(false);
+      });
+
+      it('sets override to false on the resolved robot Signal before connecting too', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        const signal = fakeSignal(1);
+        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(signal);
+        const { lfoEngine } = await import('./lfoEngine');
+        lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+        expect(signal.override).toBe(false);
       });
     });
 

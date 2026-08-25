@@ -392,6 +392,23 @@ function connectLfoTarget(target: LfoTargetId, robotId?: string): boolean {
     }
   }
 
+  // Tone.Signal defaults `override: true`, which makes Tone's own
+  // connectSignal() (invoked internally by lfo.connect() below) immediately
+  // cancelScheduledValues + setValueAtTime(0, 0) on the destination and
+  // permanently mark it "overridden" — the INSTANT .connect() runs, before
+  // the LFO has even started oscillating, and regardless of what lfo.min/
+  // lfo.max are set to. For a filter's frequency Signal, that's a step
+  // change to an invalid 0 Hz cutoff every single time an LFO connects —
+  // verified directly against Tone.js's own source (signal/Signal.ts). It
+  // also silently discards whatever the target's own value was, which is
+  // exactly the "additive on top of the current value" assumption
+  // centeredSwingFromRange() above depends on. Disabling `override` first
+  // restores plain additive Web Audio summing. No effect on a Tone.Param
+  // destination (e.g. robot Gain targets), which has no override escape
+  // hatch and still hits the same reset unconditionally — a known,
+  // currently-unaddressed gap for that class of target.
+  (signal as unknown as { override?: boolean }).override = false;
+
   try {
     lfo.connect(signal as unknown as Tone.InputNode);
   } catch (err) {
