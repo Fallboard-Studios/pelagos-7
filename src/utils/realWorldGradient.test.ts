@@ -4,6 +4,8 @@
 import { describe, it, expect } from 'vitest';
 
 import { generateRealWorldGradients, type RandomSource } from './realWorldGradient';
+import colorTheme from '@/constants/colorTheme.json';
+import { hslToString } from '@/utils/colorUtils';
 
 // ========================================
 // TEST HELPERS
@@ -21,20 +23,50 @@ interface ParsedStop {
   pct: number | undefined;
 }
 
+/** Splits on top-level commas only — the color values themselves are now
+ *  `hsl(h, s%, l%)` strings, which contain commas of their own that must
+ *  not be treated as stop separators. */
+function splitTopLevel(input: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let current = '';
+  for (const char of input) {
+    if (char === '(') depth++;
+    if (char === ')') depth--;
+    if (char === ',' && depth === 0) {
+      parts.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  parts.push(current);
+  return parts;
+}
+
 /** Parses a `linear-gradient(Xdeg, color1 p1%, color2, ...)` string back into
  *  its angle and ordered stop list — testing the actual CSS string that gets
- *  applied, not an internal representation. */
+ *  applied, not an internal representation. Each stop is `<color> <pct>?`;
+ *  the trailing `\s+pct%$` anchor is what lets this correctly separate a
+ *  stop's own percentage from an hsl() color's internal commas/percents. */
 function parseGradient(css: string): { angle: number; stops: ParsedStop[] } {
   const match = /^linear-gradient\((-?[\d.]+)deg,\s*(.+)\)$/.exec(css);
   if (!match) throw new Error(`Could not parse gradient: ${css}`);
   const angle = Number(match[1]);
-  const stops = match[2].split(',').map((raw) => {
-    const parts = raw.trim().split(/\s+/);
-    if (parts.length === 2) return { color: parts[0], pct: Number(parts[1].replace('%', '')) };
-    return { color: parts[0], pct: undefined };
+  const stops = splitTopLevel(match[2]).map((raw) => {
+    const trimmed = raw.trim();
+    const pctMatch = /^(.*?)\s+(-?[\d.]+%)$/.exec(trimmed);
+    if (pctMatch) return { color: pctMatch[1].trim(), pct: Number(pctMatch[2].replace('%', '')) };
+    return { color: trimmed, pct: undefined };
   });
   return { angle, stops };
 }
+
+// Theme-sourced replacements for the gradient's original hardcoded hex
+// colors (App.css's own former values) — same sourcing App.tsx uses.
+const NEUTRAL_DARK = hslToString(colorTheme.shadowDepth);
+const VENT_SHADOW = hslToString(colorTheme.vent.shadow);
+const VENT_BASE = hslToString(colorTheme.vent.base);
 
 // ========================================
 // TESTS
@@ -56,12 +88,19 @@ describe('generateRealWorldGradients', () => {
 
   it('keeps every color in its original relative order — colors are never shuffled, only angle/percentages change', () => {
     const before = parseGradient(generateRealWorldGradients(constantRng(0.37)).before);
-    expect(before.stops.map((s) => s.color)).toEqual(['transparent', '#1e1e1e', '#083a70', '#1d5da1']);
+    expect(before.stops.map((s) => s.color)).toEqual(['transparent', NEUTRAL_DARK, VENT_SHADOW, VENT_BASE]);
 
     const after = parseGradient(generateRealWorldGradients(constantRng(0.37)).after);
     expect(after.stops.map((s) => s.color)).toEqual([
-      '#1e1e1e', '#1d5da1', '#083a70', '#1e1e1e', '#1e1e1e', '#1d5da1', '#083a70',
+      NEUTRAL_DARK, VENT_BASE, VENT_SHADOW, NEUTRAL_DARK, NEUTRAL_DARK, VENT_BASE, VENT_SHADOW,
     ]);
+  });
+
+  it('sources its non-transparent colors from colorTheme.json (the vent family, same as OceanScene\'s own atmospheric gradients) rather than hardcoded hex values', () => {
+    const before = parseGradient(generateRealWorldGradients(constantRng(0.1)).before);
+    for (const stop of before.stops.slice(1)) {
+      expect(stop.color, stop.color).toMatch(/^hsl\(/);
+    }
   });
 
   it('leaves the final stop of each gradient unnumbered, same as the original CSS', () => {
@@ -76,12 +115,12 @@ describe('generateRealWorldGradients', () => {
     // rng() always returns 0 — every "diverge?" check (rng() >= 0.5) is false.
     const { before, after } = generateRealWorldGradients(constantRng(0));
     const beforeStops = parseGradient(before).stops;
-    expect(beforeStops[1].pct).toBe(beforeStops[2].pct); // #1e1e1e / #083a70 pair
+    expect(beforeStops[1].pct).toBe(beforeStops[2].pct); // NEUTRAL_DARK / VENT_SHADOW pair
 
     const afterStops = parseGradient(after).stops;
-    expect(afterStops[0].pct).toBe(afterStops[1].pct); // #1e1e1e / #1d5da1 pair
-    expect(afterStops[2].pct).toBe(afterStops[3].pct); // #083a70 / #1e1e1e pair
-    expect(afterStops[4].pct).toBe(afterStops[5].pct); // #1e1e1e / #1d5da1 pair
+    expect(afterStops[0].pct).toBe(afterStops[1].pct); // NEUTRAL_DARK / VENT_BASE pair
+    expect(afterStops[2].pct).toBe(afterStops[3].pct); // VENT_SHADOW / NEUTRAL_DARK pair
+    expect(afterStops[4].pct).toBe(afterStops[5].pct); // NEUTRAL_DARK / VENT_BASE pair
   });
 
   it('lets a matching pair diverge into two distinct, ascending percentages when the coin flip clears the threshold', () => {

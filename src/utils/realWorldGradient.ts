@@ -1,19 +1,27 @@
 /**
  * Randomizes the two decorative `linear-gradient`s behind the tablet
  * (`.real-world::before`/`::after`, App.css) once per page load. Colors stay
- * exactly as originally authored, in their original stop order — only each
- * gradient's angle and its stops' breakpoint percentages vary. A pair of
- * stops that originally shared one percentage (a hard color edge, not a
- * blend — e.g. `#1e1e1e 75%, #083a70 75%`) sometimes keeps sharing one
- * randomized percentage, and sometimes diverges into two nearby-but-distinct
- * ascending percentages instead, so some flat color bands survive the
- * randomization and some become genuine blends. `transparent` is treated as
- * an ordinary color value here — never swapped for anything else.
+ * fixed, in their original stop order — only each gradient's angle and its
+ * stops' breakpoint percentages vary. A pair of stops that originally
+ * shared one percentage (a hard color edge, not a blend — e.g. the second
+ * and third stops of `before`) sometimes keeps sharing one randomized
+ * percentage, and sometimes diverges into two nearby-but-distinct ascending
+ * percentages instead, so some flat color bands survive the randomization
+ * and some become genuine blends. `transparent` is treated as an ordinary
+ * color value here — never swapped for anything else.
+ *
+ * The three non-transparent colors are sourced from colorTheme.json (the
+ * `vent` family, plus `shadowDepth` for the darkest neutral tone) rather
+ * than hardcoded hex — the same `vent` tones OceanScene.tsx already draws
+ * its own atmospheric depth-gradient overlays from, so this backdrop reads
+ * as part of the same theme rather than an arbitrary, disconnected pick.
  *
  * Plain Math.random() by default, not the app's seeded-noise system — this
  * is a decorative backdrop behind the fictional device, not part of any
  * deterministic planet/locale content.
  */
+import colorTheme from '@/constants/colorTheme.json';
+import { hslToString } from '@/utils/colorUtils';
 
 // ========================================
 // TYPES
@@ -42,6 +50,12 @@ const MAX_PCT = 96;
  *  than diverging into two. Deliberately not certainty either way — "some
  *  flat colors in the mix", not none and not all. */
 const STAY_MATCHING_CHANCE = 0.5;
+
+/** The gradients' three fixed non-transparent colors, sourced from
+ *  colorTheme.json — see the module doc comment above for why `vent`. */
+const NEUTRAL_DARK = hslToString(colorTheme.shadowDepth);
+const VENT_SHADOW = hslToString(colorTheme.vent.shadow);
+const VENT_BASE = hslToString(colorTheme.vent.base);
 
 // ========================================
 // INTERNAL HELPERS
@@ -99,14 +113,14 @@ export function generateRealWorldGradients(rng: RandomSource = Math.random): { b
     [{ size: 1 }, { size: 2 }],
     rng,
   );
-  const before = `linear-gradient(${beforeAngle}deg, transparent ${formatPercent(transparentPct)}, #1e1e1e ${formatPercent(darkPct)}, #083a70 ${formatPercent(bluePct)}, #1d5da1)`;
+  const before = `linear-gradient(${beforeAngle}deg, transparent ${formatPercent(transparentPct)}, ${NEUTRAL_DARK} ${formatPercent(darkPct)}, ${VENT_SHADOW} ${formatPercent(bluePct)}, ${VENT_BASE})`;
 
   const afterAngle = randomAngle(rng);
   const [[p1, p2], [p3, p4], [p5, p6]] = assignGroupPercents(
     [{ size: 2 }, { size: 2 }, { size: 2 }],
     rng,
   );
-  const after = `linear-gradient(${afterAngle}deg, #1e1e1e ${formatPercent(p1)}, #1d5da1 ${formatPercent(p2)}, #083a70 ${formatPercent(p3)}, #1e1e1e ${formatPercent(p4)}, #1e1e1e ${formatPercent(p5)}, #1d5da1 ${formatPercent(p6)}, #083a70)`;
+  const after = `linear-gradient(${afterAngle}deg, ${NEUTRAL_DARK} ${formatPercent(p1)}, ${VENT_BASE} ${formatPercent(p2)}, ${VENT_SHADOW} ${formatPercent(p3)}, ${NEUTRAL_DARK} ${formatPercent(p4)}, ${NEUTRAL_DARK} ${formatPercent(p5)}, ${VENT_BASE} ${formatPercent(p6)}, ${VENT_SHADOW})`;
 
   return { before, after };
 }
