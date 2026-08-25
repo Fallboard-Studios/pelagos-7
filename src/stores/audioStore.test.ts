@@ -161,6 +161,17 @@ describe('useAudioStore - regenerateGlobalAudioFromSeed', () => {
     expect(other).not.toEqual(pelagos);
   });
 
+  it('preserves globalBypass and compressorBeforeDelay across a reseed — neither is seeded, so a planet switch must not silently reset a live user choice back to default', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    useAudioStore.getState().setGlobalBypassEnabled(true);
+    useAudioStore.getState().setCompressorBeforeDelay(true);
+
+    useAudioStore.getState().regenerateGlobalAudioFromSeed('a-different-planet-id', 'Zenith');
+
+    expect(useAudioStore.getState().globalAudio.globalBypass).toBe(true);
+    expect(useAudioStore.getState().globalAudio.compressorBeforeDelay).toBe(true);
+  });
+
   it('follows setCurrentPlanetId — switching the active planet reseeds globalAudio automatically', async () => {
     const { useAudioStore } = await import('./audioStore');
     const { usePlanetStore, DEFAULT_PELAGOS } = await import('./planetStore');

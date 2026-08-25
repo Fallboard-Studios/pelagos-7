@@ -138,7 +138,7 @@ export interface AudioStore {
 // ========================================
 // STORE
 // ========================================
-export const useAudioStore = create<AudioStore>((set) => ({
+export const useAudioStore = create<AudioStore>((set, get) => ({
   bpm: 60,
   globalAudio: { ...DEFAULT_GLOBAL_AUDIO_SETTINGS },
   globalLfo: buildDefaultGlobalLfo(),
@@ -213,7 +213,22 @@ export const useAudioStore = create<AudioStore>((set) => ({
   regenerateGlobalAudioFromSeed: (planetId, planetName) => {
     // generateGlobalAudioSettings's own output is used as-is, `enabled`
     // included — seeding is where that decision lives now (V2, spec §5).
-    const globalAudio: GlobalAudioSettings = generateGlobalAudioSettings(planetId, planetName);
+    // globalBypass/compressorBeforeDelay are NOT seeded — generateGlobalAudioSettings
+    // always returns DEFAULT_GLOBAL_AUDIO_SETTINGS' value for both, which is
+    // correct for the very first call (module load, state is still the
+    // fresh default) but wrong for every later one (a planet switch after
+    // the user has already flipped either flag): overwriting a live user
+    // choice back to default here, with nothing to push that reset to the
+    // engine, would silently desync the UI from the actual live audio graph.
+    // Carry the CURRENT values forward instead — same effect on first call,
+    // correct on every later one.
+    const generated = generateGlobalAudioSettings(planetId, planetName);
+    const current = get().globalAudio;
+    const globalAudio: GlobalAudioSettings = {
+      ...generated,
+      globalBypass: current.globalBypass,
+      compressorBeforeDelay: current.compressorBeforeDelay,
+    };
     set({ globalAudio });
     applyGlobalAudioToEngine(globalAudio);
   },
