@@ -232,28 +232,37 @@ describe('AudioRigDrawer', () => {
     });
   });
 
-  describe('Decay toggle (Task 11)', () => {
-    it('renders, defaulting to "Natural Decay" (compressorBeforeDelay: false)', () => {
+  describe('Decay radio button', () => {
+    it('renders both options, defaulting to Natural Decay selected (compressorBeforeDelay: false)', () => {
       render(<AudioRigDrawer />);
-      expect(screen.getByRole('switch', { name: 'Natural Decay' })).toBeTruthy();
+      expect(screen.getByRole('radio', { name: 'Natural Decay' }).getAttribute('aria-checked')).toBe('true');
+      expect(screen.getByRole('radio', { name: 'Controlled Decay' }).getAttribute('aria-checked')).toBe('false');
     });
 
-    it('clicking it calls setCompressorBeforeDelay(true)', () => {
+    it('clicking Controlled Decay calls setCompressorBeforeDelay(true)', () => {
       render(<AudioRigDrawer />);
-      const decayToggle = screen.getByRole('switch', { name: 'Natural Decay' });
       expect(useAudioStore.getState().globalAudio.compressorBeforeDelay).toBe(false);
 
-      fireEvent.click(decayToggle);
+      fireEvent.click(screen.getByRole('radio', { name: 'Controlled Decay' }));
 
       expect(useAudioStore.getState().globalAudio.compressorBeforeDelay).toBe(true);
     });
 
-    it('once compressorBeforeDelay is true, the same toggle\'s visible label reads "Controlled Decay"', () => {
+    it('once compressorBeforeDelay is true, Controlled Decay reads as selected and Natural Decay does not', () => {
       useAudioStore.setState((s) => ({ globalAudio: { ...s.globalAudio, compressorBeforeDelay: true } }));
       render(<AudioRigDrawer />);
 
-      expect(screen.getByRole('switch', { name: 'Controlled Decay' })).toBeTruthy();
-      expect(screen.queryByRole('switch', { name: 'Natural Decay' })).toBeNull();
+      expect(screen.getByRole('radio', { name: 'Controlled Decay' }).getAttribute('aria-checked')).toBe('true');
+      expect(screen.getByRole('radio', { name: 'Natural Decay' }).getAttribute('aria-checked')).toBe('false');
+    });
+
+    it('clicking Natural Decay while Controlled Decay is active calls setCompressorBeforeDelay(false)', () => {
+      useAudioStore.setState((s) => ({ globalAudio: { ...s.globalAudio, compressorBeforeDelay: true } }));
+      render(<AudioRigDrawer />);
+
+      fireEvent.click(screen.getByRole('radio', { name: 'Natural Decay' }));
+
+      expect(useAudioStore.getState().globalAudio.compressorBeforeDelay).toBe(false);
     });
   });
 });

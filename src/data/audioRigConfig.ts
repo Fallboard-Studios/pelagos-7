@@ -12,7 +12,7 @@
  * GlobalLfoTargetId member (no LFO on the Limiter, by design); delayTime's
  * was removed after shipping (LFO judged unwanted on Delay's own time param).
  */
-import type { ControlSchema, ToggleSchema, AccordionSchema } from '@/types/controls';
+import type { ControlSchema, ToggleSchema, AccordionSchema, RadioButtonSchema } from '@/types/controls';
 import type { GlobalLfoTargetId } from '@/types/lfo';
 
 // ========================================
@@ -177,26 +177,22 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
 ];
 
 // ========================================
-// GLOBAL CHAIN-LEVEL TOGGLE (not nested inside any one effect block)
+// GLOBAL CHAIN-LEVEL RADIO (not nested inside any one effect block)
 // ========================================
 
-/** Both schemas share this id — the drawer swaps which one it passes to
- *  <Toggle> based on the CURRENT globalAudio.compressorBeforeDelay value, so
- *  the visible label always names the current state, not the target/action. */
-const COMPRESSOR_BEFORE_DELAY_TOGGLE_ID = 'audioRig.compressorBeforeDelay';
-
-/** Shown when compressorBeforeDelay is false (default) — Compressor sits
- *  after Delay+Reverb, so their tails ring out uncompressed. */
-export const NATURAL_DECAY_SCHEMA: ToggleSchema = {
-  id: COMPRESSOR_BEFORE_DELAY_TOGGLE_ID,
-  type: 'toggle',
-  humanLabel: 'Natural Decay',
-};
-
-/** Shown when compressorBeforeDelay is true — Compressor moved before both
- *  Delay and Reverb, tightening their tails. */
-export const CONTROLLED_DECAY_SCHEMA: ToggleSchema = {
-  id: COMPRESSOR_BEFORE_DELAY_TOGGLE_ID,
-  type: 'toggle',
-  humanLabel: 'Controlled Decay',
+/**
+ * A two-option radio, not a toggle — 'natural' leaves Compressor after
+ * Delay+Reverb (their tails ring out uncompressed, the default); 'controlled'
+ * moves Compressor before both, tightening them. The drawer converts to/from
+ * globalAudio.compressorBeforeDelay's boolean at the wiring point; the radio
+ * schema itself only ever deals in these two string values.
+ */
+export const DECAY_MODE_SCHEMA: RadioButtonSchema = {
+  id: 'audioRig.compressorBeforeDelay',
+  type: 'radio',
+  humanLabel: 'Decay Mode',
+  options: [
+    { value: 'natural', label: 'Natural Decay' },
+    { value: 'controlled', label: 'Controlled Decay' },
+  ],
 };

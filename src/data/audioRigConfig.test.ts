@@ -3,7 +3,7 @@
 // ========================================
 import { describe, it, expect } from 'vitest';
 
-import { AUDIO_RIG_CONFIG, NATURAL_DECAY_SCHEMA, CONTROLLED_DECAY_SCHEMA } from './audioRigConfig';
+import { AUDIO_RIG_CONFIG, DECAY_MODE_SCHEMA } from './audioRigConfig';
 import { GLOBAL_LFO_TARGET_IDS } from '../types/lfo';
 
 // ========================================
@@ -252,16 +252,16 @@ describe('AUDIO_RIG_CONFIG', () => {
   });
 });
 
-describe('NATURAL_DECAY_SCHEMA / CONTROLLED_DECAY_SCHEMA', () => {
-  it('share the same id — one toggle, schema swapped by current state', () => {
-    expect(NATURAL_DECAY_SCHEMA.id).toBe('audioRig.compressorBeforeDelay');
-    expect(CONTROLLED_DECAY_SCHEMA.id).toBe('audioRig.compressorBeforeDelay');
+describe('DECAY_MODE_SCHEMA', () => {
+  it('is a radio schema bound to compressorBeforeDelay', () => {
+    expect(DECAY_MODE_SCHEMA.id).toBe('audioRig.compressorBeforeDelay');
+    expect(DECAY_MODE_SCHEMA.type).toBe('radio');
   });
 
-  it('are both toggle schemas with distinct human labels', () => {
-    expect(NATURAL_DECAY_SCHEMA.type).toBe('toggle');
-    expect(CONTROLLED_DECAY_SCHEMA.type).toBe('toggle');
-    expect(NATURAL_DECAY_SCHEMA.humanLabel).toBe('Natural Decay');
-    expect(CONTROLLED_DECAY_SCHEMA.humanLabel).toBe('Controlled Decay');
+  it('has exactly two options — Natural Decay and Controlled Decay, in that order', () => {
+    expect(DECAY_MODE_SCHEMA.options).toEqual([
+      { value: 'natural', label: 'Natural Decay' },
+      { value: 'controlled', label: 'Controlled Decay' },
+    ]);
   });
 });

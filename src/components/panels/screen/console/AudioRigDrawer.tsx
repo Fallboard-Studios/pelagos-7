@@ -1,12 +1,13 @@
 import { useAudioStore } from '@/stores/audioStore';
 import { AccordionContainer } from '@/components/ui/controls/AccordionContainer';
 import { Toggle } from '@/components/ui/controls/Toggle';
+import { RadioButton } from '@/components/ui/controls/RadioButton';
 import { SliderLinear } from '@/components/ui/controls/SliderLinear';
 import { SliderLog } from '@/components/ui/controls/SliderLog';
 import { SliderCenteredZero } from '@/components/ui/controls/SliderCenteredZero';
 import { Stepper } from '@/components/ui/controls/Stepper';
 import { Lfo } from '@/components/ui/controls/Lfo';
-import { AUDIO_RIG_CONFIG, NATURAL_DECAY_SCHEMA, CONTROLLED_DECAY_SCHEMA, type AudioRigParamSchema, type AudioRigEffectKey } from '@/data/audioRigConfig';
+import { AUDIO_RIG_CONFIG, DECAY_MODE_SCHEMA, type AudioRigParamSchema, type AudioRigEffectKey } from '@/data/audioRigConfig';
 import type { ToggleSchema } from '@/types/controls';
 import type { GlobalAudioSettings } from '@/types/globalAudio';
 import './AudioRigDrawer.css';
@@ -55,10 +56,10 @@ export function AudioRigDrawer() {
     <div className="audio-rig-drawer">
       <div className="audio-rig-drawer__master-row">
         <Toggle schema={GLOBAL_BYPASS_SCHEMA} value={globalAudio.globalBypass} onChange={setGlobalBypassEnabled} />
-        <Toggle
-          schema={globalAudio.compressorBeforeDelay ? CONTROLLED_DECAY_SCHEMA : NATURAL_DECAY_SCHEMA}
-          value={globalAudio.compressorBeforeDelay}
-          onChange={setCompressorBeforeDelay}
+        <RadioButton
+          schema={DECAY_MODE_SCHEMA}
+          value={globalAudio.compressorBeforeDelay ? 'controlled' : 'natural'}
+          onChange={(v) => setCompressorBeforeDelay(v === 'controlled')}
         />
       </div>
       {AUDIO_RIG_CONFIG.map((block) => {
