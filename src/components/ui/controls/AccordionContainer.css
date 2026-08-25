@@ -8,8 +8,7 @@
   width: 100%;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  gap: 15px;
   text-align: left;
   padding: 8px 12px;
   border: none;
@@ -25,11 +24,10 @@
 
 /* ----------------------------------------
    Status light — round indicator mirroring PowerRockerSwitch's power light:
-   red closed, green open, amber while the expand/collapse animation is in
-   flight. Color/glow are keyed off the trigger's own Radix data-state
-   (same idiom as Toggle.css's data-state='checked'), not a prop threaded
-   down from React — only the transitioning flash needs its own attribute,
-   since Radix has no concept of "mid-animation".
+   red when the caller's contentActive is false, green when true, a plain
+   unlit dot (inherits the trigger's own text color, no glow/pulse) when
+   omitted entirely — this accordion has no domain "active" concept to show.
+   Sits 15px right of the label, not flush against the trigger's far edge.
    ---------------------------------------- */
 .sc-accordion__light {
   width: 10px;
@@ -39,41 +37,31 @@
   flex-shrink: 0;
 }
 
-.sc-accordion__trigger[data-state='closed'] .sc-accordion__light {
+.sc-accordion__light[data-content-active='false'] {
   color: #8b1a14;
   box-shadow: 0 0 4px 1px rgba(139, 26, 20, 0.55);
-  animation: accordion-light-pulse-transition 2.5s ease-in-out infinite;
+  animation: accordion-light-pulse-off 2.5s ease-in-out infinite;
 }
 
-.sc-accordion__trigger[data-state='open'] .sc-accordion__light {
+.sc-accordion__light[data-content-active='true'] {
   color: #1a8f40;
   box-shadow: 0 0 5px 2px rgba(26, 143, 64, 0.7);
-  animation: accordion-light-pulse-open 6s ease-in-out infinite;
+  animation: accordion-light-pulse-on 6s ease-in-out infinite;
 }
 
-/* Transitioning wins over open/closed by source-order specificity, same as
-   PowerRockerSwitch's [data-transitioning='true']. */
-.sc-accordion__light[data-transitioning='true'] {
-  color: #c08800;
-  box-shadow: 0 0 4px 1px rgba(192, 136, 0, 0.5);
-  animation: accordion-light-pulse-transition 0.66s ease-in-out infinite;
-}
-
-@keyframes accordion-light-pulse-open {
+@keyframes accordion-light-pulse-on {
   0%, 100% { opacity: 0.6; }
   50% { opacity: 0.9; }
 }
 
-@keyframes accordion-light-pulse-transition {
+@keyframes accordion-light-pulse-off {
   0%, 100% { opacity: 0.3; }
   50% { opacity: 0.8; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sc-accordion__light,
-  .sc-accordion__trigger[data-state='closed'] .sc-accordion__light,
-  .sc-accordion__trigger[data-state='open'] .sc-accordion__light,
-  .sc-accordion__light[data-transitioning='true'] {
+  .sc-accordion__light[data-content-active='false'],
+  .sc-accordion__light[data-content-active='true'] {
     animation: none;
   }
 }

@@ -88,12 +88,30 @@ describe('AccordionContainer', () => {
     expect(light?.getAttribute('aria-hidden')).toBe('true');
   });
 
-  it('sets data-transitioning on the light as soon as the accordion is toggled', () => {
+  it('renders no data-content-active attribute when contentActive is omitted', () => {
     const { container } = render(<AccordionContainer schema={schema}>Content</AccordionContainer>);
     const light = container.querySelector('.sc-accordion__light');
-    expect(light?.getAttribute('data-transitioning')).toBeNull();
+    expect(light?.hasAttribute('data-content-active')).toBe(false);
+  });
+
+  it('reflects contentActive via data-content-active', () => {
+    const { container, rerender } = render(
+      <AccordionContainer schema={schema} contentActive={true}>Content</AccordionContainer>
+    );
+    const light = container.querySelector('.sc-accordion__light');
+    expect(light?.getAttribute('data-content-active')).toBe('true');
+
+    rerender(<AccordionContainer schema={schema} contentActive={false}>Content</AccordionContainer>);
+    expect(light?.getAttribute('data-content-active')).toBe('false');
+  });
+
+  it('leaves data-content-active untouched when the accordion is opened/closed — independent of contentActive', () => {
+    const { container } = render(
+      <AccordionContainer schema={schema} contentActive={true}>Content</AccordionContainer>
+    );
+    const light = container.querySelector('.sc-accordion__light');
     fireEvent.click(screen.getByRole('button'));
-    expect(light?.getAttribute('data-transitioning')).toBe('true');
+    expect(light?.getAttribute('data-content-active')).toBe('true');
   });
 
   it('sets the content height to auto on mount when defaultOpen is true, so it is not visually collapsed despite aria-expanded="true"', () => {

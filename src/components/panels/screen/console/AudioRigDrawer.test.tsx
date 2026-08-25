@@ -224,6 +224,27 @@ describe('AudioRigDrawer', () => {
       expect((activeToggle as HTMLButtonElement).disabled).toBe(false);
     });
 
+    it("the effect accordion's status light reflects its own Enabled toggle, not open/closed", () => {
+      render(<AudioRigDrawer />);
+      // eq3 defaults enabled: false (DEFAULT_GLOBAL_AUDIO_SETTINGS)
+      const eqTrigger = screen.getByRole('button', { name: /3-Band EQ/i });
+      const light = eqTrigger.querySelector('.sc-accordion__light');
+      expect(light?.getAttribute('data-content-active')).toBe('false');
+
+      fireEvent.click(screen.getByRole('switch', { name: '3-Band EQ Enabled' }));
+      expect(light?.getAttribute('data-content-active')).toBe('true');
+    });
+
+    it("the LFO accordion's status light reflects that target's Active toggle", () => {
+      useAudioStore.setState((s) => ({
+        globalLfo: { ...s.globalLfo, 'eq3.low': { shape: 'square', rate: 5, depth: 60, active: true } },
+      }));
+      render(<AudioRigDrawer />);
+      const rateSlider = screen.getAllByRole('slider', { name: 'Rate' })[0]; // eq3.low
+      const light = rateSlider.closest('.sc-accordion')?.querySelector('.sc-accordion__light');
+      expect(light?.getAttribute('data-content-active')).toBe('true');
+    });
+
     it('loads the nested LFO accordion already open when that target is seeded active', () => {
       useAudioStore.setState((s) => ({
         globalLfo: { ...s.globalLfo, 'eq3.low': { shape: 'square', rate: 5, depth: 60, active: true } },

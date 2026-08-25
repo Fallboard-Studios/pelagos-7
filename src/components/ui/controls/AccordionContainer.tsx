@@ -13,6 +13,16 @@ interface AccordionContainerProps {
   schema: AccordionSchema;
   children: ReactNode;
   defaultOpen?: boolean;
+  /**
+   * Drives the trigger's status light — green when true, red when false, a
+   * plain unlit dot when omitted (this accordion has no domain concept of
+   * "active" to show). Deliberately independent of the accordion's own
+   * open/closed state: a caller passes its own domain value here (e.g. an
+   * effect's own Enabled toggle, or an LFO's Active toggle) — the light
+   * never reflects expand/collapse, which aria-expanded already carries
+   * accessibly.
+   */
+  contentActive?: boolean;
 }
 
 /**
@@ -25,10 +35,9 @@ interface AccordionContainerProps {
  * following PowerRockerSwitch.tsx's pattern, and respects
  * prefers-reduced-motion the same way PowerRockerSwitch.css does.
  */
-export function AccordionContainer({ schema, children, defaultOpen = false }: AccordionContainerProps) {
+export function AccordionContainer({ schema, children, defaultOpen = false, contentActive }: AccordionContainerProps) {
   const [open, setOpen] = useState(defaultOpen);
   const contentRef = useRef<HTMLDivElement>(null);
-  const lightRef = useRef<HTMLSpanElement>(null);
   const timelineKey = `accordion-${schema.id}`;
 
   useEffect(() => {
@@ -58,12 +67,6 @@ export function AccordionContainer({ schema, children, defaultOpen = false }: Ac
     const duration = getAccordionDuration(prefersReducedMotion);
     const targetHeight = nextOpen ? el.scrollHeight : 0;
 
-    // Mutated directly via ref, not React state — matches el.style.height
-    // below: this is a transient, purely-visual DOM attribute driven by an
-    // async GSAP callback, not app state, so it stays outside React's
-    // render cycle entirely (avoids an act()-warning-prone state update
-    // firing from inside an animation completion callback).
-    lightRef.current?.setAttribute('data-transitioning', 'true');
     const tl = gsap.timeline();
     tl.to(el, {
       height: targetHeight,
@@ -71,7 +74,6 @@ export function AccordionContainer({ schema, children, defaultOpen = false }: Ac
       ease: 'power2.out',
       onComplete: () => {
         if (nextOpen) el.style.height = 'auto';
-        lightRef.current?.removeAttribute('data-transitioning');
       },
     });
     setTimeline(timelineKey, tl);
@@ -95,11 +97,15 @@ export function AccordionContainer({ schema, children, defaultOpen = false }: Ac
         <Accordion.Header className="sc-accordion__header">
           <Accordion.Trigger className="sc-accordion__trigger">
             <DualLabel loreLabel={schema.loreLabel} humanLabel={schema.humanLabel} />
-            {/* Decorative — the trigger's own aria-expanded already carries the
-                open/closed state accessibly; this mirrors PowerRockerSwitch's
-                power light purely visually. Color is keyed in CSS off the
-                trigger's own Radix data-state, not a separate prop here. */}
-            <span ref={lightRef} className="sc-accordion__light" aria-hidden="true" />
+            {/* Decorative — reflects contentActive, a domain concept the
+                caller supplies (e.g. this effect's own Enabled toggle, or an
+                LFO's Active toggle), never the accordion's own open/closed
+                state, which aria-expanded already carries accessibly. */}
+            <span
+              className="sc-accordion__light"
+              aria-hidden="true"
+              data-content-active={contentActive === undefined ? undefined : String(contentActive)}
+            />
           </Accordion.Trigger>
         </Accordion.Header>
         <Accordion.Content ref={contentRef} className="sc-accordion__content" forceMount>
