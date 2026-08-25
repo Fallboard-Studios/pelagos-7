@@ -28,6 +28,7 @@ interface AccordionContainerProps {
 export function AccordionContainer({ schema, children, defaultOpen = false }: AccordionContainerProps) {
   const [open, setOpen] = useState(defaultOpen);
   const contentRef = useRef<HTMLDivElement>(null);
+  const lightRef = useRef<HTMLSpanElement>(null);
   const timelineKey = `accordion-${schema.id}`;
 
   useEffect(() => {
@@ -57,6 +58,12 @@ export function AccordionContainer({ schema, children, defaultOpen = false }: Ac
     const duration = getAccordionDuration(prefersReducedMotion);
     const targetHeight = nextOpen ? el.scrollHeight : 0;
 
+    // Mutated directly via ref, not React state — matches el.style.height
+    // below: this is a transient, purely-visual DOM attribute driven by an
+    // async GSAP callback, not app state, so it stays outside React's
+    // render cycle entirely (avoids an act()-warning-prone state update
+    // firing from inside an animation completion callback).
+    lightRef.current?.setAttribute('data-transitioning', 'true');
     const tl = gsap.timeline();
     tl.to(el, {
       height: targetHeight,
@@ -64,6 +71,7 @@ export function AccordionContainer({ schema, children, defaultOpen = false }: Ac
       ease: 'power2.out',
       onComplete: () => {
         if (nextOpen) el.style.height = 'auto';
+        lightRef.current?.removeAttribute('data-transitioning');
       },
     });
     setTimeline(timelineKey, tl);
@@ -87,6 +95,11 @@ export function AccordionContainer({ schema, children, defaultOpen = false }: Ac
         <Accordion.Header className="sc-accordion__header">
           <Accordion.Trigger className="sc-accordion__trigger">
             <DualLabel loreLabel={schema.loreLabel} humanLabel={schema.humanLabel} />
+            {/* Decorative — the trigger's own aria-expanded already carries the
+                open/closed state accessibly; this mirrors PowerRockerSwitch's
+                power light purely visually. Color is keyed in CSS off the
+                trigger's own Radix data-state, not a separate prop here. */}
+            <span ref={lightRef} className="sc-accordion__light" aria-hidden="true" />
           </Accordion.Trigger>
         </Accordion.Header>
         <Accordion.Content ref={contentRef} className="sc-accordion__content" forceMount>
