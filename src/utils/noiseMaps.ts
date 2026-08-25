@@ -28,28 +28,32 @@ export function getPlanetNoiseMap(planetId: string, planetName: string): NoiseFu
 /**
  * Create (or return cached) the 2D noise map for a locale.
  *
- * The locale seed is derived by:
- *   1. Sampling the planet's noise map at the locale's coordinates (returns [-1, 1])
- *   2. Rescaling that float to an integer in [0, 129,599]
- *   3. Seeding createNoise2D with alea(integer)
+ * The locale seed is derived directly from the locale's own coordinates —
+ * `alea(`${x}:${y}`)` — with no dependency on any planet. Two locales with
+ * identical coordinates will have IDENTICAL noise maps regardless of which
+ * planet either one is on. This is a deliberate reversal of the old
+ * planet-coupled derivation (see docs/PROCEDURAL_GENERATION.md) and, as a
+ * side effect, structurally eliminates the old dead-zone bug: because
+ * derivation never samples simplex noise AT (x, y) — it only hashes the
+ * coordinate pair as a string, the same way derivePlanetSeed hashes a
+ * planet name — there is no lattice-alignment geometry left to collapse.
  *
- * Two locales with identical coordinates on different planets will have
- * different noise maps because step 1 samples a planet-specific noise function.
+ * `x` and `y` are two independent inputs for the caller to reason about,
+ * but they are concatenated into exactly ONE seed value here — never fed
+ * as two separate dimensions. The `:` separator is required, not
+ * stylistic: bare concatenation (`${x}${y}`) would let two different
+ * coordinate pairs collide onto the same string (x=1,y=23 and x=12,y=3
+ * both stringify to "123").
  */
 export function getLocaleNoiseMap(
   localeId: string,
-  planetId: string,
-  planetName: string,
   x: number,
   y: number,
 ): NoiseFunction2D {
   if (!localeMaps.has(localeId)) {
-    const planetMap = getPlanetNoiseMap(planetId, planetName);
-    const rawSeed = planetMap(x, y); // -1 to 1
-    const intSeed = Math.round(((rawSeed + 1) / 2) * (360 * 360 - 1)); // 0–129,599
     const global = getGlobalPlanetSeedOverride();
-    const aleaSeed = global ? `${global}:${intSeed}` : intSeed;
-    localeMaps.set(localeId, createNoise2D(alea(aleaSeed)));
+    const key = global ? `${global}:${x}:${y}` : `${x}:${y}`;
+    localeMaps.set(localeId, createNoise2D(alea(key)));
   }
   return localeMaps.get(localeId)!;
 }
