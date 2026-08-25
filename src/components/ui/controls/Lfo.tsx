@@ -25,7 +25,7 @@ const SHAPE_OPTIONS = LFO_SHAPES.map((shape) => ({ value: shape, label: shape.to
  */
 export function Lfo({ schema, value, onChange }: LfoProps) {
   const shapeSchema: RadioButtonSchema = { id: `${schema.id}.shape`, type: 'radio', humanLabel: 'Shape', options: SHAPE_OPTIONS };
-  const rateSchema: SliderLinearSchema = { id: `${schema.id}.rate`, type: 'sliderLinear', humanLabel: 'Rate', min: LFO_RATE_MIN, max: LFO_RATE_MAX, unit: 'Hz' };
+  const rateSchema: SliderLinearSchema = { id: `${schema.id}.rate`, type: 'sliderLinear', humanLabel: 'Rate', min: LFO_RATE_MIN, max: LFO_RATE_MAX, step: 0.25, unit: 'Hz' };
   const depthSchema: SliderLinearSchema = { id: `${schema.id}.depth`, type: 'sliderLinear', humanLabel: 'Depth', min: LFO_DEPTH_MIN, max: LFO_DEPTH_MAX, unit: '%' };
   const activeSchema: ToggleSchema = { id: `${schema.id}.active`, type: 'toggle', humanLabel: 'Active' };
 

@@ -26,6 +26,19 @@ describe('Lfo', () => {
     expect(rateSlider.getAttribute('aria-valuemax')).toBe(String(LFO_RATE_MAX));
   });
 
+  it('steps the rate slider by 0.25 per arrow-key press, not the default step of 1', () => {
+    const onChange = vi.fn();
+    render(<Lfo schema={schema} value={value} onChange={onChange} />);
+    const [rateSlider] = screen.getAllByRole('slider');
+    rateSlider.focus();
+    fireEvent.keyDown(rateSlider, { key: 'ArrowRight' });
+    // Radix snaps the step grid to `min` (0.1), not to the raw value — from
+    // 2, one 0.25 step lands on 2.35 (grid: 0.1, 0.35, 0.6, ..., 2.1, 2.35),
+    // not the naively-expected 2.25. Still proves the point: a quarter-Hz
+    // increment, not the old default step of 1 (which would land on 3).
+    expect(onChange).toHaveBeenCalledWith({ shape: 'sine', rate: 2.35, depth: 40, active: true });
+  });
+
   it("the depth slider's bounds match LFO_DEPTH_MIN/MAX from src/types/lfo.ts", () => {
     render(<Lfo schema={schema} value={value} onChange={() => {}} />);
     const [, depthSlider] = screen.getAllByRole('slider');
