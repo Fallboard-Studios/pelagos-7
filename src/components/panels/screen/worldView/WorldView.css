@@ -1,6 +1,18 @@
 .world-view {
   grid-area: worldview;
   aspect-ratio: 16 / 9;
+  /* Shrink to fit its grid row instead of forcing it to grow: a grid item's
+     default min-height is auto (its content's intrinsic size), which lets
+     an aspect-ratio box push past its 1fr share and force .screen-content
+     to scroll. max-width/max-height cap it at the row's own size once it's
+     actually allowed to shrink below that intrinsic size. margin: auto then
+     centers it within the row on whichever axis it doesn't fill, the same
+     way it centers a smaller block in normal flow. */
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  max-height: 100%;
+  margin: auto;
   overflow: hidden;
   /* border: yellow 1px solid; */
 }
