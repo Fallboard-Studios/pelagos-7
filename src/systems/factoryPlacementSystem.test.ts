@@ -55,10 +55,27 @@ describe('FactoryPlacementSystem', () => {
       useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { actors: [] });
     });
 
+    it('writes actors to the given localeId, not a hardcoded default', () => {
+      const otherLocale = {
+        id: 'other-locale',
+        planetId: 'pelagos',
+        name: 'Other',
+        coordinates: { x: 5, y: 5 },
+        robots: [],
+        actors: [],
+        settings: {},
+        currentMeasure: 0,
+      };
+      useLocaleStore.getState().addLocale('pelagos', otherLocale);
 
+      placeFactories('other-locale');
+
+      expect(useLocaleStore.getState().locales['other-locale'].actors.length).toBeGreaterThan(0);
+      expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].actors).toEqual([]);
+    });
 
     it('assigns valid row indices to every actor', () => {
-      placeFactories();
+      placeFactories(DEFAULT_LOCALE_ID);
       const state = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID];
       state.actors.forEach((a) => {
         expect(a.config?.row).toBeGreaterThanOrEqual(0);
@@ -68,7 +85,7 @@ describe('FactoryPlacementSystem', () => {
     });
 
     it('assigns a small random scale to each factory (0.9-1.1)', () => {
-      placeFactories();
+      placeFactories(DEFAULT_LOCALE_ID);
       const state = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID];
 
       state.actors.forEach((a) => {
@@ -80,7 +97,7 @@ describe('FactoryPlacementSystem', () => {
     });
 
     it('places every factory at the Y coordinate of its row', () => {
-      placeFactories();
+      placeFactories(DEFAULT_LOCALE_ID);
       const state = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID];
       state.actors.forEach((a) => {
         const row = a.config?.row;
@@ -92,7 +109,7 @@ describe('FactoryPlacementSystem', () => {
     });
 
     it('obeys spreadType semantics for each row', () => {
-      placeFactories();
+      placeFactories(DEFAULT_LOCALE_ID);
       const state = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID];
       const rows = getAllRowConfigs();
 
@@ -135,7 +152,7 @@ describe('FactoryPlacementSystem', () => {
     // is necessary here.
 
     it('keeps factories roughly within world bounds (allow a bit of overflow)', () => {
-      placeFactories();
+      placeFactories(DEFAULT_LOCALE_ID);
       const state = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID];
 
       state.actors.forEach((actor) => {
@@ -146,7 +163,7 @@ describe('FactoryPlacementSystem', () => {
     });
 
     it('each row respects its factoriesPerRow maximum', () => {
-      placeFactories();
+      placeFactories(DEFAULT_LOCALE_ID);
       const state = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID];
       const rows = getAllRowConfigs();
       rows.forEach((cfg, idx) => {
@@ -156,14 +173,14 @@ describe('FactoryPlacementSystem', () => {
     });
 
     it('placement is unaffected by changing factoriesPerRow values', () => {
-      placeFactories();
+      placeFactories(DEFAULT_LOCALE_ID);
       const state1 = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].actors.map((a) => a.id);
 
       const rows = getAllRowConfigs();
       const original = rows[0].factoriesPerRow;
       rows[0].factoriesPerRow = original + 10;
 
-      placeFactories();
+      placeFactories(DEFAULT_LOCALE_ID);
       const state2 = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].actors.map((a) => a.id);
 
       rows[0].factoriesPerRow = original;
@@ -291,7 +308,7 @@ describe('FactoryPlacementSystem', () => {
       // In practice, each factory gets a unique random UUID, so they will have
       // different color shifts. This test verifies that the selectVariantFromSeed
       // function itself is deterministic when given the same ID.
-      const factories = placeFactories();
+      const factories = placeFactories(DEFAULT_LOCALE_ID);
 
       // Verify that all factories have valid color shifts and greeble selections
       factories.forEach((factory) => {
