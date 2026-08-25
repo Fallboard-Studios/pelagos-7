@@ -2,12 +2,10 @@
  * Randomizes the two decorative `linear-gradient`s behind the tablet
  * (`.real-world::before`/`::after`, App.css) once per page load. Colors stay
  * fixed, in their original stop order — only each gradient's angle and its
- * stops' breakpoint percentages vary. A pair of stops that originally
- * shared one percentage (a hard color edge, not a blend — e.g. the second
- * and third stops of `before`) sometimes keeps sharing one randomized
- * percentage, and sometimes diverges into two nearby-but-distinct ascending
- * percentages instead, so some flat color bands survive the randomization
- * and some become genuine blends. `transparent` is treated as an ordinary
+ * stops' breakpoint percentages vary. Every transition is a genuine blend:
+ * no two stops are ever allowed to land close enough to read as a hard
+ * color edge (a flat band), even by rare coincidence — see
+ * MIN_GAP/drawSpreadPercents below. `transparent` is treated as an ordinary
  * color value here — never swapped for anything else.
  *
  * The three non-transparent colors are sourced from colorTheme.json (the
@@ -15,6 +13,10 @@
  * than hardcoded hex — the same `vent` tones OceanScene.tsx already draws
  * its own atmospheric depth-gradient overlays from, so this backdrop reads
  * as part of the same theme rather than an arbitrary, disconnected pick.
+ * `vent.shadow` and `vent.base` sit only 2° apart in hue, and shadowDepth is
+ * fully desaturated (s: 0) — no pair here is hue-opposed enough to blend
+ * into a muddy gray, so no extra guard against that is needed on top of
+ * this specific palette.
  *
  * Plain Math.random() by default, not the app's seeded-noise system — this
  * is a decorative backdrop behind the fictional device, not part of any
@@ -30,13 +32,6 @@ import { hslToString } from '@/utils/colorUtils';
 /** Returns a value in [0, 1) — the same contract as Math.random(). Injectable for tests. */
 export type RandomSource = () => number;
 
-interface StopGroup {
-  /** 1 = a standalone stop (its own percentage); 2 = a pair that either
-   *  shares one percentage (stays matching) or gets two ascending ones
-   *  (diverges). */
-  size: 1 | 2;
-}
-
 // ========================================
 // CONSTANTS
 // ========================================
@@ -46,10 +41,10 @@ interface StopGroup {
 const MIN_PCT = 4;
 const MAX_PCT = 96;
 
-/** Chance a matching pair stays matching (one shared percentage) rather
- *  than diverging into two. Deliberately not certainty either way — "some
- *  flat colors in the mix", not none and not all. */
-const STAY_MATCHING_CHANCE = 0.5;
+/** Minimum separation (percentage points) enforced between every adjacent
+ *  pair of stops — guarantees a real, visible blend at every transition,
+ *  never two stops landing close enough to read as a hard color edge. */
+const MIN_GAP = 3;
 
 /** The gradients' three fixed non-transparent colors, sourced from
  *  colorTheme.json — see the module doc comment above for why `vent`. */
@@ -72,34 +67,20 @@ function formatPercent(pct: number): string {
   return `${Math.round(pct * 10) / 10}%`;
 }
 
-/** N independent draws in [MIN_PCT, MAX_PCT), sorted ascending — the
- *  simplest way to guarantee a valid (non-decreasing) stop sequence
- *  regardless of which groups end up matching vs. diverging. */
-function drawAscendingPercents(count: number, rng: RandomSource): number[] {
-  const values = Array.from({ length: count }, () => MIN_PCT + rng() * (MAX_PCT - MIN_PCT));
-  values.sort((a, b) => a - b);
-  return values;
-}
-
 /**
- * Resolves each group's percentage(s) in order. Diverge/match is decided
- * per group first (so the total slot count — and thus how many ascending
- * values to draw — is known before drawing), then values are handed out in
- * the same left-to-right order the groups are given in, which is what keeps
- * the whole gradient monotonically ascending: each group's value(s) are
- * drawn after every earlier group's, from an already-sorted pool.
+ * N ascending percentages, each drawn from its own equal-width bucket
+ * across [MIN_PCT, MAX_PCT], with MIN_GAP of guaranteed clearance shaved
+ * off each bucket's edges before the random draw. Ascending order falls
+ * out for free (bucket i+1 never starts before bucket i ends) — no sort
+ * needed, and unlike independent draws + sort, the minimum gap holds by
+ * construction, not by chance.
  */
-function assignGroupPercents(groups: StopGroup[], rng: RandomSource): number[][] {
-  const diverges = groups.map((g) => g.size === 2 && rng() >= STAY_MATCHING_CHANCE);
-  const slotCount = groups.reduce((sum, _g, i) => sum + (diverges[i] ? 2 : 1), 0);
-  const percents = drawAscendingPercents(slotCount, rng);
-
-  let cursor = 0;
-  return groups.map((g, i) => {
-    if (g.size === 1) return [percents[cursor++]];
-    if (diverges[i]) return [percents[cursor++], percents[cursor++]];
-    const shared = percents[cursor++];
-    return [shared, shared];
+function drawSpreadPercents(count: number, rng: RandomSource): number[] {
+  const bucketWidth = (MAX_PCT - MIN_PCT) / count;
+  const jitterRange = Math.max(0, bucketWidth - MIN_GAP);
+  return Array.from({ length: count }, (_, i) => {
+    const bucketStart = MIN_PCT + i * bucketWidth;
+    return bucketStart + MIN_GAP / 2 + rng() * jitterRange;
   });
 }
 
@@ -109,17 +90,11 @@ function assignGroupPercents(groups: StopGroup[], rng: RandomSource): number[][]
 
 export function generateRealWorldGradients(rng: RandomSource = Math.random): { before: string; after: string } {
   const beforeAngle = randomAngle(rng);
-  const [[transparentPct], [darkPct, bluePct]] = assignGroupPercents(
-    [{ size: 1 }, { size: 2 }],
-    rng,
-  );
+  const [transparentPct, darkPct, bluePct] = drawSpreadPercents(3, rng);
   const before = `linear-gradient(${beforeAngle}deg, transparent ${formatPercent(transparentPct)}, ${NEUTRAL_DARK} ${formatPercent(darkPct)}, ${VENT_SHADOW} ${formatPercent(bluePct)}, ${VENT_BASE})`;
 
   const afterAngle = randomAngle(rng);
-  const [[p1, p2], [p3, p4], [p5, p6]] = assignGroupPercents(
-    [{ size: 2 }, { size: 2 }, { size: 2 }],
-    rng,
-  );
+  const [p1, p2, p3, p4, p5, p6] = drawSpreadPercents(6, rng);
   const after = `linear-gradient(${afterAngle}deg, ${NEUTRAL_DARK} ${formatPercent(p1)}, ${VENT_BASE} ${formatPercent(p2)}, ${VENT_SHADOW} ${formatPercent(p3)}, ${NEUTRAL_DARK} ${formatPercent(p4)}, ${NEUTRAL_DARK} ${formatPercent(p5)}, ${VENT_BASE} ${formatPercent(p6)}, ${VENT_SHADOW})`;
 
   return { before, after };

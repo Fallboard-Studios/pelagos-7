@@ -73,7 +73,7 @@ const VENT_BASE = hslToString(colorTheme.vent.base);
 // ========================================
 
 describe('generateRealWorldGradients', () => {
-  it('keeps the same number of stops as the original CSS — 4 for before, 7 for after — regardless of match/diverge choices', () => {
+  it('keeps the same number of stops as the original CSS — 4 for before, 7 for after', () => {
     const { before, after } = generateRealWorldGradients(constantRng(0));
     expect(parseGradient(before).stops).toHaveLength(4);
     expect(parseGradient(after).stops).toHaveLength(7);
@@ -111,33 +111,22 @@ describe('generateRealWorldGradients', () => {
     expect(afterStops[afterStops.length - 1].pct).toBeUndefined();
   });
 
-  it('keeps a matching pair matching (equal percentages) when the coin flip stays below the threshold', () => {
-    // rng() always returns 0 — every "diverge?" check (rng() >= 0.5) is false.
-    const { before, after } = generateRealWorldGradients(constantRng(0));
-    const beforeStops = parseGradient(before).stops;
-    expect(beforeStops[1].pct).toBe(beforeStops[2].pct); // NEUTRAL_DARK / VENT_SHADOW pair
-
-    const afterStops = parseGradient(after).stops;
-    expect(afterStops[0].pct).toBe(afterStops[1].pct); // NEUTRAL_DARK / VENT_BASE pair
-    expect(afterStops[2].pct).toBe(afterStops[3].pct); // VENT_SHADOW / NEUTRAL_DARK pair
-    expect(afterStops[4].pct).toBe(afterStops[5].pct); // NEUTRAL_DARK / VENT_BASE pair
+  it('never gives two stops the same (or a visually-indistinguishable) percentage — no hard color edges, only real blends', () => {
+    // A constant rng is the adversarial case: every draw starts from the
+    // same raw value, so if there's any bug that lets stops land close
+    // together, this is where it'd show up.
+    for (const v of [0, 0.1, 0.37, 0.5, 0.75, 0.9999]) {
+      const { before, after } = generateRealWorldGradients(constantRng(v));
+      for (const gradient of [before, after]) {
+        const pcts = parseGradient(gradient).stops.map((s) => s.pct).filter((p): p is number => p !== undefined);
+        for (let j = 1; j < pcts.length; j++) {
+          expect(pcts[j] - pcts[j - 1], `stops ${j - 1} and ${j} (rng=${v})`).toBeGreaterThan(1);
+        }
+      }
+    }
   });
 
-  it('lets a matching pair diverge into two distinct, ascending percentages when the coin flip clears the threshold', () => {
-    // A constant rng can't produce two genuinely different draws by
-    // definition — use a short varying sequence instead: angle (unused
-    // here), a >= 0.5 diverge decision, then three spread-out percent draws.
-    const sequence = [0.5, 0.6, 0.1, 0.5, 0.9];
-    let i = 0;
-    const rng: RandomSource = () => sequence[i++];
-
-    const { before } = generateRealWorldGradients(rng);
-    const beforeStops = parseGradient(before).stops;
-    expect(beforeStops[1].pct).toBeLessThan(beforeStops[2].pct!);
-  });
-
-  it('produces a monotonically non-decreasing sequence of percentages, never a broken/reversed gradient', () => {
-    // A varied, non-constant rng — mixes matching and diverging outcomes.
+  it('produces a strictly ascending sequence of percentages, never a broken/reversed gradient', () => {
     let i = 0;
     const sequence = [0.1, 0.9, 0.4, 0.6, 0.2, 0.8, 0.5, 0.3, 0.7, 0.05, 0.95, 0.45];
     const rng: RandomSource = () => sequence[i++ % sequence.length];
@@ -146,7 +135,7 @@ describe('generateRealWorldGradients', () => {
     for (const gradient of [before, after]) {
       const pcts = parseGradient(gradient).stops.map((s) => s.pct).filter((p): p is number => p !== undefined);
       for (let j = 1; j < pcts.length; j++) {
-        expect(pcts[j], `stop ${j} should be >= stop ${j - 1}`).toBeGreaterThanOrEqual(pcts[j - 1]);
+        expect(pcts[j], `stop ${j} should be > stop ${j - 1}`).toBeGreaterThan(pcts[j - 1]);
       }
     }
   });
