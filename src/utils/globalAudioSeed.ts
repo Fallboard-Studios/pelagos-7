@@ -124,10 +124,10 @@ export function generateGlobalAudioSettings(planetId: string, planetName: string
 
 /**
  * Probability threshold an `active` seed draw ([0, 1]) must clear to seed
- * `true` — ~33% chance per target (not a flat 50/50), so a typical planet
- * seeds roughly 2 active LFOs out of 7.
+ * `true` — ~66% chance per target (not a flat 50/50), so a typical planet
+ * seeds roughly 5 active LFOs out of 7.
  */
-const LFO_ACTIVE_THRESHOLD = 0.67;
+const LFO_ACTIVE_THRESHOLD = 0.34;
 
 /**
  * Loading-range sub-window for global-chain LFO rate/depth — narrower than
@@ -139,10 +139,10 @@ const LFO_ACTIVE_THRESHOLD = 0.67;
  * Robot-level LFO seeding (spawnSystem.ts) has no equivalent split and keeps
  * sampling the full range; this only narrows the global-chain seed.
  */
-export const LFO_RATE_LOADING_MIN = 0.1;
-export const LFO_RATE_LOADING_MAX = 1;
-export const LFO_DEPTH_LOADING_MIN = 10;
-export const LFO_DEPTH_LOADING_MAX = 25;
+export const LFO_RATE_LOADING_MIN = 1;
+export const LFO_RATE_LOADING_MAX = 4;
+export const LFO_DEPTH_LOADING_MIN = 20;
+export const LFO_DEPTH_LOADING_MAX = 50;
 
 /**
  * Generate deterministic global-chain LFO settings for a planet, sampled

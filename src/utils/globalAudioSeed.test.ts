@@ -204,7 +204,7 @@ describe('generateGlobalLfoSettings', () => {
     expect(b).not.toEqual(a);
   });
 
-  it('samples rate/depth from their narrower loading range (0.1-1Hz, 10-25%), not the full LFO_RATE/DEPTH_MIN/MAX range', () => {
+  it('samples rate/depth from their narrower loading range (1-4Hz, 20-50%), not the full LFO_RATE/DEPTH_MIN/MAX range', () => {
     const settings = generateGlobalLfoSettings('seed-test-planet', 'Nova');
     for (const target of GLOBAL_LFO_TARGET_IDS) {
       const { rate, depth, shape } = settings[target];
@@ -230,7 +230,7 @@ describe('generateGlobalLfoSettings', () => {
     }
   });
 
-  it('seeds active true for roughly 1-in-3 targets across many planets, not roughly half (>= 0.67 threshold, not a flat 50/50)', () => {
+  it('seeds active true for roughly 2-in-3 targets across many planets, not roughly half (>= 0.34 threshold, not a flat 50/50)', () => {
     const SAMPLE_PLANETS = 40;
     let activeCount = 0;
     let totalCount = 0;
@@ -242,9 +242,9 @@ describe('generateGlobalLfoSettings', () => {
       }
     }
     const activeRate = activeCount / totalCount;
-    // ~33% expected; a wide tolerance band avoids flakiness while still
-    // clearly distinguishing this from both ~20% and a ~50% flat coin-flip.
-    expect(activeRate).toBeGreaterThan(0.2);
-    expect(activeRate).toBeLessThan(0.45);
+    // ~66% expected; a wide tolerance band avoids flakiness while still
+    // clearly distinguishing this from both a ~50% flat coin-flip and ~100%.
+    expect(activeRate).toBeGreaterThan(0.5);
+    expect(activeRate).toBeLessThan(0.8);
   });
 });
