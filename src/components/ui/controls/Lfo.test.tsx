@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
 import { Lfo } from './Lfo';
-import { LFO_RATE_MIN, LFO_RATE_MAX, LFO_DEPTH_MIN, LFO_DEPTH_MAX } from '@/types/lfo';
+import { LFO_RATE_MAX, LFO_DEPTH_MIN, LFO_DEPTH_MAX } from '@/types/lfo';
 import type { LfoSchema, LfoValue } from '@/types/controls';
 
 const schema: LfoSchema = { id: 'volumeLfo', type: 'lfo', humanLabel: 'Volume LFO' };
@@ -19,24 +19,23 @@ describe('Lfo', () => {
     expect(screen.getByRole('switch')).toBeTruthy();
   });
 
-  it("the rate slider's bounds match LFO_RATE_MIN/MAX from src/types/lfo.ts", () => {
+  it("the rate slider's own draggable minimum is 0.25Hz (a clean step-grid anchor), not LFO_RATE_MIN (0.1Hz, the true floor used elsewhere)", () => {
     render(<Lfo schema={schema} value={value} onChange={() => {}} />);
     const [rateSlider] = screen.getAllByRole('slider');
-    expect(rateSlider.getAttribute('aria-valuemin')).toBe(String(LFO_RATE_MIN));
+    expect(rateSlider.getAttribute('aria-valuemin')).toBe('0.25');
     expect(rateSlider.getAttribute('aria-valuemax')).toBe(String(LFO_RATE_MAX));
   });
 
-  it('steps the rate slider by 0.25 per arrow-key press, not the default step of 1', () => {
+  it('steps the rate slider by clean 0.25 increments per arrow-key press, not the default step of 1', () => {
     const onChange = vi.fn();
     render(<Lfo schema={schema} value={value} onChange={onChange} />);
     const [rateSlider] = screen.getAllByRole('slider');
     rateSlider.focus();
     fireEvent.keyDown(rateSlider, { key: 'ArrowRight' });
-    // Radix snaps the step grid to `min` (0.1), not to the raw value — from
-    // 2, one 0.25 step lands on 2.35 (grid: 0.1, 0.35, 0.6, ..., 2.1, 2.35),
-    // not the naively-expected 2.25. Still proves the point: a quarter-Hz
-    // increment, not the old default step of 1 (which would land on 3).
-    expect(onChange).toHaveBeenCalledWith({ shape: 'sine', rate: 2.35, depth: 40, active: true });
+    // Radix's step grid anchors to min (0.25) — 0.25, 0.5, 0.75, ..., 2.0,
+    // 2.25, 2.5... — landing exactly on 2.25 from a starting value of 2,
+    // not the old default step of 1 (which would land on 3).
+    expect(onChange).toHaveBeenCalledWith({ shape: 'sine', rate: 2.25, depth: 40, active: true });
   });
 
   it("the depth slider's bounds match LFO_DEPTH_MIN/MAX from src/types/lfo.ts", () => {
