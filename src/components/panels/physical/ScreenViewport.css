@@ -96,17 +96,21 @@
   position: relative;
   z-index: 0;
   height: 100%;
-  /* WorldView now spans every row as a full-bleed backdrop (WorldView.css)
-     and Transport/Console each fit exactly within their own row — nothing
-     here should ever need to scroll. hidden, not auto, so a future sizing
-     bug fails as a visible clip rather than a silent scrollbar. */
+  /* WorldView is position: absolute (WorldView.css) — a full-bleed backdrop
+     completely outside this grid's own row-sizing, not a row sharing space
+     with Transport/Console. Only Transport and Console are real grid rows
+     now; Console gets the rest of the height Transport doesn't use, not
+     half of it split with an (empty, now-unused) worldview row. Nothing
+     here should ever need to scroll itself — Console's own content scrolls
+     internally (.console-panel__content, ConsolePanel.css) — so hidden,
+     not auto: a future sizing bug fails as a visible clip, not a silent
+     scrollbar appearing where none should. */
   overflow: hidden;
   display: grid;
   grid-template-columns: 1fr;
-  grid-template-rows: auto 1fr 1fr;
+  grid-template-rows: auto 1fr;
   grid-template-areas:
     "transport"
-    "worldview"
     "console";
 }
 

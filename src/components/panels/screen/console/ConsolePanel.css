@@ -19,6 +19,14 @@
 
 .console-panel__content {
   flex: 1;
+  /* A flex item's default min-height is auto (its content's intrinsic
+     size), which lets tall content (many expanded accordions, a long
+     robot list, ...) grow this element past its flex:1 share instead of
+     being constrained to it — so overflow-y: auto below never actually
+     gets a bounded box to overflow against, and never shows a scrollbar.
+     Same root cause/fix shape as .console's own min-height: 0 (Console.css)
+     one level up. */
+  min-height: 0;
   overflow-y: auto;
   padding: 12px;
 }
