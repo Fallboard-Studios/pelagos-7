@@ -1,9 +1,10 @@
 // ========================================
 // IMPORTS
 // ========================================
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { useLocaleStore, DEFAULT_LOCALE, DEFAULT_LOCALE_ID } from './localeStore';
+import { AudioEngine } from '../engine/AudioEngine';
 import type { Locale } from '../types/locale';
 import type { Robot } from '../types/Robot';
 import { RobotState } from '../types/Robot';
@@ -150,6 +151,49 @@ describe('localeStore', () => {
     it('removing default locale leaves map empty', () => {
       useLocaleStore.getState().removeLocale(DEFAULT_LOCALE_ID);
       expect(Object.keys(useLocaleStore.getState().locales)).toHaveLength(0);
+    });
+
+    it('releases every robot\'s AudioEngine voice and melody before removing the locale', () => {
+      useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, makeRobot('r1'));
+      useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, makeRobot('r2'));
+      const releaseVoiceSpy = vi.spyOn(AudioEngine, 'releaseVoice');
+      const unregisterMelodySpy = vi.spyOn(AudioEngine, 'unregisterRobotMelody');
+
+      useLocaleStore.getState().removeLocale(DEFAULT_LOCALE_ID);
+
+      expect(releaseVoiceSpy).toHaveBeenCalledWith('r1');
+      expect(releaseVoiceSpy).toHaveBeenCalledWith('r2');
+      expect(unregisterMelodySpy).toHaveBeenCalledWith('r1');
+      expect(unregisterMelodySpy).toHaveBeenCalledWith('r2');
+
+      releaseVoiceSpy.mockRestore();
+      unregisterMelodySpy.mockRestore();
+    });
+
+    it('removing a locale with zero robots calls no AudioEngine cleanup and does not throw', () => {
+      const releaseVoiceSpy = vi.spyOn(AudioEngine, 'releaseVoice');
+
+      expect(() => useLocaleStore.getState().removeLocale(DEFAULT_LOCALE_ID)).not.toThrow();
+      expect(releaseVoiceSpy).not.toHaveBeenCalled();
+
+      releaseVoiceSpy.mockRestore();
+    });
+
+    it('one robot\'s cleanup throwing does not block cleanup of the rest or the removal itself', () => {
+      useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, makeRobot('r1'));
+      useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, makeRobot('r2'));
+      const releaseVoiceSpy = vi.spyOn(AudioEngine, 'releaseVoice').mockImplementation((id) => {
+        if (id === 'r1') throw new Error('simulated failure');
+      });
+      const unregisterMelodySpy = vi.spyOn(AudioEngine, 'unregisterRobotMelody');
+
+      expect(() => useLocaleStore.getState().removeLocale(DEFAULT_LOCALE_ID)).not.toThrow();
+      expect(unregisterMelodySpy).toHaveBeenCalledWith('r1');
+      expect(unregisterMelodySpy).toHaveBeenCalledWith('r2');
+      expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID]).toBeUndefined();
+
+      releaseVoiceSpy.mockRestore();
+      unregisterMelodySpy.mockRestore();
     });
   });
 
