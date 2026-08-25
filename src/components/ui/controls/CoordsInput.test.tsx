@@ -63,4 +63,28 @@ describe('CoordsInput', () => {
     expect(xInput.type).toBe('number');
     expect(yInput.type).toBe('number');
   });
+
+  it('rounds a decimal X entry to the nearest integer before calling onChange', () => {
+    const onChange = vi.fn();
+    render(<CoordsInput schema={schema} value={{ x: 0, y: 5 }} onChange={onChange} />);
+    const [xInput] = screen.getAllByRole('spinbutton');
+    fireEvent.change(xInput, { target: { value: '12.7' } });
+    expect(onChange).toHaveBeenCalledWith({ x: 13, y: 5 });
+  });
+
+  it('rounds a decimal Y entry to the nearest integer before calling onChange', () => {
+    const onChange = vi.fn();
+    render(<CoordsInput schema={schema} value={{ x: 3, y: 0 }} onChange={onChange} />);
+    const [, yInput] = screen.getAllByRole('spinbutton');
+    fireEvent.change(yInput, { target: { value: '-9.4' } });
+    expect(onChange).toHaveBeenCalledWith({ x: 3, y: -9 });
+  });
+
+  it('passes an already-integer value through unchanged', () => {
+    const onChange = vi.fn();
+    render(<CoordsInput schema={schema} value={{ x: 0, y: 5 }} onChange={onChange} />);
+    const [xInput] = screen.getAllByRole('spinbutton');
+    fireEvent.change(xInput, { target: { value: '42' } });
+    expect(onChange).toHaveBeenCalledWith({ x: 42, y: 5 });
+  });
 });

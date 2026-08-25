@@ -15,9 +15,10 @@ interface CoordsInputProps {
 }
 
 /**
- * X/Y coordinate entry composing two TextInput instances. Presentation
- * only — no round-number/low-entropy coordinate guard (that's roadmap
- * Phase 5's responsibility). A non-numeric entry does not call onChange.
+ * X/Y coordinate entry composing two TextInput instances. Coordinates are
+ * integers system-wide (docs/specs/SECTOR_SETTINGS.md) — a decimal entry is
+ * rounded to the nearest integer before onChange fires. A non-numeric entry
+ * does not call onChange.
  */
 export function CoordsInput({ schema, value, onChange }: CoordsInputProps) {
   const xSchema: TextInputSchema = { id: `${schema.id}.x`, type: 'textInput', humanLabel: 'X' };
@@ -30,14 +31,16 @@ export function CoordsInput({ schema, value, onChange }: CoordsInputProps) {
     if (raw.trim() === '') return;
     const parsed = Number(raw);
     if (Number.isNaN(parsed)) return;
-    onChange({ ...value, x: parsed });
+    // Coordinates are integers system-wide (see docs/specs/SECTOR_SETTINGS.md) —
+    // round rather than reject, so a typed decimal still lands on something.
+    onChange({ ...value, x: Math.round(parsed) });
   }
 
   function handleY(raw: string) {
     if (raw.trim() === '') return;
     const parsed = Number(raw);
     if (Number.isNaN(parsed)) return;
-    onChange({ ...value, y: parsed });
+    onChange({ ...value, y: Math.round(parsed) });
   }
 
   return (
