@@ -1,0 +1,40 @@
+.sector-settings-drawer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sector-settings-drawer__status {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.sector-settings-drawer__status-line {
+  color: var(--color-text-primary);
+  font-size: 0.95em;
+}
+
+.sector-settings-drawer__section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+}
+
+.sector-settings-drawer__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sector-settings-drawer__retransmit {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 4px;
+}
