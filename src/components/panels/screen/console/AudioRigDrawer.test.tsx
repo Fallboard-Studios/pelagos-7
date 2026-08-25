@@ -240,6 +240,12 @@ describe('AudioRigDrawer', () => {
     });
 
     it('clicking Controlled Decay calls setCompressorBeforeDelay(true)', () => {
+      // compressor.enabled defaults to false (only reverb defaults true) — the
+      // Decay radio now lives inside Compressor's own accordion and shares its
+      // disabled state, so enable it first for this interaction test.
+      useAudioStore.setState((s) => ({
+        globalAudio: { ...s.globalAudio, compressor: { ...s.globalAudio.compressor, enabled: true } },
+      }));
       render(<AudioRigDrawer />);
       expect(useAudioStore.getState().globalAudio.compressorBeforeDelay).toBe(false);
 
@@ -257,12 +263,41 @@ describe('AudioRigDrawer', () => {
     });
 
     it('clicking Natural Decay while Controlled Decay is active calls setCompressorBeforeDelay(false)', () => {
-      useAudioStore.setState((s) => ({ globalAudio: { ...s.globalAudio, compressorBeforeDelay: true } }));
+      useAudioStore.setState((s) => ({
+        globalAudio: {
+          ...s.globalAudio,
+          compressorBeforeDelay: true,
+          compressor: { ...s.globalAudio.compressor, enabled: true },
+        },
+      }));
       render(<AudioRigDrawer />);
 
       fireEvent.click(screen.getByRole('radio', { name: 'Natural Decay' }));
 
       expect(useAudioStore.getState().globalAudio.compressorBeforeDelay).toBe(false);
+    });
+
+    it('lives inside the Compressor accordion, under its other params — not the master row', () => {
+      render(<AudioRigDrawer />);
+      const decayRadio = screen.getByRole('radio', { name: 'Natural Decay' });
+      const accordionContent = decayRadio.closest('.sc-accordion__content-inner');
+      expect(accordionContent?.textContent).toContain('Threshold');
+    });
+
+    it('is disabled when Compressor itself is bypassed off, matching its other param controls', () => {
+      useAudioStore.setState((s) => ({
+        globalAudio: { ...s.globalAudio, compressor: { ...s.globalAudio.compressor, enabled: false } },
+      }));
+      render(<AudioRigDrawer />);
+      expect(screen.getByRole('radio', { name: 'Natural Decay' }).getAttribute('data-disabled')).toBe('');
+    });
+
+    it('is enabled when Compressor is enabled and the rig-wide bypass is off', () => {
+      useAudioStore.setState((s) => ({
+        globalAudio: { ...s.globalAudio, compressor: { ...s.globalAudio.compressor, enabled: true } },
+      }));
+      render(<AudioRigDrawer />);
+      expect(screen.getByRole('radio', { name: 'Natural Decay' }).getAttribute('data-disabled')).toBeNull();
     });
   });
 });

@@ -35,11 +35,16 @@ function renderParamControl(param: AudioRigParamSchema, value: number, onChange:
 /**
  * Live Audio Rig console — resolves docs/tasks/AUDIO_RIG.md Task 10/11 (V1:
  * bypass + params + nested LFO accordions) and docs/tasks/AUDIO_RIG_V2.md
- * Task 11 (V2: Decay toggle — the rest of V2 needed no drawer-specific
+ * Task 11 (V2: Decay control — the rest of V2 needed no drawer-specific
  * change at all, purely a consequence of AUDIO_RIG_CONFIG being schema-
  * driven). Renders purely from AUDIO_RIG_CONFIG, wired to audioStore's
  * setGlobalAudio/setEffectEnabled/setGlobalBypassEnabled/
  * setCompressorBeforeDelay — every control here is live, not presentational.
+ * The Decay Mode radio isn't part of AUDIO_RIG_CONFIG's per-effect params
+ * (it binds a top-level GlobalAudioSettings field, compressorBeforeDelay,
+ * not one nested under `compressor`) — it's a special case rendered inside
+ * the Compressor block's own accordion, under its other params, sharing
+ * that block's disabled state.
  */
 export function AudioRigDrawer() {
   const globalAudio = useAudioStore((s) => s.globalAudio);
@@ -56,11 +61,6 @@ export function AudioRigDrawer() {
     <div className="audio-rig-drawer">
       <div className="audio-rig-drawer__master-row">
         <Toggle schema={GLOBAL_BYPASS_SCHEMA} value={globalAudio.globalBypass} onChange={setGlobalBypassEnabled} />
-        <RadioButton
-          schema={DECAY_MODE_SCHEMA}
-          value={globalAudio.compressorBeforeDelay ? 'controlled' : 'natural'}
-          onChange={(v) => setCompressorBeforeDelay(v === 'controlled')}
-        />
       </div>
       {AUDIO_RIG_CONFIG.map((block) => {
         // Every param field on every effect is a number (GLOBAL_CHAIN_GRID.md has
@@ -99,6 +99,16 @@ export function AudioRigDrawer() {
                   )}
                 </div>
               ))}
+              {block.key === 'compressor' && (
+                <div className="audio-rig-drawer__param-row">
+                  <RadioButton
+                    schema={DECAY_MODE_SCHEMA}
+                    value={globalAudio.compressorBeforeDelay ? 'controlled' : 'natural'}
+                    onChange={(v) => setCompressorBeforeDelay(v === 'controlled')}
+                    disabled={blockDisabled}
+                  />
+                </div>
+              )}
             </AccordionContainer>
           </div>
         );
