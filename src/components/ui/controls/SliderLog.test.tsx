@@ -62,6 +62,11 @@ describe('SliderLog component', () => {
     expect(screen.getByText('5')).toBeTruthy();
   });
 
+  it('caps the displayed value at 3 decimal places, hiding floating-point noise', () => {
+    render(<SliderLog schema={schema} value={4.999999999999999} onChange={() => {}} />);
+    expect(screen.getByText('5s')).toBeTruthy();
+  });
+
   it('onChange receives the mapped display value, never the raw internal t', () => {
     const onChange = vi.fn();
     render(<SliderLog schema={schema} value={0} onChange={onChange} />);

@@ -26,6 +26,12 @@ describe('SliderLinear', () => {
     expect(screen.getByText('0.5')).toBeTruthy();
   });
 
+  it('caps the displayed value at 3 decimal places, hiding floating-point noise — but leaves aria-valuenow at full precision', () => {
+    render(<SliderLinear schema={schema} value={4.999999999999999} onChange={() => {}} />);
+    expect(screen.getByText('5Hz')).toBeTruthy();
+    expect(screen.getByRole('slider').getAttribute('aria-valuenow')).toBe('4.999999999999999');
+  });
+
   it('renders its own schema labels via an internally-composed DualLabel', () => {
     render(<SliderLinear schema={schema} value={2} onChange={() => {}} />);
     expect(screen.getByText('Oscillation Rate')).toBeTruthy();

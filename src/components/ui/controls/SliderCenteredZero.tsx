@@ -2,6 +2,7 @@ import * as Slider from '@radix-ui/react-slider';
 
 import { DualLabel } from './DualLabel';
 import { resolveAccessibleName } from './accessibleName';
+import { formatDisplayValue } from './formatDisplayValue';
 import { computeFillRect } from './sliderCenteredZeroMath';
 import type { SliderCenteredZeroSchema } from '@/types/controls';
 import './SliderCenteredZero.css';
@@ -45,7 +46,7 @@ export function SliderCenteredZero({ schema, value, onChange, disabled }: Slider
         </Slider.Track>
         <Slider.Thumb className="sc-slider-centered-zero__thumb" aria-label={resolveAccessibleName(schema)} />
       </Slider.Root>
-      <span className="sc-slider-centered-zero__value">{value}{schema.unit}</span>
+      <span className="sc-slider-centered-zero__value">{formatDisplayValue(value)}{schema.unit}</span>
     </div>
   );
 }

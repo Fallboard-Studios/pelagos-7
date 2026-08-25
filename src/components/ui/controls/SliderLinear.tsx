@@ -2,6 +2,7 @@ import * as Slider from '@radix-ui/react-slider';
 
 import { DualLabel } from './DualLabel';
 import { resolveAccessibleName } from './accessibleName';
+import { formatDisplayValue } from './formatDisplayValue';
 import type { SliderLinearSchema } from '@/types/controls';
 import './SliderLinear.css';
 
@@ -31,7 +32,7 @@ export function SliderLinear({ schema, value, onChange, disabled }: SliderLinear
         </Slider.Track>
         <Slider.Thumb className="sc-slider-linear__thumb" aria-label={resolveAccessibleName(schema)} />
       </Slider.Root>
-      <span className="sc-slider-linear__value">{value}{schema.unit}</span>
+      <span className="sc-slider-linear__value">{formatDisplayValue(value)}{schema.unit}</span>
     </div>
   );
 }

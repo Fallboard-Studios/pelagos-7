@@ -54,6 +54,11 @@ describe('SliderCenteredZero component', () => {
     expect(screen.getByText('-15ct')).toBeTruthy();
   });
 
+  it('caps the displayed value at 3 decimal places, hiding floating-point noise', () => {
+    render(<SliderCenteredZero schema={detuneSchema} value={-14.999999999999998} onChange={() => {}} />);
+    expect(screen.getByText('-15ct')).toBeTruthy();
+  });
+
   it('still renders the bare value when schema.unit is absent', () => {
     const noUnitSchema: SliderCenteredZeroSchema = { id: 'x', type: 'sliderCenteredZero', min: -50, max: 50 };
     render(<SliderCenteredZero schema={noUnitSchema} value={-15} onChange={() => {}} />);

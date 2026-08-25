@@ -67,6 +67,10 @@ A pure `value = min * (max/min)^t` exponential is undefined at `min = 0` (Attack
 
 Radix's own `Slider.Range` fills from the track start, not a center zero-point. `src/components/ui/controls/sliderCenteredZeroMath.ts` computes the zero point generally — `(0 - min) / (max - min) * 100%`, not hardcoded to 50% — and a custom fill `<div>` spans from that zero point to the thumb's position via computed inline `left`/`width` styles (the code style's documented exception to "no inline style objects"). Radix's own `Range` stays in the DOM (visually hidden) for structural/a11y parity.
 
+### Displayed-value precision cap
+
+`SliderLinear`, `SliderLog`, `SliderCenteredZero`, and `Stepper` all round their visible `{value}{unit}` label through `src/components/ui/controls/formatDisplayValue.ts` before rendering — at most 3 decimal places, rounded rather than truncated (`5` stays `5`, not `5.000`). This exists to hide floating-point noise (log-scale math, repeated range conversions) that would otherwise surface as e.g. `4999.999999999999Hz`. It's display-only: the value passed to `onChange`/stored in Zustand, and `SliderLinear`/`SliderLog`/`SliderCenteredZero`'s underlying `aria-valuenow`, stay full precision — only the human-readable label is capped.
+
 ### `AccordionContainer`
 
 Wraps exactly one Radix `Accordion.Root type="single" collapsible` + one `Item` — a single independent collapsible section, not a group coordinator. A drawer wanting several independently-open sections renders multiple `AccordionContainer` instances side by side. Open/closed is local ephemeral `useState` (presentational, not a domain value). Expand/collapse animates via a GSAP timeline registered in `timelineMap` (`setTimeline`/`killTimeline`), following `PowerRockerSwitch.tsx`'s pattern, and respects `prefers-reduced-motion` (`src/components/ui/controls/accordionAnimation.ts`'s `getAccordionDuration`) the same way `PowerRockerSwitch.css` does. This phase adds `@radix-ui/react-accordion` (^1.2.20) — the one new dependency, confirmed with the user.
