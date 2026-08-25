@@ -7,7 +7,6 @@ import { getAvailableNotes } from '../engine/harmonySystem';
 import { AudioEngine } from '../engine/AudioEngine';
 import { getCurrentMeasure } from '../engine/beatClock';
 import useLocaleStore from '../stores/localeStore';
-import { usePlanetStore } from '../stores/planetStore';
 import { RobotState } from '../types/Robot';
 import { DEV_TUNING } from '../constants';
 import { handleRobotIdle } from './idleSystem';
@@ -46,9 +45,8 @@ function playInteractionFlurry(localeId: string, robotAId: string, robotBId: str
   }
 
   const locale = store.getLocaleById(localeId);
-  const planet = locale ? usePlanetStore.getState().planets.find((p) => p.id === locale.planetId) : undefined;
-  const noiseMap = locale && planet
-    ? getLocaleNoiseMap(localeId, locale.planetId, planet.name, locale.coordinates.x, locale.coordinates.y)
+  const noiseMap = locale
+    ? getLocaleNoiseMap(localeId, locale.coordinates.x, locale.coordinates.y)
     : null;
 
   // Stable robot indices for offset calculation
