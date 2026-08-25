@@ -89,7 +89,7 @@ export function AudioRigDrawer() {
                 <div className="audio-rig-drawer__param-row" key={param.field}>
                   {renderParamControl(param, effect[param.field], (v) => updateParam(param.field, v), blockDisabled)}
                   {param.lfoTarget && param.lfoAccordion && (
-                    <AccordionContainer schema={param.lfoAccordion}>
+                    <AccordionContainer schema={param.lfoAccordion} defaultOpen={globalLfo[param.lfoTarget].active}>
                       <Lfo
                         schema={{ id: `${param.schema.id}.lfo`, type: 'lfo' }}
                         value={globalLfo[param.lfoTarget]}

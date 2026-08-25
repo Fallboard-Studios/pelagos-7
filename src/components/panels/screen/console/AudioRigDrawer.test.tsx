@@ -223,6 +223,33 @@ describe('AudioRigDrawer', () => {
       const activeToggle = screen.getAllByRole('switch', { name: 'Active' })[0]; // eq3.low
       expect((activeToggle as HTMLButtonElement).disabled).toBe(false);
     });
+
+    it('loads the nested LFO accordion already open when that target is seeded active', () => {
+      useAudioStore.setState((s) => ({
+        globalLfo: { ...s.globalLfo, 'eq3.low': { shape: 'square', rate: 5, depth: 60, active: true } },
+      }));
+      render(<AudioRigDrawer />);
+
+      const rateSlider = screen.getAllByRole('slider', { name: 'Rate' })[0]; // eq3.low
+      const trigger = rateSlider.closest('.sc-accordion')?.querySelector('.sc-accordion__trigger');
+      expect(trigger?.getAttribute('aria-expanded')).toBe('true');
+    });
+
+    it('leaves the nested LFO accordion closed by default when that target is not active', () => {
+      render(<AudioRigDrawer />); // resetAudioStore seeds every target active: false
+      const rateSlider = screen.getAllByRole('slider', { name: 'Rate' })[0];
+      const trigger = rateSlider.closest('.sc-accordion')?.querySelector('.sc-accordion__trigger');
+      expect(trigger?.getAttribute('aria-expanded')).toBe('false');
+    });
+
+    it('does not auto-open the parent effect accordion just because a nested LFO inside it is active', () => {
+      useAudioStore.setState((s) => ({
+        globalLfo: { ...s.globalLfo, 'eq3.low': { shape: 'square', rate: 5, depth: 60, active: true } },
+      }));
+      render(<AudioRigDrawer />);
+      const eqTrigger = screen.getByRole('button', { name: /3-Band EQ/i });
+      expect(eqTrigger.getAttribute('aria-expanded')).toBe('false');
+    });
   });
 
   describe('Reverb (Task 11)', () => {
