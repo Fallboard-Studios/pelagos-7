@@ -14,19 +14,48 @@ let mockTransportState: 'started' | 'stopped' = 'stopped';
 // forever outputting Tone.LFO's raw, undepth-scaled "stopped" value.
 let mockContextState: 'running' | 'suspended' = 'suspended';
 
+// Tags a fakeParam() object as "Param-like" for the mocked LFO.connect()
+// below, independent of whatever plain properties our own production code
+// happens to assign onto the object (a Symbol key can't collide with the
+// string-keyed `.override` our fix writes onto every resolved signal).
+const fakeParamMarker = Symbol('fakeParamMarker');
+
 vi.mock('tone', () => ({
-  LFO: vi.fn((frequency?: number) => ({
-    frequency: { value: frequency ?? 1 },
-    amplitude: { value: 1 },
-    type: 'sine',
-    min: 0, // Tone.LFO's real default (LFO.getDefaults())
-    max: 1, // Tone.LFO's real default — modulating a target with these left unset is functionally inaudible
-    start: vi.fn(),
-    stop: vi.fn(),
-    connect: vi.fn().mockReturnThis(),
-    disconnect: vi.fn(),
-    dispose: vi.fn(),
-  })),
+  LFO: vi.fn((frequency?: number) => {
+    const instance = {
+      frequency: { value: frequency ?? 1 },
+      amplitude: { value: 1 },
+      type: 'sine',
+      min: 0, // Tone.LFO's real default (LFO.getDefaults())
+      max: 1, // Tone.LFO's real default — modulating a target with these left unset is functionally inaudible
+      start: vi.fn(),
+      stop: vi.fn(),
+      // Faithfully mirrors Tone.js's own connectSignal() (verified against
+      // signal/Signal.ts): a Tone.Param destination is ALWAYS reset to 0 the
+      // instant something connects to it, regardless of any `override`
+      // property (Param has no such concept — connectSignal's real check is
+      // `instanceof Param`, not a property value); a Tone.Signal destination
+      // is reset only while its own `override` flag (default true) is still
+      // true. fakeParamMarker identifies a "Param-like" fake independent of
+      // whatever plain properties our own code happens to assign onto it
+      // (e.g. our fix below deliberately writes `.override = false` onto
+      // EVERY resolved signal, Param-shaped or not — that write must not be
+      // able to fool this simulation into skipping the Param reset).
+      connect: vi.fn((dest: unknown) => {
+        if (dest && typeof dest === 'object' && 'value' in dest) {
+          const d = dest as { value: number; override?: boolean };
+          const isParamLike = fakeParamMarker in (d as object);
+          if (isParamLike || d.override !== false) {
+            d.value = 0;
+          }
+        }
+        return instance;
+      }),
+      disconnect: vi.fn(),
+      dispose: vi.fn(),
+    };
+    return instance;
+  }),
   getTransport: vi.fn(() => ({ get state() { return mockTransportState; } })),
   getContext: vi.fn(() => ({ get state() { return mockContextState; } })),
   now: vi.fn(() => mockToneNow),
@@ -109,6 +138,16 @@ async function latestLfoInstance(): Promise<MockLfoInstance> {
  * Tone.Signal's own real default (verified against Tone's source). */
 function fakeSignal(value = 0): { value: number; override: boolean } {
   return { value, override: true };
+}
+
+/** A minimal fake Param-like object — deliberately no `override` field at
+ * all, matching Tone.Param's real shape (unlike Tone.Signal, Param has no
+ * such property), tagged with fakeParamMarker so the mocked LFO.connect()
+ * above can tell the two destination shapes apart and simulate each one's
+ * real reset behavior, even after our own code writes a plain `.override`
+ * property onto it. */
+function fakeParam(value = 0): { value: number; [fakeParamMarker]: true } {
+  return { value, [fakeParamMarker]: true };
 }
 
 // ========================================
@@ -547,6 +586,24 @@ describe('lfoEngine', () => {
         const { lfoEngine } = await import('./lfoEngine');
         lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
         expect(signal.override).toBe(false);
+      });
+
+      it('restores a Tone.Param destination\'s own current value immediately after connecting — Param has no override escape hatch and always resets to 0 on connect, but (unlike Signal) is never permanently locked, so a plain restore write fixes it going forward', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        const param = fakeParam(1.5); // e.g. a robot layer's current gain
+        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(param);
+        const { lfoEngine } = await import('./lfoEngine');
+        lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+        expect(param.value).toBe(1.5);
+      });
+
+      it('restoring the Param\'s value is a harmless no-op for a Signal destination — override is already disabled by then, so the mocked connect() never zeroed it in the first place', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        const signal = fakeSignal(5000);
+        (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(signal);
+        const { lfoEngine } = await import('./lfoEngine');
+        lfoEngine.connectLfoTarget('lpf.frequency');
+        expect(signal.value).toBe(5000);
       });
     });
 

@@ -368,12 +368,12 @@ function connectLfoTarget(target: LfoTargetId, robotId?: string): boolean {
   if (!signal) return false;
 
   const lfo = getOrCreateLfo(key, target, robotId);
+  // Read the target's CURRENT base value (both Signal and Param expose a
+  // plain numeric .value getter) — used to bound the swing below AND to
+  // restore the value after connecting (see the comment further down).
+  const currentValue = (signal as unknown as { value: number }).value;
   const range = resolveLfoOutputRange(target);
   if (range) {
-    // Read the target's CURRENT base value (both Signal and Param expose a
-    // plain numeric .value getter) so the swing can be bounded relative to
-    // where it actually sits, not just the field's own total span.
-    const currentValue = (signal as unknown as { value: number }).value;
     const swing = centeredSwingFromRange(range, currentValue);
     lfo.min = swing.min;
     lfo.max = swing.max;
@@ -403,10 +403,9 @@ function connectLfoTarget(target: LfoTargetId, robotId?: string): boolean {
   // also silently discards whatever the target's own value was, which is
   // exactly the "additive on top of the current value" assumption
   // centeredSwingFromRange() above depends on. Disabling `override` first
-  // restores plain additive Web Audio summing. No effect on a Tone.Param
-  // destination (e.g. robot Gain targets), which has no override escape
-  // hatch and still hits the same reset unconditionally — a known,
-  // currently-unaddressed gap for that class of target.
+  // restores plain additive Web Audio summing. Has no effect on a Tone.Param
+  // destination (e.g. robot Gain targets) — Param has no `override` concept
+  // at all; that case is handled separately below.
   (signal as unknown as { override?: boolean }).override = false;
 
   try {
@@ -415,6 +414,23 @@ function connectLfoTarget(target: LfoTargetId, robotId?: string): boolean {
     devWarn('[lfoEngine] connectLfoTarget: connect failed', err);
     return false;
   }
+
+  // Tone.Param (e.g. robot Gain targets — Tone.Gain.gain) has no `override`
+  // escape hatch — connecting to it ALWAYS resets its own value to 0 the
+  // instant .connect() runs (verified: connectSignal()'s `destination
+  // instanceof Param` branch is unconditional, unlike Signal's). Unlike
+  // Signal, though, Param never gets marked permanently "overridden" by
+  // this — a plain write immediately after restores it, and the LFO's
+  // contribution sums on top of it normally from then on, same as the
+  // Signal case once override is disabled above. Harmless no-op for a
+  // Signal destination — override being false already meant connect()
+  // never touched its value in the first place. Guarded against a
+  // non-finite currentValue for the same reason centeredSwingFromRange()
+  // does — never write NaN into a live Web Audio graph.
+  if (Number.isFinite(currentValue)) {
+    (signal as unknown as { value: number }).value = currentValue;
+  }
+
   connectedSignals.set(key, signal);
   return true;
 }
