@@ -13,7 +13,11 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(45deg, transparent 50%, #1e1e1e 75%, #083a70 75%, #1d5da1);
+  /* Randomized once per load — App.tsx sets this custom property via
+     generateRealWorldGradients() (src/utils/realWorldGradient.ts). The
+     literal gradient here is only a fallback for the (practically
+     unreachable) case the property is ever unset. */
+  background: var(--real-world-gradient-before, linear-gradient(45deg, transparent 50%, #1e1e1e 75%, #083a70 75%, #1d5da1));
 
   pointer-events: none;
   z-index: -1;
@@ -26,7 +30,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #1e1e1e 25%, #1d5da1 25%, #083a70 50%, #1e1e1e 50%, #1e1e1e 75%, #1d5da1 75%, #083a70);
+  background: var(--real-world-gradient-after, linear-gradient(135deg, #1e1e1e 25%, #1d5da1 25%, #083a70 50%, #1e1e1e 50%, #1e1e1e 75%, #1d5da1 75%, #083a70));
 
   pointer-events: none;
   z-index: -2;
