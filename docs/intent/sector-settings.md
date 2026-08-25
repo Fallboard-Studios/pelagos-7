@@ -19,6 +19,14 @@ coordinates + planet name/seed) above both:
   names and a "random" option, both authored as static data in the config file.
 - **Plot Tuning** — a `CoordsInput` for locale X/Y, pre-populated with the current locale's
   coordinates, plus its own promoted-preset/random list of interesting coordinate pairs.
+  **Coordinates are integers, system-wide** — decided once the decoupling prerequisite made
+  it safe: the new coordinate-hash seeding works identically for integers and floats (no
+  entropy loss, unlike the old simplex-sampled derivation), `x`'s only other consumer
+  (`computeLocalTime`, `src/constants/time.ts`) degrades gracefully to a 4-minute-per-unit
+  time granularity, and the status header/`TransportBar` already round coordinates for
+  display today. `CoordsInput`/`TextInput` reject or round non-integer entry rather than
+  silently accepting decimals; `LocaleCoordinates.x`/`y` stay typed `number` (no native TS
+  int type) but every write path enforces the integer constraint.
 - **One shared retransmit `Button`** — not two independent triggers, despite the roadmap prose
   listing a trigger under each panel. Submitting reads whichever field(s) the user actually
   edited:
@@ -75,7 +83,9 @@ thing being avoided by resolving them in the Locale Seed Decoupling doc first.
 - Stays inside CLAUDE.md's guardrails: schema-driven, zero hardcoded labels in the component;
   state stays serializable in Zustand; no Tone/GSAP objects touched directly by this drawer.
 - Built entirely on Phase 1's existing primitives (`TextInput`, `CoordsInput`, `Button`,
-  `DualLabel`) — no new primitive needed.
+  `DualLabel`) — no new primitive needed, though `CoordsInput`'s decimal-accepting behavior
+  gets a small integer-enforcement addition (reject or round non-integer entry) as part of
+  this feature, not a separate phase.
 - No persistence — a retransmitted-away world is genuinely gone this phase; Session Storage
   (Phase 11) is what will later let a user's edited world survive a reload, out of scope here.
 
