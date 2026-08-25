@@ -23,11 +23,11 @@
 | Reverb | `setGlobalReverb()` | decay | seconds, 0.1–10 | 0.5–4 | 1.5 | SPATIAL DIFFUSION MATRIX | DISSIPATION DURATION | SLIDER (Logarithmic) | – |
 | Reverb | `setGlobalReverb()` | preDelay | seconds, 0–0.5 | 0–0.1 | 0.02 | SPATIAL DIFFUSION MATRIX | INITIAL LAG | SLIDER | – |
 | Reverb | `setGlobalReverb()` | wet | 0–1 | 0.1–0.4 | 0.3 | SPATIAL DIFFUSION MATRIX | DIFFUSED SIGNAL BALANCE | SLIDER | – |
-| Compressor | `setGlobalCompressor()` | threshold | dB, −60 to 0 | −24 to −6 | −24 | DYNAMIC RANGE CONDENSER | ATTENUATION THRESHOLD | SLIDER | – |
-| Compressor | `setGlobalCompressor()` | ratio | 1–20 | 1.5–4 | 2 | DYNAMIC RANGE CONDENSER | COMPRESSION RATIO | STEPPER (`[ - ] ( 2:1 ) [ + ]`) | – |
+| Compressor | `setGlobalCompressor()` | threshold | dB, −60 to 0 | −55 to −45 | −24 | DYNAMIC RANGE CONDENSER | ATTENUATION THRESHOLD | SLIDER | – |
+| Compressor | `setGlobalCompressor()` | ratio | 1–20 | 10–20 | 2 | DYNAMIC RANGE CONDENSER | COMPRESSION RATIO | STEPPER (`[ - ] ( 2:1 ) [ + ]`) | – |
 | Compressor | `setGlobalCompressor()` | attack | seconds, 0.001–1 | 0.003–0.05 | 0.003 | DYNAMIC RANGE CONDENSER | COMPRESSION RATE | SLIDER (Logarithmic) | – |
 | Compressor | `setGlobalCompressor()` | release | seconds, 0.01–1 | 0.05–0.3 | 0.25 | DYNAMIC RANGE CONDENSER | RAREFACTION RATE | SLIDER (Logarithmic) | – |
-| Compressor | `setGlobalCompressor()` | knee | dB, 0–40 | 2–15 | 6 | DYNAMIC RANGE CONDENSER | CURVATURE DAMPING | SLIDER | – |
+| Compressor | `setGlobalCompressor()` | knee | dB, 0–40 | 1–15 | 6 | DYNAMIC RANGE CONDENSER | CURVATURE DAMPING | SLIDER | – |
 | Limiter | `setGlobalLimiter()` | threshold | dB, −20 to 0 | −3 to −1 | −12 | TERMINAL CEILING GATE | OUTPUT CEILING | SLIDER | – |
 
 ## Notes from the Tone.js verification pass (V2)

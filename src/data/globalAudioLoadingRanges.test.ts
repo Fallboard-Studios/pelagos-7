@@ -27,11 +27,11 @@ const EXPECTED: Record<GlobalAudioSeedFieldKey, { min: number; max: number }> = 
   'reverb.decay': { min: 0.5, max: 4 },
   'reverb.preDelay': { min: 0, max: 0.1 },
   'reverb.wet': { min: 0.1, max: 0.4 },
-  'compressor.threshold': { min: -24, max: -6 },
-  'compressor.ratio': { min: 1.5, max: 4 },
+  'compressor.threshold': { min: -55, max: -45 },
+  'compressor.ratio': { min: 10, max: 20 },
   'compressor.attack': { min: 0.003, max: 0.05 },
   'compressor.release': { min: 0.05, max: 0.3 },
-  'compressor.knee': { min: 2, max: 15 },
+  'compressor.knee': { min: 1, max: 15 },
   'limiter.threshold': { min: -3, max: -1 },
 };
 
