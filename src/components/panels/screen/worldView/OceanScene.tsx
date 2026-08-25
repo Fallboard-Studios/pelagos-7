@@ -5,9 +5,10 @@ import './OceanScene.css';
 import { Robot } from '@/components/robot/Robot'
 import { useLocaleStore } from '@/stores/localeStore';
 import { usePlanetStore, selectCurrentPlanet } from '@/stores/planetStore';
-import { spawnRobot, startSpawnScheduler, stopSpawnScheduler } from '@/systems/spawnSystem';
+import { stopSpawnScheduler } from '@/systems/spawnSystem';
+import { initializeLocale } from '@/systems/worldTransition';
 import { Factory } from '@/components/actors/Factory';
-import { placeFactories, getRowConfig } from '@/systems/factoryPlacementSystem';
+import { getRowConfig } from '@/systems/factoryPlacementSystem';
 import { ActorType } from '@/types/Actor';
 
 import colorTheme from '@/constants/colorTheme.json';
@@ -72,22 +73,15 @@ export function OceanScene({
     [actors],
   );
 
-  // Spawn initial robots and place factories on mount
+  // Bring the active locale online on mount — guarded factory placement + 2
+  // initial robots + spawn scheduler start, via the same initializeLocale
+  // helper Sector Settings' retransmit action uses, so this setup logic
+  // exists in exactly one place (src/systems/worldTransition.ts). It's
+  // idempotent on factories/robots (skips if the locale is already
+  // populated — e.g. a power cycle where the scene unmounts/remounts but
+  // actors/robots persist in the store), so calling it again here is safe.
   useEffect(() => {
-    // Place factories (background/midground/foreground row groups) only if
-    // none exist in the store yet.
-    // This prevents re-placing factories on power cycles where the scene
-    // is unmounted/remounted — actors persist in the store and should not
-    // be recreated.
-    const existing = useLocaleStore.getState().locales[localeId]?.actors;
-    if (!existing || existing.length === 0) {
-      placeFactories();
-    }
-
-    spawnRobot(localeId);
-    spawnRobot(localeId);
-
-    startSpawnScheduler(localeId);
+    initializeLocale(localeId);
 
     // Proximity-based robot interaction detection is on hold — current
     // implementation is being reconsidered, not yet decided whether to keep it.
@@ -97,8 +91,9 @@ export function OceanScene({
       stopSpawnScheduler();
       // stopCollisionDetection();
     };
-    // Intentionally mount-only: localeId is stable (locale only changes via user menu)
-    // and re-running would double-spawn robots/factories
+    // Intentionally mount-only: this scene mounts once per power-on, and
+    // initializeLocale itself is what changes an active locale now (Sector
+    // Settings' retransmit action) — not a re-render of this component.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
