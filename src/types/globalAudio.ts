@@ -87,7 +87,7 @@ export interface GlobalAudioSettings {
 export const DEFAULT_GLOBAL_AUDIO_SETTINGS: GlobalAudioSettings = {
   globalBypass: false,
   compressorBeforeDelay: false,
-  reverb: { enabled: true, decay: 1.5, preDelay: 0.02, wet: 0.3 },
+  reverb: { enabled: false, decay: 1.5, preDelay: 0.02, wet: 0.3 },
   delay: { enabled: false, delayTime: 0.25, feedback: 0.2, wet: 0.15 },
   compressor: { enabled: false, threshold: -24, ratio: 2, attack: 0.003, release: 0.25, knee: 6 },
   eq3: { enabled: false, low: 0, mid: 0, high: 0 },
