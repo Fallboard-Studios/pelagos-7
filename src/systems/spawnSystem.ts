@@ -12,7 +12,6 @@ import type { OscillatorLayer } from '../types/layeredAudio';
 import { scheduleRepeat, cancelSchedule } from '../engine/beatClock';
 import { DEV_TUNING } from '../constants';
 import useLocaleStore from '../stores/localeStore';
-import { usePlanetStore } from '../stores/planetStore';
 import type { LocaleSettings } from '../types/locale';
 import { removeRobotWithExit } from './removeSystem';
 import { initRobotIdleCounter } from './idleSystem';
@@ -105,9 +104,8 @@ export function startSpawnScheduler(localeId: string): void {
   }
 
   const locale = useLocaleStore.getState().getLocaleById(localeId);
-  const planet = locale ? usePlanetStore.getState().planets.find((p) => p.id === locale.planetId) : undefined;
-  const schedulerNoiseMap = locale && planet
-    ? getLocaleNoiseMap(localeId, locale.planetId, planet.name, locale.coordinates.x, locale.coordinates.y)
+  const schedulerNoiseMap = locale
+    ? getLocaleNoiseMap(localeId, locale.coordinates.x, locale.coordinates.y)
     : null;
   const interval = SPAWN_INTERVAL_MIN + Math.floor(
     schedulerNoiseMap
@@ -352,9 +350,8 @@ export function spawnRobot(localeId: string): void {
   }
 
   // Resolve locale noise map for deterministic attribute generation
-  const planet = locale ? usePlanetStore.getState().planets.find((p) => p.id === locale.planetId) : undefined;
-  const noiseMap = locale && planet
-    ? getLocaleNoiseMap(localeId, locale.planetId, planet.name, locale.coordinates.x, locale.coordinates.y)
+  const noiseMap = locale
+    ? getLocaleNoiseMap(localeId, locale.coordinates.x, locale.coordinates.y)
     : null;
 
   // Monotonically incrementing offset for this locale — ensures each robot is distinct
