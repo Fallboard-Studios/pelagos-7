@@ -1,4 +1,9 @@
 .console {
   grid-area: console;
   /* border: yellow 1px solid; */
+  /* Every descendant surface (accordion triggers, buttons, effect blocks,
+     text inputs, ...) paints its background from var(--color-surface) —
+     overriding it here cascades a "glass" translucency through all of them
+     at once, letting the robot world read through the hub's own chrome. */
+  --color-surface: rgba(26, 26, 26, 0.75);
 }
