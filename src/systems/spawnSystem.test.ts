@@ -261,6 +261,28 @@ describe('spawnSystem', () => {
       expect(activeFraction).toBeLessThanOrEqual(0.95);
     });
 
+    it('seeds noteVariance.active at roughly an 85% chance across many spawns', () => {
+      // Dedicated locale ID -- see the rhythmicMotifLength.active test above
+      // for why (spawnCounters is keyed per-locale; this avoids execution-order
+      // sensitivity in this deterministic seeded roll).
+      const localeId = 'note-variance-active-stat-test-locale';
+      useLocaleStore.setState((state) => ({
+        locales: {
+          ...state.locales,
+          [localeId]: { ...DEFAULT_LOCALE, id: localeId, robots: [], settings: { ...DEFAULT_LOCALE.settings, maxRobots: 500 } },
+        },
+      }));
+      const n = 500;
+      for (let i = 0; i < n; i++) spawnRobot(localeId);
+      const robots = useLocaleStore.getState().getLocaleById(localeId)?.robots ?? [];
+      const activeCount = robots.filter((r) => r.noteVariance?.active).length;
+      const activeFraction = activeCount / robots.length;
+      // Same generous band and copy-clustering rationale as the motif-length
+      // version of this test above.
+      expect(activeFraction).toBeGreaterThanOrEqual(0.75);
+      expect(activeFraction).toBeLessThanOrEqual(0.95);
+    });
+
     it('a copied robot inherits the source\'s rhythmicDensity/rhythmicMotifLength/noteVariance rather than rolling fresh ones', () => {
       useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, {
         settings: { ...DEFAULT_LOCALE.settings, maxRobots: 100 },

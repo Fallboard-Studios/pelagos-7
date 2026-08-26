@@ -74,10 +74,11 @@ const MASTER_VOLUME_MAX = 0.85;
 const RHYTHMIC_MOTIF_LENGTH_ACTIVE_THRESHOLD = 0.15;
 /**
  * Probability threshold noteVariance.active's seed draw ([0, 1]) must clear
- * to seed `true` — ~66% chance, mirroring the shipped LFO_ACTIVE_THRESHOLD
- * pattern (generateGlobalLfoSettings) rather than an even 50/50 split.
+ * to seed `true` — 85% chance, matching RHYTHMIC_MOTIF_LENGTH_ACTIVE_THRESHOLD.
+ * Kept as its own named constant (not merged back into one shared value) so
+ * the two toggles stay independently tunable even though they currently agree.
  */
-const NOTE_VARIANCE_ACTIVE_THRESHOLD = 0.34;
+const NOTE_VARIANCE_ACTIVE_THRESHOLD = 0.15;
 
 // Waveform types — even distribution gives ~20% each (includes pulse)
 const WAVEFORMS: WaveformType[] = ['sine', 'square', 'triangle', 'sawtooth', 'pulse'];
