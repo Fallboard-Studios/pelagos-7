@@ -4,7 +4,7 @@
 import gsap from 'gsap';
 
 import type { Robot } from '../types/Robot';
-import { RobotState } from '../types/Robot';
+import { RobotState, DockingState } from '../types/Robot';
 import type { Vec2 } from '../types/Vec2';
 import useLocaleStore from '../stores/localeStore';
 import { triggerInteraction } from './interactionSystem';
@@ -40,12 +40,16 @@ export function calculateDistanceSquared(a: Vec2, b: Vec2): number {
 }
 
 /**
- * Check if a robot can interact (correct state and not on cooldown).
+ * Check if a robot can interact (correct state, Active docking, and not on cooldown).
  * Cooldown is measure-based: robots must wait 8 measures between interactions.
+ * The Docking guard matters because the collision ticker (below) iterates every
+ * robot in the store regardless of what's rendered — without it, a Docked
+ * (muted, off-screen) robot could still be flagged into an audible interaction.
  */
 export function canInteract(robot: Robot): boolean {
   const validState =
-    robot.state === RobotState.Idle || robot.state === RobotState.Moving;
+    (robot.state === RobotState.Idle || robot.state === RobotState.Moving) &&
+    robot.docking === DockingState.Active;
 
   const notOnCooldown = !robot.lastInteractionMeasure
     ? true
