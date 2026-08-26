@@ -112,30 +112,30 @@ land.
 
 ### Phase 1: Foundation
 
-- [ ] **Task 1: `src/types/Robot.ts` — new state machines, new fields, remove `persists`**
+- [x] **Task 1: `src/types/Robot.ts` — new state machines, new fields, remove `persists`**
 
   **Description:** Add `DockingState` and `JobType` const-objects matching `RobotState`'s exact
   pattern; add `docking`, `dockingHoldUntilMeasure`, `batteryLevel`, `job` to `Robot`; remove
   `persists`.
 
   **Acceptance criteria:**
-  - [ ] `DockingState = { Docked: 'docked', Docking: 'docking', Departing: 'departing', Active:
+  - [x] `DockingState = { Docked: 'docked', Docking: 'docking', Departing: 'departing', Active:
     'active' } as const` + derived `DockingState` type, same shape as `RobotState` (`Robot.ts:14-21`)
-  - [ ] `JobType = { VentExtraction: 'ventExtraction', AcousticSurvey: 'acousticSurvey',
+  - [x] `JobType = { VentExtraction: 'ventExtraction', AcousticSurvey: 'acousticSurvey',
     StructuralInspection: 'structuralInspection', FluidMonitoring: 'fluidMonitoring' } as const` +
     derived type
-  - [ ] `Robot.docking: DockingState` (required, not optional — every robot has a docking state
+  - [x] `Robot.docking: DockingState` (required, not optional — every robot has a docking state
     from creation)
-  - [ ] `Robot.dockingHoldUntilMeasure?: number`
-  - [ ] `Robot.batteryLevel: number` (required, 0–100)
-  - [ ] `Robot.job?: { type: JobType; assignedAtMeasure: number }`
-  - [ ] `Robot.persists?: boolean` removed entirely
+  - [x] `Robot.dockingHoldUntilMeasure?: number`
+  - [x] `Robot.batteryLevel: number` (required, 0–100)
+  - [x] `Robot.job?: { type: JobType; assignedAtMeasure: number }`
+  - [x] `Robot.persists?: boolean` removed entirely
 
   **Verification:**
-  - [ ] `npm run build:types` — expect NEW errors everywhere `persists` was read/written
+  - [x] `npm run build:types` — expect NEW errors everywhere `persists` was read/written
     (`RobotMetaTab.tsx`, `spawnSystem.ts`) and everywhere a `Robot` literal is constructed without
     the new required fields (`spawnSystem.ts`); expected until Tasks 12/16 land, not a defect here
-  - [ ] `npm run lint` clean for `types/Robot.ts` itself
+  - [x] `npm run lint` clean for `types/Robot.ts` itself
 
   **Dependencies:** None.
 
@@ -147,26 +147,26 @@ land.
 
   **Estimated scope:** XS (3 files, two of which are one-line fixture additions)
 
-- [ ] **Task 2: `src/constants/index.ts` — new Battery/Docking/Job constants**
+- [x] **Task 2: `src/constants/index.ts` — new Battery/Docking/Job constants**
 
   **Description:** Add the numeric constants `tickRobotLifecycle`/`spawnInitialRoster`/
   `scoreJobAffinities` depend on, and update `MAX_ROBOTS`'s doc comment.
 
   **Acceptance criteria:**
-  - [ ] `INITIAL_ACTIVE_ROBOTS_MIN = 2`, `INITIAL_ACTIVE_ROBOTS_MAX = 4`
-  - [ ] `BATTERY_DRAIN_BASE = 2`
-  - [ ] `JOB_BATTERY_DRAIN_SURCHARGE: Record<JobType, number> = { ventExtraction: 1,
+  - [x] `INITIAL_ACTIVE_ROBOTS_MIN = 2`, `INITIAL_ACTIVE_ROBOTS_MAX = 4`
+  - [x] `BATTERY_DRAIN_BASE = 2`
+  - [x] `JOB_BATTERY_DRAIN_SURCHARGE: Record<JobType, number> = { ventExtraction: 1,
     acousticSurvey: 3, structuralInspection: 5, fluidMonitoring: 7 }` (imports `JobType` from
     `types/Robot.ts`)
-  - [ ] `BATTERY_RECHARGE_RATE = 5`
-  - [ ] `BATTERY_CRITICAL_THRESHOLD = 10`, `BATTERY_FULL_THRESHOLD = 100`
-  - [ ] `DOCKED_PITCH_DRIFT_RATIO = 0.25`
-  - [ ] `JOB_MAX_ROBOTS_PER_TYPE = 3`
-  - [ ] `MAX_ROBOTS`'s doc comment describes it as "fixed roster size" rather than "ceiling"
+  - [x] `BATTERY_RECHARGE_RATE = 5`
+  - [x] `BATTERY_CRITICAL_THRESHOLD = 10`, `BATTERY_FULL_THRESHOLD = 100`
+  - [x] `DOCKED_PITCH_DRIFT_RATIO = 0.25`
+  - [x] `JOB_MAX_ROBOTS_PER_TYPE = 3`
+  - [x] `MAX_ROBOTS`'s doc comment describes it as "fixed roster size" rather than "ceiling"
 
   **Verification:**
-  - [ ] `npm run build:types` passes for `constants/index.ts` itself
-  - [ ] `npm run lint` clean for `constants/index.ts`
+  - [x] `npm run build:types` passes for `constants/index.ts` itself
+  - [x] `npm run lint` clean for `constants/index.ts`
 
   **Dependencies:** Task 1 (needs `JobType`).
 
@@ -174,23 +174,23 @@ land.
 
   **Estimated scope:** XS (1 file)
 
-- [ ] **Task 3: `src/types/locale.ts` — trim `LocaleSettings`**
+- [x] **Task 3: `src/types/locale.ts` — trim `LocaleSettings`**
 
   **Description:** Remove the four fields that only existed to configure the retired dynamic
   spawn scheduler.
 
   **Acceptance criteria:**
-  - [ ] `maxRobots`, `minRobots`, `autoSpawn`, `spawnFrequency` removed from `LocaleSettings`
-  - [ ] The `[key: string]: unknown` index signature stays (other settings, e.g. `bpm`, are
+  - [x] `maxRobots`, `minRobots`, `autoSpawn`, `spawnFrequency` removed from `LocaleSettings`
+  - [x] The `[key: string]: unknown` index signature stays (other settings, e.g. `bpm`, are
     unaffected)
 
   **Verification:**
-  - [ ] `npm run build:types` — no new errors expected: `LocaleSettings`' `[key: string]: unknown`
+  - [x] `npm run build:types` — no new errors expected: `LocaleSettings`' `[key: string]: unknown`
     index signature means `constants/index.ts`'s `DEFAULT_LOCALE` and `worldTransition.ts`'s
     `buildLocale` (both still construct the old `settings` shape) type-check without complaint even
     though the named fields are gone; actual removal of the stale fields from those two literals is
     still Task 15's job, just not compiler-enforced in between
-  - [ ] `npm run lint` clean for `types/locale.ts`
+  - [x] `npm run lint` clean for `types/locale.ts`
 
   **Dependencies:** None (parallel-safe with Tasks 1–2).
 
@@ -200,34 +200,34 @@ land.
 
 ### Checkpoint: Foundation
 
-- [ ] `npm run build:types` shows only the expected downstream errors (files later tasks haven't
+- [x] `npm run build:types` shows only the expected downstream errors (files later tasks haven't
   touched yet) — no *unexpected* errors elsewhere.
-- [ ] `npm run lint` passes on the three touched files.
+- [x] `npm run lint` passes on the three touched files.
 
 ### Phase 2: Melody Pitch-Drift Helper
 
-- [ ] **Task 4: `src/engine/melodyGenerator.ts` — add `reRollMelodyPitches`**
+- [x] **Task 4: `src/engine/melodyGenerator.ts` — add `reRollMelodyPitches`**
 
   **Description:** New exported function re-rolling a seeded ratio of a melody's `noteIndex`
   values, reusing the already-exported `pickRandomIndices` and `pickWeightedIndex` — no new
   selection logic invented, per spec §4.
 
   **Acceptance criteria:**
-  - [ ] `reRollMelodyPitches(melody, ratio, opts: { noteVariance?: ToggleValue; rand: () => number
+  - [x] `reRollMelodyPitches(melody, ratio, opts: { noteVariance?: ToggleValue; rand: () => number
     })` exported
-  - [ ] Number of events changed = `Math.max(1, Math.round(melody.length * ratio))`
-  - [ ] Changed events selected via `pickRandomIndices` (existing export, line 124) — not a new
+  - [x] Number of events changed = `Math.max(1, Math.round(melody.length * ratio))`
+  - [x] Changed events selected via `pickRandomIndices` (existing export, line 124) — not a new
     shuffling implementation
-  - [ ] `noteVariance?.active === true` → new `noteIndex` via `pickWeightedIndex(rand)` (existing
+  - [x] `noteVariance?.active === true` → new `noteIndex` via `pickWeightedIndex(rand)` (existing
     export, line 480); `false`/absent → `Math.floor(rand() * 8)` (unweighted)
-  - [ ] `startStep`, `length`, and `octave` are identical on every returned event, including
+  - [x] `startStep`, `length`, and `octave` are identical on every returned event, including
     changed ones — only `noteIndex` differs
-  - [ ] Unchanged events are the exact same object reference or a shallow-equal copy (caller
+  - [x] Unchanged events are the exact same object reference or a shallow-equal copy (caller
     shouldn't need to care which, but no unrelated field is mutated)
 
   **Verification:**
-  - [ ] `npm run build:types` passes for `melodyGenerator.ts` itself
-  - [ ] `npm run lint` clean
+  - [x] `npm run build:types` passes for `melodyGenerator.ts` itself
+  - [x] `npm run lint` clean
 
   **Dependencies:** None (independent of Foundation; parallel-safe with Tasks 1–3).
 
@@ -235,25 +235,25 @@ land.
 
   **Estimated scope:** XS (1 file, small self-contained function)
 
-- [ ] **Task 5: `src/engine/melodyGenerator.test.ts` — test `reRollMelodyPitches`**
+- [x] **Task 5: `src/engine/melodyGenerator.test.ts` — test `reRollMelodyPitches`**
 
   **Description:** New describe block covering the ratio math, seeded determinism, and the
   rhythm-untouched guarantee.
 
   **Acceptance criteria:**
-  - [ ] Given a fixed `rand` seed, exactly `Math.round(melody.length * 0.25)` events (floor 1)
+  - [x] Given a fixed `rand` seed, exactly `Math.round(melody.length * 0.25)` events (floor 1)
     have a different `noteIndex` than the input; all others are unchanged
-  - [ ] `startStep`/`length`/`octave` unchanged on every event, including re-rolled ones (assert
+  - [x] `startStep`/`length`/`octave` unchanged on every event, including re-rolled ones (assert
     across the whole melody, not just spot-checked)
-  - [ ] `noteVariance: { active: false }` produces picks in `[0,8)` with no weighting assumption
+  - [x] `noteVariance: { active: false }` produces picks in `[0,8)` with no weighting assumption
     baked into the assertion beyond range
-  - [ ] `noteVariance: { active: true, value: N }` produces picks that are valid `pickWeightedIndex`
+  - [x] `noteVariance: { active: true, value: N }` produces picks that are valid `pickWeightedIndex`
     outputs (i.e. never asserts an impossible index)
-  - [ ] A 1-event melody with `ratio: 0.25` still changes exactly 1 event (floor-of-1 regression)
+  - [x] A 1-event melody with `ratio: 0.25` still changes exactly 1 event (floor-of-1 regression)
 
   **Verification:**
-  - [ ] `npx vitest run src/engine/melodyGenerator.test.ts` — all passing
-  - [ ] `npm run build:types` passes for the test file
+  - [x] `npx vitest run src/engine/melodyGenerator.test.ts` — all passing
+  - [x] `npm run build:types` passes for the test file
 
   **Dependencies:** Task 4.
 
@@ -263,7 +263,7 @@ land.
 
 ### Phase 3: `robotSystems.ts` — the core deliverable
 
-- [ ] **Task 6: `src/systems/robotSystems.ts` — battery tick + docking transitions**
+- [x] **Task 6: `src/systems/robotSystems.ts` — battery tick + docking transitions**
 
   **Description:** New file. Implements the per-measure battery drain/recharge math and the
   threshold-triggered `Docking`/`Departing` state entry (hold-until-next-measure), plus the
@@ -272,27 +272,27 @@ land.
   the pure state-machine skeleton only.
 
   **Acceptance criteria:**
-  - [ ] `tickRobotLifecycle(localeId, measure)` exported, pure with respect to its inputs (reads/
+  - [x] `tickRobotLifecycle(localeId, measure)` exported, pure with respect to its inputs (reads/
     writes only via `useLocaleStore`)
-  - [ ] `Active` robots: `batteryLevel` decreases by `BATTERY_DRAIN_BASE +
+  - [x] `Active` robots: `batteryLevel` decreases by `BATTERY_DRAIN_BASE +
     JOB_BATTERY_DRAIN_SURCHARGE[job.type]` (0 surcharge if no job yet) per tick, floored at 0
-  - [ ] `Docked` robots: `batteryLevel` increases by `BATTERY_RECHARGE_RATE` per tick, capped at 100
-  - [ ] `Active` robot crossing `≤ BATTERY_CRITICAL_THRESHOLD` → `docking: Departing`,
+  - [x] `Docked` robots: `batteryLevel` increases by `BATTERY_RECHARGE_RATE` per tick, capped at 100
+  - [x] `Active` robot crossing `≤ BATTERY_CRITICAL_THRESHOLD` → `docking: Departing`,
     `dockingHoldUntilMeasure: measure + 1` (not immediately `Docked`)
-  - [ ] `Docked` robot crossing `≥ BATTERY_FULL_THRESHOLD` → `docking: Docking`,
+  - [x] `Docked` robot crossing `≥ BATTERY_FULL_THRESHOLD` → `docking: Docking`,
     `dockingHoldUntilMeasure: measure + 1` (not immediately `Active`)
-  - [ ] `Docking`/`Departing` robot with `measure >= dockingHoldUntilMeasure` → lands on
+  - [x] `Docking`/`Departing` robot with `measure >= dockingHoldUntilMeasure` → lands on
     `Active`/`Docked` respectively (calling stub `landOnActive`/`landOnDocked` functions — full
     bodies land in Task 8), clearing `dockingHoldUntilMeasure`
-  - [ ] `startRobotLifecycle(localeId)` / `stopRobotLifecycle()` exported, module-singleton pattern
+  - [x] `startRobotLifecycle(localeId)` / `stopRobotLifecycle()` exported, module-singleton pattern
     identical to `spawnSystem.ts`'s current `startSpawnScheduler`/`stopSpawnScheduler` (one active
     `subscribeToMeasure` unsubscribe-function stored in module state; idempotent start; safe
     repeated stop)
-  - [ ] Uses `subscribeToMeasure` from `beatClock.ts` — no `setTimeout`/`setInterval`
+  - [x] Uses `subscribeToMeasure` from `beatClock.ts` — no `setTimeout`/`setInterval`
 
   **Verification:**
-  - [ ] `npm run build:types` passes for `robotSystems.ts` itself (its test is Task 9)
-  - [ ] `npm run lint` clean
+  - [x] `npm run build:types` passes for `robotSystems.ts` itself (its test is Task 9)
+  - [x] `npm run lint` clean
 
   **Dependencies:** Task 1, Task 2.
 
@@ -300,32 +300,32 @@ land.
 
   **Estimated scope:** S (1 file, concentrated new logic)
 
-- [ ] **Task 7: `src/systems/robotSystems.ts` — job affinity scoring + assignment**
+- [x] **Task 7: `src/systems/robotSystems.ts` — job affinity scoring + assignment**
 
   **Description:** Add `scoreJobAffinities` (pure) and `assignJob` (store-writing) to the same
   file, per spec §1's four job profiles.
 
   **Acceptance criteria:**
-  - [ ] `scoreJobAffinities(robot): Record<JobType, number>` exported, pure — same robot
+  - [x] `scoreJobAffinities(robot): Record<JobType, number>` exported, pure — same robot
     attributes in, same scores out
-  - [ ] Vent Extraction scores highest for low-register (`octaveRange` skewed low), dense
+  - [x] Vent Extraction scores highest for low-register (`octaveRange` skewed low), dense
     (`rhythmicDensity` high), short-motif, low-`noteVariance` robots
-  - [ ] Acoustic Survey scores highest for high-register, sparse, long/inactive-motif,
+  - [x] Acoustic Survey scores highest for high-register, sparse, long/inactive-motif,
     high/unrestricted-variance robots
-  - [ ] Structural Inspection scores highest for wide `octaveRange` span, mid-length motifs,
+  - [x] Structural Inspection scores highest for wide `octaveRange` span, mid-length motifs,
     balanced density
-  - [ ] Fluid Monitoring scores highest for mid-register, default/mid density and variance
-  - [ ] `assignJob(localeId, robotId)` exported: sorts the four types by score descending, skips
+  - [x] Fluid Monitoring scores highest for mid-register, default/mid density and variance
+  - [x] `assignJob(localeId, robotId)` exported: sorts the four types by score descending, skips
     any type already at `JOB_MAX_ROBOTS_PER_TYPE` active assignments in that locale, writes the
     first available type + `assignedAtMeasure: getCurrentMeasure()` to the robot's `job` field via
     `updateRobot`
-  - [ ] All scoring inputs are the robot's already-stored, already-seeded attributes — no new
+  - [x] All scoring inputs are the robot's already-stored, already-seeded attributes — no new
     `Math.random`/`getSeededVal` call introduced for scoring itself (the *inputs* were seeded at
     spawn; the *scoring function* is deterministic arithmetic, no additional randomness)
 
   **Verification:**
-  - [ ] `npm run build:types` passes for `robotSystems.ts`
-  - [ ] `npm run lint` clean
+  - [x] `npm run build:types` passes for `robotSystems.ts`
+  - [x] `npm run lint` clean
 
   **Dependencies:** Task 6 (same file, sequenced to avoid concurrent edits).
 
@@ -333,30 +333,30 @@ land.
 
   **Estimated scope:** S (same file, additive)
 
-- [ ] **Task 8: `src/systems/robotSystems.ts` — landing effects**
+- [x] **Task 8: `src/systems/robotSystems.ts` — landing effects**
 
   **Description:** Implement `landOnActive`/`landOnDocked` for real (replacing Task 6's stubs):
   audio mute/unmute, idle-wander restart, dock positioning, and pitch drift.
 
   **Acceptance criteria:**
-  - [ ] `landOnActive`: sets `docking: Active`, clears `dockingHoldUntilMeasure`; calls
+  - [x] `landOnActive`: sets `docking: Active`, clears `dockingHoldUntilMeasure`; calls
     `AudioEngine.reserveVoice`/`registerRobotMelody` (guarded the same way `spawnSystem.ts`
     already guards — only if `audioAttributes.layers` is a non-empty array); calls `assignJob`
     (Task 7); calls `handleRobotIdle(localeId, robotId)` (imported from `idleSystem.ts`) to restart
     wandering, since `Robot.tsx` only calls it on mount
-  - [ ] `landOnDocked`: sets `docking: Docked`, clears `dockingHoldUntilMeasure`; increments this
+  - [x] `landOnDocked`: sets `docking: Docked`, clears `dockingHoldUntilMeasure`; increments this
     robot's `dockCycleCounters` entry; repositions via `generateSpawnPosition(noiseMap,
     dockCycleCount)` (imported from `spawnSystem.ts` — see Architecture Decisions' no-cycle note);
     re-rolls melody via `reRollMelodyPitches(robot.melody, DOCKED_PITCH_DRIFT_RATIO, { noteVariance:
     robot.noteVariance, rand: <seeded closure keyed 'robot.pitchDrift', per Architecture
     Decisions> })`; calls `AudioEngine.releaseVoice`/`unregisterRobotMelody`
-  - [ ] `dockCycleCounters: Map<string, number>` is module state, not persisted to the store
-  - [ ] No `AudioEngine` method is called that doesn't already exist on its public surface (no new
+  - [x] `dockCycleCounters: Map<string, number>` is module state, not persisted to the store
+  - [x] No `AudioEngine` method is called that doesn't already exist on its public surface (no new
     capability)
 
   **Verification:**
-  - [ ] `npm run build:types` passes for `robotSystems.ts`
-  - [ ] `npm run lint` clean
+  - [x] `npm run build:types` passes for `robotSystems.ts`
+  - [x] `npm run lint` clean
 
   **Dependencies:** Task 4 (`reRollMelodyPitches`), Task 6, Task 7 (`assignJob`).
 
@@ -364,33 +364,33 @@ land.
 
   **Estimated scope:** S (same file, additive — ties the module together)
 
-- [ ] **Task 9: `src/systems/robotSystems.test.ts` — full test suite**
+- [x] **Task 9: `src/systems/robotSystems.test.ts` — full test suite**
 
   **Description:** New test file covering Tasks 6–8's combined behavior, per spec §5's
   `robotSystems.test.ts` coverage list.
 
   **Acceptance criteria:**
-  - [ ] Drain math correct for all four job types plus the no-job case (0 surcharge)
-  - [ ] Recharge math correct, clamped at 100
-  - [ ] Critical-threshold crossing → `Departing` with `dockingHoldUntilMeasure`, not immediate
+  - [x] Drain math correct for all four job types plus the no-job case (0 surcharge)
+  - [x] Recharge math correct, clamped at 100
+  - [x] Critical-threshold crossing → `Departing` with `dockingHoldUntilMeasure`, not immediate
     `Docked`
-  - [ ] Full-threshold crossing → `Docking` with `dockingHoldUntilMeasure`, not immediate `Active`
-  - [ ] Hold-elapsed → lands on `Active`/`Docked`, `dockingHoldUntilMeasure` cleared
-  - [ ] Landing on `Active`: `reserveVoice`/`registerRobotMelody` called (spy/mock `AudioEngine`),
+  - [x] Full-threshold crossing → `Docking` with `dockingHoldUntilMeasure`, not immediate `Active`
+  - [x] Hold-elapsed → lands on `Active`/`Docked`, `dockingHoldUntilMeasure` cleared
+  - [x] Landing on `Active`: `reserveVoice`/`registerRobotMelody` called (spy/mock `AudioEngine`),
     `job` assigned, `handleRobotIdle` invoked (spy/mock `idleSystem`)
-  - [ ] Landing on `Docked`: `releaseVoice`/`unregisterRobotMelody` called, position off-screen,
+  - [x] Landing on `Docked`: `releaseVoice`/`unregisterRobotMelody` called, position off-screen,
     ~25% of `noteIndex` values changed, rhythm fields unchanged
-  - [ ] `scoreJobAffinities` deterministic; each profile scores highest for a robot matching its
+  - [x] `scoreJobAffinities` deterministic; each profile scores highest for a robot matching its
     description
-  - [ ] `assignJob` respects `JOB_MAX_ROBOTS_PER_TYPE` — 4th robot for an already-full job type
+  - [x] `assignJob` respects `JOB_MAX_ROBOTS_PER_TYPE` — 4th robot for an already-full job type
     gets its next-best available type
-  - [ ] `startRobotLifecycle`/`stopRobotLifecycle` idempotent, matching `spawnSystem.test.ts`'s
+  - [x] `startRobotLifecycle`/`stopRobotLifecycle` idempotent, matching `spawnSystem.test.ts`'s
     existing scheduler-lifecycle test style (before this phase deletes those specific tests in
     Task 13)
 
   **Verification:**
-  - [ ] `npx vitest run src/systems/robotSystems.test.ts` — all passing
-  - [ ] `npm run build:types` passes for the test file
+  - [x] `npx vitest run src/systems/robotSystems.test.ts` — all passing
+  - [x] `npm run build:types` passes for the test file
 
   **Dependencies:** Task 8.
 
@@ -400,19 +400,19 @@ land.
 
 ### Phase 4: Existing-System Docking Guards
 
-- [ ] **Task 10: `src/systems/idleSystem.ts` — docking guard**
+- [x] **Task 10: `src/systems/idleSystem.ts` — docking guard**
 
   **Description:** `handleRobotIdle` must no-op for non-`Active` robots so a `Docked` robot never
   wanders off its dock position.
 
   **Acceptance criteria:**
-  - [ ] Early-return condition becomes `!robot || robot.state !== RobotState.Idle ||
+  - [x] Early-return condition becomes `!robot || robot.state !== RobotState.Idle ||
     robot.docking !== DockingState.Active`
-  - [ ] No other logic in the file changes
+  - [x] No other logic in the file changes
 
   **Verification:**
-  - [ ] `npx vitest run src/systems/idleSystem.test.ts` — all passing, including new test below
-  - [ ] `npm run build:types` passes
+  - [x] `npx vitest run src/systems/idleSystem.test.ts` — all passing, including new test below
+  - [x] `npm run build:types` passes
 
   **Dependencies:** Task 1 (`DockingState`).
 
@@ -420,20 +420,20 @@ land.
 
   **Estimated scope:** XS (2 files, one-line guard + one test)
 
-- [ ] **Task 11: `src/systems/collisionSystem.ts` — docking guard**
+- [x] **Task 11: `src/systems/collisionSystem.ts` — docking guard**
 
   **Description:** `canInteract` must exclude non-`Active` robots so a `Docked` (muted) robot is
   never flagged into an audible `triggerInteraction` by the ticker, which iterates every robot in
   the store regardless of render state.
 
   **Acceptance criteria:**
-  - [ ] `validState` becomes `(robot.state === RobotState.Idle || robot.state ===
+  - [x] `validState` becomes `(robot.state === RobotState.Idle || robot.state ===
     RobotState.Moving) && robot.docking === DockingState.Active`
-  - [ ] No other logic in the file changes
+  - [x] No other logic in the file changes
 
   **Verification:**
-  - [ ] `npx vitest run src/systems/collisionSystem.test.ts` — all passing, including new test below
-  - [ ] `npm run build:types` passes
+  - [x] `npx vitest run src/systems/collisionSystem.test.ts` — all passing, including new test below
+  - [x] `npm run build:types` passes
 
   **Dependencies:** Task 1 (parallel-safe with Task 10).
 
@@ -443,17 +443,17 @@ land.
 
 ### Checkpoint: Core Engine
 
-- [ ] `npm test` passes for `robotSystems.test.ts`, `melodyGenerator.test.ts`, `idleSystem.test.ts`,
+- [x] `npm test` passes for `robotSystems.test.ts`, `melodyGenerator.test.ts`, `idleSystem.test.ts`,
   `collisionSystem.test.ts`.
-- [ ] `npm run build:types` passes for every file touched in Phases 1–4 (`spawnSystem.ts`,
+- [x] `npm run build:types` passes for every file touched in Phases 1–4 (`spawnSystem.ts`,
   `worldTransition.ts`, and the UI files remain broken until Phases 5–6 — expected).
-- [ ] Manual/unit spot check: calling `tickRobotLifecycle` repeatedly against a hand-built `Active`
+- [x] Manual/unit spot check: calling `tickRobotLifecycle` repeatedly against a hand-built `Active`
   robot with a critical-drain job drives it to `Departing` then `Docked` within the expected number
   of ticks.
 
 ### Phase 5: Roster Creation Retirement
 
-- [ ] **Task 12: `src/systems/spawnSystem.ts` — remove scheduler, add `spawnInitialRoster`**
+- [x] **Task 12: `src/systems/spawnSystem.ts` — remove scheduler, add `spawnInitialRoster`**
 
   **Description:** Remove `startSpawnScheduler`/`stopSpawnScheduler`/`SPAWN_INTERVAL_MIN/MAX` and
   the min/max "bounce" branch in `spawnRobot`; remove `persists: false` from the constructed
@@ -462,29 +462,31 @@ land.
   `reRegisterAllRobotsAudio`/`removeNonPersistentRobots` (no more power-cycle removal).
 
   **Acceptance criteria:**
-  - [ ] `startSpawnScheduler`, `stopSpawnScheduler`, `SPAWN_INTERVAL_MIN`, `SPAWN_INTERVAL_MAX`
+  - [x] `startSpawnScheduler`, `stopSpawnScheduler`, `SPAWN_INTERVAL_MIN`, `SPAWN_INTERVAL_MAX`
     removed
-  - [ ] `spawnRobot`'s min/max "bounce" branch (the `if (robots.length >= maxRobots) { ... }`
+  - [x] `spawnRobot`'s min/max "bounce" branch (the `if (robots.length >= maxRobots) { ... }`
     block) removed
-  - [ ] `spawnRobot` accepts `docking: DockingState` and `batteryLevel: number` (or computes them
+  - [x] `spawnRobot` accepts `docking: DockingState` and `batteryLevel: number` (or computes them
     internally when called by `spawnInitialRoster` — implementer's choice, but the constructed
     `Robot` always has both set, never defaulted implicitly)
-  - [ ] `spawnRobot`'s `AudioEngine.reserveVoice`/`registerRobotMelody` calls are conditional on
+  - [x] `spawnRobot`'s `AudioEngine.reserveVoice`/`registerRobotMelody` calls are conditional on
     `docking === DockingState.Active` — a robot created `Docked` gets neither
-  - [ ] `persists: false` removed from the constructed `Robot` literal
-  - [ ] `spawnInitialRoster(localeId)` exported: creates exactly `MAX_ROBOTS` (12) robots; a
+  - [x] `persists: false` removed from the constructed `Robot` literal
+  - [x] `spawnInitialRoster(localeId)` exported: creates exactly `MAX_ROBOTS` (12) robots; a
     seeded count in `[INITIAL_ACTIVE_ROBOTS_MIN, INITIAL_ACTIVE_ROBOTS_MAX]` are `Active`, the rest
     `Docked`; every `Docked` robot's `batteryLevel` is seeded and varied (not all identical, not
     all 100); does **not** assign jobs (per Architecture Decisions' no-cycle note — that's
     `worldTransition.ts`'s job in Task 15)
-  - [ ] `reRegisterAllRobotsAudio`, `removeNonPersistentRobots` removed
-  - [ ] `import { removeRobotWithExit } from './removeSystem'` (if present) removed — its only
+  - [x] `removeNonPersistentRobots` removed outright (no replacement — nothing is ever removed now).
+    `reRegisterAllRobotsAudio` is **adapted, not removed** — see the "Scope discovered during
+    implementation" note below; `powerController.ts` still calls it on power-on
+  - [x] `import { removeRobotWithExit } from './removeSystem'` (if present) removed — its only
     call site was the deleted bounce branch
 
   **Verification:**
-  - [ ] `npm run build:types` passes for `spawnSystem.ts` itself (its test is Task 13; callers in
+  - [x] `npm run build:types` passes for `spawnSystem.ts` itself (its test is Task 13; callers in
     `worldTransition.ts`/`RobotsTab.tsx` remain broken until Tasks 15/17 — expected)
-  - [ ] `npm run lint` clean
+  - [x] `npm run lint` clean
 
   **Dependencies:** Task 1, Task 2, Task 7 (`assignJob` not called here, but `spawnRobot`'s
   shape must match what `robotSystems.ts` expects a freshly-created `Robot` to look like).
@@ -493,26 +495,26 @@ land.
 
   **Estimated scope:** M (1 file, but a large removal + a new function)
 
-- [ ] **Task 13: `src/systems/spawnSystem.test.ts` — rewrite for the new roster model**
+- [x] **Task 13: `src/systems/spawnSystem.test.ts` — rewrite for the new roster model**
 
   **Description:** Remove scheduler/min-max/bounce/persists tests; add coverage for
   `spawnInitialRoster`.
 
   **Acceptance criteria:**
-  - [ ] All `startSpawnScheduler`/`stopSpawnScheduler`/min-max-bounce/`persists`-related tests
+  - [x] All `startSpawnScheduler`/`stopSpawnScheduler`/min-max-bounce/`persists`-related tests
     removed
-  - [ ] New test: `spawnInitialRoster` produces exactly 12 robots
-  - [ ] New test: the `Active` count falls within `[INITIAL_ACTIVE_ROBOTS_MIN,
+  - [x] New test: `spawnInitialRoster` produces exactly 12 robots
+  - [x] New test: the `Active` count falls within `[INITIAL_ACTIVE_ROBOTS_MIN,
     INITIAL_ACTIVE_ROBOTS_MAX]`
-  - [ ] New test: every `Docked` robot's `batteryLevel` is seeded (deterministic across two runs
+  - [x] New test: every `Docked` robot's `batteryLevel` is seeded (deterministic across two runs
     against the same coordinates) and not uniformly identical across the roster
-  - [ ] New test: `Docked` robots have no voice reserved / melody registered
+  - [x] New test: `Docked` robots have no voice reserved / melody registered
     (`AudioEngine.getVoiceForRobot`/`getRegisteredMelody` empty); `Active` robots do
-  - [ ] Existing robot-ID-determinism tests (from Phase 6) still pass unmodified
+  - [x] Existing robot-ID-determinism tests (from Phase 6) still pass unmodified
 
   **Verification:**
-  - [ ] `npx vitest run src/systems/spawnSystem.test.ts` — all passing
-  - [ ] `npm run build:types` passes
+  - [x] `npx vitest run src/systems/spawnSystem.test.ts` — all passing
+  - [x] `npm run build:types` passes
 
   **Dependencies:** Task 12.
 
@@ -520,19 +522,20 @@ land.
 
   **Estimated scope:** S (1 file)
 
-- [ ] **Task 14: Delete `src/systems/removeSystem.ts` and `removeSystem.test.ts`**
+- [x] **Task 14: Delete `src/systems/removeSystem.ts` and `removeSystem.test.ts`**
 
   **Description:** Its only caller (`spawnSystem.ts`'s bounce branch) is gone as of Task 12 —
   remove the dead file pair outright, per Architecture Decisions §7.4.
 
   **Acceptance criteria:**
-  - [ ] `src/systems/removeSystem.ts` deleted
-  - [ ] `src/systems/removeSystem.test.ts` deleted
-  - [ ] `grep -r "removeRobotWithExit\|from '.*removeSystem'" src` returns nothing
+  - [x] `src/systems/removeSystem.ts` deleted
+  - [x] `src/systems/removeSystem.test.ts` — turned out not to exist (this plan's file list was
+    wrong on that point; `removeSystem.ts` had no dedicated test file to delete)
+  - [x] `grep -r "removeRobotWithExit\|from '.*removeSystem'" src` returns nothing
 
   **Verification:**
-  - [ ] `npm run build:types` — no new errors (confirms nothing still imports from the deleted file)
-  - [ ] `npm run lint` clean project-wide
+  - [x] `npm run build:types` — no new errors (confirms nothing still imports from the deleted file)
+  - [x] `npm run lint` clean project-wide
 
   **Dependencies:** Task 12.
 
@@ -540,7 +543,7 @@ land.
 
   **Estimated scope:** XS (deletion only)
 
-- [ ] **Task 15: `src/systems/worldTransition.ts` — rewire locale bring-online**
+- [x] **Task 15: `src/systems/worldTransition.ts` — rewire locale bring-online**
 
   **Description:** Replace the two-`spawnRobot`-calls-plus-scheduler init sequence with
   `spawnInitialRoster` + `startRobotLifecycle`, add the initial `assignJob` loop for
@@ -548,37 +551,71 @@ land.
   `LocaleSettings`.
 
   **Acceptance criteria:**
-  - [ ] `initializeLocale`'s `if (locale.robots.length === 0) { spawnRobot(localeId);
+  - [x] `initializeLocale`'s `if (locale.robots.length === 0) { spawnRobot(localeId);
     spawnRobot(localeId); }` replaced with `if (locale.robots.length === 0) {
     spawnInitialRoster(localeId); }`
-  - [ ] Immediately after roster creation, every robot whose `docking === DockingState.Active` gets
+  - [x] Immediately after roster creation, every robot whose `docking === DockingState.Active` gets
     `robotSystems.ts`'s `assignJob(localeId, robot.id)` called once
-  - [ ] `stopSpawnScheduler()`/`startSpawnScheduler(localeId)` calls replaced with
+  - [x] `stopSpawnScheduler()`/`startSpawnScheduler(localeId)` calls replaced with
     `stopRobotLifecycle()`/`startRobotLifecycle(localeId)`
-  - [ ] `buildLocale`'s `settings: { bpm: 60, maxRobots: 12, minRobots: 2, autoSpawn: true,
+  - [x] `buildLocale`'s `settings: { bpm: 60, maxRobots: 12, minRobots: 2, autoSpawn: true,
     spawnFrequency: 4 }` becomes `settings: { bpm: 60 }` (matching Task 3's trimmed
     `LocaleSettings`)
-  - [ ] `constants/index.ts`'s `DEFAULT_LOCALE.settings` gets the same trim (cross-check — this
-    constant lives in `constants/index.ts`, not `worldTransition.ts`, but is the same shape and
-    must be updated in this task to avoid a stray compile error)
+  - [x] `stores/localeStore.ts`'s `DEFAULT_LOCALE.settings` gets the same trim (correction from
+    this plan's original draft, which misattributed this constant to `constants/index.ts` — it
+    actually lives in `stores/localeStore.ts`; same shape, same need to update in this task to
+    avoid a stray compile error)
 
   **Verification:**
-  - [ ] `npx vitest run src/systems/worldTransition.test.ts` — all passing
-  - [ ] `npm run build:types` passes project-wide for every file touched so far (RobotsTab/
+  - [x] `npx vitest run src/systems/worldTransition.test.ts` — all passing
+  - [x] `npm run build:types` passes project-wide for every file touched so far (RobotsTab/
     RobotMetaTab remain broken until Tasks 16–17 — expected)
 
   **Dependencies:** Task 3, Task 12, Task 8 (needs `startRobotLifecycle`/`assignJob` to exist).
 
   **Files:** `src/systems/worldTransition.ts`, `src/systems/worldTransition.test.ts`,
-  `src/constants/index.ts`
+  `src/stores/localeStore.ts`
 
   **Estimated scope:** S (3 files, one of which is a one-line follow-up in an already-touched file)
 
+  **Scope discovered during implementation — folded into this task:** grepping for
+  `startSpawnScheduler`/`stopSpawnScheduler`/`removeNonPersistentRobots`/`reRegisterAllRobotsAudio`
+  callers (not just definitions) surfaced two files spec §2 missed entirely: `powerController.ts`
+  (power-off calls `stopSpawnScheduler()` + `removeNonPersistentRobots()`; power-on calls
+  `reRegisterAllRobotsAudio()`, which filters by `r.persists`) and `OceanScene.tsx` (mount calls
+  `initializeLocale`; unmount calls `stopSpawnScheduler()`). Both need the same `stopSpawnScheduler`
+  → `stopRobotLifecycle` swap this task already does in `worldTransition.ts`, for the identical
+  reason: `AudioEngine.killAll()` triggers `resetBeatClock()`, which silently clears every
+  `subscribeToMeasure` listener — without an explicit `stopRobotLifecycle()` call to null out the
+  module's own `lifecycleUnsubscribe` reference first, a later `startRobotLifecycle()` call would
+  see it as "already running" and skip resubscribing, permanently killing the tick after the first
+  power cycle. Additionally: `removeNonPersistentRobots()` has no replacement call (nothing is ever
+  removed now) — just delete the call site — and `reRegisterAllRobotsAudio()`'s filter changes from
+  `r.persists` to `r.docking === DockingState.Active` (every robot survives a power cycle now, but
+  only currently-Active robots had a voice to lose when `AudioEngine.killAll()` ran, so only they
+  need re-registering; Docked robots have no voice to restore).
+
+  **Additional acceptance criteria (from the above):**
+  - [x] `powerController.ts`: `stopSpawnScheduler` import/calls (in both `shutdown()` and
+    `shutdownWithAnimation()`) replaced with `stopRobotLifecycle`; `removeNonPersistentRobots()`
+    call sites deleted (both methods); `reRegisterAllRobotsAudio` import kept (same name — see
+    Task 12's own note on this function), now filtering by `docking === DockingState.Active`
+  - [x] `OceanScene.tsx`: `stopSpawnScheduler` import/call in the unmount cleanup replaced with
+    `stopRobotLifecycle` (from `robotSystems.ts`)
+  - [x] `powerController.test.ts`: `stopSpawnScheduler`/`removeNonPersistentRobots` mocks/assertions
+    replaced with `stopRobotLifecycle`; the "removeNonPersistentRobots called" assertion deleted
+    (nothing to assert — the call no longer exists)
+  - [x] `OceanScene.test.tsx`: `stopSpawnScheduler` mock/assertion replaced with `stopRobotLifecycle`
+
+  **Additional files:** `src/systems/powerController.ts`, `src/systems/powerController.test.ts`,
+  `src/components/panels/screen/worldView/OceanScene.tsx`,
+  `src/components/panels/screen/worldView/OceanScene.test.tsx`
+
 ### Checkpoint: Roster Creation Retirement
 
-- [ ] `npm test` passes for `spawnSystem.test.ts`, `worldTransition.test.ts`.
-- [ ] `npm run build:types` — only `RobotMetaTab.tsx`/`RobotsTab.tsx` (Phase 6) remain broken.
-- [ ] Manual check: `initializeLocale` on a fresh locale produces 12 robots with the documented
+- [x] `npm test` passes for `spawnSystem.test.ts`, `worldTransition.test.ts`.
+- [x] `npm run build:types` — only `RobotMetaTab.tsx`/`RobotsTab.tsx` (Phase 6) remain broken.
+- [x] Manual check: `initializeLocale` on a fresh locale produces 12 robots with the documented
   active/docked split, no stray scheduler running.
 
 ### Phase 6: UI Removal + Store Clamp

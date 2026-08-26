@@ -5,7 +5,7 @@ import alea from 'alea';
 import type { NoiseFunction2D } from 'simplex-noise';
 import type { Vec2 } from '../types/Vec2';
 import type { AudioAttributes, WaveformType, Robot } from '../types/Robot';
-import { RobotState } from '../types/Robot';
+import { RobotState, DockingState } from '../types/Robot';
 import {
   generateMelodyForRobot,
   DEFAULT_RHYTHMIC_DENSITY,
@@ -15,25 +15,17 @@ import {
 import type { ToggleValue } from '../engine/melodyGenerator';
 import { AudioEngine } from '../engine/AudioEngine';
 import type { OscillatorLayer } from '../types/layeredAudio';
-import { scheduleRepeat, cancelSchedule } from '../engine/beatClock';
-import { DEV_TUNING } from '../constants';
+import { DEV_TUNING, MAX_ROBOTS, INITIAL_ACTIVE_ROBOTS_MIN, INITIAL_ACTIVE_ROBOTS_MAX } from '../constants';
 import useLocaleStore from '../stores/localeStore';
-import type { LocaleSettings } from '../types/locale';
-import { removeRobotWithExit } from './removeSystem';
 import { initRobotIdleCounter } from './idleSystem';
 import { getLocaleNoiseMap } from '../utils/noiseMaps';
 import { getSeededVal } from '../utils/getSeededVal';
-import { swallow } from '../utils/helpers';
 import type { RobotLfoTargetId, LfoSettings } from '../types/lfo';
 import { ROBOT_LFO_TARGET_IDS, LFO_SHAPES, LFO_RATE_MIN, LFO_RATE_MAX, LFO_DEPTH_MIN, LFO_DEPTH_MAX } from '../types/lfo';
 
 // ========================================
 // CONSTANTS
 // ========================================
-/** Spawn interval range in measures; a value is chosen randomly on each scheduler start. */
-const SPAWN_INTERVAL_MIN = 2;
-const SPAWN_INTERVAL_MAX = 8;
-
 const WORLD_WIDTH = 1920;
 const WORLD_HEIGHT = 1080;
 /** Distance outside the SVG viewBox where robots spawn before swimming on-screen. */
@@ -112,8 +104,6 @@ function generateRobotId(noiseMap: NoiseFunction2D, spawnCount: number): string 
 // ========================================
 // MODULE STATE
 // ========================================
-let spawnScheduleId: string | null = null;
-
 /** Per-locale spawn counters — used as deterministic offset for noise sampling. Not stored in Zustand. */
 const spawnCounters = new Map<string, number>();
 
@@ -126,52 +116,6 @@ function getAndIncrementSpawnCount(localeId: string): number {
 // ========================================
 // EXPORTS
 // ========================================
-
-/**
- * Start the periodic robot spawn scheduler.
- * Picks a random interval between SPAWN_INTERVAL_MIN and SPAWN_INTERVAL_MAX measures,
- * then schedules a repeating callback via BeatClock. Idempotent — safe to call
- * multiple times; only one schedule will be active at a time.
- */
-export function startSpawnScheduler(localeId: string): void {
-  if (spawnScheduleId !== null) {
-    if (DEV_TUNING) console.log('[SpawnSystem] Scheduler already running, skipping start');
-    return;
-  }
-
-  const locale = useLocaleStore.getState().getLocaleById(localeId);
-  const schedulerNoiseMap = locale
-    ? getLocaleNoiseMap(localeId, locale.coordinates.x, locale.coordinates.y)
-    : null;
-  const interval = SPAWN_INTERVAL_MIN + Math.floor(
-    schedulerNoiseMap
-      ? getSeededVal(schedulerNoiseMap, 'spawn.interval', spawnCounters.get(localeId) ?? 0, 0, SPAWN_INTERVAL_MAX - SPAWN_INTERVAL_MIN + 1)
-      : alea(localeId)() * (SPAWN_INTERVAL_MAX - SPAWN_INTERVAL_MIN + 1)
-  );
-
-  spawnScheduleId = scheduleRepeat(`${interval}m`, () => {
-    spawnRobot(localeId);
-  });
-
-  if (DEV_TUNING) console.log(`[SpawnSystem] Scheduler started with interval ${interval}m`);
-}
-
-/**
- * Stop the periodic robot spawn scheduler.
- * Cancels the active BeatClock schedule and clears the stored ID.
- * Idempotent — safe to call when no scheduler is running.
- */
-export function stopSpawnScheduler(): void {
-  if (spawnScheduleId === null) {
-    if (DEV_TUNING) console.log('[SpawnSystem] Scheduler not running, nothing to stop');
-    return;
-  }
-
-  cancelSchedule(spawnScheduleId);
-  spawnScheduleId = null;
-
-  if (DEV_TUNING) console.log('[SpawnSystem] Scheduler stopped');
-}
 
 /**
  * Generate a spawn position just outside the visible SVG viewBox.
@@ -350,40 +294,23 @@ export function generateRobotLfoSettings(noiseMap: NoiseFunction2D, offset: numb
 }
 
 /**
- * Spawn a new robot with randomized attributes
- * Enforces MAX_ROBOTS limit and registers melody with AudioEngine
+ * Create and add a single robot with randomized attributes, registering its
+ * melody with AudioEngine. The roster is fixed-size now (see
+ * spawnInitialRoster) — this no longer enforces any max/min bounce; callers
+ * decide how many robots to create and with what starting docking/battery.
+ *
+ * @param options.docking Starting DockingState. Default: Active — matches
+ *   this function's pre-lifecycle behavior (every spawned robot was
+ *   immediately visible/audible), so existing single-call-site callers and
+ *   tests are unaffected unless they opt into a different starting state.
+ * @param options.batteryLevel Starting battery (0-100). Default: 100.
  */
-export function spawnRobot(localeId: string): void {
+export function spawnRobot(localeId: string, options?: { docking?: DockingState; batteryLevel?: number }): void {
+  const docking = options?.docking ?? DockingState.Active;
+  const batteryLevel = options?.batteryLevel ?? 100;
+
   const locale = useLocaleStore.getState().getLocaleById(localeId);
   const robots = locale?.robots ?? [];
-  const settings = (locale?.settings as LocaleSettings) ?? { maxRobots: 12, minRobots: 2 };
-
-  const maxRobots = settings.maxRobots ?? 12;
-  const minRobots = settings.minRobots ?? 2;
-
-  // If at or above max, remove oldest robot instead of spawning.
-  // This causes the population to "bounce" between min and max limits.
-  if (robots.length >= maxRobots) {
-    // Choose from non-persisting robots only — robots with `persists === true` must never be removed.
-    const removable = robots.filter((r) => !r.persists);
-    if (removable.length > 0) {
-      if (robots.length > minRobots) {
-        let oldest = removable[0];
-        for (const r of removable) {
-          if (r.createdAt < oldest.createdAt) {
-            oldest = r;
-          }
-        }
-        removeRobotWithExit(localeId, oldest.id);
-        if (DEV_TUNING) console.log(`[SpawnSystem] Max robots reached, removed oldest non-persisting ${oldest.id}`);
-      } else {
-        if (DEV_TUNING) console.log(`[SpawnSystem] At minRobots (${minRobots}); no removal performed`);
-      }
-    } else {
-      if (DEV_TUNING) console.log('[SpawnSystem] Max robots reached but all robots persist; skipping spawn to avoid removing persisted robots');
-    }
-    return;
-  }
 
   // Resolve locale noise map for deterministic attribute generation
   const noiseMap = locale
@@ -509,8 +436,8 @@ export function spawnRobot(localeId: string): void {
       return Math.max(0.5, Math.min(0.95, seeded + registerBias));
     })(),
     createdAt: Date.now(),
-    // Persisting robots survive power-off cycles; default to false.
-    persists: false,
+    docking,
+    batteryLevel,
   };
 
   // Add to locale store
@@ -520,35 +447,74 @@ export function spawnRobot(localeId: string): void {
   // destinations are phase-shifted away from other robots in the same locale.
   initRobotIdleCounter(robot.id, spawnCount);
 
-  // Register melody with AudioEngine
-  // Unregister first to guard against duplicate entries if robot id is reused.
-  AudioEngine.unregisterRobotMelody(robot.id);
-  // Reserve a voice for this robot (best-effort) so its timbre/adsr are isolated.
-  // Waveform is applied once here on the idle slot — no mid-playback oscillator rebuilds.
-  try {
-    const layers = (robot.audioAttributes as unknown as { layers?: OscillatorLayer[] })?.layers;
-    if (Array.isArray(layers) && layers.length > 0) {
-      AudioEngine.reserveVoice(robot.id, layers, robot.audioAttributes.phase, robot.audioAttributes.detune, layers[0]?.pulseWidth);
+  // Only an Active robot is audible — a robot created Docked gets no voice
+  // reserved and no melody registered until it actually lands on Active
+  // (robotSystems.ts's landOnActive does that later).
+  if (docking === DockingState.Active) {
+    // Unregister first to guard against duplicate entries if robot id is reused.
+    AudioEngine.unregisterRobotMelody(robot.id);
+    // Reserve a voice for this robot (best-effort) so its timbre/adsr are isolated.
+    // Waveform is applied once here on the idle slot — no mid-playback oscillator rebuilds.
+    try {
+      const layers = (robot.audioAttributes as unknown as { layers?: OscillatorLayer[] })?.layers;
+      if (Array.isArray(layers) && layers.length > 0) {
+        AudioEngine.reserveVoice(robot.id, layers, robot.audioAttributes.phase, robot.audioAttributes.detune, layers[0]?.pulseWidth);
+      }
+    } catch (err) {
+      if (DEV_TUNING) console.warn('[SpawnSystem] reserveVoice failed', err);
     }
-  } catch (err) {
-    if (DEV_TUNING) console.warn('[SpawnSystem] reserveVoice failed', err);
+    AudioEngine.registerRobotMelody(robot.id, robot.melody);
   }
-  AudioEngine.registerRobotMelody(robot.id, robot.melody);
 
   if (DEV_TUNING) {
-    console.log(`[Spawn] Robot ${robot.id} spawned with ${robot.melody.length} melody events`);
+    console.log(`[Spawn] Robot ${robot.id} spawned (${docking}) with ${robot.melody.length} melody events`);
   }
 }
 
 /**
- * Re-register persistent robots with the AudioEngine after a power-on.
- * Releases any stale voice reservation, re-reserves with the robot's
- * original audio attributes, and re-registers its melody.
- * Non-persistent robots are not present in the store at this point
- * (removed by removeNonPersistentRobots on power-off).
+ * Create the full fixed-size roster (MAX_ROBOTS robots) once, at locale load.
+ * A seeded count within [INITIAL_ACTIVE_ROBOTS_MIN, INITIAL_ACTIVE_ROBOTS_MAX]
+ * start Active (full battery); the rest start Docked with varied seeded
+ * starting battery so they don't all finish recharging in lockstep. Does
+ * NOT assign jobs — worldTransition.ts's initializeLocale does that for the
+ * initially-Active robots immediately after this returns (see
+ * docs/specs/ROBOT_SYSTEMS_ENGINE.md's Architecture Decisions on why job
+ * assignment isn't done here: avoids an import cycle with robotSystems.ts).
+ */
+export function spawnInitialRoster(localeId: string): void {
+  const locale = useLocaleStore.getState().getLocaleById(localeId);
+  const noiseMap = locale ? getLocaleNoiseMap(localeId, locale.coordinates.x, locale.coordinates.y) : null;
+
+  const activeCount = INITIAL_ACTIVE_ROBOTS_MIN + Math.floor(
+    noiseMap
+      ? getSeededVal(noiseMap, 'roster.activeCount', 0, 0, INITIAL_ACTIVE_ROBOTS_MAX - INITIAL_ACTIVE_ROBOTS_MIN + 1)
+      : alea(`${localeId}:activeCount`)() * (INITIAL_ACTIVE_ROBOTS_MAX - INITIAL_ACTIVE_ROBOTS_MIN + 1)
+  );
+
+  for (let i = 0; i < MAX_ROBOTS; i++) {
+    if (i < activeCount) {
+      spawnRobot(localeId, { docking: DockingState.Active, batteryLevel: 100 });
+    } else {
+      const dockedBattery = Math.floor(
+        noiseMap
+          ? getSeededVal(noiseMap, 'roster.dockedBattery', i, 0, 100)
+          : alea(`${localeId}:dockedBattery:${i}`)() * 100
+      );
+      spawnRobot(localeId, { docking: DockingState.Docked, batteryLevel: dockedBattery });
+    }
+  }
+}
+
+/**
+ * Re-register every currently-Active robot's audio with AudioEngine after a
+ * power-on. `AudioEngine.killAll()` (called on power-off) tears down every
+ * reserved voice regardless of docking state; every robot survives the power
+ * cycle now (nothing is ever removed), but only Active robots had a voice to
+ * lose in the first place, so only they need re-registering — a Docked
+ * robot has no voice/melody registered until it actually lands on Active.
  */
 export function reRegisterAllRobotsAudio(localeId: string): void {
-  const robots = (useLocaleStore.getState().getLocaleById(localeId)?.robots || []).filter((r) => r.persists);
+  const robots = (useLocaleStore.getState().getLocaleById(localeId)?.robots || []).filter((r) => r.docking === DockingState.Active);
   robots.forEach((robot) => {
     AudioEngine.releaseVoice(robot.id);
     try {
@@ -562,24 +528,5 @@ export function reRegisterAllRobotsAudio(localeId: string): void {
     AudioEngine.unregisterRobotMelody(robot.id);
     AudioEngine.registerRobotMelody(robot.id, robot.melody);
   });
-  if (DEV_TUNING) console.log(`[SpawnSystem] reRegisterAllRobotsAudio: re-registered ${robots.length} persisted robots`);
-}
-
-/**
- * Remove all non-persistent robots from the store and release their audio resources.
- * Call on power-off. Persistent robots (robot.persists === true) are kept.
- */
-export function removeNonPersistentRobots(localeId: string): void {
-  const robots = (useLocaleStore.getState().getLocaleById(localeId)?.robots || []).filter((r) => !r.persists);
-  robots.forEach((robot) => {
-    try {
-      AudioEngine.releaseVoice(robot.id);
-    } catch (err) {
-      if (DEV_TUNING) swallow(err, 'AudioEngine.releaseVoice');
-    }
-    AudioEngine.unregisterRobotMelody(robot.id);
-
-    useLocaleStore.getState().removeRobot(localeId, robot.id);
-  });
-  if (DEV_TUNING) console.log(`[SpawnSystem] removeNonPersistentRobots: removed ${robots.length} non-persisting robots`);
+  if (DEV_TUNING) console.log(`[SpawnSystem] reRegisterAllRobotsAudio: re-registered ${robots.length} Active robots`);
 }

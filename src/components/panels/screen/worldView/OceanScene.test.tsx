@@ -12,9 +12,9 @@ vi.mock('@/systems/worldTransition', () => ({
   initializeLocale: (localeId: string) => initializeLocaleMock(localeId),
 }));
 
-const stopSpawnSchedulerMock = vi.fn();
-vi.mock('@/systems/spawnSystem', () => ({
-  stopSpawnScheduler: () => stopSpawnSchedulerMock(),
+const stopRobotLifecycleMock = vi.fn();
+vi.mock('@/systems/robotSystems', () => ({
+  stopRobotLifecycle: () => stopRobotLifecycleMock(),
 }));
 
 // ========================================
@@ -33,7 +33,7 @@ describe('OceanScene', () => {
     usePlanetStore.setState({ planets: [{ ...DEFAULT_PELAGOS }], currentPlanetId: DEFAULT_PELAGOS.id });
     useLocaleStore.setState({ locales: { [DEFAULT_LOCALE_ID]: { ...DEFAULT_LOCALE, robots: [], actors: [] } } });
     initializeLocaleMock.mockClear();
-    stopSpawnSchedulerMock.mockClear();
+    stopRobotLifecycleMock.mockClear();
   });
 
   it('calls initializeLocale with the active locale id on mount, exactly once', () => {
@@ -43,11 +43,11 @@ describe('OceanScene', () => {
     cleanup();
   });
 
-  it('calls stopSpawnScheduler on unmount', () => {
+  it('calls stopRobotLifecycle on unmount', () => {
     const { unmount } = render(<OceanScene />);
-    expect(stopSpawnSchedulerMock).not.toHaveBeenCalled();
+    expect(stopRobotLifecycleMock).not.toHaveBeenCalled();
     unmount();
-    expect(stopSpawnSchedulerMock).toHaveBeenCalledTimes(1);
+    expect(stopRobotLifecycleMock).toHaveBeenCalledTimes(1);
   });
 
   it('does not call initializeLocale again on re-render (mount-only effect)', () => {

@@ -14,7 +14,7 @@ import WorldView from './WorldView';
 import { usePlanetStore, DEFAULT_PELAGOS } from '@/stores/planetStore';
 import { useLocaleStore, DEFAULT_LOCALE, DEFAULT_LOCALE_ID } from '@/stores/localeStore';
 import { retransmitWorld } from '@/systems/worldTransition';
-import { stopSpawnScheduler } from '@/systems/spawnSystem';
+import { stopRobotLifecycle } from '@/systems/robotSystems';
 
 // ========================================
 // TESTS
@@ -27,7 +27,7 @@ describe('WorldView — survives retransmitting to a new planet', () => {
   });
 
   afterEach(() => {
-    stopSpawnScheduler();
+    stopRobotLifecycle();
   });
 
   it('still renders a planet-view after retransmitting a brand-new planet name', () => {

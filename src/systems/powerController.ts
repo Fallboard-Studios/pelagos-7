@@ -1,7 +1,8 @@
 import { AudioEngine } from '../engine/AudioEngine';
 import { useAudioStore } from '../stores/audioStore';
 import { resetHarmony } from '../engine/harmonySystem';
-import { reRegisterAllRobotsAudio, removeNonPersistentRobots, stopSpawnScheduler } from './spawnSystem';
+import { reRegisterAllRobotsAudio } from './spawnSystem';
+import { stopRobotLifecycle } from './robotSystems';
 import { stopCollisionDetection } from './collisionSystem';
 import { useUIStore } from '../stores/uiStore';
 import { useLocaleStore } from '../stores/localeStore';
@@ -24,10 +25,16 @@ export const powerController = {
   async shutdown() {
     // Immediate stop (no UI animation). Use this when caller already handled
     // visuals or when a hard shutdown is required.
-    stopSpawnScheduler();
+    // stopRobotLifecycle() must run before AudioEngine.killAll() — killAll
+    // triggers resetBeatClock(), which silently clears every subscribeToMeasure
+    // listener; without this call first, the module's own lifecycleUnsubscribe
+    // reference would go stale, and a later startRobotLifecycle() would think
+    // it's "already running" and skip resubscribing, permanently killing the
+    // tick after this power cycle. No robots are removed anymore — every robot
+    // survives a power cycle now (docking replaces the old persists model).
+    stopRobotLifecycle();
     stopCollisionDetection();
     AudioEngine.killAll();
-    removeNonPersistentRobots(getActiveLocaleId());
     try {
       useLocaleStore.getState().setLocaleData(getActiveLocaleId(), { actors: [] });
     } catch (e) {
@@ -41,10 +48,9 @@ export const powerController = {
    */
   async shutdownWithAnimation() {
 
-    stopSpawnScheduler();
+    stopRobotLifecycle(); // see shutdown()'s comment on why this must precede killAll()
     stopCollisionDetection();
     AudioEngine.killAll();
-    removeNonPersistentRobots(getActiveLocaleId());
     useUIStore.getState().setPowerOff();
 
     // Play the dimming sequence. If the animation throws in edge-cases

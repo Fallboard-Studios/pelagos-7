@@ -5,7 +5,9 @@ import { usePlanetStore, selectCurrentPlanet } from '../stores/planetStore';
 import { useLocaleStore } from '../stores/localeStore';
 import { useUIStore } from '../stores/uiStore';
 import { placeFactories } from './factoryPlacementSystem';
-import { spawnRobot, startSpawnScheduler, stopSpawnScheduler } from './spawnSystem';
+import { spawnInitialRoster } from './spawnSystem';
+import { startRobotLifecycle, stopRobotLifecycle, assignJob } from './robotSystems';
+import { DockingState } from '../types/Robot';
 import { getLocaleNoiseMap } from '../utils/noiseMaps';
 import { derivePlanetSeed, planetInitialHour } from '../utils/seedUtils';
 import { PLANET_DURATION_MS } from '../constants/time';
@@ -56,7 +58,7 @@ function buildLocale(planetId: string, coordinates: { x: number; y: number }): L
     coordinates,
     robots: [],
     actors: [],
-    settings: { bpm: 60, maxRobots: 12, minRobots: 2, autoSpawn: true, spawnFrequency: 4 },
+    settings: { bpm: 60 },
     currentMeasure: 0,
   };
 }
@@ -66,14 +68,22 @@ function buildLocale(planetId: string, coordinates: { x: number; y: number }): L
 // ========================================
 
 /**
- * Bring a locale online: guarded factory placement + 2 initial robots + spawn
- * scheduler restart. Idempotent on factories/robots — safe to call on an
- * already-populated locale (matches the double-spawn guard OceanScene's own
- * mount effect already had for factories; extended here to robots too) — but
- * always restarts the spawn scheduler, since `startSpawnScheduler`'s own
- * module-singleton guard means a caller switching locales must stop the old
- * schedule before starting the new one regardless of whether robots/actors
- * needed regenerating.
+ * Bring a locale online: guarded factory placement + fixed 12-robot roster +
+ * robot-lifecycle restart. Idempotent on factories/robots — safe to call on
+ * an already-populated locale (matches the double-spawn guard OceanScene's
+ * own mount effect already had for factories; extended here to robots too)
+ * — but always restarts the lifecycle tick, since `startRobotLifecycle`'s
+ * own module-singleton guard means a caller switching locales must stop the
+ * old tick before starting the new one regardless of whether robots/actors
+ * needed regenerating. This is also what makes a power cycle work: BeatClock
+ * resets (and silently drops every `subscribeToMeasure` listener) whenever
+ * `AudioEngine.killAll()` runs, so the unconditional stop+start pair below is
+ * what re-subscribes the tick, not just what handles a locale swap.
+ *
+ * Job assignment for the roster's initially-Active robots happens here, not
+ * inside `spawnInitialRoster` itself — see
+ * docs/specs/ROBOT_SYSTEMS_ENGINE.md's Architecture Decisions on avoiding an
+ * import cycle between spawnSystem.ts and robotSystems.ts.
  *
  * Shared by OceanScene's mount effect and worldTransition so "what does
  * bringing a locale online mean" has exactly one implementation. A future
@@ -86,12 +96,15 @@ export function initializeLocale(localeId: string): void {
 
   if (locale.actors.length === 0) placeFactories(localeId);
   if (locale.robots.length === 0) {
-    spawnRobot(localeId);
-    spawnRobot(localeId);
+    spawnInitialRoster(localeId);
+    const freshRobots = useLocaleStore.getState().getLocaleById(localeId)?.robots ?? [];
+    freshRobots
+      .filter((r) => r.docking === DockingState.Active)
+      .forEach((r) => assignJob(localeId, r.id));
   }
 
-  stopSpawnScheduler();
-  startSpawnScheduler(localeId);
+  stopRobotLifecycle();
+  startRobotLifecycle(localeId);
 }
 
 /**

@@ -4,8 +4,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 vi.mock('../engine/beatClock', () => ({
-  scheduleRepeat: vi.fn(() => 'wt-schedule-1'),
-  cancelSchedule: vi.fn(),
+  subscribeToMeasure: vi.fn(() => vi.fn()),
+  getCurrentMeasure: vi.fn(() => 0),
 }));
 
 // ========================================
@@ -19,8 +19,9 @@ import { AudioEngine } from '../engine/AudioEngine';
 import { getLocaleNoiseMap, tryGetLocaleNoiseMap } from '../utils/noiseMaps';
 import { getSeededVal } from '../utils/getSeededVal';
 import { initializeLocale, retransmitWorld } from './worldTransition';
-import { stopSpawnScheduler } from './spawnSystem';
-import { RobotState } from '../types/Robot';
+import { stopRobotLifecycle } from './robotSystems';
+import { MAX_ROBOTS } from '../constants';
+import { RobotState, DockingState } from '../types/Robot';
 import type { Robot } from '../types/Robot';
 
 // ========================================
@@ -44,6 +45,8 @@ const makeRobot = (id: string): Robot => ({
   octaveRange: [3, 4],
   createdAt: Date.now(),
   masterVolume: 0.7,
+  docking: DockingState.Active,
+  batteryLevel: 100,
 });
 
 // ========================================
@@ -57,15 +60,23 @@ describe('worldTransition', () => {
   });
 
   afterEach(() => {
-    stopSpawnScheduler();
+    stopRobotLifecycle();
   });
 
   describe('initializeLocale', () => {
-    it('places factories and spawns exactly 2 robots for an empty locale', () => {
+    it(`places factories and spawns exactly ${MAX_ROBOTS} robots for an empty locale`, () => {
       initializeLocale(DEFAULT_LOCALE_ID);
       const locale = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)!;
       expect(locale.actors.length).toBeGreaterThan(0);
-      expect(locale.robots).toHaveLength(2);
+      expect(locale.robots).toHaveLength(MAX_ROBOTS);
+    });
+
+    it('assigns a job to every initially-Active robot', () => {
+      initializeLocale(DEFAULT_LOCALE_ID);
+      const locale = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)!;
+      locale.robots.filter((r) => r.docking === DockingState.Active).forEach((r) => {
+        expect(r.job).toBeDefined();
+      });
     });
 
     it('is a no-op for factories/robots when called again on an already-populated locale', () => {
@@ -81,11 +92,11 @@ describe('worldTransition', () => {
       expect(afterSecond.robots).toBe(robotsAfterFirst);
     });
 
-    it('still restarts the spawn scheduler on a second call, even when idempotent on factories/robots', async () => {
-      const { scheduleRepeat } = await import('../engine/beatClock');
+    it('still restarts the robot lifecycle tick on a second call, even when idempotent on factories/robots', async () => {
+      const { subscribeToMeasure } = await import('../engine/beatClock');
       initializeLocale(DEFAULT_LOCALE_ID);
       initializeLocale(DEFAULT_LOCALE_ID);
-      expect(scheduleRepeat).toHaveBeenCalledTimes(2);
+      expect(subscribeToMeasure).toHaveBeenCalledTimes(2);
     });
 
     it('does nothing for an unknown locale id', () => {
@@ -134,7 +145,7 @@ describe('worldTransition', () => {
       expect(planet.currentLocaleId).not.toBe(DEFAULT_LOCALE_ID);
       const newLocale = useLocaleStore.getState().getLocaleById(planet.currentLocaleId!)!;
       expect(newLocale.coordinates).toEqual({ x: 1000, y: 2000 });
-      expect(newLocale.robots).toHaveLength(2);
+      expect(newLocale.robots).toHaveLength(MAX_ROBOTS);
       expect(useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)).toBeUndefined();
       expect(releaseVoiceSpy).toHaveBeenCalledWith('old-robot');
 
@@ -221,7 +232,7 @@ describe('worldTransition', () => {
       expect(planet.name).toBe('Vessport Null');
       const locale = useLocaleStore.getState().getLocaleById(planet.currentLocaleId!)!;
       expect(locale.coordinates).toEqual({ x: 42, y: 42 });
-      expect(locale.robots).toHaveLength(2);
+      expect(locale.robots).toHaveLength(MAX_ROBOTS);
       expect(releaseVoiceSpy).toHaveBeenCalledWith('discarded-robot');
       expect(usePlanetStore.getState().planets.find((p) => p.id === DEFAULT_PELAGOS.id)).toBeUndefined();
 
@@ -229,18 +240,19 @@ describe('worldTransition', () => {
     });
   });
 
-  describe('spawn scheduler ordering', () => {
-    it('stops the previous schedule before starting the new locale\'s', async () => {
-      const { scheduleRepeat, cancelSchedule } = await import('../engine/beatClock');
-      initializeLocale(DEFAULT_LOCALE_ID); // first schedule running
+  describe('robot lifecycle tick ordering', () => {
+    it('stops the previous tick before starting the new locale\'s', async () => {
+      const { subscribeToMeasure } = await import('../engine/beatClock');
+      initializeLocale(DEFAULT_LOCALE_ID); // first tick running
+      const firstUnsubscribe = vi.mocked(subscribeToMeasure).mock.results[0].value;
 
       retransmitWorld({ coordinates: { x: 500, y: 500 } }); // must stop-then-start for the new locale
 
-      expect(cancelSchedule).toHaveBeenCalled();
-      expect(scheduleRepeat).toHaveBeenCalledTimes(2);
-      const cancelOrder = vi.mocked(cancelSchedule).mock.invocationCallOrder[0];
-      const secondScheduleOrder = vi.mocked(scheduleRepeat).mock.invocationCallOrder[1];
-      expect(cancelOrder).toBeLessThan(secondScheduleOrder);
+      expect(firstUnsubscribe).toHaveBeenCalled();
+      expect(subscribeToMeasure).toHaveBeenCalledTimes(2);
+      const unsubOrder = firstUnsubscribe.mock.invocationCallOrder[0];
+      const secondSubscribeOrder = vi.mocked(subscribeToMeasure).mock.invocationCallOrder[1];
+      expect(unsubOrder).toBeLessThan(secondSubscribeOrder);
     });
   });
 });
