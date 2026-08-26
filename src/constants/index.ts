@@ -79,3 +79,13 @@ export const DOCKED_PITCH_DRIFT_RATIO = 0.25;
 
 /** Roster-balancing cap: at most this many robots may hold the same job type at once. */
 export const JOB_MAX_ROBOTS_PER_TYPE = 3;
+
+/**
+ * Battery-level thresholds (percent) at which a robot's window/viewport and
+ * status-light SVG elements progressively dim (robotVisualHelpers.ts's
+ * computeBatteryDimOpacity). A step function, most-severe tier wins — crossing
+ * a lower threshold implies the higher ones too, dims don't stack additively.
+ */
+export const BATTERY_DIM_THRESHOLD_LOW = 50;      // <= this: 25% dim (opacity 0.75)
+export const BATTERY_DIM_THRESHOLD_MID = 25;      // <  this: 50% dim (opacity 0.50)
+export const BATTERY_DIM_THRESHOLD_CRITICAL = 12; // <= this: 90% dim (opacity 0.10)

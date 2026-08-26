@@ -28,6 +28,8 @@ interface RobotSVGProps {
   greebleSize?: number;
   greeblePersistence?: number;
   greeblePlacementBias?: number;
+  /** Opacity multiplier (1 = full brightness) for the viewport/status light — dims as battery drains. */
+  dimOpacity?: number;
 }
 
 // ========================================
@@ -37,7 +39,7 @@ interface RobotSVGProps {
  * RobotOrganic - Rounded, biomechanical design for polyphonic synth voices
  * Industrial construction with curved organic hull
  */
-export const RobotOrganic = React.memo(function RobotOrganic({ colors, scale, detailLevel, shapeParams }: RobotSVGProps) {
+export const RobotOrganic = React.memo(function RobotOrganic({ colors, scale, detailLevel, shapeParams, dimOpacity = 1 }: RobotSVGProps) {
   const torsoAspect = shapeParams?.torsoAspect ?? 1;
   const appendageLength = shapeParams?.appendageLength ?? 1;
   const scaleBias = shapeParams?.scaleBias ?? 0;
@@ -69,10 +71,12 @@ export const RobotOrganic = React.memo(function RobotOrganic({ colors, scale, de
           <ellipse cx="0" cy="0" rx="8" ry="2" fill={colors.secondary} />
         </g>
 
-        {/* Central viewport - circular */}
-        <circle cx="32" cy="36" r="12" fill="#78cce2" opacity="0.8" />
-        <circle cx="32" cy="32" r="8" fill="#b3e5f2" opacity="0.6" />
-        <circle cx="34" cy="30" r="3" fill="#e0ffff" opacity="0.8" />
+        {/* Central viewport - circular — dims as battery drains */}
+        <g opacity={dimOpacity}>
+          <circle cx="32" cy="36" r="12" fill="#78cce2" opacity="0.8" />
+          <circle cx="32" cy="32" r="8" fill="#b3e5f2" opacity="0.6" />
+          <circle cx="34" cy="30" r="3" fill="#e0ffff" opacity="0.8" />
+        </g>
 
         {/* Segmentation rivets */}
         <circle cx="20" cy="20" r="1.5" fill="#4f5458" />
@@ -90,9 +94,11 @@ export const RobotOrganic = React.memo(function RobotOrganic({ colors, scale, de
             <ellipse cx="56" cy="36" rx="6" ry="8" fill="#6a6384" opacity="0.8" />
             <ellipse cx="56" cy="34" rx="4" ry="3" fill="#928ba9" opacity="0.5" />
 
-            {/* Status light */}
-            <circle cx="60" cy="24" r="3" fill="#39ff14" opacity="0.8" />
-            <circle cx="60" cy="23" r="2" fill="#a2ff8a" opacity="0.9" />
+            {/* Status light — dims as battery drains */}
+            <g opacity={dimOpacity}>
+              <circle cx="60" cy="24" r="3" fill="#39ff14" opacity="0.8" />
+              <circle cx="60" cy="23" r="2" fill="#a2ff8a" opacity="0.9" />
+            </g>
           </g>
         )}
       </svg>

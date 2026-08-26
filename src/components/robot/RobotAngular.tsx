@@ -28,6 +28,8 @@ interface RobotSVGProps {
   greebleSize?: number;
   greeblePersistence?: number;
   greeblePlacementBias?: number;
+  /** Opacity multiplier (1 = full brightness) for the viewport — dims as battery drains. */
+  dimOpacity?: number;
 }
 
 // ========================================
@@ -37,7 +39,7 @@ interface RobotSVGProps {
  * RobotAngular - Sharp, geometric design for angular synth voices
  * Industrial hexagonal hull with aggressive angles
  */
-export const RobotAngular = React.memo(function RobotAngular({ colors, scale, detailLevel, shapeParams }: RobotSVGProps) {
+export const RobotAngular = React.memo(function RobotAngular({ colors, scale, detailLevel, shapeParams, dimOpacity = 1 }: RobotSVGProps) {
   const torsoAspect = shapeParams?.torsoAspect ?? 1;
   const appendageLength = shapeParams?.appendageLength ?? 1;
   const scaleBias = shapeParams?.scaleBias ?? 0;
@@ -80,9 +82,11 @@ export const RobotAngular = React.memo(function RobotAngular({ colors, scale, de
             <polygon points="-8,0 0,2 8,0 0,-2" fill={colors.secondary} />
           </g>
 
-          {/* Viewport - diamond shape */}
-          <polygon points="36,36 44,28 52,36 44,44" fill="#78cce2" opacity="0.8" />
-          <polygon points="36,36 44,29 52,36 44,32" fill="#b3e5f2" opacity="0.6" />
+          {/* Viewport - diamond shape — dims as battery drains */}
+          <g opacity={dimOpacity}>
+            <polygon points="36,36 44,28 52,36 44,44" fill="#78cce2" opacity="0.8" />
+            <polygon points="36,36 44,29 52,36 44,32" fill="#b3e5f2" opacity="0.6" />
+          </g>
 
           {/* Corner rivets */}
           <circle cx="26" cy="16" r="1.5" fill="#4f5458" />

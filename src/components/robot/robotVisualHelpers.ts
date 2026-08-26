@@ -6,6 +6,7 @@ import { RobotSleek } from './RobotSleek';
 import { RobotAngular } from './RobotAngular';
 import { RobotOrganic } from './RobotOrganic';
 import { RobotIndustrial } from './RobotIndustrial';
+import { BATTERY_DIM_THRESHOLD_LOW, BATTERY_DIM_THRESHOLD_MID, BATTERY_DIM_THRESHOLD_CRITICAL } from '../../constants';
 
 // ========================================
 // TYPES
@@ -277,6 +278,25 @@ export function applyLightnessMultiplier(colors: RobotColors, multiplier: number
 
 function clamp01(v: number) {
   return Math.max(0, Math.min(1, v));
+}
+
+/**
+ * Opacity multiplier (1 = full brightness) for a robot's window/viewport and
+ * status-light SVG elements, driven by battery level — the lower the
+ * battery, the dimmer those specific elements get. A step function, not
+ * additive: the deepest applicable tier alone applies, since a critical
+ * battery level implies the shallower thresholds too.
+ *
+ * ≤ BATTERY_DIM_THRESHOLD_CRITICAL (12%): 0.1 (90% dim)
+ * <  BATTERY_DIM_THRESHOLD_MID (25%):     0.5 (50% dim)
+ * ≤  BATTERY_DIM_THRESHOLD_LOW (50%):     0.75 (25% dim)
+ * otherwise:                              1 (no dim)
+ */
+export function computeBatteryDimOpacity(batteryLevel: number): number {
+  if (batteryLevel <= BATTERY_DIM_THRESHOLD_CRITICAL) return 0.1;
+  if (batteryLevel < BATTERY_DIM_THRESHOLD_MID) return 0.5;
+  if (batteryLevel <= BATTERY_DIM_THRESHOLD_LOW) return 0.75;
+  return 1;
 }
 
 /**

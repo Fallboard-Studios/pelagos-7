@@ -38,7 +38,25 @@ Two complementary sources feed body geometry, composed together in `RobotBody.ts
 ## Greebles & Lights
 
 - **Greeble count**: prefers `mapped.greebleProps.count` (≈ `detail × 6`, from `visualAudioMap`); falls back to `calculateGreebleCount(filterFreq, detailLevel, waveform, adsr)`, which weights filter-derived detail (60%), explicit detail (25%), and sustain (15%), with a small bonus for sawtooth/square waveforms. Capped at 16.
-- **Light intensity**: blends `averagedGain × 0.6 + detail × 0.4`; light hue derives from scale (`200 − scale × 120`).
+- **Light intensity**: blends `averagedGain × 0.6 + detail × 0.4`; light hue derives from scale (`200 − scale × 120`). Computed by `mapVisualAudioToProps()` but not currently passed to any shape component — `lightsProps` is unwired output, not a rendered element.
+
+## Non-Audio Brightness Overlays
+
+Two things dim a robot's rendering for reasons that are **not** audio attributes. Both are a
+distinct, narrower layer than the shape/color identity mapping above — they scale brightness on
+top of it, they never replace it — so they don't relax the "visuals map strictly to audio
+attributes" guardrail, they extend the one existing precedent for it:
+
+- **Day/night** (`RobotBody.tsx`): `lightnessMultiplier`, a sine curve over the active locale's
+  local time, scales the whole body's HSL lightness via `applyLightnessMultiplier()`.
+- **Battery dim** (`RobotBody.tsx` + `robotVisualHelpers.ts`'s `computeBatteryDimOpacity()`): a
+  battery-level step function (thresholds in `src/constants/index.ts`:
+  `BATTERY_DIM_THRESHOLD_LOW/MID/CRITICAL`) that dims only each shape component's window/viewport
+  and status-light elements (the hardcoded blue "Window"/"Viewport" ellipses/polygons/rects and
+  green "Status light" circles/rects in `RobotSleek.tsx`/`RobotAngular.tsx`/`RobotOrganic.tsx`/
+  `RobotIndustrial.tsx` — those elements use fixed hex fills, not `colors`, which is why day/night
+  doesn't touch them either). Passed down as a `dimOpacity` prop, wrapping the target elements in a
+  `<g opacity={dimOpacity}>`. Body hue/shape/greeble-count are untouched by battery level.
 
 ## Data Flow
 

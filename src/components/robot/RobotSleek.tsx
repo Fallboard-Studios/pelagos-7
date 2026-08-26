@@ -28,6 +28,8 @@ interface RobotSVGProps {
   greebleSize?: number;
   greeblePersistence?: number;
   greeblePlacementBias?: number;
+  /** Opacity multiplier (1 = full brightness) for the window — dims as battery drains. */
+  dimOpacity?: number;
 }
 
 // ========================================
@@ -37,7 +39,7 @@ interface RobotSVGProps {
  * RobotSleek - Smooth, streamlined design for melodic synth voices
  * Industrial submarine aesthetic with curved hull sections
  */
-export const RobotSleek = React.memo(function RobotSleek({ colors, scale, detailLevel, shapeParams }: RobotSVGProps) {
+export const RobotSleek = React.memo(function RobotSleek({ colors, scale, detailLevel, shapeParams, dimOpacity = 1 }: RobotSVGProps) {
   const torsoAspect = shapeParams?.torsoAspect ?? 1;
   const appendageLength = shapeParams?.appendageLength ?? 1;
   const scaleBias = shapeParams?.scaleBias ?? 0;
@@ -81,9 +83,11 @@ export const RobotSleek = React.memo(function RobotSleek({ colors, scale, detail
             <rect x="-8" y="-1" width="16" height="2" fill={colors.secondary} />
           </g>
 
-          {/* Window */}
-          <ellipse cx="24" cy="36" rx="8" ry="10" fill="#78cce2" opacity="0.8" />
-          <ellipse cx="24" cy="34" rx="6" ry="4" fill="#b3e5f2" opacity="0.6" />
+          {/* Window — dims as battery drains */}
+          <g opacity={dimOpacity}>
+            <ellipse cx="24" cy="36" rx="8" ry="10" fill="#78cce2" opacity="0.8" />
+            <ellipse cx="24" cy="34" rx="6" ry="4" fill="#b3e5f2" opacity="0.6" />
+          </g>
 
           {/* Corner rivets */}
           <circle cx="14" cy="14" r="1.5" fill="#4f5458" />

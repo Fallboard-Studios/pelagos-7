@@ -28,6 +28,8 @@ interface RobotSVGProps {
   greebleSize?: number;
   greeblePersistence?: number;
   greeblePlacementBias?: number;
+  /** Opacity multiplier (1 = full brightness) for the viewport/status light — dims as battery drains. */
+  dimOpacity?: number;
 }
 
 // ========================================
@@ -37,7 +39,7 @@ interface RobotSVGProps {
  * RobotIndustrial - Boxy, mechanical design for industrial synth voices
  * Heavy industrial construction with layered armor plates
  */
-export const RobotIndustrial = React.memo(function RobotIndustrial({ colors, scale, detailLevel, shapeParams }: RobotSVGProps) {
+export const RobotIndustrial = React.memo(function RobotIndustrial({ colors, scale, detailLevel, shapeParams, dimOpacity = 1 }: RobotSVGProps) {
   const torsoAspect = shapeParams?.torsoAspect ?? 1;
   const appendageLength = shapeParams?.appendageLength ?? 1;
   const scaleBias = shapeParams?.scaleBias ?? 0;
@@ -78,9 +80,11 @@ export const RobotIndustrial = React.memo(function RobotIndustrial({ colors, sca
           <rect x="-6" y="-6" width="12" height="12" fill="none" stroke={colors.secondary} strokeWidth="1" />
         </g>
 
-        {/* Central viewport */}
-        <rect x="20" y="20" width="16" height="12" fill="#78cce2" opacity="0.8" />
-        <path d="M 20,20 L 21,21 H 35 L 36,20 Z" fill="#b3e5f2" opacity="0.6" />
+        {/* Central viewport — dims as battery drains */}
+        <g opacity={dimOpacity}>
+          <rect x="20" y="20" width="16" height="12" fill="#78cce2" opacity="0.8" />
+          <path d="M 20,20 L 21,21 H 35 L 36,20 Z" fill="#b3e5f2" opacity="0.6" />
+        </g>
 
         {/* Corner rivets - top section */}
         <circle cx="14" cy="14" r="1.5" fill="#4f5458" />
@@ -105,10 +109,12 @@ export const RobotIndustrial = React.memo(function RobotIndustrial({ colors, sca
             <path d="M 46,26 H 54" stroke="#928ba9" strokeWidth="1" opacity="0.5" />
             <path d="M 46,30 H 54" stroke="#928ba9" strokeWidth="1" opacity="0.5" />
 
-            {/* Status indicator */}
+            {/* Status indicator — housing stays fixed; only the light glow dims as battery drains */}
             <rect x="76" y="28" width="8" height="16" fill="#818589" />
-            <rect x="78" y="32" width="4" height="8" fill="#39ff14" opacity="0.8" />
-            <rect x="78" y="32" width="4" height="4" fill="#a2ff8a" opacity="0.7" />
+            <g opacity={dimOpacity}>
+              <rect x="78" y="32" width="4" height="8" fill="#39ff14" opacity="0.8" />
+              <rect x="78" y="32" width="4" height="4" fill="#a2ff8a" opacity="0.7" />
+            </g>
 
             {/* Warning stripes */}
             <rect x="20" y="48" width="8" height="4" fill={colors.accent} opacity="0.6" />
