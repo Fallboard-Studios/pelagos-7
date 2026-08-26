@@ -6,7 +6,13 @@ import type { NoiseFunction2D } from 'simplex-noise';
 import type { Vec2 } from '../types/Vec2';
 import type { AudioAttributes, WaveformType, Robot } from '../types/Robot';
 import { RobotState } from '../types/Robot';
-import { generateMelodyForRobot, DEFAULT_RHYTHMIC_DENSITY } from '../engine/melodyGenerator';
+import {
+  generateMelodyForRobot,
+  DEFAULT_RHYTHMIC_DENSITY,
+  DEFAULT_RHYTHMIC_MOTIF_LENGTH,
+  DEFAULT_NOTE_VARIANCE,
+} from '../engine/melodyGenerator';
+import type { ToggleValue } from '../engine/melodyGenerator';
 import { AudioEngine } from '../engine/AudioEngine';
 import type { OscillatorLayer } from '../types/layeredAudio';
 import { scheduleRepeat, cancelSchedule } from '../engine/beatClock';
@@ -59,6 +65,14 @@ const FILTER_FREQ_RANGE = { min: 400, max: 2500 };
 // Master volume range: keep robots below full saturation
 const MASTER_VOLUME_MIN = 0.65;
 const MASTER_VOLUME_MAX = 0.85;
+
+/**
+ * Probability threshold rhythmicMotifLength.active/noteVariance.active seed
+ * draws ([0, 1]) must clear to seed `true` — ~66% chance, mirroring the
+ * shipped LFO_ACTIVE_THRESHOLD pattern (generateGlobalLfoSettings) rather
+ * than an even 50/50 split.
+ */
+const TOGGLE_ACTIVE_THRESHOLD = 0.34;
 
 // Waveform types — even distribution gives ~20% each (includes pulse)
 const WAVEFORMS: WaveformType[] = ['sine', 'square', 'triangle', 'sawtooth', 'pulse'];
@@ -374,8 +388,9 @@ export function spawnRobot(localeId: string): void {
   const spawnCount = getAndIncrementSpawnCount(localeId);
 
   // 30% seeded chance to copy an existing robot's audio personality instead of generating fresh.
-  // Copied robots inherit: audioAttributes, octaveRange, rhythmicMotifLength, noteVariance, lfoSettings.
-  // Always fresh: id, name, position, direction, melody (regenerated from copied octaveRange).
+  // Copied robots inherit: audioAttributes, octaveRange, rhythmicDensity, rhythmicMotifLength,
+  // noteVariance, lfoSettings. Always fresh: id, name, position, direction, melody (regenerated
+  // from the copied octaveRange/rhythmicDensity/rhythmicMotifLength/noteVariance).
   const copyRoll = noiseMap
     ? getSeededVal(noiseMap, 'robot.copyChance', spawnCount, 0, 1)
     : alea(`${localeId}:${spawnCount}:copy`)();
@@ -383,8 +398,9 @@ export function spawnRobot(localeId: string): void {
 
   let audioAttributes: ReturnType<typeof generateAudioAttributes>;
   let octaveRange: [number, number];
-  let spawnRhythmicMotifLength: 3 | 4 | 6 | 8 | 12 | 16;
-  let spawnNoteVariance: number;
+  let spawnRhythmicDensity: number;
+  let spawnRhythmicMotifLength: ToggleValue;
+  let spawnNoteVariance: ToggleValue;
   let spawnLfoSettings: ReturnType<typeof generateRobotLfoSettings>;
 
   if (shouldCopy) {
@@ -399,8 +415,9 @@ export function spawnRobot(localeId: string): void {
     const source = robots[srcIdx];
     audioAttributes = source.audioAttributes as ReturnType<typeof generateAudioAttributes>;
     octaveRange = source.octaveRange;
-    spawnRhythmicMotifLength = (source.rhythmicMotifLength ?? 8) as 3 | 4 | 6 | 8 | 12 | 16;
-    spawnNoteVariance = source.noteVariance ?? 0;
+    spawnRhythmicDensity = source.rhythmicDensity ?? DEFAULT_RHYTHMIC_DENSITY;
+    spawnRhythmicMotifLength = source.rhythmicMotifLength ?? DEFAULT_RHYTHMIC_MOTIF_LENGTH;
+    spawnNoteVariance = source.noteVariance ?? DEFAULT_NOTE_VARIANCE;
     spawnLfoSettings = source.lfoSettings ?? generateRobotLfoSettings(noiseMap ?? ((_x: number, _y: number) => 0 as number), spawnCount);
     if (DEV_TUNING) console.log(`[SpawnSystem] Robot copying audio personality from ${source.id}`);
   } else {
@@ -413,32 +430,50 @@ export function spawnRobot(localeId: string): void {
       ? generateRobotLfoSettings(noiseMap, spawnCount)
       : generateRobotLfoSettings((_x: number, _y: number) => 0 as number, spawnCount);
 
-    const motifRaw = noiseMap
-      ? getSeededVal(noiseMap, 'robot.rhythmicMotifLength', spawnCount, 0, 5)
-      : alea(`${localeId}:${spawnCount}:rml`)() * 5;
-    spawnRhythmicMotifLength = ([3, 4, 6, 8, 12, 16] as const)[Math.min(5, Math.floor(motifRaw))];
+    spawnRhythmicDensity = Math.round(
+      noiseMap
+        ? getSeededVal(noiseMap, 'robot.rhythmicDensity', spawnCount, 0, 100)
+        : alea(`${localeId}:${spawnCount}:density`)() * 100
+    );
 
-    const noteVarianceRaw = noiseMap
-      ? getSeededVal(noiseMap, 'robot.noteVariance', spawnCount, 0, 1)
-      : alea(`${localeId}:${spawnCount}:nv`)();
-    spawnNoteVariance =
-      noteVarianceRaw < 0.200 ? 2 :
-        noteVarianceRaw < 0.378 ? 1 :
-          noteVarianceRaw < 0.533 ? 3 :
-            noteVarianceRaw < 0.667 ? 0 :
-              noteVarianceRaw < 0.778 ? 4 :
-                noteVarianceRaw < 0.867 ? 5 :
-                  noteVarianceRaw < 0.933 ? 6 :
-                    noteVarianceRaw < 0.978 ? 7 : 8;
+    const motifActiveRaw = noiseMap
+      ? getSeededVal(noiseMap, 'robot.rhythmicMotifLength.active', spawnCount, 0, 1)
+      : alea(`${localeId}:${spawnCount}:motifActive`)();
+    const motifValueRaw = noiseMap
+      ? getSeededVal(noiseMap, 'robot.rhythmicMotifLength.value', spawnCount, 1, 9)
+      : 1 + alea(`${localeId}:${spawnCount}:motifValue`)() * 8;
+    spawnRhythmicMotifLength = {
+      active: motifActiveRaw >= TOGGLE_ACTIVE_THRESHOLD,
+      value: Math.min(8, Math.floor(motifValueRaw)),
+    };
+
+    const noteVarianceActiveRaw = noiseMap
+      ? getSeededVal(noiseMap, 'robot.noteVariance.active', spawnCount, 0, 1)
+      : alea(`${localeId}:${spawnCount}:nvActive`)();
+    const noteVarianceValueRaw = noiseMap
+      ? getSeededVal(noiseMap, 'robot.noteVariance.value', spawnCount, 1, 9)
+      : 1 + alea(`${localeId}:${spawnCount}:nvValue`)() * 8;
+    spawnNoteVariance = {
+      active: noteVarianceActiveRaw >= TOGGLE_ACTIVE_THRESHOLD,
+      value: Math.min(8, Math.floor(noteVarianceValueRaw)),
+    };
   }
 
-  // Seeded melody — always fresh from the robot's octaveRange (copied or generated)
+  // Seeded melody — always fresh from the robot's octaveRange/rhythmicDensity/
+  // rhythmicMotifLength/noteVariance (copied or generated)
   let melodyCallIndex = 0;
   const melodyRand = noiseMap
     ? () => getSeededVal(noiseMap, 'melody.rand', spawnCount * 100 + melodyCallIndex++)
     : Math.random;
 
-  const spawnMelody = generateMelodyForRobot({ octaveMin: octaveRange[0], octaveMax: octaveRange[1], onsetCount: DEFAULT_RHYTHMIC_DENSITY, rand: melodyRand });
+  const spawnMelody = generateMelodyForRobot({
+    octaveMin: octaveRange[0],
+    octaveMax: octaveRange[1],
+    rhythmicDensity: spawnRhythmicDensity,
+    rhythmicMotifLength: spawnRhythmicMotifLength,
+    noteVariance: spawnNoteVariance,
+    rand: melodyRand,
+  });
 
   const position = noiseMap ? generateSpawnPosition(noiseMap, spawnCount) : generateSpawnPosition((_x: number, _y: number) => 0 as number, spawnCount);
   const spawnDirection: 'left' | 'right' = position.x < (WORLD_WIDTH / 2) ? 'left' : 'right';
@@ -454,7 +489,7 @@ export function spawnRobot(localeId: string): void {
     audioAttributes,
     octaveRange,
     audioMode: 'none',
-    rhythmicDensity: spawnMelody.length,
+    rhythmicDensity: spawnRhythmicDensity,
     rhythmicMotifLength: spawnRhythmicMotifLength,
     noteVariance: spawnNoteVariance,
     lfoSettings: spawnLfoSettings,

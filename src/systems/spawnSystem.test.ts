@@ -215,6 +215,47 @@ describe('spawnSystem', () => {
       expect(registerSpy).toHaveBeenCalledWith(robot.id, robot.melody);
     });
 
+    it('spawns robots with the new percentage/toggle melody shapes', () => {
+      spawnRobot(DEFAULT_LOCALE_ID);
+      const robot = (useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.robots ?? [])[0];
+
+      expect(typeof robot.rhythmicDensity).toBe('number');
+      expect(robot.rhythmicDensity).toBeGreaterThanOrEqual(0);
+      expect(robot.rhythmicDensity).toBeLessThanOrEqual(100);
+
+      expect(robot.rhythmicMotifLength).toEqual(
+        expect.objectContaining({ active: expect.any(Boolean), value: expect.any(Number) })
+      );
+      expect(robot.rhythmicMotifLength!.value).toBeGreaterThanOrEqual(1);
+      expect(robot.rhythmicMotifLength!.value).toBeLessThanOrEqual(8);
+
+      expect(robot.noteVariance).toEqual(
+        expect.objectContaining({ active: expect.any(Boolean), value: expect.any(Number) })
+      );
+      expect(robot.noteVariance!.value).toBeGreaterThanOrEqual(1);
+      expect(robot.noteVariance!.value).toBeLessThanOrEqual(8);
+    });
+
+    it('a copied robot inherits the source\'s rhythmicDensity/rhythmicMotifLength/noteVariance rather than rolling fresh ones', () => {
+      useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, {
+        settings: { ...DEFAULT_LOCALE.settings, maxRobots: 100 },
+      });
+      for (let i = 0; i < 30; i++) spawnRobot(DEFAULT_LOCALE_ID);
+      const robots = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.robots ?? [];
+      const byLfo = new Map<Robot['lfoSettings'], Robot[]>();
+      for (const r of robots) {
+        const group = byLfo.get(r.lfoSettings) ?? [];
+        group.push(r);
+        byLfo.set(r.lfoSettings, group);
+      }
+      const sharedGroup = [...byLfo.values()].find((g) => g.length > 1);
+      expect(sharedGroup, 'expected at least one copy to share its source\'s object references').toBeDefined();
+      const [a, b] = sharedGroup!;
+      expect(a.rhythmicDensity).toBe(b.rhythmicDensity);
+      expect(a.rhythmicMotifLength).toEqual(b.rhythmicMotifLength);
+      expect(a.noteVariance).toEqual(b.noteVariance);
+    });
+
     it('a copied robot inherits the source\'s lfoSettings rather than generating fresh ones', () => {
       // Raise maxRobots so 30 spawns don't trigger the oldest-robot removal
       // churn (default cap is 12) — that's an orthogonal system this test
