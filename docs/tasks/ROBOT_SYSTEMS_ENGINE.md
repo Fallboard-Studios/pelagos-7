@@ -646,20 +646,20 @@ land.
 
   **Estimated scope:** S (2 files)
 
-- [ ] **Task 17: `src/components/panels/screen/console/RobotsTab.tsx` — remove "+ New Robot"**
+- [x] **Task 17: `src/components/panels/screen/console/RobotsTab.tsx` — remove "+ New Robot"**
 
   **Description:** The roster is now fixed at 12 robots created once at locale load — remove the
   manual spawn button entirely.
 
   **Acceptance criteria:**
-  - [ ] `NEW_ROBOT_SCHEMA`, `handleNewRobot`, the `robots-tab__new-robot` wrapper div, and the
+  - [x] `NEW_ROBOT_SCHEMA`, `handleNewRobot`, the `robots-tab__new-robot` wrapper div, and the
     `spawnRobot` import all removed
-  - [ ] The tab renders only the robot list (name buttons navigating to `selectRobot`)
+  - [x] The tab renders only the robot list (name buttons navigating to `selectRobot`)
 
   **Verification:**
-  - [ ] `npx vitest run src/components/panels/screen/console/RobotsTab.test.tsx` — all passing
-  - [ ] `npm run build:types` passes
-  - [ ] Manual check: render the tab, confirm no "+ New Robot" button appears
+  - [x] `npx vitest run src/components/panels/screen/console/RobotsTab.test.tsx` — all passing
+  - [x] `npm run build:types` passes
+  - [x] Manual check: render the tab, confirm no "+ New Robot" button appears
 
   **Dependencies:** Task 12 (`spawnRobot`'s signature change would otherwise break this call site).
 

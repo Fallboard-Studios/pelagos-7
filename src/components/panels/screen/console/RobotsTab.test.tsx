@@ -1,11 +1,10 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
 import RobotsTab from './RobotsTab';
 import { useLocaleStore } from '@/stores/localeStore';
 import { useUIStore } from '@/stores/uiStore';
 import { getActiveLocaleId } from '@/utils/localeHelpers';
-import * as spawnSystem from '@/systems/spawnSystem';
 import type { Robot } from '@/types/Robot';
 import type { Locale } from '@/types/locale';
 
@@ -76,19 +75,12 @@ describe('RobotsTab', () => {
     expect(useUIStore.getState().selectedRobotId).toBe('r1');
   });
 
-  it('"+ New Robot" spawns and selects a robot without touching activeHubTile', () => {
+  it('does not render a "+ New Robot" button — the roster is fixed at 12, created once at locale load', () => {
     resetStores();
-    useUIStore.getState().setActiveHubTile('robots');
-    vi.spyOn(spawnSystem, 'spawnRobot').mockImplementation((id: string) => {
-      useLocaleStore.getState().addRobot(id, makeRobot('spawned-1', 'New Unit') as unknown as Robot);
-    });
+    useLocaleStore.getState().addRobot(localeId, makeRobot('r1', 'Unit One') as unknown as Robot);
 
     render(<RobotsTab />);
-    fireEvent.click(screen.getByRole('button', { name: '+ New Robot' }));
 
-    expect(useUIStore.getState().selectedRobotId).toBe('spawned-1');
-    expect(useUIStore.getState().activeHubTile).toBe('robots');
-
-    vi.restoreAllMocks();
+    expect(screen.queryByRole('button', { name: '+ New Robot' })).toBeNull();
   });
 });
