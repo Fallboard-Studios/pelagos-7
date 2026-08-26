@@ -35,15 +35,18 @@ const DEFAULT_LOCALE: Locale = {
   id: DEFAULT_LOCALE_ID,
   planetId: 'pelagos',
   name: 'Pelagos Ocean',
-  // Kept at this specific value for git-blame continuity, not because it's
-  // still uniquely safe — it was originally chosen to dodge a dead zone in
-  // the OLD planet-sampled locale derivation (integer/half-integer-aligned
-  // coordinates like (0,0)/(0.5,0.5)/(1,1) used to collapse to a low- or
-  // zero-entropy result). getLocaleNoiseMap (src/utils/noiseMaps.ts) now
-  // hashes (x, y) directly instead of sampling simplex noise at the point,
-  // which structurally eliminates that class of bug — no coordinate is
-  // unsafe anymore. See docs/specs/LOCALE_SEED_DECOUPLING.md.
-  coordinates: { x: 12.3456, y: 67.891 },
+  // Was originally a non-integer value ({ x: 12.3456, y: 67.891 }) to dodge a
+  // dead zone in the OLD planet-sampled locale derivation (integer/half-
+  // integer-aligned coordinates like (0,0)/(0.5,0.5)/(1,1) used to collapse
+  // to a low- or zero-entropy result). getLocaleNoiseMap (src/utils/noiseMaps.ts)
+  // now hashes (x, y) directly instead of sampling simplex noise at the
+  // point, which structurally eliminates that class of bug — no coordinate
+  // is unsafe anymore (see docs/specs/LOCALE_SEED_DECOUPLING.md). Rounded to
+  // integers here because CoordsInput.tsx/SectorSettingsDrawer.tsx both
+  // assume coordinates are integers system-wide (docs/specs/SECTOR_SETTINGS.md)
+  // — the old decimal default violated that, rendering as a multi-decimal
+  // value in Sector Settings until the first user edit rounded it away.
+  coordinates: { x: 12, y: 68 },
   robots: [],
   actors: [],
   settings: { bpm: 60, maxRobots: 12, minRobots: 2, autoSpawn: true, spawnFrequency: 4 },
