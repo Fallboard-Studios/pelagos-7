@@ -1,3 +1,6 @@
+import type { JobType } from '../types/Robot';
+
+/** Fixed roster size — every locale spawns exactly this many robots once, at load. */
 export const MAX_ROBOTS = 12;
 
 /**
@@ -42,3 +45,37 @@ export const NOTE_VARIANCE_MIN = 1;
 export const NOTE_VARIANCE_MAX = 8;
 export const OCTAVE_RANGE_MIN = 1;
 export const OCTAVE_RANGE_MAX = 7;
+
+/**
+ * Robot Systems Engine (Roadmap Phase 7) — Battery/Docking/Job lifecycle constants.
+ * See docs/specs/ROBOT_SYSTEMS_ENGINE.md and src/systems/robotSystems.ts.
+ */
+
+/** Seeded count of robots that start Active (rest start Docked) when a locale's roster is created. */
+export const INITIAL_ACTIVE_ROBOTS_MIN = 2;
+export const INITIAL_ACTIVE_ROBOTS_MAX = 4;
+
+/** Battery drain, percent per measure, while a robot is Active — before any job surcharge. */
+export const BATTERY_DRAIN_BASE = 2;
+
+/** Additional percent-per-measure drain while Active, on top of BATTERY_DRAIN_BASE, by job type. */
+export const JOB_BATTERY_DRAIN_SURCHARGE: Record<JobType, number> = {
+  ventExtraction: 1,
+  acousticSurvey: 3,
+  structuralInspection: 5,
+  fluidMonitoring: 7,
+};
+
+/** Battery recharge, percent per measure, while a robot is Docked — flat, same for every robot. */
+export const BATTERY_RECHARGE_RATE = 5;
+
+/** Active robot at or below this battery level begins Departing (recall to dock). */
+export const BATTERY_CRITICAL_THRESHOLD = 10;
+/** Docked robot at or above this battery level begins Docking (redeploy-eligible). */
+export const BATTERY_FULL_THRESHOLD = 100;
+
+/** Fraction of a robot's melody events whose pitch (noteIndex only) re-rolls each time it lands on Docked. */
+export const DOCKED_PITCH_DRIFT_RATIO = 0.25;
+
+/** Roster-balancing cap: at most this many robots may hold the same job type at once. */
+export const JOB_MAX_ROBOTS_PER_TYPE = 3;
