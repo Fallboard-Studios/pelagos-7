@@ -23,6 +23,13 @@ vi.mock('./AudioRigDrawer', () => ({
   AudioRigDrawer: () => <div data-testid="audio-rig-drawer-stub" />,
   default: () => <div data-testid="audio-rig-drawer-stub" />,
 }));
+// SectorSettingsDrawer has its own full test suite
+// (SectorSettingsDrawer.test.tsx) — this file is about ConsolePanel's own
+// tile switch, not re-testing its content.
+vi.mock('./SectorSettingsDrawer', () => ({
+  SectorSettingsDrawer: () => <div data-testid="sector-settings-drawer-stub" />,
+  default: () => <div data-testid="sector-settings-drawer-stub" />,
+}));
 
 describe('ConsolePanel', () => {
   // Explicit reset before each test, not relying on declaration order — runs
@@ -62,10 +69,10 @@ describe('ConsolePanel', () => {
     expect(screen.getByTestId('audio-rig-drawer-stub')).toBeTruthy();
   });
 
-  it('renders the carried-forward stub content for settings', () => {
+  it('renders SectorSettingsDrawer when settings is active', () => {
     useUIStore.getState().setActiveHubTile('settings');
     render(<ConsolePanel />);
-    expect(screen.getByText('Settings')).toBeTruthy();
+    expect(screen.getByTestId('sector-settings-drawer-stub')).toBeTruthy();
   });
 
   it('back from a selected robot\'s editor clears selectedRobotId but stays on the robots tile', () => {

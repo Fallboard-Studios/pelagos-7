@@ -29,23 +29,27 @@ coordinates + planet name/seed) above both:
   int type) but every write path enforces the integer constraint.
 - **One shared retransmit `Button`** — not two independent triggers, despite the roadmap prose
   listing a trigger under each panel. Submitting reads whichever field(s) the user actually
-  edited:
-  - **Planet name changed:** the current planet is discarded outright (no retention — Session
-    Storage/local persistence of the old world is Phase 11's job, not this one) and a brand-new
-    planet is created using the typed name as both display name and seed. Every planet-seeded
-    thing regenerates: the robot roster respawns from scratch, the global Audio Rig chain and
-    global LFOs (Phase 4) reseed via the planet's own noise map, `dayStartTimestamp` recomputes.
-    If the coordinate fields were left untouched, the new planet's locale sits at the *same*
-    coordinates as before — and because of the Locale Seed Decoupling prerequisite, that means
-    every locale-derived thing (robots, idle wander, interaction sounds, melody generation,
-    per-note velocity variance) comes out **identical** to what it was before the planet
-    changed, not just coincidentally similar.
-  - **Coordinates changed** (with or without a planet-name change alongside it): every
-    locale-derived thing above regenerates against the new coordinates, deterministically, with
-    no low-entropy dead zone at round-number inputs (the decoupling prerequisite's fix).
-  - **Neither changed:** retransmit is a no-op in effect (nothing to regenerate), though the
-    button doesn't need special-case logic to detect this — regenerating "the same" seed
-    deterministically just reproduces the same world.
+  edited, and — this is a deliberate refinement over the first draft of this intent — **edits
+  the user made to whichever half didn't change are preserved, not reset**:
+  - **Coordinates changed, planet name unchanged:** the current planet is left completely
+    untouched — `currentPlanetId` never changes, so any edits the user made to it (Audio Rig
+    settings, global LFOs) survive exactly as they were. A new locale is created at the new
+    coordinates (fresh robots/actors, generated deterministically) and the old locale is
+    released (its robots' reserved audio voices/melodies cleaned up) and discarded.
+  - **Planet name changed, coordinates unchanged:** a brand-new planet is created using the
+    typed name as both display name and seed (`dayStartTimestamp`/`currentHour` recompute fresh,
+    genuinely a new planet — its Audio Rig/global LFO settings reseed from the new planet's own
+    seed, since there's nothing to preserve for a planet that didn't exist a moment ago). The
+    **current locale is not discarded or regenerated** — it's re-parented onto the new planet
+    exactly as it is (same robots, same actors, any edits the user made through the existing
+    robot editor survive), because Locale Seed Decoupling already made locale-generated content
+    a pure function of `(x, y)` coordinates, independent of which planet owns it. The old planet
+    record is discarded.
+  - **Both changed:** a full reset — nothing is eligible for preservation since neither of the
+    two rules above applies. Fresh planet, fresh locale, both discarded from the old world.
+  - **Neither changed:** a genuine no-op. Under the two rules above this is really both
+    preservation conditions holding at once, so retransmit does nothing at all rather than
+    silently regenerating an identical-looking world.
 
 ## User
 
@@ -62,13 +66,17 @@ thing being avoided by resolving them in the Locale Seed Decoupling doc first.
 
 ## Success
 
-- Retransmitting a new planet name (coordinates untouched) yields a robot roster, Audio Rig
-  settings, and global LFO state that differ from before — but the *locale's* generated content
-  at those unchanged coordinates is provably identical to what those same coordinates would
-  produce on any other planet (the decoupling guarantee, exercised end-to-end through the UI
-  for the first time).
-- Retransmitting new coordinates regenerates locale-derived content deterministically, including
-  at round-number inputs that would have collapsed under the old simplex-sampling derivation.
+- Retransmitting a new planet name (coordinates untouched) yields fresh Audio Rig settings and
+  global LFO state (a genuinely new planet), while the *locale itself* — robots, actors, any
+  edits already made to them — carries over completely unchanged, not regenerated. This is a
+  stronger guarantee than "the same recipe reproduces the same values" (which the decoupling
+  work alone would provide) — it's literal continuity of the same objects.
+- Retransmitting new coordinates (planet unchanged) regenerates locale-derived content
+  deterministically, including at round-number inputs that would have collapsed under the old
+  simplex-sampling derivation, while the current planet's Audio Rig/LFO state is left completely
+  untouched.
+- Retransmitting with neither field changed does nothing — no world regeneration, no discarded
+  state, a true no-op.
 - Both input fields show the *current* planet name / locale coordinates on open, not blank
   fields — a user edits from the live state, not from scratch.
 - Promoted presets are a small, hand-authored, lore-consistent list per panel (not user-saved

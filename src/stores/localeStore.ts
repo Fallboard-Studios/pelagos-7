@@ -68,6 +68,26 @@ export const useLocaleStore = create<LocaleState>((set, get) => ({
   },
 
   removeLocale: (localeId) => {
+    // Release every robot's AudioEngine state first — mirrors removeRobot's
+    // own cleanup exactly, since removeLocale is discarding these robots the
+    // same way removeRobot discards a single one. Independently try/caught
+    // per call so one robot's failure doesn't block cleanup of the rest.
+    const existing = get().locales[localeId];
+    if (existing) {
+      for (const robot of existing.robots) {
+        try {
+          AudioEngine.releaseVoice(robot.id);
+        } catch (err) {
+          if (DEV_TUNING) swallow(err, 'AudioEngine.releaseVoice');
+        }
+        try {
+          AudioEngine.unregisterRobotMelody(robot.id);
+        } catch (err) {
+          if (DEV_TUNING) swallow(err, 'AudioEngine.unregisterRobotMelody');
+        }
+      }
+    }
+
     set((state) => {
       const next = { ...state.locales };
       delete next[localeId];

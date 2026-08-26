@@ -3,6 +3,7 @@ import { HubNav } from './HubNav';
 import { RobotsTab } from './RobotsTab';
 import { RobotEditorTab } from './RobotEditorTab';
 import { AudioRigDrawer } from './AudioRigDrawer';
+import { SectorSettingsDrawer } from './SectorSettingsDrawer';
 import { Button } from '@/components/ui/controls/Button';
 import type { ButtonSchema } from '@/types/controls';
 import type { HubTile } from '@/types/hub';
@@ -22,11 +23,7 @@ const BACK_SCHEMA: ButtonSchema = { id: 'hubNavBack', type: 'button', humanLabel
 const TILE_CONTENT: Record<HubTile, (selectedRobotId: string | null) => ReactNode> = {
   robots: (selectedRobotId) => (selectedRobotId ? <RobotEditorTab /> : <RobotsTab />),
   audioRig: () => <AudioRigDrawer />,
-  settings: () => (
-    <div className="console-panel__stub" id="console-tab-settings">
-      Settings
-    </div>
-  ),
+  settings: () => <SectorSettingsDrawer />,
 };
 
 export function ConsolePanel() {

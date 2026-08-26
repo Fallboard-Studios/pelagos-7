@@ -4,7 +4,6 @@
 import type { Actor } from '../types/Actor';
 import { ActorType } from '../types/Actor';
 import useLocaleStore from '../stores/localeStore';
-import { DEFAULT_LOCALE_ID } from '../stores/planetStore';
 import type { FactoryVariant } from '../components/actors/factoryVariants';
 import { VARIANT_CONF, selectVariantFromSeed } from '../components/actors/factoryVariants';
 import { calcSilhouetteSize } from '../components/actors/silhouetteUtils';
@@ -91,7 +90,7 @@ export function createFactory(position: { x: number; y: number }, row = 0): Acto
  * being tied to a row.
  * Returns array of actors (factories only; floor rects rendered in OceanScene)
  */
-export function placeFactories(): Actor[] {
+export function placeFactories(localeId: string): Actor[] {
   const actors: Actor[] = [];
 
   function computeFactoryWidth(
@@ -169,7 +168,7 @@ export function placeFactories(): Actor[] {
 
 
 
-  useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { actors });
+  useLocaleStore.getState().setLocaleData(localeId, { actors });
   return actors;
 }
 
