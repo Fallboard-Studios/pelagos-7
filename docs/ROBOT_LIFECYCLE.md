@@ -72,6 +72,17 @@ Docked ─────────────────▶ Docking ───�
   `beginDeparting` sends the robot visibly swimming off-screen the instant it fires (see below) —
   it heads off-screen before it freezes, rather than freezing wherever its last idle motion left
   it.
+  - **Invariant — never zero `Active` robots**: before honoring a critical-battery trigger,
+    `tickRobotLifecycle` re-reads the locale's current roster (not the stale per-tick snapshot, so
+    an earlier robot's departure *this same tick* is already reflected) and checks whether any
+    *other* robot is currently `Active`. If not — this is the last one standing — the transition is
+    skipped and the robot stays `Active` regardless of battery, which keeps draining and floors at
+    0 (visually reflected by the existing battery-dim overlay, see `ROBOT_DESIGN.md`). It is
+    re-evaluated every subsequent tick, so the moment any other robot lands back on `Active` (via
+    `landOnActive`), this robot's very next tick sees `stillActiveElsewhere = true` and departs
+    normally — no separate "release" signal needed, just the same check re-run. When two robots
+    cross critical in the same tick, iteration order means the first is allowed to depart and the
+    second is held, since the roster read for the second reflects the first's just-applied update.
 - **The hold**: `dockingHoldUntilMeasure` is set to `measure + 1` at the moment of triggering. The
   robot lands (`Docking` → `Active`, `Departing` → `Docked`) the first measure tick at or after
   that value — "up to one measure," not always a full one: a threshold crossed right after a
@@ -267,3 +278,4 @@ The current tests (`robotSystems.test.ts`, plus updated coverage in `idleSystem.
 - `startRobotLifecycle`/`stopRobotLifecycle` idempotency
 - the `idleSystem.ts`/`collisionSystem.ts` docking guards
 - `spawnInitialRoster`'s active/docked split, seeded battery variation, its determinism across identical coordinates, and that every robot (Docked included) has a reserved voice/registered melody with `audioMode` matching its docking state
+- the never-zero-`Active` invariant: a sole `Active` robot at/below critical battery stays `Active` (including floored at exactly 0) instead of departing; it departs on a later tick once another robot has landed back on `Active`; and when two robots cross critical in the same tick, only one departs while the other is held

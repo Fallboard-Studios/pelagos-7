@@ -164,7 +164,9 @@ describe('robotSystems', () => {
         batteryLevel: BATTERY_CRITICAL_THRESHOLD + BATTERY_DRAIN_BASE, // will land exactly at critical after drain
         job: undefined,
       });
-      setupLocaleWithRobots([robot]);
+      // A second Active robot so the "never leave zero Active" guard doesn't hold this one back.
+      const companion = makeRobot({ id: 'robot-companion', batteryLevel: 100, job: undefined });
+      setupLocaleWithRobots([robot, companion]);
 
       tickRobotLifecycle(DEFAULT_LOCALE_ID, 10);
 
@@ -180,7 +182,9 @@ describe('robotSystems', () => {
         batteryLevel: BATTERY_CRITICAL_THRESHOLD + BATTERY_DRAIN_BASE,
         job: undefined,
       });
-      setupLocaleWithRobots([robot]);
+      // A second Active robot so the "never leave zero Active" guard doesn't hold this one back.
+      const companion = makeRobot({ id: 'robot-companion', batteryLevel: 100, job: undefined });
+      setupLocaleWithRobots([robot, companion]);
 
       tickRobotLifecycle(DEFAULT_LOCALE_ID, 10);
 
@@ -218,6 +222,59 @@ describe('robotSystems', () => {
 
       const updated = useLocaleStore.getState().getRobotById(DEFAULT_LOCALE_ID, robot.id);
       expect(updated?.batteryLevel).toBe(5);
+    });
+
+    it('the sole Active robot stays Active at/below critical battery instead of departing, so the roster is never fully Docked', () => {
+      const robot = makeRobot({
+        batteryLevel: BATTERY_CRITICAL_THRESHOLD + BATTERY_DRAIN_BASE,
+        job: undefined,
+      });
+      const dockedCompanion = makeRobot({ id: 'robot-docked', docking: DockingState.Docked, batteryLevel: 40 });
+      setupLocaleWithRobots([robot, dockedCompanion]);
+
+      tickRobotLifecycle(DEFAULT_LOCALE_ID, 10);
+
+      const updated = useLocaleStore.getState().getRobotById(DEFAULT_LOCALE_ID, robot.id);
+      expect(updated?.batteryLevel).toBeLessThanOrEqual(BATTERY_CRITICAL_THRESHOLD);
+      expect(updated?.docking).toBe(DockingState.Active); // held, not Departing
+      expect(createSwimTimeline).not.toHaveBeenCalled();
+    });
+
+    it('the sole Active robot floors at 0 battery and keeps being held rather than departing', () => {
+      const robot = makeRobot({ batteryLevel: BATTERY_DRAIN_BASE, job: undefined }); // drains to exactly 0
+      setupLocaleWithRobots([robot]);
+
+      tickRobotLifecycle(DEFAULT_LOCALE_ID, 10);
+
+      const updated = useLocaleStore.getState().getRobotById(DEFAULT_LOCALE_ID, robot.id);
+      expect(updated?.batteryLevel).toBe(0);
+      expect(updated?.docking).toBe(DockingState.Active);
+    });
+
+    it('a held-back robot departs on a later tick once another robot has landed back on Active', () => {
+      const robot = makeRobot({ batteryLevel: 0, job: undefined }); // already floored, held Active
+      const revivedCompanion = makeRobot({ id: 'robot-revived', batteryLevel: 100, job: undefined }); // now Active
+      setupLocaleWithRobots([robot, revivedCompanion]);
+
+      tickRobotLifecycle(DEFAULT_LOCALE_ID, 20);
+
+      const updated = useLocaleStore.getState().getRobotById(DEFAULT_LOCALE_ID, robot.id);
+      expect(updated?.docking).toBe(DockingState.Departing);
+      expect(updated?.dockingHoldUntilMeasure).toBe(21);
+    });
+
+    it('when two robots cross critical in the same tick, only one departs — the other is held to protect the invariant', () => {
+      const robotA = makeRobot({ id: 'robot-a', batteryLevel: BATTERY_CRITICAL_THRESHOLD + BATTERY_DRAIN_BASE, job: undefined });
+      const robotB = makeRobot({ id: 'robot-b', batteryLevel: BATTERY_CRITICAL_THRESHOLD + BATTERY_DRAIN_BASE, job: undefined });
+      setupLocaleWithRobots([robotA, robotB]);
+
+      tickRobotLifecycle(DEFAULT_LOCALE_ID, 10);
+
+      const updatedA = useLocaleStore.getState().getRobotById(DEFAULT_LOCALE_ID, robotA.id);
+      const updatedB = useLocaleStore.getState().getRobotById(DEFAULT_LOCALE_ID, robotB.id);
+      const dockingStates = [updatedA?.docking, updatedB?.docking];
+      expect(dockingStates).toContain(DockingState.Departing);
+      expect(dockingStates).toContain(DockingState.Active); // held — otherwise both would leave and the roster would empty
     });
   });
 
@@ -589,7 +646,9 @@ describe('robotSystems', () => {
         batteryLevel: BATTERY_CRITICAL_THRESHOLD + BATTERY_DRAIN_BASE,
         job: undefined,
       });
-      setupLocaleWithRobots([robot]);
+      // A second Active robot so the "never leave zero Active" guard doesn't hold this one back.
+      const companion = makeRobot({ id: 'robot-companion', batteryLevel: 100, job: undefined });
+      setupLocaleWithRobots([robot, companion]);
 
       startRobotLifecycle(DEFAULT_LOCALE_ID);
       const tickCallback = (subscribeToMeasure as ReturnType<typeof vi.fn>).mock.calls[0][0];

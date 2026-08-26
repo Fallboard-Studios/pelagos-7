@@ -86,7 +86,17 @@ export function tickRobotLifecycle(localeId: string, measure: number): void {
       const surcharge = robot.job ? JOB_BATTERY_DRAIN_SURCHARGE[robot.job.type] : 0;
       const next = Math.max(0, robot.batteryLevel - (BATTERY_DRAIN_BASE + surcharge));
       useLocaleStore.getState().updateRobot(localeId, robot.id, { batteryLevel: next });
-      if (next <= BATTERY_CRITICAL_THRESHOLD) beginDeparting(localeId, robot, measure);
+      if (next <= BATTERY_CRITICAL_THRESHOLD) {
+        // Invariant: at least one robot must stay Active at all times. Re-read
+        // the roster fresh (not the stale `robots` snapshot) so an earlier
+        // robot's departure this same tick is already reflected — if this is
+        // the last one standing, hold it Active (battery floored at 0 rather
+        // than departing) until another robot lands back on Active.
+        const stillActiveElsewhere = (useLocaleStore.getState().getLocaleById(localeId)?.robots ?? []).some(
+          (r) => r.id !== robot.id && r.docking === DockingState.Active
+        );
+        if (stillActiveElsewhere) beginDeparting(localeId, robot, measure);
+      }
     } else if (robot.docking === DockingState.Docked) {
       const next = Math.min(100, robot.batteryLevel + BATTERY_RECHARGE_RATE);
       useLocaleStore.getState().updateRobot(localeId, robot.id, { batteryLevel: next });
