@@ -43,6 +43,8 @@
    unlit dot (inherits the trigger's own text color, no glow/pulse) when
    omitted entirely — this accordion has no domain "active" concept to show.
    Sits 15px right of the label, not flush against the trigger's far edge.
+   Color/glow are JS-owned (AccordionContainer.tsx, via statusLightColors.ts)
+   and applied as inline style — this CSS only owns the pulse motion.
    ---------------------------------------- */
 .sc-accordion__light {
   width: 10px;
@@ -53,14 +55,10 @@
 }
 
 .sc-accordion__light[data-content-active='false'] {
-  color: #8b1a14;
-  box-shadow: 0 0 4px 1px rgba(139, 26, 20, 0.55);
   animation: accordion-light-pulse-off 2.5s ease-in-out infinite;
 }
 
 .sc-accordion__light[data-content-active='true'] {
-  color: #1a8f40;
-  box-shadow: 0 0 5px 2px rgba(26, 143, 64, 0.7);
   animation: accordion-light-pulse-on 6s ease-in-out infinite;
 }
 

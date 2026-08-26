@@ -6,6 +6,7 @@ import { DualLabel } from './DualLabel';
 import { getAccordionDuration } from './accordionAnimation';
 import { withActiveClass } from './activeClass';
 import { setTimeline, killTimeline } from '@/animation/timelineMap';
+import { getStatusLightColor } from '@/utils/statusLightColors';
 import type { AccordionSchema } from '@/types/controls';
 import './AccordionContainer.css';
 
@@ -85,6 +86,14 @@ export function AccordionContainer({ schema, children, defaultOpen = false, cont
     animateTo(nextOpen);
   }
 
+  // Color is JS-owned (computed from the single statusLightColors source), motion stays
+  // CSS-owned (the pulse animation in AccordionContainer.css) — same split PowerRockerSwitch
+  // uses. contentActive === undefined means "no domain active concept" — unlit dot, no inline
+  // style at all, matching the plain currentColor default in CSS.
+  const light = contentActive === undefined
+    ? null
+    : getStatusLightColor(contentActive ? 'green' : 'red');
+
   return (
     <Accordion.Root
       type="single"
@@ -111,6 +120,7 @@ export function AccordionContainer({ schema, children, defaultOpen = false, cont
               className="sc-accordion__light"
               aria-hidden="true"
               data-content-active={contentActive === undefined ? undefined : String(contentActive)}
+              style={light ? { color: light.color, boxShadow: `0 0 4px 1px ${light.glow}` } : undefined}
             />
           </Accordion.Trigger>
         </Accordion.Header>
