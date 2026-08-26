@@ -185,9 +185,11 @@ land.
     unaffected)
 
   **Verification:**
-  - [ ] `npm run build:types` — expect NEW errors in `constants/index.ts`'s `DEFAULT_LOCALE` and
-    `worldTransition.ts`'s `buildLocale` (both still construct the old `settings` shape); expected
-    until Task 15 lands
+  - [ ] `npm run build:types` — no new errors expected: `LocaleSettings`' `[key: string]: unknown`
+    index signature means `constants/index.ts`'s `DEFAULT_LOCALE` and `worldTransition.ts`'s
+    `buildLocale` (both still construct the old `settings` shape) type-check without complaint even
+    though the named fields are gone; actual removal of the stale fields from those two literals is
+    still Task 15's job, just not compiler-enforced in between
   - [ ] `npm run lint` clean for `types/locale.ts`
 
   **Dependencies:** None (parallel-safe with Tasks 1–2).
