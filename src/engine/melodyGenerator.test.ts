@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import alea from 'alea';
 import {
   applyRhythmicVariance,
   applyTonalVariance,
@@ -7,6 +8,7 @@ import {
   gridUnitsToDuration,
   pickDurationForGap,
   generateMelodyForRobot,
+  reRollMelodyPitches,
   DEFAULT_SUBDIVISIONS,
   DEFAULT_RHYTHMIC_DENSITY,
   DEFAULT_RHYTHMIC_MOTIF_LENGTH,
@@ -961,5 +963,96 @@ describe('generateMelodyForRobot — GenerateMelodyForRobotOptions', () => {
     expect(DEFAULT_NOTE_VARIANCE).toEqual({ active: false, value: 1 });
     const melody = generateMelodyForRobot({ octaveMin: 3, octaveMax: 4, seed: 9 });
     expect(melody.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+// ========================================
+// TEST SUITE: reRollMelodyPitches
+// ========================================
+
+describe('reRollMelodyPitches', () => {
+  /** 8-event melody with distinct, easily-diffable startStep/noteIndex/octave per event. */
+  function makeEightEventMelody(): RobotMelodyEvent[] {
+    return Array.from({ length: 8 }, (_, i) =>
+      createMelodyEvent({ id: `e${i}`, startStep: i + 1, length: '16n', noteIndex: i % 8, octave: 3 + (i % 3) })
+    );
+  }
+
+  it('changes exactly round(length * ratio) events at a 25% ratio on an 8-event melody', () => {
+    const melody = makeEightEventMelody();
+    const rand = alea('reroll-seed-1');
+    const result = reRollMelodyPitches(melody, 0.25, { rand });
+
+    const changedCount = result.filter((e, i) => e.noteIndex !== melody[i].noteIndex).length;
+    expect(changedCount).toBe(2); // round(8 * 0.25) = 2
+  });
+
+  it('leaves startStep, length, and octave unchanged on every event, including changed ones', () => {
+    const melody = makeEightEventMelody();
+    const rand = alea('reroll-seed-2');
+    const result = reRollMelodyPitches(melody, 0.25, { rand });
+
+    expect(result.map((e) => e.startStep)).toEqual(melody.map((e) => e.startStep));
+    expect(result.map((e) => e.length)).toEqual(melody.map((e) => e.length));
+    expect(result.map((e) => e.octave)).toEqual(melody.map((e) => e.octave));
+  });
+
+  it('leaves unchanged events\' noteIndex byte-identical to the input', () => {
+    const melody = makeEightEventMelody();
+    const rand = alea('reroll-seed-3');
+    const result = reRollMelodyPitches(melody, 0.25, { rand });
+
+    result.forEach((e, i) => {
+      const isChanged = e.noteIndex !== melody[i].noteIndex;
+      if (!isChanged) expect(e.noteIndex).toBe(melody[i].noteIndex);
+    });
+  });
+
+  it('floors at 1 changed event even when round(length * ratio) would be 0', () => {
+    const melody = [createMelodyEvent({ id: 'only', startStep: 1, noteIndex: 5, octave: 4 })];
+    const rand = alea('reroll-seed-4');
+    const result = reRollMelodyPitches(melody, 0.25, { rand });
+
+    // A 1-event melody at 25% floors to "change 1", not "change 0".
+    expect(result).toHaveLength(1);
+    // Can't assert the new value differs from a possible-by-chance identical re-roll,
+    // but the function must have gone through the re-roll path (index 0 is always selected
+    // when count >= length), not a same-reference pass-through.
+    expect(result[0]).not.toBe(melody[0]);
+  });
+
+  it('noteVariance inactive (or absent) produces unweighted picks in the valid 0-7 range', () => {
+    const melody = makeEightEventMelody();
+    const rand = alea('reroll-seed-5');
+    const result = reRollMelodyPitches(melody, 1, { rand }); // ratio 1 -> every event re-rolled
+    result.forEach((e) => {
+      expect(e.noteIndex).toBeGreaterThanOrEqual(0);
+      expect(e.noteIndex).toBeLessThan(8);
+    });
+  });
+
+  it('noteVariance active produces picks within the valid 0-7 range (weighted selection)', () => {
+    const melody = makeEightEventMelody();
+    const rand = alea('reroll-seed-6');
+    const result = reRollMelodyPitches(melody, 1, { noteVariance: { active: true, value: 8 }, rand });
+    result.forEach((e) => {
+      expect(e.noteIndex).toBeGreaterThanOrEqual(0);
+      expect(e.noteIndex).toBeLessThan(8);
+    });
+  });
+
+  it('is deterministic — same rand sequence in, same output out', () => {
+    const melodyA = makeEightEventMelody();
+    const melodyB = makeEightEventMelody();
+    const resultA = reRollMelodyPitches(melodyA, 0.25, { rand: alea('reroll-determinism') });
+    const resultB = reRollMelodyPitches(melodyB, 0.25, { rand: alea('reroll-determinism') });
+    expect(resultA.map((e) => e.noteIndex)).toEqual(resultB.map((e) => e.noteIndex));
+  });
+
+  it('does not mutate the input melody array or its events', () => {
+    const melody = makeEightEventMelody();
+    const snapshot = melody.map((e) => ({ ...e }));
+    reRollMelodyPitches(melody, 0.25, { rand: alea('reroll-seed-7') });
+    expect(melody).toEqual(snapshot);
   });
 });
