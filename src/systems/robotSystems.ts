@@ -1,0 +1,264 @@
+// ========================================
+// IMPORTS
+// ========================================
+import alea from 'alea';
+
+import { DockingState, JobType } from '../types/Robot';
+import type { JobType as JobTypeValue } from '../types/Robot';
+import type { Robot } from '../types/Robot';
+import type { OscillatorLayer } from '../types/layeredAudio';
+import useLocaleStore from '../stores/localeStore';
+import { subscribeToMeasure, getCurrentMeasure } from '../engine/beatClock';
+import { AudioEngine } from '../engine/AudioEngine';
+import { reRollMelodyPitches } from '../engine/melodyGenerator';
+import { handleRobotIdle } from './idleSystem';
+import { generateSpawnPosition } from './spawnSystem';
+import { getLocaleNoiseMap } from '../utils/noiseMaps';
+import { getSeededVal } from '../utils/getSeededVal';
+import { swallow } from '../utils/helpers';
+import {
+  DEV_TUNING,
+  BATTERY_DRAIN_BASE,
+  JOB_BATTERY_DRAIN_SURCHARGE,
+  BATTERY_RECHARGE_RATE,
+  BATTERY_CRITICAL_THRESHOLD,
+  BATTERY_FULL_THRESHOLD,
+  DOCKED_PITCH_DRIFT_RATIO,
+  JOB_MAX_ROBOTS_PER_TYPE,
+} from '../constants';
+
+// ========================================
+// MODULE STATE
+// ========================================
+let lifecycleUnsubscribe: (() => void) | null = null;
+
+/** Per-robot count of Docked landings — seeds dock position and pitch-drift rolls so
+ *  successive dock cycles for the same robot sample different noise-map rows. */
+const dockCycleCounters = new Map<string, number>();
+
+// ========================================
+// BATTERY / DOCKING TICK
+// ========================================
+
+function beginDeparting(localeId: string, robotId: string, measure: number): void {
+  useLocaleStore.getState().updateRobot(localeId, robotId, {
+    docking: DockingState.Departing,
+    dockingHoldUntilMeasure: measure + 1,
+  });
+}
+
+function beginDocking(localeId: string, robotId: string, measure: number): void {
+  useLocaleStore.getState().updateRobot(localeId, robotId, {
+    docking: DockingState.Docking,
+    dockingHoldUntilMeasure: measure + 1,
+  });
+}
+
+/**
+ * One measure's worth of Battery/Docking evaluation for every robot in a locale.
+ * Pure with respect to its inputs (measure is passed in, not read from BeatClock
+ * directly) so tests can drive it without a real transport — see
+ * startRobotLifecycle for the BeatClock-wired entry point.
+ */
+export function tickRobotLifecycle(localeId: string, measure: number): void {
+  const robots = useLocaleStore.getState().getLocaleById(localeId)?.robots ?? [];
+
+  for (const robot of robots) {
+    if (robot.docking === DockingState.Active) {
+      const surcharge = robot.job ? JOB_BATTERY_DRAIN_SURCHARGE[robot.job.type] : 0;
+      const next = Math.max(0, robot.batteryLevel - (BATTERY_DRAIN_BASE + surcharge));
+      useLocaleStore.getState().updateRobot(localeId, robot.id, { batteryLevel: next });
+      if (next <= BATTERY_CRITICAL_THRESHOLD) beginDeparting(localeId, robot.id, measure);
+    } else if (robot.docking === DockingState.Docked) {
+      const next = Math.min(100, robot.batteryLevel + BATTERY_RECHARGE_RATE);
+      useLocaleStore.getState().updateRobot(localeId, robot.id, { batteryLevel: next });
+      if (next >= BATTERY_FULL_THRESHOLD) beginDocking(localeId, robot.id, measure);
+    } else if (
+      (robot.docking === DockingState.Docking || robot.docking === DockingState.Departing) &&
+      robot.dockingHoldUntilMeasure !== undefined &&
+      measure >= robot.dockingHoldUntilMeasure
+    ) {
+      if (robot.docking === DockingState.Docking) landOnActive(localeId, robot.id);
+      else landOnDocked(localeId, robot.id);
+    }
+  }
+}
+
+/** Start the per-measure lifecycle tick for a locale. Idempotent — safe to call
+ *  multiple times; only one subscription is active at a time. Mirrors
+ *  spawnSystem.ts's former startSpawnScheduler singleton pattern. */
+export function startRobotLifecycle(localeId: string): void {
+  if (lifecycleUnsubscribe !== null) {
+    if (DEV_TUNING) console.log('[RobotSystems] Lifecycle already running, skipping start');
+    return;
+  }
+  lifecycleUnsubscribe = subscribeToMeasure((measure) => tickRobotLifecycle(localeId, measure));
+  if (DEV_TUNING) console.log('[RobotSystems] Lifecycle started');
+}
+
+/** Stop the per-measure lifecycle tick. Idempotent — safe to call when not running. */
+export function stopRobotLifecycle(): void {
+  if (lifecycleUnsubscribe === null) {
+    if (DEV_TUNING) console.log('[RobotSystems] Lifecycle not running, nothing to stop');
+    return;
+  }
+  lifecycleUnsubscribe();
+  lifecycleUnsubscribe = null;
+  if (DEV_TUNING) console.log('[RobotSystems] Lifecycle stopped');
+}
+
+// ========================================
+// LANDING EFFECTS
+// ========================================
+
+/** Land on Active: unmute (reserve voice + register melody), assign a job, restart wandering. */
+export function landOnActive(localeId: string, robotId: string): void {
+  const robot = useLocaleStore.getState().getRobotById(localeId, robotId);
+  if (!robot) return;
+
+  useLocaleStore.getState().updateRobot(localeId, robotId, {
+    docking: DockingState.Active,
+    dockingHoldUntilMeasure: undefined,
+  });
+
+  try {
+    const layers = (robot.audioAttributes as unknown as { layers?: OscillatorLayer[] })?.layers;
+    if (Array.isArray(layers) && layers.length > 0) {
+      AudioEngine.reserveVoice(robotId, layers, robot.audioAttributes.phase, robot.audioAttributes.detune, layers[0]?.pulseWidth);
+    }
+  } catch (err) {
+    if (DEV_TUNING) swallow(err, 'AudioEngine.reserveVoice');
+  }
+  AudioEngine.unregisterRobotMelody(robotId);
+  AudioEngine.registerRobotMelody(robotId, robot.melody);
+
+  assignJob(localeId, robotId);
+
+  // Robot.tsx only calls handleRobotIdle on mount — a robot already mounted
+  // (docked robots stay mounted, just off-screen and idle-guarded) needs this
+  // explicit restart to resume wandering now that it's Active again.
+  handleRobotIdle(localeId, robotId);
+}
+
+/** Land on Docked: mute (release voice + unregister melody), reposition off-screen, drift pitch. */
+export function landOnDocked(localeId: string, robotId: string): void {
+  const robot = useLocaleStore.getState().getRobotById(localeId, robotId);
+  if (!robot) return;
+
+  const locale = useLocaleStore.getState().getLocaleById(localeId);
+  const noiseMap = locale ? getLocaleNoiseMap(localeId, locale.coordinates.x, locale.coordinates.y) : null;
+
+  const dockCycle = (dockCycleCounters.get(robotId) ?? 0) + 1;
+  dockCycleCounters.set(robotId, dockCycle);
+
+  const dockPosition = noiseMap
+    ? generateSpawnPosition(noiseMap, dockCycle)
+    : generateSpawnPosition((_x: number, _y: number) => 0 as number, dockCycle);
+
+  let pitchCallIndex = 0;
+  const pitchRand = noiseMap
+    ? () => getSeededVal(noiseMap, 'robot.pitchDrift', dockCycle * 100 + pitchCallIndex++, 0, 1)
+    : alea(`${localeId}:${robotId}:${dockCycle}:pitchDrift`);
+
+  const driftedMelody = reRollMelodyPitches(robot.melody, DOCKED_PITCH_DRIFT_RATIO, {
+    noteVariance: robot.noteVariance,
+    rand: pitchRand,
+  });
+
+  useLocaleStore.getState().updateRobot(localeId, robotId, {
+    docking: DockingState.Docked,
+    dockingHoldUntilMeasure: undefined,
+    position: dockPosition,
+    melody: driftedMelody,
+  });
+
+  try {
+    AudioEngine.releaseVoice(robotId);
+  } catch (err) {
+    if (DEV_TUNING) swallow(err, 'AudioEngine.releaseVoice');
+  }
+  AudioEngine.unregisterRobotMelody(robotId);
+}
+
+// ========================================
+// JOB AFFINITY SCORING
+// ========================================
+
+/**
+ * Deterministic affinity score (higher = better fit) for each of the four job
+ * profiles, purely from a robot's already-seeded melodic attributes. No new
+ * randomness — the inputs were seeded at spawn; this is plain arithmetic.
+ */
+export function scoreJobAffinities(robot: Robot): Record<JobTypeValue, number> {
+  const [octMin, octMax] = robot.octaveRange;
+  const avgOctave = (octMin + octMax) / 2; // ~1-7
+  const octaveSpan = octMax - octMin; // 0-6
+  const density = (robot.rhythmicDensity ?? 50) / 100; // 0-1
+
+  const motif = robot.rhythmicMotifLength;
+  const motifShort = !!motif?.active && motif.value <= 4;
+  const motifSpacious = !motif?.active || motif.value >= 6;
+  const motifMidLength = !!motif?.active && motif.value >= 4 && motif.value <= 8;
+
+  const variance = robot.noteVariance;
+  const varianceLow = !!variance?.active && variance.value <= 3;
+  const varianceHigh = !variance?.active || variance.value === 8;
+
+  const ventExtraction =
+    (1 - avgOctave / 7) * 0.4 +
+    density * 0.3 +
+    (motifShort ? 0.2 : 0) +
+    (varianceLow ? 0.1 : 0);
+
+  const acousticSurvey =
+    (avgOctave / 7) * 0.4 +
+    (1 - density) * 0.3 +
+    (motifSpacious ? 0.2 : 0) +
+    (varianceHigh ? 0.1 : 0);
+
+  const structuralInspection =
+    (octaveSpan / 6) * 0.6 +
+    (motifMidLength ? 0.2 : 0) +
+    (density >= 0.5 && density <= 0.9 ? 0.2 : 0);
+
+  const fluidMonitoring =
+    0.3 +
+    (Math.abs(avgOctave - 4) <= 1 ? 0.3 : 0) +
+    (Math.abs(density - 0.5) <= 0.2 ? 0.2 : 0);
+
+  return {
+    [JobType.VentExtraction]: ventExtraction,
+    [JobType.AcousticSurvey]: acousticSurvey,
+    [JobType.StructuralInspection]: structuralInspection,
+    [JobType.FluidMonitoring]: fluidMonitoring,
+  } as Record<JobTypeValue, number>;
+}
+
+/**
+ * Assign the best-scoring job type to a robot, skipping any type already at
+ * JOB_MAX_ROBOTS_PER_TYPE active assignments in this locale (roster balancing
+ * — see spec §1). Falls back to the top-scoring type if every type is
+ * somehow capped (can't happen at the fixed 12-robot / 4-type / cap-3 roster,
+ * but avoids leaving `job` unset in a future roster-size change).
+ */
+export function assignJob(localeId: string, robotId: string): void {
+  const locale = useLocaleStore.getState().getLocaleById(localeId);
+  const robot = locale?.robots.find((r) => r.id === robotId);
+  if (!locale || !robot) return;
+
+  const scores = scoreJobAffinities(robot);
+  const sortedTypes = (Object.values(JobType) as JobTypeValue[]).sort((a, b) => scores[b] - scores[a]);
+
+  const countByType = new Map<JobTypeValue, number>();
+  for (const r of locale.robots) {
+    if (r.id !== robotId && r.docking === DockingState.Active && r.job) {
+      countByType.set(r.job.type, (countByType.get(r.job.type) ?? 0) + 1);
+    }
+  }
+
+  const chosen = sortedTypes.find((t) => (countByType.get(t) ?? 0) < JOB_MAX_ROBOTS_PER_TYPE) ?? sortedTypes[0];
+
+  useLocaleStore.getState().updateRobot(localeId, robotId, {
+    job: { type: chosen, assignedAtMeasure: getCurrentMeasure() },
+  });
+}
