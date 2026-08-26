@@ -307,6 +307,77 @@ describe('spawnSystem', () => {
     });
   });
 
+  describe('spawnRobot — deterministic robot IDs', () => {
+    beforeEach(() => {
+      vi.resetModules();
+      vi.clearAllMocks();
+    });
+
+    it('robot.id is not a crypto.randomUUID-shaped string', () => {
+      // melodyGenerator.ts still legitimately calls crypto.randomUUID() for each
+      // melody EVENT's own id — unrelated and untouched by this task. This test
+      // checks the ROBOT id's own shape, not whether randomUUID is called at all.
+      useLocaleStore.setState({ locales: { [DEFAULT_LOCALE_ID]: DEFAULT_LOCALE } });
+      spawnRobot(DEFAULT_LOCALE_ID);
+      const robot = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.robots[0];
+      const uuidShape = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      expect(robot?.id).toBeDefined();
+      expect(uuidShape.test(robot!.id)).toBe(false);
+    });
+
+    it('spawning against the same locale coordinates twice (fresh module state each time) produces identical ID sequences', async () => {
+      // Simulates a reload/shared-link replay: a brand-new module instance
+      // (spawnCounters reset to empty) spawning against the same coordinates
+      // must reproduce the exact same ID sequence, since Session Storage
+      // (Phase 11) needs to reapply overrides by ID after the roster
+      // regenerates. Reuses this file's existing vi.resetModules() pattern
+      // (see 'startSpawnScheduler / stopSpawnScheduler' below) rather than
+      // reaching into spawnSystem's private per-locale counter.
+      vi.resetModules();
+      const run1 = await import('./spawnSystem');
+      const store1 = await import('../stores/localeStore');
+      const planet1 = await import('../stores/planetStore');
+      store1.useLocaleStore.setState({ locales: { [planet1.DEFAULT_LOCALE_ID]: store1.DEFAULT_LOCALE } });
+      run1.spawnRobot(planet1.DEFAULT_LOCALE_ID);
+      run1.spawnRobot(planet1.DEFAULT_LOCALE_ID);
+      const idsRun1 = (store1.useLocaleStore.getState().getLocaleById(planet1.DEFAULT_LOCALE_ID)?.robots ?? []).map((r) => r.id);
+
+      vi.resetModules();
+      const run2 = await import('./spawnSystem');
+      const store2 = await import('../stores/localeStore');
+      const planet2 = await import('../stores/planetStore');
+      store2.useLocaleStore.setState({ locales: { [planet2.DEFAULT_LOCALE_ID]: store2.DEFAULT_LOCALE } });
+      run2.spawnRobot(planet2.DEFAULT_LOCALE_ID);
+      run2.spawnRobot(planet2.DEFAULT_LOCALE_ID);
+      const idsRun2 = (store2.useLocaleStore.getState().getLocaleById(planet2.DEFAULT_LOCALE_ID)?.robots ?? []).map((r) => r.id);
+
+      expect(idsRun1).toHaveLength(2);
+      expect(idsRun2).toEqual(idsRun1);
+    });
+
+    it('two different locale IDs sharing the same coordinates produce identical ID sequences', () => {
+      // Robot ID depends on (coordinates, spawnCount) alone, never on localeId
+      // itself — matching the same coordinates-are-the-seed guarantee
+      // LOCALE_SEED_DECOUPLING.md established for every other locale-derived value.
+      const coords = { x: 5.5, y: -3.25 };
+      useLocaleStore.setState({
+        locales: {
+          'locale-id-test-a': { ...DEFAULT_LOCALE, id: 'locale-id-test-a', coordinates: coords, robots: [] },
+          'locale-id-test-b': { ...DEFAULT_LOCALE, id: 'locale-id-test-b', coordinates: coords, robots: [] },
+        },
+      });
+
+      spawnRobot('locale-id-test-a');
+      spawnRobot('locale-id-test-a');
+      spawnRobot('locale-id-test-b');
+      spawnRobot('locale-id-test-b');
+
+      const idsA = (useLocaleStore.getState().getLocaleById('locale-id-test-a')?.robots ?? []).map((r) => r.id);
+      const idsB = (useLocaleStore.getState().getLocaleById('locale-id-test-b')?.robots ?? []).map((r) => r.id);
+      expect(idsA).toEqual(idsB);
+    });
+  });
+
   describe('startSpawnScheduler / stopSpawnScheduler', () => {
     beforeEach(async () => {
       vi.resetModules();

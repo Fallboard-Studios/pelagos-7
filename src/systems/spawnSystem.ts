@@ -73,6 +73,22 @@ function generateRobotName(noiseMap: NoiseFunction2D, offset: number): string {
   return `${a} ${n}`;
 }
 
+/**
+ * Deterministic, human-legible robot ID — reuses the existing locale noise-map
+ * seeding mechanism (same as every other spawn-time attribute) rather than
+ * crypto.randomUUID(). Uniqueness is structural, not actively checked: `spawnCount`
+ * is a monotonic per-locale counter, embedded directly in the ID string, and
+ * `getSeededVal`'s 'robot.id' dataId gives this field its own row in the noise
+ * map distinct from every other seeded field. Required so Session Storage
+ * (Phase 11) can reapply Robot Options overrides by ID after the roster
+ * regenerates from a reload or shared link — the same coordinates always
+ * replay the same spawnCount sequence and therefore the same ID sequence.
+ */
+function generateRobotId(noiseMap: NoiseFunction2D, spawnCount: number): string {
+  const idSeed = getSeededVal(noiseMap, 'robot.id', spawnCount, 0, 1);
+  return `robot-${spawnCount}-${idSeed.toString(36).slice(2, 10)}`;
+}
+
 // ========================================
 // MODULE STATE
 // ========================================
@@ -428,7 +444,7 @@ export function spawnRobot(localeId: string): void {
   const spawnDirection: 'left' | 'right' = position.x < (WORLD_WIDTH / 2) ? 'left' : 'right';
 
   const robot: Robot = {
-    id: crypto.randomUUID(),
+    id: noiseMap ? generateRobotId(noiseMap, spawnCount) : generateRobotId((_x: number, _y: number) => 0 as number, spawnCount),
     name: noiseMap ? generateRobotName(noiseMap, spawnCount) : generateRobotName((_x: number, _y: number) => 0 as number, spawnCount),
     state: RobotState.Idle,
     position,
