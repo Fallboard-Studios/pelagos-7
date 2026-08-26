@@ -7,7 +7,7 @@ import { useLocaleStore, DEFAULT_LOCALE, DEFAULT_LOCALE_ID } from './localeStore
 import { AudioEngine } from '../engine/AudioEngine';
 import type { Locale } from '../types/locale';
 import type { Robot } from '../types/Robot';
-import { RobotState } from '../types/Robot';
+import { RobotState, DockingState } from '../types/Robot';
 
 // ========================================
 // HELPERS
@@ -28,6 +28,8 @@ const makeRobot = (id: string): Robot => ({
   octaveRange: [3, 4],
   createdAt: Date.now(),
   masterVolume: 0.7,
+  docking: DockingState.Active,
+  batteryLevel: 100,
 });
 
 // ========================================
@@ -188,6 +190,32 @@ describe('localeStore', () => {
         useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, makeRobot('r1'));
         useLocaleStore.getState().updateRobot(DEFAULT_LOCALE_ID, 'r1', { rhythmicMotifLength: { active: true, value: 5 } });
         expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].robots[0].rhythmicMotifLength).toEqual({ active: true, value: 5 });
+      });
+    });
+
+    describe('batteryLevel clamping (0-100)', () => {
+      it('clamps a value above 100 down to 100', () => {
+        useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, makeRobot('r1'));
+        useLocaleStore.getState().updateRobot(DEFAULT_LOCALE_ID, 'r1', { batteryLevel: 150 });
+        expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].robots[0].batteryLevel).toBe(100);
+      });
+
+      it('clamps a negative value up to 0', () => {
+        useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, makeRobot('r1'));
+        useLocaleStore.getState().updateRobot(DEFAULT_LOCALE_ID, 'r1', { batteryLevel: -10 });
+        expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].robots[0].batteryLevel).toBe(0);
+      });
+
+      it('passes an in-range value through untouched', () => {
+        useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, makeRobot('r1'));
+        useLocaleStore.getState().updateRobot(DEFAULT_LOCALE_ID, 'r1', { batteryLevel: 42 });
+        expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].robots[0].batteryLevel).toBe(42);
+      });
+
+      it('truncates a fractional value', () => {
+        useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, makeRobot('r1'));
+        useLocaleStore.getState().updateRobot(DEFAULT_LOCALE_ID, 'r1', { batteryLevel: 42.9 });
+        expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].robots[0].batteryLevel).toBe(42);
       });
     });
   });

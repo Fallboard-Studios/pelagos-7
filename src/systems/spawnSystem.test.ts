@@ -241,7 +241,7 @@ describe('spawnSystem', () => {
       useLocaleStore.setState((state) => ({
         locales: {
           ...state.locales,
-          [localeId]: { ...DEFAULT_LOCALE, id: localeId, robots: [], settings: { ...DEFAULT_LOCALE.settings, maxRobots: 500 } },
+          [localeId]: { ...DEFAULT_LOCALE, id: localeId, robots: [] },
         },
       }));
       const n = 500;
@@ -265,7 +265,7 @@ describe('spawnSystem', () => {
       useLocaleStore.setState((state) => ({
         locales: {
           ...state.locales,
-          [localeId]: { ...DEFAULT_LOCALE, id: localeId, robots: [], settings: { ...DEFAULT_LOCALE.settings, maxRobots: 500 } },
+          [localeId]: { ...DEFAULT_LOCALE, id: localeId, robots: [] },
         },
       }));
       const n = 500;
@@ -280,9 +280,6 @@ describe('spawnSystem', () => {
     });
 
     it('a copied robot inherits the source\'s rhythmicDensity/rhythmicMotifLength/noteVariance rather than rolling fresh ones', () => {
-      useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, {
-        settings: { ...DEFAULT_LOCALE.settings, maxRobots: 100 },
-      });
       for (let i = 0; i < 30; i++) spawnRobot(DEFAULT_LOCALE_ID);
       const robots = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.robots ?? [];
       const byLfo = new Map<Robot['lfoSettings'], Robot[]>();
@@ -300,13 +297,9 @@ describe('spawnSystem', () => {
     });
 
     it('a copied robot inherits the source\'s lfoSettings rather than generating fresh ones', () => {
-      // Raise maxRobots so 30 spawns don't trigger the oldest-robot removal
-      // churn (default cap is 12) — that's an orthogonal system this test
-      // isn't about. 30 spawns at a ~30% copy chance per spawn makes at
-      // least one copy virtually certain (P(zero copies) ≈ 0.7^29 ≈ 0.00002).
-      useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, {
-        settings: { ...DEFAULT_LOCALE.settings, maxRobots: 100 },
-      });
+      // 30 spawns at a ~30% copy chance per spawn makes at least one copy
+      // virtually certain (P(zero copies) ≈ 0.7^29 ≈ 0.00002). The roster is
+      // uncapped now (no more oldest-robot removal churn to avoid).
       for (let i = 0; i < 30; i++) spawnRobot(DEFAULT_LOCALE_ID);
       const robots = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.robots ?? [];
       const bySettings = new Map<Robot['lfoSettings'], Robot[]>();
@@ -370,8 +363,8 @@ describe('spawnSystem', () => {
       // (spawnCounters reset to empty) spawning against the same coordinates
       // must reproduce the exact same ID sequence, since Session Storage
       // (Phase 11) needs to reapply overrides by ID after the roster
-      // regenerates. Reuses this file's existing vi.resetModules() pattern
-      // (see 'startSpawnScheduler / stopSpawnScheduler' below) rather than
+      // regenerates. Reuses the same vi.resetModules() pattern the
+      // "spawnInitialRoster" determinism test below uses, rather than
       // reaching into spawnSystem's private per-locale counter.
       vi.resetModules();
       const run1 = await import('./spawnSystem');

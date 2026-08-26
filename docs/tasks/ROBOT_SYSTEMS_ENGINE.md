@@ -668,18 +668,18 @@ land.
 
   **Estimated scope:** XS (2 files, pure removal)
 
-- [ ] **Task 18: `src/stores/localeStore.ts` — clamp `batteryLevel`**
+- [x] **Task 18: `src/stores/localeStore.ts` — clamp `batteryLevel`**
 
   **Description:** Add `batteryLevel` to `updateRobot`'s normalized-field clamp block.
 
   **Acceptance criteria:**
-  - [ ] `normalized.batteryLevel` clamped to `0–100` when present, following the existing
+  - [x] `normalized.batteryLevel` clamped to `0–100` when present, following the existing
     `rhythmicDensity` clamp's exact style (`Math.max(0, Math.min(100, Math.trunc(...)))`)
-  - [ ] New test: `updateRobot` clamps `batteryLevel` outside `0–100`
+  - [x] New test: `updateRobot` clamps `batteryLevel` outside `0–100`
 
   **Verification:**
-  - [ ] `npx vitest run src/stores/localeStore.test.ts` — all passing
-  - [ ] `npm run build:types` passes
+  - [x] `npx vitest run src/stores/localeStore.test.ts` — all passing
+  - [x] `npm run build:types` passes
 
   **Dependencies:** Task 1, Task 2.
 
@@ -689,17 +689,21 @@ land.
 
 ### Checkpoint: Complete Implementation
 
-- [ ] `npm test` — all tests passing project-wide.
-- [ ] `npm run build:types` — zero errors project-wide (no leftover `persists`/scheduler/
-  `removeRobotWithExit` reference anywhere — spot-check with `grep -rn "persists\|autoSpawn\|
-  minRobots\|maxRobots\|startSpawnScheduler\|removeRobotWithExit" src`, expecting zero hits outside
-  historical test-fixture noise).
-- [ ] `npm run lint` — zero errors project-wide.
-- [ ] `npm run build` — production bundle builds cleanly.
+- [x] `npm test` — all tests passing project-wide (1058/1058).
+- [x] `npm run build:types` — zero errors project-wide. `grep -rn "\bmaxRobots\b\|\bminRobots\b\|
+  autoSpawn\|startSpawnScheduler\|removeRobotWithExit" src` came back non-empty on the first pass —
+  found real dead config (`maxRobots`/`minRobots` still being *set*, just never read, in
+  `AudioEngine.test.ts` and `spawnSystem.test.ts`) plus one stale comment cross-reference to a
+  since-renamed describe block; all cleaned up in this same pass rather than left as noise. The
+  `persists` hits that remain are all legitimate (test names/comments asserting its *absence*, or
+  historical-lineage doc comments in `robotSystems.ts`/`powerController.ts`).
+- [x] `npm run lint` — zero errors project-wide.
+- [x] `npm run build` — production bundle builds cleanly.
 - [ ] Manual check (`npm run dev`): load a fresh locale, confirm exactly 12 robots exist in the
   store, 2–4 visibly `Active`/audible, the rest silent and off-screen; watch for several minutes
   and confirm at least one full `Active`→`Departing`→`Docked`→`Docking`→`Active` cycle occurs,
-  matching § 5's manual-check description in the spec.
+  matching § 5's manual-check description in the spec. **Not yet done — needs the human operator
+  running the real dev server/browser, not something verifiable from the CLI alone.**
 - [ ] Review with human before proceeding to docs.
 
 ### Phase 7: Docs
