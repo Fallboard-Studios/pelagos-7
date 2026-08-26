@@ -13,7 +13,7 @@ purely by its own battery level. Nothing is ever removed from the roster.
 2. **Battery-driven, not job-driven**: the `Docked ↔ Active` cycle is governed purely by battery level. Job assignment happens as a side effect of going `Active`, not a precondition for it.
 3. **Measure-quantized transitions**: every state change is evaluated once per measure via BeatClock — never `setTimeout`/`setInterval`.
 4. **Orthogonal to `RobotState`**: `Robot.docking` is a second state machine, independent of the existing `Robot.state` (`Idle`/`Moving`/`Selected`/`Interacting`/`Leaving`), which continues to govern in-world wandering/interaction behavior for whichever robots are currently `Active`.
-5. **Off-screen and muted while Docked**: a `Docked` robot has no reserved `AudioEngine` voice, no registered melody, and sits at a position outside the world bounds — reusing the same off-viewBox placement `spawnSystem.ts`'s `generateSpawnPosition` already used for spawn/entrance.
+5. **Off-screen and muted-by-default while Docked, but overridable**: a `Docked` robot sits at a position outside the world bounds (reusing `spawnSystem.ts`'s `generateSpawnPosition`, the same off-viewBox placement used for spawn/entrance) and has `audioMode: 'mute'` — the *same* field Robot Options' Audio Mode toggle writes to (`RobotAudioTab.tsx`). Its `AudioEngine` voice stays reserved and its melody stays registered the whole time, exactly like an `Active` robot's — mute is enforced only at `scheduleNote()`'s `audioMode === 'mute'` check, so a user can flip a Docked robot's Audio Mode back to `none` in Robot Options and genuinely hear it, without anything in the lifecycle system fighting that override.
 
 ## Data Structures
 
@@ -108,20 +108,24 @@ Battery never goes below 0 or above 100 (clamped both in the tick math and again
 ## Landing Effects
 
 **`landOnActive(localeId, robotId)`** — called when a `Docking` robot's hold elapses:
-1. Sets `docking: Active`, clears `dockingHoldUntilMeasure`.
-2. Reserves an `AudioEngine` voice and registers the robot's melody (same calls
-   `spawnSystem.ts`'s `spawnRobot` makes — no new `AudioEngine` capability).
-3. Calls `assignJob` (see below).
-4. Calls `handleRobotIdle` to restart wandering — `Robot.tsx` only calls this once, on mount, so a
+1. Sets `docking: Active`, clears `dockingHoldUntilMeasure`, sets `audioMode: 'none'`.
+2. Calls `assignJob` (see below).
+3. Calls `handleRobotIdle` to restart wandering — `Robot.tsx` only calls this once, on mount, so a
    robot that was idle-guarded while `Docked` (see below) needs this explicit restart.
 
+Voice reservation and melody registration are **not** done here — every robot gets both once, at
+spawn (`spawnSystem.ts`'s `spawnRobot`), regardless of docking state, and they stay put across
+dock cycles. `audioMode` is the only thing that changes.
+
 **`landOnDocked(localeId, robotId)`** — called when a `Departing` robot's hold elapses:
-1. Sets `docking: Docked`, clears `dockingHoldUntilMeasure`.
+1. Sets `docking: Docked`, clears `dockingHoldUntilMeasure`, sets `audioMode: 'mute'`.
 2. Repositions off-screen via `generateSpawnPosition`, seeded by a per-robot `dockCycleCounters`
    counter (module state in `robotSystems.ts`, mirroring `idleSystem.ts`'s `idleMoveCounters` and
    `spawnSystem.ts`'s `spawnCounters`) so successive dock cycles sample different noise-map rows.
-3. Re-rolls pitch drift (see below).
-4. Releases the `AudioEngine` voice and unregisters the melody.
+3. Re-rolls pitch drift (see below) and re-registers the drifted melody with `AudioEngine` — so a
+   manual mute override plays the post-drift pitches, not whatever was registered before docking.
+
+No voice is released and no melody is unregistered — muting is `audioMode` alone.
 
 ## Pitch Drift
 
@@ -176,8 +180,10 @@ locale load:
   imports `generateSpawnPosition` from `spawnSystem.ts`, so `spawnSystem.ts` never imports back
   from `robotSystems.ts`.
 - `spawnRobot(localeId, { docking, batteryLevel })`'s `AudioEngine.reserveVoice`/
-  `registerRobotMelody` calls are conditional on `docking === Active` — a robot created `Docked`
-  gets no voice/melody until it actually lands on `Active` for the first time.
+  `registerRobotMelody` calls are **unconditional** — every robot gets a voice and a registered
+  melody at spawn regardless of docking state. `audioMode` is set to `'mute'` when created `Docked`
+  and `'none'` when created `Active`, so muting is consistent from the very first tick, not just
+  after a robot's first dock/undock cycle.
 
 ## Existing-System Guards
 
@@ -204,9 +210,11 @@ later `startRobotLifecycle()` would see it as "already running" and never resubs
 killing the tick after the first power cycle.
 
 `powerController.ts`'s `start()` calls `spawnSystem.ts`'s `reRegisterAllRobotsAudio(localeId)` on
-power-on, which now filters by `docking === Active` (not the retired `persists`) — every robot
-survives a power cycle, but only `Active` robots had a voice to lose when `killAll()` ran, so only
-they need re-registering.
+power-on, which re-registers **every** robot in the locale (not filtered by docking, and not the
+retired `persists`) — every robot keeps its voice/melody reserved regardless of docking state, so
+every robot lost that reservation when `killAll()` ran and every robot needs it restored.
+`audioMode` (unaffected by the power cycle, since it lives in `useLocaleStore`, not `AudioEngine`)
+is what keeps Docked robots silent afterward, exactly as before the outage.
 
 ## Testing Notes
 
@@ -215,9 +223,10 @@ The current tests (`robotSystems.test.ts`, plus updated coverage in `idleSystem.
 - battery drain math for all four job types plus the no-job case, and recharge math, both clamped
 - threshold-triggered `Docking`/`Departing` entry with the hold, not an immediate landing
 - hold-elapsed landing on `Active`/`Docked`
-- `landOnActive`/`landOnDocked`'s AudioEngine, position, job, and idle-restart side effects
+- `landOnActive`/`landOnDocked` setting `audioMode` (not touching voice reservation/melody registration), plus their position, job, and idle-restart side effects
+- `landOnDocked` re-registering the drifted melody with `AudioEngine` so a manual mute override plays the post-drift pitches
 - `scoreJobAffinities` determinism and each profile scoring highest for a robot matching its description
 - `assignJob` respecting `JOB_MAX_ROBOTS_PER_TYPE`
 - `startRobotLifecycle`/`stopRobotLifecycle` idempotency
 - the `idleSystem.ts`/`collisionSystem.ts` docking guards
-- `spawnInitialRoster`'s active/docked split and seeded battery variation, and its determinism across identical coordinates
+- `spawnInitialRoster`'s active/docked split, seeded battery variation, its determinism across identical coordinates, and that every robot (Docked included) has a reserved voice/registered melody with `audioMode` matching its docking state

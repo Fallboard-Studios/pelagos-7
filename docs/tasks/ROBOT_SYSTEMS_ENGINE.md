@@ -756,3 +756,20 @@ land.
 None remaining — spec §7's six items are resolved above under Architecture Decisions, plus one
 additional import-cycle decision surfaced during planning itself (not present in the spec, since
 it only becomes visible once file-level task boundaries are drawn).
+
+## Post-Completion Revision: mute via `audioMode`, not voice release
+
+After all 19 tasks shipped and while the user was manually testing, the mute mechanism was
+revised: landing effects originally reserved/released the `AudioEngine` voice and registered/
+unregistered the melody directly (§4's `landOnActive`/`landOnDocked` snippets). Changed instead to
+set `Robot.audioMode` (`'none'`/`'mute'`) — the same field `RobotAudioTab.tsx`'s Audio Mode toggle
+in Robot Options already writes to — so a user can independently override a Docked robot's mute
+from the UI. This requires every robot's voice/melody to be reserved/registered unconditionally at
+spawn (not gated on `docking === Active`), since an overridden mute needs a live synth to actually
+produce sound. Touched: `robotSystems.ts` (`landOnActive`/`landOnDocked`), `spawnSystem.ts`
+(`spawnRobot`'s registration + `audioMode` default, `reRegisterAllRobotsAudio`'s no-longer-filtered
+re-registration on power-on), `robotSystems.test.ts`, `spawnSystem.test.ts`, and
+`docs/ROBOT_LIFECYCLE.md`. TDD throughout (failing tests first for the new `audioMode` expectations
+and the always-registered invariant, confirmed RED, then implemented). Full suite green after:
+1064/1064 tests, zero lint/type errors, production build clean. No spec/plan-doc rewrite otherwise
+— this section is the record of the deviation from the original design.

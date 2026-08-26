@@ -441,7 +441,7 @@ describe('spawnSystem', () => {
       expect(robot?.batteryLevel).toBe(37);
     });
 
-    it('reserves a voice and registers the melody only when created Active', () => {
+    it('reserves a voice and registers the melody regardless of docking state — mute is via audioMode, not absent registration', () => {
       const localeId = 'docking-opts-active-voice';
       freshLocale(localeId, 103, 203);
       spawnRobot(localeId, { docking: DockingState.Active, batteryLevel: 100 });
@@ -450,13 +450,29 @@ describe('spawnSystem', () => {
       expect(AudioEngine.getRegisteredMelody(activeRobot!.id).length).toBeGreaterThan(0);
     });
 
-    it('does not reserve a voice or register a melody when created Docked', () => {
-      const localeId = 'docking-opts-docked-no-voice';
+    it('still reserves a voice and registers the melody when created Docked', () => {
+      const localeId = 'docking-opts-docked-still-voice';
       freshLocale(localeId, 104, 204);
       spawnRobot(localeId, { docking: DockingState.Docked, batteryLevel: 50 });
       const dockedRobot = useLocaleStore.getState().getLocaleById(localeId)?.robots[0];
-      expect(AudioEngine.getVoiceForRobot(dockedRobot!.id)).toBeNull();
-      expect(AudioEngine.getRegisteredMelody(dockedRobot!.id)).toEqual([]);
+      expect(AudioEngine.getVoiceForRobot(dockedRobot!.id)).not.toBeNull();
+      expect(AudioEngine.getRegisteredMelody(dockedRobot!.id).length).toBeGreaterThan(0);
+    });
+
+    it('sets audioMode to none when created Active', () => {
+      const localeId = 'docking-opts-active-audiomode';
+      freshLocale(localeId, 106, 206);
+      spawnRobot(localeId, { docking: DockingState.Active, batteryLevel: 100 });
+      const robot = useLocaleStore.getState().getLocaleById(localeId)?.robots[0];
+      expect(robot?.audioMode).toBe('none');
+    });
+
+    it('sets audioMode to mute when created Docked — the toggle Robot Options exposes, not absent registration', () => {
+      const localeId = 'docking-opts-docked-audiomode';
+      freshLocale(localeId, 107, 207);
+      spawnRobot(localeId, { docking: DockingState.Docked, batteryLevel: 50 });
+      const robot = useLocaleStore.getState().getLocaleById(localeId)?.robots[0];
+      expect(robot?.audioMode).toBe('mute');
     });
 
     it('no longer sets a persists field', () => {
@@ -510,6 +526,16 @@ describe('spawnSystem', () => {
       const robots = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.robots ?? [];
       robots.filter((r) => r.docking === DockingState.Active).forEach((r) => {
         expect(r.batteryLevel).toBe(100);
+      });
+    });
+
+    it('every robot has a reserved voice and registered melody, with audioMode matching its docking state', () => {
+      spawnInitialRoster(DEFAULT_LOCALE_ID);
+      const robots = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.robots ?? [];
+      robots.forEach((r) => {
+        expect(AudioEngine.getVoiceForRobot(r.id)).not.toBeNull();
+        expect(AudioEngine.getRegisteredMelody(r.id).length).toBeGreaterThan(0);
+        expect(r.audioMode).toBe(r.docking === DockingState.Active ? 'none' : 'mute');
       });
     });
 

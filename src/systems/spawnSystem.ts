@@ -421,7 +421,10 @@ export function spawnRobot(localeId: string, options?: { docking?: DockingState;
     melody: spawnMelody,
     audioAttributes,
     octaveRange,
-    audioMode: 'none',
+    // Mute is expressed via audioMode (the same toggle Robot Options exposes,
+    // so a user can independently override it), not by withholding voice
+    // reservation/melody registration below — those happen unconditionally.
+    audioMode: docking === DockingState.Active ? 'none' : 'mute',
     rhythmicDensity: spawnRhythmicDensity,
     rhythmicMotifLength: spawnRhythmicMotifLength,
     noteVariance: spawnNoteVariance,
@@ -447,24 +450,25 @@ export function spawnRobot(localeId: string, options?: { docking?: DockingState;
   // destinations are phase-shifted away from other robots in the same locale.
   initRobotIdleCounter(robot.id, spawnCount);
 
-  // Only an Active robot is audible — a robot created Docked gets no voice
-  // reserved and no melody registered until it actually lands on Active
-  // (robotSystems.ts's landOnActive does that later).
-  if (docking === DockingState.Active) {
-    // Unregister first to guard against duplicate entries if robot id is reused.
-    AudioEngine.unregisterRobotMelody(robot.id);
-    // Reserve a voice for this robot (best-effort) so its timbre/adsr are isolated.
-    // Waveform is applied once here on the idle slot — no mid-playback oscillator rebuilds.
-    try {
-      const layers = (robot.audioAttributes as unknown as { layers?: OscillatorLayer[] })?.layers;
-      if (Array.isArray(layers) && layers.length > 0) {
-        AudioEngine.reserveVoice(robot.id, layers, robot.audioAttributes.phase, robot.audioAttributes.detune, layers[0]?.pulseWidth);
-      }
-    } catch (err) {
-      if (DEV_TUNING) console.warn('[SpawnSystem] reserveVoice failed', err);
+  // Every robot gets a reserved voice and registered melody, regardless of
+  // docking state — mute is enforced by AudioEngine reading `audioMode` at
+  // schedule time (see scheduleNote), not by withholding registration. This
+  // is what makes a Docked robot's mute genuinely overridable from Robot
+  // Options: the synth and melody are already live, so flipping audioMode
+  // back to 'none' there is enough to hear it despite still being docked.
+  // Unregister first to guard against duplicate entries if robot id is reused.
+  AudioEngine.unregisterRobotMelody(robot.id);
+  // Reserve a voice for this robot (best-effort) so its timbre/adsr are isolated.
+  // Waveform is applied once here on the idle slot — no mid-playback oscillator rebuilds.
+  try {
+    const layers = (robot.audioAttributes as unknown as { layers?: OscillatorLayer[] })?.layers;
+    if (Array.isArray(layers) && layers.length > 0) {
+      AudioEngine.reserveVoice(robot.id, layers, robot.audioAttributes.phase, robot.audioAttributes.detune, layers[0]?.pulseWidth);
     }
-    AudioEngine.registerRobotMelody(robot.id, robot.melody);
+  } catch (err) {
+    if (DEV_TUNING) console.warn('[SpawnSystem] reserveVoice failed', err);
   }
+  AudioEngine.registerRobotMelody(robot.id, robot.melody);
 
   if (DEV_TUNING) {
     console.log(`[Spawn] Robot ${robot.id} spawned (${docking}) with ${robot.melody.length} melody events`);
@@ -506,15 +510,16 @@ export function spawnInitialRoster(localeId: string): void {
 }
 
 /**
- * Re-register every currently-Active robot's audio with AudioEngine after a
- * power-on. `AudioEngine.killAll()` (called on power-off) tears down every
- * reserved voice regardless of docking state; every robot survives the power
- * cycle now (nothing is ever removed), but only Active robots had a voice to
- * lose in the first place, so only they need re-registering — a Docked
- * robot has no voice/melody registered until it actually lands on Active.
+ * Re-register every robot's audio with AudioEngine after a power-on.
+ * `AudioEngine.killAll()` (called on power-off) tears down every reserved
+ * voice regardless of docking state; every robot survives the power cycle
+ * now (nothing is ever removed), and every robot — Docked included — keeps
+ * its voice reserved and melody registered so `audioMode` alone governs
+ * whether it's actually heard (see spawnRobot/robotSystems.ts's landing
+ * effects). So every robot needs re-registering here, not just Active ones.
  */
 export function reRegisterAllRobotsAudio(localeId: string): void {
-  const robots = (useLocaleStore.getState().getLocaleById(localeId)?.robots || []).filter((r) => r.docking === DockingState.Active);
+  const robots = useLocaleStore.getState().getLocaleById(localeId)?.robots || [];
   robots.forEach((robot) => {
     AudioEngine.releaseVoice(robot.id);
     try {
@@ -528,5 +533,5 @@ export function reRegisterAllRobotsAudio(localeId: string): void {
     AudioEngine.unregisterRobotMelody(robot.id);
     AudioEngine.registerRobotMelody(robot.id, robot.melody);
   });
-  if (DEV_TUNING) console.log(`[SpawnSystem] reRegisterAllRobotsAudio: re-registered ${robots.length} Active robots`);
+  if (DEV_TUNING) console.log(`[SpawnSystem] reRegisterAllRobotsAudio: re-registered ${robots.length} robots`);
 }

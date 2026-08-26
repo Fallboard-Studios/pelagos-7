@@ -6,7 +6,6 @@ import alea from 'alea';
 import { DockingState, JobType } from '../types/Robot';
 import type { JobType as JobTypeValue } from '../types/Robot';
 import type { Robot } from '../types/Robot';
-import type { OscillatorLayer } from '../types/layeredAudio';
 import useLocaleStore from '../stores/localeStore';
 import { subscribeToMeasure, getCurrentMeasure } from '../engine/beatClock';
 import { AudioEngine } from '../engine/AudioEngine';
@@ -15,7 +14,6 @@ import { handleRobotIdle } from './idleSystem';
 import { generateSpawnPosition } from './spawnSystem';
 import { getLocaleNoiseMap } from '../utils/noiseMaps';
 import { getSeededVal } from '../utils/getSeededVal';
-import { swallow } from '../utils/helpers';
 import {
   DEV_TUNING,
   BATTERY_DRAIN_BASE,
@@ -111,7 +109,18 @@ export function stopRobotLifecycle(): void {
 // LANDING EFFECTS
 // ========================================
 
-/** Land on Active: unmute (reserve voice + register melody), assign a job, restart wandering. */
+/**
+ * Land on Active: unmute via `audioMode` (the same toggle Robot Options
+ * exposes — RobotAudioTab's Audio Mode control — so a user can independently
+ * override it), assign a job, restart wandering.
+ *
+ * Voice reservation and melody registration are NOT done here — every robot
+ * gets both once, at spawn (spawnSystem.ts's spawnRobot), regardless of
+ * docking state, and they stay put across dock cycles. That's what makes
+ * `audioMode` an effective, user-overridable mute in the first place: if a
+ * Docked robot's synth/melody weren't already live, flipping audioMode back
+ * to 'none' in Robot Options would still produce silence.
+ */
 export function landOnActive(localeId: string, robotId: string): void {
   const robot = useLocaleStore.getState().getRobotById(localeId, robotId);
   if (!robot) return;
@@ -119,18 +128,8 @@ export function landOnActive(localeId: string, robotId: string): void {
   useLocaleStore.getState().updateRobot(localeId, robotId, {
     docking: DockingState.Active,
     dockingHoldUntilMeasure: undefined,
+    audioMode: 'none',
   });
-
-  try {
-    const layers = (robot.audioAttributes as unknown as { layers?: OscillatorLayer[] })?.layers;
-    if (Array.isArray(layers) && layers.length > 0) {
-      AudioEngine.reserveVoice(robotId, layers, robot.audioAttributes.phase, robot.audioAttributes.detune, layers[0]?.pulseWidth);
-    }
-  } catch (err) {
-    if (DEV_TUNING) swallow(err, 'AudioEngine.reserveVoice');
-  }
-  AudioEngine.unregisterRobotMelody(robotId);
-  AudioEngine.registerRobotMelody(robotId, robot.melody);
 
   assignJob(localeId, robotId);
 
@@ -140,7 +139,14 @@ export function landOnActive(localeId: string, robotId: string): void {
   handleRobotIdle(localeId, robotId);
 }
 
-/** Land on Docked: mute (release voice + unregister melody), reposition off-screen, drift pitch. */
+/**
+ * Land on Docked: mute via `audioMode: 'mute'` (see landOnActive's comment —
+ * the voice/melody stay reserved/registered; only the toggle changes, so a
+ * user can flip it back in Robot Options and hear the robot anyway),
+ * reposition off-screen, drift pitch. The melody is re-registered with
+ * AudioEngine after the drift so a manual mute override plays the drifted
+ * pitches, not the stale pre-drift ones.
+ */
 export function landOnDocked(localeId: string, robotId: string): void {
   const robot = useLocaleStore.getState().getRobotById(localeId, robotId);
   if (!robot) return;
@@ -170,14 +176,13 @@ export function landOnDocked(localeId: string, robotId: string): void {
     dockingHoldUntilMeasure: undefined,
     position: dockPosition,
     melody: driftedMelody,
+    audioMode: 'mute',
   });
 
-  try {
-    AudioEngine.releaseVoice(robotId);
-  } catch (err) {
-    if (DEV_TUNING) swallow(err, 'AudioEngine.releaseVoice');
-  }
-  AudioEngine.unregisterRobotMelody(robotId);
+  // registerRobotMelody purges this robot's prior entries before adding the
+  // new ones (see its own doc comment) — safe to call again without an
+  // explicit unregister first.
+  AudioEngine.registerRobotMelody(robotId, driftedMelody);
 }
 
 // ========================================

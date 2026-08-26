@@ -242,14 +242,26 @@ describe('robotSystems', () => {
       expect(updated?.dockingHoldUntilMeasure).toBeUndefined();
     });
 
-    it('reserves a voice and registers the melody with AudioEngine', () => {
-      const robot = makeRobot({ docking: DockingState.Docking, job: undefined });
+    it('sets audioMode to none — unmutes via the same toggle Robot Options exposes', () => {
+      const robot = makeRobot({ docking: DockingState.Docking, job: undefined, audioMode: 'mute' });
       setupLocaleWithRobots([robot]);
 
       landOnActive(DEFAULT_LOCALE_ID, robot.id);
 
-      expect(AudioEngine.getVoiceForRobot(robot.id)).not.toBeNull();
-      expect(AudioEngine.getRegisteredMelody(robot.id)).toEqual(robot.melody);
+      const updated = useLocaleStore.getState().getRobotById(DEFAULT_LOCALE_ID, robot.id);
+      expect(updated?.audioMode).toBe('none');
+    });
+
+    it('does not touch AudioEngine voice/melody registration — those are set once at spawn and stay put', () => {
+      const robot = makeRobot({ id: 'active-no-voice-touch', docking: DockingState.Docking, job: undefined });
+      setupLocaleWithRobots([robot]);
+      // Deliberately NOT reserved/registered here — landOnActive must not be the thing that does it.
+      expect(AudioEngine.getVoiceForRobot(robot.id)).toBeNull();
+
+      landOnActive(DEFAULT_LOCALE_ID, robot.id);
+
+      expect(AudioEngine.getVoiceForRobot(robot.id)).toBeNull();
+      expect(AudioEngine.getRegisteredMelody(robot.id)).toEqual([]);
     });
 
     it('assigns a job', () => {
@@ -285,16 +297,38 @@ describe('robotSystems', () => {
       expect(updated?.dockingHoldUntilMeasure).toBeUndefined();
     });
 
-    it('releases the voice and unregisters the melody from AudioEngine', () => {
-      const robot = makeRobot({ docking: DockingState.Departing });
+    it('sets audioMode to mute — the toggle Robot Options exposes, not a voice release', () => {
+      const robot = makeRobot({ docking: DockingState.Departing, audioMode: 'none' });
+      setupLocaleWithRobots([robot]);
+
+      landOnDocked(DEFAULT_LOCALE_ID, robot.id);
+
+      const updated = useLocaleStore.getState().getRobotById(DEFAULT_LOCALE_ID, robot.id);
+      expect(updated?.audioMode).toBe('mute');
+    });
+
+    it('does not release the voice or unregister the melody — a user can still override mute in Robot Options and hear it', () => {
+      const robot = makeRobot({ id: 'docked-voice-kept', docking: DockingState.Departing });
       setupLocaleWithRobots([robot]);
       AudioEngine.reserveVoice(robot.id, robot.audioAttributes.layers!);
       AudioEngine.registerRobotMelody(robot.id, robot.melody);
 
       landOnDocked(DEFAULT_LOCALE_ID, robot.id);
 
-      expect(AudioEngine.getVoiceForRobot(robot.id)).toBeNull();
-      expect(AudioEngine.getRegisteredMelody(robot.id)).toEqual([]);
+      expect(AudioEngine.getVoiceForRobot(robot.id)).not.toBeNull();
+      expect(AudioEngine.getRegisteredMelody(robot.id).length).toBeGreaterThan(0);
+    });
+
+    it('re-registers the melody with AudioEngine so a manual mute override plays the drifted pitches, not the stale ones', () => {
+      const robot = makeRobot({ id: 'docked-melody-refreshed', docking: DockingState.Departing });
+      setupLocaleWithRobots([robot]);
+      AudioEngine.reserveVoice(robot.id, robot.audioAttributes.layers!);
+      AudioEngine.registerRobotMelody(robot.id, robot.melody); // stale (pre-drift) melody
+
+      landOnDocked(DEFAULT_LOCALE_ID, robot.id);
+
+      const updated = useLocaleStore.getState().getRobotById(DEFAULT_LOCALE_ID, robot.id)!;
+      expect(AudioEngine.getRegisteredMelody(robot.id)).toEqual(updated.melody);
     });
 
     it('repositions the robot off-screen (outside the world bounds)', () => {
@@ -310,7 +344,7 @@ describe('robotSystems', () => {
     });
 
     it('re-rolls ~25% of melody noteIndex values, leaving startStep/length/octave unchanged', () => {
-      const robot = makeRobot({ docking: DockingState.Departing });
+      const robot = makeRobot({ id: 'pitch-drift-25pct', docking: DockingState.Departing });
       setupLocaleWithRobots([robot]);
 
       landOnDocked(DEFAULT_LOCALE_ID, robot.id);
