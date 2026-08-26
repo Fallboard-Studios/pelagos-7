@@ -15,6 +15,7 @@ import {
   calculateScale,
   calculateDetailLevel,
   applyLightnessMultiplier,
+  computeBatteryDimOpacity,
 } from './robotVisualHelpers';
 import mapVisualAudioToProps from './robotVisualMapper';
 import type { RobotColors, RobotSVGComponent, ShapeParams, MicroVariants } from './robotVisualHelpers';
@@ -40,6 +41,10 @@ export const RobotBody = memo(function RobotBody({ robot }: RobotBodyProps) {
   // written by PlanetView every second.
   const localTime = useUIStore((s) => s.activeLocaleLocalTime ?? 12);
   const lightnessMultiplier = 0.5 + 0.5 * Math.sin(((localTime - 6) / 24) * Math.PI * 2);
+
+  // Window/status-light dim — battery-driven, deliberately kept separate from
+  // the audio-derived `visual` memo below (battery isn't an audio attribute).
+  const dimOpacity = computeBatteryDimOpacity(robot.batteryLevel);
 
   const visual = useMemo(() => {
     const { adsr, filterFreq, visualAudioMap } = robot.audioAttributes;
@@ -123,6 +128,7 @@ export const RobotBody = memo(function RobotBody({ robot }: RobotBodyProps) {
       greebleSize={greebleSize}
       greeblePersistence={greeblePersistence}
       greeblePlacementBias={greeblePlacementBias}
+      dimOpacity={dimOpacity}
     />
   );
 });

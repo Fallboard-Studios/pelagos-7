@@ -4,7 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 
 import { calculateDistanceSquared, canInteract } from './collisionSystem';
-import { RobotState } from '../types/Robot';
+import { RobotState, DockingState } from '../types/Robot';
 import type { Robot } from '../types/Robot';
 
 // Mock BeatClock
@@ -64,6 +64,8 @@ describe('CollisionSystem', () => {
         filterFreq: 1000,
         waveform: 'sine' as const,
       },
+      docking: DockingState.Active,
+      batteryLevel: 100,
     };
 
     it('returns true for idle robot without cooldown', () => {
@@ -150,6 +152,19 @@ describe('CollisionSystem', () => {
 
       expect(canInteract(robot)).toBe(false);
     });
+
+    it.each([DockingState.Docked, DockingState.Docking, DockingState.Departing])(
+      'returns false for an Idle robot with no cooldown whose docking is %s',
+      (docking) => {
+        const robot: Robot = { ...baseRobot, state: RobotState.Idle, docking };
+        expect(canInteract(robot)).toBe(false);
+      }
+    );
+
+    it('returns true for an Idle robot with no cooldown that is Active', () => {
+      const robot: Robot = { ...baseRobot, state: RobotState.Idle, docking: DockingState.Active };
+      expect(canInteract(robot)).toBe(true);
+    });
   });
 
   describe('Multi-robot collision scenarios', () => {
@@ -168,6 +183,8 @@ describe('CollisionSystem', () => {
         filterFreq: 1000,
         waveform: 'sine' as const,
       },
+      docking: DockingState.Active,
+      batteryLevel: 100,
     };
 
     it('correctly identifies when multiple robot pairs can interact', () => {

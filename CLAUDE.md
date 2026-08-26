@@ -62,6 +62,7 @@ Reference docs
 - `docs/CONTRIBUTION_GUIDE.md`: PR process, testing expectations, and where to record exceptions.
 - `docs/UI_SHELL.md`: Sleeve & Glass UI architecture, console navigation, and `uiStore` responsibilities.
 - `docs/PROCEDURAL_GENERATION.md`: Seeded/deterministic world generation — noise-map registry, `getSeededVal`, and dataId conventions.
+- `docs/ROBOT_LIFECYCLE.md`: Battery/Docking/Job state machines — the fixed 12-robot roster, battery drain/recharge, the Docking transition hold, pitch drift, and job affinity scoring.
 - `docs/SESSION_STORAGE.md`: App-wide persistence design — save/load hierarchy, URL state compression, and the robot-override diff model. Design doc for roadmap Phase 11 — not yet implemented.
 - `docs/CONSOLE_THEMING.md`: Seed-derived console chrome design — planet seed drives large/structural elements, locale seed drives small accents, with a fixed interior boundary against ScreenViewport. Design doc for roadmap Phase 10 — not yet implemented.
 

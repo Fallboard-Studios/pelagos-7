@@ -49,7 +49,7 @@ const DEFAULT_LOCALE: Locale = {
   coordinates: { x: 12, y: 68 },
   robots: [],
   actors: [],
-  settings: { bpm: 60, maxRobots: 12, minRobots: 2, autoSpawn: true, spawnFrequency: 4 },
+  settings: { bpm: 60 },
   currentMeasure: 0,
 };
 
@@ -133,6 +133,9 @@ export const useLocaleStore = create<LocaleState>((set, get) => ({
       const normalized = { ...updates } as Partial<import('../types/Robot').Robot>;
       if (typeof normalized.rhythmicDensity === 'number') {
         normalized.rhythmicDensity = Math.max(RHYTHMIC_DENSITY_MIN, Math.min(RHYTHMIC_DENSITY_MAX, Math.trunc(normalized.rhythmicDensity)));
+      }
+      if (typeof normalized.batteryLevel === 'number') {
+        normalized.batteryLevel = Math.max(0, Math.min(100, Math.trunc(normalized.batteryLevel)));
       }
       if (normalized.rhythmicMotifLength !== undefined) {
         const clamped = clampToggleValue(normalized.rhythmicMotifLength, RHYTHMIC_MOTIF_LENGTH_MIN, RHYTHMIC_MOTIF_LENGTH_MAX);

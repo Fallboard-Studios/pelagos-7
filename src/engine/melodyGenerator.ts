@@ -488,3 +488,38 @@ export function pickWeightedIndex(rand: () => number = Math.random): number {
 
   return NOTE_INDEX_WEIGHTS.length - 1;
 }
+
+/**
+ * Re-roll a seeded ratio of a melody's note pitches, leaving rhythm untouched.
+ * Used by robotSystems.ts every time a robot lands on Docked — `startStep`,
+ * `length`, and `octave` are never modified, only `noteIndex`. Reuses
+ * `pickRandomIndices` (which events change) and `pickWeightedIndex` (the new
+ * pitch, when variance is active) rather than inventing new selection logic.
+ *
+ * @param melody Melody events to re-roll pitches within.
+ * @param ratio Fraction (0-1) of events to change. Rounded, floored at 1 —
+ *   a re-roll on a non-empty melody always changes at least one event.
+ * @param opts.noteVariance When `active`, new pitches are weighted via
+ *   `pickWeightedIndex`; otherwise unweighted (`Math.floor(rand() * 8)`),
+ *   matching `generateMelodyForRobot`'s own off/on split.
+ * @param opts.rand Seeded RNG — never Math.random (see CLAUDE.md).
+ * @returns A new array; unchanged events are unchanged, changed events are new objects with only `noteIndex` different.
+ */
+export function reRollMelodyPitches(
+  melody: RobotMelodyEvent[],
+  ratio: number,
+  opts: { noteVariance?: ToggleValue; rand: () => number },
+): RobotMelodyEvent[] {
+  if (melody.length === 0) return melody;
+
+  const count = Math.max(1, Math.round(melody.length * ratio));
+  const changeIndices = new Set(pickRandomIndices(melody, count, opts.rand));
+
+  return melody.map((event, i) => {
+    if (!changeIndices.has(i)) return event;
+    const noteIndex = opts.noteVariance?.active
+      ? pickWeightedIndex(opts.rand)
+      : Math.floor(opts.rand() * 8);
+    return { ...event, noteIndex };
+  });
+}

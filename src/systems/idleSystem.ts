@@ -4,7 +4,7 @@
 import gsap from 'gsap';
 
 import type { NoiseFunction2D } from 'simplex-noise';
-import { RobotState } from '../types/Robot';
+import { RobotState, DockingState } from '../types/Robot';
 import useLocaleStore from '../stores/localeStore';
 import { createSwimTimeline } from '../animation/swimAnimation';
 import { getLocaleNoiseMap } from '../utils/noiseMaps';
@@ -18,6 +18,8 @@ const WORLD_WIDTH = 1920;
 const WORLD_HEIGHT = 1080;
 const WORLD_MARGIN = 100; // Keep destinations away from edges
 const IDLE_DELAY = 1.0; // Seconds before picking next destination
+/** Distance outside the SVG viewBox for an exit destination — matches spawnSystem.ts's own OFFSCREEN_OFFSET. */
+const OFFSCREEN_OFFSET = 150;
 
 // ========================================
 // MODULE STATE
@@ -67,6 +69,26 @@ export function pickDestination(noiseMap: NoiseFunction2D | null, spawnIndex: nu
 }
 
 /**
+ * Choose the nearest edge from a position and return a point just outside it
+ * — used to send a Departing robot visibly swimming off-screen before it
+ * docks (robotSystems.ts's beginDeparting), the same off-viewBox placement
+ * spawnSystem.ts's generateSpawnPosition uses for the entrance side.
+ */
+export function pickExitDestination(pos: Vec2): Vec2 {
+  const leftDist = pos.x + OFFSCREEN_OFFSET;
+  const rightDist = WORLD_WIDTH - pos.x + OFFSCREEN_OFFSET;
+  const topDist = pos.y + OFFSCREEN_OFFSET;
+  const bottomDist = WORLD_HEIGHT - pos.y + OFFSCREEN_OFFSET;
+
+  const min = Math.min(leftDist, rightDist, topDist, bottomDist);
+
+  if (min === leftDist) return { x: -OFFSCREEN_OFFSET, y: pos.y };
+  if (min === rightDist) return { x: WORLD_WIDTH + OFFSCREEN_OFFSET, y: pos.y };
+  if (min === topDist) return { x: pos.x, y: -OFFSCREEN_OFFSET };
+  return { x: pos.x, y: WORLD_HEIGHT + OFFSCREEN_OFFSET };
+}
+
+/**
  * Handle robot entering idle state
  * Picks a random destination and triggers swim animation
  */
@@ -74,8 +96,8 @@ export function handleRobotIdle(localeId: string, robotId: string): void {
   const store = useLocaleStore.getState();
   const robot = store.getRobotById(localeId, robotId);
 
-  if (!robot || robot.state !== RobotState.Idle) {
-    console.warn(`[IdleSystem] Robot ${robotId} not found or not Idle (state: ${robot?.state})`);
+  if (!robot || robot.state !== RobotState.Idle || robot.docking !== DockingState.Active) {
+    console.warn(`[IdleSystem] Robot ${robotId} not found or not Idle/Active (state: ${robot?.state}, docking: ${robot?.docking})`);
     return;
   }
 

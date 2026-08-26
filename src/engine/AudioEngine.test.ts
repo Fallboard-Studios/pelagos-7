@@ -373,7 +373,7 @@ describe('AudioEngine - audioMode enforcement (solo/mute/highlight)', () => {
       const planetMod = await import('../stores/planetStore');
       merged_useLocaleStore = storeMod.useLocaleStore;
       merged_DEFAULT_LOCALE_ID = planetMod.DEFAULT_LOCALE_ID;
-      merged_useLocaleStore.getState().setLocaleData(merged_DEFAULT_LOCALE_ID, { settings: { bpm: 120, maxRobots: 6, minRobots: 1 } });
+      merged_useLocaleStore.getState().setLocaleData(merged_DEFAULT_LOCALE_ID, { settings: { bpm: 120 } });
     })();
   });
 
@@ -723,6 +723,8 @@ describe('AudioEngine - Motif Group Accent', () => {
       name: '',
       state: 'idle' as const,
       direction: 'right' as const,
+      docking: 'active' as const,
+      batteryLevel: 100,
     };
   }
 
@@ -844,7 +846,7 @@ describe('AudioEngine - Reservation & Isolation (focused)', () => {
   beforeEach(() => {
     vi.resetModules();
     // Reset store to deterministic settings
-    useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { settings: { bpm: 120, maxRobots: 6, minRobots: 1 } });
+    useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { settings: { bpm: 120 } });
   });
 
   it('reserves a voice and getVoiceForRobot returns a synth', async () => {
@@ -878,7 +880,7 @@ describe('AudioEngine - Reservation & Isolation (focused)', () => {
 describe('AudioEngine - Composite Voices (Layered)', () => {
   beforeEach(() => {
     vi.resetModules();
-    useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { settings: { bpm: 120, maxRobots: 6, minRobots: 1 } });
+    useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { settings: { bpm: 120 } });
   });
 
   it('can reserve a composite voice from a LayeredWave descriptor', async () => {
@@ -925,7 +927,7 @@ describe('AudioEngine - Global FX Chain', () => {
 
   beforeEach(() => {
     vi.resetModules();
-    useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { settings: { bpm: 120, maxRobots: 4, minRobots: 1 } });
+    useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { settings: { bpm: 120 } });
   });
 
   it('starts without throwing when FX constructors are present', async () => {
@@ -1096,7 +1098,7 @@ describe('AudioEngine - Transport methods & Master Volume (Issue #220)', () => {
 
   beforeEach(() => {
     vi.resetModules();
-    useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { settings: { bpm: 120, maxRobots: 4, minRobots: 1 } });
+    useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { settings: { bpm: 120 } });
   });
 
   // ── pause ──────────────────────────────────────────────── //
@@ -1244,7 +1246,7 @@ describe('AudioEngine - Transport methods & Master Volume (Issue #220)', () => {
 describe('AudioEngine - getRobotModulationTarget', () => {
   beforeEach(() => {
     vi.resetModules();
-    useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { settings: { bpm: 120, maxRobots: 6, minRobots: 1 } });
+    useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { settings: { bpm: 120 } });
   });
 
   it('returns null (not throw) for an unreserved robotId', async () => {

@@ -12,6 +12,7 @@ import {
   toSaturation,
   toLuminance,
   calculateGreebleCount,
+  computeBatteryDimOpacity,
 } from './robotVisualHelpers';
 import { RobotSleek } from './RobotSleek';
 import type { AudioAttributes, ADSREnvelope } from '../../types/Robot';
@@ -119,6 +120,37 @@ describe('robotVisualHelpers', () => {
     it('returns 1.0 for filter frequency at or above high threshold', () => {
       expect(calculateDetailLevel(2000)).toBe(1.0);
       expect(calculateDetailLevel(3000)).toBe(1.0);
+    });
+  });
+
+  describe('computeBatteryDimOpacity', () => {
+    it('returns full opacity (no dim) above the low threshold', () => {
+      expect(computeBatteryDimOpacity(100)).toBe(1);
+      expect(computeBatteryDimOpacity(51)).toBe(1);
+    });
+
+    it('returns 0.75 (25% dim) at or below 50%, down to just above 25%', () => {
+      expect(computeBatteryDimOpacity(50)).toBe(0.75);
+      expect(computeBatteryDimOpacity(30)).toBe(0.75);
+      expect(computeBatteryDimOpacity(25)).toBe(0.75); // "less than 25" — 25 itself is still this tier
+    });
+
+    it('returns 0.5 (50% dim) below 25%, down to just above 12%', () => {
+      expect(computeBatteryDimOpacity(24)).toBe(0.5);
+      expect(computeBatteryDimOpacity(20)).toBe(0.5);
+      expect(computeBatteryDimOpacity(13)).toBe(0.5);
+    });
+
+    it('returns 0.1 (90% dim) at or below 12%', () => {
+      expect(computeBatteryDimOpacity(12)).toBe(0.1);
+      expect(computeBatteryDimOpacity(5)).toBe(0.1);
+      expect(computeBatteryDimOpacity(0)).toBe(0.1);
+    });
+
+    it('is a step function, not additive — critical-tier battery does not stack all three dims', () => {
+      // If tiers were summed (0.25 + 0.5 + 0.9 dim), opacity would go negative.
+      // The deepest applicable tier alone applies.
+      expect(computeBatteryDimOpacity(0)).toBe(0.1);
     });
   });
 });

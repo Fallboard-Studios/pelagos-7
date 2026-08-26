@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('../engine/AudioEngine', () => ({ AudioEngine: { start: vi.fn(), killAll: vi.fn(), setBPM: vi.fn() } }));
 vi.mock('../engine/harmonySystem', () => ({ resetHarmony: vi.fn() }));
 vi.mock('../stores/audioStore', () => ({ useAudioStore: { getState: () => ({ bpm: 60 }) } }));
-vi.mock('./spawnSystem', () => ({ reRegisterAllRobotsAudio: vi.fn(), removeNonPersistentRobots: vi.fn(), stopSpawnScheduler: vi.fn() }));
+vi.mock('./spawnSystem', () => ({ reRegisterAllRobotsAudio: vi.fn() }));
+vi.mock('./robotSystems', () => ({ stopRobotLifecycle: vi.fn() }));
 vi.mock('./collisionSystem', () => ({ stopCollisionDetection: vi.fn() }));
 const setPowerOnSpy = vi.fn();
 const setPowerOffSpy = vi.fn();
@@ -15,7 +16,8 @@ vi.mock('../utils/localeHelpers', () => ({ getActiveLocaleId: () => 'pelagos-def
 import { powerController } from './powerController';
 import { AudioEngine } from '../engine/AudioEngine';
 import { resetHarmony } from '../engine/harmonySystem';
-import { reRegisterAllRobotsAudio, stopSpawnScheduler } from './spawnSystem';
+import { reRegisterAllRobotsAudio } from './spawnSystem';
+import { stopRobotLifecycle } from './robotSystems';
 import { stopCollisionDetection } from './collisionSystem';
 import { useUIStore } from '../stores/uiStore';
 import { useLocaleStore } from '../stores/localeStore';
@@ -37,7 +39,7 @@ describe('powerController', () => {
     // shutdown returns after running its small timeline; call and await
     const p = powerController.shutdown();
     await p;
-    expect(stopSpawnScheduler).toHaveBeenCalled();
+    expect(stopRobotLifecycle).toHaveBeenCalled();
     expect(stopCollisionDetection).toHaveBeenCalled();
     expect(AudioEngine.killAll).toHaveBeenCalled();
     // locale actors cleared and ui setPowerOff should be called

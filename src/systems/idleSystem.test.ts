@@ -1,13 +1,35 @@
 // ========================================
 // IMPORTS
 // ========================================
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import type { NoiseFunction2D } from 'simplex-noise';
 
-import { pickDestination } from './idleSystem';
+import { pickDestination, handleRobotIdle, pickExitDestination } from './idleSystem';
+import { useLocaleStore, DEFAULT_LOCALE } from '../stores/localeStore';
+import { DEFAULT_LOCALE_ID } from '../stores/planetStore';
+import { RobotState, DockingState } from '../types/Robot';
+import type { Robot } from '../types/Robot';
 
 /** General-purpose mock: returns a pseudo-random value in [-1, 1]. */
 const mockNoiseMap: NoiseFunction2D = () => Math.random() * 2 - 1;
+
+function makeRobot(overrides: Partial<Robot> = {}): Robot {
+  return {
+    id: 'idle-test-robot',
+    state: RobotState.Idle,
+    position: { x: 100, y: 100 },
+    destination: null,
+    direction: 'right',
+    melody: [],
+    audioAttributes: { adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.2 }, filterFreq: 800, waveform: 'sine' },
+    octaveRange: [3, 4],
+    createdAt: Date.now(),
+    masterVolume: 0.7,
+    docking: DockingState.Active,
+    batteryLevel: 100,
+    ...overrides,
+  };
+}
 
 // ========================================
 // TESTS
@@ -78,5 +100,52 @@ describe('idleSystem', () => {
       expect(bottomHalf).toBeGreaterThan(30);
       expect(bottomHalf).toBeLessThan(70);
     });
+  });
+
+  describe('pickExitDestination', () => {
+    it('picks the nearest edge and returns a point just outside it, preserving the other axis', () => {
+      // Near the left edge — should exit left, keeping y unchanged.
+      expect(pickExitDestination({ x: 50, y: 400 })).toEqual({ x: -150, y: 400 });
+    });
+
+    it('picks the right edge when closer', () => {
+      expect(pickExitDestination({ x: 1870, y: 400 })).toEqual({ x: 1920 + 150, y: 400 });
+    });
+
+    it('picks the top edge when closer', () => {
+      expect(pickExitDestination({ x: 960, y: 50 })).toEqual({ x: 960, y: -150 });
+    });
+
+    it('picks the bottom edge when closer', () => {
+      expect(pickExitDestination({ x: 960, y: 1030 })).toEqual({ x: 960, y: 1080 + 150 });
+    });
+
+    it('returns a point genuinely outside the world bounds on every axis it touches', () => {
+      const dest = pickExitDestination({ x: 960, y: 540 }); // dead center
+      const outsideX = dest.x < 0 || dest.x > 1920;
+      const outsideY = dest.y < 0 || dest.y > 1080;
+      expect(outsideX || outsideY).toBe(true);
+    });
+  });
+
+  describe('handleRobotIdle — docking guard', () => {
+    beforeEach(() => {
+      useLocaleStore.setState({ locales: { [DEFAULT_LOCALE_ID]: DEFAULT_LOCALE } });
+    });
+
+    it.each([DockingState.Docked, DockingState.Docking, DockingState.Departing])(
+      'is a no-op for an Idle robot whose docking is %s',
+      (docking) => {
+        const robot = makeRobot({ state: RobotState.Idle, docking });
+        useLocaleStore.setState((s) => ({
+          locales: { ...s.locales, [DEFAULT_LOCALE_ID]: { ...s.locales[DEFAULT_LOCALE_ID], robots: [robot] } },
+        }));
+
+        handleRobotIdle(DEFAULT_LOCALE_ID, robot.id);
+
+        const after = useLocaleStore.getState().getRobotById(DEFAULT_LOCALE_ID, robot.id);
+        expect(after).toEqual(robot); // untouched — state, position, destination all unchanged
+      }
+    );
   });
 });

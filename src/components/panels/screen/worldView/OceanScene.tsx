@@ -5,7 +5,7 @@ import './OceanScene.css';
 import { Robot } from '@/components/robot/Robot'
 import { useLocaleStore } from '@/stores/localeStore';
 import { usePlanetStore, selectCurrentPlanet } from '@/stores/planetStore';
-import { stopSpawnScheduler } from '@/systems/spawnSystem';
+import { stopRobotLifecycle } from '@/systems/robotSystems';
 import { initializeLocale } from '@/systems/worldTransition';
 import { Factory } from '@/components/actors/Factory';
 import { getRowConfig } from '@/systems/factoryPlacementSystem';
@@ -73,11 +73,11 @@ export function OceanScene({
     [actors],
   );
 
-  // Bring the active locale online on mount — guarded factory placement + 2
-  // initial robots + spawn scheduler start, via the same initializeLocale
-  // helper Sector Settings' retransmit action uses, so this setup logic
-  // exists in exactly one place (src/systems/worldTransition.ts). It's
-  // idempotent on factories/robots (skips if the locale is already
+  // Bring the active locale online on mount — guarded factory placement + the
+  // fixed 12-robot roster + robot-lifecycle tick start, via the same
+  // initializeLocale helper Sector Settings' retransmit action uses, so this
+  // setup logic exists in exactly one place (src/systems/worldTransition.ts).
+  // It's idempotent on factories/robots (skips if the locale is already
   // populated — e.g. a power cycle where the scene unmounts/remounts but
   // actors/robots persist in the store), so calling it again here is safe.
   useEffect(() => {
@@ -88,7 +88,7 @@ export function OceanScene({
     // startCollisionDetection(localeId);
 
     return () => {
-      stopSpawnScheduler();
+      stopRobotLifecycle();
       // stopCollisionDetection();
     };
     // Intentionally mount-only: this scene mounts once per power-on, and
