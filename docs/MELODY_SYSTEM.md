@@ -77,6 +77,8 @@ Density is a percentage of either the full measure or one motif cell, gated by t
 
 `buildMotifOnsets()`'s own contract is unchanged: it still takes a plain total onset count, a motif length, and `subdivisions`, and still falls back to picking unique positions directly (ignoring the motif length as a tiling boundary) if the motif length is too short relative to `subdivisions` to support repetition.
 
+**Playback accent:** when Motif Length is active, `AudioEngine` applies a velocity accent to the earliest event in each repeat window (the tiled cell's "downbeat") — this is a playback-layer behavior, not something `melodyGenerator.ts` produces or stores on the event. See [AUDIO_SYSTEM.md](AUDIO_SYSTEM.md#note-resolution-pipeline)'s Note Resolution Pipeline.
+
 ## Duration Selection
 
 Each event's duration is chosen by `pickDurationForGap(availableUnits, rand)`, not by deterministically filling the gap to the next onset:
