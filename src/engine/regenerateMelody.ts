@@ -1,7 +1,7 @@
 // ========================================
 // IMPORTS
 // ========================================
-import { generateMelodyForRobot } from './melodyGenerator';
+import { generateMelodyForRobot, DEFAULT_RHYTHMIC_DENSITY, DEFAULT_RHYTHMIC_MOTIF_LENGTH, DEFAULT_NOTE_VARIANCE } from './melodyGenerator';
 import { AudioEngine } from './AudioEngine';
 import { useLocaleStore } from '../stores/localeStore';
 import type { Robot } from '../types/Robot';
@@ -29,12 +29,11 @@ export function regenerateMelody(robot: Robot, localeId: string): void {
   const [octMin, octMax] = robot.octaveRange;
 
   const newMelody = generateMelodyForRobot({
-    onsetCount: robot.rhythmicDensity ?? 6,
     octaveMin: octMin,
     octaveMax: octMax,
-    rhythmicDensity: robot.rhythmicDensity ?? 6,
-    rhythmicMotifLength: robot.rhythmicMotifLength ?? 8,
-    noteVariance: robot.noteVariance ?? 0,
+    rhythmicDensity: robot.rhythmicDensity ?? DEFAULT_RHYTHMIC_DENSITY,
+    rhythmicMotifLength: robot.rhythmicMotifLength ?? DEFAULT_RHYTHMIC_MOTIF_LENGTH,
+    noteVariance: robot.noteVariance ?? DEFAULT_NOTE_VARIANCE,
   });
 
   useLocaleStore.getState().updateRobot(localeId, robot.id, { melody: newMelody });

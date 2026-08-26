@@ -47,9 +47,9 @@ function makeRobot(overrides: Partial<Robot> = {}): Robot {
     },
     octaveRange: [3, 5],
     audioMode: 'none',
-    rhythmicDensity: 6,
-    rhythmicMotifLength: 8,
-    noteVariance: 0,
+    rhythmicDensity: 50,
+    rhythmicMotifLength: { active: false, value: 8 },
+    noteVariance: { active: false, value: 1 },
     masterVolume: 0.8,
     createdAt: Date.now(),
     ...overrides,
@@ -119,17 +119,50 @@ describe('regenerateMelody', () => {
     });
   });
 
-  it('uses robot.rhythmicDensity as eventCount when present', () => {
-    const robot = makeRobot({ rhythmicDensity: 8 });
+  it('uses robot.rhythmicDensity as a fill-rate percentage, not a literal event count', () => {
+    // 100% density with motif tiling off fills the entire 16-step measure.
+    const robot = makeRobot({ rhythmicDensity: 100, rhythmicMotifLength: { active: false, value: 8 } });
+    regenerateMelody(robot, 'locale-1');
+    const melody: unknown[] = updateRobotMock.mock.calls[0][2].melody;
+    expect(melody).toHaveLength(16);
+  });
+
+  it('a low rhythmicDensity never produces a silent (empty) melody', () => {
+    const robot = makeRobot({ rhythmicDensity: 0, rhythmicMotifLength: { active: false, value: 8 } });
+    regenerateMelody(robot, 'locale-1');
+    const melody: unknown[] = updateRobotMock.mock.calls[0][2].melody;
+    expect(melody.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('falls back to DEFAULT_RHYTHMIC_DENSITY/DEFAULT_RHYTHMIC_MOTIF_LENGTH when rhythmicDensity/rhythmicMotifLength are absent', () => {
+    // Defaults: 50% density, motif tiling active at value 8 (repeats=2, perCell=round(0.5*8)=4 -> 8 total).
+    const robot = makeRobot({ rhythmicDensity: undefined, rhythmicMotifLength: undefined });
     regenerateMelody(robot, 'locale-1');
     const melody: unknown[] = updateRobotMock.mock.calls[0][2].melody;
     expect(melody).toHaveLength(8);
   });
 
-  it('falls back to 6 events when rhythmicDensity is absent', () => {
-    const robot = makeRobot({ rhythmicDensity: undefined });
+  it('passes rhythmicMotifLength/noteVariance through as {active, value} objects, not the old bare-number shape', async () => {
+    const genSpy = vi.spyOn(await import('./melodyGenerator'), 'generateMelodyForRobot');
+    const robot = makeRobot({
+      rhythmicMotifLength: { active: true, value: 4 },
+      noteVariance: { active: true, value: 3 },
+    });
     regenerateMelody(robot, 'locale-1');
-    const melody: unknown[] = updateRobotMock.mock.calls[0][2].melody;
-    expect(melody).toHaveLength(6);
+    expect(genSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rhythmicMotifLength: { active: true, value: 4 },
+        noteVariance: { active: true, value: 3 },
+      })
+    );
+    genSpy.mockRestore();
+  });
+
+  it('never passes onsetCount to generateMelodyForRobot', async () => {
+    const genSpy = vi.spyOn(await import('./melodyGenerator'), 'generateMelodyForRobot');
+    regenerateMelody(makeRobot(), 'locale-1');
+    const passedOpts = genSpy.mock.calls[0][0] as unknown as Record<string, unknown>;
+    expect(passedOpts.onsetCount).toBeUndefined();
+    genSpy.mockRestore();
   });
 });
