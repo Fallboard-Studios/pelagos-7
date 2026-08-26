@@ -199,13 +199,23 @@ const densityPct = Math.max(
 );
 const motif = opts.rhythmicMotifLength ?? DEFAULT_RHYTHMIC_MOTIF_LENGTH; // { active, value }
 
-// Fill against the motif cell when tiling is on, else the full measure.
-const fillBase = motif.active ? motif.value : subdivisions;
-const onsetCount = Math.max(1, Math.round((densityPct / 100) * fillBase));
-
-const onsets = motif.active
-  ? buildMotifOnsets(onsetCount, motif.value, subdivisions, rand)
-  : buildMotifOnsets(onsetCount, subdivisions, subdivisions, rand); // motifLength === subdivisions ⇒ buildMotifOnsets' own non-repeating fallback path
+let onsets: number[];
+if (motif.active) {
+  // buildMotifOnsets' own `rhythmicDensity` param is a TOTAL onset count across
+  // the whole tiled measure, not a per-cell count — so the per-cell fill has to
+  // be multiplied back out by the repeat count before calling it. Passing the
+  // per-cell count directly (perCell alone, not perCell * repeats) would
+  // under-fill every cell by a factor of `repeats`: e.g. value=8, subdivisions=16
+  // (repeats=2) at 100% density would compute perCell=8 but only place 4 onsets
+  // per cell if passed straight through, since buildMotifOnsets would divide it
+  // by repeats again internally.
+  const repeats = Math.max(1, Math.floor(subdivisions / motif.value));
+  const perCell = Math.max(1, Math.round((densityPct / 100) * motif.value));
+  onsets = buildMotifOnsets(perCell * repeats, motif.value, subdivisions, rand);
+} else {
+  const onsetCount = Math.max(1, Math.round((densityPct / 100) * subdivisions));
+  onsets = buildMotifOnsets(onsetCount, subdivisions, subdivisions, rand); // motifLength === subdivisions ⇒ buildMotifOnsets' own non-repeating fallback path
+}
 ```
 
 **`melodyGenerator.ts` — note variance toggle (replaces the current 0/1-7/8 three-way branch):**
