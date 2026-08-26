@@ -24,6 +24,10 @@ describe('sectorSettingsConfig', () => {
       expect(PLANET_NAME_SCHEMA.humanLabel).toBeTruthy();
     });
 
+    it('PLANET_NAME_SCHEMA caps entry length — unbounded end-to-end otherwise (stored in state, hashed into a seed, rendered in the status line)', () => {
+      expect(PLANET_NAME_SCHEMA.maxLength).toBe(128);
+    });
+
     it('COORDS_SCHEMA is a coordsInput with both label fields populated', () => {
       expect(COORDS_SCHEMA.type).toBe('coordsInput');
       expect(COORDS_SCHEMA.loreLabel).toBeTruthy();

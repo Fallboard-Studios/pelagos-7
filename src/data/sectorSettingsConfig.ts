@@ -26,6 +26,10 @@ export const PLANET_NAME_SCHEMA: TextInputSchema = {
   loreLabel: 'CALIBRATION SEED',
   humanLabel: 'Planet Name',
   placeholder: 'Enter a new planet name…',
+  // Otherwise unbounded end-to-end — stored in state, hashed into a seed
+  // (derivePlanetSeed), and rendered in the status line. 128 is generous for
+  // a lore-flavored name while ruling out pathological input.
+  maxLength: 128,
 };
 
 export const COORDS_SCHEMA: CoordsInputSchema = {
