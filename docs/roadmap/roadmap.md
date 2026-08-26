@@ -148,14 +148,22 @@ This phase refactors our core generation algorithms to establish a clean, pure T
 
 ### Removal
 
-- Remove the current Robot Options console tab (robot count min/max slider, auto-spawn toggle) — the new Battery/Docking/Job lifecycle creates every robot once, rather than dynamically spawning and despawning them
-- Remove the `persists` field from Robot and its "Persist" toggle in the robot meta editor — with robots never leaving or arriving under the new lifecycle, there is nothing for a robot to "survive" across a power-off cycle
+- ~~Remove the current Robot Options console tab (robot count min/max slider, auto-spawn toggle) — the new Battery/Docking/Job lifecycle creates every robot once, rather than dynamically spawning and despawning them~~ — **done**. The UI tab itself was already dropped outright back in Phase 3; this phase retired the underlying machinery that outlived it (`startSpawnScheduler`/`stopSpawnScheduler`, the min/max "bounce" logic in `spawnRobot`, and `locale.settings`' `maxRobots`/`minRobots`/`autoSpawn`/`spawnFrequency` fields), plus `RobotsTab`'s "+ New Robot" button — none of it had a purpose once the roster is fixed and created once.
+- ~~Remove the `persists` field from Robot and its "Persist" toggle in the robot meta editor — with robots never leaving or arriving under the new lifecycle, there is nothing for a robot to "survive" across a power-off cycle~~ — **done**.
 
 ### Create
 
-- Battery System (drain and recharge state)
-- Dock/Docking System (docked, docking, departing, active states)
-- Job System (assignment and status tracking)
+- ~~Battery System (drain and recharge state)~~ — **done**.
+- ~~Dock/Docking System (docked, docking, departing, active states)~~ — **done**.
+- ~~Job System (assignment and status tracking)~~ — **done**.
+
+**Done** — see [docs/specs/ROBOT_SYSTEMS_ENGINE.md](../specs/ROBOT_SYSTEMS_ENGINE.md). Scope ended
+up wider than this file list, discovered during implementation rather than planning:
+`powerController.ts` and `OceanScene.tsx` both called the retired scheduler/removal functions
+directly and needed the same `stopRobotLifecycle()` swap `worldTransition.ts` got (required, not
+cosmetic — `AudioEngine.killAll()`'s `resetBeatClock()` silently drops the tick's measure
+subscription, so the swap is what makes a power cycle keep the lifecycle running, not just a
+locale swap).
 
 ### About
 
@@ -163,8 +171,8 @@ This phase establishes the pure TypeScript domain models and state machines for 
 
 ### Docs
 
-- docs/UI_SHELL.md's "Planned Replacement" point on `robotOptions` becomes real — fold it in and drop the "not yet implemented" framing for that point.
-- No existing doc covers robot lifecycle (Battery/Docking/Job) — add a new docs/ROBOT_LIFECYCLE.md, in the style of docs/MELODY_SYSTEM.md, documenting the state machines and src/systems/robotSystems.ts's API. Add it to CLAUDE.md's reference doc list.
+- ~~docs/UI_SHELL.md's "Planned Replacement" point on `robotOptions` becomes real — fold it in and drop the "not yet implemented" framing for that point.~~ — **done**.
+- ~~No existing doc covers robot lifecycle (Battery/Docking/Job) — add a new docs/ROBOT_LIFECYCLE.md, in the style of docs/MELODY_SYSTEM.md, documenting the state machines and src/systems/robotSystems.ts's API. Add it to CLAUDE.md's reference doc list.~~ — **done**, see [docs/ROBOT_LIFECYCLE.md](../ROBOT_LIFECYCLE.md).
 
 ## 8. Robot Selection
 

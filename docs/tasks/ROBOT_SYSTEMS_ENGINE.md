@@ -708,25 +708,25 @@ land.
 
 ### Phase 7: Docs
 
-- [ ] **Task 19: `docs/ROBOT_LIFECYCLE.md`, `docs/UI_SHELL.md`, `CLAUDE.md`, `docs/roadmap/roadmap.md`**
+- [x] **Task 19: `docs/ROBOT_LIFECYCLE.md`, `docs/UI_SHELL.md`, `CLAUDE.md`, `docs/roadmap/roadmap.md`**
 
   **Description:** Document shipped behavior, per the roadmap's own Docs bullets and spec §7.5 —
   written against the final API, not the plan.
 
   **Acceptance criteria:**
-  - [ ] New `docs/ROBOT_LIFECYCLE.md`, in `docs/MELODY_SYSTEM.md`'s style, documents
+  - [x] New `docs/ROBOT_LIFECYCLE.md`, in `docs/MELODY_SYSTEM.md`'s style, documents
     `DockingState`/`JobType`, the battery drain/recharge formula and thresholds, the
     up-to-one-measure hold, the pitch-drift mechanic, and `robotSystems.ts`'s full exported API
-  - [ ] `CLAUDE.md`'s reference doc list gains `docs/ROBOT_LIFECYCLE.md`
-  - [ ] `docs/UI_SHELL.md`'s `robotOptions` "Planned Replacement" point folded in; its "+ New
+  - [x] `CLAUDE.md`'s reference doc list gains `docs/ROBOT_LIFECYCLE.md`
+  - [x] `docs/UI_SHELL.md`'s `robotOptions` "Planned Replacement" point folded in; its "+ New
     Robot" reference in § Console Navigation updated to reflect the removal
-  - [ ] `docs/roadmap/roadmap.md` § 7's bullets marked resolved, mirroring the strikethrough+
+  - [x] `docs/roadmap/roadmap.md` § 7's bullets marked resolved, mirroring the strikethrough+
     pointer pattern used for prior phases, pointing at `docs/specs/ROBOT_SYSTEMS_ENGINE.md`
 
   **Verification:**
-  - [ ] Manual proofread: every claim in `ROBOT_LIFECYCLE.md` spot-checked against the actually-
+  - [x] Manual proofread: every claim in `ROBOT_LIFECYCLE.md` spot-checked against the actually-
     shipped code (constants, function names, field names), not reconstructed from this plan
-  - [ ] Links resolve (relative paths correct)
+  - [x] Links resolve (relative paths correct)
 
   **Dependencies:** Tasks 1–18.
 
@@ -737,8 +737,8 @@ land.
 
 ### Checkpoint: Complete
 
-- [ ] All acceptance criteria across Tasks 1–19 met.
-- [ ] Full verification suite green (`build:types`, `lint`, `test`, `build`).
+- [x] All acceptance criteria across Tasks 1–19 met.
+- [x] Full verification suite green (`build:types`, `lint`, `test`, `build`).
 - [ ] Ready for human review / PR.
 
 ## Risks and Mitigations
