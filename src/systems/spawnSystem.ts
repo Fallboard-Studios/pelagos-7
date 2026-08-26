@@ -118,36 +118,19 @@ function getAndIncrementSpawnCount(localeId: string): number {
 // ========================================
 
 /**
- * Generate a spawn position just outside the visible SVG viewBox.
- * Robots are invisible here (SVG clips to viewBox) and swim inward on their
- * first idle tick, creating a natural "swimming on-screen" entrance.
+ * Generate a spawn position just outside the visible SVG viewBox, below the
+ * bottom edge. Robots are invisible here (SVG clips to viewBox) and swim
+ * inward on their first idle tick, creating a natural "surfacing from below"
+ * entrance. Every robot enters and exits exclusively via the bottom of the
+ * world view — this is also what robotSystems.ts's landOnDocked reuses to
+ * reposition a robot once it's actually docked, so a robot's off-screen
+ * resting spot is always south too, never to the sides or above.
  */
 export function generateSpawnPosition(noiseMap: NoiseFunction2D, offset: number): Vec2 {
-  const edge = Math.floor(getSeededVal(noiseMap, 'spawn.pos.edge', offset, 0, 4)); // 0=top, 1=right, 2=bottom, 3=left
-
-  switch (edge) {
-    case 0: // Top edge — spawn above the scene
-      return {
-        x: getSeededVal(noiseMap, 'spawn.pos.x', offset, 0, WORLD_WIDTH),
-        y: -OFFSCREEN_OFFSET - getSeededVal(noiseMap, 'spawn.pos.y', offset, 0, 50),
-      };
-    case 1: // Right edge — spawn to the right of the scene
-      return {
-        x: WORLD_WIDTH + OFFSCREEN_OFFSET + getSeededVal(noiseMap, 'spawn.pos.x', offset, 0, 50),
-        y: getSeededVal(noiseMap, 'spawn.pos.y', offset, 0, WORLD_HEIGHT),
-      };
-    case 2: // Bottom edge — spawn below the scene
-      return {
-        x: getSeededVal(noiseMap, 'spawn.pos.x', offset, 0, WORLD_WIDTH),
-        y: WORLD_HEIGHT + OFFSCREEN_OFFSET + getSeededVal(noiseMap, 'spawn.pos.y', offset, 0, 50),
-      };
-    case 3: // Left edge — spawn to the left of the scene
-    default:
-      return {
-        x: -OFFSCREEN_OFFSET - getSeededVal(noiseMap, 'spawn.pos.x', offset, 0, 50),
-        y: getSeededVal(noiseMap, 'spawn.pos.y', offset, 0, WORLD_HEIGHT),
-      };
-  }
+  return {
+    x: getSeededVal(noiseMap, 'spawn.pos.x', offset, 0, WORLD_WIDTH),
+    y: WORLD_HEIGHT + OFFSCREEN_OFFSET + getSeededVal(noiseMap, 'spawn.pos.y', offset, 0, 50),
+  };
 }
 
 /**

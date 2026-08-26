@@ -156,17 +156,43 @@ The visible "head off-screen, then later come back" motion is stitched together 
 mechanisms, not a new animation system:
 
 - **Exit** (`Active` → `Departing`): `beginDeparting` (`robotSystems.ts`) calls
-  `idleSystem.ts`'s `pickExitDestination(robot.position)` — nearest-edge-plus-offset, the same
+  `idleSystem.ts`'s `pickExitDestination(robot.position)` — straight down, plus offset, the same
   shape of helper `spawnSystem.ts`'s `generateSpawnPosition` uses for the entrance side — then
   `swimAnimation.ts`'s `createSwimTimeline` directly, setting `state: Moving` and the computed
-  `destination`/`direction` in the store alongside the docking fields. No `onComplete` callback —
-  the swim is fire-and-forget, decoupled from the measure-quantized hold (see above).
+  `destination`/`direction` in the store alongside the docking fields. `direction` is left as the
+  robot's current facing (not recomputed from the exit) since a straight-down exit has no
+  horizontal component to flip toward. No `onComplete` callback — the swim is fire-and-forget,
+  decoupled from the measure-quantized hold (see above).
 - **Entrance** (`Docking` → `Active`): needs no new code. `landOnActive` already calls
   `handleRobotIdle` (`idleSystem.ts`), which was always going to animate from the robot's current
   position to a new on-screen destination — since that current position is now genuinely
   off-screen (thanks to the exit swim actually having sent it there), this reads as a natural
   "swim back on-screen" for free, the same way a brand-new spawn's first `handleRobotIdle` call
   already does.
+
+### Bottom-only, always
+
+Every robot enters and exits exclusively via the bottom of the world view — never the sides or
+top — for every entrance/exit, not just docking-driven ones:
+
+- `spawnSystem.ts`'s `generateSpawnPosition` spawns straight below the bottom edge only. This is
+  what every robot's initial off-screen position uses at locale load (Active or Docked), and what
+  `landOnDocked` reuses to reposition a robot once it's actually docked — so a robot's resting dock
+  spot is always south, never to the sides or above.
+- `idleSystem.ts`'s `pickExitDestination` exits straight down from the robot's current position —
+  no nearest-edge logic anymore.
+- `handleRobotIdle` takes an optional `{ isReturning: true }`, passed by both `Robot.tsx`'s mount
+  effect (locale load) and `landOnActive` (a dock-cycle return) — either way, the robot is
+  surfacing from its south-only spawn/dock spot, so its first on-screen destination is confined to
+  the bottom half of the world view (`BOTTOM_HALF_Y_RANGE`) rather than jumping anywhere on the
+  map. Ordinary re-picks after that (`handleRobotArrival`'s delayed re-call, interaction recovery)
+  omit the flag and range freely.
+- Independently, any robot below `BATTERY_LOWER_THIRD_THRESHOLD` (15%) has its idle wandering
+  confined to the lower third of the world view (`LOWER_THIRD_Y_RANGE`), re-evaluated on every
+  `handleRobotIdle` call from its live `batteryLevel` — so by the time it actually crosses
+  `BATTERY_CRITICAL_THRESHOLD` and departs, it's already near the bottom, keeping the exit swim
+  short. `isReturning` takes precedence over this when both would apply (not a real case in
+  practice — a robot's battery is 100% the instant it lands `Active`).
 
 ## Pitch Drift
 
@@ -271,7 +297,10 @@ The current tests (`robotSystems.test.ts`, plus updated coverage in `idleSystem.
 - hold-elapsed landing on `Active`/`Docked`
 - `landOnActive`/`landOnDocked` setting `audioMode` (not touching voice reservation/melody registration), plus their position, job, and idle-restart side effects
 - `beginDeparting` starting an exit swim (`pickExitDestination`/`createSwimTimeline` called with an off-screen destination) and setting `state: Moving` the instant Departing begins, and `landOnDocked` settling `state` back to `Idle` so a later entrance swim isn't blocked by `handleRobotIdle`'s own guard
-- `idleSystem.ts`'s `pickExitDestination` picking the correct nearest edge and returning a point genuinely outside the world bounds
+- `idleSystem.ts`'s `pickExitDestination` always exiting straight down, genuinely outside the world bounds
+- `spawnSystem.ts`'s `generateSpawnPosition` only ever spawning below the bottom edge
+- `pickDestination`'s `yRange` parameter, and `handleRobotIdle` selecting the lower-third range below `BATTERY_LOWER_THIRD_THRESHOLD`, the bottom-half range for `{ isReturning: true }`, and `isReturning` taking precedence when both would apply
+- `beginDeparting` preserving the robot's current facing direction on exit, rather than recomputing one from a now-nonexistent horizontal component
 - `landOnDocked` re-registering the drifted melody with `AudioEngine` so a manual mute override plays the post-drift pitches
 - `scoreJobAffinities` determinism and each profile scoring highest for a robot matching its description
 - `assignJob` respecting `JOB_MAX_ROBOTS_PER_TYPE`

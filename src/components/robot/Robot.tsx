@@ -49,7 +49,11 @@ export function Robot({ robot }: RobotProps) {
         scaleX: robot.direction === 'right' ? 1 : -1,
         transformOrigin: '50% 50%',
       });
-      handleRobotIdle(localeId, robot.id);
+      // isReturning: true — the robot is entering from its south-only spawn
+      // spot (see spawnSystem.ts's generateSpawnPosition), so its first
+      // on-screen destination stays in the bottom half, same as a dock-cycle
+      // return (robotSystems.ts's landOnActive).
+      handleRobotIdle(localeId, robot.id, { isReturning: true });
     }
     return () => deleteRef(`robot-${robot.id}`);
     // eslint-disable-next-line react-hooks/exhaustive-deps

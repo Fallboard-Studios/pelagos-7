@@ -773,3 +773,39 @@ re-registration on power-on), `robotSystems.test.ts`, `spawnSystem.test.ts`, and
 and the always-registered invariant, confirmed RED, then implemented). Full suite green after:
 1064/1064 tests, zero lint/type errors, production build clean. No spec/plan-doc rewrite otherwise
 — this section is the record of the deviation from the original design.
+
+## Post-Completion Revision: battery-dim visuals, exit swim, never-zero-Active, bottom-only entry/exit
+
+Four further rounds of manual-playtest feedback, each TDD'd (RED confirmed, then implemented) and
+landed as its own commit:
+
+- **Battery-dim windows/lights**: `robotVisualHelpers.ts`'s `computeBatteryDimOpacity` dims each
+  robot shape's hardcoded-color Window/Viewport/Status-light elements as `batteryLevel` drops (25%
+  dim ≤50%, 50% dim <25%, 90% dim ≤12% — `BATTERY_DIM_THRESHOLD_LOW/MID/CRITICAL`), following the
+  same non-audio-brightness-overlay precedent as day/night lighting (see `ROBOT_DESIGN.md`).
+- **Exit swim**: a `Departing` robot now visibly swims off-screen (`idleSystem.ts`'s
+  `pickExitDestination`, `beginDeparting` in `robotSystems.ts`) instead of freezing wherever its
+  last idle motion left it. The entrance side needed no new code — `landOnActive`'s existing
+  `handleRobotIdle` call already animates from wherever the robot currently is.
+- **Never-zero-Active invariant**: `tickRobotLifecycle` won't let the sole `Active` robot depart at
+  critical battery — it's held `Active` (battery floors at 0) until another robot lands back on
+  `Active`, re-checked fresh every tick so a same-tick race between two robots resolves correctly too.
+- **Bottom-only entrance/exit + battery-confined wandering**: every robot now enters and exits
+  exclusively via the bottom of the world view, always — `spawnSystem.ts`'s `generateSpawnPosition`
+  dropped its 4-edge switch for straight-down-only (this is every robot's initial off-screen spot at
+  locale load, Active or Docked, and what `landOnDocked` reuses for the dock resting spot);
+  `pickExitDestination` exits straight down instead of nearest-edge; `beginDeparting` keeps the
+  robot's current facing direction rather than recomputing one from a now-nonexistent horizontal
+  component. `handleRobotIdle` gained `{ isReturning: true }` (passed by `Robot.tsx`'s mount effect
+  and `landOnActive`) so a robot's first destination after surfacing stays in the bottom half
+  (`BOTTOM_HALF_Y_RANGE`); independently, any robot below the new `BATTERY_LOWER_THIRD_THRESHOLD`
+  (15%) has its idle wandering confined to the lower third (`LOWER_THIRD_Y_RANGE`) so it's already
+  near the bottom by the time it actually departs. `pickDestination` gained an optional `yRange`
+  param carrying both. See `ROBOT_LIFECYCLE.md`'s "Bottom-only, always" section for the full
+  mechanics. Also fixed a latent gap in `vitest.setup.ts`'s GSAP mock — `delayedCall` didn't exist,
+  which meant `handleRobotIdle`'s no-ref path (real code, no mocked `idleSystem`) would throw the
+  first time a test actually reached it; added a non-auto-firing mock (auto-firing would recurse
+  through the idle-wander self-scheduling loop with no real delay to throttle it).
+
+Full suite green after each round; final state: 1088/1088 tests, zero lint/type errors, clean
+`tsc --noEmit`. No spec/plan-doc rewrite beyond these revision notes.
