@@ -1,0 +1,34 @@
+.robot-selection-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--color-surface);
+  cursor: pointer;
+  list-style: none;
+}
+
+.robot-selection-card:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.robot-selection-card__avatar {
+  width: 64px;
+  height: 64px;
+  align-self: center;
+}
+
+.robot-selection-card__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.robot-selection-card__value {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+}
