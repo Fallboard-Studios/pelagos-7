@@ -26,14 +26,18 @@ export interface ColorShift {
 // ========================================
 
 /**
- * Convert an HSL object into a CSS `hsl()` string.
+ * Convert an HSL object into a CSS `hsl()`/`hsla()` string.
  *
  * @param hsl - the HSL value to serialize
- * @returns a string suitable for use as a fill/style value e.g. `"hsl(180, 50%, 20%)"`
+ * @param alpha - optional opacity (0..1). Omitted entirely (not just falsy) keeps the existing
+ *   `hsl()` format byte-identical for every existing caller — only a supplied alpha switches to
+ *   `hsla()`. Useful for glow/box-shadow colors that need transparency.
+ * @returns a string suitable for use as a fill/style value e.g. `"hsl(180, 50%, 20%)"` or
+ *   `"hsla(180, 50%, 20%, 0.6)"`
  */
-export function hslToString(hsl: HSL): string {
+export function hslToString(hsl: HSL, alpha?: number): string {
   const { h, s, l } = hsl;
-  return `hsl(${h}, ${s}%, ${l}%)`;
+  return alpha === undefined ? `hsl(${h}, ${s}%, ${l}%)` : `hsla(${h}, ${s}%, ${l}%, ${alpha})`;
 }
 
 /**

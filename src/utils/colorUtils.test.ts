@@ -12,6 +12,25 @@ describe('colorUtils', () => {
       expect(hslToString({ h: 0, s: 0, l: 0 })).toBe('hsl(0, 0%, 0%)');
       expect(hslToString({ h: 360, s: 100, l: 100 })).toBe('hsl(360, 100%, 100%)');
     });
+
+    it('formats as hsla() when an alpha is supplied', () => {
+      const hsl: HSL = { h: 180, s: 50, l: 25 };
+      expect(hslToString(hsl, 0.6)).toBe('hsla(180, 50%, 25%, 0.6)');
+    });
+
+    it('handles alpha edge values 0 and 1', () => {
+      const hsl: HSL = { h: 180, s: 50, l: 25 };
+      expect(hslToString(hsl, 0)).toBe('hsla(180, 50%, 25%, 0)');
+      expect(hslToString(hsl, 1)).toBe('hsla(180, 50%, 25%, 1)');
+    });
+
+    it('omits alpha entirely (stays hsl(), not hsla()) when alpha is not passed', () => {
+      const hsl: HSL = { h: 180, s: 50, l: 25 };
+      // Regression guard: existing callers (realWorldGradient.ts, etc.) must keep getting
+      // byte-identical output when they don't opt into alpha.
+      expect(hslToString(hsl)).toBe('hsl(180, 50%, 25%)');
+      expect(hslToString(hsl)).not.toContain('hsla');
+    });
   });
 
   describe('clamp', () => {
