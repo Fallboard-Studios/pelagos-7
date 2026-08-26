@@ -53,11 +53,17 @@ export interface NoteParams {
   duration: NoteDuration;
   time?: number;
   velocity?: number;
+  /** Multiplies the resolved velocity (before clamping to 1). Used for the
+   * motif-group accent — see GROUP_ACCENT_MULTIPLIER. */
+  accentMultiplier?: number;
 }
 
 interface MelodyEventEntry {
   robotId: string;
   event: RobotMelodyEvent;
+  /** True when this event is the earliest `startStep` within its motif-tiling
+   * repeat window (computed once at registration — see registerRobotMelody). */
+  isGroupAccent?: boolean;
 }
 
 // ========================================
@@ -71,6 +77,13 @@ const VELOCITY_VARIANCE_RATE = 0.15;
 const VELOCITY_VARIANCE_AMOUNT = 0.25;  // ±25% offset
 /** Minimum effective note velocity after clamping (prevents silent notes). */
 const VELOCITY_MIN = 0.05;
+/**
+ * Velocity multiplier applied to the earliest event in each motif-tiling
+ * repeat window, when a robot's rhythmicMotifLength toggle is active — an
+ * accent on the "downbeat" of each tiled group. No effect in scatter mode
+ * (rhythmicMotifLength.active === false), since there are no groups to accent.
+ */
+const GROUP_ACCENT_MULTIPLIER = 1.15;
 
 // Precompute data X positions for seeded noise sampling (module scope — hot path safe)
 const VELOCITY_ROLL_X = precomputeDataX('audio.velocityRoll');
@@ -585,6 +598,10 @@ export const AudioEngine = {
       }
     }
 
+    if (params.accentMultiplier !== undefined && effectiveVelocity !== undefined) {
+      effectiveVelocity = Math.min(1, effectiveVelocity * params.accentMultiplier);
+    }
+
     // Enforce audioMode policies (mute/solo/highlight) at schedule time.
     try {
       const localeRobots = getActiveLocaleRobots();
@@ -870,9 +887,28 @@ export const AudioEngine = {
       }
     });
 
+    // Motif-group accent: computed once here (not per-tick) so it stays off the
+    // scheduling hot path. Only meaningful when the robot's Motif Length toggle
+    // is active — scatter mode has no repeat windows to accent.
+    const robot = findActiveRobot(robotId);
+    const motif = robot?.rhythmicMotifLength;
+    const accentedStartSteps = new Set<number>();
+    if (motif?.active) {
+      const windowLength = Math.max(1, motif.value);
+      const earliestInWindow = new Map<number, number>(); // window index -> earliest startStep
+      melody.forEach((event) => {
+        const windowIndex = Math.floor((event.startStep - 1) / windowLength);
+        const current = earliestInWindow.get(windowIndex);
+        if (current === undefined || event.startStep < current) {
+          earliestInWindow.set(windowIndex, event.startStep);
+        }
+      });
+      earliestInWindow.forEach((step) => accentedStartSteps.add(step));
+    }
+
     melody.forEach((event) => {
       const entries = stepRegistry.get(event.startStep) || [];
-      entries.push({ robotId, event });
+      entries.push({ robotId, event, isGroupAccent: accentedStartSteps.has(event.startStep) });
       stepRegistry.set(event.startStep, entries);
     });
 
@@ -924,13 +960,19 @@ export const AudioEngine = {
     const events = stepRegistry.get(currentStep) || [];
     const notes = getAvailableNotes();
 
-    events.forEach(({ robotId, event }) => {
+    events.forEach(({ robotId, event, isGroupAccent }) => {
       const noteName = notes[event.noteIndex];
       if (!noteName) return;
       const octave = event.octave ?? 4;
       const note = `${noteName}${octave}`;
 
-      AudioEngine.scheduleNote({ robotId, note, duration: event.length, time: time + MIN_LEAD });
+      AudioEngine.scheduleNote({
+        robotId,
+        note,
+        duration: event.length,
+        time: time + MIN_LEAD,
+        accentMultiplier: isGroupAccent ? GROUP_ACCENT_MULTIPLIER : undefined,
+      });
     });
   },
 
