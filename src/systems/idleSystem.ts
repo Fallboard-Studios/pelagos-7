@@ -6,7 +6,6 @@ import gsap from 'gsap';
 import type { NoiseFunction2D } from 'simplex-noise';
 import { RobotState } from '../types/Robot';
 import useLocaleStore from '../stores/localeStore';
-import { usePlanetStore } from '../stores/planetStore';
 import { createSwimTimeline } from '../animation/swimAnimation';
 import { getLocaleNoiseMap } from '../utils/noiseMaps';
 import { getSeededVal } from '../utils/getSeededVal';
@@ -81,9 +80,8 @@ export function handleRobotIdle(localeId: string, robotId: string): void {
   }
 
   const locale = store.getLocaleById(localeId);
-  const planet = locale ? usePlanetStore.getState().planets.find((p) => p.id === locale.planetId) : undefined;
-  const noiseMap = locale && planet
-    ? getLocaleNoiseMap(localeId, locale.planetId, planet.name, locale.coordinates.x, locale.coordinates.y)
+  const noiseMap = locale
+    ? getLocaleNoiseMap(localeId, locale.coordinates.x, locale.coordinates.y)
     : null;
 
   const { spawnIndex, count } = getAndIncrementMoveCount(robotId);

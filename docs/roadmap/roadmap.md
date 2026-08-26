@@ -119,11 +119,13 @@ This phase defines the data configurations and layout for the Sector Settings vi
 
 - Simplex noise collapses to a **low-entropy result at "clean" aligned coordinates** — not just `(0, 0)`, a whole class of coordinates. Verified directly against `simplex-noise`/`alea` with 8 different seeds: `(0, 0)` gave exactly `0` for all 8 (a true dead zone, every seed identical); `(0.5, 0.5)` gave only 3 distinct values across 8 seeds; `(1, 1)` gave 5; even `(3.7, -8.2)` only gave 6. A higher-precision, non-aligned point like `(12.3456, 67.891)` gave 8/8 distinct values. `localeStore.ts`'s `DEFAULT_LOCALE.coordinates` used to sit exactly on the worst case (`0, 0`) — now fixed to a verified-safe point — so the default locale's noise map was invariant to the planet seed, masked until now because the default planet name was itself a fixed literal ("Pelagos"), not because the locale ever actually varied. **This directly threatens Plot Tuning's X/Y coordinate entry (this phase's core feature)**: users naturally gravitate toward round numbers (`0`, `5`, `10.5`), which is exactly the coordinate class most likely to collide across different seeds/plots. Guard at input (reject/nudge round-number coordinates) or fix it structurally (hash/offset the sampling point so no user-typeable coordinate lands on a low-entropy region) — resolve as part of this phase's spec, not discovered again live with real users.
 
+  **Resolved** — see [docs/specs/LOCALE_SEED_DECOUPLING.md](../specs/LOCALE_SEED_DECOUPLING.md); locale noise generation no longer samples through the planet's noise map, eliminating both the planet-coupling and the dead-zone collapse described above.
+
 ## 6. Robot Melody & Seed Engine
 
 ### Restructure
 
-- Update robot spawning rules so attributes come from planet agnostic lat/long coords seed
+- ~~Update robot spawning rules so attributes come from planet agnostic lat/long coords seed~~ — **done, and generalized to all locale-derived content** (not just robot spawn attributes) via [docs/specs/LOCALE_SEED_DECOUPLING.md](../specs/LOCALE_SEED_DECOUPLING.md), pulled forward ahead of this phase. The remaining bullets below (robot ID determinism, the 16-16th-note measure grid, density/motif/variance restructuring) are unaffected and still pending.
 - Robot IDs become deterministic (derived from the seed + spawn index) instead of the current `crypto.randomUUID()` — required so Session Storage (Phase 11) can reapply Robot Options overrides by ID after the roster regenerates from a reload or shared link
 - Update all references to measure length to 16 16th notes
 - Density: Becomes a percentage. It fills X% of either the entire measure or a motif with that many notes
