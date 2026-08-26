@@ -99,6 +99,8 @@ const createTestRobot = (id: string, state = RobotState.Idle): Robot => ({
   createdAt: Date.now(),
   octaveRange: [3, 5] as [number, number],
   masterVolume: 1,
+  docking: 'active',
+  batteryLevel: 100,
 });
 
 beforeEach(() => {

@@ -723,6 +723,8 @@ describe('AudioEngine - Motif Group Accent', () => {
       name: '',
       state: 'idle' as const,
       direction: 'right' as const,
+      docking: 'active' as const,
+      batteryLevel: 100,
     };
   }
 

@@ -21,6 +21,32 @@ export const RobotState = {
 export type RobotState = (typeof RobotState)[keyof typeof RobotState];
 
 /**
+ * Docking state machine — orthogonal to RobotState. Purely battery-driven
+ * (see src/systems/robotSystems.ts): Docked/Active are the two "settled"
+ * states; Docking/Departing are held for up to one measure as a transition
+ * buffer before landing on Active/Docked respectively.
+ */
+export const DockingState = {
+  Docked: 'docked',
+  Docking: 'docking',
+  Departing: 'departing',
+  Active: 'active',
+} as const;
+export type DockingState = (typeof DockingState)[keyof typeof DockingState];
+
+/**
+ * The four job profiles a robot can be assigned once it lands on Active.
+ * Pure data/scoring — see robotSystems.ts's scoreJobAffinities/assignJob.
+ */
+export const JobType = {
+  VentExtraction: 'ventExtraction',
+  AcousticSurvey: 'acousticSurvey',
+  StructuralInspection: 'structuralInspection',
+  FluidMonitoring: 'fluidMonitoring',
+} as const;
+export type JobType = (typeof JobType)[keyof typeof JobType];
+
+/**
  * Oscillator waveform shapes for timbral variety
  */
 export type WaveformType = 'sine' | 'square' | 'triangle' | 'sawtooth' | 'pulse';
@@ -90,8 +116,18 @@ export interface Robot {
   lastInteractionMeasure?: number;
   /** Base velocity (0–1) controlling average note loudness. Per-note variance is applied at scheduling time, not stored. */
   masterVolume: number;
-  /** When true, this robot survives a power-off cycle and is not removed. */
-  persists?: boolean;
+  /** Docking state — see DockingState. Every robot has one from creation. */
+  docking: DockingState;
+  /**
+   * Measure at which a Docking/Departing hold ends and the robot lands on
+   * Active/Docked. Undefined when docking is Docked or Active (no hold in
+   * progress). Set by robotSystems.ts on threshold crossing.
+   */
+  dockingHoldUntilMeasure?: number;
+  /** 0-100. Drains while Active, recharges while Docked. Seeded at spawn. */
+  batteryLevel: number;
+  /** Assigned automatically when a robot lands on Active. Undefined while Docked/Docking/Departing. */
+  job?: { type: JobType; assignedAtMeasure: number };
   /**
    * Solo/mute/highlight mode set by the Robot Audio editor.
    * Runtime semantics (enforced by AudioEngine):

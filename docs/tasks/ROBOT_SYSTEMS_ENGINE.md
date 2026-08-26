@@ -139,9 +139,13 @@ land.
 
   **Dependencies:** None.
 
-  **Files:** `src/types/Robot.ts`
+  **Files:** `src/types/Robot.ts`, `src/engine/AudioEngine.test.ts`, `src/systems/interactionSystem.test.ts`
+  (discovered via `npm run build:types` after the type change — these two test files build a
+  `Robot` fixture but aren't otherwise touched by any later task, so their one-line
+  `docking`/`batteryLevel` fixture additions are folded into this task rather than left as an
+  untracked gap)
 
-  **Estimated scope:** XS (1 file)
+  **Estimated scope:** XS (3 files, two of which are one-line fixture additions)
 
 - [ ] **Task 2: `src/constants/index.ts` — new Battery/Docking/Job constants**
 
