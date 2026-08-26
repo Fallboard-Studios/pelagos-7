@@ -69,6 +69,19 @@
   color: var(--accent, #8be);
 }
 
+/* ── Active toggle (motif length / note variance) ─ */
+
+.rat-active-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  font-size: 0.8rem;
+  color: var(--text-muted, #aab3bf);
+  cursor: pointer;
+  width: fit-content;
+}
+
 /* ── Slider ───────────────────────────────────── */
 
 .rat-slider {

@@ -52,10 +52,10 @@ export function RobotAudioTab({ robot }: RobotAudioTabProps) {
   }
 
   const audioMode = (robot.audioMode ?? 'none') as AudioMode;
-  const rhythmicDensity = robot.rhythmicDensity ?? 6;
-  const rhythmicMotifLength = robot.rhythmicMotifLength ?? 8;
+  const rhythmicDensity = robot.rhythmicDensity ?? 50;
+  const rhythmicMotifLength = robot.rhythmicMotifLength ?? { active: true, value: 8 };
   const [octMin, octMax] = robot.octaveRange;
-  const noteVariance = robot.noteVariance ?? 0;
+  const noteVariance = robot.noteVariance ?? { active: false, value: 1 };
 
   const handleAudioModeChange = (value: string) => {
     useLocaleStore.getState().updateRobot(localeId, robot.id, { audioMode: value as AudioMode });
@@ -67,16 +67,28 @@ export function RobotAudioTab({ robot }: RobotAudioTabProps) {
     regenerateMelody({ ...robot, rhythmicDensity: density }, localeId);
   };
 
-  const handleMotifLengthChange = (values: number[]) => {
-    const length = values[0];
-    useLocaleStore.getState().updateRobot(localeId, robot.id, { rhythmicMotifLength: length });
-    regenerateMelody({ ...robot, rhythmicMotifLength: length }, localeId);
+  const handleMotifLengthActiveChange = (active: boolean) => {
+    const next = { ...rhythmicMotifLength, active };
+    useLocaleStore.getState().updateRobot(localeId, robot.id, { rhythmicMotifLength: next });
+    regenerateMelody({ ...robot, rhythmicMotifLength: next }, localeId);
   };
 
-  const handleNoteVarianceChange = (values: number[]) => {
-    const nv = values[0];
-    useLocaleStore.getState().updateRobot(localeId, robot.id, { noteVariance: nv });
-    regenerateMelody({ ...robot, noteVariance: nv }, localeId);
+  const handleMotifLengthValueChange = (values: number[]) => {
+    const next = { ...rhythmicMotifLength, value: values[0] };
+    useLocaleStore.getState().updateRobot(localeId, robot.id, { rhythmicMotifLength: next });
+    regenerateMelody({ ...robot, rhythmicMotifLength: next }, localeId);
+  };
+
+  const handleNoteVarianceActiveChange = (active: boolean) => {
+    const next = { ...noteVariance, active };
+    useLocaleStore.getState().updateRobot(localeId, robot.id, { noteVariance: next });
+    regenerateMelody({ ...robot, noteVariance: next }, localeId);
+  };
+
+  const handleNoteVarianceValueChange = (values: number[]) => {
+    const next = { ...noteVariance, value: values[0] };
+    useLocaleStore.getState().updateRobot(localeId, robot.id, { noteVariance: next });
+    regenerateMelody({ ...robot, noteVariance: next }, localeId);
   };
 
   const handleOctaveRangeChange = (values: number[]) => {
@@ -150,8 +162,17 @@ export function RobotAudioTab({ robot }: RobotAudioTabProps) {
       <div className="rat-row rat-row--column">
         <div className="rat-row-header">
           <span className="rat-label">Motif Length</span>
-          <span className="rat-value">{rhythmicMotifLength}</span>
+          <span className="rat-value">{rhythmicMotifLength.value}</span>
         </div>
+        <label className="rat-active-toggle">
+          <input
+            aria-label="Motif length active"
+            type="checkbox"
+            checked={rhythmicMotifLength.active}
+            onChange={(e) => handleMotifLengthActiveChange(e.target.checked)}
+          />
+          Active
+        </label>
         {/* Accessible numeric input for testing and screen-readers; mirrors the slider value */}
         <input
           aria-label="Motif length"
@@ -159,16 +180,18 @@ export function RobotAudioTab({ robot }: RobotAudioTabProps) {
           type="number"
           min={MOTIF_MIN}
           max={MOTIF_MAX}
-          value={rhythmicMotifLength}
-          onChange={(e) => handleMotifLengthChange([Number(e.target.value)])}
+          value={rhythmicMotifLength.value}
+          disabled={!rhythmicMotifLength.active}
+          onChange={(e) => handleMotifLengthValueChange([Number(e.target.value)])}
         />
         <Slider.Root
           className="rat-slider"
           min={MOTIF_MIN}
           max={MOTIF_MAX}
           step={1}
-          value={[rhythmicMotifLength]}
-          onValueChange={handleMotifLengthChange}
+          value={[rhythmicMotifLength.value]}
+          disabled={!rhythmicMotifLength.active}
+          onValueChange={handleMotifLengthValueChange}
         >
           <Slider.Track className="rat-slider-track">
             <Slider.Range className="rat-slider-range" />
@@ -204,29 +227,40 @@ export function RobotAudioTab({ robot }: RobotAudioTabProps) {
       <div className="rat-row rat-row--column">
         <div className="rat-row-header">
           <span className="rat-label">Note Variance</span>
-          <span className="rat-value">{noteVariance}</span>
+          <span className="rat-value">{noteVariance.value}</span>
         </div>
+        <label className="rat-active-toggle">
+          <input
+            aria-label="Note variance active"
+            type="checkbox"
+            checked={noteVariance.active}
+            onChange={(e) => handleNoteVarianceActiveChange(e.target.checked)}
+          />
+          Active
+        </label>
         <input
           aria-label="Note variance"
           className="rat-sr"
           type="number"
           min={NOTE_VARIANCE_MIN}
           max={NOTE_VARIANCE_MAX}
-          value={noteVariance}
-          onChange={(e) => handleNoteVarianceChange([Number(e.target.value)])}
+          value={noteVariance.value}
+          disabled={!noteVariance.active}
+          onChange={(e) => handleNoteVarianceValueChange([Number(e.target.value)])}
         />
         <Slider.Root
           className="rat-slider"
           min={NOTE_VARIANCE_MIN}
           max={NOTE_VARIANCE_MAX}
           step={1}
-          value={[noteVariance]}
-          onValueChange={handleNoteVarianceChange}
+          value={[noteVariance.value]}
+          disabled={!noteVariance.active}
+          onValueChange={handleNoteVarianceValueChange}
         >
           <Slider.Track className="rat-slider-track">
             <Slider.Range className="rat-slider-range" />
           </Slider.Track>
-          <Slider.Thumb className="rat-slider-thumb" aria-label="Note variance" />
+          <Slider.Thumb className="rat-slider-thumb" aria-label="Variance" />
         </Slider.Root>
       </div>
       <div className="rat-row">

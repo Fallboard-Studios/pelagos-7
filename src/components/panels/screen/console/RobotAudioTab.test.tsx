@@ -28,8 +28,9 @@ const makeRobot = (id = 'r1') => ({
   octaveRange: [3, 4],
   createdAt: Date.now(),
   masterVolume: 0.7,
-  rhythmicDensity: 6,
-  rhythmicMotifLength: 8,
+  rhythmicDensity: 50,
+  rhythmicMotifLength: { active: true, value: 8 },
+  noteVariance: { active: false, value: 1 },
 });
 
 describe('RobotAudioTab', () => {
@@ -66,17 +67,17 @@ describe('RobotAudioTab', () => {
     const densityInput = screen.getByLabelText('Rhythmic density') as HTMLInputElement;
     expect(densityInput).toBeTruthy();
 
-    // Change density to a new value
-    fireEvent.change(densityInput, { target: { value: '9' } });
+    // Change density to a new value (0-100 range)
+    fireEvent.change(densityInput, { target: { value: '75' } });
 
-    expect(updateSpy).toHaveBeenCalledWith(localeId, robot.id, { rhythmicDensity: 9 });
+    expect(updateSpy).toHaveBeenCalledWith(localeId, robot.id, { rhythmicDensity: 75 });
 
     // scheduleRegenerate is now synchronous — no flush needed
     expect(genSpy).toHaveBeenCalled();
     expect(regSpy).toHaveBeenCalledWith(robot.id, sampleMelody as unknown as RobotMelodyEvent[]);
   });
 
-  it('updates the store when motif length changes and triggers regeneration', () => {
+  it('updates the store when motif length value changes and triggers regeneration', () => {
     const robot = makeRobot('robot-motif');
     useLocaleStore.getState().addRobot(localeId, robot as unknown as Robot);
     // mark as selected so component's commitUpdate runs
@@ -94,12 +95,88 @@ describe('RobotAudioTab', () => {
     const motifInput = screen.getByLabelText('Motif length') as HTMLInputElement;
     expect(motifInput).toBeTruthy();
 
-    fireEvent.change(motifInput, { target: { value: '12' } });
+    // Valid range is now 1-8 (was 1-16)
+    fireEvent.change(motifInput, { target: { value: '5' } });
 
-    expect(updateSpy).toHaveBeenCalledWith(localeId, robot.id, { rhythmicMotifLength: 12 });
+    expect(updateSpy).toHaveBeenCalledWith(localeId, robot.id, { rhythmicMotifLength: { active: true, value: 5 } });
 
     // scheduleRegenerate is now synchronous — no flush needed
     expect(genSpy).toHaveBeenCalled();
     expect(regSpy).toHaveBeenCalledWith(robot.id, sampleMelody as unknown as RobotMelodyEvent[]);
+  });
+
+  it('toggling motif length\'s Active checkbox off updates the store and triggers regeneration', () => {
+    const robot = makeRobot('robot-motif-toggle');
+    useLocaleStore.getState().addRobot(localeId, robot as unknown as Robot);
+    useUIStore.getState().selectRobot(robot.id);
+
+    const updateSpy = vi.spyOn(useLocaleStore.getState(), 'updateRobot');
+    const sampleMelody = [{ id: 'm3', startStep: 1, length: '8n', noteIndex: 0, octave: 3 }];
+    vi.spyOn(melodyGen, 'generateMelodyForRobot').mockReturnValue(sampleMelody as unknown as RobotMelodyEvent[]);
+    const regSpy = vi.spyOn(AudioEngine, 'registerRobotMelody').mockImplementation(() => { });
+    vi.spyOn(AudioEngine, 'unregisterRobotMelody').mockImplementation(() => { });
+
+    render(<RobotAudioTab robot={robot as unknown as Robot} />);
+
+    const activeCheckbox = screen.getByLabelText('Motif length active') as HTMLInputElement;
+    expect(activeCheckbox.checked).toBe(true); // fixture starts active: true
+
+    fireEvent.click(activeCheckbox);
+
+    expect(updateSpy).toHaveBeenCalledWith(localeId, robot.id, { rhythmicMotifLength: { active: false, value: 8 } });
+    expect(regSpy).toHaveBeenCalled();
+  });
+
+  it('the motif length slider/input is disabled when its Active toggle is off', () => {
+    const robot = makeRobot('robot-motif-disabled');
+    robot.rhythmicMotifLength = { active: false, value: 4 };
+    useLocaleStore.getState().addRobot(localeId, robot as unknown as Robot);
+    useUIStore.getState().selectRobot(robot.id);
+
+    render(<RobotAudioTab robot={robot as unknown as Robot} />);
+
+    const motifInput = screen.getByLabelText('Motif length') as HTMLInputElement;
+    expect(motifInput.disabled).toBe(true);
+  });
+
+  it('updates the store when note variance value changes and triggers regeneration', () => {
+    const robot = makeRobot('robot-variance');
+    useLocaleStore.getState().addRobot(localeId, robot as unknown as Robot);
+    useUIStore.getState().selectRobot(robot.id);
+
+    const updateSpy = vi.spyOn(useLocaleStore.getState(), 'updateRobot');
+    const sampleMelody = [{ id: 'm4', startStep: 1, length: '8n', noteIndex: 0, octave: 3 }];
+    vi.spyOn(melodyGen, 'generateMelodyForRobot').mockReturnValue(sampleMelody as unknown as RobotMelodyEvent[]);
+    vi.spyOn(AudioEngine, 'registerRobotMelody').mockImplementation(() => { });
+    vi.spyOn(AudioEngine, 'unregisterRobotMelody').mockImplementation(() => { });
+
+    render(<RobotAudioTab robot={robot as unknown as Robot} />);
+
+    const varianceInput = screen.getByLabelText('Note variance') as HTMLInputElement;
+    fireEvent.change(varianceInput, { target: { value: '3' } });
+
+    expect(updateSpy).toHaveBeenCalledWith(localeId, robot.id, { noteVariance: { active: false, value: 3 } });
+  });
+
+  it('toggling note variance\'s Active checkbox on updates the store and triggers regeneration', () => {
+    const robot = makeRobot('robot-variance-toggle');
+    useLocaleStore.getState().addRobot(localeId, robot as unknown as Robot);
+    useUIStore.getState().selectRobot(robot.id);
+
+    const updateSpy = vi.spyOn(useLocaleStore.getState(), 'updateRobot');
+    const sampleMelody = [{ id: 'm5', startStep: 1, length: '8n', noteIndex: 0, octave: 3 }];
+    vi.spyOn(melodyGen, 'generateMelodyForRobot').mockReturnValue(sampleMelody as unknown as RobotMelodyEvent[]);
+    const regSpy = vi.spyOn(AudioEngine, 'registerRobotMelody').mockImplementation(() => { });
+    vi.spyOn(AudioEngine, 'unregisterRobotMelody').mockImplementation(() => { });
+
+    render(<RobotAudioTab robot={robot as unknown as Robot} />);
+
+    const activeCheckbox = screen.getByLabelText('Note variance active') as HTMLInputElement;
+    expect(activeCheckbox.checked).toBe(false); // fixture starts active: false
+
+    fireEvent.click(activeCheckbox);
+
+    expect(updateSpy).toHaveBeenCalledWith(localeId, robot.id, { noteVariance: { active: true, value: 1 } });
+    expect(regSpy).toHaveBeenCalled();
   });
 });
