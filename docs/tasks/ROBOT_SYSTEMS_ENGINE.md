@@ -620,27 +620,29 @@ land.
 
 ### Phase 6: UI Removal + Store Clamp
 
-- [ ] **Task 16: `src/components/panels/screen/console/RobotMetaTab.tsx` — remove Persist**
+- [x] **Task 16: `src/components/panels/screen/console/RobotMetaTab.tsx` — remove Persist**
 
   **Description:** Remove the Persist `Switch.Root` control and its supporting state/handlers;
   drop `persists` from the copy-robot optional-field list.
 
   **Acceptance criteria:**
-  - [ ] `currentPersists`/`persists`/`prevPersists`/`togglePersists` state and handler removed
-  - [ ] The Persist `row control-row` JSX block removed
-  - [ ] `performCopyFromTarget`'s `optFields` list no longer includes `persists` (it never did per
+  - [x] `currentPersists`/`persists`/`prevPersists`/`togglePersists` state and handler removed
+  - [x] The Persist `row control-row` JSX block removed
+  - [x] `performCopyFromTarget`'s `optFields` list no longer includes `persists` (it never did per
     spec — confirm it wasn't silently relying on the removed field)
-  - [ ] Name editing, Age display, and Copy Robot controls are otherwise unchanged
+  - [x] Name editing, Age display, and Copy Robot controls are otherwise unchanged
 
   **Verification:**
-  - [ ] `npx vitest run src/components/panels/screen/console/RobotMetaTab.test.tsx` — all passing
-  - [ ] `npm run build:types` passes
-  - [ ] Manual check: render the tab, confirm no Persist row appears, Copy Robot still works
+  - [x] `npx vitest run src/components/panels/screen/console/RobotMetaTab.test.tsx` — all passing
+  - [x] `npm run build:types` passes
+  - [x] Manual check: render the tab, confirm no Persist row appears, Copy Robot still works
 
   **Dependencies:** Task 1 (`persists` removed from the type forces this).
 
   **Files:** `src/components/panels/screen/console/RobotMetaTab.tsx`,
-  `src/components/panels/screen/console/RobotMetaTab.test.tsx`
+  `src/components/panels/screen/console/RobotMetaTab.test.tsx` (this file didn't exist —
+  `RobotMetaTab.tsx` had zero test coverage before this task; created new, scoped to the Persist
+  removal plus a few smoke assertions on its neighboring controls, not full component coverage)
 
   **Estimated scope:** S (2 files)
 

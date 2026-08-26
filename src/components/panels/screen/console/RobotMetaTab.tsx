@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import * as Switch from '@radix-ui/react-switch';
 import * as AlertDialog from '@radix-ui/react-alert-dialog';
 
 import { getActiveLocaleId } from '@/utils/localeHelpers';
@@ -60,21 +59,6 @@ export default function RobotMetaTab() {
     if (h < 24) return `${h}h old`;
     const d = Math.floor(h / 24);
     return `${d}d old`;
-  };
-
-  // Persist toggle (uses `persists` property)
-  const currentPersists = robot ? (robot.persists ?? false) : false;
-  const [persists, setPersists] = useState<boolean>(currentPersists);
-  const [prevPersists, setPrevPersists] = useState<boolean>(currentPersists);
-  if (currentPersists !== prevPersists) {
-    setPrevPersists(currentPersists);
-    setPersists(currentPersists);
-  }
-
-  const togglePersists = (value: boolean) => {
-    if (!robot || !localeId) return;
-    setPersists(value);
-    useLocaleStore.getState().updateRobot(localeId, robot.id, { persists: value });
   };
 
   // Copy robot targets (other robots in the same locale)
@@ -197,15 +181,6 @@ export default function RobotMetaTab() {
       <div className="row">
         <label className="label">Age</label>
         <div className="age">{formatAge(robot.createdAt)}</div>
-      </div>
-
-      <div className="row control-row">
-        <label className="label">Persist</label>
-        <div className="control">
-          <Switch.Root className="switch-root" checked={persists} onCheckedChange={togglePersists} aria-label="Persist robot">
-            <Switch.Thumb className="switch-thumb" />
-          </Switch.Root>
-        </div>
       </div>
 
       <div className="row">
