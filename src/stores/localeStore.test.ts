@@ -64,6 +64,11 @@ describe('localeStore', () => {
       expect(DEFAULT_LOCALE.coordinates).not.toEqual({ x: 0, y: 0 });
     });
 
+    it('default locale coordinates are integers — CoordsInput.tsx and SectorSettingsDrawer.tsx both assume coordinates are integers system-wide (docs/specs/SECTOR_SETTINGS.md); a decimal default renders as a multi-decimal value on first load, before any user edit rounds it', () => {
+      expect(Number.isInteger(DEFAULT_LOCALE.coordinates.x)).toBe(true);
+      expect(Number.isInteger(DEFAULT_LOCALE.coordinates.y)).toBe(true);
+    });
+
     // Note: this tests getPlanetNoiseMap directly, not locale generation —
     // getLocaleNoiseMap no longer derives from the planet map at all (see
     // docs/specs/LOCALE_SEED_DECOUPLING.md), so this assertion is unaffected
@@ -118,6 +123,72 @@ describe('localeStore', () => {
       useLocaleStore.getState().updateRobot(DEFAULT_LOCALE_ID, 'r1', { masterVolume: 0.1 });
       expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].robots[0].id).toBe('r1');
       expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].robots[0].state).toBe(RobotState.Idle);
+    });
+
+    describe('rhythmicDensity clamping (0-100% fill rate)', () => {
+      it('clamps a value above 100 down to 100', () => {
+        useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, makeRobot('r1'));
+        useLocaleStore.getState().updateRobot(DEFAULT_LOCALE_ID, 'r1', { rhythmicDensity: 150 });
+        expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].robots[0].rhythmicDensity).toBe(100);
+      });
+
+      it('clamps a negative value up to 0', () => {
+        useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, makeRobot('r1'));
+        useLocaleStore.getState().updateRobot(DEFAULT_LOCALE_ID, 'r1', { rhythmicDensity: -10 });
+        expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].robots[0].rhythmicDensity).toBe(0);
+      });
+
+      it('passes an in-range value through untouched', () => {
+        useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, makeRobot('r1'));
+        useLocaleStore.getState().updateRobot(DEFAULT_LOCALE_ID, 'r1', { rhythmicDensity: 42 });
+        expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].robots[0].rhythmicDensity).toBe(42);
+      });
+    });
+
+    describe('rhythmicMotifLength / noteVariance clamping ({ active, value } toggles, value 1-8)', () => {
+      it('clamps rhythmicMotifLength.value above 8 down to 8 and preserves active', () => {
+        useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, makeRobot('r1'));
+        useLocaleStore.getState().updateRobot(DEFAULT_LOCALE_ID, 'r1', { rhythmicMotifLength: { active: true, value: 20 } });
+        expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].robots[0].rhythmicMotifLength).toEqual({ active: true, value: 8 });
+      });
+
+      it('clamps rhythmicMotifLength.value below 1 up to 1', () => {
+        useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, makeRobot('r1'));
+        useLocaleStore.getState().updateRobot(DEFAULT_LOCALE_ID, 'r1', { rhythmicMotifLength: { active: false, value: -3 } });
+        expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].robots[0].rhythmicMotifLength).toEqual({ active: false, value: 1 });
+      });
+
+      it('clamps noteVariance.value above 8 down to 8', () => {
+        useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, makeRobot('r1'));
+        useLocaleStore.getState().updateRobot(DEFAULT_LOCALE_ID, 'r1', { noteVariance: { active: true, value: 99 } });
+        expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].robots[0].noteVariance).toEqual({ active: true, value: 8 });
+      });
+
+      it('coerces a non-boolean active to a real boolean', () => {
+        useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, makeRobot('r1'));
+        useLocaleStore.getState().updateRobot(DEFAULT_LOCALE_ID, 'r1', {
+          // @ts-expect-error — intentionally malformed to test coercion at the store boundary
+          noteVariance: { active: 'yes', value: 4 },
+        });
+        expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].robots[0].noteVariance).toEqual({ active: true, value: 4 });
+      });
+
+      it('rejects a bare-number payload (the old shape) instead of silently mis-clamping it', () => {
+        useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, makeRobot('r1'));
+        useLocaleStore.getState().updateRobot(DEFAULT_LOCALE_ID, 'r1', {
+          // @ts-expect-error — intentionally the old (pre-refactor) shape
+          rhythmicMotifLength: 12,
+        });
+        // Neither silently clamped as if 12 were a `.value` under some implicit
+        // shape, nor stored verbatim as a bare number — dropped entirely.
+        expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].robots[0].rhythmicMotifLength).toBeUndefined();
+      });
+
+      it('passes an in-range { active, value } payload through untouched', () => {
+        useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, makeRobot('r1'));
+        useLocaleStore.getState().updateRobot(DEFAULT_LOCALE_ID, 'r1', { rhythmicMotifLength: { active: true, value: 5 } });
+        expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].robots[0].rhythmicMotifLength).toEqual({ active: true, value: 5 });
+      });
     });
   });
 

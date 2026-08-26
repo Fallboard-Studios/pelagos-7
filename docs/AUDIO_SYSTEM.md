@@ -71,7 +71,7 @@ export const AudioEngine = {
   now: () => number,
 
   // Scheduling
-  scheduleNote: (params: { robotId: string; note: string; duration: NoteDuration; time?: number; velocity?: number }) => void,
+  scheduleNote: (params: { robotId: string; note: string; duration: NoteDuration; time?: number; velocity?: number; accentMultiplier?: number }) => void,
 
   // Voice management
   reserveVoice: (robotId: string, descriptor: OscillatorLayer[] | { base?: WaveformType; layers?: OscillatorLayer[] }, phase?: number, detune?: number, pulseWidth?: number) => boolean,
@@ -257,11 +257,12 @@ Both verified directly against Tone.js's own source/type declarations, not assum
 
 ## Note Resolution Pipeline
 
-`scheduleNote(params)` does more than forward to the transport — three real behaviors run on every note, none previously documented:
+`scheduleNote(params)` does more than forward to the transport — four real behaviors run on every note, none previously documented:
 
 1. **Velocity.** If `params.velocity` is omitted, velocity is derived via `computeNoteVelocitySeeded()`: it samples a per-locale seeded noise map plus a per-robot counter (mod 97, for a long non-repeating period) and, with probability `VELOCITY_VARIANCE_RATE` (0.15), applies a signed offset up to `± VELOCITY_VARIANCE_AMOUNT` (0.25) to the robot's `masterVolume`. Result is always clamped to `[VELOCITY_MIN, 1]` (floor `0.05` — never fully silent). Falls back to a plain clamp of `masterVolume` if no noise map exists for the active locale.
-2. **`audioMode` policy** (read fresh from the store each call, not cached): `mute` drops the note; if any robot in the locale is `solo`, all non-solo robots are suppressed; if any robot is `highlight`, non-highlighted robots have velocity multiplied by `0.5` (~-6dB). `triggerWithCap` re-checks mute/solo as a safety net in case a caller bypasses `scheduleNote`.
-3. **Panning.** Every reserved voice's pan is recomputed once per `16n` playback tick (not per note) via `calculatePanFromPosition(x) = (x / WORLD_WIDTH) - 0.5`, giving a range of `[-0.5, +0.5]` (intentionally narrower than full stereo width, to keep the mix centered). `x` comes from the robot's **live GSAP-animated transform** (`getRef('robot-' + robotId)`), falling back to the robot's stored `position.x` if the ref/transform isn't available.
+2. **Motif-group accent.** If `params.accentMultiplier` is set, the velocity resolved in step 1 (or the caller-supplied `params.velocity`) is multiplied by it and clamped back to `[0, 1]`. `processMelodyStep` sets this to `GROUP_ACCENT_MULTIPLIER` (`1.25`) for exactly one event per motif-tiling repeat window — whichever of a robot's events has the earliest `startStep` within that window — computed once at `registerRobotMelody()` time (not per-tick) by grouping the melody's `startStep`s by `Math.floor((startStep - 1) / rhythmicMotifLength.value)`. Only applies when the robot's `rhythmicMotifLength.active` is `true`; scatter mode (`active: false`) has no repeat windows, so no event is ever accented. See [MELODY_SYSTEM.md](MELODY_SYSTEM.md) for the motif-tiling model this accents.
+3. **`audioMode` policy** (read fresh from the store each call, not cached): `mute` drops the note; if any robot in the locale is `solo`, all non-solo robots are suppressed; if any robot is `highlight`, non-highlighted robots have velocity multiplied by `0.5` (~-6dB). `triggerWithCap` re-checks mute/solo as a safety net in case a caller bypasses `scheduleNote`.
+4. **Panning.** Every reserved voice's pan is recomputed once per `16n` playback tick (not per note) via `calculatePanFromPosition(x) = (x / WORLD_WIDTH) - 0.5`, giving a range of `[-0.5, +0.5]` (intentionally narrower than full stereo width, to keep the mix centered). `x` comes from the robot's **live GSAP-animated transform** (`getRef('robot-' + robotId)`), falling back to the robot's stored `position.x` if the ref/transform isn't available.
 
 ## Scheduling Patterns
 

@@ -702,6 +702,143 @@ describe('AudioEngine - Melody Lifecycle', () => {
   });
 });
 
+describe('AudioEngine - Motif Group Accent', () => {
+  beforeEach(async () => {
+    vi.resetModules();
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+  });
+
+  function makeRobot(id: string, rhythmicMotifLength: { active: boolean; value: number }) {
+    return {
+      id,
+      rhythmicMotifLength,
+      audioAttributes: { adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.2 }, waveform: 'sine' as const, filterFreq: 100 },
+      masterVolume: 0.8,
+      melody: [],
+      octaveRange: [3, 4] as [number, number],
+      position: { x: 0, y: 0 },
+      destination: null,
+      createdAt: Date.now(),
+      name: '',
+      state: 'idle' as const,
+      direction: 'right' as const,
+    };
+  }
+
+  it('accents the first event in each motif-tiling window when Motif Length is active', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    const storeMod = await import('../stores/localeStore');
+    const planetMod = await import('../stores/planetStore');
+    const helpers = await import('../utils/localeHelpers');
+    (helpers.getActiveLocaleId as ReturnType<typeof vi.fn>).mockReturnValue(planetMod.DEFAULT_LOCALE_ID);
+
+    storeMod.useLocaleStore.getState().setLocaleData(planetMod.DEFAULT_LOCALE_ID, {
+      robots: [makeRobot('accent-robot', { active: true, value: 4 })],
+    });
+
+    // Windows of 4 steps: [1-4], [5-8], [9-12], [13-16]. Two events share the
+    // first window (steps 2 and 3) -- step 2 is earliest, so only it accents.
+    // Step 6 is the sole event in the second window, so it accents too.
+    const melody = [
+      { id: 'e1', startStep: 2, length: '8n' as const, noteIndex: 0, octave: 4 },
+      { id: 'e2', startStep: 3, length: '8n' as const, noteIndex: 0, octave: 4 },
+      { id: 'e3', startStep: 6, length: '8n' as const, noteIndex: 0, octave: 4 },
+    ];
+
+    const spy = vi.spyOn(AudioEngine, 'scheduleNote').mockImplementation(() => { });
+    AudioEngine.registerRobotMelody('accent-robot', melody);
+
+    AudioEngine.processMelodyStep(2, 0);
+    AudioEngine.processMelodyStep(3, 0);
+    AudioEngine.processMelodyStep(6, 0);
+
+    expect(spy).toHaveBeenCalledTimes(3);
+    const [step2Params, step3Params, step6Params] = spy.mock.calls.map((c) => c[0]);
+    expect(step2Params.accentMultiplier).toBeGreaterThan(1);
+    expect(step3Params.accentMultiplier ?? 1).toBe(1);
+    expect(step6Params.accentMultiplier).toBeGreaterThan(1);
+
+    spy.mockRestore();
+  });
+
+  it('does not accent any event when Motif Length is inactive (scatter mode)', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    const storeMod = await import('../stores/localeStore');
+    const planetMod = await import('../stores/planetStore');
+    const helpers = await import('../utils/localeHelpers');
+    (helpers.getActiveLocaleId as ReturnType<typeof vi.fn>).mockReturnValue(planetMod.DEFAULT_LOCALE_ID);
+
+    storeMod.useLocaleStore.getState().setLocaleData(planetMod.DEFAULT_LOCALE_ID, {
+      robots: [makeRobot('scatter-robot', { active: false, value: 4 })],
+    });
+
+    const melody = [
+      { id: 'e1', startStep: 2, length: '8n' as const, noteIndex: 0, octave: 4 },
+      { id: 'e2', startStep: 6, length: '8n' as const, noteIndex: 0, octave: 4 },
+    ];
+
+    const spy = vi.spyOn(AudioEngine, 'scheduleNote').mockImplementation(() => { });
+    AudioEngine.registerRobotMelody('scatter-robot', melody);
+    AudioEngine.processMelodyStep(2, 0);
+    AudioEngine.processMelodyStep(6, 0);
+
+    spy.mock.calls.forEach((c) => {
+      expect(c[0].accentMultiplier ?? 1).toBe(1);
+    });
+
+    spy.mockRestore();
+  });
+
+  it('scheduleNote multiplies velocity by accentMultiplier', async () => {
+    const Tone = await import('tone');
+    const { AudioEngine } = await import('./AudioEngine');
+
+    const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0 }];
+    AudioEngine.reserveVoice('accent-vel-robot', layered as any);
+    const synthResults = (Tone.Synth as unknown as any).mock.results;
+    synthResults.forEach((r: any) => r.value?.triggerAttackRelease?.mockClear());
+
+    const note = 'C7';
+    AudioEngine.scheduleNote({ robotId: 'accent-vel-robot', note, duration: '4n', time: 0, velocity: 0.5, accentMultiplier: 1.15 });
+
+    let found = false;
+    synthResults.forEach((r: any) => {
+      r.value?.triggerAttackRelease?.mock?.calls?.forEach((c: any) => {
+        if (c[0] === note) {
+          expect(c[3]).toBeCloseTo(0.575, 5);
+          found = true;
+        }
+      });
+    });
+    expect(found).toBe(true);
+  });
+
+  it('scheduleNote clamps the accented velocity to a maximum of 1', async () => {
+    const Tone = await import('tone');
+    const { AudioEngine } = await import('./AudioEngine');
+
+    const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0 }];
+    AudioEngine.reserveVoice('accent-clamp-robot', layered as any);
+    const synthResults = (Tone.Synth as unknown as any).mock.results;
+    synthResults.forEach((r: any) => r.value?.triggerAttackRelease?.mockClear());
+
+    const note = 'C8';
+    AudioEngine.scheduleNote({ robotId: 'accent-clamp-robot', note, duration: '4n', time: 0, velocity: 0.95, accentMultiplier: 1.15 });
+
+    let found = false;
+    synthResults.forEach((r: any) => {
+      r.value?.triggerAttackRelease?.mock?.calls?.forEach((c: any) => {
+        if (c[0] === note) {
+          expect(c[3]).toBe(1);
+          found = true;
+        }
+      });
+    });
+    expect(found).toBe(true);
+  });
+});
+
 // Additional focused unit tests for reservation & isolation
 describe('AudioEngine - Reservation & Isolation (focused)', () => {
   beforeEach(() => {

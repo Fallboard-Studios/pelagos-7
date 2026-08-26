@@ -125,13 +125,15 @@ This phase defines the data configurations and layout for the Sector Settings vi
 
 ### Restructure
 
-- ~~Update robot spawning rules so attributes come from planet agnostic lat/long coords seed~~ — **done, and generalized to all locale-derived content** (not just robot spawn attributes) via [docs/specs/LOCALE_SEED_DECOUPLING.md](../specs/LOCALE_SEED_DECOUPLING.md), pulled forward ahead of this phase. The remaining bullets below (robot ID determinism, the 16-16th-note measure grid, density/motif/variance restructuring) are unaffected and still pending.
-- Robot IDs become deterministic (derived from the seed + spawn index) instead of the current `crypto.randomUUID()` — required so Session Storage (Phase 11) can reapply Robot Options overrides by ID after the roster regenerates from a reload or shared link
-- Update all references to measure length to 16 16th notes
-- Density: Becomes a percentage. It fills X% of either the entire measure or a motif with that many notes
-- Motif Length: Number from 1 to 8 (in 16th notes) with an on/off toggle — a reduction from the current 1–16 range. When on, tiles pattern across measure and truncates at measure end. When off, scatters freely
-- Note Variance: Has an active toggle. When off, random notes with no weighting. When on, selects 1 to 8 notes from pitch array, weighted
-- Update localeStore.ts's normalization clamps for `rhythmicDensity`, `rhythmicMotifLength`, and `noteVariance` — the current `Math.max/min/trunc` logic clamps against the old 4–12 onset-count and 1–16 motif-length ranges; left as-is it would silently mis-clamp the new 0–100% density and 1–8 motif-length values instead of rejecting or correcting them
+- ~~Update robot spawning rules so attributes come from planet agnostic lat/long coords seed~~ — **done, and generalized to all locale-derived content** (not just robot spawn attributes) via [docs/specs/LOCALE_SEED_DECOUPLING.md](../specs/LOCALE_SEED_DECOUPLING.md), pulled forward ahead of this phase.
+- ~~Robot IDs become deterministic (derived from the seed + spawn index) instead of the current `crypto.randomUUID()`~~
+- ~~Update all references to measure length to 16 16th notes~~
+- ~~Density: Becomes a percentage. It fills X% of either the entire measure or a motif with that many notes~~
+- ~~Motif Length: Number from 1 to 8 (in 16th notes) with an on/off toggle~~
+- ~~Note Variance: Has an active toggle. When off, random notes with no weighting. When on, selects 1 to 8 notes from pitch array, weighted~~
+- ~~Update localeStore.ts's normalization clamps for `rhythmicDensity`, `rhythmicMotifLength`, and `noteVariance`~~
+
+**Done** — see [docs/specs/ROBOT_MELODY_SEED_ENGINE.md](../specs/ROBOT_MELODY_SEED_ENGINE.md). Scope ended up wider than this file list: `regenerateMelody.ts` and `RobotAudioTab.tsx` were also updated in the same phase, since both call the same `generateMelodyForRobot` API and would have gone stale otherwise.
 
 ### About
 

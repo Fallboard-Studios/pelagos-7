@@ -3,17 +3,30 @@
 // ========================================
 import alea from 'alea';
 import type { NoteDuration } from '../types/Robot';
-import { RHYTHMIC_DENSITY_MIN, RHYTHMIC_DENSITY_MAX, NOTE_VARIANCE_MIN, NOTE_VARIANCE_MAX } from '../constants';
+import {
+  RHYTHMIC_DENSITY_MIN,
+  RHYTHMIC_DENSITY_MAX,
+  RHYTHMIC_MOTIF_LENGTH_MIN,
+  RHYTHMIC_MOTIF_LENGTH_MAX,
+  NOTE_VARIANCE_MIN,
+  NOTE_VARIANCE_MAX,
+} from '../constants';
 
 // ========================================
 // TYPES
 // ========================================
 export interface RobotMelodyEvent {
   id: string;
-  startStep: number; // 1..16 (8th-note position in 2-measure loop)
+  startStep: number; // 1..16 (16th-note position in a single-measure loop)
   length: NoteDuration; // Note duration
   noteIndex: number; // 0..7 (maps into availableNotes palette)
   octave: number;   // Concrete octave assigned at spawn time
+}
+
+/** A 1–8 magnitude paired with an on/off toggle — shared shape for Motif Length and Note Variance. */
+export interface ToggleValue {
+  active: boolean;
+  value: number;
 }
 
 /**
@@ -21,26 +34,24 @@ export interface RobotMelodyEvent {
  * Uses explicit octaveMin/octaveMax and controls the motif-repetition density algorithm.
  */
 export interface GenerateMelodyForRobotOptions {
-  /**
-   * Target number of note onsets per measure (4–12). Used as the density hint
-   * for buildMotifOnsets; the actual event count may differ slightly due to
-   * motif tiling and truncation.
-   */
-  onsetCount: number;
   /** Minimum octave (inclusive). */
   octaveMin: number;
   /** Maximum octave (inclusive). Must be >= octaveMin. */
   octaveMax: number;
   /**
-   * Number of onsets per measure (4–12). Controls rhythmic density.
-   * Default: 8.
+   * Fill-rate percentage (0–100) of either the full measure (motif inactive) or
+   * one motif cell (motif active). Converted to an onset count internally, with
+   * a hard floor of 1 — no roll ever produces a silent melody.
+   * Default: DEFAULT_RHYTHMIC_DENSITY.
    */
   rhythmicDensity?: number;
   /**
-   * Length of the repeating motif in 16th-note subdivisions (1..subdivisions).
-   * Default: 8 (half-measure in 4/4).
+   * Motif tiling toggle. When `active` is false, onsets scatter freely across
+   * the full measure and `value` is inert. When true, a `value`-length
+   * (1–8 sixteenth notes) cell tiles across the measure and truncates at
+   * measure end. Default: DEFAULT_RHYTHMIC_MOTIF_LENGTH.
    */
-  rhythmicMotifLength?: number;
+  rhythmicMotifLength?: ToggleValue;
   /**
    * Number of 16th-note subdivisions per measure.
    * Default: 16.
@@ -56,8 +67,13 @@ export interface GenerateMelodyForRobotOptions {
    * Useful when callers supply a deterministic noise-map-based PRNG.
    */
   rand?: () => number;
-  /** When >0, constrains unique notes used during melody generation (0 = no constraint). Valid range: 0..8 */
-  noteVariance?: number;
+  /**
+   * Weighted note-selection toggle. When `active` is false, notes are picked
+   * unweighted from all 8 indices and `value` is inert. When true, selection
+   * is a weighted slice of `value` (1–8) notes from the pitch array.
+   * Default: DEFAULT_NOTE_VARIANCE.
+   */
+  noteVariance?: ToggleValue;
 }
 
 // ========================================
@@ -68,10 +84,22 @@ const OCTAVE_JUMP_CHANCE = 0.15;
 
 const NOTE_INDEX_WEIGHTS = [0.35, 0.2, 0.15, 0.1, 0.07, 0.06, 0.04, 0.03];
 
-/** Default rhythmic density (onsets per measure). */
-export const DEFAULT_RHYTHMIC_DENSITY = 8;
-/** Default motif length in 16th-note subdivisions (half-measure in 4/4). */
-export const DEFAULT_RHYTHMIC_MOTIF_LENGTH = 8;
+/**
+ * Default rhythmic density (0-100% fill rate). A clean round mid-point of the
+ * new range; not a preserved value from the old 4-12 onset-count scale.
+ */
+export const DEFAULT_RHYTHMIC_DENSITY = 50;
+/**
+ * Default motif toggle — active at the maximum 1-8 value. Preserves the old
+ * always-tiling-at-8 default behavior exactly (motif tiling used to have no
+ * off switch and always defaulted to a length-8 cell).
+ */
+export const DEFAULT_RHYTHMIC_MOTIF_LENGTH: ToggleValue = { active: true, value: 8 };
+/**
+ * Default note-variance toggle — inactive. Preserves the old
+ * noteVariance === 0 / unweighted default exactly.
+ */
+export const DEFAULT_NOTE_VARIANCE: ToggleValue = { active: false, value: 1 };
 /** Default subdivision grid per measure (16 sixteenth notes in 4/4). */
 export const DEFAULT_SUBDIVISIONS = 16;
 
@@ -344,21 +372,37 @@ export function generateMelodyForRobot(
 ): RobotMelodyEvent[] {
   const rand = opts.rand ?? (opts.seed !== undefined ? alea(String(opts.seed)) : Math.random);
   const subdivisions = opts.subdivisions ?? DEFAULT_SUBDIVISIONS;
-  const density = Math.max(
+  const densityPct = Math.max(
     RHYTHMIC_DENSITY_MIN,
-    Math.min(RHYTHMIC_DENSITY_MAX, opts.rhythmicDensity ?? opts.onsetCount),
+    Math.min(RHYTHMIC_DENSITY_MAX, opts.rhythmicDensity ?? DEFAULT_RHYTHMIC_DENSITY),
   );
-  const motifLength = opts.rhythmicMotifLength ?? DEFAULT_RHYTHMIC_MOTIF_LENGTH;
+  const motif = opts.rhythmicMotifLength ?? DEFAULT_RHYTHMIC_MOTIF_LENGTH;
   const octMin = Math.min(opts.octaveMin, opts.octaveMax);
   const octMax = Math.max(opts.octaveMin, opts.octaveMax);
 
-  const onsets = buildMotifOnsets(density, motifLength, subdivisions, rand);
+  // Density is a fill-rate % of either one motif cell (tiling on) or the whole
+  // measure (tiling off). buildMotifOnsets' own `rhythmicDensity` parameter is a
+  // TOTAL onset count across the tiled measure, not a per-cell count — so when
+  // tiling is on, the per-cell fill is multiplied back out by the repeat count
+  // before calling it, keeping every repeat identically filled (no remainder
+  // distributed unevenly, unlike the old total-onset-count model).
+  let onsets: number[];
+  if (motif.active) {
+    const motifLength = Math.max(RHYTHMIC_MOTIF_LENGTH_MIN, Math.min(RHYTHMIC_MOTIF_LENGTH_MAX, Math.trunc(motif.value)));
+    const repeats = Math.max(1, Math.floor(subdivisions / motifLength));
+    const perCell = Math.max(1, Math.round((densityPct / 100) * motifLength));
+    onsets = buildMotifOnsets(perCell * repeats, motifLength, subdivisions, rand);
+  } else {
+    const onsetCount = Math.max(1, Math.round((densityPct / 100) * subdivisions));
+    onsets = buildMotifOnsets(onsetCount, subdivisions, subdivisions, rand);
+  }
 
   let currentOctave = octMin + Math.floor(rand() * (octMax - octMin + 1));
   const melody: RobotMelodyEvent[] = [];
 
   // Note-variance state
-  const noteVariance = Math.max(NOTE_VARIANCE_MIN, Math.min(NOTE_VARIANCE_MAX, Math.trunc(opts.noteVariance ?? 0)));
+  const variance = opts.noteVariance ?? DEFAULT_NOTE_VARIANCE;
+  const noteVarianceValue = Math.max(NOTE_VARIANCE_MIN, Math.min(NOTE_VARIANCE_MAX, Math.trunc(variance.value)));
   const uniqueSet = new Set<number>();
   // Lazily built below on first use when noteVariance === 8 (shuffled draw-without-replacement pool).
   let withoutReplacementPool: number[] | null = null;
@@ -379,11 +423,15 @@ export function generateMelodyForRobot(
     const nextOnset = i < onsets.length - 1 ? onsets[i + 1] : subdivisions;
     const durationUnits = nextOnset - onsets[i];
 
-    // Pick noteIndex honoring noteVariance
+    // Pick noteIndex honoring the noteVariance toggle
     let noteIndex: number;
-    if (noteVariance === 0) {
-      noteIndex = pickWeightedIndex(rand);
-    } else if (noteVariance === 8) {
+    if (!variance.active) {
+      // Off: unweighted, unconstrained random pick from all 8 indices — deliberately
+      // NOT pickWeightedIndex(); "off" now means no weighting at all, not just no
+      // uniqueness constraint (a behavior change from the old noteVariance === 0
+      // default, which was still weighted).
+      noteIndex = Math.floor(rand() * 8);
+    } else if (noteVarianceValue === 8) {
       if (!withoutReplacementPool || withoutReplacementPool.length === 0) {
         const pool = Array.from({ length: 8 }, (_, i) => i);
         withoutReplacementPool = [];
@@ -395,7 +443,7 @@ export function generateMelodyForRobot(
       noteIndex = withoutReplacementPool.shift()!;
       uniqueSet.add(noteIndex);
     } else {
-      if (uniqueSet.size < noteVariance) {
+      if (uniqueSet.size < noteVarianceValue) {
         // prefer selecting notes not yet in the set (uniform among remaining)
         const remaining = Array.from({ length: 8 }, (_, i) => i).filter((i) => !uniqueSet.has(i));
         noteIndex = remaining[Math.floor(rand() * remaining.length)];

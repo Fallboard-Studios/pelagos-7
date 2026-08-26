@@ -215,6 +215,94 @@ describe('spawnSystem', () => {
       expect(registerSpy).toHaveBeenCalledWith(robot.id, robot.melody);
     });
 
+    it('spawns robots with the new percentage/toggle melody shapes', () => {
+      spawnRobot(DEFAULT_LOCALE_ID);
+      const robot = (useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.robots ?? [])[0];
+
+      expect(typeof robot.rhythmicDensity).toBe('number');
+      expect(robot.rhythmicDensity).toBeGreaterThanOrEqual(0);
+      expect(robot.rhythmicDensity).toBeLessThanOrEqual(100);
+
+      expect(robot.rhythmicMotifLength).toEqual(
+        expect.objectContaining({ active: expect.any(Boolean), value: expect.any(Number) })
+      );
+      expect(robot.rhythmicMotifLength!.value).toBeGreaterThanOrEqual(1);
+      expect(robot.rhythmicMotifLength!.value).toBeLessThanOrEqual(8);
+
+      expect(robot.noteVariance).toEqual(
+        expect.objectContaining({ active: expect.any(Boolean), value: expect.any(Number) })
+      );
+      expect(robot.noteVariance!.value).toBeGreaterThanOrEqual(1);
+      expect(robot.noteVariance!.value).toBeLessThanOrEqual(8);
+    });
+
+    it('seeds rhythmicMotifLength.active at roughly an 85% chance across many spawns', () => {
+      // A dedicated locale ID, not DEFAULT_LOCALE_ID: spawnCounters is keyed
+      // per-locale, so this test's result is independent of how many times
+      // earlier tests in this file already called spawnRobot(DEFAULT_LOCALE_ID)
+      // -- otherwise this deterministic seeded roll depends on execution order.
+      const localeId = 'motif-active-stat-test-locale';
+      useLocaleStore.setState((state) => ({
+        locales: {
+          ...state.locales,
+          [localeId]: { ...DEFAULT_LOCALE, id: localeId, robots: [], settings: { ...DEFAULT_LOCALE.settings, maxRobots: 500 } },
+        },
+      }));
+      const n = 500;
+      for (let i = 0; i < n; i++) spawnRobot(localeId);
+      const robots = useLocaleStore.getState().getLocaleById(localeId)?.robots ?? [];
+      const activeCount = robots.filter((r) => r.rhythmicMotifLength?.active).length;
+      const activeFraction = activeCount / robots.length;
+      // ~30% of spawns copy an existing robot's setting rather than rolling fresh,
+      // which adds clustering variance but doesn't bias the marginal proportion —
+      // generous band to avoid flakiness while still discriminating from the old
+      // ~66% (shared with noteVariance) threshold.
+      expect(activeFraction).toBeGreaterThanOrEqual(0.75);
+      expect(activeFraction).toBeLessThanOrEqual(0.95);
+    });
+
+    it('seeds noteVariance.active at roughly an 85% chance across many spawns', () => {
+      // Dedicated locale ID -- see the rhythmicMotifLength.active test above
+      // for why (spawnCounters is keyed per-locale; this avoids execution-order
+      // sensitivity in this deterministic seeded roll).
+      const localeId = 'note-variance-active-stat-test-locale';
+      useLocaleStore.setState((state) => ({
+        locales: {
+          ...state.locales,
+          [localeId]: { ...DEFAULT_LOCALE, id: localeId, robots: [], settings: { ...DEFAULT_LOCALE.settings, maxRobots: 500 } },
+        },
+      }));
+      const n = 500;
+      for (let i = 0; i < n; i++) spawnRobot(localeId);
+      const robots = useLocaleStore.getState().getLocaleById(localeId)?.robots ?? [];
+      const activeCount = robots.filter((r) => r.noteVariance?.active).length;
+      const activeFraction = activeCount / robots.length;
+      // Same generous band and copy-clustering rationale as the motif-length
+      // version of this test above.
+      expect(activeFraction).toBeGreaterThanOrEqual(0.75);
+      expect(activeFraction).toBeLessThanOrEqual(0.95);
+    });
+
+    it('a copied robot inherits the source\'s rhythmicDensity/rhythmicMotifLength/noteVariance rather than rolling fresh ones', () => {
+      useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, {
+        settings: { ...DEFAULT_LOCALE.settings, maxRobots: 100 },
+      });
+      for (let i = 0; i < 30; i++) spawnRobot(DEFAULT_LOCALE_ID);
+      const robots = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.robots ?? [];
+      const byLfo = new Map<Robot['lfoSettings'], Robot[]>();
+      for (const r of robots) {
+        const group = byLfo.get(r.lfoSettings) ?? [];
+        group.push(r);
+        byLfo.set(r.lfoSettings, group);
+      }
+      const sharedGroup = [...byLfo.values()].find((g) => g.length > 1);
+      expect(sharedGroup, 'expected at least one copy to share its source\'s object references').toBeDefined();
+      const [a, b] = sharedGroup!;
+      expect(a.rhythmicDensity).toBe(b.rhythmicDensity);
+      expect(a.rhythmicMotifLength).toEqual(b.rhythmicMotifLength);
+      expect(a.noteVariance).toEqual(b.noteVariance);
+    });
+
     it('a copied robot inherits the source\'s lfoSettings rather than generating fresh ones', () => {
       // Raise maxRobots so 30 spawns don't trigger the oldest-robot removal
       // churn (default cap is 12) — that's an orthogonal system this test
@@ -304,6 +392,77 @@ describe('spawnSystem', () => {
 
       spawnRobot(DEFAULT_LOCALE_ID);
       expect(useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.robots?.length).toBe(1);
+    });
+  });
+
+  describe('spawnRobot — deterministic robot IDs', () => {
+    beforeEach(() => {
+      vi.resetModules();
+      vi.clearAllMocks();
+    });
+
+    it('robot.id is not a crypto.randomUUID-shaped string', () => {
+      // melodyGenerator.ts still legitimately calls crypto.randomUUID() for each
+      // melody EVENT's own id — unrelated and untouched by this task. This test
+      // checks the ROBOT id's own shape, not whether randomUUID is called at all.
+      useLocaleStore.setState({ locales: { [DEFAULT_LOCALE_ID]: DEFAULT_LOCALE } });
+      spawnRobot(DEFAULT_LOCALE_ID);
+      const robot = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.robots[0];
+      const uuidShape = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      expect(robot?.id).toBeDefined();
+      expect(uuidShape.test(robot!.id)).toBe(false);
+    });
+
+    it('spawning against the same locale coordinates twice (fresh module state each time) produces identical ID sequences', async () => {
+      // Simulates a reload/shared-link replay: a brand-new module instance
+      // (spawnCounters reset to empty) spawning against the same coordinates
+      // must reproduce the exact same ID sequence, since Session Storage
+      // (Phase 11) needs to reapply overrides by ID after the roster
+      // regenerates. Reuses this file's existing vi.resetModules() pattern
+      // (see 'startSpawnScheduler / stopSpawnScheduler' below) rather than
+      // reaching into spawnSystem's private per-locale counter.
+      vi.resetModules();
+      const run1 = await import('./spawnSystem');
+      const store1 = await import('../stores/localeStore');
+      const planet1 = await import('../stores/planetStore');
+      store1.useLocaleStore.setState({ locales: { [planet1.DEFAULT_LOCALE_ID]: store1.DEFAULT_LOCALE } });
+      run1.spawnRobot(planet1.DEFAULT_LOCALE_ID);
+      run1.spawnRobot(planet1.DEFAULT_LOCALE_ID);
+      const idsRun1 = (store1.useLocaleStore.getState().getLocaleById(planet1.DEFAULT_LOCALE_ID)?.robots ?? []).map((r) => r.id);
+
+      vi.resetModules();
+      const run2 = await import('./spawnSystem');
+      const store2 = await import('../stores/localeStore');
+      const planet2 = await import('../stores/planetStore');
+      store2.useLocaleStore.setState({ locales: { [planet2.DEFAULT_LOCALE_ID]: store2.DEFAULT_LOCALE } });
+      run2.spawnRobot(planet2.DEFAULT_LOCALE_ID);
+      run2.spawnRobot(planet2.DEFAULT_LOCALE_ID);
+      const idsRun2 = (store2.useLocaleStore.getState().getLocaleById(planet2.DEFAULT_LOCALE_ID)?.robots ?? []).map((r) => r.id);
+
+      expect(idsRun1).toHaveLength(2);
+      expect(idsRun2).toEqual(idsRun1);
+    });
+
+    it('two different locale IDs sharing the same coordinates produce identical ID sequences', () => {
+      // Robot ID depends on (coordinates, spawnCount) alone, never on localeId
+      // itself — matching the same coordinates-are-the-seed guarantee
+      // LOCALE_SEED_DECOUPLING.md established for every other locale-derived value.
+      const coords = { x: 5.5, y: -3.25 };
+      useLocaleStore.setState({
+        locales: {
+          'locale-id-test-a': { ...DEFAULT_LOCALE, id: 'locale-id-test-a', coordinates: coords, robots: [] },
+          'locale-id-test-b': { ...DEFAULT_LOCALE, id: 'locale-id-test-b', coordinates: coords, robots: [] },
+        },
+      });
+
+      spawnRobot('locale-id-test-a');
+      spawnRobot('locale-id-test-a');
+      spawnRobot('locale-id-test-b');
+      spawnRobot('locale-id-test-b');
+
+      const idsA = (useLocaleStore.getState().getLocaleById('locale-id-test-a')?.robots ?? []).map((r) => r.id);
+      const idsB = (useLocaleStore.getState().getLocaleById('locale-id-test-b')?.robots ?? []).map((r) => r.id);
+      expect(idsA).toEqual(idsB);
     });
   });
 
