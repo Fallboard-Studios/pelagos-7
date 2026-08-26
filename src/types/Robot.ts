@@ -57,11 +57,11 @@ export interface AudioAttributes {
 }
 
 /**
- * Single melody event within a robot's 16-step, 2-measure loop
+ * Single melody event within a robot's one-measure, 16-sixteenth-note loop
  */
 export interface MelodyEvent {
   id: string;                           // Unique identifier (UUID)
-  startStep: number;                    // 1-16 (8th-note grid position)
+  startStep: number;                    // 1-16 (16th-note grid position)
   length: NoteDuration;                 // Note duration
   noteIndex: number;                    // 0-7 (index into available harmony palette)
   octave: number;                       // Concrete octave assigned at spawn time
@@ -108,13 +108,19 @@ export interface Robot {
    */
   rhythmicDensity?: number;
   /**
-   * Motif length in 16th-note subdivisions (1–16).
-   * Stored for the melody editor; passed to generator when supported.
-   * Default: 8
+   * Motif length in 16th-note subdivisions, with an on/off toggle. `value` is 1-8.
+   * When `active` is false, onsets scatter freely across the measure and `value` is
+   * inert; when true, a `value`-length cell tiles across the measure and truncates
+   * at measure end. Default: { active: true, value: 8 }.
    */
-  rhythmicMotifLength?: number;
-  /** When >0, constrains unique notes used during melody generation (0 = no constraint). */
-  noteVariance?: number;
+  rhythmicMotifLength?: { active: boolean; value: number };
+  /**
+   * Weighted note-selection toggle, with a 1-8 slice-size `value`. When `active` is
+   * false, notes are picked unweighted from all 8 indices and `value` is inert; when
+   * true, selection is a weighted slice of `value` notes from the pitch array.
+   * Default: { active: false, value: 1 }.
+   */
+  noteVariance?: { active: boolean; value: number };
   /**
    * Seeded LFO settings for all 13 RobotLfoTargetId modulation targets,
    * generated once at spawn time (src/systems/spawnSystem.ts) the same way
