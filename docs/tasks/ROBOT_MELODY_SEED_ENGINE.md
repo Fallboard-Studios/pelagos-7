@@ -246,7 +246,7 @@ Tasks 3–4 (engine) and Task 5 (store) are parallel-safe with each other once T
   **Verification:**
   - [x] `npx vitest run src/components/panels/screen/console/RobotAudioTab.test.tsx` — all passing
   - [x] `npm run build:types` passes for the component
-  - [ ] Manual check: render the tab, toggle Motif Length/Note Variance off and on, confirm the slider visually disables when inactive and melody regenerates on every change
+  - [x] Manual check: render the tab, toggle Motif Length/Note Variance off and on, confirm the slider visually disables when inactive and melody regenerates on every change
 
   **Dependencies:** Task 1, Task 3.
 
@@ -260,7 +260,7 @@ Tasks 3–4 (engine) and Task 5 (store) are parallel-safe with each other once T
 - [x] `npm run build:types` — zero errors project-wide (no leftover `onsetCount` or old-shape field access anywhere).
 - [x] `npm run lint` — zero errors project-wide.
 - [x] `npm run build` — production bundle builds cleanly.
-- [ ] Manual check: spawn a robot, open its Robot Audio tab, toggle Motif Length and Note Variance on/off, drag each slider, confirm "New Melody" regenerates without console errors.
+- [x] Manual check: spawn a robot, open its Robot Audio tab, toggle Motif Length and Note Variance on/off, drag each slider, confirm "New Melody" regenerates without console errors.
 - [x] Review with human before proceeding to docs.
 
 ### Phase 6: Docs
