@@ -212,9 +212,14 @@ killing the tick after the first power cycle.
 `powerController.ts`'s `start()` calls `spawnSystem.ts`'s `reRegisterAllRobotsAudio(localeId)` on
 power-on, which re-registers **every** robot in the locale (not filtered by docking, and not the
 retired `persists`) — every robot keeps its voice/melody reserved regardless of docking state, so
-every robot lost that reservation when `killAll()` ran and every robot needs it restored.
-`audioMode` (unaffected by the power cycle, since it lives in `useLocaleStore`, not `AudioEngine`)
-is what keeps Docked robots silent afterward, exactly as before the outage.
+this pass now covers all of them, not a filtered subset. This release-then-reserve pass predates
+this phase; `AudioEngine.killAll()` itself does not touch the `compositeVoices` map (confirmed by
+reading it — it only cancels/resets the Transport and calls `resetBeatClock()`), so voices are not
+actually known to be invalidated by a power cycle. The re-registration may be unnecessary defensive
+work carried over as-is rather than a behavior this phase verified is required — not changed here,
+since removing it would be a separate, unverified change. `audioMode` (unaffected by the power
+cycle either way, since it lives in `useLocaleStore`, not `AudioEngine`) is what keeps Docked
+robots silent afterward, exactly as before the outage.
 
 ## Testing Notes
 

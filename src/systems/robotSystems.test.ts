@@ -42,7 +42,7 @@ vi.mock('../engine/beatClock', () => ({
   subscribeToMeasure: vi.fn(() => vi.fn()),
   getCurrentMeasure: vi.fn(() => 42),
 }));
-import { subscribeToMeasure } from '../engine/beatClock';
+import { subscribeToMeasure, getCurrentMeasure } from '../engine/beatClock';
 
 // ========================================
 // HELPERS
@@ -426,6 +426,32 @@ describe('robotSystems', () => {
       expect(highest).toBe(JobType.FluidMonitoring);
     });
 
+    it('Fluid Monitoring score is higher for a robot with default (inactive) noteVariance than an otherwise-identical robot with highly active, narrow variance', () => {
+      const base = { octaveRange: [3, 4] as [number, number], rhythmicDensity: 50, rhythmicMotifLength: { active: true, value: 8 } };
+      const defaultVarianceRobot = makeRobot({ ...base, noteVariance: { active: false, value: 1 } });
+      const narrowVarianceRobot = makeRobot({ ...base, noteVariance: { active: true, value: 2 } });
+
+      const defaultScore = scoreJobAffinities(defaultVarianceRobot)[JobType.FluidMonitoring];
+      const narrowScore = scoreJobAffinities(narrowVarianceRobot)[JobType.FluidMonitoring];
+
+      expect(defaultScore).toBeGreaterThan(narrowScore);
+    });
+
+    it('Fluid Monitoring does not tie with Structural Inspection for a wide-octave-span robot whose average happens to be mid-register', () => {
+      // octaveRange [1,7] averages to a "mid" 4 — Fluid Monitoring's register
+      // check alone would wrongly reward this even though the wide span is
+      // exactly what Structural Inspection's profile describes, not a steady
+      // mid-register hum.
+      const robot = makeRobot({
+        octaveRange: [1, 7],
+        rhythmicDensity: 70,
+        rhythmicMotifLength: { active: true, value: 6 },
+        noteVariance: { active: false, value: 1 },
+      });
+      const scores = scoreJobAffinities(robot);
+      expect(scores[JobType.StructuralInspection]).toBeGreaterThan(scores[JobType.FluidMonitoring]);
+    });
+
     it('is deterministic — same robot attributes in, same scores out', () => {
       const robot = makeRobot({ octaveRange: [2, 5], rhythmicDensity: 65 });
       expect(scoreJobAffinities(robot)).toEqual(scoreJobAffinities(robot));
@@ -503,6 +529,33 @@ describe('robotSystems', () => {
       stopRobotLifecycle();
       startRobotLifecycle(DEFAULT_LOCALE_ID);
       expect(subscribeToMeasure).toHaveBeenCalledTimes(2);
+      stopRobotLifecycle();
+    });
+
+    it('drives the tick with getCurrentMeasure() (unwrapped), not the wrapped 0-95 value subscribeToMeasure hands its callback — the wrapped value is what would strand a robot at the day-cycle boundary', () => {
+      // getCurrentMeasure() is the real, monotonic (never-wrapped) measure count;
+      // subscribeToMeasure's own callback argument is wrapped to 0-95 by BeatClock
+      // itself (see beatClock.ts) and must never be used for hold arithmetic.
+      // Simulate the exact scenario that broke: BeatClock wraps 95 back to 0 for
+      // the callback argument, while the true unwrapped count keeps climbing.
+      (getCurrentMeasure as ReturnType<typeof vi.fn>).mockReturnValueOnce(1247);
+
+      const robot = makeRobot({
+        batteryLevel: BATTERY_CRITICAL_THRESHOLD + BATTERY_DRAIN_BASE,
+        job: undefined,
+      });
+      setupLocaleWithRobots([robot]);
+
+      startRobotLifecycle(DEFAULT_LOCALE_ID);
+      const tickCallback = (subscribeToMeasure as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      tickCallback(0); // the wrapped argument BeatClock would actually pass at this instant
+
+      const updated = useLocaleStore.getState().getRobotById(DEFAULT_LOCALE_ID, robot.id);
+      expect(updated?.docking).toBe(DockingState.Departing);
+      // Must be derived from getCurrentMeasure() (1247 + 1), not the wrapped
+      // callback argument (0 + 1 = 1) — the old bug would produce 1 here.
+      expect(updated?.dockingHoldUntilMeasure).toBe(1248);
+
       stopRobotLifecycle();
     });
   });

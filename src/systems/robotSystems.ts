@@ -90,7 +90,12 @@ export function startRobotLifecycle(localeId: string): void {
     if (DEV_TUNING) console.log('[RobotSystems] Lifecycle already running, skipping start');
     return;
   }
-  lifecycleUnsubscribe = subscribeToMeasure((measure) => tickRobotLifecycle(localeId, measure));
+  // Deliberately ignore the callback's own `measure` argument — BeatClock
+  // wraps it to 0-95 for listeners (see beatClock.ts), but dockingHoldUntilMeasure
+  // arithmetic needs a monotonic count that never wraps, or a hold set right
+  // before the day-cycle boundary becomes permanently unreachable. getCurrentMeasure()
+  // is the real, unwrapped counter — use that instead.
+  lifecycleUnsubscribe = subscribeToMeasure(() => tickRobotLifecycle(localeId, getCurrentMeasure()));
   if (DEV_TUNING) console.log('[RobotSystems] Lifecycle started');
 }
 
@@ -208,6 +213,9 @@ export function scoreJobAffinities(robot: Robot): Record<JobTypeValue, number> {
   const variance = robot.noteVariance;
   const varianceLow = !!variance?.active && variance.value <= 3;
   const varianceHigh = !variance?.active || variance.value === 8;
+  // DEFAULT_NOTE_VARIANCE is inactive — "near its default" means inactive, not
+  // some specific active value.
+  const varianceDefault = !variance?.active;
 
   const ventExtraction =
     (1 - avgOctave / 7) * 0.4 +
@@ -226,10 +234,14 @@ export function scoreJobAffinities(robot: Robot): Record<JobTypeValue, number> {
     (motifMidLength ? 0.2 : 0) +
     (density >= 0.5 && density <= 0.9 ? 0.2 : 0);
 
+  // Register bonus is gated on a narrow span — a wide-span robot (Structural
+  // Inspection's own signal) can average out to a "mid" register by
+  // coincidence without actually being a steady mid-register hum.
   const fluidMonitoring =
-    0.3 +
-    (Math.abs(avgOctave - 4) <= 1 ? 0.3 : 0) +
-    (Math.abs(density - 0.5) <= 0.2 ? 0.2 : 0);
+    0.2 +
+    (Math.abs(avgOctave - 4) <= 1 && octaveSpan <= 3 ? 0.3 : 0) +
+    (Math.abs(density - 0.5) <= 0.2 ? 0.2 : 0) +
+    (varianceDefault ? 0.3 : 0);
 
   return {
     [JobType.VentExtraction]: ventExtraction,

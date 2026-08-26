@@ -511,12 +511,20 @@ export function spawnInitialRoster(localeId: string): void {
 
 /**
  * Re-register every robot's audio with AudioEngine after a power-on.
- * `AudioEngine.killAll()` (called on power-off) tears down every reserved
- * voice regardless of docking state; every robot survives the power cycle
- * now (nothing is ever removed), and every robot — Docked included — keeps
- * its voice reserved and melody registered so `audioMode` alone governs
- * whether it's actually heard (see spawnRobot/robotSystems.ts's landing
- * effects). So every robot needs re-registering here, not just Active ones.
+ * This release-then-reserve pass predates this phase and was already
+ * unconditional on `killAll()` for whichever robots it covered — this phase
+ * just widened *which* robots that is: every robot now keeps its voice
+ * reserved and melody registered across a dock cycle (mute is `audioMode`
+ * alone, see spawnRobot/robotSystems.ts's landing effects), not just the old
+ * `persists`-flagged ones, so every robot needs re-registering here now, not
+ * a filtered subset.
+ *
+ * Note: `AudioEngine.killAll()` itself does not touch the `compositeVoices`
+ * map (confirmed by reading it) — voices are not actually known to be
+ * invalidated by a power cycle. This re-registration may be unnecessary
+ * defensive work carried over from before this phase; left as-is rather than
+ * removed, since that's a separate, unverified behavior change this phase
+ * didn't set out to make.
  */
 export function reRegisterAllRobotsAudio(localeId: string): void {
   const robots = useLocaleStore.getState().getLocaleById(localeId)?.robots || [];
