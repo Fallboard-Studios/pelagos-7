@@ -68,14 +68,19 @@ Docked ─────────────────▶ Docking ───�
   `BATTERY_FULL_THRESHOLD` (100). Not an immediate jump to `Active` — `Docking` is a real held
   state.
 - **`Active` → `Departing`**: triggered the measure an `Active` robot's battery reaches
-  `BATTERY_CRITICAL_THRESHOLD` (10) or below.
+  `BATTERY_CRITICAL_THRESHOLD` (10) or below. Unlike `Docking`, this transition is *not* silent:
+  `beginDeparting` sends the robot visibly swimming off-screen the instant it fires (see below) —
+  it heads off-screen before it freezes, rather than freezing wherever its last idle motion left
+  it.
 - **The hold**: `dockingHoldUntilMeasure` is set to `measure + 1` at the moment of triggering. The
   robot lands (`Docking` → `Active`, `Departing` → `Docked`) the first measure tick at or after
   that value — "up to one measure," not always a full one: a threshold crossed right after a
   measure boundary waits nearly a full measure, one crossed right before it lands almost
-  immediately.
-- **Landing effects** (`landOnActive`/`landOnDocked` in `robotSystems.ts`) are the only place
-  audio/position/job actually change — nothing perceptible happens during the hold itself.
+  immediately. The exit swim's own duration is independent of this — it's a fire-and-forget visual
+  cue, not what governs the actual `Docked` landing.
+- **Landing effects** (`landOnActive`/`landOnDocked` in `robotSystems.ts`) are where
+  audio/position/job authoritatively change — the `Docking` hold itself is silent/invisible
+  (still off-screen and muted throughout), but the `Departing` hold is not, per the exit swim above.
 
 ## Battery
 
@@ -122,10 +127,35 @@ dock cycles. `audioMode` is the only thing that changes.
 2. Repositions off-screen via `generateSpawnPosition`, seeded by a per-robot `dockCycleCounters`
    counter (module state in `robotSystems.ts`, mirroring `idleSystem.ts`'s `idleMoveCounters` and
    `spawnSystem.ts`'s `spawnCounters`) so successive dock cycles sample different noise-map rows.
+   This is the *authoritative* store position — the robot's actual visual position at this instant
+   is wherever `beginDeparting`'s exit swim (below) has carried it to, which is a different,
+   independently-computed off-screen point; the two don't need to match, since "off-screen" is all
+   that matters and nothing re-syncs the GSAP transform from the store afterward.
 3. Re-rolls pitch drift (see below) and re-registers the drifted melody with `AudioEngine` — so a
    manual mute override plays the post-drift pitches, not whatever was registered before docking.
+4. Sets `state: Idle`, clears `destination` — `beginDeparting` left `state: Moving` for the exit
+   swim; settling back to `Idle` here is what lets a later `landOnActive`'s `handleRobotIdle` call
+   proceed (it requires `state === Idle`, and would otherwise no-op silently).
 
 No voice is released and no melody is unregistered — muting is `audioMode` alone.
+
+## Exit and Entrance Swims
+
+The visible "head off-screen, then later come back" motion is stitched together from two existing
+mechanisms, not a new animation system:
+
+- **Exit** (`Active` → `Departing`): `beginDeparting` (`robotSystems.ts`) calls
+  `idleSystem.ts`'s `pickExitDestination(robot.position)` — nearest-edge-plus-offset, the same
+  shape of helper `spawnSystem.ts`'s `generateSpawnPosition` uses for the entrance side — then
+  `swimAnimation.ts`'s `createSwimTimeline` directly, setting `state: Moving` and the computed
+  `destination`/`direction` in the store alongside the docking fields. No `onComplete` callback —
+  the swim is fire-and-forget, decoupled from the measure-quantized hold (see above).
+- **Entrance** (`Docking` → `Active`): needs no new code. `landOnActive` already calls
+  `handleRobotIdle` (`idleSystem.ts`), which was always going to animate from the robot's current
+  position to a new on-screen destination — since that current position is now genuinely
+  off-screen (thanks to the exit swim actually having sent it there), this reads as a natural
+  "swim back on-screen" for free, the same way a brand-new spawn's first `handleRobotIdle` call
+  already does.
 
 ## Pitch Drift
 
@@ -229,6 +259,8 @@ The current tests (`robotSystems.test.ts`, plus updated coverage in `idleSystem.
 - threshold-triggered `Docking`/`Departing` entry with the hold, not an immediate landing
 - hold-elapsed landing on `Active`/`Docked`
 - `landOnActive`/`landOnDocked` setting `audioMode` (not touching voice reservation/melody registration), plus their position, job, and idle-restart side effects
+- `beginDeparting` starting an exit swim (`pickExitDestination`/`createSwimTimeline` called with an off-screen destination) and setting `state: Moving` the instant Departing begins, and `landOnDocked` settling `state` back to `Idle` so a later entrance swim isn't blocked by `handleRobotIdle`'s own guard
+- `idleSystem.ts`'s `pickExitDestination` picking the correct nearest edge and returning a point genuinely outside the world bounds
 - `landOnDocked` re-registering the drifted melody with `AudioEngine` so a manual mute override plays the post-drift pitches
 - `scoreJobAffinities` determinism and each profile scoring highest for a robot matching its description
 - `assignJob` respecting `JOB_MAX_ROBOTS_PER_TYPE`

@@ -15,7 +15,7 @@ import {
 import { useLocaleStore, DEFAULT_LOCALE } from '../stores/localeStore';
 import { DEFAULT_LOCALE_ID } from '../stores/planetStore';
 import { AudioEngine } from '../engine/AudioEngine';
-import { DockingState, JobType } from '../types/Robot';
+import { DockingState, JobType, RobotState } from '../types/Robot';
 import type { Robot } from '../types/Robot';
 import {
   BATTERY_DRAIN_BASE,
@@ -35,8 +35,17 @@ import {
 // robotSystems tests assert only "was it invoked", not idleSystem's internals.
 vi.mock('./idleSystem', () => ({
   handleRobotIdle: vi.fn(),
+  pickExitDestination: vi.fn(() => ({ x: -150, y: 300 })),
 }));
-import { handleRobotIdle } from './idleSystem';
+import { handleRobotIdle, pickExitDestination } from './idleSystem';
+
+// createSwimTimeline has real GSAP/SVG-ref side effects, already covered by
+// its own module's usage elsewhere — mock it here so these tests assert only
+// "was an exit swim started, toward what, in what direction", not GSAP internals.
+vi.mock('../animation/swimAnimation', () => ({
+  createSwimTimeline: vi.fn(),
+}));
+import { createSwimTimeline } from '../animation/swimAnimation';
 
 vi.mock('../engine/beatClock', () => ({
   subscribeToMeasure: vi.fn(() => vi.fn()),
@@ -163,6 +172,27 @@ describe('robotSystems', () => {
       expect(updated?.batteryLevel).toBeLessThanOrEqual(BATTERY_CRITICAL_THRESHOLD);
       expect(updated?.docking).toBe(DockingState.Departing);
       expect(updated?.dockingHoldUntilMeasure).toBe(11);
+    });
+
+    it('begins swimming a robot off-screen the instant it starts Departing, rather than freezing in place', () => {
+      const robot = makeRobot({
+        position: { x: 960, y: 540 },
+        batteryLevel: BATTERY_CRITICAL_THRESHOLD + BATTERY_DRAIN_BASE,
+        job: undefined,
+      });
+      setupLocaleWithRobots([robot]);
+
+      tickRobotLifecycle(DEFAULT_LOCALE_ID, 10);
+
+      expect(pickExitDestination).toHaveBeenCalledWith(robot.position);
+      expect(createSwimTimeline).toHaveBeenCalledTimes(1);
+      const [swimRobotArg, destinationArg] = (createSwimTimeline as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(swimRobotArg.id).toBe(robot.id);
+      expect(destinationArg).toEqual({ x: -150, y: 300 }); // mocked pickExitDestination's fixed return
+
+      const updated = useLocaleStore.getState().getRobotById(DEFAULT_LOCALE_ID, robot.id);
+      expect(updated?.state).toBe(RobotState.Moving);
+      expect(updated?.destination).toEqual({ x: -150, y: 300 });
     });
 
     it('Docked robot reaching full battery begins Docking with a hold, not immediate Active', () => {
@@ -305,6 +335,21 @@ describe('robotSystems', () => {
 
       const updated = useLocaleStore.getState().getRobotById(DEFAULT_LOCALE_ID, robot.id);
       expect(updated?.audioMode).toBe('mute');
+    });
+
+    it('settles state back to Idle and clears destination — beginDeparting leaves it Moving for the exit swim, and a later landOnActive would otherwise be blocked by handleRobotIdle\'s own state===Idle guard', () => {
+      const robot = makeRobot({
+        docking: DockingState.Departing,
+        state: RobotState.Moving,
+        destination: { x: -150, y: 300 },
+      });
+      setupLocaleWithRobots([robot]);
+
+      landOnDocked(DEFAULT_LOCALE_ID, robot.id);
+
+      const updated = useLocaleStore.getState().getRobotById(DEFAULT_LOCALE_ID, robot.id);
+      expect(updated?.state).toBe(RobotState.Idle);
+      expect(updated?.destination).toBeNull();
     });
 
     it('does not release the voice or unregister the melody — a user can still override mute in Robot Options and hear it', () => {

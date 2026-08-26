@@ -3,14 +3,15 @@
 // ========================================
 import alea from 'alea';
 
-import { DockingState, JobType } from '../types/Robot';
+import { DockingState, JobType, RobotState } from '../types/Robot';
 import type { JobType as JobTypeValue } from '../types/Robot';
 import type { Robot } from '../types/Robot';
 import useLocaleStore from '../stores/localeStore';
 import { subscribeToMeasure, getCurrentMeasure } from '../engine/beatClock';
 import { AudioEngine } from '../engine/AudioEngine';
 import { reRollMelodyPitches } from '../engine/melodyGenerator';
-import { handleRobotIdle } from './idleSystem';
+import { handleRobotIdle, pickExitDestination } from './idleSystem';
+import { createSwimTimeline } from '../animation/swimAnimation';
 import { generateSpawnPosition } from './spawnSystem';
 import { getLocaleNoiseMap } from '../utils/noiseMaps';
 import { getSeededVal } from '../utils/getSeededVal';
@@ -38,10 +39,29 @@ const dockCycleCounters = new Map<string, number>();
 // BATTERY / DOCKING TICK
 // ========================================
 
-function beginDeparting(localeId: string, robotId: string, measure: number): void {
-  useLocaleStore.getState().updateRobot(localeId, robotId, {
+/**
+ * Begin the Departing hold and, in the same instant, send the robot visibly
+ * swimming off-screen — it should head off-screen before it freezes (lands
+ * on Docked, muted), not freeze wherever its last idle motion happened to
+ * leave it. The swim's own completion is not what governs the actual
+ * Docked landing — that stays measure-quantized (dockingHoldUntilMeasure)
+ * — so this is a fire-and-forget visual cue, matching how idle wandering
+ * itself is already decoupled from any other timing.
+ */
+function beginDeparting(localeId: string, robot: Robot, measure: number): void {
+  const exitDestination = pickExitDestination(robot.position);
+  const direction: 'left' | 'right' = exitDestination.x > robot.position.x ? 'right' : 'left';
+
+  // Pass the pre-update robot so createSwimTimeline knows the old direction
+  // (matches idleSystem.ts's handleRobotIdle's own established pattern).
+  createSwimTimeline(robot, exitDestination, direction);
+
+  useLocaleStore.getState().updateRobot(localeId, robot.id, {
     docking: DockingState.Departing,
     dockingHoldUntilMeasure: measure + 1,
+    state: RobotState.Moving,
+    destination: exitDestination,
+    direction,
   });
 }
 
@@ -66,7 +86,7 @@ export function tickRobotLifecycle(localeId: string, measure: number): void {
       const surcharge = robot.job ? JOB_BATTERY_DRAIN_SURCHARGE[robot.job.type] : 0;
       const next = Math.max(0, robot.batteryLevel - (BATTERY_DRAIN_BASE + surcharge));
       useLocaleStore.getState().updateRobot(localeId, robot.id, { batteryLevel: next });
-      if (next <= BATTERY_CRITICAL_THRESHOLD) beginDeparting(localeId, robot.id, measure);
+      if (next <= BATTERY_CRITICAL_THRESHOLD) beginDeparting(localeId, robot, measure);
     } else if (robot.docking === DockingState.Docked) {
       const next = Math.min(100, robot.batteryLevel + BATTERY_RECHARGE_RATE);
       useLocaleStore.getState().updateRobot(localeId, robot.id, { batteryLevel: next });
@@ -182,6 +202,11 @@ export function landOnDocked(localeId: string, robotId: string): void {
     position: dockPosition,
     melody: driftedMelody,
     audioMode: 'mute',
+    // beginDeparting set state: Moving for the exit swim — settle back to
+    // Idle here so a later landOnActive's handleRobotIdle call (which
+    // requires state === Idle) isn't blocked by its own guard.
+    state: RobotState.Idle,
+    destination: null,
   });
 
   // registerRobotMelody purges this robot's prior entries before adding the

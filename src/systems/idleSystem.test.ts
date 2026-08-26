@@ -4,7 +4,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import type { NoiseFunction2D } from 'simplex-noise';
 
-import { pickDestination, handleRobotIdle } from './idleSystem';
+import { pickDestination, handleRobotIdle, pickExitDestination } from './idleSystem';
 import { useLocaleStore, DEFAULT_LOCALE } from '../stores/localeStore';
 import { DEFAULT_LOCALE_ID } from '../stores/planetStore';
 import { RobotState, DockingState } from '../types/Robot';
@@ -99,6 +99,32 @@ describe('idleSystem', () => {
       expect(topHalf).toBeLessThan(70);
       expect(bottomHalf).toBeGreaterThan(30);
       expect(bottomHalf).toBeLessThan(70);
+    });
+  });
+
+  describe('pickExitDestination', () => {
+    it('picks the nearest edge and returns a point just outside it, preserving the other axis', () => {
+      // Near the left edge — should exit left, keeping y unchanged.
+      expect(pickExitDestination({ x: 50, y: 400 })).toEqual({ x: -150, y: 400 });
+    });
+
+    it('picks the right edge when closer', () => {
+      expect(pickExitDestination({ x: 1870, y: 400 })).toEqual({ x: 1920 + 150, y: 400 });
+    });
+
+    it('picks the top edge when closer', () => {
+      expect(pickExitDestination({ x: 960, y: 50 })).toEqual({ x: 960, y: -150 });
+    });
+
+    it('picks the bottom edge when closer', () => {
+      expect(pickExitDestination({ x: 960, y: 1030 })).toEqual({ x: 960, y: 1080 + 150 });
+    });
+
+    it('returns a point genuinely outside the world bounds on every axis it touches', () => {
+      const dest = pickExitDestination({ x: 960, y: 540 }); // dead center
+      const outsideX = dest.x < 0 || dest.x > 1920;
+      const outsideY = dest.y < 0 || dest.y > 1080;
+      expect(outsideX || outsideY).toBe(true);
     });
   });
 
