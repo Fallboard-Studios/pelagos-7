@@ -236,6 +236,31 @@ describe('spawnSystem', () => {
       expect(robot.noteVariance!.value).toBeLessThanOrEqual(8);
     });
 
+    it('seeds rhythmicMotifLength.active at roughly an 85% chance across many spawns', () => {
+      // A dedicated locale ID, not DEFAULT_LOCALE_ID: spawnCounters is keyed
+      // per-locale, so this test's result is independent of how many times
+      // earlier tests in this file already called spawnRobot(DEFAULT_LOCALE_ID)
+      // -- otherwise this deterministic seeded roll depends on execution order.
+      const localeId = 'motif-active-stat-test-locale';
+      useLocaleStore.setState((state) => ({
+        locales: {
+          ...state.locales,
+          [localeId]: { ...DEFAULT_LOCALE, id: localeId, robots: [], settings: { ...DEFAULT_LOCALE.settings, maxRobots: 500 } },
+        },
+      }));
+      const n = 500;
+      for (let i = 0; i < n; i++) spawnRobot(localeId);
+      const robots = useLocaleStore.getState().getLocaleById(localeId)?.robots ?? [];
+      const activeCount = robots.filter((r) => r.rhythmicMotifLength?.active).length;
+      const activeFraction = activeCount / robots.length;
+      // ~30% of spawns copy an existing robot's setting rather than rolling fresh,
+      // which adds clustering variance but doesn't bias the marginal proportion —
+      // generous band to avoid flakiness while still discriminating from the old
+      // ~66% (shared with noteVariance) threshold.
+      expect(activeFraction).toBeGreaterThanOrEqual(0.75);
+      expect(activeFraction).toBeLessThanOrEqual(0.95);
+    });
+
     it('a copied robot inherits the source\'s rhythmicDensity/rhythmicMotifLength/noteVariance rather than rolling fresh ones', () => {
       useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, {
         settings: { ...DEFAULT_LOCALE.settings, maxRobots: 100 },

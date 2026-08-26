@@ -67,12 +67,17 @@ const MASTER_VOLUME_MIN = 0.65;
 const MASTER_VOLUME_MAX = 0.85;
 
 /**
- * Probability threshold rhythmicMotifLength.active/noteVariance.active seed
- * draws ([0, 1]) must clear to seed `true` — ~66% chance, mirroring the
- * shipped LFO_ACTIVE_THRESHOLD pattern (generateGlobalLfoSettings) rather
- * than an even 50/50 split.
+ * Probability threshold rhythmicMotifLength.active's seed draw ([0, 1]) must
+ * clear to seed `true` — 85% chance. A fresh robot tiles a repeating motif
+ * far more often than it scatters freely.
  */
-const TOGGLE_ACTIVE_THRESHOLD = 0.34;
+const RHYTHMIC_MOTIF_LENGTH_ACTIVE_THRESHOLD = 0.15;
+/**
+ * Probability threshold noteVariance.active's seed draw ([0, 1]) must clear
+ * to seed `true` — ~66% chance, mirroring the shipped LFO_ACTIVE_THRESHOLD
+ * pattern (generateGlobalLfoSettings) rather than an even 50/50 split.
+ */
+const NOTE_VARIANCE_ACTIVE_THRESHOLD = 0.34;
 
 // Waveform types — even distribution gives ~20% each (includes pulse)
 const WAVEFORMS: WaveformType[] = ['sine', 'square', 'triangle', 'sawtooth', 'pulse'];
@@ -443,7 +448,7 @@ export function spawnRobot(localeId: string): void {
       ? getSeededVal(noiseMap, 'robot.rhythmicMotifLength.value', spawnCount, 1, 9)
       : 1 + alea(`${localeId}:${spawnCount}:motifValue`)() * 8;
     spawnRhythmicMotifLength = {
-      active: motifActiveRaw >= TOGGLE_ACTIVE_THRESHOLD,
+      active: motifActiveRaw >= RHYTHMIC_MOTIF_LENGTH_ACTIVE_THRESHOLD,
       value: Math.min(8, Math.floor(motifValueRaw)),
     };
 
@@ -454,7 +459,7 @@ export function spawnRobot(localeId: string): void {
       ? getSeededVal(noiseMap, 'robot.noteVariance.value', spawnCount, 1, 9)
       : 1 + alea(`${localeId}:${spawnCount}:nvValue`)() * 8;
     spawnNoteVariance = {
-      active: noteVarianceActiveRaw >= TOGGLE_ACTIVE_THRESHOLD,
+      active: noteVarianceActiveRaw >= NOTE_VARIANCE_ACTIVE_THRESHOLD,
       value: Math.min(8, Math.floor(noteVarianceValueRaw)),
     };
   }
