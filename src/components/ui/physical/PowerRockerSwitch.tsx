@@ -12,6 +12,7 @@ import { powerController } from '@/systems/powerController';
 import { setTimeline, killTimeline } from '@/animation/timelineMap';
 
 import { getScreenViewportDomNode } from '@/utils/helpers';
+import { getStatusLightColor } from '@/utils/statusLightColors';
 import './PowerRockerSwitch.css';
 
 // ========================================
@@ -191,6 +192,13 @@ export function PowerRockerSwitch() {
   }
 
   const powerState = isPoweredOn ? 'on' : 'off';
+  // Color is JS-owned (getStatusLightColor, the single statusLightColors source), motion stays
+  // CSS-owned (the pulse animation in PowerRockerSwitch.css) — transitioning (amber) takes
+  // precedence over the steady-state power color while true, matching the CSS cascade order
+  // this replaces (`[data-transitioning="true"]` came after the power-state rules).
+  const lightColor = isTransitioning
+    ? getStatusLightColor('amber')
+    : getStatusLightColor(isPoweredOn ? 'green' : 'red');
 
   return (
     <>
@@ -203,6 +211,7 @@ export function PowerRockerSwitch() {
             aria-label={isPoweredOn ? 'Power on' : 'Power off'}
             data-power-state={powerState}
             data-transitioning={isTransitioning ? 'true' : undefined}
+            style={{ color: lightColor.color, boxShadow: `0 0 6px 2px ${lightColor.glow}` }}
           />
         </div>
 

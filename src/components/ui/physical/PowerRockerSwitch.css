@@ -49,24 +49,21 @@
   flex-shrink: 0;
 }
 
+/* Color/glow are JS-owned (PowerRockerSwitch.tsx, via statusLightColors.ts) and applied as
+   inline style — this CSS only owns the pulse motion for each state. */
+
 /* --- Off: dark red glow, slow breathe ~3 s --- */
 .rocker-light[data-power-state="off"] {
-  color: #8b1a14;
-  box-shadow: 0 0 6px 2px rgba(139, 26, 20, 0.55);
   animation: light-pulse-transition 2.5s ease-in-out infinite;
 }
 
 /* --- On: saturated green, gentle breathe ~6 s --- */
 .rocker-light[data-power-state="on"] {
-  color: #1a8f40;
-  box-shadow: 0 0 8px 3px rgba(26, 143, 64, 0.7);
   animation: light-pulse-on 6s ease-in-out infinite;
 }
 
 /* --- Transitioning: amber, slow flash (selector wins by specificity position) --- */
 .rocker-light[data-transitioning="true"] {
-  color: #c08800;
-  box-shadow: 0 0 6px 2px rgba(192, 136, 0, 0.5);
   animation: light-pulse-transition 0.66s ease-in-out infinite;
 }
 
