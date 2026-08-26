@@ -1,7 +1,7 @@
 .robot-selection-card {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   padding: 8px;
   border: var(--border-width) solid var(--border-color);
   border-radius: var(--border-radius);
@@ -28,7 +28,33 @@
   gap: 8px;
 }
 
+/* The name stays a single full-width row (potentially long text, the card's primary label) —
+   everything else below packs into a 2-column grid instead, to save vertical space now that
+   cards sit in a tile grid rather than a stacked list. */
+.robot-selection-card__row--name {
+  justify-content: center;
+  flex-direction: column;
+  text-align: center;
+  gap: 2px;
+}
+
+.robot-selection-card__meta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 8px;
+}
+
+.robot-selection-card__field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
 .robot-selection-card__value {
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

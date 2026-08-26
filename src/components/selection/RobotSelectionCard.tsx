@@ -54,29 +54,31 @@ export function RobotSelectionCard({ robot }: RobotSelectionCardProps) {
         <RobotBody robot={robot} ignoreDaylight />
       </svg>
 
-      <div className="robot-selection-card__row">
+      <div className="robot-selection-card__row robot-selection-card__row--name">
         <DualLabel {...ROBOT_SELECTION_ROW_SCHEMAS.name} />
         <span className="robot-selection-card__value">{displayName}</span>
       </div>
 
-      <div className="robot-selection-card__row">
-        <DualLabel {...ROBOT_SELECTION_ROW_SCHEMAS.job} />
-        <span className="robot-selection-card__value">{jobLabel.humanLabel}</span>
-      </div>
+      <div className="robot-selection-card__meta-grid">
+        <div className="robot-selection-card__field">
+          <DualLabel {...ROBOT_SELECTION_ROW_SCHEMAS.job} />
+          <span className="robot-selection-card__value">{jobLabel.humanLabel}</span>
+        </div>
 
-      <div className="robot-selection-card__row">
-        <DualLabel {...ROBOT_SELECTION_ROW_SCHEMAS.battery} />
-        <span className="robot-selection-card__value">{Math.round(robot.batteryLevel)}%</span>
-      </div>
+        <div className="robot-selection-card__field">
+          <DualLabel {...ROBOT_SELECTION_ROW_SCHEMAS.battery} />
+          <span className="robot-selection-card__value">{Math.round(robot.batteryLevel)}%</span>
+        </div>
 
-      <div className="robot-selection-card__row">
-        <DualLabel {...ROBOT_SELECTION_ROW_SCHEMAS.docking} />
-        <span className="robot-selection-card__value">{dockingLabel.humanLabel}</span>
-      </div>
+        <div className="robot-selection-card__field">
+          <DualLabel {...ROBOT_SELECTION_ROW_SCHEMAS.docking} />
+          <span className="robot-selection-card__value">{dockingLabel.humanLabel}</span>
+        </div>
 
-      <div className="robot-selection-card__row">
-        <DualLabel {...ROBOT_SELECTION_ROW_SCHEMAS.audio} />
-        <AudioStatusBadge audioMode={robot.audioMode ?? 'none'} />
+        <div className="robot-selection-card__field">
+          <DualLabel {...ROBOT_SELECTION_ROW_SCHEMAS.audio} />
+          <AudioStatusBadge audioMode={robot.audioMode ?? 'none'} />
+        </div>
       </div>
     </li>
   );
