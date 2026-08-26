@@ -102,29 +102,40 @@ describe('idleSystem', () => {
     });
   });
 
+  describe('pickDestination — yRange', () => {
+    it('draws y from the provided range instead of the full world height', () => {
+      const yRange = { min: 700, max: 750 };
+      const destinations = Array.from({ length: 20 }, (_, i) => pickDestination(mockNoiseMap, 0, i, yRange));
+
+      for (const d of destinations) {
+        expect(d.y).toBeGreaterThanOrEqual(700);
+        expect(d.y).toBeLessThanOrEqual(750);
+      }
+    });
+
+    it('defaults to the full margin-clamped world height when no yRange is given', () => {
+      const destination = pickDestination(mockNoiseMap, 0, 0);
+      expect(destination.y).toBeGreaterThanOrEqual(100);
+      expect(destination.y).toBeLessThanOrEqual(980);
+    });
+  });
+
   describe('pickExitDestination', () => {
-    it('picks the nearest edge and returns a point just outside it, preserving the other axis', () => {
-      // Near the left edge — should exit left, keeping y unchanged.
-      expect(pickExitDestination({ x: 50, y: 400 })).toEqual({ x: -150, y: 400 });
+    it('always exits straight down through the bottom edge, preserving x', () => {
+      expect(pickExitDestination({ x: 50, y: 400 })).toEqual({ x: 50, y: 1080 + 150 });
     });
 
-    it('picks the right edge when closer', () => {
-      expect(pickExitDestination({ x: 1870, y: 400 })).toEqual({ x: 1920 + 150, y: 400 });
+    it('exits via the bottom even from near the top edge', () => {
+      expect(pickExitDestination({ x: 960, y: 50 })).toEqual({ x: 960, y: 1080 + 150 });
     });
 
-    it('picks the top edge when closer', () => {
-      expect(pickExitDestination({ x: 960, y: 50 })).toEqual({ x: 960, y: -150 });
+    it('exits via the bottom even from near the right edge', () => {
+      expect(pickExitDestination({ x: 1870, y: 400 })).toEqual({ x: 1870, y: 1080 + 150 });
     });
 
-    it('picks the bottom edge when closer', () => {
-      expect(pickExitDestination({ x: 960, y: 1030 })).toEqual({ x: 960, y: 1080 + 150 });
-    });
-
-    it('returns a point genuinely outside the world bounds on every axis it touches', () => {
+    it('returns a point genuinely outside the world bounds, below the bottom edge', () => {
       const dest = pickExitDestination({ x: 960, y: 540 }); // dead center
-      const outsideX = dest.x < 0 || dest.x > 1920;
-      const outsideY = dest.y < 0 || dest.y > 1080;
-      expect(outsideX || outsideY).toBe(true);
+      expect(dest.y).toBeGreaterThan(1080);
     });
   });
 
@@ -147,5 +158,48 @@ describe('idleSystem', () => {
         expect(after).toEqual(robot); // untouched — state, position, destination all unchanged
       }
     );
+  });
+
+  describe('handleRobotIdle — battery/return-aware y-bounds', () => {
+    beforeEach(() => {
+      useLocaleStore.setState({ locales: { [DEFAULT_LOCALE_ID]: DEFAULT_LOCALE } });
+    });
+
+    function setupRobot(overrides: Partial<Robot>): Robot {
+      const robot = makeRobot(overrides);
+      useLocaleStore.setState((s) => ({
+        locales: { ...s.locales, [DEFAULT_LOCALE_ID]: { ...s.locales[DEFAULT_LOCALE_ID], robots: [robot] } },
+      }));
+      return robot;
+    }
+
+    it('confines a robot below BATTERY_LOWER_THIRD_THRESHOLD to the lower third of the world view', () => {
+      const robot = setupRobot({ batteryLevel: 14 });
+
+      handleRobotIdle(DEFAULT_LOCALE_ID, robot.id);
+
+      const destY = useLocaleStore.getState().getRobotById(DEFAULT_LOCALE_ID, robot.id)?.destination?.y;
+      expect(destY).toBeGreaterThanOrEqual(720);
+      expect(destY).toBeLessThanOrEqual(980);
+    });
+
+    it('confines a returning robot to the bottom half of the world view, regardless of battery', () => {
+      const robot = setupRobot({ batteryLevel: 100 });
+
+      handleRobotIdle(DEFAULT_LOCALE_ID, robot.id, { isReturning: true });
+
+      const destY = useLocaleStore.getState().getRobotById(DEFAULT_LOCALE_ID, robot.id)?.destination?.y;
+      expect(destY).toBeGreaterThanOrEqual(540);
+      expect(destY).toBeLessThanOrEqual(980);
+    });
+
+    it('isReturning wins over the low-battery lower-third confinement when both would apply', () => {
+      const robot = setupRobot({ batteryLevel: 10 }); // also below the lower-third threshold
+
+      handleRobotIdle(DEFAULT_LOCALE_ID, robot.id, { isReturning: true });
+
+      const destY = useLocaleStore.getState().getRobotById(DEFAULT_LOCALE_ID, robot.id)?.destination?.y;
+      expect(destY).toBeGreaterThanOrEqual(540); // bottom half, not the narrower lower third
+    });
   });
 });

@@ -199,6 +199,21 @@ describe('robotSystems', () => {
       expect(updated?.destination).toEqual({ x: -150, y: 300 });
     });
 
+    it('keeps the robot facing its current direction on exit — a bottom-only exit has no horizontal component to flip toward', () => {
+      const robot = makeRobot({
+        direction: 'right',
+        batteryLevel: BATTERY_CRITICAL_THRESHOLD + BATTERY_DRAIN_BASE,
+        job: undefined,
+      });
+      const companion = makeRobot({ id: 'robot-companion', batteryLevel: 100, job: undefined });
+      setupLocaleWithRobots([robot, companion]);
+
+      tickRobotLifecycle(DEFAULT_LOCALE_ID, 10);
+
+      const updated = useLocaleStore.getState().getRobotById(DEFAULT_LOCALE_ID, robot.id);
+      expect(updated?.direction).toBe('right');
+    });
+
     it('Docked robot reaching full battery begins Docking with a hold, not immediate Active', () => {
       const robot = makeRobot({
         docking: DockingState.Docked,
@@ -362,13 +377,13 @@ describe('robotSystems', () => {
       expect(Object.values(JobType)).toContain(updated?.job?.type);
     });
 
-    it('restarts idle wandering via handleRobotIdle', () => {
+    it('restarts idle wandering via handleRobotIdle, flagged as a return so the first destination stays in the bottom half', () => {
       const robot = makeRobot({ docking: DockingState.Docking, job: undefined });
       setupLocaleWithRobots([robot]);
 
       landOnActive(DEFAULT_LOCALE_ID, robot.id);
 
-      expect(handleRobotIdle).toHaveBeenCalledWith(DEFAULT_LOCALE_ID, robot.id);
+      expect(handleRobotIdle).toHaveBeenCalledWith(DEFAULT_LOCALE_ID, robot.id, { isReturning: true });
     });
   });
 

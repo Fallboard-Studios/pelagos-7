@@ -44,6 +44,13 @@ vi.mock('gsap', () => {
     set: () => { },
     to: () => { },
     fromTo: () => { },
+    // Minimal delayedCall mock — does NOT auto-fire fn (unlike .timeline's
+    // onComplete above): idleSystem.ts uses delayedCall to throttle repeated
+    // self-scheduling (handleRobotIdle -> handleRobotArrival -> delayedCall ->
+    // handleRobotIdle again), and firing it eagerly on a microtask would
+    // recurse without the real timer's delay ever elapsing. Returns an object
+    // with a no-op kill(), since callers store the result and may cancel it.
+    delayedCall: (_delay?: number, _fn?: () => void) => ({ kill: () => { } }),
     utils: { selector: () => () => [] },
   };
   return { default: mocked, ...mocked };

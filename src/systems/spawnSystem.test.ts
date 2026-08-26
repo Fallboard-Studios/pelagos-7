@@ -34,28 +34,21 @@ describe('spawnSystem', () => {
       expect(outsideX || outsideY).toBe(true);
     });
 
-    it('generates positions on all four edges (off-screen)', () => {
+    it('only ever spawns below the bottom edge — never to the sides or above', () => {
       const positions = Array.from({ length: 100 }, (_, i) => generateSpawnPosition(mockNoiseMap, i));
 
-      const leftEdge = positions.filter((p) => p.x < 0).length;
-      const rightEdge = positions.filter((p) => p.x > 1920).length;
-      const topEdge = positions.filter((p) => p.y < 0).length;
-      const bottomEdge = positions.filter((p) => p.y > 1080).length;
-
-      // Each edge should be hit roughly 25% of the time over 100 samples
-      expect(leftEdge).toBeGreaterThanOrEqual(10);
-      expect(rightEdge).toBeGreaterThanOrEqual(10);
-      expect(topEdge).toBeGreaterThanOrEqual(10);
-      expect(bottomEdge).toBeGreaterThanOrEqual(10);
+      for (const p of positions) {
+        expect(p.y).toBeGreaterThan(1080); // below the bottom edge, every time
+        expect(p.x).toBeGreaterThanOrEqual(0); // x stays on-screen horizontally
+        expect(p.x).toBeLessThanOrEqual(1920);
+      }
     });
 
-    it('generates varied positions (not all the same)', () => {
+    it('generates varied positions along x (not all the same)', () => {
       const positions = Array.from({ length: 20 }, (_, i) => generateSpawnPosition(mockNoiseMap, i));
       const uniqueX = new Set(positions.map((p) => Math.round(p.x)));
-      const uniqueY = new Set(positions.map((p) => Math.round(p.y)));
 
       expect(uniqueX.size).toBeGreaterThan(8); // Should have variety
-      expect(uniqueY.size).toBeGreaterThanOrEqual(8);
     });
   });
 

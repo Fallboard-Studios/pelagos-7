@@ -49,8 +49,11 @@ const dockCycleCounters = new Map<string, number>();
  * itself is already decoupled from any other timing.
  */
 function beginDeparting(localeId: string, robot: Robot, measure: number): void {
+  // pickExitDestination is straight down now (bottom-only exit) — no horizontal
+  // component to base a facing flip on, so keep the robot's current direction
+  // rather than recomputing one from an x-comparison that would always read 'left'.
   const exitDestination = pickExitDestination(robot.position);
-  const direction: 'left' | 'right' = exitDestination.x > robot.position.x ? 'right' : 'left';
+  const direction = robot.direction;
 
   // Pass the pre-update robot so createSwimTimeline knows the old direction
   // (matches idleSystem.ts's handleRobotIdle's own established pattern).
@@ -171,7 +174,10 @@ export function landOnActive(localeId: string, robotId: string): void {
   // Robot.tsx only calls handleRobotIdle on mount — a robot already mounted
   // (docked robots stay mounted, just off-screen and idle-guarded) needs this
   // explicit restart to resume wandering now that it's Active again.
-  handleRobotIdle(localeId, robotId);
+  // isReturning: true keeps its first on-screen destination in the bottom
+  // half — it's surfacing from its south-only dock spot, same as a
+  // locale-load mount (see idleSystem.ts's handleRobotIdle).
+  handleRobotIdle(localeId, robotId, { isReturning: true });
 }
 
 /**
