@@ -16,7 +16,7 @@ import { usePlanetStore, selectCurrentPlanet, DEFAULT_PELAGOS } from '../stores/
 import { useUIStore } from '../stores/uiStore';
 import { useAudioStore } from '../stores/audioStore';
 import { AudioEngine } from '../engine/AudioEngine';
-import { getLocaleNoiseMap } from '../utils/noiseMaps';
+import { getLocaleNoiseMap, tryGetLocaleNoiseMap } from '../utils/noiseMaps';
 import { getSeededVal } from '../utils/getSeededVal';
 import { initializeLocale, retransmitWorld } from './worldTransition';
 import { stopSpawnScheduler } from './spawnSystem';
@@ -190,6 +190,22 @@ describe('worldTransition', () => {
     it('discards the old planet record', () => {
       retransmitWorld({ planetName: 'The Rusting' });
       expect(usePlanetStore.getState().planets.find((p) => p.id === DEFAULT_PELAGOS.id)).toBeUndefined();
+    });
+
+    it('re-warms the preserved locale\'s noise map — removePlanet\'s eviction cascade would otherwise leave it uncached', () => {
+      // DEFAULT_PELAGOS.locales lists DEFAULT_LOCALE_ID, so removePlanet's
+      // cascade evicts it even though this branch is keeping the locale —
+      // without a re-warm, AudioEngine's non-throwing tryGetLocaleNoiseMap
+      // lookup would see a gap until the next scheduled spawn tick.
+      retransmitWorld({ planetName: 'Kryndara' });
+      expect(tryGetLocaleNoiseMap(DEFAULT_LOCALE_ID)).not.toBeNull();
+    });
+
+    it('the re-warmed noise map matches the decoupling guarantee (same as any fresh lookup at the same coordinates)', () => {
+      retransmitWorld({ planetName: 'Kryndara' });
+      const rewarmed = tryGetLocaleNoiseMap(DEFAULT_LOCALE_ID)!;
+      const independent = getLocaleNoiseMap('independent-check-locale-2', DEFAULT_LOCALE.coordinates.x, DEFAULT_LOCALE.coordinates.y);
+      expect(getSeededVal(rewarmed, 'robot.audio.attack')).toBe(getSeededVal(independent, 'robot.audio.attack'));
     });
   });
 
