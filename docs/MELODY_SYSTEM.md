@@ -37,39 +37,45 @@ export function generateMelodyForRobot(opts: GenerateMelodyForRobotOptions): Rob
 Supported options:
 
 ```typescript
+interface ToggleValue {
+  active: boolean;
+  value: number;
+}
+
 interface GenerateMelodyForRobotOptions {
-  onsetCount: number;
   octaveMin: number;
   octaveMax: number;
-  rhythmicDensity?: number;
-  rhythmicMotifLength?: number;
+  rhythmicDensity?: number;        // 0-100 fill-rate percentage (was a 4-12 onset count)
+  rhythmicMotifLength?: ToggleValue; // value: 1-8 (was a plain 1-16 number)
   subdivisions?: number;
   seed?: number;
   rand?: () => number;
-  noteVariance?: number;
+  noteVariance?: ToggleValue;       // value: 1-8 (was a plain 0-8 number, 0 meaning "off")
 }
 ```
+
+`onsetCount` no longer exists on this interface — it was a pre-percentage legacy fallback (`rhythmicDensity ?? onsetCount`) removed once every call site moved to the percentage model.
 
 ## Generation Algorithm
 
 The implementation uses a motif-repetition algorithm rather than the older step-selection approach.
 
-1. `buildMotifOnsets()` builds a sorted list of onset positions for one measure.
-2. The density is clamped to the range 4–12 events.
+1. `rhythmicDensity` (a 0–100% fill rate) is converted to a concrete onset count as a pre-step, before `buildMotifOnsets()` is ever called — `buildMotifOnsets()` itself still only understands a plain onset count, exactly as before this conversion existed.
+2. `buildMotifOnsets()` builds a sorted list of onset positions for one measure from that onset count.
 3. Each event gets:
    - a `startStep` derived from the onset grid
    - a duration chosen via `pickDurationForGap()` — not necessarily filling the whole gap to the next onset; the remainder becomes a rest
-   - a `noteIndex` chosen with weighted probabilities
+   - a `noteIndex` chosen per the Note Variance toggle (see below)
    - an `octave` selected within the provided range
 
 ### Rhythm model
 
-The rhythmic pattern is driven by:
-- `rhythmicDensity` (target onsets per measure)
-- `rhythmicMotifLength` (motif length in subdivision units)
-- `subdivisions` (default `16`)
+Density is a percentage of either the full measure or one motif cell, gated by the Motif Length toggle:
 
-The algorithm repeats a base motif across the measure and spreads extra onsets to the first copies of that motif. If the motif length is too short to support repetition, it falls back to picking unique positions directly.
+- **Motif Length inactive** (`rhythmicMotifLength.active === false`): `rhythmicDensity`% of the full 16-step measure is filled, with onsets scattered freely (no repeating structure). Onset count = `round(density/100 * subdivisions)`, floored to a minimum of 1.
+- **Motif Length active**: `rhythmicDensity`% of a `rhythmicMotifLength.value`-step cell (1–8 steps) is filled, and that identically-filled cell tiles across the measure, truncating at measure end. Per-cell onset count = `round(density/100 * value)`, floored to a minimum of 1; the total onset count passed to `buildMotifOnsets()` is `perCell * repeats` (`repeats = floor(subdivisions / value)`) so every repeat gets exactly the same fill — no remainder distributed unevenly across copies, unlike the pre-percentage model.
+
+`buildMotifOnsets()`'s own contract is unchanged: it still takes a plain total onset count, a motif length, and `subdivisions`, and still falls back to picking unique positions directly (ignoring the motif length as a tiling boundary) if the motif length is too short relative to `subdivisions` to support repetition.
 
 ## Duration Selection
 
@@ -95,10 +101,10 @@ This makes lower indices more common than higher ones.
 
 ### Note variance controls
 
-The `noteVariance` option constrains how many unique note indices are used:
-- `0` → no constraint; use weighted selection normally
-- `1..7` → prefer a limited set of unique notes
-- `8` → use all eight note indices without replacement
+The `noteVariance` option is a `{ active, value }` toggle:
+- `active: false` → **unweighted**, unconstrained random pick from all 8 indices (`Math.floor(rand() * 8)`). This is a deliberate behavior change from the pre-refactor `noteVariance === 0` default, which was still weighted — "off" now genuinely means no weighting at all, not just no uniqueness constraint.
+- `active: true, value: 1..7` → prefer a limited set of `value` unique notes, weighted among the established set once it fills
+- `active: true, value: 8` → use all eight note indices without replacement
 
 ## Variance Helpers
 
@@ -111,10 +117,12 @@ These helpers are pure and return a new melody array when a change occurs.
 
 ## Constants of Interest
 
-- `MIN_EVENTS = 4`
-- `MAX_EVENTS = 12`
-- `DEFAULT_RHYTHMIC_DENSITY = 8`
-- `DEFAULT_RHYTHMIC_MOTIF_LENGTH = 8`
+- `RHYTHMIC_DENSITY_MIN = 0`, `RHYTHMIC_DENSITY_MAX = 100` (`src/constants/index.ts`) — the shared 0-100% fill-rate range. Was `4`/`12` (an onset count) before this phase.
+- `RHYTHMIC_MOTIF_LENGTH_MIN = 1`, `RHYTHMIC_MOTIF_LENGTH_MAX = 8` (`src/constants/index.ts`) — the shared `ToggleValue.value` range for Motif Length. `RHYTHMIC_MOTIF_LENGTH_MAX` was `16` before this phase.
+- `NOTE_VARIANCE_MIN = 1`, `NOTE_VARIANCE_MAX = 8` (`src/constants/index.ts`) — the shared `ToggleValue.value` range for Note Variance. `NOTE_VARIANCE_MIN` was `0` before this phase (`0` meant "off"; now "off" is `active: false`, so `value` itself never needs to reach `0`).
+- `DEFAULT_RHYTHMIC_DENSITY = 50` — a clean round mid-point of the new percentage range (was `8`, out of the old `4-12` range).
+- `DEFAULT_RHYTHMIC_MOTIF_LENGTH = { active: true, value: 8 }` — behavior-preserving with the pre-refactor always-tiling-at-8 default (motif tiling had no off switch before this phase).
+- `DEFAULT_NOTE_VARIANCE = { active: false, value: 1 }` — behavior-preserving with the pre-refactor `noteVariance === 0` default.
 - `DEFAULT_SUBDIVISIONS = 16`
 - `OCTAVE_JUMP_CHANCE = 0.15`
 - `DEFAULT_VARIANCE_PROBABILITY = 0.20`
@@ -127,12 +135,11 @@ import { generateMelodyForRobot } from '../engine/melodyGenerator';
 import { AudioEngine } from '../engine/AudioEngine';
 
 const melody = generateMelodyForRobot({
-  onsetCount: 6,
   octaveMin: 2,
   octaveMax: 5,
-  rhythmicDensity: 6,
-  rhythmicMotifLength: 8,
-  noteVariance: 2,
+  rhythmicDensity: 60,                              // 60% fill rate
+  rhythmicMotifLength: { active: true, value: 8 },  // tile an 8-step cell across the measure
+  noteVariance: { active: true, value: 2 },         // weighted slice of 2 notes
 });
 
 AudioEngine.registerRobotMelody(robot.id, melody);
@@ -154,3 +161,8 @@ The current tests cover:
 - duration selection through `pickDurationForGap()` (never exceeds the available gap, weighted toward longer durations)
 - duration mapping through `gridUnitsToDuration()`
 - onset construction through `buildMotifOnsets()`
+- the density→onset-count floor of 1 (a `rhythmicDensity` roll of `0` never produces a silent melody), in both the scatter and tiled branches
+- exact rounded onset counts at representative density percentages (100/50/25%) against the full measure
+- identical per-window onset counts when Motif Length tiling is active (no remainder skew across repeat copies)
+- Note Variance's `active: false` branch producing genuinely unweighted selection, distinct from the old always-weighted default
+- `onsetCount` being rejected at compile time (`@ts-expect-error`)

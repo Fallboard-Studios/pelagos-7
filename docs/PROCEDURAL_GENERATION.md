@@ -58,7 +58,7 @@ getSeededVal(noiseMap: NoiseFunction2D, dataId: string, offset?: number, min?: n
 
 | Module | Uses it for |
 |---|---|
-| `spawnSystem.ts` | Robot name (adjective/noun pick), spawn edge/position, full `AudioAttributes` (ADSR, octave register, filter frequency, waveform, oscillator layers, phase/detune/pulse width), copy-vs-generate-fresh chance, copy source pick, motif length, note variance, master volume, and the injected `rand` function passed to `generateMelodyForRobot` |
+| `spawnSystem.ts` | Robot ID (`generateRobotId()`, replacing `crypto.randomUUID()`), robot name (adjective/noun pick), spawn edge/position, full `AudioAttributes` (ADSR, octave register, filter frequency, waveform, oscillator layers, phase/detune/pulse width), copy-vs-generate-fresh chance, copy source pick, rhythmic density, motif length active/value, note variance active/value, master volume, and the injected `rand` function passed to `generateMelodyForRobot` |
 | `idleSystem.ts` | `pickDestination()` — idle wander target `x`/`y`, keyed by `spawnIndex` and move count |
 | `interactionSystem.ts` | Melody event index selection for each robot's interaction sound pick |
 | `melodyGenerator.ts` | Never imports `noiseMaps`/`getSeededVal` directly — takes an injectable `rand: () => number` (defaults to `Math.random`). `spawnSystem.ts` wires `getSeededVal(noiseMap, 'melody.rand', ...)` in as that function so melody generation stays seeded without coupling the generator to the noise-map registry |
