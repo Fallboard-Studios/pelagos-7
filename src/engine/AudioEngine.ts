@@ -83,7 +83,7 @@ const VELOCITY_MIN = 0.05;
  * accent on the "downbeat" of each tiled group. No effect in scatter mode
  * (rhythmicMotifLength.active === false), since there are no groups to accent.
  */
-const GROUP_ACCENT_MULTIPLIER = 1.15;
+const GROUP_ACCENT_MULTIPLIER = 1.25;
 
 // Precompute data X positions for seeded noise sampling (module scope — hot path safe)
 const VELOCITY_ROLL_X = precomputeDataX('audio.velocityRoll');
