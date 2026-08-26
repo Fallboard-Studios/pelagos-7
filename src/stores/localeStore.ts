@@ -17,6 +17,20 @@ import {
 } from '../constants';
 import { swallow } from '../utils/helpers';
 
+/**
+ * Clamp a { active, value } toggle payload (rhythmicMotifLength/noteVariance) to
+ * [min, max], coercing `active` to a real boolean. Returns undefined for anything
+ * that isn't a well-formed object with a finite `value` — notably the old
+ * pre-refactor bare-number shape — so the caller can reject it instead of
+ * silently mis-clamping a number that was never meant to be read as `.value`.
+ */
+function clampToggleValue(v: unknown, min: number, max: number): { active: boolean; value: number } | undefined {
+  if (typeof v !== 'object' || v === null) return undefined;
+  const { active, value } = v as { active?: unknown; value?: unknown };
+  if (typeof value !== 'number' || !Number.isFinite(value)) return undefined;
+  return { active: Boolean(active), value: Math.max(min, Math.min(max, Math.trunc(value))) };
+}
+
 const DEFAULT_LOCALE: Locale = {
   id: DEFAULT_LOCALE_ID,
   planetId: 'pelagos',
@@ -117,11 +131,23 @@ export const useLocaleStore = create<LocaleState>((set, get) => ({
       if (typeof normalized.rhythmicDensity === 'number') {
         normalized.rhythmicDensity = Math.max(RHYTHMIC_DENSITY_MIN, Math.min(RHYTHMIC_DENSITY_MAX, Math.trunc(normalized.rhythmicDensity)));
       }
-      if (typeof normalized.rhythmicMotifLength === 'number') {
-        normalized.rhythmicMotifLength = Math.max(RHYTHMIC_MOTIF_LENGTH_MIN, Math.min(RHYTHMIC_MOTIF_LENGTH_MAX, Math.trunc(normalized.rhythmicMotifLength)));
+      if (normalized.rhythmicMotifLength !== undefined) {
+        const clamped = clampToggleValue(normalized.rhythmicMotifLength, RHYTHMIC_MOTIF_LENGTH_MIN, RHYTHMIC_MOTIF_LENGTH_MAX);
+        if (clamped) {
+          normalized.rhythmicMotifLength = clamped;
+        } else {
+          // Malformed payload (e.g. the old pre-refactor bare-number shape) —
+          // reject rather than silently mis-clamp it as if it were the new shape.
+          delete normalized.rhythmicMotifLength;
+        }
       }
-      if (typeof normalized.noteVariance === 'number') {
-        normalized.noteVariance = Math.max(NOTE_VARIANCE_MIN, Math.min(NOTE_VARIANCE_MAX, Math.trunc(normalized.noteVariance)));
+      if (normalized.noteVariance !== undefined) {
+        const clamped = clampToggleValue(normalized.noteVariance, NOTE_VARIANCE_MIN, NOTE_VARIANCE_MAX);
+        if (clamped) {
+          normalized.noteVariance = clamped;
+        } else {
+          delete normalized.noteVariance;
+        }
       }
       if (Array.isArray(normalized.octaveRange) && normalized.octaveRange.length === 2) {
         let [minO, maxO] = (normalized.octaveRange as unknown[]).map((v: unknown) => Number(v));
