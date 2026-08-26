@@ -4,7 +4,7 @@
 import gsap from 'gsap';
 
 import type { NoiseFunction2D } from 'simplex-noise';
-import { RobotState } from '../types/Robot';
+import { RobotState, DockingState } from '../types/Robot';
 import useLocaleStore from '../stores/localeStore';
 import { createSwimTimeline } from '../animation/swimAnimation';
 import { getLocaleNoiseMap } from '../utils/noiseMaps';
@@ -74,8 +74,8 @@ export function handleRobotIdle(localeId: string, robotId: string): void {
   const store = useLocaleStore.getState();
   const robot = store.getRobotById(localeId, robotId);
 
-  if (!robot || robot.state !== RobotState.Idle) {
-    console.warn(`[IdleSystem] Robot ${robotId} not found or not Idle (state: ${robot?.state})`);
+  if (!robot || robot.state !== RobotState.Idle || robot.docking !== DockingState.Active) {
+    console.warn(`[IdleSystem] Robot ${robotId} not found or not Idle/Active (state: ${robot?.state}, docking: ${robot?.docking})`);
     return;
   }
 
