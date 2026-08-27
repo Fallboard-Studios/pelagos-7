@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 
 import { RobotDisplaySection } from './RobotDisplaySection';
 import { useLocaleStore } from '@/stores/localeStore';
+import { useUIStore } from '@/stores/uiStore';
 import { getActiveLocaleId } from '@/utils/localeHelpers';
 import { lfoEngine } from '@/engine/lfoEngine';
 import { AudioEngine } from '@/engine/AudioEngine';
@@ -56,6 +57,29 @@ describe('RobotDisplaySection', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     useLocaleStore.getState().setLocaleData(localeId, { robots: [] } as unknown as Partial<Locale>);
+    useUIStore.getState().setActiveLocaleLocalTime(null);
+  });
+
+  it('renders the same sunlight/time-agnostic robot avatar RobotSelectionCard uses (ignoreDaylight passed through)', () => {
+    const robot = makeRobot();
+    useLocaleStore.getState().addRobot(localeId, robot);
+
+    useUIStore.getState().setActiveLocaleLocalTime(12);
+    const { container: noon, unmount } = render(<RobotDisplaySection robot={robot} />);
+    const noonPath = noon.querySelector('path');
+    expect(noonPath).not.toBeNull();
+    const noonFill = noonPath!.getAttribute('fill');
+    unmount();
+
+    useUIStore.getState().setActiveLocaleLocalTime(0);
+    const { container: midnight, unmount: unmountMidnight } = render(<RobotDisplaySection robot={robot} />);
+    const midnightPath = midnight.querySelector('path');
+    expect(midnightPath).not.toBeNull();
+    const midnightFill = midnightPath!.getAttribute('fill');
+    unmountMidnight();
+
+    expect(noonFill).not.toBeNull();
+    expect(midnightFill).toBe(noonFill);
   });
 
   it('renders Name/Job/Battery/Docking as plain text with no input/button role attached', () => {

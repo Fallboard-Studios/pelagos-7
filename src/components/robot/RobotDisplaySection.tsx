@@ -1,3 +1,4 @@
+import { RobotBody } from '@/components/robot/RobotBody';
 import { DualLabel } from '@/components/ui/controls/DualLabel';
 import { RadioButton } from '@/components/ui/controls/RadioButton';
 import { SliderLinear } from '@/components/ui/controls/SliderLinear';
@@ -31,10 +32,12 @@ interface RobotDisplaySectionProps {
 
 /**
  * Robot Options' always-visible header block (not an AccordionContainer — see
- * docs/specs/ROBOT_OPTIONS.md §1). Name/Job/Battery/Docking are plain read-only DualLabel rows,
- * the exact display pattern Phase 8's RobotSelectionCard already established — no job
- * reassignment, no docking-state override (both stay fully system-driven). Audio Setting and
- * Volume (with its LFO frame) are the only editable controls here.
+ * docs/specs/ROBOT_OPTIONS.md §1). The avatar and Name/Job/Battery/Docking rows all reuse the
+ * exact display pattern Phase 8's RobotSelectionCard already established — same sunlight/time-
+ * agnostic RobotBody rendering (ignoreDaylight, so the portrait reads consistently regardless of
+ * the active locale's time of day), same read-only DualLabel rows, no job reassignment, no
+ * docking-state override (both stay fully system-driven). Audio Setting and Volume (with its LFO
+ * frame) are the only editable controls here.
  */
 export function RobotDisplaySection({ robot }: RobotDisplaySectionProps) {
   const localeId = getActiveLocaleId();
@@ -76,6 +79,10 @@ export function RobotDisplaySection({ robot }: RobotDisplaySectionProps) {
 
   return (
     <div className="robot-display-section">
+      <svg className="robot-display-section__avatar" viewBox="-80 -80 160 160" aria-hidden="true">
+        <RobotBody robot={robot} ignoreDaylight />
+      </svg>
+
       <div className="robot-display-section__row">
         <DualLabel {...ROBOT_SELECTION_ROW_SCHEMAS.name} />
         <span className="robot-display-section__value">{robot.name || robot.id}</span>
