@@ -1,6 +1,8 @@
 import { RobotBody } from '@/components/robot/RobotBody';
 import { DualLabel } from '@/components/ui/controls/DualLabel';
+import { Select } from '@/components/ui/controls/Select';
 import { AudioSettingSection, type AudioSettingValue } from '@/components/robot/AudioSettingSection';
+import { useLocaleStore } from '@/stores/localeStore';
 import { getActiveLocaleId } from '@/utils/localeHelpers';
 import { applyAudioMode, applyVolume, applyVolumeLfo } from '@/systems/robotOptionsActions';
 import { DEFAULT_LFO_SETTINGS } from '@/data/lfoConfig';
@@ -11,6 +13,7 @@ import {
   DOCKING_STATE_LABELS,
 } from '@/data/robotSelectionConfig';
 import { VOLUME_LFO_TARGET } from '@/data/robotOptionsConfig';
+import { FREELANCE_VALUE, buildCompanySelectSchema } from '@/data/companyConfig';
 import type { Robot } from '@/types/Robot';
 import type { LfoValue } from '@/types/controls';
 
@@ -33,6 +36,12 @@ interface RobotDisplaySectionProps {
 export function RobotDisplaySection({ robot }: RobotDisplaySectionProps) {
   const localeId = getActiveLocaleId();
   const jobLabel = robot.job ? JOB_TYPE_LABELS[robot.job.type] : UNASSIGNED_JOB_LABEL;
+  const companies = useLocaleStore((s) => s.locales[localeId]?.companies ?? []);
+  const companySelectSchema = buildCompanySelectSchema(companies);
+
+  const handleCompanyChange = (value: string) => {
+    useLocaleStore.getState().assignRobotToCompany(localeId, robot.id, value === FREELANCE_VALUE ? null : value);
+  };
 
   const audioSettingValue: AudioSettingValue = {
     audioMode: robot.audioMode ?? 'none',
@@ -62,6 +71,14 @@ export function RobotDisplaySection({ robot }: RobotDisplaySectionProps) {
       <div className="robot-display-section__row">
         <DualLabel {...ROBOT_SELECTION_ROW_SCHEMAS.docking} />
         <span className="robot-display-section__value">{DOCKING_STATE_LABELS[robot.docking].humanLabel}</span>
+      </div>
+
+      <div className="robot-display-section__row">
+        <Select
+          schema={companySelectSchema}
+          value={robot.companyId ?? FREELANCE_VALUE}
+          onChange={handleCompanyChange}
+        />
       </div>
 
       <AudioSettingSection

@@ -51,12 +51,12 @@ describe('RobotDisplaySection', () => {
   const localeId = getActiveLocaleId();
 
   beforeEach(() => {
-    useLocaleStore.getState().setLocaleData(localeId, { robots: [] } as unknown as Partial<Locale>);
+    useLocaleStore.getState().setLocaleData(localeId, { robots: [], companies: [] } as unknown as Partial<Locale>);
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
-    useLocaleStore.getState().setLocaleData(localeId, { robots: [] } as unknown as Partial<Locale>);
+    useLocaleStore.getState().setLocaleData(localeId, { robots: [], companies: [] } as unknown as Partial<Locale>);
     useUIStore.getState().setActiveLocaleLocalTime(null);
   });
 
@@ -164,5 +164,50 @@ describe('RobotDisplaySection', () => {
 
     expect(lfoEngine.connectLfoTarget).toHaveBeenCalledWith('volume', robot.id);
     expect(lfoEngine.start).toHaveBeenCalledWith('volume', robot.id);
+  });
+
+  describe('company assignment (Roadmap Phase 10)', () => {
+    it('defaults to "Freelance" for an unassigned robot', () => {
+      const robot = makeRobot({ companyId: undefined });
+      useLocaleStore.getState().addRobot(localeId, robot);
+      render(<RobotDisplaySection robot={robot} />);
+
+      expect(screen.getByRole('combobox').textContent).toContain('Freelance');
+    });
+
+    it('shows the assigned company\'s name when the robot belongs to one', () => {
+      const robot = makeRobot({ companyId: 'c1' });
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: [robot.id] });
+      useLocaleStore.getState().addRobot(localeId, robot);
+      render(<RobotDisplaySection robot={robot} />);
+
+      expect(screen.getByRole('combobox').textContent).toContain('Iron Consortium');
+    });
+
+    it('selecting a company calls assignRobotToCompany with that company\'s id', () => {
+      const robot = makeRobot({ companyId: undefined });
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: [] });
+      useLocaleStore.getState().addRobot(localeId, robot);
+      const assignSpy = vi.spyOn(useLocaleStore.getState(), 'assignRobotToCompany');
+      render(<RobotDisplaySection robot={robot} />);
+
+      fireEvent.click(screen.getByRole('combobox'));
+      fireEvent.click(screen.getByRole('option', { name: 'Iron Consortium' }));
+
+      expect(assignSpy).toHaveBeenCalledWith(localeId, robot.id, 'c1');
+    });
+
+    it('selecting "Freelance" calls assignRobotToCompany with null', () => {
+      const robot = makeRobot({ companyId: 'c1' });
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: [robot.id] });
+      useLocaleStore.getState().addRobot(localeId, robot);
+      const assignSpy = vi.spyOn(useLocaleStore.getState(), 'assignRobotToCompany');
+      render(<RobotDisplaySection robot={robot} />);
+
+      fireEvent.click(screen.getByRole('combobox'));
+      fireEvent.click(screen.getByRole('option', { name: 'Freelance' }));
+
+      expect(assignSpy).toHaveBeenCalledWith(localeId, robot.id, null);
+    });
   });
 });
