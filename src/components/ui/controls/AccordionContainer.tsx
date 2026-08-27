@@ -89,10 +89,12 @@ export function AccordionContainer({ schema, children, defaultOpen = false, cont
   // Color is JS-owned (computed from the single statusLightColors source), motion stays
   // CSS-owned (the pulse animation in AccordionContainer.css) — same split PowerRockerSwitch
   // uses. contentActive === undefined means "no domain active concept" — unlit dot, no inline
-  // style at all, matching the plain currentColor default in CSS.
+  // style at all, matching the plain currentColor default in CSS. The glow alpha (0.7 active,
+  // 0.55 inactive) and box-shadow geometry below preserve the original hand-tuned values —
+  // active reads deliberately brighter/bigger than inactive, not just a different hue.
   const light = contentActive === undefined
     ? null
-    : getStatusLightColor(contentActive ? 'green' : 'red');
+    : getStatusLightColor(contentActive ? 'green' : 'red', contentActive ? 0.7 : 0.55);
 
   return (
     <Accordion.Root
@@ -120,7 +122,7 @@ export function AccordionContainer({ schema, children, defaultOpen = false, cont
               className="sc-accordion__light"
               aria-hidden="true"
               data-content-active={contentActive === undefined ? undefined : String(contentActive)}
-              style={light ? { color: light.color, boxShadow: `0 0 4px 1px ${light.glow}` } : undefined}
+              style={light ? { color: light.color, boxShadow: `0 0 ${contentActive ? '5px 2px' : '4px 1px'} ${light.glow}` } : undefined}
             />
           </Accordion.Trigger>
         </Accordion.Header>

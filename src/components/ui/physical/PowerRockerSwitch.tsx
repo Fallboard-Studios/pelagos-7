@@ -195,10 +195,13 @@ export function PowerRockerSwitch() {
   // Color is JS-owned (getStatusLightColor, the single statusLightColors source), motion stays
   // CSS-owned (the pulse animation in PowerRockerSwitch.css) — transitioning (amber) takes
   // precedence over the steady-state power color while true, matching the CSS cascade order
-  // this replaces (`[data-transitioning="true"]` came after the power-state rules).
+  // this replaces (`[data-transitioning="true"]` came after the power-state rules). Glow alpha
+  // and box-shadow geometry (below) preserve the original hand-tuned per-state values — "on" is
+  // deliberately the brightest/biggest glow, not just a different hue from "off"/"transitioning".
   const lightColor = isTransitioning
-    ? getStatusLightColor('amber')
-    : getStatusLightColor(isPoweredOn ? 'green' : 'red');
+    ? getStatusLightColor('amber', 0.5)
+    : getStatusLightColor(isPoweredOn ? 'green' : 'red', isPoweredOn ? 0.7 : 0.55);
+  const lightGlowSpread = isTransitioning ? '6px 2px' : isPoweredOn ? '8px 3px' : '6px 2px';
 
   return (
     <>
@@ -211,7 +214,7 @@ export function PowerRockerSwitch() {
             aria-label={isPoweredOn ? 'Power on' : 'Power off'}
             data-power-state={powerState}
             data-transitioning={isTransitioning ? 'true' : undefined}
-            style={{ color: lightColor.color, boxShadow: `0 0 6px 2px ${lightColor.glow}` }}
+            style={{ color: lightColor.color, boxShadow: `0 0 ${lightGlowSpread} ${lightColor.glow}` }}
           />
         </div>
 

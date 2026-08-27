@@ -65,4 +65,17 @@ describe('PowerRockerSwitch', () => {
     expect(light.getAttribute('data-transitioning')).toBe('true');
     expect(light.style.color).toBe(normalizeColor(getStatusLightColor('amber').color));
   });
+
+  it("gives the 'on' glow more presence than 'off' or 'transitioning' — not just a different hue", () => {
+    // Regression guard: unifying all three states onto statusLightColors must not flatten the
+    // original hand-tuned distinction ("on" reads deliberately brighter/bigger than the others).
+    const { container: offContainer } = render(<PowerRockerSwitch />);
+    const offGlow = (offContainer.querySelector('.rocker-light') as HTMLElement).style.boxShadow;
+
+    mockIsPoweredOn = true;
+    const { container: onContainer } = render(<PowerRockerSwitch />);
+    const onGlow = (onContainer.querySelector('.rocker-light') as HTMLElement).style.boxShadow;
+
+    expect(onGlow).not.toBe(offGlow);
+  });
 });

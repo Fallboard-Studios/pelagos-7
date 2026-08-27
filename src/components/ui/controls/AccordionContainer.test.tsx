@@ -169,6 +169,22 @@ describe('AccordionContainer', () => {
     expect(light.style.color).toBe(normalizeColor(expected.color));
   });
 
+  it('gives the active (green) glow more presence than the inactive (red) glow — not just a different hue', () => {
+    // Regression guard: unifying both states onto statusLightColors must not flatten the
+    // original hand-tuned distinction (active reads deliberately brighter/bigger).
+    const { container: activeContainer } = render(
+      <AccordionContainer schema={schema} contentActive={true}>Content</AccordionContainer>
+    );
+    const activeGlow = (activeContainer.querySelector('.sc-accordion__light') as HTMLElement).style.boxShadow;
+
+    const { container: inactiveContainer } = render(
+      <AccordionContainer schema={{ ...schema, id: 'pingControls2' }} contentActive={false}>Content</AccordionContainer>
+    );
+    const inactiveGlow = (inactiveContainer.querySelector('.sc-accordion__light') as HTMLElement).style.boxShadow;
+
+    expect(activeGlow).not.toBe(inactiveGlow);
+  });
+
   it('applies no inline color/box-shadow when contentActive is omitted (unlit dot)', () => {
     const { container } = render(<AccordionContainer schema={schema}>Content</AccordionContainer>);
     const light = container.querySelector('.sc-accordion__light') as HTMLElement;
