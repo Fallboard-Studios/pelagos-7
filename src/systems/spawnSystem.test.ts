@@ -58,15 +58,18 @@ describe('spawnSystem', () => {
       expect(['sine', 'square', 'triangle', 'sawtooth', 'pulse']).toContain(attrs.waveform);
     });
 
-    it('generates ADSR values in valid ranges', () => {
+    it('generates ADSR values within the unified 0-5s generation range (Roadmap Phase 9)', () => {
+      // attack/decay/release used to have mismatched per-field maxes (2/2/5) narrower than the
+      // Ping Contour drawer's 0-10s edit range; Phase 9 unifies generation to a flat 0-5s so it's
+      // still narrower than the edit range without three different arbitrary per-field caps.
       const attrs = generateAudioAttributes(mockNoiseMap, 0);
-      expect(attrs.adsr.attack).toBeGreaterThanOrEqual(0.01);
-      expect(attrs.adsr.attack).toBeLessThanOrEqual(2.0);
-      expect(attrs.adsr.decay).toBeGreaterThanOrEqual(0.05);
-      expect(attrs.adsr.decay).toBeLessThanOrEqual(2.0);
+      expect(attrs.adsr.attack).toBeGreaterThanOrEqual(0);
+      expect(attrs.adsr.attack).toBeLessThanOrEqual(5.0);
+      expect(attrs.adsr.decay).toBeGreaterThanOrEqual(0);
+      expect(attrs.adsr.decay).toBeLessThanOrEqual(5.0);
       expect(attrs.adsr.sustain).toBeGreaterThanOrEqual(0.0);
       expect(attrs.adsr.sustain).toBeLessThanOrEqual(1.0);
-      expect(attrs.adsr.release).toBeGreaterThanOrEqual(0.1);
+      expect(attrs.adsr.release).toBeGreaterThanOrEqual(0);
       expect(attrs.adsr.release).toBeLessThanOrEqual(5.0);
     });
 
@@ -97,19 +100,13 @@ describe('spawnSystem', () => {
       expect(uniqueAttacks.size).toBeGreaterThan(10); // Should have variety
     });
 
-    it('creates layers with 1..MAX_LAYERS and shapeParams in range', () => {
+    it('always produces exactly 3 layers (Baseline/Coaxial/Harmonic), Baseline always active, shapeParams in range', () => {
       const attrs = generateAudioAttributes(mockNoiseMap, 0);
       const vm = attrs.visualAudioMap;
       expect(vm).toBeDefined();
       const layers = attrs.layers ?? [];
-      expect(layers.length).toBeGreaterThanOrEqual(1);
-      expect(layers.length).toBeLessThanOrEqual(5);
-      // averagedADSR should be within ADSR_MAX-derived bounds
-      expect(vm?.averagedADSR).toBeDefined();
-      expect(vm?.averagedADSR?.attack).toBeGreaterThanOrEqual(0);
-      expect(vm?.averagedADSR?.decay).toBeGreaterThanOrEqual(0);
-      expect(vm?.averagedADSR?.sustain).toBeGreaterThanOrEqual(0);
-      expect(vm?.averagedADSR?.release).toBeGreaterThanOrEqual(0);
+      expect(layers).toHaveLength(3);
+      expect(layers[0].active).toBe(true);
       // shape params 0..1
       expect(vm?.shapeParams?.scale).toBeGreaterThanOrEqual(0);
       expect(vm?.shapeParams?.scale).toBeLessThanOrEqual(1);
@@ -119,20 +116,40 @@ describe('spawnSystem', () => {
       expect(vm?.shapeParams?.detail).toBeLessThanOrEqual(1);
     });
 
-    it('averagedADSR equals single layer ADSR when only one layer (deterministic)', () => {
-      // deterministicNoiseMap always returns -1, mapping every getSeededVal to its min.
-      // numLayers = 1 + floor(0) = 1; all ADSR values = their respective minimums.
+    it('no layer is ever typed \'noise\' — dropped entirely per Roadmap Phase 9', () => {
+      const attributes = Array.from({ length: 50 }, (_, i) => generateAudioAttributes(mockNoiseMap, i));
+      const allTypes = attributes.flatMap((a) => (a.layers ?? []).map((l) => l.type));
+      expect(allTypes.length).toBeGreaterThan(0);
+      expect(allTypes).not.toContain('noise');
+      const validWaveforms = ['sine', 'square', 'triangle', 'sawtooth', 'pulse'];
+      allTypes.forEach((t) => expect(validWaveforms).toContain(t));
+    });
+
+    it('has no averagedADSR field — nothing left to average with one shared envelope', () => {
+      const attrs = generateAudioAttributes(mockNoiseMap, 0);
+      expect((attrs.visualAudioMap as unknown as { averagedADSR?: unknown })?.averagedADSR).toBeUndefined();
+    });
+
+    it('shapeParams derive directly from the shared adsr (deterministic: min-valued adsr -> scale 1, roundness/detail 0)', () => {
+      // deterministicNoiseMap always returns -1, mapping every getSeededVal to its min: adsr is
+      // {attack: 0, decay: 0, sustain: 0, release: 0}. Normalized by ADSR_MAX
+      // ({attack:2, decay:2, sustain:1, release:5}), every ratio is 0.
       const attrs = generateAudioAttributes(deterministicNoiseMap, 0);
-      const layers = attrs.layers ?? [];
-      // With noiseMap always -1 we always get exactly 1 layer
-      expect(layers.length).toBe(1);
-      const layerAdsr = layers[0].adsr!;
-      const avg = attrs.visualAudioMap!.averagedADSR!;
-      // Gain-weighted average of a single layer equals that layer's own values
-      expect(avg.attack).toBeCloseTo(layerAdsr.attack as number, 6);
-      expect(avg.decay).toBeCloseTo(layerAdsr.decay as number, 6);
-      expect(avg.sustain).toBeCloseTo(layerAdsr.sustain as number, 6);
-      expect(avg.release).toBeCloseTo(layerAdsr.release as number, 6);
+      expect(attrs.adsr).toEqual({ attack: 0, decay: 0, sustain: 0, release: 0 });
+      const shapeParams = attrs.visualAudioMap!.shapeParams!;
+      expect(shapeParams.scale).toBeCloseTo(1, 6);      // 0.25 + (1 - 0/2) * 0.75
+      expect(shapeParams.roundness).toBeCloseTo(0, 6);  // 0/1
+      expect(shapeParams.detail).toBeCloseTo(0, 6);     // 0/5
+    });
+
+    it('Coaxial and Harmonic are each independently seeded active/inactive (not both forced the same value)', () => {
+      const attributes = Array.from({ length: 60 }, (_, i) => generateAudioAttributes(mockNoiseMap, i));
+      const coaxialActive = attributes.map((a) => a.layers![1].active);
+      const harmonicActive = attributes.map((a) => a.layers![2].active);
+      expect(new Set(coaxialActive).size, 'Coaxial should take both true and false across many spawns').toBe(2);
+      expect(new Set(harmonicActive).size, 'Harmonic should take both true and false across many spawns').toBe(2);
+      // Not perfectly correlated — some robot has Coaxial and Harmonic disagreeing
+      expect(attributes.some((a) => a.layers![1].active !== a.layers![2].active)).toBe(true);
     });
   });
 
@@ -142,7 +159,7 @@ describe('spawnSystem', () => {
       expect(Object.keys(settings).sort()).toEqual([...ROBOT_LFO_TARGET_IDS].sort());
     });
 
-    it('every target\'s shape/rate/depth falls within documented bounds', () => {
+    it('every target\'s shape/rate/depth falls within documented bounds, active is a boolean', () => {
       const settings = generateRobotLfoSettings(mockNoiseMap, 0);
       for (const target of ROBOT_LFO_TARGET_IDS) {
         const s = settings[target];
@@ -151,7 +168,14 @@ describe('spawnSystem', () => {
         expect(s.rate, `${target}.rate <= max`).toBeLessThanOrEqual(LFO_RATE_MAX);
         expect(s.depth, `${target}.depth >= min`).toBeGreaterThanOrEqual(LFO_DEPTH_MIN);
         expect(s.depth, `${target}.depth <= max`).toBeLessThanOrEqual(LFO_DEPTH_MAX);
+        expect(typeof s.active, `${target}.active`).toBe('boolean');
       }
+    });
+
+    it('seeds active independently per target — not uniformly all-true or all-false (Roadmap Phase 9)', () => {
+      const settings = generateRobotLfoSettings(mockNoiseMap, 0);
+      const activeValues = ROBOT_LFO_TARGET_IDS.map((t) => settings[t].active);
+      expect(new Set(activeValues).size, 'expected both true and false among the 13 targets').toBe(2);
     });
 
     it('gives different targets different values within the same call — dataIds are genuinely distinct, not colliding', () => {
