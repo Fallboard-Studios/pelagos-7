@@ -1,7 +1,7 @@
 // ========================================
 // IMPORTS
 // ========================================
-import type { SelectSchema, ButtonSchema, TextInputSchema, DualLabelSchema } from '../types/controls';
+import type { SelectSchema, RadioButtonSchema, ButtonSchema, TextInputSchema, DualLabelSchema } from '../types/controls';
 import type { Company } from '../types/Company';
 
 // ========================================
@@ -34,6 +34,28 @@ export function buildCompanySelectSchema(companies: Company[]): SelectSchema {
 // ========================================
 // COMPANY MANAGER — BUTTON ROW / CRUD
 // ========================================
+
+/** Distinct sentinel from FREELANCE_VALUE — two different UI surfaces (the robot-to-company
+ *  assignment Select vs. this row's "view/edit this company's options" RadioButton), each with
+ *  its own "nothing selected" meaning. RadioButton has no Radix empty-string restriction the way
+ *  Select does, but a non-empty sentinel is kept for the same defensive reason and for symmetry. */
+export const NONE_VALUE = '__none__';
+
+/** CompanyButtonRow reuses the RadioButton primitive — a company button row is exactly "one
+ *  active among many, click to select," which RadioButton already implements (including the
+ *  active-state styling), rather than reinventing that with a list of independent Buttons. */
+export function buildCompanyButtonRowSchema(companies: Company[]): RadioButtonSchema {
+  return {
+    id: 'company.buttonRow',
+    type: 'radio',
+    loreLabel: 'UNIT ROSTER',
+    humanLabel: 'Companies',
+    options: [
+      { value: NONE_VALUE, label: 'None' },
+      ...companies.map((c) => ({ value: c.id, label: c.name })),
+    ],
+  };
+}
 
 export const COMPANY_SELECTION_HEADER_SCHEMA: DualLabelSchema = {
   id: 'company.selectionHeader',
