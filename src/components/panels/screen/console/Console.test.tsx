@@ -6,7 +6,7 @@ import { useUIStore } from '@/stores/uiStore';
 
 // This test is about Console's own pointer-events gate (Roadmap Phase 8, Task 10), not about
 // ConsolePanel's content — same boundary ConsolePanel.test.tsx already draws around
-// RobotsTab/RobotEditorTab/AudioRigDrawer/SectorSettingsDrawer. vi.mock calls are hoisted above
+// RobotsTab/RobotOptionsTab/AudioRigDrawer/SectorSettingsDrawer. vi.mock calls are hoisted above
 // imports automatically, so declaration order here doesn't affect the mock taking effect.
 vi.mock('./ConsolePanel', () => ({
   ConsolePanel: () => <div data-testid="console-panel-stub" />,

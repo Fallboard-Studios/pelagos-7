@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { HubNav } from './HubNav';
 import { RobotsTab } from './RobotsTab';
-import { RobotEditorTab } from './RobotEditorTab';
+import { RobotOptionsTab } from './RobotOptionsTab';
 import { AudioRigDrawer } from './AudioRigDrawer';
 import { SectorSettingsDrawer } from './SectorSettingsDrawer';
 import { Button } from '@/components/ui/controls/Button';
@@ -21,7 +21,7 @@ const BACK_SCHEMA: ButtonSchema = { id: 'hubNavBack', type: 'button', humanLabel
  * tiles ignore it.
  */
 const TILE_CONTENT: Record<HubTile, (selectedRobotId: string | null) => ReactNode> = {
-  robots: (selectedRobotId) => (selectedRobotId ? <RobotEditorTab /> : <RobotsTab />),
+  robots: (selectedRobotId) => (selectedRobotId ? <RobotOptionsTab /> : <RobotsTab />),
   audioRig: () => <AudioRigDrawer />,
   settings: () => <SectorSettingsDrawer />,
 };
