@@ -848,6 +848,61 @@ describe('AudioEngine - Motif Group Accent', () => {
   });
 });
 
+describe('AudioEngine.updateRobotMasterVolume', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { settings: { bpm: 120 } });
+  });
+
+  it('updates the cached masterVolume immediately, so the very next scheduled note reflects it', async () => {
+    // BUG this reproduces: robotAttributeCache (keyed by robotId) is populated once on a robot's
+    // first scheduled note and never invalidated on a later masterVolume edit - a live Volume
+    // slider change in Robot Options had no audible effect until this method existed and
+    // RobotDisplaySection called it.
+    const Tone = await import('tone');
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+
+    useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, {
+      robots: [{
+        id: 'volume-live-edit-robot', name: '', state: 'idle', direction: 'right',
+        position: { x: 960, y: 0 }, destination: null, createdAt: Date.now(),
+        melody: [], octaveRange: [3, 4], masterVolume: 0.8, audioMode: 'none',
+        audioAttributes: { adsr: TEST_ADSR, waveform: 'sine', filterFreq: 100 },
+      }] as any,
+    });
+
+    const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0, active: true }];
+    AudioEngine.reserveVoice('volume-live-edit-robot', layered as any, TEST_ADSR);
+    const synthResults = (Tone.Synth as unknown as any).mock.results;
+
+    // First note primes the cache at masterVolume 0.8 (no locale noise map is registered in this
+    // test env, so computeNoteVelocitySeeded's no-noiseMap branch returns masterVolume verbatim).
+    AudioEngine.scheduleNote({ robotId: 'volume-live-edit-robot', note: 'C6', duration: '4n', time: 0 });
+    let firstVelocity: number | undefined;
+    synthResults.forEach((r: any) => r.value?.triggerAttackRelease?.mock?.calls?.forEach((c: any) => {
+      if (c[0] === 'C6') firstVelocity = c[3];
+    }));
+    expect(firstVelocity).toBeCloseTo(0.8, 5);
+
+    // Live edit: RobotDisplaySection's Volume slider calls this after updateRobot.
+    AudioEngine.updateRobotMasterVolume('volume-live-edit-robot', 0.2);
+    synthResults.forEach((r: any) => r.value?.triggerAttackRelease?.mockClear());
+
+    AudioEngine.scheduleNote({ robotId: 'volume-live-edit-robot', note: 'C7', duration: '4n', time: 0.1 });
+    let secondVelocity: number | undefined;
+    synthResults.forEach((r: any) => r.value?.triggerAttackRelease?.mock?.calls?.forEach((c: any) => {
+      if (c[0] === 'C7') secondVelocity = c[3];
+    }));
+    expect(secondVelocity).toBeCloseTo(0.2, 5);
+  });
+
+  it('is a safe no-op (no throw) when the robot has never had a note scheduled yet', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    expect(() => AudioEngine.updateRobotMasterVolume('never-scheduled-robot', 0.5)).not.toThrow();
+  });
+});
+
 // Additional focused unit tests for reservation & isolation
 describe('AudioEngine - Reservation & Isolation (focused)', () => {
   beforeEach(() => {

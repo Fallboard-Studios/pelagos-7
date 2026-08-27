@@ -54,13 +54,20 @@ export const AUDIO_SETTING_SCHEMA: RadioButtonSchema = {
   ],
 };
 
+/**
+ * Display-only 0-100% in 1% steps; the stored value is 0..1 (Robot.masterVolume). Same
+ * display-vs-storage split as Sustain (PING_CONTOUR's SUSTAIN_SCHEMA) — the component consuming
+ * this one must convert pct/100 on write and value*100 on read.
+ */
 export const VOLUME_SCHEMA: SliderLinearSchema = {
   id: 'robotOptions.volume',
   type: 'sliderLinear',
   loreLabel: 'TRANSDUCER PRESSURE INDEX',
   humanLabel: 'Volume',
   min: 0,
-  max: 1,
+  max: 100,
+  step: 1,
+  unit: '%',
 };
 
 /** LFO-modulatable per src/types/lfo.ts's RobotLfoTargetId — editable, per /interview-me

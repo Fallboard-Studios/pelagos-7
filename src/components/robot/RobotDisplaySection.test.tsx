@@ -5,6 +5,7 @@ import { RobotDisplaySection } from './RobotDisplaySection';
 import { useLocaleStore } from '@/stores/localeStore';
 import { getActiveLocaleId } from '@/utils/localeHelpers';
 import { lfoEngine } from '@/engine/lfoEngine';
+import { AudioEngine } from '@/engine/AudioEngine';
 import type { Robot } from '@/types/Robot';
 import type { Locale } from '@/types/locale';
 
@@ -103,19 +104,35 @@ describe('RobotDisplaySection', () => {
     expect(updateSpy).toHaveBeenCalledWith(localeId, robot.id, { audioMode: 'solo' });
   });
 
-  it('Volume slider reflects masterVolume and calls updateRobot on change', () => {
+  it('Volume slider displays 0-100% of the stored masterVolume, in 1% steps', () => {
     const robot = makeRobot({ masterVolume: 0.42 });
     useLocaleStore.getState().addRobot(localeId, robot);
-    const updateSpy = vi.spyOn(useLocaleStore.getState(), 'updateRobot');
     render(<RobotDisplaySection robot={robot} />);
 
     const slider = screen.getByRole('slider', { name: /volume/i });
-    expect(slider.getAttribute('aria-valuenow')).toBe('0.42');
+    expect(slider.getAttribute('aria-valuenow')).toBe('42');
+    expect(slider.getAttribute('aria-valuemin')).toBe('0');
+    expect(slider.getAttribute('aria-valuemax')).toBe('100');
+  });
 
+  it('a Volume edit converts the percent back to 0..1, writes the store, and updates the live AudioEngine cache', () => {
+    const robot = makeRobot({ masterVolume: 0.42 });
+    useLocaleStore.getState().addRobot(localeId, robot);
+    const updateSpy = vi.spyOn(useLocaleStore.getState(), 'updateRobot');
+    const volumeSpy = vi.spyOn(AudioEngine, 'updateRobotMasterVolume').mockImplementation(() => {});
+    render(<RobotDisplaySection robot={robot} />);
+
+    const slider = screen.getByRole('slider', { name: /volume/i });
     fireEvent.keyDown(slider, { key: 'ArrowRight' });
+
     expect(updateSpy).toHaveBeenCalled();
     const [, , update] = updateSpy.mock.calls[0];
-    expect((update as Partial<Robot>).masterVolume).toBeGreaterThan(0.42);
+    const newVolume = (update as Partial<Robot>).masterVolume!;
+    expect(newVolume).toBeCloseTo(0.43, 5); // one 1% step up from 42%
+    // The whole point of this bug fix: a Volume edit must also update AudioEngine's live cache,
+    // not just the store - otherwise the change is silently inaudible (see
+    // AudioEngine.updateRobotMasterVolume's own tests for why).
+    expect(volumeSpy).toHaveBeenCalledWith(robot.id, newVolume);
   });
 
   it('Volume\'s Lfo accordion reflects lfoSettings.volume and wires connectLfoTarget on activation', () => {

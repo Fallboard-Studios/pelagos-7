@@ -912,6 +912,17 @@ export const AudioEngine = {
   },
 
   /**
+   * Immediately updates the cached masterVolume `scheduleNote` reads for velocity, so the very
+   * next scheduled note reflects a live Volume edit (Robot Options' RobotDisplaySection) rather
+   * than the stale value `robotAttributeCache` cached at that robot's first-ever scheduled note.
+   * Safe to call for a robot that has never had a note scheduled yet — simply primes the cache
+   * early rather than leaving it to the next scheduleNote's lazy lookup.
+   */
+  updateRobotMasterVolume(robotId: string, masterVolume: number): void {
+    robotAttributeCache.set(robotId, { masterVolume });
+  },
+
+  /**
    * Create a composite voice made of multiple oscillator layers.
    * Construction itself lives in src/engine/audioEngine/compositeVoice.ts — this is a
    * direct reference to that module's export, kept on the public AudioEngine surface

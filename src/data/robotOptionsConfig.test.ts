@@ -61,9 +61,11 @@ describe('robotOptionsConfig', () => {
     );
   });
 
-  it('Volume is a 0-1 slider paired with the real \'volume\' RobotLfoTargetId', () => {
+  it('Volume displays 0-100% in 1% steps (stored as 0..1 - conversion happens at the component boundary, same as Sustain)', () => {
     expect(VOLUME_SCHEMA.min).toBe(0);
-    expect(VOLUME_SCHEMA.max).toBe(1);
+    expect(VOLUME_SCHEMA.max).toBe(100);
+    expect(VOLUME_SCHEMA.step).toBe(1);
+    expect(VOLUME_SCHEMA.unit).toBe('%');
     expect(VOLUME_LFO_TARGET).toBe('volume');
     expect(ROBOT_LFO_TARGET_IDS).toContain(VOLUME_LFO_TARGET);
   });

@@ -6,6 +6,7 @@ import { Lfo } from '@/components/ui/controls/Lfo';
 import { useLocaleStore } from '@/stores/localeStore';
 import { getActiveLocaleId } from '@/utils/localeHelpers';
 import { lfoEngine } from '@/engine/lfoEngine';
+import { AudioEngine } from '@/engine/AudioEngine';
 import { DEFAULT_LFO_SETTINGS } from '@/data/lfoConfig';
 import {
   ROBOT_SELECTION_ROW_SCHEMAS,
@@ -46,8 +47,15 @@ export function RobotDisplaySection({ robot }: RobotDisplaySectionProps) {
     useLocaleStore.getState().updateRobot(localeId, robot.id, { audioMode: value as Robot['audioMode'] });
   };
 
-  const handleVolumeChange = (value: number) => {
+  // Volume displays 0-100% but stores 0..1 (Robot.masterVolume) — the same display-vs-storage
+  // split PingContourDrawer's Sustain uses. Also updates AudioEngine's live masterVolume cache
+  // directly (not just the store): scheduleNote's velocity lookup caches masterVolume on a
+  // robot's first note and never re-reads the store afterward, so without this the slider moves
+  // but has no audible effect until the cache is separately invalidated.
+  const handleVolumeChange = (pct: number) => {
+    const value = pct / 100;
     useLocaleStore.getState().updateRobot(localeId, robot.id, { masterVolume: value });
+    AudioEngine.updateRobotMasterVolume(robot.id, value);
   };
 
   // Mirrors audioStore.ts's setGlobalLfo pattern, robot-scoped: store write plus the matching
@@ -90,7 +98,7 @@ export function RobotDisplaySection({ robot }: RobotDisplaySectionProps) {
       </div>
 
       <div className="robot-display-section__row">
-        <SliderLinear schema={VOLUME_SCHEMA} value={robot.masterVolume} onChange={handleVolumeChange} />
+        <SliderLinear schema={VOLUME_SCHEMA} value={robot.masterVolume * 100} onChange={handleVolumeChange} />
         <AccordionContainer
           schema={VOLUME_LFO_ACCORDION_SCHEMA}
           defaultOpen={volumeLfo.active}
