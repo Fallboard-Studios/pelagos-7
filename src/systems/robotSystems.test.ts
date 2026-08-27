@@ -75,7 +75,7 @@ function makeRobot(overrides: Partial<Robot> = {}): Robot {
       adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.2 },
       filterFreq: 800,
       waveform: 'sine',
-      layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0 }],
+      layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0, active: true }],
     },
     octaveRange: [3, 4],
     createdAt: Date.now(),
@@ -427,7 +427,7 @@ describe('robotSystems', () => {
     it('does not release the voice or unregister the melody — a user can still override mute in Robot Options and hear it', () => {
       const robot = makeRobot({ id: 'docked-voice-kept', docking: DockingState.Departing });
       setupLocaleWithRobots([robot]);
-      AudioEngine.reserveVoice(robot.id, robot.audioAttributes.layers!);
+      AudioEngine.reserveVoice(robot.id, robot.audioAttributes.layers!, robot.audioAttributes.adsr);
       AudioEngine.registerRobotMelody(robot.id, robot.melody);
 
       landOnDocked(DEFAULT_LOCALE_ID, robot.id);
@@ -439,7 +439,7 @@ describe('robotSystems', () => {
     it('re-registers the melody with AudioEngine so a manual mute override plays the drifted pitches, not the stale ones', () => {
       const robot = makeRobot({ id: 'docked-melody-refreshed', docking: DockingState.Departing });
       setupLocaleWithRobots([robot]);
-      AudioEngine.reserveVoice(robot.id, robot.audioAttributes.layers!);
+      AudioEngine.reserveVoice(robot.id, robot.audioAttributes.layers!, robot.audioAttributes.adsr);
       AudioEngine.registerRobotMelody(robot.id, robot.melody); // stale (pre-drift) melody
 
       landOnDocked(DEFAULT_LOCALE_ID, robot.id);

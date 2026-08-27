@@ -200,27 +200,64 @@ This phase builds Robot Selection as one of the main hub tiles (see Phase 3): se
 
 ### Removal
 
-- Remove every existing raw slider/input in the robot editor — the Audio Mode toggle group, rhythmic density/motif length/note variance sliders, and octave range slider in RobotAudioTab, and the per-layer waveform/gain/detune/phase/ADSR editors in RobotOscillatorsTab — replaced entirely by the Phase 1 primitives
-- Remove per-layer ADSR envelopes — collapse Signature Array editing down to a single shared ADSR envelope per robot instead of one per oscillator layer
+- ~~Remove every existing raw slider/input in the robot editor — the Audio Mode toggle group, rhythmic density/motif length/note variance sliders, and octave range slider in RobotAudioTab, and the per-layer waveform/gain/detune/phase/ADSR editors in RobotOscillatorsTab — replaced entirely by the Phase 1 primitives~~ — **done**. `RobotMetaTab`/`RobotAudioTab`/`RobotOscillatorsTab` deleted outright.
+- ~~Remove per-layer ADSR envelopes — collapse Signature Array editing down to a single shared ADSR envelope per robot instead of one per oscillator layer~~ — **done**. `OscillatorLayer.adsr` removed from the type entirely; every layer's synth reads the one `audioAttributes.adsr` via `AudioEngine.reserveVoice`'s new required `adsr` parameter.
 
 ### Create
 
-- Update data files with inputs for all Robot Options drawers
-- Robot Display drawer (editable job reassignment and docking-state override; read-only audio status, battery gauge, battery warning threshold, z-index distance, and transducer pressure ratio)
-- Ping Controls drawer (rhythmic density, motif length, octave bounds, and a ping-reset action)
-- Ping Contour drawer (single ADSR envelope)
-- Signature Array drawer (Baseline, Coaxial, and Harmonic oscillator layers, with LFO modulation frames and per-layer activation toggles)
-- Every control in every drawer is paired with a Dual Label Component (Phase 1) to display its lore/human attribute name, sourced from robotOptionsConfig.ts
+- ~~Update data files with inputs for all Robot Options drawers~~ — **done**, see `src/data/robotOptionsConfig.ts`.
+- ~~Robot Display drawer~~ — **done, with the scope corrected via `/interview-me`**: Robot Name/Job Data/Battery Data (%)/Docked Status are read-only Dual Label rows (Phase 8's `RobotSelectionCard` pattern) with **no** job reassignment or docking-state override — both stay fully system-driven, correcting an earlier draft of this phase's own prose. Audio Setting (Off/Mute/Solo/Highlight radio) and transducer pressure ratio/Volume (LFO-modulatable, matching `ROBOT_DATA_GRID.md`'s Volume row) are the only editable controls.
+- ~~Ping Controls drawer (rhythmic density, motif length, octave bounds, and a ping-reset action)~~ — **done**. Octave Range Min/Max ship as two independent Steppers (per `ROBOT_DATA_GRID.md`), not a dual-thumb slider. Reset Melody is a plain one-click `Button` — no confirmation dialog, for consistency with every other `Button` in the app.
+- ~~Ping Contour drawer (single ADSR envelope)~~ — **done**. First-ever UI editing `audioAttributes.adsr` directly; edits call the new `AudioEngine.updateVoiceEnvelope` (no audio gap), never a full re-reservation.
+- ~~Signature Array drawer (Baseline, Coaxial, and Harmonic oscillator layers, with LFO modulation frames and per-layer activation toggles)~~ — **done**. Fixed 3-layer array (no more dynamic add/delete); `'noise'` dropped as a selectable layer type; Detune is `±50` cents; Coaxial/Harmonic's Active toggle mutes a layer (excluded from the built composite voice) without discarding its configuration.
+- ~~Every control in every drawer is paired with a Dual Label Component (Phase 1) to display its lore/human attribute name, sourced from robotOptionsConfig.ts~~ — **done**.
+
+**Done** — see [docs/specs/ROBOT_OPTIONS.md](../specs/ROBOT_OPTIONS.md) and
+[docs/tasks/ROBOT_OPTIONS.md](../tasks/ROBOT_OPTIONS.md). Scope ended up correcting this phase's
+own earlier prose (via `/interview-me`), not just building what was drafted: job reassignment,
+docking-state override, and a separate "battery warning threshold" field never existed in
+`ROBOT_DATA_GRID.md` and were struck rather than built — see `docs/intent/robot-options.md`.
+`RobotEditorTab.tsx` was renamed to `RobotOptionsTab.tsx` (it stopped being a tabbed "editor"),
+which also required updating `ConsolePanel.tsx`'s import and `ConsolePanel.test.tsx`'s mocks.
+`AudioEngine.reserveVoice` gained a required `adsr` parameter and a `filterActiveLayers` step —
+placed on `reserveVoice` itself rather than only `reReserveVoice` (the spec's original phrasing),
+since a robot's very first voice reservation happens in `spawnSystem.ts`, never `reReserveVoice`.
+
+**Post-launch fixes, found during manual testing and code review, not part of the original 13
+tasks:** Volume shipped as a 0–1 `SliderLinear` bound straight to `masterVolume`, baked into each
+note's own velocity at schedule time — testing surfaced three real, compounding problems: (1) a
+stale per-robot cache meant edits had no audible effect until a robot's next melody reload; (2)
+`masterVolume: 0` didn't actually mute, since a velocity floor kept a faint level; (3) even once
+live, an edit couldn't reach an already-scheduled/sounding note, since velocity is fixed the
+instant a note triggers. The fix was an architecture change (confirmed with the user first, not
+assumed): Volume moved off per-note velocity entirely onto each robot's own live per-robot bus
+gain (`AudioEngine.reserveVoice`'s `masterVolume` parameter, `AudioEngine.updateRobotMasterVolume`)
+— a continuously-live AudioParam, so an edit now affects anything currently sounding, including a
+note's release tail. The UI display also moved from a raw 0–1 slider to 0–100% in 1% steps, and
+the raw position is now passed through a perceptual/logarithmic taper
+(`src/engine/audioEngine/volumeTaper.ts`) before becoming gain — a linear mapping felt nearly flat
+across most of the fader's travel. Density (Ping Controls) shipped as the grid's literal `Stepper`
+call but proved too slow to dial through a 0–100 range one click at a time, so it became a
+`SliderLinear` instead. The Volume LFO was found to be silently inert at every setting — its
+declared modulation range pinned its swing to exactly `0` regardless of rate/depth/shape (see
+`AUDIO_SYSTEM.md`'s LFO Modulation section) — and Signature Array's Gain and Interval
+sliders had the same missing-`step` bug Volume's original 0–1 toggle had, reachable at only 2–3
+positions instead of a real range. Code review also caught Interval being shown (but inert) for
+Binary/square layers — Tone.js has no width parameter outside `'pulse'` — corrected to Burst/pulse
+only, in both the component and this phase's spec. Finally, `RobotDisplaySection` gained the same
+sunlight/time-agnostic `RobotBody` avatar `RobotSelectionCard` already used, so Robot Options'
+header reads consistently with the Robot Selection hub.
 
 ### About
 
-This phase tears out the existing hand-built robot editor — RobotAudioTab's Audio Mode toggle group and density/motif/note-variance/octave sliders, and RobotOscillatorsTab's per-layer waveform/gain/detune/phase/ADSR editors — and rebuilds it as the Robot Options screen, reached by selecting a robot from the Robot Selection hub tile (Phase 8), scoped entirely to the currently selected robot. We are populating src/data/robotOptionsConfig.ts with parameter schemas for all four drawers and constructing dedicated components in src/components/robot/, each control paired with a DualLabel showing its lore and human attribute name. These include RobotDisplay for job reassignment, docking-state overrides, battery warning thresholds, transducer pressure ratio, and read-only status (audio mode, battery gauge, z-index distance); PingControlsDrawer for rhythmic density, motif length, octave bounds, and a ping-reset action; PingContourDrawer for a single logarithmic ADSR envelope — replacing the current per-layer ADSR editing, so a robot has one shared envelope instead of one per oscillator layer; and SignatureArrayDrawer for configuring Baseline, Coaxial, and Harmonic oscillator layers with LFO modulation frames and layer-activation toggles. All controls will consume schema definitions from our data configs, maintaining strict presentation logic while preparing the UI to connect directly to the underlying Robot Systems Engine (Phase 7).
+This phase tears out the existing hand-built robot editor — RobotAudioTab's Audio Mode toggle group and density/motif/note-variance/octave sliders, and RobotOscillatorsTab's per-layer waveform/gain/detune/phase/ADSR editors — and rebuilds it as the Robot Options screen, reached by selecting a robot from the Robot Selection hub tile (Phase 8), scoped entirely to the currently selected robot. We are populating src/data/robotOptionsConfig.ts with parameter schemas for all four drawers and constructing dedicated components in src/components/robot/, each control paired with a DualLabel showing its lore and human attribute name. These include RobotDisplay for read-only Name/Job/Battery(%)/Docking-status display (unchanged from Phase 8's display pattern, no job/docking override, no gauge widget), plus editable Audio Setting (Off/Mute/Solo/Highlight) and an LFO-modulatable transducer pressure ratio slider; PingControlsDrawer for rhythmic density, motif length, octave bounds, and a ping-reset action; PingContourDrawer for a single logarithmic ADSR envelope — replacing the current per-layer ADSR editing, so a robot has one shared envelope instead of one per oscillator layer; and SignatureArrayDrawer for configuring Baseline, Coaxial, and Harmonic oscillator layers with LFO modulation frames and layer-activation toggles. All controls will consume schema definitions from our data configs, maintaining strict presentation logic while preparing the UI to connect directly to the underlying Robot Systems Engine (Phase 7).
 
 ### Docs
 
-- docs/UI_SHELL.md's "Planned Replacement" point on `robotEditor` becomes real — fold it in and delete the entire "Planned Replacement" section, since by this phase all of Phases 3/7/8/9 have shipped.
-- docs/ROBOT_DESIGN.md's Shape Parameters section describes spawn-time shape values as "the gain-weighted, normalized average of a robot's oscillator layers' ADSR envelopes" — with ADSR moved to a single shared envelope per robot, there's nothing left to average; reword to read directly from the one envelope.
-- docs/AUDIO_SYSTEM.md's "Layered / Composite Voices" section lists an optional per-layer `adsr` field on `OscillatorLayer` — update once ADSR moves off individual layers and onto the robot.
+- ~~docs/UI_SHELL.md's "Planned Replacement" point on `robotEditor` becomes real — fold it in and delete the entire "Planned Replacement" section, since by this phase all of Phases 3/7/8/9 have shipped.~~ — **done**.
+- ~~docs/ROBOT_DESIGN.md's Shape Parameters section describes spawn-time shape values as "the gain-weighted, normalized average of a robot's oscillator layers' ADSR envelopes" — with ADSR moved to a single shared envelope per robot, there's nothing left to average; reword to read directly from the one envelope.~~ — **done**.
+- ~~docs/AUDIO_SYSTEM.md's "Layered / Composite Voices" section lists an optional per-layer `adsr` field on `OscillatorLayer` — update once ADSR moves off individual layers and onto the robot.~~ — **done**. Scope ended up wider than this one section: `AUDIO_SYSTEM.md`'s own `AudioEngine` interface listing (`reserveVoice`/`createCompositeVoice`'s signatures, the new `updateVoiceEnvelope`) and its LFO Seeding section (which had claimed robot-level LFO `active` was "purely a runtime UI concern never part of the generated data" — no longer true once this phase seeded it) both needed the same pass.
+- docs/reference/ROBOT_DATA_GRID.md's Audio Setting Options column corrected to include "Off" (4th option, not the stale 3); Density's Min/Max corrected from `1`/`16` to `0`/`100` (stale since Roadmap Phase 6 shipped, never caught until this phase's spec research) — **done**, not part of the original Docs list but required for the grid to match shipped behavior.
 
 ## 10. Console Theming
 

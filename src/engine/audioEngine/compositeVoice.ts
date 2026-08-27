@@ -2,7 +2,7 @@ import * as Tone from 'tone';
 
 import { getToneCtor, type MinimalToneNode, type SynthWithOscillator } from './toneHelpers';
 import { devWarn } from '@/utils/helpers';
-import type { NoteDuration, WaveformType } from '@/types/Robot';
+import type { ADSREnvelope, NoteDuration, WaveformType } from '@/types/Robot';
 import type { OscillatorLayer } from '@/types/layeredAudio';
 
 /** Create a per-layer gain node connected to `out`, falling back to a stub in headless/test envs. */
@@ -13,11 +13,20 @@ function createLayerGain(value: number, out: Tone.Gain): Tone.Gain {
   return node as unknown as Tone.Gain;
 }
 
+/**
+ * A live-update patch entry for `set({ layers })`. `adsr` is not part of the persisted
+ * `OscillatorLayer` shape (Roadmap Phase 9 moved ADSR to one shared robot-level envelope,
+ * see docs/specs/ROBOT_OPTIONS.md) — it's an ephemeral field this live-update RPC accepts so
+ * AudioEngine.updateVoiceEnvelope can reuse this exact path for envelope edits, the same way it's
+ * reused for gain/detune/phase/pulseWidth. Nothing here is ever written back to `Robot` state.
+ */
+export type LayerLivePatch = Partial<OscillatorLayer> & { adsr?: ADSREnvelope };
+
 // Composite voices (created from LayeredWave descriptors) — the shape reserveVoice stores.
 export interface CompositeVoice {
   output: Tone.Gain;
   triggerAttackRelease: (note: string, dur: NoteDuration | string, time?: number, velocity?: number) => void;
-  set: (params: { layers?: Partial<OscillatorLayer>[]; outputGain?: number }) => void;
+  set: (params: { layers?: LayerLivePatch[]; outputGain?: number }) => void;
   dispose?: () => void;
   /**
    * Per-layer live node references — synth (for oscillator.detune/width) and
@@ -26,19 +35,29 @@ export interface CompositeVoice {
    * Signal without duplicating layer-construction logic outside this module.
    */
   layers?: ReadonlyArray<{
-    synth: Tone.Synth | Tone.NoiseSynth | null;
+    synth: Tone.Synth | null;
     gainNode: Tone.Gain | null;
     layer: OscillatorLayer;
   }>;
 }
 
 /**
- * Build a composite voice (one or more oscillator/noise layers summed into a
+ * Build a composite voice (one or more oscillator layers summed into a
  * single output Gain) from a LayeredWave descriptor. Pure construction only —
  * does not reserve/register the voice anywhere; AudioEngine.reserveVoice owns
  * the per-robot bus (panner/busGain/busFilter) and the compositeVoices registry.
+ *
+ * `adsr` is the robot's one shared envelope (Roadmap Phase 9) — applied
+ * identically to every layer's synth at construction, the same "one shared
+ * value applied across every layer" role `phase`/`detune`/`pulseWidth` play
+ * elsewhere in AudioEngine.reserveVoice. There is no per-layer override
+ * anymore; live envelope edits go through the unchanged `set({ layers })`
+ * path below via AudioEngine.updateVoiceEnvelope.
  */
-export function createCompositeVoice(descriptor: OscillatorLayer[] | { base?: WaveformType; layers?: OscillatorLayer[] }): CompositeVoice {
+export function createCompositeVoice(
+  descriptor: OscillatorLayer[] | { base?: WaveformType; layers?: OscillatorLayer[] },
+  adsr: ADSREnvelope,
+): CompositeVoice {
   const GainCtor = getToneCtor<Tone.Gain>('Gain');
   const OutGain = GainCtor ? new GainCtor(1) : (() => {
     // Minimal fallback gain node for test environments where Tone.Gain isn't mocked
@@ -59,34 +78,21 @@ export function createCompositeVoice(descriptor: OscillatorLayer[] | { base?: Wa
       : (descriptor.base ? [{ type: descriptor.base, gain: 1, detune: 0, phase: 0 } as OscillatorLayer] : []));
 
   const layerNodes = layers.map((layer) => {
-    let synth: Tone.Synth | Tone.NoiseSynth | null;
-    let layerGain: Tone.Gain | null = null;
-    if (layer.type === 'noise') {
-      // Use NoiseSynth if available, otherwise fall back to Synth for tests
-      const NoiseCtor = getToneCtor<MinimalToneNode>('NoiseSynth');
-      const SynthCtor = getToneCtor<MinimalToneNode>('Synth');
-      const Noise = NoiseCtor ? new NoiseCtor({ volume: -12 }) : (SynthCtor ? new SynthCtor() : null);
-      layerGain = createLayerGain(layer.gain ?? 1, out);
-      if (Noise && typeof Noise.connect === 'function') Noise.connect(layerGain);
-      synth = Noise as unknown as Tone.Synth | Tone.NoiseSynth | null;
-    } else {
-      const oscConfig: Record<string, unknown> = { type: layer.type as WaveformType };
-      // Apply per-layer pulse width when provided (meaningful for pulse/square)
-      if (typeof layer.pulseWidth === 'number') oscConfig.width = layer.pulseWidth;
+    const oscConfig: Record<string, unknown> = { type: layer.type as WaveformType };
+    // Apply per-layer pulse width when provided (meaningful for pulse/square)
+    if (typeof layer.pulseWidth === 'number') oscConfig.width = layer.pulseWidth;
 
-      const s = new Tone.Synth({
-        oscillator: oscConfig,
-        envelope: {
-          attack: layer.adsr?.attack ?? 0.01,
-          decay: layer.adsr?.decay ?? 0.1,
-          sustain: layer.adsr?.sustain ?? 0.8,
-          release: layer.adsr?.release ?? 0.5,
-        },
-      });
-      layerGain = createLayerGain(layer.gain ?? 1, out);
-      if (layerGain && typeof s?.connect === 'function') s.connect(layerGain);
-      synth = s;
-    }
+    const synth = new Tone.Synth({
+      oscillator: oscConfig,
+      envelope: {
+        attack: adsr.attack,
+        decay: adsr.decay,
+        sustain: adsr.sustain,
+        release: adsr.release,
+      },
+    });
+    const layerGain = createLayerGain(layer.gain ?? 1, out);
+    if (layerGain && typeof synth?.connect === 'function') synth.connect(layerGain);
     if (layer.detune !== undefined) {
       try {
         const osc = (synth as unknown as { oscillator?: { detune?: { value: number } } })?.oscillator;
@@ -156,24 +162,14 @@ export function createCompositeVoice(descriptor: OscillatorLayer[] | { base?: Wa
   const triggerAttackRelease = (note: string, dur: NoteDuration | string, time?: number, velocity?: number) => {
     const requested = (typeof time === 'number' && isFinite(time)) ? time : Tone.now();
     const durStr = String(dur);
-    layerNodes.forEach(({ synth, layer }, i) => {
+    layerNodes.forEach(({ synth }, i) => {
       try {
         const t = Math.max(requested, Tone.now() + 0.001, layerLastTime[i] + 0.001);
         layerLastTime[i] = t;
-        const isNoise = layer.type === 'noise';
         if (synth && typeof (synth as unknown as { triggerAttackRelease?: unknown }).triggerAttackRelease === 'function') {
-          if (isNoise) {
-            // NoiseSynth API: triggerAttackRelease(duration, time?, velocity?) — no note argument
-            (synth as unknown as { triggerAttackRelease?: (d: string, time?: number, v?: number) => void }).triggerAttackRelease?.(durStr, t, velocity ?? 0.8);
-          } else {
-            (synth as unknown as { triggerAttackRelease?: (n: string, d: string, time?: number, v?: number) => void }).triggerAttackRelease?.(note, durStr, t, velocity ?? 0.8);
-          }
+          (synth as unknown as { triggerAttackRelease?: (n: string, d: string, time?: number, v?: number) => void }).triggerAttackRelease?.(note, durStr, t, velocity ?? 0.8);
         } else if (synth && typeof (synth as unknown as { triggerAttack?: unknown }).triggerAttack === 'function') {
-          if (!isNoise) {
-            (synth as unknown as { triggerAttack?: (n: string, time?: number, v?: number) => void }).triggerAttack?.(note, t, velocity ?? 0.8);
-          } else {
-            (synth as unknown as { triggerAttack?: (time?: number, v?: number) => void }).triggerAttack?.(t, velocity ?? 0.8);
-          }
+          (synth as unknown as { triggerAttack?: (n: string, time?: number, v?: number) => void }).triggerAttack?.(note, t, velocity ?? 0.8);
           const releaseAt = t + Tone.Time(durStr).toSeconds();
           (synth as unknown as { triggerRelease?: (time?: number) => void }).triggerRelease?.(releaseAt + 0.01);
         }
@@ -183,7 +179,7 @@ export function createCompositeVoice(descriptor: OscillatorLayer[] | { base?: Wa
     });
   };
 
-  const set = (params: { layers?: Partial<OscillatorLayer>[]; outputGain?: number }) => {
+  const set = (params: { layers?: LayerLivePatch[]; outputGain?: number }) => {
     if (params.outputGain !== undefined) out.gain.value = params.outputGain;
     if (params.layers) {
       // Match by index so multi-layer voices with duplicate waveform types are updated correctly.

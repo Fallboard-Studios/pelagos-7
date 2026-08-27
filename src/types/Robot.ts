@@ -114,7 +114,14 @@ export interface Robot {
   createdAt: number;            // timestamp used for removal ordering
   /** Transport measure at which this robot last interacted (for cooldown tracking). */
   lastInteractionMeasure?: number;
-  /** Base velocity (0–1) controlling average note loudness. Per-note variance is applied at scheduling time, not stored. */
+  /**
+   * Overall robot loudness (0–1), edited live via Robot Options' Volume slider. Roadmap Phase 9:
+   * drives the robot's own live per-robot bus gain (AudioEngine.reserveVoice's masterVolume
+   * parameter / updateRobotMasterVolume) — a continuously-live AudioParam, not baked into any
+   * note's own trigger velocity, so a live edit affects an already-sounding note's tail too, not
+   * just the next note this robot plays. Per-note velocity has its own small random variance,
+   * independent of this field (see AudioEngine.ts's computeNoteVelocitySeeded).
+   */
   masterVolume: number;
   /** Docking state — see DockingState. Every robot has one from creation. */
   docking: DockingState;
@@ -160,9 +167,11 @@ export interface Robot {
   /**
    * Seeded LFO settings for all 13 RobotLfoTargetId modulation targets,
    * generated once at spawn time (src/systems/spawnSystem.ts) the same way
-   * as the rest of audioAttributes. Inert until a target is actually
-   * connected (see src/engine/lfoEngine.ts) — this is the starting point an
-   * activated LFO would use, not evidence that anything is currently modulating.
+   * as the rest of audioAttributes. `active` mirrors audioStore.ts's
+   * `globalLfo` shape (`LfoSettings & { active: boolean }`) — each target is
+   * independently seeded on or off (Roadmap Phase 9), not universally inert;
+   * `active: false` means the target isn't currently connected (see
+   * src/engine/lfoEngine.ts), not that it never will be.
    */
-  lfoSettings?: Record<RobotLfoTargetId, LfoSettings>;
+  lfoSettings?: Record<RobotLfoTargetId, LfoSettings & { active: boolean }>;
 }

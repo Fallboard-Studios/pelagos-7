@@ -6,10 +6,10 @@
 | Job Data | ASSIGNED PROTOCOL | Dual Label Component | N/A | N/A | No | Display only |
 | Battery Data | POWER CELL STATUS | Dual Label Component | N/A | N/A | No | Display only |
 | Docked Status | DOCKING STATE | Dual Label Component | N/A | N/A | No | States: DOCKED, DOCKING, DEPARTING, ACTIVE |
-| Audio Setting | PROBE DIAGNOSTICS | Radio Button Component | N/A | N/A | No | Options: Mute, Solo, HiLite |
+| Audio Setting | PROBE DIAGNOSTICS | Radio Button Component | N/A | N/A | No | Options: Off, Mute, Solo, HiLite |
 | Volume | TRANSDUCER PRESSURE INDEX | Slider - linear Component | 0 | 1 | Yes | Linear scaling for held level ratio |
 | **DRAWER** | PING CONTROLS | Accordion Container | N/A | N/A | No | Parent container for ping controls |
-| Density | PING DENSITY | Stepper Component | 1 | 16 | No | Number of notes played per measure |
+| Density | PING DENSITY | Stepper Component | 0 | 100 | No | Percentage fill rate of the measure/motif (Roadmap Phase 6) |
 | Motif Length | PING LENGTH | Stepper Component | 1 | 8 | No | Repeating rhythmic motif length in 16th notes |
 | Note Variance | PING FREQUENCY VARIANCE | Stepper with active toggle Component | 1 | 8 | No | Toggle OFF: unweighted random selection. Toggle ON: slices pitch array length (1–8) |
 | Octave Range Min | PING FREQUENCY RANGES (MIN) | Stepper Component | 1 | 7 | No | Minimum octave bound |

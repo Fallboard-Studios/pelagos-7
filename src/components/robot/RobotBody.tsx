@@ -62,8 +62,10 @@ export const RobotBody = memo(function RobotBody({ robot, ignoreDaylight }: Robo
     const { adsr, filterFreq, visualAudioMap } = robot.audioAttributes;
     const octaveRange = robot.audioAttributes.octaveRange ?? robot.octaveRange;
 
+    // Roadmap Phase 9: OscillatorLayer.type is WaveformType only now ('noise' removed), so this
+    // no longer needs to guard against an impossible value — just a plain fallback.
     const layerType = robot.audioAttributes.layers?.[0]?.type;
-    const waveform = (layerType && layerType !== 'noise' ? layerType : robot.audioAttributes.waveform) as import('../../types/Robot').WaveformType;
+    const waveform = layerType ?? robot.audioAttributes.waveform;
     const attrsForColor = { ...robot.audioAttributes, waveform } as AudioAttributes;
 
     const baseColors = generateColors(attrsForColor);

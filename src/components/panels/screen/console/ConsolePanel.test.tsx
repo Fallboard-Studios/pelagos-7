@@ -4,7 +4,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { ConsolePanel } from './ConsolePanel';
 import { useUIStore } from '@/stores/uiStore';
 
-// RobotsTab/RobotEditorTab pull in real Tone.js/AudioEngine and GSAP, both of
+// RobotsTab/RobotOptionsTab pull in real Tone.js/AudioEngine and GSAP, both of
 // which throw in this jsdom test environment — the same boundary
 // ScreenViewport.test.tsx draws around its Tone/GSAP-touching children. This
 // test is about ConsolePanel's own grid/tile/nested-detail switch, not about
@@ -13,9 +13,9 @@ vi.mock('./RobotsTab', () => ({
   RobotsTab: () => <div data-testid="robots-list-stub" />,
   default: () => <div data-testid="robots-list-stub" />,
 }));
-vi.mock('./RobotEditorTab', () => ({
-  RobotEditorTab: () => <div data-testid="robot-editor-stub" />,
-  default: () => <div data-testid="robot-editor-stub" />,
+vi.mock('./RobotOptionsTab', () => ({
+  RobotOptionsTab: () => <div data-testid="robot-options-stub" />,
+  default: () => <div data-testid="robot-options-stub" />,
 }));
 // AudioRigDrawer has its own full test suite (AudioRigDrawer.test.tsx) — this
 // file is about ConsolePanel's own tile switch, not re-testing its content.
@@ -55,11 +55,11 @@ describe('ConsolePanel', () => {
     expect(screen.getByRole('button', { name: 'Back' })).toBeTruthy();
   });
 
-  it('renders RobotEditorTab when robots is active and a robot is selected', () => {
+  it('renders RobotOptionsTab when robots is active and a robot is selected', () => {
     useUIStore.getState().setActiveHubTile('robots');
     useUIStore.getState().selectRobot('r1');
     render(<ConsolePanel />);
-    expect(screen.getByTestId('robot-editor-stub')).toBeTruthy();
+    expect(screen.getByTestId('robot-options-stub')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Back' })).toBeTruthy();
   });
 

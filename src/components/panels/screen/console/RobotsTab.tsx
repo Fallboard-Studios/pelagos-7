@@ -7,7 +7,7 @@ import './RobotsTab.css';
  * The `robots` hub tile's list view, resolving docs/tasks/HUB.md Task 13 and
  * docs/tasks/ROBOT_SELECTION.md Task 9 (Roadmap Phase 8). Lists every robot in the active locale
  * as a RobotSelectionCard; selecting a card sets selectedRobotId (RobotSelectionCard's own job),
- * which ConsolePanel uses to switch to RobotEditorTab within the same tile. Read-only — the
+ * which ConsolePanel uses to switch to RobotOptionsTab within the same tile. Read-only — the
  * roster is fixed at 12, created once at locale load (Roadmap Phase 7); there is no manual spawn
  * action.
  */

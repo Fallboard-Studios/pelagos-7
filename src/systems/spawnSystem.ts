@@ -31,15 +31,25 @@ const WORLD_HEIGHT = 1080;
 /** Distance outside the SVG viewBox where robots spawn before swimming on-screen. */
 const OFFSCREEN_OFFSET = 150;
 
-// ADSR ranges (typical synth values)
-const ATTACK_RANGE = { min: 0.01, max: 2.0 };
-const DECAY_RANGE = { min: 0.05, max: 2.0 };
+// ADSR ranges. Roadmap Phase 9: unified to one flat 0-5s range for attack/decay/release
+// (previously mismatched per-field maxes of 2/2/5) — kept deliberately narrower than the Ping
+// Contour drawer's 0-10s edit range, the same "generation range narrower than what a user can
+// dial to by hand" relationship every other seeded field in this phase has.
+const ATTACK_RANGE = { min: 0.0, max: 5.0 };
+const DECAY_RANGE = { min: 0.0, max: 5.0 };
 const SUSTAIN_RANGE = { min: 0.0, max: 1.0 };
-const RELEASE_RANGE = { min: 0.1, max: 5.0 };
+const RELEASE_RANGE = { min: 0.0, max: 5.0 };
 
-// Layered presets and normalization constants
-const MAX_LAYERS = 4;
+// Signature Array is a fixed 3-slot layer array (Roadmap Phase 9) — Baseline/Coaxial/Harmonic,
+// replacing the old variable 1..MAX_LAYERS count. ADSR_MAX is a separate normalization constant
+// for mapping the shared adsr into 0..1 shape params below — unrelated to the generation ranges
+// above, unchanged by this phase.
+const LAYER_COUNT = 3;
 const ADSR_MAX = { attack: 2, decay: 2, sustain: 1, release: 5 };
+/** Probability threshold Coaxial's/Harmonic's active seed draw ([0, 1]) must clear to seed
+ *  `true` — a plain 50/50 coin flip. No product requirement pinned a specific bias; this is the
+ *  least-presumptuous default for "each independently seeded active or inactive." */
+const LAYER_ACTIVE_THRESHOLD = 0.5;
 
 // Octave registers — seed directly without Hz indirection
 // [min, max] inclusive; 3 tiers: bass, mid, treble
@@ -157,83 +167,44 @@ export function generateAudioAttributes(noiseMap: NoiseFunction2D, offset: numbe
 
   // Derive a compact visualAudioMap to store on the robot at spawn time.
   // ---
-  // Generate layered presets (1..MAX_LAYERS layers), each with gain and ADSR.
-  // The mapping and normalization logic below is critical for visual/audio consistency:
-  // - Each layer gets randomized ADSR and gain.
-  // - Gain-weighted averaging and normalization (by ADSR_MAX) is used to produce a single averaged ADSR.
-  // - These normalized values are mapped to ShapeParams for visuals.
-  // If you change the mapping, update docs and robotVisualMapper accordingly.
+  // Generate the fixed 3-layer Signature Array (Baseline/Coaxial/Harmonic, Roadmap Phase 9).
+  // There is no per-layer ADSR anymore — every layer shares the one `adsr` envelope above; shape
+  // params are mapped directly from it (normalized by ADSR_MAX), not a gain-weighted average
+  // across layers. If you change the mapping, update docs and robotVisualMapper accordingly.
   const clamp = (v: number) => Math.max(0, Math.min(1, v));
 
-  const numLayers = 1 + Math.floor(getSeededVal(noiseMap, 'robot.audio.numLayers', offset, 0, MAX_LAYERS)); // 1..MAX_LAYERS
   const layers: OscillatorLayer[] = [];
-  for (let i = 0; i < numLayers; i++) {
+  for (let i = 0; i < LAYER_COUNT; i++) {
     const layerOffset = offset * 10 + i;
-    const isNoise = getSeededVal(noiseMap, 'robot.audio.layer.isNoise', layerOffset, 0, 1) < 0.18;
+    // Baseline (layers[0]) is always active; Coaxial/Harmonic (layers[1]/[2]) are each
+    // independently seeded — muting one doesn't discard its configuration (see AudioEngine.ts's
+    // filterActiveLayers), so an inactive layer still gets a full, ready-to-resume config here.
+    const active = i === 0
+      ? true
+      : getSeededVal(noiseMap, 'robot.audio.layer.active', layerOffset, 0, 1) >= LAYER_ACTIVE_THRESHOLD;
     const layerWave: OscillatorLayer = {
-      type: isNoise ? 'noise' : WAVEFORMS[Math.floor(getSeededVal(noiseMap, 'robot.audio.layer.waveform', layerOffset, 0, WAVEFORMS.length))],
+      type: WAVEFORMS[Math.floor(getSeededVal(noiseMap, 'robot.audio.layer.waveform', layerOffset, 0, WAVEFORMS.length))],
       gain: getSeededVal(noiseMap, 'robot.audio.layer.gain', layerOffset, 0.2, 1.2),
       detune: getSeededVal(noiseMap, 'robot.audio.layer.detune', layerOffset, -2, 2),
       phase: Math.floor(getSeededVal(noiseMap, 'robot.audio.layer.phase', layerOffset, 0, 361)) || 0,
-      adsr: {
-        attack: getSeededVal(noiseMap, 'robot.audio.layer.attack', layerOffset, ATTACK_RANGE.min, ATTACK_RANGE.max),
-        decay: getSeededVal(noiseMap, 'robot.audio.layer.decay', layerOffset, DECAY_RANGE.min, DECAY_RANGE.max),
-        sustain: getSeededVal(noiseMap, 'robot.audio.layer.sustain', layerOffset, SUSTAIN_RANGE.min, SUSTAIN_RANGE.max),
-        release: getSeededVal(noiseMap, 'robot.audio.layer.release', layerOffset, RELEASE_RANGE.min, RELEASE_RANGE.max),
-      },
+      active,
     };
     layers.push(layerWave);
   }
 
-  // Compute gain-weighted normalized ADSR (normalize by ADSR_MAX), then convert back
-  // to seconds for averagedADSR while keeping a normalized copy for mapping.
-  // ---
-  // This ensures that the visual mapping (scale, roundness, detail) is always in 0..1 range
-  // and reflects the actual audio envelope shape.
-  let totalGain = 0;
-  for (const l of layers) totalGain += l.gain ?? 1;
-  if (totalGain <= 0) totalGain = layers.length || 1;
-
-  const normSum = layers.reduce(
-    (acc, l) => {
-      const g = l.gain ?? 1;
-      acc.attack += (l.adsr?.attack ?? 0) / ADSR_MAX.attack * g;
-      acc.decay += (l.adsr?.decay ?? 0) / ADSR_MAX.decay * g;
-      acc.sustain += (l.adsr?.sustain ?? 0) / ADSR_MAX.sustain * g;
-      acc.release += (l.adsr?.release ?? 0) / ADSR_MAX.release * g;
-      return acc;
-    },
-    { attack: 0, decay: 0, sustain: 0, release: 0 }
-  );
-
-  const averagedNorm = {
-    attack: normSum.attack / totalGain,
-    decay: normSum.decay / totalGain,
-    sustain: normSum.sustain / totalGain,
-    release: normSum.release / totalGain,
-  };
-
-  const averagedADSR = {
-    attack: averagedNorm.attack * ADSR_MAX.attack,
-    decay: averagedNorm.decay * ADSR_MAX.decay,
-    sustain: averagedNorm.sustain * ADSR_MAX.sustain,
-    release: averagedNorm.release * ADSR_MAX.release,
-  };
-
   const averagedGain = (layers.reduce((s, l) => s + (l.gain ?? 1), 0) / layers.length) || 1;
 
-  // Map averaged normalized ADSR into simple ShapeParams (0..1)
+  // Map the shared adsr (normalized by ADSR_MAX) into simple ShapeParams (0..1)
   // Mapping rules:
   //   - scale: larger when attack is shorter (snappier envelope → bigger robot)
   //   - roundness: mapped from sustain (higher sustain → rounder shape)
   //   - detail: mapped from release (longer release → more detail/greebles)
   // If you adjust these, update robotVisualMapper and docs for consistency.
-  const scale = clamp(0.25 + (1 - averagedNorm.attack) * 0.75);
-  const roundness = clamp(averagedNorm.sustain);
-  const detail = clamp(averagedNorm.release);
+  const scale = clamp(0.25 + (1 - adsr.attack / ADSR_MAX.attack) * 0.75);
+  const roundness = clamp(adsr.sustain / ADSR_MAX.sustain);
+  const detail = clamp(adsr.release / ADSR_MAX.release);
 
   const visualAudioMap = {
-    averagedADSR,
     averagedGain,
     shapeParams: { scale, roundness, detail },
     layerVisuals: layers.map((l) => ({ color: undefined, scale: clamp((l.gain ?? 1) / 1.2,), offset: { x: 0, y: 0 } })),
@@ -252,28 +223,39 @@ export function generateAudioAttributes(noiseMap: NoiseFunction2D, offset: numbe
 }
 
 /**
+ * Probability threshold an LFO target's active seed draw ([0, 1]) must clear to seed `true` — a
+ * plain 50/50 coin flip, matching LAYER_ACTIVE_THRESHOLD's rationale (no product requirement
+ * pinned a specific bias for "each independently seeded active or inactive").
+ */
+const LFO_ACTIVE_THRESHOLD = 0.5;
+
+/**
  * Generate seeded LfoSettings for all 13 RobotLfoTargetId modulation targets,
  * the same way as the rest of a robot's audio personality (generateAudioAttributes
  * above) — per docs/tasks/LFO_INTEGRATION_PLAN.md Task 13. Each target gets its
  * own dot-namespaced dataId ('robot.lfo.<target>.<field>'), so a single shared
  * `offset` naturally yields distinct values per target without needing the
  * per-index offset multiplier the oscillator-layer loop above uses (that's only
- * needed when multiple items share one dataId string).
+ * needed when multiple items share one dataId string). `active` is seeded per
+ * target too (Roadmap Phase 9), mirroring how the global Audio Rig chain already
+ * seeds some effects' LFOs already-on per planet — a freshly-spawned robot can
+ * have real modulation already audible before anything is touched.
  */
-export function generateRobotLfoSettings(noiseMap: NoiseFunction2D, offset: number): Record<RobotLfoTargetId, LfoSettings> {
+export function generateRobotLfoSettings(noiseMap: NoiseFunction2D, offset: number): Record<RobotLfoTargetId, LfoSettings & { active: boolean }> {
   const entries = ROBOT_LFO_TARGET_IDS.map((target) => {
     const shapeIdx = Math.min(
       LFO_SHAPES.length - 1,
       Math.floor(getSeededVal(noiseMap, `robot.lfo.${target}.shape`, offset, 0, LFO_SHAPES.length))
     );
-    const settings: LfoSettings = {
+    const settings: LfoSettings & { active: boolean } = {
       shape: LFO_SHAPES[shapeIdx],
       rate: getSeededVal(noiseMap, `robot.lfo.${target}.rate`, offset, LFO_RATE_MIN, LFO_RATE_MAX),
       depth: getSeededVal(noiseMap, `robot.lfo.${target}.depth`, offset, LFO_DEPTH_MIN, LFO_DEPTH_MAX),
+      active: getSeededVal(noiseMap, `robot.lfo.${target}.active`, offset, 0, 1) >= LFO_ACTIVE_THRESHOLD,
     };
     return [target, settings] as const;
   });
-  return Object.fromEntries(entries) as Record<RobotLfoTargetId, LfoSettings>;
+  return Object.fromEntries(entries) as Record<RobotLfoTargetId, LfoSettings & { active: boolean }>;
 }
 
 /**
@@ -446,7 +428,7 @@ export function spawnRobot(localeId: string, options?: { docking?: DockingState;
   try {
     const layers = (robot.audioAttributes as unknown as { layers?: OscillatorLayer[] })?.layers;
     if (Array.isArray(layers) && layers.length > 0) {
-      AudioEngine.reserveVoice(robot.id, layers, robot.audioAttributes.phase, robot.audioAttributes.detune, layers[0]?.pulseWidth);
+      AudioEngine.reserveVoice(robot.id, layers, robot.audioAttributes.adsr, robot.audioAttributes.phase, robot.audioAttributes.detune, layers[0]?.pulseWidth, robot.masterVolume);
     }
   } catch (err) {
     if (DEV_TUNING) console.warn('[SpawnSystem] reserveVoice failed', err);
@@ -516,7 +498,7 @@ export function reRegisterAllRobotsAudio(localeId: string): void {
     try {
       const layers = (robot.audioAttributes as unknown as { layers?: OscillatorLayer[] })?.layers;
       if (Array.isArray(layers) && layers.length > 0) {
-        AudioEngine.reserveVoice(robot.id, layers, robot.audioAttributes.phase, robot.audioAttributes.detune, layers[0]?.pulseWidth);
+        AudioEngine.reserveVoice(robot.id, layers, robot.audioAttributes.adsr, robot.audioAttributes.phase, robot.audioAttributes.detune, layers[0]?.pulseWidth, robot.masterVolume);
       }
     } catch (err) {
       if (DEV_TUNING) console.warn('[SpawnSystem] reRegisterAllRobotsAudio: reserveVoice failed for', robot.id, err);

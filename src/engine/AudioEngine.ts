@@ -7,7 +7,7 @@ import { useLocaleStore } from '../stores/localeStore';
 import { getActiveLocaleId } from '../utils/localeHelpers';
 import { lfoEngine } from './lfoEngine';
 
-import type { NoteDuration, WaveformType, Robot } from '../types/Robot';
+import type { ADSREnvelope, NoteDuration, WaveformType, Robot } from '../types/Robot';
 import type { OscillatorLayer } from '../types/layeredAudio';
 import { GLOBAL_LFO_TARGET_IDS, type RobotLfoTargetId } from '../types/lfo';
 import { getAvailableNotes, scheduleHarmonyCycle, stopHarmonyCycle } from './harmonySystem';
@@ -21,6 +21,7 @@ import { precomputeDataX } from '../utils/getSeededVal';
 import { tryGetLocaleNoiseMap } from '../utils/noiseMaps';
 import { devLog, devWarn } from '../utils/helpers';
 import { calculatePanFromPosition } from './audioEngine/panning';
+import { volumePositionToGain } from './audioEngine/volumeTaper';
 import { getToneCtor, type MinimalToneNode, type ModulationTarget } from './audioEngine/toneHelpers';
 import { createCompositeVoice, type CompositeVoice } from './audioEngine/compositeVoice';
 import {
@@ -84,6 +85,9 @@ const VELOCITY_MIN = 0.05;
  * (rhythmicMotifLength.active === false), since there are no groups to accent.
  */
 const GROUP_ACCENT_MULTIPLIER = 1.25;
+/** Ramp duration for a live updateRobotMasterVolume change — short enough to feel instant, long
+ *  enough to avoid an audible click on the underlying AudioParam. */
+const VOLUME_RAMP_SECONDS = 0.05;
 
 // Precompute data X positions for seeded noise sampling (module scope — hot path safe)
 const VELOCITY_ROLL_X = precomputeDataX('audio.velocityRoll');
@@ -114,10 +118,6 @@ let scheduledTickId: number | null = null;
 // Cache Tone.Transport instance returned by Tone.getTransport() so repeated calls
 // return the same mock instance in tests and the same runtime transport in-app.
 let _transport: ReturnType<typeof Tone.getTransport> | null = null;
-/** Robot masterVolume cache — keyed by robotId to avoid per-note Zustand store scans.
- * Populated on first note for a robot, cleared when its melody is unregistered. */
-const robotAttributeCache = new Map<string, { masterVolume: number }>();
-
 // Composite voices (created from LayeredWave descriptors, src/engine/audioEngine/compositeVoice.ts) stored separately
 const compositeVoices: Map<string, {
   composite: CompositeVoice;
@@ -143,6 +143,24 @@ function getActiveLocaleRobots(): Robot[] {
 /** Find a robot by id within the currently active locale. */
 function findActiveRobot(robotId: string): Robot | undefined {
   return getActiveLocaleRobots().find((r) => r.id === robotId);
+}
+
+/**
+ * Excludes any layer with `active === false` from a reserveVoice descriptor — Roadmap Phase 9's
+ * "mute, don't delete" model for Coaxial/Harmonic. A layer with no `active` field at all is
+ * treated as active (`!== false`, not a strict truthy check), so callers/fixtures that predate
+ * the field keep their existing audible behavior rather than silently going quiet.
+ */
+function filterActiveLayers(
+  descriptor: OscillatorLayer[] | { base?: WaveformType; layers?: OscillatorLayer[] },
+): OscillatorLayer[] | { base?: WaveformType; layers?: OscillatorLayer[] } {
+  if (Array.isArray(descriptor)) {
+    return descriptor.filter((l) => l.active !== false);
+  }
+  if (descriptor.layers) {
+    return { ...descriptor, layers: descriptor.layers.filter((l) => l.active !== false) };
+  }
+  return descriptor;
 }
 
 /**
@@ -202,9 +220,11 @@ async function loadInstruments(): Promise<void> {
             const ok = AudioEngine.reserveVoice(
               robot.id,
               layers,
+              robot.audioAttributes.adsr,
               robot.audioAttributes?.phase,
               robot.audioAttributes?.detune,
               (robot.audioAttributes as unknown as { layers?: OscillatorLayer[] })?.layers?.[0]?.pulseWidth,
+              robot.masterVolume,
             );
             devLog(`[AudioEngine] Post-load reserve for ${robot.id}: ${ok ? 'OK' : 'FAILED'}`);
           }
@@ -449,15 +469,24 @@ function startMelodyPlayback(): void {
 // ========================================
 
 /**
+ * Neutral per-note velocity baseline. Roadmap Phase 9 moved overall robot loudness off per-note
+ * velocity and onto each robot's own live bus gain (see reserveVoice's masterVolume parameter and
+ * updateRobotMasterVolume) — a robot's masterVolume no longer feeds this at all, avoiding
+ * double-applying the same scaling twice. This baseline is just where the small performance-level
+ * variance below jitters around; it isn't itself a volume control.
+ */
+const NOTE_VELOCITY_BASELINE = 1;
+
+/**
  * Deterministic, locale-seeded velocity computation.
  * Samples the active locale's noise map at precomputed X positions and the
  * per-robot note index (mod 97) to decide whether to apply variance.
  * Falls back to no variance when the noise map is unavailable.
  */
-function computeNoteVelocitySeeded(masterVolume: number, robotId?: string): number {
+function computeNoteVelocitySeeded(robotId?: string): number {
   const localeId = getActiveLocaleId();
   const noiseMap = tryGetLocaleNoiseMap(localeId);
-  if (!noiseMap) return Math.min(1, Math.max(VELOCITY_MIN, masterVolume));
+  if (!noiseMap) return Math.min(1, Math.max(VELOCITY_MIN, NOTE_VELOCITY_BASELINE));
 
   const idx = robotId ? (robotNoteIndex.get(robotId) ?? 0) : 0;
   const noteIndex = idx % 97; // prime period for long non-repeating patterns
@@ -466,13 +495,13 @@ function computeNoteVelocitySeeded(masterVolume: number, robotId?: string): numb
   if (roll < VELOCITY_VARIANCE_RATE) {
     const raw = noiseMap(VELOCITY_VARIANCE_X, noteIndex); // [-1,1]
     const variance = raw * VELOCITY_VARIANCE_AMOUNT; // signed
-    const out = Math.min(1, Math.max(VELOCITY_MIN, masterVolume + variance));
+    const out = Math.min(1, Math.max(VELOCITY_MIN, NOTE_VELOCITY_BASELINE + variance));
     if (robotId) robotNoteIndex.set(robotId, (idx + 1) % 97);
     return out;
   }
 
   if (robotId) robotNoteIndex.set(robotId, (idx + 1) % 97);
-  return Math.min(1, Math.max(VELOCITY_MIN, masterVolume));
+  return Math.min(1, Math.max(VELOCITY_MIN, NOTE_VELOCITY_BASELINE));
 }
 
 export const AudioEngine = {
@@ -582,20 +611,9 @@ export const AudioEngine = {
     let effectiveVelocity = params.velocity;
 
     if (robotId && effectiveVelocity === undefined) {
-      const cached = robotAttributeCache.get(robotId);
-      if (cached) {
-        effectiveVelocity = computeNoteVelocitySeeded(cached.masterVolume, robotId);
-      } else {
-        try {
-          const robot = findActiveRobot(robotId);
-          if (robot) {
-            robotAttributeCache.set(robotId, { masterVolume: robot.masterVolume ?? 0.7 });
-            effectiveVelocity = computeNoteVelocitySeeded(robot.masterVolume ?? 0.7, robot.id);
-          }
-        } catch (err) {
-          console.warn('[AudioEngine] Failed to lookup robot masterVolume:', err);
-        }
-      }
+      // No masterVolume lookup needed here anymore — overall robot loudness is the live bus gain's
+      // job (reserveVoice's masterVolume parameter, updateRobotMasterVolume), not per-note velocity.
+      effectiveVelocity = computeNoteVelocitySeeded(robotId);
     }
 
     if (params.accentMultiplier !== undefined && effectiveVelocity !== undefined) {
@@ -633,26 +651,45 @@ export const AudioEngine = {
    * Returns true if reserved, false if creation failed.
    *
    * @param robotId - Robot ID
-   * @param descriptor - LayeredWave descriptor from the robot's audioAttributes
+   * @param descriptor - LayeredWave descriptor from the robot's audioAttributes. Any layer with
+   *   `active === false` (Roadmap Phase 9 — Coaxial/Harmonic muted, not deleted) is excluded from
+   *   the composite voice actually built: no synth node is created for it, though its full config
+   *   stays in `Robot` state untouched. A layer with no `active` field at all is treated as
+   *   active, for backward compatibility with fixtures/callers that predate the field.
+   * @param adsr - The robot's one shared ADSR envelope (Roadmap Phase 9), applied identically to
+   *   every included layer's synth at construction — the same "one shared value applied across
+   *   every layer" role `phase`/`detune`/`pulseWidth` play below.
    * @param phase - Optional oscillator phase (degrees) applied across all layers
    * @param detune - Optional detune (cents) applied across all layers
+   * @param pulseWidth - Optional pulse width (0..1) applied across all layers
+   * @param masterVolume - The robot's Volume slider position (0..1, Roadmap Phase 9's live-fader
+   *   fix), defaulting to 1 when omitted. Passed through `volumePositionToGain` (a perceptual
+   *   taper, not a raw pass-through — see volumeTaper.ts) before being applied as the initial
+   *   value of the robot's live per-robot bus gain. Unlike `adsr`/`phase`/`detune`, this is not
+   *   baked into any note's own trigger — it's a continuously-live AudioParam on the bus every
+   *   note from this robot passes through, updatable afterward via `updateRobotMasterVolume`
+   *   without re-reserving.
    */
   reserveVoice(
     robotId: string,
     descriptor: OscillatorLayer[] | { base?: WaveformType; layers?: OscillatorLayer[] },
+    adsr: ADSREnvelope,
     phase?: number,
     detune?: number,
     pulseWidth?: number,
+    masterVolume?: number,
   ): boolean {
     try {
-      const composite = AudioEngine.createCompositeVoice(descriptor);
+      const activeDescriptor = filterActiveLayers(descriptor);
+      const composite = AudioEngine.createCompositeVoice(activeDescriptor, adsr);
 
       const PannerCtor = getToneCtor<Tone.Panner>('Panner');
       const GainCtorLocal = getToneCtor<Tone.Gain>('Gain');
       const FilterCtor = getToneCtor<Tone.Filter>('Filter');
 
+      const initialBusGain = volumePositionToGain(masterVolume ?? 1);
       const panner = PannerCtor ? new PannerCtor({ pan: 0 }) : ({ connect: () => { }, pan: { value: 0 }, disconnect: () => { } } as MinimalToneNode) as unknown as Tone.Panner;
-      const busGain = GainCtorLocal ? new GainCtorLocal(1) : ({ connect: () => ({}), disconnect: () => { }, gain: { value: 1 }, toDestination: () => { } } as MinimalToneNode) as unknown as Tone.Gain;
+      const busGain = GainCtorLocal ? new GainCtorLocal(initialBusGain) : ({ connect: () => ({}), disconnect: () => { }, gain: { value: initialBusGain }, toDestination: () => { } } as MinimalToneNode) as unknown as Tone.Gain;
       const busFilter = FilterCtor ? new FilterCtor({ frequency: 1200, Q: 1 }) : ({ connect: () => ({}), disconnect: () => { }, toDestination: () => { } } as MinimalToneNode) as unknown as Tone.Filter;
 
       // Connect graph: composite.output -> panner -> busGain -> busFilter -> master compressor/destination
@@ -674,9 +711,11 @@ export const AudioEngine = {
       // Apply optional top-level detune/phase/pulseWidth across composite layers when provided
       try {
         if (typeof detune === 'number' || typeof phase === 'number' || typeof pulseWidth === 'number') {
-          const effectiveLayers = Array.isArray(descriptor)
-            ? descriptor
-            : (descriptor.layers && descriptor.layers.length > 0 ? descriptor.layers : [{ type: descriptor.base ?? 'sine', gain: 1, detune: 0, phase: 0 } as OscillatorLayer]);
+          // Must match activeDescriptor (what createCompositeVoice actually built), not the raw
+          // descriptor, so this index-matched application lands on the right layer.
+          const effectiveLayers = Array.isArray(activeDescriptor)
+            ? activeDescriptor
+            : (activeDescriptor.layers && activeDescriptor.layers.length > 0 ? activeDescriptor.layers : [{ type: activeDescriptor.base ?? 'sine', gain: 1, detune: 0, phase: 0, active: true } as OscillatorLayer]);
           const layersParam = effectiveLayers.map((l) => ({
             type: l.type,
             detune: typeof detune === 'number' ? (l.detune ?? 0) + detune : undefined,
@@ -700,7 +739,7 @@ export const AudioEngine = {
         dispose: () => { },
       } as unknown as CompositeVoice;
       const panner = ({ connect: () => { }, pan: { value: 0 }, disconnect: () => { } } as MinimalToneNode) as unknown as Tone.Panner;
-      const busGain = ({ connect: () => { }, disconnect: () => { }, gain: { value: 1 } } as MinimalToneNode) as unknown as Tone.Gain;
+      const busGain = ({ connect: () => { }, disconnect: () => { }, gain: { value: volumePositionToGain(masterVolume ?? 1) } } as MinimalToneNode) as unknown as Tone.Gain;
       const busFilter = ({ connect: () => { }, disconnect: () => { }, toDestination: () => { } } as MinimalToneNode) as unknown as Tone.Filter;
       compositeVoices.set(robotId, { composite: stubComposite, panner, busGain, busFilter });
       devLog(`[AudioEngine] Reserved stub composite voice for ${robotId}`);
@@ -725,7 +764,6 @@ export const AudioEngine = {
       devWarn('[AudioEngine] Failed to cleanup composite nodes', err);
     }
     compositeVoices.delete(robotId);
-    robotAttributeCache.delete(robotId);
     robotNoteIndex.delete(robotId);
     devLog(`[AudioEngine] Released composite voice for ${robotId}`);
   },
@@ -812,9 +850,11 @@ export const AudioEngine = {
       return AudioEngine.reserveVoice(
         robotId,
         layers,
+        robot.audioAttributes.adsr,
         robot.audioAttributes?.phase,
         robot.audioAttributes?.detune,
         (robot.audioAttributes as unknown as { layers?: OscillatorLayer[] })?.layers?.[0]?.pulseWidth,
+        robot.masterVolume,
       );
     } catch (err) {
       devWarn('[AudioEngine] reReserveVoice failed', err);
@@ -851,7 +891,69 @@ export const AudioEngine = {
   },
 
   /**
-   * Create a composite voice made of multiple layers (oscillators and optional noise).
+   * Apply an updated shared ADSR envelope to every active layer's live synth, without rebuilding
+   * the underlying node graph (Roadmap Phase 9 — Ping Contour drawer's live edits).
+   *
+   * Reuses the exact same continuous-update path `updateVoiceLayerParams` already uses: rebuilds
+   * the layers-patch from the composite's already-exposed `layers` (each entry's own current
+   * config, since only `active` layers were ever given a synth in the first place) with the new
+   * `adsr` stamped onto every entry, then calls `composite.set({ layers })` — the same
+   * `p.adsr → synth.set({ envelope: p.adsr })` path `compositeVoice.ts` already applies for a
+   * continuous param edit. No structural change, no audio gap.
+   */
+  updateVoiceEnvelope(robotId: string, adsr: ADSREnvelope): void {
+    try {
+      const entry = compositeVoices.get(robotId);
+      if (!entry?.composite.layers) {
+        devWarn(`[AudioEngine] updateVoiceEnvelope: no composite reserved for ${robotId}`);
+        return;
+      }
+      try {
+        const patched = entry.composite.layers.map(({ layer }) => ({ ...layer, adsr }));
+        entry.composite.set({ layers: patched });
+        devLog(`[AudioEngine] updateVoiceEnvelope applied for ${robotId}`);
+      } catch (err) {
+        devWarn('[AudioEngine] Failed to apply envelope on composite', err);
+      }
+    } catch (err) {
+      devWarn('[AudioEngine] updateVoiceEnvelope failed', err);
+    }
+  },
+
+  /**
+   * Immediately updates a robot's live per-robot bus gain (Robot Options' RobotDisplaySection
+   * Volume slider) — a continuously-live AudioParam, not a value baked into each note's own
+   * trigger, so this affects anything currently sounding through the bus (an already-ringing
+   * note's release tail included), not just the next note this robot happens to play. `masterVolume`
+   * is the 0..1 slider position, passed through `volumePositionToGain` first — a linear position
+   * applied directly as gain would feel almost flat across most of the fader (human loudness
+   * perception is roughly logarithmic), so the actual gain follows a perceptual taper instead;
+   * see volumeTaper.ts. Ramps over a short duration when the live Tone.Gain param supports it, to
+   * avoid an audible click; falls back to a direct value assignment in headless/test environments
+   * where it doesn't. A safe no-op (with a devWarn, matching updateVoiceLayerParams/
+   * updateVoiceEnvelope's existing pattern) when no composite voice is reserved for the robot.
+   */
+  updateRobotMasterVolume(robotId: string, masterVolume: number): void {
+    const entry = compositeVoices.get(robotId);
+    if (!entry) {
+      devWarn(`[AudioEngine] updateRobotMasterVolume: no composite reserved for ${robotId}`);
+      return;
+    }
+    try {
+      const targetGain = volumePositionToGain(masterVolume);
+      const gain = entry.busGain.gain as unknown as { rampTo?: (value: number, rampTime: number) => void; value: number };
+      if (typeof gain.rampTo === 'function') {
+        gain.rampTo(targetGain, VOLUME_RAMP_SECONDS);
+      } else {
+        gain.value = targetGain;
+      }
+    } catch (err) {
+      devWarn('[AudioEngine] updateRobotMasterVolume failed', err);
+    }
+  },
+
+  /**
+   * Create a composite voice made of multiple oscillator layers.
    * Construction itself lives in src/engine/audioEngine/compositeVoice.ts — this is a
    * direct reference to that module's export, kept on the public AudioEngine surface
    * so every existing call site (AudioEngine.createCompositeVoice(...)) still works.
@@ -916,7 +1018,6 @@ export const AudioEngine = {
   },
 
   unregisterRobotMelody(robotId: string): void {
-    robotAttributeCache.delete(robotId);
     robotNoteIndex.delete(robotId);
     let removedCount = 0;
 
