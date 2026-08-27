@@ -26,6 +26,8 @@ const makeRobot = (id: string, name?: string) => ({
   masterVolume: 0.7,
   rhythmicDensity: 6,
   rhythmicMotifLength: 8,
+  docking: 'active',
+  batteryLevel: 80,
 });
 
 describe('RobotsTab', () => {
@@ -36,7 +38,7 @@ describe('RobotsTab', () => {
     useUIStore.getState().selectRobot(null);
   }
 
-  it('lists every robot in the active locale by name', () => {
+  it('lists every robot in the active locale as a card, by name', () => {
     resetStores();
     useLocaleStore.getState().addRobot(localeId, makeRobot('r1', 'Unit One') as unknown as Robot);
     useLocaleStore.getState().addRobot(localeId, makeRobot('r2', 'Unit Two') as unknown as Robot);
@@ -65,7 +67,25 @@ describe('RobotsTab', () => {
     expect(screen.getByRole('button', { name: 'blank-1' })).toBeTruthy();
   });
 
-  it('clicking a robot selects it', () => {
+  it("renders each robot's job, battery, docking, and audio status", () => {
+    resetStores();
+    useLocaleStore.getState().addRobot(localeId, {
+      ...makeRobot('r1', 'Unit One'),
+      job: { type: 'acousticSurvey', assignedAtMeasure: 1 },
+      batteryLevel: 63,
+      docking: 'active',
+      audioMode: 'highlight',
+    } as unknown as Robot);
+
+    render(<RobotsTab />);
+
+    expect(screen.getByText('Acoustic Survey')).toBeTruthy();
+    expect(screen.getByText('63%')).toBeTruthy();
+    expect(screen.getByText('Active')).toBeTruthy();
+    expect(screen.getByRole('status', { name: /Highlight/ })).toBeTruthy();
+  });
+
+  it('clicking a robot card selects it', () => {
     resetStores();
     useLocaleStore.getState().addRobot(localeId, makeRobot('r1', 'Unit One') as unknown as Robot);
 

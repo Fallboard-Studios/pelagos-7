@@ -178,16 +178,23 @@ This phase establishes the pure TypeScript domain models and state machines for 
 
 ### Restructure
 
-- SVG needs to ignore time/daylight, so each robot's avatar thumbnail stays visually consistent regardless of the active locale's time of day
+- ~~SVG needs to ignore time/daylight, so each robot's avatar thumbnail stays visually consistent regardless of the active locale's time of day~~ — **done**, via `RobotBody`'s new `ignoreDaylight` prop.
 
 ### Create
 
-- Robot Selection hub tile: a list of every robot in the active locale, each entry showing its avatar SVG, job title, Audio Status (mute, solo, highlighted), and Battery Status
-- Selecting a robot navigates into the Robot Options screen (Phase 9), scoped to that robot, with a back button returning to this list
+- ~~Robot Selection hub tile: a list of every robot in the active locale, each entry showing its avatar SVG, job title, Audio Status (mute, solo, highlighted), and Battery Status~~ — **done**.
+- ~~Selecting a robot navigates into the Robot Options screen (Phase 9), scoped to that robot, with a back button returning to this list~~ — **done, with a scope adjustment**: Robot Options (Phase 9) doesn't exist yet, so selection routes to `RobotEditorTab`, the same place today's list already routed to. Phase 9 will retarget it without this phase needing to change.
+
+**Done** — see [docs/specs/ROBOT_SELECTION.md](../specs/ROBOT_SELECTION.md). Scope ended up wider
+than this file list: the world-view click-through (clicking a robot in the ocean also opens this
+tile, gated to the main hub grid state) required a `Console.css` pointer-events fix and a
+`Robot.tsx` change, and unifying `AudioStatusBadge`'s new colors with `AccordionContainer`'s and
+`PowerRockerSwitch`'s existing hardcoded status-light hex was folded in as one `statusLightColors.ts`
+source rather than adding a fourth duplicated palette.
 
 ### About
 
-This phase builds Robot Selection as one of the main hub tiles (see Phase 3): selecting it from the hub grid replaces the hub nav area with a list of every robot in the active locale, each rendered as a card. We are modifying the SVG avatar rendering logic to ignore global daylight/time calculations, ensuring each card's thumbnail reads consistently regardless of planet conditions. We are building RobotSelectionCard and AudioStatusBadge components in src/components/selection/ to display assigned job titles, dynamic battery status indicators, and diagnostic audio controls (mute, solo, and highlighted states) powered by typed parameter schemas in src/data/robotSelectionConfig.ts. All status badges derive their lore and human labels from the data layer. Selecting a card navigates into the Robot Options screen (Phase 9) scoped to that one robot, with a back button returning here.
+This phase builds Robot Selection as one of the main hub tiles (see Phase 3): selecting it from the hub grid replaces the hub nav area with a list of every robot in the active locale, each rendered as a card. We are modifying the SVG avatar rendering logic to ignore global daylight/time calculations, ensuring each card's thumbnail reads consistently regardless of planet conditions. We are building RobotSelectionCard and AudioStatusBadge components in src/components/selection/ to display assigned job titles, dynamic battery status indicators, and diagnostic audio controls (mute, solo, and highlighted states) powered by typed parameter schemas in src/data/robotSelectionConfig.ts. All status badges derive their lore and human labels from the data layer. Selecting a card navigates into the Robot Options screen (Phase 9) scoped to that one robot, with a back button returning here. When in the main hub navigation state only, robots can be selected by clicking on them in the world view as well as through the robot list. 
 
 ## 9. Robot Options
 

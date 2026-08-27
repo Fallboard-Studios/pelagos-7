@@ -1,3 +1,9 @@
+/* Cross-module dependency (flagged in code review): Console.css's `.console--grid .sc-button`
+   rule re-enables pointer-events specifically on this class name, so world-view robots stay
+   clickable while HubNav's own tiles remain clickable too. Renaming `sc-button` here would
+   silently break that rule — nothing in the type system or test suite would catch it, since
+   Console.test.tsx mocks ConsolePanel and never renders a real Button through this path. If this
+   class name changes, update Console.css's selector in the same change. */
 .sc-button {
   display: inline-flex;
   align-items: center;

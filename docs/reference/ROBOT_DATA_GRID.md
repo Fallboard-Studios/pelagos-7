@@ -43,3 +43,27 @@
 | LFO Shape | OSCILLATION SHAPE | Radio Button Component | N/A | N/A | No | Options: TRIANGLE, SINE, SQUARE, SAWTOOTH |
 | LFO Rate | OSCILLATION RATE | Slider - linear Component | 0.1 Hz | 10 Hz | No | LFO modulation speed |
 | LFO Depth | OSCILLATION DEPTH | Slider - linear Component | 0% | 100% | No | LFO modulation intensity |
+
+## Draft — pending review
+
+Added by Roadmap Phase 8 (Robot Selection). The table above only defines category-level lore/human
+pairs (e.g. "Job Data"/"ASSIGNED PROTOCOL") — it has no per-*value* labels for the individual job
+types, docking states, or audio-mode values a Robot Selection card actually displays. The rows
+below are best-guess drafts (`src/data/robotSelectionConfig.ts`), not yet confirmed — Crawford,
+please review/edit both here and in that file together.
+
+| English Label | Lore Label | Field | Notes |
+|---|---|---|---|
+| Vent Extraction | VOLATILE VENT EXTRACTION | `JobType.VentExtraction` | Job Data value |
+| Acoustic Survey | HIGH-ALTITUDE ACOUSTIC SURVEY | `JobType.AcousticSurvey` | Job Data value |
+| Structural Inspection | STRUCTURAL INTEGRITY INSPECTION | `JobType.StructuralInspection` | Job Data value |
+| Fluid Monitoring | SUBSTATION FLUID MONITORING | `JobType.FluidMonitoring` | Job Data value |
+| Unassigned | NO PROTOCOL ASSIGNED | (no `job`) | Job Data value shown while Docked/Docking/Departing |
+| Docked | DOCKED | `DockingState.Docked` | Docked Status value |
+| Docking | DOCKING | `DockingState.Docking` | Docked Status value |
+| Departing | DEPARTING | `DockingState.Departing` | Docked Status value |
+| Active | ACTIVE | `DockingState.Active` | Docked Status value |
+| Off | OFFLINE | `audioMode: 'none'` | Audio Setting value — purple status dot |
+| Mute | SILENCED | `audioMode: 'mute'` | Audio Setting value — red status dot |
+| Solo | ISOLATED | `audioMode: 'solo'` | Audio Setting value — green status dot |
+| Highlight | PRIORITIZED | `audioMode: 'highlight'` | Audio Setting value — amber status dot |

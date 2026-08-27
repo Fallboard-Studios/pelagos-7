@@ -26,6 +26,14 @@ import { useUIStore } from '../../stores/uiStore';
 // ========================================
 interface RobotBodyProps {
   robot: Robot;
+  /**
+   * When true, renders as if local time is always neutral (no day/night dimming) — used by the
+   * Robot Selection card thumbnail (Roadmap Phase 8) so it reads consistently regardless of the
+   * active locale's time of day. Battery dim (computeBatteryDimOpacity, below) is a separate,
+   * non-audio signal and is unaffected either way. In-world Robot.tsx instances don't pass this,
+   * so their day/night behavior is unchanged.
+   */
+  ignoreDaylight?: boolean;
 }
 
 // ========================================
@@ -35,12 +43,16 @@ interface RobotBodyProps {
  * RobotBody - Selects appropriate robot shape variant and calculates visual properties
  * from audio attributes. Memoized to prevent unnecessary recalculations.
  */
-export const RobotBody = memo(function RobotBody({ robot }: RobotBodyProps) {
+export const RobotBody = memo(function RobotBody({ robot, ignoreDaylight }: RobotBodyProps) {
   // Derive lightness from the active locale's local time so robots track the
   // same day/night cycle as buildings. activeLocaleLocalTime is a 0..24 float
-  // written by PlanetView every second.
+  // written by PlanetView every second. ignoreDaylight fixes this at a
+  // neutral 1 (full brightness) instead, for contexts where the thumbnail
+  // must look the same regardless of time of day (RobotSelectionCard).
   const localTime = useUIStore((s) => s.activeLocaleLocalTime ?? 12);
-  const lightnessMultiplier = 0.5 + 0.5 * Math.sin(((localTime - 6) / 24) * Math.PI * 2);
+  const lightnessMultiplier = ignoreDaylight
+    ? 1
+    : 0.5 + 0.5 * Math.sin(((localTime - 6) / 24) * Math.PI * 2);
 
   // Window/status-light dim — battery-driven, deliberately kept separate from
   // the audio-derived `visual` memo below (battery isn't an audio attribute).

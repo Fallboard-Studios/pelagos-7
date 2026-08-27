@@ -6,9 +6,20 @@ vi.mock('@/animation/timelineMap', () => ({ setTimeline: vi.fn(), killTimeline: 
 import { AccordionContainer } from './AccordionContainer';
 import { getAccordionDuration, ACCORDION_DURATION } from './accordionAnimation';
 import { setTimeline, killTimeline } from '@/animation/timelineMap';
+import { getStatusLightColor } from '@/utils/statusLightColors';
 import type { AccordionSchema } from '@/types/controls';
 
 const schema: AccordionSchema = { id: 'pingControls', type: 'accordion', humanLabel: 'Ping Controls' };
+
+// jsdom's CSSOM normalizes `hsl(...)` inline-style values to `rgb(...)` on read (a browser
+// quirk of the style property, not app behavior) — round-tripping the expected value through
+// the same normalization keeps the assertion about "is it the statusLightColors color", not
+// about jsdom's serialization format.
+function normalizeColor(color: string): string {
+  const probe = document.createElement('span');
+  probe.style.color = color;
+  return probe.style.color;
+}
 
 function stubMatchMedia(prefersReducedMotion: boolean) {
   Object.defineProperty(window, 'matchMedia', {
@@ -137,6 +148,48 @@ describe('AccordionContainer', () => {
     const light = container.querySelector('.sc-accordion__light');
     fireEvent.click(screen.getByRole('button'));
     expect(light?.getAttribute('data-content-active')).toBe('true');
+  });
+
+  it('colors the light green (via statusLightColors) when contentActive is true', () => {
+    const { container } = render(
+      <AccordionContainer schema={schema} contentActive={true}>Content</AccordionContainer>
+    );
+    const light = container.querySelector('.sc-accordion__light') as HTMLElement;
+    const expected = getStatusLightColor('green');
+    expect(light.style.color).toBe(normalizeColor(expected.color));
+    expect(light.style.boxShadow).not.toBe('');
+  });
+
+  it('colors the light red (via statusLightColors) when contentActive is false', () => {
+    const { container } = render(
+      <AccordionContainer schema={schema} contentActive={false}>Content</AccordionContainer>
+    );
+    const light = container.querySelector('.sc-accordion__light') as HTMLElement;
+    const expected = getStatusLightColor('red');
+    expect(light.style.color).toBe(normalizeColor(expected.color));
+  });
+
+  it('gives the active (green) glow more presence than the inactive (red) glow — not just a different hue', () => {
+    // Regression guard: unifying both states onto statusLightColors must not flatten the
+    // original hand-tuned distinction (active reads deliberately brighter/bigger).
+    const { container: activeContainer } = render(
+      <AccordionContainer schema={schema} contentActive={true}>Content</AccordionContainer>
+    );
+    const activeGlow = (activeContainer.querySelector('.sc-accordion__light') as HTMLElement).style.boxShadow;
+
+    const { container: inactiveContainer } = render(
+      <AccordionContainer schema={{ ...schema, id: 'pingControls2' }} contentActive={false}>Content</AccordionContainer>
+    );
+    const inactiveGlow = (inactiveContainer.querySelector('.sc-accordion__light') as HTMLElement).style.boxShadow;
+
+    expect(activeGlow).not.toBe(inactiveGlow);
+  });
+
+  it('applies no inline color/box-shadow when contentActive is omitted (unlit dot)', () => {
+    const { container } = render(<AccordionContainer schema={schema}>Content</AccordionContainer>);
+    const light = container.querySelector('.sc-accordion__light') as HTMLElement;
+    expect(light.style.color).toBe('');
+    expect(light.style.boxShadow).toBe('');
   });
 
   it('sets the content height to auto on mount when defaultOpen is true, so it is not visually collapsed despite aria-expanded="true"', () => {

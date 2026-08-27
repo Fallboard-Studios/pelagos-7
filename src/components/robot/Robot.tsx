@@ -34,6 +34,8 @@ export function Robot({ robot }: RobotProps) {
   const ref = useRef<SVGGElement>(null);
   const selectedRobotId = useUIStore((s) => s.selectedRobotId);
   const selectRobot = useUIStore((s) => s.selectRobot);
+  const activeHubTile = useUIStore((s) => s.activeHubTile);
+  const setActiveHubTile = useUIStore((s) => s.setActiveHubTile);
   const localeId = usePlanetStore((s) => selectCurrentPlanet(s)?.currentLocaleId ?? '');
   const isSelected = selectedRobotId === robot.id;
 
@@ -59,8 +61,13 @@ export function Robot({ robot }: RobotProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [robot.id]);
 
+  // Roadmap Phase 8: clicking a robot in the world view also opens the Robots hub tile, but only
+  // from the main hub grid (activeHubTile === null) — once any tile is already open, the user is
+  // already where they meant to go, so the active tile is left alone. Console.css's
+  // console--grid class is what lets this click physically reach here in the first place.
   const handleClick = () => {
     selectRobot(robot.id);
+    if (activeHubTile === null) setActiveHubTile('robots');
   };
 
   return (

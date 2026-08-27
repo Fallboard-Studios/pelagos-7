@@ -58,6 +58,15 @@ attributes" guardrail, they extend the one existing precedent for it:
   doesn't touch them either). Passed down as a `dimOpacity` prop, wrapping the target elements in a
   `<g opacity={dimOpacity}>`. Body hue/shape/greeble-count are untouched by battery level.
 
+**`ignoreDaylight` (Roadmap Phase 8)**: `RobotBody`'s optional `ignoreDaylight?: boolean` prop
+fixes the day/night `lightnessMultiplier` at a neutral `1` instead of deriving it from
+`uiStore.activeLocaleLocalTime` — used by `RobotSelectionCard`'s avatar thumbnail
+(`src/components/selection/`) so a card's appearance stays consistent regardless of the active
+locale's time of day. This is a rendering-context override only: it doesn't touch what
+`audioAttributes` produce, doesn't affect battery dim (a separate, non-audio signal — still fully
+active on an `ignoreDaylight` thumbnail), and in-world `Robot.tsx` instances don't pass it, so
+their day/night behavior is unchanged.
+
 ## Data Flow
 
 `audioAttributes` (`adsr`, `waveform`, `filterFreq`, `layers`, `visualAudioMap`) is fully serializable and lives on `Robot` in Zustand (see [src/types/Robot.ts](../src/types/Robot.ts)). Visual props are recomputed from this data at render time — never construct Tone.js objects, and never store computed shape/color props back in state.

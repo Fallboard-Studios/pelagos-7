@@ -26,3 +26,17 @@
      at once, letting the robot world read through the hub's own chrome. */
   --color-surface: rgba(26, 26, 26, 0.75);
 }
+
+/* Hub grid state only (ConsolePanel renders bare HubNav here, nothing else) — lets clicks in
+   the empty space around/between HubNav's tiles pass through to WorldView's robots underneath,
+   re-enabling pointer-events only on the tiles themselves. Same pattern already used elsewhere
+   for decorative full-bleed layers (SleeveContainer.css, App.css, .rocker-panel). Once any tile
+   is open, .console reverts to normal (pointer-events: auto, unset here) — full click capture,
+   unchanged from before. */
+.console--grid {
+  pointer-events: none;
+}
+
+.console--grid .sc-button {
+  pointer-events: auto;
+}
