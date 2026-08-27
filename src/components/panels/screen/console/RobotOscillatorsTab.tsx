@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import * as Select from '@radix-ui/react-select';
-import * as Switch from '@radix-ui/react-switch';
 import * as AlertDialog from '@radix-ui/react-alert-dialog';
 
 import { useUIStore } from '@/stores/uiStore';
@@ -8,7 +7,7 @@ import { usePlanetStore, selectCurrentPlanet } from '@/stores/planetStore';
 import { useLocaleStore } from '@/stores/localeStore';
 import { AudioEngine } from '@/engine/AudioEngine';
 import type { Robot, WaveformType } from '@/types/Robot';
-import type { OscillatorLayer, ADSTRaw } from '@/types/layeredAudio';
+import type { OscillatorLayer } from '@/types/layeredAudio';
 
 import './RobotOscillatorsTab.css';
 
@@ -16,8 +15,12 @@ import './RobotOscillatorsTab.css';
 // CONSTANTS
 // ========================================
 
-const WAVEFORM_OPTIONS: (WaveformType | 'noise')[] = [
-  'sine', 'square', 'sawtooth', 'triangle', 'pulse', 'noise',
+// This whole component is superseded by SignatureArrayDrawer (Roadmap Phase 9) and removed in
+// Task 12 of docs/tasks/ROBOT_OPTIONS.md — 'noise' and per-layer ADSR overrides are patched out
+// here only to keep the build compilable in the meantime (Tasks 2/3 already removed both at the
+// type/engine level), not as a redesign of this file's still-functioning controls.
+const WAVEFORM_OPTIONS: WaveformType[] = [
+  'sine', 'square', 'sawtooth', 'triangle', 'pulse',
 ];
 
 // ========================================
@@ -111,7 +114,7 @@ function LayerRow({ layer, idx, robot, localeId, allLayers, updateRobot }: Layer
 
   // Structural: waveform type change — brief audio gap expected
   const handleTypeChange = (newType: string) => {
-    commitStructural(robot, localeId, withUpdatedLayer({ ...layer, type: newType as WaveformType | 'noise' }), updateRobot);
+    commitStructural(robot, localeId, withUpdatedLayer({ ...layer, type: newType as WaveformType }), updateRobot);
   };
 
   // Continuous: commit on blur/Enter
@@ -129,29 +132,6 @@ function LayerRow({ layer, idx, robot, localeId, allLayers, updateRobot }: Layer
 
   const handlePulseWidthCommit = (v: number) => {
     commitContinuous(robot, localeId, withUpdatedLayer({ ...layer, pulseWidth: v }), updateRobot);
-  };
-
-  // Structural: ADSR override enable — copies master ADSR as starting point
-  const handleEnableAdsrOverride = () => {
-    const masterAdsr = robot.audioAttributes.adsr;
-    const initialAdsr: ADSTRaw = {
-      attack: masterAdsr.attack,
-      decay: masterAdsr.decay,
-      sustain: masterAdsr.sustain,
-      release: masterAdsr.release,
-    };
-    commitStructural(robot, localeId, withUpdatedLayer({ ...layer, adsr: initialAdsr }), updateRobot);
-  };
-
-  // Structural: ADSR override reset — removes layer.adsr, falls back to master
-  const handleResetAdsr = () => {
-    commitStructural(robot, localeId, withUpdatedLayer({ ...layer, adsr: undefined }), updateRobot);
-  };
-
-  // Structural: ADSR param edit — brief audio gap expected
-  const handleAdsrParamCommit = (key: keyof ADSTRaw, v: number) => {
-    const updatedAdsr: ADSTRaw = { ...layer.adsr, [key]: v };
-    commitStructural(robot, localeId, withUpdatedLayer({ ...layer, adsr: updatedAdsr }), updateRobot);
   };
 
   const showPulseWidth = layer.type === 'pulse' || layer.type === 'square';
@@ -222,72 +202,6 @@ function LayerRow({ layer, idx, robot, localeId, allLayers, updateRobot }: Layer
               onCommit={handlePulseWidthCommit}
             />
           )}
-
-          {/* Per-layer ADSR override (structural) */}
-          <details className="adsr-details">
-            <summary>Envelope Override</summary>
-            <div className="adsr-content">
-              {!layer.adsr ? (
-                <div className="field adsr-toggle-row">
-                  <label className="label" htmlFor={`adsr-toggle-${robot.id}-${idx}`}>
-                    Use master
-                  </label>
-                  <Switch.Root
-                    id={`adsr-toggle-${robot.id}-${idx}`}
-                    className="switch-root"
-                    checked={false}
-                    onCheckedChange={(checked) => {
-                      if (checked) handleEnableAdsrOverride();
-                    }}
-                  >
-                    <Switch.Thumb className="switch-thumb" />
-                  </Switch.Root>
-                </div>
-              ) : (
-                <>
-                  <NumericStepper
-                    label="Attack (s)"
-                    value={layer.adsr.attack ?? 0.01}
-                    min={0.001}
-                    max={4}
-                    step={0.001}
-                    onCommit={(v) => handleAdsrParamCommit('attack', v)}
-                  />
-                  <NumericStepper
-                    label="Decay (s)"
-                    value={layer.adsr.decay ?? 0.1}
-                    min={0.001}
-                    max={4}
-                    step={0.001}
-                    onCommit={(v) => handleAdsrParamCommit('decay', v)}
-                  />
-                  <NumericStepper
-                    label="Sustain"
-                    value={layer.adsr.sustain ?? 0.8}
-                    min={0}
-                    max={1}
-                    step={0.01}
-                    onCommit={(v) => handleAdsrParamCommit('sustain', v)}
-                  />
-                  <NumericStepper
-                    label="Release (s)"
-                    value={layer.adsr.release ?? 0.5}
-                    min={0.001}
-                    max={8}
-                    step={0.001}
-                    onCommit={(v) => handleAdsrParamCommit('release', v)}
-                  />
-                  <button
-                    type="button"
-                    className="reset-adsr-btn"
-                    onClick={handleResetAdsr}
-                  >
-                    Reset to master
-                  </button>
-                </>
-              )}
-            </div>
-          </details>
 
           <div style={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end' }}>
             <AlertDialog.Root>
@@ -366,9 +280,8 @@ export default function RobotOscillatorsTab() {
   const handleAddLayer = () => {
     const last = layers[layers.length - 1];
     const cloneBase = last ? { ...last } : { type: 'sine' as WaveformType, gain: 1, detune: 0, phase: 0 };
-    const clone = { ...cloneBase } as OscillatorLayer & Record<string, unknown>;
-    if ('adsr' in clone) delete clone.adsr;
-    const updated = [...layers, clone as OscillatorLayer];
+    const clone = { ...cloneBase } as OscillatorLayer;
+    const updated = [...layers, clone];
     commitStructural(robot, localeId, updated, updateRobot);
   };
 
