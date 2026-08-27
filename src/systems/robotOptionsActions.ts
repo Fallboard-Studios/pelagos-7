@@ -1,0 +1,134 @@
+/**
+ * Shared per-field apply functions for every editable Robot Options field (Roadmap Phase 10) —
+ * extracted verbatim from what was, until this phase, inline handler logic in
+ * RobotDisplaySection.tsx/PingControlsDrawer.tsx/PingContourDrawer.tsx/SignatureArrayDrawer.tsx.
+ * Nothing about what an edit does changes here, only where the code lives: both the single-robot
+ * drawers (via RobotOptionsTab.tsx) and the company-broadcast panel (CompanyOptionsSection.tsx)
+ * call these same functions — the single-robot call site calls once, the company call site loops
+ * across every member robot. See docs/specs/COMPANIES.md §4.
+ *
+ * Every function takes (robot, localeId, value) — never reads uiStore, never touches anything
+ * beyond localeStore/AudioEngine/lfoEngine/regenerateMelody. Selection state is a caller concern.
+ */
+import { useLocaleStore } from '@/stores/localeStore';
+import { AudioEngine } from '@/engine/AudioEngine';
+import { lfoEngine } from '@/engine/lfoEngine';
+import { regenerateMelody } from '@/engine/regenerateMelody';
+import { VOLUME_LFO_TARGET } from '@/data/robotOptionsConfig';
+import type { StepperWithToggleValue } from '@/components/ui/controls/StepperWithToggle';
+import type { Robot, ADSREnvelope } from '@/types/Robot';
+import type { OscillatorLayer } from '@/types/layeredAudio';
+import type { LfoValue } from '@/types/controls';
+import type { RobotLfoTargetId } from '@/types/lfo';
+
+// ========================================
+// AUDIO SETTING / VOLUME (RobotDisplaySection.tsx today)
+// ========================================
+
+export function applyAudioMode(robot: Robot, localeId: string, value: Robot['audioMode']): void {
+  useLocaleStore.getState().updateRobot(localeId, robot.id, { audioMode: value });
+}
+
+// Volume displays 0-100% but stores 0..1 (Robot.masterVolume). Also updates AudioEngine's live
+// masterVolume cache directly (not just the store) — scheduleNote's velocity lookup caches
+// masterVolume on a robot's first note and never re-reads the store afterward, so without this
+// the slider moves but has no audible effect until the cache is separately invalidated.
+export function applyVolume(robot: Robot, localeId: string, pct: number): void {
+  const value = pct / 100;
+  useLocaleStore.getState().updateRobot(localeId, robot.id, { masterVolume: value });
+  AudioEngine.updateRobotMasterVolume(robot.id, value);
+}
+
+/** Thin wrapper over the generic applyLayerLfo — Volume's LFO target ('volume') is itself a real
+ *  RobotLfoTargetId, so the wiring is identical; kept as its own named export (rather than callers
+ *  passing VOLUME_LFO_TARGET directly) to mirror how RobotDisplaySection's own handler was named
+ *  before this extraction. */
+export function applyVolumeLfo(robot: Robot, localeId: string, value: LfoValue): void {
+  applyLayerLfo(robot, localeId, VOLUME_LFO_TARGET, value);
+}
+
+// ========================================
+// PING CONTROLS (PingControlsDrawer.tsx today)
+// ========================================
+
+export function applyDensity(robot: Robot, localeId: string, density: number): void {
+  useLocaleStore.getState().updateRobot(localeId, robot.id, { rhythmicDensity: density });
+  regenerateMelody({ ...robot, rhythmicDensity: density }, localeId);
+}
+
+export function applyMotifLength(robot: Robot, localeId: string, value: StepperWithToggleValue): void {
+  useLocaleStore.getState().updateRobot(localeId, robot.id, { rhythmicMotifLength: value });
+  regenerateMelody({ ...robot, rhythmicMotifLength: value }, localeId);
+}
+
+export function applyNoteVariance(robot: Robot, localeId: string, value: StepperWithToggleValue): void {
+  useLocaleStore.getState().updateRobot(localeId, robot.id, { noteVariance: value });
+  regenerateMelody({ ...robot, noteVariance: value }, localeId);
+}
+
+// Keeps min <= max at all times — the same guard PingControlsDrawer's two independent Steppers
+// have always needed (no minStepsBetweenThumbs dual-thumb-slider enforcement here). Unlike
+// density/motifLength/noteVariance, an octave-range edit does NOT regenerate the melody today —
+// preserved exactly as-is, not a gap this extraction fixes.
+export function applyOctaveMin(robot: Robot, localeId: string, value: number): void {
+  const [, octMax] = robot.octaveRange;
+  const next: [number, number] = [Math.min(value, octMax), octMax];
+  useLocaleStore.getState().updateRobot(localeId, robot.id, { octaveRange: next });
+}
+
+export function applyOctaveMax(robot: Robot, localeId: string, value: number): void {
+  const [octMin] = robot.octaveRange;
+  const next: [number, number] = [octMin, Math.max(value, octMin)];
+  useLocaleStore.getState().updateRobot(localeId, robot.id, { octaveRange: next });
+}
+
+// ========================================
+// PING CONTOUR (PingContourDrawer.tsx today)
+// ========================================
+
+/** Ping Contour edits the robot's one shared audioAttributes.adsr. Always calls
+ *  updateVoiceEnvelope, never reReserveVoice/reserveVoice — no audio dropout on an envelope tweak. */
+export function applyAdsr(robot: Robot, localeId: string, adsr: ADSREnvelope): void {
+  useLocaleStore.getState().updateRobot(localeId, robot.id, {
+    audioAttributes: { ...robot.audioAttributes, adsr },
+  });
+  AudioEngine.updateVoiceEnvelope(robot.id, adsr);
+}
+
+// ========================================
+// SIGNATURE ARRAY (SignatureArrayDrawer.tsx today)
+// ========================================
+
+/** Continuous params (gain, detune, phase, pulseWidth): live, no gap in audio. */
+export function applyLayersContinuous(robot: Robot, localeId: string, layers: OscillatorLayer[]): void {
+  useLocaleStore.getState().updateRobot(localeId, robot.id, {
+    audioAttributes: { ...robot.audioAttributes, layers },
+  });
+  AudioEngine.updateVoiceLayerParams(robot.id, layers);
+}
+
+/** Structural changes (type, active/mute) — may cause a brief audio gap while the voice
+ *  rebuilds; active toggling changes which layers the composite voice actually includes. */
+export function applyLayersStructural(robot: Robot, localeId: string, layers: OscillatorLayer[]): void {
+  useLocaleStore.getState().updateRobot(localeId, robot.id, {
+    audioAttributes: { ...robot.audioAttributes, layers },
+  });
+  AudioEngine.reReserveVoice(robot.id);
+}
+
+/** Shared by every per-layer LFO frame (Gain/Detune/Phase/Interval) and, via applyVolumeLfo
+ *  above, Volume's own LFO frame — mirrors audioStore.ts's setGlobalLfo pattern, robot-scoped:
+ *  store write plus the matching lfoEngine calls, connecting/starting only when active. */
+export function applyLayerLfo(robot: Robot, localeId: string, target: RobotLfoTargetId, value: LfoValue): void {
+  const nextLfoSettings = { ...robot.lfoSettings, [target]: value } as Robot['lfoSettings'];
+  useLocaleStore.getState().updateRobot(localeId, robot.id, { lfoSettings: nextLfoSettings });
+  lfoEngine.setLfoShape(target, value.shape, robot.id);
+  lfoEngine.setLfoRate(target, value.rate, robot.id);
+  lfoEngine.setLfoDepth(target, value.depth, robot.id);
+  if (value.active) {
+    if (lfoEngine.connectLfoTarget(target, robot.id)) lfoEngine.start(target, robot.id);
+  } else {
+    lfoEngine.disconnectLfoTarget(target, robot.id);
+    lfoEngine.stop(target, robot.id);
+  }
+}
