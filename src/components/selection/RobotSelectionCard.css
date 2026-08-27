@@ -38,6 +38,12 @@
   gap: 2px;
 }
 
+/* Company assignment (Roadmap Phase 10) — same centered single-row treatment as the name row,
+   just below it, ahead of the meta grid. */
+.robot-selection-card__row--company {
+  justify-content: center;
+}
+
 .robot-selection-card__meta-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
