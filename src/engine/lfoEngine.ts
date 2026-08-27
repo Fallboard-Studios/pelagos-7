@@ -95,9 +95,21 @@ function isRobotTarget(target: LfoTargetId): boolean {
  * detune, pulseWidth), not which layer index it's on. 'phase' is
  * deliberately absent — the phase-polling fallback computes its own range
  * independently (PHASE_CENTER_DEGREES), it never reaches this lookup.
+ *
+ * 'volume' is deliberately 0-2, NOT the 0-1 domain ROBOT_DATA_GRID.md
+ * documents for the Volume slider itself. getRobotModulationTarget resolves
+ * 'volume' to the composite voice's own `output` Gain node (compositeVoice.ts)
+ * — an internal mix-stage node constructed at a fixed 1 and never written to
+ * in production, entirely separate from the robot's masterVolume/bus-gain
+ * fader. A 0-1 range put that permanent value of 1 exactly on the range's own
+ * max edge, so centeredSwingFromRange's min(distanceToMin, distanceToMax) was
+ * unconditionally 0 — the Volume LFO connected and took rate/depth/shape, but
+ * could never produce any audible swing, for any setting. 0-2 matches 'gain'
+ * (the other field backed by an identical Tone.Gain(1) node), putting 1 at
+ * the midpoint instead of the edge.
  */
 const ROBOT_LFO_FIELD_RANGE: Record<string, { min: number; max: number }> = {
-  volume: { min: 0, max: 1 },
+  volume: { min: 0, max: 2 },
   gain: { min: 0, max: 2 },
   detune: { min: -50, max: 50 },
   pulseWidth: { min: 0, max: 1 },

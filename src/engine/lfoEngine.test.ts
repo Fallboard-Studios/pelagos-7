@@ -490,16 +490,39 @@ describe('lfoEngine', () => {
         expect(instance.max).toBe(50);
       });
 
-      it('shrinks the swing when the base value sits near the top of its range, for the robot Volume target (0-1, base 0.8 -> +-0.2, not +-0.5)', async () => {
+      it('shrinks the swing when the base value sits near the top of its range, for the robot Volume target (0-2, base 1.8 -> +-0.2, not +-1)', async () => {
         const { AudioEngine } = await import('./AudioEngine');
-        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(0.8));
+        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(1.8));
         const { lfoEngine } = await import('./lfoEngine');
         lfoEngine.connectLfoTarget('volume', 'robot-a');
         const instance = await latestLfoInstance();
-        // toBeCloseTo, not toBe — 1 - 0.8 is a well-known floating-point
-        // representation artifact (0.19999999999999996), not a logic bug.
+        // toBeCloseTo, not toBe — 2 - 1.8 is a well-known floating-point
+        // representation artifact, not a logic bug.
         expect(instance.min).toBeCloseTo(-0.2, 10);
         expect(instance.max).toBeCloseTo(0.2, 10);
+      });
+
+      it('regression: the robot Volume target gets a real, non-zero swing at its live node\'s actual resting value (1) — previously pinned to +-0 forever', async () => {
+        // The composite voice's `output` Gain node (what 'volume' actually
+        // resolves to — see AudioEngine.getRobotModulationTarget) is
+        // constructed at exactly 1 and never changes (compositeVoice.ts's
+        // `set({ outputGain })` path is never invoked in production). A
+        // volume field range of 0-1 — matching the *slider's* domain, not the
+        // node's — put that resting value exactly on the range's own max
+        // edge: distanceToMax = 1 - 1 = 0, so centeredSwingFromRange's
+        // min(distanceToMin, distanceToMax) was unconditionally 0. The Volume
+        // LFO connected, took rate/depth/shape, but could never audibly
+        // modulate anything, for any setting. Fixed by widening the field's
+        // declared range to 0-2 (matching 'gain', the other field backed by
+        // an identical Tone.Gain(1) node), putting 1 at the midpoint instead
+        // of the edge.
+        const { AudioEngine } = await import('./AudioEngine');
+        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(1));
+        const { lfoEngine } = await import('./lfoEngine');
+        lfoEngine.connectLfoTarget('volume', 'robot-a');
+        const instance = await latestLfoInstance();
+        expect(instance.min).toBe(-1);
+        expect(instance.max).toBe(1);
       });
 
       it('gets the full half-span swing when the base value sits at the range\'s own midpoint, for a global EQ3 band (-12..12 dB, base 0)', async () => {
