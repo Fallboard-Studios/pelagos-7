@@ -90,13 +90,19 @@ export const PING_CONTROLS_ACCORDION_SCHEMA: AccordionSchema = {
   humanLabel: 'Ping Controls',
 };
 
-export const DENSITY_SCHEMA: StepperSchema = {
+/**
+ * A SliderLinear, not a Stepper — the grid originally called for a Stepper, but clicking through
+ * a 0-100 range one increment at a time was too slow to be usable; a drag/keyboard slider covers
+ * the same range in one gesture.
+ */
+export const DENSITY_SCHEMA: SliderLinearSchema = {
   id: 'robotOptions.density',
-  type: 'stepper',
+  type: 'sliderLinear',
   loreLabel: 'PING DENSITY',
   humanLabel: 'Density',
   min: RHYTHMIC_DENSITY_MIN,
   max: RHYTHMIC_DENSITY_MAX,
+  unit: '%',
 };
 
 export const MOTIF_LENGTH_SCHEMA: StepperWithToggleSchema = {

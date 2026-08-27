@@ -1,4 +1,5 @@
 import { Stepper } from '@/components/ui/controls/Stepper';
+import { SliderLinear } from '@/components/ui/controls/SliderLinear';
 import { StepperWithToggle, type StepperWithToggleValue } from '@/components/ui/controls/StepperWithToggle';
 import { Button } from '@/components/ui/controls/Button';
 import { AccordionContainer } from '@/components/ui/controls/AccordionContainer';
@@ -26,7 +27,9 @@ interface PingControlsDrawerProps {
  * One AccordionContainer wrapping Density/Motif Length/Octave Range/Note Variance/Reset Melody —
  * the direct schema-driven replacement for RobotAudioTab.tsx's hand-rolled Radix sliders/toggle-
  * group, calling the same regenerateMelody()/updateRobot() pair it already does. Octave Range is
- * two independent Steppers (per ROBOT_DATA_GRID.md), not the old dual-thumb Slider.
+ * two independent Steppers (per ROBOT_DATA_GRID.md), not the old dual-thumb Slider. Density is a
+ * SliderLinear rather than the grid's Stepper — clicking through a 0-100 range one increment at a
+ * time was too slow to be usable.
  */
 export function PingControlsDrawer({ robot }: PingControlsDrawerProps) {
   const localeId = getActiveLocaleId();
@@ -69,7 +72,7 @@ export function PingControlsDrawer({ robot }: PingControlsDrawerProps) {
   return (
     <AccordionContainer schema={PING_CONTROLS_ACCORDION_SCHEMA}>
       <div className="ping-controls-drawer">
-        <Stepper schema={DENSITY_SCHEMA} value={rhythmicDensity} onChange={handleDensityChange} />
+        <SliderLinear schema={DENSITY_SCHEMA} value={rhythmicDensity} onChange={handleDensityChange} />
         <StepperWithToggle schema={MOTIF_LENGTH_SCHEMA} value={rhythmicMotifLength} onChange={handleMotifLengthChange} />
         <Stepper schema={OCTAVE_RANGE_MIN_SCHEMA} value={octMin} onChange={handleOctaveMinChange} />
         <Stepper schema={OCTAVE_RANGE_MAX_SCHEMA} value={octMax} onChange={handleOctaveMaxChange} />

@@ -73,7 +73,8 @@ describe('PingControlsDrawer', () => {
     const genSpy = vi.spyOn(melodyGen, 'generateMelodyForRobot');
     render(<PingControlsDrawer robot={robot} />);
 
-    fireEvent.click(screen.getByRole('button', { name: /Increment Density/i }));
+    // A Slider (not a Stepper) - clicking through 100 discrete values one at a time was too slow.
+    fireEvent.keyDown(screen.getByRole('slider', { name: /density/i }), { key: 'ArrowRight' });
 
     expect(updateSpy).toHaveBeenCalledWith(localeId, robot.id, { rhythmicDensity: 51 });
     expect(genSpy).toHaveBeenCalled();
