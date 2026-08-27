@@ -37,4 +37,20 @@ describe('Button', () => {
     render(<Button schema={schema} onClick={() => {}} />);
     expect(screen.getByRole('button', { name: 'resetMelody' })).toBeTruthy();
   });
+
+  it('is not disabled by default', () => {
+    const schema: ButtonSchema = { id: 'resetMelody', type: 'button', humanLabel: 'Reset Melody' };
+    render(<Button schema={schema} onClick={() => {}} />);
+    expect((screen.getByRole('button') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('disables the button and blocks onClick when disabled is true', () => {
+    const schema: ButtonSchema = { id: 'resetMelody', type: 'button', humanLabel: 'Reset Melody' };
+    const onClick = vi.fn();
+    render(<Button schema={schema} onClick={onClick} disabled />);
+    const button = screen.getByRole('button') as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    fireEvent.click(button);
+    expect(onClick).not.toHaveBeenCalled();
+  });
 });

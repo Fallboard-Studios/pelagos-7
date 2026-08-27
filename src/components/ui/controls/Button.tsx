@@ -6,6 +6,7 @@ import './Button.css';
 interface ButtonProps {
   schema: ButtonSchema;
   onClick: () => void;
+  disabled?: boolean;
 }
 
 /**
@@ -13,7 +14,7 @@ interface ButtonProps {
  * DualLabel is nested as the button's own content (not a sibling) so the
  * label renders exactly once.
  */
-export function Button({ schema, onClick }: ButtonProps) {
+export function Button({ schema, onClick, disabled }: ButtonProps) {
   const accessibleName = resolveAccessibleName(schema);
   return (
     <button
@@ -21,6 +22,7 @@ export function Button({ schema, onClick }: ButtonProps) {
       className="sc-button"
       aria-label={accessibleName}
       onClick={onClick}
+      disabled={disabled}
     >
       <DualLabel loreLabel={schema.loreLabel} humanLabel={schema.humanLabel} />
     </button>
