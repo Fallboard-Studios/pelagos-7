@@ -63,6 +63,7 @@ describe('FactoryPlacementSystem', () => {
         coordinates: { x: 5, y: 5 },
         robots: [],
         actors: [],
+        companies: [],
         settings: {},
         currentMeasure: 0,
       };

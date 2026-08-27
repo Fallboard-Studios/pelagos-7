@@ -1,5 +1,6 @@
 import type { Actor } from './Actor';
 import type { Robot } from './Robot';
+import type { Company } from './Company';
 
 export interface LocaleCoordinates {
   x: number;
@@ -13,6 +14,7 @@ export interface Locale {
   coordinates: LocaleCoordinates;
   robots: Robot[];
   actors: Actor[];
+  companies: Company[];
   settings: LocaleSettings;
   currentMeasure: number;
 }
@@ -33,4 +35,17 @@ export interface LocaleState {
   updateRobot: (localeId: string, robotId: string, updates: Partial<Robot>) => void;
   removeRobot: (localeId: string, robotId: string) => void;
   getRobotById: (localeId: string, robotId: string) => Robot | undefined;
+  // Company helpers (Roadmap Phase 10) — mirrors the Robot helpers' shape exactly.
+  addCompany: (localeId: string, company: Company) => void;
+  updateCompany: (localeId: string, companyId: string, updates: Partial<Company>) => void;
+  /** Clears companyId on every former member (they become Freelance) before removing the
+   *  company itself — mirrors removeLocale's per-robot-cleanup-before-removal shape. */
+  removeCompany: (localeId: string, companyId: string) => void;
+  getCompanyById: (localeId: string, companyId: string) => Company | undefined;
+  getCompanyMembers: (localeId: string, companyId: string) => Robot[];
+  /** One atomic transition: moves a robot between companies (or to/from Freelance when
+   *  companyId is null), updating the robot's own companyId and both the old and new
+   *  company's robotIds together — not composed from separate updateRobot/updateCompany
+   *  calls at the call site. */
+  assignRobotToCompany: (localeId: string, robotId: string, companyId: string | null) => void;
 }

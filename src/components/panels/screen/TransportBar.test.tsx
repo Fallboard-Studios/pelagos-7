@@ -30,6 +30,7 @@ const TEST_LOCALE: Locale = {
   coordinates: { x: -17.4, y: 30.2 },
   robots: [],
   actors: [],
+  companies: [],
   settings: {},
   currentMeasure: 5,
 };

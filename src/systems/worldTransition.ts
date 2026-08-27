@@ -58,6 +58,7 @@ function buildLocale(planetId: string, coordinates: { x: number; y: number }): L
     coordinates,
     robots: [],
     actors: [],
+    companies: [],
     settings: { bpm: 60 },
     currentMeasure: 0,
   };
