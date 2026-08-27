@@ -223,6 +223,31 @@ which also required updating `ConsolePanel.tsx`'s import and `ConsolePanel.test.
 placed on `reserveVoice` itself rather than only `reReserveVoice` (the spec's original phrasing),
 since a robot's very first voice reservation happens in `spawnSystem.ts`, never `reReserveVoice`.
 
+**Post-launch fixes, found during manual testing and code review, not part of the original 13
+tasks:** Volume shipped as a 0–1 `SliderLinear` bound straight to `masterVolume`, baked into each
+note's own velocity at schedule time — testing surfaced three real, compounding problems: (1) a
+stale per-robot cache meant edits had no audible effect until a robot's next melody reload; (2)
+`masterVolume: 0` didn't actually mute, since a velocity floor kept a faint level; (3) even once
+live, an edit couldn't reach an already-scheduled/sounding note, since velocity is fixed the
+instant a note triggers. The fix was an architecture change (confirmed with the user first, not
+assumed): Volume moved off per-note velocity entirely onto each robot's own live per-robot bus
+gain (`AudioEngine.reserveVoice`'s `masterVolume` parameter, `AudioEngine.updateRobotMasterVolume`)
+— a continuously-live AudioParam, so an edit now affects anything currently sounding, including a
+note's release tail. The UI display also moved from a raw 0–1 slider to 0–100% in 1% steps, and
+the raw position is now passed through a perceptual/logarithmic taper
+(`src/engine/audioEngine/volumeTaper.ts`) before becoming gain — a linear mapping felt nearly flat
+across most of the fader's travel. Density (Ping Controls) shipped as the grid's literal `Stepper`
+call but proved too slow to dial through a 0–100 range one click at a time, so it became a
+`SliderLinear` instead. The Volume LFO was found to be silently inert at every setting — its
+declared modulation range pinned its swing to exactly `0` regardless of rate/depth/shape (see
+`AUDIO_SYSTEM.md`'s LFO Modulation section) — and Signature Array's Gain and Interval
+sliders had the same missing-`step` bug Volume's original 0–1 toggle had, reachable at only 2–3
+positions instead of a real range. Code review also caught Interval being shown (but inert) for
+Binary/square layers — Tone.js has no width parameter outside `'pulse'` — corrected to Burst/pulse
+only, in both the component and this phase's spec. Finally, `RobotDisplaySection` gained the same
+sunlight/time-agnostic `RobotBody` avatar `RobotSelectionCard` already used, so Robot Options'
+header reads consistently with the Robot Selection hub.
+
 ### About
 
 This phase tears out the existing hand-built robot editor — RobotAudioTab's Audio Mode toggle group and density/motif/note-variance/octave sliders, and RobotOscillatorsTab's per-layer waveform/gain/detune/phase/ADSR editors — and rebuilds it as the Robot Options screen, reached by selecting a robot from the Robot Selection hub tile (Phase 8), scoped entirely to the currently selected robot. We are populating src/data/robotOptionsConfig.ts with parameter schemas for all four drawers and constructing dedicated components in src/components/robot/, each control paired with a DualLabel showing its lore and human attribute name. These include RobotDisplay for read-only Name/Job/Battery(%)/Docking-status display (unchanged from Phase 8's display pattern, no job/docking override, no gauge widget), plus editable Audio Setting (Off/Mute/Solo/Highlight) and an LFO-modulatable transducer pressure ratio slider; PingControlsDrawer for rhythmic density, motif length, octave bounds, and a ping-reset action; PingContourDrawer for a single logarithmic ADSR envelope — replacing the current per-layer ADSR editing, so a robot has one shared envelope instead of one per oscillator layer; and SignatureArrayDrawer for configuring Baseline, Coaxial, and Harmonic oscillator layers with LFO modulation frames and layer-activation toggles. All controls will consume schema definitions from our data configs, maintaining strict presentation logic while preparing the UI to connect directly to the underlying Robot Systems Engine (Phase 7).
