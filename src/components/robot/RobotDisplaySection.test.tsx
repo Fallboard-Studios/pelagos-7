@@ -114,52 +114,44 @@ describe('RobotDisplaySection', () => {
     expect(screen.queryByRole('radio', { name: /docked|docking|departing|active/i })).toBeNull();
   });
 
-  it('Audio Setting radio includes all 4 options and calls updateRobot with the matching audioMode', () => {
+  // Audio Setting/Volume/Volume-LFO assertions live in AudioSettingSection.test.tsx as of Task 13
+  // (Roadmap Phase 10) — RobotDisplaySection now only wires that component's value/callbacks
+  // through robotOptionsActions, it doesn't own that rendering itself anymore.
+
+  it('renders AudioSettingSection wired to the robot\'s current audioMode/masterVolume/volumeLfo', () => {
+    const robot = makeRobot({ audioMode: 'solo', masterVolume: 0.6 });
+    useLocaleStore.getState().addRobot(localeId, robot);
+    render(<RobotDisplaySection robot={robot} />);
+
+    expect(screen.getByRole('radio', { name: 'Solo' }).getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByRole('slider', { name: /volume/i }).getAttribute('aria-valuenow')).toBe('60');
+  });
+
+  it('an Audio Setting edit calls updateRobot via robotOptionsActions.applyAudioMode', () => {
     const robot = makeRobot({ audioMode: 'none' });
     useLocaleStore.getState().addRobot(localeId, robot);
     const updateSpy = vi.spyOn(useLocaleStore.getState(), 'updateRobot');
     render(<RobotDisplaySection robot={robot} />);
 
-    ['Off', 'Mute', 'Solo', 'Highlight'].forEach((label) => {
-      expect(screen.getByRole('radio', { name: label })).toBeTruthy();
-    });
-
     fireEvent.click(screen.getByRole('radio', { name: 'Solo' }));
+
     expect(updateSpy).toHaveBeenCalledWith(localeId, robot.id, { audioMode: 'solo' });
   });
 
-  it('Volume slider displays 0-100% of the stored masterVolume, in 1% steps', () => {
-    const robot = makeRobot({ masterVolume: 0.42 });
-    useLocaleStore.getState().addRobot(localeId, robot);
-    render(<RobotDisplaySection robot={robot} />);
-
-    const slider = screen.getByRole('slider', { name: /volume/i });
-    expect(slider.getAttribute('aria-valuenow')).toBe('42');
-    expect(slider.getAttribute('aria-valuemin')).toBe('0');
-    expect(slider.getAttribute('aria-valuemax')).toBe('100');
-  });
-
-  it('a Volume edit converts the percent back to 0..1, writes the store, and updates the live AudioEngine cache', () => {
+  it('a Volume edit calls updateRobot and AudioEngine.updateRobotMasterVolume via robotOptionsActions.applyVolume', () => {
     const robot = makeRobot({ masterVolume: 0.42 });
     useLocaleStore.getState().addRobot(localeId, robot);
     const updateSpy = vi.spyOn(useLocaleStore.getState(), 'updateRobot');
     const volumeSpy = vi.spyOn(AudioEngine, 'updateRobotMasterVolume').mockImplementation(() => {});
     render(<RobotDisplaySection robot={robot} />);
 
-    const slider = screen.getByRole('slider', { name: /volume/i });
-    fireEvent.keyDown(slider, { key: 'ArrowRight' });
+    fireEvent.keyDown(screen.getByRole('slider', { name: /volume/i }), { key: 'ArrowRight' });
 
-    expect(updateSpy).toHaveBeenCalled();
-    const [, , update] = updateSpy.mock.calls[0];
-    const newVolume = (update as Partial<Robot>).masterVolume!;
-    expect(newVolume).toBeCloseTo(0.43, 5); // one 1% step up from 42%
-    // The whole point of this bug fix: a Volume edit must also update AudioEngine's live cache,
-    // not just the store - otherwise the change is silently inaudible (see
-    // AudioEngine.updateRobotMasterVolume's own tests for why).
-    expect(volumeSpy).toHaveBeenCalledWith(robot.id, newVolume);
+    expect(updateSpy).toHaveBeenCalledWith(localeId, robot.id, { masterVolume: expect.closeTo(0.43, 5) });
+    expect(volumeSpy).toHaveBeenCalledWith(robot.id, expect.closeTo(0.43, 5));
   });
 
-  it('Volume\'s Lfo accordion reflects lfoSettings.volume and wires connectLfoTarget on activation', () => {
+  it('a Volume LFO activation calls lfoEngine.connectLfoTarget via robotOptionsActions.applyVolumeLfo', () => {
     const robot = makeRobot({
       lfoSettings: {
         volume: { shape: 'sine', rate: 1, depth: 20, active: false },
@@ -168,8 +160,7 @@ describe('RobotDisplaySection', () => {
     useLocaleStore.getState().addRobot(localeId, robot);
     render(<RobotDisplaySection robot={robot} />);
 
-    const lfoActiveToggle = screen.getByRole('switch', { name: /active/i });
-    fireEvent.click(lfoActiveToggle);
+    fireEvent.click(screen.getByRole('switch', { name: /active/i }));
 
     expect(lfoEngine.connectLfoTarget).toHaveBeenCalledWith('volume', robot.id);
     expect(lfoEngine.start).toHaveBeenCalledWith('volume', robot.id);
