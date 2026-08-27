@@ -32,7 +32,7 @@ Four SVG variants live in `src/components/robot/`: `RobotSleek.tsx`, `RobotAngul
 
 Two complementary sources feed body geometry, composed together in `RobotBody.tsx`:
 
-1. **Spawn-time (`audioAttributes.visualAudioMap.shapeParams`)** — computed once in `spawnSystem.ts` from the gain-weighted, normalized average of a robot's oscillator layers' ADSR envelopes: `scale ≈ 0.25 + (1 − attack) × 0.75`, `roundness ≈ sustain`, `detail ≈ release` (all 0..1). This is the preferred source, converted to component props via `mapVisualAudioToProps()`.
+1. **Spawn-time (`audioAttributes.visualAudioMap.shapeParams`)** — computed once in `spawnSystem.ts` directly from the robot's one shared ADSR envelope (`audioAttributes.adsr`), normalized by the `ADSR_MAX` mapping constant: `scale ≈ 0.25 + (1 − attack/ADSR_MAX.attack) × 0.75`, `roundness ≈ sustain/ADSR_MAX.sustain`, `detail ≈ release/ADSR_MAX.release` (all 0..1). Roadmap Phase 9 collapsed per-layer ADSR overrides down to this single shared envelope — there's nothing left to average across layers. This is the preferred source, converted to component props via `mapVisualAudioToProps()`.
 2. **Live (`shapeParamsFromAudio()`)** — derives `torsoAspect`, `appendageLength`, and `scaleBias` from `octaveRange`, `filterFreq`, and waveform/ADSR, plus `MicroVariants` (`stripes`/`smooth`/`spikes`) keyed off waveform and fast-attack envelopes.
 
 ## Greebles & Lights
