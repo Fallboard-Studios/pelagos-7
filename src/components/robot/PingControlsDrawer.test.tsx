@@ -1,136 +1,173 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
-import { PingControlsDrawer } from './PingControlsDrawer';
-import { useLocaleStore } from '@/stores/localeStore';
-import { useUIStore } from '@/stores/uiStore';
-import { getActiveLocaleId } from '@/utils/localeHelpers';
-import * as melodyGen from '@/engine/melodyGenerator';
-import { AudioEngine } from '@/engine/AudioEngine';
-import type { Robot } from '@/types/Robot';
-import type { RobotMelodyEvent } from '@/engine/melodyGenerator';
-import type { Locale } from '@/types/locale';
+import { PingControlsDrawer, type PingControlsValue } from './PingControlsDrawer';
 
-function makeRobot(overrides: Partial<Robot> = {}): Robot {
+function makeValue(overrides: Partial<PingControlsValue> = {}): PingControlsValue {
   return {
-    id: 'r1',
-    name: 'Test Robot',
-    state: 'idle',
-    position: { x: 0, y: 0 },
-    destination: null,
-    direction: 'right',
-    melody: [],
-    audioAttributes: {
-      adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.3 },
-      filterFreq: 0,
-      waveform: 'sine',
-    },
-    octaveRange: [3, 4],
-    createdAt: Date.now(),
-    masterVolume: 0.7,
-    docking: 'active',
-    batteryLevel: 100,
     rhythmicDensity: 50,
     rhythmicMotifLength: { active: true, value: 8 },
     noteVariance: { active: false, value: 1 },
+    octaveRange: [3, 5],
     ...overrides,
-  } as Robot;
+  };
 }
 
 describe('PingControlsDrawer', () => {
-  const localeId = getActiveLocaleId();
-
-  beforeEach(() => {
-    useLocaleStore.getState().setLocaleData(localeId, { robots: [] } as unknown as Partial<Locale>);
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-    useLocaleStore.getState().setLocaleData(localeId, { robots: [] } as unknown as Partial<Locale>);
-  });
-
-  function stubMelodyPipeline() {
-    const sampleMelody = [{ id: 'm1', startStep: 1, length: '8n', noteIndex: 0, octave: 3 }];
-    vi.spyOn(melodyGen, 'generateMelodyForRobot').mockReturnValue(sampleMelody as unknown as RobotMelodyEvent[]);
-    vi.spyOn(AudioEngine, 'registerRobotMelody').mockImplementation(() => {});
-    vi.spyOn(AudioEngine, 'unregisterRobotMelody').mockImplementation(() => {});
-  }
-
   it('wraps its controls in exactly one AccordionContainer', () => {
-    const robot = makeRobot();
-    useLocaleStore.getState().addRobot(localeId, robot);
-    stubMelodyPipeline();
-    render(<PingControlsDrawer robot={robot} />);
+    render(
+      <PingControlsDrawer
+        value={makeValue()}
+        onDensityChange={() => {}}
+        onMotifLengthChange={() => {}}
+        onOctaveMinChange={() => {}}
+        onOctaveMaxChange={() => {}}
+        onNoteVarianceChange={() => {}}
+      />
+    );
     expect(screen.getAllByText('Ping Controls')).toHaveLength(1);
   });
 
-  it('changing Density calls updateRobot and regenerates the melody', () => {
-    const robot = makeRobot();
-    useLocaleStore.getState().addRobot(localeId, robot);
-    useUIStore.getState().selectRobot(robot.id);
-    stubMelodyPipeline();
-    const updateSpy = vi.spyOn(useLocaleStore.getState(), 'updateRobot');
-    const genSpy = vi.spyOn(melodyGen, 'generateMelodyForRobot');
-    render(<PingControlsDrawer robot={robot} />);
+  it('changing Density calls onDensityChange', () => {
+    const onDensityChange = vi.fn();
+    render(
+      <PingControlsDrawer
+        value={makeValue()}
+        onDensityChange={onDensityChange}
+        onMotifLengthChange={() => {}}
+        onOctaveMinChange={() => {}}
+        onOctaveMaxChange={() => {}}
+        onNoteVarianceChange={() => {}}
+      />
+    );
 
-    // A Slider (not a Stepper) - clicking through 100 discrete values one at a time was too slow.
     fireEvent.keyDown(screen.getByRole('slider', { name: /density/i }), { key: 'ArrowRight' });
 
-    expect(updateSpy).toHaveBeenCalledWith(localeId, robot.id, { rhythmicDensity: 51 });
-    expect(genSpy).toHaveBeenCalled();
+    expect(onDensityChange).toHaveBeenCalledWith(51);
   });
 
-  it('changing Motif Length\'s active toggle calls updateRobot and regenerates the melody', () => {
-    const robot = makeRobot({ rhythmicMotifLength: { active: false, value: 4 } });
-    useLocaleStore.getState().addRobot(localeId, robot);
-    stubMelodyPipeline();
-    const updateSpy = vi.spyOn(useLocaleStore.getState(), 'updateRobot');
-    const genSpy = vi.spyOn(melodyGen, 'generateMelodyForRobot');
-    render(<PingControlsDrawer robot={robot} />);
+  it('changing Motif Length\'s active toggle calls onMotifLengthChange', () => {
+    const onMotifLengthChange = vi.fn();
+    render(
+      <PingControlsDrawer
+        value={makeValue({ rhythmicMotifLength: { active: false, value: 4 } })}
+        onDensityChange={() => {}}
+        onMotifLengthChange={onMotifLengthChange}
+        onOctaveMinChange={() => {}}
+        onOctaveMaxChange={() => {}}
+        onNoteVarianceChange={() => {}}
+      />
+    );
 
     fireEvent.click(screen.getByRole('switch', { name: /Motif Length/i }));
 
-    expect(updateSpy).toHaveBeenCalledWith(localeId, robot.id, { rhythmicMotifLength: { active: true, value: 4 } });
-    expect(genSpy).toHaveBeenCalled();
+    expect(onMotifLengthChange).toHaveBeenCalledWith({ active: true, value: 4 });
   });
 
-  it('changing Octave Range Min calls updateRobot with the updated tuple', () => {
-    const robot = makeRobot({ octaveRange: [3, 5] });
-    useLocaleStore.getState().addRobot(localeId, robot);
-    stubMelodyPipeline();
-    const updateSpy = vi.spyOn(useLocaleStore.getState(), 'updateRobot');
-    render(<PingControlsDrawer robot={robot} />);
+  it('changing Octave Range Min calls onOctaveMinChange', () => {
+    const onOctaveMinChange = vi.fn();
+    render(
+      <PingControlsDrawer
+        value={makeValue({ octaveRange: [3, 5] })}
+        onDensityChange={() => {}}
+        onMotifLengthChange={() => {}}
+        onOctaveMinChange={onOctaveMinChange}
+        onOctaveMaxChange={() => {}}
+        onNoteVarianceChange={() => {}}
+      />
+    );
 
     fireEvent.click(screen.getByRole('button', { name: /Increment Octave Range Min/i }));
 
-    expect(updateSpy).toHaveBeenCalledWith(localeId, robot.id, { octaveRange: [4, 5] });
+    expect(onOctaveMinChange).toHaveBeenCalledWith(4);
   });
 
-  it('changing Note Variance\'s active toggle calls updateRobot and regenerates the melody', () => {
-    const robot = makeRobot({ noteVariance: { active: false, value: 1 } });
-    useLocaleStore.getState().addRobot(localeId, robot);
-    stubMelodyPipeline();
-    const updateSpy = vi.spyOn(useLocaleStore.getState(), 'updateRobot');
-    const genSpy = vi.spyOn(melodyGen, 'generateMelodyForRobot');
-    render(<PingControlsDrawer robot={robot} />);
+  it('changing Octave Range Max calls onOctaveMaxChange', () => {
+    const onOctaveMaxChange = vi.fn();
+    render(
+      <PingControlsDrawer
+        value={makeValue({ octaveRange: [3, 5] })}
+        onDensityChange={() => {}}
+        onMotifLengthChange={() => {}}
+        onOctaveMinChange={() => {}}
+        onOctaveMaxChange={onOctaveMaxChange}
+        onNoteVarianceChange={() => {}}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Decrement Octave Range Max/i }));
+
+    expect(onOctaveMaxChange).toHaveBeenCalledWith(4);
+  });
+
+  it('changing Note Variance\'s active toggle calls onNoteVarianceChange', () => {
+    const onNoteVarianceChange = vi.fn();
+    render(
+      <PingControlsDrawer
+        value={makeValue({ noteVariance: { active: false, value: 1 } })}
+        onDensityChange={() => {}}
+        onMotifLengthChange={() => {}}
+        onOctaveMinChange={() => {}}
+        onOctaveMaxChange={() => {}}
+        onNoteVarianceChange={onNoteVarianceChange}
+      />
+    );
 
     fireEvent.click(screen.getByRole('switch', { name: /Note Variance/i }));
 
-    expect(updateSpy).toHaveBeenCalledWith(localeId, robot.id, { noteVariance: { active: true, value: 1 } });
-    expect(genSpy).toHaveBeenCalled();
+    expect(onNoteVarianceChange).toHaveBeenCalledWith({ active: true, value: 1 });
   });
 
-  it('Reset Melody is a plain one-click Button - no confirmation dialog', () => {
-    const robot = makeRobot();
-    useLocaleStore.getState().addRobot(localeId, robot);
-    stubMelodyPipeline();
-    const genSpy = vi.spyOn(melodyGen, 'generateMelodyForRobot');
-    render(<PingControlsDrawer robot={robot} />);
+  it('Reset Melody is a plain one-click Button when onResetMelody is provided - no confirmation dialog', () => {
+    const onResetMelody = vi.fn();
+    render(
+      <PingControlsDrawer
+        value={makeValue()}
+        onDensityChange={() => {}}
+        onMotifLengthChange={() => {}}
+        onOctaveMinChange={() => {}}
+        onOctaveMaxChange={() => {}}
+        onNoteVarianceChange={() => {}}
+        onResetMelody={onResetMelody}
+      />
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Reset Melody' }));
 
-    // Fires immediately - no "are you sure?" step to click through first
-    expect(genSpy).toHaveBeenCalledTimes(1);
+    expect(onResetMelody).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('alertdialog')).toBeNull();
+  });
+
+  it('omits the Reset Melody button entirely when onResetMelody is not provided (company mode)', () => {
+    render(
+      <PingControlsDrawer
+        value={makeValue()}
+        onDensityChange={() => {}}
+        onMotifLengthChange={() => {}}
+        onOctaveMinChange={() => {}}
+        onOctaveMaxChange={() => {}}
+        onNoteVarianceChange={() => {}}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: 'Reset Melody' })).toBeNull();
+  });
+
+  it('disables every internal control when disabled is true', () => {
+    render(
+      <PingControlsDrawer
+        value={makeValue()}
+        onDensityChange={() => {}}
+        onMotifLengthChange={() => {}}
+        onOctaveMinChange={() => {}}
+        onOctaveMaxChange={() => {}}
+        onNoteVarianceChange={() => {}}
+        disabled
+      />
+    );
+
+    expect(screen.getByRole('slider', { name: /density/i }).getAttribute('data-disabled')).toBe('');
+    expect((screen.getByRole('switch', { name: /Motif Length/i }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: /Increment Octave Range Min/i }) as HTMLButtonElement).disabled).toBe(true);
   });
 });
