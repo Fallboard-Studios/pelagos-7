@@ -6,6 +6,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useLocaleStore, DEFAULT_LOCALE, DEFAULT_LOCALE_ID } from './localeStore';
 import { AudioEngine } from '../engine/AudioEngine';
 import type { Locale } from '../types/locale';
+import type { Company } from '../types/Company';
 import type { Robot } from '../types/Robot';
 import { RobotState, DockingState } from '../types/Robot';
 
@@ -30,6 +31,12 @@ const makeRobot = (id: string): Robot => ({
   masterVolume: 0.7,
   docking: DockingState.Active,
   batteryLevel: 100,
+});
+
+const makeCompany = (id: string, robotIds: string[] = []): Company => ({
+  id,
+  name: `Company ${id}`,
+  robotIds,
 });
 
 // ========================================
@@ -303,6 +310,164 @@ describe('localeStore', () => {
 
     it('returns undefined for an unknown id', () => {
       expect(useLocaleStore.getState().getLocaleById('nonexistent')).toBeUndefined();
+    });
+  });
+
+  describe('addCompany / updateCompany / getCompanyById', () => {
+    it('adds a company to the locale', () => {
+      useLocaleStore.getState().addCompany(DEFAULT_LOCALE_ID, makeCompany('c1'));
+      expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].companies).toHaveLength(1);
+      expect(useLocaleStore.getState().getCompanyById(DEFAULT_LOCALE_ID, 'c1')?.name).toBe('Company c1');
+    });
+
+    it('appends without overwriting existing companies', () => {
+      useLocaleStore.getState().addCompany(DEFAULT_LOCALE_ID, makeCompany('c1'));
+      useLocaleStore.getState().addCompany(DEFAULT_LOCALE_ID, makeCompany('c2'));
+      expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].companies).toHaveLength(2);
+    });
+
+    it('updateCompany merges a partial update without touching other fields', () => {
+      useLocaleStore.getState().addCompany(DEFAULT_LOCALE_ID, makeCompany('c1', ['r1']));
+      useLocaleStore.getState().updateCompany(DEFAULT_LOCALE_ID, 'c1', { name: 'Renamed' });
+      const company = useLocaleStore.getState().getCompanyById(DEFAULT_LOCALE_ID, 'c1');
+      expect(company?.name).toBe('Renamed');
+      expect(company?.robotIds).toEqual(['r1']);
+    });
+
+    it('updateCompany can set lastEditedOptions incrementally, field by field', () => {
+      useLocaleStore.getState().addCompany(DEFAULT_LOCALE_ID, makeCompany('c1'));
+      useLocaleStore.getState().updateCompany(DEFAULT_LOCALE_ID, 'c1', { lastEditedOptions: { masterVolume: 0.5 } });
+      useLocaleStore.getState().updateCompany(DEFAULT_LOCALE_ID, 'c1', {
+        lastEditedOptions: {
+          ...useLocaleStore.getState().getCompanyById(DEFAULT_LOCALE_ID, 'c1')?.lastEditedOptions,
+          rhythmicDensity: 80,
+        },
+      });
+      const company = useLocaleStore.getState().getCompanyById(DEFAULT_LOCALE_ID, 'c1');
+      expect(company?.lastEditedOptions).toEqual({ masterVolume: 0.5, rhythmicDensity: 80 });
+    });
+
+    it('getCompanyById returns undefined for an unknown id', () => {
+      expect(useLocaleStore.getState().getCompanyById(DEFAULT_LOCALE_ID, 'nonexistent')).toBeUndefined();
+    });
+  });
+
+  describe('removeCompany', () => {
+    it('removes a company by id', () => {
+      useLocaleStore.getState().addCompany(DEFAULT_LOCALE_ID, makeCompany('c1'));
+      useLocaleStore.getState().removeCompany(DEFAULT_LOCALE_ID, 'c1');
+      expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].companies).toHaveLength(0);
+    });
+
+    it('does not affect other companies', () => {
+      useLocaleStore.getState().addCompany(DEFAULT_LOCALE_ID, makeCompany('c1'));
+      useLocaleStore.getState().addCompany(DEFAULT_LOCALE_ID, makeCompany('c2'));
+      useLocaleStore.getState().removeCompany(DEFAULT_LOCALE_ID, 'c1');
+      expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].companies[0].id).toBe('c2');
+    });
+
+    it('clears companyId on every former member — they become Freelance', () => {
+      useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, { ...makeRobot('r1'), companyId: 'c1' });
+      useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, { ...makeRobot('r2'), companyId: 'c1' });
+      useLocaleStore.getState().addCompany(DEFAULT_LOCALE_ID, makeCompany('c1', ['r1', 'r2']));
+
+      useLocaleStore.getState().removeCompany(DEFAULT_LOCALE_ID, 'c1');
+
+      const robots = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].robots;
+      expect(robots.find((r) => r.id === 'r1')?.companyId).toBeUndefined();
+      expect(robots.find((r) => r.id === 'r2')?.companyId).toBeUndefined();
+    });
+
+    it('does not touch a robot belonging to a different company', () => {
+      useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, { ...makeRobot('r1'), companyId: 'c1' });
+      useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, { ...makeRobot('r2'), companyId: 'c2' });
+      useLocaleStore.getState().addCompany(DEFAULT_LOCALE_ID, makeCompany('c1', ['r1']));
+      useLocaleStore.getState().addCompany(DEFAULT_LOCALE_ID, makeCompany('c2', ['r2']));
+
+      useLocaleStore.getState().removeCompany(DEFAULT_LOCALE_ID, 'c1');
+
+      expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].robots.find((r) => r.id === 'r2')?.companyId).toBe('c2');
+    });
+  });
+
+  describe('getCompanyMembers', () => {
+    it('returns exactly the robots whose companyId matches', () => {
+      useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, { ...makeRobot('r1'), companyId: 'c1' });
+      useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, { ...makeRobot('r2'), companyId: 'c2' });
+      useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, { ...makeRobot('r3'), companyId: 'c1' });
+
+      const members = useLocaleStore.getState().getCompanyMembers(DEFAULT_LOCALE_ID, 'c1');
+
+      expect(members.map((r) => r.id).sort()).toEqual(['r1', 'r3']);
+    });
+
+    it('returns an empty array when no robot belongs to the company', () => {
+      useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, makeRobot('r1'));
+      expect(useLocaleStore.getState().getCompanyMembers(DEFAULT_LOCALE_ID, 'c1')).toEqual([]);
+    });
+  });
+
+  describe('assignRobotToCompany', () => {
+    it('moves a robot from company A to company B in one atomic transition', () => {
+      useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, { ...makeRobot('r1'), companyId: 'a' });
+      useLocaleStore.getState().addCompany(DEFAULT_LOCALE_ID, makeCompany('a', ['r1']));
+      useLocaleStore.getState().addCompany(DEFAULT_LOCALE_ID, makeCompany('b', []));
+
+      useLocaleStore.getState().assignRobotToCompany(DEFAULT_LOCALE_ID, 'r1', 'b');
+
+      const state = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID];
+      expect(state.robots.find((r) => r.id === 'r1')?.companyId).toBe('b');
+      expect(state.companies.find((c) => c.id === 'a')?.robotIds).not.toContain('r1');
+      expect(state.companies.find((c) => c.id === 'b')?.robotIds).toContain('r1');
+    });
+
+    it('assigns a Freelance robot (no prior company) into a company', () => {
+      useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, makeRobot('r1'));
+      useLocaleStore.getState().addCompany(DEFAULT_LOCALE_ID, makeCompany('a', []));
+
+      useLocaleStore.getState().assignRobotToCompany(DEFAULT_LOCALE_ID, 'r1', 'a');
+
+      const state = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID];
+      expect(state.robots.find((r) => r.id === 'r1')?.companyId).toBe('a');
+      expect(state.companies.find((c) => c.id === 'a')?.robotIds).toContain('r1');
+    });
+
+    it('moving a robot to null (Freelance) clears companyId and removes it from its old company', () => {
+      useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, { ...makeRobot('r1'), companyId: 'a' });
+      useLocaleStore.getState().addCompany(DEFAULT_LOCALE_ID, makeCompany('a', ['r1']));
+
+      useLocaleStore.getState().assignRobotToCompany(DEFAULT_LOCALE_ID, 'r1', null);
+
+      const state = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID];
+      expect(state.robots.find((r) => r.id === 'r1')?.companyId).toBeUndefined();
+      expect(state.companies.find((c) => c.id === 'a')?.robotIds).not.toContain('r1');
+    });
+
+    it('does not affect other robots or other companies\' membership', () => {
+      useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, { ...makeRobot('r1'), companyId: 'a' });
+      useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, { ...makeRobot('r2'), companyId: 'a' });
+      useLocaleStore.getState().addCompany(DEFAULT_LOCALE_ID, makeCompany('a', ['r1', 'r2']));
+      useLocaleStore.getState().addCompany(DEFAULT_LOCALE_ID, makeCompany('b', []));
+
+      useLocaleStore.getState().assignRobotToCompany(DEFAULT_LOCALE_ID, 'r1', 'b');
+
+      const state = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID];
+      expect(state.robots.find((r) => r.id === 'r2')?.companyId).toBe('a');
+      expect(state.companies.find((c) => c.id === 'a')?.robotIds).toEqual(['r2']);
+    });
+
+    it('is a no-op for an unknown robotId', () => {
+      useLocaleStore.getState().addCompany(DEFAULT_LOCALE_ID, makeCompany('a', []));
+      expect(() => useLocaleStore.getState().assignRobotToCompany(DEFAULT_LOCALE_ID, 'nonexistent', 'a')).not.toThrow();
+      expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].companies.find((c) => c.id === 'a')?.robotIds).toEqual([]);
+    });
+  });
+
+  describe('removeLocale with companies', () => {
+    it('does not throw for a locale with populated companies — no AudioEngine state on a company itself', () => {
+      useLocaleStore.getState().addCompany(DEFAULT_LOCALE_ID, makeCompany('c1'));
+      expect(() => useLocaleStore.getState().removeLocale(DEFAULT_LOCALE_ID)).not.toThrow();
+      expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID]).toBeUndefined();
     });
   });
 });
