@@ -178,6 +178,7 @@ vi.mock('./lfoEngine', () => ({
 import { AudioEngine } from './AudioEngine';
 import { useLocaleStore } from '../stores/localeStore';
 import { DEFAULT_LOCALE_ID } from '../stores/planetStore';
+import { volumePositionToGain } from './audioEngine/volumeTaper';
 
 /** Shared placeholder ADSR for tests that don't care about specific envelope values —
  * reserveVoice's adsr parameter is required (Roadmap Phase 9), so every call needs one. */
@@ -856,7 +857,7 @@ describe('AudioEngine — masterVolume drives a live per-robot bus gain, not per
     vi.resetModules();
   });
 
-  it('reserveVoice initializes the per-robot bus gain from the masterVolume parameter', async () => {
+  it('reserveVoice initializes the per-robot bus gain from the masterVolume parameter, through the perceptual taper', async () => {
     const Tone = await import('tone');
     const { AudioEngine } = await import('./AudioEngine');
     await AudioEngine.start();
@@ -868,9 +869,12 @@ describe('AudioEngine — masterVolume drives a live per-robot bus gain, not per
     // The bus gain is constructed after the (single) layer's own gain node, inside the same
     // reserveVoice call — its constructor argument is what this asserts, not the mocked Gain
     // factory's echoed-back .gain.value (the mock ignores its constructor argument entirely).
+    // The value itself is the taper's output for position 0.3, not 0.3 verbatim — a linear
+    // pass-through is exactly the bug this taper fixes (see volumeTaper.test.ts for the curve's
+    // own dedicated tests; this just confirms AudioEngine actually applies it).
     const gainCalls = (Tone.Gain as unknown as { mock: { calls: unknown[][] } }).mock.calls;
     const busGainCallArgs = gainCalls[gainCalls.length - 1];
-    expect(busGainCallArgs[0]).toBe(0.3);
+    expect(busGainCallArgs[0]).toBe(volumePositionToGain(0.3));
   });
 
   it('defaults the bus gain to 1 when masterVolume is omitted (backward compatible)', async () => {
@@ -935,7 +939,9 @@ describe('AudioEngine.updateRobotMasterVolume', () => {
 
     AudioEngine.updateRobotMasterVolume('volume-live-edit-robot', 0.2);
 
-    expect(busGainInstance.gain.value).toBe(0.2);
+    // Taper output for position 0.2, not 0.2 verbatim (see volumeTaper.test.ts for the curve's own
+    // dedicated tests) — this just confirms the live-update path applies it too, not only construction.
+    expect(busGainInstance.gain.value).toBe(volumePositionToGain(0.2));
   });
 
   it('is a safe no-op (no throw) when the robot has never had a note scheduled yet', async () => {
