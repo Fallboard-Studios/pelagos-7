@@ -179,6 +179,10 @@ import { AudioEngine } from './AudioEngine';
 import { useLocaleStore } from '../stores/localeStore';
 import { DEFAULT_LOCALE_ID } from '../stores/planetStore';
 
+/** Shared placeholder ADSR for tests that don't care about specific envelope values —
+ * reserveVoice's adsr parameter is required (Roadmap Phase 9), so every call needs one. */
+const TEST_ADSR = { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.5 };
+
 describe('AudioEngine.reReserveVoice', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -222,9 +226,12 @@ describe('AudioEngine.reReserveVoice', () => {
 
     expect(res).toBe(true);
     expect(releaseSpy).toHaveBeenCalledWith('r1');
+    // adsr is threaded through as the 3rd positional argument, ahead of phase/detune/pulseWidth
+    // (Roadmap Phase 9 — the robot's one shared envelope, read from audioAttributes.adsr).
     expect(reserveSpy).toHaveBeenCalledWith(
       'r1',
       expect.arrayContaining([expect.objectContaining({ type: 'sine' })]),
+      { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.5 },
       37,
       5,
       0.42,
@@ -253,7 +260,7 @@ describe('AudioEngine - Polyphony Management', () => {
     await AudioEngine.start();
 
     // Reserve a composite voice for the shared 'test' robot so triggerWithCap can trigger it
-    AudioEngine.reserveVoice('test', TEST_LAYERED);
+    AudioEngine.reserveVoice('test', TEST_LAYERED, TEST_ADSR);
   });
 
   describe('triggerWithCap', () => {
@@ -395,8 +402,8 @@ describe('AudioEngine - audioMode enforcement (solo/mute/highlight)', () => {
 
     // Reserve composite voices for both robots using canonical layers array
     const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0 }];
-    AudioEngine.reserveVoice('r-muted', layered as any);
-    AudioEngine.reserveVoice('r-other', layered as any);
+    AudioEngine.reserveVoice('r-muted', layered as any, TEST_ADSR);
+    AudioEngine.reserveVoice('r-other', layered as any, TEST_ADSR);
 
     // Clear prior calls on created Synth instances
     const synthResults = (Tone.Synth as unknown as any).mock.results;
@@ -437,7 +444,7 @@ describe('AudioEngine - audioMode enforcement (solo/mute/highlight)', () => {
       await AudioEngine.start();
 
       const initialLayers: any[] = [{ type: 'sine', gain: 0.8 }];
-      AudioEngine.reserveVoice('v1', initialLayers as any);
+      AudioEngine.reserveVoice('v1', initialLayers as any, TEST_ADSR);
 
       const comp = AudioEngine.getVoiceForRobot('v1') as any;
       const setSpy = vi.spyOn(comp, 'set');
@@ -474,8 +481,8 @@ describe('AudioEngine - audioMode enforcement (solo/mute/highlight)', () => {
 
     // Reserve composite voices using canonical layers array
     const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0 }];
-    AudioEngine.reserveVoice('r-solo', layered as any);
-    AudioEngine.reserveVoice('r-other2', layered as any);
+    AudioEngine.reserveVoice('r-solo', layered as any, TEST_ADSR);
+    AudioEngine.reserveVoice('r-other2', layered as any, TEST_ADSR);
 
     const synthResults = (Tone.Synth as unknown as any).mock.results;
     synthResults.forEach((r: any) => r.value?.triggerAttackRelease?.mockClear());
@@ -516,8 +523,8 @@ describe('AudioEngine - audioMode enforcement (solo/mute/highlight)', () => {
 
     // Reserve composite voices using canonical layers array
     const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0 }];
-    AudioEngine.reserveVoice('r-h', layered as any);
-    AudioEngine.reserveVoice('r-nh', layered as any);
+    AudioEngine.reserveVoice('r-h', layered as any, TEST_ADSR);
+    AudioEngine.reserveVoice('r-nh', layered as any, TEST_ADSR);
 
     const synthResults = (Tone.Synth as unknown as any).mock.results;
     synthResults.forEach((r: any) => r.value?.triggerAttackRelease?.mockClear());
@@ -797,7 +804,7 @@ describe('AudioEngine - Motif Group Accent', () => {
     const { AudioEngine } = await import('./AudioEngine');
 
     const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0 }];
-    AudioEngine.reserveVoice('accent-vel-robot', layered as any);
+    AudioEngine.reserveVoice('accent-vel-robot', layered as any, TEST_ADSR);
     const synthResults = (Tone.Synth as unknown as any).mock.results;
     synthResults.forEach((r: any) => r.value?.triggerAttackRelease?.mockClear());
 
@@ -821,7 +828,7 @@ describe('AudioEngine - Motif Group Accent', () => {
     const { AudioEngine } = await import('./AudioEngine');
 
     const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0 }];
-    AudioEngine.reserveVoice('accent-clamp-robot', layered as any);
+    AudioEngine.reserveVoice('accent-clamp-robot', layered as any, TEST_ADSR);
     const synthResults = (Tone.Synth as unknown as any).mock.results;
     synthResults.forEach((r: any) => r.value?.triggerAttackRelease?.mockClear());
 
@@ -853,7 +860,7 @@ describe('AudioEngine - Reservation & Isolation (focused)', () => {
     const { AudioEngine } = await import('./AudioEngine');
     await AudioEngine.start();
     const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0 }];
-    const ok = AudioEngine.reserveVoice('robot-test-1', layered as any);
+    const ok = AudioEngine.reserveVoice('robot-test-1', layered as any, TEST_ADSR);
     expect(ok).toBe(true);
     const synth = AudioEngine.getVoiceForRobot('robot-test-1');
     expect(synth).not.toBeNull();
@@ -869,7 +876,7 @@ describe('AudioEngine - Reservation & Isolation (focused)', () => {
     const { AudioEngine } = await import('./AudioEngine');
     await AudioEngine.start();
     const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0 }];
-    const ok = AudioEngine.reserveVoice('robot-test-2', layered as any);
+    const ok = AudioEngine.reserveVoice('robot-test-2', layered as any, TEST_ADSR);
     expect(ok).toBe(true);
     const { triggerWithCap } = await import('./AudioEngine');
     const result = triggerWithCap({ robotId: 'robot-test-2', note: 'C4', duration: '8n' });
@@ -887,7 +894,7 @@ describe('AudioEngine - Composite Voices (Layered)', () => {
     const { AudioEngine } = await import('./AudioEngine');
     await AudioEngine.start();
     const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0 }];
-    const ok = AudioEngine.reserveVoice('composite-robot-1', layered as any);
+    const ok = AudioEngine.reserveVoice('composite-robot-1', layered as any, TEST_ADSR);
     expect(ok).toBe(true);
     const voice = AudioEngine.getVoiceForRobot('composite-robot-1');
     expect(voice).not.toBeNull();
@@ -897,7 +904,7 @@ describe('AudioEngine - Composite Voices (Layered)', () => {
     const { AudioEngine, triggerWithCap } = await import('./AudioEngine');
     await AudioEngine.start();
     const layered: any[] = [{ type: 'sine', gain: 0.6, detune: 0, phase: 0 }];
-    const ok = AudioEngine.reserveVoice('composite-robot-2', layered as any);
+    const ok = AudioEngine.reserveVoice('composite-robot-2', layered as any, TEST_ADSR);
     expect(ok).toBe(true);
     const result = triggerWithCap({ robotId: 'composite-robot-2', note: 'C4', duration: '8n', time: 0 });
     expect(result).toBe(true);
@@ -907,7 +914,7 @@ describe('AudioEngine - Composite Voices (Layered)', () => {
     const { AudioEngine } = await import('./AudioEngine');
     await AudioEngine.start();
     const layered: any[] = [{ type: 'sine', gain: 0.6, detune: 0, phase: 0 }];
-    const ok = AudioEngine.reserveVoice('composite-robot-3', layered as any);
+    const ok = AudioEngine.reserveVoice('composite-robot-3', layered as any, TEST_ADSR);
     expect(ok).toBe(true);
     // ensure voice exists
     let voice = AudioEngine.getVoiceForRobot('composite-robot-3');
@@ -916,6 +923,60 @@ describe('AudioEngine - Composite Voices (Layered)', () => {
     AudioEngine.releaseVoice('composite-robot-3');
     voice = AudioEngine.getVoiceForRobot('composite-robot-3');
     expect(voice).toBeNull();
+  });
+
+  it('excludes active: false layers from the reserved composite voice (Roadmap Phase 9 — mute, not delete)', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+    const layers: any[] = [
+      { type: 'sine', gain: 1, detune: 0, phase: 0, active: true },
+      { type: 'square', gain: 1, detune: 0, phase: 0, active: false },
+      { type: 'sawtooth', gain: 1, detune: 0, phase: 0, active: true },
+    ];
+    AudioEngine.reserveVoice('active-filter-robot', layers as any, TEST_ADSR);
+    const voice = AudioEngine.getVoiceForRobot('active-filter-robot');
+    expect(voice?.layers?.length).toBe(2);
+    expect(voice?.layers?.map((l) => l.layer.type)).toEqual(['sine', 'sawtooth']);
+  });
+
+  it('treats a layer with no active field as active (fixtures predating the field stay audible)', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+    const layers: any[] = [{ type: 'sine', gain: 1, detune: 0, phase: 0 }];
+    AudioEngine.reserveVoice('no-active-field-robot', layers as any, TEST_ADSR);
+    const voice = AudioEngine.getVoiceForRobot('no-active-field-robot');
+    expect(voice?.layers?.length).toBe(1);
+  });
+});
+
+describe('AudioEngine.updateVoiceEnvelope', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { settings: { bpm: 120 } });
+  });
+
+  it('applies the new ADSR to every active layer\'s live synth via the existing set({ layers }) path', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+    const layers: any[] = [
+      { type: 'sine', gain: 1, detune: 0, phase: 0, active: true },
+      { type: 'square', gain: 1, detune: 0, phase: 0, active: true },
+    ];
+    AudioEngine.reserveVoice('envelope-robot', layers as any, TEST_ADSR);
+
+    const newAdsr = { attack: 0.5, decay: 0.4, sustain: 0.3, release: 0.2 };
+    AudioEngine.updateVoiceEnvelope('envelope-robot', newAdsr);
+
+    const voice = AudioEngine.getVoiceForRobot('envelope-robot');
+    voice?.layers?.forEach(({ synth }) => {
+      expect((synth as any).set).toHaveBeenCalledWith({ envelope: newAdsr });
+    });
+  });
+
+  it('is a safe no-op when no composite voice is reserved for the robot', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+    expect(() => AudioEngine.updateVoiceEnvelope('never-reserved', TEST_ADSR)).not.toThrow();
   });
 });
 
@@ -1020,7 +1081,7 @@ describe('AudioEngine - Global FX Chain', () => {
       await AudioEngine.start();
       const eqNode = lastInstance(Tone.EQ3) ?? { connect: vi.fn() };
       const layered = { base: 'sine', layers: [{ type: 'sine', gain: 0.8 }] } as any;
-      AudioEngine.reserveVoice('bus-wiring-test', layered);
+      AudioEngine.reserveVoice('bus-wiring-test', layered, TEST_ADSR);
       // busFilter is a Tone.Filter instance — it's the third Filter construction
       // per reserveVoice call site (after LPF/HPF from loadInstruments), so grab
       // the freshest one and confirm it was connected into the chain entry.
@@ -1260,7 +1321,7 @@ describe('AudioEngine - getRobotModulationTarget', () => {
     const { AudioEngine } = await import('./AudioEngine');
     await AudioEngine.start();
     const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0 }];
-    AudioEngine.reserveVoice('mod-target-volume', layered as any);
+    AudioEngine.reserveVoice('mod-target-volume', layered as any, TEST_ADSR);
 
     const target = AudioEngine.getRobotModulationTarget('mod-target-volume', 'volume');
     expect(target).not.toBeNull();
@@ -1274,7 +1335,7 @@ describe('AudioEngine - getRobotModulationTarget', () => {
       { type: 'sine', gain: 0.8, detune: 0, phase: 0 },
       { type: 'triangle', gain: 0.5, detune: 0, phase: 0 },
     ];
-    AudioEngine.reserveVoice('mod-target-gain', layered as any);
+    AudioEngine.reserveVoice('mod-target-gain', layered as any, TEST_ADSR);
 
     expect(AudioEngine.getRobotModulationTarget('mod-target-gain', 'layer0.gain')).toHaveProperty('value');
     expect(AudioEngine.getRobotModulationTarget('mod-target-gain', 'layer1.gain')).toHaveProperty('value');
@@ -1284,7 +1345,7 @@ describe('AudioEngine - getRobotModulationTarget', () => {
     const { AudioEngine } = await import('./AudioEngine');
     await AudioEngine.start();
     const layered: any[] = [{ type: 'sine', gain: 0.8, detune: -5, phase: 0 }];
-    AudioEngine.reserveVoice('mod-target-detune', layered as any);
+    AudioEngine.reserveVoice('mod-target-detune', layered as any, TEST_ADSR);
 
     const target = AudioEngine.getRobotModulationTarget('mod-target-detune', 'layer0.detune');
     expect(target).not.toBeNull();
@@ -1295,7 +1356,7 @@ describe('AudioEngine - getRobotModulationTarget', () => {
     const { AudioEngine } = await import('./AudioEngine');
     await AudioEngine.start();
     const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 45 }];
-    AudioEngine.reserveVoice('mod-target-phase', layered as any);
+    AudioEngine.reserveVoice('mod-target-phase', layered as any, TEST_ADSR);
 
     expect(() => AudioEngine.getRobotModulationTarget('mod-target-phase', 'layer0.phase')).not.toThrow();
     expect(AudioEngine.getRobotModulationTarget('mod-target-phase', 'layer0.phase')).toBeNull();
@@ -1305,7 +1366,7 @@ describe('AudioEngine - getRobotModulationTarget', () => {
     const { AudioEngine } = await import('./AudioEngine');
     await AudioEngine.start();
     const layered: any[] = [{ type: 'pulse', gain: 0.8, detune: 0, phase: 0, pulseWidth: 0.3 }];
-    AudioEngine.reserveVoice('mod-target-pulse', layered as any);
+    AudioEngine.reserveVoice('mod-target-pulse', layered as any, TEST_ADSR);
 
     const target = AudioEngine.getRobotModulationTarget('mod-target-pulse', 'layer0.pulseWidth');
     expect(target).not.toBeNull();
@@ -1316,7 +1377,7 @@ describe('AudioEngine - getRobotModulationTarget', () => {
     const { AudioEngine } = await import('./AudioEngine');
     await AudioEngine.start();
     const layered: any[] = [{ type: 'square', gain: 0.8, detune: 0, phase: 0 }];
-    AudioEngine.reserveVoice('mod-target-square', layered as any);
+    AudioEngine.reserveVoice('mod-target-square', layered as any, TEST_ADSR);
 
     expect(() => AudioEngine.getRobotModulationTarget('mod-target-square', 'layer0.pulseWidth')).not.toThrow();
     expect(AudioEngine.getRobotModulationTarget('mod-target-square', 'layer0.pulseWidth')).toBeNull();
@@ -1326,7 +1387,7 @@ describe('AudioEngine - getRobotModulationTarget', () => {
     const { AudioEngine } = await import('./AudioEngine');
     await AudioEngine.start();
     const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0 }]; // only layer0 exists
-    AudioEngine.reserveVoice('mod-target-oob', layered as any);
+    AudioEngine.reserveVoice('mod-target-oob', layered as any, TEST_ADSR);
 
     expect(() => AudioEngine.getRobotModulationTarget('mod-target-oob', 'layer2.gain')).not.toThrow();
     expect(AudioEngine.getRobotModulationTarget('mod-target-oob', 'layer2.gain')).toBeNull();

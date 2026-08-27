@@ -7,7 +7,7 @@ import { useLocaleStore } from '../stores/localeStore';
 import { getActiveLocaleId } from '../utils/localeHelpers';
 import { lfoEngine } from './lfoEngine';
 
-import type { NoteDuration, WaveformType, Robot } from '../types/Robot';
+import type { ADSREnvelope, NoteDuration, WaveformType, Robot } from '../types/Robot';
 import type { OscillatorLayer } from '../types/layeredAudio';
 import { GLOBAL_LFO_TARGET_IDS, type RobotLfoTargetId } from '../types/lfo';
 import { getAvailableNotes, scheduleHarmonyCycle, stopHarmonyCycle } from './harmonySystem';
@@ -146,6 +146,24 @@ function findActiveRobot(robotId: string): Robot | undefined {
 }
 
 /**
+ * Excludes any layer with `active === false` from a reserveVoice descriptor — Roadmap Phase 9's
+ * "mute, don't delete" model for Coaxial/Harmonic. A layer with no `active` field at all is
+ * treated as active (`!== false`, not a strict truthy check), so callers/fixtures that predate
+ * the field keep their existing audible behavior rather than silently going quiet.
+ */
+function filterActiveLayers(
+  descriptor: OscillatorLayer[] | { base?: WaveformType; layers?: OscillatorLayer[] },
+): OscillatorLayer[] | { base?: WaveformType; layers?: OscillatorLayer[] } {
+  if (Array.isArray(descriptor)) {
+    return descriptor.filter((l) => l.active !== false);
+  }
+  if (descriptor.layers) {
+    return { ...descriptor, layers: descriptor.layers.filter((l) => l.active !== false) };
+  }
+  return descriptor;
+}
+
+/**
  * Get the robot's current visual X position from the DOM.
  * Reads the current GSAP-animated x transform value from the SVG element.
  * Falls back to stored state position if ref not found or transform unavailable.
@@ -202,6 +220,7 @@ async function loadInstruments(): Promise<void> {
             const ok = AudioEngine.reserveVoice(
               robot.id,
               layers,
+              robot.audioAttributes.adsr,
               robot.audioAttributes?.phase,
               robot.audioAttributes?.detune,
               (robot.audioAttributes as unknown as { layers?: OscillatorLayer[] })?.layers?.[0]?.pulseWidth,
@@ -633,19 +652,28 @@ export const AudioEngine = {
    * Returns true if reserved, false if creation failed.
    *
    * @param robotId - Robot ID
-   * @param descriptor - LayeredWave descriptor from the robot's audioAttributes
+   * @param descriptor - LayeredWave descriptor from the robot's audioAttributes. Any layer with
+   *   `active === false` (Roadmap Phase 9 — Coaxial/Harmonic muted, not deleted) is excluded from
+   *   the composite voice actually built: no synth node is created for it, though its full config
+   *   stays in `Robot` state untouched. A layer with no `active` field at all is treated as
+   *   active, for backward compatibility with fixtures/callers that predate the field.
+   * @param adsr - The robot's one shared ADSR envelope (Roadmap Phase 9), applied identically to
+   *   every included layer's synth at construction — the same "one shared value applied across
+   *   every layer" role `phase`/`detune`/`pulseWidth` play below.
    * @param phase - Optional oscillator phase (degrees) applied across all layers
    * @param detune - Optional detune (cents) applied across all layers
    */
   reserveVoice(
     robotId: string,
     descriptor: OscillatorLayer[] | { base?: WaveformType; layers?: OscillatorLayer[] },
+    adsr: ADSREnvelope,
     phase?: number,
     detune?: number,
     pulseWidth?: number,
   ): boolean {
     try {
-      const composite = AudioEngine.createCompositeVoice(descriptor);
+      const activeDescriptor = filterActiveLayers(descriptor);
+      const composite = AudioEngine.createCompositeVoice(activeDescriptor, adsr);
 
       const PannerCtor = getToneCtor<Tone.Panner>('Panner');
       const GainCtorLocal = getToneCtor<Tone.Gain>('Gain');
@@ -674,9 +702,11 @@ export const AudioEngine = {
       // Apply optional top-level detune/phase/pulseWidth across composite layers when provided
       try {
         if (typeof detune === 'number' || typeof phase === 'number' || typeof pulseWidth === 'number') {
-          const effectiveLayers = Array.isArray(descriptor)
-            ? descriptor
-            : (descriptor.layers && descriptor.layers.length > 0 ? descriptor.layers : [{ type: descriptor.base ?? 'sine', gain: 1, detune: 0, phase: 0 } as OscillatorLayer]);
+          // Must match activeDescriptor (what createCompositeVoice actually built), not the raw
+          // descriptor, so this index-matched application lands on the right layer.
+          const effectiveLayers = Array.isArray(activeDescriptor)
+            ? activeDescriptor
+            : (activeDescriptor.layers && activeDescriptor.layers.length > 0 ? activeDescriptor.layers : [{ type: activeDescriptor.base ?? 'sine', gain: 1, detune: 0, phase: 0, active: true } as OscillatorLayer]);
           const layersParam = effectiveLayers.map((l) => ({
             type: l.type,
             detune: typeof detune === 'number' ? (l.detune ?? 0) + detune : undefined,
@@ -812,6 +842,7 @@ export const AudioEngine = {
       return AudioEngine.reserveVoice(
         robotId,
         layers,
+        robot.audioAttributes.adsr,
         robot.audioAttributes?.phase,
         robot.audioAttributes?.detune,
         (robot.audioAttributes as unknown as { layers?: OscillatorLayer[] })?.layers?.[0]?.pulseWidth,
@@ -851,7 +882,37 @@ export const AudioEngine = {
   },
 
   /**
-   * Create a composite voice made of multiple layers (oscillators and optional noise).
+   * Apply an updated shared ADSR envelope to every active layer's live synth, without rebuilding
+   * the underlying node graph (Roadmap Phase 9 — Ping Contour drawer's live edits).
+   *
+   * Reuses the exact same continuous-update path `updateVoiceLayerParams` already uses: rebuilds
+   * the layers-patch from the composite's already-exposed `layers` (each entry's own current
+   * config, since only `active` layers were ever given a synth in the first place) with the new
+   * `adsr` stamped onto every entry, then calls `composite.set({ layers })` — the same
+   * `p.adsr → synth.set({ envelope: p.adsr })` path `compositeVoice.ts` already applies for a
+   * continuous param edit. No structural change, no audio gap.
+   */
+  updateVoiceEnvelope(robotId: string, adsr: ADSREnvelope): void {
+    try {
+      const entry = compositeVoices.get(robotId);
+      if (!entry?.composite.layers) {
+        devWarn(`[AudioEngine] updateVoiceEnvelope: no composite reserved for ${robotId}`);
+        return;
+      }
+      try {
+        const patched = entry.composite.layers.map(({ layer }) => ({ ...layer, adsr }));
+        entry.composite.set({ layers: patched });
+        devLog(`[AudioEngine] updateVoiceEnvelope applied for ${robotId}`);
+      } catch (err) {
+        devWarn('[AudioEngine] Failed to apply envelope on composite', err);
+      }
+    } catch (err) {
+      devWarn('[AudioEngine] updateVoiceEnvelope failed', err);
+    }
+  },
+
+  /**
+   * Create a composite voice made of multiple oscillator layers.
    * Construction itself lives in src/engine/audioEngine/compositeVoice.ts — this is a
    * direct reference to that module's export, kept on the public AudioEngine surface
    * so every existing call site (AudioEngine.createCompositeVoice(...)) still works.

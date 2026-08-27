@@ -115,12 +115,13 @@ export default function RobotMetaTab() {
 
     try {
       AudioEngine.releaseVoice(robot.id);
-      const audioAttr = (updates.audioAttributes ?? robot.audioAttributes) as unknown as { layers?: OscillatorLayer[]; phase?: number; detune?: number };
+      const audioAttr = (updates.audioAttributes ?? robot.audioAttributes) as unknown as { layers?: OscillatorLayer[]; phase?: number; detune?: number; adsr?: typeof robot.audioAttributes.adsr };
       const layers = audioAttr?.layers;
       const phase = audioAttr?.phase ?? robot.audioAttributes?.phase;
       const detune = audioAttr?.detune ?? robot.audioAttributes?.detune;
+      const adsr = audioAttr?.adsr ?? robot.audioAttributes.adsr;
       if (Array.isArray(layers) && layers.length > 0) {
-        AudioEngine.reserveVoice(robot.id, layers, phase, detune);
+        AudioEngine.reserveVoice(robot.id, layers, adsr, phase, detune);
       }
     } catch (err) {
       console.warn('[RobotMetaTab] AudioEngine voice re-reservation error', err);
@@ -149,7 +150,8 @@ export default function RobotMetaTab() {
       const layers = (audioAttr as unknown as { layers?: OscillatorLayer[] })?.layers;
       const phase = (audioAttr as unknown as { phase?: number })?.phase;
       const detune = (audioAttr as unknown as { detune?: number })?.detune;
-      if (Array.isArray(layers) && layers.length > 0) AudioEngine.reserveVoice(robot.id, layers, phase, detune);
+      const adsr = (audioAttr as unknown as { adsr?: typeof robot.audioAttributes.adsr })?.adsr ?? robot.audioAttributes.adsr;
+      if (Array.isArray(layers) && layers.length > 0) AudioEngine.reserveVoice(robot.id, layers, adsr, phase, detune);
     } catch (err) {
       console.warn('[RobotMetaTab] AudioEngine voice re-reservation undo error', err);
     }
