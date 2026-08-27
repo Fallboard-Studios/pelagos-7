@@ -109,15 +109,30 @@ describe('SignatureArrayDrawer', () => {
     });
   });
 
-  it('shows Interval only for Binary(square)/Burst(pulse) layers', () => {
-    const robot = makeRobot();
+  it('shows Interval only for Burst(pulse) layers', () => {
+    // Not 'square' too — Tone.js's OmniOscillator.width getter returns undefined for any type
+    // other than 'pulse' (verified against node_modules/tone/build/esm/source/oscillator/
+    // OmniOscillator.js). AudioEngine's own pulseWidth LFO gate already knows this
+    // (getRobotModulationTarget: `if (layerEntry.layer.type !== 'pulse') return null`) — showing
+    // an editable Interval slider for Binary/square was a control that silently did nothing.
+    const layers = makeLayers();
+    layers[1] = { ...layers[1], type: 'pulse' };
+    const robot = makeRobot({ audioAttributes: { ...makeRobot().audioAttributes, layers } });
     useLocaleStore.getState().addRobot(localeId, robot);
     const { container } = render(<SignatureArrayDrawer robot={robot} />);
 
     // layer0 is sine -> no Interval slider
     expect(within(layerSection(container, 'layer0')).queryByText(/Interval/i)).toBeNull();
-    // layer1 is square -> has Interval slider
+    // layer1 is pulse -> has Interval slider
     expect(within(layerSection(container, 'layer1')).getByText(/Interval/i)).toBeTruthy();
+  });
+
+  it('hides Interval for Binary(square) layers — Tone.js has no width param outside \'pulse\', so it would silently do nothing', () => {
+    const robot = makeRobot(); // layer1 is 'square' per makeLayers()
+    useLocaleStore.getState().addRobot(localeId, robot);
+    const { container } = render(<SignatureArrayDrawer robot={robot} />);
+
+    expect(within(layerSection(container, 'layer1')).queryByText(/Interval/i)).toBeNull();
   });
 
   it('a Type change calls AudioEngine.reReserveVoice (structural)', () => {

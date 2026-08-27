@@ -97,7 +97,11 @@ export function SignatureArrayDrawer({ robot }: SignatureArrayDrawerProps) {
             commitContinuous(robot, localeId, withUpdatedLayer(updated));
           };
 
-          const showPulseWidth = layer.type === 'pulse' || layer.type === 'square';
+          // 'pulse' only — Tone.js's OmniOscillator.width getter returns undefined for every
+          // other type (including 'square'), so showing Interval there was an editable control
+          // with no audible effect. AudioEngine's own pulseWidth LFO gate already only allows
+          // 'pulse' for the same reason (getRobotModulationTarget).
+          const showPulseWidth = layer.type === 'pulse';
 
           return (
             <div key={block.key} className="signature-array-drawer__layer" data-layer-key={block.key}>

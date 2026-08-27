@@ -79,7 +79,9 @@ full 3-entry array — inactive layers included — stays intact in `Robot` stat
 reading/editing. Per layer: Type (`RadioButton`, the 5 real waveform shapes only — `'noise'` is
 dropped as a selectable option, see § 3), Gain (`SliderLinear`, LFO), Detune
 (`SliderCenteredZero`, ±50 cents, LFO), Phase (`SliderLinear`, LFO), and Interval/pulse width
-(`SliderLinear`, LFO — shown only when Type is Binary/square or Burst/pulse). `spawnSystem.ts`
+(`SliderLinear`, LFO — shown only when Type is Burst/pulse; corrected post-launch — Tone.js's
+`OmniOscillator.width` has no effect for Binary/square, only 'pulse', so the original "also show
+for Binary/square" call was dropped once caught in code review). `spawnSystem.ts`
 always generates exactly these 3 layers going forward (replacing today's 1–4 dynamic range and the
 `'noise'` type entirely) — Coaxial/Harmonic are each independently seeded active or inactive, and
 robot-level LFO targets (including Volume) are each independently seeded active or inactive too,
@@ -538,7 +540,8 @@ const handleCoaxialActiveChange = (active: boolean) => {
   1. Exactly 3 layer sections render, labeled Baseline/Coaxial/Harmonic.
   2. Baseline has no Active toggle; Coaxial and Harmonic each do.
   3. Type's radio options are exactly the 5 waveform shapes — no "Noise" option anywhere.
-  4. Interval/pulse-width control only renders when a layer's Type is Binary(square)/Burst(pulse).
+  4. Interval/pulse-width control only renders when a layer's Type is Burst(pulse); hidden for
+     Binary(square) too — Tone.js's `OmniOscillator.width` has no effect there.
   5. A Type change calls `AudioEngine.reReserveVoice` (structural); a Gain/Detune/Phase/Interval
      change calls `AudioEngine.updateVoiceLayerParams` (continuous) — same split
      `RobotOscillatorsTab.test.tsx`-equivalent coverage would have asserted.
