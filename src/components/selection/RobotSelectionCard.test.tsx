@@ -70,13 +70,13 @@ describe('RobotSelectionCard', () => {
   it('renders an AudioStatusBadge reflecting audioMode, defaulting to Off/none when unset', () => {
     render(<RobotSelectionCard robot={makeRobot({ audioMode: undefined })} />);
     const label = AUDIO_MODE_LABELS.none;
-    expect(screen.getByRole('img', { name: new RegExp(`${label.humanLabel}.*${label.loreLabel}`) })).toBeTruthy();
+    expect(screen.getByRole('status', { name: new RegExp(`${label.humanLabel}.*${label.loreLabel}`) })).toBeTruthy();
   });
 
   it('renders an AudioStatusBadge reflecting an explicit audioMode', () => {
     render(<RobotSelectionCard robot={makeRobot({ audioMode: 'solo' })} />);
     const label = AUDIO_MODE_LABELS.solo;
-    expect(screen.getByRole('img', { name: new RegExp(`${label.humanLabel}.*${label.loreLabel}`) })).toBeTruthy();
+    expect(screen.getByRole('status', { name: new RegExp(`${label.humanLabel}.*${label.loreLabel}`) })).toBeTruthy();
   });
 
   it('clicking the card selects the robot', () => {

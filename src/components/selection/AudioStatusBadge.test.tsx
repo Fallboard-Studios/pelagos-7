@@ -35,7 +35,7 @@ describe('AudioStatusBadge', () => {
   it.each(AUDIO_MODES)('accessible name includes the human and lore label for audioMode "%s"', (mode) => {
     render(<AudioStatusBadge audioMode={mode} />);
     const label = AUDIO_MODE_LABELS[mode];
-    const badge = screen.getByRole('img', { name: new RegExp(`${label.humanLabel}.*${label.loreLabel}`) });
+    const badge = screen.getByRole('status', { name: new RegExp(`${label.humanLabel}.*${label.loreLabel}`) });
     expect(badge).toBeTruthy();
   });
 

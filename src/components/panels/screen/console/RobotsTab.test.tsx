@@ -82,7 +82,7 @@ describe('RobotsTab', () => {
     expect(screen.getByText('Acoustic Survey')).toBeTruthy();
     expect(screen.getByText('63%')).toBeTruthy();
     expect(screen.getByText('Active')).toBeTruthy();
-    expect(screen.getByRole('img', { name: /Highlight/ })).toBeTruthy();
+    expect(screen.getByRole('status', { name: /Highlight/ })).toBeTruthy();
   });
 
   it('clicking a robot card selects it', () => {
