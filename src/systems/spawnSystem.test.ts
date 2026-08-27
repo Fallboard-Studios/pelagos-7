@@ -6,13 +6,16 @@ import alea from 'alea';
 import { createNoise2D, type NoiseFunction2D } from 'simplex-noise';
 import type { Robot } from '../types/Robot';
 
-import { generateSpawnPosition, generateAudioAttributes, generateRobotLfoSettings, spawnRobot, spawnInitialRoster } from './spawnSystem';
+import { generateSpawnPosition, generateAudioAttributes, generateRobotLfoSettings, spawnRobot, spawnInitialRoster, spawnInitialCompanies, generateCompanyName, ADJECTIVES, COMPANY_NOUNS } from './spawnSystem';
 import { useLocaleStore, DEFAULT_LOCALE } from '../stores/localeStore';
 import { DEFAULT_LOCALE_ID } from '../stores/planetStore';
 import { AudioEngine } from '../engine/AudioEngine';
 import { DockingState } from '../types/Robot';
 import { ROBOT_LFO_TARGET_IDS, LFO_SHAPES, LFO_RATE_MIN, LFO_RATE_MAX, LFO_DEPTH_MIN, LFO_DEPTH_MAX } from '../types/lfo';
-import { MAX_ROBOTS, INITIAL_ACTIVE_ROBOTS_MIN, INITIAL_ACTIVE_ROBOTS_MAX } from '../constants';
+import {
+  MAX_ROBOTS, INITIAL_ACTIVE_ROBOTS_MIN, INITIAL_ACTIVE_ROBOTS_MAX,
+  INITIAL_COMPANIES_MIN, INITIAL_COMPANIES_MAX, COMPANY_SIZE_MIN, COMPANY_SIZE_MAX,
+} from '../constants';
 
 /** General-purpose mock: returns a pseudo-random value in [-1, 1]. */
 const mockNoiseMap: NoiseFunction2D = () => Math.random() * 2 - 1;
@@ -574,6 +577,121 @@ describe('spawnSystem', () => {
       const dockingRun2 = (store2.useLocaleStore.getState().getLocaleById(planet2.DEFAULT_LOCALE_ID)?.robots ?? []).map((r) => r.docking);
 
       expect(dockingRun2).toEqual(dockingRun1);
+    });
+  });
+
+  describe('generateCompanyName', () => {
+    it('returns an "Adjective Noun" pair drawn from ADJECTIVES and COMPANY_NOUNS', () => {
+      const name = generateCompanyName(deterministicNoiseMap, 0);
+      const [adjective, noun] = name.split(' ');
+      expect(ADJECTIVES).toContain(adjective);
+      expect(COMPANY_NOUNS).toContain(noun);
+    });
+
+    it('COMPANY_NOUNS is a distinct list from robot naming — never the literal word "Drifter" (a robot NOUNS entry), so a company name can never take the exact same word-pair form a robot name can', () => {
+      expect(COMPANY_NOUNS).not.toContain('Drifter');
+    });
+  });
+
+  describe('spawnInitialCompanies', () => {
+    beforeEach(() => {
+      useLocaleStore.setState({ locales: { [DEFAULT_LOCALE_ID]: DEFAULT_LOCALE } });
+    });
+
+    it(`creates between ${INITIAL_COMPANIES_MIN} and ${INITIAL_COMPANIES_MAX} companies`, () => {
+      spawnInitialRoster(DEFAULT_LOCALE_ID);
+      spawnInitialCompanies(DEFAULT_LOCALE_ID);
+      const companies = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.companies ?? [];
+      expect(companies.length).toBeGreaterThanOrEqual(INITIAL_COMPANIES_MIN);
+      expect(companies.length).toBeLessThanOrEqual(INITIAL_COMPANIES_MAX);
+    });
+
+    it(`gives each company between ${COMPANY_SIZE_MIN} and ${COMPANY_SIZE_MAX} members`, () => {
+      spawnInitialRoster(DEFAULT_LOCALE_ID);
+      spawnInitialCompanies(DEFAULT_LOCALE_ID);
+      const companies = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.companies ?? [];
+      companies.forEach((c) => {
+        expect(c.robotIds.length).toBeGreaterThanOrEqual(COMPANY_SIZE_MIN);
+        expect(c.robotIds.length).toBeLessThanOrEqual(COMPANY_SIZE_MAX);
+      });
+    });
+
+    it('never lets the same robot ID appear in more than one company (disjoint membership)', () => {
+      spawnInitialRoster(DEFAULT_LOCALE_ID);
+      spawnInitialCompanies(DEFAULT_LOCALE_ID);
+      const companies = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.companies ?? [];
+      const allMemberIds = companies.flatMap((c) => c.robotIds);
+      expect(new Set(allMemberIds).size).toBe(allMemberIds.length);
+    });
+
+    it('sets companyId on every claimed robot to match the company that claimed it', () => {
+      spawnInitialRoster(DEFAULT_LOCALE_ID);
+      spawnInitialCompanies(DEFAULT_LOCALE_ID);
+      const locale = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)!;
+      locale.companies.forEach((c) => {
+        c.robotIds.forEach((id) => {
+          expect(locale.robots.find((r) => r.id === id)?.companyId).toBe(c.id);
+        });
+      });
+    });
+
+    it('leaves every unclaimed robot Freelance (companyId undefined)', () => {
+      spawnInitialRoster(DEFAULT_LOCALE_ID);
+      spawnInitialCompanies(DEFAULT_LOCALE_ID);
+      const locale = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)!;
+      const claimedIds = new Set(locale.companies.flatMap((c) => c.robotIds));
+      locale.robots.filter((r) => !claimedIds.has(r.id)).forEach((r) => {
+        expect(r.companyId).toBeUndefined();
+      });
+    });
+
+    it('leaves at least one robot Freelance across a sample of locales — not every robot is claimed by design', () => {
+      const leftoverCounts: number[] = [];
+      for (let i = 0; i < 10; i++) {
+        const localeId = `freelance-sample-${i}`;
+        useLocaleStore.setState((state) => ({
+          locales: { ...state.locales, [localeId]: { ...DEFAULT_LOCALE, id: localeId, coordinates: { x: i * 7 + 1, y: i * 3 + 2 }, robots: [], companies: [] } },
+        }));
+        spawnInitialRoster(localeId);
+        spawnInitialCompanies(localeId);
+        const locale = useLocaleStore.getState().getLocaleById(localeId)!;
+        const claimedIds = new Set(locale.companies.flatMap((c) => c.robotIds));
+        leftoverCounts.push(locale.robots.filter((r) => !claimedIds.has(r.id)).length);
+      }
+      expect(leftoverCounts.some((n) => n > 0)).toBe(true);
+    });
+
+    it('every company gets a generated "Adjective Noun" name', () => {
+      spawnInitialRoster(DEFAULT_LOCALE_ID);
+      spawnInitialCompanies(DEFAULT_LOCALE_ID);
+      const companies = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.companies ?? [];
+      companies.forEach((c) => {
+        const [adjective, noun] = c.name.split(' ');
+        expect(ADJECTIVES).toContain(adjective);
+        expect(COMPANY_NOUNS).toContain(noun);
+      });
+    });
+
+    it('is deterministic — spawning against the same coordinates reproduces the same company count, membership, and names', async () => {
+      vi.resetModules();
+      const run1 = await import('./spawnSystem');
+      const store1 = await import('../stores/localeStore');
+      const planet1 = await import('../stores/planetStore');
+      store1.useLocaleStore.setState({ locales: { [planet1.DEFAULT_LOCALE_ID]: store1.DEFAULT_LOCALE } });
+      run1.spawnInitialRoster(planet1.DEFAULT_LOCALE_ID);
+      run1.spawnInitialCompanies(planet1.DEFAULT_LOCALE_ID);
+      const companiesRun1 = store1.useLocaleStore.getState().getLocaleById(planet1.DEFAULT_LOCALE_ID)?.companies ?? [];
+
+      vi.resetModules();
+      const run2 = await import('./spawnSystem');
+      const store2 = await import('../stores/localeStore');
+      const planet2 = await import('../stores/planetStore');
+      store2.useLocaleStore.setState({ locales: { [planet2.DEFAULT_LOCALE_ID]: store2.DEFAULT_LOCALE } });
+      run2.spawnInitialRoster(planet2.DEFAULT_LOCALE_ID);
+      run2.spawnInitialCompanies(planet2.DEFAULT_LOCALE_ID);
+      const companiesRun2 = store2.useLocaleStore.getState().getLocaleById(planet2.DEFAULT_LOCALE_ID)?.companies ?? [];
+
+      expect(companiesRun2).toEqual(companiesRun1);
     });
   });
 });

@@ -102,6 +102,22 @@ describe('worldTransition', () => {
     it('does nothing for an unknown locale id', () => {
       expect(() => initializeLocale('nonexistent')).not.toThrow();
     });
+
+    it('populates companies for an empty locale, immediately after spawning the roster', () => {
+      initializeLocale(DEFAULT_LOCALE_ID);
+      const locale = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)!;
+      expect(locale.companies.length).toBeGreaterThan(0);
+    });
+
+    it('is a no-op for companies when called again on an already-populated locale', () => {
+      initializeLocale(DEFAULT_LOCALE_ID);
+      const companiesAfterFirst = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)!.companies;
+
+      initializeLocale(DEFAULT_LOCALE_ID);
+      const companiesAfterSecond = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)!.companies;
+
+      expect(companiesAfterSecond).toBe(companiesAfterFirst);
+    });
   });
 
   describe('retransmitWorld — no-op', () => {

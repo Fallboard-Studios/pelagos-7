@@ -5,7 +5,7 @@ import { usePlanetStore, selectCurrentPlanet } from '../stores/planetStore';
 import { useLocaleStore } from '../stores/localeStore';
 import { useUIStore } from '../stores/uiStore';
 import { placeFactories } from './factoryPlacementSystem';
-import { spawnInitialRoster } from './spawnSystem';
+import { spawnInitialRoster, spawnInitialCompanies } from './spawnSystem';
 import { startRobotLifecycle, stopRobotLifecycle, assignJob } from './robotSystems';
 import { DockingState } from '../types/Robot';
 import { getLocaleNoiseMap } from '../utils/noiseMaps';
@@ -98,6 +98,7 @@ export function initializeLocale(localeId: string): void {
   if (locale.actors.length === 0) placeFactories(localeId);
   if (locale.robots.length === 0) {
     spawnInitialRoster(localeId);
+    spawnInitialCompanies(localeId); // Roadmap Phase 10 — same guard as the roster it depends on
     const freshRobots = useLocaleStore.getState().getLocaleById(localeId)?.robots ?? [];
     freshRobots
       .filter((r) => r.docking === DockingState.Active)

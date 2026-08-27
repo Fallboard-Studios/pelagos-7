@@ -15,7 +15,11 @@ import {
 import type { ToggleValue } from '../engine/melodyGenerator';
 import { AudioEngine } from '../engine/AudioEngine';
 import type { OscillatorLayer } from '../types/layeredAudio';
-import { DEV_TUNING, MAX_ROBOTS, INITIAL_ACTIVE_ROBOTS_MIN, INITIAL_ACTIVE_ROBOTS_MAX } from '../constants';
+import type { Company } from '../types/Company';
+import {
+  DEV_TUNING, MAX_ROBOTS, INITIAL_ACTIVE_ROBOTS_MIN, INITIAL_ACTIVE_ROBOTS_MAX,
+  INITIAL_COMPANIES_MIN, INITIAL_COMPANIES_MAX, COMPANY_SIZE_MIN, COMPANY_SIZE_MAX,
+} from '../constants';
 import useLocaleStore from '../stores/localeStore';
 import { initRobotIdleCounter } from './idleSystem';
 import { getLocaleNoiseMap } from '../utils/noiseMaps';
@@ -85,14 +89,40 @@ const NOTE_VARIANCE_ACTIVE_THRESHOLD = 0.15;
 // Waveform types — even distribution gives ~20% each (includes pulse)
 const WAVEFORMS: WaveformType[] = ['sine', 'square', 'triangle', 'sawtooth', 'pulse'];
 
-// Simple word lists for deterministic-looking robot names
-const ADJECTIVES = ['Iron', 'Null', 'Silent', 'Drift', 'Azure', 'Rust', 'Neon', 'Glass', 'Solar', 'Tidal'];
+// Simple word lists for deterministic-looking robot names. ADJECTIVES is exported — reused by
+// generateCompanyName below (Roadmap Phase 10), the same "sounds like this universe" half, paired
+// with a distinct COMPANY_NOUNS list so a generated company name can never take the exact same
+// word-pair form a robot name can (see docs/specs/COMPANIES.md §7.3).
+export const ADJECTIVES = ['Iron', 'Null', 'Silent', 'Drift', 'Azure', 'Rust', 'Neon', 'Glass', 'Solar', 'Tidal'];
 const NOUNS = ['Drifter', 'Tide', 'Warden', 'Seeker', 'Courier', 'Wisp', 'Beacon', 'Nomad', 'Rover', 'Pilot'];
 
 function generateRobotName(noiseMap: NoiseFunction2D, offset: number): string {
   const a = ADJECTIVES[Math.floor(getSeededVal(noiseMap, 'robot.name.adj', offset, 0, ADJECTIVES.length))];
   const n = NOUNS[Math.floor(getSeededVal(noiseMap, 'robot.name.noun', offset, 0, NOUNS.length))];
   return `${a} ${n}`;
+}
+
+// Org-flavored noun list for company names (Roadmap Phase 10) — distinct from robot NOUNS above,
+// deliberately, so a company and a robot can never generate the identical name.
+export const COMPANY_NOUNS = ['Collective', 'Consortium', 'Guild', 'Division', 'Outfit', 'Crew', 'Cartel', 'Syndicate'];
+
+/**
+ * Deterministic, human-legible company name — same generation mechanism as generateRobotName
+ * (ADJECTIVES + a word-list draw, same getSeededVal pattern), but exported: unlike robot names,
+ * a company's suggested name is re-shown to the user at Create time (CompanyCrudControls), so it
+ * needs a reuse point robot names never did.
+ */
+export function generateCompanyName(noiseMap: NoiseFunction2D, offset: number): string {
+  const a = ADJECTIVES[Math.floor(getSeededVal(noiseMap, 'company.name.adj', offset, 0, ADJECTIVES.length))];
+  const n = COMPANY_NOUNS[Math.floor(getSeededVal(noiseMap, 'company.name.noun', offset, 0, COMPANY_NOUNS.length))];
+  return `${a} ${n}`;
+}
+
+/** Deterministic company ID — mirrors generateRobotId's shape (own dataId, own counter namespace,
+ *  no crypto.randomUUID()). Not reused outside this file, so stays private like generateRobotId. */
+function generateCompanyId(noiseMap: NoiseFunction2D, index: number): string {
+  const idSeed = getSeededVal(noiseMap, 'company.id', index, 0, 1);
+  return `company-${index}-${idSeed.toString(36).slice(2, 10)}`;
 }
 
 /**
@@ -471,6 +501,59 @@ export function spawnInitialRoster(localeId: string): void {
       );
       spawnRobot(localeId, { docking: DockingState.Docked, batteryLevel: dockedBattery });
     }
+  }
+}
+
+/**
+ * Create the seeded set of Companies for a fresh locale (Roadmap Phase 10) — 2-3 companies, each
+ * claiming a seeded 3-4 robots from the roster this locale already has (spawnInitialRoster must
+ * have run first). Membership is drawn from a shrinking pool so no robot is ever claimed by more
+ * than one company; any robot left in the pool when generation finishes is Freelance
+ * (`companyId` stays undefined) — a meaningful chunk of the roster, by design, not an edge case.
+ * Distinct from `MAX_COMPANIES` (the CRUD ceiling on manual company creation afterward) — this
+ * function never reads that constant.
+ */
+export function spawnInitialCompanies(localeId: string): void {
+  const locale = useLocaleStore.getState().getLocaleById(localeId);
+  const noiseMap = locale ? getLocaleNoiseMap(localeId, locale.coordinates.x, locale.coordinates.y) : null;
+  let pool = (locale?.robots ?? []).map((r) => r.id);
+
+  const companyCount = INITIAL_COMPANIES_MIN + Math.floor(
+    noiseMap
+      ? getSeededVal(noiseMap, 'company.count', 0, 0, INITIAL_COMPANIES_MAX - INITIAL_COMPANIES_MIN + 1)
+      : alea(`${localeId}:companyCount`)() * (INITIAL_COMPANIES_MAX - INITIAL_COMPANIES_MIN + 1)
+  );
+
+  for (let c = 0; c < companyCount && pool.length > 0; c++) {
+    const size = Math.min(pool.length, COMPANY_SIZE_MIN + Math.floor(
+      noiseMap
+        ? getSeededVal(noiseMap, 'company.size', c, 0, COMPANY_SIZE_MAX - COMPANY_SIZE_MIN + 1)
+        : alea(`${localeId}:companySize:${c}`)() * (COMPANY_SIZE_MAX - COMPANY_SIZE_MIN + 1)
+    ));
+
+    const memberIds: string[] = [];
+    for (let i = 0; i < size; i++) {
+      const idx = Math.floor(
+        noiseMap
+          ? getSeededVal(noiseMap, 'company.member', c * 100 + i, 0, pool.length)
+          : alea(`${localeId}:companyMember:${c}:${i}`)() * pool.length
+      );
+      memberIds.push(pool[idx]);
+      pool = pool.filter((_, j) => j !== idx);
+    }
+
+    const company: Company = {
+      id: noiseMap ? generateCompanyId(noiseMap, c) : `company-${localeId}-${c}`,
+      name: noiseMap ? generateCompanyName(noiseMap, c) : `Company ${c}`,
+      robotIds: memberIds,
+    };
+    useLocaleStore.getState().addCompany(localeId, company);
+    memberIds.forEach((id) => useLocaleStore.getState().updateRobot(localeId, id, { companyId: company.id }));
+  }
+
+  if (DEV_TUNING) {
+    const companies = useLocaleStore.getState().getLocaleById(localeId)?.companies ?? [];
+    console.log(`[SpawnSystem] Seeded ${companies.length} companies for locale ${localeId}`);
   }
 }
 
