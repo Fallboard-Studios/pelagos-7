@@ -131,6 +131,18 @@ describe('robotOptionsConfig', () => {
       });
     });
 
+    it('Gain is a 0-2 slider on every block, with a step fine enough for more than 3 reachable positions', () => {
+      // Same missing-step class as Interval/pulseWidth above — SliderLinear defaults an
+      // unset step to 1, which on a 0-2 range leaves only 0/1/2 reachable.
+      SIGNATURE_ARRAY_CONFIG.forEach((block) => {
+        const gain = block.params.find((p) => p.field === 'gain');
+        const schema = gain!.schema as { min: number; max: number; step?: number };
+        expect(schema.min).toBe(0);
+        expect(schema.max).toBe(2);
+        expect(schema.step).toBe(0.01);
+      });
+    });
+
     it('every LFO-flagged param\'s lfoTarget is a real RobotLfoTargetId matching its own layer index', () => {
       const expectedPrefixes = ['layer0', 'layer1', 'layer2'];
       SIGNATURE_ARRAY_CONFIG.forEach((block, i) => {

@@ -284,7 +284,7 @@ function makeLayerBlock(
         schema: {
           id: `robotOptions.${key}.gain`, type: 'sliderLinear',
           loreLabel: `${loreLabel} SATURATION`, humanLabel: `${humanLabel} Gain`,
-          min: 0, max: 2,
+          min: 0, max: 2, step: 0.01,
         } satisfies SliderLinearSchema,
         lfoTarget: gainTarget,
         lfoAccordion: lfoAccordionSchema(key, 'gain'),
