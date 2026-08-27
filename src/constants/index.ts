@@ -97,3 +97,24 @@ export const BATTERY_DIM_THRESHOLD_CRITICAL = 12; // <= this: 90% dim (opacity 0
  * wandering the full map right up until it departs.
  */
 export const BATTERY_LOWER_THIRD_THRESHOLD = 15;
+
+/**
+ * Companies (Roadmap Phase 10) — seeded groups of robots that let every editable Robot Options
+ * field be broadcast across a group at once. See docs/specs/COMPANIES.md.
+ *
+ * MAX_COMPANIES is a CRUD ceiling only — CompanyCrudControls' Create button is disabled at this
+ * count. It is a separate concept from spawn generation below and is deliberately higher than
+ * INITIAL_COMPANIES_MAX, leaving room for a player to create more by hand after spawn.
+ * localeStore.addCompany itself does not enforce this cap (mirrors how MAX_ROBOTS is never
+ * store-enforced either — the roster is simply never asked to exceed it).
+ */
+export const MAX_COMPANIES = 6;
+
+/** Seeded count of companies spawnInitialCompanies creates for a fresh locale. */
+export const INITIAL_COMPANIES_MIN = 2;
+export const INITIAL_COMPANIES_MAX = 3;
+
+/** Seeded member count per company at spawn — drawn disjointly from the roster, so any robot
+ *  not claimed by a company (a meaningful chunk of the 12-robot roster, by design) is Freelance. */
+export const COMPANY_SIZE_MIN = 3;
+export const COMPANY_SIZE_MAX = 4;
