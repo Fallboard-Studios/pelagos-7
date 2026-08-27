@@ -1,0 +1,11 @@
+.company-crud-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.company-crud-controls__create {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
