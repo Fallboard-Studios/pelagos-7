@@ -114,7 +114,14 @@ export interface Robot {
   createdAt: number;            // timestamp used for removal ordering
   /** Transport measure at which this robot last interacted (for cooldown tracking). */
   lastInteractionMeasure?: number;
-  /** Base velocity (0–1) controlling average note loudness. Per-note variance is applied at scheduling time, not stored. */
+  /**
+   * Overall robot loudness (0–1), edited live via Robot Options' Volume slider. Roadmap Phase 9:
+   * drives the robot's own live per-robot bus gain (AudioEngine.reserveVoice's masterVolume
+   * parameter / updateRobotMasterVolume) — a continuously-live AudioParam, not baked into any
+   * note's own trigger velocity, so a live edit affects an already-sounding note's tail too, not
+   * just the next note this robot plays. Per-note velocity has its own small random variance,
+   * independent of this field (see AudioEngine.ts's computeNoteVelocitySeeded).
+   */
   masterVolume: number;
   /** Docking state — see DockingState. Every robot has one from creation. */
   docking: DockingState;

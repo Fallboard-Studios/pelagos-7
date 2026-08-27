@@ -84,6 +84,9 @@ const VELOCITY_MIN = 0.05;
  * (rhythmicMotifLength.active === false), since there are no groups to accent.
  */
 const GROUP_ACCENT_MULTIPLIER = 1.25;
+/** Ramp duration for a live updateRobotMasterVolume change — short enough to feel instant, long
+ *  enough to avoid an audible click on the underlying AudioParam. */
+const VOLUME_RAMP_SECONDS = 0.05;
 
 // Precompute data X positions for seeded noise sampling (module scope — hot path safe)
 const VELOCITY_ROLL_X = precomputeDataX('audio.velocityRoll');
@@ -114,10 +117,6 @@ let scheduledTickId: number | null = null;
 // Cache Tone.Transport instance returned by Tone.getTransport() so repeated calls
 // return the same mock instance in tests and the same runtime transport in-app.
 let _transport: ReturnType<typeof Tone.getTransport> | null = null;
-/** Robot masterVolume cache — keyed by robotId to avoid per-note Zustand store scans.
- * Populated on first note for a robot, cleared when its melody is unregistered. */
-const robotAttributeCache = new Map<string, { masterVolume: number }>();
-
 // Composite voices (created from LayeredWave descriptors, src/engine/audioEngine/compositeVoice.ts) stored separately
 const compositeVoices: Map<string, {
   composite: CompositeVoice;
@@ -224,6 +223,7 @@ async function loadInstruments(): Promise<void> {
               robot.audioAttributes?.phase,
               robot.audioAttributes?.detune,
               (robot.audioAttributes as unknown as { layers?: OscillatorLayer[] })?.layers?.[0]?.pulseWidth,
+              robot.masterVolume,
             );
             devLog(`[AudioEngine] Post-load reserve for ${robot.id}: ${ok ? 'OK' : 'FAILED'}`);
           }
@@ -468,19 +468,24 @@ function startMelodyPlayback(): void {
 // ========================================
 
 /**
+ * Neutral per-note velocity baseline. Roadmap Phase 9 moved overall robot loudness off per-note
+ * velocity and onto each robot's own live bus gain (see reserveVoice's masterVolume parameter and
+ * updateRobotMasterVolume) — a robot's masterVolume no longer feeds this at all, avoiding
+ * double-applying the same scaling twice. This baseline is just where the small performance-level
+ * variance below jitters around; it isn't itself a volume control.
+ */
+const NOTE_VELOCITY_BASELINE = 1;
+
+/**
  * Deterministic, locale-seeded velocity computation.
  * Samples the active locale's noise map at precomputed X positions and the
  * per-robot note index (mod 97) to decide whether to apply variance.
  * Falls back to no variance when the noise map is unavailable.
  */
-function computeNoteVelocitySeeded(masterVolume: number, robotId?: string): number {
-  // A robot dialed to 0% Volume is effectively muted — never apply the VELOCITY_MIN floor or
-  // random variance to a deliberate zero (Robot Options' Volume slider allows exactly 0%).
-  if (masterVolume <= 0) return 0;
-
+function computeNoteVelocitySeeded(robotId?: string): number {
   const localeId = getActiveLocaleId();
   const noiseMap = tryGetLocaleNoiseMap(localeId);
-  if (!noiseMap) return Math.min(1, Math.max(VELOCITY_MIN, masterVolume));
+  if (!noiseMap) return Math.min(1, Math.max(VELOCITY_MIN, NOTE_VELOCITY_BASELINE));
 
   const idx = robotId ? (robotNoteIndex.get(robotId) ?? 0) : 0;
   const noteIndex = idx % 97; // prime period for long non-repeating patterns
@@ -489,13 +494,13 @@ function computeNoteVelocitySeeded(masterVolume: number, robotId?: string): numb
   if (roll < VELOCITY_VARIANCE_RATE) {
     const raw = noiseMap(VELOCITY_VARIANCE_X, noteIndex); // [-1,1]
     const variance = raw * VELOCITY_VARIANCE_AMOUNT; // signed
-    const out = Math.min(1, Math.max(VELOCITY_MIN, masterVolume + variance));
+    const out = Math.min(1, Math.max(VELOCITY_MIN, NOTE_VELOCITY_BASELINE + variance));
     if (robotId) robotNoteIndex.set(robotId, (idx + 1) % 97);
     return out;
   }
 
   if (robotId) robotNoteIndex.set(robotId, (idx + 1) % 97);
-  return Math.min(1, Math.max(VELOCITY_MIN, masterVolume));
+  return Math.min(1, Math.max(VELOCITY_MIN, NOTE_VELOCITY_BASELINE));
 }
 
 export const AudioEngine = {
@@ -605,20 +610,9 @@ export const AudioEngine = {
     let effectiveVelocity = params.velocity;
 
     if (robotId && effectiveVelocity === undefined) {
-      const cached = robotAttributeCache.get(robotId);
-      if (cached) {
-        effectiveVelocity = computeNoteVelocitySeeded(cached.masterVolume, robotId);
-      } else {
-        try {
-          const robot = findActiveRobot(robotId);
-          if (robot) {
-            robotAttributeCache.set(robotId, { masterVolume: robot.masterVolume ?? 0.7 });
-            effectiveVelocity = computeNoteVelocitySeeded(robot.masterVolume ?? 0.7, robot.id);
-          }
-        } catch (err) {
-          console.warn('[AudioEngine] Failed to lookup robot masterVolume:', err);
-        }
-      }
+      // No masterVolume lookup needed here anymore — overall robot loudness is the live bus gain's
+      // job (reserveVoice's masterVolume parameter, updateRobotMasterVolume), not per-note velocity.
+      effectiveVelocity = computeNoteVelocitySeeded(robotId);
     }
 
     if (params.accentMultiplier !== undefined && effectiveVelocity !== undefined) {
@@ -666,6 +660,11 @@ export const AudioEngine = {
    *   every layer" role `phase`/`detune`/`pulseWidth` play below.
    * @param phase - Optional oscillator phase (degrees) applied across all layers
    * @param detune - Optional detune (cents) applied across all layers
+   * @param pulseWidth - Optional pulse width (0..1) applied across all layers
+   * @param masterVolume - The robot's live per-robot bus gain (Roadmap Phase 9's Volume live-fader
+   *   fix), defaulting to 1 when omitted. Unlike `adsr`/`phase`/`detune`, this is not baked into
+   *   any note's own trigger — it's a continuously-live AudioParam on the bus every note from this
+   *   robot passes through, updatable afterward via `updateRobotMasterVolume` without re-reserving.
    */
   reserveVoice(
     robotId: string,
@@ -674,6 +673,7 @@ export const AudioEngine = {
     phase?: number,
     detune?: number,
     pulseWidth?: number,
+    masterVolume?: number,
   ): boolean {
     try {
       const activeDescriptor = filterActiveLayers(descriptor);
@@ -683,8 +683,9 @@ export const AudioEngine = {
       const GainCtorLocal = getToneCtor<Tone.Gain>('Gain');
       const FilterCtor = getToneCtor<Tone.Filter>('Filter');
 
+      const initialBusGain = masterVolume ?? 1;
       const panner = PannerCtor ? new PannerCtor({ pan: 0 }) : ({ connect: () => { }, pan: { value: 0 }, disconnect: () => { } } as MinimalToneNode) as unknown as Tone.Panner;
-      const busGain = GainCtorLocal ? new GainCtorLocal(1) : ({ connect: () => ({}), disconnect: () => { }, gain: { value: 1 }, toDestination: () => { } } as MinimalToneNode) as unknown as Tone.Gain;
+      const busGain = GainCtorLocal ? new GainCtorLocal(initialBusGain) : ({ connect: () => ({}), disconnect: () => { }, gain: { value: initialBusGain }, toDestination: () => { } } as MinimalToneNode) as unknown as Tone.Gain;
       const busFilter = FilterCtor ? new FilterCtor({ frequency: 1200, Q: 1 }) : ({ connect: () => ({}), disconnect: () => { }, toDestination: () => { } } as MinimalToneNode) as unknown as Tone.Filter;
 
       // Connect graph: composite.output -> panner -> busGain -> busFilter -> master compressor/destination
@@ -734,7 +735,7 @@ export const AudioEngine = {
         dispose: () => { },
       } as unknown as CompositeVoice;
       const panner = ({ connect: () => { }, pan: { value: 0 }, disconnect: () => { } } as MinimalToneNode) as unknown as Tone.Panner;
-      const busGain = ({ connect: () => { }, disconnect: () => { }, gain: { value: 1 } } as MinimalToneNode) as unknown as Tone.Gain;
+      const busGain = ({ connect: () => { }, disconnect: () => { }, gain: { value: masterVolume ?? 1 } } as MinimalToneNode) as unknown as Tone.Gain;
       const busFilter = ({ connect: () => { }, disconnect: () => { }, toDestination: () => { } } as MinimalToneNode) as unknown as Tone.Filter;
       compositeVoices.set(robotId, { composite: stubComposite, panner, busGain, busFilter });
       devLog(`[AudioEngine] Reserved stub composite voice for ${robotId}`);
@@ -759,7 +760,6 @@ export const AudioEngine = {
       devWarn('[AudioEngine] Failed to cleanup composite nodes', err);
     }
     compositeVoices.delete(robotId);
-    robotAttributeCache.delete(robotId);
     robotNoteIndex.delete(robotId);
     devLog(`[AudioEngine] Released composite voice for ${robotId}`);
   },
@@ -850,6 +850,7 @@ export const AudioEngine = {
         robot.audioAttributes?.phase,
         robot.audioAttributes?.detune,
         (robot.audioAttributes as unknown as { layers?: OscillatorLayer[] })?.layers?.[0]?.pulseWidth,
+        robot.masterVolume,
       );
     } catch (err) {
       devWarn('[AudioEngine] reReserveVoice failed', err);
@@ -916,14 +917,31 @@ export const AudioEngine = {
   },
 
   /**
-   * Immediately updates the cached masterVolume `scheduleNote` reads for velocity, so the very
-   * next scheduled note reflects a live Volume edit (Robot Options' RobotDisplaySection) rather
-   * than the stale value `robotAttributeCache` cached at that robot's first-ever scheduled note.
-   * Safe to call for a robot that has never had a note scheduled yet — simply primes the cache
-   * early rather than leaving it to the next scheduleNote's lazy lookup.
+   * Immediately updates a robot's live per-robot bus gain (Robot Options' RobotDisplaySection
+   * Volume slider) — a continuously-live AudioParam, not a value baked into each note's own
+   * trigger, so this affects anything currently sounding through the bus (an already-ringing
+   * note's release tail included), not just the next note this robot happens to play. Ramps over
+   * a short duration when the live Tone.Gain param supports it, to avoid an audible click; falls
+   * back to a direct value assignment in headless/test environments where it doesn't. A safe no-op
+   * (with a devWarn, matching updateVoiceLayerParams/updateVoiceEnvelope's existing pattern) when
+   * no composite voice is reserved for the robot.
    */
   updateRobotMasterVolume(robotId: string, masterVolume: number): void {
-    robotAttributeCache.set(robotId, { masterVolume });
+    const entry = compositeVoices.get(robotId);
+    if (!entry) {
+      devWarn(`[AudioEngine] updateRobotMasterVolume: no composite reserved for ${robotId}`);
+      return;
+    }
+    try {
+      const gain = entry.busGain.gain as unknown as { rampTo?: (value: number, rampTime: number) => void; value: number };
+      if (typeof gain.rampTo === 'function') {
+        gain.rampTo(masterVolume, VOLUME_RAMP_SECONDS);
+      } else {
+        gain.value = masterVolume;
+      }
+    } catch (err) {
+      devWarn('[AudioEngine] updateRobotMasterVolume failed', err);
+    }
   },
 
   /**
@@ -992,7 +1010,6 @@ export const AudioEngine = {
   },
 
   unregisterRobotMelody(robotId: string): void {
-    robotAttributeCache.delete(robotId);
     robotNoteIndex.delete(robotId);
     let removedCount = 0;
 

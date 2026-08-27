@@ -228,6 +228,8 @@ describe('AudioEngine.reReserveVoice', () => {
     expect(releaseSpy).toHaveBeenCalledWith('r1');
     // adsr is threaded through as the 3rd positional argument, ahead of phase/detune/pulseWidth
     // (Roadmap Phase 9 — the robot's one shared envelope, read from audioAttributes.adsr).
+    // masterVolume (0.8, from the fixture's own robot.masterVolume) is threaded through as the
+    // 7th — the robot's live bus gain, per the same phase's live-fader fix.
     expect(reserveSpy).toHaveBeenCalledWith(
       'r1',
       expect.arrayContaining([expect.objectContaining({ type: 'sine' })]),
@@ -235,6 +237,7 @@ describe('AudioEngine.reReserveVoice', () => {
       37,
       5,
       0.42,
+      0.8,
     );
   });
 });
@@ -848,47 +851,55 @@ describe('AudioEngine - Motif Group Accent', () => {
   });
 });
 
-describe('AudioEngine — masterVolume: 0 mutes the robot', () => {
+describe('AudioEngine — masterVolume drives a live per-robot bus gain, not per-note velocity', () => {
   beforeEach(() => {
     vi.resetModules();
-    // Import after resetModules so AudioEngine and this test reference the same store instance
-    // (see "AudioEngine - audioMode enforcement" above for the same pattern/rationale) — findActiveRobot
-    // needs to see the robot this test registers, unlike the accent-multiplier tests, which pass
-    // an explicit velocity and never exercise that lookup at all.
-    return (async () => {
-      const storeMod = await import('../stores/localeStore');
-      const planetMod = await import('../stores/planetStore');
-      merged_useLocaleStore = storeMod.useLocaleStore;
-      merged_DEFAULT_LOCALE_ID = planetMod.DEFAULT_LOCALE_ID;
-      merged_useLocaleStore.getState().setLocaleData(merged_DEFAULT_LOCALE_ID, { settings: { bpm: 120 } });
-    })();
   });
 
-  it('a robot with masterVolume 0 schedules its notes at velocity 0, not the VELOCITY_MIN floor', async () => {
-    // Bug: computeNoteVelocitySeeded unconditionally floors to VELOCITY_MIN (0.05), so dialing
-    // Volume all the way to 0% in Robot Options never actually produced silence - just a very
-    // quiet, still-audible note. A deliberate 0 should mean effectively muted.
+  it('reserveVoice initializes the per-robot bus gain from the masterVolume parameter', async () => {
     const Tone = await import('tone');
     const { AudioEngine } = await import('./AudioEngine');
-    const helpers = await import('../utils/localeHelpers');
-    // The file-level mock of getActiveLocaleId returns the literal 'testLocale' by default, not
-    // merged_DEFAULT_LOCALE_ID — findActiveRobot looks up locales[getActiveLocaleId()], so without
-    // this override it never finds the robot registered below (same override the audioMode-
-    // enforcement tests above already use, for the same reason).
-    (helpers.getActiveLocaleId as ReturnType<typeof vi.fn>).mockReturnValue(merged_DEFAULT_LOCALE_ID);
     await AudioEngine.start();
-
-    merged_useLocaleStore.getState().setLocaleData(merged_DEFAULT_LOCALE_ID, {
-      robots: [{
-        id: 'zero-volume-robot', name: '', state: 'idle', direction: 'right',
-        position: { x: 960, y: 0 }, destination: null, createdAt: Date.now(),
-        melody: [], octaveRange: [3, 4], masterVolume: 0, audioMode: 'none',
-        audioAttributes: { adsr: TEST_ADSR, waveform: 'sine', filterFreq: 100 },
-      }] as any,
-    });
+    (Tone.Gain as unknown as ReturnType<typeof vi.fn>).mockClear();
 
     const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0, active: true }];
-    AudioEngine.reserveVoice('zero-volume-robot', layered as any, TEST_ADSR);
+    AudioEngine.reserveVoice('bus-gain-robot', layered as any, TEST_ADSR, undefined, undefined, undefined, 0.3);
+
+    // The bus gain is constructed after the (single) layer's own gain node, inside the same
+    // reserveVoice call — its constructor argument is what this asserts, not the mocked Gain
+    // factory's echoed-back .gain.value (the mock ignores its constructor argument entirely).
+    const gainCalls = (Tone.Gain as unknown as { mock: { calls: unknown[][] } }).mock.calls;
+    const busGainCallArgs = gainCalls[gainCalls.length - 1];
+    expect(busGainCallArgs[0]).toBe(0.3);
+  });
+
+  it('defaults the bus gain to 1 when masterVolume is omitted (backward compatible)', async () => {
+    const Tone = await import('tone');
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+    (Tone.Gain as unknown as ReturnType<typeof vi.fn>).mockClear();
+
+    const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0, active: true }];
+    AudioEngine.reserveVoice('bus-gain-default-robot', layered as any, TEST_ADSR);
+
+    const gainCalls = (Tone.Gain as unknown as { mock: { calls: unknown[][] } }).mock.calls;
+    const busGainCallArgs = gainCalls[gainCalls.length - 1];
+    expect(busGainCallArgs[0]).toBe(1);
+  });
+
+  it('a note scheduled at masterVolume 0 still triggers at a real velocity — muting is the bus gain\'s job now, not a zeroed velocity', async () => {
+    // Confirms computeNoteVelocitySeeded no longer reads masterVolume at all: velocity reflects
+    // the neutral baseline (clamped to [VELOCITY_MIN, 1]) regardless of how quiet/muted the robot's
+    // bus is. Muting a robot dialed to 0% Volume now works by silencing its bus gain (see the
+    // updateRobotMasterVolume/reserveVoice tests above), which multiplies its actual audio output
+    // to nothing — a real Web Audio gain of 0 is genuinely silent even though the synth still
+    // "plays" at full velocity underneath it.
+    const Tone = await import('tone');
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+
+    const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0, active: true }];
+    AudioEngine.reserveVoice('zero-volume-robot', layered as any, TEST_ADSR, undefined, undefined, undefined, 0);
     const synthResults = (Tone.Synth as unknown as any).mock.results;
 
     AudioEngine.scheduleNote({ robotId: 'zero-volume-robot', note: 'D6', duration: '4n', time: 0 });
@@ -897,71 +908,34 @@ describe('AudioEngine — masterVolume: 0 mutes the robot', () => {
     synthResults.forEach((r: any) => r.value?.triggerAttackRelease?.mock?.calls?.forEach((c: any) => {
       if (c[0] === 'D6') velocity = c[3];
     }));
-    expect(velocity).toBe(0);
+    expect(velocity).toBe(1);
   });
 });
 
 describe('AudioEngine.updateRobotMasterVolume', () => {
   beforeEach(() => {
     vi.resetModules();
-    // Import after resetModules so AudioEngine and this test reference the same store instance
-    // (see "AudioEngine - audioMode enforcement" above) — findActiveRobot's first-note lookup
-    // needs to see the robot this test registers. Missing this originally produced a false-positive
-    // green: 0.55 was deliberately NOT chosen as 0.8, compositeVoice.ts's own fallback for an
-    // undefined velocity — the bug this masked until the masterVolume:0 test above caught it.
-    return (async () => {
-      const storeMod = await import('../stores/localeStore');
-      const planetMod = await import('../stores/planetStore');
-      merged_useLocaleStore = storeMod.useLocaleStore;
-      merged_DEFAULT_LOCALE_ID = planetMod.DEFAULT_LOCALE_ID;
-      merged_useLocaleStore.getState().setLocaleData(merged_DEFAULT_LOCALE_ID, { settings: { bpm: 120 } });
-    })();
   });
 
-  it('updates the cached masterVolume immediately, so the very next scheduled note reflects it', async () => {
-    // BUG this reproduces: robotAttributeCache (keyed by robotId) is populated once on a robot's
-    // first scheduled note and never invalidated on a later masterVolume edit - a live Volume
-    // slider change in Robot Options had no audible effect until this method existed and
-    // RobotDisplaySection called it.
+  it('sets the robot\'s live bus gain immediately, so an already-sounding note\'s tail is affected too', async () => {
+    // The whole point of this design: unlike a per-note velocity (baked in at trigger time and
+    // impossible to change retroactively, same as a real instrument), the bus gain is a
+    // continuously-live AudioParam — moving it instantly affects anything currently passing
+    // through the bus, not just the next note this robot happens to play.
     const Tone = await import('tone');
     const { AudioEngine } = await import('./AudioEngine');
-    const helpers = await import('../utils/localeHelpers');
-    // See the masterVolume:0 test above for why this override is required.
-    (helpers.getActiveLocaleId as ReturnType<typeof vi.fn>).mockReturnValue(merged_DEFAULT_LOCALE_ID);
     await AudioEngine.start();
 
-    merged_useLocaleStore.getState().setLocaleData(merged_DEFAULT_LOCALE_ID, {
-      robots: [{
-        id: 'volume-live-edit-robot', name: '', state: 'idle', direction: 'right',
-        position: { x: 960, y: 0 }, destination: null, createdAt: Date.now(),
-        melody: [], octaveRange: [3, 4], masterVolume: 0.55, audioMode: 'none',
-        audioAttributes: { adsr: TEST_ADSR, waveform: 'sine', filterFreq: 100 },
-      }] as any,
-    });
-
     const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0, active: true }];
-    AudioEngine.reserveVoice('volume-live-edit-robot', layered as any, TEST_ADSR);
-    const synthResults = (Tone.Synth as unknown as any).mock.results;
+    AudioEngine.reserveVoice('volume-live-edit-robot', layered as any, TEST_ADSR, undefined, undefined, undefined, 0.55);
 
-    // First note primes the cache at masterVolume 0.55 (no locale noise map is registered in this
-    // test env, so computeNoteVelocitySeeded's no-noiseMap branch returns masterVolume verbatim).
-    AudioEngine.scheduleNote({ robotId: 'volume-live-edit-robot', note: 'C6', duration: '4n', time: 0 });
-    let firstVelocity: number | undefined;
-    synthResults.forEach((r: any) => r.value?.triggerAttackRelease?.mock?.calls?.forEach((c: any) => {
-      if (c[0] === 'C6') firstVelocity = c[3];
-    }));
-    expect(firstVelocity).toBeCloseTo(0.55, 5);
+    const gainResults = (Tone.Gain as unknown as { mock: { results: { value: { gain: { value: number } } }[] } }).mock.results;
+    const busGainInstance = gainResults[gainResults.length - 1].value;
+    expect(busGainInstance.gain.value).toBe(1); // the mock's own hardcoded starting value
 
-    // Live edit: RobotDisplaySection's Volume slider calls this after updateRobot.
     AudioEngine.updateRobotMasterVolume('volume-live-edit-robot', 0.2);
-    synthResults.forEach((r: any) => r.value?.triggerAttackRelease?.mockClear());
 
-    AudioEngine.scheduleNote({ robotId: 'volume-live-edit-robot', note: 'C7', duration: '4n', time: 0.1 });
-    let secondVelocity: number | undefined;
-    synthResults.forEach((r: any) => r.value?.triggerAttackRelease?.mock?.calls?.forEach((c: any) => {
-      if (c[0] === 'C7') secondVelocity = c[3];
-    }));
-    expect(secondVelocity).toBeCloseTo(0.2, 5);
+    expect(busGainInstance.gain.value).toBe(0.2);
   });
 
   it('is a safe no-op (no throw) when the robot has never had a note scheduled yet', async () => {
