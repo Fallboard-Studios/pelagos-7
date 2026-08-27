@@ -379,7 +379,7 @@ describe('spawnSystem', () => {
       // Simulates a reload/shared-link replay: a brand-new module instance
       // (spawnCounters reset to empty) spawning against the same coordinates
       // must reproduce the exact same ID sequence, since Session Storage
-      // (Phase 11) needs to reapply overrides by ID after the roster
+      // (Phase 12) needs to reapply overrides by ID after the roster
       // regenerates. Reuses the same vi.resetModules() pattern the
       // "spawnInitialRoster" determinism test below uses, rather than
       // reaching into spawnSystem's private per-locale counter.

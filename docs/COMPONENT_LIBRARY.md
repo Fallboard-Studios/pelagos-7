@@ -82,7 +82,7 @@ The trigger's contents, left to right: a decorative `+`/`−` open-state indicat
 
 ## CSS tokens
 
-No new CSS custom properties were introduced in this phase. Every component's CSS pulls color from the existing accent-tier tokens already defined in `src/index.css`: `--color-accent`, `--color-border`, `--color-surface`, `--color-text-primary`, `--color-text-muted`. Per the roadmap's Phase 10 Forward Note, these 13 components are all small interactive-control chrome, so they belong to the locale-seed/accent tier (not the planet-seed/structural `--color-bg`/`--color-surface`-defining tier) — no reclassification will be needed when Phase 10 lands.
+No new CSS custom properties were introduced in this phase. Every component's CSS pulls color from the existing accent-tier tokens already defined in `src/index.css`: `--color-accent`, `--color-border`, `--color-surface`, `--color-text-primary`, `--color-text-muted`. Per the roadmap's Phase 11 Forward Note, these 13 components are all small interactive-control chrome, so they belong to the locale-seed/accent tier (not the planet-seed/structural `--color-bg`/`--color-surface`-defining tier) — no reclassification will be needed when Phase 11 lands.
 
 ## What's explicitly out of scope this phase
 

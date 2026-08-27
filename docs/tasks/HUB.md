@@ -25,7 +25,7 @@ Resolving the spec's open questions (§7) concretely, so nothing gets invented a
   already established across the codebase (e.g. `loreLabel: 'CALIBRATE PING'` /
   `humanLabel: 'Reset Melody'` in `Button.test.tsx`; `loreLabel: 'DESIGNATION'` /
   `humanLabel: 'Robot Name'` in `TextInput.test.tsx`) and the "field equipment reporting
-  what it's tuned to" fiction the roadmap's Phase 10 About paragraph names explicitly:
+  what it's tuned to" fiction the roadmap's Phase 11 About paragraph names explicitly:
 
   | `target` | `loreLabel` | `humanLabel` |
   |---|---|---|

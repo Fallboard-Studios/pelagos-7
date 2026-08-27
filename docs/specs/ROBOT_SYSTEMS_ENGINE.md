@@ -515,7 +515,7 @@ during coding:
 4. **`removeSystem.ts`'s fate.** With `removeRobotWithExit` gone and no other exported function,
    the file (and its test) may end up empty. Decide during Plan whether to delete both files
    outright or leave an empty/near-empty file as a placeholder for a future "robot actually leaves
-   the roster" mechanic (none is planned, but Session Storage/Phase 11 or a later phase could
+   the roster" mechanic (none is planned, but Session Storage/Phase 12 or a later phase could
    introduce one). Default: delete both files — nothing in this repo's convention keeps empty
    scaffold files around (see `verify-roadmap-against-code` project convention of not leaving dead
    code for a future phase to inherit).

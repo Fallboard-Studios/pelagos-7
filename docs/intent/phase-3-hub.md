@@ -45,7 +45,7 @@ not an animated transition between the two states.
 **Removed outright:**
 - The Session and Composition tabs, their `uiStore.ConsoleTab` entries, and their
   placeholder stub content — deleted, not parked. Session's job is absorbed by Session
-  Storage's background persistence engine (Phase 11), so there's nothing left for a tile
+  Storage's background persistence engine (Phase 12), so there's nothing left for a tile
   to do; Composition is deferred to a future version.
 - `ConsoleNavigation`'s `Tabs.Root`/`Tabs.List`/`Tabs.Trigger` structure and its hardcoded
   `TABS` label array.
@@ -126,7 +126,7 @@ Stays inside the repo's existing non-negotiable guardrails
 - Any change to `robotOptions`/`robotEditor`'s internals, or their eventual
   removal/replacement — Phases 7–9.
 - Any GSAP-animated transition between the grid and a full-screen tile.
-- Session Storage's background persistence engine — Phase 11. This phase only deletes the
+- Session Storage's background persistence engine — Phase 12. This phase only deletes the
   Session tab stub; it builds none of what replaces its job.
 - A `HubNavButtonSchema`/14th `ControlSchema` variant — the existing `Button` primitive
   covers this need.

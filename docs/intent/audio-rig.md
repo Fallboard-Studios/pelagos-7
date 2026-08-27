@@ -94,7 +94,7 @@ Stays inside the repo's existing non-negotiable guardrails ([CLAUDE.md](../../CL
 
 - Robot-level audio/LFO wiring — Phase 9's territory.
 - Session Storage persistence of any Audio Rig or LFO edits made through this drawer —
-  Phase 11's territory; edits made this phase don't yet survive a reload.
+  Phase 12's territory; edits made this phase don't yet survive a reload.
 - Seeding the global effects' base `enabled` flags — still pinned `true` per Phase 0's
   own scope; this phase adds real bypass *toggles*, but doesn't change what a fresh
   seed generates for `enabled`.

@@ -102,7 +102,7 @@ function generateRobotName(noiseMap: NoiseFunction2D, offset: number): string {
  * is a monotonic per-locale counter, embedded directly in the ID string, and
  * `getSeededVal`'s 'robot.id' dataId gives this field its own row in the noise
  * map distinct from every other seeded field. Required so Session Storage
- * (Phase 11) can reapply Robot Options overrides by ID after the roster
+ * (Phase 12) can reapply Robot Options overrides by ID after the roster
  * regenerates from a reload or shared link — the same coordinates always
  * replay the same spawnCount sequence and therefore the same ID sequence.
  */

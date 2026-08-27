@@ -1,8 +1,8 @@
 # Session Storage & Persistence
 
-**Status: design doc for [Roadmap Phase 10](roadmap/roadmap.md) — not yet implemented.** Nothing in this file describes current app behavior; there is no localStorage or persistence code anywhere in `src/` today. Update this banner and fold this content into an implementation-sourced version once `storageEngine.ts`/`stateResolver.ts`/`urlSerializer.ts` land.
+**Status: design doc for [Roadmap Phase 11](roadmap/roadmap.md) — not yet implemented.** Nothing in this file describes current app behavior; there is no localStorage or persistence code anywhere in `src/` today. Update this banner and fold this content into an implementation-sourced version once `storageEngine.ts`/`stateResolver.ts`/`urlSerializer.ts` land.
 
-**Related docs:** [PROCEDURAL_GENERATION.md](PROCEDURAL_GENERATION.md) (the seed determinism this design depends on) · [ANIMATION_SYSTEM.md](ANIMATION_SYSTEM.md) (timelineMap, for FirmwareResetModal's flash) · [roadmap/roadmap.md](roadmap/roadmap.md) Phase 6 (deterministic robot IDs), Phase 9 (Robot Options, the source of overrides), Phase 10 (this phase)
+**Related docs:** [PROCEDURAL_GENERATION.md](PROCEDURAL_GENERATION.md) (the seed determinism this design depends on) · [ANIMATION_SYSTEM.md](ANIMATION_SYSTEM.md) (timelineMap, for FirmwareResetModal's flash) · [roadmap/roadmap.md](roadmap/roadmap.md) Phase 6 (deterministic robot IDs), Phase 9 (Robot Options, the source of overrides), Phase 11 (this phase)
 
 ## What Gets Persisted
 

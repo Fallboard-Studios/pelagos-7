@@ -54,7 +54,7 @@ utility is introduced — uniqueness is structural, not actively checked: `getSe
 string already gives every distinct field its own effectively-unique x-position in the noise map
 (the same property every other seeded attribute in `spawnSystem.ts` already relies on — `robot.name.adj`,
 `robot.masterVolume`, etc.), and `spawnCount` is already a monotonic per-locale counter incremented
-once per spawn. This satisfies Phase 11's (Session Storage) requirement that overrides can be
+once per spawn. This satisfies Phase 12's (Session Storage) requirement that overrides can be
 reapplied by ID after the roster regenerates from a reload or shared link, since the same locale
 coordinates always replay the same `spawnCount` sequence and therefore the same ID sequence.
 
