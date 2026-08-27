@@ -4,10 +4,6 @@ import { SliderCenteredZero } from '@/components/ui/controls/SliderCenteredZero'
 import { Toggle } from '@/components/ui/controls/Toggle';
 import { AccordionContainer } from '@/components/ui/controls/AccordionContainer';
 import { Lfo } from '@/components/ui/controls/Lfo';
-import { useLocaleStore } from '@/stores/localeStore';
-import { getActiveLocaleId } from '@/utils/localeHelpers';
-import { AudioEngine } from '@/engine/AudioEngine';
-import { lfoEngine } from '@/engine/lfoEngine';
 import { DEFAULT_LFO_SETTINGS } from '@/data/lfoConfig';
 import {
   SIGNATURE_ARRAY_ACCORDION_SCHEMA,
@@ -21,25 +17,20 @@ import type { RobotLfoTargetId } from '@/types/lfo';
 
 import './SignatureArrayDrawer.css';
 
+export interface SignatureArrayValue {
+  layers: OscillatorLayer[];
+  lfoSettings?: Robot['lfoSettings'];
+}
+
 interface SignatureArrayDrawerProps {
-  robot: Robot;
-}
-
-/** Continuous params (gain, detune, phase, pulseWidth): live, no gap in audio. */
-function commitContinuous(robot: Robot, localeId: string, layers: OscillatorLayer[]) {
-  useLocaleStore.getState().updateRobot(localeId, robot.id, {
-    audioAttributes: { ...robot.audioAttributes, layers },
-  });
-  AudioEngine.updateVoiceLayerParams(robot.id, layers);
-}
-
-/** Structural changes (type, active/mute) — may cause a brief audio gap while the voice
- *  rebuilds; active toggling changes which layers the composite voice actually includes. */
-function commitStructural(robot: Robot, localeId: string, layers: OscillatorLayer[]) {
-  useLocaleStore.getState().updateRobot(localeId, robot.id, {
-    audioAttributes: { ...robot.audioAttributes, layers },
-  });
-  AudioEngine.reReserveVoice(robot.id);
+  value: SignatureArrayValue;
+  /** Continuous params (gain, detune, phase, pulseWidth): live, no gap in audio. */
+  onContinuousChange: (layers: OscillatorLayer[]) => void;
+  /** Structural changes (type, active/mute) — may cause a brief audio gap while the voice
+   *  rebuilds; active toggling changes which layers the composite voice actually includes. */
+  onStructuralChange: (layers: OscillatorLayer[]) => void;
+  onLfoChange: (target: RobotLfoTargetId, value: LfoValue) => void;
+  disabled?: boolean;
 }
 
 function paramValue(layer: OscillatorLayer, field: SignatureArrayParamSchema['field']): number {
@@ -53,28 +44,16 @@ function paramValue(layer: OscillatorLayer, field: SignatureArrayParamSchema['fi
 }
 
 /**
- * One AccordionContainer wrapping the 3 fixed layer slots (Baseline/Coaxial/Harmonic — Roadmap
- * Phase 9). Replaces RobotOscillatorsTab's dynamic add/delete list. Toggling Coaxial/Harmonic's
- * Active off mutes the layer (excluded from the composite voice, see AudioEngine.reserveVoice's
- * filterActiveLayers) without discarding its Type/Gain/Detune/Phase/Interval configuration.
+ * One AccordionContainer wrapping the 3 fixed layer slots (Baseline/Coaxial/Harmonic). Purely
+ * presentational as of Roadmap Phase 10 (Task 16) — no `robot` prop, no store access; both
+ * RobotOptionsTab (robot mode) and CompanyOptionsSection (company mode) derive `value` and wire
+ * each callback through robotOptionsActions.applyLayersContinuous/applyLayersStructural/
+ * applyLayerLfo themselves. Toggling Coaxial/Harmonic's Active off mutes the layer (excluded from
+ * the composite voice, see AudioEngine.reserveVoice's filterActiveLayers) without discarding its
+ * Type/Gain/Detune/Phase/Interval configuration.
  */
-export function SignatureArrayDrawer({ robot }: SignatureArrayDrawerProps) {
-  const localeId = getActiveLocaleId();
-  const layers = robot.audioAttributes.layers ?? [];
-
-  const handleLfoChange = (target: RobotLfoTargetId) => (value: LfoValue) => {
-    const nextLfoSettings = { ...robot.lfoSettings, [target]: value } as Robot['lfoSettings'];
-    useLocaleStore.getState().updateRobot(localeId, robot.id, { lfoSettings: nextLfoSettings });
-    lfoEngine.setLfoShape(target, value.shape, robot.id);
-    lfoEngine.setLfoRate(target, value.rate, robot.id);
-    lfoEngine.setLfoDepth(target, value.depth, robot.id);
-    if (value.active) {
-      if (lfoEngine.connectLfoTarget(target, robot.id)) lfoEngine.start(target, robot.id);
-    } else {
-      lfoEngine.disconnectLfoTarget(target, robot.id);
-      lfoEngine.stop(target, robot.id);
-    }
-  };
+export function SignatureArrayDrawer({ value, onContinuousChange, onStructuralChange, onLfoChange, disabled }: SignatureArrayDrawerProps) {
+  const layers = value.layers ?? [];
 
   return (
     <AccordionContainer schema={SIGNATURE_ARRAY_ACCORDION_SCHEMA}>
@@ -87,26 +66,25 @@ export function SignatureArrayDrawer({ robot }: SignatureArrayDrawerProps) {
             layers.map((l, i) => (i === idx ? updated : l));
 
           const handleActiveChange = (active: boolean) =>
-            commitStructural(robot, localeId, withUpdatedLayer({ ...layer, active }));
+            onStructuralChange(withUpdatedLayer({ ...layer, active }));
 
-          const handleTypeChange = (value: string) =>
-            commitStructural(robot, localeId, withUpdatedLayer({ ...layer, type: value as WaveformType }));
+          const handleTypeChange = (v: string) =>
+            onStructuralChange(withUpdatedLayer({ ...layer, type: v as WaveformType }));
 
-          const handleParamChange = (field: SignatureArrayParamSchema['field']) => (value: number) => {
-            const updated: OscillatorLayer = { ...layer, [field]: value };
-            commitContinuous(robot, localeId, withUpdatedLayer(updated));
+          const handleParamChange = (field: SignatureArrayParamSchema['field']) => (v: number) => {
+            const updated: OscillatorLayer = { ...layer, [field]: v };
+            onContinuousChange(withUpdatedLayer(updated));
           };
 
           // 'pulse' only — Tone.js's OmniOscillator.width getter returns undefined for every
           // other type (including 'square'), so showing Interval there was an editable control
-          // with no audible effect. AudioEngine's own pulseWidth LFO gate already only allows
-          // 'pulse' for the same reason (getRobotModulationTarget).
+          // with no audible effect.
           const showPulseWidth = layer.type === 'pulse';
 
           return (
             <div key={block.key} className="signature-array-drawer__layer" data-layer-key={block.key}>
               {block.activeSchema && (
-                <Toggle schema={block.activeSchema} value={layer.active} onChange={handleActiveChange} />
+                <Toggle schema={block.activeSchema} value={layer.active} onChange={handleActiveChange} disabled={disabled} />
               )}
               {block.params.map((param) => {
                 if (param.field === 'pulseWidth' && !showPulseWidth) return null;
@@ -118,23 +96,24 @@ export function SignatureArrayDrawer({ robot }: SignatureArrayDrawerProps) {
                       schema={param.schema as RadioButtonSchema}
                       value={layer.type}
                       onChange={handleTypeChange}
+                      disabled={disabled}
                     />
                   );
                 }
 
-                const value = paramValue(layer, param.field);
+                const paramVal = paramValue(layer, param.field);
                 const onChange = handleParamChange(param.field);
                 const lfoTarget = param.lfoTarget;
                 const lfoValue: LfoValue | undefined = lfoTarget
-                  ? (robot.lfoSettings?.[lfoTarget] ?? { ...DEFAULT_LFO_SETTINGS[lfoTarget], active: false })
+                  ? (value.lfoSettings?.[lfoTarget] ?? { ...DEFAULT_LFO_SETTINGS[lfoTarget], active: false })
                   : undefined;
 
                 return (
                   <div key={param.field} className="signature-array-drawer__param">
                     {param.field === 'detune' ? (
-                      <SliderCenteredZero schema={param.schema as SliderCenteredZeroSchema} value={value} onChange={onChange} />
+                      <SliderCenteredZero schema={param.schema as SliderCenteredZeroSchema} value={paramVal} onChange={onChange} disabled={disabled} />
                     ) : (
-                      <SliderLinear schema={param.schema as SliderLinearSchema} value={value} onChange={onChange} />
+                      <SliderLinear schema={param.schema as SliderLinearSchema} value={paramVal} onChange={onChange} disabled={disabled} />
                     )}
                     {lfoTarget && param.lfoAccordion && lfoValue && (
                       <AccordionContainer
@@ -145,7 +124,8 @@ export function SignatureArrayDrawer({ robot }: SignatureArrayDrawerProps) {
                         <Lfo
                           schema={{ id: `${param.lfoAccordion.id}.control`, type: 'lfo' }}
                           value={lfoValue}
-                          onChange={handleLfoChange(lfoTarget)}
+                          onChange={(v) => onLfoChange(lfoTarget, v)}
+                          disabled={disabled}
                         />
                       </AccordionContainer>
                     )}
