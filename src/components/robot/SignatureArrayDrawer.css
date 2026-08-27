@@ -1,0 +1,23 @@
+.signature-array-drawer {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.signature-array-drawer__layer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.signature-array-drawer__layer:last-child {
+  border-bottom: none;
+}
+
+.signature-array-drawer__param {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
