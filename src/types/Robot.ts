@@ -160,9 +160,11 @@ export interface Robot {
   /**
    * Seeded LFO settings for all 13 RobotLfoTargetId modulation targets,
    * generated once at spawn time (src/systems/spawnSystem.ts) the same way
-   * as the rest of audioAttributes. Inert until a target is actually
-   * connected (see src/engine/lfoEngine.ts) — this is the starting point an
-   * activated LFO would use, not evidence that anything is currently modulating.
+   * as the rest of audioAttributes. `active` mirrors audioStore.ts's
+   * `globalLfo` shape (`LfoSettings & { active: boolean }`) — each target is
+   * independently seeded on or off (Roadmap Phase 9), not universally inert;
+   * `active: false` means the target isn't currently connected (see
+   * src/engine/lfoEngine.ts), not that it never will be.
    */
-  lfoSettings?: Record<RobotLfoTargetId, LfoSettings>;
+  lfoSettings?: Record<RobotLfoTargetId, LfoSettings & { active: boolean }>;
 }
