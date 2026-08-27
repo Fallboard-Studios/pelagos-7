@@ -474,6 +474,10 @@ function startMelodyPlayback(): void {
  * Falls back to no variance when the noise map is unavailable.
  */
 function computeNoteVelocitySeeded(masterVolume: number, robotId?: string): number {
+  // A robot dialed to 0% Volume is effectively muted — never apply the VELOCITY_MIN floor or
+  // random variance to a deliberate zero (Robot Options' Volume slider allows exactly 0%).
+  if (masterVolume <= 0) return 0;
+
   const localeId = getActiveLocaleId();
   const noiseMap = tryGetLocaleNoiseMap(localeId);
   if (!noiseMap) return Math.min(1, Math.max(VELOCITY_MIN, masterVolume));
