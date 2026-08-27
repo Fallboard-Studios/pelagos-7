@@ -314,7 +314,7 @@ function makeLayerBlock(
         schema: {
           id: `robotOptions.${key}.pulseWidth`, type: 'sliderLinear',
           loreLabel: `${loreLabel} PULSE WIDTH`, humanLabel: `${humanLabel} Interval`,
-          min: 0, max: 1,
+          min: 0, max: 1, step: 0.01,
         } satisfies SliderLinearSchema,
         lfoTarget: pulseWidthTarget,
         lfoAccordion: lfoAccordionSchema(key, 'pulseWidth'),

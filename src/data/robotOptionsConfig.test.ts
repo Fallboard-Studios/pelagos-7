@@ -117,12 +117,17 @@ describe('robotOptionsConfig', () => {
       });
     });
 
-    it('Interval/pulseWidth is a 0-1 slider on every block', () => {
+    it('Interval/pulseWidth is a 0-1 slider on every block, with a step fine enough to be more than an on/off toggle', () => {
+      // Regression: SliderLinear defaults an unset `step` to 1 (SliderLinear.tsx)
+      // — on a 0-1 range that leaves exactly two reachable positions, 0 and 1,
+      // same class of bug audioRigConfig.ts's delay/reverb 0-1 sliders already
+      // guard against with an explicit step: 0.01.
       SIGNATURE_ARRAY_CONFIG.forEach((block) => {
         const pw = block.params.find((p) => p.field === 'pulseWidth');
-        const schema = pw!.schema as { min: number; max: number };
+        const schema = pw!.schema as { min: number; max: number; step?: number };
         expect(schema.min).toBe(0);
         expect(schema.max).toBe(1);
+        expect(schema.step).toBe(0.01);
       });
     });
 
