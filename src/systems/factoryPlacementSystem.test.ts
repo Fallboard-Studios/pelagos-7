@@ -305,10 +305,10 @@ describe('FactoryPlacementSystem', () => {
     });
 
     it('produces identical color shifts for same position (deterministic from ID seed)', () => {
-      // Note: This test uses multiple factories at the same position.
-      // In practice, each factory gets a unique random UUID, so they will have
-      // different color shifts. This test verifies that the selectVariantFromSeed
-      // function itself is deterministic when given the same ID.
+      // Each factory's own id is itself seeded from the locale's noise map (not
+      // crypto.randomUUID()), so two factories only get identical color shifts if their
+      // seeded ids happen to collide — this test verifies selectVariantFromSeed is
+      // deterministic given the same id, not that placeFactories assigns colliding ids.
       const factories = placeFactories(DEFAULT_LOCALE_ID);
 
       // Verify that all factories have valid color shifts and greeble selections
@@ -335,6 +335,47 @@ describe('FactoryPlacementSystem', () => {
 
         expect(shiftsAreDifferent || greeblesAreDifferent).toBe(true);
       }
+    });
+
+    it('produces an identical factory backdrop for two locales sharing the same coordinates (reload / shared-link determinism)', () => {
+      // Simulates the real scenario Session Storage's URL-sharing depends on: the same
+      // planet coordinates must regenerate the exact same world, factories included —
+      // not just internally-consistent colors (the test above), but the same ids,
+      // positions, scales, and colors bit-for-bit, on a completely separate locale.
+      const localeA = {
+        id: 'locale-a', planetId: 'p', name: 'A', coordinates: { x: 42, y: 7 },
+        robots: [], actors: [], companies: [], settings: {}, currentMeasure: 0,
+      };
+      const localeB = {
+        id: 'locale-b', planetId: 'p', name: 'B', coordinates: { x: 42, y: 7 },
+        robots: [], actors: [], companies: [], settings: {}, currentMeasure: 0,
+      };
+      useLocaleStore.getState().addLocale('p', localeA);
+      useLocaleStore.getState().addLocale('p', localeB);
+
+      const actorsA = placeFactories('locale-a');
+      const actorsB = placeFactories('locale-b');
+
+      expect(actorsA.length).toBeGreaterThan(0);
+      expect(actorsA).toEqual(actorsB);
+    });
+
+    it('produces a different factory backdrop for locales at different coordinates', () => {
+      const localeA = {
+        id: 'locale-c', planetId: 'p', name: 'C', coordinates: { x: 1, y: 1 },
+        robots: [], actors: [], companies: [], settings: {}, currentMeasure: 0,
+      };
+      const localeB = {
+        id: 'locale-d', planetId: 'p', name: 'D', coordinates: { x: 99, y: 99 },
+        robots: [], actors: [], companies: [], settings: {}, currentMeasure: 0,
+      };
+      useLocaleStore.getState().addLocale('p', localeA);
+      useLocaleStore.getState().addLocale('p', localeB);
+
+      const actorsC = placeFactories('locale-c');
+      const actorsD = placeFactories('locale-d');
+
+      expect(actorsC).not.toEqual(actorsD);
     });
   });
 });

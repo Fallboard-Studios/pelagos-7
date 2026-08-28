@@ -10,6 +10,11 @@ facade variety comes from window styles and belt courses. Additional visual
 variation comes from a deterministic pseudorandom process seeded by the
 actor ID and horizontal position. `Alea` + `simplex-noise` produce a noise
 value which drives variant choice, sizing, and per-instance colour shifts.
+The actor ID itself is generated deterministically from the locale's noise
+map (`generateFactoryId()`, `factoryPlacementSystem.ts`), the same
+`crypto.randomUUID()`-replacing pattern `generateRobotId()`/`generateCompanyId()`
+use — required for "Reloading the scene produces identical buildings" (below)
+to actually hold, per [PROCEDURAL_GENERATION.md](PROCEDURAL_GENERATION.md).
 
 **Key source files:**
 
