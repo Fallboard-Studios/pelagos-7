@@ -4,7 +4,7 @@ import type { Actor } from '../../types/Actor';
 import { selectVariantFromSeed, VARIANT_CONF } from './factoryVariants';
 import { getRowConfig } from '../../systems/factoryPlacementSystem';
 import { calcSilhouetteSize, bottomAnchorTransform } from './silhouetteUtils';
-import { applyColorShift, shiftHSL, clamp } from '../../utils/colorUtils';
+import { applyColorShift, shiftHSL, clamp, boostLightness } from '../../utils/colorUtils';
 import { getLighting, getNightDepth, FLICKER_PERIOD, FILL_TRANSITION, DAY_CYCLE_MEASURES } from '../../utils/lightingUtils';
 import { ROOFTOP_RENDERERS } from './greebles/rooftopGreebles';
 import { FACADE_RENDERERS } from './greebles/facadeGreebles';
@@ -133,9 +133,21 @@ const FactoryInner: React.FC<FactoryProps> = ({ actor }) => {
   const isOffline = actor.config?.isOffline ?? false;
   const isActive = !isOffline;
 
+  // Wall-only lightness boost from the active Attenuation Style — NOT part
+  // of shiftHSL's hue/sat model (whose contract for every other caller,
+  // rooftop/facade greebles included, is "lightness untouched"). Dark base
+  // wall colors otherwise make even a large, guaranteed hue shift hard to
+  // perceive; this exists purely to keep it legible. Applied only to the
+  // wall body (east/west fill), not to shiftedColors itself, so nothing
+  // else — greebles, windows, the bubble stream's bodyHue — is affected.
+  // See docs/specs/ATTENUATION_STYLE.md §1.2 and factoryPlacementSystem.ts's
+  // AS_FACTORY_LIGHT_SHIFT_RANGE.
+  const asLightShift = actor.config?.asLightShift ?? 0;
+  const wallBodyColor = asLightShift ? boostLightness(shiftedColors.body, asLightShift) : shiftedColors.body;
+
   // Apply lightness multipliers to body color using already-shifted palette
-  const eastFill = applyColorShift(shiftedColors.body, { hueShift: 0, satShift: 0 }, eastLMultiplier);
-  const westFill = applyColorShift(shiftedColors.body, { hueShift: 0, satShift: 0 }, westLMultiplier);
+  const eastFill = applyColorShift(wallBodyColor, { hueShift: 0, satShift: 0 }, eastLMultiplier);
+  const westFill = applyColorShift(wallBodyColor, { hueShift: 0, satShift: 0 }, westLMultiplier);
 
   const transform = bottomAnchorTransform(actor, height);
   const safeId = String(actor.id).replace(/[^a-zA-Z0-9-_]/g, '-');

@@ -15,6 +15,14 @@ import { getSeededVal } from '../utils/getSeededVal';
 import { derivePlanetSeed } from '../utils/seedUtils';
 import type { ColorShift } from '../utils/colorUtils';
 
+/** AS color delta for one factory: the existing hue/sat additive shift, plus
+ *  a lightness boost applied ONLY to the wall's base fill (Factory.tsx) —
+ *  see deriveAsColorShift's own doc comment for why lightShift exists as a
+ *  separate field rather than folding into ColorShift itself. */
+interface FactoryAsShift extends ColorShift {
+  lightShift: number;
+}
+
 // ========================================
 // CONSTANTS
 // ========================================
@@ -80,10 +88,23 @@ const DEFAULT_CENTER_WIDTH = 0.4; // 40% of screen width for center spread
  *  reading as an oversaturated "fruit salad" skyline rather than a legible
  *  recolor. [0, 10] is a light, floor-only nudge: enough to keep an
  *  already-desaturated wall from reading as pure gray, not enough to push
- *  an already-saturated one into cartoon territory. */
+ *  an already-saturated one into cartoon territory.
+ *
+ *  Lightness (AS_FACTORY_LIGHT_SHIFT_RANGE) is a separate, additional field
+ *  — not part of hue/sat's additive model at all. It exists because even a
+ *  large, guaranteed hue shift is hard to perceive on the wall's dark base
+ *  color (body base lightness is only 19%, and day/night lighting can push
+ *  it well below that at night) — the SAME hue shift reads clearly on the
+ *  lit-window glow only because that color's base lightness is boosted well
+ *  above the wall's. Bounded and non-negative for the same reason satShift
+ *  is: an AS should only ever help legibility, never actively work against
+ *  it. Applied via colorUtils.ts's `boostLightness()`, ONLY to the wall fill
+ *  in Factory.tsx — not folded into shiftHSL (whose contract for every other
+ *  caller is "lightness untouched"), and not passed to greebles/windows. */
 const AS_FACTORY_HUE_SHIFT_MIN_MAGNITUDE = 60;
 const AS_FACTORY_HUE_SHIFT_MAX_MAGNITUDE = 180;
 const AS_FACTORY_SAT_SHIFT_RANGE: [number, number] = [0, 10];
+const AS_FACTORY_LIGHT_SHIFT_RANGE: [number, number] = [10, 25];
 
 // ========================================
 // EXPORTS
@@ -113,7 +134,7 @@ function generateFactoryId(noiseMap: NoiseFunction2D, index: number): string {
  *  factory's hue MUST move by at least AS_FACTORY_HUE_SHIFT_MIN_MAGNITUDE on
  *  every AS. alea is a proper uniform PRNG, so a plain roll against it
  *  reliably lands anywhere in [MIN, MAX], not clustered near either end. */
-function deriveAsColorShift(noiseMap: NoiseFunction2D, index: number, planetName: string): ColorShift {
+function deriveAsColorShift(noiseMap: NoiseFunction2D, index: number, planetName: string): FactoryAsShift {
   const planetSeed = derivePlanetSeed(planetName);
   const sign = alea(`${planetSeed}:factory.as.hueSign:${index}`)() < 0.5 ? -1 : 1;
   const magnitudeRoll = alea(`${planetSeed}:factory.as.hueMagnitude:${index}`)();
@@ -122,6 +143,7 @@ function deriveAsColorShift(noiseMap: NoiseFunction2D, index: number, planetName
   return {
     hueShift: sign * magnitude,
     satShift: getSeededVal(noiseMap, 'factory.as.satShift', index, ...AS_FACTORY_SAT_SHIFT_RANGE),
+    lightShift: getSeededVal(noiseMap, 'factory.as.lightShift', index, ...AS_FACTORY_LIGHT_SHIFT_RANGE),
   };
 }
 
@@ -139,7 +161,7 @@ export function createFactory(
   row = 0,
   scale: number = 0.9 + Math.random() * 0.2, // 0.9–1.1
   id: string = crypto.randomUUID(),
-  asShift: ColorShift = { hueShift: 0, satShift: 0 },
+  asShift: FactoryAsShift = { hueShift: 0, satShift: 0, lightShift: 0 },
 ): Actor {
   // Use the same availableTypes that Factory.tsx will use, so the variant —
   // and therefore greeble pools — are consistent between spawn and render.
@@ -163,6 +185,10 @@ export function createFactory(
       // replacement. See docs/specs/ATTENUATION_STYLE.md §1.2.
       hueShift: hueShift + asShift.hueShift,
       satShift: satShift + asShift.satShift,
+      // NOT additive with a local counterpart (there isn't one) — stored
+      // verbatim, read only by Factory.tsx's wall fill. See
+      // AS_FACTORY_LIGHT_SHIFT_RANGE's own doc comment above.
+      asLightShift: asShift.lightShift,
       rooftopGreeble,
       facadeGreeble,
       beltCourseCount,
@@ -206,7 +232,7 @@ export function placeFactories(localeId: string): Actor[] {
     const scale = noiseMap
       ? getSeededVal(noiseMap, 'factory.scale', index, 0.9, 1.1)
       : 0.9 + alea(`${localeId}:factory:${index}:scale`)() * 0.2;
-    const asShift = asNoiseMap && planet ? deriveAsColorShift(asNoiseMap, index, planet.name) : { hueShift: 0, satShift: 0 };
+    const asShift = asNoiseMap && planet ? deriveAsColorShift(asNoiseMap, index, planet.name) : { hueShift: 0, satShift: 0, lightShift: 0 };
     return createFactory(position, row, scale, id, asShift);
   }
 
@@ -330,6 +356,7 @@ export function recolorFactoriesForAttenuationStyle(localeId: string, planetId: 
         ...actor.config,
         hueShift: localHue + asShift.hueShift,
         satShift: localSat + asShift.satShift,
+        asLightShift: asShift.lightShift,
       },
     };
   });

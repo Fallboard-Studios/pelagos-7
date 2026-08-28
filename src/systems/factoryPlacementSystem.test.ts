@@ -384,7 +384,7 @@ describe('FactoryPlacementSystem', () => {
   describe('Attenuation Style (AS) additive color shift', () => {
     it('createFactory with no asShift produces the same hueShift/satShift as an explicit zero asShift (regression-safe default)', () => {
       const withoutArg = createFactory({ x: 500, y: 1000 }, 1, 1, 'as-parity-id');
-      const withZero = createFactory({ x: 500, y: 1000 }, 1, 1, 'as-parity-id', { hueShift: 0, satShift: 0 });
+      const withZero = createFactory({ x: 500, y: 1000 }, 1, 1, 'as-parity-id', { hueShift: 0, satShift: 0, lightShift: 0 });
 
       expect(withoutArg.config?.hueShift).toBe(withZero.config?.hueShift);
       expect(withoutArg.config?.satShift).toBe(withZero.config?.satShift);
@@ -392,10 +392,20 @@ describe('FactoryPlacementSystem', () => {
 
     it('createFactory sums a supplied asShift into the stored hueShift/satShift, never replacing the local shift', () => {
       const base = createFactory({ x: 500, y: 1000 }, 1, 1, 'as-sum-id');
-      const withShift = createFactory({ x: 500, y: 1000 }, 1, 1, 'as-sum-id', { hueShift: 10, satShift: -5 });
+      const withShift = createFactory({ x: 500, y: 1000 }, 1, 1, 'as-sum-id', { hueShift: 10, satShift: -5, lightShift: 0 });
 
       expect(withShift.config?.hueShift).toBe((base.config?.hueShift ?? 0) + 10);
       expect(withShift.config?.satShift).toBe((base.config?.satShift ?? 0) - 5);
+    });
+
+    it('createFactory with no asShift stores asLightShift as 0 (regression-safe default)', () => {
+      const factory = createFactory({ x: 500, y: 1000 }, 1, 1, 'as-light-default-id');
+      expect(factory.config?.asLightShift).toBe(0);
+    });
+
+    it("createFactory stores a supplied asShift's lightShift verbatim as config.asLightShift", () => {
+      const factory = createFactory({ x: 500, y: 1000 }, 1, 1, 'as-light-id', { hueShift: 0, satShift: 0, lightShift: 17 });
+      expect(factory.config?.asLightShift).toBe(17);
     });
 
     it("placeFactories folds in the locale's own planet AS noise map, distinct from another planet's", () => {
@@ -439,12 +449,29 @@ describe('FactoryPlacementSystem', () => {
       const actors = useLocaleStore.getState().locales['locale-orphan'].actors;
       expect(actors.length).toBeGreaterThan(0);
 
-      // No AS contribution: stored hueShift/satShift must equal the pure local shift.
+      // No AS contribution: stored hueShift/satShift must equal the pure local shift,
+      // and asLightShift is 0 (never crashes, never invents a nonzero boost).
       actors.forEach((actor) => {
         const availableTypes = getRowConfig(actor.config?.row ?? 0)?.availableFactoryTypes;
         const local = selectVariantFromSeed(actor.id, actor.position.x, actor.config?.row ?? 0, availableTypes);
         expect(actor.config?.hueShift).toBe(local.hueShift);
         expect(actor.config?.satShift).toBe(local.satShift);
+        expect(actor.config?.asLightShift).toBe(0);
+      });
+    });
+
+    it('the AS lightness boost is always non-negative (an AS only ever brightens a wall, never dims it)', () => {
+      usePlanetStore.getState().addPlanet({ id: 'light-boost-planet', name: 'light-boost-planet-name', locales: [] });
+      const locale = {
+        id: 'locale-light-boost', planetId: 'light-boost-planet', name: 'LightBoost', coordinates: { x: 6, y: 6 },
+        robots: [], actors: [], companies: [], settings: {}, currentMeasure: 0, dayStartTimestamp: Date.now(),
+      };
+      useLocaleStore.getState().addLocale('light-boost-planet', locale);
+
+      const actors = placeFactories('locale-light-boost');
+      expect(actors.length).toBeGreaterThan(0);
+      actors.forEach((actor) => {
+        expect(actor.config?.asLightShift).toBeGreaterThanOrEqual(0);
       });
     });
 
@@ -526,7 +553,7 @@ describe('FactoryPlacementSystem', () => {
       placeFactories(DEFAULT_LOCALE_ID);
     });
 
-    it('changes only config.hueShift/config.satShift on every factory — everything else round-trips byte-identical', () => {
+    it('changes only config.hueShift/config.satShift/config.asLightShift on every factory — everything else round-trips byte-identical', () => {
       usePlanetStore.getState().addPlanet({ id: 'recolor-planet', name: 'recolor-planet-name', locales: [] });
       const before = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].actors;
 
@@ -547,10 +574,14 @@ describe('FactoryPlacementSystem', () => {
         expect(a.config?.facadeGreeble).toBe(b.config?.facadeGreeble);
         expect(a.config?.beltCourseCount).toBe(b.config?.beltCourseCount);
         expect(a.config?.purpose).toBe(b.config?.purpose);
-        // hueShift/satShift are the only fields allowed to change.
+        // hueShift/satShift/asLightShift are the only fields allowed to change.
         expect(
-          a.config?.hueShift !== b.config?.hueShift || a.config?.satShift !== b.config?.satShift
+          a.config?.hueShift !== b.config?.hueShift
+          || a.config?.satShift !== b.config?.satShift
+          || a.config?.asLightShift !== b.config?.asLightShift
         ).toBe(true);
+        // asLightShift is never negative — an AS only ever brightens a wall.
+        expect(a.config?.asLightShift).toBeGreaterThanOrEqual(0);
       });
     });
 
