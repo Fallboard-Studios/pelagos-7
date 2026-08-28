@@ -6,11 +6,13 @@ import type { NoiseFunction2D } from 'simplex-noise';
 import type { Actor } from '../types/Actor';
 import { ActorType } from '../types/Actor';
 import useLocaleStore from '../stores/localeStore';
+import { usePlanetStore } from '../stores/planetStore';
 import type { FactoryVariant } from '../components/actors/factoryVariants';
 import { VARIANT_CONF, selectVariantFromSeed } from '../components/actors/factoryVariants';
 import { calcSilhouetteSize } from '../components/actors/silhouetteUtils';
-import { getLocaleNoiseMap } from '../utils/noiseMaps';
+import { getLocaleNoiseMap, getPlanetNoiseMap } from '../utils/noiseMaps';
 import { getSeededVal } from '../utils/getSeededVal';
+import type { ColorShift } from '../utils/colorUtils';
 
 // ========================================
 // CONSTANTS
@@ -46,6 +48,16 @@ const PRODUCTION_INTERVAL = 60; // measures
 const DEFAULT_ROW_EDGE_WIDTH = 0.3; // 30% of screen width on each edge
 const DEFAULT_CENTER_WIDTH = 0.4; // 40% of screen width for center spread
 
+/** Moderate, bounded range for the AS-seeded color component — same order of
+ *  magnitude as the widest per-variant colorRanges (Skyscraper's ±120 hue is
+ *  an outlier; most variants sit in the ±15-60 range) so a fresh AS visibly
+ *  recolors the skyline without a single roll being able to wash it out
+ *  entirely. First-pass default, not spec-mandated — see
+ *  docs/specs/ATTENUATION_STYLE.md §7 item 2; tune here if a manual check
+ *  finds it reads as invisible or overwhelming. */
+const AS_FACTORY_HUE_SHIFT_RANGE: [number, number] = [-30, 30];
+const AS_FACTORY_SAT_SHIFT_RANGE: [number, number] = [-20, 20];
+
 // ========================================
 // EXPORTS
 // ========================================
@@ -56,6 +68,19 @@ const DEFAULT_CENTER_WIDTH = 0.4; // 40% of screen width for center spread
 function generateFactoryId(noiseMap: NoiseFunction2D, index: number): string {
   const idSeed = getSeededVal(noiseMap, 'factory.id', index, 0, 1);
   return `factory-${index}-${idSeed.toString(36).slice(2, 10)}`;
+}
+
+/** AS-seeded color delta for one factory, additive on top of its existing
+ *  locale-seeded hueShift/satShift — never a replacement. Sampled from the
+ *  ACTIVE PLANET's (AS's) own noise map, keyed by the factory's position in
+ *  the locale's actor array (the same getSeededVal(noiseMap, dataId, offset,
+ *  min, max) pattern every other seeded field in this file already uses).
+ *  See docs/specs/ATTENUATION_STYLE.md §1.2. */
+function deriveAsColorShift(noiseMap: NoiseFunction2D, index: number): ColorShift {
+  return {
+    hueShift: getSeededVal(noiseMap, 'factory.as.hueShift', index, ...AS_FACTORY_HUE_SHIFT_RANGE),
+    satShift: getSeededVal(noiseMap, 'factory.as.satShift', index, ...AS_FACTORY_SAT_SHIFT_RANGE),
+  };
 }
 
 /**
@@ -72,6 +97,7 @@ export function createFactory(
   row = 0,
   scale: number = 0.9 + Math.random() * 0.2, // 0.9–1.1
   id: string = crypto.randomUUID(),
+  asShift: ColorShift = { hueShift: 0, satShift: 0 },
 ): Actor {
   // Use the same availableTypes that Factory.tsx will use, so the variant —
   // and therefore greeble pools — are consistent between spawn and render.
@@ -91,8 +117,10 @@ export function createFactory(
     config: {
       productionInterval: PRODUCTION_INTERVAL,
       row,
-      hueShift,
-      satShift,
+      // Additive: locale-seeded local shift + AS-seeded shift, never a
+      // replacement. See docs/specs/ATTENUATION_STYLE.md §1.2.
+      hueShift: hueShift + asShift.hueShift,
+      satShift: satShift + asShift.satShift,
       rooftopGreeble,
       facadeGreeble,
       beltCourseCount,
@@ -115,6 +143,13 @@ export function placeFactories(localeId: string): Actor[] {
   const actors: Actor[] = [];
   const locale = useLocaleStore.getState().getLocaleById(localeId);
   const noiseMap = locale ? getLocaleNoiseMap(localeId, locale.coordinates.x, locale.coordinates.y) : null;
+  // Resolve the locale's own planet internally, mirroring the locale noise
+  // map lookup immediately above — placeFactories' exported signature is
+  // unchanged; this is a new usePlanetStore dependency, not a new parameter.
+  // Falls back to a zero asShift (never a crash) if the locale's planetId
+  // doesn't resolve to any planet currently in the store.
+  const planet = locale ? usePlanetStore.getState().planets.find((p) => p.id === locale.planetId) : undefined;
+  const asNoiseMap = planet ? getPlanetNoiseMap(planet.id, planet.name) : null;
   // Monotonic counter across every factory this call places, embedded in each factory's own
   // id/scale seed offset — mirrors spawnSystem.ts's spawnCount pattern.
   let factoryIndex = 0;
@@ -129,7 +164,8 @@ export function placeFactories(localeId: string): Actor[] {
     const scale = noiseMap
       ? getSeededVal(noiseMap, 'factory.scale', index, 0.9, 1.1)
       : 0.9 + alea(`${localeId}:factory:${index}:scale`)() * 0.2;
-    return createFactory(position, row, scale, id);
+    const asShift = asNoiseMap ? deriveAsColorShift(asNoiseMap, index) : { hueShift: 0, satShift: 0 };
+    return createFactory(position, row, scale, id, asShift);
   }
 
   function computeFactoryWidth(
@@ -215,6 +251,48 @@ export function placeFactories(localeId: string): Actor[] {
 
   useLocaleStore.getState().setLocaleData(localeId, { actors });
   return actors;
+}
+
+/**
+ * Recolor an existing locale's factories in place for a new Attenuation
+ * Style — position/count/id/variant/scale/greebles/purpose are all
+ * untouched; only each factory's stored hueShift/satShift change. Re-derives
+ * each factory's locale-seeded LOCAL shift from scratch (same inputs
+ * Factory.tsx's own render already recomputes) rather than trying to
+ * subtract out the previous AS delta, so repeated AS changes never
+ * accumulate drift. Called only from retransmitPlanetOnly (worldTransition.ts)
+ * — never from placeFactories' own fresh-spawn path, which folds the current
+ * AS's shift in at creation time instead. See docs/specs/ATTENUATION_STYLE.md §1.2.
+ */
+export function recolorFactoriesForAttenuationStyle(localeId: string, planetId: string, planetName: string): void {
+  const locale = useLocaleStore.getState().getLocaleById(localeId);
+  if (!locale) return;
+  const asNoiseMap = getPlanetNoiseMap(planetId, planetName);
+
+  let factoryIndex = 0;
+  const nextActors = locale.actors.map((actor) => {
+    if (actor.type !== ActorType.FACTORY) return actor;
+    const index = factoryIndex++;
+    // ?? 1 matches Factory.tsx's own render-time default exactly (not
+    // createFactory's ?? 0 spawn-time default) — this must reproduce what's
+    // actually rendered, and every real spawned factory always has
+    // config.row set regardless, so the two defaults never actually diverge
+    // in practice.
+    const row = actor.config?.row ?? 1;
+    const availableTypes = getRowConfig(row)?.availableFactoryTypes;
+    const { hueShift: localHue, satShift: localSat } = selectVariantFromSeed(actor.id, actor.position.x, row, availableTypes);
+    const asShift = deriveAsColorShift(asNoiseMap, index);
+    return {
+      ...actor,
+      config: {
+        ...actor.config,
+        hueShift: localHue + asShift.hueShift,
+        satShift: localSat + asShift.satShift,
+      },
+    };
+  });
+
+  useLocaleStore.getState().setLocaleData(localeId, { actors: nextActors });
 }
 
 /**

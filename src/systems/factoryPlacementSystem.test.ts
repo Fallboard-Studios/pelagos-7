@@ -12,8 +12,9 @@ const WORLD_BOUNDS = { width: 1920, height: 1080 };
 // VARIANT_CONF imported previously but no longer needed
 
 import { useLocaleStore } from '../stores/localeStore';
-import { DEFAULT_LOCALE_ID } from '../stores/planetStore';
+import { usePlanetStore, DEFAULT_LOCALE_ID } from '../stores/planetStore';
 import { ActorType } from '../types/Actor';
+import { recolorFactoriesForAttenuationStyle } from './factoryPlacementSystem';
 
 // ========================================
 // TEST SUITE
@@ -376,6 +377,135 @@ describe('FactoryPlacementSystem', () => {
       const actorsD = placeFactories('locale-d');
 
       expect(actorsC).not.toEqual(actorsD);
+    });
+  });
+
+  describe('Attenuation Style (AS) additive color shift', () => {
+    it('createFactory with no asShift produces the same hueShift/satShift as an explicit zero asShift (regression-safe default)', () => {
+      const withoutArg = createFactory({ x: 500, y: 1000 }, 1, 1, 'as-parity-id');
+      const withZero = createFactory({ x: 500, y: 1000 }, 1, 1, 'as-parity-id', { hueShift: 0, satShift: 0 });
+
+      expect(withoutArg.config?.hueShift).toBe(withZero.config?.hueShift);
+      expect(withoutArg.config?.satShift).toBe(withZero.config?.satShift);
+    });
+
+    it('createFactory sums a supplied asShift into the stored hueShift/satShift, never replacing the local shift', () => {
+      const base = createFactory({ x: 500, y: 1000 }, 1, 1, 'as-sum-id');
+      const withShift = createFactory({ x: 500, y: 1000 }, 1, 1, 'as-sum-id', { hueShift: 10, satShift: -5 });
+
+      expect(withShift.config?.hueShift).toBe((base.config?.hueShift ?? 0) + 10);
+      expect(withShift.config?.satShift).toBe((base.config?.satShift ?? 0) - 5);
+    });
+
+    it("placeFactories folds in the locale's own planet AS noise map, distinct from another planet's", () => {
+      // Two locales at IDENTICAL coordinates get identical local-seeded ids/shifts
+      // (the locale noise map is a pure function of (x, y)) — so any difference in
+      // the final stored hueShift/satShift must come from the AS (planet) input.
+      usePlanetStore.getState().addPlanet({ id: 'as-planet-a', name: 'as-planet-alpha', locales: [] });
+      usePlanetStore.getState().addPlanet({ id: 'as-planet-b', name: 'as-planet-beta', locales: [] });
+
+      const localeOnA = {
+        id: 'locale-as-a', planetId: 'as-planet-a', name: 'A', coordinates: { x: 30, y: 30 },
+        robots: [], actors: [], companies: [], settings: {}, currentMeasure: 0, dayStartTimestamp: Date.now(),
+      };
+      const localeOnB = {
+        id: 'locale-as-b', planetId: 'as-planet-b', name: 'B', coordinates: { x: 30, y: 30 },
+        robots: [], actors: [], companies: [], settings: {}, currentMeasure: 0, dayStartTimestamp: Date.now(),
+      };
+      useLocaleStore.getState().addLocale('as-planet-a', localeOnA);
+      useLocaleStore.getState().addLocale('as-planet-b', localeOnB);
+
+      const actorsA = placeFactories('locale-as-a');
+      const actorsB = placeFactories('locale-as-b');
+
+      expect(actorsA.length).toBeGreaterThan(0);
+      expect(actorsA.map((a) => a.id)).toEqual(actorsB.map((a) => a.id));
+      const anyShiftDiffers = actorsA.some((a, i) => {
+        const b = actorsB[i];
+        return a.config?.hueShift !== b.config?.hueShift || a.config?.satShift !== b.config?.satShift;
+      });
+      expect(anyShiftDiffers).toBe(true);
+    });
+
+    it("placeFactories falls back to a zero asShift (not a crash) when the locale's planetId doesn't resolve to any planet in the store", () => {
+      const orphanLocale = {
+        id: 'locale-orphan', planetId: 'no-such-planet', name: 'Orphan', coordinates: { x: 8, y: 8 },
+        robots: [], actors: [], companies: [], settings: {}, currentMeasure: 0, dayStartTimestamp: Date.now(),
+      };
+      useLocaleStore.getState().addLocale('no-such-planet', orphanLocale);
+
+      expect(() => placeFactories('locale-orphan')).not.toThrow();
+      const actors = useLocaleStore.getState().locales['locale-orphan'].actors;
+      expect(actors.length).toBeGreaterThan(0);
+
+      // No AS contribution: stored hueShift/satShift must equal the pure local shift.
+      actors.forEach((actor) => {
+        const availableTypes = getRowConfig(actor.config?.row ?? 0)?.availableFactoryTypes;
+        const local = selectVariantFromSeed(actor.id, actor.position.x, actor.config?.row ?? 0, availableTypes);
+        expect(actor.config?.hueShift).toBe(local.hueShift);
+        expect(actor.config?.satShift).toBe(local.satShift);
+      });
+    });
+  });
+
+  describe('recolorFactoriesForAttenuationStyle', () => {
+    beforeEach(() => {
+      useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { actors: [] });
+      placeFactories(DEFAULT_LOCALE_ID);
+    });
+
+    it('changes only config.hueShift/config.satShift on every factory — everything else round-trips byte-identical', () => {
+      usePlanetStore.getState().addPlanet({ id: 'recolor-planet', name: 'recolor-planet-name', locales: [] });
+      const before = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].actors;
+
+      recolorFactoriesForAttenuationStyle(DEFAULT_LOCALE_ID, 'recolor-planet', 'recolor-planet-name');
+
+      const after = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].actors;
+      expect(after.length).toBe(before.length);
+
+      before.forEach((b, i) => {
+        const a = after[i];
+        expect(a.id).toBe(b.id);
+        expect(a.position).toEqual(b.position);
+        expect(a.scaleX).toBe(b.scaleX);
+        expect(a.scaleY).toBe(b.scaleY);
+        expect(a.rotation).toBe(b.rotation);
+        expect(a.config?.row).toBe(b.config?.row);
+        expect(a.config?.rooftopGreeble).toBe(b.config?.rooftopGreeble);
+        expect(a.config?.facadeGreeble).toBe(b.config?.facadeGreeble);
+        expect(a.config?.beltCourseCount).toBe(b.config?.beltCourseCount);
+        expect(a.config?.purpose).toBe(b.config?.purpose);
+        // hueShift/satShift are the only fields allowed to change.
+        expect(
+          a.config?.hueShift !== b.config?.hueShift || a.config?.satShift !== b.config?.satShift
+        ).toBe(true);
+      });
+    });
+
+    it('is idempotent under repeated calls with the same AS (no drift)', () => {
+      usePlanetStore.getState().addPlanet({ id: 'idempotent-planet', name: 'idempotent-planet-name', locales: [] });
+
+      recolorFactoriesForAttenuationStyle(DEFAULT_LOCALE_ID, 'idempotent-planet', 'idempotent-planet-name');
+      const first = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].actors;
+
+      recolorFactoriesForAttenuationStyle(DEFAULT_LOCALE_ID, 'idempotent-planet', 'idempotent-planet-name');
+      const second = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].actors;
+
+      expect(second).toEqual(first);
+    });
+
+    it('is a safe no-op on a locale with zero factories', () => {
+      useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { actors: [] });
+      expect(() =>
+        recolorFactoriesForAttenuationStyle(DEFAULT_LOCALE_ID, 'pelagos', 'pelagos-name')
+      ).not.toThrow();
+      expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].actors).toEqual([]);
+    });
+
+    it('is a safe no-op on a nonexistent locale id', () => {
+      expect(() =>
+        recolorFactoriesForAttenuationStyle('no-such-locale', 'pelagos', 'pelagos-name')
+      ).not.toThrow();
     });
   });
 });
