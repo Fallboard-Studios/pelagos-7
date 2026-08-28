@@ -23,3 +23,36 @@ describe('uiStore — activeHubTile', () => {
     expect(useUIStore.getState().activeHubTile).toBeNull();
   });
 });
+
+describe('uiStore — selectedCompanyId (Roadmap Phase 10)', () => {
+  beforeEach(() => {
+    useUIStore.setState(INITIAL_STATE, true);
+  });
+
+  it('defaults to null — the "None" button, not a pre-selected company', () => {
+    expect(useUIStore.getState().selectedCompanyId).toBeNull();
+  });
+
+  it('selectCompany sets selectedCompanyId', () => {
+    useUIStore.getState().selectCompany('company-0-abc');
+    expect(useUIStore.getState().selectedCompanyId).toBe('company-0-abc');
+  });
+
+  it('selectCompany(null) returns to "None"', () => {
+    useUIStore.getState().selectCompany('company-0-abc');
+    useUIStore.getState().selectCompany(null);
+    expect(useUIStore.getState().selectedCompanyId).toBeNull();
+  });
+
+  it('is independent of selectedRobotId — selecting a company never touches robot selection', () => {
+    useUIStore.getState().selectRobot('robot-0-xyz');
+    useUIStore.getState().selectCompany('company-0-abc');
+    expect(useUIStore.getState().selectedRobotId).toBe('robot-0-xyz');
+  });
+
+  it('is independent of selectedRobotId — selecting a robot never touches company selection', () => {
+    useUIStore.getState().selectCompany('company-0-abc');
+    useUIStore.getState().selectRobot('robot-0-xyz');
+    expect(useUIStore.getState().selectedCompanyId).toBe('company-0-abc');
+  });
+});

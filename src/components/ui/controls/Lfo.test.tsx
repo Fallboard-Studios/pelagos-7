@@ -69,4 +69,18 @@ describe('Lfo', () => {
     expect(container.querySelector('.sc-lfo.isActive')).toBeNull();
     expect(container.querySelector('.sc-lfo')).toBeTruthy();
   });
+
+  it('is not disabled by default', () => {
+    render(<Lfo schema={schema} value={value} onChange={() => {}} />);
+    expect((screen.getByRole('switch') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('disables every internal control (shape radio, both sliders, active toggle) when disabled is true', () => {
+    render(<Lfo schema={schema} value={value} onChange={() => {}} disabled />);
+    expect(screen.getByRole('radio', { name: 'SINE' }).getAttribute('data-disabled')).toBe('');
+    screen.getAllByRole('slider').forEach((slider) => {
+      expect(slider.getAttribute('data-disabled')).toBe('');
+    });
+    expect((screen.getByRole('switch') as HTMLButtonElement).disabled).toBe(true);
+  });
 });

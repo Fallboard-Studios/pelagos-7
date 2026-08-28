@@ -49,6 +49,7 @@ const DEFAULT_LOCALE: Locale = {
   coordinates: { x: 12, y: 68 },
   robots: [],
   actors: [],
+  companies: [],
   settings: { bpm: 60 },
   currentMeasure: 0,
 };
@@ -197,6 +198,75 @@ export const useLocaleStore = create<LocaleState>((set, get) => ({
   },
 
   getRobotById: (localeId, robotId) => get().locales[localeId]?.robots?.find((r) => r.id === robotId),
+
+  // Company helpers (Roadmap Phase 10) — mirror the robot-helper pattern above exactly.
+  addCompany: (localeId, company) => {
+    set((state) => {
+      const existing = state.locales[localeId];
+      if (!existing) return state;
+      const updated: Locale = { ...existing, companies: [...(existing.companies || []), company] };
+      return { locales: { ...state.locales, [localeId]: updated } };
+    });
+  },
+
+  updateCompany: (localeId, companyId, updates) => {
+    set((state) => {
+      const existing = state.locales[localeId];
+      if (!existing) return state;
+      const nextCompanies = (existing.companies || []).map((c) => (c.id === companyId ? { ...c, ...updates } : c));
+      return { locales: { ...state.locales, [localeId]: { ...existing, companies: nextCompanies } } };
+    });
+  },
+
+  removeCompany: (localeId, companyId) => {
+    // Clears companyId on every former member first (they become Freelance), mirroring
+    // removeLocale's per-robot-cleanup-before-removal shape — no AudioEngine state to
+    // release here, since a company itself owns no audio state, only its member robots do.
+    set((state) => {
+      const existing = state.locales[localeId];
+      if (!existing) return state;
+      const nextRobots = (existing.robots || []).map((r) =>
+        r.companyId === companyId ? { ...r, companyId: undefined } : r
+      );
+      const nextCompanies = (existing.companies || []).filter((c) => c.id !== companyId);
+      return { locales: { ...state.locales, [localeId]: { ...existing, robots: nextRobots, companies: nextCompanies } } };
+    });
+  },
+
+  getCompanyById: (localeId, companyId) => get().locales[localeId]?.companies?.find((c) => c.id === companyId),
+
+  getCompanyMembers: (localeId, companyId) =>
+    (get().locales[localeId]?.robots || []).filter((r) => r.companyId === companyId),
+
+  assignRobotToCompany: (localeId, robotId, companyId) => {
+    // One atomic transition — not composed from separate updateRobot/updateCompany calls at
+    // the call site. Updates the robot's own companyId and both the old and new company's
+    // robotIds together, the same "one action, one cross-entity transition" shape
+    // removeCompany/removeLocale already use for their own cleanup.
+    set((state) => {
+      const existing = state.locales[localeId];
+      if (!existing) return state;
+      const robot = existing.robots.find((r) => r.id === robotId);
+      if (!robot) return state;
+      const oldCompanyId = robot.companyId;
+
+      const nextRobots = existing.robots.map((r) =>
+        r.id === robotId ? { ...r, companyId: companyId ?? undefined } : r
+      );
+      // Two independent `if`s, neither an early `return` — when oldCompanyId === companyId
+      // (re-selecting the currently-assigned company), both must run in sequence: remove, then
+      // re-add. An early-return version only ever hits the first matching branch and silently
+      // drops the robot from its own company's robotIds in that case (see localeStore.test.ts's
+      // regression coverage).
+      const nextCompanies = existing.companies.map((c) => {
+        let robotIds = c.robotIds;
+        if (c.id === oldCompanyId) robotIds = robotIds.filter((id) => id !== robotId);
+        if (c.id === companyId) robotIds = [...robotIds, robotId];
+        return robotIds === c.robotIds ? c : { ...c, robotIds };
+      });
+      return { locales: { ...state.locales, [localeId]: { ...existing, robots: nextRobots, companies: nextCompanies } } };
+    });
+  },
 }));
 
 export default useLocaleStore;

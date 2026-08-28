@@ -71,3 +71,58 @@ describe('Robot click routing (Roadmap Phase 8)', () => {
     expect(useUIStore.getState().activeHubTile).toBe('robots');
   });
 });
+
+describe('Robot company-member glow (Roadmap Phase 10)', () => {
+  beforeEach(() => {
+    useUIStore.getState().selectRobot(null);
+    useUIStore.getState().setActiveHubTile(null);
+    useUIStore.getState().selectCompany(null);
+  });
+
+  it('applies isCompanyMember when the robot belongs to the selected company', () => {
+    useUIStore.getState().selectCompany('c1');
+    const { container } = render(<svg><Robot robot={makeRobot({ id: 'r1', companyId: 'c1' })} /></svg>);
+
+    expect(container.querySelector('.robot.isCompanyMember')).toBeTruthy();
+  });
+
+  it('does not apply isCompanyMember when the robot belongs to a different company', () => {
+    useUIStore.getState().selectCompany('c1');
+    const { container } = render(<svg><Robot robot={makeRobot({ id: 'r1', companyId: 'c2' })} /></svg>);
+
+    expect(container.querySelector('.robot.isCompanyMember')).toBeNull();
+  });
+
+  it('does not apply isCompanyMember when no company is selected, even for a robot with a companyId', () => {
+    const { container } = render(<svg><Robot robot={makeRobot({ id: 'r1', companyId: 'c1' })} /></svg>);
+
+    expect(container.querySelector('.robot.isCompanyMember')).toBeNull();
+  });
+
+  it('does not apply isCompanyMember to a Freelance robot even when some company is selected', () => {
+    useUIStore.getState().selectCompany('c1');
+    const { container } = render(<svg><Robot robot={makeRobot({ id: 'r1', companyId: undefined })} /></svg>);
+
+    expect(container.querySelector('.robot.isCompanyMember')).toBeNull();
+  });
+
+  it('leaves isSelected (selectedRobotId-driven) completely unaffected by company selection', () => {
+    useUIStore.getState().selectRobot('r1');
+    useUIStore.getState().selectCompany('c1');
+    const { container } = render(<svg><Robot robot={makeRobot({ id: 'r1', companyId: 'c2' })} /></svg>);
+
+    const el = container.querySelector('.robot')!;
+    expect(el.classList.contains('selected')).toBe(true);
+    expect(el.classList.contains('isCompanyMember')).toBe(false);
+  });
+
+  it('applies both selected and isCompanyMember together when both conditions hold', () => {
+    useUIStore.getState().selectRobot('r1');
+    useUIStore.getState().selectCompany('c1');
+    const { container } = render(<svg><Robot robot={makeRobot({ id: 'r1', companyId: 'c1' })} /></svg>);
+
+    const el = container.querySelector('.robot')!;
+    expect(el.classList.contains('selected')).toBe(true);
+    expect(el.classList.contains('isCompanyMember')).toBe(true);
+  });
+});

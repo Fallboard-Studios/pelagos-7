@@ -94,7 +94,7 @@ No new dependency.
 * **`removeLocale`'s new robot-cleanup loop calls exactly the same two `AudioEngine` methods `removeRobot` already calls**, in the same order, wrapped in the same `try/catch`-and-`swallow` pattern `removeRobot` uses (see `localeStore.ts`'s existing `removeRobot` for the exact shape) — don't invent a different cleanup sequence for the same underlying resource.
 * **Coordinates are integers, system-wide** (confirmed in the intent doc's amendment) — `CoordsInput.tsx`'s `handleX`/`handleY` round (not silently truncate in a way that surprises a typed decimal — round to nearest integer, e.g. `Math.round`) any parsed value before calling `onChange`. `LocaleCoordinates.x`/`y` stay typed `number` (TypeScript has no native integer type) — the constraint is enforced at every write path, not in the type system.
 * **`worldTransition.ts` clears `uiStore.selectedRobotId`** (a previously-selected robot may not exist in the fresh roster) but **does not touch `activeHubTile`** — the user stays on the Settings tile and sees the status header update in place, per the intent doc's Success criteria.
-* **No Session Storage wiring** — a retransmitted-away world is genuinely discarded this phase; nothing here persists across reload (Phase 11's job).
+* **No Session Storage wiring** — a retransmitted-away world is genuinely discarded this phase; nothing here persists across reload (Phase 12's job).
 * **No changes to `spawnSystem.ts`, `idleSystem.ts`, or `interactionSystem.ts`** beyond what Locale Seed Decoupling already shipped — `initializeLocale` calls their existing exported functions (`spawnRobot`, `startSpawnScheduler`, `stopSpawnScheduler`) as-is.
 
 ---

@@ -1,10 +1,13 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 
 import { RobotSelectionCard } from './RobotSelectionCard';
 import { useUIStore } from '@/stores/uiStore';
+import { useLocaleStore } from '@/stores/localeStore';
+import { getActiveLocaleId } from '@/utils/localeHelpers';
 import { JOB_TYPE_LABELS, UNASSIGNED_JOB_LABEL, DOCKING_STATE_LABELS, AUDIO_MODE_LABELS } from '@/data/robotSelectionConfig';
 import type { Robot } from '@/types/Robot';
+import type { Locale } from '@/types/locale';
 
 function makeRobot(overrides: Partial<Robot> = {}): Robot {
   return {
@@ -123,5 +126,72 @@ describe('RobotSelectionCard', () => {
   it("has an accessible name matching the robot's name", () => {
     render(<RobotSelectionCard robot={makeRobot({ name: 'Unit One' })} />);
     expect(screen.getByRole('button', { name: 'Unit One' })).toBeTruthy();
+  });
+
+  describe('company assignment (Roadmap Phase 10)', () => {
+    const localeId = getActiveLocaleId();
+
+    afterEach(() => {
+      useLocaleStore.getState().setLocaleData(localeId, { robots: [], companies: [] } as unknown as Partial<Locale>);
+    });
+
+    it('defaults to "Freelance" for an unassigned robot', () => {
+      render(<RobotSelectionCard robot={makeRobot({ companyId: undefined })} />);
+      expect(screen.getByRole('combobox').textContent).toContain('Freelance');
+    });
+
+    it('shows the assigned company\'s name when the robot belongs to one', () => {
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
+      render(<RobotSelectionCard robot={makeRobot({ id: 'r1', companyId: 'c1' })} />);
+      expect(screen.getByRole('combobox').textContent).toContain('Iron Consortium');
+    });
+
+    it('selecting a company calls assignRobotToCompany with that company\'s id', () => {
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: [] });
+      const assignSpy = vi.spyOn(useLocaleStore.getState(), 'assignRobotToCompany');
+      render(<RobotSelectionCard robot={makeRobot({ id: 'r1', companyId: undefined })} />);
+
+      fireEvent.click(screen.getByRole('combobox'));
+      fireEvent.click(screen.getByRole('option', { name: 'Iron Consortium' }));
+
+      expect(assignSpy).toHaveBeenCalledWith(localeId, 'r1', 'c1');
+    });
+
+    it('selecting "Freelance" calls assignRobotToCompany with null', () => {
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
+      const assignSpy = vi.spyOn(useLocaleStore.getState(), 'assignRobotToCompany');
+      render(<RobotSelectionCard robot={makeRobot({ id: 'r1', companyId: 'c1' })} />);
+
+      fireEvent.click(screen.getByRole('combobox'));
+      fireEvent.click(screen.getByRole('option', { name: 'Freelance' }));
+
+      expect(assignSpy).toHaveBeenCalledWith(localeId, 'r1', null);
+    });
+
+    it('clicking the company Select trigger does not also select the robot (no nested-interactive double-fire)', () => {
+      render(<RobotSelectionCard robot={makeRobot({ id: 'r1' })} />);
+
+      fireEvent.click(screen.getByRole('combobox'));
+
+      expect(useUIStore.getState().selectedRobotId).toBeNull();
+    });
+
+    it('selecting a portaled dropdown option does not also select the robot — React re-propagates portal events along the component tree, not the DOM tree, so this is the case a DOM-only guard would miss', () => {
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: [] });
+      render(<RobotSelectionCard robot={makeRobot({ id: 'r1' })} />);
+
+      fireEvent.click(screen.getByRole('combobox'));
+      fireEvent.click(screen.getByRole('option', { name: 'Iron Consortium' }));
+
+      expect(useUIStore.getState().selectedRobotId).toBeNull();
+    });
+
+    it('clicking elsewhere on the card still selects the robot as before', () => {
+      render(<RobotSelectionCard robot={makeRobot({ id: 'r1', name: 'Unit One' })} />);
+
+      fireEvent.click(screen.getByText('Unit One'));
+
+      expect(useUIStore.getState().selectedRobotId).toBe('r1');
+    });
   });
 });

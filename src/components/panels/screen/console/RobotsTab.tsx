@@ -1,4 +1,5 @@
 import { RobotSelectionCard } from '@/components/selection/RobotSelectionCard';
+import { CompanyManager } from '@/components/company/CompanyManager';
 import { getActiveLocaleId } from '@/utils/localeHelpers';
 import { useLocaleStore } from '@/stores/localeStore';
 import './RobotsTab.css';
@@ -9,7 +10,8 @@ import './RobotsTab.css';
  * as a RobotSelectionCard; selecting a card sets selectedRobotId (RobotSelectionCard's own job),
  * which ConsolePanel uses to switch to RobotOptionsTab within the same tile. Read-only — the
  * roster is fixed at 12, created once at locale load (Roadmap Phase 7); there is no manual spawn
- * action.
+ * action. CompanyManager (Roadmap Phase 10) renders beneath the card list — the company button
+ * row, CRUD, and bulk-edit panel.
  */
 export function RobotsTab() {
   const localeId = getActiveLocaleId();
@@ -22,6 +24,7 @@ export function RobotsTab() {
           <RobotSelectionCard key={robot.id} robot={robot} />
         ))}
       </ul>
+      <CompanyManager />
     </div>
   );
 }

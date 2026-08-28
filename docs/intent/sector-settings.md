@@ -95,13 +95,13 @@ thing being avoided by resolving them in the Locale Seed Decoupling doc first.
   gets a small integer-enforcement addition (reject or round non-integer entry) as part of
   this feature, not a separate phase.
 - No persistence — a retransmitted-away world is genuinely gone this phase; Session Storage
-  (Phase 11) is what will later let a user's edited world survive a reload, out of scope here.
+  (Phase 12) is what will later let a user's edited world survive a reload, out of scope here.
 
 ## Out of scope
 
 - Locale Seed Decoupling itself — a separate, prerequisite doc/spec (see above), not part of
   this feature's own implementation work.
-- Persisting or reloading a previous world (Phase 11).
+- Persisting or reloading a previous world (Phase 12).
 - Phase 6's melody rhythm-engine overhaul and robot ID determinism — unrelated, stay in Phase 6.
 - User-saved/favorited presets — promoted presets are static designer-authored data only.
 - Any change to Robot Selection/Robot Options (Phases 8/9) — a planet-only retransmit respawning

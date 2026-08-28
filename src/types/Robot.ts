@@ -174,4 +174,11 @@ export interface Robot {
    * src/engine/lfoEngine.ts), not that it never will be.
    */
   lfoSettings?: Record<RobotLfoTargetId, LfoSettings & { active: boolean }>;
+  /**
+   * The Company (Roadmap Phase 10) this robot belongs to, if any. Undefined means Freelance —
+   * the implicit default, not a distinct flag. Seeded at spawn (spawnSystem.ts's
+   * spawnInitialCompanies) and reassignable afterward via the company Select control in
+   * RobotSelectionCard/RobotDisplaySection (localeStore.assignRobotToCompany).
+   */
+  companyId?: string;
 }

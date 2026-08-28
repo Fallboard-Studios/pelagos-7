@@ -12,11 +12,12 @@ interface TextInputProps {
    *  (e.g. CoordsInput's X/Y fields). Purely a rendering concern, not part
    *  of TextInputSchema — the schema still describes generic text entry. */
   numeric?: boolean;
+  disabled?: boolean;
 }
 
 /** Plain schema-driven text input. Controlled — calls onChange with the raw
  *  string on every keystroke, no internal buffering. */
-export function TextInput({ schema, value, onChange, numeric }: TextInputProps) {
+export function TextInput({ schema, value, onChange, numeric, disabled }: TextInputProps) {
   return (
     <div className="sc-text-input">
       <DualLabel loreLabel={schema.loreLabel} humanLabel={schema.humanLabel} />
@@ -30,6 +31,7 @@ export function TextInput({ schema, value, onChange, numeric }: TextInputProps) 
         maxLength={schema.maxLength}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
       />
     </div>
   );

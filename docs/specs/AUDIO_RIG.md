@@ -72,7 +72,7 @@ No new dependency — `@radix-ui/react-accordion` is already installed (Phase 1)
 * **`enabled` stays unseeded** — Phase 0 pinned every effect's `enabled` to `true` regardless of seed; this phase does not change what a fresh seed generates for it, it only adds the UI to toggle it afterward.
 * **`generateGlobalLfoSettings` reuses the existing single global bounds** (`LFO_RATE_MIN/MAX`, `LFO_DEPTH_MIN/MAX`, `LFO_SHAPES` from `src/types/lfo.ts`) — no new per-field range table (unlike `GLOBAL_AUDIO_SEED_RANGES`, which does vary by field); `GLOBAL_CHAIN_GRID.md`'s `LFO?` column is a flat X/– flag, not per-field bounds.
 * **State stays serializable** — `globalLfo` (the new `audioStore` slice) is plain `{ shape, rate, depth, active }` data per target, Zustand-safe; the live `Tone.LFO` node instances stay inside `lfoEngine.ts`'s own module-scoped map, never entering Zustand, matching the existing `globalAudio`/`globalFx.ts` `_fxParamCache` split.
-* **No Session Storage wiring** — edits made through this drawer do not persist across reload; that's Phase 11.
+* **No Session Storage wiring** — edits made through this drawer do not persist across reload; that's Phase 12.
 * **No robot-level changes** — `spawnSystem.ts`, `RobotAudioTab.tsx`, `RobotOscillatorsTab.tsx` are untouched; robot-level LFO wiring is Phase 9.
 
 ---

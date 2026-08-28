@@ -16,6 +16,11 @@ export interface UIStore {
   isFullscreen: boolean;
   activeLocaleLocalTime: number | null;
   selectedRobotId: string | null;
+  /** The company (Roadmap Phase 10) currently selected in the Robots tab's CompanyManager —
+   *  null is "None", the default. Independent of selectedRobotId: selecting one never touches
+   *  the other. Drives both the company-glow world-view/list highlight and which company's
+   *  values the CompanyOptionsSection panel is bound to. */
+  selectedCompanyId: string | null;
   activeHubTile: HubTile | null;
   setActiveLocaleLocalTime: (t: number | null) => void;
   setActiveView: (v: ActiveView) => void;
@@ -25,6 +30,7 @@ export interface UIStore {
   setPowerOn: () => void;
   setPowerOff: () => void;
   selectRobot: (id: string | null) => void;
+  selectCompany: (id: string | null) => void;
   setActiveHubTile: (tile: HubTile | null) => void;
 }
 
@@ -40,6 +46,7 @@ export const useUIStore = create<UIStore>((set) => ({
   isPoweredOn: false,
   activeLocaleLocalTime: null,
   selectedRobotId: null,
+  selectedCompanyId: null,
   activeHubTile: null,
 
   setActiveView: (v) => set({ activeView: v }),
@@ -50,6 +57,7 @@ export const useUIStore = create<UIStore>((set) => ({
   setPowerOff: () => set({ isPoweredOn: false }),
   setActiveLocaleLocalTime: (t) => set({ activeLocaleLocalTime: t }),
   selectRobot: (id) => set({ selectedRobotId: id }),
+  selectCompany: (id) => set({ selectedCompanyId: id }),
   setActiveHubTile: (tile) => set({ activeHubTile: tile }),
 }));
 

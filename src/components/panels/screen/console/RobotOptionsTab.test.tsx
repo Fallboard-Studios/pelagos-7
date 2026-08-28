@@ -1,28 +1,49 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 
 // RobotDisplaySection/PingControlsDrawer/PingContourDrawer/SignatureArrayDrawer pull in real
 // Tone.js/AudioEngine and GSAP, both of which throw in this jsdom test environment — the same
 // boundary ConsolePanel.test.tsx already draws around RobotsTab/RobotOptionsTab. This test is
-// about RobotOptionsTab's own selected/not-selected switch, not about the drawers' own content
-// (each has its own full test suite).
+// about RobotOptionsTab's own selected/not-selected switch and value/onChange wiring, not about
+// the drawers' own rendered content (each has its own full test suite) — the mocks below render
+// probe buttons that invoke the captured callback props, so wiring bugs (wrong function, wrong
+// argument) still surface here even though the real drawer JSX never mounts.
 vi.mock('@/components/robot/RobotDisplaySection', () => ({
   RobotDisplaySection: () => <div data-testid="robot-display-section-stub" />,
 }));
 vi.mock('@/components/robot/PingControlsDrawer', () => ({
-  PingControlsDrawer: () => <div data-testid="ping-controls-drawer-stub" />,
+  PingControlsDrawer: (props: {
+    value: { rhythmicDensity: number };
+    onDensityChange: (v: number) => void;
+    onResetMelody?: () => void;
+  }) => (
+    <div data-testid="ping-controls-drawer-stub" data-density={props.value.rhythmicDensity}>
+      <button onClick={() => props.onDensityChange(77)}>probe-density</button>
+      {props.onResetMelody && <button onClick={props.onResetMelody}>probe-reset-melody</button>}
+    </div>
+  ),
 }));
 vi.mock('@/components/robot/PingContourDrawer', () => ({
-  PingContourDrawer: () => <div data-testid="ping-contour-drawer-stub" />,
+  PingContourDrawer: (props: { value: { attack: number }; onChange: (next: unknown) => void }) => (
+    <div data-testid="ping-contour-drawer-stub" data-attack={props.value.attack}>
+      <button onClick={() => props.onChange({ attack: 0.9, decay: 0.1, sustain: 0.5, release: 0.2 })}>probe-adsr</button>
+    </div>
+  ),
 }));
 vi.mock('@/components/robot/SignatureArrayDrawer', () => ({
-  SignatureArrayDrawer: () => <div data-testid="signature-array-drawer-stub" />,
+  SignatureArrayDrawer: (props: { value: { layers: unknown[] }; onContinuousChange: (v: unknown) => void }) => (
+    <div data-testid="signature-array-drawer-stub" data-layer-count={props.value.layers.length}>
+      <button onClick={() => props.onContinuousChange([{ type: 'sine', gain: 1, detune: 0, phase: 0, active: true }])}>probe-layers</button>
+    </div>
+  ),
 }));
 
 import { RobotOptionsTab } from './RobotOptionsTab';
 import { useUIStore } from '@/stores/uiStore';
 import { useLocaleStore } from '@/stores/localeStore';
 import { getActiveLocaleId } from '@/utils/localeHelpers';
+import * as robotOptionsActions from '@/systems/robotOptionsActions';
+import * as regenerateMelodyModule from '@/engine/regenerateMelody';
 import type { Robot } from '@/types/Robot';
 import type { Locale } from '@/types/locale';
 
@@ -35,12 +56,18 @@ function makeRobot(id = 'r1'): Robot {
     destination: null,
     direction: 'right',
     melody: [],
-    audioAttributes: { adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.3 }, filterFreq: 0, waveform: 'sine' },
+    audioAttributes: {
+      adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.3 },
+      filterFreq: 0,
+      waveform: 'sine',
+      layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0, active: true }],
+    },
     octaveRange: [3, 4],
     createdAt: Date.now(),
     masterVolume: 0.7,
     docking: 'active',
     batteryLevel: 100,
+    rhythmicDensity: 42,
   } as Robot;
 }
 
@@ -54,6 +81,7 @@ describe('RobotOptionsTab', () => {
   beforeEach(() => {
     useUIStore.getState().selectRobot(null);
     useLocaleStore.getState().setLocaleData(localeId, { robots: [] } as unknown as Partial<Locale>);
+    vi.restoreAllMocks();
   });
 
   it('renders the not-selected fallback when no robot is selected', () => {
@@ -80,5 +108,66 @@ describe('RobotOptionsTab', () => {
     useUIStore.getState().selectRobot('does-not-exist');
     render(<RobotOptionsTab />);
     expect(screen.getByText('Robot not found')).toBeTruthy();
+  });
+
+  it('derives PingControlsDrawer\'s value from the selected robot', () => {
+    const robot = makeRobot();
+    useLocaleStore.getState().addRobot(localeId, robot);
+    useUIStore.getState().selectRobot(robot.id);
+    render(<RobotOptionsTab />);
+
+    expect(screen.getByTestId('ping-controls-drawer-stub').getAttribute('data-density')).toBe('42');
+  });
+
+  it('wires PingControlsDrawer\'s onDensityChange to robotOptionsActions.applyDensity', () => {
+    const robot = makeRobot();
+    useLocaleStore.getState().addRobot(localeId, robot);
+    useUIStore.getState().selectRobot(robot.id);
+    const applySpy = vi.spyOn(robotOptionsActions, 'applyDensity').mockImplementation(() => {});
+    render(<RobotOptionsTab />);
+
+    fireEvent.click(screen.getByText('probe-density'));
+
+    expect(applySpy).toHaveBeenCalledWith(robot, localeId, 77);
+  });
+
+  it('wires PingControlsDrawer\'s onResetMelody to regenerateMelody directly (not a robotOptionsActions function)', () => {
+    const robot = makeRobot();
+    useLocaleStore.getState().addRobot(localeId, robot);
+    useUIStore.getState().selectRobot(robot.id);
+    const regenSpy = vi.spyOn(regenerateMelodyModule, 'regenerateMelody').mockImplementation(() => {});
+    render(<RobotOptionsTab />);
+
+    fireEvent.click(screen.getByText('probe-reset-melody'));
+
+    expect(regenSpy).toHaveBeenCalledWith(robot, localeId);
+  });
+
+  it('derives PingContourDrawer\'s value from the robot\'s audioAttributes.adsr and wires onChange to applyAdsr', () => {
+    const robot = makeRobot();
+    useLocaleStore.getState().addRobot(localeId, robot);
+    useUIStore.getState().selectRobot(robot.id);
+    const applySpy = vi.spyOn(robotOptionsActions, 'applyAdsr').mockImplementation(() => {});
+    render(<RobotOptionsTab />);
+
+    expect(screen.getByTestId('ping-contour-drawer-stub').getAttribute('data-attack')).toBe('0.01');
+
+    fireEvent.click(screen.getByText('probe-adsr'));
+
+    expect(applySpy).toHaveBeenCalledWith(robot, localeId, { attack: 0.9, decay: 0.1, sustain: 0.5, release: 0.2 });
+  });
+
+  it('derives SignatureArrayDrawer\'s value from the robot\'s layers and wires onContinuousChange to applyLayersContinuous', () => {
+    const robot = makeRobot();
+    useLocaleStore.getState().addRobot(localeId, robot);
+    useUIStore.getState().selectRobot(robot.id);
+    const applySpy = vi.spyOn(robotOptionsActions, 'applyLayersContinuous').mockImplementation(() => {});
+    render(<RobotOptionsTab />);
+
+    expect(screen.getByTestId('signature-array-drawer-stub').getAttribute('data-layer-count')).toBe('1');
+
+    fireEvent.click(screen.getByText('probe-layers'));
+
+    expect(applySpy).toHaveBeenCalledWith(robot, localeId, [{ type: 'sine', gain: 1, detune: 0, phase: 0, active: true }]);
   });
 });

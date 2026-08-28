@@ -136,5 +136,5 @@ replacement goes in, rather than accumulating as dead-but-load-bearing code for 
 - Robot Selection cards, Battery/Job/Docking status badges, and the Robot Options drawers that read
   this data (Phase 8, Phase 9) — this phase only produces the data and transitions those UIs will
   read.
-- Session Storage's override-reapplication logic (Phase 11) — this phase doesn't touch persistence
+- Session Storage's override-reapplication logic (Phase 12) — this phase doesn't touch persistence
   beyond removing the `persists` field itself.

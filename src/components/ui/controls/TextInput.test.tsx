@@ -59,4 +59,18 @@ describe('TextInput', () => {
     render(<TextInput schema={schema} value="" onChange={() => {}} />);
     expect(screen.getByRole('textbox', { name: 'robotName' })).toBeTruthy();
   });
+
+  it('is not disabled by default', () => {
+    const schema: TextInputSchema = { id: 'robotName', type: 'textInput' };
+    render(<TextInput schema={schema} value="" onChange={() => {}} />);
+    expect((screen.getByRole('textbox') as HTMLInputElement).disabled).toBe(false);
+  });
+
+  it('disables the input and blocks onChange when disabled is true', () => {
+    const onChange = vi.fn();
+    const schema: TextInputSchema = { id: 'robotName', type: 'textInput' };
+    render(<TextInput schema={schema} value="" onChange={onChange} disabled />);
+    const input = screen.getByRole('textbox') as HTMLInputElement;
+    expect(input.disabled).toBe(true);
+  });
 });

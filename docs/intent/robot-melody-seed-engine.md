@@ -69,7 +69,7 @@ literal file list.
 
 ## Why now
 
-Phase 11 (Session Storage) explicitly depends on robot IDs being deterministic so it can reapply
+Phase 12 (Session Storage) explicitly depends on robot IDs being deterministic so it can reapply
 Robot Options overrides by ID after the roster regenerates from a reload or shared link — this is a
 hard prerequisite, not a nice-to-have. The rhythm-engine overhaul is bundled into the same phase per
 the roadmap's own sequencing, and doing both together means the two extra call sites
@@ -83,7 +83,7 @@ the roadmap's own sequencing, and doing both together means the two extra call s
   (`value` clamped `1–8`), and `localeStore.ts`'s `updateRobot` correctly clamps both nested shapes
   without mis-clamping a valid new-range value into the old numeric range.
 - Two calls to `spawnRobot` against the same locale coordinates (same seed) produce robots with
-  identical IDs in the same spawn order — the determinism Phase 11 needs, verifiable by comparing
+  identical IDs in the same spawn order — the determinism Phase 12 needs, verifiable by comparing
   two fresh spawns against a reset spawn counter.
 - `regenerateMelody.ts` and `RobotAudioTab.tsx` compile and behave correctly against the new shapes;
   manually exercising the Density/Motif/Note-Variance controls in `RobotAudioTab` produces melodies
@@ -111,7 +111,7 @@ the roadmap's own sequencing, and doing both together means the two extra call s
 
 - Any UI primitive swap in `RobotAudioTab.tsx` (Phase 9's job).
 - `AudioEngine.ts`'s scheduler internals — already correct; only stale comments elsewhere are fixed.
-- Session Storage's actual override-reapplication-by-ID logic (Phase 11) — this phase only makes
+- Session Storage's actual override-reapplication-by-ID logic (Phase 12) — this phase only makes
   robot IDs stable enough for that to be possible later.
 - Locale-to-planet decoupling and the coordinate dead-zone fix — already done, see
   [locale-seed-decoupling.md](locale-seed-decoupling.md).

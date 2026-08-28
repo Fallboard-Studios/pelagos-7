@@ -69,7 +69,7 @@ docs/
 Sector Settings content (Phases 4/5), no changes to `RobotOptionsTab`/`RobotEditorTab`
 internals beyond the rename cascade above, no GSAP timeline/`timelineMap` entry for the
 grid↔tile transition, no `src/types/controls.ts` changes (`CONTROL_SCHEMA_TYPES` stays at
-13), no Session Storage persistence work (Phase 11).
+13), no Session Storage persistence work (Phase 12).
 
 ---
 

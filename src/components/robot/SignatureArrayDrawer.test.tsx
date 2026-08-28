@@ -1,26 +1,9 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, within } from '@testing-library/react';
 
-import { SignatureArrayDrawer } from './SignatureArrayDrawer';
-import { useLocaleStore } from '@/stores/localeStore';
-import { getActiveLocaleId } from '@/utils/localeHelpers';
-import { AudioEngine } from '@/engine/AudioEngine';
-import { lfoEngine } from '@/engine/lfoEngine';
-import type { Robot } from '@/types/Robot';
+import { SignatureArrayDrawer, type SignatureArrayValue } from './SignatureArrayDrawer';
 import type { OscillatorLayer } from '@/types/layeredAudio';
-import type { Locale } from '@/types/locale';
-
-vi.mock('@/engine/lfoEngine', () => ({
-  lfoEngine: {
-    connectLfoTarget: vi.fn(() => true),
-    disconnectLfoTarget: vi.fn(),
-    setLfoRate: vi.fn(),
-    setLfoDepth: vi.fn(),
-    setLfoShape: vi.fn(),
-    start: vi.fn(),
-    stop: vi.fn(),
-  },
-}));
+import type { Robot } from '@/types/Robot';
 
 function makeLayers(): OscillatorLayer[] {
   return [
@@ -30,28 +13,8 @@ function makeLayers(): OscillatorLayer[] {
   ];
 }
 
-function makeRobot(overrides: Partial<Robot> = {}): Robot {
-  return {
-    id: 'r1',
-    name: 'Test Robot',
-    state: 'idle',
-    position: { x: 0, y: 0 },
-    destination: null,
-    direction: 'right',
-    melody: [],
-    audioAttributes: {
-      adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.3 },
-      filterFreq: 0,
-      waveform: 'sine',
-      layers: makeLayers(),
-    },
-    octaveRange: [3, 4],
-    createdAt: Date.now(),
-    masterVolume: 0.7,
-    docking: 'active',
-    batteryLevel: 100,
-    ...overrides,
-  } as Robot;
+function makeValue(overrides: Partial<SignatureArrayValue> = {}): SignatureArrayValue {
+  return { layers: makeLayers(), ...overrides };
 }
 
 function layerSection(container: HTMLElement, key: 'layer0' | 'layer1' | 'layer2') {
@@ -60,49 +23,28 @@ function layerSection(container: HTMLElement, key: 'layer0' | 'layer1' | 'layer2
   return el as HTMLElement;
 }
 
+const noop = { onContinuousChange: () => {}, onStructuralChange: () => {}, onLfoChange: () => {} };
+
 describe('SignatureArrayDrawer', () => {
-  const localeId = getActiveLocaleId();
-
-  beforeEach(() => {
-    useLocaleStore.getState().setLocaleData(localeId, { robots: [] } as unknown as Partial<Locale>);
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-    useLocaleStore.getState().setLocaleData(localeId, { robots: [] } as unknown as Partial<Locale>);
-  });
-
   it('renders exactly 3 layer sections, in Baseline/Coaxial/Harmonic order', () => {
-    const robot = makeRobot();
-    useLocaleStore.getState().addRobot(localeId, robot);
-    const { container } = render(<SignatureArrayDrawer robot={robot} />);
+    const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
     const sections = container.querySelectorAll('[data-layer-key]');
     expect(sections).toHaveLength(3);
     expect(Array.from(sections).map((s) => s.getAttribute('data-layer-key'))).toEqual(['layer0', 'layer1', 'layer2']);
   });
 
   it('Baseline has no Active toggle; Coaxial and Harmonic each do', () => {
-    const robot = makeRobot();
-    useLocaleStore.getState().addRobot(localeId, robot);
-    const { container } = render(<SignatureArrayDrawer robot={robot} />);
+    const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
 
-    // 'Active' alone is ambiguous per-layer: each LFO frame also has its own generic 'Active'
-    // toggle (Lfo.tsx), always mounted via Radix's Accordion forceMount — the layer's own toggle
-    // has a distinguishing '<Label> Active' name.
     expect(within(layerSection(container, 'layer0')).queryByRole('switch', { name: 'Baseline Active' })).toBeNull();
     expect(within(layerSection(container, 'layer1')).getByRole('switch', { name: 'Coaxial Active' })).toBeTruthy();
     expect(within(layerSection(container, 'layer2')).getByRole('switch', { name: 'Harmonic Active' })).toBeTruthy();
   });
 
   it('each layer\'s Type radio has exactly the 5 waveform options, no Noise', () => {
-    const robot = makeRobot();
-    useLocaleStore.getState().addRobot(localeId, robot);
-    const { container } = render(<SignatureArrayDrawer robot={robot} />);
+    const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
 
     (['layer0', 'layer1', 'layer2'] as const).forEach((key) => {
-      // Type is always the first .sc-radio-button rendered per layer — every LFO frame's own
-      // Shape RadioButton (also .sc-radio-button, 4 TRIANGLE/SINE/SQUARE/SAWTOOTH options) comes
-      // after it, so scoping to the first one isolates Type's own 5 options.
       const typeGroup = layerSection(container, key).querySelector<HTMLElement>('.sc-radio-button')!;
       const options = within(typeGroup).getAllByRole('radio').map((r) => r.getAttribute('aria-label'));
       expect(options.sort()).toEqual(['BINARY', 'BURST', 'GRADIENT', 'KINETIC', 'SWEEP'].sort());
@@ -110,93 +52,84 @@ describe('SignatureArrayDrawer', () => {
   });
 
   it('shows Interval only for Burst(pulse) layers', () => {
-    // Not 'square' too — Tone.js's OmniOscillator.width getter returns undefined for any type
-    // other than 'pulse' (verified against node_modules/tone/build/esm/source/oscillator/
-    // OmniOscillator.js). AudioEngine's own pulseWidth LFO gate already knows this
-    // (getRobotModulationTarget: `if (layerEntry.layer.type !== 'pulse') return null`) — showing
-    // an editable Interval slider for Binary/square was a control that silently did nothing.
     const layers = makeLayers();
     layers[1] = { ...layers[1], type: 'pulse' };
-    const robot = makeRobot({ audioAttributes: { ...makeRobot().audioAttributes, layers } });
-    useLocaleStore.getState().addRobot(localeId, robot);
-    const { container } = render(<SignatureArrayDrawer robot={robot} />);
+    const { container } = render(<SignatureArrayDrawer value={makeValue({ layers })} {...noop} />);
 
-    // layer0 is sine -> no Interval slider
     expect(within(layerSection(container, 'layer0')).queryByText(/Interval/i)).toBeNull();
-    // layer1 is pulse -> has Interval slider
     expect(within(layerSection(container, 'layer1')).getByText(/Interval/i)).toBeTruthy();
   });
 
-  it('hides Interval for Binary(square) layers — Tone.js has no width param outside \'pulse\', so it would silently do nothing', () => {
-    const robot = makeRobot(); // layer1 is 'square' per makeLayers()
-    useLocaleStore.getState().addRobot(localeId, robot);
-    const { container } = render(<SignatureArrayDrawer robot={robot} />);
+  it('hides Interval for Binary(square) layers', () => {
+    const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} />); // layer1 is 'square'
 
     expect(within(layerSection(container, 'layer1')).queryByText(/Interval/i)).toBeNull();
   });
 
-  it('a Type change calls AudioEngine.reReserveVoice (structural)', () => {
-    const robot = makeRobot();
-    useLocaleStore.getState().addRobot(localeId, robot);
-    const reReserveSpy = vi.spyOn(AudioEngine, 'reReserveVoice').mockImplementation(() => true);
-    const continuousSpy = vi.spyOn(AudioEngine, 'updateVoiceLayerParams').mockImplementation(() => {});
-    const { container } = render(<SignatureArrayDrawer robot={robot} />);
+  it('a Type change calls onStructuralChange, not onContinuousChange', () => {
+    const onStructuralChange = vi.fn();
+    const onContinuousChange = vi.fn();
+    const { container } = render(
+      <SignatureArrayDrawer value={makeValue()} onContinuousChange={onContinuousChange} onStructuralChange={onStructuralChange} onLfoChange={() => {}} />
+    );
 
-    const baselineTypeRadio = within(layerSection(container, 'layer0')).getByRole('radio', { name: 'GRADIENT' });
-    fireEvent.click(baselineTypeRadio);
+    fireEvent.click(within(layerSection(container, 'layer0')).getByRole('radio', { name: 'GRADIENT' }));
 
-    expect(reReserveSpy).toHaveBeenCalledWith(robot.id);
-    expect(continuousSpy).not.toHaveBeenCalled();
+    expect(onStructuralChange).toHaveBeenCalled();
+    expect(onContinuousChange).not.toHaveBeenCalled();
+    const newLayers = onStructuralChange.mock.calls[0][0] as OscillatorLayer[];
+    expect(newLayers[0].type).toBe('triangle'); // 'GRADIENT' label -> 'triangle' value, per robotOptionsConfig.ts
   });
 
-  it('a Gain change calls AudioEngine.updateVoiceLayerParams (continuous), not reReserveVoice', () => {
-    const robot = makeRobot();
-    useLocaleStore.getState().addRobot(localeId, robot);
-    const reReserveSpy = vi.spyOn(AudioEngine, 'reReserveVoice').mockImplementation(() => true);
-    const continuousSpy = vi.spyOn(AudioEngine, 'updateVoiceLayerParams').mockImplementation(() => {});
-    const { container } = render(<SignatureArrayDrawer robot={robot} />);
+  it('a Gain change calls onContinuousChange, not onStructuralChange', () => {
+    const onStructuralChange = vi.fn();
+    const onContinuousChange = vi.fn();
+    const { container } = render(
+      <SignatureArrayDrawer value={makeValue()} onContinuousChange={onContinuousChange} onStructuralChange={onStructuralChange} onLfoChange={() => {}} />
+    );
 
-    const baselineGainSlider = within(layerSection(container, 'layer0')).getByRole('slider', { name: /gain/i });
-    fireEvent.keyDown(baselineGainSlider, { key: 'ArrowRight' });
+    fireEvent.keyDown(within(layerSection(container, 'layer0')).getByRole('slider', { name: /gain/i }), { key: 'ArrowRight' });
 
-    expect(continuousSpy).toHaveBeenCalled();
-    expect(reReserveSpy).not.toHaveBeenCalled();
+    expect(onContinuousChange).toHaveBeenCalled();
+    expect(onStructuralChange).not.toHaveBeenCalled();
   });
 
-  it('toggling Coaxial\'s Active off calls reReserveVoice and keeps its Type/Gain values rendered, not cleared', () => {
-    const robot = makeRobot();
-    useLocaleStore.getState().addRobot(localeId, robot);
-    const reReserveSpy = vi.spyOn(AudioEngine, 'reReserveVoice').mockImplementation(() => true);
-    const updateSpy = vi.spyOn(useLocaleStore.getState(), 'updateRobot');
-    const { container } = render(<SignatureArrayDrawer robot={robot} />);
+  it('toggling Coaxial\'s Active off calls onStructuralChange, keeping its Type/Gain values, not cleared', () => {
+    const onStructuralChange = vi.fn();
+    const { container } = render(
+      <SignatureArrayDrawer value={makeValue()} onContinuousChange={() => {}} onStructuralChange={onStructuralChange} onLfoChange={() => {}} />
+    );
 
-    const coaxialActiveToggle = within(layerSection(container, 'layer1')).getByRole('switch', { name: 'Coaxial Active' });
-    fireEvent.click(coaxialActiveToggle);
+    fireEvent.click(within(layerSection(container, 'layer1')).getByRole('switch', { name: 'Coaxial Active' }));
 
-    expect(reReserveSpy).toHaveBeenCalledWith(robot.id);
-    const [, , update] = updateSpy.mock.calls[updateSpy.mock.calls.length - 1];
-    const newLayers = (update as Partial<Robot>).audioAttributes!.layers!;
+    expect(onStructuralChange).toHaveBeenCalled();
+    const newLayers = onStructuralChange.mock.calls[0][0] as OscillatorLayer[];
     expect(newLayers[1].active).toBe(false);
     expect(newLayers[1].type).toBe('square'); // config preserved, not cleared/reset
     expect(newLayers[1].gain).toBe(0.8);
-
-    // Still rendered with its existing values after the (mocked, non-reactive) click
-    expect(within(layerSection(container, 'layer1')).getByRole('radio', { name: 'BINARY', checked: true })).toBeTruthy();
   });
 
-  it('each LFO-flagged param wires to robot.lfoSettings[\'layerN.field\'] and connects on activation', () => {
-    const robot = makeRobot({
-      lfoSettings: {
-        'layer0.gain': { shape: 'sine', rate: 1, depth: 10, active: false },
-      } as unknown as Robot['lfoSettings'],
+  it('each LFO-flagged param wires onLfoChange with the right target', () => {
+    const onLfoChange = vi.fn();
+    const value = makeValue({
+      lfoSettings: { 'layer0.gain': { shape: 'sine', rate: 1, depth: 10, active: false } } as unknown as Robot['lfoSettings'],
     });
-    useLocaleStore.getState().addRobot(localeId, robot);
-    const { container } = render(<SignatureArrayDrawer robot={robot} />);
+    const { container } = render(
+      <SignatureArrayDrawer value={value} onContinuousChange={() => {}} onStructuralChange={() => {}} onLfoChange={onLfoChange} />
+    );
 
     const gainLfoToggle = within(layerSection(container, 'layer0')).getAllByRole('switch', { name: /active/i })[0];
     fireEvent.click(gainLfoToggle);
 
-    expect(lfoEngine.connectLfoTarget).toHaveBeenCalledWith('layer0.gain', robot.id);
-    expect(lfoEngine.start).toHaveBeenCalledWith('layer0.gain', robot.id);
+    expect(onLfoChange).toHaveBeenCalledWith('layer0.gain', { shape: 'sine', rate: 1, depth: 10, active: true });
+  });
+
+  it('disables every internal control when disabled is true', () => {
+    const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} disabled />);
+
+    const baseline = layerSection(container, 'layer0');
+    expect(within(baseline).getByRole('radio', { name: 'GRADIENT' }).getAttribute('data-disabled')).toBe('');
+    expect(within(baseline).getByRole('slider', { name: /gain/i }).getAttribute('data-disabled')).toBe('');
+    expect((within(layerSection(container, 'layer1')).getByRole('switch', { name: 'Coaxial Active' }) as HTMLButtonElement).disabled).toBe(true);
   });
 });

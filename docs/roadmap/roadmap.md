@@ -49,7 +49,7 @@ Combining Architecture and Components into a single initial step establishes a u
 
 ### Forward Note
 
-- Console Theming (Phase 10) will later drive CSS custom properties by *scale* — large/structural tokens (backgrounds, casing) from the planet seed, small/accent tokens (buttons, text, borders) from the locale seed. Name and group new design tokens with that split in mind now, so Phase 10 doesn't have to rename or regroup anything this phase already established.
+- Console Theming (Phase 11) will later drive CSS custom properties by *scale* — large/structural tokens (backgrounds, casing) from the planet seed, small/accent tokens (buttons, text, borders) from the locale seed. Name and group new design tokens with that split in mind now, so Phase 11 doesn't have to rename or regroup anything this phase already established.
 
 ## 2. Layout
 
@@ -79,7 +79,7 @@ This phase strips out legacy layout logic to establish a unified, mobile-first a
 ### Removal
 
 - Remove old hub nav
-- Remove the Session and Composition console tabs and their placeholder stubs — Session becomes fully automated with no user-facing tile (its job is absorbed by the background persistence engine in Session Storage, Phase 11), and Composition is deferred to a future version
+- Remove the Session and Composition console tabs and their placeholder stubs — Session becomes fully automated with no user-facing tile (its job is absorbed by the background persistence engine in Session Storage, Phase 12), and Composition is deferred to a future version
 
 ### Restructure
 
@@ -87,7 +87,7 @@ This phase strips out legacy layout logic to establish a unified, mobile-first a
 
 ### About
 
-This phase replaces the legacy Hub navigation with a streamlined, data-driven navigation system that connects directly to our content files. We are stripping out all old hub navigation logic — including the Session and Composition stub tabs, which are dropped rather than rebuilt: Session's job is absorbed by Session Storage's background persistence engine (Phase 11), so there's nothing left for a tile to do, and Composition is deferred to a future version — and building a dedicated HubNav component container that maps over src/data/hubNavConfig.ts. Each button will be rendered using our schema-driven HubNavButton primitive, deriving its primary lore title, secondary human subtitle, and target screen directly from the strongly typed data file without any hardcoded labels or inline routing logic. The remaining hub tiles are Audio Rig (Phase 4), Sector Settings (Phase 5), and Robot Selection (Phase 8).
+This phase replaces the legacy Hub navigation with a streamlined, data-driven navigation system that connects directly to our content files. We are stripping out all old hub navigation logic — including the Session and Composition stub tabs, which are dropped rather than rebuilt: Session's job is absorbed by Session Storage's background persistence engine (Phase 12), so there's nothing left for a tile to do, and Composition is deferred to a future version — and building a dedicated HubNav component container that maps over src/data/hubNavConfig.ts. Each button will be rendered using our schema-driven HubNavButton primitive, deriving its primary lore title, secondary human subtitle, and target screen directly from the strongly typed data file without any hardcoded labels or inline routing logic. The remaining hub tiles are Audio Rig (Phase 4), Sector Settings (Phase 5), and Robot Selection (Phase 8).
 
 ### Docs
 
@@ -259,7 +259,54 @@ This phase tears out the existing hand-built robot editor — RobotAudioTab's Au
 - ~~docs/AUDIO_SYSTEM.md's "Layered / Composite Voices" section lists an optional per-layer `adsr` field on `OscillatorLayer` — update once ADSR moves off individual layers and onto the robot.~~ — **done**. Scope ended up wider than this one section: `AUDIO_SYSTEM.md`'s own `AudioEngine` interface listing (`reserveVoice`/`createCompositeVoice`'s signatures, the new `updateVoiceEnvelope`) and its LFO Seeding section (which had claimed robot-level LFO `active` was "purely a runtime UI concern never part of the generated data" — no longer true once this phase seeded it) both needed the same pass.
 - docs/reference/ROBOT_DATA_GRID.md's Audio Setting Options column corrected to include "Off" (4th option, not the stale 3); Density's Min/Max corrected from `1`/`16` to `0`/`100` (stale since Roadmap Phase 6 shipped, never caught until this phase's spec research) — **done**, not part of the original Docs list but required for the grid to match shipped behavior.
 
-## 10. Console Theming
+## 10. Companies
+
+### Create
+
+- `src/types/Company.ts`: `Company` (`id`, `name`, `robotIds: string[]`, `lastEditedOptions?: CompanyOptionsSnapshot`) and `CompanyOptionsSnapshot`, mirroring every editable field the four Robot Options sections expose (Audio Setting, Volume + its LFO, Ping Controls, Ping Contour, Signature Array) — everything except the read-only Display rows (Name/Job/Battery/Docking) and the Reset Melody action, neither of which makes sense at company scope.
+- `Locale.companies: Company[]` (src/types/locale.ts) alongside `robots`/`actors`, seeded once at spawn the same way the roster is — `spawnInitialRoster` (src/systems/spawnSystem.ts) gains a company-generation pass: a seeded count of 2-3 companies, each with a seeded 3-4 robots (disjoint, drawn from the 12-robot roster — leaving a meaningful chunk Freelance by default), each company given a generated name (the same Adjective+Noun word-list pattern `generateRobotName` already uses). Distinct from spawn generation, a new `MAX_COMPANIES = 6` constant (src/constants/index.ts) caps how many companies can exist at once, giving a player room to create more by hand via CRUD after spawn.
+- `Robot.companyId?: string` (src/types/Robot.ts) — undefined means Freelance (the default; no separate boolean needed).
+- `localeStore.ts` gains `addCompany`/`updateCompany`/`removeCompany`/`getCompanyById`, mirroring the existing `addRobot`/`updateRobot`/`removeRobot`/`getRobotById` pattern exactly. `removeCompany` clears `companyId` on every member robot first (mirrors `removeLocale`'s per-robot AudioEngine cleanup loop) — the "deleting a company frees its robots to Freelance" behavior this phase calls for.
+- `uiStore.ts` gains `selectedCompanyId: string | null` (default `null`, the "None" button) and `selectCompany`, independent of `selectedRobotId` — company-glow and single-robot-select-glow are two separate, non-conflicting visual states, not a shared selection slot.
+- A new `Select` primitive (`src/components/ui/controls/Select.tsx` + a `SelectSchema` variant in `src/types/controls.ts`) — the Design System's 14th primitive (`docs/COMPONENT_LIBRARY.md`, `CLAUDE.md`'s reference bullet, and `CONTROL_SCHEMA_TYPES`'s "all 13 variants covered" runtime assertion in `controls.test.ts` all updated to 14). Used for the robot→company assignment dropdown in both `RobotSelectionCard` and `RobotDisplaySection`, listing every company by name plus a "Freelance" option that clears `companyId`.
+- `src/data/companyConfig.ts` — schemas for the company button row, the CRUD panel (Create/Rename/Delete, `TextInput` pre-filled with the generated name so a create action can be accepted as-is or edited before confirming), and the "Freelance" label, following the same typed-config-file convention every other drawer already uses.
+- A new `CompanyOptionsPanel` component rendered by `RobotsTab` beneath the existing robot card list: the company button row (one button per company, capped at `MAX_COMPANIES`, plus "None"), the CRUD controls, and then the same four editable sections `RobotOptionsTab` uses — greyed out (`disabled`) with no bound value when "None" is selected, bound to the selected company's snapshot otherwise.
+
+**Done** — see [docs/specs/COMPANIES.md](../specs/COMPANIES.md) and
+[docs/tasks/COMPANIES.md](../tasks/COMPANIES.md). Shipped shape differs from this draft's naming in
+a few places, none of them scope changes: `CompanyOptionsPanel` above shipped as three composed
+components (`CompanyManager` mounting `CompanyButtonRow` + `CompanyCrudControls` +
+`CompanyOptionsSection`), not one; company spawn generation is its own function,
+`spawnInitialCompanies` (`src/systems/spawnSystem.ts`), called from `worldTransition.ts`'s
+`initializeLocale` right after `spawnInitialRoster` rather than folded into it; and `localeStore.ts`
+gained two more company actions than listed here — `getCompanyMembers` and the atomic
+`assignRobotToCompany` (robot reassignment is a single cross-entity transition, not composed from
+separate `updateRobot`/`updateCompany` calls at the call site, mirroring `removeCompany`'s own
+shape). A real bug in `assignRobotToCompany` — re-selecting a robot's already-assigned company
+silently dropped it from that company's `robotIds` — was found in code review before merge and
+fixed with regression coverage; see `localeStore.test.ts`.
+
+### Restructure
+
+- `RobotDisplaySection`'s Audio Setting/Volume/Volume-LFO handlers and each of `PingControlsDrawer`/`PingContourDrawer`/`SignatureArrayDrawer`'s per-field handlers are extracted into shared pure functions (e.g. `applyAudioMode`, `applyVolume`, `applyDensity`, ...) that do exactly what today's inline handlers do — `updateRobot` plus whatever live `AudioEngine`/`lfoEngine`/`regenerateMelody` call already accompanies it. Both the existing single-robot drawers and the new `CompanyOptionsPanel` call the same functions; the panel's `onChange` handlers just loop them across `company.robotIds` instead of calling once. This is required, not cosmetic — a company-wide volume change that only wrote `updateRobot` without also calling `AudioEngine.updateRobotMasterVolume` per member would reproduce the exact stale-cache bug Phase 9's post-launch fixes already found and fixed for the single-robot case.
+- `RobotSelectionCard` and `RobotDisplaySection` each gain a company row: `DualLabel` plus the new `Select`, defaulting to "Freelance," updating both the robot's `companyId` and the old/new company's `robotIds` via the store actions above on change.
+- `Robot.tsx` (world view) adds a second CSS hook alongside `isSelected` — `isCompanyMember`, true when `robot.companyId === selectedCompanyId` and `selectedCompanyId !== null` — reusing the same glow treatment `.robot.selected` already defines rather than inventing a second visual language for "selected."
+
+### About
+
+This phase introduces Companies — user-managed groups of robots that let every Robot Options field be edited across many robots at once instead of one at a time, aimed squarely at the tedium of manually matching settings across several robots by hand (and trying to remember what was set last time) when tuning them to sound cohesive. A locale spawns with 2-3 companies of 3-4 robots each, seeded the same deterministic way everything else about a fresh locale is generated, leaving a meaningful chunk of the 12-robot roster Freelance by default — Companies read as a real, seeded part of the locale's identity from the moment it loads, not an empty feature waiting for manual setup; any robot not assigned is Freelance, the implicit default rather than a distinct flag. `MAX_COMPANIES` (6) is a separate CRUD ceiling on top of that, not the spawn target. Retransmitting a new seed in Sector Settings (Phase 5) regenerates Companies fresh along with the rest of the roster — nothing about a company survives a reseed, matching how nothing else does either, and reading as part of the same "new world" event lore-wise. We are extending `RobotsTab` (Roadmap Phase 8) with a company button row plus CRUD (create/rename/delete) beneath the existing robot card list, and a `CompanyOptionsPanel` beneath that reusing the same `RobotDisplaySection`/`PingControlsDrawer`/`PingContourDrawer`/`SignatureArrayDrawer` primitives Robot Options (Phase 9) already built — with "None" selected, every control renders disabled with no bound value; selecting a company populates the panel from that company's own persistent snapshot (seeded from its first member's current values the first time it's edited, then updated field-by-field on every subsequent edit, so re-selecting a company later picks up exactly where its last edit left off) and every field edit fans out through the same `updateRobot`/`AudioEngine`/`lfoEngine`/`regenerateMelody` calls the single-robot drawers already make, once per member robot — a company edit is a broadcast, not a live link, so a user editing one member robot afterward changes only that robot, same as today. Selecting a company also highlights its members' cards in the list and glows them in the world view, reusing the existing single-robot selection visual rather than inventing a second one. Because the Design System's fixed 13-primitive inventory (Phase 1) has no dropdown, and both the robot list and Robot Options need one to reassign a robot's company, this phase adds a 14th primitive, `Select` — the first addition to that inventory since Phase 1 shipped it.
+
+### Forward Note
+
+- Session Storage (Phase 12) will need to persist Companies the same way it persists Robot Options overrides — `companies` alongside the per-robot override map, keyed by the same kind of deterministic ID `spawnSystem.ts` already gives robots (Phase 6), so a reload can reapply company membership and each company's snapshot rather than losing it. Nothing here needs to change for that; noted so Phase 12 doesn't discover it mid-implementation.
+
+### Docs
+
+- ~~`docs/COMPONENT_LIBRARY.md` updated for the 14th primitive (`Select`); `CLAUDE.md`'s reference bullet text ("The 13 stateless UI primitives") updated to 14.~~ — **done**.
+- ~~No existing doc covers Companies — add a new `docs/COMPANIES.md`, in the style of `docs/ROBOT_LIFECYCLE.md`, documenting the `Company`/`CompanyOptionsSnapshot` shape, the seeded spawn-time generation, and the broadcast-not-link edit semantics. Add it to CLAUDE.md's reference doc list.~~ — **done**, see [docs/COMPANIES.md](../COMPANIES.md).
+- ~~`docs/UI_SHELL.md`'s Robots tile description gains the company row/panel — it currently only describes the robot list.~~ — **done**.
+
+## 11. Console Theming
 
 ### Create
 
@@ -275,13 +322,13 @@ This phase tears out the existing hand-built robot editor — RobotAudioTab's Au
 
 ### About
 
-This phase gives the console itself a seed-derived visual identity, split by scale rather than by physical part: the planet seed drives large/structural areas — the Sleeve casing's exterior silhouette, decorative indents/bands, and color, plus large background regions inside the Glass — while the active locale's coordinate seed drives small accent elements wherever they sit, buttons/text/borders on both the casing's decorative details and the Glass-side chrome. The casing's interior edge, the boundary touching ScreenViewport, stays static so nothing generated ever encroaches on or covers screen content. Colors stay bounded and legible the same way robot color generation already is (see ROBOT_DESIGN.md), since this is real interactive chrome sitting on a fixed dark background, not a decorative shape — a bad roll can't just look a little odd. Retransmitting a new seed in Sector Settings (Phase 5) visibly reshapes and recolors the console, reinforcing the same "this is a piece of field equipment reporting what it's tuned to" fiction the rest of the console already leans on (SYSTEM_FIRMWARE_RESETS, the power-off confirm, etc.). Because the theme is a pure function of the seed and coordinates already being persisted by Sector Settings, it needs no separate storage of its own — Session Storage (Phase 11) restoring the seed automatically restores the look. Out of scope here: WorldView/terrain/sky styling (deferred to v2), robot visuals (locked to audio attributes per CLAUDE.md, untouched by this phase), and the power rocker switch itself (stays fixed, not seed-styled).
+This phase gives the console itself a seed-derived visual identity, split by scale rather than by physical part: the planet seed drives large/structural areas — the Sleeve casing's exterior silhouette, decorative indents/bands, and color, plus large background regions inside the Glass — while the active locale's coordinate seed drives small accent elements wherever they sit, buttons/text/borders on both the casing's decorative details and the Glass-side chrome. The casing's interior edge, the boundary touching ScreenViewport, stays static so nothing generated ever encroaches on or covers screen content. Colors stay bounded and legible the same way robot color generation already is (see ROBOT_DESIGN.md), since this is real interactive chrome sitting on a fixed dark background, not a decorative shape — a bad roll can't just look a little odd. Retransmitting a new seed in Sector Settings (Phase 5) visibly reshapes and recolors the console, reinforcing the same "this is a piece of field equipment reporting what it's tuned to" fiction the rest of the console already leans on (SYSTEM_FIRMWARE_RESETS, the power-off confirm, etc.). Because the theme is a pure function of the seed and coordinates already being persisted by Sector Settings, it needs no separate storage of its own — Session Storage (Phase 12) restoring the seed automatically restores the look. Out of scope here: WorldView/terrain/sky styling (deferred to v2), robot visuals (locked to audio attributes per CLAUDE.md, untouched by this phase), and the power rocker switch itself (stays fixed, not seed-styled).
 
 ### Docs
 
 - No existing doc covers UI chrome theming — add a new docs/CONSOLE_THEMING.md (in the design-doc style of SESSION_STORAGE.md, since this hasn't shipped yet either) documenting the scale-based token split, the bounded-HSL generation rules, and the SleeveContainer interior/exterior boundary constraint. Add it to CLAUDE.md's reference doc list.
 
-## 11. Session Storage
+## 12. Session Storage
 
 ### Create
 

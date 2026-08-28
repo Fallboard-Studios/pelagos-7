@@ -94,20 +94,29 @@ export interface LfoSchema extends ControlSchemaBase {
   type: 'lfo';
 }
 
+/** The Design System's 14th primitive (Roadmap Phase 10) — a dropdown, wrapping
+ *  @radix-ui/react-select. Options are supplied by the schema (built dynamically for
+ *  company assignment — see src/data/companyConfig.ts's buildCompanySelectSchema), the same
+ *  shape RadioButtonSchema's options already use. */
+export interface SelectSchema extends ControlSchemaBase {
+  type: 'select';
+  options: { value: string; label: string }[];
+}
+
 export type ControlSchema =
   | StepperSchema | StepperWithToggleSchema
   | SliderLinearSchema | SliderLogSchema | SliderCenteredZeroSchema
   | RadioButtonSchema | ToggleSchema | TextInputSchema | CoordsInputSchema
-  | ButtonSchema | DualLabelSchema | AccordionSchema | LfoSchema;
+  | ButtonSchema | DualLabelSchema | AccordionSchema | LfoSchema | SelectSchema;
 
 /** Every ControlSchema discriminant, paired with the union per the pattern
  *  src/types/lfo.ts established (LFO_SHAPES, ROBOT_LFO_TARGET_IDS) — makes
- *  "all 13 variants covered, no duplicates" a runtime-testable assertion. */
+ *  "all 14 variants covered, no duplicates" a runtime-testable assertion. */
 export const CONTROL_SCHEMA_TYPES: readonly ControlSchema['type'][] = [
   'stepper', 'stepperToggle',
   'sliderLinear', 'sliderLog', 'sliderCenteredZero',
   'radio', 'toggle', 'textInput', 'coordsInput',
-  'button', 'dualLabel', 'accordion', 'lfo',
+  'button', 'dualLabel', 'accordion', 'lfo', 'select',
 ];
 
 // ========================================

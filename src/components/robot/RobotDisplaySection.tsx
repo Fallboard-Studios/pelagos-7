@@ -1,13 +1,10 @@
 import { RobotBody } from '@/components/robot/RobotBody';
 import { DualLabel } from '@/components/ui/controls/DualLabel';
-import { RadioButton } from '@/components/ui/controls/RadioButton';
-import { SliderLinear } from '@/components/ui/controls/SliderLinear';
-import { AccordionContainer } from '@/components/ui/controls/AccordionContainer';
-import { Lfo } from '@/components/ui/controls/Lfo';
+import { Select } from '@/components/ui/controls/Select';
+import { AudioSettingSection, type AudioSettingValue } from '@/components/robot/AudioSettingSection';
 import { useLocaleStore } from '@/stores/localeStore';
 import { getActiveLocaleId } from '@/utils/localeHelpers';
-import { lfoEngine } from '@/engine/lfoEngine';
-import { AudioEngine } from '@/engine/AudioEngine';
+import { applyAudioMode, applyVolume, applyVolumeLfo } from '@/systems/robotOptionsActions';
 import { DEFAULT_LFO_SETTINGS } from '@/data/lfoConfig';
 import {
   ROBOT_SELECTION_ROW_SCHEMAS,
@@ -15,12 +12,8 @@ import {
   UNASSIGNED_JOB_LABEL,
   DOCKING_STATE_LABELS,
 } from '@/data/robotSelectionConfig';
-import {
-  AUDIO_SETTING_SCHEMA,
-  VOLUME_SCHEMA,
-  VOLUME_LFO_TARGET,
-  VOLUME_LFO_ACCORDION_SCHEMA,
-} from '@/data/robotOptionsConfig';
+import { VOLUME_LFO_TARGET } from '@/data/robotOptionsConfig';
+import { FREELANCE_VALUE, buildCompanySelectSchema } from '@/data/companyConfig';
 import type { Robot } from '@/types/Robot';
 import type { LfoValue } from '@/types/controls';
 
@@ -37,44 +30,24 @@ interface RobotDisplaySectionProps {
  * agnostic RobotBody rendering (ignoreDaylight, so the portrait reads consistently regardless of
  * the active locale's time of day), same read-only DualLabel rows, no job reassignment, no
  * docking-state override (both stay fully system-driven). Audio Setting and Volume (with its LFO
- * frame) are the only editable controls here.
+ * frame) are rendered via AudioSettingSection (Roadmap Phase 10) — this is the "robot mode" call
+ * site: value derived from `robot`, each callback wired to robotOptionsActions.
  */
 export function RobotDisplaySection({ robot }: RobotDisplaySectionProps) {
   const localeId = getActiveLocaleId();
   const jobLabel = robot.job ? JOB_TYPE_LABELS[robot.job.type] : UNASSIGNED_JOB_LABEL;
-  const audioMode = robot.audioMode ?? 'none';
-  const volumeLfo: LfoValue = robot.lfoSettings?.volume
-    ?? { ...DEFAULT_LFO_SETTINGS[VOLUME_LFO_TARGET], active: false };
+  const companies = useLocaleStore((s) => s.locales[localeId]?.companies ?? []);
+  const companySelectSchema = buildCompanySelectSchema(companies);
 
-  const handleAudioModeChange = (value: string) => {
-    useLocaleStore.getState().updateRobot(localeId, robot.id, { audioMode: value as Robot['audioMode'] });
+  const handleCompanyChange = (value: string) => {
+    useLocaleStore.getState().assignRobotToCompany(localeId, robot.id, value === FREELANCE_VALUE ? null : value);
   };
 
-  // Volume displays 0-100% but stores 0..1 (Robot.masterVolume) — the same display-vs-storage
-  // split PingContourDrawer's Sustain uses. Also updates AudioEngine's live masterVolume cache
-  // directly (not just the store): scheduleNote's velocity lookup caches masterVolume on a
-  // robot's first note and never re-reads the store afterward, so without this the slider moves
-  // but has no audible effect until the cache is separately invalidated.
-  const handleVolumeChange = (pct: number) => {
-    const value = pct / 100;
-    useLocaleStore.getState().updateRobot(localeId, robot.id, { masterVolume: value });
-    AudioEngine.updateRobotMasterVolume(robot.id, value);
-  };
-
-  // Mirrors audioStore.ts's setGlobalLfo pattern, robot-scoped: store write plus the matching
-  // lfoEngine calls, connecting/starting only when the new value is active.
-  const handleVolumeLfoChange = (value: LfoValue) => {
-    const nextLfoSettings = { ...robot.lfoSettings, [VOLUME_LFO_TARGET]: value } as Robot['lfoSettings'];
-    useLocaleStore.getState().updateRobot(localeId, robot.id, { lfoSettings: nextLfoSettings });
-    lfoEngine.setLfoShape(VOLUME_LFO_TARGET, value.shape, robot.id);
-    lfoEngine.setLfoRate(VOLUME_LFO_TARGET, value.rate, robot.id);
-    lfoEngine.setLfoDepth(VOLUME_LFO_TARGET, value.depth, robot.id);
-    if (value.active) {
-      if (lfoEngine.connectLfoTarget(VOLUME_LFO_TARGET, robot.id)) lfoEngine.start(VOLUME_LFO_TARGET, robot.id);
-    } else {
-      lfoEngine.disconnectLfoTarget(VOLUME_LFO_TARGET, robot.id);
-      lfoEngine.stop(VOLUME_LFO_TARGET, robot.id);
-    }
+  const audioSettingValue: AudioSettingValue = {
+    audioMode: robot.audioMode ?? 'none',
+    masterVolume: robot.masterVolume,
+    volumeLfo: robot.lfoSettings?.[VOLUME_LFO_TARGET] as LfoValue
+      ?? { ...DEFAULT_LFO_SETTINGS[VOLUME_LFO_TARGET], active: false },
   };
 
   return (
@@ -101,23 +74,19 @@ export function RobotDisplaySection({ robot }: RobotDisplaySectionProps) {
       </div>
 
       <div className="robot-display-section__row">
-        <RadioButton schema={AUDIO_SETTING_SCHEMA} value={audioMode} onChange={handleAudioModeChange} />
+        <Select
+          schema={companySelectSchema}
+          value={robot.companyId ?? FREELANCE_VALUE}
+          onChange={handleCompanyChange}
+        />
       </div>
 
-      <div className="robot-display-section__row">
-        <SliderLinear schema={VOLUME_SCHEMA} value={robot.masterVolume * 100} onChange={handleVolumeChange} />
-        <AccordionContainer
-          schema={VOLUME_LFO_ACCORDION_SCHEMA}
-          defaultOpen={volumeLfo.active}
-          contentActive={volumeLfo.active}
-        >
-          <Lfo
-            schema={{ id: `${VOLUME_LFO_ACCORDION_SCHEMA.id}.control`, type: 'lfo' }}
-            value={volumeLfo}
-            onChange={handleVolumeLfoChange}
-          />
-        </AccordionContainer>
-      </div>
+      <AudioSettingSection
+        value={audioSettingValue}
+        onAudioModeChange={(mode) => applyAudioMode(robot, localeId, mode)}
+        onVolumeChange={(pct) => applyVolume(robot, localeId, pct)}
+        onVolumeLfoChange={(value) => applyVolumeLfo(robot, localeId, value)}
+      />
     </div>
   );
 }

@@ -48,4 +48,15 @@ describe('StepperWithToggle', () => {
     expect(container.querySelector('.sc-stepper-toggle.isActive')).toBeNull();
     expect(container.querySelector('.sc-stepper-toggle')).toBeTruthy();
   });
+
+  it('is not disabled by default', () => {
+    render(<StepperWithToggle schema={schema} value={{ active: true, value: 3 }} onChange={() => {}} />);
+    expect((screen.getByRole('switch') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('disables both the Toggle and the Stepper when disabled is true, even if value.active is true', () => {
+    render(<StepperWithToggle schema={schema} value={{ active: true, value: 3 }} onChange={() => {}} disabled />);
+    expect((screen.getByRole('switch') as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: /increment/i }) as HTMLButtonElement).disabled).toBe(true);
+  });
 });

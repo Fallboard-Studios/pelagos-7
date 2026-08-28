@@ -11,6 +11,7 @@ interface LfoProps {
   schema: LfoSchema;
   value: LfoValue;
   onChange: (value: LfoValue) => void;
+  disabled?: boolean;
 }
 
 const SHAPE_OPTIONS = LFO_SHAPES.map((shape) => ({ value: shape, label: shape.toUpperCase() }));
@@ -34,7 +35,7 @@ const RATE_STEP = 0.25;
  * The root also carries a plain `isActive` class (see Toggle.tsx) so a
  * consumer can write `.sc-lfo.isActive { ... }`.
  */
-export function Lfo({ schema, value, onChange }: LfoProps) {
+export function Lfo({ schema, value, onChange, disabled }: LfoProps) {
   const shapeSchema: RadioButtonSchema = { id: `${schema.id}.shape`, type: 'radio', humanLabel: 'Shape', options: SHAPE_OPTIONS };
   const rateSchema: SliderLinearSchema = { id: `${schema.id}.rate`, type: 'sliderLinear', humanLabel: 'Rate', min: RATE_STEP, max: LFO_RATE_MAX, step: RATE_STEP, unit: 'Hz' };
   const depthSchema: SliderLinearSchema = { id: `${schema.id}.depth`, type: 'sliderLinear', humanLabel: 'Depth', min: LFO_DEPTH_MIN, max: LFO_DEPTH_MAX, unit: '%' };
@@ -47,21 +48,25 @@ export function Lfo({ schema, value, onChange }: LfoProps) {
         schema={shapeSchema}
         value={value.shape}
         onChange={(shape) => onChange({ ...value, shape: shape as LfoValue['shape'] })}
+        disabled={disabled}
       />
       <SliderLinear
         schema={rateSchema}
         value={value.rate}
         onChange={(rate) => onChange({ ...value, rate })}
+        disabled={disabled}
       />
       <SliderLinear
         schema={depthSchema}
         value={value.depth}
         onChange={(depth) => onChange({ ...value, depth })}
+        disabled={disabled}
       />
       <Toggle
         schema={activeSchema}
         value={value.active}
         onChange={(active) => onChange({ ...value, active })}
+        disabled={disabled}
       />
     </div>
   );

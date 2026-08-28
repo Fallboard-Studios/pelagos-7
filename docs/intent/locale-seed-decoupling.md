@@ -94,14 +94,14 @@ avoided by sequencing this doc first.
   keeps working the same way — it still needs to fold into whatever string gets hashed for the
   locale seed, exactly as it does today for the intermediate integer.
 - Purely a seeding-mechanism change — no `Locale`/`Robot`/store type shapes change, no new
-  Zustand state, nothing to persist (Session Storage is still Phase 11, untouched by this).
+  Zustand state, nothing to persist (Session Storage is still Phase 12, untouched by this).
 
 ## Out of scope
 
 - Phase 6's melody rhythm-engine overhaul (density-as-%, 1–8 motif length + toggle, note
   variance toggle, the `RHYTHMIC_MOTIF_LENGTH_MAX` constant change) — unrelated behavior change,
   stays in Phase 6.
-- Robot IDs becoming deterministic (needed for Phase 11's override-reapply-by-ID) — not required
+- Robot IDs becoming deterministic (needed for Phase 12's override-reapply-by-ID) — not required
   by this doc or by Sector Settings.
 - Sector Settings' own UI/data work (`sectorSettingsConfig.ts`, `SectorSettingsDrawer.tsx`,
   retransmit wiring, presets) — see [sector-settings.md](sector-settings.md), which depends on
