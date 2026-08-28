@@ -28,6 +28,12 @@ describe('sectorSettingsConfig', () => {
       expect(PLANET_NAME_SCHEMA.maxLength).toBe(128);
     });
 
+    it('PLANET_NAME_SCHEMA uses Attenuation Style copy, per docs/specs/ATTENUATION_STYLE.md §4', () => {
+      expect(PLANET_NAME_SCHEMA.loreLabel).toBe('ATTENUATION SEED');
+      expect(PLANET_NAME_SCHEMA.humanLabel).toBe('Attenuation Style');
+      expect(PLANET_NAME_SCHEMA.placeholder).toBe('Enter a new attenuation style…');
+    });
+
     it('COORDS_SCHEMA is a coordsInput with both label fields populated', () => {
       expect(COORDS_SCHEMA.type).toBe('coordsInput');
       expect(COORDS_SCHEMA.loreLabel).toBeTruthy();
