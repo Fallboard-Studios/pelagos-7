@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 import type { Locale, LocaleState } from '../types/locale';
 import { DEFAULT_LOCALE_ID } from './planetStore';
+import { DAY_DURATION_MS } from '../constants/time';
 import { getLocaleNoiseMap, evictLocaleNoiseMap } from '../utils/noiseMaps';
 import { AudioEngine } from '../engine/AudioEngine';
 import {
@@ -31,22 +32,27 @@ function clampToggleValue(v: unknown, min: number, max: number): { active: boole
   return { active: Boolean(active), value: Math.max(min, Math.min(max, Math.trunc(value))) };
 }
 
+// Was originally a non-integer value ({ x: 12.3456, y: 67.891 }) to dodge a
+// dead zone in the OLD planet-sampled locale derivation (integer/half-
+// integer-aligned coordinates like (0,0)/(0.5,0.5)/(1,1) used to collapse
+// to a low- or zero-entropy result). getLocaleNoiseMap (src/utils/noiseMaps.ts)
+// now hashes (x, y) directly instead of sampling simplex noise at the
+// point, which structurally eliminates that class of bug — no coordinate
+// is unsafe anymore (see docs/specs/LOCALE_SEED_DECOUPLING.md). Rounded to
+// integers here because CoordsInput.tsx/SectorSettingsDrawer.tsx both
+// assume coordinates are integers system-wide (docs/specs/SECTOR_SETTINGS.md)
+// — the old decimal default violated that, rendering as a multi-decimal
+// value in Sector Settings until the first user edit rounded it away.
+const DEFAULT_LOCALE_COORDINATES = { x: 12, y: 68 };
+
 const DEFAULT_LOCALE: Locale = {
   id: DEFAULT_LOCALE_ID,
   planetId: 'pelagos',
   name: 'Pelagos Ocean',
-  // Was originally a non-integer value ({ x: 12.3456, y: 67.891 }) to dodge a
-  // dead zone in the OLD planet-sampled locale derivation (integer/half-
-  // integer-aligned coordinates like (0,0)/(0.5,0.5)/(1,1) used to collapse
-  // to a low- or zero-entropy result). getLocaleNoiseMap (src/utils/noiseMaps.ts)
-  // now hashes (x, y) directly instead of sampling simplex noise at the
-  // point, which structurally eliminates that class of bug — no coordinate
-  // is unsafe anymore (see docs/specs/LOCALE_SEED_DECOUPLING.md). Rounded to
-  // integers here because CoordsInput.tsx/SectorSettingsDrawer.tsx both
-  // assume coordinates are integers system-wide (docs/specs/SECTOR_SETTINGS.md)
-  // — the old decimal default violated that, rendering as a multi-decimal
-  // value in Sector Settings until the first user edit rounded it away.
-  coordinates: { x: 12, y: 68 },
+  coordinates: DEFAULT_LOCALE_COORDINATES,
+  // Computed once at module load via the same x-derived formula buildLocale
+  // uses (worldTransition.ts) — see docs/specs/ATTENUATION_STYLE.md §1.1.
+  dayStartTimestamp: Date.now() - (Math.abs(DEFAULT_LOCALE_COORDINATES.x % 24) / 24) * DAY_DURATION_MS,
   robots: [],
   actors: [],
   companies: [],
