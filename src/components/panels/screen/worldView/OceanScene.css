@@ -13,6 +13,9 @@
   filter: brightness(1.1);
 }
 
-.robot.selected {
+/* Roadmap Phase 10: isCompanyMember reuses the exact same glow — one declaration, not a second
+   visual language for "highlighted." */
+.robot.selected,
+.robot.isCompanyMember {
   filter: drop-shadow(0 0 8px rgba(0, 255, 255, 0.8)) drop-shadow(0 0 16px rgba(0, 255, 255, 0.4));
 }

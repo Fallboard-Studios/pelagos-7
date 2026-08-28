@@ -36,8 +36,12 @@ export function Robot({ robot }: RobotProps) {
   const selectRobot = useUIStore((s) => s.selectRobot);
   const activeHubTile = useUIStore((s) => s.activeHubTile);
   const setActiveHubTile = useUIStore((s) => s.setActiveHubTile);
+  const selectedCompanyId = useUIStore((s) => s.selectedCompanyId);
   const localeId = usePlanetStore((s) => selectCurrentPlanet(s)?.currentLocaleId ?? '');
   const isSelected = selectedRobotId === robot.id;
+  // Roadmap Phase 10 — independent of isSelected; reuses the same .robot.selected glow (see
+  // OceanScene.css) rather than a second visual language for "highlighted."
+  const isCompanyMember = selectedCompanyId !== null && robot.companyId === selectedCompanyId;
 
   // useLayoutEffect fires before paint, preventing a single frame at (0,0).
   // Intentionally run this effect only on mount so GSAP owns transforms
@@ -70,10 +74,14 @@ export function Robot({ robot }: RobotProps) {
     if (activeHubTile === null) setActiveHubTile('robots');
   };
 
+  const className = ['robot', isSelected && 'selected', isCompanyMember && 'isCompanyMember']
+    .filter(Boolean)
+    .join(' ');
+
   return (
     <g
       ref={ref}
-      className={isSelected ? 'robot selected' : 'robot'}
+      className={className}
       onClick={handleClick}
       style={{ cursor: 'pointer' }}
     >
