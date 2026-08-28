@@ -34,7 +34,7 @@ function presetSchema(idSuffix: string, humanLabel: string): ButtonSchema {
 }
 
 /**
- * Sector Settings console panel — Planet Calibration (reseed the planet) and
+ * Sector Settings console panel — Attenuation Style (reseed the planet) and
  * Plot Tuning (jump to new locale coordinates), sharing one Retransmit
  * action. Preset buttons only populate their own field(s); they never submit
  * on their own — the user still presses Retransmit separately, per
