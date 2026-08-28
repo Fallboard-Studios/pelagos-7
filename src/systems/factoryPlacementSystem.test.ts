@@ -467,6 +467,25 @@ describe('FactoryPlacementSystem', () => {
       });
     });
 
+    it("the AS component of satShift stays modest (never exceeds 10 points) — a big non-negative range compounds with variants whose own local shift is already highly saturated (e.g. Monolith's satShiftRange is [40,60]), reading as an oversaturated 'fruit salad' skyline rather than a legible recolor", () => {
+      usePlanetStore.getState().addPlanet({ id: 'sat-ceiling-planet', name: 'sat-ceiling-planet-name', locales: [] });
+      const locale = {
+        id: 'locale-sat-ceiling', planetId: 'sat-ceiling-planet', name: 'SatCeiling', coordinates: { x: 5, y: 5 },
+        robots: [], actors: [], companies: [], settings: {}, currentMeasure: 0, dayStartTimestamp: Date.now(),
+      };
+      useLocaleStore.getState().addLocale('sat-ceiling-planet', locale);
+
+      const actors = placeFactories('locale-sat-ceiling');
+      expect(actors.length).toBeGreaterThan(0);
+
+      actors.forEach((actor) => {
+        const availableTypes = getRowConfig(actor.config?.row ?? 0)?.availableFactoryTypes;
+        const local = selectVariantFromSeed(actor.id, actor.position.x, actor.config?.row ?? 0, availableTypes);
+        const asSatContribution = (actor.config?.satShift ?? 0) - local.satShift;
+        expect(asSatContribution).toBeLessThanOrEqual(10);
+      });
+    });
+
     it("the AS component of hueShift is EVERY time large enough to change a wall's color family — a guaranteed minimum swing, not just a wide-but-clustered range", () => {
       // Sample the same factory slot (index 0, x=3) across many distinct
       // planets (distinct ASes) at the SAME locale coordinates, so the

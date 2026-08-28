@@ -68,19 +68,22 @@ const DEFAULT_CENTER_WIDTH = 0.4; // 40% of screen width for center spread
  *  yellow. See deriveAsColorShift below for why hue is sampled via alea (a
  *  uniform PRNG) instead of the noise map.
  *
- *  Saturation is deliberately non-negative ([0, 40], not symmetric):
- *  several variants' own local satShiftRange already drives the wall body
- *  color toward 0% saturation on its own (e.g. Stacks' is entirely negative,
- *  [-60, -40], against a base saturation of only 15%) — hue is invisible at
- *  s=0 no matter how large a hue shift is layered on top. A symmetric AS
- *  range meant roughly half of all AS rolls pushed an already-borderline
- *  wall even further toward invisible, defeating the point of a *visible*
- *  recolor — doubly important now that hue swings are large and guaranteed.
- *  Never subtracting keeps the AS shift additive (per §1.2) while
- *  guaranteeing it always nudges legibility the same direction. */
+ *  Saturation is deliberately non-negative ([0, 10], not symmetric) and kept
+ *  small: several variants' own local satShiftRange already drives the wall
+ *  body color toward 0% saturation on its own (e.g. Stacks' is entirely
+ *  negative, [-60, -40], against a base saturation of only 15%) — hue is
+ *  invisible at s=0 no matter how large a hue shift is layered on top, so
+ *  the AS contribution must never subtract. But a large non-negative range
+ *  (previously [0, 40]) compounds badly with the OTHER end — variants whose
+ *  local shift is already strongly positive (e.g. Monolith's is [40, 60])
+ *  stacked with a big AS boost pushed saturation to its 100% ceiling,
+ *  reading as an oversaturated "fruit salad" skyline rather than a legible
+ *  recolor. [0, 10] is a light, floor-only nudge: enough to keep an
+ *  already-desaturated wall from reading as pure gray, not enough to push
+ *  an already-saturated one into cartoon territory. */
 const AS_FACTORY_HUE_SHIFT_MIN_MAGNITUDE = 60;
 const AS_FACTORY_HUE_SHIFT_MAX_MAGNITUDE = 180;
-const AS_FACTORY_SAT_SHIFT_RANGE: [number, number] = [0, 40];
+const AS_FACTORY_SAT_SHIFT_RANGE: [number, number] = [0, 10];
 
 // ========================================
 // EXPORTS
