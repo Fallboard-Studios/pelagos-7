@@ -237,7 +237,7 @@ Tasks 1–8 share no edges between them (8-way parallel fan-out). Task 9 depends
 
   **Estimated scope:** S (1 file, several related deletions)
 
-- [ ] **Task 10: `src/stores/localeStore.ts` (+ test) — `DEFAULT_LOCALE` gains `dayStartTimestamp`**
+- [x] **Task 10: `src/stores/localeStore.ts` (+ test) — `DEFAULT_LOCALE` gains `dayStartTimestamp`**
 
   **Description:** Compute `DEFAULT_LOCALE.dayStartTimestamp` once at module load, via the same formula `buildLocale` uses: `Date.now() - (Math.abs(x % 24) / 24) * DAY_DURATION_MS`, using `DEFAULT_LOCALE.coordinates` (`{ x: 12, y: 68 }`).
 
@@ -257,7 +257,7 @@ Tasks 1–8 share no edges between them (8-way parallel fan-out). Task 9 depends
 
   **Estimated scope:** XS (1 field, computed once at module scope)
 
-- [ ] **Task 11: `TransportBar.tsx` (+ test) — "Planet:" → "Attenuation Style:" label**
+- [x] **Task 11: `TransportBar.tsx` (+ test) — "Planet:" → "Attenuation Style:" label**
 
   **Description:** Change the `<VisuallyHidden>Planet: </VisuallyHidden>` label to `<VisuallyHidden>Attenuation Style: </VisuallyHidden>`, per spec §4. Class name (`transport-bar__planet`) and JS variable name (`planetName`) stay unchanged — internal identifiers, not user-facing text. `TEST_PLANET` fixture in the test file drops `size`/`dayStartTimestamp`/`currentHour` to match Task 1's new `Planet` type.
 
@@ -279,9 +279,9 @@ Tasks 1–8 share no edges between them (8-way parallel fan-out). Task 9 depends
 
 ### Checkpoint: Stores + copy consumers complete
 
-- [ ] `npx vitest run src/stores/planetStore.test.ts src/stores/localeStore.test.ts src/components/panels/screen/TransportBar.test.tsx` — all passing.
-- [ ] `npm run build:types` — confirm remaining errors are isolated to `worldTransition.ts` and `PlanetView.tsx` only.
-- [ ] `npm run lint` clean across Tasks 9–11.
+- [x] `npx vitest run src/stores/planetStore.test.ts src/stores/localeStore.test.ts src/components/panels/screen/TransportBar.test.tsx` — all passing (83 tests).
+- [x] `npm run build:types` — confirmed remaining errors are isolated to `worldTransition.ts`/`PlanetView.tsx`/`LocaleView.tsx` (Task 12/13) plus `factoryPlacementSystem.test.ts`'s still-inline `Locale` fixtures (pre-existing, outside this phase) — nothing else.
+- [x] `npm run lint` clean (repo-wide).
 - [ ] Review with human before proceeding to `worldTransition.ts` — same gate SECTOR_SETTINGS.md's plan used before its own orchestration-core task.
 
 ---
