@@ -299,6 +299,7 @@ This phase introduces Companies — user-managed groups of robots that let every
 ### Forward Note
 
 - Session Storage (Phase 12) will need to persist Companies the same way it persists Robot Options overrides — `companies` alongside the per-robot override map, keyed by the same kind of deterministic ID `spawnSystem.ts` already gives robots (Phase 6), so a reload can reapply company membership and each company's snapshot rather than losing it. Nothing here needs to change for that; noted so Phase 12 doesn't discover it mid-implementation.
+- That deterministic-ID matching only covers spawn-generated companies. A company created by hand via `CompanyCrudControls` has a `crypto.randomUUID()` id (deliberate — see `docs/COMPANIES.md`'s Forbidden Patterns list; there's no seed to derive it from) and doesn't exist in a freshly-regenerated roster at all, so it can't be reapplied as a diff the way robot overrides and spawn-companies can. Phase 12 must persist user-created companies as complete objects (id, name, robotIds, snapshot) in the save payload, not as an ID-keyed diff. The random id itself is fine for this — it only needs to stay stable once saved, not be re-derivable from the seed.
 
 ### Docs
 
