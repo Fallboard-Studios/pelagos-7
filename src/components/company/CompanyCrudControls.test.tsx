@@ -54,6 +54,45 @@ describe('CompanyCrudControls', () => {
     expect((screen.getByRole('button', { name: 'Create' }) as HTMLButtonElement).disabled).toBe(false);
   });
 
+  it('the Create name input is also disabled once the locale already has MAX_COMPANIES companies', () => {
+    for (let i = 0; i < MAX_COMPANIES; i++) {
+      useLocaleStore.getState().addCompany(localeId, { id: `c${i}`, name: `Company ${i}`, robotIds: [] });
+    }
+    render(<CompanyCrudControls />);
+    expect((screen.getByRole('textbox', { name: /new company name/i }) as HTMLInputElement).disabled).toBe(true);
+  });
+
+  it('Create is disabled when the name draft is blank', () => {
+    render(<CompanyCrudControls />);
+    fireEvent.change(screen.getByRole('textbox', { name: /new company name/i }), { target: { value: '' } });
+    expect((screen.getByRole('button', { name: 'Create' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('Create is disabled when the name draft is whitespace-only', () => {
+    render(<CompanyCrudControls />);
+    fireEvent.change(screen.getByRole('textbox', { name: /new company name/i }), { target: { value: '   ' } });
+    expect((screen.getByRole('button', { name: 'Create' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('Create is enabled again once real (non-whitespace) text is entered', () => {
+    render(<CompanyCrudControls />);
+    const input = screen.getByRole('textbox', { name: /new company name/i });
+    fireEvent.change(input, { target: { value: '   ' } });
+    fireEvent.change(input, { target: { value: '  Iron Consortium  ' } });
+    expect((screen.getByRole('button', { name: 'Create' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('clicking Create trims surrounding whitespace from the stored name', () => {
+    const addSpy = vi.spyOn(useLocaleStore.getState(), 'addCompany');
+    render(<CompanyCrudControls />);
+
+    fireEvent.change(screen.getByRole('textbox', { name: /new company name/i }), { target: { value: '  Iron Consortium  ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    const [, company] = addSpy.mock.calls[0] as [string, Company];
+    expect(company.name).toBe('Iron Consortium');
+  });
+
   it('Rename input is disabled when no company is selected', () => {
     render(<CompanyCrudControls />);
     expect((screen.getByRole('textbox', { name: /rename company/i }) as HTMLInputElement).disabled).toBe(true);
@@ -90,6 +129,20 @@ describe('CompanyCrudControls', () => {
     useUIStore.getState().selectCompany('c1');
     render(<CompanyCrudControls />);
     expect((screen.getByRole('button', { name: 'Delete' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('Delete stays disabled when selectedCompanyId points at a company that no longer exists (e.g. after a reseed regenerated companies with fresh ids)', () => {
+    // No companies at all in this locale, but selectedCompanyId is a stale leftover id — uiStore
+    // isn't reset by a locale reseed, so this is a real reachable state, not a hypothetical one.
+    useUIStore.getState().selectCompany('stale-id-from-before-reseed');
+    render(<CompanyCrudControls />);
+    expect((screen.getByRole('button', { name: 'Delete' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('Rename input stays disabled when selectedCompanyId points at a company that no longer exists', () => {
+    useUIStore.getState().selectCompany('stale-id-from-before-reseed');
+    render(<CompanyCrudControls />);
+    expect((screen.getByRole('textbox', { name: /rename company/i }) as HTMLInputElement).disabled).toBe(true);
   });
 
   it('clicking Delete calls removeCompany then selectCompany(null), in that order', () => {

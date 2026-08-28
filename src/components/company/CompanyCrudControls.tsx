@@ -45,38 +45,49 @@ export function CompanyCrudControls() {
 
   const [createNameDraft, setCreateNameDraft] = useState(suggestCompanyName);
 
+  const atCap = companies.length >= MAX_COMPANIES;
+  // A "visible string" — not blank, not whitespace-only. The input itself is never disabled for
+  // this reason (only the cap disables the input) — disabling it on blank would make it
+  // impossible to type a first character back in.
+  const nameIsBlank = createNameDraft.trim().length === 0;
+  // selectedCompany, not selectedCompanyId — uiStore isn't reset by a locale reseed, so
+  // selectedCompanyId can point at a company that no longer exists (regenerated with a fresh id,
+  // or simply gone) even when the id itself is non-null. Gating on the resolved company object
+  // covers both "nothing selected" and "selection is stale" in one check.
+  const hasSelectedCompany = Boolean(selectedCompany);
+
   const handleCreate = () => {
-    const company: Company = { id: crypto.randomUUID(), name: createNameDraft, robotIds: [] };
+    const company: Company = { id: crypto.randomUUID(), name: createNameDraft.trim(), robotIds: [] };
     useLocaleStore.getState().addCompany(localeId, company);
     setCreateNameDraft(suggestCompanyName());
   };
 
   const handleRename = (name: string) => {
-    if (!selectedCompanyId) return;
-    useLocaleStore.getState().updateCompany(localeId, selectedCompanyId, { name });
+    if (!selectedCompany) return;
+    useLocaleStore.getState().updateCompany(localeId, selectedCompany.id, { name });
   };
 
   const handleDelete = () => {
-    if (!selectedCompanyId) return;
-    useLocaleStore.getState().removeCompany(localeId, selectedCompanyId);
+    if (!selectedCompany) return;
+    useLocaleStore.getState().removeCompany(localeId, selectedCompany.id);
     selectCompany(null);
   };
 
   return (
     <div className="company-crud-controls">
       <div className="company-crud-controls__create">
-        <TextInput schema={CREATE_NAME_SCHEMA} value={createNameDraft} onChange={setCreateNameDraft} />
-        <Button schema={CREATE_COMPANY_SCHEMA} onClick={handleCreate} disabled={companies.length >= MAX_COMPANIES} />
+        <TextInput schema={CREATE_NAME_SCHEMA} value={createNameDraft} onChange={setCreateNameDraft} disabled={atCap} />
+        <Button schema={CREATE_COMPANY_SCHEMA} onClick={handleCreate} disabled={atCap || nameIsBlank} />
       </div>
 
       <TextInput
         schema={RENAME_NAME_SCHEMA}
         value={selectedCompany?.name ?? ''}
         onChange={handleRename}
-        disabled={!selectedCompanyId}
+        disabled={!hasSelectedCompany}
       />
 
-      <Button schema={DELETE_COMPANY_SCHEMA} onClick={handleDelete} disabled={!selectedCompanyId} />
+      <Button schema={DELETE_COMPANY_SCHEMA} onClick={handleDelete} disabled={!hasSelectedCompany} />
     </div>
   );
 }
