@@ -272,6 +272,20 @@ This phase tears out the existing hand-built robot editor — RobotAudioTab's Au
 - `src/data/companyConfig.ts` — schemas for the company button row, the CRUD panel (Create/Rename/Delete, `TextInput` pre-filled with the generated name so a create action can be accepted as-is or edited before confirming), and the "Freelance" label, following the same typed-config-file convention every other drawer already uses.
 - A new `CompanyOptionsPanel` component rendered by `RobotsTab` beneath the existing robot card list: the company button row (one button per company, capped at `MAX_COMPANIES`, plus "None"), the CRUD controls, and then the same four editable sections `RobotOptionsTab` uses — greyed out (`disabled`) with no bound value when "None" is selected, bound to the selected company's snapshot otherwise.
 
+**Done** — see [docs/specs/COMPANIES.md](../specs/COMPANIES.md) and
+[docs/tasks/COMPANIES.md](../tasks/COMPANIES.md). Shipped shape differs from this draft's naming in
+a few places, none of them scope changes: `CompanyOptionsPanel` above shipped as three composed
+components (`CompanyManager` mounting `CompanyButtonRow` + `CompanyCrudControls` +
+`CompanyOptionsSection`), not one; company spawn generation is its own function,
+`spawnInitialCompanies` (`src/systems/spawnSystem.ts`), called from `worldTransition.ts`'s
+`initializeLocale` right after `spawnInitialRoster` rather than folded into it; and `localeStore.ts`
+gained two more company actions than listed here — `getCompanyMembers` and the atomic
+`assignRobotToCompany` (robot reassignment is a single cross-entity transition, not composed from
+separate `updateRobot`/`updateCompany` calls at the call site, mirroring `removeCompany`'s own
+shape). A real bug in `assignRobotToCompany` — re-selecting a robot's already-assigned company
+silently dropped it from that company's `robotIds` — was found in code review before merge and
+fixed with regression coverage; see `localeStore.test.ts`.
+
 ### Restructure
 
 - `RobotDisplaySection`'s Audio Setting/Volume/Volume-LFO handlers and each of `PingControlsDrawer`/`PingContourDrawer`/`SignatureArrayDrawer`'s per-field handlers are extracted into shared pure functions (e.g. `applyAudioMode`, `applyVolume`, `applyDensity`, ...) that do exactly what today's inline handlers do — `updateRobot` plus whatever live `AudioEngine`/`lfoEngine`/`regenerateMelody` call already accompanies it. Both the existing single-robot drawers and the new `CompanyOptionsPanel` call the same functions; the panel's `onChange` handlers just loop them across `company.robotIds` instead of calling once. This is required, not cosmetic — a company-wide volume change that only wrote `updateRobot` without also calling `AudioEngine.updateRobotMasterVolume` per member would reproduce the exact stale-cache bug Phase 9's post-launch fixes already found and fixed for the single-robot case.
@@ -288,9 +302,9 @@ This phase introduces Companies — user-managed groups of robots that let every
 
 ### Docs
 
-- `docs/COMPONENT_LIBRARY.md` updated for the 14th primitive (`Select`); `CLAUDE.md`'s reference bullet text ("The 13 stateless UI primitives") updated to 14.
-- No existing doc covers Companies — add a new `docs/COMPANIES.md`, in the style of `docs/ROBOT_LIFECYCLE.md`, documenting the `Company`/`CompanyOptionsSnapshot` shape, the seeded spawn-time generation, and the broadcast-not-link edit semantics. Add it to CLAUDE.md's reference doc list.
-- `docs/UI_SHELL.md`'s Robots tile description gains the company row/panel — it currently only describes the robot list.
+- ~~`docs/COMPONENT_LIBRARY.md` updated for the 14th primitive (`Select`); `CLAUDE.md`'s reference bullet text ("The 13 stateless UI primitives") updated to 14.~~ — **done**.
+- ~~No existing doc covers Companies — add a new `docs/COMPANIES.md`, in the style of `docs/ROBOT_LIFECYCLE.md`, documenting the `Company`/`CompanyOptionsSnapshot` shape, the seeded spawn-time generation, and the broadcast-not-link edit semantics. Add it to CLAUDE.md's reference doc list.~~ — **done**, see [docs/COMPANIES.md](../COMPANIES.md).
+- ~~`docs/UI_SHELL.md`'s Robots tile description gains the company row/panel — it currently only describes the robot list.~~ — **done**.
 
 ## 11. Console Theming
 

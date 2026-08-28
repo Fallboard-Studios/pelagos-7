@@ -58,12 +58,12 @@ Reference docs
 - `docs/ANIMATION_SYSTEM.md`: GSAP timeline patterns, `timelineMap` lifecycle, and ref registry usage.
 - `docs/BUILDING_DESIGN.md`: Factory and placement rules, production cooldowns, and placement algorithms.
 - `docs/ROBOT_DESIGN.md`: Robot visual design, audio→visual attribute mapping (synth/ADSR/phase/detune), and SVG generation rules.
-- `docs/COMPONENT_LIBRARY.md`: The 13 stateless UI primitives in `src/components/ui/controls/` and the `ControlSchema` contract they consume — the Design System foundation later drawer phases build on.
+- `docs/COMPONENT_LIBRARY.md`: The 14 stateless UI primitives in `src/components/ui/controls/` and the `ControlSchema` contract they consume — the Design System foundation later drawer phases build on.
 - `docs/CONTRIBUTION_GUIDE.md`: PR process, testing expectations, and where to record exceptions.
 - `docs/UI_SHELL.md`: Sleeve & Glass UI architecture, console navigation, and `uiStore` responsibilities.
 - `docs/PROCEDURAL_GENERATION.md`: Seeded/deterministic world generation — noise-map registry, `getSeededVal`, and dataId conventions.
 - `docs/ROBOT_LIFECYCLE.md`: Battery/Docking/Job state machines — the fixed 12-robot roster, battery drain/recharge, the Docking transition hold, pitch drift, and job affinity scoring.
-- `docs/COMPANIES.md`: Company grouping design — the `Company`/`CompanyOptionsSnapshot` shape, seeded spawn-time generation, and the broadcast-not-link bulk-edit semantics. Design doc for roadmap Phase 10 — not yet implemented.
+- `docs/COMPANIES.md`: Company grouping — the `Company`/`CompanyOptionsSnapshot` shape, seeded spawn-time generation, and the broadcast-not-link bulk-edit semantics. Roadmap Phase 10.
 - `docs/SESSION_STORAGE.md`: App-wide persistence design — save/load hierarchy, URL state compression, and the robot-override diff model. Design doc for roadmap Phase 12 — not yet implemented.
 - `docs/CONSOLE_THEMING.md`: Seed-derived console chrome design — planet seed drives large/structural elements, locale seed drives small accents, with a fixed interior boundary against ScreenViewport. Design doc for roadmap Phase 11 — not yet implemented.
 

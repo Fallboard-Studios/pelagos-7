@@ -16,7 +16,7 @@ interface ControlSchemaBase {
 }
 ```
 
-`CONTROL_SCHEMA_TYPES` is a `readonly` array of all 13 discriminant strings, mirroring `src/types/lfo.ts`'s `LFO_SHAPES`/`ROBOT_LFO_TARGET_IDS` pattern — it makes "all 13 variants covered, no duplicates" a runtime-testable assertion (`src/types/controls.test.ts`), not just a compile-time property.
+`CONTROL_SCHEMA_TYPES` is a `readonly` array of all 14 discriminant strings, mirroring `src/types/lfo.ts`'s `LFO_SHAPES`/`ROBOT_LFO_TARGET_IDS` pattern — it makes "all 14 variants covered, no duplicates" a runtime-testable assertion (`src/types/controls.test.ts`), not just a compile-time property. `select` (`Select`) was added in Roadmap Phase 10 (Companies), the first addition to this inventory since this phase shipped it at 13.
 
 `LfoValue` (`LfoSettings & { active: boolean }`) is the `Lfo` component's controlled value — a type-only reuse of the real Phase 0 engine type (`src/types/lfo.ts`), with no import of `src/engine/lfoEngine.ts` or any `Tone` object.
 
@@ -41,7 +41,7 @@ Because `loreLabel`/`humanLabel` are both optional (`ControlSchemaBase`, exporte
 
 ## Primitives
 
-All 13 live in `src/components/ui/controls/`. Naming: PascalCase files, CSS class prefix `sc-` (schema control) to avoid collisions with the existing `rat-`/`rocker-` prefixes.
+All 14 live in `src/components/ui/controls/`. Naming: PascalCase files, CSS class prefix `sc-` (schema control) to avoid collisions with the existing `rat-`/`rocker-` prefixes.
 
 | Component | `ControlSchema` variant | Props | `ROBOT_DATA_GRID.md` row(s) |
 |---|---|---|---|
@@ -57,7 +57,12 @@ All 13 live in `src/components/ui/controls/`. Naming: PascalCase files, CSS clas
 | `SliderCenteredZero` | `SliderCenteredZeroSchema` | `{ schema: SliderCenteredZeroSchema; value: number; onChange: (value: number) => void }` — zero-anchored custom fill, see below | Detune (all 3 layers) |
 | `CoordsInput` | `CoordsInputSchema` | `{ schema: CoordsInputSchema; value: { x: number; y: number }; onChange: (value) => void }` — composes two `TextInput`s with `numeric` set, so X/Y render as native numeric inputs; a blank or non-numeric field is guarded and does not call `onChange` | Not in the robot grid — roadmap Phase 5's Sector Settings |
 | `AccordionContainer` | `AccordionSchema` | `{ schema: AccordionSchema; children: ReactNode; defaultOpen?: boolean; contentActive?: boolean }` — one independent collapsible section, not a group coordinator; `contentActive` drives the trigger's status light, see below | Ping Controls, Ping Contour, Signature Array (drawer rows) |
-| `Lfo` | `LfoSchema` | `{ schema: LfoSchema; value: LfoValue; onChange: (value: LfoValue) => void }` — composes `RadioButton` + 2×`SliderLinear` + `Toggle` | OSCILLATION rows (LFO Active/Shape/Rate/Depth) |
+| `Lfo` | `LfoSchema` | `{ schema: LfoSchema; value: LfoValue; onChange: (value: LfoValue) => void; disabled?: boolean }` — composes `RadioButton` + 2×`SliderLinear` + `Toggle` | OSCILLATION rows (LFO Active/Shape/Rate/Depth) |
+| `Select` | `SelectSchema` | `{ schema: SelectSchema; value: string; onChange: (value: string) => void; disabled?: boolean }` — wraps `@radix-ui/react-select` (already a dependency before this primitive existed — no new package added) | Not in the robot grid — Roadmap Phase 10's robot-to-company assignment dropdown (`src/data/companyConfig.ts`'s `buildCompanySelectSchema`) |
+
+### `Select` (added Roadmap Phase 10)
+
+The 14th primitive, and the first dropdown in the inventory — the 13 shipped by this phase had no options-list control that opens a floating panel (`RadioButton`'s segmented toggle-group doesn't scale to an open-ended, user-growable list like companies). Same props shape as `RadioButton`, the closest existing precedent (an options-list control wrapping a Radix primitive), plus `disabled` — which every other options-list control here already had by the time this one shipped. `@radix-ui/react-select` was already present in `package.json` from an earlier install; this primitive is simply its first real consumer, so adding it required no new dependency and no confirmation-with-user step the way `@radix-ui/react-accordion` did in this phase's own history.
 
 ### `SliderLog`'s epsilon-floor curve
 
@@ -82,7 +87,7 @@ The trigger's contents, left to right: a decorative `+`/`−` open-state indicat
 
 ## CSS tokens
 
-No new CSS custom properties were introduced in this phase. Every component's CSS pulls color from the existing accent-tier tokens already defined in `src/index.css`: `--color-accent`, `--color-border`, `--color-surface`, `--color-text-primary`, `--color-text-muted`. Per the roadmap's Phase 11 Forward Note, these 13 components are all small interactive-control chrome, so they belong to the locale-seed/accent tier (not the planet-seed/structural `--color-bg`/`--color-surface`-defining tier) — no reclassification will be needed when Phase 11 lands.
+No new CSS custom properties were introduced in this phase. Every component's CSS pulls color from the existing accent-tier tokens already defined in `src/index.css`: `--color-accent`, `--color-border`, `--color-surface`, `--color-text-primary`, `--color-text-muted`. Per the roadmap's Phase 11 Forward Note, these 13 components are all small interactive-control chrome, so they belong to the locale-seed/accent tier (not the planet-seed/structural `--color-bg`/`--color-surface`-defining tier) — no reclassification will be needed when Phase 11 lands. `Select` (Phase 10) pulls from the exact same accent-tier tokens and needed no new ones either, confirming that forward note held for the one primitive added after this phase shipped.
 
 ## What's explicitly out of scope this phase
 
