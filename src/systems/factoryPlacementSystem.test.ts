@@ -466,6 +466,32 @@ describe('FactoryPlacementSystem', () => {
         expect(asSatContribution).toBeGreaterThanOrEqual(0);
       });
     });
+
+    it("the AS component of hueShift can swing far enough to change a wall's color family across an AS retransmit — not just a subtle tweak within the same hue neighborhood", () => {
+      // Sample the same factory slot (index 0, x=3) across many distinct
+      // planets (distinct AS noise maps) at the SAME locale coordinates, so
+      // the local-only hueShift is identical every time and any spread is
+      // attributable entirely to the AS component. A ±30 range could never
+      // produce a sample exceeding 30 in absolute value — this is only
+      // reachable with a genuinely wide range.
+      const contributions: number[] = [];
+      for (let i = 0; i < 20; i++) {
+        const planetId = `hue-diversity-planet-${i}`;
+        usePlanetStore.getState().addPlanet({ id: planetId, name: `hue-diversity-planet-name-${i}`, locales: [] });
+        const localeId = `locale-hue-diversity-${i}`;
+        useLocaleStore.getState().addLocale(planetId, {
+          id: localeId, planetId, name: `Hue ${i}`, coordinates: { x: 3, y: 3 },
+          robots: [], actors: [], companies: [], settings: {}, currentMeasure: 0, dayStartTimestamp: Date.now(),
+        });
+
+        const [firstActor] = placeFactories(localeId);
+        const availableTypes = getRowConfig(firstActor.config?.row ?? 0)?.availableFactoryTypes;
+        const local = selectVariantFromSeed(firstActor.id, firstActor.position.x, firstActor.config?.row ?? 0, availableTypes);
+        contributions.push((firstActor.config?.hueShift ?? 0) - local.hueShift);
+      }
+
+      expect(contributions.some((c) => Math.abs(c) > 90)).toBe(true);
+    });
   });
 
   describe('recolorFactoriesForAttenuationStyle', () => {

@@ -48,24 +48,28 @@ const PRODUCTION_INTERVAL = 60; // measures
 const DEFAULT_ROW_EDGE_WIDTH = 0.3; // 30% of screen width on each edge
 const DEFAULT_CENTER_WIDTH = 0.4; // 40% of screen width for center spread
 
-/** Moderate, bounded range for the AS-seeded color component — same order of
- *  magnitude as the widest per-variant colorRanges (Skyscraper's ±120 hue is
- *  an outlier; most variants sit in the ±15-60 range) so a fresh AS visibly
- *  recolors the skyline without a single roll being able to wash it out
- *  entirely. First-pass default, not spec-mandated — see
- *  docs/specs/ATTENUATION_STYLE.md §7 item 2; tune here if a manual check
- *  finds it reads as invisible or overwhelming.
+/** Bounded range for the AS-seeded color component. First-pass default, not
+ *  spec-mandated — see docs/specs/ATTENUATION_STYLE.md §7 item 2; tune here
+ *  if a manual check finds it reads as invisible or overwhelming.
  *
- *  Saturation is deliberately non-negative (was symmetric [-20, 20]):
+ *  Hue spans a full half-circle each direction ([-180, 180], wrapped mod 360
+ *  by shiftHSL) so a fresh AS can move a building's color family entirely —
+ *  purple is not guaranteed to stay purple, yellow is not guaranteed to stay
+ *  yellow. A narrower range (previously ±30) keeps every retransmit reading
+ *  as "the same building, slightly recolored," which under-delivers on the
+ *  AS's own premise of a genuinely new attenuation style.
+ *
+ *  Saturation is deliberately non-negative ([0, 40], not symmetric):
  *  several variants' own local satShiftRange already drives the wall body
  *  color toward 0% saturation on its own (e.g. Stacks' is entirely negative,
  *  [-60, -40], against a base saturation of only 15%) — hue is invisible at
  *  s=0 no matter how large a hue shift is layered on top. A symmetric AS
  *  range meant roughly half of all AS rolls pushed an already-borderline
  *  wall even further toward invisible, defeating the point of a *visible*
- *  recolor. Never subtracting keeps the AS shift additive (per §1.2) while
- *  guaranteeing it always nudges legibility the same direction. */
-const AS_FACTORY_HUE_SHIFT_RANGE: [number, number] = [-30, 30];
+ *  recolor — doubly important now that hue swings are much larger. Never
+ *  subtracting keeps the AS shift additive (per §1.2) while guaranteeing it
+ *  always nudges legibility the same direction. */
+const AS_FACTORY_HUE_SHIFT_RANGE: [number, number] = [-180, 180];
 const AS_FACTORY_SAT_SHIFT_RANGE: [number, number] = [0, 40];
 
 // ========================================
