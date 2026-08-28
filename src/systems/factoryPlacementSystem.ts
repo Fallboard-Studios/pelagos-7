@@ -54,9 +54,19 @@ const DEFAULT_CENTER_WIDTH = 0.4; // 40% of screen width for center spread
  *  recolors the skyline without a single roll being able to wash it out
  *  entirely. First-pass default, not spec-mandated — see
  *  docs/specs/ATTENUATION_STYLE.md §7 item 2; tune here if a manual check
- *  finds it reads as invisible or overwhelming. */
+ *  finds it reads as invisible or overwhelming.
+ *
+ *  Saturation is deliberately non-negative (was symmetric [-20, 20]):
+ *  several variants' own local satShiftRange already drives the wall body
+ *  color toward 0% saturation on its own (e.g. Stacks' is entirely negative,
+ *  [-60, -40], against a base saturation of only 15%) — hue is invisible at
+ *  s=0 no matter how large a hue shift is layered on top. A symmetric AS
+ *  range meant roughly half of all AS rolls pushed an already-borderline
+ *  wall even further toward invisible, defeating the point of a *visible*
+ *  recolor. Never subtracting keeps the AS shift additive (per §1.2) while
+ *  guaranteeing it always nudges legibility the same direction. */
 const AS_FACTORY_HUE_SHIFT_RANGE: [number, number] = [-30, 30];
-const AS_FACTORY_SAT_SHIFT_RANGE: [number, number] = [-20, 20];
+const AS_FACTORY_SAT_SHIFT_RANGE: [number, number] = [0, 40];
 
 // ========================================
 // EXPORTS

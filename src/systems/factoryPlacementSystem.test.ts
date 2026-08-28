@@ -447,6 +447,25 @@ describe('FactoryPlacementSystem', () => {
         expect(actor.config?.satShift).toBe(local.satShift);
       });
     });
+
+    it("the AS component of satShift is never negative — several variants' own local shift already crushes body saturation toward 0 (e.g. Stacks' satShiftRange is fully negative), so a negative AS roll on top would make an already-borderline-invisible wall even less visible, defeating the AS recolor's own purpose", () => {
+      usePlanetStore.getState().addPlanet({ id: 'legibility-planet', name: 'legibility-planet-name', locales: [] });
+      const locale = {
+        id: 'locale-legibility', planetId: 'legibility-planet', name: 'Legibility', coordinates: { x: 3, y: 3 },
+        robots: [], actors: [], companies: [], settings: {}, currentMeasure: 0, dayStartTimestamp: Date.now(),
+      };
+      useLocaleStore.getState().addLocale('legibility-planet', locale);
+
+      const actors = placeFactories('locale-legibility');
+      expect(actors.length).toBeGreaterThan(0);
+
+      actors.forEach((actor) => {
+        const availableTypes = getRowConfig(actor.config?.row ?? 0)?.availableFactoryTypes;
+        const local = selectVariantFromSeed(actor.id, actor.position.x, actor.config?.row ?? 0, availableTypes);
+        const asSatContribution = (actor.config?.satShift ?? 0) - local.satShift;
+        expect(asSatContribution).toBeGreaterThanOrEqual(0);
+      });
+    });
   });
 
   describe('recolorFactoriesForAttenuationStyle', () => {
