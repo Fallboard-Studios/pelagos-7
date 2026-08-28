@@ -288,7 +288,7 @@ Tasks 1–8 share no edges between them (8-way parallel fan-out). Task 9 depends
 
 ### Phase 3: Orchestration core + world-time view wiring (parallel siblings)
 
-- [ ] **Task 12: `src/systems/worldTransition.ts` (+ test) — time-formula inversion + AS recolor call**
+- [x] **Task 12: `src/systems/worldTransition.ts` (+ test) — time-formula inversion + AS recolor call**
 
   **Description:** `buildPlanet` drops `dayStartTimestamp`/`size`/`currentHour` entirely; `buildLocale` stamps `dayStartTimestamp` from its own `coordinates.x`; `retransmitPlanetOnly` calls the new `recolorFactoriesForAttenuationStyle(oldLocaleId, newPlanet.id, newPlanet.name)` for the re-parented locale, and — critically — does **not** touch that locale's `dayStartTimestamp` in any way (only ever `setLocaleData(oldLocaleId, { planetId: newPlanet.id })`, a partial patch). `retransmitCoordsOnly`/`retransmitBoth` need no code change — both already call `buildLocale`, which now stamps the field as a direct consequence.
 
@@ -311,7 +311,7 @@ Tasks 1–8 share no edges between them (8-way parallel fan-out). Task 9 depends
 
   **Estimated scope:** M (1 file, 2 construction helpers + 1 branch function touched — the phase's second-largest task, and the one flagged in the spec as easiest to get backwards)
 
-- [ ] **Task 13: `PlanetView.tsx` + `LocaleView.tsx` — collapse to one hour computation**
+- [x] **Task 13: `PlanetView.tsx` + `LocaleView.tsx` — collapse to one hour computation**
 
   **Description:** `PlanetView.tsx`'s per-second tick reads the current locale's own `dayStartTimestamp` (not the planet's), computes the hour via `computeLocaleHour`, and writes that single value to both local component state and `uiStore.activeLocaleLocalTime` — no second `computeLocalTime` pass. `LocaleView.tsx` drops its own `computeLocalTime` call; its prop is renamed `currentHour` → `localTime` (the one identifier rename in this phase beyond deletions, justified in spec §1.1 — the value's meaning genuinely changed) and passes straight through to `OceanScene`. These two files are one vertical slice — `PlanetView` calls `LocaleView` with the renamed prop in the same edit, so they land together, not sequentially.
 
@@ -335,10 +335,10 @@ Tasks 1–8 share no edges between them (8-way parallel fan-out). Task 9 depends
 
 ### Checkpoint: Orchestration + view wiring complete
 
-- [ ] `npx vitest run src/systems/worldTransition.test.ts` passing.
-- [ ] `npm run build:types` — fully clean project-wide for the first time this phase.
-- [ ] `npm run lint`, `npm test` — fully clean.
-- [ ] **Manual check (per spec §5):** retransmit a new Attenuation Style (planet-name field only) and confirm the World Time display does **not** jump, while the factory skyline visibly recolors (same buildings, same layout, different hue); retransmit new coordinates only and confirm the World Time display *does* jump to the new coordinate's `abs(x % 24)` hour while factory colors on the new locale reflect the *unchanged* AS.
+- [x] `npx vitest run src/systems/worldTransition.test.ts` passing (27 tests).
+- [x] `npm run build:types` — fully clean project-wide (confirmed zero errors, including the 4 pre-existing inline `Locale` fixtures in `factoryPlacementSystem.test.ts` closed out as part of reaching this).
+- [x] `npm run lint`, `npm test` — fully clean (repo-wide lint clean; 100/100 test files, 1397/1397 tests passing).
+- [ ] **Manual check (per spec §5)** — not yet done, requires a human (or a launched dev server) to visually confirm: retransmit a new Attenuation Style (planet-name field only) and confirm the World Time display does **not** jump, while the factory skyline visibly recolors (same buildings, same layout, different hue); retransmit new coordinates only and confirm the World Time display *does* jump to the new coordinate's `abs(x % 24)` hour while factory colors on the new locale reflect the *unchanged* AS.
 - [ ] Review with human before proceeding — this is the phase's actual engineering core (both mechanisms now converge and are observable together for the first time); worth a close look, mirroring SECTOR_SETTINGS.md's own gate before its UI layer.
 
 ---
