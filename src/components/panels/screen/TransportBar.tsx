@@ -76,7 +76,7 @@ function TransportBar() {
             hidden) text instead — that reaches assistive tech regardless
             of role support, since it's part of the element's own content. */}
         <span className="transport-bar__planet">
-          <VisuallyHidden>Planet: </VisuallyHidden>
+          <VisuallyHidden>Attenuation Style: </VisuallyHidden>
           {planetName}
         </span>
         <span className="transport-bar__coords">
