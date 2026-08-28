@@ -461,6 +461,48 @@ describe('localeStore', () => {
       expect(() => useLocaleStore.getState().assignRobotToCompany(DEFAULT_LOCALE_ID, 'nonexistent', 'a')).not.toThrow();
       expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].companies.find((c) => c.id === 'a')?.robotIds).toEqual([]);
     });
+
+    it('re-assigning a robot to the company it is already in leaves it in robotIds — not removed', () => {
+      // Regression test for a real bug found in code review: the old implementation used two
+      // sequential `if`s that each `return`ed immediately inside the .map() callback, so when
+      // oldCompanyId === companyId (re-selecting the currently-assigned company — reachable from
+      // both RobotSelectionCard's and RobotDisplaySection's company Select, e.g. a user opening
+      // the dropdown and clicking the already-checked option), the "remove from old company"
+      // branch matched and returned before the "add to new company" branch ever ran, silently
+      // dropping the robot from its own company's robotIds while robot.companyId stayed
+      // unchanged — a real data-integrity split between the two, confirmed via an isolated repro
+      // before this test was written.
+      useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, { ...makeRobot('r1'), companyId: 'a' });
+      useLocaleStore.getState().addCompany(DEFAULT_LOCALE_ID, makeCompany('a', ['r1']));
+
+      useLocaleStore.getState().assignRobotToCompany(DEFAULT_LOCALE_ID, 'r1', 'a');
+
+      const state = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID];
+      expect(state.robots.find((r) => r.id === 'r1')?.companyId).toBe('a');
+      expect(state.companies.find((c) => c.id === 'a')?.robotIds).toEqual(['r1']);
+    });
+
+    it('re-assigning to the same company does not disturb other members\' robotIds', () => {
+      useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, { ...makeRobot('r1'), companyId: 'a' });
+      useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, { ...makeRobot('r2'), companyId: 'a' });
+      useLocaleStore.getState().addCompany(DEFAULT_LOCALE_ID, makeCompany('a', ['r1', 'r2']));
+
+      useLocaleStore.getState().assignRobotToCompany(DEFAULT_LOCALE_ID, 'r1', 'a');
+
+      const robotIds = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].companies.find((c) => c.id === 'a')?.robotIds;
+      expect(robotIds?.sort()).toEqual(['r1', 'r2']);
+    });
+
+    it('re-selecting Freelance for an already-Freelance robot stays a no-op', () => {
+      useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, makeRobot('r1'));
+      useLocaleStore.getState().addCompany(DEFAULT_LOCALE_ID, makeCompany('a', []));
+
+      useLocaleStore.getState().assignRobotToCompany(DEFAULT_LOCALE_ID, 'r1', null);
+
+      const state = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID];
+      expect(state.robots.find((r) => r.id === 'r1')?.companyId).toBeUndefined();
+      expect(state.companies.find((c) => c.id === 'a')?.robotIds).toEqual([]);
+    });
   });
 
   describe('removeLocale with companies', () => {

@@ -253,10 +253,16 @@ export const useLocaleStore = create<LocaleState>((set, get) => ({
       const nextRobots = existing.robots.map((r) =>
         r.id === robotId ? { ...r, companyId: companyId ?? undefined } : r
       );
+      // Two independent `if`s, neither an early `return` — when oldCompanyId === companyId
+      // (re-selecting the currently-assigned company), both must run in sequence: remove, then
+      // re-add. An early-return version only ever hits the first matching branch and silently
+      // drops the robot from its own company's robotIds in that case (see localeStore.test.ts's
+      // regression coverage).
       const nextCompanies = existing.companies.map((c) => {
-        if (c.id === oldCompanyId) return { ...c, robotIds: c.robotIds.filter((id) => id !== robotId) };
-        if (c.id === companyId) return { ...c, robotIds: [...c.robotIds, robotId] };
-        return c;
+        let robotIds = c.robotIds;
+        if (c.id === oldCompanyId) robotIds = robotIds.filter((id) => id !== robotId);
+        if (c.id === companyId) robotIds = [...robotIds, robotId];
+        return robotIds === c.robotIds ? c : { ...c, robotIds };
       });
       return { locales: { ...state.locales, [localeId]: { ...existing, robots: nextRobots, companies: nextCompanies } } };
     });
