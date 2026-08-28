@@ -62,6 +62,7 @@ describe('FactoryPlacementSystem', () => {
         planetId: 'pelagos',
         name: 'Other',
         coordinates: { x: 5, y: 5 },
+        dayStartTimestamp: Date.now(),
         robots: [],
         actors: [],
         companies: [],
@@ -345,11 +346,11 @@ describe('FactoryPlacementSystem', () => {
       // positions, scales, and colors bit-for-bit, on a completely separate locale.
       const localeA = {
         id: 'locale-a', planetId: 'p', name: 'A', coordinates: { x: 42, y: 7 },
-        robots: [], actors: [], companies: [], settings: {}, currentMeasure: 0,
+        robots: [], actors: [], companies: [], settings: {}, currentMeasure: 0, dayStartTimestamp: Date.now(),
       };
       const localeB = {
         id: 'locale-b', planetId: 'p', name: 'B', coordinates: { x: 42, y: 7 },
-        robots: [], actors: [], companies: [], settings: {}, currentMeasure: 0,
+        robots: [], actors: [], companies: [], settings: {}, currentMeasure: 0, dayStartTimestamp: Date.now(),
       };
       useLocaleStore.getState().addLocale('p', localeA);
       useLocaleStore.getState().addLocale('p', localeB);
@@ -364,11 +365,11 @@ describe('FactoryPlacementSystem', () => {
     it('produces a different factory backdrop for locales at different coordinates', () => {
       const localeA = {
         id: 'locale-c', planetId: 'p', name: 'C', coordinates: { x: 1, y: 1 },
-        robots: [], actors: [], companies: [], settings: {}, currentMeasure: 0,
+        robots: [], actors: [], companies: [], settings: {}, currentMeasure: 0, dayStartTimestamp: Date.now(),
       };
       const localeB = {
         id: 'locale-d', planetId: 'p', name: 'D', coordinates: { x: 99, y: 99 },
-        robots: [], actors: [], companies: [], settings: {}, currentMeasure: 0,
+        robots: [], actors: [], companies: [], settings: {}, currentMeasure: 0, dayStartTimestamp: Date.now(),
       };
       useLocaleStore.getState().addLocale('p', localeA);
       useLocaleStore.getState().addLocale('p', localeB);

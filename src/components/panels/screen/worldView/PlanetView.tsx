@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import LocaleView from './LocaleView';
-import { computePlanetHour, computeLocalTime } from '@/constants/time';
+import { computeLocaleHour } from '@/constants/time';
 
 import { usePlanetStore } from '@/stores/planetStore';
 import { useLocaleStore } from '@/stores/localeStore';
@@ -14,39 +14,37 @@ interface PlanetViewProps {
 
 function PlanetView({ planetId }: PlanetViewProps) {
   const planet = usePlanetStore((s) => s.planets.find((p) => p.id === planetId));
+  const localeId = planet?.currentLocaleId ?? '';
 
   const [currentHour, setCurrentHour] = useState(() => {
-    const p = usePlanetStore.getState().planets.find((pl) => pl.id === planetId);
-    if (!p) return 0;
-    return computePlanetHour(p.dayStartTimestamp, p.size);
+    const locale = useLocaleStore.getState().locales[localeId];
+    return locale ? computeLocaleHour(locale.dayStartTimestamp) : 0;
   });
 
   useEffect(() => {
     const tick = () => {
-      const p = usePlanetStore.getState().planets.find((pl) => pl.id === planetId);
-      if (!p) return;
-      const hour = computePlanetHour(p.dayStartTimestamp, p.size);
+      const locale = useLocaleStore.getState().locales[localeId];
+      if (!locale) return;
+      const hour = computeLocaleHour(locale.dayStartTimestamp);
       setCurrentHour(hour);
-
-      const activeLocale = useLocaleStore.getState().locales[p.currentLocaleId ?? ''];
-      if (activeLocale) {
-        useUIStore.getState().setActiveLocaleLocalTime(computeLocalTime(hour, activeLocale.coordinates.x));
-      }
+      // No second computeLocalTime pass — hour already IS this locale's own
+      // local time, computed directly from its own dayStartTimestamp. One
+      // computation, two consumers (local state below, uiStore here).
+      useUIStore.getState().setActiveLocaleLocalTime(hour);
     };
 
     tick();
-    const id = setInterval(tick, 1000);
+    const id = setInterval(tick, 1000); // wall-clock UI display tick, not musical timing
     return () => clearInterval(id);
-  }, [planetId]);
+  }, [localeId]);
 
   if (!planet) return null;
 
   return (
     <div className="planet-view">
-      <LocaleView localeId={planet.currentLocaleId ?? ''} currentHour={currentHour} />
+      <LocaleView localeId={localeId} localTime={currentHour} />
     </div>
   );
 }
 
 export default PlanetView;
-
