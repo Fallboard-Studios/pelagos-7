@@ -10,7 +10,7 @@ import {
   SIGNATURE_ARRAY_CONFIG,
   type SignatureArrayParamSchema,
 } from '@/data/robotOptionsConfig';
-import type { Robot, WaveformType } from '@/types/Robot';
+import type { WaveformType } from '@/types/Robot';
 import type { OscillatorLayer } from '@/types/layeredAudio';
 import type { LfoValue, RadioButtonSchema, SliderCenteredZeroSchema, SliderLinearSchema } from '@/types/controls';
 import type { RobotLfoTargetId } from '@/types/lfo';
@@ -19,7 +19,11 @@ import './SignatureArrayDrawer.css';
 
 export interface SignatureArrayValue {
   layers: OscillatorLayer[];
-  lfoSettings?: Robot['lfoSettings'];
+  // Partial, not Robot['lfoSettings'] (a full Record) — this component's own lookup below
+  // (`value.lfoSettings?.[lfoTarget] ?? default`) already treats it as potentially-partial at
+  // runtime, and CompanyOptionsSection's resolved snapshot is genuinely partial (only fields a
+  // company has actually been edited for are present). A full Record is still assignable here.
+  lfoSettings?: Partial<Record<RobotLfoTargetId, LfoValue>>;
 }
 
 interface SignatureArrayDrawerProps {
