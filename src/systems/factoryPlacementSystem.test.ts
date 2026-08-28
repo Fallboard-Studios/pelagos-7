@@ -467,15 +467,16 @@ describe('FactoryPlacementSystem', () => {
       });
     });
 
-    it("the AS component of hueShift can swing far enough to change a wall's color family across an AS retransmit — not just a subtle tweak within the same hue neighborhood", () => {
+    it("the AS component of hueShift is EVERY time large enough to change a wall's color family — a guaranteed minimum swing, not just a wide-but-clustered range", () => {
       // Sample the same factory slot (index 0, x=3) across many distinct
-      // planets (distinct AS noise maps) at the SAME locale coordinates, so
-      // the local-only hueShift is identical every time and any spread is
-      // attributable entirely to the AS component. A ±30 range could never
-      // produce a sample exceeding 30 in absolute value — this is only
-      // reachable with a genuinely wide range.
+      // planets (distinct ASes) at the SAME locale coordinates, so the
+      // local-only hueShift is identical every time and any spread is
+      // attributable entirely to the AS component. A plain wide range
+      // (e.g. [-180, 180] sampled from simplex noise) still lets a
+      // meaningful fraction of rolls land near zero — this asserts every
+      // single sample clears the guaranteed minimum, not just "some."
       const contributions: number[] = [];
-      for (let i = 0; i < 20; i++) {
+      for (let i = 0; i < 30; i++) {
         const planetId = `hue-diversity-planet-${i}`;
         usePlanetStore.getState().addPlanet({ id: planetId, name: `hue-diversity-planet-name-${i}`, locales: [] });
         const localeId = `locale-hue-diversity-${i}`;
@@ -490,7 +491,13 @@ describe('FactoryPlacementSystem', () => {
         contributions.push((firstActor.config?.hueShift ?? 0) - local.hueShift);
       }
 
-      expect(contributions.some((c) => Math.abs(c) > 90)).toBe(true);
+      // Every roll clears the guaranteed minimum magnitude (60°).
+      contributions.forEach((c) => expect(Math.abs(c)).toBeGreaterThanOrEqual(60));
+      // And the ceiling (180°) is respected — this isn't unbounded either.
+      contributions.forEach((c) => expect(Math.abs(c)).toBeLessThanOrEqual(180));
+      // Both directions are actually reachable, not just one sign.
+      expect(contributions.some((c) => c > 0)).toBe(true);
+      expect(contributions.some((c) => c < 0)).toBe(true);
     });
   });
 

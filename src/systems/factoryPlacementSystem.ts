@@ -12,6 +12,7 @@ import { VARIANT_CONF, selectVariantFromSeed } from '../components/actors/factor
 import { calcSilhouetteSize } from '../components/actors/silhouetteUtils';
 import { getLocaleNoiseMap, getPlanetNoiseMap } from '../utils/noiseMaps';
 import { getSeededVal } from '../utils/getSeededVal';
+import { derivePlanetSeed } from '../utils/seedUtils';
 import type { ColorShift } from '../utils/colorUtils';
 
 // ========================================
@@ -48,16 +49,24 @@ const PRODUCTION_INTERVAL = 60; // measures
 const DEFAULT_ROW_EDGE_WIDTH = 0.3; // 30% of screen width on each edge
 const DEFAULT_CENTER_WIDTH = 0.4; // 40% of screen width for center spread
 
-/** Bounded range for the AS-seeded color component. First-pass default, not
- *  spec-mandated — see docs/specs/ATTENUATION_STYLE.md §7 item 2; tune here
- *  if a manual check finds it reads as invisible or overwhelming.
+/** Bounded parameters for the AS-seeded color component. First-pass default,
+ *  not spec-mandated — see docs/specs/ATTENUATION_STYLE.md §7 item 2; tune
+ *  here if a manual check finds it reads as invisible or overwhelming.
  *
- *  Hue spans a full half-circle each direction ([-180, 180], wrapped mod 360
- *  by shiftHSL) so a fresh AS can move a building's color family entirely —
- *  purple is not guaranteed to stay purple, yellow is not guaranteed to stay
- *  yellow. A narrower range (previously ±30) keeps every retransmit reading
- *  as "the same building, slightly recolored," which under-delivers on the
- *  AS's own premise of a genuinely new attenuation style.
+ *  Hue is a signed roll whose MAGNITUDE is bounded away from zero
+ *  ([60, 180] degrees, direction random) rather than a plain range spanning
+ *  zero. A first attempt used a plain [-180, 180] range sampled the same way
+ *  every other seeded field in this file is (via the shared noise-map/
+ *  getSeededVal pattern) — that's mathematically wide, but simplex noise's
+ *  raw output isn't uniformly distributed across it: empirically ~19% of
+ *  rolls landed under ±30°, which reads as "barely different," not a new
+ *  Attenuation Style (bug report: "yellow only becomes a slightly different
+ *  yellow"). A wide RANGE only improves the odds of a big swing; it doesn't
+ *  guarantee one. Forcing a minimum magnitude does — every retransmit moves
+ *  the hue by at least AS_FACTORY_HUE_SHIFT_MIN_MAGNITUDE, so purple is
+ *  never guaranteed to stay purple and yellow is never guaranteed to stay
+ *  yellow. See deriveAsColorShift below for why hue is sampled via alea (a
+ *  uniform PRNG) instead of the noise map.
  *
  *  Saturation is deliberately non-negative ([0, 40], not symmetric):
  *  several variants' own local satShiftRange already drives the wall body
@@ -66,10 +75,11 @@ const DEFAULT_CENTER_WIDTH = 0.4; // 40% of screen width for center spread
  *  s=0 no matter how large a hue shift is layered on top. A symmetric AS
  *  range meant roughly half of all AS rolls pushed an already-borderline
  *  wall even further toward invisible, defeating the point of a *visible*
- *  recolor — doubly important now that hue swings are much larger. Never
- *  subtracting keeps the AS shift additive (per §1.2) while guaranteeing it
- *  always nudges legibility the same direction. */
-const AS_FACTORY_HUE_SHIFT_RANGE: [number, number] = [-180, 180];
+ *  recolor — doubly important now that hue swings are large and guaranteed.
+ *  Never subtracting keeps the AS shift additive (per §1.2) while
+ *  guaranteeing it always nudges legibility the same direction. */
+const AS_FACTORY_HUE_SHIFT_MIN_MAGNITUDE = 60;
+const AS_FACTORY_HUE_SHIFT_MAX_MAGNITUDE = 180;
 const AS_FACTORY_SAT_SHIFT_RANGE: [number, number] = [0, 40];
 
 // ========================================
@@ -85,14 +95,29 @@ function generateFactoryId(noiseMap: NoiseFunction2D, index: number): string {
 }
 
 /** AS-seeded color delta for one factory, additive on top of its existing
- *  locale-seeded hueShift/satShift — never a replacement. Sampled from the
- *  ACTIVE PLANET's (AS's) own noise map, keyed by the factory's position in
- *  the locale's actor array (the same getSeededVal(noiseMap, dataId, offset,
- *  min, max) pattern every other seeded field in this file already uses).
- *  See docs/specs/ATTENUATION_STYLE.md §1.2. */
-function deriveAsColorShift(noiseMap: NoiseFunction2D, index: number): ColorShift {
+ *  locale-seeded hueShift/satShift — never a replacement. Keyed by the
+ *  factory's position in the locale's actor array and the active planet's
+ *  own derived seed (same "same NAME -> same result" determinism contract
+ *  getPlanetNoiseMap already uses), so it's stable for a given AS and reload/
+ *  shared-link safe. See docs/specs/ATTENUATION_STYLE.md §1.2.
+ *
+ *  hueShift deliberately does NOT use the noise-map/getSeededVal pattern
+ *  satShift (and every other seeded field in this file) uses — alea directly,
+ *  instead. getSeededVal draws from simplex noise's raw output, which is not
+ *  uniformly distributed (it clusters toward the center of whatever range
+ *  it's mapped into) — fine for fields wanting smooth, organic variation,
+ *  but it undermined the guarantee this field specifically needs: every
+ *  factory's hue MUST move by at least AS_FACTORY_HUE_SHIFT_MIN_MAGNITUDE on
+ *  every AS. alea is a proper uniform PRNG, so a plain roll against it
+ *  reliably lands anywhere in [MIN, MAX], not clustered near either end. */
+function deriveAsColorShift(noiseMap: NoiseFunction2D, index: number, planetName: string): ColorShift {
+  const planetSeed = derivePlanetSeed(planetName);
+  const sign = alea(`${planetSeed}:factory.as.hueSign:${index}`)() < 0.5 ? -1 : 1;
+  const magnitudeRoll = alea(`${planetSeed}:factory.as.hueMagnitude:${index}`)();
+  const magnitude = AS_FACTORY_HUE_SHIFT_MIN_MAGNITUDE
+    + magnitudeRoll * (AS_FACTORY_HUE_SHIFT_MAX_MAGNITUDE - AS_FACTORY_HUE_SHIFT_MIN_MAGNITUDE);
   return {
-    hueShift: getSeededVal(noiseMap, 'factory.as.hueShift', index, ...AS_FACTORY_HUE_SHIFT_RANGE),
+    hueShift: sign * magnitude,
     satShift: getSeededVal(noiseMap, 'factory.as.satShift', index, ...AS_FACTORY_SAT_SHIFT_RANGE),
   };
 }
@@ -178,7 +203,7 @@ export function placeFactories(localeId: string): Actor[] {
     const scale = noiseMap
       ? getSeededVal(noiseMap, 'factory.scale', index, 0.9, 1.1)
       : 0.9 + alea(`${localeId}:factory:${index}:scale`)() * 0.2;
-    const asShift = asNoiseMap ? deriveAsColorShift(asNoiseMap, index) : { hueShift: 0, satShift: 0 };
+    const asShift = asNoiseMap && planet ? deriveAsColorShift(asNoiseMap, index, planet.name) : { hueShift: 0, satShift: 0 };
     return createFactory(position, row, scale, id, asShift);
   }
 
@@ -295,7 +320,7 @@ export function recolorFactoriesForAttenuationStyle(localeId: string, planetId: 
     const row = actor.config?.row ?? 1;
     const availableTypes = getRowConfig(row)?.availableFactoryTypes;
     const { hueShift: localHue, satShift: localSat } = selectVariantFromSeed(actor.id, actor.position.x, row, availableTypes);
-    const asShift = deriveAsColorShift(asNoiseMap, index);
+    const asShift = deriveAsColorShift(asNoiseMap, index, planetName);
     return {
       ...actor,
       config: {
