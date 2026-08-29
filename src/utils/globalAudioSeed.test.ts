@@ -173,6 +173,55 @@ describe('generateGlobalAudioSettings', () => {
     const second = generateGlobalAudioSettings('seed-test-planet', 'Nova');
     expect(second.delay.enabled).toBe(first.delay.enabled);
   });
+
+  describe('lfoDrift', () => {
+    it('is deterministic — same planetId + planetName always produces the same lfoDrift', () => {
+      const first = generateGlobalAudioSettings('seed-test-planet', 'Nova');
+      const second = generateGlobalAudioSettings('seed-test-planet', 'Nova');
+      expect(second.lfoDrift).toEqual(first.lfoDrift);
+    });
+
+    it('produces different lfoDrift values for a different planet name (non-degenerate)', () => {
+      const a = generateGlobalAudioSettings('seed-test-planet', 'Nova');
+      const b = generateGlobalAudioSettings('seed-test-planet-b', 'Zenith');
+      expect(b.lfoDrift).not.toEqual(a.lfoDrift);
+    });
+
+    it('samples rateDrift and depthDrift independently, not the same draw for both', () => {
+      // A shared draw fed into both fields would be an easy copy/paste bug —
+      // this catches it directly rather than relying on the non-degenerate
+      // check above, which would still pass if both fields moved in lockstep.
+      const settings = generateGlobalAudioSettings('seed-test-planet', 'Nova');
+      expect(settings.lfoDrift.rateDrift).not.toBe(settings.lfoDrift.depthDrift);
+    });
+
+    it('keeps both fields within the -0.4..0.4 loading range on every call, across many planets', () => {
+      const SAMPLE_PLANETS = 20;
+      for (let i = 0; i < SAMPLE_PLANETS; i++) {
+        const settings = generateGlobalAudioSettings(`seed-drift-sample-${i}`, `DriftSample${i}`);
+        const { rateDrift, depthDrift } = settings.lfoDrift;
+        expect(rateDrift, `planet ${i} rateDrift`).toBeGreaterThanOrEqual(-0.4);
+        expect(rateDrift, `planet ${i} rateDrift`).toBeLessThanOrEqual(0.4);
+        expect(depthDrift, `planet ${i} depthDrift`).toBeGreaterThanOrEqual(-0.4);
+        expect(depthDrift, `planet ${i} depthDrift`).toBeLessThanOrEqual(0.4);
+        evictPlanetNoiseMap(`seed-drift-sample-${i}`);
+      }
+    });
+
+    it('actually produces both negative and positive values across many planets (non-degenerate)', () => {
+      const SAMPLE_PLANETS = 20;
+      let sawNegative = false;
+      let sawPositive = false;
+      for (let i = 0; i < SAMPLE_PLANETS; i++) {
+        const settings = generateGlobalAudioSettings(`seed-drift-sign-${i}`, `DriftSign${i}`);
+        if (settings.lfoDrift.rateDrift < 0) sawNegative = true;
+        if (settings.lfoDrift.rateDrift > 0) sawPositive = true;
+        evictPlanetNoiseMap(`seed-drift-sign-${i}`);
+      }
+      expect(sawNegative, 'expected at least one sampled planet with rateDrift < 0').toBe(true);
+      expect(sawPositive, 'expected at least one sampled planet with rateDrift > 0').toBe(true);
+    });
+  });
 });
 
 describe('generateGlobalLfoSettings', () => {

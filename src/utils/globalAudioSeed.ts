@@ -77,9 +77,10 @@ export function generateGlobalAudioSettings(planetId: string, planetName: string
   return {
     globalBypass: defaults.globalBypass,
     compressorBeforeDelay: defaults.compressorBeforeDelay,
-    // Not yet seeded — Task 2/3 (docs/tasks/LFO_DRIFT.md) wires real sampling
-    // via sampleField; this keeps the type satisfied at zero drift for now.
-    lfoDrift: { ...defaults.lfoDrift },
+    lfoDrift: {
+      rateDrift: sampleField(noiseMap, 'lfoDrift.rateDrift'),
+      depthDrift: sampleField(noiseMap, 'lfoDrift.depthDrift'),
+    },
     compressor: {
       enabled: true,
       threshold: sampleField(noiseMap, 'compressor.threshold'),
