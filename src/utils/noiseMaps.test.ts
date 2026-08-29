@@ -5,14 +5,14 @@ import { describe, it, expect, afterEach } from 'vitest';
 
 import { getLocaleNoiseMap, evictLocaleNoiseMap } from './noiseMaps';
 import { getSeededVal } from './getSeededVal';
-import { setGlobalPlanetSeedOverride } from './seedUtils';
+import { setGlobalAttenuationStyleSeedOverride } from './seedUtils';
 
 // ========================================
 // HELPERS
 // ========================================
 
 /** The roadmap's own documented worst-case coordinates under the OLD
- *  planet-sampled derivation, per docs/roadmap/roadmap.md § 5's Known Issue. */
+ *  Attenuation-Style-sampled derivation, per docs/roadmap/roadmap.md § 5's Known Issue. */
 const HISTORICALLY_BAD_COORDS: Array<{ x: number; y: number }> = [
   { x: 0, y: 0 },
   { x: 0.5, y: 0.5 },
@@ -34,12 +34,12 @@ function freshLocaleId(): string {
 // TESTS
 // ========================================
 
-describe('noiseMaps — getLocaleNoiseMap (decoupled from planet)', () => {
+describe('noiseMaps — getLocaleNoiseMap (decoupled from Attenuation Style)', () => {
   afterEach(() => {
-    setGlobalPlanetSeedOverride(null);
+    setGlobalAttenuationStyleSeedOverride(null);
   });
 
-  describe('planet-invariance', () => {
+  describe('Attenuation-Style-invariance', () => {
     it('produces identical getSeededVal output for two different locale ids at the same coordinates', () => {
       const { x, y } = CONTROL_COORD;
       const mapA = getLocaleNoiseMap(freshLocaleId(), x, y);
@@ -86,11 +86,11 @@ describe('noiseMaps — getLocaleNoiseMap (decoupled from planet)', () => {
     it('changes the result for a fixed (x, y) when an override is set', () => {
       const { x, y } = CONTROL_COORD;
 
-      setGlobalPlanetSeedOverride(null);
+      setGlobalAttenuationStyleSeedOverride(null);
       const withoutOverride = getLocaleNoiseMap(freshLocaleId(), x, y);
       const withoutOverrideVal = getSeededVal(withoutOverride, 'override.probe');
 
-      setGlobalPlanetSeedOverride('bug-repro-seed');
+      setGlobalAttenuationStyleSeedOverride('bug-repro-seed');
       const withOverride = getLocaleNoiseMap(freshLocaleId(), x, y);
       const withOverrideVal = getSeededVal(withOverride, 'override.probe');
 
