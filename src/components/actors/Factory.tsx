@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 
 import type { Actor } from '../../types/Actor';
 import { selectVariantFromSeed, VARIANT_CONF } from './factoryVariants';
-import { getRowConfig } from '../../systems/factoryPlacementSystem';
+import { getRowConfig, DEFAULT_FACTORY_ROW } from '../../systems/factoryPlacementSystem';
 import { calcSilhouetteSize, bottomAnchorTransform } from './silhouetteUtils';
 import { applyColorShift, shiftHSL, clamp } from '../../utils/colorUtils';
 import { getLighting, getNightDepth, FLICKER_PERIOD, FILL_TRANSITION, DAY_CYCLE_MEASURES } from '../../utils/lightingUtils';
@@ -63,7 +63,7 @@ interface FactoryProps {
 
 const FactoryInner: React.FC<FactoryProps> = ({ actor }) => {
   const config = useMemo(() => {
-    const row = actor.config?.row ?? 1;
+    const row = actor.config?.row ?? DEFAULT_FACTORY_ROW;
     const rowCfg = getRowConfig(row);
     const available = rowCfg?.availableFactoryTypes;
     return selectVariantFromSeed(actor.id, actor.position.x, row, available);

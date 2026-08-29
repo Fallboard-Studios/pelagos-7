@@ -8,6 +8,14 @@ vi.mock('../engine/beatClock', () => ({
   getCurrentMeasure: vi.fn(() => 0),
 }));
 
+// Spy on recolorFactoriesForAttenuationStyle while keeping every other export
+// (placeFactories, createFactory, ...) real — initializeLocale/placeFactories
+// must keep spawning real factories for the other describe blocks below.
+vi.mock('./factoryPlacementSystem', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./factoryPlacementSystem')>();
+  return { ...actual, recolorFactoriesForAttenuationStyle: vi.fn(actual.recolorFactoriesForAttenuationStyle) };
+});
+
 // ========================================
 // IMPORTS
 // ========================================
@@ -19,8 +27,10 @@ import { AudioEngine } from '../engine/AudioEngine';
 import { getLocaleNoiseMap, tryGetLocaleNoiseMap } from '../utils/noiseMaps';
 import { getSeededVal } from '../utils/getSeededVal';
 import { initializeLocale, retransmitWorld } from './worldTransition';
+import { recolorFactoriesForAttenuationStyle } from './factoryPlacementSystem';
 import { stopRobotLifecycle } from './robotSystems';
 import { MAX_ROBOTS } from '../constants';
+import { computeLocaleHour } from '../constants/time';
 import { RobotState, DockingState } from '../types/Robot';
 import type { Robot } from '../types/Robot';
 
@@ -185,6 +195,25 @@ describe('worldTransition', () => {
       expect(useUIStore.getState().selectedRobotId).toBeNull();
       expect(useUIStore.getState().activeHubTile).toBe('settings');
     });
+
+    it("stamps the new locale's dayStartTimestamp reading abs(x % 24) immediately (buildLocale, positive x)", () => {
+      retransmitWorld({ coordinates: { x: 1000, y: 2000 } });
+      const planet = selectCurrentPlanet(usePlanetStore.getState())!;
+      const newLocale = useLocaleStore.getState().getLocaleById(planet.currentLocaleId!)!;
+      expect(computeLocaleHour(newLocale.dayStartTimestamp)).toBeCloseTo(Math.abs(1000 % 24), 0);
+    });
+
+    it("stamps the new locale's dayStartTimestamp correctly for a negative x too (buildLocale)", () => {
+      retransmitWorld({ coordinates: { x: -37, y: 5 } });
+      const planet = selectCurrentPlanet(usePlanetStore.getState())!;
+      const newLocale = useLocaleStore.getState().getLocaleById(planet.currentLocaleId!)!;
+      expect(computeLocaleHour(newLocale.dayStartTimestamp)).toBeCloseTo(Math.abs(-37 % 24), 0);
+    });
+
+    it('never calls recolorFactoriesForAttenuationStyle — this branch never changes the AS', () => {
+      retransmitWorld({ coordinates: { x: 1000, y: 2000 } });
+      expect(recolorFactoriesForAttenuationStyle).not.toHaveBeenCalled();
+    });
   });
 
   describe('retransmitWorld — planet changed, coordinates preserved', () => {
@@ -234,6 +263,39 @@ describe('worldTransition', () => {
       const independent = getLocaleNoiseMap('independent-check-locale-2', DEFAULT_LOCALE.coordinates.x, DEFAULT_LOCALE.coordinates.y);
       expect(getSeededVal(rewarmed, 'robot.audio.attack')).toBe(getSeededVal(independent, 'robot.audio.attack'));
     });
+
+    it("does NOT change the preserved locale's dayStartTimestamp — the inversion this phase's spec flags as easiest to get backwards", () => {
+      const before = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)!.dayStartTimestamp;
+      retransmitWorld({ planetName: 'Kryndara' });
+      const after = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)!.dayStartTimestamp;
+      expect(after).toBe(before); // byte-identical, not just "close enough"
+    });
+
+    it('calls recolorFactoriesForAttenuationStyle exactly once, with the preserved locale id and the NEW planet id/name', () => {
+      retransmitWorld({ planetName: 'Kryndara' });
+      const planet = selectCurrentPlanet(usePlanetStore.getState())!;
+      expect(recolorFactoriesForAttenuationStyle).toHaveBeenCalledTimes(1);
+      expect(recolorFactoriesForAttenuationStyle).toHaveBeenCalledWith(DEFAULT_LOCALE_ID, planet.id, planet.name);
+    });
+
+    it("preserves every factory's id/position/scale — only hueShift/satShift may change, per recolorFactoriesForAttenuationStyle", () => {
+      initializeLocale(DEFAULT_LOCALE_ID); // real placeFactories — populates real actors
+      const before = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)!.actors;
+      expect(before.length).toBeGreaterThan(0);
+
+      retransmitWorld({ planetName: 'Halcyon Drift' });
+
+      const after = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)!.actors;
+      expect(after.length).toBe(before.length);
+      before.forEach((b, i) => {
+        const a = after[i];
+        expect(a.id).toBe(b.id);
+        expect(a.position).toEqual(b.position);
+        expect(a.scaleX).toBe(b.scaleX);
+        expect(a.scaleY).toBe(b.scaleY);
+        expect(a.config?.row).toBe(b.config?.row);
+      });
+    });
   });
 
   describe('retransmitWorld — both changed (full reset)', () => {
@@ -253,6 +315,18 @@ describe('worldTransition', () => {
       expect(usePlanetStore.getState().planets.find((p) => p.id === DEFAULT_PELAGOS.id)).toBeUndefined();
 
       releaseVoiceSpy.mockRestore();
+    });
+
+    it("stamps the new locale's dayStartTimestamp reading abs(x % 24) immediately (buildLocale)", () => {
+      retransmitWorld({ planetName: 'Vessport Null', coordinates: { x: 42, y: 42 } });
+      const planet = selectCurrentPlanet(usePlanetStore.getState())!;
+      const locale = useLocaleStore.getState().getLocaleById(planet.currentLocaleId!)!;
+      expect(computeLocaleHour(locale.dayStartTimestamp)).toBeCloseTo(Math.abs(42 % 24), 0);
+    });
+
+    it('never calls recolorFactoriesForAttenuationStyle — the old locale is discarded, not recolored', () => {
+      retransmitWorld({ planetName: 'Vessport Null', coordinates: { x: 42, y: 42 } });
+      expect(recolorFactoriesForAttenuationStyle).not.toHaveBeenCalled();
     });
   });
 

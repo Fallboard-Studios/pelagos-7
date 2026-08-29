@@ -5,6 +5,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { useLocaleStore, DEFAULT_LOCALE, DEFAULT_LOCALE_ID } from './localeStore';
 import { AudioEngine } from '../engine/AudioEngine';
+import { computeLocaleHour } from '../constants/time';
 import type { Locale } from '../types/locale';
 import type { Company } from '../types/Company';
 import type { Robot } from '../types/Robot';
@@ -76,6 +77,16 @@ describe('localeStore', () => {
     it('default locale coordinates are integers — CoordsInput.tsx and SectorSettingsDrawer.tsx both assume coordinates are integers system-wide (docs/specs/SECTOR_SETTINGS.md); a decimal default renders as a multi-decimal value on first load, before any user edit rounds it', () => {
       expect(Number.isInteger(DEFAULT_LOCALE.coordinates.x)).toBe(true);
       expect(Number.isInteger(DEFAULT_LOCALE.coordinates.y)).toBe(true);
+    });
+
+    it('has a dayStartTimestamp computed from its own x coordinate, per docs/specs/ATTENUATION_STYLE.md §1.1', () => {
+      expect(typeof DEFAULT_LOCALE.dayStartTimestamp).toBe('number');
+      expect(Number.isFinite(DEFAULT_LOCALE.dayStartTimestamp)).toBe(true);
+    });
+
+    it("computeLocaleHour(dayStartTimestamp) reads abs(x % 24) — 12 for x=12 — immediately after module load", () => {
+      // DEFAULT_LOCALE.coordinates.x is 12; abs(12 % 24) === 12.
+      expect(computeLocaleHour(DEFAULT_LOCALE.dayStartTimestamp)).toBeCloseTo(12, 0);
     });
 
     // Note: this tests getPlanetNoiseMap directly, not locale generation —

@@ -22,10 +22,11 @@ export const DEV_TUNING = import.meta.env.DEV;
 export const MIN_LEAD = 0.1;
 
 /**
- * Mapping from planet size to real-world milliseconds per full in-world day.
- * Small: 3 minutes, Medium: 6 minutes, Large: 9 minutes.
+ * Fixed real-world milliseconds per full in-world day (6 minutes), and the
+ * pure function that derives a locale's current hour from its own
+ * dayStartTimestamp. See docs/specs/ATTENUATION_STYLE.md §1.1.
  */
-export { PLANET_DURATION_MS, computeLocalTime } from './time';
+export { DAY_DURATION_MS, computeLocaleHour } from './time';
 
 /**
  * Valid ranges for robot melody-generation parameters. Shared source of truth

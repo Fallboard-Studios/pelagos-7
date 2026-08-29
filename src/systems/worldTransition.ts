@@ -4,14 +4,13 @@
 import { usePlanetStore, selectCurrentPlanet } from '../stores/planetStore';
 import { useLocaleStore } from '../stores/localeStore';
 import { useUIStore } from '../stores/uiStore';
-import { placeFactories } from './factoryPlacementSystem';
+import { placeFactories, recolorFactoriesForAttenuationStyle } from './factoryPlacementSystem';
 import { spawnInitialRoster, spawnInitialCompanies } from './spawnSystem';
 import { startRobotLifecycle, stopRobotLifecycle, assignJob } from './robotSystems';
 import { DockingState } from '../types/Robot';
 import { getLocaleNoiseMap } from '../utils/noiseMaps';
-import { derivePlanetSeed, planetInitialHour } from '../utils/seedUtils';
-import { PLANET_DURATION_MS } from '../constants/time';
-import type { Planet, PlanetSize } from '../types/planet';
+import { DAY_DURATION_MS } from '../constants/time';
+import type { Planet } from '../types/planet';
 import type { Locale } from '../types/locale';
 
 // ========================================
@@ -30,32 +29,31 @@ export interface RetransmitInput {
 // CONSTRUCTION HELPERS
 // ========================================
 
-/** Construct a fresh Planet, mirroring planetStore.ts's own DEFAULT_PELAGOS/
- *  addPlanet construction (dayStartTimestamp via planetInitialHour). Size is
- *  not a Sector Settings field — fixed at 'medium', matching DEFAULT_PELAGOS'
- *  own default (see docs/specs/SECTOR_SETTINGS.md §7.4). */
+/** Construct a fresh Planet. No dayStartTimestamp/size/currentHour anymore —
+ *  dayStartTimestamp moved to Locale (buildLocale below), the rest were
+ *  deleted outright. See docs/specs/ATTENUATION_STYLE.md §1.1. */
 function buildPlanet(name: string): Planet {
-  const seed = derivePlanetSeed(name);
-  const initialHour = planetInitialHour(seed);
-  const size: PlanetSize = 'medium';
   return {
     id: crypto.randomUUID(),
     name,
-    size,
     locales: [],
-    dayStartTimestamp: Date.now() - (initialHour / 24) * PLANET_DURATION_MS[size],
-    currentHour: 0,
   };
 }
 
 /** Construct a fresh, empty Locale at the given coordinates — robots/actors
- *  populate via initializeLocale, not here. */
+ *  populate via initializeLocale, not here. dayStartTimestamp is computed
+ *  here, once, directly from x — no seed, no shared clock. This is the ONLY
+ *  place a fresh dayStartTimestamp gets produced; retransmitPlanetOnly
+ *  deliberately never calls this for its preserved locale (the inversion
+ *  this phase's spec flags as easiest to get backwards — see
+ *  docs/specs/ATTENUATION_STYLE.md §1.1/§3). */
 function buildLocale(planetId: string, coordinates: { x: number; y: number }): Locale {
   return {
     id: crypto.randomUUID(),
     planetId,
     name: `Plot ${coordinates.x}, ${coordinates.y}`,
     coordinates,
+    dayStartTimestamp: Date.now() - (Math.abs(coordinates.x % 24) / 24) * DAY_DURATION_MS,
     robots: [],
     actors: [],
     companies: [],
@@ -161,18 +159,25 @@ function finalizePlanetTransition(newPlanet: Planet, oldPlanet: Planet): void {
 }
 
 /** Planet changed, coordinates preserved: re-parent the EXISTING locale onto
- *  the new planet unchanged — same robots/actors/edits, no regeneration.
- *  Locale Seed Decoupling is what makes this correct: the locale's generated
- *  content is a pure function of (x, y), independent of which planet owns
- *  it, so there is genuinely nothing to regenerate. */
+ *  the new planet unchanged — same robots/actors/edits/dayStartTimestamp, no
+ *  regeneration. Locale Seed Decoupling is what makes this correct: the
+ *  locale's generated content is a pure function of (x, y), independent of
+ *  which planet owns it, so there is genuinely nothing to regenerate.
+ *  dayStartTimestamp is NOT recalculated here — inverted from the old
+ *  planet-owned-time behavior, see docs/specs/ATTENUATION_STYLE.md §1.1.
+ *  Factory colors DO change — recolorFactoriesForAttenuationStyle is new
+ *  coupling, not a preservation exception; see §1.2. */
 function retransmitPlanetOnly(oldPlanet: Planet, oldLocaleId: string | undefined, planetName: string): void {
   const newPlanet = createNewPlanet(planetName);
   let preservedCoords: { x: number; y: number } | undefined;
 
   if (oldLocaleId) {
     preservedCoords = useLocaleStore.getState().getLocaleById(oldLocaleId)?.coordinates;
+    // Partial patch — only touches planetId, can't touch dayStartTimestamp
+    // even indirectly, since it isn't mentioned.
     useLocaleStore.getState().setLocaleData(oldLocaleId, { planetId: newPlanet.id });
     usePlanetStore.getState().setCurrentLocale(newPlanet.id, oldLocaleId);
+    recolorFactoriesForAttenuationStyle(oldLocaleId, newPlanet.id, newPlanet.name);
   }
 
   // finalizePlanetTransition's removePlanet(oldPlanet) evicts noise maps for

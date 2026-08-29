@@ -1,18 +1,11 @@
 import { create } from 'zustand';
 
-import type { Planet, PlanetSize } from '../types/planet';
-import { PLANET_DURATION_MS } from '../constants/time';
-import { derivePlanetSeed, planetInitialHour, resolveDefaultPlanetName } from '../utils/seedUtils';
+import type { Planet } from '../types/planet';
+import { resolveDefaultPlanetName } from '../utils/seedUtils';
 import { getPlanetNoiseMap, evictPlanetNoiseMap, evictLocaleNoiseMap } from '../utils/noiseMaps';
 import { devWarn } from '../utils/helpers';
 
 export const DEFAULT_LOCALE_ID = 'pelagos-default';
-
-function makeDayStartTimestamp(planetName: string, size: PlanetSize): number {
-  const seed = derivePlanetSeed(planetName);
-  const initialHour = planetInitialHour(seed);
-  return Date.now() - (initialHour / 24) * PLANET_DURATION_MS[size];
-}
 
 // The default planet's *id* stays a stable literal — nothing downstream keys
 // off the name (localeStore.ts, WorldView.tsx, etc. all reference the id).
@@ -27,11 +20,8 @@ export const DEFAULT_PLANET_NAME = resolveDefaultPlanetName();
 export const DEFAULT_PELAGOS: Planet = {
   id: 'pelagos',
   name: DEFAULT_PLANET_NAME,
-  size: 'medium',
   locales: [DEFAULT_LOCALE_ID],
   currentLocaleId: DEFAULT_LOCALE_ID,
-  dayStartTimestamp: makeDayStartTimestamp(DEFAULT_PLANET_NAME, 'medium'),
-  currentHour: 0,
 };
 
 getPlanetNoiseMap('pelagos', DEFAULT_PLANET_NAME);
@@ -41,9 +31,6 @@ export interface PlanetStore {
   currentPlanetId: string;
   addPlanet: (planet: Planet) => boolean;
   removePlanet: (planetId: string) => void;
-  setPlanetSize: (planetId: string, size: PlanetSize) => void;
-  setDayStartTimestamp: (planetId: string, ts: number) => void;
-  setCurrentHour: (planetId: string, hour: number) => void;
   setCurrentLocale: (planetId: string, localeId: string) => void;
   setCurrentPlanetId: (planetId: string) => void;
 }
@@ -74,13 +61,9 @@ export const usePlanetStore = create<PlanetStore>((set) => ({
         );
         return state;
       }
-      const seed = derivePlanetSeed(planet.name);
-      const initialHour = planetInitialHour(seed);
-      const dayStartTimestamp =
-        Date.now() - (initialHour / 24) * PLANET_DURATION_MS[planet.size];
       added = true;
       getPlanetNoiseMap(planet.id, planet.name);
-      return { planets: [...state.planets, { ...planet, dayStartTimestamp }] };
+      return { planets: [...state.planets, planet] };
     });
     return added;
   },
@@ -94,27 +77,6 @@ export const usePlanetStore = create<PlanetStore>((set) => ({
       }
       return { planets: state.planets.filter((p) => p.id !== planetId) };
     }),
-
-  setPlanetSize: (planetId, size) =>
-    set((state) => ({
-      planets: state.planets.map((p) =>
-        p.id === planetId ? { ...p, size } : p
-      ),
-    })),
-
-  setDayStartTimestamp: (planetId, ts) =>
-    set((state) => ({
-      planets: state.planets.map((p) =>
-        p.id === planetId ? { ...p, dayStartTimestamp: ts } : p
-      ),
-    })),
-
-  setCurrentHour: (planetId, hour) =>
-    set((state) => ({
-      planets: state.planets.map((p) =>
-        p.id === planetId ? { ...p, currentHour: hour } : p
-      ),
-    })),
 
   setCurrentLocale: (planetId, localeId) =>
     set((state) => ({

@@ -74,21 +74,3 @@ export function resolveDefaultPlanetName(): string {
   const override = getGlobalPlanetSeedOverride();
   return override ?? generateRandomPlanetName();
 }
-
-/**
- * Compute the planet's deterministic initial in-world hour (integer 0–23)
- * from the planet seed.
- *
- * Algorithm: convert each letter in the seed to its 0-based index (a=0 … z=25),
- * take the floor of the average. If the result is outside [0, 23] (possible if
- * all characters are digits), fall back to 0.
- */
-export function planetInitialHour(seed: string): number {
-  const letters = seed.replace(/[^a-z]/g, '');
-  if (!letters.length) return 0;
-  const avg =
-    letters.split('').reduce((sum, ch) => sum + (ch.charCodeAt(0) - 97), 0) /
-    letters.length;
-  const hour = Math.floor(avg);
-  return hour >= 0 && hour <= 23 ? hour : 0;
-}

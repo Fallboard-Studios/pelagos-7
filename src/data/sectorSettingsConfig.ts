@@ -23,9 +23,9 @@ export interface SectorPreset<T> {
 export const PLANET_NAME_SCHEMA: TextInputSchema = {
   id: 'sectorSettings.planetName',
   type: 'textInput',
-  loreLabel: 'CALIBRATION SEED',
-  humanLabel: 'Planet Name',
-  placeholder: 'Enter a new planet name…',
+  loreLabel: 'ATTENUATION SEED',
+  humanLabel: 'Attenuation Style',
+  placeholder: 'Enter a new attenuation style…',
   // Otherwise unbounded end-to-end — stored in state, hashed into a seed
   // (derivePlanetSeed), and rendered in the status line. 128 is generous for
   // a lore-flavored name while ruling out pathological input.

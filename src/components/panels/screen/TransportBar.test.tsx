@@ -16,11 +16,8 @@ import type { Locale } from '@/types/locale';
 const TEST_PLANET: Planet = {
   id: 'test-planet',
   name: 'Glaxos',
-  size: 'medium',
   locales: ['test-locale'],
   currentLocaleId: 'test-locale',
-  dayStartTimestamp: 0,
-  currentHour: 0,
 };
 
 const TEST_LOCALE: Locale = {
@@ -28,6 +25,7 @@ const TEST_LOCALE: Locale = {
   planetId: 'test-planet',
   name: 'Test Locale',
   coordinates: { x: -17.4, y: 30.2 },
+  dayStartTimestamp: 0,
   robots: [],
   actors: [],
   companies: [],
@@ -51,7 +49,7 @@ describe('TransportBar (Task 9 — rebuild)', () => {
     // Regex, not an exact string match: the field's accessible label is
     // real (visually-hidden) text sharing the same node, per the
     // aria-label-on-a-bare-span fix below — the node's full text is
-    // "Planet: Glaxos", not just "Glaxos".
+    // "Attenuation Style: Glaxos", not just "Glaxos".
     render(<TransportBar />);
     expect(screen.getByText(/Glaxos/)).toBeTruthy();
   });
@@ -80,7 +78,7 @@ describe('TransportBar (Task 9 — rebuild)', () => {
     const { container } = render(<TransportBar />);
 
     const fields: Array<[selector: string, label: string, value: string]> = [
-      ['.transport-bar__planet', 'Planet', 'Glaxos'],
+      ['.transport-bar__planet', 'Attenuation Style', 'Glaxos'],
       ['.transport-bar__coords', 'Locale coordinates', '-17'],
       ['.transport-bar__time', 'Local time', '14:30'],
       ['.transport-bar__bpm', 'Beats per minute', '128 BPM'],

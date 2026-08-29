@@ -10,6 +10,22 @@ facade variety comes from window styles and belt courses. Additional visual
 variation comes from a deterministic pseudorandom process seeded by the
 actor ID and horizontal position. `Alea` + `simplex-noise` produce a noise
 value which drives variant choice, sizing, and per-instance colour shifts.
+The actor ID itself is generated deterministically from the locale's noise
+map (`generateFactoryId()`, `factoryPlacementSystem.ts`), the same
+`crypto.randomUUID()`-replacing pattern `generateRobotId()`/`generateCompanyId()`
+use — required for "Reloading the scene produces identical buildings" (below)
+to actually hold, per [PROCEDURAL_GENERATION.md](PROCEDURAL_GENERATION.md).
+
+A factory's colour shift additionally layers a second, independent seed on
+top: the active Attenuation Style's own noise map (`deriveAsColorShift()`,
+`factoryPlacementSystem.ts`) contributes an additive hue/saturation delta
+summed with the locale-seeded shift above. Nothing else about a factory is
+affected — placement, count, id, variant, scale, and greeble selection stay
+driven exclusively by the locale seed regardless of which Attenuation Style
+is active. Retransmitting a new Attenuation Style recolors an existing
+locale's factories in place (`recolorFactoriesForAttenuationStyle()`)
+without touching any of those other fields. See
+[docs/specs/ATTENUATION_STYLE.md](specs/ATTENUATION_STYLE.md) §1.2.
 
 **Key source files:**
 
@@ -35,7 +51,10 @@ value which drives variant choice, sizing, and per-instance colour shifts.
   far rows cap out lower.
 - **Deterministic Randomness:** Every visual property of a factory
   (variant, size, colour shift, greeble selection) is derived from a
-  seeded PRNG. Reloading the scene produces identical buildings.
+  seeded PRNG. Reloading the scene produces identical buildings. Colour
+  shift alone has a second, independent seeded input on top — the active
+  Attenuation Style's own noise map — additive with the locale-seeded
+  shift and affecting colour only; every other property stays locale-only.
 
 ### Procedural generation (runtime specifics)
 
