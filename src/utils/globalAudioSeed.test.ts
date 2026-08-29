@@ -118,6 +118,8 @@ describe('generateGlobalAudioSettings', () => {
       'reverb.preDelay': settings.reverb.preDelay,
       'reverb.wet': settings.reverb.wet,
       'limiter.threshold': settings.limiter.threshold,
+      'lfoDrift.rateDrift': settings.lfoDrift.rateDrift,
+      'lfoDrift.depthDrift': settings.lfoDrift.depthDrift,
     };
     for (const key of Object.keys(GLOBAL_AUDIO_LOADING_RANGES) as GlobalAudioSeedFieldKey[]) {
       const { min, max } = GLOBAL_AUDIO_LOADING_RANGES[key];

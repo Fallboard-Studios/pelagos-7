@@ -33,6 +33,11 @@ const EXPECTED: Record<GlobalAudioSeedFieldKey, { min: number; max: number }> = 
   'compressor.release': { min: 0.05, max: 0.3 },
   'compressor.knee': { min: 1, max: 15 },
   'limiter.threshold': { min: -3, max: -1 },
+  // Not GLOBAL_CHAIN_GRID.md-sourced like every entry above — the grid
+  // predates lfoDrift entirely. A first-pass default, confirmed during the
+  // Phase 4 manual/audible check per docs/specs/LFO_DRIFT.md §7.
+  'lfoDrift.rateDrift': { min: -0.4, max: 0.4 },
+  'lfoDrift.depthDrift': { min: -0.4, max: 0.4 },
 };
 
 describe('GLOBAL_AUDIO_LOADING_RANGES', () => {

@@ -44,4 +44,11 @@ export const GLOBAL_AUDIO_LOADING_RANGES: Record<GlobalAudioSeedFieldKey, Loadin
   'compressor.knee': { min: 1, max: 15 },
 
   'limiter.threshold': { min: -3, max: -1 },
+
+  // First-pass default, NOT a GLOBAL_CHAIN_GRID.md transcription — that doc
+  // predates lfoDrift entirely (docs/specs/LFO_DRIFT.md §7). Confirm this
+  // window reads as "subtly alive" during the feature's manual/audible
+  // check; adjust before merge if it's inaudible or overbearing.
+  'lfoDrift.rateDrift': { min: -0.4, max: 0.4 },
+  'lfoDrift.depthDrift': { min: -0.4, max: 0.4 },
 };

@@ -11,9 +11,10 @@ import { DEFAULT_GLOBAL_AUDIO_SETTINGS } from '@/types/globalAudio';
 // ========================================
 
 // Every seedable field across all 7 global effects (V2: Compressor, EQ3, LPF,
-// HPF, Delay, Reverb, Limiter — Chorus removed, Limiter added). `enabled`,
-// `type`, `globalBypass`, and `compressorBeforeDelay` are excluded — not
-// seeded as continuous ranges (see docs/specs/AUDIO_RIG_V2.md §3).
+// HPF, Delay, Reverb, Limiter — Chorus removed, Limiter added), plus the
+// global lfoDrift pair (docs/specs/LFO_DRIFT.md). `enabled`, `type`,
+// `globalBypass`, and `compressorBeforeDelay` are excluded — not seeded as
+// continuous ranges (see docs/specs/AUDIO_RIG_V2.md §3).
 const EXPECTED_KEYS = [
   'compressor.threshold', 'compressor.ratio', 'compressor.attack', 'compressor.release', 'compressor.knee',
   'eq3.low', 'eq3.mid', 'eq3.high',
@@ -22,6 +23,7 @@ const EXPECTED_KEYS = [
   'delay.delayTime', 'delay.feedback', 'delay.wet',
   'reverb.decay', 'reverb.preDelay', 'reverb.wet',
   'limiter.threshold',
+  'lfoDrift.rateDrift', 'lfoDrift.depthDrift',
 ] as const;
 
 // Fields that GLOBAL_CHAIN_GRID.md's UI column marks "SLIDER (Logarithmic)" —
@@ -66,6 +68,13 @@ describe('GLOBAL_AUDIO_SEED_RANGES', () => {
     expect(GLOBAL_AUDIO_SEED_RANGES['reverb.preDelay']).toMatchObject({ min: 0, max: 0.5 });
     expect(GLOBAL_AUDIO_SEED_RANGES['reverb.wet']).toMatchObject({ min: 0, max: 1 });
     expect(GLOBAL_AUDIO_SEED_RANGES['limiter.threshold']).toMatchObject({ min: -20, max: 0 });
+    expect(GLOBAL_AUDIO_SEED_RANGES['lfoDrift.rateDrift']).toMatchObject({ min: -1, max: 1 });
+    expect(GLOBAL_AUDIO_SEED_RANGES['lfoDrift.depthDrift']).toMatchObject({ min: -1, max: 1 });
+  });
+
+  it('marks both lfoDrift fields linear — bipolar amount, not a frequency-style range', () => {
+    expect(GLOBAL_AUDIO_SEED_RANGES['lfoDrift.rateDrift'].scale).toBe('linear');
+    expect(GLOBAL_AUDIO_SEED_RANGES['lfoDrift.depthDrift'].scale).toBe('linear');
   });
 
   it('marks only the GLOBAL_CHAIN_GRID.md-flagged fields as log-scaled', () => {
@@ -120,6 +129,8 @@ describe('GLOBAL_AUDIO_SEED_RANGES', () => {
       'reverb.preDelay': defaults.reverb.preDelay,
       'reverb.wet': defaults.reverb.wet,
       'limiter.threshold': defaults.limiter.threshold,
+      'lfoDrift.rateDrift': defaults.lfoDrift.rateDrift,
+      'lfoDrift.depthDrift': defaults.lfoDrift.depthDrift,
     };
     for (const key of EXPECTED_KEYS) {
       const { min, max } = GLOBAL_AUDIO_SEED_RANGES[key];
