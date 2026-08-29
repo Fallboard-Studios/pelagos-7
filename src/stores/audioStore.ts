@@ -12,7 +12,7 @@ import { DEFAULT_LFO_SETTINGS } from '../data/lfoConfig';
 
 import type { GlobalAudioSettings } from '../types/globalAudio';
 import { DEFAULT_GLOBAL_AUDIO_SETTINGS } from '../types/globalAudio';
-import { GLOBAL_LFO_TARGET_IDS, type GlobalLfoTargetId, type LfoSettings } from '../types/lfo';
+import { GLOBAL_LFO_TARGET_IDS, DRIFT_GROUP_IDS, type GlobalLfoTargetId, type LfoSettings, type DriftGroupId } from '../types/lfo';
 
 // ========================================
 // TYPES
@@ -67,11 +67,10 @@ export function applyGlobalAudioToEngine(globalAudio: GlobalAudioSettings): void
   AudioEngine.setGlobalLimiter(globalAudio.limiter);
   AudioEngine.setGlobalDelay(globalAudio.delay);
   AudioEngine.setGlobalReverb(globalAudio.reverb);
-  // Stopgap — lfoDrift is now per-group (Task 2, docs/tasks/LFO_DRIFT_GROUPS.md),
-  // but lfoEngine's setters and this loop aren't group-aware until Task 6/8.
-  // 'robots' stands in for all 4 groups until then.
-  lfoEngine.setGlobalRateDrift(globalAudio.lfoDrift.robots.rateDrift);
-  lfoEngine.setGlobalDepthDrift(globalAudio.lfoDrift.robots.depthDrift);
+  for (const group of DRIFT_GROUP_IDS) {
+    lfoEngine.setGlobalRateDrift(group, globalAudio.lfoDrift[group].rateDrift);
+    lfoEngine.setGlobalDepthDrift(group, globalAudio.lfoDrift[group].depthDrift);
+  }
   // Push each effect's OWN enabled value, not a blanket true — Delay in
   // particular may be seeded/set false and must stay bypassed.
   for (const [effectKey, bypassKey] of Object.entries(BYPASS_KEY) as [EffectKey, BypassEffectKey][]) {
@@ -121,17 +120,16 @@ export interface AudioStore {
    */
   setCompressorBeforeDelay: (value: boolean) => void;
   /**
-   * Sets the global LFO drift amount(s) (docs/specs/LFO_DRIFT.md) — updates
-   * globalAudio.lfoDrift and pushes only the field(s) actually provided to
-   * lfoEngine's matching setGlobalRateDrift/setGlobalDepthDrift. A bespoke
-   * action (not routed through setGlobalAudio/GLOBAL_SETTER), shaped like
-   * setCompressorBeforeDelay above — lfoDrift is a top-level flag, not a
-   * per-effect object with its own AudioEngine.setGlobal* counterpart.
+   * Sets one drift group's LFO drift amount(s) (docs/specs/LFO_DRIFT_GROUPS.md)
+   * — updates globalAudio.lfoDrift[group] and pushes only the field(s)
+   * actually provided to lfoEngine's matching setGlobalRateDrift/
+   * setGlobalDepthDrift for that same group; every other group is untouched.
+   * A bespoke action (not routed through setGlobalAudio/GLOBAL_SETTER),
+   * shaped like setCompressorBeforeDelay above — lfoDrift is a top-level
+   * flag, not a per-effect object with its own AudioEngine.setGlobal*
+   * counterpart.
    */
-  // Stopgap signature — Task 8 (docs/tasks/LFO_DRIFT_GROUPS.md) makes this
-  // group-aware ((group: DriftGroupId, partial: ...) => void); until then it
-  // only ever writes the 'robots' group.
-  setGlobalLfoDrift: (partial: Partial<{ rateDrift: number; depthDrift: number }>) => void;
+  setGlobalLfoDrift: (group: DriftGroupId, partial: Partial<GlobalAudioSettings['lfoDrift'][DriftGroupId]>) => void;
   /**
    * Regenerate `globalAudio` for the given planet from the seed
    * (generateGlobalAudioSettings, src/utils/globalAudioSeed.ts) and push the
@@ -207,15 +205,15 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
     wireGlobalFxChain(value);
   },
 
-  setGlobalLfoDrift: (partial) => {
+  setGlobalLfoDrift: (group, partial) => {
     set((state) => ({
       globalAudio: {
         ...state.globalAudio,
-        lfoDrift: { ...state.globalAudio.lfoDrift, robots: { ...state.globalAudio.lfoDrift.robots, ...partial } },
+        lfoDrift: { ...state.globalAudio.lfoDrift, [group]: { ...state.globalAudio.lfoDrift[group], ...partial } },
       },
     }));
-    if (partial.rateDrift !== undefined) lfoEngine.setGlobalRateDrift(partial.rateDrift);
-    if (partial.depthDrift !== undefined) lfoEngine.setGlobalDepthDrift(partial.depthDrift);
+    if (partial.rateDrift !== undefined) lfoEngine.setGlobalRateDrift(group, partial.rateDrift);
+    if (partial.depthDrift !== undefined) lfoEngine.setGlobalDepthDrift(group, partial.depthDrift);
   },
 
   setGlobalLfo: (target, value) => {
