@@ -7,7 +7,15 @@ import { SliderLog } from '@/components/ui/controls/SliderLog';
 import { SliderCenteredZero } from '@/components/ui/controls/SliderCenteredZero';
 import { Stepper } from '@/components/ui/controls/Stepper';
 import { Lfo } from '@/components/ui/controls/Lfo';
-import { AUDIO_RIG_CONFIG, DECAY_MODE_SCHEMA, type AudioRigParamSchema, type AudioRigEffectKey } from '@/data/audioRigConfig';
+import {
+  AUDIO_RIG_CONFIG,
+  DECAY_MODE_SCHEMA,
+  LFO_DRIFT_ACCORDION,
+  LFO_RATE_DRIFT_SCHEMA,
+  LFO_DEPTH_DRIFT_SCHEMA,
+  type AudioRigParamSchema,
+  type AudioRigEffectKey,
+} from '@/data/audioRigConfig';
 import type { ToggleSchema } from '@/types/controls';
 import type { GlobalAudioSettings } from '@/types/globalAudio';
 import './AudioRigDrawer.css';
@@ -54,6 +62,7 @@ export function AudioRigDrawer() {
   const setGlobalBypassEnabled = useAudioStore((s) => s.setGlobalBypassEnabled);
   const setGlobalLfo = useAudioStore((s) => s.setGlobalLfo);
   const setCompressorBeforeDelay = useAudioStore((s) => s.setCompressorBeforeDelay);
+  const setGlobalLfoDrift = useAudioStore((s) => s.setGlobalLfoDrift);
 
   const rigDisabled = globalAudio.globalBypass;
 
@@ -117,6 +126,29 @@ export function AudioRigDrawer() {
           </div>
         );
       })}
+      <div className="audio-rig-drawer__effect-block">
+        <AccordionContainer
+          schema={LFO_DRIFT_ACCORDION}
+          contentActive={globalAudio.lfoDrift.rateDrift !== 0 || globalAudio.lfoDrift.depthDrift !== 0}
+        >
+          <div className="audio-rig-drawer__param-row">
+            <SliderCenteredZero
+              schema={LFO_RATE_DRIFT_SCHEMA}
+              value={globalAudio.lfoDrift.rateDrift * 100}
+              onChange={(v) => setGlobalLfoDrift({ rateDrift: v / 100 })}
+              disabled={rigDisabled}
+            />
+          </div>
+          <div className="audio-rig-drawer__param-row">
+            <SliderCenteredZero
+              schema={LFO_DEPTH_DRIFT_SCHEMA}
+              value={globalAudio.lfoDrift.depthDrift * 100}
+              onChange={(v) => setGlobalLfoDrift({ depthDrift: v / 100 })}
+              disabled={rigDisabled}
+            />
+          </div>
+        </AccordionContainer>
+      </div>
     </div>
   );
 }
