@@ -15,7 +15,7 @@ import {
 import { evictPlanetNoiseMap } from './noiseMaps';
 import { GLOBAL_AUDIO_LOADING_RANGES } from '@/data/globalAudioLoadingRanges';
 import { type GlobalAudioSeedFieldKey } from '@/data/globalAudioSeedRanges';
-import { GLOBAL_LFO_TARGET_IDS, LFO_SHAPES, LFO_RATE_MIN, LFO_RATE_MAX, LFO_DEPTH_MIN, LFO_DEPTH_MAX } from '@/types/lfo';
+import { GLOBAL_LFO_TARGET_IDS, LFO_SHAPES, LFO_RATE_MIN, LFO_RATE_MAX, LFO_DEPTH_MIN, LFO_DEPTH_MAX, DRIFT_GROUP_IDS } from '@/types/lfo';
 
 // ========================================
 // TESTS
@@ -184,7 +184,12 @@ describe('generateGlobalAudioSettings', () => {
   });
 
   describe('lfoDrift', () => {
-    it('is deterministic — same planetId + planetName always produces the same lfoDrift', () => {
+    it('returns a fully-populated lfoDrift for all 4 DriftGroupId groups', () => {
+      const settings = generateGlobalAudioSettings('seed-test-planet', 'Nova');
+      expect(Object.keys(settings.lfoDrift).sort()).toEqual([...DRIFT_GROUP_IDS].sort());
+    });
+
+    it('is deterministic — same planetId + planetName always produces the same lfoDrift for every group', () => {
       const first = generateGlobalAudioSettings('seed-test-planet', 'Nova');
       const second = generateGlobalAudioSettings('seed-test-planet', 'Nova');
       expect(second.lfoDrift).toEqual(first.lfoDrift);
@@ -196,39 +201,63 @@ describe('generateGlobalAudioSettings', () => {
       expect(b.lfoDrift).not.toEqual(a.lfoDrift);
     });
 
-    it('samples rateDrift and depthDrift independently, not the same draw for both', () => {
+    it('samples rateDrift and depthDrift independently within each group, not the same draw for both', () => {
       // A shared draw fed into both fields would be an easy copy/paste bug —
       // this catches it directly rather than relying on the non-degenerate
       // check above, which would still pass if both fields moved in lockstep.
       const settings = generateGlobalAudioSettings('seed-test-planet', 'Nova');
-      expect(settings.lfoDrift.robots.rateDrift).not.toBe(settings.lfoDrift.robots.depthDrift);
+      for (const group of DRIFT_GROUP_IDS) {
+        expect(settings.lfoDrift[group].rateDrift, group).not.toBe(settings.lfoDrift[group].depthDrift);
+      }
     });
 
-    it('keeps both fields within the -0.4..0.4 loading range on every call, across many planets', () => {
+    it('samples each group independently — no two groups share the same rateDrift draw', () => {
+      const settings = generateGlobalAudioSettings('seed-test-planet', 'Nova');
+      const rateDrifts = DRIFT_GROUP_IDS.map((group) => settings.lfoDrift[group].rateDrift);
+      expect(new Set(rateDrifts).size).toBe(DRIFT_GROUP_IDS.length);
+    });
+
+    it('samples each group independently — no two groups share the same depthDrift draw', () => {
+      const settings = generateGlobalAudioSettings('seed-test-planet', 'Nova');
+      const depthDrifts = DRIFT_GROUP_IDS.map((group) => settings.lfoDrift[group].depthDrift);
+      expect(new Set(depthDrifts).size).toBe(DRIFT_GROUP_IDS.length);
+    });
+
+    it('keeps every group\'s fields within the -0.4..0.4 loading range on every call, across many planets', () => {
       const SAMPLE_PLANETS = 20;
       for (let i = 0; i < SAMPLE_PLANETS; i++) {
         const settings = generateGlobalAudioSettings(`seed-drift-sample-${i}`, `DriftSample${i}`);
-        const { rateDrift, depthDrift } = settings.lfoDrift.robots;
-        expect(rateDrift, `planet ${i} rateDrift`).toBeGreaterThanOrEqual(-0.4);
-        expect(rateDrift, `planet ${i} rateDrift`).toBeLessThanOrEqual(0.4);
-        expect(depthDrift, `planet ${i} depthDrift`).toBeGreaterThanOrEqual(-0.4);
-        expect(depthDrift, `planet ${i} depthDrift`).toBeLessThanOrEqual(0.4);
+        for (const group of DRIFT_GROUP_IDS) {
+          const { rateDrift, depthDrift } = settings.lfoDrift[group];
+          expect(rateDrift, `planet ${i} ${group} rateDrift`).toBeGreaterThanOrEqual(-0.4);
+          expect(rateDrift, `planet ${i} ${group} rateDrift`).toBeLessThanOrEqual(0.4);
+          expect(depthDrift, `planet ${i} ${group} depthDrift`).toBeGreaterThanOrEqual(-0.4);
+          expect(depthDrift, `planet ${i} ${group} depthDrift`).toBeLessThanOrEqual(0.4);
+        }
         evictPlanetNoiseMap(`seed-drift-sample-${i}`);
       }
     });
 
-    it('actually produces both negative and positive values across many planets (non-degenerate)', () => {
+    it('actually produces both negative and positive rateDrift values across many planets, for every group (non-degenerate)', () => {
       const SAMPLE_PLANETS = 20;
-      let sawNegative = false;
-      let sawPositive = false;
+      const sawNegative: Record<string, boolean> = {};
+      const sawPositive: Record<string, boolean> = {};
+      for (const group of DRIFT_GROUP_IDS) {
+        sawNegative[group] = false;
+        sawPositive[group] = false;
+      }
       for (let i = 0; i < SAMPLE_PLANETS; i++) {
         const settings = generateGlobalAudioSettings(`seed-drift-sign-${i}`, `DriftSign${i}`);
-        if (settings.lfoDrift.robots.rateDrift < 0) sawNegative = true;
-        if (settings.lfoDrift.robots.rateDrift > 0) sawPositive = true;
+        for (const group of DRIFT_GROUP_IDS) {
+          if (settings.lfoDrift[group].rateDrift < 0) sawNegative[group] = true;
+          if (settings.lfoDrift[group].rateDrift > 0) sawPositive[group] = true;
+        }
         evictPlanetNoiseMap(`seed-drift-sign-${i}`);
       }
-      expect(sawNegative, 'expected at least one sampled planet with rateDrift < 0').toBe(true);
-      expect(sawPositive, 'expected at least one sampled planet with rateDrift > 0').toBe(true);
+      for (const group of DRIFT_GROUP_IDS) {
+        expect(sawNegative[group], `expected group ${group} to see rateDrift < 0 at least once`).toBe(true);
+        expect(sawPositive[group], `expected group ${group} to see rateDrift > 0 at least once`).toBe(true);
+      }
     });
   });
 });
