@@ -104,22 +104,22 @@ Task 3, Task 8 ──→ Task 9 (docs/AUDIO_SYSTEM.md)
 
 ### Phase 2: Drift engine core
 
-- [ ] **Task 4: `lfoEngine.ts` — drift oscillator pool + connect/disconnect lifecycle (structural, inert)**
+- [x] **Task 4: `lfoEngine.ts` — drift oscillator pool + connect/disconnect lifecycle (structural, inert)**
 
   **Description:** Add the fixed pool of 8 shared secondary `Tone.LFO`s (lazy construction, evenly-spread fixed phase offsets, `0.03`Hz), the deterministic `alea()`-based bucket assignment per instance key, and `attachDrift`/`detachDrift` wired into the existing `connectLfoTarget`/`disconnectLfoTarget` — creating per-primary rate-drift and depth-drift `Gain` nodes and connecting them through the `Signal.override`-safe pattern `connectLfoTarget` already uses for its own connections. Both Gains stay at `0` this task — no swing math yet, nothing audible changes. Per spec §3, `layerN.phase` targets (no live Signal) are explicitly excluded — `attachDrift` is never called from that branch.
 
   **Acceptance criteria:**
-  - [ ] No pool oscillator is constructed until the first successful `connectLfoTarget` call for any target.
-  - [ ] The pool never exceeds 8 oscillators regardless of how many primaries connect.
-  - [ ] The same instance key always maps to the same pool bucket across repeated calls within a session.
-  - [ ] A successfully-connected primary gets its own rate-drift and depth-drift `Gain` nodes, both initialized to `0` and connected to its `frequency`/`amplitude` via the override-disable-then-restore sequence.
-  - [ ] `disconnectLfoTarget` tears down a primary's drift link entirely (both Gains disconnected, the link removed) without disposing the shared pool oscillators.
-  - [ ] `connectLfoTarget('layerN.phase', …)` does not create a drift link.
-  - [ ] Every existing `lfoEngine.test.ts` test still passes unmodified — this task adds behavior, it doesn't change any existing primary-to-target connection behavior.
+  - [x] No pool oscillator is constructed until the first successful `connectLfoTarget` call for any target.
+  - [x] The pool never exceeds 8 oscillators regardless of how many primaries connect.
+  - [x] The same instance key always maps to the same pool bucket across repeated calls within a session.
+  - [x] A successfully-connected primary gets its own rate-drift and depth-drift `Gain` nodes, both initialized to `0` and connected to its `frequency`/`amplitude` via the override-disable-then-restore sequence.
+  - [x] `disconnectLfoTarget` tears down a primary's drift link entirely (both Gains disconnected, the link removed) without disposing the shared pool oscillators.
+  - [x] `connectLfoTarget('layerN.phase', …)` does not create a drift link.
+  - [x] Every existing `lfoEngine.test.ts` test still passes unmodified — this task adds behavior, it doesn't change any existing primary-to-target connection behavior.
 
   **Verification:**
-  - [ ] `npx vitest run src/engine/lfoEngine.test.ts` passes, including new coverage for lazy pool construction, bucket determinism (same key → same bucket, a representative spread of keys → not all landing on one bucket), Gain creation/connection on connect, teardown on disconnect, and the phase-target exclusion.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/engine/lfoEngine.test.ts` passes, including new coverage for lazy pool construction, bucket determinism (same key → same bucket, a representative spread of keys → not all landing on one bucket), Gain creation/connection on connect, teardown on disconnect, and the phase-target exclusion.
+  - [x] `npm run build:types`, `npm run lint` clean.
   - [ ] Manual/no-op check: with this task alone shipped, the app's audible behavior is unchanged (both drift Gains are always `0`).
 
   **Dependencies:** None (does not require Phase 1 — the pool mechanism itself has no dependency on `GlobalAudioSettings` or seeding).
@@ -128,19 +128,19 @@ Task 3, Task 8 ──→ Task 9 (docs/AUDIO_SYSTEM.md)
 
   **Estimated scope:** M (1 file, new pool/lifecycle logic, no swing math yet)
 
-- [ ] **Task 5: `lfoEngine.ts` — swing math, silence guard, and global setters (functional)**
+- [x] **Task 5: `lfoEngine.ts` — swing math, silence guard, and global setters (functional)**
 
   **Description:** Add `refreshRateDriftGain`/`refreshDepthDriftGain` (using `centeredSwingFromRange` against `{LFO_RATE_MIN, LFO_RATE_MAX}` and `{0, 1}` respectively), the Depth Drift silence guard (disconnect — not zero — the depth-drift Gain whenever a primary's own depth is `0`; reconnect when depth rises above `0`), and the exported `setGlobalRateDrift`/`setGlobalDepthDrift` functions that update module-scope state and refresh every linked primary. Wire `refreshRateDriftGain`/`refreshDepthDriftGain` into the existing `setLfoRate`/`setLfoDepth` so a primary's own rate/depth changes keep its swing current.
 
   **Acceptance criteria:**
-  - [ ] A primary's rate-drift swing is bounded by its own current rate's distance to `LFO_RATE_MIN`/`LFO_RATE_MAX` — a primary near either edge gets a smaller swing than one at the domain's midpoint, for the same global `rateDrift` value.
-  - [ ] `setGlobalRateDrift`/`setGlobalDepthDrift` update every currently-linked primary's corresponding Gain, and are safe no-ops with zero primaries connected.
-  - [ ] A primary with depth `0` has its depth-drift Gain disconnected (not merely zeroed); raising that primary's depth above `0` reconnects it and immediately reflects the current global `depthDrift` value.
-  - [ ] `setLfoRate`/`setLfoDepth` on a target with no drift link yet (never connected) do not throw and do not create a drift link as a side effect.
+  - [x] A primary's rate-drift swing is bounded by its own current rate's distance to `LFO_RATE_MIN`/`LFO_RATE_MAX` — a primary near either edge gets a smaller swing than one at the domain's midpoint, for the same global `rateDrift` value.
+  - [x] `setGlobalRateDrift`/`setGlobalDepthDrift` update every currently-linked primary's corresponding Gain, and are safe no-ops with zero primaries connected.
+  - [x] A primary with depth `0` has its depth-drift Gain disconnected (not merely zeroed); raising that primary's depth above `0` reconnects it and immediately reflects the current global `depthDrift` value.
+  - [x] `setLfoRate`/`setLfoDepth` on a target with no drift link yet (never connected) do not throw and do not create a drift link as a side effect.
 
   **Verification:**
-  - [ ] `npx vitest run src/engine/lfoEngine.test.ts` passes, including the swing-bound assertion, the silence-guard connect/disconnect assertion (both directions), `setGlobalRateDrift`/`setGlobalDepthDrift` reaching every linked primary, and the no-link-yet no-throw case.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/engine/lfoEngine.test.ts` passes, including the swing-bound assertion, the silence-guard connect/disconnect assertion (both directions), `setGlobalRateDrift`/`setGlobalDepthDrift` reaching every linked primary, and the no-link-yet no-throw case.
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** Task 4.
 
@@ -149,8 +149,8 @@ Task 3, Task 8 ──→ Task 9 (docs/AUDIO_SYSTEM.md)
   **Estimated scope:** M (extends Task 4's file with the highest-risk logic in this plan — the silence guard and the swing math)
 
 ### Checkpoint: Drift engine core
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] A test-level check confirms: connect a primary, call `setGlobalRateDrift(1)`, its rate-drift Gain is nonzero; set that primary's own depth to `0`, its depth-drift Gain is disconnected even with `setGlobalDepthDrift(1)` active.
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [x] A test-level check confirms: connect a primary, call `setGlobalRateDrift(1)`, its rate-drift Gain is nonzero; set that primary's own depth to `0`, its depth-drift Gain is disconnected even with `setGlobalDepthDrift(1)` active.
 - [ ] Review with human before proceeding.
 
 ---
