@@ -10,7 +10,7 @@ import { DEFAULT_LFO_SETTINGS } from '../data/lfoConfig';
 import { GLOBAL_AUDIO_SEED_RANGES, type GlobalAudioSeedFieldKey } from '../data/globalAudioSeedRanges';
 
 import type { OscillatorLayer } from '../types/layeredAudio';
-import type { LfoSettings, LfoShape, RobotLfoTargetId, GlobalLfoTargetId } from '../types/lfo';
+import type { LfoSettings, LfoShape, RobotLfoTargetId, GlobalLfoTargetId, DriftGroupId } from '../types/lfo';
 import { LFO_RATE_MIN, LFO_RATE_MAX, LFO_DEPTH_MIN, LFO_DEPTH_MAX, ROBOT_LFO_TARGET_IDS } from '../types/lfo';
 import { devWarn } from '../utils/helpers';
 
@@ -60,22 +60,29 @@ const phaseFallbacks = new Map<string, PhaseFallback>();
 const connectedSignals = new Map<string, unknown>();
 
 /**
- * 8 shared secondary Tone.LFOs, phase-spread evenly across the pool — fixed
- * and deterministic, not seeded per-planet (only the drift AMOUNT,
- * rateDrift/depthDrift, is seeded; the pool's own relative phases are a
- * structural implementation detail, the same for every session).
- * Constructed lazily, once, on the first successful connectLfoTarget call —
- * never per-robot, never per-target. See docs/specs/LFO_DRIFT.md §1.2.
+ * Per-group shared secondary Tone.LFO pools, phase-spread evenly across each
+ * group's own pool — fixed and deterministic, not seeded per-planet (only
+ * the drift AMOUNT, rateDrift/depthDrift, is seeded; a pool's own relative
+ * phases are a structural implementation detail, the same for every
+ * session). Each group's pool is constructed lazily, once, on that group's
+ * own first successful connectLfoTarget call — never per-robot, never
+ * per-target, and never shared across groups. See
+ * docs/specs/LFO_DRIFT_GROUPS.md §1.2 (reshaped from docs/specs/LFO_DRIFT.md's
+ * single shared pool).
  */
-let driftPool: Tone.LFO[] | null = null;
+const driftPools: Partial<Record<DriftGroupId, Tone.LFO[]>> = {};
 
 /**
  * One rate-drift + depth-drift Gain pair per currently-connected primary,
  * keyed the same as activeLfos/connectedSignals. Both Gains start at 0 —
- * setGlobalRateDrift/setGlobalDepthDrift (Task 5) are what make drift
- * audible; this wiring alone is deliberately inert.
+ * setGlobalRateDrift/setGlobalDepthDrift are what make drift audible; this
+ * wiring alone is deliberately inert.
  */
 interface DriftLink {
+  /** Set once at attachDrift time from the target the link was created for
+   *  — never reassigned. Determines which group's global rate/depth drift
+   *  amount this link's Gains read (docs/specs/LFO_DRIFT_GROUPS.md §1.3). */
+  group: DriftGroupId;
   rateDriftGain: Tone.Gain;
   depthDriftGain: Tone.Gain;
   /** Whether depthDriftGain is currently wired into the primary's amplitude.
@@ -102,10 +109,19 @@ const PHASE_CENTER_DEGREES = 180;
 /** Polling granularity for the phase fallback — matches BeatClock's own internal tick. */
 const PHASE_POLL_INTERVAL = '16n';
 
-/** Fixed pool size for the shared LFO-drift secondary oscillators — a
- *  constant node cost, independent of how many primaries are bound at once.
- *  See docs/specs/LFO_DRIFT.md §1.2/§3. */
-const DRIFT_POOL_SIZE = 8;
+/** Per-group pool size — sized to each group's own real target ceiling, not
+ *  a uniform constant. eq3/filterLPF/filterHPF only ever have 3/2/2 possible
+ *  LFO targets in the entire app; robots can have dozens of simultaneously
+ *  active primaries across every robot/layer/field, the same "70-100+
+ *  primaries, a handful of buckets is enough" reasoning
+ *  docs/specs/LFO_DRIFT.md §1.2 already established for its own flat 8.
+ *  See docs/specs/LFO_DRIFT_GROUPS.md §1.2. */
+const DRIFT_POOL_SIZE: Record<DriftGroupId, number> = {
+  eq3: 3,
+  filterLPF: 2,
+  filterHPF: 2,
+  robots: 8,
+};
 /** ~33-second cycle for the shared drift oscillators — fixed, never exposed
  *  in the UI (only the drift AMOUNT, rateDrift/depthDrift, is user-facing). */
 const DRIFT_RATE_HZ = 0.03;
@@ -278,21 +294,39 @@ function applySettingsToNode(lfo: Tone.LFO, settings: LfoSettings): void {
 }
 
 /**
- * Lazily construct (or return the existing) shared drift-oscillator pool —
- * 8 secondary Tone.LFOs at a fixed 0.03Hz, phase-spread evenly (360/8 = 45°
- * apart) across the pool. Started immediately if the AudioContext is
- * already running, matching every other LFO construction path in this file.
+ * Which drift group a target belongs to — the three global-chain groups
+ * that ever carry an lfoTarget map one-to-one by their own short-form
+ * prefix (mirrors globalSeedRangeKey's own 'lpf.'/'hpf.' prefix-matching
+ * style above); every RobotLfoTargetId (isRobotTarget(target) === true)
+ * shares 'robots' regardless of field or robotId. See
+ * docs/specs/LFO_DRIFT_GROUPS.md §1.1.
  */
-function getOrCreateDriftPool(): Tone.LFO[] {
-  if (driftPool) return driftPool;
+function driftGroupForTarget(target: LfoTargetId): DriftGroupId {
+  if (target.startsWith('eq3.')) return 'eq3';
+  if (target.startsWith('lpf.')) return 'filterLPF';
+  if (target.startsWith('hpf.')) return 'filterHPF';
+  return 'robots';
+}
+
+/**
+ * Lazily construct (or return the existing) drift-oscillator pool for one
+ * group — sized to that group's own DRIFT_POOL_SIZE entry, phase-spread
+ * evenly across it. Started immediately if the AudioContext is already
+ * running, matching every other LFO construction path in this file. Never
+ * shared across groups.
+ */
+function getOrCreateDriftPool(group: DriftGroupId): Tone.LFO[] {
+  const existing = driftPools[group];
+  if (existing) return existing;
+  const size = DRIFT_POOL_SIZE[group];
   const pool: Tone.LFO[] = [];
-  for (let i = 0; i < DRIFT_POOL_SIZE; i++) {
-    const lfo = new Tone.LFO({ frequency: DRIFT_RATE_HZ, type: 'sine', phase: (360 / DRIFT_POOL_SIZE) * i });
+  for (let i = 0; i < size; i++) {
+    const lfo = new Tone.LFO({ frequency: DRIFT_RATE_HZ, type: 'sine', phase: (360 / size) * i });
     if (isAudioContextRunning()) lfo.start();
     pool.push(lfo);
   }
-  driftPool = pool;
-  return driftPool;
+  driftPools[group] = pool;
+  return pool;
 }
 
 /**
@@ -303,10 +337,10 @@ function getOrCreateDriftPool(): Tone.LFO[] {
  * Both Gains start at 0 — setGlobalRateDrift/setGlobalDepthDrift (Task 5)
  * are what make drift audible; this wiring alone is deliberately inert.
  */
-function attachDrift(key: string, lfo: Tone.LFO): void {
+function attachDrift(key: string, lfo: Tone.LFO, group: DriftGroupId): void {
   if (driftLinks.has(key)) return;
-  const pool = getOrCreateDriftPool();
-  const poolLfo = pool[Math.floor(alea(key)() * DRIFT_POOL_SIZE)];
+  const pool = getOrCreateDriftPool(group);
+  const poolLfo = pool[Math.floor(alea(key)() * pool.length)];
 
   const rateDriftGain = new Tone.Gain(0);
   const depthDriftGain = new Tone.Gain(0);
@@ -326,7 +360,7 @@ function attachDrift(key: string, lfo: Tone.LFO): void {
   // depthDriftGain's own connection is deliberately NOT made here — it's
   // conditional on this primary's own current depth, per the "never revive
   // a silenced target" guard (§1.3). refreshDepthDriftGain below owns it.
-  driftLinks.set(key, { rateDriftGain, depthDriftGain, depthDriftConnected: false });
+  driftLinks.set(key, { group, rateDriftGain, depthDriftGain, depthDriftConnected: false });
   refreshRateDriftGain(key);
   refreshDepthDriftGain(key);
 }
@@ -572,7 +606,7 @@ function connectLfoTarget(target: LfoTargetId, robotId?: string): boolean {
   }
 
   if (connectedSignals.get(key) === signal) {
-    attachDrift(key, lfo); // already connected to this exact signal — no-op, never a second .connect() — but drift still needs to be (idempotently) attached
+    attachDrift(key, lfo, driftGroupForTarget(target)); // already connected to this exact signal — no-op, never a second .connect() — but drift still needs to be (idempotently) attached
     return true;
   }
 
@@ -627,7 +661,7 @@ function connectLfoTarget(target: LfoTargetId, robotId?: string): boolean {
   }
 
   connectedSignals.set(key, signal);
-  attachDrift(key, lfo);
+  attachDrift(key, lfo, driftGroupForTarget(target));
   return true;
 }
 

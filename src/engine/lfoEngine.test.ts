@@ -1040,6 +1040,103 @@ describe('lfoEngine', () => {
     });
   });
 
+  describe('per-group drift pools (docs/tasks/LFO_DRIFT_GROUPS.md Task 5 — structural: every group correctly pooled, amounts not yet independent)', () => {
+    it('constructs exactly 3 pool oscillators for the eq3 group on its own first successful connect', async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(0));
+      const { lfoEngine } = await import('./lfoEngine');
+      const delta = await poolConstructionCountDelta(() => {
+        lfoEngine.connectLfoTarget('eq3.low');
+      });
+      expect(delta).toBe(3);
+    });
+
+    it('constructs exactly 2 pool oscillators for the filterLPF group on its own first successful connect', async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(0));
+      const { lfoEngine } = await import('./lfoEngine');
+      const delta = await poolConstructionCountDelta(() => {
+        lfoEngine.connectLfoTarget('lpf.frequency');
+      });
+      expect(delta).toBe(2);
+    });
+
+    it('constructs exactly 2 pool oscillators for the filterHPF group on its own first successful connect', async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(0));
+      const { lfoEngine } = await import('./lfoEngine');
+      const delta = await poolConstructionCountDelta(() => {
+        lfoEngine.connectLfoTarget('hpf.Q');
+      });
+      expect(delta).toBe(2);
+    });
+
+    it('constructs exactly 8 pool oscillators for the robots group on its own first successful connect — every RobotLfoTargetId shares this one group', async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(0));
+      const { lfoEngine } = await import('./lfoEngine');
+      const delta = await poolConstructionCountDelta(() => {
+        lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+      });
+      expect(delta).toBe(8);
+    });
+
+    it('connecting a target in one group does not construct another group\'s pool', async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValue(fakeSignal(0));
+      const { lfoEngine } = await import('./lfoEngine');
+      lfoEngine.connectLfoTarget('eq3.low'); // constructs eq3's own pool (3)
+
+      const delta = await poolConstructionCountDelta(() => {
+        lfoEngine.connectLfoTarget('lpf.frequency'); // a different group — should add only ITS OWN 2
+      });
+
+      expect(delta).toBe(2);
+    });
+
+    it('reuses an existing group\'s pool for a second target in the same group — still exactly that group\'s own size, not doubled', async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValue(fakeSignal(0));
+      const { lfoEngine } = await import('./lfoEngine');
+      lfoEngine.connectLfoTarget('eq3.low'); // constructs eq3's pool (3)
+
+      const delta = await poolConstructionCountDelta(() => {
+        lfoEngine.connectLfoTarget('eq3.mid'); // same group — must reuse, not rebuild
+      });
+
+      expect(delta).toBe(0);
+    });
+
+    it('a group\'s pool is not constructed until that group\'s own first successful connectLfoTarget call', async () => {
+      const { lfoEngine } = await import('./lfoEngine');
+      const delta = await poolConstructionCountDelta(() => {
+        lfoEngine.setLfoRate('eq3.low', 3);
+        lfoEngine.getLfoSettings('layer0.gain', 'robot-a');
+      });
+      expect(delta).toBe(0);
+    });
+
+    it('the same instance key deterministically reuses the same pool oscillator, from its own group\'s pool, across a disconnect + reconnect cycle', async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValue(fakeSignal(0));
+      const { lfoEngine } = await import('./lfoEngine');
+      const Tone = await import('tone');
+      const gainCtor = Tone.Gain as unknown as ReturnType<typeof vi.fn>;
+
+      lfoEngine.connectLfoTarget('eq3.low');
+      const firstRateDriftGain = gainCtor.mock.results.at(-2)!.value;
+      const firstBucket = await poolOscillatorConnectedTo(firstRateDriftGain);
+      expect(firstBucket).toBeDefined();
+
+      lfoEngine.disconnectLfoTarget('eq3.low');
+      lfoEngine.connectLfoTarget('eq3.low');
+      const secondRateDriftGain = gainCtor.mock.results.at(-2)!.value;
+      const secondBucket = await poolOscillatorConnectedTo(secondRateDriftGain);
+
+      expect(secondBucket).toBe(firstBucket);
+    });
+  });
+
   describe('drift swing math, silence guard, and global setters (Task 5)', () => {
     describe('rate-drift swing (refreshRateDriftGain, via setGlobalRateDrift)', () => {
       it('scales a linked primary\'s rate-drift Gain by globalRateDrift * the centeredSwingFromRange half-span for its own current rate', async () => {
