@@ -78,8 +78,20 @@ let driftPool: Tone.LFO[] | null = null;
 interface DriftLink {
   rateDriftGain: Tone.Gain;
   depthDriftGain: Tone.Gain;
+  /** Whether depthDriftGain is currently wired into the primary's amplitude.
+   *  False whenever this primary's own depth is 0 — see refreshDepthDriftGain's
+   *  silence guard (docs/specs/LFO_DRIFT.md §1.3). Rate has no equivalent
+   *  field: it has no "off" state (LFO_RATE_MIN is 0.1, never 0), so
+   *  rateDriftGain stays connected unconditionally from attachDrift on. */
+  depthDriftConnected: boolean;
 }
 const driftLinks = new Map<string, DriftLink>();
+
+/** Global Rate/Depth Drift amounts, both -1..1, pushed by setGlobalRateDrift/
+ *  setGlobalDepthDrift — read by refreshRateDriftGain/refreshDepthDriftGain
+ *  for every currently-linked primary. */
+let globalRateDrift = 0;
+let globalDepthDrift = 0;
 
 /** Phase modulates around this center (degrees) — the midpoint of the 0-360 range
  * ROBOT_DATA_GRID.md's Phase field documents. Depth scales how far it swings from
@@ -303,22 +315,83 @@ function attachDrift(key: string, lfo: Tone.LFO): void {
 
   // Same Signal.override fix connectLfoTarget already applies to its own
   // target connection below — reused, not re-derived (docs/specs/LFO_DRIFT.md
-  // §1.4). lfo.frequency is a real Tone.Signal.
+  // §1.4). lfo.frequency is a real Tone.Signal. Rate has no "off" state
+  // (LFO_RATE_MIN is 0.1, never 0), so rateDriftGain connects unconditionally
+  // here and stays connected for the primary's whole lifetime.
   (lfo.frequency as unknown as { override?: boolean }).override = false;
   const currentFreq = lfo.frequency.value as number;
   rateDriftGain.connect(lfo.frequency as unknown as Tone.InputNode);
   if (Number.isFinite(currentFreq)) lfo.frequency.value = currentFreq;
 
-  // lfo.amplitude is a Tone.Param, not a Signal — no override escape hatch,
-  // always resets to 0 on connect regardless (§1.4). Writing `.override`
-  // here is harmless defensive symmetry with the frequency case above; the
-  // restore afterward is what actually matters for this destination.
-  (lfo.amplitude as unknown as { override?: boolean }).override = false;
-  const currentAmp = lfo.amplitude.value as number;
-  depthDriftGain.connect(lfo.amplitude as unknown as Tone.InputNode);
-  if (Number.isFinite(currentAmp)) lfo.amplitude.value = currentAmp;
+  // depthDriftGain's own connection is deliberately NOT made here — it's
+  // conditional on this primary's own current depth, per the "never revive
+  // a silenced target" guard (§1.3). refreshDepthDriftGain below owns it.
+  driftLinks.set(key, { rateDriftGain, depthDriftGain, depthDriftConnected: false });
+  refreshRateDriftGain(key);
+  refreshDepthDriftGain(key);
+}
 
-  driftLinks.set(key, { rateDriftGain, depthDriftGain });
+/**
+ * Recompute one primary's rate-drift Gain value from its OWN current rate
+ * (bounded via centeredSwingFromRange, the same "swing bounded by distance
+ * to the nearer edge" math connectLfoTarget already uses for primary-to-
+ * target swings) and the current global rateDrift amount. Called after
+ * attachDrift, after setLfoRate, and from setGlobalRateDrift for every
+ * linked key. A no-op if this key has no drift link (yet, or ever).
+ */
+function refreshRateDriftGain(key: string): void {
+  const link = driftLinks.get(key);
+  const lfo = activeLfos.get(key);
+  if (!link || !lfo) return;
+  const currentRate = lfo.frequency.value as number;
+  const swing = centeredSwingFromRange({ min: LFO_RATE_MIN, max: LFO_RATE_MAX }, currentRate);
+  link.rateDriftGain.gain.value = globalRateDrift * swing.max;
+}
+
+/**
+ * Recompute one primary's depth-drift Gain — connects it lazily (via the
+ * same override-disable-then-restore sequence attachDrift already uses for
+ * frequency) the first time this primary's own depth rises above 0, and
+ * DISCONNECTS it entirely (not just zeroes it) whenever depth is 0. A
+ * primary deliberately silenced by its own Depth must stay silent
+ * regardless of global drift (§1.3) — a zeroed-but-still-connected Gain
+ * can't guarantee that on its own, since the shared pool oscillator's
+ * output is bipolar and could still swing the amplitude UP on its upswing
+ * half. Called after attachDrift, after setLfoDepth, and from
+ * setGlobalDepthDrift for every linked key. A no-op if this key has no
+ * drift link (yet, or ever).
+ */
+function refreshDepthDriftGain(key: string): void {
+  const link = driftLinks.get(key);
+  const lfo = activeLfos.get(key);
+  if (!link || !lfo) return;
+  const currentAmp = lfo.amplitude.value as number;
+
+  if (currentAmp <= 0) {
+    if (link.depthDriftConnected) {
+      try {
+        link.depthDriftGain.disconnect();
+      } catch (err) {
+        devWarn('[lfoEngine] refreshDepthDriftGain: disconnect failed', err);
+      }
+      link.depthDriftConnected = false;
+    }
+    return;
+  }
+
+  if (!link.depthDriftConnected) {
+    // lfo.amplitude is a Tone.Param, not a Signal — no override escape
+    // hatch, always resets to 0 on connect regardless (§1.4). Writing
+    // `.override` here is harmless defensive symmetry with the frequency
+    // case in attachDrift; the restore afterward is what actually matters.
+    (lfo.amplitude as unknown as { override?: boolean }).override = false;
+    link.depthDriftGain.connect(lfo.amplitude as unknown as Tone.InputNode);
+    if (Number.isFinite(currentAmp)) lfo.amplitude.value = currentAmp;
+    link.depthDriftConnected = true;
+  }
+
+  const swing = centeredSwingFromRange({ min: 0, max: 1 }, currentAmp);
+  link.depthDriftGain.gain.value = globalDepthDrift * swing.max;
 }
 
 /** Reverse attachDrift — called from disconnectLfoTarget. The shared pool
@@ -377,6 +450,7 @@ function setLfoRate(target: LfoTargetId, hz: number, robotId?: string): void {
   const updated: LfoSettings = { ...getLfoSettings(target, robotId), rate: clamped };
   settingsByKey.set(key, updated);
   getOrCreateLfo(key, target, robotId).frequency.value = clamped;
+  refreshRateDriftGain(key); // no-op if this target has no drift link yet
 }
 
 /**
@@ -390,6 +464,7 @@ function setLfoDepth(target: LfoTargetId, percent: number, robotId?: string): vo
   const updated: LfoSettings = { ...getLfoSettings(target, robotId), depth: clamped };
   settingsByKey.set(key, updated);
   getOrCreateLfo(key, target, robotId).amplitude.value = clamped / 100;
+  refreshDepthDriftGain(key); // no-op if this target has no drift link yet
 }
 
 /** Set the LFO's oscillator shape. */
@@ -556,6 +631,27 @@ function connectLfoTarget(target: LfoTargetId, robotId?: string): boolean {
   return true;
 }
 
+/**
+ * Set the global Rate Drift amount (-1..1, clamped) — immediately refreshes
+ * every currently-linked primary's rate-drift Gain. Safe no-op with zero
+ * primaries connected (just updates the module-scope value).
+ */
+function setGlobalRateDrift(value: number): void {
+  globalRateDrift = clamp(value, -1, 1);
+  for (const key of driftLinks.keys()) refreshRateDriftGain(key);
+}
+
+/**
+ * Set the global Depth Drift amount (-1..1, clamped) — immediately
+ * refreshes every currently-linked primary's depth-drift Gain, respecting
+ * each primary's own silence guard (§1.3). Safe no-op with zero primaries
+ * connected.
+ */
+function setGlobalDepthDrift(value: number): void {
+  globalDepthDrift = clamp(value, -1, 1);
+  for (const key of driftLinks.keys()) refreshDepthDriftGain(key);
+}
+
 /** Reverse connectLfoTarget: disconnects the live node, or cancels the phase-polling schedule. Safe/no-op if nothing was connected. */
 function disconnectLfoTarget(target: LfoTargetId, robotId?: string): void {
   const key = instanceKey(target, robotId);
@@ -581,4 +677,6 @@ export const lfoEngine = {
   stop,
   connectLfoTarget,
   disconnectLfoTarget,
+  setGlobalRateDrift,
+  setGlobalDepthDrift,
 };
