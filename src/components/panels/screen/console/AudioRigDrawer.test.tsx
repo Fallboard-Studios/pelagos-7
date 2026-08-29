@@ -16,6 +16,8 @@ vi.mock('../../../../engine/lfoEngine', () => ({
     stop: vi.fn(),
     connectLfoTarget: vi.fn(() => true),
     disconnectLfoTarget: vi.fn(),
+    setGlobalRateDrift: vi.fn(),
+    setGlobalDepthDrift: vi.fn(),
   },
 }));
 

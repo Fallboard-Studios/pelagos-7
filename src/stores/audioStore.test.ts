@@ -37,6 +37,8 @@ vi.mock('../engine/lfoEngine', () => ({
     stop: vi.fn(),
     connectLfoTarget: vi.fn(() => true),
     disconnectLfoTarget: vi.fn(),
+    setGlobalRateDrift: vi.fn(),
+    setGlobalDepthDrift: vi.fn(),
   },
 }));
 
@@ -129,6 +131,15 @@ describe('useAudioStore - regenerateGlobalAudioFromSeed', () => {
     expect(AudioEngine.setGlobalLimiter).toHaveBeenCalledWith(globalAudio.limiter);
     expect(AudioEngine.setGlobalDelay).toHaveBeenCalledWith(globalAudio.delay);
     expect(AudioEngine.setGlobalReverb).toHaveBeenCalledWith(globalAudio.reverb);
+  });
+
+  it('calls lfoEngine.setGlobalRateDrift/setGlobalDepthDrift with the resulting lfoDrift values, alongside the AudioEngine setGlobal* calls', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const { lfoEngine } = await import('../engine/lfoEngine');
+    const { globalAudio } = useAudioStore.getState();
+
+    expect(lfoEngine.setGlobalRateDrift).toHaveBeenCalledWith(globalAudio.lfoDrift.rateDrift);
+    expect(lfoEngine.setGlobalDepthDrift).toHaveBeenCalledWith(globalAudio.lfoDrift.depthDrift);
   });
 
   it('calls AudioEngine.setEffectBypass with each effect\'s actual seeded enabled value — not hardcoded true', async () => {
@@ -330,6 +341,61 @@ describe('useAudioStore - setCompressorBeforeDelay', () => {
 
     expect(useAudioStore.getState().globalAudio.compressorBeforeDelay).toBe(false);
     expect(wireGlobalFxChain).toHaveBeenCalledWith(false);
+  });
+});
+
+describe('useAudioStore - setGlobalLfoDrift', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it('updates only rateDrift in state and calls lfoEngine.setGlobalRateDrift, leaving depthDrift untouched', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const { lfoEngine } = await import('../engine/lfoEngine');
+    const depthBefore = useAudioStore.getState().globalAudio.lfoDrift.depthDrift;
+    vi.clearAllMocks();
+
+    useAudioStore.getState().setGlobalLfoDrift({ rateDrift: 0.5 });
+
+    expect(useAudioStore.getState().globalAudio.lfoDrift.rateDrift).toBe(0.5);
+    expect(useAudioStore.getState().globalAudio.lfoDrift.depthDrift).toBe(depthBefore);
+    expect(lfoEngine.setGlobalRateDrift).toHaveBeenCalledWith(0.5);
+    expect(lfoEngine.setGlobalDepthDrift).not.toHaveBeenCalled();
+  });
+
+  it('updates only depthDrift in state and calls lfoEngine.setGlobalDepthDrift, leaving rateDrift untouched', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const { lfoEngine } = await import('../engine/lfoEngine');
+    const rateBefore = useAudioStore.getState().globalAudio.lfoDrift.rateDrift;
+    vi.clearAllMocks();
+
+    useAudioStore.getState().setGlobalLfoDrift({ depthDrift: -0.3 });
+
+    expect(useAudioStore.getState().globalAudio.lfoDrift.depthDrift).toBe(-0.3);
+    expect(useAudioStore.getState().globalAudio.lfoDrift.rateDrift).toBe(rateBefore);
+    expect(lfoEngine.setGlobalDepthDrift).toHaveBeenCalledWith(-0.3);
+    expect(lfoEngine.setGlobalRateDrift).not.toHaveBeenCalled();
+  });
+
+  it('updates both fields and calls both engine setters when both are provided together', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const { lfoEngine } = await import('../engine/lfoEngine');
+    vi.clearAllMocks();
+
+    useAudioStore.getState().setGlobalLfoDrift({ rateDrift: 0.2, depthDrift: 0.9 });
+
+    expect(useAudioStore.getState().globalAudio.lfoDrift).toEqual({ rateDrift: 0.2, depthDrift: 0.9 });
+    expect(lfoEngine.setGlobalRateDrift).toHaveBeenCalledWith(0.2);
+    expect(lfoEngine.setGlobalDepthDrift).toHaveBeenCalledWith(0.9);
+  });
+
+  it('calling it twice with one field each time accumulates rather than clobbering the other field', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    useAudioStore.getState().setGlobalLfoDrift({ rateDrift: 0.4 });
+
+    useAudioStore.getState().setGlobalLfoDrift({ depthDrift: 0.6 });
+
+    expect(useAudioStore.getState().globalAudio.lfoDrift).toEqual({ rateDrift: 0.4, depthDrift: 0.6 });
   });
 });
 

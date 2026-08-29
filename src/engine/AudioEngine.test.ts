@@ -170,6 +170,8 @@ vi.mock('./lfoEngine', () => ({
     stop: vi.fn(),
     connectLfoTarget: vi.fn(() => true),
     disconnectLfoTarget: vi.fn(),
+    setGlobalRateDrift: vi.fn(),
+    setGlobalDepthDrift: vi.fn(),
   },
 }));
 
@@ -1636,6 +1638,7 @@ describe('AudioEngine.start — primes the just-built global FX chain from curre
   const FIXTURE_GLOBAL_AUDIO = {
     globalBypass: false,
     compressorBeforeDelay: false,
+    lfoDrift: { rateDrift: 0, depthDrift: 0 },
     compressor: { enabled: true, threshold: -50, ratio: 15, attack: 0.02, release: 0.22, knee: 9 },
     eq3: { enabled: true, low: 4, mid: -3, high: 2 },
     filterLPF: { enabled: true, type: 'lowpass', frequency: 9000, Q: 3 },
