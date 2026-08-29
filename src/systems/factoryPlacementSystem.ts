@@ -272,7 +272,7 @@ export function placeFactories(localeId: string): Actor[] {
  * each factory's locale-seeded LOCAL shift from scratch (same inputs
  * Factory.tsx's own render already recomputes) rather than trying to
  * subtract out the previous AS delta, so repeated AS changes never
- * accumulate drift. Called only from retransmitPlanetOnly (worldTransition.ts)
+ * accumulate drift. Called only from retransmitAttenuationStyleOnly (worldTransition.ts)
  * — never from placeFactories' own fresh-spawn path, which folds the current
  * AS's shift in at creation time instead. See docs/specs/ATTENUATION_STYLE.md §1.2.
  */
