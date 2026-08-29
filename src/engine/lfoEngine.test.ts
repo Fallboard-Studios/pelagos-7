@@ -1151,7 +1151,7 @@ describe('lfoEngine', () => {
         const gainCtor = Tone.Gain as unknown as ReturnType<typeof vi.fn>;
         const rateDriftGain = gainCtor.mock.results.at(-2)!.value as MockGainInstance;
 
-        lfoEngine.setGlobalRateDrift(0.5);
+        lfoEngine.setGlobalRateDrift('robots', 0.5);
 
         const halfSpan = (LFO_RATE_MAX - LFO_RATE_MIN) / 2;
         expect(rateDriftGain.gain.value).toBeCloseTo(0.5 * halfSpan);
@@ -1163,7 +1163,7 @@ describe('lfoEngine', () => {
         const { lfoEngine } = await import('./lfoEngine');
         // Default rate is already LFO_RATE_MIN (lfoConfig.ts's makeDefaultLfoSettings) — no explicit setLfoRate needed.
         lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
-        lfoEngine.setGlobalRateDrift(1);
+        lfoEngine.setGlobalRateDrift('robots', 1);
         const Tone = await import('tone');
         const gainCtor = Tone.Gain as unknown as ReturnType<typeof vi.fn>;
         const rateDriftGain = gainCtor.mock.results.at(-2)!.value as MockGainInstance;
@@ -1190,7 +1190,7 @@ describe('lfoEngine', () => {
         lfoEngine.connectLfoTarget('layer0.detune', 'robot-a');
         const midpointGain = gainCtor.mock.results.at(-2)!.value as MockGainInstance;
 
-        lfoEngine.setGlobalRateDrift(1);
+        lfoEngine.setGlobalRateDrift('robots', 1);
 
         expect(Math.abs(nearEdgeGain.gain.value)).toBeLessThan(Math.abs(midpointGain.gain.value));
       });
@@ -1202,7 +1202,7 @@ describe('lfoEngine', () => {
         const { LFO_RATE_MIN, LFO_RATE_MAX } = await import('../types/lfo');
         const midpointRate = (LFO_RATE_MIN + LFO_RATE_MAX) / 2;
         lfoEngine.connectLfoTarget('layer0.gain', 'robot-a'); // starts at LFO_RATE_MIN — zero swing
-        lfoEngine.setGlobalRateDrift(1);
+        lfoEngine.setGlobalRateDrift('robots', 1);
         const Tone = await import('tone');
         const gainCtor = Tone.Gain as unknown as ReturnType<typeof vi.fn>;
         const rateDriftGain = gainCtor.mock.results.at(-2)!.value as MockGainInstance;
@@ -1218,8 +1218,8 @@ describe('lfoEngine', () => {
     describe('setGlobalRateDrift / setGlobalDepthDrift', () => {
       it('is a safe no-op with zero primaries connected', async () => {
         const { lfoEngine } = await import('./lfoEngine');
-        expect(() => lfoEngine.setGlobalRateDrift(0.5)).not.toThrow();
-        expect(() => lfoEngine.setGlobalDepthDrift(0.5)).not.toThrow();
+        expect(() => lfoEngine.setGlobalRateDrift('robots', 0.5)).not.toThrow();
+        expect(() => lfoEngine.setGlobalDepthDrift('robots', 0.5)).not.toThrow();
       });
 
       it('updates every currently-linked primary\'s rate-drift Gain, not just the most recently connected one', async () => {
@@ -1241,7 +1241,7 @@ describe('lfoEngine', () => {
         lfoEngine.connectLfoTarget('layer0.detune', 'robot-a');
         const secondRateDriftGain = gainCtor.mock.results.at(-2)!.value as MockGainInstance;
 
-        lfoEngine.setGlobalRateDrift(1);
+        lfoEngine.setGlobalRateDrift('robots', 1);
 
         expect(firstRateDriftGain.gain.value).not.toBe(0);
         expect(secondRateDriftGain.gain.value).not.toBe(0);
@@ -1259,10 +1259,108 @@ describe('lfoEngine', () => {
         const gainCtor = Tone.Gain as unknown as ReturnType<typeof vi.fn>;
         const rateDriftGain = gainCtor.mock.results.at(-2)!.value as MockGainInstance;
 
-        lfoEngine.setGlobalRateDrift(5); // way out of range
+        lfoEngine.setGlobalRateDrift('robots', 5); // way out of range
 
         const halfSpan = (LFO_RATE_MAX - LFO_RATE_MIN) / 2;
         expect(rateDriftGain.gain.value).toBeCloseTo(1 * halfSpan); // clamped to 1, not 5
+      });
+
+      it('is a safe no-op for a group with zero primaries connected, even while another group has primaries and a nonzero amount already set', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(0));
+        const { lfoEngine } = await import('./lfoEngine');
+        lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+        lfoEngine.setGlobalRateDrift('robots', 1);
+        lfoEngine.setGlobalDepthDrift('robots', 1);
+
+        expect(() => lfoEngine.setGlobalRateDrift('eq3', 0.5)).not.toThrow();
+        expect(() => lfoEngine.setGlobalDepthDrift('filterHPF', 0.5)).not.toThrow();
+      });
+    });
+
+    describe('cross-group isolation (docs/tasks/LFO_DRIFT_GROUPS.md Task 6 — the highest-risk regression class this phase introduces: 10.2 had exactly one global amount, so "which amount applies to this primary" could never be wrong before)', () => {
+      it('setGlobalRateDrift for one group never touches another group\'s rate-drift Gain', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValue(fakeSignal(0));
+        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValue(fakeSignal(0));
+        const { lfoEngine } = await import('./lfoEngine');
+        const { LFO_RATE_MIN, LFO_RATE_MAX } = await import('../types/lfo');
+        const midpointRate = (LFO_RATE_MIN + LFO_RATE_MAX) / 2;
+        const Tone = await import('tone');
+        const gainCtor = Tone.Gain as unknown as ReturnType<typeof vi.fn>;
+
+        lfoEngine.setLfoRate('eq3.low', midpointRate);
+        lfoEngine.connectLfoTarget('eq3.low');
+        const eq3RateDriftGain = gainCtor.mock.results.at(-2)!.value as MockGainInstance;
+
+        lfoEngine.setLfoRate('layer0.gain', midpointRate, 'robot-a');
+        lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+        const robotsRateDriftGain = gainCtor.mock.results.at(-2)!.value as MockGainInstance;
+
+        lfoEngine.setGlobalRateDrift('eq3', 1);
+
+        expect(eq3RateDriftGain.gain.value).not.toBe(0);
+        expect(robotsRateDriftGain.gain.value).toBe(0); // untouched — robots' own amount is still 0
+      });
+
+      it('setGlobalRateDrift for the OTHER group (robots) doesn\'t leak into eq3 either — isolation holds in both directions', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValue(fakeSignal(0));
+        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValue(fakeSignal(0));
+        const { lfoEngine } = await import('./lfoEngine');
+        const { LFO_RATE_MIN, LFO_RATE_MAX } = await import('../types/lfo');
+        const midpointRate = (LFO_RATE_MIN + LFO_RATE_MAX) / 2;
+        const Tone = await import('tone');
+        const gainCtor = Tone.Gain as unknown as ReturnType<typeof vi.fn>;
+
+        lfoEngine.setLfoRate('eq3.low', midpointRate);
+        lfoEngine.connectLfoTarget('eq3.low');
+        const eq3RateDriftGain = gainCtor.mock.results.at(-2)!.value as MockGainInstance;
+
+        lfoEngine.setLfoRate('layer0.gain', midpointRate, 'robot-a');
+        lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+        const robotsRateDriftGain = gainCtor.mock.results.at(-2)!.value as MockGainInstance;
+
+        lfoEngine.setGlobalRateDrift('robots', 1);
+
+        expect(robotsRateDriftGain.gain.value).not.toBe(0);
+        expect(eq3RateDriftGain.gain.value).toBe(0); // untouched — eq3's own amount is still 0
+      });
+
+      it('setGlobalDepthDrift for one group never touches another group\'s depth-drift Gain', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValue(fakeSignal(0));
+        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValue(fakeSignal(0));
+        const { lfoEngine } = await import('./lfoEngine');
+        const Tone = await import('tone');
+        const gainCtor = Tone.Gain as unknown as ReturnType<typeof vi.fn>;
+
+        lfoEngine.setLfoDepth('eq3.low', 50);
+        lfoEngine.connectLfoTarget('eq3.low');
+        const eq3DepthDriftGain = gainCtor.mock.results.at(-1)!.value as MockGainInstance;
+
+        lfoEngine.setLfoDepth('layer0.gain', 50, 'robot-a');
+        lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+        const robotsDepthDriftGain = gainCtor.mock.results.at(-1)!.value as MockGainInstance;
+
+        lfoEngine.setGlobalDepthDrift('eq3', 1);
+
+        expect(eq3DepthDriftGain.gain.value).not.toBe(0);
+        expect(robotsDepthDriftGain.gain.value).toBe(0); // untouched — robots' own amount is still 0
+      });
+
+      it('the depth-drift silence guard holds for a global-chain group too, not just robots', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        (AudioEngine.getGlobalModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(0));
+        const { lfoEngine } = await import('./lfoEngine');
+        lfoEngine.connectLfoTarget('eq3.low'); // default depth is 0
+        const Tone = await import('tone');
+        const gainCtor = Tone.Gain as unknown as ReturnType<typeof vi.fn>;
+        const depthDriftGain = gainCtor.mock.results.at(-1)!.value as MockGainInstance;
+
+        lfoEngine.setGlobalDepthDrift('eq3', 1);
+
+        expect(depthDriftGain.connect).not.toHaveBeenCalled();
       });
     });
 
@@ -1276,7 +1374,7 @@ describe('lfoEngine', () => {
         const gainCtor = Tone.Gain as unknown as ReturnType<typeof vi.fn>;
         const depthDriftGain = gainCtor.mock.results.at(-1)!.value as MockGainInstance;
 
-        lfoEngine.setGlobalDepthDrift(1);
+        lfoEngine.setGlobalDepthDrift('robots', 1);
 
         expect(depthDriftGain.connect).not.toHaveBeenCalled();
       });
@@ -1286,7 +1384,7 @@ describe('lfoEngine', () => {
         (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(0));
         const { lfoEngine } = await import('./lfoEngine');
         lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
-        lfoEngine.setGlobalDepthDrift(1);
+        lfoEngine.setGlobalDepthDrift('robots', 1);
         const Tone = await import('tone');
         const gainCtor = Tone.Gain as unknown as ReturnType<typeof vi.fn>;
         const depthDriftGain = gainCtor.mock.results.at(-1)!.value as MockGainInstance;
@@ -1303,7 +1401,7 @@ describe('lfoEngine', () => {
         const { lfoEngine } = await import('./lfoEngine');
         lfoEngine.setLfoDepth('layer0.gain', 50, 'robot-a');
         lfoEngine.connectLfoTarget('layer0.gain', 'robot-a'); // connects immediately — depth already > 0
-        lfoEngine.setGlobalDepthDrift(1);
+        lfoEngine.setGlobalDepthDrift('robots', 1);
         const Tone = await import('tone');
         const gainCtor = Tone.Gain as unknown as ReturnType<typeof vi.fn>;
         const depthDriftGain = gainCtor.mock.results.at(-1)!.value as MockGainInstance;
@@ -1323,8 +1421,8 @@ describe('lfoEngine', () => {
         const gainCtor = Tone.Gain as unknown as ReturnType<typeof vi.fn>;
         const depthDriftGain = gainCtor.mock.results.at(-1)!.value as MockGainInstance;
 
-        lfoEngine.setGlobalDepthDrift(1);
-        lfoEngine.setGlobalDepthDrift(-1);
+        lfoEngine.setGlobalDepthDrift('robots', 1);
+        lfoEngine.setGlobalDepthDrift('robots', -1);
 
         expect(depthDriftGain.connect).not.toHaveBeenCalled();
       });
@@ -1335,9 +1433,9 @@ describe('lfoEngine', () => {
         const { lfoEngine } = await import('./lfoEngine');
         lfoEngine.setLfoDepth('layer0.gain', 50, 'robot-a');
         lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
-        lfoEngine.setGlobalDepthDrift(0.2);
+        lfoEngine.setGlobalDepthDrift('robots', 0.2);
         lfoEngine.setLfoDepth('layer0.gain', 0, 'robot-a'); // silences — disconnects
-        lfoEngine.setGlobalDepthDrift(0.8); // changes while silenced
+        lfoEngine.setGlobalDepthDrift('robots', 0.8); // changes while silenced
 
         lfoEngine.setLfoDepth('layer0.gain', 50, 'robot-a'); // un-silences
 

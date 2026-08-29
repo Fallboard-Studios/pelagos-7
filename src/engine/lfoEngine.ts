@@ -94,11 +94,13 @@ interface DriftLink {
 }
 const driftLinks = new Map<string, DriftLink>();
 
-/** Global Rate/Depth Drift amounts, both -1..1, pushed by setGlobalRateDrift/
- *  setGlobalDepthDrift — read by refreshRateDriftGain/refreshDepthDriftGain
- *  for every currently-linked primary. */
-let globalRateDrift = 0;
-let globalDepthDrift = 0;
+/** One Rate/Depth Drift amount pair per group, all starting at 0, pushed by
+ *  setGlobalRateDrift/setGlobalDepthDrift (both now group-scoped) — read by
+ *  refreshRateDriftGain/refreshDepthDriftGain via each link's own `group`.
+ *  Replaces the single shared pair docs/specs/LFO_DRIFT.md originally
+ *  shipped — see docs/specs/LFO_DRIFT_GROUPS.md §1.3. */
+const globalRateDriftByGroup: Record<DriftGroupId, number> = { eq3: 0, filterLPF: 0, filterHPF: 0, robots: 0 };
+const globalDepthDriftByGroup: Record<DriftGroupId, number> = { eq3: 0, filterLPF: 0, filterHPF: 0, robots: 0 };
 
 /** Phase modulates around this center (degrees) — the midpoint of the 0-360 range
  * ROBOT_DATA_GRID.md's Phase field documents. Depth scales how far it swings from
@@ -379,7 +381,7 @@ function refreshRateDriftGain(key: string): void {
   if (!link || !lfo) return;
   const currentRate = lfo.frequency.value as number;
   const swing = centeredSwingFromRange({ min: LFO_RATE_MIN, max: LFO_RATE_MAX }, currentRate);
-  link.rateDriftGain.gain.value = globalRateDrift * swing.max;
+  link.rateDriftGain.gain.value = globalRateDriftByGroup[link.group] * swing.max;
 }
 
 /**
@@ -425,7 +427,7 @@ function refreshDepthDriftGain(key: string): void {
   }
 
   const swing = centeredSwingFromRange({ min: 0, max: 1 }, currentAmp);
-  link.depthDriftGain.gain.value = globalDepthDrift * swing.max;
+  link.depthDriftGain.gain.value = globalDepthDriftByGroup[link.group] * swing.max;
 }
 
 /** Reverse attachDrift — called from disconnectLfoTarget. The shared pool
@@ -666,24 +668,33 @@ function connectLfoTarget(target: LfoTargetId, robotId?: string): boolean {
 }
 
 /**
- * Set the global Rate Drift amount (-1..1, clamped) — immediately refreshes
- * every currently-linked primary's rate-drift Gain. Safe no-op with zero
- * primaries connected (just updates the module-scope value).
+ * Set one group's Rate Drift amount (-1..1, clamped) — immediately refreshes
+ * every currently-linked primary belonging to THAT group's rate-drift Gain;
+ * every other group's links are untouched (docs/specs/LFO_DRIFT_GROUPS.md
+ * §1.3 — cross-group isolation). Safe no-op with zero primaries connected in
+ * this group, even while other groups have primaries and nonzero amounts.
+ * BREAKING vs. docs/specs/LFO_DRIFT.md's shipped 1-argument form.
  */
-function setGlobalRateDrift(value: number): void {
-  globalRateDrift = clamp(value, -1, 1);
-  for (const key of driftLinks.keys()) refreshRateDriftGain(key);
+function setGlobalRateDrift(group: DriftGroupId, value: number): void {
+  globalRateDriftByGroup[group] = clamp(value, -1, 1);
+  for (const [key, link] of driftLinks) {
+    if (link.group === group) refreshRateDriftGain(key);
+  }
 }
 
 /**
- * Set the global Depth Drift amount (-1..1, clamped) — immediately
- * refreshes every currently-linked primary's depth-drift Gain, respecting
- * each primary's own silence guard (§1.3). Safe no-op with zero primaries
- * connected.
+ * Set one group's Depth Drift amount (-1..1, clamped) — immediately
+ * refreshes every currently-linked primary belonging to THAT group's
+ * depth-drift Gain, respecting each primary's own silence guard (§1.3);
+ * every other group's links are untouched. Safe no-op with zero primaries
+ * connected in this group. BREAKING vs. docs/specs/LFO_DRIFT.md's shipped
+ * 1-argument form.
  */
-function setGlobalDepthDrift(value: number): void {
-  globalDepthDrift = clamp(value, -1, 1);
-  for (const key of driftLinks.keys()) refreshDepthDriftGain(key);
+function setGlobalDepthDrift(group: DriftGroupId, value: number): void {
+  globalDepthDriftByGroup[group] = clamp(value, -1, 1);
+  for (const [key, link] of driftLinks) {
+    if (link.group === group) refreshDepthDriftGain(key);
+  }
 }
 
 /** Reverse connectLfoTarget: disconnects the live node, or cancels the phase-polling schedule. Safe/no-op if nothing was connected. */
