@@ -7,7 +7,7 @@ import { AudioEngine } from '../engine/AudioEngine';
 import { wireGlobalFxChain } from '../engine/audioEngine/globalFx';
 import { lfoEngine } from '../engine/lfoEngine';
 import { generateGlobalAudioSettings, generateGlobalLfoSettings } from '../utils/globalAudioSeed';
-import { usePlanetStore, selectCurrentPlanet } from './planetStore';
+import { useAttenuationStyleStore, selectCurrentAttenuationStyle } from './attenuationStyleStore';
 import { DEFAULT_LFO_SETTINGS } from '../data/lfoConfig';
 
 import type { GlobalAudioSettings } from '../types/globalAudio';
@@ -79,7 +79,7 @@ export function applyGlobalAudioToEngine(globalAudio: GlobalAudioSettings): void
 }
 
 /** Initial globalLfo — DEFAULT_LFO_SETTINGS' 9 global entries, each starting inactive
- *  (not connected) until the planet-sync below seeds real values. */
+ *  (not connected) until the AS-sync below seeds real values. */
 function buildDefaultGlobalLfo(): Record<GlobalLfoTargetId, LfoSettings & { active: boolean }> {
   const result = {} as Record<GlobalLfoTargetId, LfoSettings & { active: boolean }>;
   for (const target of GLOBAL_LFO_TARGET_IDS) {
@@ -91,7 +91,7 @@ function buildDefaultGlobalLfo(): Record<GlobalLfoTargetId, LfoSettings & { acti
 export interface AudioStore {
   bpm: number;
   globalAudio: GlobalAudioSettings;
-  /** Global-chain LFO settings, one entry per GlobalLfoTargetId — seeded per planet, see regenerateGlobalLfoFromSeed. */
+  /** Global-chain LFO settings, one entry per GlobalLfoTargetId — seeded per Attenuation Style, see regenerateGlobalLfoFromSeed. */
   globalLfo: Record<GlobalLfoTargetId, LfoSettings & { active: boolean }>;
   isMuted: boolean;
   preMuteVolume: number;
@@ -131,23 +131,23 @@ export interface AudioStore {
    */
   setGlobalLfoDrift: (group: DriftGroupId, partial: Partial<GlobalAudioSettings['lfoDrift'][DriftGroupId]>) => void;
   /**
-   * Regenerate `globalAudio` for the given planet from the seed
+   * Regenerate `globalAudio` for the given Attenuation Style from the seed
    * (generateGlobalAudioSettings, src/utils/globalAudioSeed.ts) and push the
    * result into AudioEngine's live Tone FX chain. `enabled` is used exactly
    * as seeded — every effect true except Delay's real ~25% chance (spec §5)
    * — no override here; that force-true shim was Phase 0-only and is gone.
    */
-  regenerateGlobalAudioFromSeed: (planetId: string, planetName: string) => void;
+  regenerateGlobalAudioFromSeed: (attenuationStyleId: string, attenuationStyleName: string) => void;
   /**
-   * Regenerate `globalLfo` state for the given planet from the seed
-   * (generateGlobalLfoSettings). Data-only — does NOT touch lfoEngine.
-   * Runs at module load / on every planet switch, before any user gesture,
-   * so it must never construct a real Tone.LFO node. AudioEngine.start()
-   * (Task 9) is what primes lfoEngine from this state and connects/starts
-   * already-seeded-active targets, since that's the only point guaranteed
-   * to run after an AudioContext actually exists.
+   * Regenerate `globalLfo` state for the given Attenuation Style from the
+   * seed (generateGlobalLfoSettings). Data-only — does NOT touch lfoEngine.
+   * Runs at module load / on every Attenuation Style switch, before any user
+   * gesture, so it must never construct a real Tone.LFO node.
+   * AudioEngine.start() (Task 9) is what primes lfoEngine from this state and
+   * connects/starts already-seeded-active targets, since that's the only
+   * point guaranteed to run after an AudioContext actually exists.
    */
-  regenerateGlobalLfoFromSeed: (planetId: string, planetName: string) => void;
+  regenerateGlobalLfoFromSeed: (attenuationStyleId: string, attenuationStyleName: string) => void;
 }
 
 // ========================================
@@ -236,19 +236,19 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
     set({ preMuteVolume: volume });
   },
 
-  regenerateGlobalAudioFromSeed: (planetId, planetName) => {
+  regenerateGlobalAudioFromSeed: (attenuationStyleId, attenuationStyleName) => {
     // generateGlobalAudioSettings's own output is used as-is, `enabled`
     // included — seeding is where that decision lives now (V2, spec §5).
     // globalBypass/compressorBeforeDelay are NOT seeded — generateGlobalAudioSettings
     // always returns DEFAULT_GLOBAL_AUDIO_SETTINGS' value for both, which is
     // correct for the very first call (module load, state is still the
-    // fresh default) but wrong for every later one (a planet switch after
-    // the user has already flipped either flag): overwriting a live user
-    // choice back to default here, with nothing to push that reset to the
-    // engine, would silently desync the UI from the actual live audio graph.
-    // Carry the CURRENT values forward instead — same effect on first call,
-    // correct on every later one.
-    const generated = generateGlobalAudioSettings(planetId, planetName);
+    // fresh default) but wrong for every later one (an Attenuation Style
+    // switch after the user has already flipped either flag): overwriting a
+    // live user choice back to default here, with nothing to push that reset
+    // to the engine, would silently desync the UI from the actual live audio
+    // graph. Carry the CURRENT values forward instead — same effect on first
+    // call, correct on every later one.
+    const generated = generateGlobalAudioSettings(attenuationStyleId, attenuationStyleName);
     const current = get().globalAudio;
     const globalAudio: GlobalAudioSettings = {
       ...generated,
@@ -259,41 +259,42 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
     applyGlobalAudioToEngine(globalAudio);
   },
 
-  // Data-only, deliberately: this runs at module load / on every planet switch,
-  // long before any user gesture — pushing to lfoEngine here would construct a
-  // real Tone.LFO (getOrCreateLfo -> new Tone.LFO(...)) before an AudioContext
-  // exists, violating "initialize audio only from an explicit user gesture"
-  // (CLAUDE.md) and throwing outright in headless/test environments (found via
-  // the Phase 2 checkpoint's full suite run — TransportBar.test.tsx, which
-  // imports the real audioStore module, threw "param must be an AudioParam").
-  // AudioEngine.start() (Task 9) is the only safe point to prime lfoEngine and
-  // connect/start already-seeded-active targets, since it runs after
-  // Tone.start()/transport.start() succeed.
-  regenerateGlobalLfoFromSeed: (planetId, planetName) => {
-    const globalLfo = generateGlobalLfoSettings(planetId, planetName);
+  // Data-only, deliberately: this runs at module load / on every Attenuation
+  // Style switch, long before any user gesture — pushing to lfoEngine here
+  // would construct a real Tone.LFO (getOrCreateLfo -> new Tone.LFO(...))
+  // before an AudioContext exists, violating "initialize audio only from an
+  // explicit user gesture" (CLAUDE.md) and throwing outright in headless/test
+  // environments (found via the Phase 2 checkpoint's full suite run —
+  // TransportBar.test.tsx, which imports the real audioStore module, threw
+  // "param must be an AudioParam"). AudioEngine.start() (Task 9) is the only
+  // safe point to prime lfoEngine and connect/start already-seeded-active
+  // targets, since it runs after Tone.start()/transport.start() succeed.
+  regenerateGlobalLfoFromSeed: (attenuationStyleId, attenuationStyleName) => {
+    const globalLfo = generateGlobalLfoSettings(attenuationStyleId, attenuationStyleName);
     set({ globalLfo });
   },
 }));
 
 // ========================================
-// PLANET SYNC
+// ATTENUATION STYLE SYNC
 // ========================================
-// Keep globalAudio seeded from whichever planet is active — seeds immediately
-// for the planet active at load (satisfies "app init"), then re-seeds on every
-// future currentPlanetId change (satisfies "any future planet switch") without
-// requiring every future call site of setCurrentPlanetId to remember to also
-// call regenerateGlobalAudioFromSeed. Mirrors planetStore.ts's own module-scope
-// noise-map priming (`getPlanetNoiseMap('pelagos', 'Pelagos')`).
-function syncGlobalAudioToCurrentPlanet(): void {
-  const planet = selectCurrentPlanet(usePlanetStore.getState());
-  if (!planet) return;
-  useAudioStore.getState().regenerateGlobalAudioFromSeed(planet.id, planet.name);
-  useAudioStore.getState().regenerateGlobalLfoFromSeed(planet.id, planet.name);
+// Keep globalAudio seeded from whichever Attenuation Style is active — seeds
+// immediately for the one active at load (satisfies "app init"), then
+// re-seeds on every future currentAttenuationStyleId change (satisfies "any
+// future Attenuation Style switch") without requiring every future call site
+// of setCurrentAttenuationStyleId to remember to also call
+// regenerateGlobalAudioFromSeed. Mirrors attenuationStyleStore.ts's own
+// module-scope noise-map priming (`getAttenuationStyleNoiseMap('pelagos', 'Pelagos')`).
+function syncGlobalAudioToCurrentAttenuationStyle(): void {
+  const attenuationStyle = selectCurrentAttenuationStyle(useAttenuationStyleStore.getState());
+  if (!attenuationStyle) return;
+  useAudioStore.getState().regenerateGlobalAudioFromSeed(attenuationStyle.id, attenuationStyle.name);
+  useAudioStore.getState().regenerateGlobalLfoFromSeed(attenuationStyle.id, attenuationStyle.name);
 }
 
-syncGlobalAudioToCurrentPlanet();
-usePlanetStore.subscribe((state, prevState) => {
-  if (state.currentPlanetId !== prevState.currentPlanetId) {
-    syncGlobalAudioToCurrentPlanet();
+syncGlobalAudioToCurrentAttenuationStyle();
+useAttenuationStyleStore.subscribe((state, prevState) => {
+  if (state.currentAttenuationStyleId !== prevState.currentAttenuationStyleId) {
+    syncGlobalAudioToCurrentAttenuationStyle();
   }
 });

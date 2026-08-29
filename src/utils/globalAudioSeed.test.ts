@@ -12,7 +12,7 @@ import {
   LFO_DEPTH_LOADING_MIN,
   LFO_DEPTH_LOADING_MAX,
 } from './globalAudioSeed';
-import { evictPlanetNoiseMap } from './noiseMaps';
+import { evictAttenuationStyleNoiseMap } from './noiseMaps';
 import { GLOBAL_AUDIO_LOADING_RANGES } from '@/data/globalAudioLoadingRanges';
 import { type GlobalAudioSeedFieldKey } from '@/data/globalAudioSeedRanges';
 import { GLOBAL_LFO_TARGET_IDS, LFO_SHAPES, LFO_RATE_MIN, LFO_RATE_MAX, LFO_DEPTH_MIN, LFO_DEPTH_MAX, DRIFT_GROUP_IDS } from '@/types/lfo';
@@ -50,8 +50,8 @@ describe('scaleUnitValue', () => {
 
 describe('generateGlobalAudioSettings', () => {
   afterEach(() => {
-    evictPlanetNoiseMap('seed-test-planet');
-    evictPlanetNoiseMap('seed-test-planet-b');
+    evictAttenuationStyleNoiseMap('seed-test-planet');
+    evictAttenuationStyleNoiseMap('seed-test-planet-b');
   });
 
   it('returns a fully-populated GlobalAudioSettings', () => {
@@ -85,7 +85,7 @@ describe('generateGlobalAudioSettings', () => {
 
   it('is deterministic across a fresh noise map too, not just a cached one', () => {
     const first = generateGlobalAudioSettings('seed-test-planet', 'Nova');
-    evictPlanetNoiseMap('seed-test-planet');
+    evictAttenuationStyleNoiseMap('seed-test-planet');
     const second = generateGlobalAudioSettings('seed-test-planet', 'Nova');
     expect(second).toEqual(first);
   });
@@ -163,14 +163,14 @@ describe('generateGlobalAudioSettings', () => {
   });
 
   it('seeds delay.enabled true for roughly 1-in-4 planets, not roughly all or none (>= 0.75 threshold)', () => {
-    const SAMPLE_PLANETS = 40;
+    const SAMPLE_ATTENUATION_STYLES = 40;
     let enabledCount = 0;
-    for (let i = 0; i < SAMPLE_PLANETS; i++) {
+    for (let i = 0; i < SAMPLE_ATTENUATION_STYLES; i++) {
       const settings = generateGlobalAudioSettings(`seed-delay-sample-${i}`, `DelaySample${i}`);
       if (settings.delay.enabled) enabledCount++;
-      evictPlanetNoiseMap(`seed-delay-sample-${i}`);
+      evictAttenuationStyleNoiseMap(`seed-delay-sample-${i}`);
     }
-    const enabledRate = enabledCount / SAMPLE_PLANETS;
+    const enabledRate = enabledCount / SAMPLE_ATTENUATION_STYLES;
     // ~25% expected; a wide tolerance band avoids flakiness while still
     // clearly distinguishing this from "always true" or "always false".
     expect(enabledRate).toBeGreaterThan(0.05);
@@ -224,8 +224,8 @@ describe('generateGlobalAudioSettings', () => {
     });
 
     it('keeps every group\'s fields within the -0.7..0.7 loading range on every call, across many planets', () => {
-      const SAMPLE_PLANETS = 20;
-      for (let i = 0; i < SAMPLE_PLANETS; i++) {
+      const SAMPLE_ATTENUATION_STYLES = 20;
+      for (let i = 0; i < SAMPLE_ATTENUATION_STYLES; i++) {
         const settings = generateGlobalAudioSettings(`seed-drift-sample-${i}`, `DriftSample${i}`);
         for (const group of DRIFT_GROUP_IDS) {
           const { rateDrift, depthDrift } = settings.lfoDrift[group];
@@ -234,25 +234,25 @@ describe('generateGlobalAudioSettings', () => {
           expect(depthDrift, `planet ${i} ${group} depthDrift`).toBeGreaterThanOrEqual(-0.7);
           expect(depthDrift, `planet ${i} ${group} depthDrift`).toBeLessThanOrEqual(0.7);
         }
-        evictPlanetNoiseMap(`seed-drift-sample-${i}`);
+        evictAttenuationStyleNoiseMap(`seed-drift-sample-${i}`);
       }
     });
 
     it('actually produces both negative and positive rateDrift values across many planets, for every group (non-degenerate)', () => {
-      const SAMPLE_PLANETS = 20;
+      const SAMPLE_ATTENUATION_STYLES = 20;
       const sawNegative: Record<string, boolean> = {};
       const sawPositive: Record<string, boolean> = {};
       for (const group of DRIFT_GROUP_IDS) {
         sawNegative[group] = false;
         sawPositive[group] = false;
       }
-      for (let i = 0; i < SAMPLE_PLANETS; i++) {
+      for (let i = 0; i < SAMPLE_ATTENUATION_STYLES; i++) {
         const settings = generateGlobalAudioSettings(`seed-drift-sign-${i}`, `DriftSign${i}`);
         for (const group of DRIFT_GROUP_IDS) {
           if (settings.lfoDrift[group].rateDrift < 0) sawNegative[group] = true;
           if (settings.lfoDrift[group].rateDrift > 0) sawPositive[group] = true;
         }
-        evictPlanetNoiseMap(`seed-drift-sign-${i}`);
+        evictAttenuationStyleNoiseMap(`seed-drift-sign-${i}`);
       }
       for (const group of DRIFT_GROUP_IDS) {
         expect(sawNegative[group], `expected group ${group} to see rateDrift < 0 at least once`).toBe(true);
@@ -264,10 +264,10 @@ describe('generateGlobalAudioSettings', () => {
 
 describe('generateGlobalLfoSettings', () => {
   afterEach(() => {
-    evictPlanetNoiseMap('seed-test-planet');
-    evictPlanetNoiseMap('seed-test-planet-b');
-    for (let i = 0; i < 40; i++) evictPlanetNoiseMap(`seed-lfo-sample-${i}`);
-    for (let i = 0; i < 40; i++) evictPlanetNoiseMap(`seed-lfo-shape-${i}`);
+    evictAttenuationStyleNoiseMap('seed-test-planet');
+    evictAttenuationStyleNoiseMap('seed-test-planet-b');
+    for (let i = 0; i < 40; i++) evictAttenuationStyleNoiseMap(`seed-lfo-sample-${i}`);
+    for (let i = 0; i < 40; i++) evictAttenuationStyleNoiseMap(`seed-lfo-shape-${i}`);
   });
 
   it('returns a fully-populated record for all 8 GlobalLfoTargetIds', () => {
@@ -283,7 +283,7 @@ describe('generateGlobalLfoSettings', () => {
 
   it('is deterministic across a fresh noise map too, not just a cached one', () => {
     const first = generateGlobalLfoSettings('seed-test-planet', 'Nova');
-    evictPlanetNoiseMap('seed-test-planet');
+    evictAttenuationStyleNoiseMap('seed-test-planet');
     const second = generateGlobalLfoSettings('seed-test-planet', 'Nova');
     expect(second).toEqual(first);
   });
@@ -314,8 +314,8 @@ describe('generateGlobalLfoSettings', () => {
   });
 
   it('only ever seeds triangle or sine for shape, never square or sawtooth', () => {
-    const SAMPLE_PLANETS = 40;
-    for (let i = 0; i < SAMPLE_PLANETS; i++) {
+    const SAMPLE_ATTENUATION_STYLES = 40;
+    for (let i = 0; i < SAMPLE_ATTENUATION_STYLES; i++) {
       const settings = generateGlobalLfoSettings(`seed-lfo-shape-${i}`, `ShapeSample${i}`);
       for (const target of GLOBAL_LFO_TARGET_IDS) {
         expect(['triangle', 'sine'], `${target}.shape (planet ${i})`).toContain(settings[target].shape);
@@ -324,9 +324,9 @@ describe('generateGlobalLfoSettings', () => {
   });
 
   it('actually produces both triangle and sine across many planets, not always just one (non-degenerate)', () => {
-    const SAMPLE_PLANETS = 40;
+    const SAMPLE_ATTENUATION_STYLES = 40;
     const seenShapes = new Set<string>();
-    for (let i = 0; i < SAMPLE_PLANETS; i++) {
+    for (let i = 0; i < SAMPLE_ATTENUATION_STYLES; i++) {
       const settings = generateGlobalLfoSettings(`seed-lfo-shape-${i}`, `ShapeSample${i}`);
       for (const target of GLOBAL_LFO_TARGET_IDS) {
         seenShapes.add(settings[target].shape);
@@ -343,10 +343,10 @@ describe('generateGlobalLfoSettings', () => {
   });
 
   it('seeds active true for roughly 2-in-3 targets across many planets, not roughly half (>= 0.34 threshold, not a flat 50/50)', () => {
-    const SAMPLE_PLANETS = 40;
+    const SAMPLE_ATTENUATION_STYLES = 40;
     let activeCount = 0;
     let totalCount = 0;
-    for (let i = 0; i < SAMPLE_PLANETS; i++) {
+    for (let i = 0; i < SAMPLE_ATTENUATION_STYLES; i++) {
       const settings = generateGlobalLfoSettings(`seed-lfo-sample-${i}`, `Sample${i}`);
       for (const target of GLOBAL_LFO_TARGET_IDS) {
         totalCount++;

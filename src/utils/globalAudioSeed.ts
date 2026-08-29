@@ -3,7 +3,7 @@
 // ========================================
 import type { NoiseFunction2D } from 'simplex-noise';
 
-import { getPlanetNoiseMap } from './noiseMaps';
+import { getAttenuationStyleNoiseMap } from './noiseMaps';
 import { getSeededVal } from './getSeededVal';
 
 import type { GlobalAudioSettings } from '@/types/globalAudio';
@@ -57,8 +57,8 @@ function sampleField(noiseMap: NoiseFunction2D, key: GlobalAudioSeedFieldKey): n
 const DELAY_ENABLED_THRESHOLD = 0.75;
 
 /**
- * Generate deterministic GlobalAudioSettings for a planet, sampled from the
- * planet noise map — a new direct sample; previously the planet map was only
+ * Generate deterministic GlobalAudioSettings for an Attenuation Style, sampled from the
+ * Attenuation Style noise map — a new direct sample; previously that map was only
  * used to derive locale maps (see PROCEDURAL_GENERATION.md).
  *
  * `type`/`globalBypass` are NOT seeded — carried over from
@@ -66,11 +66,11 @@ const DELAY_ENABLED_THRESHOLD = 0.75;
  * spec §5, superseding the Phase 0 force-true shim that used to live in
  * audioStore.ts's regenerateGlobalAudioFromSeed): every effect seeds
  * enabled: true unconditionally except Delay, which gets a real ~25% chance
- * via DELAY_ENABLED_THRESHOLD — the sole global effect a fresh planet can
+ * via DELAY_ENABLED_THRESHOLD — the sole global effect a fresh Attenuation Style can
  * load with off.
  */
-export function generateGlobalAudioSettings(planetId: string, planetName: string): GlobalAudioSettings {
-  const noiseMap = getPlanetNoiseMap(planetId, planetName);
+export function generateGlobalAudioSettings(attenuationStyleId: string, attenuationStyleName: string): GlobalAudioSettings {
+  const noiseMap = getAttenuationStyleNoiseMap(attenuationStyleId, attenuationStyleName);
   const defaults = DEFAULT_GLOBAL_AUDIO_SETTINGS;
   const delayEnabledT = getSeededVal(noiseMap, 'globalAudio.delay.enabled', 0, 0, 1);
 
@@ -130,7 +130,7 @@ export function generateGlobalAudioSettings(planetId: string, planetName: string
 
 /**
  * Probability threshold an `active` seed draw ([0, 1]) must clear to seed
- * `true` — ~66% chance per target (not a flat 50/50), so a typical planet
+ * `true` — ~66% chance per target (not a flat 50/50), so a typical Attenuation Style
  * seeds roughly 5 active LFOs out of 7.
  */
 const LFO_ACTIVE_THRESHOLD = 0.34;
@@ -161,21 +161,21 @@ export const LFO_DEPTH_LOADING_MAX = 50;
 const LFO_LOADING_SHAPES: readonly LfoShape[] = ['triangle', 'sine'];
 
 /**
- * Generate deterministic global-chain LFO settings for a planet, sampled
- * from the planet noise map (same source as generateGlobalAudioSettings).
+ * Generate deterministic global-chain LFO settings for an Attenuation Style, sampled
+ * from the same Attenuation Style noise map generateGlobalAudioSettings uses.
  * Unlike the per-field GLOBAL_AUDIO_SEED_RANGES table, every target shares
  * the same single global rate/depth loading bounds (LFO_RATE_LOADING_MIN/MAX,
  * LFO_DEPTH_LOADING_MIN/MAX) — GLOBAL_CHAIN_GRID.md's LFO? column is a flat
  * flag, not per-field bounds. `active` is seeded too, unlike the robot-level
  * precedent (spawnSystem.ts's generateRobotLfoSettings, where connected/
  * active is a runtime UI concern never part of the generated data) — a
- * freshly loaded planet can already have real, audible modulation running.
+ * freshly loaded Attenuation Style can already have real, audible modulation running.
  */
 export function generateGlobalLfoSettings(
-  planetId: string,
-  planetName: string,
+  attenuationStyleId: string,
+  attenuationStyleName: string,
 ): Record<GlobalLfoTargetId, LfoSettings & { active: boolean }> {
-  const noiseMap = getPlanetNoiseMap(planetId, planetName);
+  const noiseMap = getAttenuationStyleNoiseMap(attenuationStyleId, attenuationStyleName);
   const result = {} as Record<GlobalLfoTargetId, LfoSettings & { active: boolean }>;
 
   for (const target of GLOBAL_LFO_TARGET_IDS) {
