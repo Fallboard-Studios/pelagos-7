@@ -184,18 +184,18 @@ Task 3, Task 8 ──→ Task 9 (docs/AUDIO_SYSTEM.md)
 
 ### Phase 4: Store and drawer wiring
 
-- [ ] **Task 7: `audioStore.ts` — wire `lfoDrift`**
+- [x] **Task 7: `audioStore.ts` — wire `lfoDrift`**
 
   **Description:** Extend `EffectKey`'s `Exclude` to also exclude `'lfoDrift'`; add a bespoke `setGlobalLfoDrift` action (shaped like the existing `setCompressorBeforeDelay`, not routed through `GLOBAL_SETTER`) that updates `globalAudio.lfoDrift` in the store and calls `lfoEngine.setGlobalRateDrift`/`setGlobalDepthDrift`; extend `applyGlobalAudioToEngine` to push `globalAudio.lfoDrift` through those same two engine setters.
 
   **Acceptance criteria:**
-  - [ ] `EffectKey` no longer includes `lfoDrift` — `GLOBAL_SETTER`/`BYPASS_KEY`'s `Record<EffectKey, …>` literals still type-check without an `lfoDrift` entry.
-  - [ ] `setGlobalLfoDrift({ rateDrift: x })` updates `globalAudio.lfoDrift.rateDrift` in the store and calls `lfoEngine.setGlobalRateDrift(x)`; same for `depthDrift`/`setGlobalDepthDrift`. Passing only one field leaves the other field's stored value and engine setter untouched.
-  - [ ] `applyGlobalAudioToEngine(globalAudio)` calls both `lfoEngine.setGlobalRateDrift`/`setGlobalDepthDrift` with `globalAudio.lfoDrift`'s current values, alongside its existing per-effect calls.
+  - [x] `EffectKey` no longer includes `lfoDrift` — `GLOBAL_SETTER`/`BYPASS_KEY`'s `Record<EffectKey, …>` literals still type-check without an `lfoDrift` entry.
+  - [x] `setGlobalLfoDrift({ rateDrift: x })` updates `globalAudio.lfoDrift.rateDrift` in the store and calls `lfoEngine.setGlobalRateDrift(x)`; same for `depthDrift`/`setGlobalDepthDrift`. Passing only one field leaves the other field's stored value and engine setter untouched.
+  - [x] `applyGlobalAudioToEngine(globalAudio)` calls both `lfoEngine.setGlobalRateDrift`/`setGlobalDepthDrift` with `globalAudio.lfoDrift`'s current values, alongside its existing per-effect calls.
 
   **Verification:**
-  - [ ] `npx vitest run src/stores/audioStore.test.ts` passes, including new coverage for `setGlobalLfoDrift` (both fields, independently and together) and `applyGlobalAudioToEngine`'s new calls (spy on `lfoEngine`).
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/stores/audioStore.test.ts` passes, including new coverage for `setGlobalLfoDrift` (both fields, independently and together) and `applyGlobalAudioToEngine`'s new calls (spy on `lfoEngine`).
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** Task 1 (the `lfoDrift` type), Task 5 (the engine setters this calls must exist).
 
@@ -203,18 +203,18 @@ Task 3, Task 8 ──→ Task 9 (docs/AUDIO_SYSTEM.md)
 
   **Estimated scope:** S (1 file, one new action + one extended function)
 
-- [ ] **Task 8: `AudioRigDrawer.tsx` — render the Drift accordion**
+- [x] **Task 8: `AudioRigDrawer.tsx` — render the Drift accordion**
 
   **Description:** Add a new accordion section, sibling to the existing `AUDIO_RIG_CONFIG.map(...)` block (not nested inside any effect's own accordion), rendering `LFO_RATE_DRIFT_SCHEMA`/`LFO_DEPTH_DRIFT_SCHEMA` via `SliderCenteredZero`, wired to `globalAudio.lfoDrift`/`setGlobalLfoDrift` with the existing `%`-to-fraction conversion (`value * 100` / `v / 100`) matching how Depth's own UI-to-engine mapping already works elsewhere in this file. Disabled whenever `globalBypass` is on, matching every other block.
 
   **Acceptance criteria:**
-  - [ ] The Drift accordion renders with two `SliderCenteredZero` controls, both showing the current `globalAudio.lfoDrift` values as a `-100..100` percent.
-  - [ ] Dragging either slider calls `setGlobalLfoDrift` with the dragged value divided by 100.
-  - [ ] The accordion's controls are `disabled` when `globalAudio.globalBypass` is `true`, matching `rigDisabled`'s existing use across every other block.
+  - [x] The Drift accordion renders with two `SliderCenteredZero` controls, both showing the current `globalAudio.lfoDrift` values as a `-100..100` percent.
+  - [x] Dragging either slider calls `setGlobalLfoDrift` with the dragged value divided by 100.
+  - [x] The accordion's controls are `disabled` when `globalAudio.globalBypass` is `true`, matching `rigDisabled`'s existing use across every other block.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/panels/screen/console/AudioRigDrawer.test.tsx` passes, including new coverage for the Drift accordion's presence, its value display, its `onChange` → `setGlobalLfoDrift` wiring (with the `/100` conversion asserted explicitly, not just "called"), and the `rigDisabled` case.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/components/panels/screen/console/AudioRigDrawer.test.tsx` passes, including new coverage for the Drift accordion's presence, its value display, its `onChange` → `setGlobalLfoDrift` wiring (with the `/100` conversion asserted explicitly, not just "called"), and the `rigDisabled` case.
+  - [x] `npm run build:types`, `npm run lint` clean.
   - [ ] Manual check: `npm run dev`, open the Audio Rig, confirm a "Drift" accordion appears with Rate Drift / Depth Drift sliders that move and persist.
 
   **Dependencies:** Task 6, Task 7.
@@ -224,7 +224,7 @@ Task 3, Task 8 ──→ Task 9 (docs/AUDIO_SYSTEM.md)
   **Estimated scope:** S (1 file, one new JSX block following an existing pattern)
 
 ### Checkpoint: Feature complete
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
 - [ ] Manual/audible check (spec §5): a freshly-seeded planet's Drift accordion starts at a nonzero-but-modest position; raising Depth Drift on an already-audible LFO makes its modulation audibly wander rather than loop identically; setting that same target's own Depth to `0` and raising Depth Drift produces no sound from it.
 - [ ] Review with human before proceeding.
 
