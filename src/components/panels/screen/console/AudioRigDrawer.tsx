@@ -10,9 +10,7 @@ import { Lfo } from '@/components/ui/controls/Lfo';
 import {
   AUDIO_RIG_CONFIG,
   DECAY_MODE_SCHEMA,
-  LFO_DRIFT_ACCORDION,
-  LFO_RATE_DRIFT_SCHEMA,
-  LFO_DEPTH_DRIFT_SCHEMA,
+  LFO_DRIFT_GROUPS,
   type AudioRigParamSchema,
   type AudioRigEffectKey,
 } from '@/data/audioRigConfig';
@@ -126,32 +124,34 @@ export function AudioRigDrawer() {
           </div>
         );
       })}
-      {/* Stopgap — lfoDrift is now per-group (Task 2, docs/tasks/LFO_DRIFT_GROUPS.md);
-          this single accordion still only shows the 'robots' group until Task 9
-          replaces it with a map over all 4 groups. */}
-      <div className="audio-rig-drawer__effect-block">
-        <AccordionContainer
-          schema={LFO_DRIFT_ACCORDION}
-          contentActive={globalAudio.lfoDrift.robots.rateDrift !== 0 || globalAudio.lfoDrift.robots.depthDrift !== 0}
-        >
-          <div className="audio-rig-drawer__param-row">
-            <SliderCenteredZero
-              schema={LFO_RATE_DRIFT_SCHEMA}
-              value={globalAudio.lfoDrift.robots.rateDrift * 100}
-              onChange={(v) => setGlobalLfoDrift({ rateDrift: v / 100 })}
-              disabled={rigDisabled}
-            />
+      {LFO_DRIFT_GROUPS.map((driftGroup) => {
+        const groupSettings = globalAudio.lfoDrift[driftGroup.group];
+        return (
+          <div className="audio-rig-drawer__effect-block" key={driftGroup.group}>
+            <AccordionContainer
+              schema={driftGroup.accordion}
+              contentActive={groupSettings.rateDrift !== 0 || groupSettings.depthDrift !== 0}
+            >
+              <div className="audio-rig-drawer__param-row">
+                <SliderCenteredZero
+                  schema={driftGroup.rateSchema}
+                  value={groupSettings.rateDrift * 100}
+                  onChange={(v) => setGlobalLfoDrift(driftGroup.group, { rateDrift: v / 100 })}
+                  disabled={rigDisabled}
+                />
+              </div>
+              <div className="audio-rig-drawer__param-row">
+                <SliderCenteredZero
+                  schema={driftGroup.depthSchema}
+                  value={groupSettings.depthDrift * 100}
+                  onChange={(v) => setGlobalLfoDrift(driftGroup.group, { depthDrift: v / 100 })}
+                  disabled={rigDisabled}
+                />
+              </div>
+            </AccordionContainer>
           </div>
-          <div className="audio-rig-drawer__param-row">
-            <SliderCenteredZero
-              schema={LFO_DEPTH_DRIFT_SCHEMA}
-              value={globalAudio.lfoDrift.robots.depthDrift * 100}
-              onChange={(v) => setGlobalLfoDrift({ depthDrift: v / 100 })}
-              disabled={rigDisabled}
-            />
-          </div>
-        </AccordionContainer>
-      </div>
+        );
+      })}
     </div>
   );
 }

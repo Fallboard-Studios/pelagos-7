@@ -351,66 +351,98 @@ describe('AudioRigDrawer', () => {
     });
   });
 
-  describe('Drift accordion (Task 8)', () => {
-    it('renders a Drift accordion with Rate Drift and Depth Drift sliders', () => {
+  describe('Drift accordions (Task 9 — one per DriftGroupId)', () => {
+    it('renders 4 Drift accordions, one per group, each with its own Rate Drift and Depth Drift sliders', () => {
       render(<AudioRigDrawer />);
-      expect(screen.getByText('Drift')).toBeTruthy();
-      expect(screen.getByRole('slider', { name: 'Rate Drift' })).toBeTruthy();
-      expect(screen.getByRole('slider', { name: 'Depth Drift' })).toBeTruthy();
+      expect(screen.getByText('EQ Drift')).toBeTruthy();
+      expect(screen.getByText('Low-Pass Drift')).toBeTruthy();
+      expect(screen.getByText('High-Pass Drift')).toBeTruthy();
+      expect(screen.getByText('Robot Drift')).toBeTruthy();
+      expect(screen.getAllByRole('slider', { name: 'Rate Drift' })).toHaveLength(4);
+      expect(screen.getAllByRole('slider', { name: 'Depth Drift' })).toHaveLength(4);
     });
 
-    // Stopgap coverage — the rendered accordion still only shows the 'robots'
-    // group until Task 9 (docs/tasks/LFO_DRIFT_GROUPS.md) maps over all 4.
-    it('shows the current globalAudio.lfoDrift values as a -100..100 percent, not the internal -1..1 fraction', () => {
+    it('shows each group\'s own current lfoDrift values as a -100..100 percent, not the internal -1..1 fraction', () => {
       useAudioStore.setState((s) => ({
-        globalAudio: { ...s.globalAudio, lfoDrift: { ...s.globalAudio.lfoDrift, robots: { rateDrift: 0.3, depthDrift: -0.6 } } },
+        globalAudio: {
+          ...s.globalAudio,
+          lfoDrift: {
+            ...s.globalAudio.lfoDrift,
+            eq3: { rateDrift: 0.3, depthDrift: -0.6 },
+            robots: { rateDrift: -0.2, depthDrift: 0.9 },
+          },
+        },
       }));
       render(<AudioRigDrawer />);
-      expect(screen.getByRole('slider', { name: 'Rate Drift' }).getAttribute('aria-valuenow')).toBe('30');
-      expect(screen.getByRole('slider', { name: 'Depth Drift' }).getAttribute('aria-valuenow')).toBe('-60');
+      // Order matches LFO_DRIFT_GROUPS: [eq3, filterLPF, filterHPF, robots].
+      const rateSliders = screen.getAllByRole('slider', { name: 'Rate Drift' });
+      const depthSliders = screen.getAllByRole('slider', { name: 'Depth Drift' });
+      expect(rateSliders[0].getAttribute('aria-valuenow')).toBe('30');
+      expect(depthSliders[0].getAttribute('aria-valuenow')).toBe('-60');
+      expect(rateSliders[3].getAttribute('aria-valuenow')).toBe('-20');
+      expect(depthSliders[3].getAttribute('aria-valuenow')).toBe('90');
     });
 
-    it('dragging Rate Drift calls setGlobalLfoDrift with the dragged percent divided by 100, leaving depthDrift untouched', () => {
+    it('dragging one group\'s Rate Drift slider calls setGlobalLfoDrift with that group and the dragged percent divided by 100, leaving other groups untouched', () => {
       useAudioStore.setState((s) => ({
-        globalAudio: { ...s.globalAudio, lfoDrift: { ...s.globalAudio.lfoDrift, robots: { rateDrift: 0, depthDrift: 0.5 } } },
+        globalAudio: {
+          ...s.globalAudio,
+          lfoDrift: { ...s.globalAudio.lfoDrift, eq3: { rateDrift: 0, depthDrift: 0 }, robots: { rateDrift: 0.5, depthDrift: 0.5 } },
+        },
       }));
       render(<AudioRigDrawer />);
-      const rateSlider = screen.getByRole('slider', { name: 'Rate Drift' });
-      rateSlider.focus();
-      fireEvent.keyDown(rateSlider, { key: 'ArrowRight' });
+      const eq3RateSlider = screen.getAllByRole('slider', { name: 'Rate Drift' })[0];
+      eq3RateSlider.focus();
+      fireEvent.keyDown(eq3RateSlider, { key: 'ArrowRight' });
 
-      const newPercent = Number(rateSlider.getAttribute('aria-valuenow'));
+      const newPercent = Number(eq3RateSlider.getAttribute('aria-valuenow'));
       expect(newPercent).not.toBe(0); // the key press actually moved it
-      expect(useAudioStore.getState().globalAudio.lfoDrift.robots.rateDrift).toBeCloseTo(newPercent / 100);
-      expect(useAudioStore.getState().globalAudio.lfoDrift.robots.depthDrift).toBe(0.5);
+      expect(useAudioStore.getState().globalAudio.lfoDrift.eq3.rateDrift).toBeCloseTo(newPercent / 100);
+      expect(useAudioStore.getState().globalAudio.lfoDrift.eq3.depthDrift).toBe(0);
+      expect(useAudioStore.getState().globalAudio.lfoDrift.robots).toEqual({ rateDrift: 0.5, depthDrift: 0.5 });
     });
 
-    it('dragging Depth Drift calls setGlobalLfoDrift with the dragged percent divided by 100, leaving rateDrift untouched', () => {
+    it('dragging the robots group\'s Depth Drift slider calls setGlobalLfoDrift with \'robots\' and the dragged percent divided by 100, leaving rateDrift and other groups untouched', () => {
       useAudioStore.setState((s) => ({
-        globalAudio: { ...s.globalAudio, lfoDrift: { ...s.globalAudio.lfoDrift, robots: { rateDrift: 0.5, depthDrift: 0 } } },
+        globalAudio: {
+          ...s.globalAudio,
+          lfoDrift: { ...s.globalAudio.lfoDrift, eq3: { rateDrift: 0.4, depthDrift: 0.4 }, robots: { rateDrift: 0.5, depthDrift: 0 } },
+        },
       }));
       render(<AudioRigDrawer />);
-      const depthSlider = screen.getByRole('slider', { name: 'Depth Drift' });
-      depthSlider.focus();
-      fireEvent.keyDown(depthSlider, { key: 'ArrowRight' });
+      const robotsDepthSlider = screen.getAllByRole('slider', { name: 'Depth Drift' })[3];
+      robotsDepthSlider.focus();
+      fireEvent.keyDown(robotsDepthSlider, { key: 'ArrowRight' });
 
-      const newPercent = Number(depthSlider.getAttribute('aria-valuenow'));
+      const newPercent = Number(robotsDepthSlider.getAttribute('aria-valuenow'));
       expect(newPercent).not.toBe(0);
       expect(useAudioStore.getState().globalAudio.lfoDrift.robots.depthDrift).toBeCloseTo(newPercent / 100);
       expect(useAudioStore.getState().globalAudio.lfoDrift.robots.rateDrift).toBe(0.5);
+      expect(useAudioStore.getState().globalAudio.lfoDrift.eq3).toEqual({ rateDrift: 0.4, depthDrift: 0.4 });
     });
 
-    it('is disabled when the rig-wide bypass is on, matching every other block\'s rigDisabled wiring', () => {
+    it('all 8 sliders (4 groups x 2) are disabled when the rig-wide bypass is on, matching every other block\'s rigDisabled wiring', () => {
       useAudioStore.setState((s) => ({ globalAudio: { ...s.globalAudio, globalBypass: true } }));
       render(<AudioRigDrawer />);
-      expect(screen.getByRole('slider', { name: 'Rate Drift' }).getAttribute('data-disabled')).toBe('');
-      expect(screen.getByRole('slider', { name: 'Depth Drift' }).getAttribute('data-disabled')).toBe('');
+      const sliders = [
+        ...screen.getAllByRole('slider', { name: 'Rate Drift' }),
+        ...screen.getAllByRole('slider', { name: 'Depth Drift' }),
+      ];
+      expect(sliders).toHaveLength(8);
+      for (const slider of sliders) {
+        expect(slider.getAttribute('data-disabled')).toBe('');
+      }
     });
 
-    it('is enabled when the rig-wide bypass is off — unlike every effect block, Drift has no enabled toggle of its own to also check', () => {
+    it('all 8 sliders are enabled when the rig-wide bypass is off — unlike every effect block, Drift has no enabled toggle of its own to also check', () => {
       render(<AudioRigDrawer />);
-      expect(screen.getByRole('slider', { name: 'Rate Drift' }).getAttribute('data-disabled')).toBeNull();
-      expect(screen.getByRole('slider', { name: 'Depth Drift' }).getAttribute('data-disabled')).toBeNull();
+      const sliders = [
+        ...screen.getAllByRole('slider', { name: 'Rate Drift' }),
+        ...screen.getAllByRole('slider', { name: 'Depth Drift' }),
+      ];
+      for (const slider of sliders) {
+        expect(slider.getAttribute('data-disabled')).toBeNull();
+      }
     });
   });
 });
