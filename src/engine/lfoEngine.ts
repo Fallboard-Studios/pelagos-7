@@ -251,6 +251,34 @@ function centeredSwingFromRange(
   return { min: -halfSpan, max: halfSpan };
 }
 
+/**
+ * Connect `source` into a Signal/Param `destination` the additive-safe way:
+ * disable the destination's Signal.override (a harmless no-op for a Param,
+ * which has no override concept at all) before connecting, then restore its
+ * pre-connect value afterward. Undoes the reset Tone's own connectSignal()
+ * forces on ANY connect into a Signal/Param destination — verified directly
+ * against Tone.js's own source (signal/Signal.ts) — see connectLfoTarget's
+ * own longer comment below for the full story ("the worst LFO bug found
+ * here", docs/AUDIO_SYSTEM.md). The restore is a genuine fix for a Param
+ * destination (always resets, unconditionally, no override escape hatch);
+ * a harmless no-op for a Signal destination once override is disabled (its
+ * value was never touched in the first place). Guards against a non-finite
+ * pre-connect value the same way every caller already had to — never write
+ * NaN into a live Web Audio graph.
+ *
+ * Deliberately does not catch a failed `.connect()` — a caller that needs to
+ * handle that (e.g. connectLfoTarget, whose target is resolved externally by
+ * AudioEngine) wraps this call in its own try/catch; the two purely-internal
+ * pool-to-primary connections (attachDrift, refreshDepthDriftGain) don't.
+ */
+function connectAdditively(source: unknown, destination: unknown): void {
+  const dest = destination as { value: number; override?: boolean };
+  dest.override = false;
+  const currentValue = dest.value;
+  (source as { connect: (d: unknown) => void }).connect(destination);
+  if (Number.isFinite(currentValue)) dest.value = currentValue;
+}
+
 /** Unit-amplitude waveform value in [-1, 1] for a given shape at a given phase angle (radians). */
 function waveformUnit(shape: LfoShape, phaseRadians: number): number {
   const twoPi = Math.PI * 2;
@@ -349,15 +377,12 @@ function attachDrift(key: string, lfo: Tone.LFO, group: DriftGroupId): void {
   poolLfo.connect(rateDriftGain);
   poolLfo.connect(depthDriftGain);
 
-  // Same Signal.override fix connectLfoTarget already applies to its own
-  // target connection below — reused, not re-derived (docs/specs/LFO_DRIFT.md
-  // §1.4). lfo.frequency is a real Tone.Signal. Rate has no "off" state
-  // (LFO_RATE_MIN is 0.1, never 0), so rateDriftGain connects unconditionally
-  // here and stays connected for the primary's whole lifetime.
-  (lfo.frequency as unknown as { override?: boolean }).override = false;
-  const currentFreq = lfo.frequency.value as number;
-  rateDriftGain.connect(lfo.frequency as unknown as Tone.InputNode);
-  if (Number.isFinite(currentFreq)) lfo.frequency.value = currentFreq;
+  // Rate has no "off" state (LFO_RATE_MIN is 0.1, never 0), so rateDriftGain
+  // connects unconditionally here and stays connected for the primary's
+  // whole lifetime. connectAdditively applies the same Signal.override fix
+  // connectLfoTarget's own target connection needs (docs/specs/LFO_DRIFT.md
+  // §1.4) — shared, not re-derived.
+  connectAdditively(rateDriftGain, lfo.frequency);
 
   // depthDriftGain's own connection is deliberately NOT made here — it's
   // conditional on this primary's own current depth, per the "never revive
@@ -417,12 +442,10 @@ function refreshDepthDriftGain(key: string): void {
 
   if (!link.depthDriftConnected) {
     // lfo.amplitude is a Tone.Param, not a Signal — no override escape
-    // hatch, always resets to 0 on connect regardless (§1.4). Writing
-    // `.override` here is harmless defensive symmetry with the frequency
-    // case in attachDrift; the restore afterward is what actually matters.
-    (lfo.amplitude as unknown as { override?: boolean }).override = false;
-    link.depthDriftGain.connect(lfo.amplitude as unknown as Tone.InputNode);
-    if (Number.isFinite(currentAmp)) lfo.amplitude.value = currentAmp;
+    // hatch, always resets to 0 on connect regardless (§1.4); connectAdditively's
+    // override write is harmless defensive symmetry with the frequency case
+    // in attachDrift, the restore afterward is what actually matters here.
+    connectAdditively(link.depthDriftGain, lfo.amplitude);
     link.depthDriftConnected = true;
   }
 
@@ -597,8 +620,10 @@ function connectLfoTarget(target: LfoTargetId, robotId?: string): boolean {
 
   const lfo = getOrCreateLfo(key, target, robotId);
   // Read the target's CURRENT base value (both Signal and Param expose a
-  // plain numeric .value getter) — used to bound the swing below AND to
-  // restore the value after connecting (see the comment further down).
+  // plain numeric .value getter) — used to bound the swing below.
+  // connectAdditively (further down) re-reads this same value itself right
+  // before connecting, to restore it afterward — nothing mutates it in
+  // between, so the two reads are guaranteed identical.
   const currentValue = (signal as unknown as { value: number }).value;
   const range = resolveLfoOutputRange(target);
   if (range) {
@@ -624,7 +649,7 @@ function connectLfoTarget(target: LfoTargetId, robotId?: string): boolean {
   }
 
   // Tone.Signal defaults `override: true`, which makes Tone's own
-  // connectSignal() (invoked internally by lfo.connect() below) immediately
+  // connectSignal() (invoked internally by the connect below) immediately
   // cancelScheduledValues + setValueAtTime(0, 0) on the destination and
   // permanently mark it "overridden" — the INSTANT .connect() runs, before
   // the LFO has even started oscillating, and regardless of what lfo.min/
@@ -633,33 +658,19 @@ function connectLfoTarget(target: LfoTargetId, robotId?: string): boolean {
   // verified directly against Tone.js's own source (signal/Signal.ts). It
   // also silently discards whatever the target's own value was, which is
   // exactly the "additive on top of the current value" assumption
-  // centeredSwingFromRange() above depends on. Disabling `override` first
-  // restores plain additive Web Audio summing. Has no effect on a Tone.Param
-  // destination (e.g. robot Gain targets) — Param has no `override` concept
-  // at all; that case is handled separately below.
-  (signal as unknown as { override?: boolean }).override = false;
-
+  // centeredSwingFromRange() above depends on. For a Tone.Param destination
+  // (e.g. robot Gain targets — Tone.Gain.gain), there's no `override` escape
+  // hatch at all — connecting ALWAYS resets its value to 0 regardless
+  // (connectSignal()'s `destination instanceof Param` branch is
+  // unconditional, unlike Signal's) — but a Param also never gets marked
+  // permanently "overridden" the way a Signal does, so a plain write
+  // afterward is enough to undo it. connectAdditively (see above) handles
+  // both cases with the same disable-then-restore sequence.
   try {
-    lfo.connect(signal as unknown as Tone.InputNode);
+    connectAdditively(lfo, signal);
   } catch (err) {
     devWarn('[lfoEngine] connectLfoTarget: connect failed', err);
     return false;
-  }
-
-  // Tone.Param (e.g. robot Gain targets — Tone.Gain.gain) has no `override`
-  // escape hatch — connecting to it ALWAYS resets its own value to 0 the
-  // instant .connect() runs (verified: connectSignal()'s `destination
-  // instanceof Param` branch is unconditional, unlike Signal's). Unlike
-  // Signal, though, Param never gets marked permanently "overridden" by
-  // this — a plain write immediately after restores it, and the LFO's
-  // contribution sums on top of it normally from then on, same as the
-  // Signal case once override is disabled above. Harmless no-op for a
-  // Signal destination — override being false already meant connect()
-  // never touched its value in the first place. Guarded against a
-  // non-finite currentValue for the same reason centeredSwingFromRange()
-  // does — never write NaN into a live Web Audio graph.
-  if (Number.isFinite(currentValue)) {
-    (signal as unknown as { value: number }).value = currentValue;
   }
 
   connectedSignals.set(key, signal);
