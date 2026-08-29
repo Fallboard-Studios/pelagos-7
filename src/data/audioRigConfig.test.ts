@@ -3,7 +3,7 @@
 // ========================================
 import { describe, it, expect } from 'vitest';
 
-import { AUDIO_RIG_CONFIG, DECAY_MODE_SCHEMA } from './audioRigConfig';
+import { AUDIO_RIG_CONFIG, DECAY_MODE_SCHEMA, LFO_DRIFT_ACCORDION, LFO_RATE_DRIFT_SCHEMA, LFO_DEPTH_DRIFT_SCHEMA } from './audioRigConfig';
 import { GLOBAL_LFO_TARGET_IDS } from '../types/lfo';
 
 // ========================================
@@ -263,5 +263,44 @@ describe('DECAY_MODE_SCHEMA', () => {
       { value: 'natural', label: 'Natural Decay' },
       { value: 'controlled', label: 'Controlled Decay' },
     ]);
+  });
+});
+
+describe('LFO_DRIFT_ACCORDION / LFO_RATE_DRIFT_SCHEMA / LFO_DEPTH_DRIFT_SCHEMA', () => {
+  it('LFO_DRIFT_ACCORDION is a valid, global chain-level accordion — not nested inside any effect block', () => {
+    expect(LFO_DRIFT_ACCORDION).toMatchObject({ id: 'audioRig.lfoDrift', type: 'accordion' });
+  });
+
+  it('both sliders are sliderCenteredZero, -100 to 100, percent — matching the UI-facing bipolar percent, not lfoEngine\'s internal -1..1 fraction', () => {
+    expect(LFO_RATE_DRIFT_SCHEMA).toMatchObject({ type: 'sliderCenteredZero', min: -100, max: 100, unit: '%' });
+    expect(LFO_DEPTH_DRIFT_SCHEMA).toMatchObject({ type: 'sliderCenteredZero', min: -100, max: 100, unit: '%' });
+  });
+
+  it('Rate Drift and Depth Drift have distinct ids, both nested under the lfoDrift accordion\'s own id prefix', () => {
+    expect(LFO_RATE_DRIFT_SCHEMA.id).toBe('audioRig.lfoDrift.rateDrift');
+    expect(LFO_DEPTH_DRIFT_SCHEMA.id).toBe('audioRig.lfoDrift.depthDrift');
+    expect(LFO_RATE_DRIFT_SCHEMA.id).not.toBe(LFO_DEPTH_DRIFT_SCHEMA.id);
+  });
+
+  it('Rate Drift and Depth Drift have distinct human labels — never a shared generic "Drift" indistinguishable to a screen reader', () => {
+    expect(LFO_RATE_DRIFT_SCHEMA.humanLabel).not.toBe(LFO_DEPTH_DRIFT_SCHEMA.humanLabel);
+    expect(LFO_RATE_DRIFT_SCHEMA.humanLabel).toBeTruthy();
+    expect(LFO_DEPTH_DRIFT_SCHEMA.humanLabel).toBeTruthy();
+  });
+
+  it('none of the three new exports appear anywhere inside AUDIO_RIG_CONFIG\'s array — lfoDrift is a top-level GlobalAudioSettings flag, not a matching AudioRigEffectBlock key', () => {
+    expect(AUDIO_RIG_CONFIG.map((b) => b.key as string)).not.toContain('lfoDrift');
+    const allSchemaIds = AUDIO_RIG_CONFIG.flatMap((b) => [
+      b.accordion.id,
+      b.enabledSchema.id,
+      ...b.params.flatMap((p) => [p.schema.id, p.lfoAccordion?.id].filter((id): id is string => Boolean(id))),
+    ]);
+    expect(allSchemaIds).not.toContain(LFO_DRIFT_ACCORDION.id);
+    expect(allSchemaIds).not.toContain(LFO_RATE_DRIFT_SCHEMA.id);
+    expect(allSchemaIds).not.toContain(LFO_DEPTH_DRIFT_SCHEMA.id);
+  });
+
+  it('the closed-set coverage assertion over AUDIO_RIG_CONFIG\'s own param schema types is unaffected — these three are standalone exports, not part of that array', () => {
+    expect(AUDIO_RIG_CONFIG.length).toBe(7); // still exactly the 7 GLOBAL_CHAIN_GRID.md effect blocks
   });
 });

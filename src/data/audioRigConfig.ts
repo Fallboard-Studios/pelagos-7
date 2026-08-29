@@ -12,7 +12,7 @@
  * GlobalLfoTargetId member (no LFO on the Limiter, by design); delayTime's
  * was removed after shipping (LFO judged unwanted on Delay's own time param).
  */
-import type { ControlSchema, ToggleSchema, AccordionSchema, RadioButtonSchema } from '@/types/controls';
+import type { ControlSchema, ToggleSchema, AccordionSchema, RadioButtonSchema, SliderCenteredZeroSchema } from '@/types/controls';
 import type { GlobalLfoTargetId } from '@/types/lfo';
 
 // ========================================
@@ -195,4 +195,41 @@ export const DECAY_MODE_SCHEMA: RadioButtonSchema = {
     { value: 'natural', label: 'Natural Decay' },
     { value: 'controlled', label: 'Controlled Decay' },
   ],
+};
+
+/**
+ * Global LFO drift (docs/specs/LFO_DRIFT.md) — one shared accordion with two
+ * bipolar sliders, standalone like DECAY_MODE_SCHEMA above: `lfoDrift` is a
+ * top-level GlobalAudioSettings flag, not a per-effect object, so it has no
+ * matching AudioRigEffectBlock key and is never added to AUDIO_RIG_CONFIG's
+ * array. Sliders are UI-facing percent (-100..100); the drawer wiring point
+ * converts to/from lfoEngine's internal -1..1 fraction, matching how Depth's
+ * own 0-100% UI already maps to lfoEngine's 0-1 internal amplitude domain
+ * elsewhere in this file's consumers.
+ */
+export const LFO_DRIFT_ACCORDION: AccordionSchema = {
+  id: 'audioRig.lfoDrift',
+  type: 'accordion',
+  loreLabel: 'ATTENUATION FLUX',
+  humanLabel: 'Drift',
+};
+
+export const LFO_RATE_DRIFT_SCHEMA: SliderCenteredZeroSchema = {
+  id: 'audioRig.lfoDrift.rateDrift',
+  type: 'sliderCenteredZero',
+  loreLabel: 'CADENCE INSTABILITY',
+  humanLabel: 'Rate Drift',
+  min: -100,
+  max: 100,
+  unit: '%',
+};
+
+export const LFO_DEPTH_DRIFT_SCHEMA: SliderCenteredZeroSchema = {
+  id: 'audioRig.lfoDrift.depthDrift',
+  type: 'sliderCenteredZero',
+  loreLabel: 'AMPLITUDE INSTABILITY',
+  humanLabel: 'Depth Drift',
+  min: -100,
+  max: 100,
+  unit: '%',
 };
