@@ -44,4 +44,18 @@ export const GLOBAL_AUDIO_LOADING_RANGES: Record<GlobalAudioSeedFieldKey, Loadin
   'compressor.knee': { min: 1, max: 15 },
 
   'limiter.threshold': { min: -3, max: -1 },
+
+  // Not a GLOBAL_CHAIN_GRID.md transcription — that doc predates lfoDrift
+  // entirely (docs/specs/LFO_DRIFT.md §7). Widened from the original
+  // -0.4..0.4 first-pass default to -0.7..0.7 after the manual/audible
+  // check on docs/tasks/LFO_DRIFT_GROUPS.md found the seeded default read
+  // as too subtle — confirmed directly with the user, not re-guessed.
+  'lfoDrift.eq3.rateDrift': { min: -0.7, max: 0.7 },
+  'lfoDrift.eq3.depthDrift': { min: -0.7, max: 0.7 },
+  'lfoDrift.filterLPF.rateDrift': { min: -0.7, max: 0.7 },
+  'lfoDrift.filterLPF.depthDrift': { min: -0.7, max: 0.7 },
+  'lfoDrift.filterHPF.rateDrift': { min: -0.7, max: 0.7 },
+  'lfoDrift.filterHPF.depthDrift': { min: -0.7, max: 0.7 },
+  'lfoDrift.robots.rateDrift': { min: -0.7, max: 0.7 },
+  'lfoDrift.robots.depthDrift': { min: -0.7, max: 0.7 },
 };

@@ -43,7 +43,11 @@ export type GlobalAudioSeedFieldKey =
   | 'reverb.decay'
   | 'reverb.preDelay'
   | 'reverb.wet'
-  | 'limiter.threshold';
+  | 'limiter.threshold'
+  | 'lfoDrift.eq3.rateDrift' | 'lfoDrift.eq3.depthDrift'
+  | 'lfoDrift.filterLPF.rateDrift' | 'lfoDrift.filterLPF.depthDrift'
+  | 'lfoDrift.filterHPF.rateDrift' | 'lfoDrift.filterHPF.depthDrift'
+  | 'lfoDrift.robots.rateDrift' | 'lfoDrift.robots.depthDrift';
 
 // V2: Chorus (rate/depth/delayTime/feedback/wet) removed entirely — the
 // effect doesn't suit this music. reverb.dampening removed — Tone.Reverb has
@@ -76,4 +80,16 @@ export const GLOBAL_AUDIO_SEED_RANGES: Record<GlobalAudioSeedFieldKey, SeedRange
   'reverb.wet': { min: 0, max: 1, scale: 'linear' },
 
   'limiter.threshold': { min: -20, max: 0, scale: 'linear' },
+
+  // Global LFO drift amounts, one independent pair per drift group
+  // (docs/specs/LFO_DRIFT_GROUPS.md) — bipolar, not sourced from
+  // GLOBAL_CHAIN_GRID.md (drift didn't exist when that doc was written).
+  'lfoDrift.eq3.rateDrift': { min: -1, max: 1, scale: 'linear' },
+  'lfoDrift.eq3.depthDrift': { min: -1, max: 1, scale: 'linear' },
+  'lfoDrift.filterLPF.rateDrift': { min: -1, max: 1, scale: 'linear' },
+  'lfoDrift.filterLPF.depthDrift': { min: -1, max: 1, scale: 'linear' },
+  'lfoDrift.filterHPF.rateDrift': { min: -1, max: 1, scale: 'linear' },
+  'lfoDrift.filterHPF.depthDrift': { min: -1, max: 1, scale: 'linear' },
+  'lfoDrift.robots.rateDrift': { min: -1, max: 1, scale: 'linear' },
+  'lfoDrift.robots.depthDrift': { min: -1, max: 1, scale: 'linear' },
 };

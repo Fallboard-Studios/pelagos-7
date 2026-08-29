@@ -12,14 +12,14 @@ import { DEFAULT_LFO_SETTINGS } from '../data/lfoConfig';
 
 import type { GlobalAudioSettings } from '../types/globalAudio';
 import { DEFAULT_GLOBAL_AUDIO_SETTINGS } from '../types/globalAudio';
-import { GLOBAL_LFO_TARGET_IDS, type GlobalLfoTargetId, type LfoSettings } from '../types/lfo';
+import { GLOBAL_LFO_TARGET_IDS, DRIFT_GROUP_IDS, type GlobalLfoTargetId, type LfoSettings, type DriftGroupId } from '../types/lfo';
 
 // ========================================
 // TYPES
 // ========================================
 
-/** Keys of GlobalAudioSettings that are effect-param objects (excludes the two top-level flags). */
-type EffectKey = Exclude<keyof GlobalAudioSettings, 'globalBypass' | 'compressorBeforeDelay'>;
+/** Keys of GlobalAudioSettings that are effect-param objects (excludes the three top-level flags). */
+type EffectKey = Exclude<keyof GlobalAudioSettings, 'globalBypass' | 'compressorBeforeDelay' | 'lfoDrift'>;
 
 /** `AudioEngine.setEffectBypass`'s effect keys — note 'lpf'/'hpf', not 'filterLPF'/'filterHPF'. */
 type BypassEffectKey = 'reverb' | 'delay' | 'limiter' | 'eq3' | 'lpf' | 'hpf' | 'compressor';
@@ -67,6 +67,10 @@ export function applyGlobalAudioToEngine(globalAudio: GlobalAudioSettings): void
   AudioEngine.setGlobalLimiter(globalAudio.limiter);
   AudioEngine.setGlobalDelay(globalAudio.delay);
   AudioEngine.setGlobalReverb(globalAudio.reverb);
+  for (const group of DRIFT_GROUP_IDS) {
+    lfoEngine.setGlobalRateDrift(group, globalAudio.lfoDrift[group].rateDrift);
+    lfoEngine.setGlobalDepthDrift(group, globalAudio.lfoDrift[group].depthDrift);
+  }
   // Push each effect's OWN enabled value, not a blanket true — Delay in
   // particular may be seeded/set false and must stay bypassed.
   for (const [effectKey, bypassKey] of Object.entries(BYPASS_KEY) as [EffectKey, BypassEffectKey][]) {
@@ -115,6 +119,17 @@ export interface AudioStore {
    * globalFx.ts's wireGlobalFxChain().
    */
   setCompressorBeforeDelay: (value: boolean) => void;
+  /**
+   * Sets one drift group's LFO drift amount(s) (docs/specs/LFO_DRIFT_GROUPS.md)
+   * — updates globalAudio.lfoDrift[group] and pushes only the field(s)
+   * actually provided to lfoEngine's matching setGlobalRateDrift/
+   * setGlobalDepthDrift for that same group; every other group is untouched.
+   * A bespoke action (not routed through setGlobalAudio/GLOBAL_SETTER),
+   * shaped like setCompressorBeforeDelay above — lfoDrift is a top-level
+   * flag, not a per-effect object with its own AudioEngine.setGlobal*
+   * counterpart.
+   */
+  setGlobalLfoDrift: (group: DriftGroupId, partial: Partial<GlobalAudioSettings['lfoDrift'][DriftGroupId]>) => void;
   /**
    * Regenerate `globalAudio` for the given planet from the seed
    * (generateGlobalAudioSettings, src/utils/globalAudioSeed.ts) and push the
@@ -188,6 +203,17 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
   setCompressorBeforeDelay: (value) => {
     set((state) => ({ globalAudio: { ...state.globalAudio, compressorBeforeDelay: value } }));
     wireGlobalFxChain(value);
+  },
+
+  setGlobalLfoDrift: (group, partial) => {
+    set((state) => ({
+      globalAudio: {
+        ...state.globalAudio,
+        lfoDrift: { ...state.globalAudio.lfoDrift, [group]: { ...state.globalAudio.lfoDrift[group], ...partial } },
+      },
+    }));
+    if (partial.rateDrift !== undefined) lfoEngine.setGlobalRateDrift(group, partial.rateDrift);
+    if (partial.depthDrift !== undefined) lfoEngine.setGlobalDepthDrift(group, partial.depthDrift);
   },
 
   setGlobalLfo: (target, value) => {

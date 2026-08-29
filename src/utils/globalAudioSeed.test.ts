@@ -15,7 +15,7 @@ import {
 import { evictPlanetNoiseMap } from './noiseMaps';
 import { GLOBAL_AUDIO_LOADING_RANGES } from '@/data/globalAudioLoadingRanges';
 import { type GlobalAudioSeedFieldKey } from '@/data/globalAudioSeedRanges';
-import { GLOBAL_LFO_TARGET_IDS, LFO_SHAPES, LFO_RATE_MIN, LFO_RATE_MAX, LFO_DEPTH_MIN, LFO_DEPTH_MAX } from '@/types/lfo';
+import { GLOBAL_LFO_TARGET_IDS, LFO_SHAPES, LFO_RATE_MIN, LFO_RATE_MAX, LFO_DEPTH_MIN, LFO_DEPTH_MAX, DRIFT_GROUP_IDS } from '@/types/lfo';
 
 // ========================================
 // TESTS
@@ -118,6 +118,17 @@ describe('generateGlobalAudioSettings', () => {
       'reverb.preDelay': settings.reverb.preDelay,
       'reverb.wet': settings.reverb.wet,
       'limiter.threshold': settings.limiter.threshold,
+      // Stopgap — Task 2 reshaped lfoDrift to Record<DriftGroupId, ...> and
+      // Task 3 gave each group its own key; Task 4 gives each group its own
+      // independently-sampled value (all 4 currently share one draw).
+      'lfoDrift.eq3.rateDrift': settings.lfoDrift.eq3.rateDrift,
+      'lfoDrift.eq3.depthDrift': settings.lfoDrift.eq3.depthDrift,
+      'lfoDrift.filterLPF.rateDrift': settings.lfoDrift.filterLPF.rateDrift,
+      'lfoDrift.filterLPF.depthDrift': settings.lfoDrift.filterLPF.depthDrift,
+      'lfoDrift.filterHPF.rateDrift': settings.lfoDrift.filterHPF.rateDrift,
+      'lfoDrift.filterHPF.depthDrift': settings.lfoDrift.filterHPF.depthDrift,
+      'lfoDrift.robots.rateDrift': settings.lfoDrift.robots.rateDrift,
+      'lfoDrift.robots.depthDrift': settings.lfoDrift.robots.depthDrift,
     };
     for (const key of Object.keys(GLOBAL_AUDIO_LOADING_RANGES) as GlobalAudioSeedFieldKey[]) {
       const { min, max } = GLOBAL_AUDIO_LOADING_RANGES[key];
@@ -170,6 +181,84 @@ describe('generateGlobalAudioSettings', () => {
     const first = generateGlobalAudioSettings('seed-test-planet', 'Nova');
     const second = generateGlobalAudioSettings('seed-test-planet', 'Nova');
     expect(second.delay.enabled).toBe(first.delay.enabled);
+  });
+
+  describe('lfoDrift', () => {
+    it('returns a fully-populated lfoDrift for all 4 DriftGroupId groups', () => {
+      const settings = generateGlobalAudioSettings('seed-test-planet', 'Nova');
+      expect(Object.keys(settings.lfoDrift).sort()).toEqual([...DRIFT_GROUP_IDS].sort());
+    });
+
+    it('is deterministic — same planetId + planetName always produces the same lfoDrift for every group', () => {
+      const first = generateGlobalAudioSettings('seed-test-planet', 'Nova');
+      const second = generateGlobalAudioSettings('seed-test-planet', 'Nova');
+      expect(second.lfoDrift).toEqual(first.lfoDrift);
+    });
+
+    it('produces different lfoDrift values for a different planet name (non-degenerate)', () => {
+      const a = generateGlobalAudioSettings('seed-test-planet', 'Nova');
+      const b = generateGlobalAudioSettings('seed-test-planet-b', 'Zenith');
+      expect(b.lfoDrift).not.toEqual(a.lfoDrift);
+    });
+
+    it('samples rateDrift and depthDrift independently within each group, not the same draw for both', () => {
+      // A shared draw fed into both fields would be an easy copy/paste bug —
+      // this catches it directly rather than relying on the non-degenerate
+      // check above, which would still pass if both fields moved in lockstep.
+      const settings = generateGlobalAudioSettings('seed-test-planet', 'Nova');
+      for (const group of DRIFT_GROUP_IDS) {
+        expect(settings.lfoDrift[group].rateDrift, group).not.toBe(settings.lfoDrift[group].depthDrift);
+      }
+    });
+
+    it('samples each group independently — no two groups share the same rateDrift draw', () => {
+      const settings = generateGlobalAudioSettings('seed-test-planet', 'Nova');
+      const rateDrifts = DRIFT_GROUP_IDS.map((group) => settings.lfoDrift[group].rateDrift);
+      expect(new Set(rateDrifts).size).toBe(DRIFT_GROUP_IDS.length);
+    });
+
+    it('samples each group independently — no two groups share the same depthDrift draw', () => {
+      const settings = generateGlobalAudioSettings('seed-test-planet', 'Nova');
+      const depthDrifts = DRIFT_GROUP_IDS.map((group) => settings.lfoDrift[group].depthDrift);
+      expect(new Set(depthDrifts).size).toBe(DRIFT_GROUP_IDS.length);
+    });
+
+    it('keeps every group\'s fields within the -0.7..0.7 loading range on every call, across many planets', () => {
+      const SAMPLE_PLANETS = 20;
+      for (let i = 0; i < SAMPLE_PLANETS; i++) {
+        const settings = generateGlobalAudioSettings(`seed-drift-sample-${i}`, `DriftSample${i}`);
+        for (const group of DRIFT_GROUP_IDS) {
+          const { rateDrift, depthDrift } = settings.lfoDrift[group];
+          expect(rateDrift, `planet ${i} ${group} rateDrift`).toBeGreaterThanOrEqual(-0.7);
+          expect(rateDrift, `planet ${i} ${group} rateDrift`).toBeLessThanOrEqual(0.7);
+          expect(depthDrift, `planet ${i} ${group} depthDrift`).toBeGreaterThanOrEqual(-0.7);
+          expect(depthDrift, `planet ${i} ${group} depthDrift`).toBeLessThanOrEqual(0.7);
+        }
+        evictPlanetNoiseMap(`seed-drift-sample-${i}`);
+      }
+    });
+
+    it('actually produces both negative and positive rateDrift values across many planets, for every group (non-degenerate)', () => {
+      const SAMPLE_PLANETS = 20;
+      const sawNegative: Record<string, boolean> = {};
+      const sawPositive: Record<string, boolean> = {};
+      for (const group of DRIFT_GROUP_IDS) {
+        sawNegative[group] = false;
+        sawPositive[group] = false;
+      }
+      for (let i = 0; i < SAMPLE_PLANETS; i++) {
+        const settings = generateGlobalAudioSettings(`seed-drift-sign-${i}`, `DriftSign${i}`);
+        for (const group of DRIFT_GROUP_IDS) {
+          if (settings.lfoDrift[group].rateDrift < 0) sawNegative[group] = true;
+          if (settings.lfoDrift[group].rateDrift > 0) sawPositive[group] = true;
+        }
+        evictPlanetNoiseMap(`seed-drift-sign-${i}`);
+      }
+      for (const group of DRIFT_GROUP_IDS) {
+        expect(sawNegative[group], `expected group ${group} to see rateDrift < 0 at least once`).toBe(true);
+        expect(sawPositive[group], `expected group ${group} to see rateDrift > 0 at least once`).toBe(true);
+      }
+    });
   });
 });
 

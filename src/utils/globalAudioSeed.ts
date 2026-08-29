@@ -77,6 +77,12 @@ export function generateGlobalAudioSettings(planetId: string, planetName: string
   return {
     globalBypass: defaults.globalBypass,
     compressorBeforeDelay: defaults.compressorBeforeDelay,
+    lfoDrift: {
+      eq3: { rateDrift: sampleField(noiseMap, 'lfoDrift.eq3.rateDrift'), depthDrift: sampleField(noiseMap, 'lfoDrift.eq3.depthDrift') },
+      filterLPF: { rateDrift: sampleField(noiseMap, 'lfoDrift.filterLPF.rateDrift'), depthDrift: sampleField(noiseMap, 'lfoDrift.filterLPF.depthDrift') },
+      filterHPF: { rateDrift: sampleField(noiseMap, 'lfoDrift.filterHPF.rateDrift'), depthDrift: sampleField(noiseMap, 'lfoDrift.filterHPF.depthDrift') },
+      robots: { rateDrift: sampleField(noiseMap, 'lfoDrift.robots.rateDrift'), depthDrift: sampleField(noiseMap, 'lfoDrift.robots.depthDrift') },
+    },
     compressor: {
       enabled: true,
       threshold: sampleField(noiseMap, 'compressor.threshold'),

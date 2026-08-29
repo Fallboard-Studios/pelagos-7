@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import { GLOBAL_LFO_TARGET_IDS } from '../types/lfo';
+import { GLOBAL_LFO_TARGET_IDS, DRIFT_GROUP_IDS } from '../types/lfo';
 
 // Ensure AudioEngine is mocked before importing the store so the module's
 // import of AudioEngine receives the mock. The store now calls the full
@@ -37,6 +37,8 @@ vi.mock('../engine/lfoEngine', () => ({
     stop: vi.fn(),
     connectLfoTarget: vi.fn(() => true),
     disconnectLfoTarget: vi.fn(),
+    setGlobalRateDrift: vi.fn(),
+    setGlobalDepthDrift: vi.fn(),
   },
 }));
 
@@ -129,6 +131,17 @@ describe('useAudioStore - regenerateGlobalAudioFromSeed', () => {
     expect(AudioEngine.setGlobalLimiter).toHaveBeenCalledWith(globalAudio.limiter);
     expect(AudioEngine.setGlobalDelay).toHaveBeenCalledWith(globalAudio.delay);
     expect(AudioEngine.setGlobalReverb).toHaveBeenCalledWith(globalAudio.reverb);
+  });
+
+  it('calls lfoEngine.setGlobalRateDrift/setGlobalDepthDrift for all 4 groups with each group\'s own resulting lfoDrift values, alongside the AudioEngine setGlobal* calls', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const { lfoEngine } = await import('../engine/lfoEngine');
+    const { globalAudio } = useAudioStore.getState();
+
+    for (const group of DRIFT_GROUP_IDS) {
+      expect(lfoEngine.setGlobalRateDrift, group).toHaveBeenCalledWith(group, globalAudio.lfoDrift[group].rateDrift);
+      expect(lfoEngine.setGlobalDepthDrift, group).toHaveBeenCalledWith(group, globalAudio.lfoDrift[group].depthDrift);
+    }
   });
 
   it('calls AudioEngine.setEffectBypass with each effect\'s actual seeded enabled value — not hardcoded true', async () => {
@@ -330,6 +343,75 @@ describe('useAudioStore - setCompressorBeforeDelay', () => {
 
     expect(useAudioStore.getState().globalAudio.compressorBeforeDelay).toBe(false);
     expect(wireGlobalFxChain).toHaveBeenCalledWith(false);
+  });
+});
+
+describe('useAudioStore - setGlobalLfoDrift', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it('updates only rateDrift for the given group and calls lfoEngine.setGlobalRateDrift with that group, leaving depthDrift and every other group untouched', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const { lfoEngine } = await import('../engine/lfoEngine');
+    const before = useAudioStore.getState().globalAudio.lfoDrift;
+    vi.clearAllMocks();
+
+    useAudioStore.getState().setGlobalLfoDrift('eq3', { rateDrift: 0.5 });
+
+    expect(useAudioStore.getState().globalAudio.lfoDrift.eq3.rateDrift).toBe(0.5);
+    expect(useAudioStore.getState().globalAudio.lfoDrift.eq3.depthDrift).toBe(before.eq3.depthDrift);
+    expect(useAudioStore.getState().globalAudio.lfoDrift.filterLPF).toEqual(before.filterLPF);
+    expect(useAudioStore.getState().globalAudio.lfoDrift.filterHPF).toEqual(before.filterHPF);
+    expect(useAudioStore.getState().globalAudio.lfoDrift.robots).toEqual(before.robots);
+    expect(lfoEngine.setGlobalRateDrift).toHaveBeenCalledWith('eq3', 0.5);
+    expect(lfoEngine.setGlobalDepthDrift).not.toHaveBeenCalled();
+  });
+
+  it('updates only depthDrift for the given group and calls lfoEngine.setGlobalDepthDrift with that group, leaving rateDrift untouched', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const { lfoEngine } = await import('../engine/lfoEngine');
+    const rateBefore = useAudioStore.getState().globalAudio.lfoDrift.filterLPF.rateDrift;
+    vi.clearAllMocks();
+
+    useAudioStore.getState().setGlobalLfoDrift('filterLPF', { depthDrift: -0.3 });
+
+    expect(useAudioStore.getState().globalAudio.lfoDrift.filterLPF.depthDrift).toBe(-0.3);
+    expect(useAudioStore.getState().globalAudio.lfoDrift.filterLPF.rateDrift).toBe(rateBefore);
+    expect(lfoEngine.setGlobalDepthDrift).toHaveBeenCalledWith('filterLPF', -0.3);
+    expect(lfoEngine.setGlobalRateDrift).not.toHaveBeenCalled();
+  });
+
+  it('updates both fields for the given group and calls both engine setters with that group when both are provided together', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const { lfoEngine } = await import('../engine/lfoEngine');
+    vi.clearAllMocks();
+
+    useAudioStore.getState().setGlobalLfoDrift('robots', { rateDrift: 0.2, depthDrift: 0.9 });
+
+    expect(useAudioStore.getState().globalAudio.lfoDrift.robots).toEqual({ rateDrift: 0.2, depthDrift: 0.9 });
+    expect(lfoEngine.setGlobalRateDrift).toHaveBeenCalledWith('robots', 0.2);
+    expect(lfoEngine.setGlobalDepthDrift).toHaveBeenCalledWith('robots', 0.9);
+  });
+
+  it('calling it twice on the same group with one field each time accumulates rather than clobbering the other field', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    useAudioStore.getState().setGlobalLfoDrift('filterHPF', { rateDrift: 0.4 });
+
+    useAudioStore.getState().setGlobalLfoDrift('filterHPF', { depthDrift: 0.6 });
+
+    expect(useAudioStore.getState().globalAudio.lfoDrift.filterHPF).toEqual({ rateDrift: 0.4, depthDrift: 0.6 });
+  });
+
+  it('setting one group never touches another group\'s stored values — cross-group isolation', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const before = useAudioStore.getState().globalAudio.lfoDrift;
+
+    useAudioStore.getState().setGlobalLfoDrift('eq3', { rateDrift: 0.7, depthDrift: 0.7 });
+
+    expect(useAudioStore.getState().globalAudio.lfoDrift.filterLPF).toEqual(before.filterLPF);
+    expect(useAudioStore.getState().globalAudio.lfoDrift.filterHPF).toEqual(before.filterHPF);
+    expect(useAudioStore.getState().globalAudio.lfoDrift.robots).toEqual(before.robots);
   });
 });
 

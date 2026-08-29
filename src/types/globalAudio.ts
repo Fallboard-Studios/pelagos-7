@@ -2,6 +2,7 @@
  * Global audio settings types.
  * All fields are JSON-serializable primitives suitable for Zustand storage.
  */
+import type { DriftGroupId } from './lfo';
 
 export interface ReverbSettings {
   enabled: boolean;
@@ -73,6 +74,12 @@ export interface GlobalAudioSettings {
    *  true = Controlled Decay (Compressor moved before both Delay and Reverb). Not seeded —
    *  always starts false; only a direct user toggle changes it. */
   compressorBeforeDelay: boolean;
+  /** Global, seeded LFO drift amounts — one independent { rateDrift, depthDrift }
+   *  pair per DriftGroupId, applied to every currently-connected primary
+   *  Tone.LFO belonging to that group (never a per-target setting). Both
+   *  fields -1.0 to 1.0, default 0.0. See docs/specs/LFO_DRIFT_GROUPS.md
+   *  (reshaped from docs/specs/LFO_DRIFT.md's single flat pair). */
+  lfoDrift: Record<DriftGroupId, { rateDrift: number; depthDrift: number }>;
   reverb: ReverbSettings;
   delay: DelaySettings;
   compressor: CompressorSettings;
@@ -87,6 +94,12 @@ export interface GlobalAudioSettings {
 export const DEFAULT_GLOBAL_AUDIO_SETTINGS: GlobalAudioSettings = {
   globalBypass: false,
   compressorBeforeDelay: false,
+  lfoDrift: {
+    eq3: { rateDrift: 0, depthDrift: 0 },
+    filterLPF: { rateDrift: 0, depthDrift: 0 },
+    filterHPF: { rateDrift: 0, depthDrift: 0 },
+    robots: { rateDrift: 0, depthDrift: 0 },
+  },
   reverb: { enabled: false, decay: 1.5, preDelay: 0.02, wet: 0.3 },
   delay: { enabled: false, delayTime: 0.25, feedback: 0.2, wet: 0.15 },
   compressor: { enabled: false, threshold: -24, ratio: 2, attack: 0.003, release: 0.25, knee: 6 },
