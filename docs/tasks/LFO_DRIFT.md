@@ -157,18 +157,18 @@ Task 3, Task 8 ──→ Task 9 (docs/AUDIO_SYSTEM.md)
 
 ### Phase 3: UI schema (parallelizable with Phase 2)
 
-- [ ] **Task 6: `audioRigConfig.ts` — Drift accordion schemas**
+- [x] **Task 6: `audioRigConfig.ts` — Drift accordion schemas**
 
   **Description:** Add `LFO_DRIFT_ACCORDION`, `LFO_RATE_DRIFT_SCHEMA`, `LFO_DEPTH_DRIFT_SCHEMA` as standalone exports (both sliders `SliderCenteredZeroSchema`, `-100..100`, unit `'%'`), following `DECAY_MODE_SCHEMA`'s existing "global chain-level, not nested inside any effect block" precedent. Not added to `AUDIO_RIG_CONFIG`'s array.
 
   **Acceptance criteria:**
-  - [ ] `LFO_DRIFT_ACCORDION` is a valid `AccordionSchema`.
-  - [ ] `LFO_RATE_DRIFT_SCHEMA`/`LFO_DEPTH_DRIFT_SCHEMA` are both `sliderCenteredZero` schemas with `min: -100, max: 100, unit: '%'`.
-  - [ ] None of the three new exports are added to `AUDIO_RIG_CONFIG`'s array (it isn't the right shape — `AudioRigEffectBlock` requires a matching `GlobalAudioSettings` effect key, which `lfoDrift` is not).
+  - [x] `LFO_DRIFT_ACCORDION` is a valid `AccordionSchema`.
+  - [x] `LFO_RATE_DRIFT_SCHEMA`/`LFO_DEPTH_DRIFT_SCHEMA` are both `sliderCenteredZero` schemas with `min: -100, max: 100, unit: '%'`.
+  - [x] None of the three new exports are added to `AUDIO_RIG_CONFIG`'s array (it isn't the right shape — `AudioRigEffectBlock` requires a matching `GlobalAudioSettings` effect key, which `lfoDrift` is not).
 
   **Verification:**
-  - [ ] `npx vitest run src/data/audioRigConfig.test.ts` passes, including new direct assertions on the three schemas' shape/bounds; the file's existing closed-set coverage assertion over `AUDIO_RIG_CONFIG`'s own params is unaffected.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/data/audioRigConfig.test.ts` passes, including new direct assertions on the three schemas' shape/bounds; the file's existing closed-set coverage assertion over `AUDIO_RIG_CONFIG`'s own params is unaffected.
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** None.
 
@@ -177,7 +177,7 @@ Task 3, Task 8 ──→ Task 9 (docs/AUDIO_SYSTEM.md)
   **Estimated scope:** XS (3 small const exports)
 
 ### Checkpoint: UI schema
-- [ ] `npm run build:types`, `npm run lint`, `npm test` clean.
+- [x] `npm run build:types`, `npm run lint`, `npm test` clean.
 - [ ] Review with human before proceeding (can happen in parallel with the Phase 2 checkpoint).
 
 ---
