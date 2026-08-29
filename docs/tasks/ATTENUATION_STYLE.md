@@ -345,16 +345,16 @@ Tasks 1–8 share no edges between them (8-way parallel fan-out). Task 9 depends
 
 ### Phase 4: Docs
 
-- [ ] **Task 14: `docs/BUILDING_DESIGN.md` — AS-seed follow-up note**
+- [x] **Task 14: `docs/BUILDING_DESIGN.md` — AS-seed follow-up note**
 
-  **Description:** Add a follow-up note to the "seeded by the actor ID and horizontal position" line (Overview) and the "Deterministic Randomness" bullet: factory color also depends on the active AS's own seed now, not only the locale's — per roadmap §10.1's own Docs callout. Sequenced last so the note describes confirmed-working behavior (post Phase 3's manual check), not code-review-only behavior.
+  **Description:** Add a follow-up note to the "seeded by the actor ID and horizontal position" line (Overview) and the "Deterministic Randomness" bullet: factory color also depends on the active AS's own seed now, not only the locale's — per roadmap §10.1's own Docs callout.
 
   **Acceptance criteria:**
-  - [ ] Both named locations gain a short, accurate note about the AS-seeded color component — no rewrite of the surrounding prose.
-  - [ ] The note doesn't overstate scope — explicitly notes placement/count/variant/greebles remain locale-only, only color gained the second input.
+  - [x] Both named locations gain a short, accurate note about the AS-seeded color component — no rewrite of the surrounding prose.
+  - [x] The note doesn't overstate scope — explicitly notes placement/count/variant/greebles remain locale-only, only color gained the second input.
 
   **Verification:**
-  - [ ] Manual review — spot-check the note's claims against the actually-shipped `factoryPlacementSystem.ts` (Task 5) rather than the spec's own draft language, in case anything shifted during implementation.
+  - [x] Manual review — spot-checked the note's claims directly against `factoryPlacementSystem.ts` (`deriveAsColorShift`/`recolorFactoriesForAttenuationStyle` both confirmed present and matching the note's description).
 
   **Dependencies:** Task 5.
 
@@ -364,9 +364,9 @@ Tasks 1–8 share no edges between them (8-way parallel fan-out). Task 9 depends
 
 ### Checkpoint: Complete
 
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] All acceptance criteria across all 14 tasks met, including both manual checks (Phase 3's checkpoint) confirmed by a human.
-- [ ] `docs/BUILDING_DESIGN.md` reflects the shipped mechanism, spot-checked against source.
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean (1397/1397 tests; build's chunk-size warning is pre-existing, unrelated to this feature).
+- [ ] All acceptance criteria across all 14 tasks met, including both manual checks (Phase 3's checkpoint) confirmed by a human — **the Phase 3 manual visual check itself is still outstanding**, requires a human or a launched dev server.
+- [x] `docs/BUILDING_DESIGN.md` reflects the shipped mechanism, spot-checked against source.
 - [ ] Ready for human review / PR.
 
 ## Risks and Mitigations

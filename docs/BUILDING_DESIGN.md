@@ -16,6 +16,17 @@ map (`generateFactoryId()`, `factoryPlacementSystem.ts`), the same
 use — required for "Reloading the scene produces identical buildings" (below)
 to actually hold, per [PROCEDURAL_GENERATION.md](PROCEDURAL_GENERATION.md).
 
+A factory's colour shift additionally layers a second, independent seed on
+top: the active Attenuation Style's own noise map (`deriveAsColorShift()`,
+`factoryPlacementSystem.ts`) contributes an additive hue/saturation delta
+summed with the locale-seeded shift above. Nothing else about a factory is
+affected — placement, count, id, variant, scale, and greeble selection stay
+driven exclusively by the locale seed regardless of which Attenuation Style
+is active. Retransmitting a new Attenuation Style recolors an existing
+locale's factories in place (`recolorFactoriesForAttenuationStyle()`)
+without touching any of those other fields. See
+[docs/specs/ATTENUATION_STYLE.md](specs/ATTENUATION_STYLE.md) §1.2.
+
 **Key source files:**
 
 | File | Purpose |
@@ -40,7 +51,10 @@ to actually hold, per [PROCEDURAL_GENERATION.md](PROCEDURAL_GENERATION.md).
   far rows cap out lower.
 - **Deterministic Randomness:** Every visual property of a factory
   (variant, size, colour shift, greeble selection) is derived from a
-  seeded PRNG. Reloading the scene produces identical buildings.
+  seeded PRNG. Reloading the scene produces identical buildings. Colour
+  shift alone has a second, independent seeded input on top — the active
+  Attenuation Style's own noise map — additive with the locale-seeded
+  shift and affecting colour only; every other property stays locale-only.
 
 ### Procedural generation (runtime specifics)
 
