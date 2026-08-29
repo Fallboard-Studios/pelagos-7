@@ -78,28 +78,6 @@ export function shiftHSL(base: HSL, shift: ColorShift): HSL {
 }
 
 /**
- * Add a flat lightness delta to an HSL color, clamped to [0, 100]. Hue and
- * saturation are untouched — pure lightness nudge, new object (never
- * mutates `base`).
- *
- * Distinct from shiftHSL/applyColorShift's own lightness handling
- * (multiplicative, applied by the caller separately) — this is an additive
- * delta, for callers that need to brighten/dim a color by a fixed amount
- * rather than scale it. Currently used by Factory.tsx to boost the AS's
- * (Attenuation Style's) contribution to a factory wall's base lightness, so
- * a hue shift stays legible even on a dark base color — see
- * docs/specs/ATTENUATION_STYLE.md §1.2.
- *
- * @param base  - Base HSL color
- * @param boost - Lightness delta in percentage points (positive brightens,
- *                negative dims)
- * @returns A new HSL object with `l` adjusted and clamped
- */
-export function boostLightness(base: HSL, boost: number): HSL {
-  return { ...base, l: clamp(base.l + boost, 0, 100) };
-}
-
-/**
  * Apply color shift and lightness multiplier to a base HSL color.
  * Used for per-instance factory color variation and day/night lighting.
  *

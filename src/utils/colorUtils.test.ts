@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { type HSL, hslToString, clamp, applyColorShift, boostLightness, type ColorShift } from './colorUtils';
+import { type HSL, hslToString, clamp, applyColorShift, type ColorShift } from './colorUtils';
 
 describe('colorUtils', () => {
   describe('hslToString', () => {
@@ -142,34 +142,6 @@ describe('colorUtils', () => {
       const shift: ColorShift = { hueShift: 720, satShift: 0 };
       const result = applyColorShift(base, shift, 1.0);
       expect(result).toBe('hsl(10, 50%, 50%)');
-    });
-  });
-
-  describe('boostLightness', () => {
-    it('adds the boost to lightness, leaving hue/sat untouched', () => {
-      const base: HSL = { h: 200, s: 15, l: 19 };
-      expect(boostLightness(base, 20)).toEqual({ h: 200, s: 15, l: 39 });
-    });
-
-    it('is a no-op for a zero boost', () => {
-      const base: HSL = { h: 200, s: 15, l: 19 };
-      expect(boostLightness(base, 0)).toEqual(base);
-    });
-
-    it('clamps at 100 (positive overflow)', () => {
-      const base: HSL = { h: 200, s: 15, l: 90 };
-      expect(boostLightness(base, 30)).toEqual({ h: 200, s: 15, l: 100 });
-    });
-
-    it('clamps at 0 (negative boost, negative overflow)', () => {
-      const base: HSL = { h: 200, s: 15, l: 10 };
-      expect(boostLightness(base, -30)).toEqual({ h: 200, s: 15, l: 0 });
-    });
-
-    it('does not mutate the input object', () => {
-      const base: HSL = { h: 200, s: 15, l: 19 };
-      boostLightness(base, 20);
-      expect(base).toEqual({ h: 200, s: 15, l: 19 });
     });
   });
 

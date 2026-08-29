@@ -47,18 +47,6 @@ export interface Actor {
      * Passed to `applyColorShift()` in colorUtils.ts at render time.
      */
     satShift?: number;
-    /**
-     * Percentage-point lightness delta contributed by the active Attenuation
-     * Style, applied ONLY to the factory wall's base fill (Factory.tsx's
-     * eastFill/westFill) via colorUtils.ts's `boostLightness()` — not folded
-     * into `hueShift`/`satShift` (those combine local + AS additively) and
-     * not passed to rooftop/facade greebles. Dark base wall colors otherwise
-     * make an AS's hue shift nearly imperceptible regardless of magnitude;
-     * this exists purely to keep that shift legible. Always >= 0 — an AS
-     * only ever brightens a wall, never dims it. See
-     * docs/specs/ATTENUATION_STYLE.md §1.2.
-     */
-    asLightShift?: number;
     /** Rooftop greeble selected at spawn; drives ROOFTOP_RENDERERS lookup. */
     rooftopGreeble?: import('../components/actors/greebles/greebleTypes').RooftopGreeble;
     /** Facade greeble selected at spawn; drives FACADE_RENDERERS lookup. */
