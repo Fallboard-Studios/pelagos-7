@@ -82,10 +82,10 @@ export function generateGlobalAudioSettings(planetId: string, planetName: string
     // all 4 for now, just to keep the reshaped Record<DriftGroupId, ...> type
     // satisfied until then.
     lfoDrift: {
-      eq3: { rateDrift: sampleField(noiseMap, 'lfoDrift.rateDrift'), depthDrift: sampleField(noiseMap, 'lfoDrift.depthDrift') },
-      filterLPF: { rateDrift: sampleField(noiseMap, 'lfoDrift.rateDrift'), depthDrift: sampleField(noiseMap, 'lfoDrift.depthDrift') },
-      filterHPF: { rateDrift: sampleField(noiseMap, 'lfoDrift.rateDrift'), depthDrift: sampleField(noiseMap, 'lfoDrift.depthDrift') },
-      robots: { rateDrift: sampleField(noiseMap, 'lfoDrift.rateDrift'), depthDrift: sampleField(noiseMap, 'lfoDrift.depthDrift') },
+      eq3: { rateDrift: sampleField(noiseMap, 'lfoDrift.robots.rateDrift'), depthDrift: sampleField(noiseMap, 'lfoDrift.robots.depthDrift') },
+      filterLPF: { rateDrift: sampleField(noiseMap, 'lfoDrift.robots.rateDrift'), depthDrift: sampleField(noiseMap, 'lfoDrift.robots.depthDrift') },
+      filterHPF: { rateDrift: sampleField(noiseMap, 'lfoDrift.robots.rateDrift'), depthDrift: sampleField(noiseMap, 'lfoDrift.robots.depthDrift') },
+      robots: { rateDrift: sampleField(noiseMap, 'lfoDrift.robots.rateDrift'), depthDrift: sampleField(noiseMap, 'lfoDrift.robots.depthDrift') },
     },
     compressor: {
       enabled: true,

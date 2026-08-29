@@ -34,10 +34,17 @@ const EXPECTED: Record<GlobalAudioSeedFieldKey, { min: number; max: number }> = 
   'compressor.knee': { min: 1, max: 15 },
   'limiter.threshold': { min: -3, max: -1 },
   // Not GLOBAL_CHAIN_GRID.md-sourced like every entry above — the grid
-  // predates lfoDrift entirely. A first-pass default, confirmed during the
-  // Phase 4 manual/audible check per docs/specs/LFO_DRIFT.md §7.
-  'lfoDrift.rateDrift': { min: -0.4, max: 0.4 },
-  'lfoDrift.depthDrift': { min: -0.4, max: 0.4 },
+  // predates lfoDrift entirely. First-pass defaults per group, confirmed
+  // during the Phase 4 manual/audible check per docs/specs/LFO_DRIFT.md §7 —
+  // carried forward unchanged per group into docs/specs/LFO_DRIFT_GROUPS.md.
+  'lfoDrift.eq3.rateDrift': { min: -0.4, max: 0.4 },
+  'lfoDrift.eq3.depthDrift': { min: -0.4, max: 0.4 },
+  'lfoDrift.filterLPF.rateDrift': { min: -0.4, max: 0.4 },
+  'lfoDrift.filterLPF.depthDrift': { min: -0.4, max: 0.4 },
+  'lfoDrift.filterHPF.rateDrift': { min: -0.4, max: 0.4 },
+  'lfoDrift.filterHPF.depthDrift': { min: -0.4, max: 0.4 },
+  'lfoDrift.robots.rateDrift': { min: -0.4, max: 0.4 },
+  'lfoDrift.robots.depthDrift': { min: -0.4, max: 0.4 },
 };
 
 describe('GLOBAL_AUDIO_LOADING_RANGES', () => {

@@ -118,10 +118,17 @@ describe('generateGlobalAudioSettings', () => {
       'reverb.preDelay': settings.reverb.preDelay,
       'reverb.wet': settings.reverb.wet,
       'limiter.threshold': settings.limiter.threshold,
-      // Stopgap — Task 2 reshaped lfoDrift to Record<DriftGroupId, ...>; Task 3/4
-      // gives each group its own key/coverage. 'robots' stands in for all 4 until then.
-      'lfoDrift.rateDrift': settings.lfoDrift.robots.rateDrift,
-      'lfoDrift.depthDrift': settings.lfoDrift.robots.depthDrift,
+      // Stopgap — Task 2 reshaped lfoDrift to Record<DriftGroupId, ...> and
+      // Task 3 gave each group its own key; Task 4 gives each group its own
+      // independently-sampled value (all 4 currently share one draw).
+      'lfoDrift.eq3.rateDrift': settings.lfoDrift.eq3.rateDrift,
+      'lfoDrift.eq3.depthDrift': settings.lfoDrift.eq3.depthDrift,
+      'lfoDrift.filterLPF.rateDrift': settings.lfoDrift.filterLPF.rateDrift,
+      'lfoDrift.filterLPF.depthDrift': settings.lfoDrift.filterLPF.depthDrift,
+      'lfoDrift.filterHPF.rateDrift': settings.lfoDrift.filterHPF.rateDrift,
+      'lfoDrift.filterHPF.depthDrift': settings.lfoDrift.filterHPF.depthDrift,
+      'lfoDrift.robots.rateDrift': settings.lfoDrift.robots.rateDrift,
+      'lfoDrift.robots.depthDrift': settings.lfoDrift.robots.depthDrift,
     };
     for (const key of Object.keys(GLOBAL_AUDIO_LOADING_RANGES) as GlobalAudioSeedFieldKey[]) {
       const { min, max } = GLOBAL_AUDIO_LOADING_RANGES[key];
