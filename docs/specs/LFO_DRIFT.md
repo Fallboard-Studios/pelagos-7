@@ -9,6 +9,8 @@
 
 Source of intent: [docs/intent/lfo-drift.md](../intent/lfo-drift.md) (confirmed via `/interview-me`, 2026-08-28). Source of scope: [docs/roadmap/roadmap.md § 10.2](../roadmap/roadmap.md#102-lfo-modulation-engine-stacked-lfo-drift) (inserted out of sequence, same as 10.1). Supersedes an external plan draft reviewed and found to contain hallucinated file paths and an over-broad per-target UI design that the interview explicitly rejected in favor of one global control. Prior art: [docs/specs/LFO_INTEGRATION.md](LFO_INTEGRATION.md) (the Phase 0 engine this phase extends — `lfoEngine.ts`'s existing lifecycle, the `Signal.override` bug and its fix, `centeredSwingFromRange`'s bounded-safe swing math), [docs/AUDIO_SYSTEM.md](../AUDIO_SYSTEM.md)'s LFO Modulation section.
 
+> **Superseded:** this single-shared-pool design shipped, then was itself restructured into 4 independent drift groups by [docs/specs/LFO_DRIFT_GROUPS.md](LFO_DRIFT_GROUPS.md) (Roadmap 10.3) — see that spec's own post-implementation note for where the code actually lives today (`lfoDrift.ts`/`lfoShared.ts`, not `lfoEngine.ts`). This doc's file/line references reflect the single-pool code as it stood when this phase shipped, before either the 10.3 reshape or the later module-extraction refactor.
+
 ---
 
 ## 1. Overview & Claude Explanation

@@ -9,6 +9,8 @@
 
 Source of intent: [docs/intent/lfo-drift-groups.md](../intent/lfo-drift-groups.md) (confirmed via `/interview-me`, 2026-08-29). Source of scope: [docs/roadmap/roadmap.md § 10.3](../roadmap/roadmap.md#103-lfo-modulation-engine--multi-group-drift) (inserted out of sequence after 10.2, same convention 10.1/10.2 already established). Prior art: [docs/specs/LFO_DRIFT.md](LFO_DRIFT.md) — the shipped Phase 10.2 this phase restructures, not extends from a blank slate. Every mechanic that phase built (the deterministic bucket-hash pool assignment, `centeredSwingFromRange`'s bounded swing math, the Depth Drift silence guard, the `Signal.override`-disable-then-restore fix) is reused unchanged; this phase changes *how many pools exist and which amount each one reads*, not the underlying mechanism.
 
+> **Post-implementation note (post-10.3):** §4's code lives in `lfoEngine.ts` below because that's where this phase actually shipped it — accurate at the time. A later code-review-driven refactor extracted the whole drift subsystem into its own `src/engine/lfoDrift.ts` (plus a small shared `src/engine/lfoShared.ts` for `centeredSwingFromRange`/the override-fix/`isAudioContextRunning`/`clamp`), a pure reorganization with no behavior change. The file/line links and code excerpts below are a record of what this phase actually built, not a current map of the source tree — see [docs/AUDIO_SYSTEM.md § Drift](../AUDIO_SYSTEM.md#drift) for where each piece lives today.
+
 ---
 
 ## 1. Overview & Claude Explanation
