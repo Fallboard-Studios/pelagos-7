@@ -11,7 +11,9 @@ import {
   LFO_RATE_MAX,
   LFO_DEPTH_MIN,
   LFO_DEPTH_MAX,
+  DRIFT_GROUP_IDS,
   type LfoSettings,
+  type DriftGroupId,
 } from './lfo';
 
 // ========================================
@@ -99,5 +101,21 @@ describe('LfoSettings bounds', () => {
     expect(settings.shape).toBe('sine');
     expect(settings.rate).toBe(1.5);
     expect(settings.depth).toBe(50);
+  });
+});
+
+describe('DRIFT_GROUP_IDS', () => {
+  it('has exactly the 4 documented drift groups', () => {
+    expect([...DRIFT_GROUP_IDS].sort()).toEqual(['eq3', 'filterHPF', 'filterLPF', 'robots'].sort());
+  });
+
+  it('has exactly 4 members, no duplicates', () => {
+    expect(DRIFT_GROUP_IDS).toHaveLength(4);
+    expect(new Set(DRIFT_GROUP_IDS).size).toBe(4);
+  });
+
+  it('accepts a valid DriftGroupId value (compile-time check via build:types)', () => {
+    const group: DriftGroupId = 'robots';
+    expect(DRIFT_GROUP_IDS).toContain(group);
   });
 });

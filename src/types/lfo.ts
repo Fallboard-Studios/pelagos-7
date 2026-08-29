@@ -87,6 +87,24 @@ export const GLOBAL_LFO_TARGET_IDS: readonly GlobalLfoTargetId[] = [
 ];
 
 // ========================================
+// DRIFT GROUPS
+// ========================================
+
+/**
+ * The 4 independent LFO drift groups (docs/specs/LFO_DRIFT_GROUPS.md) — every
+ * connected primary LFO belongs to exactly one, determined by its own target
+ * id (see lfoEngine.ts's driftGroupForTarget). The three global-chain groups
+ * map one-to-one onto the only three AudioRigEffectKey blocks that ever carry
+ * an lfoTarget at all (eq3/filterLPF/filterHPF — see audioRigConfig.ts's
+ * AUDIO_RIG_CONFIG); every RobotLfoTargetId, regardless of field or which
+ * robot, shares the one 'robots' group — robot fields have no "effect block"
+ * concept to split by further.
+ */
+export type DriftGroupId = 'eq3' | 'filterLPF' | 'filterHPF' | 'robots';
+
+export const DRIFT_GROUP_IDS: readonly DriftGroupId[] = ['eq3', 'filterLPF', 'filterHPF', 'robots'];
+
+// ========================================
 // SETTINGS
 // ========================================
 
