@@ -9,7 +9,7 @@ export interface LocaleCoordinates {
 
 export interface Locale {
   id: string;
-  planetId: string;
+  attenuationStyleId: string;
   name: string;
   coordinates: LocaleCoordinates;
   /** Wall-clock timestamp this locale's in-world day began. Computed once at
@@ -30,7 +30,7 @@ export interface LocaleSettings {
 
 export interface LocaleState {
   locales: Record<string, Locale>;
-  addLocale: (planetId: string, locale: Locale) => void;
+  addLocale: (attenuationStyleId: string, locale: Locale) => void;
   setLocaleData: (localeId: string, partial: Partial<Locale>) => void;
   removeLocale: (localeId: string) => void;
   getLocaleById: (localeId: string) => Locale | undefined;
