@@ -14,41 +14,71 @@ let mockTransportState: 'started' | 'stopped' = 'stopped';
 // forever outputting Tone.LFO's raw, undepth-scaled "stopped" value.
 let mockContextState: 'running' | 'suspended' = 'suspended';
 
-// Tags a fakeParam() object as "Param-like" for the mocked LFO.connect()
-// below, independent of whatever plain properties our own production code
-// happens to assign onto the object (a Symbol key can't collide with the
-// string-keyed `.override` our fix writes onto every resolved signal).
+// Tags a fakeParam() object (and the mocked LFO's own `amplitude`, a real
+// Tone.Param per docs/specs/LFO_DRIFT.md §1.4) as "Param-like" for the
+// shared connect-simulation below, independent of whatever plain properties
+// our own production code happens to assign onto the object (a Symbol key
+// can't collide with the string-keyed `.override` our fix writes onto every
+// resolved signal/param it connects to).
 const fakeParamMarker = Symbol('fakeParamMarker');
 
+/**
+ * Shared destination-reset simulation for every mocked Tone node below
+ * (LFO, Gain) that can be a `.connect()` SOURCE. Tone.js's real override/
+ * Param-reset behavior (signal/Signal.ts's connectSignal()) is keyed off the
+ * DESTINATION's own type, not the source node's — so a Tone.Gain feeding a
+ * drift signal into a primary's frequency/amplitude (docs/specs/LFO_DRIFT.md
+ * Task 4) must simulate the exact same reset Tone.LFO's own connect() into a
+ * target Signal/Param already simulates. Faithfully mirrors: a Tone.Param
+ * destination ALWAYS resets to 0 on connect, regardless of any `override`
+ * property (Param has no such concept — connectSignal's real check is
+ * `instanceof Param`); a Tone.Signal destination resets only while its own
+ * `override` flag (default true) is still true.
+ */
+function simulateSignalConnect(dest: unknown): void {
+  if (dest && typeof dest === 'object' && 'value' in dest) {
+    const d = dest as { value: number; override?: boolean };
+    const isParamLike = fakeParamMarker in (d as object);
+    if (isParamLike || d.override !== false) {
+      d.value = 0;
+    }
+  }
+}
+
 vi.mock('tone', () => ({
-  LFO: vi.fn((frequency?: number) => {
+  LFO: vi.fn((arg?: number | { frequency?: number; type?: string; phase?: number }) => {
+    const isOptionsObject = typeof arg === 'object' && arg !== null;
+    const freqValue = isOptionsObject ? (arg.frequency ?? 1) : (arg ?? 1);
     const instance = {
-      frequency: { value: frequency ?? 1 },
-      amplitude: { value: 1 },
-      type: 'sine',
+      // A real Tone.LFO.frequency is a Tone.Signal — override defaults true.
+      frequency: { value: freqValue, override: true },
+      // A real Tone.LFO.amplitude is a Tone.Param — no override concept, so
+      // it's tagged fakeParamMarker (see simulateSignalConnect above) rather
+      // than given an `override` field at all.
+      amplitude: { value: 1, [fakeParamMarker]: true },
+      type: isOptionsObject ? (arg.type ?? 'sine') : 'sine',
       min: 0, // Tone.LFO's real default (LFO.getDefaults())
       max: 1, // Tone.LFO's real default — modulating a target with these left unset is functionally inaudible
       start: vi.fn(),
       stop: vi.fn(),
-      // Faithfully mirrors Tone.js's own connectSignal() (verified against
-      // signal/Signal.ts): a Tone.Param destination is ALWAYS reset to 0 the
-      // instant something connects to it, regardless of any `override`
-      // property (Param has no such concept — connectSignal's real check is
-      // `instanceof Param`, not a property value); a Tone.Signal destination
-      // is reset only while its own `override` flag (default true) is still
-      // true. fakeParamMarker identifies a "Param-like" fake independent of
-      // whatever plain properties our own code happens to assign onto it
-      // (e.g. our fix below deliberately writes `.override = false` onto
-      // EVERY resolved signal, Param-shaped or not — that write must not be
-      // able to fool this simulation into skipping the Param reset).
       connect: vi.fn((dest: unknown) => {
-        if (dest && typeof dest === 'object' && 'value' in dest) {
-          const d = dest as { value: number; override?: boolean };
-          const isParamLike = fakeParamMarker in (d as object);
-          if (isParamLike || d.override !== false) {
-            d.value = 0;
-          }
-        }
+        simulateSignalConnect(dest);
+        return instance;
+      }),
+      disconnect: vi.fn(),
+      dispose: vi.fn(),
+    };
+    return instance;
+  }),
+  // The drift pool's per-primary rate/depth attenuators (docs/specs/LFO_DRIFT.md
+  // Task 4) — shape matches this codebase's existing Tone.Gain mocks
+  // elsewhere (e.g. AudioEngine.test.ts), plus the same connect-simulation
+  // every other mocked node here shares.
+  Gain: vi.fn((value?: number) => {
+    const instance = {
+      gain: { value: value ?? 1 },
+      connect: vi.fn((dest: unknown) => {
+        simulateSignalConnect(dest);
         return instance;
       }),
       disconnect: vi.fn(),
@@ -109,7 +139,7 @@ let mockToneNow = 0;
 
 /** Shape of the mocked Tone.LFO instance above — enough to assert against, not the real Tone.LFO type. */
 interface MockLfoInstance {
-  frequency: { value: number };
+  frequency: { value: number; override?: boolean };
   amplitude: { value: number };
   type: string;
   min: number;
@@ -118,6 +148,43 @@ interface MockLfoInstance {
   stop: ReturnType<typeof vi.fn>;
   connect: ReturnType<typeof vi.fn>;
   disconnect: ReturnType<typeof vi.fn>;
+}
+
+/** Shape of the mocked Tone.Gain instance above. */
+interface MockGainInstance {
+  gain: { value: number };
+  connect: ReturnType<typeof vi.fn>;
+  disconnect: ReturnType<typeof vi.fn>;
+}
+
+/**
+ * Finds which pool-shaped Tone.LFO instance (constructed with an options
+ * object — see the LFO mock above; a primary always passes a plain number)
+ * had `.connect()` called with the given destination. Used to prove
+ * bucket-assignment determinism (docs/tasks/LFO_DRIFT.md Task 4) without
+ * lfoEngine needing to export its private pool-index helper — keeping this
+ * file's single grouped `lfoEngine` public-API convention intact.
+ */
+async function poolOscillatorConnectedTo(dest: unknown): Promise<MockLfoInstance | undefined> {
+  const Tone = await import('tone');
+  const ctor = Tone.LFO as unknown as ReturnType<typeof vi.fn>;
+  for (let i = 0; i < ctor.mock.calls.length; i++) {
+    if (typeof ctor.mock.calls[i][0] !== 'object') continue;
+    const instance = ctor.mock.results[i].value as MockLfoInstance;
+    if ((instance.connect as ReturnType<typeof vi.fn>).mock.calls.some(([d]: unknown[]) => d === dest)) return instance;
+  }
+  return undefined;
+}
+
+/** Count of pool-shaped (options-object-constructed) Tone.LFO calls before/after an action. */
+async function poolConstructionCountDelta(action: () => void): Promise<number> {
+  const Tone = await import('tone');
+  const ctor = Tone.LFO as unknown as ReturnType<typeof vi.fn>;
+  const isPoolCall = (call: unknown[]) => typeof call[0] === 'object' && call[0] !== null;
+  const before = ctor.mock.calls.filter(isPoolCall).length;
+  action();
+  const after = ctor.mock.calls.filter(isPoolCall).length;
+  return after - before;
 }
 
 async function callCountDelta(action: () => void): Promise<number> {
@@ -130,7 +197,18 @@ async function callCountDelta(action: () => void): Promise<number> {
 
 async function latestLfoInstance(): Promise<MockLfoInstance> {
   const Tone = await import('tone');
-  return (Tone.LFO as unknown as ReturnType<typeof vi.fn>).mock.results.at(-1)!.value;
+  const ctor = Tone.LFO as unknown as ReturnType<typeof vi.fn>;
+  // Skips pool-shaped (options-object-constructed) instances — connectLfoTarget's
+  // own attachDrift() (docs/tasks/LFO_DRIFT.md Task 4) can lazily construct the
+  // 8-oscillator drift pool as a side effect of the SAME call that constructs a
+  // primary, landing after it in mock.results. Every existing caller of this
+  // helper means "the primary LFO from the action just performed" — never a
+  // drift-pool oscillator — so skip backward past any pool calls to find it.
+  for (let i = ctor.mock.calls.length - 1; i >= 0; i--) {
+    if (typeof ctor.mock.calls[i][0] === 'object') continue;
+    return ctor.mock.results[i].value;
+  }
+  throw new Error('latestLfoInstance: no primary LFO instance has been constructed yet');
 }
 
 /** A minimal fake Signal-like object, distinct per call so tests can assert
@@ -745,6 +823,220 @@ describe('lfoEngine', () => {
       const { lfoEngine } = await import('./lfoEngine');
       expect(() => lfoEngine.disconnectLfoTarget('volume')).not.toThrow();
       expect(() => lfoEngine.disconnectLfoTarget('layer0.phase', 'robot-a')).not.toThrow();
+    });
+  });
+
+  describe('drift pool (Task 4 — structural, inert: both Gains stay at 0, nothing audible changes)', () => {
+    describe('pool construction', () => {
+      it('constructs no pool oscillator on module load or when only reading/setting rate, depth, or shape', async () => {
+        const { lfoEngine } = await import('./lfoEngine');
+        const delta = await poolConstructionCountDelta(() => {
+          lfoEngine.getLfoSettings('volume');
+          lfoEngine.setLfoRate('volume', 2);
+          lfoEngine.setLfoDepth('volume', 50);
+          lfoEngine.setLfoShape('volume', 'square');
+        });
+        expect(delta).toBe(0);
+      });
+
+      it('constructs exactly 8 pool oscillators on the first successful connectLfoTarget call', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(0));
+        const { lfoEngine } = await import('./lfoEngine');
+        const delta = await poolConstructionCountDelta(() => {
+          lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+        });
+        expect(delta).toBe(8);
+      });
+
+      it('does not construct the pool when connectLfoTarget fails to resolve a signal', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(null);
+        const { lfoEngine } = await import('./lfoEngine');
+        const delta = await poolConstructionCountDelta(() => {
+          lfoEngine.connectLfoTarget('layer0.pulseWidth', 'robot-a');
+        });
+        expect(delta).toBe(0);
+      });
+
+      it('reuses the existing pool for a second bound target — still exactly 8 pool oscillators, not 16', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>)
+          .mockReturnValueOnce(fakeSignal(0))
+          .mockReturnValueOnce(fakeSignal(0));
+        const { lfoEngine } = await import('./lfoEngine');
+        lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+        const delta = await poolConstructionCountDelta(() => {
+          lfoEngine.connectLfoTarget('layer0.detune', 'robot-a');
+        });
+        expect(delta).toBe(0);
+      });
+    });
+
+    describe('bucket assignment determinism', () => {
+      it('the same instance key deterministically reuses the same pool oscillator across a disconnect + reconnect cycle', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValue(fakeSignal(0));
+        const { lfoEngine } = await import('./lfoEngine');
+        const Tone = await import('tone');
+        const gainCtor = Tone.Gain as unknown as ReturnType<typeof vi.fn>;
+
+        lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+        const firstRateDriftGain = gainCtor.mock.results.at(-2)!.value;
+        const firstBucket = await poolOscillatorConnectedTo(firstRateDriftGain);
+        expect(firstBucket).toBeDefined();
+
+        lfoEngine.disconnectLfoTarget('layer0.gain', 'robot-a');
+        lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+        const secondRateDriftGain = gainCtor.mock.results.at(-2)!.value;
+        const secondBucket = await poolOscillatorConnectedTo(secondRateDriftGain);
+
+        expect(secondBucket).toBe(firstBucket);
+      });
+
+      it('a representative spread of instance keys does not all collapse onto a single pool oscillator', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValue(fakeSignal(0));
+        const { lfoEngine } = await import('./lfoEngine');
+        const Tone = await import('tone');
+        const gainCtor = Tone.Gain as unknown as ReturnType<typeof vi.fn>;
+
+        const buckets = new Set<unknown>();
+        for (let i = 0; i < 16; i++) {
+          lfoEngine.connectLfoTarget('layer0.gain', `bucket-spread-robot-${i}`);
+          const rateDriftGain = gainCtor.mock.results.at(-2)!.value;
+          buckets.add(await poolOscillatorConnectedTo(rateDriftGain));
+        }
+        expect(buckets.size).toBeGreaterThan(1);
+      });
+    });
+
+    describe('per-primary drift Gain creation and wiring', () => {
+      it('gives a successfully-connected primary its own rate-drift and depth-drift Gain nodes, both starting at 0', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(0));
+        const { lfoEngine } = await import('./lfoEngine');
+        const Tone = await import('tone');
+        const gainCtor = Tone.Gain as unknown as ReturnType<typeof vi.fn>;
+        const before = gainCtor.mock.results.length;
+
+        lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+
+        const created = gainCtor.mock.results.slice(before).map((r) => r.value as MockGainInstance);
+        expect(created).toHaveLength(2);
+        expect(created[0].gain.value).toBe(0);
+        expect(created[1].gain.value).toBe(0);
+      });
+
+      it('sets override to false on the primary\'s frequency before connecting the rate-drift Gain, leaving its current value untouched', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(0));
+        const { lfoEngine } = await import('./lfoEngine');
+        lfoEngine.setLfoRate('layer0.gain', 3, 'robot-a');
+        lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+        const primary = await latestLfoInstance();
+        expect(primary.frequency.override).toBe(false);
+        expect(primary.frequency.value).toBe(3);
+      });
+
+      it('connects the depth-drift Gain into the primary\'s amplitude and restores its own current value afterward — amplitude is a Param and always resets to 0 on connect, so the restore is what actually preserves it', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(0));
+        const { lfoEngine } = await import('./lfoEngine');
+        lfoEngine.setLfoDepth('layer0.gain', 60, 'robot-a');
+        lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+        const primary = await latestLfoInstance();
+        expect(primary.amplitude.value).toBeCloseTo(0.6);
+      });
+
+      it('is idempotent — reconnecting the same already-connected target does not create a second pair of drift Gains', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValue(fakeSignal(0));
+        const { lfoEngine } = await import('./lfoEngine');
+        const Tone = await import('tone');
+        const gainCtor = Tone.Gain as unknown as ReturnType<typeof vi.fn>;
+        const before = gainCtor.mock.calls.length;
+
+        lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+        lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+
+        expect(gainCtor.mock.calls.length - before).toBe(2);
+      });
+    });
+
+    describe('teardown', () => {
+      it('disconnectLfoTarget disconnects both of a primary\'s drift Gains', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(0));
+        const { lfoEngine } = await import('./lfoEngine');
+        const Tone = await import('tone');
+        const gainCtor = Tone.Gain as unknown as ReturnType<typeof vi.fn>;
+        const before = gainCtor.mock.results.length;
+
+        lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+        const [rateDriftGain, depthDriftGain] = gainCtor.mock.results.slice(before).map((r) => r.value as MockGainInstance);
+
+        lfoEngine.disconnectLfoTarget('layer0.gain', 'robot-a');
+
+        expect(rateDriftGain.disconnect).toHaveBeenCalledTimes(1);
+        expect(depthDriftGain.disconnect).toHaveBeenCalledTimes(1);
+      });
+
+      it('never disconnects a shared pool oscillator itself — pool oscillators are app-lifetime, not per-target', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(0));
+        const { lfoEngine } = await import('./lfoEngine');
+        const Tone = await import('tone');
+        const ctor = Tone.LFO as unknown as ReturnType<typeof vi.fn>;
+        // Delta-based, not absolute — Tone.LFO's mock.calls/mock.results keep
+        // accumulating across every test in this file (see this file's own
+        // documented convention above), so counting from index 0 would pick
+        // up every prior test's own pool construction too.
+        const before = ctor.mock.calls.length;
+
+        lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+
+        const poolInstances = ctor.mock.calls
+          .slice(before)
+          .map((call, i) => ({ call, instance: ctor.mock.results[before + i].value as MockLfoInstance }))
+          .filter(({ call }) => typeof call[0] === 'object')
+          .map(({ instance }) => instance);
+        expect(poolInstances).toHaveLength(8);
+
+        lfoEngine.disconnectLfoTarget('layer0.gain', 'robot-a');
+
+        for (const pool of poolInstances) {
+          expect(pool.disconnect).not.toHaveBeenCalled();
+        }
+      });
+
+      it('reconnecting after a full disconnect creates a fresh pair of drift Gains, not reused stale ones', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValue(fakeSignal(0));
+        const { lfoEngine } = await import('./lfoEngine');
+        const Tone = await import('tone');
+        const gainCtor = Tone.Gain as unknown as ReturnType<typeof vi.fn>;
+
+        lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+        lfoEngine.disconnectLfoTarget('layer0.gain', 'robot-a');
+        const before = gainCtor.mock.calls.length;
+        lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+
+        expect(gainCtor.mock.calls.length - before).toBe(2);
+      });
+    });
+
+    describe('phase exclusion', () => {
+      it('creates no drift Gains for a \'layerN.phase\' target — no live Signal exists for it to attach to', async () => {
+        const { lfoEngine } = await import('./lfoEngine');
+        const Tone = await import('tone');
+        const gainCtor = Tone.Gain as unknown as ReturnType<typeof vi.fn>;
+        const before = gainCtor.mock.calls.length;
+
+        lfoEngine.connectLfoTarget('layer0.phase', 'robot-a');
+
+        expect(gainCtor.mock.calls.length - before).toBe(0);
+      });
     });
   });
 });

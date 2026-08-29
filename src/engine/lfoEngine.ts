@@ -2,6 +2,7 @@
 // IMPORTS
 // ========================================
 import * as Tone from 'tone';
+import alea from 'alea';
 
 import { AudioEngine } from './AudioEngine';
 import { scheduleRepeat, cancelSchedule } from './beatClock';
@@ -58,6 +59,28 @@ const phaseFallbacks = new Map<string, PhaseFallback>();
  */
 const connectedSignals = new Map<string, unknown>();
 
+/**
+ * 8 shared secondary Tone.LFOs, phase-spread evenly across the pool — fixed
+ * and deterministic, not seeded per-planet (only the drift AMOUNT,
+ * rateDrift/depthDrift, is seeded; the pool's own relative phases are a
+ * structural implementation detail, the same for every session).
+ * Constructed lazily, once, on the first successful connectLfoTarget call —
+ * never per-robot, never per-target. See docs/specs/LFO_DRIFT.md §1.2.
+ */
+let driftPool: Tone.LFO[] | null = null;
+
+/**
+ * One rate-drift + depth-drift Gain pair per currently-connected primary,
+ * keyed the same as activeLfos/connectedSignals. Both Gains start at 0 —
+ * setGlobalRateDrift/setGlobalDepthDrift (Task 5) are what make drift
+ * audible; this wiring alone is deliberately inert.
+ */
+interface DriftLink {
+  rateDriftGain: Tone.Gain;
+  depthDriftGain: Tone.Gain;
+}
+const driftLinks = new Map<string, DriftLink>();
+
 /** Phase modulates around this center (degrees) — the midpoint of the 0-360 range
  * ROBOT_DATA_GRID.md's Phase field documents. Depth scales how far it swings from
  * there, not around the layer's own current phase value (that would require
@@ -66,6 +89,14 @@ const connectedSignals = new Map<string, unknown>();
 const PHASE_CENTER_DEGREES = 180;
 /** Polling granularity for the phase fallback — matches BeatClock's own internal tick. */
 const PHASE_POLL_INTERVAL = '16n';
+
+/** Fixed pool size for the shared LFO-drift secondary oscillators — a
+ *  constant node cost, independent of how many primaries are bound at once.
+ *  See docs/specs/LFO_DRIFT.md §1.2/§3. */
+const DRIFT_POOL_SIZE = 8;
+/** ~33-second cycle for the shared drift oscillators — fixed, never exposed
+ *  in the UI (only the drift AMOUNT, rateDrift/depthDrift, is user-facing). */
+const DRIFT_RATE_HZ = 0.03;
 
 // ========================================
 // INTERNAL FUNCTIONS
@@ -235,6 +266,80 @@ function applySettingsToNode(lfo: Tone.LFO, settings: LfoSettings): void {
 }
 
 /**
+ * Lazily construct (or return the existing) shared drift-oscillator pool —
+ * 8 secondary Tone.LFOs at a fixed 0.03Hz, phase-spread evenly (360/8 = 45°
+ * apart) across the pool. Started immediately if the AudioContext is
+ * already running, matching every other LFO construction path in this file.
+ */
+function getOrCreateDriftPool(): Tone.LFO[] {
+  if (driftPool) return driftPool;
+  const pool: Tone.LFO[] = [];
+  for (let i = 0; i < DRIFT_POOL_SIZE; i++) {
+    const lfo = new Tone.LFO({ frequency: DRIFT_RATE_HZ, type: 'sine', phase: (360 / DRIFT_POOL_SIZE) * i });
+    if (isAudioContextRunning()) lfo.start();
+    pool.push(lfo);
+  }
+  driftPool = pool;
+  return driftPool;
+}
+
+/**
+ * Wire a successfully-connected primary into the shared drift pool — called
+ * once from connectLfoTarget, right after the primary's own connection to
+ * its target succeeds. Idempotent (checked via driftLinks), matching the
+ * pattern connectedSignals already uses for the primary's own connection.
+ * Both Gains start at 0 — setGlobalRateDrift/setGlobalDepthDrift (Task 5)
+ * are what make drift audible; this wiring alone is deliberately inert.
+ */
+function attachDrift(key: string, lfo: Tone.LFO): void {
+  if (driftLinks.has(key)) return;
+  const pool = getOrCreateDriftPool();
+  const poolLfo = pool[Math.floor(alea(key)() * DRIFT_POOL_SIZE)];
+
+  const rateDriftGain = new Tone.Gain(0);
+  const depthDriftGain = new Tone.Gain(0);
+  poolLfo.connect(rateDriftGain);
+  poolLfo.connect(depthDriftGain);
+
+  // Same Signal.override fix connectLfoTarget already applies to its own
+  // target connection below — reused, not re-derived (docs/specs/LFO_DRIFT.md
+  // §1.4). lfo.frequency is a real Tone.Signal.
+  (lfo.frequency as unknown as { override?: boolean }).override = false;
+  const currentFreq = lfo.frequency.value as number;
+  rateDriftGain.connect(lfo.frequency as unknown as Tone.InputNode);
+  if (Number.isFinite(currentFreq)) lfo.frequency.value = currentFreq;
+
+  // lfo.amplitude is a Tone.Param, not a Signal — no override escape hatch,
+  // always resets to 0 on connect regardless (§1.4). Writing `.override`
+  // here is harmless defensive symmetry with the frequency case above; the
+  // restore afterward is what actually matters for this destination.
+  (lfo.amplitude as unknown as { override?: boolean }).override = false;
+  const currentAmp = lfo.amplitude.value as number;
+  depthDriftGain.connect(lfo.amplitude as unknown as Tone.InputNode);
+  if (Number.isFinite(currentAmp)) lfo.amplitude.value = currentAmp;
+
+  driftLinks.set(key, { rateDriftGain, depthDriftGain });
+}
+
+/** Reverse attachDrift — called from disconnectLfoTarget. The shared pool
+ *  oscillators are never disposed here; they're app-lifetime. */
+function detachDrift(key: string): void {
+  const link = driftLinks.get(key);
+  if (!link) return;
+  try {
+    link.rateDriftGain.disconnect();
+  } catch (err) {
+    devWarn('[lfoEngine] detachDrift: rate-drift teardown failed', err);
+  }
+  try {
+    link.depthDriftGain.disconnect();
+  } catch (err) {
+    devWarn('[lfoEngine] detachDrift: depth-drift teardown failed', err);
+  }
+  driftLinks.delete(key);
+}
+
+/**
  * Lazily construct (or return the existing) Tone.LFO for an instance key.
  * This is the only place `new Tone.LFO(...)` is called — the sole trigger
  * for construction is a setter reaching this via getOrCreateLfo; getters and
@@ -391,7 +496,10 @@ function connectLfoTarget(target: LfoTargetId, robotId?: string): boolean {
     lfo.max = swing.max;
   }
 
-  if (connectedSignals.get(key) === signal) return true; // already connected to this exact signal — no-op, never a second .connect()
+  if (connectedSignals.get(key) === signal) {
+    attachDrift(key, lfo); // already connected to this exact signal — no-op, never a second .connect() — but drift still needs to be (idempotently) attached
+    return true;
+  }
 
   if (connectedSignals.has(key)) {
     // Connected to a different (stale) signal — e.g. a rebuilt composite
@@ -444,6 +552,7 @@ function connectLfoTarget(target: LfoTargetId, robotId?: string): boolean {
   }
 
   connectedSignals.set(key, signal);
+  attachDrift(key, lfo);
   return true;
 }
 
@@ -455,6 +564,7 @@ function disconnectLfoTarget(target: LfoTargetId, robotId?: string): void {
     return;
   }
   connectedSignals.delete(key);
+  detachDrift(key);
   try {
     activeLfos.get(key)?.disconnect();
   } catch (err) {
