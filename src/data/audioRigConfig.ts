@@ -13,7 +13,7 @@
  * was removed after shipping (LFO judged unwanted on Delay's own time param).
  */
 import type { ControlSchema, ToggleSchema, AccordionSchema, RadioButtonSchema, SliderCenteredZeroSchema } from '@/types/controls';
-import type { GlobalLfoTargetId } from '@/types/lfo';
+import type { GlobalLfoTargetId, DriftGroupId } from '@/types/lfo';
 
 // ========================================
 // TYPES
@@ -198,38 +198,57 @@ export const DECAY_MODE_SCHEMA: RadioButtonSchema = {
 };
 
 /**
- * Global LFO drift (docs/specs/LFO_DRIFT.md) — one shared accordion with two
- * bipolar sliders, standalone like DECAY_MODE_SCHEMA above: `lfoDrift` is a
- * top-level GlobalAudioSettings flag, not a per-effect object, so it has no
- * matching AudioRigEffectBlock key and is never added to AUDIO_RIG_CONFIG's
- * array. Sliders are UI-facing percent (-100..100); the drawer wiring point
- * converts to/from lfoEngine's internal -1..1 fraction, matching how Depth's
- * own 0-100% UI already maps to lfoEngine's 0-1 internal amplitude domain
- * elsewhere in this file's consumers.
+ * Global LFO drift (docs/specs/LFO_DRIFT_GROUPS.md) — 4 independent groups
+ * (docs/types/lfo.ts's DriftGroupId), each its own accordion with its own
+ * two bipolar sliders, standalone like DECAY_MODE_SCHEMA above: `lfoDrift`
+ * is a top-level GlobalAudioSettings flag, not a per-effect object, so none
+ * of these ever match an AudioRigEffectBlock key or get added to
+ * AUDIO_RIG_CONFIG's own array. Sliders are UI-facing percent (-100..100);
+ * the drawer wiring point converts to/from lfoEngine's internal -1..1
+ * fraction, matching how Depth's own 0-100% UI already maps to lfoEngine's
+ * 0-1 internal amplitude domain elsewhere in this file's consumers.
+ *
+ * Replaces the single flat LFO_DRIFT_ACCORDION/LFO_RATE_DRIFT_SCHEMA/
+ * LFO_DEPTH_DRIFT_SCHEMA trio docs/specs/LFO_DRIFT.md originally shipped.
  */
-export const LFO_DRIFT_ACCORDION: AccordionSchema = {
-  id: 'audioRig.lfoDrift',
-  type: 'accordion',
-  loreLabel: 'ATTENUATION FLUX',
-  humanLabel: 'Drift',
-};
+export interface LfoDriftGroupSchema {
+  group: DriftGroupId;
+  accordion: AccordionSchema;
+  rateSchema: SliderCenteredZeroSchema;
+  depthSchema: SliderCenteredZeroSchema;
+}
 
-export const LFO_RATE_DRIFT_SCHEMA: SliderCenteredZeroSchema = {
-  id: 'audioRig.lfoDrift.rateDrift',
-  type: 'sliderCenteredZero',
-  loreLabel: 'CADENCE INSTABILITY',
-  humanLabel: 'Rate Drift',
-  min: -100,
-  max: 100,
-  unit: '%',
-};
+function driftGroupSchema(group: DriftGroupId, loreLabel: string, humanLabel: string): LfoDriftGroupSchema {
+  return {
+    group,
+    accordion: { id: `audioRig.lfoDrift.${group}`, type: 'accordion', loreLabel, humanLabel },
+    rateSchema: {
+      id: `audioRig.lfoDrift.${group}.rateDrift`,
+      type: 'sliderCenteredZero',
+      loreLabel: 'CADENCE INSTABILITY',
+      humanLabel: 'Rate Drift',
+      min: -100,
+      max: 100,
+      unit: '%',
+    },
+    depthSchema: {
+      id: `audioRig.lfoDrift.${group}.depthDrift`,
+      type: 'sliderCenteredZero',
+      loreLabel: 'AMPLITUDE INSTABILITY',
+      humanLabel: 'Depth Drift',
+      min: -100,
+      max: 100,
+      unit: '%',
+    },
+  };
+}
 
-export const LFO_DEPTH_DRIFT_SCHEMA: SliderCenteredZeroSchema = {
-  id: 'audioRig.lfoDrift.depthDrift',
-  type: 'sliderCenteredZero',
-  loreLabel: 'AMPLITUDE INSTABILITY',
-  humanLabel: 'Depth Drift',
-  min: -100,
-  max: 100,
-  unit: '%',
-};
+// First-pass copy — no reference grid exists for this feature (10.2's own
+// spec already flagged this gap; still true here). Confirm the 4 labels
+// read as clearly distinct groups during the feature's manual check.
+export const LFO_DRIFT_GROUPS: LfoDriftGroupSchema[] = [
+  driftGroupSchema('eq3', 'SPECTRAL FLUX', 'EQ Drift'),
+  driftGroupSchema('filterLPF', 'HIGH-MASK FLUX', 'Low-Pass Drift'),
+  driftGroupSchema('filterHPF', 'LOW-MASK FLUX', 'High-Pass Drift'),
+  driftGroupSchema('robots', 'AGENT FLUX', 'Robot Drift'),
+];

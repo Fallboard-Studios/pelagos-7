@@ -3,7 +3,8 @@
 // ========================================
 import { describe, it, expect } from 'vitest';
 
-import { AUDIO_RIG_CONFIG, DECAY_MODE_SCHEMA, LFO_DRIFT_ACCORDION, LFO_RATE_DRIFT_SCHEMA, LFO_DEPTH_DRIFT_SCHEMA } from './audioRigConfig';
+import { AUDIO_RIG_CONFIG, DECAY_MODE_SCHEMA, LFO_DRIFT_GROUPS } from './audioRigConfig';
+import { DRIFT_GROUP_IDS } from '../types/lfo';
 import { GLOBAL_LFO_TARGET_IDS } from '../types/lfo';
 
 // ========================================
@@ -266,41 +267,52 @@ describe('DECAY_MODE_SCHEMA', () => {
   });
 });
 
-describe('LFO_DRIFT_ACCORDION / LFO_RATE_DRIFT_SCHEMA / LFO_DEPTH_DRIFT_SCHEMA', () => {
-  it('LFO_DRIFT_ACCORDION is a valid, global chain-level accordion — not nested inside any effect block', () => {
-    expect(LFO_DRIFT_ACCORDION).toMatchObject({ id: 'audioRig.lfoDrift', type: 'accordion' });
+describe('LFO_DRIFT_GROUPS', () => {
+  it('has exactly 4 entries, one per DriftGroupId', () => {
+    expect(LFO_DRIFT_GROUPS.map((g) => g.group).sort()).toEqual([...DRIFT_GROUP_IDS].sort());
   });
 
-  it('both sliders are sliderCenteredZero, -100 to 100, percent — matching the UI-facing bipolar percent, not lfoEngine\'s internal -1..1 fraction', () => {
-    expect(LFO_RATE_DRIFT_SCHEMA).toMatchObject({ type: 'sliderCenteredZero', min: -100, max: 100, unit: '%' });
-    expect(LFO_DEPTH_DRIFT_SCHEMA).toMatchObject({ type: 'sliderCenteredZero', min: -100, max: 100, unit: '%' });
+  it('every entry has a valid, global chain-level accordion — not nested inside any effect block', () => {
+    for (const driftGroup of LFO_DRIFT_GROUPS) {
+      expect(driftGroup.accordion).toMatchObject({ id: `audioRig.lfoDrift.${driftGroup.group}`, type: 'accordion' });
+    }
   });
 
-  it('Rate Drift and Depth Drift have distinct ids, both nested under the lfoDrift accordion\'s own id prefix', () => {
-    expect(LFO_RATE_DRIFT_SCHEMA.id).toBe('audioRig.lfoDrift.rateDrift');
-    expect(LFO_DEPTH_DRIFT_SCHEMA.id).toBe('audioRig.lfoDrift.depthDrift');
-    expect(LFO_RATE_DRIFT_SCHEMA.id).not.toBe(LFO_DEPTH_DRIFT_SCHEMA.id);
+  it('every entry\'s rate/depth schemas are sliderCenteredZero, -100 to 100, percent — matching the UI-facing bipolar percent, not lfoEngine\'s internal -1..1 fraction', () => {
+    for (const driftGroup of LFO_DRIFT_GROUPS) {
+      expect(driftGroup.rateSchema, driftGroup.group).toMatchObject({ type: 'sliderCenteredZero', min: -100, max: 100, unit: '%' });
+      expect(driftGroup.depthSchema, driftGroup.group).toMatchObject({ type: 'sliderCenteredZero', min: -100, max: 100, unit: '%' });
+    }
   });
 
-  it('Rate Drift and Depth Drift have distinct human labels — never a shared generic "Drift" indistinguishable to a screen reader', () => {
-    expect(LFO_RATE_DRIFT_SCHEMA.humanLabel).not.toBe(LFO_DEPTH_DRIFT_SCHEMA.humanLabel);
-    expect(LFO_RATE_DRIFT_SCHEMA.humanLabel).toBeTruthy();
-    expect(LFO_DEPTH_DRIFT_SCHEMA.humanLabel).toBeTruthy();
+  it('every id across all 4 entries (4 accordions + 8 sliders) is unique', () => {
+    const allIds = LFO_DRIFT_GROUPS.flatMap((g) => [g.accordion.id, g.rateSchema.id, g.depthSchema.id]);
+    expect(allIds).toHaveLength(12);
+    expect(new Set(allIds).size).toBe(12);
   });
 
-  it('none of the three new exports appear anywhere inside AUDIO_RIG_CONFIG\'s array — lfoDrift is a top-level GlobalAudioSettings flag, not a matching AudioRigEffectBlock key', () => {
+  it('every entry\'s rate and depth schemas have distinct human labels — never a shared generic "Drift" indistinguishable to a screen reader', () => {
+    for (const driftGroup of LFO_DRIFT_GROUPS) {
+      expect(driftGroup.rateSchema.humanLabel, driftGroup.group).not.toBe(driftGroup.depthSchema.humanLabel);
+      expect(driftGroup.rateSchema.humanLabel, driftGroup.group).toBeTruthy();
+      expect(driftGroup.depthSchema.humanLabel, driftGroup.group).toBeTruthy();
+    }
+  });
+
+  it('none of LFO_DRIFT_GROUPS\' schema ids appear anywhere inside AUDIO_RIG_CONFIG\'s array — lfoDrift is a top-level GlobalAudioSettings flag, not a matching AudioRigEffectBlock key', () => {
     expect(AUDIO_RIG_CONFIG.map((b) => b.key as string)).not.toContain('lfoDrift');
-    const allSchemaIds = AUDIO_RIG_CONFIG.flatMap((b) => [
+    const allConfigSchemaIds = AUDIO_RIG_CONFIG.flatMap((b) => [
       b.accordion.id,
       b.enabledSchema.id,
       ...b.params.flatMap((p) => [p.schema.id, p.lfoAccordion?.id].filter((id): id is string => Boolean(id))),
     ]);
-    expect(allSchemaIds).not.toContain(LFO_DRIFT_ACCORDION.id);
-    expect(allSchemaIds).not.toContain(LFO_RATE_DRIFT_SCHEMA.id);
-    expect(allSchemaIds).not.toContain(LFO_DEPTH_DRIFT_SCHEMA.id);
+    const driftSchemaIds = LFO_DRIFT_GROUPS.flatMap((g) => [g.accordion.id, g.rateSchema.id, g.depthSchema.id]);
+    for (const id of driftSchemaIds) {
+      expect(allConfigSchemaIds, id).not.toContain(id);
+    }
   });
 
-  it('the closed-set coverage assertion over AUDIO_RIG_CONFIG\'s own param schema types is unaffected — these three are standalone exports, not part of that array', () => {
+  it('the closed-set coverage assertion over AUDIO_RIG_CONFIG\'s own param schema types is unaffected — LFO_DRIFT_GROUPS is a standalone export, not part of that array', () => {
     expect(AUDIO_RIG_CONFIG.length).toBe(7); // still exactly the 7 GLOBAL_CHAIN_GRID.md effect blocks
   });
 });
