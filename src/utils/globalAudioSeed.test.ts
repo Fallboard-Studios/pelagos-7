@@ -223,16 +223,16 @@ describe('generateGlobalAudioSettings', () => {
       expect(new Set(depthDrifts).size).toBe(DRIFT_GROUP_IDS.length);
     });
 
-    it('keeps every group\'s fields within the -0.4..0.4 loading range on every call, across many planets', () => {
+    it('keeps every group\'s fields within the -0.7..0.7 loading range on every call, across many planets', () => {
       const SAMPLE_PLANETS = 20;
       for (let i = 0; i < SAMPLE_PLANETS; i++) {
         const settings = generateGlobalAudioSettings(`seed-drift-sample-${i}`, `DriftSample${i}`);
         for (const group of DRIFT_GROUP_IDS) {
           const { rateDrift, depthDrift } = settings.lfoDrift[group];
-          expect(rateDrift, `planet ${i} ${group} rateDrift`).toBeGreaterThanOrEqual(-0.4);
-          expect(rateDrift, `planet ${i} ${group} rateDrift`).toBeLessThanOrEqual(0.4);
-          expect(depthDrift, `planet ${i} ${group} depthDrift`).toBeGreaterThanOrEqual(-0.4);
-          expect(depthDrift, `planet ${i} ${group} depthDrift`).toBeLessThanOrEqual(0.4);
+          expect(rateDrift, `planet ${i} ${group} rateDrift`).toBeGreaterThanOrEqual(-0.7);
+          expect(rateDrift, `planet ${i} ${group} rateDrift`).toBeLessThanOrEqual(0.7);
+          expect(depthDrift, `planet ${i} ${group} depthDrift`).toBeGreaterThanOrEqual(-0.7);
+          expect(depthDrift, `planet ${i} ${group} depthDrift`).toBeLessThanOrEqual(0.7);
         }
         evictPlanetNoiseMap(`seed-drift-sample-${i}`);
       }

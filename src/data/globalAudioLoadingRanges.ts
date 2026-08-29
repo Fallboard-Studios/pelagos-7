@@ -45,17 +45,17 @@ export const GLOBAL_AUDIO_LOADING_RANGES: Record<GlobalAudioSeedFieldKey, Loadin
 
   'limiter.threshold': { min: -3, max: -1 },
 
-  // First-pass defaults, NOT a GLOBAL_CHAIN_GRID.md transcription — that doc
-  // predates lfoDrift entirely (docs/specs/LFO_DRIFT.md §7). Same window
-  // carried forward unchanged per group into docs/specs/LFO_DRIFT_GROUPS.md;
-  // confirm it still reads as "subtly alive" per group during that feature's
-  // manual/audible check, now that all 4 roll independently.
-  'lfoDrift.eq3.rateDrift': { min: -0.4, max: 0.4 },
-  'lfoDrift.eq3.depthDrift': { min: -0.4, max: 0.4 },
-  'lfoDrift.filterLPF.rateDrift': { min: -0.4, max: 0.4 },
-  'lfoDrift.filterLPF.depthDrift': { min: -0.4, max: 0.4 },
-  'lfoDrift.filterHPF.rateDrift': { min: -0.4, max: 0.4 },
-  'lfoDrift.filterHPF.depthDrift': { min: -0.4, max: 0.4 },
-  'lfoDrift.robots.rateDrift': { min: -0.4, max: 0.4 },
-  'lfoDrift.robots.depthDrift': { min: -0.4, max: 0.4 },
+  // Not a GLOBAL_CHAIN_GRID.md transcription — that doc predates lfoDrift
+  // entirely (docs/specs/LFO_DRIFT.md §7). Widened from the original
+  // -0.4..0.4 first-pass default to -0.7..0.7 after the manual/audible
+  // check on docs/tasks/LFO_DRIFT_GROUPS.md found the seeded default read
+  // as too subtle — confirmed directly with the user, not re-guessed.
+  'lfoDrift.eq3.rateDrift': { min: -0.7, max: 0.7 },
+  'lfoDrift.eq3.depthDrift': { min: -0.7, max: 0.7 },
+  'lfoDrift.filterLPF.rateDrift': { min: -0.7, max: 0.7 },
+  'lfoDrift.filterLPF.depthDrift': { min: -0.7, max: 0.7 },
+  'lfoDrift.filterHPF.rateDrift': { min: -0.7, max: 0.7 },
+  'lfoDrift.filterHPF.depthDrift': { min: -0.7, max: 0.7 },
+  'lfoDrift.robots.rateDrift': { min: -0.7, max: 0.7 },
+  'lfoDrift.robots.depthDrift': { min: -0.7, max: 0.7 },
 };
