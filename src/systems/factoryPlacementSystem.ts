@@ -48,6 +48,18 @@ const PRODUCTION_INTERVAL = 60; // measures
 const DEFAULT_ROW_EDGE_WIDTH = 0.3; // 30% of screen width on each edge
 const DEFAULT_CENTER_WIDTH = 0.4; // 40% of screen width for center spread
 
+/** Fallback row index used when reading back an already-created factory
+ *  Actor whose config.row is missing — a defensive default, not a real
+ *  spawn-time path (createFactory always writes config.row explicitly, so
+ *  every real factory has one). Shared by Factory.tsx's own render-time
+ *  fallback and recolorFactoriesForAttenuationStyle's row lookup so the two
+ *  can't silently drift apart — previously two independent `?? 1` literals
+ *  kept in sync only by a comment. Distinct from createFactory's own `row = 0`
+ *  parameter default below, which is a different thing for a different
+ *  moment: constructing a brand-new factory without specifying a row (a
+ *  real, tested, load-bearing default), not reading one back. */
+export const DEFAULT_FACTORY_ROW = 1;
+
 /** Moderate, bounded range for the AS-seeded color component — same order of
  *  magnitude as the widest per-variant colorRanges (Skyscraper's ±120 hue is
  *  an outlier; most variants sit in the ±15-60 range) so a fresh AS visibly
@@ -273,12 +285,10 @@ export function recolorFactoriesForAttenuationStyle(localeId: string, planetId: 
   const nextActors = locale.actors.map((actor) => {
     if (actor.type !== ActorType.FACTORY) return actor;
     const index = factoryIndex++;
-    // ?? 1 matches Factory.tsx's own render-time default exactly (not
-    // createFactory's ?? 0 spawn-time default) — this must reproduce what's
-    // actually rendered, and every real spawned factory always has
-    // config.row set regardless, so the two defaults never actually diverge
-    // in practice.
-    const row = actor.config?.row ?? 1;
+    // DEFAULT_FACTORY_ROW matches Factory.tsx's own render-time fallback —
+    // shared constant, not createFactory's separate `row = 0` spawn-time
+    // default — this must reproduce what's actually rendered.
+    const row = actor.config?.row ?? DEFAULT_FACTORY_ROW;
     const availableTypes = getRowConfig(row)?.availableFactoryTypes;
     const { hueShift: localHue, satShift: localSat } = selectVariantFromSeed(actor.id, actor.position.x, row, availableTypes);
     const asShift = deriveAsColorShift(asNoiseMap, index);

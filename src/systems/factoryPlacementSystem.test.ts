@@ -14,7 +14,18 @@ const WORLD_BOUNDS = { width: 1920, height: 1080 };
 import { useLocaleStore } from '../stores/localeStore';
 import { usePlanetStore, DEFAULT_LOCALE_ID } from '../stores/planetStore';
 import { ActorType } from '../types/Actor';
+import type { Actor } from '../types/Actor';
 import { recolorFactoriesForAttenuationStyle } from './factoryPlacementSystem';
+
+// The row Factory.tsx's own render-time fallback and
+// recolorFactoriesForAttenuationStyle's row lookup both use when a factory's
+// config.row is missing. Intentionally a literal here, NOT imported from
+// factoryPlacementSystem.ts — this test exists to characterize that
+// observable behavior (row falls back to 1) independent of however the
+// implementation currently sources that number, so it still catches a
+// regression if a future refactor changes the value without updating both
+// call sites in lockstep.
+const EXPECTED_DEFAULT_FACTORY_ROW = 1;
 
 // ========================================
 // TEST SUITE
@@ -507,6 +518,41 @@ describe('FactoryPlacementSystem', () => {
       expect(() =>
         recolorFactoriesForAttenuationStyle('no-such-locale', 'pelagos', 'pelagos-name')
       ).not.toThrow();
+    });
+
+    it("falls back to DEFAULT_FACTORY_ROW when a factory's config.row is missing, matching Factory.tsx's own render-time fallback", () => {
+      // Every real factory from createFactory/placeFactories always has
+      // config.row set, so this path is unreachable via the public spawn
+      // API — exercised directly here with a hand-built actor so the
+      // fallback itself has real coverage, not just a comment's word for it.
+      const rowlessActor: Actor = {
+        id: 'rowless-actor', type: ActorType.FACTORY,
+        position: { x: 100, y: 900 }, scaleX: 1, scaleY: 1, rotation: 0,
+        isActive: true, cooldownRemaining: 0,
+        config: { hueShift: 0, satShift: 0 }, // no `row` key at all
+      };
+      usePlanetStore.getState().addPlanet({ id: 'rowless-planet', name: 'rowless-planet-name', locales: [] });
+      useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { actors: [rowlessActor] });
+
+      recolorFactoriesForAttenuationStyle(DEFAULT_LOCALE_ID, 'rowless-planet', 'rowless-planet-name');
+
+      const recolored = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].actors[0];
+      // Never invents a row — position/count/id/variant/row/greebles stay
+      // untouched by recolor, this actor included; it round-trips absent.
+      expect(recolored.config?.row).toBeUndefined();
+
+      // The local (non-AS) component must match DEFAULT_FACTORY_ROW's own
+      // variant pool specifically — not some other row's. Isolate it by
+      // subtracting the AS-only contribution, bounded by the reverted
+      // baseline's own AS_FACTORY_HUE_SHIFT_RANGE ([-30, 30]): a wrong row
+      // would very likely pick a different variant with a very different
+      // base hue, pushing this delta far outside that window.
+      const expectedAvailableTypes = getRowConfig(EXPECTED_DEFAULT_FACTORY_ROW)?.availableFactoryTypes;
+      const expectedLocal = selectVariantFromSeed(
+        rowlessActor.id, rowlessActor.position.x, EXPECTED_DEFAULT_FACTORY_ROW, expectedAvailableTypes
+      );
+      const asOnlyHueDelta = (recolored.config?.hueShift ?? 0) - expectedLocal.hueShift;
+      expect(Math.abs(asOnlyHueDelta)).toBeLessThanOrEqual(30);
     });
   });
 });
