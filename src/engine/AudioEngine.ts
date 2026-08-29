@@ -525,7 +525,7 @@ export const AudioEngine = {
     // Prime lfoEngine from the current globalLfo state and connect+start
     // already-active targets — this is the one point guaranteed to run after
     // Tone.start()/transport.start() have succeeded, so it's the only safe
-    // place to construct the underlying Tone.LFO nodes. Planet-sync's
+    // place to construct the underlying Tone.LFO nodes. AS-sync's
     // regenerateGlobalLfoFromSeed (audioStore.ts) is deliberately data-only
     // for exactly this reason — it runs before any user gesture.
     // Dynamic import, deliberately: audioStore.ts's GLOBAL_SETTER reads
@@ -540,7 +540,7 @@ export const AudioEngine = {
       const { globalAudio, globalLfo } = useAudioStore.getState();
       // buildGlobalFxChain() (above) just constructed every FX node from its
       // own hardcoded literal defaults — not whatever's already seeded in
-      // globalAudio. regenerateGlobalAudioFromSeed's own push (planet-sync,
+      // globalAudio. regenerateGlobalAudioFromSeed's own push (AS-sync,
       // module load) ran long before these nodes existed, so it landed as a
       // no-op; re-apply the current state now that real nodes exist. Must
       // run before the LFO priming loop below: connectLfoTarget's swing math

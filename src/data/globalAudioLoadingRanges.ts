@@ -5,7 +5,7 @@
  * matching range and is what lfoEngine.ts's resolveLfoOutputRange keeps
  * using — never this table. An LFO modulating a parameter needs to swing
  * across that parameter's entire usable range, not just the narrower window
- * a fresh planet is allowed to start in.
+ * a fresh Attenuation Style is allowed to start in.
  *
  * Values are a direct transcription of docs/reference/GLOBAL_CHAIN_GRID.md's
  * "Loading Range" column — that doc is the source of truth; this file

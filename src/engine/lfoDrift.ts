@@ -1,7 +1,7 @@
 /**
  * The drift subsystem: per-group shared secondary LFO pools that impose a
  * slow, seeded wobble on every connected primary's own rate and depth, so a
- * planet doesn't sound perfectly identical forever. Attached to (and torn
+ * Attenuation Style doesn't sound perfectly identical forever. Attached to (and torn
  * down with) primaries owned by lfoEngine.ts's connectLfoTarget/
  * disconnectLfoTarget — this module never constructs a primary Tone.LFO
  * itself, only the drift pools and the Gain pair wiring each primary to its
@@ -27,7 +27,7 @@ import { clamp, isAudioContextRunning, centeredSwingFromRange, connectAdditively
 
 /**
  * Per-group shared secondary Tone.LFO pools, phase-spread evenly across each
- * group's own pool — fixed and deterministic, not seeded per-planet (only
+ * group's own pool — fixed and deterministic, not seeded per-Attenuation-Style (only
  * the drift AMOUNT, rateDrift/depthDrift, is seeded; a pool's own relative
  * phases are a structural implementation detail, the same for every
  * session). Each group's pool is constructed lazily, once, on that group's

@@ -21,7 +21,7 @@ let transportInstance: TransportLike | null = null;
 // Exactly 8 note-name strings (no octave digit) per hour-equivalent.
 // Octave is determined per-robot at spawn time; melody events store note index + octave separately.
 // Hour is derived from beatClock.ts's own measure-based getCurrentHour() (see
-// import above) — a 96-measure day cycle, unrelated to Planet/Locale world
+// import above) — a 96-measure day cycle, unrelated to AttenuationStyle/Locale world
 // time entirely. (Previously this comment claimed the hour came from
 // selectCurrentPlanet(usePlanetStore.getState())?.currentHour — already
 // inaccurate before this phase; currentHour itself is deleted as of

@@ -11,7 +11,7 @@
  * choice, not a sampling one) is 'linear'.
  *
  * Consumed by globalAudioSeed.ts to seed-generate the global FX chain from
- * the planet noise map, and by lfoEngine.ts's resolveLfoOutputRange (the full
+ * the Attenuation Style noise map, and by lfoEngine.ts's resolveLfoOutputRange (the full
  * range an LFO can swing a modulated parameter across — never the narrower
  * loading range).
  */

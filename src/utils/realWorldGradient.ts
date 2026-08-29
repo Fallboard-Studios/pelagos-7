@@ -20,7 +20,7 @@
  *
  * Plain Math.random() by default, not the app's seeded-noise system — this
  * is a decorative backdrop behind the fictional device, not part of any
- * deterministic planet/locale content.
+ * deterministic Attenuation Style/locale content.
  */
 import colorTheme from '@/constants/colorTheme.json';
 import { hslToString } from '@/utils/colorUtils';
