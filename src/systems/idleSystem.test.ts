@@ -6,7 +6,7 @@ import type { NoiseFunction2D } from 'simplex-noise';
 
 import { pickDestination, handleRobotIdle, pickExitDestination } from './idleSystem';
 import { useLocaleStore, DEFAULT_LOCALE } from '../stores/localeStore';
-import { DEFAULT_LOCALE_ID } from '../stores/planetStore';
+import { DEFAULT_LOCALE_ID } from '../stores/attenuationStyleStore';
 import { RobotState, DockingState } from '../types/Robot';
 import type { Robot } from '../types/Robot';
 

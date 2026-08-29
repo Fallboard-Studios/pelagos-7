@@ -8,7 +8,7 @@ import type { Robot } from '../types/Robot';
 
 import { generateSpawnPosition, generateAudioAttributes, generateRobotLfoSettings, spawnRobot, spawnInitialRoster, spawnInitialCompanies, generateCompanyName, ADJECTIVES, COMPANY_NOUNS } from './spawnSystem';
 import { useLocaleStore, DEFAULT_LOCALE } from '../stores/localeStore';
-import { DEFAULT_LOCALE_ID } from '../stores/planetStore';
+import { DEFAULT_LOCALE_ID } from '../stores/attenuationStyleStore';
 import { AudioEngine } from '../engine/AudioEngine';
 import { DockingState } from '../types/Robot';
 import { ROBOT_LFO_TARGET_IDS, LFO_SHAPES, LFO_RATE_MIN, LFO_RATE_MAX, LFO_DEPTH_MIN, LFO_DEPTH_MAX } from '../types/lfo';
@@ -389,7 +389,7 @@ describe('spawnSystem', () => {
       vi.resetModules();
       const run1 = await import('./spawnSystem');
       const store1 = await import('../stores/localeStore');
-      const planet1 = await import('../stores/planetStore');
+      const planet1 = await import('../stores/attenuationStyleStore');
       store1.useLocaleStore.setState({ locales: { [planet1.DEFAULT_LOCALE_ID]: store1.DEFAULT_LOCALE } });
       run1.spawnRobot(planet1.DEFAULT_LOCALE_ID);
       run1.spawnRobot(planet1.DEFAULT_LOCALE_ID);
@@ -398,7 +398,7 @@ describe('spawnSystem', () => {
       vi.resetModules();
       const run2 = await import('./spawnSystem');
       const store2 = await import('../stores/localeStore');
-      const planet2 = await import('../stores/planetStore');
+      const planet2 = await import('../stores/attenuationStyleStore');
       store2.useLocaleStore.setState({ locales: { [planet2.DEFAULT_LOCALE_ID]: store2.DEFAULT_LOCALE } });
       run2.spawnRobot(planet2.DEFAULT_LOCALE_ID);
       run2.spawnRobot(planet2.DEFAULT_LOCALE_ID);
@@ -563,7 +563,7 @@ describe('spawnSystem', () => {
       vi.resetModules();
       const run1 = await import('./spawnSystem');
       const store1 = await import('../stores/localeStore');
-      const planet1 = await import('../stores/planetStore');
+      const planet1 = await import('../stores/attenuationStyleStore');
       store1.useLocaleStore.setState({ locales: { [planet1.DEFAULT_LOCALE_ID]: store1.DEFAULT_LOCALE } });
       run1.spawnInitialRoster(planet1.DEFAULT_LOCALE_ID);
       const dockingRun1 = (store1.useLocaleStore.getState().getLocaleById(planet1.DEFAULT_LOCALE_ID)?.robots ?? []).map((r) => r.docking);
@@ -571,7 +571,7 @@ describe('spawnSystem', () => {
       vi.resetModules();
       const run2 = await import('./spawnSystem');
       const store2 = await import('../stores/localeStore');
-      const planet2 = await import('../stores/planetStore');
+      const planet2 = await import('../stores/attenuationStyleStore');
       store2.useLocaleStore.setState({ locales: { [planet2.DEFAULT_LOCALE_ID]: store2.DEFAULT_LOCALE } });
       run2.spawnInitialRoster(planet2.DEFAULT_LOCALE_ID);
       const dockingRun2 = (store2.useLocaleStore.getState().getLocaleById(planet2.DEFAULT_LOCALE_ID)?.robots ?? []).map((r) => r.docking);
@@ -676,7 +676,7 @@ describe('spawnSystem', () => {
       vi.resetModules();
       const run1 = await import('./spawnSystem');
       const store1 = await import('../stores/localeStore');
-      const planet1 = await import('../stores/planetStore');
+      const planet1 = await import('../stores/attenuationStyleStore');
       store1.useLocaleStore.setState({ locales: { [planet1.DEFAULT_LOCALE_ID]: store1.DEFAULT_LOCALE } });
       run1.spawnInitialRoster(planet1.DEFAULT_LOCALE_ID);
       run1.spawnInitialCompanies(planet1.DEFAULT_LOCALE_ID);
@@ -685,7 +685,7 @@ describe('spawnSystem', () => {
       vi.resetModules();
       const run2 = await import('./spawnSystem');
       const store2 = await import('../stores/localeStore');
-      const planet2 = await import('../stores/planetStore');
+      const planet2 = await import('../stores/attenuationStyleStore');
       store2.useLocaleStore.setState({ locales: { [planet2.DEFAULT_LOCALE_ID]: store2.DEFAULT_LOCALE } });
       run2.spawnInitialRoster(planet2.DEFAULT_LOCALE_ID);
       run2.spawnInitialCompanies(planet2.DEFAULT_LOCALE_ID);

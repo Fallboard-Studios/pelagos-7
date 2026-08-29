@@ -54,8 +54,8 @@ describe('localeStore', () => {
       expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID]).toBeDefined();
     });
 
-    it('default locale planetId is pelagos', () => {
-      expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].planetId).toBe('pelagos');
+    it('default locale attenuationStyleId is pelagos', () => {
+      expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].attenuationStyleId).toBe('pelagos');
     });
 
     it('robots starts as empty array', () => {
@@ -89,14 +89,15 @@ describe('localeStore', () => {
       expect(computeLocaleHour(DEFAULT_LOCALE.dayStartTimestamp)).toBeCloseTo(12, 0);
     });
 
-    // Note: this tests getPlanetNoiseMap directly, not locale generation —
-    // getLocaleNoiseMap no longer derives from the planet map at all (see
-    // docs/specs/LOCALE_SEED_DECOUPLING.md), so this assertion is unaffected
-    // by that change; it's still true and still worth asserting on its own.
-    it('sampling the planet noise map at the default locale\'s coordinates varies by planet seed', async () => {
-      const { getPlanetNoiseMap } = await import('../utils/noiseMaps');
-      const mapA = getPlanetNoiseMap('locale-dead-zone-check-a', 'seed-alpha');
-      const mapB = getPlanetNoiseMap('locale-dead-zone-check-b', 'seed-beta');
+    // Note: this tests getAttenuationStyleNoiseMap directly, not locale
+    // generation — getLocaleNoiseMap no longer derives from the Attenuation
+    // Style map at all (see docs/specs/LOCALE_SEED_DECOUPLING.md), so this
+    // assertion is unaffected by that change; it's still true and still
+    // worth asserting on its own.
+    it('sampling the Attenuation Style noise map at the default locale\'s coordinates varies by AS seed', async () => {
+      const { getAttenuationStyleNoiseMap } = await import('../utils/noiseMaps');
+      const mapA = getAttenuationStyleNoiseMap('locale-dead-zone-check-a', 'seed-alpha');
+      const mapB = getAttenuationStyleNoiseMap('locale-dead-zone-check-b', 'seed-beta');
       const { x, y } = DEFAULT_LOCALE.coordinates;
       expect(mapA(x, y)).not.toBe(mapB(x, y));
     });

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 import type { Locale, LocaleState } from '../types/locale';
-import { DEFAULT_LOCALE_ID } from './planetStore';
+import { DEFAULT_LOCALE_ID } from './attenuationStyleStore';
 import { DAY_DURATION_MS } from '../constants/time';
 import { getLocaleNoiseMap, evictLocaleNoiseMap } from '../utils/noiseMaps';
 import { AudioEngine } from '../engine/AudioEngine';
@@ -33,7 +33,7 @@ function clampToggleValue(v: unknown, min: number, max: number): { active: boole
 }
 
 // Was originally a non-integer value ({ x: 12.3456, y: 67.891 }) to dodge a
-// dead zone in the OLD planet-sampled locale derivation (integer/half-
+// dead zone in the OLD Attenuation-Style-sampled locale derivation (integer/half-
 // integer-aligned coordinates like (0,0)/(0.5,0.5)/(1,1) used to collapse
 // to a low- or zero-entropy result). getLocaleNoiseMap (src/utils/noiseMaps.ts)
 // now hashes (x, y) directly instead of sampling simplex noise at the
@@ -47,7 +47,7 @@ const DEFAULT_LOCALE_COORDINATES = { x: 12, y: 68 };
 
 const DEFAULT_LOCALE: Locale = {
   id: DEFAULT_LOCALE_ID,
-  planetId: 'pelagos',
+  attenuationStyleId: 'pelagos',
   name: 'Pelagos Ocean',
   coordinates: DEFAULT_LOCALE_COORDINATES,
   // Computed once at module load via the same x-derived formula buildLocale
@@ -61,16 +61,16 @@ const DEFAULT_LOCALE: Locale = {
 };
 
 // Reuse DEFAULT_LOCALE.coordinates rather than a second hardcoded x/y pair
-// that could silently drift from it. getLocaleNoiseMap no longer takes a
-// planet argument at all (see docs/specs/LOCALE_SEED_DECOUPLING.md) — the
+// that could silently drift from it. getLocaleNoiseMap no longer takes an
+// Attenuation Style argument at all (see docs/specs/LOCALE_SEED_DECOUPLING.md) — the
 // locale noise map is purely a function of these coordinates.
 getLocaleNoiseMap(DEFAULT_LOCALE_ID, DEFAULT_LOCALE.coordinates.x, DEFAULT_LOCALE.coordinates.y);
 
 export const useLocaleStore = create<LocaleState>((set, get) => ({
   locales: { [DEFAULT_LOCALE_ID]: DEFAULT_LOCALE },
 
-  addLocale: (planetId, locale) => {
-    const toAdd: Locale = { ...locale, planetId };
+  addLocale: (attenuationStyleId, locale) => {
+    const toAdd: Locale = { ...locale, attenuationStyleId };
 
     set((state) => ({ locales: { ...state.locales, [toAdd.id]: toAdd } }));
     getLocaleNoiseMap(toAdd.id, toAdd.coordinates.x, toAdd.coordinates.y);

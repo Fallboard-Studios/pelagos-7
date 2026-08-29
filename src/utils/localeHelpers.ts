@@ -1,7 +1,7 @@
-import { usePlanetStore, selectCurrentPlanet } from '@/stores/planetStore';
+import { useAttenuationStyleStore, selectCurrentAttenuationStyle } from '@/stores/attenuationStyleStore';
 
 export function getActiveLocaleId(): string {
-  const planetState = usePlanetStore.getState();
-  const p = selectCurrentPlanet(planetState);
+  const attenuationStyleState = useAttenuationStyleStore.getState();
+  const p = selectCurrentAttenuationStyle(attenuationStyleState);
   return p?.currentLocaleId ?? '';
 }
