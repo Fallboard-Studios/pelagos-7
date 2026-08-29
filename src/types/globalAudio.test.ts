@@ -61,4 +61,15 @@ describe('DEFAULT_GLOBAL_AUDIO_SETTINGS', () => {
   it('defaults compressorBeforeDelay to false (Natural Decay)', () => {
     expect(DEFAULT_GLOBAL_AUDIO_SETTINGS.compressorBeforeDelay).toBe(false);
   });
+
+  it('has a lfoDrift field defaulting to zero drift on both axes', () => {
+    expect(DEFAULT_GLOBAL_AUDIO_SETTINGS.lfoDrift).toEqual({ rateDrift: 0, depthDrift: 0 });
+  });
+
+  it('lfoDrift is a top-level flag, not nested under any effect object', () => {
+    // Guards against a future edit accidentally moving it under reverb/delay/etc.
+    // by analogy to the per-effect settings objects that surround it.
+    expect('lfoDrift' in DEFAULT_GLOBAL_AUDIO_SETTINGS).toBe(true);
+    expect('lfoDrift' in DEFAULT_GLOBAL_AUDIO_SETTINGS.reverb).toBe(false);
+  });
 });

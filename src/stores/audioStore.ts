@@ -18,8 +18,8 @@ import { GLOBAL_LFO_TARGET_IDS, type GlobalLfoTargetId, type LfoSettings } from 
 // TYPES
 // ========================================
 
-/** Keys of GlobalAudioSettings that are effect-param objects (excludes the two top-level flags). */
-type EffectKey = Exclude<keyof GlobalAudioSettings, 'globalBypass' | 'compressorBeforeDelay'>;
+/** Keys of GlobalAudioSettings that are effect-param objects (excludes the three top-level flags). */
+type EffectKey = Exclude<keyof GlobalAudioSettings, 'globalBypass' | 'compressorBeforeDelay' | 'lfoDrift'>;
 
 /** `AudioEngine.setEffectBypass`'s effect keys — note 'lpf'/'hpf', not 'filterLPF'/'filterHPF'. */
 type BypassEffectKey = 'reverb' | 'delay' | 'limiter' | 'eq3' | 'lpf' | 'hpf' | 'compressor';
