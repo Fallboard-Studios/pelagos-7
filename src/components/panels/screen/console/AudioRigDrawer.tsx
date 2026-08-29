@@ -126,15 +126,18 @@ export function AudioRigDrawer() {
           </div>
         );
       })}
+      {/* Stopgap — lfoDrift is now per-group (Task 2, docs/tasks/LFO_DRIFT_GROUPS.md);
+          this single accordion still only shows the 'robots' group until Task 9
+          replaces it with a map over all 4 groups. */}
       <div className="audio-rig-drawer__effect-block">
         <AccordionContainer
           schema={LFO_DRIFT_ACCORDION}
-          contentActive={globalAudio.lfoDrift.rateDrift !== 0 || globalAudio.lfoDrift.depthDrift !== 0}
+          contentActive={globalAudio.lfoDrift.robots.rateDrift !== 0 || globalAudio.lfoDrift.robots.depthDrift !== 0}
         >
           <div className="audio-rig-drawer__param-row">
             <SliderCenteredZero
               schema={LFO_RATE_DRIFT_SCHEMA}
-              value={globalAudio.lfoDrift.rateDrift * 100}
+              value={globalAudio.lfoDrift.robots.rateDrift * 100}
               onChange={(v) => setGlobalLfoDrift({ rateDrift: v / 100 })}
               disabled={rigDisabled}
             />
@@ -142,7 +145,7 @@ export function AudioRigDrawer() {
           <div className="audio-rig-drawer__param-row">
             <SliderCenteredZero
               schema={LFO_DEPTH_DRIFT_SCHEMA}
-              value={globalAudio.lfoDrift.depthDrift * 100}
+              value={globalAudio.lfoDrift.robots.depthDrift * 100}
               onChange={(v) => setGlobalLfoDrift({ depthDrift: v / 100 })}
               disabled={rigDisabled}
             />

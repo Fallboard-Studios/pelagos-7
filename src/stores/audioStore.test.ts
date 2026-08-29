@@ -138,8 +138,9 @@ describe('useAudioStore - regenerateGlobalAudioFromSeed', () => {
     const { lfoEngine } = await import('../engine/lfoEngine');
     const { globalAudio } = useAudioStore.getState();
 
-    expect(lfoEngine.setGlobalRateDrift).toHaveBeenCalledWith(globalAudio.lfoDrift.rateDrift);
-    expect(lfoEngine.setGlobalDepthDrift).toHaveBeenCalledWith(globalAudio.lfoDrift.depthDrift);
+    // Stopgap — 'robots' stands in for all 4 groups until Task 6/8 make this group-aware.
+    expect(lfoEngine.setGlobalRateDrift).toHaveBeenCalledWith(globalAudio.lfoDrift.robots.rateDrift);
+    expect(lfoEngine.setGlobalDepthDrift).toHaveBeenCalledWith(globalAudio.lfoDrift.robots.depthDrift);
   });
 
   it('calls AudioEngine.setEffectBypass with each effect\'s actual seeded enabled value — not hardcoded true', async () => {
@@ -349,16 +350,19 @@ describe('useAudioStore - setGlobalLfoDrift', () => {
     vi.resetModules();
   });
 
+  // Stopgap coverage — this whole describe block targets the 'robots' group
+  // as a stand-in until Task 8 (docs/tasks/LFO_DRIFT_GROUPS.md) makes
+  // setGlobalLfoDrift group-aware and this block is rewritten per-group.
   it('updates only rateDrift in state and calls lfoEngine.setGlobalRateDrift, leaving depthDrift untouched', async () => {
     const { useAudioStore } = await import('./audioStore');
     const { lfoEngine } = await import('../engine/lfoEngine');
-    const depthBefore = useAudioStore.getState().globalAudio.lfoDrift.depthDrift;
+    const depthBefore = useAudioStore.getState().globalAudio.lfoDrift.robots.depthDrift;
     vi.clearAllMocks();
 
     useAudioStore.getState().setGlobalLfoDrift({ rateDrift: 0.5 });
 
-    expect(useAudioStore.getState().globalAudio.lfoDrift.rateDrift).toBe(0.5);
-    expect(useAudioStore.getState().globalAudio.lfoDrift.depthDrift).toBe(depthBefore);
+    expect(useAudioStore.getState().globalAudio.lfoDrift.robots.rateDrift).toBe(0.5);
+    expect(useAudioStore.getState().globalAudio.lfoDrift.robots.depthDrift).toBe(depthBefore);
     expect(lfoEngine.setGlobalRateDrift).toHaveBeenCalledWith(0.5);
     expect(lfoEngine.setGlobalDepthDrift).not.toHaveBeenCalled();
   });
@@ -366,13 +370,13 @@ describe('useAudioStore - setGlobalLfoDrift', () => {
   it('updates only depthDrift in state and calls lfoEngine.setGlobalDepthDrift, leaving rateDrift untouched', async () => {
     const { useAudioStore } = await import('./audioStore');
     const { lfoEngine } = await import('../engine/lfoEngine');
-    const rateBefore = useAudioStore.getState().globalAudio.lfoDrift.rateDrift;
+    const rateBefore = useAudioStore.getState().globalAudio.lfoDrift.robots.rateDrift;
     vi.clearAllMocks();
 
     useAudioStore.getState().setGlobalLfoDrift({ depthDrift: -0.3 });
 
-    expect(useAudioStore.getState().globalAudio.lfoDrift.depthDrift).toBe(-0.3);
-    expect(useAudioStore.getState().globalAudio.lfoDrift.rateDrift).toBe(rateBefore);
+    expect(useAudioStore.getState().globalAudio.lfoDrift.robots.depthDrift).toBe(-0.3);
+    expect(useAudioStore.getState().globalAudio.lfoDrift.robots.rateDrift).toBe(rateBefore);
     expect(lfoEngine.setGlobalDepthDrift).toHaveBeenCalledWith(-0.3);
     expect(lfoEngine.setGlobalRateDrift).not.toHaveBeenCalled();
   });
@@ -384,7 +388,7 @@ describe('useAudioStore - setGlobalLfoDrift', () => {
 
     useAudioStore.getState().setGlobalLfoDrift({ rateDrift: 0.2, depthDrift: 0.9 });
 
-    expect(useAudioStore.getState().globalAudio.lfoDrift).toEqual({ rateDrift: 0.2, depthDrift: 0.9 });
+    expect(useAudioStore.getState().globalAudio.lfoDrift.robots).toEqual({ rateDrift: 0.2, depthDrift: 0.9 });
     expect(lfoEngine.setGlobalRateDrift).toHaveBeenCalledWith(0.2);
     expect(lfoEngine.setGlobalDepthDrift).toHaveBeenCalledWith(0.9);
   });
@@ -395,7 +399,7 @@ describe('useAudioStore - setGlobalLfoDrift', () => {
 
     useAudioStore.getState().setGlobalLfoDrift({ depthDrift: 0.6 });
 
-    expect(useAudioStore.getState().globalAudio.lfoDrift).toEqual({ rateDrift: 0.4, depthDrift: 0.6 });
+    expect(useAudioStore.getState().globalAudio.lfoDrift.robots).toEqual({ rateDrift: 0.4, depthDrift: 0.6 });
   });
 });
 

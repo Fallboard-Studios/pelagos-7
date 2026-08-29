@@ -118,8 +118,10 @@ describe('generateGlobalAudioSettings', () => {
       'reverb.preDelay': settings.reverb.preDelay,
       'reverb.wet': settings.reverb.wet,
       'limiter.threshold': settings.limiter.threshold,
-      'lfoDrift.rateDrift': settings.lfoDrift.rateDrift,
-      'lfoDrift.depthDrift': settings.lfoDrift.depthDrift,
+      // Stopgap — Task 2 reshaped lfoDrift to Record<DriftGroupId, ...>; Task 3/4
+      // gives each group its own key/coverage. 'robots' stands in for all 4 until then.
+      'lfoDrift.rateDrift': settings.lfoDrift.robots.rateDrift,
+      'lfoDrift.depthDrift': settings.lfoDrift.robots.depthDrift,
     };
     for (const key of Object.keys(GLOBAL_AUDIO_LOADING_RANGES) as GlobalAudioSeedFieldKey[]) {
       const { min, max } = GLOBAL_AUDIO_LOADING_RANGES[key];
@@ -192,14 +194,14 @@ describe('generateGlobalAudioSettings', () => {
       // this catches it directly rather than relying on the non-degenerate
       // check above, which would still pass if both fields moved in lockstep.
       const settings = generateGlobalAudioSettings('seed-test-planet', 'Nova');
-      expect(settings.lfoDrift.rateDrift).not.toBe(settings.lfoDrift.depthDrift);
+      expect(settings.lfoDrift.robots.rateDrift).not.toBe(settings.lfoDrift.robots.depthDrift);
     });
 
     it('keeps both fields within the -0.4..0.4 loading range on every call, across many planets', () => {
       const SAMPLE_PLANETS = 20;
       for (let i = 0; i < SAMPLE_PLANETS; i++) {
         const settings = generateGlobalAudioSettings(`seed-drift-sample-${i}`, `DriftSample${i}`);
-        const { rateDrift, depthDrift } = settings.lfoDrift;
+        const { rateDrift, depthDrift } = settings.lfoDrift.robots;
         expect(rateDrift, `planet ${i} rateDrift`).toBeGreaterThanOrEqual(-0.4);
         expect(rateDrift, `planet ${i} rateDrift`).toBeLessThanOrEqual(0.4);
         expect(depthDrift, `planet ${i} depthDrift`).toBeGreaterThanOrEqual(-0.4);
@@ -214,8 +216,8 @@ describe('generateGlobalAudioSettings', () => {
       let sawPositive = false;
       for (let i = 0; i < SAMPLE_PLANETS; i++) {
         const settings = generateGlobalAudioSettings(`seed-drift-sign-${i}`, `DriftSign${i}`);
-        if (settings.lfoDrift.rateDrift < 0) sawNegative = true;
-        if (settings.lfoDrift.rateDrift > 0) sawPositive = true;
+        if (settings.lfoDrift.robots.rateDrift < 0) sawNegative = true;
+        if (settings.lfoDrift.robots.rateDrift > 0) sawPositive = true;
         evictPlanetNoiseMap(`seed-drift-sign-${i}`);
       }
       expect(sawNegative, 'expected at least one sampled planet with rateDrift < 0').toBe(true);

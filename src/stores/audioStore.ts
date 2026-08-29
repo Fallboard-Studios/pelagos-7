@@ -67,8 +67,11 @@ export function applyGlobalAudioToEngine(globalAudio: GlobalAudioSettings): void
   AudioEngine.setGlobalLimiter(globalAudio.limiter);
   AudioEngine.setGlobalDelay(globalAudio.delay);
   AudioEngine.setGlobalReverb(globalAudio.reverb);
-  lfoEngine.setGlobalRateDrift(globalAudio.lfoDrift.rateDrift);
-  lfoEngine.setGlobalDepthDrift(globalAudio.lfoDrift.depthDrift);
+  // Stopgap — lfoDrift is now per-group (Task 2, docs/tasks/LFO_DRIFT_GROUPS.md),
+  // but lfoEngine's setters and this loop aren't group-aware until Task 6/8.
+  // 'robots' stands in for all 4 groups until then.
+  lfoEngine.setGlobalRateDrift(globalAudio.lfoDrift.robots.rateDrift);
+  lfoEngine.setGlobalDepthDrift(globalAudio.lfoDrift.robots.depthDrift);
   // Push each effect's OWN enabled value, not a blanket true — Delay in
   // particular may be seeded/set false and must stay bypassed.
   for (const [effectKey, bypassKey] of Object.entries(BYPASS_KEY) as [EffectKey, BypassEffectKey][]) {
@@ -125,7 +128,10 @@ export interface AudioStore {
    * setCompressorBeforeDelay above — lfoDrift is a top-level flag, not a
    * per-effect object with its own AudioEngine.setGlobal* counterpart.
    */
-  setGlobalLfoDrift: (partial: Partial<GlobalAudioSettings['lfoDrift']>) => void;
+  // Stopgap signature — Task 8 (docs/tasks/LFO_DRIFT_GROUPS.md) makes this
+  // group-aware ((group: DriftGroupId, partial: ...) => void); until then it
+  // only ever writes the 'robots' group.
+  setGlobalLfoDrift: (partial: Partial<{ rateDrift: number; depthDrift: number }>) => void;
   /**
    * Regenerate `globalAudio` for the given planet from the seed
    * (generateGlobalAudioSettings, src/utils/globalAudioSeed.ts) and push the
@@ -203,7 +209,10 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
 
   setGlobalLfoDrift: (partial) => {
     set((state) => ({
-      globalAudio: { ...state.globalAudio, lfoDrift: { ...state.globalAudio.lfoDrift, ...partial } },
+      globalAudio: {
+        ...state.globalAudio,
+        lfoDrift: { ...state.globalAudio.lfoDrift, robots: { ...state.globalAudio.lfoDrift.robots, ...partial } },
+      },
     }));
     if (partial.rateDrift !== undefined) lfoEngine.setGlobalRateDrift(partial.rateDrift);
     if (partial.depthDrift !== undefined) lfoEngine.setGlobalDepthDrift(partial.depthDrift);

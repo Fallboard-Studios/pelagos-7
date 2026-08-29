@@ -77,9 +77,15 @@ export function generateGlobalAudioSettings(planetId: string, planetName: string
   return {
     globalBypass: defaults.globalBypass,
     compressorBeforeDelay: defaults.compressorBeforeDelay,
+    // Stopgap — Task 3/4 (docs/tasks/LFO_DRIFT_GROUPS.md) gives each of the 4
+    // groups its own independent seed key; this reuses one shared draw across
+    // all 4 for now, just to keep the reshaped Record<DriftGroupId, ...> type
+    // satisfied until then.
     lfoDrift: {
-      rateDrift: sampleField(noiseMap, 'lfoDrift.rateDrift'),
-      depthDrift: sampleField(noiseMap, 'lfoDrift.depthDrift'),
+      eq3: { rateDrift: sampleField(noiseMap, 'lfoDrift.rateDrift'), depthDrift: sampleField(noiseMap, 'lfoDrift.depthDrift') },
+      filterLPF: { rateDrift: sampleField(noiseMap, 'lfoDrift.rateDrift'), depthDrift: sampleField(noiseMap, 'lfoDrift.depthDrift') },
+      filterHPF: { rateDrift: sampleField(noiseMap, 'lfoDrift.rateDrift'), depthDrift: sampleField(noiseMap, 'lfoDrift.depthDrift') },
+      robots: { rateDrift: sampleField(noiseMap, 'lfoDrift.rateDrift'), depthDrift: sampleField(noiseMap, 'lfoDrift.depthDrift') },
     },
     compressor: {
       enabled: true,

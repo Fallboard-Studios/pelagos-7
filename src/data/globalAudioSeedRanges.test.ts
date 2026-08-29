@@ -129,8 +129,10 @@ describe('GLOBAL_AUDIO_SEED_RANGES', () => {
       'reverb.preDelay': defaults.reverb.preDelay,
       'reverb.wet': defaults.reverb.wet,
       'limiter.threshold': defaults.limiter.threshold,
-      'lfoDrift.rateDrift': defaults.lfoDrift.rateDrift,
-      'lfoDrift.depthDrift': defaults.lfoDrift.depthDrift,
+      // Stopgap — Task 2 reshaped lfoDrift to Record<DriftGroupId, ...>; Task 3
+      // gives each group its own key. 'robots' stands in for all 4 until then.
+      'lfoDrift.rateDrift': defaults.lfoDrift.robots.rateDrift,
+      'lfoDrift.depthDrift': defaults.lfoDrift.robots.depthDrift,
     };
     for (const key of EXPECTED_KEYS) {
       const { min, max } = GLOBAL_AUDIO_SEED_RANGES[key];

@@ -4,6 +4,7 @@
 import { describe, it, expect } from 'vitest';
 
 import { DEFAULT_GLOBAL_AUDIO_SETTINGS } from './globalAudio';
+import { DRIFT_GROUP_IDS } from './lfo';
 
 // ========================================
 // TESTS
@@ -62,8 +63,17 @@ describe('DEFAULT_GLOBAL_AUDIO_SETTINGS', () => {
     expect(DEFAULT_GLOBAL_AUDIO_SETTINGS.compressorBeforeDelay).toBe(false);
   });
 
-  it('has a lfoDrift field defaulting to zero drift on both axes', () => {
-    expect(DEFAULT_GLOBAL_AUDIO_SETTINGS.lfoDrift).toEqual({ rateDrift: 0, depthDrift: 0 });
+  it('has a lfoDrift entry for every DriftGroupId, each defaulting to zero drift on both axes', () => {
+    // Reshaped for docs/specs/LFO_DRIFT_GROUPS.md — was a single flat
+    // { rateDrift, depthDrift } pair (Roadmap 10.2); now one independent pair
+    // per drift group (Roadmap 10.3).
+    for (const group of DRIFT_GROUP_IDS) {
+      expect(DEFAULT_GLOBAL_AUDIO_SETTINGS.lfoDrift[group], group).toEqual({ rateDrift: 0, depthDrift: 0 });
+    }
+  });
+
+  it('lfoDrift has exactly the 4 DriftGroupId groups, no more no fewer', () => {
+    expect(Object.keys(DEFAULT_GLOBAL_AUDIO_SETTINGS.lfoDrift).sort()).toEqual([...DRIFT_GROUP_IDS].sort());
   });
 
   it('lfoDrift is a top-level flag, not nested under any effect object', () => {

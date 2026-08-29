@@ -359,9 +359,11 @@ describe('AudioRigDrawer', () => {
       expect(screen.getByRole('slider', { name: 'Depth Drift' })).toBeTruthy();
     });
 
+    // Stopgap coverage — the rendered accordion still only shows the 'robots'
+    // group until Task 9 (docs/tasks/LFO_DRIFT_GROUPS.md) maps over all 4.
     it('shows the current globalAudio.lfoDrift values as a -100..100 percent, not the internal -1..1 fraction', () => {
       useAudioStore.setState((s) => ({
-        globalAudio: { ...s.globalAudio, lfoDrift: { rateDrift: 0.3, depthDrift: -0.6 } },
+        globalAudio: { ...s.globalAudio, lfoDrift: { ...s.globalAudio.lfoDrift, robots: { rateDrift: 0.3, depthDrift: -0.6 } } },
       }));
       render(<AudioRigDrawer />);
       expect(screen.getByRole('slider', { name: 'Rate Drift' }).getAttribute('aria-valuenow')).toBe('30');
@@ -370,7 +372,7 @@ describe('AudioRigDrawer', () => {
 
     it('dragging Rate Drift calls setGlobalLfoDrift with the dragged percent divided by 100, leaving depthDrift untouched', () => {
       useAudioStore.setState((s) => ({
-        globalAudio: { ...s.globalAudio, lfoDrift: { rateDrift: 0, depthDrift: 0.5 } },
+        globalAudio: { ...s.globalAudio, lfoDrift: { ...s.globalAudio.lfoDrift, robots: { rateDrift: 0, depthDrift: 0.5 } } },
       }));
       render(<AudioRigDrawer />);
       const rateSlider = screen.getByRole('slider', { name: 'Rate Drift' });
@@ -379,13 +381,13 @@ describe('AudioRigDrawer', () => {
 
       const newPercent = Number(rateSlider.getAttribute('aria-valuenow'));
       expect(newPercent).not.toBe(0); // the key press actually moved it
-      expect(useAudioStore.getState().globalAudio.lfoDrift.rateDrift).toBeCloseTo(newPercent / 100);
-      expect(useAudioStore.getState().globalAudio.lfoDrift.depthDrift).toBe(0.5);
+      expect(useAudioStore.getState().globalAudio.lfoDrift.robots.rateDrift).toBeCloseTo(newPercent / 100);
+      expect(useAudioStore.getState().globalAudio.lfoDrift.robots.depthDrift).toBe(0.5);
     });
 
     it('dragging Depth Drift calls setGlobalLfoDrift with the dragged percent divided by 100, leaving rateDrift untouched', () => {
       useAudioStore.setState((s) => ({
-        globalAudio: { ...s.globalAudio, lfoDrift: { rateDrift: 0.5, depthDrift: 0 } },
+        globalAudio: { ...s.globalAudio, lfoDrift: { ...s.globalAudio.lfoDrift, robots: { rateDrift: 0.5, depthDrift: 0 } } },
       }));
       render(<AudioRigDrawer />);
       const depthSlider = screen.getByRole('slider', { name: 'Depth Drift' });
@@ -394,8 +396,8 @@ describe('AudioRigDrawer', () => {
 
       const newPercent = Number(depthSlider.getAttribute('aria-valuenow'));
       expect(newPercent).not.toBe(0);
-      expect(useAudioStore.getState().globalAudio.lfoDrift.depthDrift).toBeCloseTo(newPercent / 100);
-      expect(useAudioStore.getState().globalAudio.lfoDrift.rateDrift).toBe(0.5);
+      expect(useAudioStore.getState().globalAudio.lfoDrift.robots.depthDrift).toBeCloseTo(newPercent / 100);
+      expect(useAudioStore.getState().globalAudio.lfoDrift.robots.rateDrift).toBe(0.5);
     });
 
     it('is disabled when the rig-wide bypass is on, matching every other block\'s rigDisabled wiring', () => {
