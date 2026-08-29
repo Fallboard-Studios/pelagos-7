@@ -2,23 +2,26 @@
 // IMPORTS
 // ========================================
 import * as Tone from 'tone';
-import alea from 'alea';
 
 import { AudioEngine } from './AudioEngine';
 import { scheduleRepeat, cancelSchedule } from './beatClock';
 import { DEFAULT_LFO_SETTINGS } from '../data/lfoConfig';
 import { GLOBAL_AUDIO_SEED_RANGES, type GlobalAudioSeedFieldKey } from '../data/globalAudioSeedRanges';
+import { clamp, isAudioContextRunning, centeredSwingFromRange, connectAdditively } from './lfoShared';
+import {
+  driftGroupForTarget,
+  attachDrift,
+  detachDrift,
+  refreshRateDriftGain,
+  refreshDepthDriftGain,
+  setGlobalRateDrift,
+  setGlobalDepthDrift,
+} from './lfoDrift';
 
 import type { OscillatorLayer } from '../types/layeredAudio';
-import type { LfoSettings, LfoShape, RobotLfoTargetId, GlobalLfoTargetId, DriftGroupId } from '../types/lfo';
+import type { LfoSettings, LfoShape, RobotLfoTargetId, GlobalLfoTargetId, LfoTargetId } from '../types/lfo';
 import { LFO_RATE_MIN, LFO_RATE_MAX, LFO_DEPTH_MIN, LFO_DEPTH_MAX, ROBOT_LFO_TARGET_IDS } from '../types/lfo';
 import { devWarn } from '../utils/helpers';
-
-// ========================================
-// TYPES
-// ========================================
-
-type LfoTargetId = RobotLfoTargetId | GlobalLfoTargetId;
 
 // ========================================
 // STATE (module-scoped, runtime-only — never put these in Zustand)
@@ -59,49 +62,6 @@ const phaseFallbacks = new Map<string, PhaseFallback>();
  */
 const connectedSignals = new Map<string, unknown>();
 
-/**
- * Per-group shared secondary Tone.LFO pools, phase-spread evenly across each
- * group's own pool — fixed and deterministic, not seeded per-planet (only
- * the drift AMOUNT, rateDrift/depthDrift, is seeded; a pool's own relative
- * phases are a structural implementation detail, the same for every
- * session). Each group's pool is constructed lazily, once, on that group's
- * own first successful connectLfoTarget call — never per-robot, never
- * per-target, and never shared across groups. See
- * docs/specs/LFO_DRIFT_GROUPS.md §1.2 (reshaped from docs/specs/LFO_DRIFT.md's
- * single shared pool).
- */
-const driftPools: Partial<Record<DriftGroupId, Tone.LFO[]>> = {};
-
-/**
- * One rate-drift + depth-drift Gain pair per currently-connected primary,
- * keyed the same as activeLfos/connectedSignals. Both Gains start at 0 —
- * setGlobalRateDrift/setGlobalDepthDrift are what make drift audible; this
- * wiring alone is deliberately inert.
- */
-interface DriftLink {
-  /** Set once at attachDrift time from the target the link was created for
-   *  — never reassigned. Determines which group's global rate/depth drift
-   *  amount this link's Gains read (docs/specs/LFO_DRIFT_GROUPS.md §1.3). */
-  group: DriftGroupId;
-  rateDriftGain: Tone.Gain;
-  depthDriftGain: Tone.Gain;
-  /** Whether depthDriftGain is currently wired into the primary's amplitude.
-   *  False whenever this primary's own depth is 0 — see refreshDepthDriftGain's
-   *  silence guard (docs/specs/LFO_DRIFT.md §1.3). Rate has no equivalent
-   *  field: it has no "off" state (LFO_RATE_MIN is 0.1, never 0), so
-   *  rateDriftGain stays connected unconditionally from attachDrift on. */
-  depthDriftConnected: boolean;
-}
-const driftLinks = new Map<string, DriftLink>();
-
-/** One Rate/Depth Drift amount pair per group, all starting at 0, pushed by
- *  setGlobalRateDrift/setGlobalDepthDrift (both now group-scoped) — read by
- *  refreshRateDriftGain/refreshDepthDriftGain via each link's own `group`.
- *  Replaces the single shared pair docs/specs/LFO_DRIFT.md originally
- *  shipped — see docs/specs/LFO_DRIFT_GROUPS.md §1.3. */
-const globalRateDriftByGroup: Record<DriftGroupId, number> = { eq3: 0, filterLPF: 0, filterHPF: 0, robots: 0 };
-const globalDepthDriftByGroup: Record<DriftGroupId, number> = { eq3: 0, filterLPF: 0, filterHPF: 0, robots: 0 };
-
 /** Phase modulates around this center (degrees) — the midpoint of the 0-360 range
  * ROBOT_DATA_GRID.md's Phase field documents. Depth scales how far it swings from
  * there, not around the layer's own current phase value (that would require
@@ -111,30 +71,9 @@ const PHASE_CENTER_DEGREES = 180;
 /** Polling granularity for the phase fallback — matches BeatClock's own internal tick. */
 const PHASE_POLL_INTERVAL = '16n';
 
-/** Per-group pool size — sized to each group's own real target ceiling, not
- *  a uniform constant. eq3/filterLPF/filterHPF only ever have 3/2/2 possible
- *  LFO targets in the entire app; robots can have dozens of simultaneously
- *  active primaries across every robot/layer/field, the same "70-100+
- *  primaries, a handful of buckets is enough" reasoning
- *  docs/specs/LFO_DRIFT.md §1.2 already established for its own flat 8.
- *  See docs/specs/LFO_DRIFT_GROUPS.md §1.2. */
-const DRIFT_POOL_SIZE: Record<DriftGroupId, number> = {
-  eq3: 3,
-  filterLPF: 2,
-  filterHPF: 2,
-  robots: 8,
-};
-/** ~33-second cycle for the shared drift oscillators — fixed, never exposed
- *  in the UI (only the drift AMOUNT, rateDrift/depthDrift, is user-facing). */
-const DRIFT_RATE_HZ = 0.03;
-
 // ========================================
 // INTERNAL FUNCTIONS
 // ========================================
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
 
 /**
  * Robot-scoped targets need one live LFO per robot, not one shared across
@@ -191,7 +130,7 @@ function globalSeedRangeKey(target: GlobalLfoTargetId): GlobalAudioSeedFieldKey 
  * meaningful output range here (phase, handled entirely separately).
  *
  * This is the field's own absolute range — NOT what gets applied directly to
- * lfo.min/lfo.max. See centeredSwingFromRange() below for why.
+ * lfo.min/lfo.max. See centeredSwingFromRange() (lfoShared.ts) for why.
  */
 function resolveLfoOutputRange(target: LfoTargetId): { min: number; max: number } | null {
   if (target === 'volume') return ROBOT_LFO_FIELD_RANGE.volume;
@@ -203,80 +142,6 @@ function resolveLfoOutputRange(target: LfoTargetId): { min: number; max: number 
     return range ? { min: range.min, max: range.max } : null;
   }
   return null;
-}
-
-/**
- * Convert a field's absolute range AND its current base value into the
- * ADDITIVE delta lfo.min/lfo.max should actually be set to.
- *
- * Tone.LFO.connect() sums onto the destination Param's existing value —
- * native Web Audio AudioParam behavior: connecting an input signal ADDS to
- * whatever the param's own intrinsic value already is, it never overrides
- * it. Using a field's raw absolute range (e.g. LPF frequency, 20-20000)
- * directly as lfo.min/lfo.max was a real bug: that adds up to +20000 Hz on
- * top of whatever the slider is already at, trivially pushing the actual
- * cutoff past Nyquist (filter wide open — an audible burst of unfiltered
- * harmonics) the instant the LFO connects.
- *
- * A first fix used a FIXED zero-centered swing (half the field's own total
- * span) — better, but still a constant, independent of where the base value
- * actually sits. That reintroduced the same bug from the other direction:
- * for a base value anywhere off-center (e.g. left low, as a workaround for
- * the original crash), a fixed swing still large enough to swing the OTHER
- * way pushed the combined value below the field's own minimum for roughly
- * half of every cycle — heard as the mix muting for half the time.
- *
- * The real fix: bound the swing by the base value's own distance to
- * whichever edge of the range is nearer — min(value - rangeMin, rangeMax -
- * value). Added to the base value, this can never leave [rangeMin, rangeMax]
- * in either direction, for any starting position. A value sitting exactly at
- * the range's own midpoint (both distances equal) still gets the same "half
- * the total span" swing as the simpler fixed version — no regression for
- * fields whose typical resting value already is the midpoint (EQ dB bands,
- * robot detune both default to 0, the center of a symmetric range).
- */
-function centeredSwingFromRange(
-  range: { min: number; max: number },
-  currentValue: number
-): { min: number; max: number } {
-  // A non-finite currentValue (NaN/Infinity — e.g. the resolved Signal not
-  // actually initialized yet) must never reach lfo.min/lfo.max: connecting
-  // an LFO whose output is NaN poisons the live Web Audio graph downstream
-  // of whatever it's connected to, not just this one target. Fall back to
-  // zero swing (the LFO contributes nothing) rather than propagate it.
-  if (!Number.isFinite(currentValue)) return { min: 0, max: 0 };
-  const distanceToMin = currentValue - range.min;
-  const distanceToMax = range.max - currentValue;
-  const halfSpan = Math.max(0, Math.min(distanceToMin, distanceToMax));
-  return { min: -halfSpan, max: halfSpan };
-}
-
-/**
- * Connect `source` into a Signal/Param `destination` the additive-safe way:
- * disable the destination's Signal.override (a harmless no-op for a Param,
- * which has no override concept at all) before connecting, then restore its
- * pre-connect value afterward. Undoes the reset Tone's own connectSignal()
- * forces on ANY connect into a Signal/Param destination — verified directly
- * against Tone.js's own source (signal/Signal.ts) — see connectLfoTarget's
- * own longer comment below for the full story ("the worst LFO bug found
- * here", docs/AUDIO_SYSTEM.md). The restore is a genuine fix for a Param
- * destination (always resets, unconditionally, no override escape hatch);
- * a harmless no-op for a Signal destination once override is disabled (its
- * value was never touched in the first place). Guards against a non-finite
- * pre-connect value the same way every caller already had to — never write
- * NaN into a live Web Audio graph.
- *
- * Deliberately does not catch a failed `.connect()` — a caller that needs to
- * handle that (e.g. connectLfoTarget, whose target is resolved externally by
- * AudioEngine) wraps this call in its own try/catch; the two purely-internal
- * pool-to-primary connections (attachDrift, refreshDepthDriftGain) don't.
- */
-function connectAdditively(source: unknown, destination: unknown): void {
-  const dest = destination as { value: number; override?: boolean };
-  dest.override = false;
-  const currentValue = dest.value;
-  (source as { connect: (d: unknown) => void }).connect(destination);
-  if (Number.isFinite(currentValue)) dest.value = currentValue;
 }
 
 /** Unit-amplitude waveform value in [-1, 1] for a given shape at a given phase angle (radians). */
@@ -297,178 +162,11 @@ function waveformUnit(shape: LfoShape, phaseRadians: number): number {
   }
 }
 
-/**
- * Whether it's safe to actually start an oscillator right now. Gates on the
- * AudioContext itself, not Transport state — Transport can still be mid-
- * startup (instrument loading, waiting on reverb) well after Tone.start()
- * has already made the context running, and gating on Transport left a real
- * window where an LFO could connect to a live target but never actually
- * start oscillating: Tone.LFO outputs a raw, undepth-scaled "stopped" value
- * (its waveform's value at its resting phase — not necessarily 0, e.g. for
- * square/sawtooth/triangle shapes) for as long as it never starts, which
- * gets summed straight into whatever it's connected to indefinitely.
- */
-function isAudioContextRunning(): boolean {
-  try {
-    return Tone.getContext().state === 'running';
-  } catch {
-    return false;
-  }
-}
-
 /** Apply a full LfoSettings object onto a live node (used at creation and by each setter). */
 function applySettingsToNode(lfo: Tone.LFO, settings: LfoSettings): void {
   lfo.frequency.value = settings.rate;
   lfo.amplitude.value = settings.depth / 100;
   lfo.type = settings.shape;
-}
-
-/**
- * Which drift group a target belongs to — the three global-chain groups
- * that ever carry an lfoTarget map one-to-one by their own short-form
- * prefix (mirrors globalSeedRangeKey's own 'lpf.'/'hpf.' prefix-matching
- * style above); every RobotLfoTargetId (isRobotTarget(target) === true)
- * shares 'robots' regardless of field or robotId. See
- * docs/specs/LFO_DRIFT_GROUPS.md §1.1.
- */
-function driftGroupForTarget(target: LfoTargetId): DriftGroupId {
-  if (target.startsWith('eq3.')) return 'eq3';
-  if (target.startsWith('lpf.')) return 'filterLPF';
-  if (target.startsWith('hpf.')) return 'filterHPF';
-  return 'robots';
-}
-
-/**
- * Lazily construct (or return the existing) drift-oscillator pool for one
- * group — sized to that group's own DRIFT_POOL_SIZE entry, phase-spread
- * evenly across it. Started immediately if the AudioContext is already
- * running, matching every other LFO construction path in this file. Never
- * shared across groups.
- */
-function getOrCreateDriftPool(group: DriftGroupId): Tone.LFO[] {
-  const existing = driftPools[group];
-  if (existing) return existing;
-  const size = DRIFT_POOL_SIZE[group];
-  const pool: Tone.LFO[] = [];
-  for (let i = 0; i < size; i++) {
-    const lfo = new Tone.LFO({ frequency: DRIFT_RATE_HZ, type: 'sine', phase: (360 / size) * i });
-    if (isAudioContextRunning()) lfo.start();
-    pool.push(lfo);
-  }
-  driftPools[group] = pool;
-  return pool;
-}
-
-/**
- * Wire a successfully-connected primary into the shared drift pool — called
- * once from connectLfoTarget, right after the primary's own connection to
- * its target succeeds. Idempotent (checked via driftLinks), matching the
- * pattern connectedSignals already uses for the primary's own connection.
- * Both Gains start at 0 — setGlobalRateDrift/setGlobalDepthDrift (Task 5)
- * are what make drift audible; this wiring alone is deliberately inert.
- */
-function attachDrift(key: string, lfo: Tone.LFO, group: DriftGroupId): void {
-  if (driftLinks.has(key)) return;
-  const pool = getOrCreateDriftPool(group);
-  const poolLfo = pool[Math.floor(alea(key)() * pool.length)];
-
-  const rateDriftGain = new Tone.Gain(0);
-  const depthDriftGain = new Tone.Gain(0);
-  poolLfo.connect(rateDriftGain);
-  poolLfo.connect(depthDriftGain);
-
-  // Rate has no "off" state (LFO_RATE_MIN is 0.1, never 0), so rateDriftGain
-  // connects unconditionally here and stays connected for the primary's
-  // whole lifetime. connectAdditively applies the same Signal.override fix
-  // connectLfoTarget's own target connection needs (docs/specs/LFO_DRIFT.md
-  // §1.4) — shared, not re-derived.
-  connectAdditively(rateDriftGain, lfo.frequency);
-
-  // depthDriftGain's own connection is deliberately NOT made here — it's
-  // conditional on this primary's own current depth, per the "never revive
-  // a silenced target" guard (§1.3). refreshDepthDriftGain below owns it.
-  driftLinks.set(key, { group, rateDriftGain, depthDriftGain, depthDriftConnected: false });
-  refreshRateDriftGain(key);
-  refreshDepthDriftGain(key);
-}
-
-/**
- * Recompute one primary's rate-drift Gain value from its OWN current rate
- * (bounded via centeredSwingFromRange, the same "swing bounded by distance
- * to the nearer edge" math connectLfoTarget already uses for primary-to-
- * target swings) and the current global rateDrift amount. Called after
- * attachDrift, after setLfoRate, and from setGlobalRateDrift for every
- * linked key. A no-op if this key has no drift link (yet, or ever).
- */
-function refreshRateDriftGain(key: string): void {
-  const link = driftLinks.get(key);
-  const lfo = activeLfos.get(key);
-  if (!link || !lfo) return;
-  const currentRate = lfo.frequency.value as number;
-  const swing = centeredSwingFromRange({ min: LFO_RATE_MIN, max: LFO_RATE_MAX }, currentRate);
-  link.rateDriftGain.gain.value = globalRateDriftByGroup[link.group] * swing.max;
-}
-
-/**
- * Recompute one primary's depth-drift Gain — connects it lazily (via the
- * same override-disable-then-restore sequence attachDrift already uses for
- * frequency) the first time this primary's own depth rises above 0, and
- * DISCONNECTS it entirely (not just zeroes it) whenever depth is 0. A
- * primary deliberately silenced by its own Depth must stay silent
- * regardless of global drift (§1.3) — a zeroed-but-still-connected Gain
- * can't guarantee that on its own, since the shared pool oscillator's
- * output is bipolar and could still swing the amplitude UP on its upswing
- * half. Called after attachDrift, after setLfoDepth, and from
- * setGlobalDepthDrift for every linked key. A no-op if this key has no
- * drift link (yet, or ever).
- */
-function refreshDepthDriftGain(key: string): void {
-  const link = driftLinks.get(key);
-  const lfo = activeLfos.get(key);
-  if (!link || !lfo) return;
-  const currentAmp = lfo.amplitude.value as number;
-
-  if (currentAmp <= 0) {
-    if (link.depthDriftConnected) {
-      try {
-        link.depthDriftGain.disconnect();
-      } catch (err) {
-        devWarn('[lfoEngine] refreshDepthDriftGain: disconnect failed', err);
-      }
-      link.depthDriftConnected = false;
-    }
-    return;
-  }
-
-  if (!link.depthDriftConnected) {
-    // lfo.amplitude is a Tone.Param, not a Signal — no override escape
-    // hatch, always resets to 0 on connect regardless (§1.4); connectAdditively's
-    // override write is harmless defensive symmetry with the frequency case
-    // in attachDrift, the restore afterward is what actually matters here.
-    connectAdditively(link.depthDriftGain, lfo.amplitude);
-    link.depthDriftConnected = true;
-  }
-
-  const swing = centeredSwingFromRange({ min: 0, max: 1 }, currentAmp);
-  link.depthDriftGain.gain.value = globalDepthDriftByGroup[link.group] * swing.max;
-}
-
-/** Reverse attachDrift — called from disconnectLfoTarget. The shared pool
- *  oscillators are never disposed here; they're app-lifetime. */
-function detachDrift(key: string): void {
-  const link = driftLinks.get(key);
-  if (!link) return;
-  try {
-    link.rateDriftGain.disconnect();
-  } catch (err) {
-    devWarn('[lfoEngine] detachDrift: rate-drift teardown failed', err);
-  }
-  try {
-    link.depthDriftGain.disconnect();
-  } catch (err) {
-    devWarn('[lfoEngine] detachDrift: depth-drift teardown failed', err);
-  }
-  driftLinks.delete(key);
 }
 
 /**
@@ -537,13 +235,13 @@ function setLfoShape(target: LfoTargetId, shape: LfoSettings['shape'], robotId?:
 /**
  * Start an already-created LFO, gated by the AudioContext: no-ops (does not
  * call the underlying node's start()) unless Tone.getContext().state is
- * 'running' (not Transport state — see isAudioContextRunning() above).
- * Deliberately does NOT call Tone.LFO.sync() — per its own doc comment,
- * sync() ties frequency to the transport's BPM as well as start/stop, which
- * would tempo-couple the rate and violate the confirmed intent that rate
- * stays a free-running Hz value. If no node has been created yet for this
- * target (no setter/connect called), this is a no-op — start() itself never
- * lazily constructs a node.
+ * 'running' (not Transport state — see isAudioContextRunning() in
+ * lfoShared.ts). Deliberately does NOT call Tone.LFO.sync() — per its own
+ * doc comment, sync() ties frequency to the transport's BPM as well as
+ * start/stop, which would tempo-couple the rate and violate the confirmed
+ * intent that rate stays a free-running Hz value. If no node has been
+ * created yet for this target (no setter/connect called), this is a no-op —
+ * start() itself never lazily constructs a node.
  */
 function start(target: LfoTargetId, robotId?: string): void {
   const lfo = activeLfos.get(instanceKey(target, robotId));
@@ -664,7 +362,7 @@ function connectLfoTarget(target: LfoTargetId, robotId?: string): boolean {
   // (connectSignal()'s `destination instanceof Param` branch is
   // unconditional, unlike Signal's) — but a Param also never gets marked
   // permanently "overridden" the way a Signal does, so a plain write
-  // afterward is enough to undo it. connectAdditively (see above) handles
+  // afterward is enough to undo it. connectAdditively (lfoShared.ts) handles
   // both cases with the same disable-then-restore sequence.
   try {
     connectAdditively(lfo, signal);
@@ -676,36 +374,6 @@ function connectLfoTarget(target: LfoTargetId, robotId?: string): boolean {
   connectedSignals.set(key, signal);
   attachDrift(key, lfo, driftGroupForTarget(target));
   return true;
-}
-
-/**
- * Set one group's Rate Drift amount (-1..1, clamped) — immediately refreshes
- * every currently-linked primary belonging to THAT group's rate-drift Gain;
- * every other group's links are untouched (docs/specs/LFO_DRIFT_GROUPS.md
- * §1.3 — cross-group isolation). Safe no-op with zero primaries connected in
- * this group, even while other groups have primaries and nonzero amounts.
- * BREAKING vs. docs/specs/LFO_DRIFT.md's shipped 1-argument form.
- */
-function setGlobalRateDrift(group: DriftGroupId, value: number): void {
-  globalRateDriftByGroup[group] = clamp(value, -1, 1);
-  for (const [key, link] of driftLinks) {
-    if (link.group === group) refreshRateDriftGain(key);
-  }
-}
-
-/**
- * Set one group's Depth Drift amount (-1..1, clamped) — immediately
- * refreshes every currently-linked primary belonging to THAT group's
- * depth-drift Gain, respecting each primary's own silence guard (§1.3);
- * every other group's links are untouched. Safe no-op with zero primaries
- * connected in this group. BREAKING vs. docs/specs/LFO_DRIFT.md's shipped
- * 1-argument form.
- */
-function setGlobalDepthDrift(group: DriftGroupId, value: number): void {
-  globalDepthDriftByGroup[group] = clamp(value, -1, 1);
-  for (const [key, link] of driftLinks) {
-    if (link.group === group) refreshDepthDriftGain(key);
-  }
 }
 
 /** Reverse connectLfoTarget: disconnects the live node, or cancels the phase-polling schedule. Safe/no-op if nothing was connected. */
