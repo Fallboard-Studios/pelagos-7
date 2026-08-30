@@ -86,6 +86,25 @@ const SWELL_MIN_RANGE_FRACTION = 0.5;
  *  convention. */
 export const VOLUME_SWELL_DOWNWARD_FLOOR = 0.5;
 
+/** Robot detune's own swing cap: a maximum, not the usual minimum — every
+ *  layerN.detune swell's magnitude is capped to this fraction of detune's
+ *  full range (25% of the -50..50 range = 25 cents either direction),
+ *  overriding the default "at least 50% of range" rule entirely for this
+ *  one attribute. Direction-picking is unaffected; only the magnitude draw
+ *  uses peakDeltaCappedByFraction instead of peakDeltaForDirection. */
+export const DETUNE_SWELL_MAX_SWING_FRACTION = 0.25;
+
+/** HPF's own upward-swell ceiling — a pure clamp on the final peak, never a
+ *  gate on direction-picking, mirroring VOLUME_SWELL_DOWNWARD_FLOOR's shape.
+ *  A high-pass filter swelling past this in this ambient soundscape reads as
+ *  a harsh, un-musical thinning of the mix. */
+export const HPF_SWELL_UPWARD_CEILING_HZ = 4000;
+
+/** LPF's own downward-swell floor — same shape as HPF_SWELL_UPWARD_CEILING_HZ,
+ *  the opposite direction. A low-pass filter swelling below this reads as an
+ *  overly muffled, un-musical dulling of the mix. */
+export const LPF_SWELL_DOWNWARD_FLOOR_HZ = 100;
+
 // ========================================
 // GLOBAL TARGET -> EFFECT/FIELD MAPPING
 // ========================================
@@ -216,15 +235,28 @@ export function pickSwellPeakDelta(
   range: { min: number; max: number },
   currentValue: number,
 ): number {
+  const goingUp = pickSwellDirection(noiseMap, dataId, offset, range, currentValue);
+  return peakDeltaForDirection(noiseMap, dataId, offset, range, currentValue, goingUp);
+}
+
+/**
+ * The direction half of pickSwellPeakDelta, split out so a caller can decide
+ * which magnitude function to use (the default 50%-of-range one, or a
+ * capped-swing variant like robot detune's — see robotPeakDeltaForDirection)
+ * without duplicating the direction/tie-break logic itself.
+ */
+function pickSwellDirection(
+  noiseMap: NoiseFunction2D,
+  dataId: string,
+  offset: number,
+  range: { min: number; max: number },
+  currentValue: number,
+): boolean {
   const { min, max } = range;
   const midpoint = (min + max) / 2;
-
-  let goingUp: boolean;
-  if (currentValue < midpoint) goingUp = true;
-  else if (currentValue > midpoint) goingUp = false;
-  else goingUp = getSeededVal(noiseMap, `${dataId}.tiebreak`, offset, 0, 1) < 0.5;
-
-  return peakDeltaForDirection(noiseMap, dataId, offset, range, currentValue, goingUp);
+  if (currentValue < midpoint) return true;
+  if (currentValue > midpoint) return false;
+  return getSeededVal(noiseMap, `${dataId}.tiebreak`, offset, 0, 1) < 0.5;
 }
 
 /**
@@ -253,6 +285,37 @@ function peakDeltaForDirection(
   } else {
     const floor = Math.max(currentValue - halfSpan, min);
     const peak = getSeededVal(noiseMap, dataId, offset, min, floor);
+    return peak - currentValue;
+  }
+}
+
+/**
+ * A gentler, capped-swing alternative to peakDeltaForDirection — used for
+ * robot detune specifically (see DETUNE_SWELL_MAX_SWING_FRACTION). Same
+ * direction, but the magnitude is a seeded draw somewhere between 0 and
+ * `maxSwingFraction` of the field's full range (clamped to the real edge if
+ * `currentValue` is already close to it), never the default's "at least 50%
+ * of range" guarantee — deliberately the opposite shape: a MAXIMUM swing,
+ * not a minimum one.
+ */
+function peakDeltaCappedByFraction(
+  noiseMap: NoiseFunction2D,
+  dataId: string,
+  offset: number,
+  range: { min: number; max: number },
+  currentValue: number,
+  goingUp: boolean,
+  maxSwingFraction: number,
+): number {
+  const { min, max } = range;
+  const cap = (max - min) * maxSwingFraction;
+  if (goingUp) {
+    const cappedEdge = Math.min(currentValue + cap, max);
+    const peak = getSeededVal(noiseMap, dataId, offset, currentValue, cappedEdge);
+    return peak - currentValue;
+  } else {
+    const cappedEdge = Math.max(currentValue - cap, min);
+    const peak = getSeededVal(noiseMap, dataId, offset, cappedEdge, currentValue);
     return peak - currentValue;
   }
 }
@@ -367,6 +430,15 @@ function isGlobalTargetEligible(target: SwellGlobalTargetId): boolean {
   return useAudioStore.getState().globalAudio[meta.effect].enabled;
 }
 
+/** HPF/LPF each get one clamp on their own frequency swell — same shape as
+ *  clampVolumeDownward, a pure post-hoc clamp on the final peak that never
+ *  gates direction-picking. */
+function clampGlobalPeak(target: SwellGlobalTargetId, currentValue: number, peakDelta: number): number {
+  if (target === 'hpf.frequency') return clampSwellCeiling(currentValue, peakDelta, HPF_SWELL_UPWARD_CEILING_HZ);
+  if (target === 'lpf.frequency') return clampSwellFloor(currentValue, peakDelta, LPF_SWELL_DOWNWARD_FLOOR_HZ);
+  return peakDelta;
+}
+
 function maybeStartGlobalSwell(noiseMap: NoiseFunction2D, measure: number): void {
   if (activeSwellCount('global') >= MAX_CONCURRENT_SWELLS_PER_POOL) return;
 
@@ -382,7 +454,9 @@ function maybeStartGlobalSwell(noiseMap: NoiseFunction2D, measure: number): void
   const meta = GLOBAL_TARGET_META[target];
   const range = GLOBAL_AUDIO_SEED_RANGES[meta.rangeKey];
   const currentValue = readGlobalValue(target);
-  const peakDelta = pickSwellPeakDelta(noiseMap, `audioSwell.peak.${target}`, measure, range, currentValue);
+  const peakDelta = clampGlobalPeak(
+    target, currentValue, pickSwellPeakDelta(noiseMap, `audioSwell.peak.${target}`, measure, range, currentValue)
+  );
 
   const durationRange = MIX_SWELL_TARGETS.includes(target) ? MIX_SWELL_DURATION_RANGE : DEFAULT_SWELL_DURATION_RANGE;
   const risingMeasures = pickPhaseMeasures(noiseMap, `audioSwell.rising.${target}`, measure, durationRange);
@@ -453,8 +527,10 @@ function startSingleRobotSwell(robots: Robot[], noiseMap: NoiseFunction2D, measu
 
   const range = ROBOT_SWELL_FIELD_RANGE[attribute];
   const currentValue = readRobotValue(robot, attribute);
+  const dataId = `audioSwell.peak.${robot.id}.${attribute}`;
+  const goingUp = pickSwellDirection(noiseMap, dataId, measure, range, currentValue);
   const peakDelta = clampVolumeDownward(
-    attribute, currentValue, pickSwellPeakDelta(noiseMap, `audioSwell.peak.${robot.id}.${attribute}`, measure, range, currentValue)
+    attribute, currentValue, robotPeakDeltaForDirection(attribute, noiseMap, dataId, measure, range, currentValue, goingUp)
   );
 
   // Robot attributes have no mix-style duration exception — always the default range.
@@ -512,9 +588,10 @@ function startCompanyWideSwell(companies: Company[], robots: Robot[], noiseMap: 
   const range = ROBOT_SWELL_FIELD_RANGE[attribute];
   const members: SwellMember[] = memberRobots.map((robot) => {
     const currentValue = readRobotValue(robot, attribute);
+    const dataId = `audioSwell.peak.company.${robot.id}.${attribute}`;
     const peakDelta = clampVolumeDownward(
       attribute, currentValue,
-      peakDeltaForDirection(noiseMap, `audioSwell.peak.company.${robot.id}.${attribute}`, measure, range, currentValue, goingUp)
+      robotPeakDeltaForDirection(attribute, noiseMap, dataId, measure, range, currentValue, goingUp)
     );
     return { robotId: robot.id, baseValue: currentValue, peakDelta };
   });
@@ -535,10 +612,50 @@ function startCompanyWideSwell(companies: Company[], robots: Robot[], noiseMap: 
 /** Robot volume's downward clamp: a pure post-hoc clamp on the final peak,
  *  never a gate on direction-picking (§1.5) — an upward pick is never
  *  touched. Shared by the single-robot and company-wide paths. */
+/** Clamps a downward-only swell's peak so it never drops below `floor` —
+ *  never a gate on direction-picking. If `currentValue` is already at or
+ *  below `floor`, collapses to no movement rather than flipping to an
+ *  upward delta. */
+function clampSwellFloor(currentValue: number, peakDelta: number, floor: number): number {
+  if (peakDelta >= 0) return peakDelta;
+  return Math.min(0, Math.max(currentValue + peakDelta, floor) - currentValue);
+}
+
+/** Clamps an upward-only swell's peak so it never exceeds `ceiling` — never
+ *  a gate on direction-picking. If `currentValue` is already at or above
+ *  `ceiling`, collapses to no movement rather than flipping to a downward
+ *  delta. */
+function clampSwellCeiling(currentValue: number, peakDelta: number, ceiling: number): number {
+  if (peakDelta <= 0) return peakDelta;
+  return Math.max(0, Math.min(currentValue + peakDelta, ceiling) - currentValue);
+}
+
 function clampVolumeDownward(attribute: SwellRobotAttributeId, currentValue: number, peakDelta: number): number {
-  if (attribute !== 'volume' || peakDelta >= 0) return peakDelta;
-  const clampedPeak = Math.max(currentValue + peakDelta, VOLUME_SWELL_DOWNWARD_FLOOR);
-  return clampedPeak - currentValue;
+  if (attribute !== 'volume') return peakDelta;
+  return clampSwellFloor(currentValue, peakDelta, VOLUME_SWELL_DOWNWARD_FLOOR);
+}
+
+const DETUNE_ATTRIBUTE_PATTERN = /\.detune$/;
+
+/**
+ * Chooses between the default 50%-of-range magnitude draw and detune's own
+ * capped-swing variant, for a single already-decided direction — shared by
+ * both the single-robot and company-wide paths so neither has to know about
+ * this per-attribute exception separately.
+ */
+function robotPeakDeltaForDirection(
+  attribute: SwellRobotAttributeId,
+  noiseMap: NoiseFunction2D,
+  dataId: string,
+  offset: number,
+  range: { min: number; max: number },
+  currentValue: number,
+  goingUp: boolean,
+): number {
+  if (DETUNE_ATTRIBUTE_PATTERN.test(attribute)) {
+    return peakDeltaCappedByFraction(noiseMap, dataId, offset, range, currentValue, goingUp, DETUNE_SWELL_MAX_SWING_FRACTION);
+  }
+  return peakDeltaForDirection(noiseMap, dataId, offset, range, currentValue, goingUp);
 }
 
 // ========================================

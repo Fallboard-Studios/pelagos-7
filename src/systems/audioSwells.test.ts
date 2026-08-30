@@ -35,6 +35,9 @@ import {
   MIX_SWELL_DURATION_RANGE,
   VOLUME_SWELL_DOWNWARD_FLOOR,
   SWELL_COMPANY_CHANCE,
+  DETUNE_SWELL_MAX_SWING_FRACTION,
+  HPF_SWELL_UPWARD_CEILING_HZ,
+  LPF_SWELL_DOWNWARD_FLOOR_HZ,
 } from './audioSwells';
 import * as robotOptionsActions from './robotOptionsActions';
 import { scheduleRepeat, cancelSchedule } from '@/engine/beatClock';
@@ -766,6 +769,10 @@ describe('robot pool — company-wide swells', () => {
     vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
     tickAudioSwells(LOCALE_ID, 0); // creates the company swell (volume, rising 3 / falling 3 under ALWAYS_MIN)
 
+    // Force this measure's own trigger draw to fail (real noise would
+    // otherwise decide it non-deterministically, per session's random AS
+    // name seed, and could spuriously start an unrelated swell here).
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MID);
     tickAudioSwells(LOCALE_ID, 6); // both members' shared window completes on the same measure
 
     expect(useLocaleStore.getState().getRobotById(LOCALE_ID, 'r1')!.masterVolume).toBe(0.1);
@@ -793,5 +800,125 @@ describe('robot pool — company-wide swells', () => {
     const second = getActiveSwellSnapshot('robot');
 
     expect(second).toEqual(first);
+  });
+});
+
+// ========================================
+// PER-ATTRIBUTE RANGE OVERRIDES (detune swing cap, HPF/LPF frequency clamps)
+// ========================================
+
+describe('robot pool — detune swing cap (25% of range = 25 cents, either direction)', () => {
+  function makeDetuneRobot(detune: number): Robot {
+    return makeRobot({
+      audioAttributes: {
+        adsr: { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 },
+        filterFreq: 0,
+        waveform: 'sine',
+        layers: [{ type: 'sine', gain: 1, detune, phase: 0, active: true }],
+      },
+    });
+  }
+
+  it('caps an upward detune swell at 25 cents even when the default rule would allow much more', () => {
+    const robot = makeDetuneRobot(-40); // near the -50 edge -> direction picks up; the default (uncapped) rule would allow up to +90 cents of travel
+    useLocaleStore.getState().addRobot(LOCALE_ID, robot);
+    const noiseMap = noiseMapForDataIds({
+      'audioSwell.trigger.robot': -1,
+      'audioSwell.target.robot': -0.5, // index 2 of 9 eligible -> 'layer0.detune'
+      [`audioSwell.peak.${robot.id}.layer0.detune`]: 1, // force the largest draw the capped range allows
+    });
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(noiseMap);
+
+    tickAudioSwells(LOCALE_ID, 0);
+
+    const member = getActiveSwellSnapshot('robot').find((s) => s.robotAttribute === 'layer0.detune')!.members![0];
+    expect(member.baseValue).toBe(-40);
+    expect(member.peakDelta).toBeCloseTo(100 * DETUNE_SWELL_MAX_SWING_FRACTION); // exactly the 25-cent cap, not the ~90 the default rule would allow
+  });
+
+  it('caps a downward detune swell at 25 cents even when the default rule would allow much more', () => {
+    const robot = makeDetuneRobot(40); // near the +50 edge -> direction picks down
+    useLocaleStore.getState().addRobot(LOCALE_ID, robot);
+    const noiseMap = noiseMapForDataIds({
+      'audioSwell.trigger.robot': -1,
+      'audioSwell.target.robot': -0.5,
+      [`audioSwell.peak.${robot.id}.layer0.detune`]: -1, // force the largest downward draw the capped range allows
+    });
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(noiseMap);
+
+    tickAudioSwells(LOCALE_ID, 0);
+
+    const member = getActiveSwellSnapshot('robot').find((s) => s.robotAttribute === 'layer0.detune')!.members![0];
+    expect(member.baseValue).toBe(40);
+    expect(member.peakDelta).toBeCloseTo(-100 * DETUNE_SWELL_MAX_SWING_FRACTION);
+  });
+
+  it('still draws a variable magnitude somewhere between 0 and the 25-cent cap, not always the full cap', () => {
+    const robot = makeDetuneRobot(-40);
+    useLocaleStore.getState().addRobot(LOCALE_ID, robot);
+    const noiseMap = noiseMapForDataIds({
+      'audioSwell.trigger.robot': -1,
+      'audioSwell.target.robot': -0.5,
+      [`audioSwell.peak.${robot.id}.layer0.detune`]: 0, // midpoint fraction -> roughly half the cap
+    });
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(noiseMap);
+
+    tickAudioSwells(LOCALE_ID, 0);
+
+    const member = getActiveSwellSnapshot('robot').find((s) => s.robotAttribute === 'layer0.detune')!.members![0];
+    expect(member.peakDelta).toBeCloseTo(12.5); // half of the 25-cent cap
+  });
+});
+
+describe('global pool — HPF/LPF frequency clamps', () => {
+  it(`never swells HPF frequency above ${HPF_SWELL_UPWARD_CEILING_HZ}Hz`, () => {
+    // HPF's default (20Hz) sits near the true min -> direction picks up by
+    // default; the default rule alone would allow it all the way to 20000.
+    const noiseMap = noiseMapForDataIds({
+      'audioSwell.trigger.global': -1,
+      'audioSwell.target.global': 0.2, // index 5 of 9 -> 'hpf.frequency'
+      'audioSwell.peak.hpf.frequency': 1, // force the largest unclamped draw
+    });
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(noiseMap);
+
+    tickAudioSwells(LOCALE_ID, 0);
+
+    const swell = getActiveSwellSnapshot('global').find((s) => s.globalTarget === 'hpf.frequency')!;
+    const peak = swell.baseValue! + swell.peakDelta!;
+    expect(peak).toBeCloseTo(HPF_SWELL_UPWARD_CEILING_HZ);
+  });
+
+  it(`never swells LPF frequency below ${LPF_SWELL_DOWNWARD_FLOOR_HZ}Hz`, () => {
+    // LPF's default (20000Hz) sits at the true max -> direction picks down
+    // by default; the default rule alone would allow it all the way to 20.
+    const noiseMap = noiseMapForDataIds({
+      'audioSwell.trigger.global': -1,
+      'audioSwell.target.global': -0.2, // index 3 of 9 -> 'lpf.frequency'
+      'audioSwell.peak.lpf.frequency': -1, // force the largest unclamped draw
+    });
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(noiseMap);
+
+    tickAudioSwells(LOCALE_ID, 0);
+
+    const swell = getActiveSwellSnapshot('global').find((s) => s.globalTarget === 'lpf.frequency')!;
+    const peak = swell.baseValue! + swell.peakDelta!;
+    expect(peak).toBeCloseTo(LPF_SWELL_DOWNWARD_FLOOR_HZ);
+  });
+
+  it('leaves eq3/delay/reverb swells unaffected by the HPF/LPF clamps', () => {
+    const noiseMap = noiseMapForDataIds({
+      'audioSwell.trigger.global': -1,
+      'audioSwell.target.global': -1, // index 0 of 9 -> 'eq3.low'
+      'audioSwell.peak.eq3.low': 1, // force the largest unclamped draw (up to the true edge, 12)
+    });
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(noiseMap);
+
+    tickAudioSwells(LOCALE_ID, 0);
+
+    const swell = getActiveSwellSnapshot('global').find((s) => s.globalTarget === 'eq3.low')!;
+    // eq3.low's default (0) sits exactly at its own midpoint, so direction is
+    // a seeded coin-flip — either edge proves the point: it reaches its own
+    // true ±12dB edge, unclamped by anything HPF/LPF-specific.
+    expect(Math.abs(swell.baseValue! + swell.peakDelta!)).toBeCloseTo(12);
   });
 });
