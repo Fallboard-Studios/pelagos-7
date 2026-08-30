@@ -4,8 +4,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 vi.mock('../engine/beatClock', () => ({
-  subscribeToMeasure: vi.fn(() => vi.fn()),
+  subscribeToMeasure: vi.fn(() => vi.fn()), // robotSystems.ts's own lifecycle tick
   getCurrentMeasure: vi.fn(() => 0),
+  scheduleRepeat: vi.fn(() => 'schedule-id'), // audioSwells.ts's own 16n lifecycle tick
+  cancelSchedule: vi.fn(),
+  getCurrentMeasurePrecise: vi.fn(() => 0),
 }));
 
 // Spy on recolorFactoriesForAttenuationStyle while keeping every other export
@@ -109,9 +112,14 @@ describe('worldTransition', () => {
       const { subscribeToMeasure } = await import('../engine/beatClock');
       initializeLocale(DEFAULT_LOCALE_ID);
       initializeLocale(DEFAULT_LOCALE_ID);
-      // 2 subscriptions per call — robot lifecycle and audio swells each
-      // restart their own BeatClock subscription (Task 6).
-      expect(subscribeToMeasure).toHaveBeenCalledTimes(4);
+      expect(subscribeToMeasure).toHaveBeenCalledTimes(2);
+    });
+
+    it('also restarts the audio swells tick (its own 16n schedule, not subscribeToMeasure) on a second call', async () => {
+      const { scheduleRepeat } = await import('../engine/beatClock');
+      initializeLocale(DEFAULT_LOCALE_ID);
+      initializeLocale(DEFAULT_LOCALE_ID);
+      expect(scheduleRepeat).toHaveBeenCalledTimes(2);
     });
 
     it('calls stopAudioSwells then startAudioSwells(localeId), alongside the existing robot-lifecycle restart', () => {
@@ -366,20 +374,16 @@ describe('worldTransition', () => {
   describe('robot lifecycle tick ordering', () => {
     it('stops the previous tick before starting the new locale\'s', async () => {
       const { subscribeToMeasure } = await import('../engine/beatClock');
-      initializeLocale(DEFAULT_LOCALE_ID); // first tick running — call 0 is robot lifecycle's own subscribe
+      initializeLocale(DEFAULT_LOCALE_ID); // first tick running
       const firstUnsubscribe = vi.mocked(subscribeToMeasure).mock.results[0].value;
 
       retransmitWorld({ coordinates: { x: 500, y: 500 } }); // must stop-then-start for the new locale
 
       expect(firstUnsubscribe).toHaveBeenCalled();
-      // 2 subscriptions per initializeLocale call — robot lifecycle and audio
-      // swells each restart their own BeatClock subscription (Task 6) — so
-      // call order is [robot1, swells1, robot2, swells2]; index 2 is the new
-      // locale's own robot-lifecycle resubscribe.
-      expect(subscribeToMeasure).toHaveBeenCalledTimes(4);
+      expect(subscribeToMeasure).toHaveBeenCalledTimes(2);
       const unsubOrder = firstUnsubscribe.mock.invocationCallOrder[0];
-      const newLocaleRobotSubscribeOrder = vi.mocked(subscribeToMeasure).mock.invocationCallOrder[2];
-      expect(unsubOrder).toBeLessThan(newLocaleRobotSubscribeOrder);
+      const secondSubscribeOrder = vi.mocked(subscribeToMeasure).mock.invocationCallOrder[1];
+      expect(unsubOrder).toBeLessThan(secondSubscribeOrder);
     });
   });
 });

@@ -25,7 +25,7 @@
 import type { NoiseFunction2D } from 'simplex-noise';
 
 import { applyVolume, applyLayersContinuous, applyAdsr } from './robotOptionsActions';
-import { subscribeToMeasure, getCurrentMeasure } from '@/engine/beatClock';
+import { scheduleRepeat, cancelSchedule, getCurrentMeasurePrecise } from '@/engine/beatClock';
 import { getSeededVal } from '@/utils/getSeededVal';
 import { getAttenuationStyleNoiseMap } from '@/utils/noiseMaps';
 import { useAttenuationStyleStore, selectCurrentAttenuationStyle } from '@/stores/attenuationStyleStore';
@@ -271,7 +271,7 @@ function pickPhaseMeasures(
 // LIFECYCLE
 // ========================================
 
-let unsubscribe: (() => void) | null = null;
+let swellScheduleId: string | null = null;
 
 /** Keyed by a stable target identity: the bare global target id for pool
  *  'global'; `${robotId}:${attribute}` per member for pool 'robot' (Task 4) —
@@ -280,14 +280,27 @@ let unsubscribe: (() => void) | null = null;
  *  iterating, since a company-wide ActiveSwell is stored under multiple keys. */
 const activeSwells = new Map<string, ActiveSwell>();
 
+/** The whole-measure number the trigger/selection draws last ran for — set
+ *  by tickAudioSwells so a tick landing mid-measure (see below) never rolls
+ *  a second time before the next whole measure begins. -1 (no measure is
+ *  ever negative) so the very first tick of a session always rolls. */
+let lastRolledMeasure = -1;
+
 export function startAudioSwells(localeId: string): void {
-  if (unsubscribe !== null) return; // already running — same idempotent guard startRobotLifecycle uses
-  unsubscribe = subscribeToMeasure(() => tickAudioSwells(localeId, getCurrentMeasure()));
+  if (swellScheduleId !== null) return; // already running — same idempotent guard startRobotLifecycle uses
+  // 16n, not once-per-measure: tickAudioSwells's own advance step needs
+  // sub-measure resolution for a smooth ramp (16 updates/measure) — the
+  // trigger/selection draws still only run once per whole measure, gated
+  // inside tickAudioSwells itself via lastRolledMeasure.
+  swellScheduleId = scheduleRepeat('16n', () => tickAudioSwells(localeId, getCurrentMeasurePrecise()));
 }
 
 export function stopAudioSwells(): void {
-  unsubscribe?.();
-  unsubscribe = null;
+  if (swellScheduleId !== null) {
+    cancelSchedule(swellScheduleId);
+    swellScheduleId = null;
+  }
+  lastRolledMeasure = -1;
   activeSwells.clear(); // no partial swells survive a locale/AS change
 }
 
@@ -315,18 +328,33 @@ function activeSwellCount(pool: SwellPool): number {
   return getActiveSwellSnapshot(pool).length;
 }
 
-/** One measure's worth of Audio Swell evaluation. Pure with respect to its
- *  `measure` input (not read from BeatClock directly) so tests can drive it
- *  without a real transport — see startAudioSwells for the BeatClock-wired
- *  entry point. Mirrors tickRobotLifecycle's own shape (robotSystems.ts). */
+/** One 16n tick's worth of Audio Swell evaluation — `measure` may be
+ *  fractional (sub-measure precision) for a smooth ramp; trigger/selection
+ *  is internally gated to once per whole measure regardless. Pure with
+ *  respect to its `measure` input (not read from BeatClock directly) so
+ *  tests can drive it without a real transport — see startAudioSwells for
+ *  the BeatClock-wired entry point. Mirrors tickRobotLifecycle's own shape
+ *  (robotSystems.ts), generalized from once-per-measure to 16n. */
 export function tickAudioSwells(localeId: string, measure: number): void {
   const as = selectCurrentAttenuationStyle(useAttenuationStyleStore.getState());
   if (!as) return;
   const noiseMap = getAttenuationStyleNoiseMap(as.id, as.name);
 
+  // Advance runs every tick — smooth, sub-measure interpolation from
+  // whatever fractional `measure` this tick carries (16n resolution in
+  // production; tests may pass any real number). Trigger/selection stays
+  // gated to once per WHOLE measure — SWELL_TRIGGER_CHANCE etc. are
+  // documented as per-measure probabilities, and re-rolling them 16x a
+  // measure would multiply the effective trigger rate and break the
+  // ~3-4-measure average gap the spec calls for.
   advanceActiveSwells(localeId, measure);
-  maybeStartGlobalSwell(noiseMap, measure);
-  maybeStartRobotSwell(localeId, noiseMap, measure);
+
+  const wholeMeasure = Math.floor(measure);
+  if (wholeMeasure !== lastRolledMeasure) {
+    lastRolledMeasure = wholeMeasure;
+    maybeStartGlobalSwell(noiseMap, wholeMeasure);
+    maybeStartRobotSwell(localeId, noiseMap, wholeMeasure);
+  }
 }
 
 // ========================================

@@ -328,16 +328,18 @@ A small chance turns a robot-pool pick into a **company-wide** swell instead of 
 ### Lifecycle and determinism
 
 ```typescript
-startAudioSwells(localeId: string): void   // idempotent — subscribes to BeatClock via subscribeToMeasure
-stopAudioSwells(): void                    // idempotent — unsubscribes AND clears every in-flight swell
+startAudioSwells(localeId: string): void   // idempotent — schedules a 16n repeat via BeatClock's scheduleRepeat
+stopAudioSwells(): void                    // idempotent — cancels the schedule AND clears every in-flight swell
 tickAudioSwells(localeId: string, measure: number): void  // pure w.r.t. `measure` — testable without a real transport
 ```
 
-Wired into `worldTransition.ts`'s `initializeLocale`, alongside the existing `stopRobotLifecycle()`/`startRobotLifecycle()` pair — `stopAudioSwells(); startAudioSwells(localeId);`, in that order, on every locale (re-)initialization. `stopAudioSwells`'s clear means no swell from a prior locale survives a locale switch or a power cycle (BeatClock silently drops every `subscribeToMeasure` listener whenever `AudioEngine.killAll()` runs, same as the robot-lifecycle tick).
+Ticked at **16n resolution** (`scheduleRepeat('16n', ...)`, `getCurrentMeasurePrecise()`), not once per measure — a swell's ramp updates up to 16 times per measure, not in single steps at each measure boundary. `measure` inside `tickAudioSwells` may be fractional (sub-measure precision); `advanceActiveSwells` interpolates from it directly, so `elapsed / totalPhaseMeasures` is a smooth, continuously-advancing fraction rather than a coarse per-measure step. Trigger/selection stays gated to once per **whole** measure regardless — `tickAudioSwells` tracks the last whole measure (`Math.floor(measure)`) it already rolled `maybeStartGlobalSwell`/`maybeStartRobotSwell` for and skips re-rolling until a new one begins, since `SWELL_TRIGGER_CHANCE`/`SWELL_COMPANY_CHANCE` are documented as per-*measure* probabilities — re-rolling them 16x a measure would silently multiply the effective trigger rate.
+
+Wired into `worldTransition.ts`'s `initializeLocale`, alongside the existing `stopRobotLifecycle()`/`startRobotLifecycle()` pair — `stopAudioSwells(); startAudioSwells(localeId);`, in that order, on every locale (re-)initialization. `stopAudioSwells`'s clear means no swell from a prior locale survives a locale switch or a power cycle (BeatClock silently drops every `scheduleRepeat` registration whenever `AudioEngine.killAll()` runs, same as the robot-lifecycle tick).
 
 Runtime state (`activeSwells`, a plain `Map<string, ActiveSwell>`) lives at module scope in `audioSwells.ts`, never in Zustand — only each tick's resulting field value reaches the store, via the normal `apply*`/`setGlobalAudio` call, same as any other edit (CLAUDE.md: runtime-only state stays out of state). `getActiveSwellSnapshot(pool)` is a small read-only, deduplicated-by-object-identity accessor for tests/future debug UI; nothing else reads `activeSwells` directly.
 
-Every trigger/selection/timing/direction/magnitude decision is a `getSeededVal(noiseMap, dataId, offset, min, max)` draw against the **Attenuation Style** noise map (`getAttenuationStyleNoiseMap`) — `offset` is always the current *unwrapped* `getCurrentMeasure()`, never the `% 96`-wrapped value `subscribeToMeasure`'s own callback argument carries (the same trap `robotSystems.ts`'s `startRobotLifecycle` documents — a wrapped measure would replay an identical decision every 96 measures). `Math.random()` appears nowhere in `audioSwells.ts`. Two sessions on the same seed produce an identical swell timeline; a user's own manual edits are the only thing that can make two sessions diverge.
+Every trigger/selection/timing/direction/magnitude decision is a `getSeededVal(noiseMap, dataId, offset, min, max)` draw against the **Attenuation Style** noise map (`getAttenuationStyleNoiseMap`) — `offset` is always the current *unwrapped whole* measure (`Math.floor(getCurrentMeasurePrecise())`, gated as above), never the `% 96`-wrapped value `subscribeToMeasure`'s own callback argument carries elsewhere in this codebase (the same trap `robotSystems.ts`'s `startRobotLifecycle` documents — a wrapped measure would replay an identical decision every 96 measures). `Math.random()` appears nowhere in `audioSwells.ts`. Two sessions on the same seed produce an identical swell timeline; a user's own manual edits are the only thing that can make two sessions diverge.
 
 ## Note Resolution Pipeline
 

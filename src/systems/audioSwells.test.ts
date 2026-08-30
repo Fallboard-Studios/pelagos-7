@@ -8,8 +8,9 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { NoiseFunction2D } from 'simplex-noise';
 
 vi.mock('@/engine/beatClock', () => ({
-  subscribeToMeasure: vi.fn(() => vi.fn()),
-  getCurrentMeasure: vi.fn(() => 0),
+  scheduleRepeat: vi.fn(() => 'schedule-id'),
+  cancelSchedule: vi.fn(),
+  getCurrentMeasurePrecise: vi.fn(() => 0),
 }));
 
 // Wraps the REAL getAttenuationStyleNoiseMap by default (real, deterministic
@@ -36,7 +37,7 @@ import {
   SWELL_COMPANY_CHANCE,
 } from './audioSwells';
 import * as robotOptionsActions from './robotOptionsActions';
-import { subscribeToMeasure } from '@/engine/beatClock';
+import { scheduleRepeat, cancelSchedule } from '@/engine/beatClock';
 import { getAttenuationStyleNoiseMap } from '@/utils/noiseMaps';
 import { precomputeDataX } from '@/utils/getSeededVal';
 import { useAudioStore } from '@/stores/audioStore';
@@ -133,6 +134,8 @@ function enableAllGlobalEffects(): void {
 beforeEach(() => {
   vi.mocked(getAttenuationStyleNoiseMap).mockClear();
   stopAudioSwells(); // idempotent — clears any leftover activeSwells + subscription state
+  vi.mocked(scheduleRepeat).mockClear();
+  vi.mocked(cancelSchedule).mockClear();
   useAudioStore.setState({ globalAudio: { ...DEFAULT_GLOBAL_AUDIO_SETTINGS } });
   enableAllGlobalEffects();
   useLocaleStore.getState().setLocaleData(LOCALE_ID, { robots: [], companies: [] } as unknown as Partial<Locale>);
@@ -153,25 +156,26 @@ afterEach(() => {
 // ========================================
 
 describe('startAudioSwells / stopAudioSwells', () => {
-  it('subscribes exactly once to BeatClock measure ticks', () => {
+  it('registers exactly one 16n schedule (smooth, sub-measure-precision ticking, not once-per-measure)', () => {
     startAudioSwells(LOCALE_ID);
-    expect(subscribeToMeasure).toHaveBeenCalledTimes(1);
+    expect(scheduleRepeat).toHaveBeenCalledTimes(1);
+    expect(scheduleRepeat).toHaveBeenCalledWith('16n', expect.any(Function));
   });
 
-  it('is idempotent — a second start call does not double-subscribe', () => {
+  it('is idempotent — a second start call does not double-schedule', () => {
     startAudioSwells(LOCALE_ID);
     startAudioSwells(LOCALE_ID);
-    expect(subscribeToMeasure).toHaveBeenCalledTimes(1);
+    expect(scheduleRepeat).toHaveBeenCalledTimes(1);
   });
 
-  it('stop is idempotent — a second stop call does not throw or unsubscribe twice', () => {
-    const unsubscribe = vi.fn();
-    vi.mocked(subscribeToMeasure).mockReturnValueOnce(unsubscribe);
+  it('stop is idempotent — a second stop call does not throw or cancel twice', () => {
+    vi.mocked(scheduleRepeat).mockReturnValueOnce('the-schedule-id');
     startAudioSwells(LOCALE_ID);
     stopAudioSwells();
-    expect(unsubscribe).toHaveBeenCalledTimes(1);
+    expect(cancelSchedule).toHaveBeenCalledWith('the-schedule-id');
+    expect(cancelSchedule).toHaveBeenCalledTimes(1);
     expect(() => stopAudioSwells()).not.toThrow();
-    expect(unsubscribe).toHaveBeenCalledTimes(1);
+    expect(cancelSchedule).toHaveBeenCalledTimes(1);
   });
 
   it('clears all in-flight swells — a fresh start begins from zero active swells', () => {
@@ -181,6 +185,51 @@ describe('startAudioSwells / stopAudioSwells', () => {
 
     stopAudioSwells();
     expect(getActiveSwellSnapshot('global')).toEqual([]);
+  });
+
+  it('resets the once-per-measure trigger gate — a fresh session can roll again at the same measure value', () => {
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
+    tickAudioSwells(LOCALE_ID, 0);
+    expect(getActiveSwellSnapshot('global')).toHaveLength(1);
+
+    stopAudioSwells();
+
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
+    tickAudioSwells(LOCALE_ID, 0); // same measure value as before stop — must still roll, not be gated as "already seen"
+    expect(getActiveSwellSnapshot('global')).toHaveLength(1);
+  });
+});
+
+describe('smooth sub-measure advance (16n ticking)', () => {
+  it('interpolates continuously within a single measure from a fractional measure input, not just at whole-measure boundaries', () => {
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
+    tickAudioSwells(LOCALE_ID, 0); // eq3.low: base 0, peak 12, rising 3, falling 3
+
+    tickAudioSwells(LOCALE_ID, 0.5); // half a measure into the 3-measure rise
+    expect(useAudioStore.getState().globalAudio.eq3.low).toBeCloseTo(12 * (0.5 / 3));
+
+    tickAudioSwells(LOCALE_ID, 0.9375); // 15/16 of a measure in (16th-note resolution)
+    expect(useAudioStore.getState().globalAudio.eq3.low).toBeCloseTo(12 * (0.9375 / 3));
+  });
+
+  it('rolls the trigger/selection at most once per whole measure, even when ticked 16 times within it', () => {
+    for (let i = 0; i < 16; i++) {
+      vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
+      tickAudioSwells(LOCALE_ID, i / 16); // all 16 ticks land within measure 0
+    }
+    expect(getActiveSwellSnapshot('global')).toHaveLength(1); // only the first tick's roll took effect
+  });
+
+  it('can roll a new trigger again once a new whole measure begins', () => {
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
+    tickAudioSwells(LOCALE_ID, 0); // measure 0 -> picks eq3.low
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
+    tickAudioSwells(LOCALE_ID, 0.5); // still measure 0 -> gated, no new pick
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
+    tickAudioSwells(LOCALE_ID, 1); // new whole measure -> eq3.low now excluded -> picks eq3.mid
+
+    const targets = getActiveSwellSnapshot('global').map((s) => s.globalTarget).sort();
+    expect(targets).toEqual(['eq3.low', 'eq3.mid']);
   });
 });
 
