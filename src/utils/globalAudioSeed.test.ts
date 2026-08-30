@@ -77,7 +77,7 @@ describe('generateGlobalAudioSettings', () => {
     expect(settings.filterHPF.type).toBe('highpass');
   });
 
-  it('is deterministic — same planetId + planetName always produces the same settings', () => {
+  it('is deterministic — same attenuationStyleId + attenuationStyleName always produces the same settings', () => {
     const first = generateGlobalAudioSettings('seed-test-planet', 'Nova');
     const second = generateGlobalAudioSettings('seed-test-planet', 'Nova');
     expect(second).toEqual(first);
@@ -90,7 +90,7 @@ describe('generateGlobalAudioSettings', () => {
     expect(second).toEqual(first);
   });
 
-  it('produces different values for a different planet name (non-degenerate)', () => {
+  it('produces different values for a different Attenuation Style name (non-degenerate)', () => {
     const a = generateGlobalAudioSettings('seed-test-planet', 'Nova');
     const b = generateGlobalAudioSettings('seed-test-planet-b', 'Zenith');
     expect(b).not.toEqual(a);
@@ -144,7 +144,7 @@ describe('generateGlobalAudioSettings', () => {
   });
 
   it('seeds enabled: true unconditionally for every effect except delay', () => {
-    // Two differently-seeded planets should agree on every non-delay effect's
+    // Two differently-seeded Attenuation Styles should agree on every non-delay effect's
     // `enabled` (always true) even though their numeric fields differ.
     const a = generateGlobalAudioSettings('seed-test-planet', 'Nova');
     const b = generateGlobalAudioSettings('seed-test-planet-b', 'Zenith');
@@ -162,7 +162,7 @@ describe('generateGlobalAudioSettings', () => {
     expect(b.limiter.enabled).toBe(true);
   });
 
-  it('seeds delay.enabled true for roughly 1-in-4 planets, not roughly all or none (>= 0.75 threshold)', () => {
+  it('seeds delay.enabled true for roughly 1-in-4 Attenuation Styles, not roughly all or none (>= 0.75 threshold)', () => {
     const SAMPLE_ATTENUATION_STYLES = 40;
     let enabledCount = 0;
     for (let i = 0; i < SAMPLE_ATTENUATION_STYLES; i++) {
@@ -177,7 +177,7 @@ describe('generateGlobalAudioSettings', () => {
     expect(enabledRate).toBeLessThan(0.5);
   });
 
-  it('is deterministic for delay.enabled too — same planetId + planetName always agrees', () => {
+  it('is deterministic for delay.enabled too — same attenuationStyleId + attenuationStyleName always agrees', () => {
     const first = generateGlobalAudioSettings('seed-test-planet', 'Nova');
     const second = generateGlobalAudioSettings('seed-test-planet', 'Nova');
     expect(second.delay.enabled).toBe(first.delay.enabled);
@@ -189,13 +189,13 @@ describe('generateGlobalAudioSettings', () => {
       expect(Object.keys(settings.lfoDrift).sort()).toEqual([...DRIFT_GROUP_IDS].sort());
     });
 
-    it('is deterministic — same planetId + planetName always produces the same lfoDrift for every group', () => {
+    it('is deterministic — same attenuationStyleId + attenuationStyleName always produces the same lfoDrift for every group', () => {
       const first = generateGlobalAudioSettings('seed-test-planet', 'Nova');
       const second = generateGlobalAudioSettings('seed-test-planet', 'Nova');
       expect(second.lfoDrift).toEqual(first.lfoDrift);
     });
 
-    it('produces different lfoDrift values for a different planet name (non-degenerate)', () => {
+    it('produces different lfoDrift values for a different Attenuation Style name (non-degenerate)', () => {
       const a = generateGlobalAudioSettings('seed-test-planet', 'Nova');
       const b = generateGlobalAudioSettings('seed-test-planet-b', 'Zenith');
       expect(b.lfoDrift).not.toEqual(a.lfoDrift);
@@ -223,22 +223,22 @@ describe('generateGlobalAudioSettings', () => {
       expect(new Set(depthDrifts).size).toBe(DRIFT_GROUP_IDS.length);
     });
 
-    it('keeps every group\'s fields within the -0.7..0.7 loading range on every call, across many planets', () => {
+    it('keeps every group\'s fields within the -0.7..0.7 loading range on every call, across many Attenuation Styles', () => {
       const SAMPLE_ATTENUATION_STYLES = 20;
       for (let i = 0; i < SAMPLE_ATTENUATION_STYLES; i++) {
         const settings = generateGlobalAudioSettings(`seed-drift-sample-${i}`, `DriftSample${i}`);
         for (const group of DRIFT_GROUP_IDS) {
           const { rateDrift, depthDrift } = settings.lfoDrift[group];
-          expect(rateDrift, `planet ${i} ${group} rateDrift`).toBeGreaterThanOrEqual(-0.7);
-          expect(rateDrift, `planet ${i} ${group} rateDrift`).toBeLessThanOrEqual(0.7);
-          expect(depthDrift, `planet ${i} ${group} depthDrift`).toBeGreaterThanOrEqual(-0.7);
-          expect(depthDrift, `planet ${i} ${group} depthDrift`).toBeLessThanOrEqual(0.7);
+          expect(rateDrift, `attenuationStyle ${i} ${group} rateDrift`).toBeGreaterThanOrEqual(-0.7);
+          expect(rateDrift, `attenuationStyle ${i} ${group} rateDrift`).toBeLessThanOrEqual(0.7);
+          expect(depthDrift, `attenuationStyle ${i} ${group} depthDrift`).toBeGreaterThanOrEqual(-0.7);
+          expect(depthDrift, `attenuationStyle ${i} ${group} depthDrift`).toBeLessThanOrEqual(0.7);
         }
         evictAttenuationStyleNoiseMap(`seed-drift-sample-${i}`);
       }
     });
 
-    it('actually produces both negative and positive rateDrift values across many planets, for every group (non-degenerate)', () => {
+    it('actually produces both negative and positive rateDrift values across many Attenuation Styles, for every group (non-degenerate)', () => {
       const SAMPLE_ATTENUATION_STYLES = 20;
       const sawNegative: Record<string, boolean> = {};
       const sawPositive: Record<string, boolean> = {};
@@ -275,7 +275,7 @@ describe('generateGlobalLfoSettings', () => {
     expect(Object.keys(settings).sort()).toEqual([...GLOBAL_LFO_TARGET_IDS].sort());
   });
 
-  it('is deterministic — same planetId + planetName always produces the same settings', () => {
+  it('is deterministic — same attenuationStyleId + attenuationStyleName always produces the same settings', () => {
     const first = generateGlobalLfoSettings('seed-test-planet', 'Nova');
     const second = generateGlobalLfoSettings('seed-test-planet', 'Nova');
     expect(second).toEqual(first);
@@ -288,7 +288,7 @@ describe('generateGlobalLfoSettings', () => {
     expect(second).toEqual(first);
   });
 
-  it('produces different values for a different planet name (non-degenerate)', () => {
+  it('produces different values for a different Attenuation Style name (non-degenerate)', () => {
     const a = generateGlobalLfoSettings('seed-test-planet', 'Nova');
     const b = generateGlobalLfoSettings('seed-test-planet-b', 'Zenith');
     expect(b).not.toEqual(a);
@@ -318,12 +318,12 @@ describe('generateGlobalLfoSettings', () => {
     for (let i = 0; i < SAMPLE_ATTENUATION_STYLES; i++) {
       const settings = generateGlobalLfoSettings(`seed-lfo-shape-${i}`, `ShapeSample${i}`);
       for (const target of GLOBAL_LFO_TARGET_IDS) {
-        expect(['triangle', 'sine'], `${target}.shape (planet ${i})`).toContain(settings[target].shape);
+        expect(['triangle', 'sine'], `${target}.shape (attenuationStyle ${i})`).toContain(settings[target].shape);
       }
     }
   });
 
-  it('actually produces both triangle and sine across many planets, not always just one (non-degenerate)', () => {
+  it('actually produces both triangle and sine across many Attenuation Styles, not always just one (non-degenerate)', () => {
     const SAMPLE_ATTENUATION_STYLES = 40;
     const seenShapes = new Set<string>();
     for (let i = 0; i < SAMPLE_ATTENUATION_STYLES; i++) {
@@ -342,7 +342,7 @@ describe('generateGlobalLfoSettings', () => {
     }
   });
 
-  it('seeds active true for roughly 2-in-3 targets across many planets, not roughly half (>= 0.34 threshold, not a flat 50/50)', () => {
+  it('seeds active true for roughly 2-in-3 targets across many Attenuation Styles, not roughly half (>= 0.34 threshold, not a flat 50/50)', () => {
     const SAMPLE_ATTENUATION_STYLES = 40;
     let activeCount = 0;
     let totalCount = 0;

@@ -389,20 +389,20 @@ describe('spawnSystem', () => {
       vi.resetModules();
       const run1 = await import('./spawnSystem');
       const store1 = await import('../stores/localeStore');
-      const planet1 = await import('../stores/attenuationStyleStore');
-      store1.useLocaleStore.setState({ locales: { [planet1.DEFAULT_LOCALE_ID]: store1.DEFAULT_LOCALE } });
-      run1.spawnRobot(planet1.DEFAULT_LOCALE_ID);
-      run1.spawnRobot(planet1.DEFAULT_LOCALE_ID);
-      const idsRun1 = (store1.useLocaleStore.getState().getLocaleById(planet1.DEFAULT_LOCALE_ID)?.robots ?? []).map((r) => r.id);
+      const attenuationStyle1 = await import('../stores/attenuationStyleStore');
+      store1.useLocaleStore.setState({ locales: { [attenuationStyle1.DEFAULT_LOCALE_ID]: store1.DEFAULT_LOCALE } });
+      run1.spawnRobot(attenuationStyle1.DEFAULT_LOCALE_ID);
+      run1.spawnRobot(attenuationStyle1.DEFAULT_LOCALE_ID);
+      const idsRun1 = (store1.useLocaleStore.getState().getLocaleById(attenuationStyle1.DEFAULT_LOCALE_ID)?.robots ?? []).map((r) => r.id);
 
       vi.resetModules();
       const run2 = await import('./spawnSystem');
       const store2 = await import('../stores/localeStore');
-      const planet2 = await import('../stores/attenuationStyleStore');
-      store2.useLocaleStore.setState({ locales: { [planet2.DEFAULT_LOCALE_ID]: store2.DEFAULT_LOCALE } });
-      run2.spawnRobot(planet2.DEFAULT_LOCALE_ID);
-      run2.spawnRobot(planet2.DEFAULT_LOCALE_ID);
-      const idsRun2 = (store2.useLocaleStore.getState().getLocaleById(planet2.DEFAULT_LOCALE_ID)?.robots ?? []).map((r) => r.id);
+      const attenuationStyle2 = await import('../stores/attenuationStyleStore');
+      store2.useLocaleStore.setState({ locales: { [attenuationStyle2.DEFAULT_LOCALE_ID]: store2.DEFAULT_LOCALE } });
+      run2.spawnRobot(attenuationStyle2.DEFAULT_LOCALE_ID);
+      run2.spawnRobot(attenuationStyle2.DEFAULT_LOCALE_ID);
+      const idsRun2 = (store2.useLocaleStore.getState().getLocaleById(attenuationStyle2.DEFAULT_LOCALE_ID)?.robots ?? []).map((r) => r.id);
 
       expect(idsRun1).toHaveLength(2);
       expect(idsRun2).toEqual(idsRun1);
@@ -563,18 +563,18 @@ describe('spawnSystem', () => {
       vi.resetModules();
       const run1 = await import('./spawnSystem');
       const store1 = await import('../stores/localeStore');
-      const planet1 = await import('../stores/attenuationStyleStore');
-      store1.useLocaleStore.setState({ locales: { [planet1.DEFAULT_LOCALE_ID]: store1.DEFAULT_LOCALE } });
-      run1.spawnInitialRoster(planet1.DEFAULT_LOCALE_ID);
-      const dockingRun1 = (store1.useLocaleStore.getState().getLocaleById(planet1.DEFAULT_LOCALE_ID)?.robots ?? []).map((r) => r.docking);
+      const attenuationStyle1 = await import('../stores/attenuationStyleStore');
+      store1.useLocaleStore.setState({ locales: { [attenuationStyle1.DEFAULT_LOCALE_ID]: store1.DEFAULT_LOCALE } });
+      run1.spawnInitialRoster(attenuationStyle1.DEFAULT_LOCALE_ID);
+      const dockingRun1 = (store1.useLocaleStore.getState().getLocaleById(attenuationStyle1.DEFAULT_LOCALE_ID)?.robots ?? []).map((r) => r.docking);
 
       vi.resetModules();
       const run2 = await import('./spawnSystem');
       const store2 = await import('../stores/localeStore');
-      const planet2 = await import('../stores/attenuationStyleStore');
-      store2.useLocaleStore.setState({ locales: { [planet2.DEFAULT_LOCALE_ID]: store2.DEFAULT_LOCALE } });
-      run2.spawnInitialRoster(planet2.DEFAULT_LOCALE_ID);
-      const dockingRun2 = (store2.useLocaleStore.getState().getLocaleById(planet2.DEFAULT_LOCALE_ID)?.robots ?? []).map((r) => r.docking);
+      const attenuationStyle2 = await import('../stores/attenuationStyleStore');
+      store2.useLocaleStore.setState({ locales: { [attenuationStyle2.DEFAULT_LOCALE_ID]: store2.DEFAULT_LOCALE } });
+      run2.spawnInitialRoster(attenuationStyle2.DEFAULT_LOCALE_ID);
+      const dockingRun2 = (store2.useLocaleStore.getState().getLocaleById(attenuationStyle2.DEFAULT_LOCALE_ID)?.robots ?? []).map((r) => r.docking);
 
       expect(dockingRun2).toEqual(dockingRun1);
     });
@@ -676,20 +676,20 @@ describe('spawnSystem', () => {
       vi.resetModules();
       const run1 = await import('./spawnSystem');
       const store1 = await import('../stores/localeStore');
-      const planet1 = await import('../stores/attenuationStyleStore');
-      store1.useLocaleStore.setState({ locales: { [planet1.DEFAULT_LOCALE_ID]: store1.DEFAULT_LOCALE } });
-      run1.spawnInitialRoster(planet1.DEFAULT_LOCALE_ID);
-      run1.spawnInitialCompanies(planet1.DEFAULT_LOCALE_ID);
-      const companiesRun1 = store1.useLocaleStore.getState().getLocaleById(planet1.DEFAULT_LOCALE_ID)?.companies ?? [];
+      const attenuationStyle1 = await import('../stores/attenuationStyleStore');
+      store1.useLocaleStore.setState({ locales: { [attenuationStyle1.DEFAULT_LOCALE_ID]: store1.DEFAULT_LOCALE } });
+      run1.spawnInitialRoster(attenuationStyle1.DEFAULT_LOCALE_ID);
+      run1.spawnInitialCompanies(attenuationStyle1.DEFAULT_LOCALE_ID);
+      const companiesRun1 = store1.useLocaleStore.getState().getLocaleById(attenuationStyle1.DEFAULT_LOCALE_ID)?.companies ?? [];
 
       vi.resetModules();
       const run2 = await import('./spawnSystem');
       const store2 = await import('../stores/localeStore');
-      const planet2 = await import('../stores/attenuationStyleStore');
-      store2.useLocaleStore.setState({ locales: { [planet2.DEFAULT_LOCALE_ID]: store2.DEFAULT_LOCALE } });
-      run2.spawnInitialRoster(planet2.DEFAULT_LOCALE_ID);
-      run2.spawnInitialCompanies(planet2.DEFAULT_LOCALE_ID);
-      const companiesRun2 = store2.useLocaleStore.getState().getLocaleById(planet2.DEFAULT_LOCALE_ID)?.companies ?? [];
+      const attenuationStyle2 = await import('../stores/attenuationStyleStore');
+      store2.useLocaleStore.setState({ locales: { [attenuationStyle2.DEFAULT_LOCALE_ID]: store2.DEFAULT_LOCALE } });
+      run2.spawnInitialRoster(attenuationStyle2.DEFAULT_LOCALE_ID);
+      run2.spawnInitialCompanies(attenuationStyle2.DEFAULT_LOCALE_ID);
+      const companiesRun2 = store2.useLocaleStore.getState().getLocaleById(attenuationStyle2.DEFAULT_LOCALE_ID)?.companies ?? [];
 
       expect(companiesRun2).toEqual(companiesRun1);
     });

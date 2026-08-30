@@ -8,7 +8,7 @@ import type { Robot as RobotType } from '../../types/Robot';
 import { RobotBody } from './RobotBody';
 import { setRef, deleteRef } from '../../utils/refs';
 import { useUIStore } from '../../stores/uiStore';
-import { usePlanetStore, selectCurrentPlanet } from '../../stores/planetStore';
+import { useAttenuationStyleStore, selectCurrentAttenuationStyle } from '../../stores/attenuationStyleStore';
 import { handleRobotIdle } from '../../systems/idleSystem';
 
 // ========================================
@@ -37,7 +37,7 @@ export function Robot({ robot }: RobotProps) {
   const activeHubTile = useUIStore((s) => s.activeHubTile);
   const setActiveHubTile = useUIStore((s) => s.setActiveHubTile);
   const selectedCompanyId = useUIStore((s) => s.selectedCompanyId);
-  const localeId = usePlanetStore((s) => selectCurrentPlanet(s)?.currentLocaleId ?? '');
+  const localeId = useAttenuationStyleStore((s) => selectCurrentAttenuationStyle(s)?.currentLocaleId ?? '');
   const isSelected = selectedRobotId === robot.id;
   // Roadmap Phase 10 — independent of isSelected; reuses the same .robot.selected glow (see
   // OceanScene.css) rather than a second visual language for "highlighted."

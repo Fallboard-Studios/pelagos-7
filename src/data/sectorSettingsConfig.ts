@@ -20,14 +20,14 @@ export interface SectorPreset<T> {
 // SCHEMAS
 // ========================================
 
-export const PLANET_NAME_SCHEMA: TextInputSchema = {
+export const ATTENUATION_STYLE_SCHEMA: TextInputSchema = {
   id: 'sectorSettings.planetName',
   type: 'textInput',
   loreLabel: 'ATTENUATION SEED',
   humanLabel: 'Attenuation Style',
   placeholder: 'Enter a new attenuation style…',
   // Otherwise unbounded end-to-end — stored in state, hashed into a seed
-  // (derivePlanetSeed), and rendered in the status line. 128 is generous for
+  // (deriveAttenuationStyleSeed), and rendered in the status line. 128 is generous for
   // a lore-flavored name while ruling out pathological input.
   maxLength: 128,
 };
@@ -57,9 +57,9 @@ export const STATUS_HEADER_SCHEMA: DualLabelSchema = {
 // PRESETS
 // ========================================
 
-/** Hand-curated, lore-flavored planet name presets — static data, not
+/** Hand-curated, lore-flavored Attenuation Style name presets — static data, not
  *  user-saved favorites. */
-export const PLANET_NAME_PRESETS: SectorPreset<string>[] = [
+export const ATTENUATION_STYLE_PRESETS: SectorPreset<string>[] = [
   { label: 'Kryndara', value: 'Kryndara' },
   { label: 'Vessport Null', value: 'Vessport Null' },
   { label: 'Halcyon Drift', value: 'Halcyon Drift' },

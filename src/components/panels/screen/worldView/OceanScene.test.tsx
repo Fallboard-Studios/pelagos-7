@@ -21,7 +21,7 @@ vi.mock('@/systems/robotSystems', () => ({
 // IMPORTS
 // ========================================
 import { OceanScene } from './OceanScene';
-import { usePlanetStore, DEFAULT_PELAGOS } from '@/stores/planetStore';
+import { useAttenuationStyleStore, DEFAULT_PELAGOS } from '@/stores/attenuationStyleStore';
 import { useLocaleStore, DEFAULT_LOCALE, DEFAULT_LOCALE_ID } from '@/stores/localeStore';
 
 // ========================================
@@ -30,7 +30,7 @@ import { useLocaleStore, DEFAULT_LOCALE, DEFAULT_LOCALE_ID } from '@/stores/loca
 
 describe('OceanScene', () => {
   beforeEach(() => {
-    usePlanetStore.setState({ planets: [{ ...DEFAULT_PELAGOS }], currentPlanetId: DEFAULT_PELAGOS.id });
+    useAttenuationStyleStore.setState({ attenuationStyles: [{ ...DEFAULT_PELAGOS }], currentAttenuationStyleId: DEFAULT_PELAGOS.id });
     useLocaleStore.setState({ locales: { [DEFAULT_LOCALE_ID]: { ...DEFAULT_LOCALE, robots: [], actors: [] } } });
     initializeLocaleMock.mockClear();
     stopRobotLifecycleMock.mockClear();

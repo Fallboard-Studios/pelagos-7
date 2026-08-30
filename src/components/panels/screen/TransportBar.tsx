@@ -5,7 +5,7 @@ import * as Toolbar from '@radix-ui/react-toolbar';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 
 import { useLocaleStore } from '../../../stores/localeStore';
-import { usePlanetStore, selectCurrentPlanet } from '../../../stores/planetStore';
+import { useAttenuationStyleStore, selectCurrentAttenuationStyle } from '../../../stores/attenuationStyleStore';
 import { useUIStore } from '../../../stores/uiStore';
 import { useAudioStore } from '../../../stores/audioStore';
 import { AudioEngine } from '../../../engine/AudioEngine';
@@ -20,12 +20,12 @@ import './TransportBar.css';
 function TransportBar() {
   const isPoweredOn = useUIStore((s) => s.isPoweredOn);
   const activeLocaleLocalTime = useUIStore((s) => s.activeLocaleLocalTime);
-  const planetName = usePlanetStore((s) => selectCurrentPlanet(s)?.name ?? '—');
-  const localeId = usePlanetStore((s) => selectCurrentPlanet(s)?.currentLocaleId ?? '');
+  const attenuationStyleName = useAttenuationStyleStore((s) => selectCurrentAttenuationStyle(s)?.name ?? '—');
+  const localeId = useAttenuationStyleStore((s) => selectCurrentAttenuationStyle(s)?.currentLocaleId ?? '');
   const coordinates = useLocaleStore((s) => s.locales[localeId]?.coordinates);
   const _localTime = activeLocaleLocalTime ?? 0;
-  const planetHour = Math.floor(_localTime);
-  const planetMinute = Math.floor((_localTime % 1) * 60);
+  const localHour = Math.floor(_localTime);
+  const localMinute = Math.floor((_localTime % 1) * 60);
   const bpm = useAudioStore((s) => s.bpm);
 
   const isMuted = useAudioStore((s) => s.isMuted);
@@ -49,8 +49,8 @@ function TransportBar() {
     }
   };
 
-  const hh = String(Math.max(0, Math.min(23, Math.floor(planetHour ?? 0)))).padStart(2, '0');
-  const mm = String(Math.max(0, Math.min(59, Math.floor(planetMinute ?? 0)))).padStart(2, '0');
+  const hh = String(Math.max(0, Math.min(23, Math.floor(localHour ?? 0)))).padStart(2, '0');
+  const mm = String(Math.max(0, Math.min(59, Math.floor(localMinute ?? 0)))).padStart(2, '0');
   const coordX = coordinates ? Math.round(coordinates.x) : null;
   const coordY = coordinates ? Math.round(coordinates.y) : null;
 
@@ -75,9 +75,9 @@ function TransportBar() {
             aria-label per the ARIA spec, so labels are real (visually
             hidden) text instead — that reaches assistive tech regardless
             of role support, since it's part of the element's own content. */}
-        <span className="transport-bar__planet">
+        <span className="transport-bar__attenuation-style">
           <VisuallyHidden>Attenuation Style: </VisuallyHidden>
-          {planetName}
+          {attenuationStyleName}
         </span>
         <span className="transport-bar__coords">
           <VisuallyHidden>Locale coordinates: </VisuallyHidden>

@@ -13,9 +13,9 @@ vi.mock('@/systems/worldTransition', () => ({
 // IMPORTS
 // ========================================
 import { SectorSettingsDrawer } from './SectorSettingsDrawer';
-import { usePlanetStore, DEFAULT_PELAGOS } from '@/stores/planetStore';
+import { useAttenuationStyleStore, DEFAULT_PELAGOS } from '@/stores/attenuationStyleStore';
 import { useLocaleStore, DEFAULT_LOCALE, DEFAULT_LOCALE_ID } from '@/stores/localeStore';
-import { PLANET_NAME_PRESETS, COORDINATE_PRESETS } from '@/data/sectorSettingsConfig';
+import { ATTENUATION_STYLE_PRESETS, COORDINATE_PRESETS } from '@/data/sectorSettingsConfig';
 
 // ========================================
 // TESTS
@@ -23,9 +23,9 @@ import { PLANET_NAME_PRESETS, COORDINATE_PRESETS } from '@/data/sectorSettingsCo
 
 describe('SectorSettingsDrawer', () => {
   beforeEach(() => {
-    usePlanetStore.setState({
-      planets: [{ ...DEFAULT_PELAGOS, name: 'Pelagos' }],
-      currentPlanetId: DEFAULT_PELAGOS.id,
+    useAttenuationStyleStore.setState({
+      attenuationStyles: [{ ...DEFAULT_PELAGOS, name: 'Pelagos' }],
+      currentAttenuationStyleId: DEFAULT_PELAGOS.id,
     });
     useLocaleStore.setState({
       locales: { [DEFAULT_LOCALE_ID]: { ...DEFAULT_LOCALE, coordinates: { x: 5, y: 9 } } },
@@ -33,11 +33,11 @@ describe('SectorSettingsDrawer', () => {
     retransmitWorldMock.mockClear();
   });
 
-  it('pre-populates the planet name field with the current planet name', () => {
+  it('pre-populates the Attenuation Style name field with the current Attenuation Style name', () => {
     render(<SectorSettingsDrawer />);
     const textInputs = screen.getAllByRole('textbox');
-    const planetInput = textInputs.find((el) => (el as HTMLInputElement).value === 'Pelagos');
-    expect(planetInput).toBeTruthy();
+    const attenuationStyleInput = textInputs.find((el) => (el as HTMLInputElement).value === 'Pelagos');
+    expect(attenuationStyleInput).toBeTruthy();
   });
 
   it('pre-populates the coordinate fields with the current locale coordinates', () => {
@@ -46,19 +46,19 @@ describe('SectorSettingsDrawer', () => {
     expect(spinbuttons.map((el) => el.value)).toEqual(['5', '9']);
   });
 
-  it('renders the status header reflecting the current planet and coordinates', () => {
+  it('renders the status header reflecting the current Attenuation Style and coordinates', () => {
     render(<SectorSettingsDrawer />);
     expect(screen.getByText(/Pelagos/)).toBeTruthy();
   });
 
-  it('clicking a promoted planet preset populates only the planet name field and calls retransmitWorld zero times', () => {
+  it('clicking a promoted Attenuation Style preset populates only the name field and calls retransmitWorld zero times', () => {
     render(<SectorSettingsDrawer />);
-    const preset = PLANET_NAME_PRESETS[0];
+    const preset = ATTENUATION_STYLE_PRESETS[0];
     fireEvent.click(screen.getByText(preset.label));
 
     const textInputs = screen.getAllByRole('textbox') as HTMLInputElement[];
-    const planetInput = textInputs.find((el) => el.value === preset.value);
-    expect(planetInput).toBeTruthy();
+    const attenuationStyleInput = textInputs.find((el) => el.value === preset.value);
+    expect(attenuationStyleInput).toBeTruthy();
     expect(retransmitWorldMock).not.toHaveBeenCalled();
   });
 
@@ -72,15 +72,15 @@ describe('SectorSettingsDrawer', () => {
     expect(retransmitWorldMock).not.toHaveBeenCalled();
   });
 
-  it('clicking Retransmit with only the planet name edited passes just planetName', () => {
+  it('clicking Retransmit with only the Attenuation Style name edited passes just attenuationStyleName', () => {
     render(<SectorSettingsDrawer />);
     const textInputs = screen.getAllByRole('textbox');
-    const planetInput = textInputs.find((el) => (el as HTMLInputElement).value === 'Pelagos')!;
-    fireEvent.change(planetInput, { target: { value: 'Kryndara' } });
+    const attenuationStyleInput = textInputs.find((el) => (el as HTMLInputElement).value === 'Pelagos')!;
+    fireEvent.change(attenuationStyleInput, { target: { value: 'Kryndara' } });
 
     fireEvent.click(screen.getByText('Retransmit'));
 
-    expect(retransmitWorldMock).toHaveBeenCalledWith({ planetName: 'Kryndara' });
+    expect(retransmitWorldMock).toHaveBeenCalledWith({ attenuationStyleName: 'Kryndara' });
   });
 
   it('clicking Retransmit with only coordinates edited passes just coordinates', () => {

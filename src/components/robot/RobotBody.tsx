@@ -46,7 +46,7 @@ interface RobotBodyProps {
 export const RobotBody = memo(function RobotBody({ robot, ignoreDaylight }: RobotBodyProps) {
   // Derive lightness from the active locale's local time so robots track the
   // same day/night cycle as buildings. activeLocaleLocalTime is a 0..24 float
-  // written by PlanetView every second. ignoreDaylight fixes this at a
+  // written by AttenuationStyleView every second. ignoreDaylight fixes this at a
   // neutral 1 (full brightness) instead, for contexts where the thumbnail
   // must look the same regardless of time of day (RobotSelectionCard).
   const localTime = useUIStore((s) => s.activeLocaleLocalTime ?? 12);

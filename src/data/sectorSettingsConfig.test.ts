@@ -4,11 +4,11 @@
 import { describe, it, expect } from 'vitest';
 
 import {
-  PLANET_NAME_SCHEMA,
+  ATTENUATION_STYLE_SCHEMA,
   COORDS_SCHEMA,
   RETRANSMIT_SCHEMA,
   STATUS_HEADER_SCHEMA,
-  PLANET_NAME_PRESETS,
+  ATTENUATION_STYLE_PRESETS,
   COORDINATE_PRESETS,
 } from './sectorSettingsConfig';
 
@@ -18,20 +18,20 @@ import {
 
 describe('sectorSettingsConfig', () => {
   describe('schemas', () => {
-    it('PLANET_NAME_SCHEMA is a textInput with both label fields populated', () => {
-      expect(PLANET_NAME_SCHEMA.type).toBe('textInput');
-      expect(PLANET_NAME_SCHEMA.loreLabel).toBeTruthy();
-      expect(PLANET_NAME_SCHEMA.humanLabel).toBeTruthy();
+    it('ATTENUATION_STYLE_SCHEMA is a textInput with both label fields populated', () => {
+      expect(ATTENUATION_STYLE_SCHEMA.type).toBe('textInput');
+      expect(ATTENUATION_STYLE_SCHEMA.loreLabel).toBeTruthy();
+      expect(ATTENUATION_STYLE_SCHEMA.humanLabel).toBeTruthy();
     });
 
-    it('PLANET_NAME_SCHEMA caps entry length — unbounded end-to-end otherwise (stored in state, hashed into a seed, rendered in the status line)', () => {
-      expect(PLANET_NAME_SCHEMA.maxLength).toBe(128);
+    it('ATTENUATION_STYLE_SCHEMA caps entry length — unbounded end-to-end otherwise (stored in state, hashed into a seed, rendered in the status line)', () => {
+      expect(ATTENUATION_STYLE_SCHEMA.maxLength).toBe(128);
     });
 
-    it('PLANET_NAME_SCHEMA uses Attenuation Style copy, per docs/specs/ATTENUATION_STYLE.md §4', () => {
-      expect(PLANET_NAME_SCHEMA.loreLabel).toBe('ATTENUATION SEED');
-      expect(PLANET_NAME_SCHEMA.humanLabel).toBe('Attenuation Style');
-      expect(PLANET_NAME_SCHEMA.placeholder).toBe('Enter a new attenuation style…');
+    it('ATTENUATION_STYLE_SCHEMA uses Attenuation Style copy, per docs/specs/ATTENUATION_STYLE.md §4', () => {
+      expect(ATTENUATION_STYLE_SCHEMA.loreLabel).toBe('ATTENUATION SEED');
+      expect(ATTENUATION_STYLE_SCHEMA.humanLabel).toBe('Attenuation Style');
+      expect(ATTENUATION_STYLE_SCHEMA.placeholder).toBe('Enter a new attenuation style…');
     });
 
     it('COORDS_SCHEMA is a coordsInput with both label fields populated', () => {
@@ -53,19 +53,19 @@ describe('sectorSettingsConfig', () => {
     });
 
     it('every schema has a distinct, non-empty id', () => {
-      const ids = [PLANET_NAME_SCHEMA, COORDS_SCHEMA, RETRANSMIT_SCHEMA, STATUS_HEADER_SCHEMA].map((s) => s.id);
+      const ids = [ATTENUATION_STYLE_SCHEMA, COORDS_SCHEMA, RETRANSMIT_SCHEMA, STATUS_HEADER_SCHEMA].map((s) => s.id);
       expect(new Set(ids).size).toBe(ids.length);
       for (const id of ids) expect(id).toBeTruthy();
     });
   });
 
-  describe('PLANET_NAME_PRESETS', () => {
+  describe('ATTENUATION_STYLE_PRESETS', () => {
     it('has exactly 4 entries', () => {
-      expect(PLANET_NAME_PRESETS).toHaveLength(4);
+      expect(ATTENUATION_STYLE_PRESETS).toHaveLength(4);
     });
 
     it('every entry has a non-empty label and a non-empty string value', () => {
-      for (const preset of PLANET_NAME_PRESETS) {
+      for (const preset of ATTENUATION_STYLE_PRESETS) {
         expect(preset.label).toBeTruthy();
         expect(typeof preset.value).toBe('string');
         expect(preset.value.length).toBeGreaterThan(0);

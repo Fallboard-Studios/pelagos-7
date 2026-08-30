@@ -11,7 +11,7 @@ vi.mock('@/components/actors/Factory', () => ({ Factory: () => null, default: ()
 // IMPORTS
 // ========================================
 import WorldView from './WorldView';
-import { usePlanetStore, DEFAULT_PELAGOS } from '@/stores/planetStore';
+import { useAttenuationStyleStore, DEFAULT_PELAGOS } from '@/stores/attenuationStyleStore';
 import { useLocaleStore, DEFAULT_LOCALE, DEFAULT_LOCALE_ID } from '@/stores/localeStore';
 import { retransmitWorld } from '@/systems/worldTransition';
 import { stopRobotLifecycle } from '@/systems/robotSystems';
@@ -20,9 +20,9 @@ import { stopRobotLifecycle } from '@/systems/robotSystems';
 // TESTS
 // ========================================
 
-describe('WorldView — survives retransmitting to a new planet', () => {
+describe('WorldView — survives retransmitting to a new Attenuation Style', () => {
   beforeEach(() => {
-    usePlanetStore.setState({ planets: [{ ...DEFAULT_PELAGOS }], currentPlanetId: DEFAULT_PELAGOS.id });
+    useAttenuationStyleStore.setState({ attenuationStyles: [{ ...DEFAULT_PELAGOS }], currentAttenuationStyleId: DEFAULT_PELAGOS.id });
     useLocaleStore.setState({ locales: { [DEFAULT_LOCALE_ID]: { ...DEFAULT_LOCALE, robots: [], actors: [] } } });
   });
 
@@ -30,15 +30,15 @@ describe('WorldView — survives retransmitting to a new planet', () => {
     stopRobotLifecycle();
   });
 
-  it('still renders a planet-view after retransmitting a brand-new planet name', () => {
+  it('still renders an attenuation-style-view after retransmitting a brand-new Attenuation Style name', () => {
     render(<WorldView />);
-    expect(document.querySelector('.planet-view')).toBeTruthy();
+    expect(document.querySelector('.attenuation-style-view')).toBeTruthy();
 
     act(() => {
-      retransmitWorld({ planetName: 'Kryndara' });
+      retransmitWorld({ attenuationStyleName: 'Kryndara' });
     });
 
-    expect(document.querySelector('.planet-view')).toBeTruthy();
+    expect(document.querySelector('.attenuation-style-view')).toBeTruthy();
     expect(document.querySelector('.locale-view')).toBeTruthy();
   });
 });

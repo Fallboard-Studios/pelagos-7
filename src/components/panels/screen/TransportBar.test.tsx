@@ -2,19 +2,19 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
 import TransportBar from './TransportBar';
-import { usePlanetStore } from '@/stores/planetStore';
+import { useAttenuationStyleStore } from '@/stores/attenuationStyleStore';
 import { useLocaleStore } from '@/stores/localeStore';
 import { useAudioStore } from '@/stores/audioStore';
 import { useUIStore } from '@/stores/uiStore';
-import type { Planet } from '@/types/planet';
+import type { AttenuationStyle } from '@/types/attenuationStyle';
 import type { Locale } from '@/types/locale';
 
 
 // Real stores, real (side-effect-safe) AudioEngine calls — no mocks. Per
 // docs/tasks/LAYOUT.md Task 9, this bar just reads existing store state; a
 // real render is the highest-confidence way to prove that.
-const TEST_PLANET: Planet = {
-  id: 'test-planet',
+const TEST_ATTENUATION_STYLE: AttenuationStyle = {
+  id: 'test-attenuation-style',
   name: 'Glaxos',
   locales: ['test-locale'],
   currentLocaleId: 'test-locale',
@@ -22,7 +22,7 @@ const TEST_PLANET: Planet = {
 
 const TEST_LOCALE: Locale = {
   id: 'test-locale',
-  planetId: 'test-planet',
+  attenuationStyleId: 'test-attenuation-style',
   name: 'Test Locale',
   coordinates: { x: -17.4, y: 30.2 },
   dayStartTimestamp: 0,
@@ -34,7 +34,7 @@ const TEST_LOCALE: Locale = {
 };
 
 function setStoreFixtures() {
-  usePlanetStore.setState({ planets: [TEST_PLANET], currentPlanetId: TEST_PLANET.id });
+  useAttenuationStyleStore.setState({ attenuationStyles: [TEST_ATTENUATION_STYLE], currentAttenuationStyleId: TEST_ATTENUATION_STYLE.id });
   useLocaleStore.setState({ locales: { [TEST_LOCALE.id]: TEST_LOCALE } });
   useAudioStore.setState({ bpm: 128, isMuted: false, preMuteVolume: 1.0 });
   useUIStore.setState({ isPoweredOn: true, activeLocaleLocalTime: 14.5 }); // 14:30
@@ -45,7 +45,7 @@ describe('TransportBar (Task 9 — rebuild)', () => {
     setStoreFixtures();
   });
 
-  it('shows the planet name', () => {
+  it('shows the Attenuation Style name', () => {
     // Regex, not an exact string match: the field's accessible label is
     // real (visually-hidden) text sharing the same node, per the
     // aria-label-on-a-bare-span fix below — the node's full text is
@@ -78,7 +78,7 @@ describe('TransportBar (Task 9 — rebuild)', () => {
     const { container } = render(<TransportBar />);
 
     const fields: Array<[selector: string, label: string, value: string]> = [
-      ['.transport-bar__planet', 'Attenuation Style', 'Glaxos'],
+      ['.transport-bar__attenuation-style', 'Attenuation Style', 'Glaxos'],
       ['.transport-bar__coords', 'Locale coordinates', '-17'],
       ['.transport-bar__time', 'Local time', '14:30'],
       ['.transport-bar__bpm', 'Beats per minute', '128 BPM'],
@@ -133,8 +133,8 @@ describe('TransportBar (Task 9 — rebuild)', () => {
   it('falls back to a dash when there is no active locale', () => {
     // Edge case: currentLocaleId points at a locale that doesn't exist in
     // useLocaleStore.locales — must not crash or show "undefined".
-    usePlanetStore.setState({
-      planets: [{ ...TEST_PLANET, currentLocaleId: 'missing-locale' }],
+    useAttenuationStyleStore.setState({
+      attenuationStyles: [{ ...TEST_ATTENUATION_STYLE, currentLocaleId: 'missing-locale' }],
     });
     render(<TransportBar />);
     expect(screen.queryByText('undefined')).toBeNull();
