@@ -33,16 +33,19 @@ import {
   DEFAULT_SWELL_DURATION_RANGE,
   MIX_SWELL_DURATION_RANGE,
   VOLUME_SWELL_DOWNWARD_FLOOR,
+  SWELL_COMPANY_CHANCE,
 } from './audioSwells';
 import * as robotOptionsActions from './robotOptionsActions';
 import { subscribeToMeasure } from '@/engine/beatClock';
 import { getAttenuationStyleNoiseMap } from '@/utils/noiseMaps';
+import { precomputeDataX } from '@/utils/getSeededVal';
 import { useAudioStore } from '@/stores/audioStore';
 import { useLocaleStore } from '@/stores/localeStore';
 import { AudioEngine } from '@/engine/AudioEngine';
 import { DEFAULT_GLOBAL_AUDIO_SETTINGS } from '@/types/globalAudio';
 import type { Robot } from '@/types/Robot';
 import type { Locale } from '@/types/locale';
+import type { Company } from '@/types/Company';
 
 // ========================================
 // TEST HELPERS
@@ -58,6 +61,24 @@ function constantNoiseMap(raw: number): NoiseFunction2D {
 const ALWAYS_MIN = constantNoiseMap(-1);
 const ALWAYS_MID = constantNoiseMap(0);
 const ALWAYS_MAX = constantNoiseMap(1);
+
+/**
+ * Precise per-draw control: maps each named dataId to its own fixed raw
+ * value (getSeededVal's `noiseMap(x, offset)` call always resolves `x` from
+ * `precomputeDataX(dataId)`, so keying a lookup by that same x lets each
+ * dataId in `mapping` get an independent, exact draw regardless of shared
+ * offset). Any dataId not listed falls back to `fallback` (default 0, the
+ * range's own midpoint fraction) — needed when a single tick's several
+ * draws (trigger, company chance/pick/attribute/direction, per-member peak)
+ * must diverge from each other, which a single flat constantNoiseMap can't do.
+ */
+function noiseMapForDataIds(mapping: Record<string, number>, fallback = 0): NoiseFunction2D {
+  const byX = new Map<number, number>();
+  for (const [dataId, raw] of Object.entries(mapping)) {
+    byX.set(precomputeDataX(dataId), raw);
+  }
+  return (x: number) => byX.get(x) ?? fallback;
+}
 
 const LOCALE_ID = 'pelagos-default';
 
@@ -92,6 +113,10 @@ function makeRobot(overrides: Partial<Robot> = {}): Robot {
   } as Robot;
 }
 
+function makeCompany(overrides: Partial<Company> = {}): Company {
+  return { id: 'c1', name: 'Test Company', robotIds: [], ...overrides };
+}
+
 function enableAllGlobalEffects(): void {
   useAudioStore.setState((s) => ({
     globalAudio: {
@@ -110,7 +135,7 @@ beforeEach(() => {
   stopAudioSwells(); // idempotent — clears any leftover activeSwells + subscription state
   useAudioStore.setState({ globalAudio: { ...DEFAULT_GLOBAL_AUDIO_SETTINGS } });
   enableAllGlobalEffects();
-  useLocaleStore.getState().setLocaleData(LOCALE_ID, { robots: [] } as unknown as Partial<Locale>);
+  useLocaleStore.getState().setLocaleData(LOCALE_ID, { robots: [], companies: [] } as unknown as Partial<Locale>);
   // Real AudioEngine voice calls need a live Tone context this jsdom test
   // environment doesn't have — no-op them, matching robotOptionsActions.test.ts's
   // own established convention for these exact three methods.
@@ -555,5 +580,169 @@ describe('robot pool — ramp lifecycle and write path', () => {
     // AudioEngine.updateVoice* pairing") doesn't trip this guard.
     expect(source).not.toMatch(/\.updateRobot\(/);
     expect(source).not.toMatch(/AudioEngine\.(updateVoice\w*|updateRobotMasterVolume)\(/);
+  });
+});
+
+// ========================================
+// ROBOT POOL — COMPANY-WIDE SWELLS (Task 5)
+// ========================================
+
+describe('SWELL_COMPANY_CHANCE', () => {
+  it('is a small, valid probability (0, 1)', () => {
+    expect(SWELL_COMPANY_CHANCE).toBeGreaterThan(0);
+    expect(SWELL_COMPANY_CHANCE).toBeLessThan(1);
+  });
+});
+
+describe('robot pool — company-wide swells', () => {
+  it('a company-wide pick gives every eligible robot in the company a member sharing robotAttribute/direction/timing', () => {
+    const robots = [
+      makeRobot({ id: 'r1', masterVolume: 0.2 }),
+      makeRobot({ id: 'r2', masterVolume: 0.4 }),
+      makeRobot({ id: 'r3', masterVolume: 0.6 }),
+    ];
+    robots.forEach((r) => useLocaleStore.getState().addRobot(LOCALE_ID, r));
+    useLocaleStore.getState().addCompany(LOCALE_ID, makeCompany({ robotIds: ['r1', 'r2', 'r3'] }));
+
+    // ALWAYS_MIN forces: trigger succeeds, company-chance succeeds (0 < any
+    // positive SWELL_COMPANY_CHANCE), company index 0, attribute index 0
+    // ('volume' — no parent toggle, so every member is eligible).
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
+    tickAudioSwells(LOCALE_ID, 0);
+
+    const snap = getActiveSwellSnapshot('robot');
+    expect(snap).toHaveLength(1); // counts as exactly one swell
+    const swell = snap[0];
+    expect(swell.robotAttribute).toBe('volume');
+    expect(swell.companyId).toBe('c1');
+    expect(swell.members).toHaveLength(3);
+    expect(new Set(swell.members!.map((m) => m.robotId))).toEqual(new Set(['r1', 'r2', 'r3']));
+    // Members differ in baseValue (their own current value) but share
+    // nothing else per-member — direction/timing live on the swell itself,
+    // shared by construction (one ActiveSwell, not one per robot).
+    expect(swell.members!.map((m) => m.baseValue).sort()).toEqual([0.2, 0.4, 0.6]);
+  });
+
+  it('does not go company-wide when the company-chance draw fails, even with companies available — falls through to a single-robot pick', () => {
+    useLocaleStore.getState().addRobot(LOCALE_ID, makeRobot());
+    useLocaleStore.getState().addCompany(LOCALE_ID, makeCompany({ robotIds: ['r1'] }));
+    const noiseMap = noiseMapForDataIds({
+      'audioSwell.trigger.robot': -1, // succeeds
+      'audioSwell.company.chance': 1, // fails (>= SWELL_COMPANY_CHANCE)
+    });
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(noiseMap);
+
+    tickAudioSwells(LOCALE_ID, 0);
+
+    const swell = getActiveSwellSnapshot('robot')[0];
+    expect(swell.companyId).toBeUndefined();
+    expect(swell.members).toHaveLength(1);
+  });
+
+  it('falls through to a single-robot pick when company-chance succeeds but the locale has zero companies', () => {
+    useLocaleStore.getState().addRobot(LOCALE_ID, makeRobot());
+    // No addCompany call — companies stays [].
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN); // company-chance would succeed if any existed
+
+    tickAudioSwells(LOCALE_ID, 0);
+
+    const swell = getActiveSwellSnapshot('robot')[0];
+    expect(swell.companyId).toBeUndefined();
+    expect(swell.members).toHaveLength(1);
+  });
+
+  it('excludes an ineligible member (an inactive layer\'s field) from the company, every other eligible member still gets one', () => {
+    const eligible = makeRobot({ id: 'r1' }); // layer0 active (default)
+    const ineligible = makeRobot({
+      id: 'r2',
+      audioAttributes: { adsr: { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 }, filterFreq: 0, waveform: 'sine', layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0, active: false }] },
+    });
+    useLocaleStore.getState().addRobot(LOCALE_ID, eligible);
+    useLocaleStore.getState().addRobot(LOCALE_ID, ineligible);
+    useLocaleStore.getState().addCompany(LOCALE_ID, makeCompany({ robotIds: ['r1', 'r2'] }));
+
+    const noiseMap = noiseMapForDataIds({
+      'audioSwell.trigger.robot': -1,
+      'audioSwell.company.chance': -1,
+      'audioSwell.company.attribute': -0.8, // index 1 of 17 -> 'layer0.gain'
+    });
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(noiseMap);
+
+    tickAudioSwells(LOCALE_ID, 0);
+
+    const swell = getActiveSwellSnapshot('robot')[0];
+    expect(swell.robotAttribute).toBe('layer0.gain');
+    expect(swell.members!.map((m) => m.robotId)).toEqual(['r1']);
+  });
+
+  it('starts no swell at all this tick if every robot in the picked company is ineligible for the picked attribute (no re-roll, no fallback)', () => {
+    const allInactiveLayer0 = () =>
+      makeRobot({
+        id: 'r1',
+        audioAttributes: { adsr: { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 }, filterFreq: 0, waveform: 'sine', layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0, active: false }] },
+      });
+    useLocaleStore.getState().addRobot(LOCALE_ID, allInactiveLayer0());
+    useLocaleStore.getState().addCompany(LOCALE_ID, makeCompany({ robotIds: ['r1'] }));
+
+    const noiseMap = noiseMapForDataIds({
+      'audioSwell.trigger.robot': -1,
+      'audioSwell.company.chance': -1,
+      'audioSwell.company.attribute': -0.8, // index 1 of 17 -> 'layer0.gain', ineligible for r1
+    });
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(noiseMap);
+
+    tickAudioSwells(LOCALE_ID, 0);
+
+    expect(getActiveSwellSnapshot('robot')).toEqual([]);
+  });
+
+  it('counts as exactly one swell against the robot pool\'s 5-cap regardless of company size', () => {
+    const robots = Array.from({ length: 4 }, (_, i) => makeRobot({ id: `r${i}` }));
+    robots.forEach((r) => useLocaleStore.getState().addRobot(LOCALE_ID, r));
+    useLocaleStore.getState().addCompany(LOCALE_ID, makeCompany({ robotIds: robots.map((r) => r.id) }));
+
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
+    tickAudioSwells(LOCALE_ID, 0);
+
+    const snap = getActiveSwellSnapshot('robot');
+    expect(snap).toHaveLength(1);
+    expect(snap[0].members).toHaveLength(4);
+  });
+
+  it('is lock-step in time (every member starts/ends on the same measures) but per-robot in magnitude — each lands exactly on its own baseValue', () => {
+    useLocaleStore.getState().addRobot(LOCALE_ID, makeRobot({ id: 'r1', masterVolume: 0.1 }));
+    useLocaleStore.getState().addRobot(LOCALE_ID, makeRobot({ id: 'r2', masterVolume: 0.9 }));
+    useLocaleStore.getState().addCompany(LOCALE_ID, makeCompany({ robotIds: ['r1', 'r2'] }));
+
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
+    tickAudioSwells(LOCALE_ID, 0); // creates the company swell (volume, rising 3 / falling 3 under ALWAYS_MIN)
+
+    tickAudioSwells(LOCALE_ID, 6); // both members' shared window completes on the same measure
+
+    expect(useLocaleStore.getState().getRobotById(LOCALE_ID, 'r1')!.masterVolume).toBe(0.1);
+    expect(useLocaleStore.getState().getRobotById(LOCALE_ID, 'r2')!.masterVolume).toBe(0.9);
+    expect(getActiveSwellSnapshot('robot')).toEqual([]);
+  });
+
+  it('is deterministic — two identical ticks (same store state, same measure, real seeded noise) produce identical company-wide decisions', () => {
+    const setup = () => {
+      stopAudioSwells();
+      useLocaleStore.getState().setLocaleData(LOCALE_ID, { robots: [], companies: [] } as unknown as Partial<Locale>);
+      useLocaleStore.getState().addRobot(LOCALE_ID, makeRobot({ id: 'r1', masterVolume: 0.3 }));
+      useLocaleStore.getState().addRobot(LOCALE_ID, makeRobot({ id: 'r2', masterVolume: 0.7 }));
+      useLocaleStore.getState().addCompany(LOCALE_ID, makeCompany({ robotIds: ['r1', 'r2'] }));
+    };
+
+    setup();
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
+    tickAudioSwells(LOCALE_ID, 12);
+    const first = getActiveSwellSnapshot('robot');
+
+    setup();
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
+    tickAudioSwells(LOCALE_ID, 12);
+    const second = getActiveSwellSnapshot('robot');
+
+    expect(second).toEqual(first);
   });
 });

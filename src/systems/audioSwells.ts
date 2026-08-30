@@ -43,6 +43,7 @@ import {
   type SwellPool,
 } from '@/types/audioSwell';
 import type { Robot } from '@/types/Robot';
+import type { Company } from '@/types/Company';
 
 // ========================================
 // CONSTANTS
@@ -57,6 +58,12 @@ export const MAX_CONCURRENT_SWELLS_PER_POOL = 5;
  *  other probability-threshold field in this app (DELAY_ENABLED_THRESHOLD,
  *  LFO_ACTIVE_THRESHOLD) — tune during the manual/audible checkpoint. */
 export const SWELL_TRIGGER_CHANCE = 0.28; // ~= 1 / 3.5
+
+/** Second, small chance — evaluated only when the robot pool's own trigger
+ *  above already succeeded — that this pick becomes company-wide (§1.5)
+ *  instead of single-robot. Unconfirmed exact value, same first-pass caveat
+ *  as SWELL_TRIGGER_CHANCE (§7). */
+export const SWELL_COMPANY_CHANCE = 0.15; // placeholder — needs a manual audible pass
 
 /** Rising-phase and falling-phase measure counts are drawn INDEPENDENTLY from
  *  each other (never mirrored) — every global target except delay.wet/
@@ -211,13 +218,34 @@ export function pickSwellPeakDelta(
 ): number {
   const { min, max } = range;
   const midpoint = (min + max) / 2;
-  const halfSpan = (max - min) * SWELL_MIN_RANGE_FRACTION;
 
   let goingUp: boolean;
   if (currentValue < midpoint) goingUp = true;
   else if (currentValue > midpoint) goingUp = false;
   else goingUp = getSeededVal(noiseMap, `${dataId}.tiebreak`, offset, 0, 1) < 0.5;
 
+  return peakDeltaForDirection(noiseMap, dataId, offset, range, currentValue, goingUp);
+}
+
+/**
+ * The magnitude half of pickSwellPeakDelta, given an ALREADY-DECIDED
+ * direction — split out for the company-wide variant (Task 5), where
+ * direction is shared/drawn once for the whole company rather than derived
+ * from each member's own current value (docs/specs/AUDIO_SWELLS.md §1.5:
+ * "Magnitude is still per-robot... independently of every other robot",
+ * but direction is lock-step). pickSwellPeakDelta itself is just this
+ * function with `goingUp` derived from `currentValue`'s own midpoint check.
+ */
+function peakDeltaForDirection(
+  noiseMap: NoiseFunction2D,
+  dataId: string,
+  offset: number,
+  range: { min: number; max: number },
+  currentValue: number,
+  goingUp: boolean,
+): number {
+  const { min, max } = range;
+  const halfSpan = (max - min) * SWELL_MIN_RANGE_FRACTION;
   if (goingUp) {
     const floor = Math.min(currentValue + halfSpan, max);
     const peak = getSeededVal(noiseMap, dataId, offset, floor, max);
@@ -345,7 +373,7 @@ function maybeStartGlobalSwell(noiseMap: NoiseFunction2D, measure: number): void
 }
 
 // ========================================
-// ROBOT POOL — TRIGGER & SELECTION (single-robot only; company-wide is Task 5)
+// ROBOT POOL — TRIGGER & SELECTION
 // ========================================
 
 function isRobotAttributeEligible(robot: Robot, attribute: SwellRobotAttributeId): boolean {
@@ -353,15 +381,37 @@ function isRobotAttributeEligible(robot: Robot, attribute: SwellRobotAttributeId
   return isRobotAttributeStructurallyLive(robot, attribute);
 }
 
+/**
+ * The robot pool's own trigger, shared by both the single-robot and
+ * company-wide paths. A second seeded draw (SWELL_COMPANY_CHANCE) decides
+ * which path this pick takes — but only when the locale actually HAS a
+ * company to pick: with zero companies, "company-wide" was never really an
+ * option this tick regardless of the roll, so it falls straight through to
+ * the single-robot path instead of aborting the tick (docs/specs/AUDIO_SWELLS.md
+ * §7 item 6 leaves the exact company-selection mechanics for
+ * Plan/Tasks to settle — this is that settling).
+ */
 function maybeStartRobotSwell(localeId: string, noiseMap: NoiseFunction2D, measure: number): void {
   if (activeSwellCount('robot') >= MAX_CONCURRENT_SWELLS_PER_POOL) return;
 
   const triggerRoll = getSeededVal(noiseMap, 'audioSwell.trigger.robot', measure, 0, 1);
   if (triggerRoll >= SWELL_TRIGGER_CHANCE) return;
 
+  const robots = useLocaleStore.getState().getLocaleById(localeId)?.robots ?? [];
+  const companies = useLocaleStore.getState().getLocaleById(localeId)?.companies ?? [];
+
+  const companyRoll = getSeededVal(noiseMap, 'audioSwell.company.chance', measure, 0, 1);
+  if (companyRoll < SWELL_COMPANY_CHANCE && companies.length > 0) {
+    startCompanyWideSwell(companies, robots, noiseMap, measure);
+    return;
+  }
+
+  startSingleRobotSwell(robots, noiseMap, measure);
+}
+
+function startSingleRobotSwell(robots: Robot[], noiseMap: NoiseFunction2D, measure: number): void {
   // Robot selection spans the whole roster (docs/specs/AUDIO_SWELLS.md §3) —
   // the 17x12 pool, never scoped to one robot.
-  const robots = useLocaleStore.getState().getLocaleById(localeId)?.robots ?? [];
   const eligiblePairs: { robot: Robot; attribute: SwellRobotAttributeId }[] = [];
   for (const robot of robots) {
     for (const attribute of SWELL_ROBOT_ATTRIBUTE_IDS) {
@@ -375,14 +425,9 @@ function maybeStartRobotSwell(localeId: string, noiseMap: NoiseFunction2D, measu
 
   const range = ROBOT_SWELL_FIELD_RANGE[attribute];
   const currentValue = readRobotValue(robot, attribute);
-  let peakDelta = pickSwellPeakDelta(noiseMap, `audioSwell.peak.${robot.id}.${attribute}`, measure, range, currentValue);
-
-  // Volume's downward clamp: a pure post-hoc clamp on the final peak, never a
-  // gate on direction-picking (§1.5) — an upward pick is never touched here.
-  if (attribute === 'volume' && peakDelta < 0) {
-    const clampedPeak = Math.max(currentValue + peakDelta, VOLUME_SWELL_DOWNWARD_FLOOR);
-    peakDelta = clampedPeak - currentValue;
-  }
+  const peakDelta = clampVolumeDownward(
+    attribute, currentValue, pickSwellPeakDelta(noiseMap, `audioSwell.peak.${robot.id}.${attribute}`, measure, range, currentValue)
+  );
 
   // Robot attributes have no mix-style duration exception — always the default range.
   const risingMeasures = pickPhaseMeasures(
@@ -404,17 +449,81 @@ function maybeStartRobotSwell(localeId: string, noiseMap: NoiseFunction2D, measu
   });
 }
 
+/**
+ * A variant outcome of the robot pool's own roll (§1.5) — not a separate
+ * pool, cadence, or cap. One Company and one attribute are each picked via
+ * a seeded draw (unfiltered — eligibility is applied per-member next, after
+ * the attribute is already chosen); every eligible member shares direction
+ * and timing, drawn once, but computes its own peakDelta from its own
+ * current value. If the picked company has zero eligible members for the
+ * picked attribute, no swell starts this tick at all — not a re-roll, not a
+ * fallback to a different company/attribute or to the single-robot path.
+ */
+function startCompanyWideSwell(companies: Company[], robots: Robot[], noiseMap: NoiseFunction2D, measure: number): void {
+  const companyIndex = Math.min(
+    companies.length - 1,
+    Math.floor(getSeededVal(noiseMap, 'audioSwell.company.pick', measure, 0, companies.length))
+  );
+  const company = companies[companyIndex];
+
+  const attributeIndex = Math.min(
+    SWELL_ROBOT_ATTRIBUTE_IDS.length - 1,
+    Math.floor(getSeededVal(noiseMap, 'audioSwell.company.attribute', measure, 0, SWELL_ROBOT_ATTRIBUTE_IDS.length))
+  );
+  const attribute = SWELL_ROBOT_ATTRIBUTE_IDS[attributeIndex];
+
+  const memberRobots = company.robotIds
+    .map((id) => robots.find((r) => r.id === id))
+    .filter((r): r is Robot => r !== undefined && isRobotAttributeEligible(r, attribute));
+  if (memberRobots.length === 0) return; // no swell starts this tick (§1.5)
+
+  const goingUp = getSeededVal(noiseMap, 'audioSwell.company.direction', measure, 0, 1) < 0.5;
+  const risingMeasures = pickPhaseMeasures(noiseMap, 'audioSwell.company.rising', measure, DEFAULT_SWELL_DURATION_RANGE);
+  const fallingMeasures = pickPhaseMeasures(noiseMap, 'audioSwell.company.falling', measure, DEFAULT_SWELL_DURATION_RANGE);
+
+  const range = ROBOT_SWELL_FIELD_RANGE[attribute];
+  const members: SwellMember[] = memberRobots.map((robot) => {
+    const currentValue = readRobotValue(robot, attribute);
+    const peakDelta = clampVolumeDownward(
+      attribute, currentValue,
+      peakDeltaForDirection(noiseMap, `audioSwell.peak.company.${robot.id}.${attribute}`, measure, range, currentValue, goingUp)
+    );
+    return { robotId: robot.id, baseValue: currentValue, peakDelta };
+  });
+
+  const swell: ActiveSwell = {
+    pool: 'robot',
+    robotAttribute: attribute,
+    members,
+    companyId: company.id,
+    phase: 'rising',
+    startMeasure: measure,
+    risingMeasures,
+    fallingMeasures,
+  };
+  for (const member of members) activeSwells.set(robotSwellKey(member.robotId, attribute), swell);
+}
+
+/** Robot volume's downward clamp: a pure post-hoc clamp on the final peak,
+ *  never a gate on direction-picking (§1.5) — an upward pick is never
+ *  touched. Shared by the single-robot and company-wide paths. */
+function clampVolumeDownward(attribute: SwellRobotAttributeId, currentValue: number, peakDelta: number): number {
+  if (attribute !== 'volume' || peakDelta >= 0) return peakDelta;
+  const clampedPeak = Math.max(currentValue + peakDelta, VOLUME_SWELL_DOWNWARD_FLOOR);
+  return clampedPeak - currentValue;
+}
+
 // ========================================
 // ADVANCE / WRITE-BACK
 // ========================================
 
 function advanceActiveSwells(localeId: string, measure: number): void {
   const processed = new Set<ActiveSwell>();
-  for (const [key, swell] of activeSwells) {
+  for (const swell of activeSwells.values()) {
     if (processed.has(swell)) continue;
     processed.add(swell);
-    if (swell.pool === 'global') advanceGlobalSwell(key, swell, measure);
-    else advanceRobotSwell(key, swell, localeId, measure);
+    if (swell.pool === 'global') advanceGlobalSwell(swell.globalTarget!, swell, measure);
+    else advanceRobotSwell(swell, localeId, measure);
   }
 }
 
@@ -460,42 +569,45 @@ function advanceGlobalSwell(key: string, swell: ActiveSwell, measure: number): v
 }
 
 /**
- * Task 4: exactly one SwellMember per robot swell — company-wide (2+
- * members sharing phase/timing, Task 5) reuses this same elapsed/phase math
- * per member. Unlike the global pool, a robot attribute's structural parent
- * going inactive mid-swell is NOT re-checked here — eligibility is evaluated
- * at selection time only (docs/specs/AUDIO_SWELLS.md §7, an explicitly
- * deferred open question, not addressed this task).
+ * One SwellMember for a single-robot swell (Task 4); 2+ for a company-wide
+ * swell (Task 5), sharing this same elapsed/phase timing but each computing
+ * its own interpolated value from its own baseValue/peakDelta — lock-step in
+ * time, not in magnitude. Every key this swell is stored under is derived
+ * and removed together on completion, per the Map's own doc comment. Unlike
+ * the global pool, a robot attribute's structural parent going inactive
+ * mid-swell is NOT re-checked here — eligibility is evaluated at selection
+ * time only (docs/specs/AUDIO_SWELLS.md §7, an explicitly deferred open
+ * question, not addressed this task).
  */
-function advanceRobotSwell(key: string, swell: ActiveSwell, localeId: string, measure: number): void {
+function advanceRobotSwell(swell: ActiveSwell, localeId: string, measure: number): void {
   const attribute = swell.robotAttribute!;
-  const member = swell.members![0];
-  const robot = useLocaleStore.getState().getRobotById(localeId, member.robotId);
-  if (!robot) {
-    activeSwells.delete(key); // robot no longer exists — defensive, not expected in normal play
-    return;
-  }
+  const members = swell.members!;
 
   const elapsed = measure - swell.startMeasure;
   const total = swell.risingMeasures + swell.fallingMeasures;
-
-  if (elapsed >= total) {
-    writeRobotValue(robot, localeId, attribute, member.baseValue); // exact return-to-base
-    activeSwells.delete(key);
-    return;
-  }
-
+  const complete = elapsed >= total;
   swell.phase = elapsed < swell.risingMeasures ? 'rising' : 'falling';
 
-  let value: number;
-  if (swell.phase === 'rising') {
-    const progress = elapsed / swell.risingMeasures;
-    value = member.baseValue + member.peakDelta * progress;
-  } else {
-    const fallElapsed = elapsed - swell.risingMeasures;
-    const progress = fallElapsed / swell.fallingMeasures;
-    value = member.baseValue + member.peakDelta * (1 - progress);
+  for (const member of members) {
+    const robot = useLocaleStore.getState().getRobotById(localeId, member.robotId);
+    if (!robot) continue; // this member's robot no longer exists — defensive, skip just this one
+
+    if (complete) {
+      writeRobotValue(robot, localeId, attribute, member.baseValue); // exact return-to-base
+      continue;
+    }
+
+    let value: number;
+    if (swell.phase === 'rising') {
+      value = member.baseValue + member.peakDelta * (elapsed / swell.risingMeasures);
+    } else {
+      const fallElapsed = elapsed - swell.risingMeasures;
+      value = member.baseValue + member.peakDelta * (1 - fallElapsed / swell.fallingMeasures);
+    }
+    writeRobotValue(robot, localeId, attribute, value);
   }
 
-  writeRobotValue(robot, localeId, attribute, value);
+  if (complete) {
+    for (const member of members) activeSwells.delete(robotSwellKey(member.robotId, attribute));
+  }
 }
