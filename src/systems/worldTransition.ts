@@ -7,6 +7,7 @@ import { useUIStore } from '../stores/uiStore';
 import { placeFactories, recolorFactoriesForAttenuationStyle } from './factoryPlacementSystem';
 import { spawnInitialRoster, spawnInitialCompanies } from './spawnSystem';
 import { startRobotLifecycle, stopRobotLifecycle, assignJob } from './robotSystems';
+import { startAudioSwells, stopAudioSwells } from './audioSwells';
 import { DockingState } from '../types/Robot';
 import { getLocaleNoiseMap } from '../utils/noiseMaps';
 import { DAY_DURATION_MS } from '../constants/time';
@@ -68,16 +69,19 @@ function buildLocale(attenuationStyleId: string, coordinates: { x: number; y: nu
 
 /**
  * Bring a locale online: guarded factory placement + fixed 12-robot roster +
- * robot-lifecycle restart. Idempotent on factories/robots — safe to call on
- * an already-populated locale (matches the double-spawn guard OceanScene's
- * own mount effect already had for factories; extended here to robots too)
- * — but always restarts the lifecycle tick, since `startRobotLifecycle`'s
- * own module-singleton guard means a caller switching locales must stop the
- * old tick before starting the new one regardless of whether robots/actors
- * needed regenerating. This is also what makes a power cycle work: BeatClock
- * resets (and silently drops every `subscribeToMeasure` listener) whenever
- * `AudioEngine.killAll()` runs, so the unconditional stop+start pair below is
- * what re-subscribes the tick, not just what handles a locale swap.
+ * robot-lifecycle restart + Audio Swells restart. Idempotent on
+ * factories/robots — safe to call on an already-populated locale (matches
+ * the double-spawn guard OceanScene's own mount effect already had for
+ * factories; extended here to robots too) — but always restarts both
+ * lifecycle ticks, since `startRobotLifecycle`'s/`startAudioSwells`'s own
+ * module-singleton guards mean a caller switching locales must stop the old
+ * tick before starting the new one regardless of whether robots/actors
+ * needed regenerating; `stopAudioSwells` also clears any in-flight swells
+ * from the prior locale, so none survive into the new one. This is also
+ * what makes a power cycle work: BeatClock resets (and silently drops every
+ * `subscribeToMeasure` listener) whenever `AudioEngine.killAll()` runs, so
+ * the unconditional stop+start pairs below are what re-subscribe the ticks,
+ * not just what handles a locale swap.
  *
  * Job assignment for the roster's initially-Active robots happens here, not
  * inside `spawnInitialRoster` itself — see
@@ -105,6 +109,8 @@ export function initializeLocale(localeId: string): void {
 
   stopRobotLifecycle();
   startRobotLifecycle(localeId);
+  stopAudioSwells();
+  startAudioSwells(localeId);
 }
 
 /**

@@ -29,6 +29,8 @@ import { getSeededVal } from '../utils/getSeededVal';
 import { initializeLocale, retransmitWorld } from './worldTransition';
 import { recolorFactoriesForAttenuationStyle } from './factoryPlacementSystem';
 import { stopRobotLifecycle } from './robotSystems';
+import { stopAudioSwells, getActiveSwellSnapshot, tickAudioSwells } from './audioSwells';
+import * as audioSwellsModule from './audioSwells';
 import { MAX_ROBOTS } from '../constants';
 import { computeLocaleHour } from '../constants/time';
 import { RobotState, DockingState } from '../types/Robot';
@@ -71,6 +73,7 @@ describe('worldTransition', () => {
 
   afterEach(() => {
     stopRobotLifecycle();
+    stopAudioSwells();
   });
 
   describe('initializeLocale', () => {
@@ -106,7 +109,37 @@ describe('worldTransition', () => {
       const { subscribeToMeasure } = await import('../engine/beatClock');
       initializeLocale(DEFAULT_LOCALE_ID);
       initializeLocale(DEFAULT_LOCALE_ID);
-      expect(subscribeToMeasure).toHaveBeenCalledTimes(2);
+      // 2 subscriptions per call — robot lifecycle and audio swells each
+      // restart their own BeatClock subscription (Task 6).
+      expect(subscribeToMeasure).toHaveBeenCalledTimes(4);
+    });
+
+    it('calls stopAudioSwells then startAudioSwells(localeId), alongside the existing robot-lifecycle restart', () => {
+      const stopSpy = vi.spyOn(audioSwellsModule, 'stopAudioSwells');
+      const startSpy = vi.spyOn(audioSwellsModule, 'startAudioSwells');
+
+      initializeLocale(DEFAULT_LOCALE_ID);
+
+      expect(stopSpy).toHaveBeenCalledTimes(1);
+      expect(startSpy).toHaveBeenCalledWith(DEFAULT_LOCALE_ID);
+      expect(stopSpy.mock.invocationCallOrder[0]).toBeLessThan(startSpy.mock.invocationCallOrder[0]);
+    });
+
+    it('fully clears in-flight swells on a second initializeLocale call — no swell survives a restart', () => {
+      initializeLocale(DEFAULT_LOCALE_ID);
+      // Real seeded noise on the fixed default seed — 50 measures makes it
+      // astronomically unlikely neither pool ever triggers (~0.28 chance per
+      // pool per measure), so this reliably seeds at least one active swell
+      // without needing to mock the noise map.
+      for (let measure = 0; measure < 50; measure++) tickAudioSwells(DEFAULT_LOCALE_ID, measure);
+      const seededSomething =
+        getActiveSwellSnapshot('global').length > 0 || getActiveSwellSnapshot('robot').length > 0;
+      expect(seededSomething).toBe(true);
+
+      initializeLocale(DEFAULT_LOCALE_ID);
+
+      expect(getActiveSwellSnapshot('global')).toEqual([]);
+      expect(getActiveSwellSnapshot('robot')).toEqual([]);
     });
 
     it('does nothing for an unknown locale id', () => {
@@ -333,16 +366,20 @@ describe('worldTransition', () => {
   describe('robot lifecycle tick ordering', () => {
     it('stops the previous tick before starting the new locale\'s', async () => {
       const { subscribeToMeasure } = await import('../engine/beatClock');
-      initializeLocale(DEFAULT_LOCALE_ID); // first tick running
+      initializeLocale(DEFAULT_LOCALE_ID); // first tick running — call 0 is robot lifecycle's own subscribe
       const firstUnsubscribe = vi.mocked(subscribeToMeasure).mock.results[0].value;
 
       retransmitWorld({ coordinates: { x: 500, y: 500 } }); // must stop-then-start for the new locale
 
       expect(firstUnsubscribe).toHaveBeenCalled();
-      expect(subscribeToMeasure).toHaveBeenCalledTimes(2);
+      // 2 subscriptions per initializeLocale call — robot lifecycle and audio
+      // swells each restart their own BeatClock subscription (Task 6) — so
+      // call order is [robot1, swells1, robot2, swells2]; index 2 is the new
+      // locale's own robot-lifecycle resubscribe.
+      expect(subscribeToMeasure).toHaveBeenCalledTimes(4);
       const unsubOrder = firstUnsubscribe.mock.invocationCallOrder[0];
-      const secondSubscribeOrder = vi.mocked(subscribeToMeasure).mock.invocationCallOrder[1];
-      expect(unsubOrder).toBeLessThan(secondSubscribeOrder);
+      const newLocaleRobotSubscribeOrder = vi.mocked(subscribeToMeasure).mock.invocationCallOrder[2];
+      expect(unsubOrder).toBeLessThan(newLocaleRobotSubscribeOrder);
     });
   });
 });
