@@ -4,39 +4,40 @@
 import alea from 'alea';
 import { createNoise2D, type NoiseFunction2D } from 'simplex-noise';
 
-import { derivePlanetSeed, getGlobalPlanetSeedOverride } from './seedUtils';
+import { deriveAttenuationStyleSeed, getGlobalAttenuationStyleSeedOverride } from './seedUtils';
 
 // ========================================
 // REGISTRY (module-level, non-serialisable — must NOT be stored in Zustand)
 // ========================================
-const planetMaps = new Map<string, NoiseFunction2D>();
+const attenuationStyleMaps = new Map<string, NoiseFunction2D>();
 const localeMaps = new Map<string, NoiseFunction2D>();
 
 // ========================================
 // FUNCTIONS
 // ========================================
 
-/** Create (or return cached) the 2D noise map for a planet, keyed by planet ID. */
-export function getPlanetNoiseMap(planetId: string, planetName: string): NoiseFunction2D {
-  if (!planetMaps.has(planetId)) {
-    const seed = derivePlanetSeed(planetName);
-    planetMaps.set(planetId, createNoise2D(alea(seed)));
+/** Create (or return cached) the 2D noise map for an Attenuation Style, keyed by its ID. */
+export function getAttenuationStyleNoiseMap(attenuationStyleId: string, attenuationStyleName: string): NoiseFunction2D {
+  if (!attenuationStyleMaps.has(attenuationStyleId)) {
+    const seed = deriveAttenuationStyleSeed(attenuationStyleName);
+    attenuationStyleMaps.set(attenuationStyleId, createNoise2D(alea(seed)));
   }
-  return planetMaps.get(planetId)!;
+  return attenuationStyleMaps.get(attenuationStyleId)!;
 }
 
 /**
  * Create (or return cached) the 2D noise map for a locale.
  *
  * The locale seed is derived directly from the locale's own coordinates —
- * `alea(`${x}:${y}`)` — with no dependency on any planet. Two locales with
- * identical coordinates will have IDENTICAL noise maps regardless of which
- * planet either one is on. This is a deliberate reversal of the old
- * planet-coupled derivation (see docs/PROCEDURAL_GENERATION.md) and, as a
- * side effect, structurally eliminates the old dead-zone bug: because
- * derivation never samples simplex noise AT (x, y) — it only hashes the
- * coordinate pair as a string, the same way derivePlanetSeed hashes a
- * planet name — there is no lattice-alignment geometry left to collapse.
+ * `alea(`${x}:${y}`)` — with no dependency on any Attenuation Style. Two
+ * locales with identical coordinates will have IDENTICAL noise maps
+ * regardless of which Attenuation Style either one is on. This is a
+ * deliberate reversal of the old Attenuation-Style-coupled derivation (see
+ * docs/PROCEDURAL_GENERATION.md) and, as a side effect, structurally
+ * eliminates the old dead-zone bug: because derivation never samples
+ * simplex noise AT (x, y) — it only hashes the coordinate pair as a string,
+ * the same way deriveAttenuationStyleSeed hashes an Attenuation Style name —
+ * there is no lattice-alignment geometry left to collapse.
  *
  * `x` and `y` are two independent inputs for the caller to reason about,
  * but they are concatenated into exactly ONE seed value here — never fed
@@ -51,7 +52,7 @@ export function getLocaleNoiseMap(
   y: number,
 ): NoiseFunction2D {
   if (!localeMaps.has(localeId)) {
-    const global = getGlobalPlanetSeedOverride();
+    const global = getGlobalAttenuationStyleSeedOverride();
     const key = global ? `${global}:${x}:${y}` : `${x}:${y}`;
     localeMaps.set(localeId, createNoise2D(alea(key)));
   }
@@ -66,9 +67,9 @@ export function tryGetLocaleNoiseMap(localeId: string): NoiseFunction2D | null {
   return localeMaps.get(localeId) ?? null;
 }
 
-/** Remove a planet noise map from the registry (call when a planet is removed). */
-export function evictPlanetNoiseMap(planetId: string): void {
-  planetMaps.delete(planetId);
+/** Remove an Attenuation Style's noise map from the registry (call when it's removed). */
+export function evictAttenuationStyleNoiseMap(attenuationStyleId: string): void {
+  attenuationStyleMaps.delete(attenuationStyleId);
 }
 
 /** Remove a locale noise map from the registry (call when a locale is removed). */

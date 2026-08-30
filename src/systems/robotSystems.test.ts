@@ -13,7 +13,7 @@ import {
   landOnDocked,
 } from './robotSystems';
 import { useLocaleStore, DEFAULT_LOCALE } from '../stores/localeStore';
-import { DEFAULT_LOCALE_ID } from '../stores/planetStore';
+import { DEFAULT_LOCALE_ID } from '../stores/attenuationStyleStore';
 import { AudioEngine } from '../engine/AudioEngine';
 import { DockingState, JobType, RobotState } from '../types/Robot';
 import type { Robot } from '../types/Robot';

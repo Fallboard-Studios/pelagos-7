@@ -3,14 +3,14 @@ import type { CSSProperties } from 'react';
 
 import Tablet from './components/tablet/Tablet';
 
-import { usePlanetStore, selectCurrentPlanet } from '@/stores/planetStore';
+import { useAttenuationStyleStore, selectCurrentAttenuationStyle } from '@/stores/attenuationStyleStore';
 import useLocaleStore from '@/stores/localeStore';
 import { generateRealWorldGradients } from '@/utils/realWorldGradient';
 
 import './App.css';
 
 function App() {
-  const localeId = usePlanetStore((s) => selectCurrentPlanet(s)?.currentLocaleId ?? '');
+  const localeId = useAttenuationStyleStore((s) => selectCurrentAttenuationStyle(s)?.currentLocaleId ?? '');
 
   // Lazy initializer — runs once, during the very first render, so the
   // randomized backdrop is present from first paint (no flash of the

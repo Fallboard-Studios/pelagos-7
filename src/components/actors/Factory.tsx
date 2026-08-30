@@ -10,7 +10,7 @@ import { ROOFTOP_RENDERERS } from './greebles/rooftopGreebles';
 import { FACADE_RENDERERS } from './greebles/facadeGreebles';
 import type { GreebleRendererContext } from './greebles/greebleTypes';
 import useLocaleStore from '../../stores/localeStore';
-import { usePlanetStore, selectCurrentPlanet } from '../../stores/planetStore';
+import { useAttenuationStyleStore, selectCurrentAttenuationStyle } from '../../stores/attenuationStyleStore';
 import { useUIStore } from '../../stores/uiStore';
 import BubbleStream from './BubbleStream';
 import type { FactoryPurpose } from './factoryVariants';
@@ -87,15 +87,15 @@ const FactoryInner: React.FC<FactoryProps> = ({ actor }) => {
   // debug preset overrides the live cycle (useful for visual testing).
   //
   // Derive lightMeasure from the active locale's local time so building
-  // lighting tracks planet day/night, not the audio transport position.
-  // activeLocaleLocalTime is a 0..24 float written by PlanetView every second.
+  // lighting tracks Attenuation Style day/night, not the audio transport position.
+  // activeLocaleLocalTime is a 0..24 float written by AttenuationStyleView every second.
   const localTime = useUIStore((s) => s.activeLocaleLocalTime ?? 12);
   const lightMeasure = (localTime / 24) * DAY_CYCLE_MEASURES;
   // flickerEpoch: phased per building so window rerolls are spread across
   // FLICKER_PERIOD consecutive measures rather than all firing at once.
   const flickerEpoch = Math.floor((lightMeasure + buildingPhase) / FLICKER_PERIOD);
 
-  const localeId = usePlanetStore((s) => selectCurrentPlanet(s)?.currentLocaleId ?? '');
+  const localeId = useAttenuationStyleStore((s) => selectCurrentAttenuationStyle(s)?.currentLocaleId ?? '');
   const bpm = useLocaleStore((s) => s.locales[localeId]?.settings?.bpm ?? 120);
 
   const preset = DEBUG_LIGHTING_PRESET ? LIGHTING_PRESETS[DEBUG_LIGHTING_PRESET] : null;

@@ -4,7 +4,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import { getActiveLocaleId } from './localeHelpers';
-import { usePlanetStore, DEFAULT_PELAGOS } from '@/stores/planetStore';
+import { useAttenuationStyleStore, DEFAULT_PELAGOS } from '@/stores/attenuationStyleStore';
 
 // ========================================
 // TESTS
@@ -12,32 +12,32 @@ import { usePlanetStore, DEFAULT_PELAGOS } from '@/stores/planetStore';
 
 describe('getActiveLocaleId', () => {
   beforeEach(() => {
-    usePlanetStore.setState({ planets: [{ ...DEFAULT_PELAGOS }], currentPlanetId: DEFAULT_PELAGOS.id });
+    useAttenuationStyleStore.setState({ attenuationStyles: [{ ...DEFAULT_PELAGOS }], currentAttenuationStyleId: DEFAULT_PELAGOS.id });
   });
 
-  it('returns the current planet\'s currentLocaleId', () => {
+  it('returns the current Attenuation Style\'s currentLocaleId', () => {
     expect(getActiveLocaleId()).toBe(DEFAULT_PELAGOS.currentLocaleId);
   });
 
-  it('follows setCurrentPlanetId to a newly selected planet', () => {
-    usePlanetStore.getState().addPlanet({
+  it('follows setCurrentAttenuationStyleId to a newly selected Attenuation Style', () => {
+    useAttenuationStyleStore.getState().addAttenuationStyle({
       ...DEFAULT_PELAGOS,
       id: 'other',
       name: 'Other',
       currentLocaleId: 'other-locale',
     });
-    usePlanetStore.getState().setCurrentPlanetId('other');
+    useAttenuationStyleStore.getState().setCurrentAttenuationStyleId('other');
     expect(getActiveLocaleId()).toBe('other-locale');
   });
 
-  it('returns an empty string without throwing when no planet is selected', () => {
-    usePlanetStore.getState().setCurrentPlanetId('does-not-exist');
+  it('returns an empty string without throwing when no Attenuation Style is selected', () => {
+    useAttenuationStyleStore.getState().setCurrentAttenuationStyleId('does-not-exist');
     expect(() => getActiveLocaleId()).not.toThrow();
     expect(getActiveLocaleId()).toBe('');
   });
 
-  it('returns an empty string without throwing when the planets list is empty', () => {
-    usePlanetStore.getState().removePlanet('pelagos');
+  it('returns an empty string without throwing when the attenuationStyles list is empty', () => {
+    useAttenuationStyleStore.getState().removeAttenuationStyle('pelagos');
     expect(() => getActiveLocaleId()).not.toThrow();
     expect(getActiveLocaleId()).toBe('');
   });

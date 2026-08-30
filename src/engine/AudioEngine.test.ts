@@ -179,7 +179,7 @@ vi.mock('./lfoEngine', () => ({
 
 import { AudioEngine } from './AudioEngine';
 import { useLocaleStore } from '../stores/localeStore';
-import { DEFAULT_LOCALE_ID } from '../stores/planetStore';
+import { DEFAULT_LOCALE_ID } from '../stores/attenuationStyleStore';
 import { volumePositionToGain } from './audioEngine/volumeTaper';
 
 /** Shared placeholder ADSR for tests that don't care about specific envelope values —
@@ -383,9 +383,9 @@ describe('AudioEngine - audioMode enforcement (solo/mute/highlight)', () => {
     // so AudioEngine and tests reference the same store instance.
     return (async () => {
       const storeMod = await import('../stores/localeStore');
-      const planetMod = await import('../stores/planetStore');
+      const attenuationStyleMod = await import('../stores/attenuationStyleStore');
       merged_useLocaleStore = storeMod.useLocaleStore;
-      merged_DEFAULT_LOCALE_ID = planetMod.DEFAULT_LOCALE_ID;
+      merged_DEFAULT_LOCALE_ID = attenuationStyleMod.DEFAULT_LOCALE_ID;
       merged_useLocaleStore.getState().setLocaleData(merged_DEFAULT_LOCALE_ID, { settings: { bpm: 120 } });
     })();
   });
@@ -744,11 +744,11 @@ describe('AudioEngine - Motif Group Accent', () => {
   it('accents the first event in each motif-tiling window when Motif Length is active', async () => {
     const { AudioEngine } = await import('./AudioEngine');
     const storeMod = await import('../stores/localeStore');
-    const planetMod = await import('../stores/planetStore');
+    const attenuationStyleMod = await import('../stores/attenuationStyleStore');
     const helpers = await import('../utils/localeHelpers');
-    (helpers.getActiveLocaleId as ReturnType<typeof vi.fn>).mockReturnValue(planetMod.DEFAULT_LOCALE_ID);
+    (helpers.getActiveLocaleId as ReturnType<typeof vi.fn>).mockReturnValue(attenuationStyleMod.DEFAULT_LOCALE_ID);
 
-    storeMod.useLocaleStore.getState().setLocaleData(planetMod.DEFAULT_LOCALE_ID, {
+    storeMod.useLocaleStore.getState().setLocaleData(attenuationStyleMod.DEFAULT_LOCALE_ID, {
       robots: [makeRobot('accent-robot', { active: true, value: 4 })],
     });
 
@@ -780,11 +780,11 @@ describe('AudioEngine - Motif Group Accent', () => {
   it('does not accent any event when Motif Length is inactive (scatter mode)', async () => {
     const { AudioEngine } = await import('./AudioEngine');
     const storeMod = await import('../stores/localeStore');
-    const planetMod = await import('../stores/planetStore');
+    const attenuationStyleMod = await import('../stores/attenuationStyleStore');
     const helpers = await import('../utils/localeHelpers');
-    (helpers.getActiveLocaleId as ReturnType<typeof vi.fn>).mockReturnValue(planetMod.DEFAULT_LOCALE_ID);
+    (helpers.getActiveLocaleId as ReturnType<typeof vi.fn>).mockReturnValue(attenuationStyleMod.DEFAULT_LOCALE_ID);
 
-    storeMod.useLocaleStore.getState().setLocaleData(planetMod.DEFAULT_LOCALE_ID, {
+    storeMod.useLocaleStore.getState().setLocaleData(attenuationStyleMod.DEFAULT_LOCALE_ID, {
       robots: [makeRobot('scatter-robot', { active: false, value: 4 })],
     });
 
@@ -1572,7 +1572,7 @@ describe('AudioEngine.start - prime, connect, and start seeded global LFOs (Task
 
     useAudioStore.setState({ globalLfo: FIXTURE_GLOBAL_LFO as any });
     // The lfoEngine mock's call history persists across vi.resetModules() (same
-    // quirk LFO_INTEGRATION_PLAN.md's Task 11 and audioStore.test.ts's planet-sync
+    // quirk LFO_INTEGRATION_PLAN.md's Task 11 and audioStore.test.ts's AS-sync
     // block both document for the Tone/lfoEngine mocks) — clear it so each test
     // only sees this start() call's own calls.
     vi.clearAllMocks();

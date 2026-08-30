@@ -8,7 +8,7 @@ import { RobotState } from '../types/Robot';
 import type { Robot } from '../types/Robot';
 import { useLocaleStore } from '../stores/localeStore';
 import { useUIStore } from '../stores/uiStore';
-import { DEFAULT_LOCALE_ID } from '../stores/planetStore';
+import { DEFAULT_LOCALE_ID } from '../stores/attenuationStyleStore';
 import * as TimelineMap from '../animation/timelineMap';
 import * as AudioEngineModule from '../engine/AudioEngine';
 

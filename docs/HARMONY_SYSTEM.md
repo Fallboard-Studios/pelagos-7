@@ -1,6 +1,6 @@
 # Harmony System Guide
 
-The Harmony System provides dynamic musical palettes that change throughout the **measure-based** day/night cycle (96 `Tone.Transport` measures = 1 cycle), creating evolving ambient textures without requiring manual composition. **This is a distinct clock from each planet's own visual day/night cycle** (per-planet diameter and real-world day length — small/medium/large planets run 3/6/9-minute days, wall-clock-driven, see `src/constants/time.ts`). The two are deliberately decoupled: a planet's visual lighting always completes a day in its configured real-world duration regardless of tempo, while the harmony palette moves with musical measures. See "Hour Derivation" below for the implementation detail.
+The Harmony System provides dynamic musical palettes that change throughout the **measure-based** day/night cycle (96 `Tone.Transport` measures = 1 cycle), creating evolving ambient textures without requiring manual composition. **This is a distinct clock from each locale's own visual day/night cycle** (a flat, universal `DAY_DURATION_MS` real-world duration, wall-clock-driven from that locale's own `dayStartTimestamp`, see `src/constants/time.ts`). The two are deliberately decoupled: a locale's visual lighting always completes a day in that fixed real-world duration regardless of tempo, while the harmony palette moves with musical measures. See "Hour Derivation" below for the implementation detail.
 
 ## Purpose
 
@@ -128,7 +128,7 @@ const derivedHour = getCurrentHour(); // equivalent to Math.floor((getCurrentMea
 
 **Important:** Hour is **derived** from measures, never stored in state.
 
-**This is a different clock from the visual day/night cycle.** The harmony palette's hour is driven by `Tone.Transport`'s measure position — it moves with musical tempo, not real time. Facade/window lighting (`Factory.tsx`, `src/utils/lightingUtils.ts`) instead derives its hour from real wall-clock elapsed time (`computePlanetHour` in `src/constants/time.ts`, scaled by `PLANET_DURATION_MS` per planet size). The two are **not synchronized** — a BPM change shifts the harmony palette's rate but has no effect on the visual lighting cycle, and vice versa.
+**This is a different clock from the visual day/night cycle.** The harmony palette's hour is driven by `Tone.Transport`'s measure position — it moves with musical tempo, not real time. Facade/window lighting (`Factory.tsx`, `src/utils/lightingUtils.ts`) instead derives its hour from real wall-clock elapsed time (`computeLocaleHour` in `src/constants/time.ts`, scaled by a single fixed `DAY_DURATION_MS` — no more per-planet-size keying since [Attenuation Style](specs/ATTENUATION_STYLE.md) moved world time onto `Locale`). The two are **not synchronized** — a BPM change shifts the harmony palette's rate but has no effect on the visual lighting cycle, and vice versa.
 
 ## Palette Design Guidelines
 

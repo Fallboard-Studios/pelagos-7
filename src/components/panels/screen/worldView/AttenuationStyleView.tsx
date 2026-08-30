@@ -2,19 +2,19 @@ import { useState, useEffect } from 'react';
 import LocaleView from './LocaleView';
 import { computeLocaleHour } from '@/constants/time';
 
-import { usePlanetStore } from '@/stores/planetStore';
+import { useAttenuationStyleStore } from '@/stores/attenuationStyleStore';
 import { useLocaleStore } from '@/stores/localeStore';
 import { useUIStore } from '@/stores/uiStore';
 
-import './PlanetView.css';
+import './AttenuationStyleView.css';
 
-interface PlanetViewProps {
-  planetId: string;
+interface AttenuationStyleViewProps {
+  attenuationStyleId: string;
 }
 
-function PlanetView({ planetId }: PlanetViewProps) {
-  const planet = usePlanetStore((s) => s.planets.find((p) => p.id === planetId));
-  const localeId = planet?.currentLocaleId ?? '';
+function AttenuationStyleView({ attenuationStyleId }: AttenuationStyleViewProps) {
+  const attenuationStyle = useAttenuationStyleStore((s) => s.attenuationStyles.find((p) => p.id === attenuationStyleId));
+  const localeId = attenuationStyle?.currentLocaleId ?? '';
 
   const [currentHour, setCurrentHour] = useState(() => {
     const locale = useLocaleStore.getState().locales[localeId];
@@ -38,13 +38,13 @@ function PlanetView({ planetId }: PlanetViewProps) {
     return () => clearInterval(id);
   }, [localeId]);
 
-  if (!planet) return null;
+  if (!attenuationStyle) return null;
 
   return (
-    <div className="planet-view">
+    <div className="attenuation-style-view">
       <LocaleView localeId={localeId} localTime={currentHour} />
     </div>
   );
 }
 
-export default PlanetView;
+export default AttenuationStyleView;

@@ -371,12 +371,54 @@ Follow-up to 10.2, inserted the same way (out of sequence, not renumbering later
 
 10.2 shipped "Stacked LFO Drift" scoped down to a single shared pool of 8 secondary oscillators and one global Rate Drift/Depth Drift pair applied uniformly to every LFO in the app. This phase builds the stack the name always implied: 4 independent drift groups — EQ3, Low-Pass Filter, High-Pass Filter, and one shared group for every robot-level LFO — each with its own dedicated oscillator pool (sized to that group's own real target ceiling, not a uniform 8), its own independently-seeded Rate Drift/Depth Drift amount, and its own pair of sliders in the Audio Rig. Every mechanic 10.2 already shipped — the deterministic bucket-hash assignment, the bounded swing math, the Depth Drift silence guard, the `Signal.override` fix reuse — carries over per-group unchanged; this phase restructures which pool a primary hashes into and which drift amount applies, not the underlying mechanism. Not yet spec'd — see the intent doc for the confirmed scope and constraints.
 
+## 10.4 Attenuation Style Internal Rename
+
+Follow-up to 10.1, inserted the same way (out of sequence, not renumbering later phases). Raised
+directly during review of 10.1's shipped state, not via `/interview-me` — source of intent:
+[docs/intent/attenuation-style-rename.md](../intent/attenuation-style-rename.md).
+
+### Restructure
+
+- Reverses 10.1's own "internal identifiers are not renamed" constraint. Every "Planet"-named
+  identifier, filename, and CSS class that means the Attenuation Style concept becomes
+  `AttenuationStyle`-flavored, spelled out in full: `Planet` → `AttenuationStyle`, `usePlanetStore` →
+  `useAttenuationStyleStore`, `derivePlanetSeed` → `deriveAttenuationStyleSeed`, `PlanetView.tsx` →
+  `AttenuationStyleView.tsx`, `PLANET_NAME_PRESETS` → `ATTENUATION_STYLE_PRESETS`,
+  `window.__GLOBAL_PLANET_SEED__` → `window.__GLOBAL_ATTENUATION_STYLE_SEED__`, and so on through
+  `worldTransition.ts`'s own construction/retransmit helpers and `Locale.planetId` →
+  `Locale.attenuationStyleId`. `DEFAULT_PELAGOS` keeps its own proper-noun name (only its type
+  changes). `PlanetState` (dead, unused) is deleted rather than renamed.
+- No behavioral change anywhere — confirmed no `getSeededVal`/`precomputeDataX` `dataId` string
+  contains "planet," so this cannot affect any generated world's seed/determinism.
+
+### About
+
+10.1 deliberately scoped itself to a UI/copy reskin, keeping "Planet" as the internal name of the
+same concept "Attenuation Style" now fronts user-facing — flagged at the time as "a separate, later
+unit of work." This phase is that work: closing the two-names-one-concept gap before it calcifies
+into more call sites and docs that have to guess which name is "the real one."
+
+### Docs
+
+- `docs/CONSOLE_THEMING.md` and `docs/SESSION_STORAGE.md` — resolve 10.1's own Forward Note now:
+  "planet seed" becomes "AS seed" in both, since the underlying identifier rename makes the old
+  phrasing stale immediately rather than waiting for Phase 11/12 to actually be built.
+- This section (`## 11`/`## 12` below) gets the same "planet seed" → "AS seed" terminology pass, for
+  the same reason.
+- Live reference docs (`PROCEDURAL_GENERATION.md`, `BUILDING_DESIGN.md`, `COMPANIES.md`,
+  `UI_SHELL.md`, `CLAUDE.md`'s own doc-index blurbs) get their "planet"-as-AS-concept references
+  updated to match. `docs/specs/ATTENUATION_STYLE.md`, `docs/tasks/ATTENUATION_STYLE.md`,
+  `docs/intent/attenuation-style.md`, `docs/specs/SECTOR_SETTINGS.md`,
+  `docs/specs/LOCALE_SEED_DECOUPLING.md`, and this roadmap's own `## 10.1` section stay untouched —
+  historical record of what was decided at the time, including 10.1's own now-reversed
+  no-rename call.
+
 ## 11. Console Theming
 
 ### Create
 
-- Pure seed-to-theme module (e.g. src/utils/consoleTheme.ts, alongside seedUtils.ts/getSeededVal.ts) computing bounded, legible HSL values — large/structural tokens (`--color-bg`, `--color-surface`, casing silhouette geometry) from the active planet seed; small/accent tokens (`--color-accent`, `--color-border`, button/text colors) from the active locale's coordinate seed
-- Generated exterior silhouette for SleeveContainer — decorative indents/bands driven by the planet seed, rendered as SVG (SleeveContainer is currently a flat CSS box with no SVG at all; this follows the same generated-geometry pattern the robot shape components already use, not a new mechanism). The section connecting the sleeve to the glass can be uniform across seeds.
+- Pure seed-to-theme module (e.g. src/utils/consoleTheme.ts, alongside seedUtils.ts/getSeededVal.ts) computing bounded, legible HSL values — large/structural tokens (`--color-bg`, `--color-surface`, casing silhouette geometry) from the active AS seed; small/accent tokens (`--color-accent`, `--color-border`, button/text colors) from the active locale's coordinate seed
+- Generated exterior silhouette for SleeveContainer — decorative indents/bands driven by the AS seed, rendered as SVG (SleeveContainer is currently a flat CSS box with no SVG at all; this follows the same generated-geometry pattern the robot shape components already use, not a new mechanism). The section connecting the sleeve to the glass can be uniform across seeds.
 - Wiring so retransmitting a seed in Sector Settings (Phase 5) recomputes and visibly updates the theme
 - Respect `prefers-reduced-motion` on the retransmit transition (color and casing-silhouette change), following the same `@media (prefers-reduced-motion: reduce)` pattern already used in PowerRockerSwitch.css — the new theme still applies, it just snaps instead of animating
 
@@ -387,7 +429,7 @@ Follow-up to 10.2, inserted the same way (out of sequence, not renumbering later
 
 ### About
 
-This phase gives the console itself a seed-derived visual identity, split by scale rather than by physical part: the planet seed drives large/structural areas — the Sleeve casing's exterior silhouette, decorative indents/bands, and color, plus large background regions inside the Glass — while the active locale's coordinate seed drives small accent elements wherever they sit, buttons/text/borders on both the casing's decorative details and the Glass-side chrome. The casing's interior edge, the boundary touching ScreenViewport, stays static so nothing generated ever encroaches on or covers screen content. Colors stay bounded and legible the same way robot color generation already is (see ROBOT_DESIGN.md), since this is real interactive chrome sitting on a fixed dark background, not a decorative shape — a bad roll can't just look a little odd. Retransmitting a new seed in Sector Settings (Phase 5) visibly reshapes and recolors the console, reinforcing the same "this is a piece of field equipment reporting what it's tuned to" fiction the rest of the console already leans on (SYSTEM_FIRMWARE_RESETS, the power-off confirm, etc.). Because the theme is a pure function of the seed and coordinates already being persisted by Sector Settings, it needs no separate storage of its own — Session Storage (Phase 12) restoring the seed automatically restores the look. Out of scope here: WorldView/terrain/sky styling (deferred to v2), robot visuals (locked to audio attributes per CLAUDE.md, untouched by this phase), and the power rocker switch itself (stays fixed, not seed-styled).
+This phase gives the console itself a seed-derived visual identity, split by scale rather than by physical part: the AS seed drives large/structural areas — the Sleeve casing's exterior silhouette, decorative indents/bands, and color, plus large background regions inside the Glass — while the active locale's coordinate seed drives small accent elements wherever they sit, buttons/text/borders on both the casing's decorative details and the Glass-side chrome. The casing's interior edge, the boundary touching ScreenViewport, stays static so nothing generated ever encroaches on or covers screen content. Colors stay bounded and legible the same way robot color generation already is (see ROBOT_DESIGN.md), since this is real interactive chrome sitting on a fixed dark background, not a decorative shape — a bad roll can't just look a little odd. Retransmitting a new seed in Sector Settings (Phase 5) visibly reshapes and recolors the console, reinforcing the same "this is a piece of field equipment reporting what it's tuned to" fiction the rest of the console already leans on (SYSTEM_FIRMWARE_RESETS, the power-off confirm, etc.). Because the theme is a pure function of the seed and coordinates already being persisted by Sector Settings, it needs no separate storage of its own — Session Storage (Phase 12) restoring the seed automatically restores the look. Out of scope here: WorldView/terrain/sky styling (deferred to v2), robot visuals (locked to audio attributes per CLAUDE.md, untouched by this phase), and the power rocker switch itself (stays fixed, not seed-styled).
 
 ### Docs
 

@@ -12,7 +12,7 @@ const WORLD_BOUNDS = { width: 1920, height: 1080 };
 // VARIANT_CONF imported previously but no longer needed
 
 import { useLocaleStore } from '../stores/localeStore';
-import { usePlanetStore, DEFAULT_LOCALE_ID } from '../stores/planetStore';
+import { useAttenuationStyleStore, DEFAULT_LOCALE_ID } from '../stores/attenuationStyleStore';
 import { ActorType } from '../types/Actor';
 import type { Actor } from '../types/Actor';
 import { recolorFactoriesForAttenuationStyle } from './factoryPlacementSystem';
@@ -70,7 +70,7 @@ describe('FactoryPlacementSystem', () => {
     it('writes actors to the given localeId, not a hardcoded default', () => {
       const otherLocale = {
         id: 'other-locale',
-        planetId: 'pelagos',
+        attenuationStyleId: 'pelagos',
         name: 'Other',
         coordinates: { x: 5, y: 5 },
         dayStartTimestamp: Date.now(),
@@ -352,15 +352,15 @@ describe('FactoryPlacementSystem', () => {
 
     it('produces an identical factory backdrop for two locales sharing the same coordinates (reload / shared-link determinism)', () => {
       // Simulates the real scenario Session Storage's URL-sharing depends on: the same
-      // planet coordinates must regenerate the exact same world, factories included —
+      // same coordinates must regenerate the exact same world, factories included —
       // not just internally-consistent colors (the test above), but the same ids,
       // positions, scales, and colors bit-for-bit, on a completely separate locale.
       const localeA = {
-        id: 'locale-a', planetId: 'p', name: 'A', coordinates: { x: 42, y: 7 },
+        id: 'locale-a', attenuationStyleId: 'p', name: 'A', coordinates: { x: 42, y: 7 },
         robots: [], actors: [], companies: [], settings: {}, currentMeasure: 0, dayStartTimestamp: Date.now(),
       };
       const localeB = {
-        id: 'locale-b', planetId: 'p', name: 'B', coordinates: { x: 42, y: 7 },
+        id: 'locale-b', attenuationStyleId: 'p', name: 'B', coordinates: { x: 42, y: 7 },
         robots: [], actors: [], companies: [], settings: {}, currentMeasure: 0, dayStartTimestamp: Date.now(),
       };
       useLocaleStore.getState().addLocale('p', localeA);
@@ -375,11 +375,11 @@ describe('FactoryPlacementSystem', () => {
 
     it('produces a different factory backdrop for locales at different coordinates', () => {
       const localeA = {
-        id: 'locale-c', planetId: 'p', name: 'C', coordinates: { x: 1, y: 1 },
+        id: 'locale-c', attenuationStyleId: 'p', name: 'C', coordinates: { x: 1, y: 1 },
         robots: [], actors: [], companies: [], settings: {}, currentMeasure: 0, dayStartTimestamp: Date.now(),
       };
       const localeB = {
-        id: 'locale-d', planetId: 'p', name: 'D', coordinates: { x: 99, y: 99 },
+        id: 'locale-d', attenuationStyleId: 'p', name: 'D', coordinates: { x: 99, y: 99 },
         robots: [], actors: [], companies: [], settings: {}, currentMeasure: 0, dayStartTimestamp: Date.now(),
       };
       useLocaleStore.getState().addLocale('p', localeA);
@@ -409,19 +409,19 @@ describe('FactoryPlacementSystem', () => {
       expect(withShift.config?.satShift).toBe((base.config?.satShift ?? 0) - 5);
     });
 
-    it("placeFactories folds in the locale's own planet AS noise map, distinct from another planet's", () => {
+    it("placeFactories folds in the locale's own Attenuation Style noise map, distinct from another Attenuation Style's", () => {
       // Two locales at IDENTICAL coordinates get identical local-seeded ids/shifts
       // (the locale noise map is a pure function of (x, y)) — so any difference in
-      // the final stored hueShift/satShift must come from the AS (planet) input.
-      usePlanetStore.getState().addPlanet({ id: 'as-planet-a', name: 'as-planet-alpha', locales: [] });
-      usePlanetStore.getState().addPlanet({ id: 'as-planet-b', name: 'as-planet-beta', locales: [] });
+      // the final stored hueShift/satShift must come from the AS input.
+      useAttenuationStyleStore.getState().addAttenuationStyle({ id: 'as-planet-a', name: 'as-planet-alpha', locales: [] });
+      useAttenuationStyleStore.getState().addAttenuationStyle({ id: 'as-planet-b', name: 'as-planet-beta', locales: [] });
 
       const localeOnA = {
-        id: 'locale-as-a', planetId: 'as-planet-a', name: 'A', coordinates: { x: 30, y: 30 },
+        id: 'locale-as-a', attenuationStyleId: 'as-planet-a', name: 'A', coordinates: { x: 30, y: 30 },
         robots: [], actors: [], companies: [], settings: {}, currentMeasure: 0, dayStartTimestamp: Date.now(),
       };
       const localeOnB = {
-        id: 'locale-as-b', planetId: 'as-planet-b', name: 'B', coordinates: { x: 30, y: 30 },
+        id: 'locale-as-b', attenuationStyleId: 'as-planet-b', name: 'B', coordinates: { x: 30, y: 30 },
         robots: [], actors: [], companies: [], settings: {}, currentMeasure: 0, dayStartTimestamp: Date.now(),
       };
       useLocaleStore.getState().addLocale('as-planet-a', localeOnA);
@@ -439,9 +439,9 @@ describe('FactoryPlacementSystem', () => {
       expect(anyShiftDiffers).toBe(true);
     });
 
-    it("placeFactories falls back to a zero asShift (not a crash) when the locale's planetId doesn't resolve to any planet in the store", () => {
+    it("placeFactories falls back to a zero asShift (not a crash) when the locale's attenuationStyleId doesn't resolve to any Attenuation Style in the store", () => {
       const orphanLocale = {
-        id: 'locale-orphan', planetId: 'no-such-planet', name: 'Orphan', coordinates: { x: 8, y: 8 },
+        id: 'locale-orphan', attenuationStyleId: 'no-such-planet', name: 'Orphan', coordinates: { x: 8, y: 8 },
         robots: [], actors: [], companies: [], settings: {}, currentMeasure: 0, dayStartTimestamp: Date.now(),
       };
       useLocaleStore.getState().addLocale('no-such-planet', orphanLocale);
@@ -467,7 +467,7 @@ describe('FactoryPlacementSystem', () => {
     });
 
     it('changes only config.hueShift/config.satShift on every factory — everything else round-trips byte-identical', () => {
-      usePlanetStore.getState().addPlanet({ id: 'recolor-planet', name: 'recolor-planet-name', locales: [] });
+      useAttenuationStyleStore.getState().addAttenuationStyle({ id: 'recolor-planet', name: 'recolor-planet-name', locales: [] });
       const before = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].actors;
 
       recolorFactoriesForAttenuationStyle(DEFAULT_LOCALE_ID, 'recolor-planet', 'recolor-planet-name');
@@ -495,7 +495,7 @@ describe('FactoryPlacementSystem', () => {
     });
 
     it('is idempotent under repeated calls with the same AS (no drift)', () => {
-      usePlanetStore.getState().addPlanet({ id: 'idempotent-planet', name: 'idempotent-planet-name', locales: [] });
+      useAttenuationStyleStore.getState().addAttenuationStyle({ id: 'idempotent-planet', name: 'idempotent-planet-name', locales: [] });
 
       recolorFactoriesForAttenuationStyle(DEFAULT_LOCALE_ID, 'idempotent-planet', 'idempotent-planet-name');
       const first = useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].actors;
@@ -531,7 +531,7 @@ describe('FactoryPlacementSystem', () => {
         isActive: true, cooldownRemaining: 0,
         config: { hueShift: 0, satShift: 0 }, // no `row` key at all
       };
-      usePlanetStore.getState().addPlanet({ id: 'rowless-planet', name: 'rowless-planet-name', locales: [] });
+      useAttenuationStyleStore.getState().addAttenuationStyle({ id: 'rowless-planet', name: 'rowless-planet-name', locales: [] });
       useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { actors: [rowlessActor] });
 
       recolorFactoriesForAttenuationStyle(DEFAULT_LOCALE_ID, 'rowless-planet', 'rowless-planet-name');

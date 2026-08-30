@@ -4,7 +4,7 @@ import './OceanScene.css';
 
 import { Robot } from '@/components/robot/Robot'
 import { useLocaleStore } from '@/stores/localeStore';
-import { usePlanetStore, selectCurrentPlanet } from '@/stores/planetStore';
+import { useAttenuationStyleStore, selectCurrentAttenuationStyle } from '@/stores/attenuationStyleStore';
 import { stopRobotLifecycle } from '@/systems/robotSystems';
 import { initializeLocale } from '@/systems/worldTransition';
 import { Factory } from '@/components/actors/Factory';
@@ -45,7 +45,7 @@ export function OceanScene({
   localTime: _localTime,
 }: OceanSceneProps) {
 
-  const localeId = usePlanetStore((s) => selectCurrentPlanet(s)?.currentLocaleId ?? '');
+  const localeId = useAttenuationStyleStore((s) => selectCurrentAttenuationStyle(s)?.currentLocaleId ?? '');
   const robots = useLocaleStore((s) => s.locales[localeId]?.robots ?? []);
   const actors = useLocaleStore((s) => s.locales[localeId]?.actors ?? []);
 

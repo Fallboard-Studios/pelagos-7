@@ -1,28 +1,28 @@
 import { useState } from 'react';
-import { usePlanetStore, selectCurrentPlanet } from '@/stores/planetStore';
+import { useAttenuationStyleStore, selectCurrentAttenuationStyle } from '@/stores/attenuationStyleStore';
 import { useLocaleStore } from '@/stores/localeStore';
 import { retransmitWorld, type RetransmitInput } from '@/systems/worldTransition';
-import { generateRandomPlanetName } from '@/utils/seedUtils';
+import { generateRandomAttenuationStyleName } from '@/utils/seedUtils';
 import { TextInput } from '@/components/ui/controls/TextInput';
 import { CoordsInput } from '@/components/ui/controls/CoordsInput';
 import { Button } from '@/components/ui/controls/Button';
 import { DualLabel } from '@/components/ui/controls/DualLabel';
 import {
-  PLANET_NAME_SCHEMA,
+  ATTENUATION_STYLE_SCHEMA,
   COORDS_SCHEMA,
   RETRANSMIT_SCHEMA,
   STATUS_HEADER_SCHEMA,
-  PLANET_NAME_PRESETS,
+  ATTENUATION_STYLE_PRESETS,
   COORDINATE_PRESETS,
 } from '@/data/sectorSettingsConfig';
 import type { ButtonSchema } from '@/types/controls';
 import './SectorSettingsDrawer.css';
 
-const RANDOM_PLANET_SCHEMA: ButtonSchema = { id: 'sectorSettings.randomPlanet', type: 'button', humanLabel: 'Random' };
+const RANDOM_ATTENUATION_STYLE_SCHEMA: ButtonSchema = { id: 'sectorSettings.randomPlanet', type: 'button', humanLabel: 'Random' };
 const RANDOM_COORDS_SCHEMA: ButtonSchema = { id: 'sectorSettings.randomCoords', type: 'button', humanLabel: 'Random' };
 
 /** A random integer coordinate pair — no existing utility covers this
- *  (unlike planet names, which reuse seedUtils' generateRandomPlanetName).
+ *  (unlike Attenuation Style names, which reuse seedUtils' generateRandomAttenuationStyleName).
  *  Range is arbitrary but generous enough to feel like "a different plot,"
  *  not a variation on the current one. */
 function randomCoordinate(): number {
@@ -34,18 +34,18 @@ function presetSchema(idSuffix: string, humanLabel: string): ButtonSchema {
 }
 
 /**
- * Sector Settings console panel — Attenuation Style (reseed the planet) and
- * Plot Tuning (jump to new locale coordinates), sharing one Retransmit
- * action. Preset buttons only populate their own field(s); they never submit
- * on their own — the user still presses Retransmit separately, per
- * docs/specs/SECTOR_SETTINGS.md §5.
+ * Sector Settings console panel — Attenuation Style (reseed the Attenuation
+ * Style) and Plot Tuning (jump to new locale coordinates), sharing one
+ * Retransmit action. Preset buttons only populate their own field(s); they
+ * never submit on their own — the user still presses Retransmit separately,
+ * per docs/specs/SECTOR_SETTINGS.md §5.
  */
 export function SectorSettingsDrawer() {
-  const currentPlanet = usePlanetStore(selectCurrentPlanet);
-  const currentLocaleId = currentPlanet?.currentLocaleId;
+  const currentAttenuationStyle = useAttenuationStyleStore(selectCurrentAttenuationStyle);
+  const currentLocaleId = currentAttenuationStyle?.currentLocaleId;
   const currentLocale = useLocaleStore((s) => (currentLocaleId ? s.locales[currentLocaleId] : undefined));
 
-  const [planetNameDraft, setPlanetNameDraft] = useState(currentPlanet?.name ?? '');
+  const [attenuationStyleNameDraft, setAttenuationStyleNameDraft] = useState(currentAttenuationStyle?.name ?? '');
   const [coordsDraft, setCoordsDraft] = useState(currentLocale?.coordinates ?? { x: 0, y: 0 });
 
   // Reset the drafts when the store's "current" values actually change (e.g.
@@ -53,10 +53,10 @@ export function SectorSettingsDrawer() {
   // against the last-seen value, rather than via a useEffect (React's
   // recommended pattern for "adjust state when a prop/store value changes";
   // an effect here would cause an extra, avoidable render pass).
-  const [lastSeenPlanetName, setLastSeenPlanetName] = useState(currentPlanet?.name);
-  if (currentPlanet?.name !== lastSeenPlanetName) {
-    setLastSeenPlanetName(currentPlanet?.name);
-    setPlanetNameDraft(currentPlanet?.name ?? '');
+  const [lastSeenAttenuationStyleName, setLastSeenAttenuationStyleName] = useState(currentAttenuationStyle?.name);
+  if (currentAttenuationStyle?.name !== lastSeenAttenuationStyleName) {
+    setLastSeenAttenuationStyleName(currentAttenuationStyle?.name);
+    setAttenuationStyleNameDraft(currentAttenuationStyle?.name ?? '');
   }
 
   const [lastSeenCoords, setLastSeenCoords] = useState(currentLocale?.coordinates);
@@ -67,8 +67,8 @@ export function SectorSettingsDrawer() {
 
   function handleRetransmit() {
     const input: RetransmitInput = {};
-    if (planetNameDraft !== (currentPlanet?.name ?? '')) {
-      input.planetName = planetNameDraft;
+    if (attenuationStyleNameDraft !== (currentAttenuationStyle?.name ?? '')) {
+      input.attenuationStyleName = attenuationStyleNameDraft;
     }
     if (currentLocale && (coordsDraft.x !== currentLocale.coordinates.x || coordsDraft.y !== currentLocale.coordinates.y)) {
       input.coordinates = coordsDraft;
@@ -81,21 +81,21 @@ export function SectorSettingsDrawer() {
       <div className="sector-settings-drawer__status">
         <DualLabel loreLabel={STATUS_HEADER_SCHEMA.loreLabel} humanLabel={STATUS_HEADER_SCHEMA.humanLabel} />
         <div className="sector-settings-drawer__status-line">
-          {currentPlanet?.name ?? '—'} · ({currentLocale?.coordinates.x ?? '—'}, {currentLocale?.coordinates.y ?? '—'})
+          {currentAttenuationStyle?.name ?? '—'} · ({currentLocale?.coordinates.x ?? '—'}, {currentLocale?.coordinates.y ?? '—'})
         </div>
       </div>
 
       <div className="sector-settings-drawer__section">
-        <TextInput schema={PLANET_NAME_SCHEMA} value={planetNameDraft} onChange={setPlanetNameDraft} />
+        <TextInput schema={ATTENUATION_STYLE_SCHEMA} value={attenuationStyleNameDraft} onChange={setAttenuationStyleNameDraft} />
         <div className="sector-settings-drawer__presets">
-          {PLANET_NAME_PRESETS.map((preset) => (
+          {ATTENUATION_STYLE_PRESETS.map((preset) => (
             <Button
               key={preset.label}
               schema={presetSchema(`planet.${preset.label}`, preset.label)}
-              onClick={() => setPlanetNameDraft(preset.value)}
+              onClick={() => setAttenuationStyleNameDraft(preset.value)}
             />
           ))}
-          <Button schema={RANDOM_PLANET_SCHEMA} onClick={() => setPlanetNameDraft(generateRandomPlanetName())} />
+          <Button schema={RANDOM_ATTENUATION_STYLE_SCHEMA} onClick={() => setAttenuationStyleNameDraft(generateRandomAttenuationStyleName())} />
         </div>
       </div>
 

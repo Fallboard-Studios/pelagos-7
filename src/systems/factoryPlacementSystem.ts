@@ -6,11 +6,11 @@ import type { NoiseFunction2D } from 'simplex-noise';
 import type { Actor } from '../types/Actor';
 import { ActorType } from '../types/Actor';
 import useLocaleStore from '../stores/localeStore';
-import { usePlanetStore } from '../stores/planetStore';
+import { useAttenuationStyleStore } from '../stores/attenuationStyleStore';
 import type { FactoryVariant } from '../components/actors/factoryVariants';
 import { VARIANT_CONF, selectVariantFromSeed } from '../components/actors/factoryVariants';
 import { calcSilhouetteSize } from '../components/actors/silhouetteUtils';
-import { getLocaleNoiseMap, getPlanetNoiseMap } from '../utils/noiseMaps';
+import { getLocaleNoiseMap, getAttenuationStyleNoiseMap } from '../utils/noiseMaps';
 import { getSeededVal } from '../utils/getSeededVal';
 import type { ColorShift } from '../utils/colorUtils';
 
@@ -84,7 +84,7 @@ function generateFactoryId(noiseMap: NoiseFunction2D, index: number): string {
 
 /** AS-seeded color delta for one factory, additive on top of its existing
  *  locale-seeded hueShift/satShift — never a replacement. Sampled from the
- *  ACTIVE PLANET's (AS's) own noise map, keyed by the factory's position in
+ *  active Attenuation Style's own noise map, keyed by the factory's position in
  *  the locale's actor array (the same getSeededVal(noiseMap, dataId, offset,
  *  min, max) pattern every other seeded field in this file already uses).
  *  See docs/specs/ATTENUATION_STYLE.md §1.2. */
@@ -155,13 +155,13 @@ export function placeFactories(localeId: string): Actor[] {
   const actors: Actor[] = [];
   const locale = useLocaleStore.getState().getLocaleById(localeId);
   const noiseMap = locale ? getLocaleNoiseMap(localeId, locale.coordinates.x, locale.coordinates.y) : null;
-  // Resolve the locale's own planet internally, mirroring the locale noise
+  // Resolve the locale's own Attenuation Style internally, mirroring the locale noise
   // map lookup immediately above — placeFactories' exported signature is
-  // unchanged; this is a new usePlanetStore dependency, not a new parameter.
-  // Falls back to a zero asShift (never a crash) if the locale's planetId
-  // doesn't resolve to any planet currently in the store.
-  const planet = locale ? usePlanetStore.getState().planets.find((p) => p.id === locale.planetId) : undefined;
-  const asNoiseMap = planet ? getPlanetNoiseMap(planet.id, planet.name) : null;
+  // unchanged; this is a new useAttenuationStyleStore dependency, not a new parameter.
+  // Falls back to a zero asShift (never a crash) if the locale's attenuationStyleId
+  // doesn't resolve to any Attenuation Style currently in the store.
+  const attenuationStyle = locale ? useAttenuationStyleStore.getState().attenuationStyles.find((p) => p.id === locale.attenuationStyleId) : undefined;
+  const asNoiseMap = attenuationStyle ? getAttenuationStyleNoiseMap(attenuationStyle.id, attenuationStyle.name) : null;
   // Monotonic counter across every factory this call places, embedded in each factory's own
   // id/scale seed offset — mirrors spawnSystem.ts's spawnCount pattern.
   let factoryIndex = 0;
@@ -272,14 +272,14 @@ export function placeFactories(localeId: string): Actor[] {
  * each factory's locale-seeded LOCAL shift from scratch (same inputs
  * Factory.tsx's own render already recomputes) rather than trying to
  * subtract out the previous AS delta, so repeated AS changes never
- * accumulate drift. Called only from retransmitPlanetOnly (worldTransition.ts)
+ * accumulate drift. Called only from retransmitAttenuationStyleOnly (worldTransition.ts)
  * — never from placeFactories' own fresh-spawn path, which folds the current
  * AS's shift in at creation time instead. See docs/specs/ATTENUATION_STYLE.md §1.2.
  */
-export function recolorFactoriesForAttenuationStyle(localeId: string, planetId: string, planetName: string): void {
+export function recolorFactoriesForAttenuationStyle(localeId: string, attenuationStyleId: string, attenuationStyleName: string): void {
   const locale = useLocaleStore.getState().getLocaleById(localeId);
   if (!locale) return;
-  const asNoiseMap = getPlanetNoiseMap(planetId, planetName);
+  const asNoiseMap = getAttenuationStyleNoiseMap(attenuationStyleId, attenuationStyleName);
 
   let factoryIndex = 0;
   const nextActors = locale.actors.map((actor) => {

@@ -1,7 +1,7 @@
 // ========================================
 // IMPORTS
 // ========================================
-import { usePlanetStore, selectCurrentPlanet } from '../stores/planetStore';
+import { useAttenuationStyleStore, selectCurrentAttenuationStyle } from '../stores/attenuationStyleStore';
 import { useLocaleStore } from '../stores/localeStore';
 import { useUIStore } from '../stores/uiStore';
 import { placeFactories, recolorFactoriesForAttenuationStyle } from './factoryPlacementSystem';
@@ -10,7 +10,7 @@ import { startRobotLifecycle, stopRobotLifecycle, assignJob } from './robotSyste
 import { DockingState } from '../types/Robot';
 import { getLocaleNoiseMap } from '../utils/noiseMaps';
 import { DAY_DURATION_MS } from '../constants/time';
-import type { Planet } from '../types/planet';
+import type { AttenuationStyle } from '../types/attenuationStyle';
 import type { Locale } from '../types/locale';
 
 // ========================================
@@ -18,8 +18,8 @@ import type { Locale } from '../types/locale';
 // ========================================
 
 export interface RetransmitInput {
-  /** Present only if the user edited the planet name field. */
-  planetName?: string;
+  /** Present only if the user edited the Attenuation Style name field. */
+  attenuationStyleName?: string;
   /** Present only if the user edited the X/Y fields (already rounded to
    *  integers by CoordsInput). */
   coordinates?: { x: number; y: number };
@@ -29,10 +29,10 @@ export interface RetransmitInput {
 // CONSTRUCTION HELPERS
 // ========================================
 
-/** Construct a fresh Planet. No dayStartTimestamp/size/currentHour anymore —
+/** Construct a fresh AttenuationStyle. No dayStartTimestamp/size/currentHour anymore —
  *  dayStartTimestamp moved to Locale (buildLocale below), the rest were
  *  deleted outright. See docs/specs/ATTENUATION_STYLE.md §1.1. */
-function buildPlanet(name: string): Planet {
+function buildAttenuationStyle(name: string): AttenuationStyle {
   return {
     id: crypto.randomUUID(),
     name,
@@ -43,14 +43,14 @@ function buildPlanet(name: string): Planet {
 /** Construct a fresh, empty Locale at the given coordinates — robots/actors
  *  populate via initializeLocale, not here. dayStartTimestamp is computed
  *  here, once, directly from x — no seed, no shared clock. This is the ONLY
- *  place a fresh dayStartTimestamp gets produced; retransmitPlanetOnly
+ *  place a fresh dayStartTimestamp gets produced; retransmitAttenuationStyleOnly
  *  deliberately never calls this for its preserved locale (the inversion
  *  this phase's spec flags as easiest to get backwards — see
  *  docs/specs/ATTENUATION_STYLE.md §1.1/§3). */
-function buildLocale(planetId: string, coordinates: { x: number; y: number }): Locale {
+function buildLocale(attenuationStyleId: string, coordinates: { x: number; y: number }): Locale {
   return {
     id: crypto.randomUUID(),
-    planetId,
+    attenuationStyleId,
     name: `Plot ${coordinates.x}, ${coordinates.y}`,
     coordinates,
     dayStartTimestamp: Date.now() - (Math.abs(coordinates.x % 24) / 24) * DAY_DURATION_MS,
@@ -117,91 +117,96 @@ export function initializeLocale(localeId: string): void {
 type RetransmitAction =
   | { mode: 'noop' }
   | { mode: 'coordsOnly'; coordinates: { x: number; y: number } }
-  | { mode: 'planetOnly'; planetName: string }
-  | { mode: 'both'; planetName: string; coordinates: { x: number; y: number } };
+  | { mode: 'attenuationStyleOnly'; attenuationStyleName: string }
+  | { mode: 'both'; attenuationStyleName: string; coordinates: { x: number; y: number } };
 
 function resolveRetransmitAction(input: RetransmitInput): RetransmitAction {
-  const { planetName, coordinates } = input;
-  if (!planetName && !coordinates) return { mode: 'noop' };
-  if (coordinates && !planetName) return { mode: 'coordsOnly', coordinates };
-  if (planetName && !coordinates) return { mode: 'planetOnly', planetName };
-  return { mode: 'both', planetName: planetName!, coordinates: coordinates! };
+  const { attenuationStyleName, coordinates } = input;
+  if (!attenuationStyleName && !coordinates) return { mode: 'noop' };
+  if (coordinates && !attenuationStyleName) return { mode: 'coordsOnly', coordinates };
+  if (attenuationStyleName && !coordinates) return { mode: 'attenuationStyleOnly', attenuationStyleName };
+  return { mode: 'both', attenuationStyleName: attenuationStyleName!, coordinates: coordinates! };
 }
 
-/** Coordinates changed, planet preserved: never touch currentPlanetId, so
- *  audioStore's planet-sync subscription never fires — any Audio Rig/LFO
- *  edits on the current planet survive untouched, with no new code needed. */
-function retransmitCoordsOnly(oldPlanet: Planet, oldLocaleId: string | undefined, coordinates: { x: number; y: number }): void {
-  const newLocale = buildLocale(oldPlanet.id, coordinates);
-  useLocaleStore.getState().addLocale(oldPlanet.id, newLocale);
+/** Coordinates changed, Attenuation Style preserved: never touch
+ *  currentAttenuationStyleId, so audioStore's AS-sync subscription never
+ *  fires — any Audio Rig/LFO edits on the current Attenuation Style survive
+ *  untouched, with no new code needed. */
+function retransmitCoordsOnly(oldAttenuationStyle: AttenuationStyle, oldLocaleId: string | undefined, coordinates: { x: number; y: number }): void {
+  const newLocale = buildLocale(oldAttenuationStyle.id, coordinates);
+  useLocaleStore.getState().addLocale(oldAttenuationStyle.id, newLocale);
   initializeLocale(newLocale.id);
-  usePlanetStore.getState().setCurrentLocale(oldPlanet.id, newLocale.id);
+  useAttenuationStyleStore.getState().setCurrentLocale(oldAttenuationStyle.id, newLocale.id);
   if (oldLocaleId) useLocaleStore.getState().removeLocale(oldLocaleId);
 }
 
-/** Build a new Planet and switch the store to it (add only — the caller
- *  finalizes with finalizePlanetTransition once its own branch-specific work
- *  is done). Shared by the two modes that create a new planet. */
-function createNewPlanet(planetName: string): Planet {
-  const newPlanet = buildPlanet(planetName);
-  usePlanetStore.getState().addPlanet(newPlanet);
-  return newPlanet;
+/** Build a new AttenuationStyle and switch the store to it (add only — the
+ *  caller finalizes with finalizeAttenuationStyleTransition once its own
+ *  branch-specific work is done). Shared by the two modes that create a new
+ *  Attenuation Style. */
+function createNewAttenuationStyle(attenuationStyleName: string): AttenuationStyle {
+  const newAttenuationStyle = buildAttenuationStyle(attenuationStyleName);
+  useAttenuationStyleStore.getState().addAttenuationStyle(newAttenuationStyle);
+  return newAttenuationStyle;
 }
 
-/** Switch currentPlanetId to the new planet and discard the old one. Shared
- *  tail step for both planet-creating modes. */
-function finalizePlanetTransition(newPlanet: Planet, oldPlanet: Planet): void {
-  // Triggers audioStore's existing usePlanetStore.subscribe — reseeds
-  // globalAudio/globalLfo from the new planet's own seed. Do not call
-  // regenerateGlobalAudioFromSeed/regenerateGlobalLfoFromSeed directly here.
-  usePlanetStore.getState().setCurrentPlanetId(newPlanet.id);
-  usePlanetStore.getState().removePlanet(oldPlanet.id);
+/** Switch currentAttenuationStyleId to the new Attenuation Style and discard
+ *  the old one. Shared tail step for both Attenuation-Style-creating modes. */
+function finalizeAttenuationStyleTransition(newAttenuationStyle: AttenuationStyle, oldAttenuationStyle: AttenuationStyle): void {
+  // Triggers audioStore's existing useAttenuationStyleStore.subscribe —
+  // reseeds globalAudio/globalLfo from the new Attenuation Style's own seed.
+  // Do not call regenerateGlobalAudioFromSeed/regenerateGlobalLfoFromSeed
+  // directly here.
+  useAttenuationStyleStore.getState().setCurrentAttenuationStyleId(newAttenuationStyle.id);
+  useAttenuationStyleStore.getState().removeAttenuationStyle(oldAttenuationStyle.id);
 }
 
-/** Planet changed, coordinates preserved: re-parent the EXISTING locale onto
- *  the new planet unchanged — same robots/actors/edits/dayStartTimestamp, no
- *  regeneration. Locale Seed Decoupling is what makes this correct: the
- *  locale's generated content is a pure function of (x, y), independent of
- *  which planet owns it, so there is genuinely nothing to regenerate.
- *  dayStartTimestamp is NOT recalculated here — inverted from the old
- *  planet-owned-time behavior, see docs/specs/ATTENUATION_STYLE.md §1.1.
- *  Factory colors DO change — recolorFactoriesForAttenuationStyle is new
- *  coupling, not a preservation exception; see §1.2. */
-function retransmitPlanetOnly(oldPlanet: Planet, oldLocaleId: string | undefined, planetName: string): void {
-  const newPlanet = createNewPlanet(planetName);
+/** Attenuation Style changed, coordinates preserved: re-parent the EXISTING
+ *  locale onto the new Attenuation Style unchanged — same
+ *  robots/actors/edits/dayStartTimestamp, no regeneration. Locale Seed
+ *  Decoupling is what makes this correct: the locale's generated content is
+ *  a pure function of (x, y), independent of which Attenuation Style owns
+ *  it, so there is genuinely nothing to regenerate. dayStartTimestamp is NOT
+ *  recalculated here — inverted from the old Attenuation-Style-owned-time
+ *  behavior, see docs/specs/ATTENUATION_STYLE.md §1.1. Factory colors DO
+ *  change — recolorFactoriesForAttenuationStyle is new coupling, not a
+ *  preservation exception; see §1.2. */
+function retransmitAttenuationStyleOnly(oldAttenuationStyle: AttenuationStyle, oldLocaleId: string | undefined, attenuationStyleName: string): void {
+  const newAttenuationStyle = createNewAttenuationStyle(attenuationStyleName);
   let preservedCoords: { x: number; y: number } | undefined;
 
   if (oldLocaleId) {
     preservedCoords = useLocaleStore.getState().getLocaleById(oldLocaleId)?.coordinates;
-    // Partial patch — only touches planetId, can't touch dayStartTimestamp
-    // even indirectly, since it isn't mentioned.
-    useLocaleStore.getState().setLocaleData(oldLocaleId, { planetId: newPlanet.id });
-    usePlanetStore.getState().setCurrentLocale(newPlanet.id, oldLocaleId);
-    recolorFactoriesForAttenuationStyle(oldLocaleId, newPlanet.id, newPlanet.name);
+    // Partial patch — only touches attenuationStyleId, can't touch
+    // dayStartTimestamp even indirectly, since it isn't mentioned.
+    useLocaleStore.getState().setLocaleData(oldLocaleId, { attenuationStyleId: newAttenuationStyle.id });
+    useAttenuationStyleStore.getState().setCurrentLocale(newAttenuationStyle.id, oldLocaleId);
+    recolorFactoriesForAttenuationStyle(oldLocaleId, newAttenuationStyle.id, newAttenuationStyle.name);
   }
 
-  // finalizePlanetTransition's removePlanet(oldPlanet) evicts noise maps for
-  // every locale oldPlanet.locales still lists as its own — this preserved
-  // locale included, since nothing here (or in addPlanet) ever updates that
-  // array. Re-warm AFTER that call (order matters — re-warming first would
-  // just get evicted again by removePlanet) so AudioEngine's non-throwing
-  // tryGetLocaleNoiseMap lookup never sees a gap, rather than relying on the
-  // next scheduled spawn tick to rebuild it.
-  finalizePlanetTransition(newPlanet, oldPlanet);
+  // finalizeAttenuationStyleTransition's removeAttenuationStyle(oldAttenuationStyle)
+  // evicts noise maps for every locale oldAttenuationStyle.locales still lists
+  // as its own — this preserved locale included, since nothing here (or in
+  // addAttenuationStyle) ever updates that array. Re-warm AFTER that call
+  // (order matters — re-warming first would just get evicted again by
+  // removeAttenuationStyle) so AudioEngine's non-throwing tryGetLocaleNoiseMap
+  // lookup never sees a gap, rather than relying on the next scheduled spawn
+  // tick to rebuild it.
+  finalizeAttenuationStyleTransition(newAttenuationStyle, oldAttenuationStyle);
   if (oldLocaleId && preservedCoords) getLocaleNoiseMap(oldLocaleId, preservedCoords.x, preservedCoords.y);
 }
 
 /** Both changed: full reset, nothing eligible for preservation. */
-function retransmitBoth(oldPlanet: Planet, oldLocaleId: string | undefined, planetName: string, coordinates: { x: number; y: number }): void {
-  const newPlanet = createNewPlanet(planetName);
+function retransmitBoth(oldAttenuationStyle: AttenuationStyle, oldLocaleId: string | undefined, attenuationStyleName: string, coordinates: { x: number; y: number }): void {
+  const newAttenuationStyle = createNewAttenuationStyle(attenuationStyleName);
 
-  const newLocale = buildLocale(newPlanet.id, coordinates);
-  useLocaleStore.getState().addLocale(newPlanet.id, newLocale);
+  const newLocale = buildLocale(newAttenuationStyle.id, coordinates);
+  useLocaleStore.getState().addLocale(newAttenuationStyle.id, newLocale);
   initializeLocale(newLocale.id);
-  usePlanetStore.getState().setCurrentLocale(newPlanet.id, newLocale.id);
+  useAttenuationStyleStore.getState().setCurrentLocale(newAttenuationStyle.id, newLocale.id);
   if (oldLocaleId) useLocaleStore.getState().removeLocale(oldLocaleId);
 
-  finalizePlanetTransition(newPlanet, oldPlanet);
+  finalizeAttenuationStyleTransition(newAttenuationStyle, oldAttenuationStyle);
 }
 
 /**
@@ -215,19 +220,19 @@ export function retransmitWorld(input: RetransmitInput): void {
   if (action.mode === 'noop') return;
 
   useUIStore.getState().selectRobot(null);
-  const oldPlanet = selectCurrentPlanet(usePlanetStore.getState());
-  if (!oldPlanet) return;
-  const oldLocaleId = oldPlanet.currentLocaleId;
+  const oldAttenuationStyle = selectCurrentAttenuationStyle(useAttenuationStyleStore.getState());
+  if (!oldAttenuationStyle) return;
+  const oldLocaleId = oldAttenuationStyle.currentLocaleId;
 
   switch (action.mode) {
     case 'coordsOnly':
-      retransmitCoordsOnly(oldPlanet, oldLocaleId, action.coordinates);
+      retransmitCoordsOnly(oldAttenuationStyle, oldLocaleId, action.coordinates);
       break;
-    case 'planetOnly':
-      retransmitPlanetOnly(oldPlanet, oldLocaleId, action.planetName);
+    case 'attenuationStyleOnly':
+      retransmitAttenuationStyleOnly(oldAttenuationStyle, oldLocaleId, action.attenuationStyleName);
       break;
     case 'both':
-      retransmitBoth(oldPlanet, oldLocaleId, action.planetName, action.coordinates);
+      retransmitBoth(oldAttenuationStyle, oldLocaleId, action.attenuationStyleName, action.coordinates);
       break;
   }
 }

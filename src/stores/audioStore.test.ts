@@ -71,7 +71,7 @@ describe('useAudioStore - regenerateGlobalAudioFromSeed', () => {
     vi.resetModules();
   });
 
-  it('seeds globalAudio for the current planet on module load (app init)', async () => {
+  it('seeds globalAudio for the current Attenuation Style on module load (app init)', async () => {
     // Importing the store is the trigger under test — its module-scope sync
     // runs at import time, before any explicit action is called.
     await import('./audioStore');
@@ -96,18 +96,18 @@ describe('useAudioStore - regenerateGlobalAudioFromSeed', () => {
   it('no longer forces delay.enabled to true — the seeded ~25% chance survives regeneration unchanged', async () => {
     // The regression this task explicitly calls out as most likely to slip
     // back in silently: removing the force-enabled-true override must not be
-    // masked by every sampled planet coincidentally seeding delay.enabled true.
+    // masked by every sampled Attenuation Style coincidentally seeding delay.enabled true.
     // Same statistical-spot-check style as globalAudioSeed.test.ts's own
     // delay.enabled test — a wide tolerance band instead of an exact count,
     // to avoid flakiness while still clearly distinguishing this from "always true".
     const { useAudioStore } = await import('./audioStore');
-    const SAMPLE_PLANETS = 40;
+    const SAMPLE_ATTENUATION_STYLES = 40;
     let enabledCount = 0;
-    for (let i = 0; i < SAMPLE_PLANETS; i++) {
+    for (let i = 0; i < SAMPLE_ATTENUATION_STYLES; i++) {
       useAudioStore.getState().regenerateGlobalAudioFromSeed(`store-delay-sample-${i}`, `StoreDelaySample${i}`);
       if (useAudioStore.getState().globalAudio.delay.enabled) enabledCount++;
     }
-    const enabledRate = enabledCount / SAMPLE_PLANETS;
+    const enabledRate = enabledCount / SAMPLE_ATTENUATION_STYLES;
     expect(enabledRate).toBeGreaterThan(0.05);
     expect(enabledRate).toBeLessThan(0.5);
   });
@@ -158,7 +158,7 @@ describe('useAudioStore - regenerateGlobalAudioFromSeed', () => {
     expect(AudioEngine.setEffectBypass).toHaveBeenCalledWith('limiter', globalAudio.limiter.enabled);
   });
 
-  it('is deterministic — calling it twice with the same planet produces the same globalAudio', async () => {
+  it('is deterministic — calling it twice with the same Attenuation Style produces the same globalAudio', async () => {
     const { useAudioStore } = await import('./audioStore');
     const first = useAudioStore.getState().globalAudio;
     useAudioStore.getState().regenerateGlobalAudioFromSeed('pelagos', 'Pelagos');
@@ -166,57 +166,57 @@ describe('useAudioStore - regenerateGlobalAudioFromSeed', () => {
     expect(second).toEqual(first);
   });
 
-  it('produces different globalAudio for a different planet', async () => {
+  it('produces different globalAudio for a different Attenuation Style', async () => {
     const { useAudioStore } = await import('./audioStore');
     const pelagos = useAudioStore.getState().globalAudio;
-    useAudioStore.getState().regenerateGlobalAudioFromSeed('a-different-planet-id', 'Zenith');
+    useAudioStore.getState().regenerateGlobalAudioFromSeed('a-different-as-id', 'Zenith');
     const other = useAudioStore.getState().globalAudio;
     expect(other).not.toEqual(pelagos);
   });
 
-  it('preserves globalBypass and compressorBeforeDelay across a reseed — neither is seeded, so a planet switch must not silently reset a live user choice back to default', async () => {
+  it('preserves globalBypass and compressorBeforeDelay across a reseed — neither is seeded, so an Attenuation Style switch must not silently reset a live user choice back to default', async () => {
     const { useAudioStore } = await import('./audioStore');
     useAudioStore.getState().setGlobalBypassEnabled(true);
     useAudioStore.getState().setCompressorBeforeDelay(true);
 
-    useAudioStore.getState().regenerateGlobalAudioFromSeed('a-different-planet-id', 'Zenith');
+    useAudioStore.getState().regenerateGlobalAudioFromSeed('a-different-as-id', 'Zenith');
 
     expect(useAudioStore.getState().globalAudio.globalBypass).toBe(true);
     expect(useAudioStore.getState().globalAudio.compressorBeforeDelay).toBe(true);
   });
 
-  it('follows setCurrentPlanetId — switching the active planet reseeds globalAudio automatically', async () => {
+  it('follows setCurrentAttenuationStyleId — switching the active Attenuation Style reseeds globalAudio automatically', async () => {
     const { useAudioStore } = await import('./audioStore');
-    const { usePlanetStore, DEFAULT_PELAGOS } = await import('./planetStore');
+    const { useAttenuationStyleStore, DEFAULT_PELAGOS } = await import('./attenuationStyleStore');
     const { AudioEngine } = await import('../engine/AudioEngine');
 
     const before = useAudioStore.getState().globalAudio;
-    usePlanetStore.getState().addPlanet({ ...DEFAULT_PELAGOS, id: 'zenith', name: 'Zenith' });
+    useAttenuationStyleStore.getState().addAttenuationStyle({ ...DEFAULT_PELAGOS, id: 'zenith', name: 'Zenith' });
     vi.clearAllMocks();
 
-    usePlanetStore.getState().setCurrentPlanetId('zenith');
+    useAttenuationStyleStore.getState().setCurrentAttenuationStyleId('zenith');
 
     expect(useAudioStore.getState().globalAudio).not.toEqual(before);
     expect(AudioEngine.setGlobalReverb).toHaveBeenCalled();
   });
 
-  it('does not throw and leaves globalAudio unchanged when currentPlanetId matches no planet', async () => {
+  it('does not throw and leaves globalAudio unchanged when currentAttenuationStyleId matches no Attenuation Style', async () => {
     const { useAudioStore } = await import('./audioStore');
-    const { usePlanetStore } = await import('./planetStore');
+    const { useAttenuationStyleStore } = await import('./attenuationStyleStore');
     const before = useAudioStore.getState().globalAudio;
 
-    expect(() => usePlanetStore.getState().setCurrentPlanetId('does-not-exist')).not.toThrow();
+    expect(() => useAttenuationStyleStore.getState().setCurrentAttenuationStyleId('does-not-exist')).not.toThrow();
     expect(useAudioStore.getState().globalAudio).toEqual(before);
   });
 
-  it('does not redundantly recompute when currentPlanetId is set to its current value', async () => {
+  it('does not redundantly recompute when currentAttenuationStyleId is set to its current value', async () => {
     const { useAudioStore } = await import('./audioStore');
-    const { usePlanetStore } = await import('./planetStore');
+    const { useAttenuationStyleStore } = await import('./attenuationStyleStore');
     const { AudioEngine } = await import('../engine/AudioEngine');
 
     void useAudioStore.getState();
     vi.clearAllMocks();
-    usePlanetStore.getState().setCurrentPlanetId(usePlanetStore.getState().currentPlanetId);
+    useAttenuationStyleStore.getState().setCurrentAttenuationStyleId(useAttenuationStyleStore.getState().currentAttenuationStyleId);
 
     expect(AudioEngine.setGlobalReverb).not.toHaveBeenCalled();
   });
@@ -491,7 +491,7 @@ describe('useAudioStore - setGlobalLfo', () => {
   });
 });
 
-describe('useAudioStore - globalLfo planet-sync seeding', () => {
+describe('useAudioStore - globalLfo Attenuation-Style-sync seeding', () => {
   beforeEach(() => {
     vi.resetModules();
     // The lfoEngine mock's call history persists across vi.resetModules() (same
@@ -500,7 +500,7 @@ describe('useAudioStore - globalLfo planet-sync seeding', () => {
     vi.clearAllMocks();
   });
 
-  it('seeds globalLfo for the current planet on module load (app init)', async () => {
+  it('seeds globalLfo for the current Attenuation Style on module load (app init)', async () => {
     const { useAudioStore } = await import('./audioStore');
     const { globalLfo } = useAudioStore.getState();
     // Seeded, not left at the DEFAULT_LFO_SETTINGS-inert values (rate would be
@@ -511,7 +511,7 @@ describe('useAudioStore - globalLfo planet-sync seeding', () => {
   });
 
   it('does not touch lfoEngine during seeding — data-only, deferred to AudioEngine.start() (Task 9)', async () => {
-    // Planet-sync runs at module load / on every planet switch, before any user
+    // AS-sync runs at module load / on every Attenuation Style switch, before any user
     // gesture — pushing to lfoEngine here would construct a real Tone.LFO node
     // before an AudioContext exists (found via the Phase 2 checkpoint's full
     // suite run: TransportBar.test.tsx, which imports the real audioStore
@@ -526,13 +526,13 @@ describe('useAudioStore - globalLfo planet-sync seeding', () => {
     expect(lfoEngine.start).not.toHaveBeenCalled();
   });
 
-  it('follows setCurrentPlanetId — switching the active planet reseeds globalLfo automatically', async () => {
+  it('follows setCurrentAttenuationStyleId — switching the active Attenuation Style reseeds globalLfo automatically', async () => {
     const { useAudioStore } = await import('./audioStore');
-    const { usePlanetStore, DEFAULT_PELAGOS } = await import('./planetStore');
+    const { useAttenuationStyleStore, DEFAULT_PELAGOS } = await import('./attenuationStyleStore');
 
     const before = useAudioStore.getState().globalLfo;
-    usePlanetStore.getState().addPlanet({ ...DEFAULT_PELAGOS, id: 'zenith-lfo', name: 'ZenithLfo' });
-    usePlanetStore.getState().setCurrentPlanetId('zenith-lfo');
+    useAttenuationStyleStore.getState().addAttenuationStyle({ ...DEFAULT_PELAGOS, id: 'zenith-lfo', name: 'ZenithLfo' });
+    useAttenuationStyleStore.getState().setCurrentAttenuationStyleId('zenith-lfo');
 
     expect(useAudioStore.getState().globalLfo).not.toEqual(before);
   });

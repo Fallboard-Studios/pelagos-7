@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 
 import App from './App.tsx'
 import './index.css'
-import { setGlobalPlanetSeedOverride } from './utils/seedUtils'
+import { setGlobalAttenuationStyleSeedOverride } from './utils/seedUtils'
 
 // Dev-only manual audible check (LFO_INTEGRATION_PLAN.md Task 14) — not real
 // UI, no component/store references it. This import exists only so the
@@ -20,7 +20,7 @@ createRoot(document.getElementById('root')!).render(
 // Support global seed override via URL param e.g. ?seed=myspecialseed
 const seedParam = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('seed') : null;
 if (seedParam) {
-  setGlobalPlanetSeedOverride(seedParam);
+  setGlobalAttenuationStyleSeedOverride(seedParam);
   // keep a console-visible message so devs know the override is active
   // (intentionally after render so it shows up when app starts in dev)
   // eslint-disable-next-line no-console

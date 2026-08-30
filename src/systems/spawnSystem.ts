@@ -268,7 +268,7 @@ const LFO_ACTIVE_THRESHOLD = 0.5;
  * per-index offset multiplier the oscillator-layer loop above uses (that's only
  * needed when multiple items share one dataId string). `active` is seeded per
  * target too (Roadmap Phase 9), mirroring how the global Audio Rig chain already
- * seeds some effects' LFOs already-on per planet — a freshly-spawned robot can
+ * seeds some effects' LFOs already-on per Attenuation Style — a freshly-spawned robot can
  * have real modulation already audible before anything is touched.
  */
 export function generateRobotLfoSettings(noiseMap: NoiseFunction2D, offset: number): Record<RobotLfoTargetId, LfoSettings & { active: boolean }> {
