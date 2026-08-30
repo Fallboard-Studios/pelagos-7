@@ -9,6 +9,7 @@ This guide documents the current Pelagos-7 audio architecture and the convention
 - [Harmony System Guide](HARMONY_SYSTEM.md) - Dynamic note palettes
 - [Melody Generation Guide](MELODY_SYSTEM.md) - Procedural melody creation
 - [LFO Modulation](#lfo-modulation) - Audio-rate parameter modulation for robot and global-chain targets (below, no separate file yet)
+- [Audio Swells](#audio-swells) - Rare, self-reversing ramp events on one global or robot parameter at a time (below, no separate file yet) — independent of LFO Modulation, not an extension of it
 
 ## Core Audio Rules
 
@@ -295,6 +296,48 @@ Both are exported on the same `lfoEngine` object documented above, alongside `co
 ### Dev-only audible check
 
 `src/engine/lfoDebug.ts` exposes `window.__lfoDebug.audition()` / `.stop()`, gated by `if (DEV_TUNING && typeof window !== 'undefined')` — genuinely stripped from production builds (verified by grepping the built bundle, not just runtime-guarded). `audition()` connects+starts a robot's `layer0.detune` and the global `eq3.low` band with clearly audible rate/depth values, for manual confirmation from the browser console during development. Not real UI — imported once from `main.tsx` purely for its registration side effect, never referenced by any component or store.
+
+## Audio Swells
+
+**Does this app have an LFO on Delay's Mix?** No — but it has something else that moves it sometimes. Audio Swells is a wholly separate mechanism from LFO Modulation above: no `Tone.LFO`, no `Signal`/`Param` connection, no `Signal.override` concern at all. `delay.wet`/`reverb.wet` never gained a real `lfoEngine.ts` target and still haven't — Audio Swells is the "something else." A "swell" is a rare, discrete, self-reversing event: one parameter ramps up from its current value, then ramps back down, landing **exactly** back where it started — never a net change, and never a continuous oscillation. Built entirely in `src/systems/audioSwells.ts` (types in `src/types/audioSwell.ts`, the robot-only range table in `src/data/audioSwellRanges.ts`), mirroring `robotSystems.ts`'s `startRobotLifecycle`/`stopRobotLifecycle`/tick lifecycle shape rather than anything in `lfoEngine.ts`. Every write goes through the exact call a human editing that control by hand would make (`audioStore`'s `setGlobalAudio` for global targets, `robotOptionsActions.ts`'s `applyVolume`/`applyLayersContinuous`/`applyAdsr` for robot targets) — so the relevant slider visibly crawls on its own while a swell is active on it, for free, with no dedicated UI.
+
+### Two independent pools
+
+- **Global pool** (`SWELL_GLOBAL_TARGET_IDS`, `types/audioSwell.ts`) — 9 targets: the 7 `GlobalLfoTargetId`s (`eq3.low`/`mid`/`high`, `lpf.frequency`/`Q`, `hpf.frequency`/`Q`) plus `delay.wet` and `reverb.wet`, which carry no LFO target at all. A disabled/bypassed effect's own params are never eligible for a *new* swell (`isGlobalTargetEligible`, `audioSwells.ts`); if an effect gets disabled while one of its params is mid-swell, that swell is cancelled immediately and the param snaps back to its captured base value on the very next tick (`advanceGlobalSwell`).
+- **Robot pool** (`SWELL_ROBOT_ATTRIBUTE_IDS`) — 17 attributes × the whole roster, never scoped to one robot: the 13 `RobotLfoTargetId`s (`volume`, each of the 3 layers' `gain`/`detune`/`phase`/`pulseWidth`) plus 4 new ADSR sub-fields (`adsr.attack`/`decay`/`sustain`/`release`), each independently eligible — never one atomic "envelope" move. **`layerN.phase` is swell-eligible here, unlike LFO/Drift** — a real divergence, not an oversight: a swell never `.connect()`s anything, it just calls `applyLayersContinuous` with a new plain number on a `BeatClock` tick, the same as `SignatureArrayDrawer.tsx`'s own Phase slider. A robot attribute is only pickable if its own field, and anything it structurally depends on, is actually live — `layerN.*` requires that layer's own `OscillatorLayer.active === true` (`isRobotAttributeStructurallyLive`); `volume` and the 4 ADSR fields have no such parent and are always eligible. Robot Ping Controls (`rhythmicDensity`, `rhythmicMotifLength`, `noteVariance`, `octaveRange`) are never in the 17-attribute pool to begin with — nothing excludes them at selection time because there's nothing to exclude.
+
+Each pool has its own independent 5-concurrent-swell cap (`MAX_CONCURRENT_SWELLS_PER_POOL`) — a full global pool never blocks a robot swell from starting, and vice versa. Compressor and Limiter are never eligible in either pool, the same dynamics-processor exclusion `lfoEngine.ts` already applies; Delay's `delayTime` stays excluded too (only `wet`/Mix is newly eligible).
+
+### Direction, magnitude, and duration
+
+Every swell-eligible attribute follows the same default rule, computed by `pickSwellPeakDelta` (used by the global pool and the robot pool's single-robot path) — a **new, from-scratch formula**, deliberately not `lfoShared.ts`'s `centeredSwingFromRange` (that one computes a *symmetric, bounded* swing with no directionality or minimum-swing guarantee, the wrong shape here):
+
+- **Direction:** up if the current value is at or below the field's own midpoint, down if at or above it, a seeded coin-flip tie-break exactly at the midpoint.
+- **Magnitude:** the peak is drawn somewhere between a 50%-of-range floor — relative to the *current value*, not the range's own midpoint (e.g. a field at 33% of its range swells up into `[83%, 100%]`) — and the true edge (min or max, matching direction).
+- **Shape:** two phases only, rising then falling, computed in `advanceGlobalSwell`/`advanceRobotSwell` — no hold/plateau. Each tick's value is computed directly from `elapsed / totalPhaseMeasures` against the swell's own captured `baseValue`/`peakDelta`, never accumulated, and snapped to exactly `baseValue` once the swell's total duration elapses — the return-to-base is exact, not asymptotic.
+- **Duration:** rising-phase and falling-phase measure counts are drawn **independently** (never mirrored) — `DEFAULT_SWELL_DURATION_RANGE` (3–6 measures) for every attribute except `delay.wet`/`reverb.wet`, which use the wider `MIX_SWELL_DURATION_RANGE` (6–12). 1 measure is a hard floor on any phase, for any attribute, full stop (`pickPhaseMeasures`'s own `Math.max(1, ...)`).
+
+**Robot `volume` is the one exception**, via `clampVolumeDownward`: same direction/magnitude rule, except a downward swell's peak is clamped so it never drops below `VOLUME_SWELL_DOWNWARD_FLOOR` (50% of Volume's own range) — a pure clamp on the final peak, not a gate on direction-picking. `ROBOT_SWELL_FIELD_RANGE.volume` is `{0, 1}` (the store's real `masterVolume` fraction) — deliberately **not** `lfoEngine.ts`'s engine-internal `ROBOT_LFO_FIELD_RANGE.volume` (`{0, 2}`, the fixed `Tone.Gain(1)` mix-stage node's own operating range); reusing that table would silently bound a Volume swell against the wrong domain. `applyVolume`'s own parameter is the UI's 0-100 display percent, not this 0-1 fraction — `writeRobotValue` converts (`value * 100`) at the call site.
+
+### Company-wide variant
+
+A small chance turns a robot-pool pick into a **company-wide** swell instead of a single-robot one — the same attribute, moving in lock-step, across every eligible robot in one randomly-chosen `Company`. Not a separate pool, cadence, or cap: `maybeStartRobotSwell` draws a second seeded chance (`SWELL_COMPANY_CHANCE`) only after the robot pool's own trigger already succeeded, and only acts on it when the locale actually has a `Company` to pick — with zero companies, company-wide was never really on the table that tick regardless of the roll, so it falls straight through to the single-robot path (`startSingleRobotSwell`) instead of aborting.
+
+`startCompanyWideSwell` picks one `Company` and one `SwellRobotAttributeId` via seeded draws (both unfiltered — eligibility is applied per-member next), filters `company.robotIds` down to members passing the same structural-eligibility check the single-robot path uses, and — if that leaves zero eligible members — starts no swell at all this tick: not a re-roll, not a fallback to a different company/attribute or to the single-robot path. Direction and the rising/falling measure counts are drawn **once** and shared lock-step across every member; magnitude stays per-robot, via `peakDeltaForDirection` (the magnitude half of `pickSwellPeakDelta`, split out so a shared, externally-decided direction can reuse it instead of each member re-deriving its own direction from its own current value). Because duration is shared but each member's own distance-to-travel differs, a member with less room simply interpolates at a smaller total distance over the same shared window — no separate "rate" concept exists. A company-wide swell is one `ActiveSwell` object stored under one Map key per member (`robotSwellKey(robotId, attribute)`) and counts as **exactly one** swell against the robot pool's 5-cap, regardless of company size.
+
+### Lifecycle and determinism
+
+```typescript
+startAudioSwells(localeId: string): void   // idempotent — subscribes to BeatClock via subscribeToMeasure
+stopAudioSwells(): void                    // idempotent — unsubscribes AND clears every in-flight swell
+tickAudioSwells(localeId: string, measure: number): void  // pure w.r.t. `measure` — testable without a real transport
+```
+
+Wired into `worldTransition.ts`'s `initializeLocale`, alongside the existing `stopRobotLifecycle()`/`startRobotLifecycle()` pair — `stopAudioSwells(); startAudioSwells(localeId);`, in that order, on every locale (re-)initialization. `stopAudioSwells`'s clear means no swell from a prior locale survives a locale switch or a power cycle (BeatClock silently drops every `subscribeToMeasure` listener whenever `AudioEngine.killAll()` runs, same as the robot-lifecycle tick).
+
+Runtime state (`activeSwells`, a plain `Map<string, ActiveSwell>`) lives at module scope in `audioSwells.ts`, never in Zustand — only each tick's resulting field value reaches the store, via the normal `apply*`/`setGlobalAudio` call, same as any other edit (CLAUDE.md: runtime-only state stays out of state). `getActiveSwellSnapshot(pool)` is a small read-only, deduplicated-by-object-identity accessor for tests/future debug UI; nothing else reads `activeSwells` directly.
+
+Every trigger/selection/timing/direction/magnitude decision is a `getSeededVal(noiseMap, dataId, offset, min, max)` draw against the **Attenuation Style** noise map (`getAttenuationStyleNoiseMap`) — `offset` is always the current *unwrapped* `getCurrentMeasure()`, never the `% 96`-wrapped value `subscribeToMeasure`'s own callback argument carries (the same trap `robotSystems.ts`'s `startRobotLifecycle` documents — a wrapped measure would replay an identical decision every 96 measures). `Math.random()` appears nowhere in `audioSwells.ts`. Two sessions on the same seed produce an identical swell timeline; a user's own manual edits are the only thing that can make two sessions diverge.
 
 ## Note Resolution Pipeline
 
