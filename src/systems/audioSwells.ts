@@ -11,11 +11,12 @@
  * lifecycle shape. Runtime state (activeSwells) lives in a plain module-scope
  * Map, never in Zustand (CLAUDE.md: runtime-only state stays out of state).
  *
- * This task builds the global pool only — the first complete, independently
- * testable vertical slice (trigger -> select -> ramp -> write -> exact
- * return-to-base -> disabled-effect eligibility). The robot pool (Task 4)
+ * The global pool (Task 3) is the first complete, independently testable
+ * vertical slice (trigger -> select -> ramp -> write -> exact return-to-base
+ * -> disabled-effect eligibility). The robot pool (Task 4, this revision)
  * reuses pickSwellPeakDelta unchanged and generalizes tickAudioSwells/
- * advanceActiveSwells to a second pool.
+ * advanceActiveSwells to a second pool — single-robot swells only; the
+ * company-wide variant lands in Task 5.
  */
 
 // ========================================
@@ -23,13 +24,25 @@
 // ========================================
 import type { NoiseFunction2D } from 'simplex-noise';
 
+import { applyVolume, applyLayersContinuous, applyAdsr } from './robotOptionsActions';
 import { subscribeToMeasure, getCurrentMeasure } from '@/engine/beatClock';
 import { getSeededVal } from '@/utils/getSeededVal';
 import { getAttenuationStyleNoiseMap } from '@/utils/noiseMaps';
 import { useAttenuationStyleStore, selectCurrentAttenuationStyle } from '@/stores/attenuationStyleStore';
 import { useAudioStore } from '@/stores/audioStore';
+import { useLocaleStore } from '@/stores/localeStore';
 import { GLOBAL_AUDIO_SEED_RANGES, type GlobalAudioSeedFieldKey } from '@/data/globalAudioSeedRanges';
-import { SWELL_GLOBAL_TARGET_IDS, type ActiveSwell, type SwellGlobalTargetId, type SwellPool } from '@/types/audioSwell';
+import { ROBOT_SWELL_FIELD_RANGE } from '@/data/audioSwellRanges';
+import {
+  SWELL_GLOBAL_TARGET_IDS,
+  SWELL_ROBOT_ATTRIBUTE_IDS,
+  type ActiveSwell,
+  type SwellGlobalTargetId,
+  type SwellRobotAttributeId,
+  type SwellMember,
+  type SwellPool,
+} from '@/types/audioSwell';
+import type { Robot } from '@/types/Robot';
 
 // ========================================
 // CONSTANTS
@@ -59,6 +72,12 @@ const MIX_SWELL_TARGETS: readonly SwellGlobalTargetId[] = ['delay.wet', 'reverb.
  *  range and AT MOST the true edge (§1.5) — the shared floor fraction every
  *  attribute uses. */
 const SWELL_MIN_RANGE_FRACTION = 0.5;
+
+/** Robot volume's own downward-swell floor — a pure clamp on the final peak,
+ *  never a gate on direction-picking (§1.5). Expressed in volume's own 0-1
+ *  domain (ROBOT_SWELL_FIELD_RANGE.volume), matching applyVolume's pct/100
+ *  convention. */
+export const VOLUME_SWELL_DOWNWARD_FLOOR = 0.5;
 
 // ========================================
 // GLOBAL TARGET -> EFFECT/FIELD MAPPING
@@ -101,6 +120,68 @@ function writeGlobalValue(target: SwellGlobalTargetId, value: number): void {
   const meta = GLOBAL_TARGET_META[target];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   useAudioStore.getState().setGlobalAudio(meta.effect, { [meta.field]: value } as any);
+}
+
+// ========================================
+// ROBOT ATTRIBUTE READ/WRITE
+// ========================================
+
+const LAYER_FIELD_PATTERN = /^layer(\d)\.(gain|detune|phase|pulseWidth)$/;
+const ADSR_FIELD_PATTERN = /^adsr\.(attack|decay|sustain|release)$/;
+
+/** A robot attribute's own parent-toggle check (§1.5, §3): layerN.* requires
+ *  that layer's own OscillatorLayer.active === true; volume and the 4 ADSR
+ *  fields have no such parent and are always structurally available. */
+function isRobotAttributeStructurallyLive(robot: Robot, attribute: SwellRobotAttributeId): boolean {
+  const layerMatch = LAYER_FIELD_PATTERN.exec(attribute);
+  if (!layerMatch) return true; // volume, adsr.* — no parent toggle
+  const layerIndex = Number(layerMatch[1]);
+  return robot.audioAttributes.layers?.[layerIndex]?.active === true;
+}
+
+function readRobotValue(robot: Robot, attribute: SwellRobotAttributeId): number {
+  if (attribute === 'volume') return robot.masterVolume;
+  const layerMatch = LAYER_FIELD_PATTERN.exec(attribute);
+  if (layerMatch) {
+    const layer = robot.audioAttributes.layers![Number(layerMatch[1])];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (layer as any)[layerMatch[2]] as number;
+  }
+  const adsrMatch = ADSR_FIELD_PATTERN.exec(attribute);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (robot.audioAttributes.adsr as any)[adsrMatch![1]] as number;
+}
+
+/**
+ * Writes through the exact same apply* function a human editing that
+ * control by hand would call (docs/specs/AUDIO_SWELLS.md §3) — never a bare
+ * updateRobot/AudioEngine.updateVoice* pairing. `robot` must be freshly read
+ * from the store (not a stale creation-time reference) so a concurrent edit
+ * to a different field on the same robot isn't clobbered.
+ */
+function writeRobotValue(robot: Robot, localeId: string, attribute: SwellRobotAttributeId, value: number): void {
+  if (attribute === 'volume') {
+    // ROBOT_SWELL_FIELD_RANGE.volume is the store's 0-1 masterVolume fraction;
+    // applyVolume's own parameter is the UI's 0-100 display percent.
+    applyVolume(robot, localeId, value * 100);
+    return;
+  }
+  const layerMatch = LAYER_FIELD_PATTERN.exec(attribute);
+  if (layerMatch) {
+    const layerIndex = Number(layerMatch[1]);
+    const field = layerMatch[2];
+    const nextLayers = robot.audioAttributes.layers!.map((layer, i) =>
+      i === layerIndex ? { ...layer, [field]: value } : layer
+    );
+    applyLayersContinuous(robot, localeId, nextLayers);
+    return;
+  }
+  const adsrMatch = ADSR_FIELD_PATTERN.exec(attribute)!;
+  applyAdsr(robot, localeId, { ...robot.audioAttributes.adsr, [adsrMatch[1]]: value });
+}
+
+function robotSwellKey(robotId: string, attribute: SwellRobotAttributeId): string {
+  return `${robotId}:${attribute}`;
 }
 
 // ========================================
@@ -171,9 +252,9 @@ let unsubscribe: (() => void) | null = null;
  *  iterating, since a company-wide ActiveSwell is stored under multiple keys. */
 const activeSwells = new Map<string, ActiveSwell>();
 
-export function startAudioSwells(_localeId: string): void {
+export function startAudioSwells(localeId: string): void {
   if (unsubscribe !== null) return; // already running — same idempotent guard startRobotLifecycle uses
-  unsubscribe = subscribeToMeasure(() => tickAudioSwells(_localeId, getCurrentMeasure()));
+  unsubscribe = subscribeToMeasure(() => tickAudioSwells(localeId, getCurrentMeasure()));
 }
 
 export function stopAudioSwells(): void {
@@ -210,14 +291,14 @@ function activeSwellCount(pool: SwellPool): number {
  *  `measure` input (not read from BeatClock directly) so tests can drive it
  *  without a real transport — see startAudioSwells for the BeatClock-wired
  *  entry point. Mirrors tickRobotLifecycle's own shape (robotSystems.ts). */
-export function tickAudioSwells(_localeId: string, measure: number): void {
+export function tickAudioSwells(localeId: string, measure: number): void {
   const as = selectCurrentAttenuationStyle(useAttenuationStyleStore.getState());
   if (!as) return;
   const noiseMap = getAttenuationStyleNoiseMap(as.id, as.name);
 
-  advanceActiveSwells(measure);
+  advanceActiveSwells(localeId, measure);
   maybeStartGlobalSwell(noiseMap, measure);
-  // Robot pool call lands in Task 4.
+  maybeStartRobotSwell(localeId, noiseMap, measure);
 }
 
 // ========================================
@@ -264,16 +345,76 @@ function maybeStartGlobalSwell(noiseMap: NoiseFunction2D, measure: number): void
 }
 
 // ========================================
+// ROBOT POOL — TRIGGER & SELECTION (single-robot only; company-wide is Task 5)
+// ========================================
+
+function isRobotAttributeEligible(robot: Robot, attribute: SwellRobotAttributeId): boolean {
+  if (activeSwells.has(robotSwellKey(robot.id, attribute))) return false;
+  return isRobotAttributeStructurallyLive(robot, attribute);
+}
+
+function maybeStartRobotSwell(localeId: string, noiseMap: NoiseFunction2D, measure: number): void {
+  if (activeSwellCount('robot') >= MAX_CONCURRENT_SWELLS_PER_POOL) return;
+
+  const triggerRoll = getSeededVal(noiseMap, 'audioSwell.trigger.robot', measure, 0, 1);
+  if (triggerRoll >= SWELL_TRIGGER_CHANCE) return;
+
+  // Robot selection spans the whole roster (docs/specs/AUDIO_SWELLS.md §3) —
+  // the 17x12 pool, never scoped to one robot.
+  const robots = useLocaleStore.getState().getLocaleById(localeId)?.robots ?? [];
+  const eligiblePairs: { robot: Robot; attribute: SwellRobotAttributeId }[] = [];
+  for (const robot of robots) {
+    for (const attribute of SWELL_ROBOT_ATTRIBUTE_IDS) {
+      if (isRobotAttributeEligible(robot, attribute)) eligiblePairs.push({ robot, attribute });
+    }
+  }
+  if (eligiblePairs.length === 0) return;
+
+  const rawIndex = getSeededVal(noiseMap, 'audioSwell.target.robot', measure, 0, eligiblePairs.length);
+  const { robot, attribute } = eligiblePairs[Math.min(eligiblePairs.length - 1, Math.floor(rawIndex))];
+
+  const range = ROBOT_SWELL_FIELD_RANGE[attribute];
+  const currentValue = readRobotValue(robot, attribute);
+  let peakDelta = pickSwellPeakDelta(noiseMap, `audioSwell.peak.${robot.id}.${attribute}`, measure, range, currentValue);
+
+  // Volume's downward clamp: a pure post-hoc clamp on the final peak, never a
+  // gate on direction-picking (§1.5) — an upward pick is never touched here.
+  if (attribute === 'volume' && peakDelta < 0) {
+    const clampedPeak = Math.max(currentValue + peakDelta, VOLUME_SWELL_DOWNWARD_FLOOR);
+    peakDelta = clampedPeak - currentValue;
+  }
+
+  // Robot attributes have no mix-style duration exception — always the default range.
+  const risingMeasures = pickPhaseMeasures(
+    noiseMap, `audioSwell.rising.${robot.id}.${attribute}`, measure, DEFAULT_SWELL_DURATION_RANGE
+  );
+  const fallingMeasures = pickPhaseMeasures(
+    noiseMap, `audioSwell.falling.${robot.id}.${attribute}`, measure, DEFAULT_SWELL_DURATION_RANGE
+  );
+
+  const member: SwellMember = { robotId: robot.id, baseValue: currentValue, peakDelta };
+  activeSwells.set(robotSwellKey(robot.id, attribute), {
+    pool: 'robot',
+    robotAttribute: attribute,
+    members: [member],
+    phase: 'rising',
+    startMeasure: measure,
+    risingMeasures,
+    fallingMeasures,
+  });
+}
+
+// ========================================
 // ADVANCE / WRITE-BACK
 // ========================================
 
-function advanceActiveSwells(measure: number): void {
+function advanceActiveSwells(localeId: string, measure: number): void {
   const processed = new Set<ActiveSwell>();
   for (const [key, swell] of activeSwells) {
     if (processed.has(swell)) continue;
     processed.add(swell);
     if (swell.pool === 'global') advanceGlobalSwell(key, swell, measure);
-    // pool === 'robot' handled starting Task 4.
+    else advanceRobotSwell(key, swell, localeId, measure);
   }
 }
 
@@ -316,4 +457,45 @@ function advanceGlobalSwell(key: string, swell: ActiveSwell, measure: number): v
   }
 
   writeGlobalValue(target, value);
+}
+
+/**
+ * Task 4: exactly one SwellMember per robot swell — company-wide (2+
+ * members sharing phase/timing, Task 5) reuses this same elapsed/phase math
+ * per member. Unlike the global pool, a robot attribute's structural parent
+ * going inactive mid-swell is NOT re-checked here — eligibility is evaluated
+ * at selection time only (docs/specs/AUDIO_SWELLS.md §7, an explicitly
+ * deferred open question, not addressed this task).
+ */
+function advanceRobotSwell(key: string, swell: ActiveSwell, localeId: string, measure: number): void {
+  const attribute = swell.robotAttribute!;
+  const member = swell.members![0];
+  const robot = useLocaleStore.getState().getRobotById(localeId, member.robotId);
+  if (!robot) {
+    activeSwells.delete(key); // robot no longer exists — defensive, not expected in normal play
+    return;
+  }
+
+  const elapsed = measure - swell.startMeasure;
+  const total = swell.risingMeasures + swell.fallingMeasures;
+
+  if (elapsed >= total) {
+    writeRobotValue(robot, localeId, attribute, member.baseValue); // exact return-to-base
+    activeSwells.delete(key);
+    return;
+  }
+
+  swell.phase = elapsed < swell.risingMeasures ? 'rising' : 'falling';
+
+  let value: number;
+  if (swell.phase === 'rising') {
+    const progress = elapsed / swell.risingMeasures;
+    value = member.baseValue + member.peakDelta * progress;
+  } else {
+    const fallElapsed = elapsed - swell.risingMeasures;
+    const progress = fallElapsed / swell.fallingMeasures;
+    value = member.baseValue + member.peakDelta * (1 - progress);
+  }
+
+  writeRobotValue(robot, localeId, attribute, value);
 }
