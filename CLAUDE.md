@@ -65,7 +65,7 @@ Reference docs
 - `docs/ROBOT_LIFECYCLE.md`: Battery/Docking/Job state machines — the fixed 12-robot roster, battery drain/recharge, the Docking transition hold, pitch drift, and job affinity scoring.
 - `docs/COMPANIES.md`: Company grouping — the `Company`/`CompanyOptionsSnapshot` shape, seeded spawn-time generation, and the broadcast-not-link bulk-edit semantics. Roadmap Phase 10.
 - `docs/SESSION_STORAGE.md`: App-wide persistence design — save/load hierarchy, URL state compression, and the robot-override diff model. Design doc for roadmap Phase 12 — not yet implemented.
-- `docs/CONSOLE_THEMING.md`: Seed-derived console chrome design — planet seed drives large/structural elements, locale seed drives small accents, with a fixed interior boundary against ScreenViewport. Design doc for roadmap Phase 11 — not yet implemented.
+- `docs/CONSOLE_THEMING.md`: Seed-derived console chrome design — AS seed drives large/structural elements, locale seed drives small accents, with a fixed interior boundary against ScreenViewport. Design doc for roadmap Phase 11 — not yet implemented.
 
 Quick checklist for PRs
 - [ ] No synths created in components
