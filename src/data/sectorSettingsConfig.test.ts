@@ -8,6 +8,7 @@ import {
   COORDS_SCHEMA,
   RETRANSMIT_SCHEMA,
   STATUS_HEADER_SCHEMA,
+  AUDIO_SWELLS_ENABLED_SCHEMA,
   ATTENUATION_STYLE_PRESETS,
   COORDINATE_PRESETS,
 } from './sectorSettingsConfig';
@@ -52,8 +53,14 @@ describe('sectorSettingsConfig', () => {
       expect(STATUS_HEADER_SCHEMA.humanLabel).toBeTruthy();
     });
 
+    it('AUDIO_SWELLS_ENABLED_SCHEMA is a toggle with the user-specified copy', () => {
+      expect(AUDIO_SWELLS_ENABLED_SCHEMA.type).toBe('toggle');
+      expect(AUDIO_SWELLS_ENABLED_SCHEMA.loreLabel).toBe('ENABLE DYNAMIC PING DEPLOYMENT');
+      expect(AUDIO_SWELLS_ENABLED_SCHEMA.humanLabel).toBe('Enable automatic effects');
+    });
+
     it('every schema has a distinct, non-empty id', () => {
-      const ids = [ATTENUATION_STYLE_SCHEMA, COORDS_SCHEMA, RETRANSMIT_SCHEMA, STATUS_HEADER_SCHEMA].map((s) => s.id);
+      const ids = [ATTENUATION_STYLE_SCHEMA, COORDS_SCHEMA, RETRANSMIT_SCHEMA, STATUS_HEADER_SCHEMA, AUDIO_SWELLS_ENABLED_SCHEMA].map((s) => s.id);
       expect(new Set(ids).size).toBe(ids.length);
       for (const id of ids) expect(id).toBeTruthy();
     });

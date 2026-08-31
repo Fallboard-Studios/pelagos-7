@@ -15,7 +15,8 @@ vi.mock('@/systems/worldTransition', () => ({
 import { SectorSettingsDrawer } from './SectorSettingsDrawer';
 import { useAttenuationStyleStore, DEFAULT_PELAGOS } from '@/stores/attenuationStyleStore';
 import { useLocaleStore, DEFAULT_LOCALE, DEFAULT_LOCALE_ID } from '@/stores/localeStore';
-import { ATTENUATION_STYLE_PRESETS, COORDINATE_PRESETS } from '@/data/sectorSettingsConfig';
+import { useAudioStore } from '@/stores/audioStore';
+import { ATTENUATION_STYLE_PRESETS, COORDINATE_PRESETS, AUDIO_SWELLS_ENABLED_SCHEMA } from '@/data/sectorSettingsConfig';
 
 // ========================================
 // TESTS
@@ -30,6 +31,7 @@ describe('SectorSettingsDrawer', () => {
     useLocaleStore.setState({
       locales: { [DEFAULT_LOCALE_ID]: { ...DEFAULT_LOCALE, coordinates: { x: 5, y: 9 } } },
     });
+    useAudioStore.setState({ audioSwellsEnabled: true });
     retransmitWorldMock.mockClear();
   });
 
@@ -97,5 +99,41 @@ describe('SectorSettingsDrawer', () => {
     render(<SectorSettingsDrawer />);
     fireEvent.click(screen.getByText('Retransmit'));
     expect(retransmitWorldMock).toHaveBeenCalledWith({});
+  });
+
+  describe('Enable automatic effects toggle', () => {
+    it('renders on by default, reflecting audioStore.audioSwellsEnabled', () => {
+      render(<SectorSettingsDrawer />);
+      const toggle = screen.getByRole('switch', { name: AUDIO_SWELLS_ENABLED_SCHEMA.humanLabel });
+      expect(toggle.getAttribute('data-state')).toBe('checked');
+    });
+
+    it('renders off when audioStore.audioSwellsEnabled is false', () => {
+      useAudioStore.setState({ audioSwellsEnabled: false });
+      render(<SectorSettingsDrawer />);
+      const toggle = screen.getByRole('switch', { name: AUDIO_SWELLS_ENABLED_SCHEMA.humanLabel });
+      expect(toggle.getAttribute('data-state')).toBe('unchecked');
+    });
+
+    it('clicking it flips audioStore.audioSwellsEnabled immediately, with no Retransmit press needed', () => {
+      render(<SectorSettingsDrawer />);
+      const toggle = screen.getByRole('switch', { name: AUDIO_SWELLS_ENABLED_SCHEMA.humanLabel });
+
+      fireEvent.click(toggle);
+      expect(useAudioStore.getState().audioSwellsEnabled).toBe(false);
+      expect(retransmitWorldMock).not.toHaveBeenCalled();
+
+      fireEvent.click(toggle);
+      expect(useAudioStore.getState().audioSwellsEnabled).toBe(true);
+    });
+
+    it('is not part of the Retransmit input — toggling it never appears in retransmitWorld\'s payload', () => {
+      render(<SectorSettingsDrawer />);
+      const toggle = screen.getByRole('switch', { name: AUDIO_SWELLS_ENABLED_SCHEMA.humanLabel });
+      fireEvent.click(toggle);
+
+      fireEvent.click(screen.getByText('Retransmit'));
+      expect(retransmitWorldMock).toHaveBeenCalledWith({});
+    });
   });
 });

@@ -139,7 +139,7 @@ beforeEach(() => {
   stopAudioSwells(); // idempotent — clears any leftover activeSwells + subscription state
   vi.mocked(scheduleRepeat).mockClear();
   vi.mocked(cancelSchedule).mockClear();
-  useAudioStore.setState({ globalAudio: { ...DEFAULT_GLOBAL_AUDIO_SETTINGS } });
+  useAudioStore.setState({ globalAudio: { ...DEFAULT_GLOBAL_AUDIO_SETTINGS }, audioSwellsEnabled: true });
   enableAllGlobalEffects();
   useLocaleStore.getState().setLocaleData(LOCALE_ID, { robots: [], companies: [] } as unknown as Partial<Locale>);
   // Real AudioEngine voice calls need a live Tone context this jsdom test
@@ -233,6 +233,47 @@ describe('smooth sub-measure advance (16n ticking)', () => {
 
     const targets = getActiveSwellSnapshot('global').map((s) => s.globalTarget).sort();
     expect(targets).toEqual(['eq3.low', 'eq3.mid']);
+  });
+});
+
+describe('audioSwellsEnabled (Sector Settings toggle)', () => {
+  it('starts no new swell (global or robot) while disabled, even when the trigger draw would otherwise succeed', () => {
+    useAudioStore.setState({ audioSwellsEnabled: false });
+    useLocaleStore.getState().addRobot(LOCALE_ID, makeRobot());
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
+
+    tickAudioSwells(LOCALE_ID, 0);
+
+    expect(getActiveSwellSnapshot('global')).toEqual([]);
+    expect(getActiveSwellSnapshot('robot')).toEqual([]);
+  });
+
+  it('lets an already-in-flight swell finish naturally while disabled mid-ramp, rather than cancelling it', () => {
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
+    tickAudioSwells(LOCALE_ID, 0); // eq3.low: base 0, peak 12, rising 3, falling 3, still enabled
+
+    useAudioStore.setState({ audioSwellsEnabled: false }); // disable mid-ramp
+
+    tickAudioSwells(LOCALE_ID, 3); // falling phase's first tick — still advances despite being disabled
+    expect(useAudioStore.getState().globalAudio.eq3.low).toBeCloseTo(12);
+    expect(getActiveSwellSnapshot('global').some((s) => s.globalTarget === 'eq3.low')).toBe(true);
+
+    tickAudioSwells(LOCALE_ID, 6); // completes naturally, exactly like a normal (non-disabled) finish
+    expect(useAudioStore.getState().globalAudio.eq3.low).toBe(0);
+    expect(getActiveSwellSnapshot('global').some((s) => s.globalTarget === 'eq3.low')).toBe(false);
+  });
+
+  it('resumes starting new swells once re-enabled', () => {
+    useAudioStore.setState({ audioSwellsEnabled: false });
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
+    tickAudioSwells(LOCALE_ID, 0);
+    expect(getActiveSwellSnapshot('global')).toEqual([]);
+
+    useAudioStore.setState({ audioSwellsEnabled: true });
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
+    tickAudioSwells(LOCALE_ID, 1); // a new whole measure — free to roll again
+
+    expect(getActiveSwellSnapshot('global')).toHaveLength(1);
   });
 });
 

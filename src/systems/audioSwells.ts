@@ -403,20 +403,25 @@ export function tickAudioSwells(localeId: string, measure: number): void {
   if (!as) return;
   const noiseMap = getAttenuationStyleNoiseMap(as.id, as.name);
 
-  // Advance runs every tick — smooth, sub-measure interpolation from
-  // whatever fractional `measure` this tick carries (16n resolution in
-  // production; tests may pass any real number). Trigger/selection stays
-  // gated to once per WHOLE measure — SWELL_TRIGGER_CHANCE etc. are
-  // documented as per-measure probabilities, and re-rolling them 16x a
-  // measure would multiply the effective trigger rate and break the
-  // ~3-4-measure average gap the spec calls for.
+  // Advance runs every tick regardless of the Sector Settings toggle below —
+  // an already-in-flight swell finishes its own ramp naturally even while
+  // disabled; disabling only ever prevents NEW swells from starting, never
+  // cancels one in progress. Smooth, sub-measure interpolation from whatever
+  // fractional `measure` this tick carries (16n resolution in production;
+  // tests may pass any real number). Trigger/selection stays gated to once
+  // per WHOLE measure — SWELL_TRIGGER_CHANCE etc. are documented as
+  // per-measure probabilities, and re-rolling them 16x a measure would
+  // multiply the effective trigger rate and break the ~3-4-measure average
+  // gap the spec calls for.
   advanceActiveSwells(localeId, measure);
 
   const wholeMeasure = Math.floor(measure);
   if (wholeMeasure !== lastRolledMeasure) {
     lastRolledMeasure = wholeMeasure;
-    maybeStartGlobalSwell(noiseMap, wholeMeasure);
-    maybeStartRobotSwell(localeId, noiseMap, wholeMeasure);
+    if (useAudioStore.getState().audioSwellsEnabled) {
+      maybeStartGlobalSwell(noiseMap, wholeMeasure);
+      maybeStartRobotSwell(localeId, noiseMap, wholeMeasure);
+    }
   }
 }
 

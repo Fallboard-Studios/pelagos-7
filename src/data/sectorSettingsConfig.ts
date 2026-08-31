@@ -1,7 +1,7 @@
 // ========================================
 // IMPORTS
 // ========================================
-import type { TextInputSchema, CoordsInputSchema, ButtonSchema, DualLabelSchema } from '../types/controls';
+import type { TextInputSchema, CoordsInputSchema, ButtonSchema, DualLabelSchema, ToggleSchema } from '../types/controls';
 
 // ========================================
 // TYPES
@@ -51,6 +51,21 @@ export const STATUS_HEADER_SCHEMA: DualLabelSchema = {
   type: 'dualLabel',
   loreLabel: 'ACTIVE TRANSMISSION',
   humanLabel: 'Current Sector',
+};
+
+/**
+ * Gates both Audio Swell pools (global + robot, including company-wide) —
+ * see startAudioSwells/stopAudioSwells (systems/audioSwells.ts), which read
+ * audioStore's audioSwellsEnabled directly each tick. A plain UI preference,
+ * not part of the Attenuation Style/Coordinates retransmit flow above: it
+ * takes effect immediately on click, is never reset by retransmitting, and
+ * is never seeded.
+ */
+export const AUDIO_SWELLS_ENABLED_SCHEMA: ToggleSchema = {
+  id: 'sectorSettings.audioSwellsEnabled',
+  type: 'toggle',
+  loreLabel: 'ENABLE DYNAMIC PING DEPLOYMENT',
+  humanLabel: 'Enable automatic effects',
 };
 
 // ========================================

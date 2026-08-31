@@ -95,6 +95,10 @@ export interface AudioStore {
   globalLfo: Record<GlobalLfoTargetId, LfoSettings & { active: boolean }>;
   isMuted: boolean;
   preMuteVolume: number;
+  /** User preference, defaults on. Read directly by audioSwells.ts's own
+   *  tick — a plain UI toggle (Sector Settings drawer), not tied to
+   *  AudioEngine or any seeded/per-Attenuation-Style state. */
+  audioSwellsEnabled: boolean;
   setBPM: (bpm: number) => void;
   setGlobalAudio: <K extends EffectKey>(
     effect: K,
@@ -112,6 +116,10 @@ export interface AudioStore {
   setGlobalLfo: (target: GlobalLfoTargetId, value: LfoSettings & { active: boolean }) => void;
   setMuted: (muted: boolean) => void;
   setPreMuteVolume: (volume: number) => void;
+  /** Sets the Sector Settings "Enable automatic effects" toggle — a plain
+   *  state write, no AudioEngine call; audioSwells.ts reads this flag
+   *  directly on its own next tick. */
+  setAudioSwellsEnabled: (enabled: boolean) => void;
   /**
    * Swap the compressor's chain position — false (default) = "Natural Decay"
    * (compressor after Delay+Reverb), true = "Controlled Decay" (compressor
@@ -159,6 +167,7 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
   globalLfo: buildDefaultGlobalLfo(),
   isMuted: false,
   preMuteVolume: 1.0,
+  audioSwellsEnabled: true,
 
   setBPM: (bpm) => {
     set({ bpm });
@@ -234,6 +243,9 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
   },
   setPreMuteVolume: (volume) => {
     set({ preMuteVolume: volume });
+  },
+  setAudioSwellsEnabled: (enabled) => {
+    set({ audioSwellsEnabled: enabled });
   },
 
   regenerateGlobalAudioFromSeed: (attenuationStyleId, attenuationStyleName) => {
