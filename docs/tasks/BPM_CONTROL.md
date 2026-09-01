@@ -166,18 +166,18 @@ Task 1 (localeBpmSeed.ts: generateLocaleBpm)      Task 2 (AudioEngine.ts: setBPM
 
 ### Phase 4: Docs
 
-- [ ] **Task 6: `docs/AUDIO_SYSTEM.md` — document the seeded/live BPM behavior**
+- [x] **Task 6: `docs/AUDIO_SYSTEM.md` — document the seeded/live BPM behavior**
 
   **Description:** Add a short subsection (near the existing BPM/Transport references) covering: `audioStore.bpm` is now locale-seeded (`[40, 100]`, `generateLocaleBpm`) on any coordinate-changing retransmit, freely overridable via the new Audio Rig Tempo slider (`[20, 200]`), and ramps via `AudioEngine.setBPM` rather than jumping instantly — spot-checked against final shipped source, not reconstructed from the spec from memory. Must explicitly disambiguate from `locale.settings.bpm` (Factory/BubbleStream production cadence, untouched, still hardcoded `60`) — spec §1, §2.
 
   **Acceptance criteria:**
-  - [ ] The new subsection names `generateLocaleBpm`, `regenerateBpmFromSeed`, and `BPM_RAMP_SECONDS` matching the actual shipped source exactly.
-  - [ ] It states explicitly that `retransmitAttenuationStyleOnly` does not reseed BPM, and why (locale preserved, no coordinate change).
-  - [ ] It includes a one-line disambiguation from `locale.settings.bpm`, clear enough that a future reader searching for "bpm" doesn't conflate the two.
+  - [x] The new subsection names `generateLocaleBpm`, `regenerateBpmFromSeed`, and `BPM_RAMP_SECONDS` matching the actual shipped source exactly.
+  - [x] It states explicitly that `retransmitAttenuationStyleOnly` does not reseed BPM, and why (locale preserved, no coordinate change).
+  - [x] It includes a one-line disambiguation from `locale.settings.bpm`, clear enough that a future reader searching for "bpm" doesn't conflate the two.
 
   **Verification:**
-  - [ ] Manual review — every documented name/behavior spot-checked directly against `localeBpmSeed.ts`'s, `audioStore.ts`'s, `worldTransition.ts`'s, and `AudioEngine.ts`'s final shipped code.
-  - [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean (docs-only change, no behavioral impact expected).
+  - [x] Manual review — every documented name/behavior spot-checked directly against `localeBpmSeed.ts`'s, `audioStore.ts`'s, `worldTransition.ts`'s, and `AudioEngine.ts`'s final shipped code.
+  - [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean (docs-only change, no behavioral impact expected).
 
   **Dependencies:** Task 2, Task 4, Task 5.
 
@@ -186,10 +186,10 @@ Task 1 (localeBpmSeed.ts: generateLocaleBpm)      Task 2 (AudioEngine.ts: setBPM
   **Estimated scope:** XS (docs only)
 
 ### Checkpoint: Complete
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] All acceptance criteria across all 6 tasks are met.
-- [ ] `docs/AUDIO_SYSTEM.md` reflects the shipped API — every documented name spot-checked against source.
-- [ ] Manual check (spec §5): retransmit coordinates-only several times, confirm the Tempo slider jumps to a new value each time, always within `40`–`100` immediately after; drag to an extreme (e.g. `190`), retransmit Attenuation-Style-only (name change, same coordinates), confirm the dragged value survives untouched; drag to an extreme, retransmit coordinates-only, confirm the drag is discarded in favor of a freshly seeded value; drag the slider while a melody is audibly playing and confirm no audible click/zipper on each step.
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean. Final full-suite count: 1620 tests across 104 files.
+- [x] All acceptance criteria across all 6 tasks are met.
+- [x] `docs/AUDIO_SYSTEM.md` reflects the shipped API — every documented name spot-checked against source.
+- [ ] Manual check (spec §5): retransmit coordinates-only several times, confirm the Tempo slider jumps to a new value each time, always within `40`–`100` immediately after; drag to an extreme (e.g. `190`), retransmit Attenuation-Style-only (name change, same coordinates), confirm the dragged value survives untouched; drag to an extreme, retransmit coordinates-only, confirm the drag is discarded in favor of a freshly seeded value; drag the slider while a melody is audibly playing and confirm no audible click/zipper on each step. **Not yet performed in a live browser** — every behavior above has automated coverage (Tasks 3-5), but this pass is still pending.
 - [ ] Ready for human review / PR.
 
 ## Risks and Mitigations

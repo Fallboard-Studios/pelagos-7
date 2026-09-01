@@ -10,6 +10,7 @@ This guide documents the current Pelagos-7 audio architecture and the convention
 - [Melody Generation Guide](MELODY_SYSTEM.md) - Procedural melody creation
 - [LFO Modulation](#lfo-modulation) - Audio-rate parameter modulation for robot and global-chain targets (below, no separate file yet)
 - [Audio Swells](#audio-swells) - Rare, self-reversing ramp events on one global or robot parameter at a time (below, no separate file yet) — independent of LFO Modulation, not an extension of it
+- [BPM / Tempo](#bpm--tempo) - Locale-seeded transport tempo with a live Audio Rig override (below, no separate file yet) — distinct from `locale.settings.bpm`'s unrelated production-cadence use
 
 ## Core Audio Rules
 
@@ -68,7 +69,7 @@ export const AudioEngine = {
   killAll: () => void,                  // full reset: cancels transport, resets position/counters, calls resetBeatClock()
   pause: () => void,
   resume: () => void,
-  setBPM: (bpm: number) => void,        // no-op if not initialized
+  setBPM: (bpm: number) => void,        // no-op if not initialized; ramps over BPM_RAMP_SECONDS (0.05s) when the transport's bpm param supports rampTo, falls back to a direct value assignment otherwise — see "BPM / Tempo" below
   now: () => number,
 
   // Scheduling
@@ -364,6 +365,16 @@ Two behaviors, both gated on this one value:
 **Seeded once per session, then carried forward — not reseeded on every Attenuation Style switch.** Unlike `eq3.low`/`reverb.wet`/every other per-field seeded value in `globalAudio`, `pingVarianceAutomation` belongs with `globalBypass`/`compressorBeforeDelay` in the carry-forward group: `regenerateGlobalAudioFromSeed` seeds it via `generatePingVarianceAutomation` (`utils/globalAudioSeed.ts` — `getSeededVal` into `[0.33, 0.66]`, the same bounded/legible-default convention as `DELAY_ENABLED_THRESHOLD`) only on its first-ever call, tracked by a `PING_VARIANCE_AUTOMATION_UNSEEDED` sentinel (`-1`, outside the real `[0, 1]` domain); every later call — any future Attenuation Style switch or retransmit — leaves the user's current value untouched. `setPingVarianceAutomation` is a plain state write with no `AudioEngine` call, same shape as the boolean it replaced — there's no live node to touch; `audioSwells.ts` simply reads the fraction fresh on its own next tick.
 
 Every trigger/selection/timing/direction/magnitude decision is a `getSeededVal(noiseMap, dataId, offset, min, max)` draw against the **Attenuation Style** noise map (`getAttenuationStyleNoiseMap`) — `offset` is always the current *unwrapped whole* measure (`Math.floor(getCurrentMeasurePrecise())`, gated as above), never the `% 96`-wrapped value `subscribeToMeasure`'s own callback argument carries elsewhere in this codebase (the same trap `robotSystems.ts`'s `startRobotLifecycle` documents — a wrapped measure would replay an identical decision every 96 measures). `Math.random()` appears nowhere in `audioSwells.ts`. Two sessions on the same seed produce an identical swell timeline; a user's own manual edits are the only thing that can make two sessions diverge.
+
+## BPM / Tempo
+
+`audioStore.bpm` — the real `Tone.Transport` tempo, driving every beat-based schedule in the app — is a locale-seeded, live-adjustable value (docs/specs/BPM_CONTROL.md), not a hardcoded constant. This is unrelated to `locale.settings.bpm`, a separate field consumed only by `Factory.tsx`/`BubbleStream.tsx` for production-cadence/burst-interval math — the two happen to share a name and, coincidentally, the same default (`60`), but nothing else connects them; `locale.settings.bpm` is untouched by everything described in this section.
+
+**Seeded per locale, on coordinate change only.** `generateLocaleBpm(localeId, x, y)` (`src/utils/localeBpmSeed.ts`) draws a `getSeededVal` sample against that locale's own noise map (`getLocaleNoiseMap` — coordinate-derived, no Attenuation Style dependency, same as every other locale-scoped seeded field) into `LOCALE_BPM_SEED_RANGE` (`[40, 100]`), rounded to the nearest integer. `audioStore.regenerateBpmFromSeed(localeId, coordinates)` draws this fresh value and pushes it through the existing `setBPM` action (state write + `AudioEngine.setBPM`). It's called from exactly two places in `worldTransition.ts` — `retransmitCoordsOnly` and `retransmitBoth`, both of which build a genuinely new `Locale` via `buildLocale` — plus once at `audioStore.ts` module load (`syncBpmToCurrentLocale()`) to seed the locale active at app boot. **`retransmitAttenuationStyleOnly` never reseeds BPM** — it re-parents the existing locale onto a new Attenuation Style without rebuilding it, so whatever BPM was already in effect (seeded or hand-dragged) survives untouched, exactly like every other robot/actor/edit on that preserved locale. This is a deliberate divergence from `globalAudio`'s own Attenuation-Style-keyed reseeding (a `useAttenuationStyleStore.subscribe` that fires on every `currentAttenuationStyleId` change) — a subscription shaped that way would have incorrectly reseeded BPM on an Attenuation-Style-only retransmit too, since that branch also changes `currentAttenuationStyleId` even though the locale itself is preserved. BPM's reseed is call-site-triggered instead, not subscription-driven, and the seeded value is never stored on the `Locale` object itself — `generateLocaleBpm` is a pure function, recomputed fresh at each of the three call sites, the same "don't cache on the domain object" shape `generateGlobalAudioSettings` already uses for `AttenuationStyle`.
+
+**Live manual override.** The Audio Rig drawer's "Tempo" slider (`BPM_SCHEMA`, `src/data/audioRigConfig.ts` — `[20, 200]`, deliberately wider than the `[40, 100]` seed band on both ends, same "seed narrow, drag wide" convention `PING_VARIANCE_AUTOMATION_SCHEMA` established) binds directly to `audioStore.bpm`/`setBPM`, no unit conversion — unlike Ping Variance Automation's fraction-to-percent split, `bpm` is already stored in the same units the slider displays. Disabled under the Rig-wide Bypass toggle, matching every other master-row control.
+
+**Ramped, not snapped.** `AudioEngine.setBPM` ramps the transport's `bpm` param over `BPM_RAMP_SECONDS` (`0.05s`) via `rampTo` when the live `Tone.Param` supports it, falling back to a direct `.value` assignment in headless/test environments where it doesn't — the same guarded-fallback shape `updateRobotMasterVolume` already uses for its own `Tone.Gain` param ("Layered / Composite Voices" above). One unconditional behavior for every caller, seed-time set and manual drag alike — no separate instant path.
 
 ## Note Resolution Pipeline
 
