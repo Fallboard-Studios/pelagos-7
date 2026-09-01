@@ -244,20 +244,30 @@ async function loadInstruments(): Promise<void> {
 
 /**
  * Schedule voice release at the exact time note ends.
+ *
+ * Uses `Tone.getContext().setTimeout` — a real-seconds, AudioContext-clock-based
+ * timeout — NOT `transport.scheduleOnce`. `transport.scheduleOnce`'s `'+N'` offset
+ * resolves against the TRANSPORT's own tick timeline (`Transport.scheduleOnce` ->
+ * `TransportTimeClass(...).toTicks()`), converting the real-seconds delay into a
+ * fixed tick position using the tempo in effect at schedule time. If BPM changes
+ * before that tick position is reached (docs/specs/BPM_CONTROL.md's live Tempo
+ * slider makes this routine now), the real time it takes to reach that fixed tick
+ * shifts — releases fire late (bpm decreased) or early (bpm increased). Enough
+ * skew strands `activeVoices` at `MAX_POLYPHONY`, silently blocking every new
+ * trigger ("plays a few more notes, then nothing"). `context.setTimeout` is
+ * genuinely tempo-independent: it fires `delayFromNow` real seconds later
+ * regardless of anything `Transport.bpm` does in between.
  */
 function scheduleVoiceRelease(duration: NoteDuration, time: number): void {
   const durSec = Tone.Time(duration).toSeconds();
-  // Use a transport-relative offset ('+N' syntax) so the release fires correctly
-  // regardless of when in the AudioContext lifetime the note was scheduled.
   // `time` is an absolute AudioContext timestamp; `Tone.now()` is the current
   // AudioContext time, so their difference is the lookahead until the note fires.
   const delayFromNow = Math.max(0, (time - Tone.now()) + durSec + 0.04);
 
   try {
-    const transport = _transport ?? Tone.getTransport();
-    transport.scheduleOnce(() => {
+    Tone.getContext().setTimeout(() => {
       activeVoices = Math.max(0, activeVoices - 1);
-    }, `+${delayFromNow}`);
+    }, delayFromNow);
   } catch (err) {
     devWarn('[AudioEngine] scheduleVoiceRelease failed', err);
     activeVoices = Math.max(0, activeVoices - 1);

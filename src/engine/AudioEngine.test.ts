@@ -25,6 +25,16 @@ vi.mock('tone', () => ({
     scheduleOnce: vi.fn(),
     scheduleRepeat: vi.fn(() => 1),
   })),
+  // Tone.getContext().setTimeout is the AudioContext-clock-based, tempo-independent
+  // scheduling primitive scheduleVoiceRelease uses (docs/specs/BPM_CONTROL.md's
+  // bug-fix follow-up) — distinct from Transport.scheduleOnce, which resolves a
+  // '+N' offset against Transport's own tick timeline and is therefore skewed by
+  // any bpm change between scheduling and firing.
+  getContext: vi.fn(() => ({
+    now: vi.fn(() => 0),
+    setTimeout: vi.fn(() => 1),
+    clearTimeout: vi.fn(),
+  })),
   PolySynth: vi.fn(() => ({
     connect: vi.fn().mockReturnThis(),
     triggerAttackRelease: vi.fn(),
@@ -372,6 +382,57 @@ describe('AudioEngine - Polyphony Management', () => {
       // Should accept exactly 16, skip 4
       expect(acceptedCount).toBe(16);
       expect(skippedCount).toBe(4);
+    });
+  });
+
+  // Bug: changing BPM while notes are sounding made playback "peter out" —
+  // only already-triggered notes finished, then nothing new played. Root
+  // cause: scheduleVoiceRelease computed a real-seconds voice-release delay
+  // but scheduled it via transport.scheduleOnce('+N'), which Tone.js resolves
+  // against the TRANSPORT's own tick timeline (Transport.scheduleOnce ->
+  // TransportTimeClass(...).toTicks()) — a fixed tick position computed at
+  // the CURRENT tempo. Any bpm change before that tick position is reached
+  // shifts how much real time it takes to get there, so releases fire late
+  // (bpm decreased) or early (bpm increased). Enough skew — one Tempo slider
+  // drag while 16 notes are in flight is enough — strands activeVoices at
+  // MAX_POLYPHONY for an extended stretch, silently blocking every new
+  // trigger. docs/specs/BPM_CONTROL.md's bug-fix follow-up.
+  describe('Voice release scheduling is tempo-independent', () => {
+    it('schedules the release via the AudioContext clock (context.setTimeout), not Transport.scheduleOnce', async () => {
+      const Tone = await import('tone');
+      const { triggerWithCap } = await import('./AudioEngine');
+
+      triggerWithCap({ robotId: 'test', note: 'C4', duration: '4n', time: 0, velocity: 0.8 });
+
+      const contextMock = (Tone.getContext as unknown as ReturnType<typeof vi.fn>).mock.results.at(-1)?.value;
+      expect(contextMock.setTimeout).toHaveBeenCalled();
+
+      const transportMock = (Tone.getTransport as unknown as ReturnType<typeof vi.fn>).mock.results.at(-1)?.value;
+      expect(transportMock.scheduleOnce).not.toHaveBeenCalled();
+    });
+
+    it('frees the voice when the context.setTimeout callback fires, even after an intervening setBPM call — a bpm change must not strand activeVoices at the polyphony cap', async () => {
+      const Tone = await import('tone');
+      const { AudioEngine, triggerWithCap } = await import('./AudioEngine');
+
+      // Fill to the polyphony cap.
+      for (let i = 0; i < 16; i++) {
+        expect(triggerWithCap({ robotId: 'test', note: 'C4', duration: '4n', time: 0, velocity: 0.8 })).toBe(true);
+      }
+      expect(triggerWithCap({ robotId: 'test', note: 'C4', duration: '4n', time: 0, velocity: 0.8 })).toBe(false); // capped
+
+      // The Tempo slider does exactly this while those 16 notes are still
+      // sounding — must not prevent their scheduled releases from firing.
+      AudioEngine.setBPM(90);
+
+      // Fire every release scheduled so far (simulates the AudioContext clock
+      // reaching each one, regardless of whatever bpm did in between).
+      const contextCalls = (Tone.getContext as unknown as ReturnType<typeof vi.fn>).mock.results as Array<{ value: { setTimeout: ReturnType<typeof vi.fn> } }>;
+      contextCalls.forEach((result) => {
+        result.value.setTimeout.mock.calls.forEach((call: unknown[]) => (call[0] as () => void)());
+      });
+
+      expect(triggerWithCap({ robotId: 'test', note: 'C4', duration: '4n', time: 0, velocity: 0.8 })).toBe(true); // freed up again
     });
   });
 });
