@@ -1511,7 +1511,12 @@ describe('AudioEngine - Transport methods & Master Volume (Issue #220)', () => {
 
   // ── setBPM (docs/specs/BPM_CONTROL.md §1.6) ───────────── //
   describe('setBPM()', () => {
-    it('ramps the transport bpm param via rampTo when the param exposes one', async () => {
+    // Deliberately instant, not ramped — see the doc comment on setBPM itself.
+    // A ramp that gets cancelled and restarted on every rapid call (exactly
+    // what the Tempo slider's continuous onValueChange produces during a
+    // drag) never settles, making the actual tempo wobble for the whole
+    // drag gesture instead of tracking the slider precisely.
+    it('assigns the transport bpm value directly, with no ramp', async () => {
       const Tone = await import('tone');
       (Tone.getTransport as unknown as AnyMock).mockReturnValueOnce({
         state: 'stopped',
@@ -1527,12 +1532,11 @@ describe('AudioEngine - Transport methods & Master Volume (Issue #220)', () => {
       await AudioEngine.start();
       const transport = (Tone.getTransport as unknown as AnyMock).mock.results.at(-1)?.value;
       AudioEngine.setBPM(140);
-      expect(transport.bpm.rampTo).toHaveBeenCalledWith(140, 0.05);
-      // rampTo path taken — no direct assignment on top of it
-      expect(transport.bpm.value).toBe(60);
+      expect(transport.bpm.value).toBe(140);
+      expect(transport.bpm.rampTo).not.toHaveBeenCalled();
     });
 
-    it('falls back to a direct value assignment when bpm has no rampTo', async () => {
+    it('does not restart/interrupt itself across rapid successive calls — each is an independent instant set, not a cancelled ramp', async () => {
       const Tone = await import('tone');
       (Tone.getTransport as unknown as AnyMock).mockReturnValueOnce({
         state: 'stopped',
@@ -1547,8 +1551,11 @@ describe('AudioEngine - Transport methods & Master Volume (Issue #220)', () => {
       const { AudioEngine } = await import('./AudioEngine');
       await AudioEngine.start();
       const transport = (Tone.getTransport as unknown as AnyMock).mock.results.at(-1)?.value;
-      AudioEngine.setBPM(140);
-      expect(transport.bpm.value).toBe(140);
+
+      // Simulates a fast slider drag — many onChange calls in quick succession.
+      for (let bpm = 61; bpm <= 90; bpm++) AudioEngine.setBPM(bpm);
+
+      expect(transport.bpm.value).toBe(90);
     });
 
     it('does not throw when called before start (no-op)', async () => {

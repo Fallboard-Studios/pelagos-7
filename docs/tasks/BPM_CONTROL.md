@@ -205,6 +205,20 @@ User-reported after Task 5 shipped: changing BPM made playback "peter out" — o
 
 **Files:** `src/engine/AudioEngine.ts`, `src/engine/AudioEngine.test.ts`
 
+### Post-launch fix: reverted setBPM's ramp — it made live tempo changes feel unstable
+
+User-reported (a trained musician) after the voice-release fix above shipped: dragging the Tempo slider made the beat feel "wishy-washy," with no locatable downbeat — not just a tempo change, an *unstable* one. Root cause: Task 2 (§Foundation) had `setBPM` ramp the transport's `bpm` param over `BPM_RAMP_SECONDS` (0.05s) via `rampTo`, mirroring `updateRobotMasterVolume`'s `Tone.Gain` ramp. That precedent doesn't transfer: BPM isn't a continuously-summed audio signal, so an instant change doesn't click the way an instant Gain jump does — there was nothing for the ramp to protect against. Worse, the Tempo slider's `onChange` fires continuously during a drag (Radix's `onValueChange`, not `onValueCommit`), far more often than a 50ms ramp can complete — each call cancelled the previous still-in-flight ramp and restarted a new one (`Tone.Param.rampTo`'s own `cancelAndHoldAtTime` behavior), so the actual tempo never settled for the whole drag gesture. Standard DAW behavior — and this function's own pre-Task-2 shape — applies tempo changes instantly.
+
+**Fix:** `setBPM` reverted to a plain `transport.bpm.value = bpm` assignment. `BPM_RAMP_SECONDS` removed (dead constant). This also simplifies Task 2's own diff away — no ramp, no fallback branch to maintain.
+
+- [x] Tests rewritten first (RED against the ramped code): assert `setBPM` sets `transport.bpm.value` directly, never calls `rampTo`, and that many rapid successive calls (simulating a fast drag) each land immediately with no restart/interruption.
+- [x] Fix applied (GREEN): `src/engine/AudioEngine.ts`'s `setBPM`, `BPM_RAMP_SECONDS` constant removed.
+- [x] `npx vitest run src/engine/AudioEngine.test.ts` passes (103 tests). `npm run build:types`, `npm run lint` clean.
+- [x] `docs/AUDIO_SYSTEM.md`'s "BPM / Tempo" section and `AudioEngine` API listing updated to describe the instant assignment, not the ramp.
+- [ ] Live-browser confirmation from the user that dragging the Tempo slider now tracks a stable, locatable beat — the regression test proves the mechanism (no ramp, no restart), but hasn't been heard in a real browser yet.
+
+**Files:** `src/engine/AudioEngine.ts`, `src/engine/AudioEngine.test.ts`, `docs/AUDIO_SYSTEM.md`
+
 ## Risks and Mitigations
 
 | Risk | Impact | Mitigation |

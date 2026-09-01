@@ -58,6 +58,8 @@ Confirmed directly with the user (2026-09-01) — lore label `RESONANCE CADENCE`
 
 ### 1.6 `setBPM` gains a short ramp — mirrors `updateRobotMasterVolume` exactly
 
+> **Reverted post-launch** ([docs/tasks/BPM_CONTROL.md](../tasks/BPM_CONTROL.md)'s second Post-launch fix section) — this section is a historical record of the original design, not the shipped behavior. The `updateRobotMasterVolume` precedent doesn't actually transfer to BPM (not a continuously-summed audio signal, nothing for a ramp to protect against), and the ramp was actively harmful: the Tempo slider's continuous `onChange` fires faster than any short ramp can complete, so each call cancelled and restarted the previous ramp, leaving the tempo never actually settled during a drag — reported by the user as an audibly unstable, "wishy-washy" beat with no locatable downbeat. `setBPM` is back to the plain instant assignment described in this section's own first sentence below.
+
 `AudioEngine.setBPM` currently does an instant `transport.bpm.value = bpm` assignment. Per the intent doc's flagged assumption (constraint section), this spec adds a short `rampTo` — reusing the identical guarded-fallback shape `updateRobotMasterVolume` already uses for `busGain.gain` ([AudioEngine.ts:942-949](../../src/engine/AudioEngine.ts#L942-L949)), not a new idiom:
 
 ```typescript

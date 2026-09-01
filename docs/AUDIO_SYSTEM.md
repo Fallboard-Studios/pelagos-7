@@ -69,7 +69,7 @@ export const AudioEngine = {
   killAll: () => void,                  // full reset: cancels transport, resets position/counters, calls resetBeatClock()
   pause: () => void,
   resume: () => void,
-  setBPM: (bpm: number) => void,        // no-op if not initialized; ramps over BPM_RAMP_SECONDS (0.05s) when the transport's bpm param supports rampTo, falls back to a direct value assignment otherwise — see "BPM / Tempo" below
+  setBPM: (bpm: number) => void,        // no-op if not initialized; instant transport.bpm.value assignment, deliberately not ramped — see "BPM / Tempo" below
   now: () => number,
 
   // Scheduling
@@ -374,7 +374,7 @@ Every trigger/selection/timing/direction/magnitude decision is a `getSeededVal(n
 
 **Live manual override.** The Audio Rig drawer's "Tempo" slider (`BPM_SCHEMA`, `src/data/audioRigConfig.ts` — `[20, 200]`, deliberately wider than the `[40, 100]` seed band on both ends, same "seed narrow, drag wide" convention `PING_VARIANCE_AUTOMATION_SCHEMA` established) binds directly to `audioStore.bpm`/`setBPM`, no unit conversion — unlike Ping Variance Automation's fraction-to-percent split, `bpm` is already stored in the same units the slider displays. Disabled under the Rig-wide Bypass toggle, matching every other master-row control.
 
-**Ramped, not snapped.** `AudioEngine.setBPM` ramps the transport's `bpm` param over `BPM_RAMP_SECONDS` (`0.05s`) via `rampTo` when the live `Tone.Param` supports it, falling back to a direct `.value` assignment in headless/test environments where it doesn't — the same guarded-fallback shape `updateRobotMasterVolume` already uses for its own `Tone.Gain` param ("Layered / Composite Voices" above). One unconditional behavior for every caller, seed-time set and manual drag alike — no separate instant path.
+**Instant, not ramped.** `AudioEngine.setBPM` assigns `transport.bpm.value` directly — no `rampTo`. An earlier version ramped it (mirroring `updateRobotMasterVolume`'s `Tone.Gain` ramp), but BPM isn't a continuously-summed audio signal like Gain — an instant tempo change doesn't click, it only affects when future notes get scheduled. Ramping was actively harmful for the live case: the Tempo slider's `onChange` fires continuously during a drag (Radix's `onValueChange`, not `onValueCommit`), far more often than any short ramp could complete, so each call cancelled the previous still-in-flight ramp and restarted a new one — the tempo never settled for the whole drag gesture, audibly ("wishy-washy", no locatable downbeat). Reverted to the instant assignment every DAW uses for tempo changes.
 
 ## Note Resolution Pipeline
 

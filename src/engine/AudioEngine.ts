@@ -89,10 +89,6 @@ const GROUP_ACCENT_MULTIPLIER = 1.25;
 /** Ramp duration for a live updateRobotMasterVolume change — short enough to feel instant, long
  *  enough to avoid an audible click on the underlying AudioParam. */
 const VOLUME_RAMP_SECONDS = 0.05;
-/** Ramp duration for a live setBPM change — same magnitude as VOLUME_RAMP_SECONDS, short enough
- *  to be inaudible as a discrete jump, long enough to avoid a zipper click when setBPM is called
- *  repeatedly during an Audio Rig Tempo slider drag. docs/specs/BPM_CONTROL.md §1.6. */
-const BPM_RAMP_SECONDS = 0.05;
 
 // Precompute data X positions for seeded noise sampling (module scope — hot path safe)
 const VELOCITY_ROLL_X = precomputeDataX('audio.velocityRoll');
@@ -1140,23 +1136,28 @@ export const AudioEngine = {
   /**
    * Update Tone.Transport BPM. No-op if AudioEngine has not been started
    * (audio context not yet running) to avoid errors in headless environments.
-   * Ramps over BPM_RAMP_SECONDS when the live Tone.Param supports it, to avoid
-   * an audible zipper click on repeated calls (e.g. dragging the Audio Rig
-   * Tempo slider); falls back to a direct value assignment in headless/test
-   * environments where it doesn't — same rampTo-with-fallback shape
-   * updateRobotMasterVolume already uses for its own Tone.Gain param.
-   * docs/specs/BPM_CONTROL.md §1.6.
+   *
+   * Deliberately an instant assignment, not a ramp. BPM/tempo isn't a
+   * continuously-summed audio signal like Gain — it only governs when
+   * future notes get scheduled, so an instant change doesn't produce a
+   * click the way an instant Gain jump does; there's nothing here for a
+   * ramp to protect against. Worse, a ramp actively hurts: the Audio Rig
+   * Tempo slider's onChange fires continuously during a drag (Radix's
+   * onValueChange, not onValueCommit), far more often than any short ramp
+   * could complete — each call would cancel the previous still-in-flight
+   * ramp and restart a new one (Tone.Param.rampTo's own
+   * cancelAndHoldAtTime behavior), so the tempo would never actually
+   * settle for the whole drag gesture. That's exactly what surfaced as a
+   * real, reported bug: the beat became audibly unstable ("wishy-washy",
+   * no locatable downbeat) while dragging, not just "different." Standard
+   * DAW behavior — and this function's own original pre-ramp shape —
+   * applies tempo changes instantly for the same reason.
    */
   setBPM(bpm: number): void {
     if (!initialized) return;
     const transport = _transport ?? Tone.getTransport();
     try {
-      const bpmParam = transport.bpm as unknown as { rampTo?: (value: number, rampTime: number) => void; value: number };
-      if (typeof bpmParam.rampTo === 'function') {
-        bpmParam.rampTo(bpm, BPM_RAMP_SECONDS);
-      } else {
-        bpmParam.value = bpm;
-      }
+      transport.bpm.value = bpm;
     } catch (err) { devWarn('[AudioEngine] setBPM failed', err); }
   },
 
