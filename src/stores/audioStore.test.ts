@@ -570,3 +570,47 @@ describe('useAudioStore - audioSwellsEnabled / setAudioSwellsEnabled', () => {
     expect(vi.mocked(AudioEngine.setEffectBypass).mock.calls.length).toBe(effectBypassCallsBefore);
   });
 });
+
+describe('useAudioStore - pingVarianceAutomation / setPingVarianceAutomation', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it('seeds into [0.33, 0.66] on module load (the first regenerateGlobalAudioFromSeed call)', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const { pingVarianceAutomation } = useAudioStore.getState();
+    expect(pingVarianceAutomation).toBeGreaterThanOrEqual(0.33);
+    expect(pingVarianceAutomation).toBeLessThanOrEqual(0.66);
+  });
+
+  it('setPingVarianceAutomation updates the store directly — a plain write, no AudioEngine call', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const { AudioEngine } = await import('../engine/AudioEngine');
+    const bypassCallsBefore = vi.mocked(AudioEngine.setGlobalBypass).mock.calls.length;
+    const effectBypassCallsBefore = vi.mocked(AudioEngine.setEffectBypass).mock.calls.length;
+
+    useAudioStore.getState().setPingVarianceAutomation(0.9);
+    expect(useAudioStore.getState().pingVarianceAutomation).toBe(0.9);
+
+    expect(vi.mocked(AudioEngine.setGlobalBypass).mock.calls.length).toBe(bypassCallsBefore);
+    expect(vi.mocked(AudioEngine.setEffectBypass).mock.calls.length).toBe(effectBypassCallsBefore);
+  });
+
+  it('carries the seeded value forward across a later Attenuation Style switch — does not reseed', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const seeded = useAudioStore.getState().pingVarianceAutomation;
+
+    useAudioStore.getState().regenerateGlobalAudioFromSeed('a-different-as-id', 'Zenith');
+
+    expect(useAudioStore.getState().pingVarianceAutomation).toBe(seeded);
+  });
+
+  it('carries a hand-dragged value forward across a later Attenuation Style switch too', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    useAudioStore.getState().setPingVarianceAutomation(0.9); // outside the [0.33, 0.66] seed range, so it's unambiguous
+
+    useAudioStore.getState().regenerateGlobalAudioFromSeed('a-different-as-id', 'Zenith');
+
+    expect(useAudioStore.getState().pingVarianceAutomation).toBe(0.9);
+  });
+});
