@@ -1,11 +1,15 @@
 // ========================================
 // IMPORTS
 // ========================================
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, it, expect, afterEach } from 'vitest';
 
 import {
   generateGlobalAudioSettings,
   generateGlobalLfoSettings,
+  generatePingVarianceAutomation,
   scaleUnitValue,
   LFO_RATE_LOADING_MIN,
   LFO_RATE_LOADING_MAX,
@@ -358,5 +362,47 @@ describe('generateGlobalLfoSettings', () => {
     // clearly distinguishing this from both a ~50% flat coin-flip and ~100%.
     expect(activeRate).toBeGreaterThan(0.5);
     expect(activeRate).toBeLessThan(0.8);
+  });
+});
+
+describe('generatePingVarianceAutomation', () => {
+  afterEach(() => {
+    evictAttenuationStyleNoiseMap('seed-test-planet');
+    evictAttenuationStyleNoiseMap('seed-test-planet-b');
+    for (let i = 0; i < 30; i++) evictAttenuationStyleNoiseMap(`seed-pva-sample-${i}`);
+  });
+
+  it('always returns a value in [0.33, 0.66], across many Attenuation Styles', () => {
+    const SAMPLE_ATTENUATION_STYLES = 30;
+    for (let i = 0; i < SAMPLE_ATTENUATION_STYLES; i++) {
+      const value = generatePingVarianceAutomation(`seed-pva-sample-${i}`, `PvaSample${i}`);
+      expect(value, `attenuationStyle ${i}`).toBeGreaterThanOrEqual(0.33);
+      expect(value, `attenuationStyle ${i}`).toBeLessThanOrEqual(0.66);
+    }
+  });
+
+  it('is deterministic — same attenuationStyleId + attenuationStyleName always produces the same value', () => {
+    const first = generatePingVarianceAutomation('seed-test-planet', 'Nova');
+    const second = generatePingVarianceAutomation('seed-test-planet', 'Nova');
+    expect(second).toBe(first);
+  });
+
+  it('is deterministic across a fresh noise map too, not just a cached one', () => {
+    const first = generatePingVarianceAutomation('seed-test-planet', 'Nova');
+    evictAttenuationStyleNoiseMap('seed-test-planet');
+    const second = generatePingVarianceAutomation('seed-test-planet', 'Nova');
+    expect(second).toBe(first);
+  });
+
+  it('produces different values for a different Attenuation Style name (non-degenerate)', () => {
+    const a = generatePingVarianceAutomation('seed-test-planet', 'Nova');
+    const b = generatePingVarianceAutomation('seed-test-planet-b', 'Zenith');
+    expect(b).not.toBe(a);
+  });
+
+  it('is not a Math.random()-driven value anywhere in this module (source-scan regression guard)', () => {
+    const thisFile = fileURLToPath(import.meta.url);
+    const source = readFileSync(join(dirname(thisFile), 'globalAudioSeed.ts'), 'utf-8');
+    expect(source).not.toMatch(/Math\.random/);
   });
 });

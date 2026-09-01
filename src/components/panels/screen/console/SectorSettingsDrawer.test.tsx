@@ -98,4 +98,9 @@ describe('SectorSettingsDrawer', () => {
     fireEvent.click(screen.getByText('Retransmit'));
     expect(retransmitWorldMock).toHaveBeenCalledWith({});
   });
+
+  it('no longer renders the old "Enable automatic effects" toggle — relocated and reshaped into the Audio Rig drawer\'s Ping Variance Automation slider (docs/tasks/PING-VARIANCE-AUTOMATION.md Task 7)', () => {
+    render(<SectorSettingsDrawer />);
+    expect(screen.queryByRole('switch', { name: 'Enable automatic effects' })).toBeNull();
+  });
 });

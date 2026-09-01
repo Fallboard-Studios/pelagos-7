@@ -6,7 +6,7 @@ import { create } from 'zustand';
 import { AudioEngine } from '../engine/AudioEngine';
 import { wireGlobalFxChain } from '../engine/audioEngine/globalFx';
 import { lfoEngine } from '../engine/lfoEngine';
-import { generateGlobalAudioSettings, generateGlobalLfoSettings } from '../utils/globalAudioSeed';
+import { generateGlobalAudioSettings, generateGlobalLfoSettings, generatePingVarianceAutomation } from '../utils/globalAudioSeed';
 import { useAttenuationStyleStore, selectCurrentAttenuationStyle } from './attenuationStyleStore';
 import { DEFAULT_LFO_SETTINGS } from '../data/lfoConfig';
 
@@ -88,6 +88,17 @@ function buildDefaultGlobalLfo(): Record<GlobalLfoTargetId, LfoSettings & { acti
   return result;
 }
 
+/** Sentinel for "not yet seeded this session" — outside [0, 1], the domain of
+ *  every real value (seeded or hand-dragged). regenerateGlobalAudioFromSeed
+ *  uses this to seed pingVarianceAutomation exactly once per session and
+ *  carry it forward across every later Attenuation Style switch
+ *  (docs/specs/PING-VARIANCE-AUTOMATION.md §1.2) — the field-level
+ *  equivalent of how globalBypass/compressorBeforeDelay already survive
+ *  regeneration via the current-value spread a few lines below, except those
+ *  two never need a "have I seeded yet" check because their generator always
+ *  returns the same static default, never a genuinely-seeded value. */
+const PING_VARIANCE_AUTOMATION_UNSEEDED = -1;
+
 export interface AudioStore {
   bpm: number;
   globalAudio: GlobalAudioSettings;
@@ -95,6 +106,14 @@ export interface AudioStore {
   globalLfo: Record<GlobalLfoTargetId, LfoSettings & { active: boolean }>;
   isMuted: boolean;
   preMuteVolume: number;
+  /** Continuous automation-amount fraction, [0, 1] — the Audio Rig's "Ping
+   *  Variance Automation" slider, replacing the former audioSwellsEnabled
+   *  boolean (docs/specs/PING-VARIANCE-AUTOMATION.md). Read directly by
+   *  audioSwells.ts's own tick: a plain UI-adjacent value, not tied to
+   *  AudioEngine. Seeded once per session (regenerateGlobalAudioFromSeed's
+   *  first call), then carried forward across every future Attenuation Style
+   *  switch — freely draggable via the Audio Rig slider at any time. */
+  pingVarianceAutomation: number;
   setBPM: (bpm: number) => void;
   setGlobalAudio: <K extends EffectKey>(
     effect: K,
@@ -112,6 +131,11 @@ export interface AudioStore {
   setGlobalLfo: (target: GlobalLfoTargetId, value: LfoSettings & { active: boolean }) => void;
   setMuted: (muted: boolean) => void;
   setPreMuteVolume: (volume: number) => void;
+  /** Sets the Audio Rig "Ping Variance Automation" slider — a plain state
+   *  write, no AudioEngine call; audioSwells.ts reads this fraction fresh
+   *  on its own next tick (both for scaling a newly-created swell's peak
+   *  and for the 0%-forced-return check). */
+  setPingVarianceAutomation: (value: number) => void;
   /**
    * Swap the compressor's chain position — false (default) = "Natural Decay"
    * (compressor after Delay+Reverb), true = "Controlled Decay" (compressor
@@ -159,6 +183,7 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
   globalLfo: buildDefaultGlobalLfo(),
   isMuted: false,
   preMuteVolume: 1.0,
+  pingVarianceAutomation: PING_VARIANCE_AUTOMATION_UNSEEDED, // real value assigned by the first regenerateGlobalAudioFromSeed call below (module-load AS-sync)
 
   setBPM: (bpm) => {
     set({ bpm });
@@ -235,6 +260,9 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
   setPreMuteVolume: (volume) => {
     set({ preMuteVolume: volume });
   },
+  setPingVarianceAutomation: (value) => {
+    set({ pingVarianceAutomation: value });
+  },
 
   regenerateGlobalAudioFromSeed: (attenuationStyleId, attenuationStyleName) => {
     // generateGlobalAudioSettings's own output is used as-is, `enabled`
@@ -255,7 +283,20 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
       globalBypass: current.globalBypass,
       compressorBeforeDelay: current.compressorBeforeDelay,
     };
-    set({ globalAudio });
+    // pingVarianceAutomation seeds once per session, then carries forward
+    // across every later switch — deliberately NOT spread from `current`
+    // like globalBypass/compressorBeforeDelay above; those two always
+    // regenerate to the same static default so overwriting with `current`
+    // is safe on every call. pingVarianceAutomation's generator returns a
+    // genuinely different value each time, so "already seeded" is tracked
+    // via the PING_VARIANCE_AUTOMATION_UNSEEDED sentinel instead — this key
+    // is simply omitted from the set() call below on every later switch,
+    // and Zustand's default merge leaves the current value untouched
+    // (docs/specs/PING-VARIANCE-AUTOMATION.md §1.2).
+    const pingVarianceAutomation = get().pingVarianceAutomation === PING_VARIANCE_AUTOMATION_UNSEEDED
+      ? generatePingVarianceAutomation(attenuationStyleId, attenuationStyleName)
+      : undefined;
+    set({ globalAudio, ...(pingVarianceAutomation !== undefined ? { pingVarianceAutomation } : {}) });
     applyGlobalAudioToEngine(globalAudio);
   },
 

@@ -18,6 +18,7 @@ vi.mock('tone', () => ({
 let initBeatClock: (transport?: typeof mockTransport) => void;
 let getCurrentBeat: () => number;
 let getCurrentMeasure: () => number;
+let getCurrentMeasurePrecise: () => number;
 let getCurrentHour: () => number;
 let parseTransportPosition: (rawPosition: unknown) => { measure: number; beat: number; sixteenths: number };
 let subscribeToMeasure: (cb: (m: number) => void) => () => void;
@@ -36,6 +37,7 @@ describe('beatClock', () => {
       initBeatClock,
       getCurrentBeat,
       getCurrentMeasure,
+      getCurrentMeasurePrecise,
       getCurrentHour,
       parseTransportPosition,
       subscribeToMeasure,
@@ -55,6 +57,40 @@ describe('beatClock', () => {
     expect(getCurrentMeasure()).toBe(2);
     expect(getCurrentBeat()).toBeCloseTo(9.5);
     expect(getCurrentHour()).toBe(0);
+  });
+
+  describe('getCurrentMeasurePrecise', () => {
+    it('is getCurrentBeat() / 4 — the continuous, sub-measure-precision measure position', () => {
+      mockTransport.position = '2:1:2';
+      callbacks[0]?.();
+      expect(getCurrentMeasurePrecise()).toBeCloseTo(getCurrentBeat() / 4);
+      expect(getCurrentMeasurePrecise()).toBeCloseTo(2.375); // 2 measures + 1 beat + 2 sixteenths, in measures
+    });
+
+    it('advances smoothly between measure boundaries, unlike getCurrentMeasure()', () => {
+      mockTransport.position = '5:0:0';
+      callbacks[0]?.();
+      expect(getCurrentMeasure()).toBe(5);
+      expect(getCurrentMeasurePrecise()).toBeCloseTo(5);
+
+      mockTransport.position = '5:2:0'; // halfway through measure 5 — no measure-boundary crossed
+      callbacks[0]?.();
+      expect(getCurrentMeasure()).toBe(5); // unchanged — still mid-measure
+      expect(getCurrentMeasurePrecise()).toBeCloseTo(5.5); // precise value still moved
+    });
+
+    it('is unwrapped, like getCurrentMeasure() and unlike subscribeToMeasure\'s own callback argument', () => {
+      mockTransport.position = '97:1:0';
+      callbacks[0]?.();
+      expect(getCurrentMeasurePrecise()).toBeCloseTo(97.25); // NOT wrapped to 1.25 at the 96-measure boundary
+    });
+
+    it('resets to 0 after resetBeatClock', () => {
+      mockTransport.position = '10:2:0';
+      callbacks[0]?.();
+      resetBeatClock();
+      expect(getCurrentMeasurePrecise()).toBe(0);
+    });
   });
 
   it('does not register duplicate schedules when called twice', () => {

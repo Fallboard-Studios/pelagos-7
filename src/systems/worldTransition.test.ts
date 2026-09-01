@@ -4,8 +4,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 vi.mock('../engine/beatClock', () => ({
-  subscribeToMeasure: vi.fn(() => vi.fn()),
+  subscribeToMeasure: vi.fn(() => vi.fn()), // robotSystems.ts's own lifecycle tick
   getCurrentMeasure: vi.fn(() => 0),
+  scheduleRepeat: vi.fn(() => 'schedule-id'), // audioSwells.ts's own 16n lifecycle tick
+  cancelSchedule: vi.fn(),
+  getCurrentMeasurePrecise: vi.fn(() => 0),
 }));
 
 // Spy on recolorFactoriesForAttenuationStyle while keeping every other export
@@ -29,6 +32,8 @@ import { getSeededVal } from '../utils/getSeededVal';
 import { initializeLocale, retransmitWorld } from './worldTransition';
 import { recolorFactoriesForAttenuationStyle } from './factoryPlacementSystem';
 import { stopRobotLifecycle } from './robotSystems';
+import { stopAudioSwells, getActiveSwellSnapshot, tickAudioSwells } from './audioSwells';
+import * as audioSwellsModule from './audioSwells';
 import { MAX_ROBOTS } from '../constants';
 import { computeLocaleHour } from '../constants/time';
 import { RobotState, DockingState } from '../types/Robot';
@@ -71,6 +76,7 @@ describe('worldTransition', () => {
 
   afterEach(() => {
     stopRobotLifecycle();
+    stopAudioSwells();
   });
 
   describe('initializeLocale', () => {
@@ -107,6 +113,41 @@ describe('worldTransition', () => {
       initializeLocale(DEFAULT_LOCALE_ID);
       initializeLocale(DEFAULT_LOCALE_ID);
       expect(subscribeToMeasure).toHaveBeenCalledTimes(2);
+    });
+
+    it('also restarts the audio swells tick (its own 16n schedule, not subscribeToMeasure) on a second call', async () => {
+      const { scheduleRepeat } = await import('../engine/beatClock');
+      initializeLocale(DEFAULT_LOCALE_ID);
+      initializeLocale(DEFAULT_LOCALE_ID);
+      expect(scheduleRepeat).toHaveBeenCalledTimes(2);
+    });
+
+    it('calls stopAudioSwells then startAudioSwells(localeId), alongside the existing robot-lifecycle restart', () => {
+      const stopSpy = vi.spyOn(audioSwellsModule, 'stopAudioSwells');
+      const startSpy = vi.spyOn(audioSwellsModule, 'startAudioSwells');
+
+      initializeLocale(DEFAULT_LOCALE_ID);
+
+      expect(stopSpy).toHaveBeenCalledTimes(1);
+      expect(startSpy).toHaveBeenCalledWith(DEFAULT_LOCALE_ID);
+      expect(stopSpy.mock.invocationCallOrder[0]).toBeLessThan(startSpy.mock.invocationCallOrder[0]);
+    });
+
+    it('fully clears in-flight swells on a second initializeLocale call — no swell survives a restart', () => {
+      initializeLocale(DEFAULT_LOCALE_ID);
+      // Real seeded noise on the fixed default seed — 50 measures makes it
+      // astronomically unlikely neither pool ever triggers (~0.28 chance per
+      // pool per measure), so this reliably seeds at least one active swell
+      // without needing to mock the noise map.
+      for (let measure = 0; measure < 50; measure++) tickAudioSwells(DEFAULT_LOCALE_ID, measure);
+      const seededSomething =
+        getActiveSwellSnapshot('global').length > 0 || getActiveSwellSnapshot('robot').length > 0;
+      expect(seededSomething).toBe(true);
+
+      initializeLocale(DEFAULT_LOCALE_ID);
+
+      expect(getActiveSwellSnapshot('global')).toEqual([]);
+      expect(getActiveSwellSnapshot('robot')).toEqual([]);
     });
 
     it('does nothing for an unknown locale id', () => {

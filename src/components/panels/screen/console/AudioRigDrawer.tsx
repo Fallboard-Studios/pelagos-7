@@ -11,6 +11,7 @@ import {
   AUDIO_RIG_CONFIG,
   DECAY_MODE_SCHEMA,
   LFO_DRIFT_GROUPS,
+  PING_VARIANCE_AUTOMATION_SCHEMA,
   type AudioRigParamSchema,
   type AudioRigEffectKey,
 } from '@/data/audioRigConfig';
@@ -61,6 +62,8 @@ export function AudioRigDrawer() {
   const setGlobalLfo = useAudioStore((s) => s.setGlobalLfo);
   const setCompressorBeforeDelay = useAudioStore((s) => s.setCompressorBeforeDelay);
   const setGlobalLfoDrift = useAudioStore((s) => s.setGlobalLfoDrift);
+  const pingVarianceAutomation = useAudioStore((s) => s.pingVarianceAutomation);
+  const setPingVarianceAutomation = useAudioStore((s) => s.setPingVarianceAutomation);
 
   const rigDisabled = globalAudio.globalBypass;
 
@@ -152,6 +155,14 @@ export function AudioRigDrawer() {
           </div>
         );
       })}
+      <div className="audio-rig-drawer__master-row">
+        <SliderLinear
+          schema={PING_VARIANCE_AUTOMATION_SCHEMA}
+          value={pingVarianceAutomation * 100}
+          onChange={(v) => setPingVarianceAutomation(v / 100)}
+          disabled={rigDisabled}
+        />
+      </div>
     </div>
   );
 }

@@ -136,6 +136,31 @@ export function generateGlobalAudioSettings(attenuationStyleId: string, attenuat
 const LFO_ACTIVE_THRESHOLD = 0.34;
 
 /**
+ * Ping Variance Automation's own seeded-default range — [33%, 66%] as a
+ * fraction — same "bounded/legible default, freely draggable afterward"
+ * convention every other seeded Rig field follows (e.g. DELAY_ENABLED_THRESHOLD
+ * above). docs/specs/PING-VARIANCE-AUTOMATION.md §1.2.
+ */
+const PING_VARIANCE_AUTOMATION_SEED_RANGE = { min: 0.33, max: 0.66 };
+
+/**
+ * Seeded starting value for audioStore's pingVarianceAutomation, [0.33, 0.66]
+ * as a fraction. Sampled once per session, not once per Attenuation Style
+ * switch — audioStore.ts's regenerateGlobalAudioFromSeed is responsible for
+ * only calling this on the very first seed and carrying the value forward on
+ * every later call (docs/specs/PING-VARIANCE-AUTOMATION.md §1.2); this
+ * function itself is a plain, stateless seeded draw, same shape as every
+ * other function in this file.
+ */
+export function generatePingVarianceAutomation(attenuationStyleId: string, attenuationStyleName: string): number {
+  const noiseMap = getAttenuationStyleNoiseMap(attenuationStyleId, attenuationStyleName);
+  return getSeededVal(
+    noiseMap, 'globalAudio.pingVarianceAutomation', 0,
+    PING_VARIANCE_AUTOMATION_SEED_RANGE.min, PING_VARIANCE_AUTOMATION_SEED_RANGE.max
+  );
+}
+
+/**
  * Loading-range sub-window for global-chain LFO rate/depth — narrower than
  * LFO_RATE_MIN/MAX and LFO_DEPTH_MIN/MAX (the full/UI-facing range every
  * other LFO consumer still uses unchanged: the Rate/Depth sliders in

@@ -11,6 +11,7 @@ import {
   ATTENUATION_STYLE_PRESETS,
   COORDINATE_PRESETS,
 } from './sectorSettingsConfig';
+import * as sectorSettingsConfigModule from './sectorSettingsConfig';
 
 // ========================================
 // TESTS
@@ -56,6 +57,10 @@ describe('sectorSettingsConfig', () => {
       const ids = [ATTENUATION_STYLE_SCHEMA, COORDS_SCHEMA, RETRANSMIT_SCHEMA, STATUS_HEADER_SCHEMA].map((s) => s.id);
       expect(new Set(ids).size).toBe(ids.length);
       for (const id of ids) expect(id).toBeTruthy();
+    });
+
+    it('no longer exports AUDIO_SWELLS_ENABLED_SCHEMA — replaced by audioRigConfig.ts\'s PING_VARIANCE_AUTOMATION_SCHEMA (docs/tasks/PING-VARIANCE-AUTOMATION.md Task 7)', () => {
+      expect('AUDIO_SWELLS_ENABLED_SCHEMA' in sectorSettingsConfigModule).toBe(false);
     });
   });
 

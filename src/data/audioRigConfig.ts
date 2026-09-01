@@ -12,7 +12,7 @@
  * GlobalLfoTargetId member (no LFO on the Limiter, by design); delayTime's
  * was removed after shipping (LFO judged unwanted on Delay's own time param).
  */
-import type { ControlSchema, ToggleSchema, AccordionSchema, RadioButtonSchema, SliderCenteredZeroSchema } from '@/types/controls';
+import type { ControlSchema, ToggleSchema, AccordionSchema, RadioButtonSchema, SliderCenteredZeroSchema, SliderLinearSchema } from '@/types/controls';
 import type { GlobalLfoTargetId, DriftGroupId } from '@/types/lfo';
 
 // ========================================
@@ -252,3 +252,24 @@ export const LFO_DRIFT_GROUPS: LfoDriftGroupSchema[] = [
   driftGroupSchema('filterHPF', 'LOW-MASK FLUX', 'High-Pass Drift'),
   driftGroupSchema('robots', 'AGENT FLUX', 'Robot Drift'),
 ];
+
+/**
+ * "Ping Variance Automation" — the Audio Swells master control
+ * (docs/specs/PING-VARIANCE-AUTOMATION.md), replacing the former
+ * audioSwellsEnabled boolean. A bare, Rig-wide meta-setting like
+ * DECAY_MODE_SCHEMA above — not a per-effect param, so it never joins
+ * AUDIO_RIG_CONFIG's own array. Displays 0-100%; the store's own
+ * pingVarianceAutomation field is a [0, 1] fraction — the drawer wiring
+ * point converts via the same *100/÷100 pattern LFO_DRIFT_GROUPS' sliders
+ * already use for their own -1..1-fraction-to-percent conversion.
+ */
+export const PING_VARIANCE_AUTOMATION_SCHEMA: SliderLinearSchema = {
+  id: 'audioRig.pingVarianceAutomation',
+  type: 'sliderLinear',
+  loreLabel: 'PING VARIANCE AUTOMATION',
+  humanLabel: 'Automatic Effects',
+  min: 0,
+  max: 100,
+  step: 1,
+  unit: '%',
+};

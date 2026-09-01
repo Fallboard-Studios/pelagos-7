@@ -123,6 +123,20 @@ export function getCurrentMeasure(): number {
 }
 
 /**
+ * Returns the current measure as a continuous float (unwrapped, sub-measure
+ * precision) — e.g. 12.75 is three-quarters through measure 12. Derived from
+ * `getCurrentBeat()` the same way `getCurrentHour()` derives from
+ * `getCurrentMeasure()`. For callers needing finer-than-once-per-measure
+ * resolution (e.g. audioSwells.ts's 16n advance tick) without re-deriving
+ * BEATS_PER_MEASURE themselves. Unwrapped like `getCurrentMeasure()` — never
+ * the `% MEASURES_PER_CYCLE`-wrapped value `subscribeToMeasure`'s own
+ * callback argument carries.
+ */
+export function getCurrentMeasurePrecise(): number {
+  return currentBeat / BEATS_PER_MEASURE;
+}
+
+/**
  * Returns the derived hour (0-23) from current measure position.
  * 96 measures = 1 full day cycle, 4 measures = 1 hour equivalent.
  */
