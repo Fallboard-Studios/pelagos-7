@@ -135,21 +135,21 @@ Task 1 (localeBpmSeed.ts: generateLocaleBpm)      Task 2 (AudioEngine.ts: setBPM
 
 ### Phase 3: UI — the Tempo slider
 
-- [ ] **Task 5: `audioRigConfig.ts` + `AudioRigDrawer.tsx` — the Tempo slider**
+- [x] **Task 5: `audioRigConfig.ts` + `AudioRigDrawer.tsx` — the Tempo slider**
 
   **Description:** Add `BPM_SCHEMA` (`SliderLinearSchema`, `min: 20, max: 200, step: 1, unit: 'BPM'`, `loreLabel: 'RESONANCE CADENCE'`, `humanLabel: 'Tempo'`) to `audioRigConfig.ts`, exported as a bare schema alongside `PING_VARIANCE_AUTOMATION_SCHEMA`. Render a bare `SliderLinear` in `AudioRigDrawer.tsx`, in its own `audio-rig-drawer__master-row` after the existing Ping Variance Automation row, wired directly to `audioStore.bpm`/`setBPM` — no unit conversion, unlike the `* 100`/`/ 100` Ping Variance Automation uses — `disabled={rigDisabled}` — spec §1.4, §1.5, §4. No technical dependency on Tasks 1–4 (see Architecture Decisions) — safe to build in parallel with any of them.
 
   **Acceptance criteria:**
-  - [ ] `BPM_SCHEMA` is a valid `SliderLinearSchema` with `min: 20, max: 200, step: 1, unit: 'BPM'`.
-  - [ ] The slider renders with `value = bpm` (no scaling).
-  - [ ] Dragging it calls `setBPM(value)` directly, with no intermediate conversion.
-  - [ ] It's disabled when `globalAudio.globalBypass` is `true`, matching every other Rig-wide control.
-  - [ ] It renders exactly once, outside any `AccordionContainer`, in its own `audio-rig-drawer__master-row`.
-  - [ ] Checked directly against `AudioRigDrawer.test.tsx`'s existing suite for a brittle pre-existing count assertion on `audio-rig-drawer__master-row` divs (spec §7 item 3) — updated deliberately if one exists, not treated as this task's own failure.
+  - [x] `BPM_SCHEMA` is a valid `SliderLinearSchema` with `min: 20, max: 200, step: 1, unit: 'BPM'`.
+  - [x] The slider renders with `value = bpm` (no scaling).
+  - [x] Dragging it calls `setBPM(value)` directly, with no intermediate conversion.
+  - [x] It's disabled when `globalAudio.globalBypass` is `true`, matching every other Rig-wide control.
+  - [x] It renders exactly once, outside any `AccordionContainer`, in its own `audio-rig-drawer__master-row`.
+  - [x] Checked directly against `AudioRigDrawer.test.tsx`'s existing suite for a brittle pre-existing count assertion on `audio-rig-drawer__master-row` divs (spec §7 item 3) — none found; no such assertion existed.
 
   **Verification:**
-  - [ ] `npx vitest run src/data/audioRigConfig.test.ts src/components/panels/screen/console/AudioRigDrawer.test.tsx` passes.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/data/audioRigConfig.test.ts src/components/panels/screen/console/AudioRigDrawer.test.tsx` passes.
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** None (technical) — sequenced here for a simpler single-session read; see Architecture Decisions for the parallelization note.
 
@@ -158,8 +158,8 @@ Task 1 (localeBpmSeed.ts: generateLocaleBpm)      Task 2 (AudioEngine.ts: setBPM
   **Estimated scope:** M (4 files, new UI wiring reusing an existing primitive)
 
 ### Checkpoint: UI live
-- [ ] `npm run build:types`, `npm run lint`, `npx vitest run src/data/audioRigConfig.test.ts src/components/panels/screen/console/AudioRigDrawer.test.tsx` clean. `npm test` also clean.
-- [ ] Manual check: the Tempo slider is visible at the bottom of the Audio Rig drawer, below Ping Variance Automation; dragging it updates `TransportBar.tsx`'s live BPM readout with no visible/audible stutter; it disables under Bypass.
+- [x] `npm run build:types`, `npm run lint`, `npx vitest run src/data/audioRigConfig.test.ts src/components/panels/screen/console/AudioRigDrawer.test.tsx` clean. `npm test` also clean (1620 tests across 104 files; one intermittent noise-map-based flake seen on one run self-resolved on rerun, same known class as the Reseed wiring checkpoint's).
+- [ ] Manual check: the Tempo slider is visible at the bottom of the Audio Rig drawer, below Ping Variance Automation; dragging it updates `TransportBar.tsx`'s live BPM readout with no visible/audible stutter; it disables under Bypass. **Not yet performed in a live browser** — automated coverage above confirms the wiring, but this manual pass is still pending.
 - [ ] Review with human before proceeding.
 
 ---

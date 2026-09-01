@@ -3,7 +3,7 @@
 // ========================================
 import { describe, it, expect } from 'vitest';
 
-import { AUDIO_RIG_CONFIG, DECAY_MODE_SCHEMA, LFO_DRIFT_GROUPS, PING_VARIANCE_AUTOMATION_SCHEMA } from './audioRigConfig';
+import { AUDIO_RIG_CONFIG, DECAY_MODE_SCHEMA, LFO_DRIFT_GROUPS, PING_VARIANCE_AUTOMATION_SCHEMA, BPM_SCHEMA } from './audioRigConfig';
 import { DRIFT_GROUP_IDS } from '../types/lfo';
 import { GLOBAL_LFO_TARGET_IDS } from '../types/lfo';
 
@@ -349,5 +349,41 @@ describe('PING_VARIANCE_AUTOMATION_SCHEMA', () => {
 
   it('remains JSON-serializable', () => {
     expect(() => JSON.stringify(PING_VARIANCE_AUTOMATION_SCHEMA)).not.toThrow();
+  });
+});
+
+describe('BPM_SCHEMA (docs/specs/BPM_CONTROL.md §1.4-§1.5)', () => {
+  it('is a linear slider, 20-200 BPM, id audioRig.bpm', () => {
+    expect(BPM_SCHEMA).toMatchObject({
+      id: 'audioRig.bpm',
+      type: 'sliderLinear',
+      min: 20,
+      max: 200,
+      step: 1,
+      unit: 'BPM',
+    });
+  });
+
+  it('carries the confirmed lore label and human label', () => {
+    expect(BPM_SCHEMA.loreLabel).toBe('RESONANCE CADENCE');
+    expect(BPM_SCHEMA.humanLabel).toBe('Tempo');
+  });
+
+  it('is wider than the [40, 100] locale seed range on both ends — freely draggable beyond anything a locale would seed', () => {
+    expect(BPM_SCHEMA.min).toBeLessThan(40);
+    expect(BPM_SCHEMA.max).toBeGreaterThan(100);
+  });
+
+  it('is not part of AUDIO_RIG_CONFIG\'s per-effect array — it is a bare, Rig-wide meta-setting, not an effect param', () => {
+    const allConfigSchemaIds = AUDIO_RIG_CONFIG.flatMap((b) => [
+      b.accordion.id,
+      b.enabledSchema.id,
+      ...b.params.flatMap((p) => [p.schema.id, p.lfoAccordion?.id].filter((id): id is string => Boolean(id))),
+    ]);
+    expect(allConfigSchemaIds).not.toContain(BPM_SCHEMA.id);
+  });
+
+  it('remains JSON-serializable', () => {
+    expect(() => JSON.stringify(BPM_SCHEMA)).not.toThrow();
   });
 });

@@ -273,3 +273,26 @@ export const PING_VARIANCE_AUTOMATION_SCHEMA: SliderLinearSchema = {
   step: 1,
   unit: '%',
 };
+
+/**
+ * "Tempo" — the Audio Rig's live BPM override (docs/specs/BPM_CONTROL.md),
+ * a bare Rig-wide meta-setting like PING_VARIANCE_AUTOMATION_SCHEMA above —
+ * not a per-effect param, so it never joins AUDIO_RIG_CONFIG's own array.
+ * No unit conversion at the drawer wiring point: audioStore.bpm is already
+ * stored in the same BPM units this slider displays (unlike
+ * pingVarianceAutomation's fraction-to-percent split). [20, 200] is
+ * deliberately wider than the locale seed range ([40, 100],
+ * LOCALE_BPM_SEED_RANGE) on both ends — freely draggable beyond anything a
+ * locale would ever seed, same "seed narrow, drag wide" convention
+ * PING_VARIANCE_AUTOMATION_SCHEMA already established.
+ */
+export const BPM_SCHEMA: SliderLinearSchema = {
+  id: 'audioRig.bpm',
+  type: 'sliderLinear',
+  loreLabel: 'RESONANCE CADENCE',
+  humanLabel: 'Tempo',
+  min: 20,
+  max: 200,
+  step: 1,
+  unit: 'BPM',
+};
