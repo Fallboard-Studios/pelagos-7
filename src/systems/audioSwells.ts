@@ -320,6 +320,22 @@ function peakDeltaCappedByFraction(
   }
 }
 
+/**
+ * The literal last step of every swell's peak calculation
+ * (docs/specs/PING-VARIANCE-AUTOMATION.md §1.3) — multiplies an
+ * already-clamped, already-direction-picked delta by the automation
+ * fraction. Safe by construction: peakDelta and (peakDelta * automation)
+ * always share a sign (or automation collapses it to exactly 0), and
+ * |peakDelta * automation| <= |peakDelta|, so this can only ever shrink a
+ * swell toward its base value, never push it past a bound an earlier clamp
+ * already enforced. Called at every swell-creation call site (global,
+ * single-robot, and once per member for company-wide), always after that
+ * site's own attribute-specific clamp — never before, never instead of one.
+ */
+function scaleSwellPeakByAutomation(peakDelta: number, automation: number): number {
+  return peakDelta * automation;
+}
+
 function pickPhaseMeasures(
   noiseMap: NoiseFunction2D,
   dataId: string,
@@ -403,10 +419,12 @@ export function tickAudioSwells(localeId: string, measure: number): void {
   if (!as) return;
   const noiseMap = getAttenuationStyleNoiseMap(as.id, as.name);
 
-  // Advance runs every tick regardless of the Sector Settings toggle below —
-  // an already-in-flight swell finishes its own ramp naturally even while
-  // disabled; disabling only ever prevents NEW swells from starting, never
-  // cancels one in progress. Smooth, sub-measure interpolation from whatever
+  // Advance runs every tick regardless of the automation gate below — an
+  // already-in-flight swell finishes its own ramp naturally even at
+  // automation 0; automation only ever prevents NEW swells from starting
+  // (docs/specs/PING-VARIANCE-AUTOMATION.md §1.3 — the 0%-forced-return
+  // behavior is a separate, later addition to advanceActiveSwells itself,
+  // not a gate here). Smooth, sub-measure interpolation from whatever
   // fractional `measure` this tick carries (16n resolution in production;
   // tests may pass any real number). Trigger/selection stays gated to once
   // per WHOLE measure — SWELL_TRIGGER_CHANCE etc. are documented as
@@ -418,9 +436,15 @@ export function tickAudioSwells(localeId: string, measure: number): void {
   const wholeMeasure = Math.floor(measure);
   if (wholeMeasure !== lastRolledMeasure) {
     lastRolledMeasure = wholeMeasure;
-    if (useAudioStore.getState().audioSwellsEnabled) {
-      maybeStartGlobalSwell(noiseMap, wholeMeasure);
-      maybeStartRobotSwell(localeId, noiseMap, wholeMeasure);
+    // A continuous fraction, read once per tick and threaded through to both
+    // pools' swell-creation call sites so each can scale its own final
+    // peakDelta by it (docs/specs/PING-VARIANCE-AUTOMATION.md §1.3).
+    // automation is never 0 past this point in the tick — the `> 0` check
+    // below is the one and only place that matters.
+    const automation = useAudioStore.getState().pingVarianceAutomation;
+    if (automation > 0) {
+      maybeStartGlobalSwell(noiseMap, wholeMeasure, automation);
+      maybeStartRobotSwell(localeId, noiseMap, wholeMeasure, automation);
     }
   }
 }
@@ -444,7 +468,7 @@ function clampGlobalPeak(target: SwellGlobalTargetId, currentValue: number, peak
   return peakDelta;
 }
 
-function maybeStartGlobalSwell(noiseMap: NoiseFunction2D, measure: number): void {
+function maybeStartGlobalSwell(noiseMap: NoiseFunction2D, measure: number, automation: number): void {
   if (activeSwellCount('global') >= MAX_CONCURRENT_SWELLS_PER_POOL) return;
 
   const triggerRoll = getSeededVal(noiseMap, 'audioSwell.trigger.global', measure, 0, 1);
@@ -459,8 +483,11 @@ function maybeStartGlobalSwell(noiseMap: NoiseFunction2D, measure: number): void
   const meta = GLOBAL_TARGET_META[target];
   const range = GLOBAL_AUDIO_SEED_RANGES[meta.rangeKey];
   const currentValue = readGlobalValue(target);
-  const peakDelta = clampGlobalPeak(
-    target, currentValue, pickSwellPeakDelta(noiseMap, `audioSwell.peak.${target}`, measure, range, currentValue)
+  const peakDelta = scaleSwellPeakByAutomation(
+    clampGlobalPeak(
+      target, currentValue, pickSwellPeakDelta(noiseMap, `audioSwell.peak.${target}`, measure, range, currentValue)
+    ),
+    automation,
   );
 
   const durationRange = MIX_SWELL_TARGETS.includes(target) ? MIX_SWELL_DURATION_RANGE : DEFAULT_SWELL_DURATION_RANGE;
@@ -498,7 +525,7 @@ function isRobotAttributeEligible(robot: Robot, attribute: SwellRobotAttributeId
  * §7 item 6 leaves the exact company-selection mechanics for
  * Plan/Tasks to settle — this is that settling).
  */
-function maybeStartRobotSwell(localeId: string, noiseMap: NoiseFunction2D, measure: number): void {
+function maybeStartRobotSwell(localeId: string, noiseMap: NoiseFunction2D, measure: number, automation: number): void {
   if (activeSwellCount('robot') >= MAX_CONCURRENT_SWELLS_PER_POOL) return;
 
   const triggerRoll = getSeededVal(noiseMap, 'audioSwell.trigger.robot', measure, 0, 1);
@@ -509,14 +536,14 @@ function maybeStartRobotSwell(localeId: string, noiseMap: NoiseFunction2D, measu
 
   const companyRoll = getSeededVal(noiseMap, 'audioSwell.company.chance', measure, 0, 1);
   if (companyRoll < SWELL_COMPANY_CHANCE && companies.length > 0) {
-    startCompanyWideSwell(companies, robots, noiseMap, measure);
+    startCompanyWideSwell(companies, robots, noiseMap, measure, automation);
     return;
   }
 
-  startSingleRobotSwell(robots, noiseMap, measure);
+  startSingleRobotSwell(robots, noiseMap, measure, automation);
 }
 
-function startSingleRobotSwell(robots: Robot[], noiseMap: NoiseFunction2D, measure: number): void {
+function startSingleRobotSwell(robots: Robot[], noiseMap: NoiseFunction2D, measure: number, automation: number): void {
   // Robot selection spans the whole roster (docs/specs/AUDIO_SWELLS.md §3) —
   // the 17x12 pool, never scoped to one robot.
   const eligiblePairs: { robot: Robot; attribute: SwellRobotAttributeId }[] = [];
@@ -534,8 +561,11 @@ function startSingleRobotSwell(robots: Robot[], noiseMap: NoiseFunction2D, measu
   const currentValue = readRobotValue(robot, attribute);
   const dataId = `audioSwell.peak.${robot.id}.${attribute}`;
   const goingUp = pickSwellDirection(noiseMap, dataId, measure, range, currentValue);
-  const peakDelta = clampVolumeDownward(
-    attribute, currentValue, robotPeakDeltaForDirection(attribute, noiseMap, dataId, measure, range, currentValue, goingUp)
+  const peakDelta = scaleSwellPeakByAutomation(
+    clampVolumeDownward(
+      attribute, currentValue, robotPeakDeltaForDirection(attribute, noiseMap, dataId, measure, range, currentValue, goingUp)
+    ),
+    automation,
   );
 
   // Robot attributes have no mix-style duration exception — always the default range.
@@ -568,7 +598,7 @@ function startSingleRobotSwell(robots: Robot[], noiseMap: NoiseFunction2D, measu
  * picked attribute, no swell starts this tick at all — not a re-roll, not a
  * fallback to a different company/attribute or to the single-robot path.
  */
-function startCompanyWideSwell(companies: Company[], robots: Robot[], noiseMap: NoiseFunction2D, measure: number): void {
+function startCompanyWideSwell(companies: Company[], robots: Robot[], noiseMap: NoiseFunction2D, measure: number, automation: number): void {
   const companyIndex = Math.min(
     companies.length - 1,
     Math.floor(getSeededVal(noiseMap, 'audioSwell.company.pick', measure, 0, companies.length))
@@ -594,9 +624,12 @@ function startCompanyWideSwell(companies: Company[], robots: Robot[], noiseMap: 
   const members: SwellMember[] = memberRobots.map((robot) => {
     const currentValue = readRobotValue(robot, attribute);
     const dataId = `audioSwell.peak.company.${robot.id}.${attribute}`;
-    const peakDelta = clampVolumeDownward(
-      attribute, currentValue,
-      robotPeakDeltaForDirection(attribute, noiseMap, dataId, measure, range, currentValue, goingUp)
+    const peakDelta = scaleSwellPeakByAutomation(
+      clampVolumeDownward(
+        attribute, currentValue,
+        robotPeakDeltaForDirection(attribute, noiseMap, dataId, measure, range, currentValue, goingUp)
+      ),
+      automation,
     );
     return { robotId: robot.id, baseValue: currentValue, peakDelta };
   });

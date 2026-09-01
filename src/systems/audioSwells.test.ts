@@ -139,7 +139,11 @@ beforeEach(() => {
   stopAudioSwells(); // idempotent — clears any leftover activeSwells + subscription state
   vi.mocked(scheduleRepeat).mockClear();
   vi.mocked(cancelSchedule).mockClear();
-  useAudioStore.setState({ globalAudio: { ...DEFAULT_GLOBAL_AUDIO_SETTINGS }, audioSwellsEnabled: true });
+  // pingVarianceAutomation: 1 keeps every pre-existing magnitude assertion in
+  // this file meaningful once Task 3 wires scaleSwellPeakByAutomation in —
+  // those tests assert an UNSCALED peak; automation-scaling itself gets its
+  // own dedicated describe block below, which sets a different value per test.
+  useAudioStore.setState({ globalAudio: { ...DEFAULT_GLOBAL_AUDIO_SETTINGS }, audioSwellsEnabled: true, pingVarianceAutomation: 1 });
   enableAllGlobalEffects();
   useLocaleStore.getState().setLocaleData(LOCALE_ID, { robots: [], companies: [] } as unknown as Partial<Locale>);
   // Real AudioEngine voice calls need a live Tone context this jsdom test
@@ -236,9 +240,14 @@ describe('smooth sub-measure advance (16n ticking)', () => {
   });
 });
 
-describe('audioSwellsEnabled (Sector Settings toggle)', () => {
-  it('starts no new swell (global or robot) while disabled, even when the trigger draw would otherwise succeed', () => {
-    useAudioStore.setState({ audioSwellsEnabled: false });
+describe('pingVarianceAutomation gate (docs/tasks/PING-VARIANCE-AUTOMATION.md Task 3)', () => {
+  // Renamed/adapted from the former audioSwellsEnabled (Sector Settings
+  // toggle) describe block — tickAudioSwells now reads pingVarianceAutomation
+  // instead. The "finish naturally while disabled" test below is still
+  // accurate at this point in the plan: forced-return-at-0% is Task 4, not
+  // this one, so 0% still behaves exactly like the old boolean's "off" did.
+  it('starts no new swell (global or robot) at automation 0, even when the trigger draw would otherwise succeed', () => {
+    useAudioStore.setState({ pingVarianceAutomation: 0 });
     useLocaleStore.getState().addRobot(LOCALE_ID, makeRobot());
     vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
 
@@ -248,32 +257,140 @@ describe('audioSwellsEnabled (Sector Settings toggle)', () => {
     expect(getActiveSwellSnapshot('robot')).toEqual([]);
   });
 
-  it('lets an already-in-flight swell finish naturally while disabled mid-ramp, rather than cancelling it', () => {
+  it('lets an already-in-flight swell finish naturally at automation 0 mid-ramp, rather than cancelling it (still true — Task 4 changes this)', () => {
     vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
-    tickAudioSwells(LOCALE_ID, 0); // eq3.low: base 0, peak 12, rising 3, falling 3, still enabled
+    tickAudioSwells(LOCALE_ID, 0); // eq3.low: base 0, peak 12, rising 3, falling 3, automation still 1
 
-    useAudioStore.setState({ audioSwellsEnabled: false }); // disable mid-ramp
+    useAudioStore.setState({ pingVarianceAutomation: 0 }); // drop to 0 mid-ramp
 
-    tickAudioSwells(LOCALE_ID, 3); // falling phase's first tick — still advances despite being disabled
+    tickAudioSwells(LOCALE_ID, 3); // falling phase's first tick — still advances despite automation being 0
     expect(useAudioStore.getState().globalAudio.eq3.low).toBeCloseTo(12);
     expect(getActiveSwellSnapshot('global').some((s) => s.globalTarget === 'eq3.low')).toBe(true);
 
-    tickAudioSwells(LOCALE_ID, 6); // completes naturally, exactly like a normal (non-disabled) finish
+    tickAudioSwells(LOCALE_ID, 6); // completes naturally, exactly like a normal (non-zero) finish
     expect(useAudioStore.getState().globalAudio.eq3.low).toBe(0);
     expect(getActiveSwellSnapshot('global').some((s) => s.globalTarget === 'eq3.low')).toBe(false);
   });
 
-  it('resumes starting new swells once re-enabled', () => {
-    useAudioStore.setState({ audioSwellsEnabled: false });
+  it('resumes starting new swells once automation is nonzero again', () => {
+    useAudioStore.setState({ pingVarianceAutomation: 0 });
     vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
     tickAudioSwells(LOCALE_ID, 0);
     expect(getActiveSwellSnapshot('global')).toEqual([]);
 
-    useAudioStore.setState({ audioSwellsEnabled: true });
+    useAudioStore.setState({ pingVarianceAutomation: 1 });
     vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
     tickAudioSwells(LOCALE_ID, 1); // a new whole measure — free to roll again
 
     expect(getActiveSwellSnapshot('global')).toHaveLength(1);
+  });
+
+  it('audioSwellsEnabled no longer gates anything — a swell starts even with it false, as long as pingVarianceAutomation is nonzero', () => {
+    useAudioStore.setState({ audioSwellsEnabled: false, pingVarianceAutomation: 1 });
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
+
+    tickAudioSwells(LOCALE_ID, 0);
+
+    expect(getActiveSwellSnapshot('global').length).toBeGreaterThan(0);
+  });
+
+  it('no longer reads audioSwellsEnabled anywhere in this module (source-scan regression guard)', () => {
+    const thisFile = fileURLToPath(import.meta.url);
+    const source = readFileSync(join(dirname(thisFile), 'audioSwells.ts'), 'utf-8');
+    expect(source).not.toMatch(/audioSwellsEnabled/);
+  });
+});
+
+describe('pingVarianceAutomation magnitude scaling (Task 3)', () => {
+  it("scales a newly-created global swell's peakDelta by the automation fraction, applied after the default rule", () => {
+    useAudioStore.setState({ pingVarianceAutomation: 0.5 });
+    const noiseMap = noiseMapForDataIds({
+      'audioSwell.trigger.global': -1,
+      'audioSwell.target.global': -1, // index 0 -> eq3.low
+      // eq3.low's default (0) sits exactly at its own [-12,12] midpoint, so
+      // direction is the seeded coin-flip tie-break, not the plain
+      // above/below-midpoint rule — force it explicitly to "up".
+      'audioSwell.peak.eq3.low.tiebreak': -1,
+      'audioSwell.peak.eq3.low': 1, // true edge -> unscaled peak 12 (base 0)
+    });
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(noiseMap);
+
+    tickAudioSwells(LOCALE_ID, 0);
+
+    const swell = getActiveSwellSnapshot('global').find((s) => s.globalTarget === 'eq3.low')!;
+    expect(swell.peakDelta).toBeCloseTo(6); // half of the unscaled 12
+  });
+
+  it('scales strictly AFTER the HPF ceiling clamp, not before — proves clamp-then-scale ordering, not scale-then-clamp', () => {
+    // Unscaled (automation 1) this exact setup lands the peak at exactly the
+    // 4000Hz ceiling (see the "global pool — HPF/LPF frequency clamps"
+    // describe block above). Clamp-then-scale: (4000 - 20) * 0.5 + 20 = 2010.
+    // Scale-then-clamp would instead re-clamp an already-halved delta back up
+    // near the same 4000 ceiling — a different, larger number. Asserting the
+    // smaller value is what tells the two orderings apart.
+    useAudioStore.setState({ pingVarianceAutomation: 0.5 });
+    const noiseMap = noiseMapForDataIds({
+      'audioSwell.trigger.global': -1,
+      'audioSwell.target.global': 0.2, // index 5 of 9 -> 'hpf.frequency'
+      'audioSwell.peak.hpf.frequency': 1, // force the largest unclamped draw
+    });
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(noiseMap);
+
+    tickAudioSwells(LOCALE_ID, 0);
+
+    const swell = getActiveSwellSnapshot('global').find((s) => s.globalTarget === 'hpf.frequency')!;
+    const peak = swell.baseValue! + swell.peakDelta!;
+    expect(peak).toBeCloseTo(2010);
+    expect(peak).toBeLessThan(HPF_SWELL_UPWARD_CEILING_HZ); // sanity: definitely not still pinned to the ceiling
+  });
+
+  it("scales a single-robot swell's peakDelta the same way, strictly after Volume's downward clamp", () => {
+    // Unscaled (automation 1), this exact setup clamps the peak to exactly
+    // 0.5 (see "robot pool — Volume's downward-swell clamp" above):
+    // peakDelta -0.4. Clamp-then-scale: -0.4 * 0.5 = -0.2 -> peak 0.7.
+    useAudioStore.setState({ pingVarianceAutomation: 0.5 });
+    useLocaleStore.getState().addRobot(LOCALE_ID, makeRobot({ masterVolume: 0.9 }));
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
+
+    tickAudioSwells(LOCALE_ID, 0);
+
+    const swell = getActiveSwellSnapshot('robot').find((s) => s.robotAttribute === 'volume')!;
+    const member = swell.members![0];
+    expect(member.peakDelta).toBeCloseTo(-0.2);
+    expect(member.baseValue + member.peakDelta).toBeCloseTo(0.7);
+  });
+
+  it("scales each company-wide member's peakDelta independently by the same automation fraction, leaving direction/timing shared and baseValue untouched", () => {
+    function setupCompany() {
+      stopAudioSwells();
+      useLocaleStore.getState().setLocaleData(LOCALE_ID, { robots: [], companies: [] } as unknown as Partial<Locale>);
+      useLocaleStore.getState().addRobot(LOCALE_ID, makeRobot({ id: 'r1', masterVolume: 0.2 }));
+      useLocaleStore.getState().addRobot(LOCALE_ID, makeRobot({ id: 'r2', masterVolume: 0.4 }));
+      useLocaleStore.getState().addRobot(LOCALE_ID, makeRobot({ id: 'r3', masterVolume: 0.6 }));
+      useLocaleStore.getState().addCompany(LOCALE_ID, makeCompany({ robotIds: ['r1', 'r2', 'r3'] }));
+    }
+
+    setupCompany();
+    useAudioStore.setState({ pingVarianceAutomation: 1 });
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
+    tickAudioSwells(LOCALE_ID, 0);
+    const unscaledSwell = getActiveSwellSnapshot('robot')[0];
+    const unscaledMembers = unscaledSwell.members!;
+
+    setupCompany();
+    useAudioStore.setState({ pingVarianceAutomation: 0.5 });
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
+    tickAudioSwells(LOCALE_ID, 0);
+    const scaledSwell = getActiveSwellSnapshot('robot')[0];
+    const scaledMembers = scaledSwell.members!;
+
+    expect(scaledSwell.risingMeasures).toBe(unscaledSwell.risingMeasures);
+    expect(scaledSwell.fallingMeasures).toBe(unscaledSwell.fallingMeasures);
+    for (const scaledMember of scaledMembers) {
+      const unscaledMember = unscaledMembers.find((m) => m.robotId === scaledMember.robotId)!;
+      expect(scaledMember.baseValue).toBe(unscaledMember.baseValue);
+      expect(scaledMember.peakDelta).toBeCloseTo(unscaledMember.peakDelta * 0.5);
+    }
   });
 });
 
