@@ -469,6 +469,86 @@ describe('AudioEngine - Polyphony Management', () => {
       measureCallback(2);
       expect(useDebugStore.getState().skippedNotesHistory).toEqual([3, 0]);
     });
+
+    // Every one of these is "we intended to play this note and didn't, for a
+    // reason other than mute/solo" — mute/solo are deliberately NOT counted
+    // (those notes were never intended to play in the first place).
+
+    it('counts an invalid note string (fails NOTE_RE validation) as a skip', async () => {
+      const { triggerWithCap } = await import('./AudioEngine');
+      const { subscribeToMeasure } = await import('./beatClock');
+      const { useDebugStore } = await import('../stores/debugStore');
+      useDebugStore.setState({ skippedNotesHistory: [] });
+      const measureCallback = (subscribeToMeasure as unknown as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0] as (m: number) => void;
+
+      expect(triggerWithCap({ robotId: 'test', note: 'NOT_A_NOTE', duration: '4n', time: 0, velocity: 0.8 })).toBe(false);
+
+      measureCallback(0);
+      expect(useDebugStore.getState().skippedNotesHistory).toEqual([1]);
+    });
+
+    it('counts "no composite voice reserved for this robot" as a skip', async () => {
+      const { triggerWithCap } = await import('./AudioEngine');
+      const { subscribeToMeasure } = await import('./beatClock');
+      const { useDebugStore } = await import('../stores/debugStore');
+      useDebugStore.setState({ skippedNotesHistory: [] });
+      const measureCallback = (subscribeToMeasure as unknown as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0] as (m: number) => void;
+
+      expect(triggerWithCap({ robotId: 'never-reserved', note: 'C4', duration: '4n', time: 0, velocity: 0.8 })).toBe(false);
+
+      measureCallback(0);
+      expect(useDebugStore.getState().skippedNotesHistory).toEqual([1]);
+    });
+
+    it('counts an invalid melody note index (out of the currently-available range) as a skip', async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      const { subscribeToMeasure } = await import('./beatClock');
+      const { useDebugStore } = await import('../stores/debugStore');
+      useDebugStore.setState({ skippedNotesHistory: [] });
+      const measureCallback = (subscribeToMeasure as unknown as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0] as (m: number) => void;
+
+      // getAvailableNotes() is mocked to 8 entries (indices 0-7) — 99 is out of range.
+      AudioEngine.registerRobotMelody('bad-index-robot', [
+        { id: 'e1', startStep: 1, length: '8n' as const, noteIndex: 99, octave: 4 },
+      ]);
+
+      AudioEngine.processMelodyStep(1, 0);
+
+      measureCallback(0);
+      expect(useDebugStore.getState().skippedNotesHistory).toEqual([1]);
+
+      AudioEngine.unregisterRobotMelody('bad-index-robot');
+    });
+
+    it("isolates one event's uncaught scheduling exception from its sibling event in the same step — counts only the failure, still schedules the sibling", async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      const { subscribeToMeasure } = await import('./beatClock');
+      const { useDebugStore } = await import('../stores/debugStore');
+      useDebugStore.setState({ skippedNotesHistory: [] });
+      const measureCallback = (subscribeToMeasure as unknown as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0] as (m: number) => void;
+
+      AudioEngine.reserveVoice('ok-robot', TEST_LAYERED, TEST_ADSR);
+      AudioEngine.registerRobotMelody('throws-robot', [{ id: 'e1', startStep: 1, length: '8n' as const, noteIndex: 0, octave: 4 }]);
+      AudioEngine.registerRobotMelody('ok-robot', [{ id: 'e2', startStep: 1, length: '8n' as const, noteIndex: 0, octave: 4 }]);
+
+      const original = AudioEngine.scheduleNote.bind(AudioEngine);
+      const spy = vi.spyOn(AudioEngine, 'scheduleNote').mockImplementation((params) => {
+        if (params.robotId === 'throws-robot') throw new Error('simulated scheduling failure');
+        return original(params);
+      });
+
+      // Must not propagate — one event throwing shouldn't take down the whole step.
+      expect(() => AudioEngine.processMelodyStep(1, 0)).not.toThrow();
+
+      spy.mockRestore();
+      measureCallback(0);
+      // Exactly the throwing event is counted — the sibling wasn't also
+      // (wrongly) counted, proving it wasn't blocked by its neighbor's failure.
+      expect(useDebugStore.getState().skippedNotesHistory).toEqual([1]);
+
+      AudioEngine.unregisterRobotMelody('throws-robot');
+      AudioEngine.unregisterRobotMelody('ok-robot');
+    });
   });
 });
 

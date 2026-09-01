@@ -342,6 +342,7 @@ export function triggerWithCap(params: NoteParams): boolean {
     if (!compositeVoices.has(robotId)) {
       activeVoices = Math.max(0, activeVoices - 1);
       devWarn(`[AudioEngine] No composite voice reserved for ${robotId}, skipping note`);
+      skippedNotesThisMeasure++;
       return false;
     }
 
@@ -352,6 +353,7 @@ export function triggerWithCap(params: NoteParams): boolean {
     if (!synth) {
       activeVoices = Math.max(0, activeVoices - 1);
       devWarn('[AudioEngine] No composite voice available, skipping note');
+      skippedNotesThisMeasure++;
       return false;
     }
 
@@ -361,6 +363,7 @@ export function triggerWithCap(params: NoteParams): boolean {
     if (!NOTE_RE.test(note)) {
       activeVoices = Math.max(0, activeVoices - 1);
       console.warn(`[AudioEngine] Invalid note string "${note}", skipping`);
+      skippedNotesThisMeasure++;
       return false;
     }
 
@@ -379,6 +382,7 @@ export function triggerWithCap(params: NoteParams): boolean {
   } catch (err) {
     console.error('[AudioEngine] Failed to trigger note:', err);
     activeVoices = Math.max(0, activeVoices - 1);
+    skippedNotesThisMeasure++;
     return false;
   }
 }
@@ -403,25 +407,34 @@ function startMelodyPlayback(): void {
     const notes = getAvailableNotes();
 
     events.forEach(({ robotId, event }) => {
-      const noteName = notes[event.noteIndex]; // note name without octave, e.g. "C"
+      // Each event is isolated in its own try/catch — an uncaught exception from
+      // one robot's scheduleNote call must not abort the forEach and silently
+      // drop every remaining event in this same step.
+      try {
+        const noteName = notes[event.noteIndex]; // note name without octave, e.g. "C"
 
-      if (!noteName) {
-        devWarn(
-          `[AudioEngine] Invalid note index ${event.noteIndex} for robot ${robotId}`
-        );
-        return;
+        if (!noteName) {
+          devWarn(
+            `[AudioEngine] Invalid note index ${event.noteIndex} for robot ${robotId}`
+          );
+          skippedNotesThisMeasure++;
+          return;
+        }
+
+        // Fallback octave of 4 handles stale events that pre-date the octaveRange change.
+        const octave = event.octave ?? 4;
+        const note = `${noteName}${octave}`; // combine with per-event octave, e.g. "C4"
+
+        AudioEngine.scheduleNote({
+          robotId,
+          note,
+          duration: event.length,
+          time: time + MIN_LEAD,
+        });
+      } catch (err) {
+        devWarn(`[AudioEngine] Failed to schedule note for robot ${robotId}`, err);
+        skippedNotesThisMeasure++;
       }
-
-      // Fallback octave of 4 handles stale events that pre-date the octaveRange change.
-      const octave = event.octave ?? 4;
-      const note = `${noteName}${octave}`; // combine with per-event octave, e.g. "C4"
-
-      AudioEngine.scheduleNote({
-        robotId,
-        note,
-        duration: event.length,
-        time: time + MIN_LEAD,
-      });
     });
 
     stepCounter++;
@@ -650,15 +663,6 @@ export const AudioEngine = {
     try {
       const localeRobots = getActiveLocaleRobots();
       const robotFromStore = localeRobots.find((r) => r.id === robotId);
-      if (robotFromStore?.audioMode === 'mute') {
-        devLog(`[AudioEngine] Robot ${robotId} is muted; skipping note`);
-        return;
-      }
-      const anySolo = localeRobots.some((r) => r.audioMode === 'solo');
-      if (anySolo && robotFromStore?.audioMode !== 'solo') {
-        devLog(`[AudioEngine] Robot ${robotId} suppressed due to solo`);
-        return;
-      }
       const anyHighlight = localeRobots.some((r) => r.audioMode === 'highlight');
       if (anyHighlight && robotFromStore?.audioMode !== 'highlight') {
         // Apply ~50% attenuation (~-6dB) to non-highlighted robots
@@ -1088,18 +1092,30 @@ export const AudioEngine = {
     const notes = getAvailableNotes();
 
     events.forEach(({ robotId, event, isGroupAccent }) => {
-      const noteName = notes[event.noteIndex];
-      if (!noteName) return;
-      const octave = event.octave ?? 4;
-      const note = `${noteName}${octave}`;
+      // Mirrors startMelodyPlayback's own per-event isolation (this function
+      // documents itself as "process a single melody step as the transport
+      // tick would" — keep the two in sync).
+      try {
+        const noteName = notes[event.noteIndex];
+        if (!noteName) {
+          devWarn(`[AudioEngine] Invalid note index ${event.noteIndex} for robot ${robotId}`);
+          skippedNotesThisMeasure++;
+          return;
+        }
+        const octave = event.octave ?? 4;
+        const note = `${noteName}${octave}`;
 
-      AudioEngine.scheduleNote({
-        robotId,
-        note,
-        duration: event.length,
-        time: time + MIN_LEAD,
-        accentMultiplier: isGroupAccent ? GROUP_ACCENT_MULTIPLIER : undefined,
-      });
+        AudioEngine.scheduleNote({
+          robotId,
+          note,
+          duration: event.length,
+          time: time + MIN_LEAD,
+          accentMultiplier: isGroupAccent ? GROUP_ACCENT_MULTIPLIER : undefined,
+        });
+      } catch (err) {
+        devWarn(`[AudioEngine] Failed to schedule note for robot ${robotId}`, err);
+        skippedNotesThisMeasure++;
+      }
     });
   },
 
