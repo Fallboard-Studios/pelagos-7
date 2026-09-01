@@ -125,4 +125,18 @@ describe('Robot company-member glow (Roadmap Phase 10)', () => {
     expect(el.classList.contains('selected')).toBe(true);
     expect(el.classList.contains('isCompanyMember')).toBe(true);
   });
+
+  it('applies isCompanyMember to every robot when allRobotsSelected ("All") is true, regardless of its company', () => {
+    useUIStore.getState().selectAllRobots();
+    const { container } = render(<svg><Robot robot={makeRobot({ id: 'r1', companyId: 'c2' })} /></svg>);
+
+    expect(container.querySelector('.robot.isCompanyMember')).toBeTruthy();
+  });
+
+  it('applies isCompanyMember to a Freelance robot (no companyId) too when "All" is selected', () => {
+    useUIStore.getState().selectAllRobots();
+    const { container } = render(<svg><Robot robot={makeRobot({ id: 'r1', companyId: undefined })} /></svg>);
+
+    expect(container.querySelector('.robot.isCompanyMember')).toBeTruthy();
+  });
 });

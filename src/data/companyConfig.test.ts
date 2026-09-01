@@ -4,6 +4,7 @@ import {
   FREELANCE_VALUE,
   buildCompanySelectSchema,
   NONE_VALUE,
+  ALL_VALUE,
   buildCompanyButtonRowSchema,
   CREATE_COMPANY_SCHEMA,
   COMPANY_NAME_INPUT_SCHEMA,
@@ -69,7 +70,7 @@ describe('companyConfig', () => {
   });
 
   describe('buildCompanyButtonRowSchema', () => {
-    it('starts with the None option, followed by one entry per company', () => {
+    it('starts with None then All, followed by one entry per company', () => {
       const companies: Company[] = [
         { id: 'c1', name: 'Iron Consortium', robotIds: [] },
         { id: 'c2', name: 'Null Syndicate', robotIds: [] },
@@ -79,18 +80,31 @@ describe('companyConfig', () => {
 
       expect(schema.type).toBe('radio');
       expect(schema.options[0]).toEqual({ value: NONE_VALUE, label: 'None' });
-      expect(schema.options[1]).toEqual({ value: 'c1', label: 'Iron Consortium' });
-      expect(schema.options[2]).toEqual({ value: 'c2', label: 'Null Syndicate' });
-      expect(schema.options).toHaveLength(3);
+      expect(schema.options[1]).toEqual({ value: ALL_VALUE, label: 'All' });
+      expect(schema.options[2]).toEqual({ value: 'c1', label: 'Iron Consortium' });
+      expect(schema.options[3]).toEqual({ value: 'c2', label: 'Null Syndicate' });
+      expect(schema.options).toHaveLength(4);
     });
 
-    it('returns just the None option when there are no companies yet', () => {
+    it('returns just None and All when there are no companies yet', () => {
       const schema = buildCompanyButtonRowSchema([]);
-      expect(schema.options).toEqual([{ value: NONE_VALUE, label: 'None' }]);
+      expect(schema.options).toEqual([
+        { value: NONE_VALUE, label: 'None' },
+        { value: ALL_VALUE, label: 'All' },
+      ]);
     });
 
     it('is namespaced under "company." like every other schema in this file', () => {
       expect(buildCompanyButtonRowSchema([]).id.startsWith('company.')).toBe(true);
+    });
+  });
+
+  describe('ALL_VALUE', () => {
+    it('is a non-empty string, distinct from NONE_VALUE and FREELANCE_VALUE', () => {
+      expect(typeof ALL_VALUE).toBe('string');
+      expect(ALL_VALUE.length).toBeGreaterThan(0);
+      expect(ALL_VALUE).not.toBe(NONE_VALUE);
+      expect(ALL_VALUE).not.toBe(FREELANCE_VALUE);
     });
   });
 });

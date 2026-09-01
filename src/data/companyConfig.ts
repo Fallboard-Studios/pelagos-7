@@ -41,9 +41,17 @@ export function buildCompanySelectSchema(companies: Company[]): SelectSchema {
  *  Select does, but a non-empty sentinel is kept for the same defensive reason and for symmetry. */
 export const NONE_VALUE = '__none__';
 
+/** Distinct sentinel from both NONE_VALUE and FREELANCE_VALUE — "highlight every robot
+ *  regardless of company," not "no company"/"unaffiliated." Never reaches uiStore directly
+ *  (translated to the selectAllRobots action at the CompanyButtonRow boundary, same as
+ *  NONE_VALUE is translated to selectCompany(null)) — see uiStore.ts's allRobotsSelected. */
+export const ALL_VALUE = '__all__';
+
 /** CompanyButtonRow reuses the RadioButton primitive — a company button row is exactly "one
  *  active among many, click to select," which RadioButton already implements (including the
- *  active-state styling), rather than reinventing that with a list of independent Buttons. */
+ *  active-state styling), rather than reinventing that with a list of independent Buttons.
+ *  None and All come first (in that order) so the two "no single company" meta-options aren't
+ *  separated by the (possibly long, user-generated) per-company list. */
 export function buildCompanyButtonRowSchema(companies: Company[]): RadioButtonSchema {
   return {
     id: 'company.buttonRow',
@@ -52,6 +60,7 @@ export function buildCompanyButtonRowSchema(companies: Company[]): RadioButtonSc
     humanLabel: 'Companies',
     options: [
       { value: NONE_VALUE, label: 'None' },
+      { value: ALL_VALUE, label: 'All' },
       ...companies.map((c) => ({ value: c.id, label: c.name })),
     ],
   };
