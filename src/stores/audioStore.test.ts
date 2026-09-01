@@ -588,3 +588,83 @@ describe('useAudioStore - pingVarianceAutomation / setPingVarianceAutomation', (
     expect('setAudioSwellsEnabled' in state).toBe(false);
   });
 });
+
+describe('useAudioStore - regenerateBpmFromSeed (docs/specs/BPM_CONTROL.md §1.3)', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it('calls setBPM with exactly generateLocaleBpm(localeId, x, y)\'s result', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const { generateLocaleBpm } = await import('../utils/localeBpmSeed');
+    const { AudioEngine } = await import('../engine/AudioEngine');
+    vi.clearAllMocks();
+
+    useAudioStore.getState().regenerateBpmFromSeed('bpm-store-test-locale', { x: 5, y: 9 });
+
+    const expected = generateLocaleBpm('bpm-store-test-locale', 5, 9);
+    expect(useAudioStore.getState().bpm).toBe(expected);
+    expect(AudioEngine.setBPM).toHaveBeenCalledWith(expected);
+  });
+
+  it('a second call for a different locale reflects that call\'s own fresh draw, not a stale value left by the first', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const { generateLocaleBpm } = await import('../utils/localeBpmSeed');
+
+    useAudioStore.getState().regenerateBpmFromSeed('bpm-store-test-locale-a', { x: 1, y: 2 });
+    expect(useAudioStore.getState().bpm).toBe(generateLocaleBpm('bpm-store-test-locale-a', 1, 2));
+
+    useAudioStore.getState().regenerateBpmFromSeed('bpm-store-test-locale-b', { x: -40, y: 200 });
+    expect(useAudioStore.getState().bpm).toBe(generateLocaleBpm('bpm-store-test-locale-b', -40, 200));
+  });
+});
+
+describe('useAudioStore - BPM locale sync on module load (docs/specs/BPM_CONTROL.md §1.3)', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it('seeds bpm for the locale current at boot, within LOCALE_BPM_SEED_RANGE', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const { LOCALE_BPM_SEED_RANGE } = await import('../utils/localeBpmSeed');
+
+    const { bpm } = useAudioStore.getState();
+    expect(bpm).toBeGreaterThanOrEqual(LOCALE_BPM_SEED_RANGE.min);
+    expect(bpm).toBeLessThanOrEqual(LOCALE_BPM_SEED_RANGE.max);
+  });
+
+  it('matches generateLocaleBpm for the default locale\'s own id/coordinates exactly', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const { useLocaleStore, DEFAULT_LOCALE_ID } = await import('./localeStore');
+    const { generateLocaleBpm } = await import('../utils/localeBpmSeed');
+
+    const locale = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)!;
+    const expected = generateLocaleBpm(locale.id, locale.coordinates.x, locale.coordinates.y);
+    expect(useAudioStore.getState().bpm).toBe(expected);
+  });
+
+  it('is a one-shot module-load call, not a subscription — audioStore.ts registers only its existing single subscribe (source-scan regression guard)', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { dirname, join } = await import('node:path');
+    const { fileURLToPath } = await import('node:url');
+    const thisFile = fileURLToPath(import.meta.url);
+    const source = readFileSync(join(dirname(thisFile), 'audioStore.ts'), 'utf-8');
+    const subscribeCalls = source.match(/\.subscribe\(/g) ?? [];
+    // Exactly the one pre-existing useAttenuationStyleStore.subscribe (globalAudio/
+    // globalLfo AS-sync) — BPM's locale sync must stay a plain function call
+    // (syncBpmToCurrentLocale()), never a second subscription, per spec §1.3's
+    // "call-site-triggered, not subscription-driven" design.
+    expect(subscribeCalls.length).toBe(1);
+  });
+
+  it('does NOT reseed bpm merely because currentAttenuationStyleId changes — that would incorrectly fire on an Attenuation-Style-only retransmit', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const { useAttenuationStyleStore, DEFAULT_PELAGOS } = await import('./attenuationStyleStore');
+
+    const before = useAudioStore.getState().bpm;
+    useAttenuationStyleStore.getState().addAttenuationStyle({ ...DEFAULT_PELAGOS, id: 'bpm-sync-zenith', name: 'BpmSyncZenith' });
+    useAttenuationStyleStore.getState().setCurrentAttenuationStyleId('bpm-sync-zenith');
+
+    expect(useAudioStore.getState().bpm).toBe(before);
+  });
+});

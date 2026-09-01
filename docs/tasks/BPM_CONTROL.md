@@ -86,19 +86,19 @@ Task 1 (localeBpmSeed.ts: generateLocaleBpm)      Task 2 (AudioEngine.ts: setBPM
 
 ### Phase 2: Reseed wiring — store & retransmit
 
-- [ ] **Task 3: `audioStore.ts` — `regenerateBpmFromSeed` + module-load sync**
+- [x] **Task 3: `audioStore.ts` — `regenerateBpmFromSeed` + module-load sync**
 
   **Description:** New `regenerateBpmFromSeed(localeId, coordinates)` action that calls `get().setBPM(generateLocaleBpm(localeId, coordinates.x, coordinates.y))`; new module-scope `syncBpmToCurrentLocale()` function, called once immediately after store creation, that looks up the current Attenuation Style's `currentLocaleId` and the matching `Locale` from `useLocaleStore` and calls `regenerateBpmFromSeed` for it — spec §1.3, §4. **Not** a `subscribe` — this is a one-shot module-load call only; every later reseed is triggered explicitly by Task 4, not by this function running again.
 
   **Acceptance criteria:**
-  - [ ] `regenerateBpmFromSeed(localeId, coordinates)` calls `setBPM` with exactly `generateLocaleBpm(localeId, coordinates.x, coordinates.y)`'s result (assert via the existing `AudioEngine.setBPM` mock).
-  - [ ] The module-load `syncBpmToCurrentLocale()` call seeds `bpm` into `[40, 100]` for the store's default state (current Attenuation Style's `currentLocaleId` → `DEFAULT_LOCALE_ID` → `DEFAULT_LOCALE`'s coordinates).
-  - [ ] No new `useAttenuationStyleStore.subscribe`/`useLocaleStore.subscribe` is added for this — a source-scan confirms `syncBpmToCurrentLocale` is called exactly once, at module scope, not registered as a subscription callback.
-  - [ ] `setBPM` itself is unchanged in this file — its state-write + `AudioEngine.setBPM` delegation behavior is identical to before this task.
+  - [x] `regenerateBpmFromSeed(localeId, coordinates)` calls `setBPM` with exactly `generateLocaleBpm(localeId, coordinates.x, coordinates.y)`'s result (assert via the existing `AudioEngine.setBPM` mock).
+  - [x] The module-load `syncBpmToCurrentLocale()` call seeds `bpm` into `[40, 100]` for the store's default state (current Attenuation Style's `currentLocaleId` → `DEFAULT_LOCALE_ID` → `DEFAULT_LOCALE`'s coordinates).
+  - [x] No new `useAttenuationStyleStore.subscribe`/`useLocaleStore.subscribe` is added for this — a source-scan confirms `syncBpmToCurrentLocale` is called exactly once, at module scope, not registered as a subscription callback.
+  - [x] `setBPM` itself is unchanged in this file — its state-write + `AudioEngine.setBPM` delegation behavior is identical to before this task.
 
   **Verification:**
-  - [ ] `npx vitest run src/stores/audioStore.test.ts` passes with the new coverage above.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/stores/audioStore.test.ts` passes with the new coverage above.
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** Task 1.
 
