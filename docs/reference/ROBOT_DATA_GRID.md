@@ -6,8 +6,9 @@
 | Job Data | ASSIGNED PROTOCOL | Dual Label Component | N/A | N/A | No | Display only |
 | Battery Data | POWER CELL STATUS | Dual Label Component | N/A | N/A | No | Display only |
 | Docked Status | DOCKING STATE | Dual Label Component | N/A | N/A | No | States: DOCKED, DOCKING, DEPARTING, ACTIVE |
-| Audio Setting | PROBE DIAGNOSTICS | Radio Button Component | N/A | N/A | No | Options: Off, Mute, Solo, HiLite |
-| Volume | TRANSDUCER PRESSURE INDEX | Slider - linear Component | 0 | 1 | Yes | Linear scaling for held level ratio |
+| Company | UNIT AFFILIATION | Select Component | N/A | N/A | No | Options: Freelance, plus one per Company in the robot's locale. Reassigns `robot.companyId` via `assignRobotToCompany` (`localeStore.ts`); undefined `companyId` displays as Freelance |
+| Audio Setting | PROBE DIAGNOSTICS | Radio Button Component | N/A | N/A | No | Options: Off, Mute, Solo, Highlight |
+| Volume | TRANSDUCER PRESSURE INDEX | Slider - linear Component | 0% | 100% | Yes | Linear scaling for held level ratio. Display-only 0–100%, 1% steps — stored as `robot.masterVolume`, a 0–1 fraction (`VOLUME_SCHEMA`, `robotOptionsConfig.ts`), same display-vs-storage split as Sustain below |
 | **DRAWER** | PING CONTROLS | Accordion Container | N/A | N/A | No | Parent container for ping controls |
 | Density | PING DENSITY | Stepper Component | 0 | 100 | No | Percentage fill rate of the measure/motif (Roadmap Phase 6) |
 | Motif Length | PING LENGTH | Stepper Component | 1 | 8 | No | Repeating rhythmic motif length in 16th notes |
@@ -18,31 +19,33 @@
 | **DRAWER** | PING CONTOUR | Accordion Container | N/A | N/A | No | Parent container for ADSR envelope |
 | Attack | COMPRESSION RATE | Slider - log Component | 0s | 10s | No | Logarithmic scaling for fast transient control |
 | Decay | STABILIZATION DELAY | Slider - log Component | 0s | 10s | No | Logarithmic scaling for initial drop |
-| Sustain | PROPAGATION AMPLITUDE | Slider - linear Component | 0% | 100% | No | Linear scaling for held level ratio |
+| Sustain | PROPAGATION AMPLITUDE | Slider - linear Component | 0% | 100% | No | Linear scaling for held level ratio. Display-only 0–100% — stored as `audioAttributes.adsr.sustain`, a 0–1 fraction (`SUSTAIN_SCHEMA`, `robotOptionsConfig.ts`), same display-vs-storage split as Volume above |
 | Release | RAREFACTION RATE | Slider - log Component | 0s | 10s | No | Logarithmic scaling for tail fade-out |
 | **DRAWER** | SIGNATURE ARRAY | Accordion Container | N/A | N/A | No | Parent container for oscillator layers |
 | Layer 1: Type | BASELINE GEOMETRY | Radio Button Component | N/A | N/A | No | Options: SWEEP (sine), GRADIENT (triangle), KINETIC (saw), BINARY (square), BURST (pulse) |
 | Layer 1: Gain | BASELINE SATURATION | Slider - linear Component | 0 | 2 | Yes | Linear scaling for held level ratio |
 | Layer 1: Detune | BASELINE DRIFT | Slider - centered zero Component | -50 cents | +50 cents | Yes | Linear scaling for held level ratio |
 | Layer 1: Phase | BASELINE ALIGNMENT | Slider - linear Component | 0 | 360 | Yes | Phase offset in degrees |
-| Layer 1: Interval | BASELINE PULSE WIDTH | Slider - linear Component | 0 | 1 | Yes | Only displayed when Type is BINARY (square) or BURST (pulse) |
+| Layer 1: Interval | BASELINE PULSE WIDTH | Slider - linear Component | 0 | 1 | Yes | Only displayed when Type is BURST (pulse) — Tone.js's `OmniOscillator.width` getter returns `undefined` for every other type, including BINARY (square), so this was dropped from the BINARY case (`SignatureArrayDrawer.tsx`'s `showPulseWidth`) |
 | Layer 2: Active | COAXIAL WEIGHTS ACTIVE | Toggle Component | N/A | N/A | No | Options: ON, OFF |
 | Layer 2: Type | COAXIAL GEOMETRY | Radio Button Component | N/A | N/A | No | Options: SWEEP, GRADIENT, KINETIC, BINARY, BURST |
 | Layer 2: Gain | COAXIAL SATURATION | Slider - linear Component | 0 | 2 | Yes | Linear scaling for held level ratio |
 | Layer 2: Detune | COAXIAL DRIFT | Slider - centered zero Component | -50 cents | +50 cents | Yes | Linear scaling for held level ratio |
 | Layer 2: Phase | COAXIAL ALIGNMENT | Slider - linear Component | 0 | 360 | Yes | Phase offset in degrees |
-| Layer 2: Interval | COAXIAL PULSE WIDTH | Slider - linear Component | 0 | 1 | Yes | Only displayed when Type is BINARY (square) or BURST (pulse) |
+| Layer 2: Interval | COAXIAL PULSE WIDTH | Slider - linear Component | 0 | 1 | Yes | Only displayed when Type is BURST (pulse) — see Layer 1: Interval's note |
 | Layer 3: Active | HARMONIC WEIGHTS ACTIVE | Toggle Component | N/A | N/A | No | Options: ON, OFF |
 | Layer 3: Type | HARMONIC GEOMETRY | Radio Button Component | N/A | N/A | No | Options: SWEEP, GRADIENT, KINETIC, BINARY, BURST |
 | Layer 3: Gain | HARMONIC SATURATION | Slider - linear Component | 0 | 2 | Yes | Linear scaling for held level ratio |
 | Layer 3: Detune | HARMONIC DRIFT | Slider - centered zero Component | -50 cents | +50 cents | Yes | Linear scaling for held level ratio |
 | Layer 3: Phase | HARMONIC ALIGNMENT | Slider - linear Component | 0 | 360 | Yes | Phase offset in degrees |
-| Layer 3: Interval | HARMONIC PULSE WIDTH | Slider - linear Component | 0 | 1 | Yes | Only displayed when Type is BINARY (square) or BURST (pulse) |
-| **LFO MODULE** | OSCILLATION | LFO Component | N/A | N/A | No | Attached LFO module for parameters flagged with HAS LFO |
-| LFO Active | OSCILLATION STATE | Toggle Component | N/A | N/A | No | Options: ON, OFF |
-| LFO Shape | OSCILLATION SHAPE | Radio Button Component | N/A | N/A | No | Options: TRIANGLE, SINE, SQUARE, SAWTOOTH |
-| LFO Rate | OSCILLATION RATE | Slider - linear Component | 0.1 Hz | 10 Hz | No | LFO modulation speed |
-| LFO Depth | OSCILLATION DEPTH | Slider - linear Component | 0% | 100% | No | LFO modulation intensity |
+| Layer 3: Interval | HARMONIC PULSE WIDTH | Slider - linear Component | 0 | 1 | Yes | Only displayed when Type is BURST (pulse) — see Layer 1: Interval's note |
+| **LFO MODULE** | OSCILLATION | LFO Component | N/A | N/A | No | Attached LFO module for parameters flagged with HAS LFO. Rendered inside a "Modulation" accordion (human label only — no lore label passed at either call site, `AudioRigDrawer.tsx`/`SignatureArrayDrawer.tsx`) |
+| LFO Active | OSCILLATION STATE † | Toggle Component | N/A | N/A | No | Options: ON, OFF |
+| LFO Shape | OSCILLATION SHAPE † | Radio Button Component | N/A | N/A | No | Options: TRIANGLE, SINE, SQUARE, SAWTOOTH |
+| LFO Rate | OSCILLATION RATE † | Slider - linear Component | 0.1 Hz | 10 Hz | No | LFO modulation speed |
+| LFO Depth | OSCILLATION DEPTH † | Slider - linear Component | 0% | 100% | No | LFO modulation intensity |
+
+† These 4 lore labels exist only as source comments pointing back at this table (`src/types/lfo.ts`, `src/types/controls.ts`) — the actual `Lfo` component (`src/components/ui/controls/Lfo.tsx`) builds its Shape/Rate/Depth/Active sub-schemas with `humanLabel` only, no `loreLabel` field at all. If comping these as lore-labeled elements, that copy isn't live anywhere in the UI today.
 
 ## Draft — pending review
 
