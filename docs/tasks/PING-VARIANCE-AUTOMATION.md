@@ -242,8 +242,8 @@ Note: a couple of `audioSwells.test.ts`'s real-noise robot-pool tests showed occ
 - [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean. Final full-suite count: 1591 tests across 103 files.
 - [x] All acceptance criteria across all 8 tasks are met.
 - [x] `docs/AUDIO_SYSTEM.md` reflects the shipped API — every documented name spot-checked against source.
-- [ ] Manual check (spec §5): fresh Attenuation Style → slider starts in the 33–66% band; drag to 0% while a swell is mid-rise → it audibly settles back rather than snapping or continuing to climb; drag to 50% → new swells are noticeably subtler than at 100%; enable Bypass → no swell-related sound from the global chain, robot swells unaffected.
-- [ ] Ready for human review / PR.
+- [x] Manual check (spec §5): fresh Attenuation Style → slider starts in the 33–66% band; drag to 0% while a swell is mid-rise → it audibly settles back rather than snapping or continuing to climb; drag to 50% → new swells are noticeably subtler than at 100%; enable Bypass → no swell-related sound from the global chain, robot swells unaffected. **Passed — confirmed by the user.**
+- [x] Ready for human review / PR.
 
 ## Risks and Mitigations
 
