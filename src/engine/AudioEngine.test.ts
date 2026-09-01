@@ -1333,6 +1333,54 @@ describe('AudioEngine - Transport methods & Master Volume (Issue #220)', () => {
     });
   });
 
+  // ── setBPM (docs/specs/BPM_CONTROL.md §1.6) ───────────── //
+  describe('setBPM()', () => {
+    it('ramps the transport bpm param via rampTo when the param exposes one', async () => {
+      const Tone = await import('tone');
+      (Tone.getTransport as unknown as AnyMock).mockReturnValueOnce({
+        state: 'stopped',
+        start: vi.fn().mockResolvedValue(undefined),
+        pause: vi.fn(),
+        stop: vi.fn(),
+        clear: vi.fn(),
+        scheduleOnce: vi.fn(),
+        scheduleRepeat: vi.fn(() => 1),
+        bpm: { value: 60, rampTo: vi.fn() },
+      });
+      const { AudioEngine } = await import('./AudioEngine');
+      await AudioEngine.start();
+      const transport = (Tone.getTransport as unknown as AnyMock).mock.results.at(-1)?.value;
+      AudioEngine.setBPM(140);
+      expect(transport.bpm.rampTo).toHaveBeenCalledWith(140, 0.05);
+      // rampTo path taken — no direct assignment on top of it
+      expect(transport.bpm.value).toBe(60);
+    });
+
+    it('falls back to a direct value assignment when bpm has no rampTo', async () => {
+      const Tone = await import('tone');
+      (Tone.getTransport as unknown as AnyMock).mockReturnValueOnce({
+        state: 'stopped',
+        start: vi.fn().mockResolvedValue(undefined),
+        pause: vi.fn(),
+        stop: vi.fn(),
+        clear: vi.fn(),
+        scheduleOnce: vi.fn(),
+        scheduleRepeat: vi.fn(() => 1),
+        bpm: { value: 60 },
+      });
+      const { AudioEngine } = await import('./AudioEngine');
+      await AudioEngine.start();
+      const transport = (Tone.getTransport as unknown as AnyMock).mock.results.at(-1)?.value;
+      AudioEngine.setBPM(140);
+      expect(transport.bpm.value).toBe(140);
+    });
+
+    it('does not throw when called before start (no-op)', async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      expect(() => AudioEngine.setBPM(140)).not.toThrow();
+    });
+  });
+
   // ── setMasterVolume ────────────────────────────────────── //
   describe('setMasterVolume()', () => {
     it('updates the master gain node value', async () => {

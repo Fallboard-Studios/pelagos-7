@@ -37,19 +37,19 @@ Task 1 (localeBpmSeed.ts: generateLocaleBpm)      Task 2 (AudioEngine.ts: setBPM
 
 ### Phase 1: Foundation — seed function & engine ramp
 
-- [ ] **Task 1: `localeBpmSeed.ts` — `generateLocaleBpm`**
+- [x] **Task 1: `localeBpmSeed.ts` — `generateLocaleBpm`**
 
   **Description:** New file `src/utils/localeBpmSeed.ts` exporting `LOCALE_BPM_SEED_RANGE` (`{min: 40, max: 100}`) and `generateLocaleBpm(localeId, x, y): number`, drawing `getSeededVal(getLocaleNoiseMap(localeId, x, y), 'locale.bpm', 0, 40, 100)` and rounding to the nearest integer — spec §1.2, §4. Mirrors `globalAudioSeed.ts`'s pure-generator shape, keyed by locale coordinates instead of Attenuation Style.
 
   **Acceptance criteria:**
-  - [ ] `generateLocaleBpm` always returns an integer in `[40, 100]`.
-  - [ ] Same `(localeId, x, y)` always returns the identical value (determinism).
-  - [ ] Different coordinate pairs produce different values across a reasonable sample (proves it's actually sampled, not a constant).
-  - [ ] Uses `getLocaleNoiseMap`/`getSeededVal` exclusively — a source-scan/assertion confirms no `Math.random()` and no `getAttenuationStyleNoiseMap`.
+  - [x] `generateLocaleBpm` always returns an integer in `[40, 100]`.
+  - [x] Same `(localeId, x, y)` always returns the identical value (determinism).
+  - [x] Different coordinate pairs produce different values across a reasonable sample (proves it's actually sampled, not a constant).
+  - [x] Uses `getLocaleNoiseMap`/`getSeededVal` exclusively — a source-scan/assertion confirms no `Math.random()` and no `getAttenuationStyleNoiseMap`.
 
   **Verification:**
-  - [ ] `npx vitest run src/utils/localeBpmSeed.test.ts` passes.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/utils/localeBpmSeed.test.ts` passes.
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** None.
 
@@ -57,19 +57,19 @@ Task 1 (localeBpmSeed.ts: generateLocaleBpm)      Task 2 (AudioEngine.ts: setBPM
 
   **Estimated scope:** XS (one small pure function)
 
-- [ ] **Task 2: `AudioEngine.ts` — `setBPM` gains a short ramp**
+- [x] **Task 2: `AudioEngine.ts` — `setBPM` gains a short ramp**
 
   **Description:** New `BPM_RAMP_SECONDS` constant (`0.05`, matching `VOLUME_RAMP_SECONDS`'s magnitude) and a `rampTo`-with-fallback rewrite of `setBPM`, reusing `updateRobotMasterVolume`'s exact guarded shape ([AudioEngine.ts:942-949](../../src/engine/AudioEngine.ts#L942-L949)) — spec §1.6, §4. One unconditional behavior for every caller (seed-time set and manual drag alike), no separate instant path.
 
   **Acceptance criteria:**
-  - [ ] When the transport's `bpm` param exposes a `rampTo` function, `setBPM(x)` calls `rampTo(x, BPM_RAMP_SECONDS)`, not a direct `.value` assignment.
-  - [ ] When `bpm` is a plain `{ value }` object (no `rampTo`), `setBPM(x)` falls back to `bpm.value = x`.
-  - [ ] `setBPM` remains a no-op (no throw, no call into the transport) when `!initialized` — regression guard for the existing early-return.
-  - [ ] `setBPM`'s public signature (`(bpm: number): void`) and every existing caller (`audioStore.setBPM`) are unchanged.
+  - [x] When the transport's `bpm` param exposes a `rampTo` function, `setBPM(x)` calls `rampTo(x, BPM_RAMP_SECONDS)`, not a direct `.value` assignment.
+  - [x] When `bpm` is a plain `{ value }` object (no `rampTo`), `setBPM(x)` falls back to `bpm.value = x`.
+  - [x] `setBPM` remains a no-op (no throw, no call into the transport) when `!initialized` — regression guard for the existing early-return.
+  - [x] `setBPM`'s public signature (`(bpm: number): void`) and every existing caller (`audioStore.setBPM`) are unchanged.
 
   **Verification:**
-  - [ ] `npx vitest run src/engine/AudioEngine.test.ts` passes with a new `describe('setBPM', ...)` block (no prior dedicated coverage existed).
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/engine/AudioEngine.test.ts` passes with a new `describe('setBPM', ...)` block (no prior dedicated coverage existed).
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** None.
 
@@ -78,8 +78,8 @@ Task 1 (localeBpmSeed.ts: generateLocaleBpm)      Task 2 (AudioEngine.ts: setBPM
   **Estimated scope:** XS (one function, a well-precedented pattern copied from `updateRobotMasterVolume`)
 
 ### Checkpoint: Foundation
-- [ ] `npm run build:types`, `npm run lint`, `npm test` all clean.
-- [ ] `generateLocaleBpm` and `setBPM`'s new ramp are both independently correct; nothing in the app calls either from a new wiring path yet.
+- [x] `npm run build:types`, `npm run lint`, `npm test` all clean.
+- [x] `generateLocaleBpm` and `setBPM`'s new ramp are both independently correct; nothing in the app calls either from a new wiring path yet.
 - [ ] Review with human before proceeding.
 
 ---
