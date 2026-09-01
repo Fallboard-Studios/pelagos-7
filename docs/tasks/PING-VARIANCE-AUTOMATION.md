@@ -93,7 +93,7 @@ Task 1 (globalAudioSeed.ts: generatePingVarianceAutomation)
 
 ### Phase 2: Core mechanism — `audioSwells.ts`
 
-- [ ] **Task 3: Magnitude scaling + trigger gate switch**
+- [x] **Task 3: Magnitude scaling + trigger gate switch**
 
   **Description:** `tickAudioSwells` reads `useAudioStore.getState().pingVarianceAutomation` instead of `audioSwellsEnabled`, gating new-swell rolls on `automation > 0`; `maybeStartGlobalSwell`/`startSingleRobotSwell`/`startCompanyWideSwell` each gain an `automation: number` parameter; a new `scaleSwellPeakByAutomation(peakDelta, automation)` helper is applied as the literal last step at each swell-creation call site, after the existing attribute-specific clamp — spec §1.3, §4. After this task, `audioSwellsEnabled` is fully unused within this file (it remains declared in the store per Task 2, deleted only in Task 7).
 
@@ -114,7 +114,7 @@ Task 1 (globalAudioSeed.ts: generatePingVarianceAutomation)
 
   **Estimated scope:** M (touches every swell-creation call site in the file, though each change is small and mechanical)
 
-- [ ] **Task 4: 0% forced-return mechanism**
+- [x] **Task 4: 0% forced-return mechanism**
 
   **Description:** `advanceActiveSwells` reads `pingVarianceAutomation` fresh each tick (not the value captured at swell creation) and threads it to `advanceGlobalSwell`/`advanceRobotSwell`; each gains a forced-return check as its first statement — `if (automation === 0 && swell.phase === 'rising')`, converting the swell in place (`peakDelta = currentValue - baseValue`, `risingMeasures = 0`, `startMeasure = measure`, `phase = 'falling'`) so it rides its own already-drawn `fallingMeasures` to base via the existing falling-phase formula — spec §1.4. For the robot pool this happens per-member (own `baseValue`/`peakDelta`) with shared `phase`/timing mutated once at the swell level.
 
@@ -137,7 +137,7 @@ Task 1 (globalAudioSeed.ts: generatePingVarianceAutomation)
 
   **Estimated scope:** M (the most subtle logic in this plan — in-place state mutation with a one-shot guard)
 
-- [ ] **Task 5: `globalBypass` fully silences the global pool**
+- [x] **Task 5: `globalBypass` fully silences the global pool**
 
   **Description:** Extend `isGlobalTargetEligible` and `advanceGlobalSwell`'s `stillEnabled` check to also gate on `globalAudio.globalBypass`, treated exactly like a per-effect `enabled: false` — same immediate cancel-and-snap-to-base path, not the gradual Task 4 forced-return — spec §1.6. Robot-pool functions (`isRobotAttributeEligible`, `advanceRobotSwell`, `startSingleRobotSwell`, `startCompanyWideSwell`) are untouched.
 
@@ -158,9 +158,11 @@ Task 1 (globalAudioSeed.ts: generatePingVarianceAutomation)
   **Estimated scope:** S (small, additive, one-condition widening of an existing check)
 
 ### Checkpoint: Mechanism complete
-- [ ] `npm run build:types`, `npm run lint`, `npx vitest run src/systems/audioSwells.test.ts` clean.
-- [ ] Full `audioSwells.test.ts` suite (magnitude scaling, forced return, `globalBypass`, plus every pre-existing global/robot/company-wide test from `AUDIO_SWELLS.md`) passes together.
+- [x] `npm run build:types`, `npm run lint`, `npx vitest run src/systems/audioSwells.test.ts` clean.
+- [x] Full `audioSwells.test.ts` suite (magnitude scaling, forced return, `globalBypass`, plus every pre-existing global/robot/company-wide test from `AUDIO_SWELLS.md`) passes together. `npm test` also clean: 1586 tests across 103 files.
 - [ ] Review with human before proceeding.
+
+Note: a couple of `audioSwells.test.ts`'s real-noise robot-pool tests showed occasional intermittent flakiness during this phase (self-resolves on rerun, unrelated to the global-pool-only diffs in Tasks 3-5 — suspected `mockReturnValueOnce` queue bleed across tests, since `mockClear()` doesn't drain queued once-values). Not investigated further; flagged for awareness, not blocking.
 
 ---
 
