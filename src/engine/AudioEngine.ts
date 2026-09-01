@@ -315,18 +315,21 @@ export function triggerWithCap(params: NoteParams): boolean {
     return false;
   }
 
-  // Enforce audioMode at trigger time as a safety net in case schedule path missed it.
+  // Enforce audioMode (mute/solo) here — this is the sole enforcement point,
+  // not a backup: scheduleNote's own audioMode block only handles highlight
+  // attenuation. No devLog on the mute/solo branches below — muted/non-solo
+  // robots hit this on every note attempt, and that's routine, intended
+  // behavior (never counted as a skip, unlike an actual failure to play),
+  // not something worth logging per-note.
   try {
     const localeRobots = getActiveLocaleRobots();
     if (localeRobots.length > 0) {
       const robotFromStore = localeRobots.find((r) => r.id === robotId);
       if (robotFromStore?.audioMode === 'mute') {
-        devLog(`[AudioEngine] Robot ${robotId} is muted (trigger); skipping note`);
         return false;
       }
       const anySoloInStore = localeRobots.some((r) => r.audioMode === 'solo');
       if (anySoloInStore && robotFromStore?.audioMode !== 'solo') {
-        devLog(`[AudioEngine] Robot ${robotId} suppressed due to solo (trigger)`);
         return false;
       }
       // Highlight attenuation is handled in scheduleNote; skip here to avoid double-attenuation.
