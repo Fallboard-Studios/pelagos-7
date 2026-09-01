@@ -197,7 +197,7 @@ Note: a couple of `audioSwells.test.ts`'s real-noise robot-pool tests showed occ
 
 ### Phase 4: Cleanup & docs
 
-- [ ] **Task 7: Remove the old `audioSwellsEnabled` boolean entirely**
+- [x] **Task 7: Remove the old `audioSwellsEnabled` boolean entirely**
 
   **Description:** Delete `audioSwellsEnabled`/`setAudioSwellsEnabled` from `AudioStore` (`audioStore.ts`); remove `AUDIO_SWELLS_ENABLED_SCHEMA` from `sectorSettingsConfig.ts`; remove the `Toggle` and its wiring from `SectorSettingsDrawer.tsx` (drop the `Toggle` import if this was its only use in the file) — spec §2, §4's "deleted, not deprecated."
 
@@ -219,7 +219,7 @@ Note: a couple of `audioSwells.test.ts`'s real-noise robot-pool tests showed occ
 
   **Estimated scope:** M (6 files, but every change is a deletion — low complexity despite the file count)
 
-- [ ] **Task 8: `docs/AUDIO_SYSTEM.md` — document the slider**
+- [x] **Task 8: `docs/AUDIO_SYSTEM.md` — document the slider**
 
   **Description:** Rewrite the "Audio Swells" section's "User toggle" paragraph (and any other stale reference) to describe `pingVarianceAutomation` and the new slider instead of the old boolean/toggle — spot-checked against the final shipped source, not reconstructed from the spec from memory. Cover: the seed-once/carry-forward behavior, magnitude scaling as the pipeline's last step, the 0% forced-return mechanism, and the `globalBypass` extension (§1.6).
 
@@ -239,9 +239,9 @@ Note: a couple of `audioSwells.test.ts`'s real-noise robot-pool tests showed occ
   **Estimated scope:** XS (docs only)
 
 ### Checkpoint: Complete
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] All acceptance criteria across all 8 tasks are met.
-- [ ] `docs/AUDIO_SYSTEM.md` reflects the shipped API.
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean. Final full-suite count: 1591 tests across 103 files.
+- [x] All acceptance criteria across all 8 tasks are met.
+- [x] `docs/AUDIO_SYSTEM.md` reflects the shipped API — every documented name spot-checked against source.
 - [ ] Manual check (spec §5): fresh Attenuation Style → slider starts in the 33–66% band; drag to 0% while a swell is mid-rise → it audibly settles back rather than snapping or continuing to climb; drag to 50% → new swells are noticeably subtler than at 100%; enable Bypass → no swell-related sound from the global chain, robot swells unaffected.
 - [ ] Ready for human review / PR.
 
