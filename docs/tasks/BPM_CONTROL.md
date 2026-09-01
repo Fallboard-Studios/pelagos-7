@@ -186,11 +186,24 @@ Task 1 (localeBpmSeed.ts: generateLocaleBpm)      Task 2 (AudioEngine.ts: setBPM
   **Estimated scope:** XS (docs only)
 
 ### Checkpoint: Complete
-- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean. Final full-suite count: 1620 tests across 104 files.
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean. Final full-suite count: 1620 tests across 104 files (1622 after the post-launch fix below).
 - [x] All acceptance criteria across all 6 tasks are met.
 - [x] `docs/AUDIO_SYSTEM.md` reflects the shipped API — every documented name spot-checked against source.
 - [ ] Manual check (spec §5): retransmit coordinates-only several times, confirm the Tempo slider jumps to a new value each time, always within `40`–`100` immediately after; drag to an extreme (e.g. `190`), retransmit Attenuation-Style-only (name change, same coordinates), confirm the dragged value survives untouched; drag to an extreme, retransmit coordinates-only, confirm the drag is discarded in favor of a freshly seeded value; drag the slider while a melody is audibly playing and confirm no audible click/zipper on each step. **Not yet performed in a live browser** — every behavior above has automated coverage (Tasks 3-5), but this pass is still pending.
 - [ ] Ready for human review / PR.
+
+### Post-launch fix: voice releases stalling on a live BPM change
+
+User-reported after Task 5 shipped: changing BPM made playback "peter out" — only already-triggered notes finished, then nothing new played. Root cause (found via source-level Tone.js tracing, not the live-browser manual check above, which is still pending): `AudioEngine.ts`'s pre-existing `scheduleVoiceRelease` computed a real-seconds voice-release delay but scheduled it via `transport.scheduleOnce('+N')`, whose `'+N'` offset resolves against the **Transport's own tick timeline** (`Transport.scheduleOnce` → `TransportTimeClass(...).toTicks()`) — a fixed tick position computed using the tempo in effect at schedule time. Any bpm change before that tick position is reached shifts how much real time it takes to get there (late if bpm decreased, early if increased); enough skew strands `activeVoices` at `MAX_POLYPHONY`, silently blocking every new trigger. This bug was **pre-existing but dormant** — `bpm` was a hardcoded, never-changing `60` before this feature, so `setBPM` was never reachable during live playback until Task 5's Tempo slider made it so.
+
+**Fix:** `scheduleVoiceRelease` now uses `Tone.getContext().setTimeout` — a real-seconds, AudioContext-clock-based timeout, genuinely tempo-independent — instead of `transport.scheduleOnce`.
+
+- [x] Reproduction test written first (RED): asserts release scheduling goes through `Tone.getContext().setTimeout`, not `transport.scheduleOnce`, and that 16 in-flight voices are freed (polyphony cap lifts) after their releases fire, even with a `setBPM` call in between.
+- [x] Fix applied (GREEN): `src/engine/AudioEngine.ts`'s `scheduleVoiceRelease`.
+- [x] `npx vitest run src/engine/AudioEngine.test.ts` passes (97 tests). Full suite clean: 1622 tests across 104 files. `npm run build:types`, `npm run lint`, `npm run build` all clean.
+- [ ] Live-browser confirmation from the user that playback no longer peters out on a BPM change — the automated regression test proves the mechanism, but this specific fix hasn't been heard in a real browser yet.
+
+**Files:** `src/engine/AudioEngine.ts`, `src/engine/AudioEngine.test.ts`
 
 ## Risks and Mitigations
 
