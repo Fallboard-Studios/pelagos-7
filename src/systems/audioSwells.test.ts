@@ -143,7 +143,7 @@ beforeEach(() => {
   // this file meaningful once Task 3 wires scaleSwellPeakByAutomation in —
   // those tests assert an UNSCALED peak; automation-scaling itself gets its
   // own dedicated describe block below, which sets a different value per test.
-  useAudioStore.setState({ globalAudio: { ...DEFAULT_GLOBAL_AUDIO_SETTINGS }, audioSwellsEnabled: true, pingVarianceAutomation: 1 });
+  useAudioStore.setState({ globalAudio: { ...DEFAULT_GLOBAL_AUDIO_SETTINGS }, pingVarianceAutomation: 1 });
   enableAllGlobalEffects();
   useLocaleStore.getState().setLocaleData(LOCALE_ID, { robots: [], companies: [] } as unknown as Partial<Locale>);
   // Real AudioEngine voice calls need a live Tone context this jsdom test
@@ -271,16 +271,7 @@ describe('pingVarianceAutomation gate (docs/tasks/PING-VARIANCE-AUTOMATION.md Ta
     expect(getActiveSwellSnapshot('global')).toHaveLength(1);
   });
 
-  it('audioSwellsEnabled no longer gates anything — a swell starts even with it false, as long as pingVarianceAutomation is nonzero', () => {
-    useAudioStore.setState({ audioSwellsEnabled: false, pingVarianceAutomation: 1 });
-    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
-
-    tickAudioSwells(LOCALE_ID, 0);
-
-    expect(getActiveSwellSnapshot('global').length).toBeGreaterThan(0);
-  });
-
-  it('no longer reads audioSwellsEnabled anywhere in this module (source-scan regression guard)', () => {
+  it('no longer reads audioSwellsEnabled anywhere in this module (source-scan regression guard) — the field itself was deleted from AudioStore entirely in docs/tasks/PING-VARIANCE-AUTOMATION.md Task 7', () => {
     const thisFile = fileURLToPath(import.meta.url);
     const source = readFileSync(join(dirname(thisFile), 'audioSwells.ts'), 'utf-8');
     expect(source).not.toMatch(/audioSwellsEnabled/);

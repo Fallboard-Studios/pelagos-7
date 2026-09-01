@@ -538,39 +538,6 @@ describe('useAudioStore - globalLfo Attenuation-Style-sync seeding', () => {
   });
 });
 
-describe('useAudioStore - audioSwellsEnabled / setAudioSwellsEnabled', () => {
-  beforeEach(() => {
-    vi.resetModules();
-  });
-
-  it('defaults to true', async () => {
-    const { useAudioStore } = await import('./audioStore');
-    expect(useAudioStore.getState().audioSwellsEnabled).toBe(true);
-  });
-
-  it('setAudioSwellsEnabled updates the store directly — a plain toggle, no AudioEngine call', async () => {
-    const { useAudioStore } = await import('./audioStore');
-    const { AudioEngine } = await import('../engine/AudioEngine');
-    // The AudioEngine mock is shared module-wide and other describe blocks in
-    // this file leave calls on it — compare counts before/after this action
-    // rather than asserting "never called at all".
-    const bypassCallsBefore = vi.mocked(AudioEngine.setGlobalBypass).mock.calls.length;
-    const effectBypassCallsBefore = vi.mocked(AudioEngine.setEffectBypass).mock.calls.length;
-
-    useAudioStore.getState().setAudioSwellsEnabled(false);
-    expect(useAudioStore.getState().audioSwellsEnabled).toBe(false);
-
-    useAudioStore.getState().setAudioSwellsEnabled(true);
-    expect(useAudioStore.getState().audioSwellsEnabled).toBe(true);
-
-    // Unlike setGlobalBypassEnabled, this is a pure UI preference — it
-    // never reaches into AudioEngine itself; audioSwells.ts reads the flag
-    // directly each tick instead.
-    expect(vi.mocked(AudioEngine.setGlobalBypass).mock.calls.length).toBe(bypassCallsBefore);
-    expect(vi.mocked(AudioEngine.setEffectBypass).mock.calls.length).toBe(effectBypassCallsBefore);
-  });
-});
-
 describe('useAudioStore - pingVarianceAutomation / setPingVarianceAutomation', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -612,5 +579,12 @@ describe('useAudioStore - pingVarianceAutomation / setPingVarianceAutomation', (
     useAudioStore.getState().regenerateGlobalAudioFromSeed('a-different-as-id', 'Zenith');
 
     expect(useAudioStore.getState().pingVarianceAutomation).toBe(0.9);
+  });
+
+  it('no longer coexists with the old audioSwellsEnabled/setAudioSwellsEnabled fields it replaces (docs/tasks/PING-VARIANCE-AUTOMATION.md Task 7)', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const state = useAudioStore.getState();
+    expect('audioSwellsEnabled' in state).toBe(false);
+    expect('setAudioSwellsEnabled' in state).toBe(false);
   });
 });

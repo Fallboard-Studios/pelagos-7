@@ -1,20 +1,17 @@
 import { useState } from 'react';
 import { useAttenuationStyleStore, selectCurrentAttenuationStyle } from '@/stores/attenuationStyleStore';
 import { useLocaleStore } from '@/stores/localeStore';
-import { useAudioStore } from '@/stores/audioStore';
 import { retransmitWorld, type RetransmitInput } from '@/systems/worldTransition';
 import { generateRandomAttenuationStyleName } from '@/utils/seedUtils';
 import { TextInput } from '@/components/ui/controls/TextInput';
 import { CoordsInput } from '@/components/ui/controls/CoordsInput';
 import { Button } from '@/components/ui/controls/Button';
 import { DualLabel } from '@/components/ui/controls/DualLabel';
-import { Toggle } from '@/components/ui/controls/Toggle';
 import {
   ATTENUATION_STYLE_SCHEMA,
   COORDS_SCHEMA,
   RETRANSMIT_SCHEMA,
   STATUS_HEADER_SCHEMA,
-  AUDIO_SWELLS_ENABLED_SCHEMA,
   ATTENUATION_STYLE_PRESETS,
   COORDINATE_PRESETS,
 } from '@/data/sectorSettingsConfig';
@@ -47,8 +44,6 @@ export function SectorSettingsDrawer() {
   const currentAttenuationStyle = useAttenuationStyleStore(selectCurrentAttenuationStyle);
   const currentLocaleId = currentAttenuationStyle?.currentLocaleId;
   const currentLocale = useLocaleStore((s) => (currentLocaleId ? s.locales[currentLocaleId] : undefined));
-  const audioSwellsEnabled = useAudioStore((s) => s.audioSwellsEnabled);
-  const setAudioSwellsEnabled = useAudioStore((s) => s.setAudioSwellsEnabled);
 
   const [attenuationStyleNameDraft, setAttenuationStyleNameDraft] = useState(currentAttenuationStyle?.name ?? '');
   const [coordsDraft, setCoordsDraft] = useState(currentLocale?.coordinates ?? { x: 0, y: 0 });
@@ -123,10 +118,6 @@ export function SectorSettingsDrawer() {
 
       <div className="sector-settings-drawer__retransmit">
         <Button schema={RETRANSMIT_SCHEMA} onClick={handleRetransmit} />
-      </div>
-
-      <div className="sector-settings-drawer__section">
-        <Toggle schema={AUDIO_SWELLS_ENABLED_SCHEMA} value={audioSwellsEnabled} onChange={setAudioSwellsEnabled} />
       </div>
     </div>
   );

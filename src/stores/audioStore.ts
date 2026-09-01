@@ -106,15 +106,11 @@ export interface AudioStore {
   globalLfo: Record<GlobalLfoTargetId, LfoSettings & { active: boolean }>;
   isMuted: boolean;
   preMuteVolume: number;
-  /** User preference, defaults on. Read directly by audioSwells.ts's own
-   *  tick — a plain UI toggle (Sector Settings drawer), not tied to
-   *  AudioEngine or any seeded/per-Attenuation-Style state. */
-  audioSwellsEnabled: boolean;
-  /** Continuous automation-amount fraction, [0, 1] — replaces audioSwellsEnabled
-   *  above (docs/specs/PING-VARIANCE-AUTOMATION.md; audioSwellsEnabled itself
-   *  is removed once every consumer has migrated, not in this change). Read
-   *  directly by audioSwells.ts's own tick: a plain UI-adjacent value, not
-   *  tied to AudioEngine. Seeded once per session (regenerateGlobalAudioFromSeed's
+  /** Continuous automation-amount fraction, [0, 1] — the Audio Rig's "Ping
+   *  Variance Automation" slider, replacing the former audioSwellsEnabled
+   *  boolean (docs/specs/PING-VARIANCE-AUTOMATION.md). Read directly by
+   *  audioSwells.ts's own tick: a plain UI-adjacent value, not tied to
+   *  AudioEngine. Seeded once per session (regenerateGlobalAudioFromSeed's
    *  first call), then carried forward across every future Attenuation Style
    *  switch — freely draggable via the Audio Rig slider at any time. */
   pingVarianceAutomation: number;
@@ -135,10 +131,6 @@ export interface AudioStore {
   setGlobalLfo: (target: GlobalLfoTargetId, value: LfoSettings & { active: boolean }) => void;
   setMuted: (muted: boolean) => void;
   setPreMuteVolume: (volume: number) => void;
-  /** Sets the Sector Settings "Enable automatic effects" toggle — a plain
-   *  state write, no AudioEngine call; audioSwells.ts reads this flag
-   *  directly on its own next tick. */
-  setAudioSwellsEnabled: (enabled: boolean) => void;
   /** Sets the Audio Rig "Ping Variance Automation" slider — a plain state
    *  write, no AudioEngine call; audioSwells.ts reads this fraction fresh
    *  on its own next tick (both for scaling a newly-created swell's peak
@@ -191,7 +183,6 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
   globalLfo: buildDefaultGlobalLfo(),
   isMuted: false,
   preMuteVolume: 1.0,
-  audioSwellsEnabled: true,
   pingVarianceAutomation: PING_VARIANCE_AUTOMATION_UNSEEDED, // real value assigned by the first regenerateGlobalAudioFromSeed call below (module-load AS-sync)
 
   setBPM: (bpm) => {
@@ -268,9 +259,6 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
   },
   setPreMuteVolume: (volume) => {
     set({ preMuteVolume: volume });
-  },
-  setAudioSwellsEnabled: (enabled) => {
-    set({ audioSwellsEnabled: enabled });
   },
   setPingVarianceAutomation: (value) => {
     set({ pingVarianceAutomation: value });
