@@ -106,19 +106,19 @@ Task 1 (localeBpmSeed.ts: generateLocaleBpm)      Task 2 (AudioEngine.ts: setBPM
 
   **Estimated scope:** S (one file, a new action plus a one-shot module-load call)
 
-- [ ] **Task 4: `worldTransition.ts` — wire reseeding into the two locale-building retransmit branches**
+- [x] **Task 4: `worldTransition.ts` — wire reseeding into the two locale-building retransmit branches**
 
   **Description:** `retransmitCoordsOnly` and `retransmitBoth` each call `useAudioStore.getState().regenerateBpmFromSeed(newLocale.id, coordinates)` immediately after `buildLocale`/`addLocale` — spec §1.3, §4. `retransmitAttenuationStyleOnly` receives **no** equivalent call, by design.
 
   **Acceptance criteria:**
-  - [ ] `retransmitCoordsOnly` (coordinates changed, Attenuation Style preserved) calls `regenerateBpmFromSeed` with the new locale's id and coordinates.
-  - [ ] `retransmitBoth` (both changed) calls `regenerateBpmFromSeed` with the new locale's id and coordinates.
-  - [ ] `retransmitAttenuationStyleOnly` (Attenuation Style changed, coordinates preserved) does **NOT** call `regenerateBpmFromSeed` — asserted directly (mock not called), and, using a live (non-mocked) store elsewhere in this file's existing setup, `audioStore.bpm` is provably unchanged across that retransmit.
-  - [ ] A live end-to-end pass — drag `bpm` to an arbitrary value, retransmit coordinates-only, confirm `bpm` lands in `[40, 100]` and is *not* the dragged value — passes, directly exercising the behavior a manual check would otherwise verify.
+  - [x] `retransmitCoordsOnly` (coordinates changed, Attenuation Style preserved) calls `regenerateBpmFromSeed` with the new locale's id and coordinates.
+  - [x] `retransmitBoth` (both changed) calls `regenerateBpmFromSeed` with the new locale's id and coordinates.
+  - [x] `retransmitAttenuationStyleOnly` (Attenuation Style changed, coordinates preserved) does **NOT** call `regenerateBpmFromSeed` — asserted directly (mock not called), and, using a live (non-mocked) store elsewhere in this file's existing setup, `audioStore.bpm` is provably unchanged across that retransmit.
+  - [x] A live end-to-end pass — drag `bpm` to an arbitrary value, retransmit coordinates-only, confirm `bpm` lands in `[40, 100]` and is *not* the dragged value — passes, directly exercising the behavior a manual check would otherwise verify.
 
   **Verification:**
-  - [ ] `npx vitest run src/systems/worldTransition.test.ts` passes with the 3 new cases above.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/systems/worldTransition.test.ts` passes with the 3 new cases above.
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** Task 3.
 
@@ -127,8 +127,8 @@ Task 1 (localeBpmSeed.ts: generateLocaleBpm)      Task 2 (AudioEngine.ts: setBPM
   **Estimated scope:** S (two small, mechanical call-site additions, plus one deliberate non-addition)
 
 ### Checkpoint: Reseed wiring complete
-- [ ] `npm run build:types`, `npm run lint`, `npm test` all clean.
-- [ ] The exact behavior this feature exists for is now provably true: a coords-changing retransmit reseeds `audioStore.bpm` within `[40, 100]` and discards any manual override; an Attenuation-Style-only retransmit leaves `audioStore.bpm` completely untouched.
+- [x] `npm run build:types`, `npm run lint`, `npm test` all clean. (1609 tests across 104 files; two intermittent noise-map-based flakes seen on one run self-resolved on rerun, unrelated to this feature — same known flakiness class `PING-VARIANCE-AUTOMATION.md`'s own plan flagged.)
+- [x] The exact behavior this feature exists for is now provably true: a coords-changing retransmit reseeds `audioStore.bpm` within `[40, 100]` and discards any manual override; an Attenuation-Style-only retransmit leaves `audioStore.bpm` completely untouched.
 - [ ] Review with human before proceeding.
 
 ---

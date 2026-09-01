@@ -4,6 +4,7 @@
 import { useAttenuationStyleStore, selectCurrentAttenuationStyle } from '../stores/attenuationStyleStore';
 import { useLocaleStore } from '../stores/localeStore';
 import { useUIStore } from '../stores/uiStore';
+import { useAudioStore } from '../stores/audioStore';
 import { placeFactories, recolorFactoriesForAttenuationStyle } from './factoryPlacementSystem';
 import { spawnInitialRoster, spawnInitialCompanies } from './spawnSystem';
 import { startRobotLifecycle, stopRobotLifecycle, assignJob } from './robotSystems';
@@ -143,6 +144,11 @@ function retransmitCoordsOnly(oldAttenuationStyle: AttenuationStyle, oldLocaleId
   useLocaleStore.getState().addLocale(oldAttenuationStyle.id, newLocale);
   initializeLocale(newLocale.id);
   useAttenuationStyleStore.getState().setCurrentLocale(oldAttenuationStyle.id, newLocale.id);
+  // Reseed the AUDIO bpm from the new locale's own coordinates, discarding
+  // whatever the operator had manually dialed in — docs/specs/BPM_CONTROL.md
+  // §1.3. Deliberately NOT called from retransmitAttenuationStyleOnly, which
+  // preserves the existing locale untouched.
+  useAudioStore.getState().regenerateBpmFromSeed(newLocale.id, coordinates);
   if (oldLocaleId) useLocaleStore.getState().removeLocale(oldLocaleId);
 }
 
@@ -210,6 +216,9 @@ function retransmitBoth(oldAttenuationStyle: AttenuationStyle, oldLocaleId: stri
   useLocaleStore.getState().addLocale(newAttenuationStyle.id, newLocale);
   initializeLocale(newLocale.id);
   useAttenuationStyleStore.getState().setCurrentLocale(newAttenuationStyle.id, newLocale.id);
+  // Reseed the AUDIO bpm from the new locale's own coordinates — docs/specs/
+  // BPM_CONTROL.md §1.3, same as retransmitCoordsOnly above.
+  useAudioStore.getState().regenerateBpmFromSeed(newLocale.id, coordinates);
   if (oldLocaleId) useLocaleStore.getState().removeLocale(oldLocaleId);
 
   finalizeAttenuationStyleTransition(newAttenuationStyle, oldAttenuationStyle);

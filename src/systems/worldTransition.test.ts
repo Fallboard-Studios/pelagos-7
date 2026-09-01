@@ -29,6 +29,7 @@ import { useAudioStore } from '../stores/audioStore';
 import { AudioEngine } from '../engine/AudioEngine';
 import { getLocaleNoiseMap, tryGetLocaleNoiseMap } from '../utils/noiseMaps';
 import { getSeededVal } from '../utils/getSeededVal';
+import { generateLocaleBpm } from '../utils/localeBpmSeed';
 import { initializeLocale, retransmitWorld } from './worldTransition';
 import { recolorFactoriesForAttenuationStyle } from './factoryPlacementSystem';
 import { stopRobotLifecycle } from './robotSystems';
@@ -255,6 +256,19 @@ describe('worldTransition', () => {
       retransmitWorld({ coordinates: { x: 1000, y: 2000 } });
       expect(recolorFactoriesForAttenuationStyle).not.toHaveBeenCalled();
     });
+
+    it("reseeds audioStore.bpm from the new locale's own id/coordinates (docs/specs/BPM_CONTROL.md §1.3)", () => {
+      retransmitWorld({ coordinates: { x: 1000, y: 2000 } });
+      const attenuationStyle = selectCurrentAttenuationStyle(useAttenuationStyleStore.getState())!;
+      const newLocale = useLocaleStore.getState().getLocaleById(attenuationStyle.currentLocaleId!)!;
+      expect(useAudioStore.getState().bpm).toBe(generateLocaleBpm(newLocale.id, 1000, 2000));
+    });
+
+    it('discards a manually-dialed bpm in favor of the freshly seeded value', () => {
+      useAudioStore.getState().setBPM(190); // outside the [40, 100] seed range, so it's unambiguous
+      retransmitWorld({ coordinates: { x: 1000, y: 2000 } });
+      expect(useAudioStore.getState().bpm).not.toBe(190);
+    });
   });
 
   describe('retransmitWorld — Attenuation Style changed, coordinates preserved', () => {
@@ -319,6 +333,12 @@ describe('worldTransition', () => {
       expect(recolorFactoriesForAttenuationStyle).toHaveBeenCalledWith(DEFAULT_LOCALE_ID, attenuationStyle.id, attenuationStyle.name);
     });
 
+    it("does NOT reseed audioStore.bpm — the preserved locale's coordinates never changed (docs/specs/BPM_CONTROL.md §1.3)", () => {
+      useAudioStore.getState().setBPM(190); // outside the seed range, so any drift is unambiguous
+      retransmitWorld({ attenuationStyleName: 'Kryndara' });
+      expect(useAudioStore.getState().bpm).toBe(190);
+    });
+
     it("preserves every factory's id/position/scale — only hueShift/satShift may change, per recolorFactoriesForAttenuationStyle", () => {
       initializeLocale(DEFAULT_LOCALE_ID); // real placeFactories — populates real actors
       const before = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)!.actors;
@@ -368,6 +388,13 @@ describe('worldTransition', () => {
     it('never calls recolorFactoriesForAttenuationStyle — the old locale is discarded, not recolored', () => {
       retransmitWorld({ attenuationStyleName: 'Vessport Null', coordinates: { x: 42, y: 42 } });
       expect(recolorFactoriesForAttenuationStyle).not.toHaveBeenCalled();
+    });
+
+    it("reseeds audioStore.bpm from the new locale's own id/coordinates (docs/specs/BPM_CONTROL.md §1.3)", () => {
+      retransmitWorld({ attenuationStyleName: 'Vessport Null', coordinates: { x: 42, y: 42 } });
+      const attenuationStyle = selectCurrentAttenuationStyle(useAttenuationStyleStore.getState())!;
+      const locale = useLocaleStore.getState().getLocaleById(attenuationStyle.currentLocaleId!)!;
+      expect(useAudioStore.getState().bpm).toBe(generateLocaleBpm(locale.id, 42, 42));
     });
   });
 
