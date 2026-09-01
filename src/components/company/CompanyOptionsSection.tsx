@@ -48,28 +48,46 @@ const DISABLED_SIGNATURE_ARRAY: SignatureArrayValue = {
  * With no company selected, or a selected company with zero members (nothing to derive a
  * baseline from, nothing to broadcast to), every section renders disabled with a placeholder
  * value. With a non-empty company selected, each section's value comes from
- * resolveCompanyOptions(company, members[0]), and every edit broadcasts through the exact same
- * robotOptionsActions functions RobotOptionsTab uses — once per member — then patches only the
- * touched field into the company's own lastEditedOptions snapshot. A company edit is a one-time
- * broadcast, never a standing link: editing a member robot individually afterward (even via its
- * own Robot Options screen) never touches lastEditedOptions and is never reverted by this panel.
+ * resolveCompanyOptions(company.lastEditedOptions, members[0]), and every edit broadcasts
+ * through the exact same robotOptionsActions functions RobotOptionsTab uses — once per member —
+ * then patches only the touched field into the company's own lastEditedOptions snapshot. A
+ * company edit is a one-time broadcast, never a standing link: editing a member robot
+ * individually afterward (even via its own Robot Options screen) never touches lastEditedOptions
+ * and is never reverted by this panel.
+ *
+ * CompanyButtonRow's "All" option (uiStore.allRobotsSelected) is a third mode, mutually
+ * exclusive with selectedCompanyId: `members` becomes every robot in the locale regardless of
+ * company (Freelance included), and the broadcast/snapshot machinery reruns identically against
+ * that wider set — same resolveCompanyOptions call, same per-member applyXxx loop — just fed
+ * `locale.allRobotsLastEditedOptions` instead of a Company's own snapshot, since there is no
+ * Company object for "All" to bind to. Deliberately never touches any individual company's
+ * lastEditedOptions, and vice versa — the two snapshots are independent.
  */
 export function CompanyOptionsSection() {
   const localeId = getActiveLocaleId();
   const selectedCompanyId = useUIStore((s) => s.selectedCompanyId);
+  const allRobotsSelected = useUIStore((s) => s.allRobotsSelected);
   const companies = useLocaleStore((s) => s.locales[localeId]?.companies ?? []);
   // Subscribe to the raw robots array (a stable reference — Zustand's default equality check is
   // by reference, and this only changes when the store's own robots array does) and filter
   // outside the selector. Filtering *inside* a Zustand selector returns a brand-new array every
   // call, which useSyncExternalStore sees as "always changed" and loops forever re-rendering.
   const robots = useLocaleStore((s) => s.locales[localeId]?.robots ?? []);
-  const members = robots.filter((r) => r.companyId === selectedCompanyId);
+  const allRobotsLastEditedOptions = useLocaleStore((s) => s.locales[localeId]?.allRobotsLastEditedOptions);
+  const members = allRobotsSelected ? robots : robots.filter((r) => r.companyId === selectedCompanyId);
 
   const company = companies.find((c) => c.id === selectedCompanyId);
-  const active = Boolean(company) && members.length > 0;
-  const resolved = active ? resolveCompanyOptions(company!, members[0]) : undefined;
+  const active = allRobotsSelected ? members.length > 0 : Boolean(company) && members.length > 0;
+  const lastEditedOptions = allRobotsSelected ? allRobotsLastEditedOptions : company?.lastEditedOptions;
+  const resolved = active ? resolveCompanyOptions(lastEditedOptions, members[0]) : undefined;
 
   function patchSnapshot(partial: Partial<CompanyOptionsSnapshot>) {
+    if (allRobotsSelected) {
+      useLocaleStore.getState().setLocaleData(localeId, {
+        allRobotsLastEditedOptions: { ...allRobotsLastEditedOptions, ...partial },
+      });
+      return;
+    }
     if (!company) return;
     useLocaleStore.getState().updateCompany(localeId, company.id, {
       lastEditedOptions: { ...company.lastEditedOptions, ...partial },

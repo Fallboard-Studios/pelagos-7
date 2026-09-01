@@ -284,4 +284,84 @@ describe('CompanyOptionsSection', () => {
 
     expect(lfoSpy).toHaveBeenCalledWith(r1, localeId, 'layer0.gain', { shape: 'sine', rate: 1, depth: 20, active: true });
   });
+
+  describe('"All" selection (CompanyButtonRow\'s All button)', () => {
+    it('renders every section disabled when All is selected but the locale has zero robots', () => {
+      useUIStore.getState().selectAllRobots();
+
+      render(<CompanyOptionsSection />);
+
+      expect(screen.getByTestId('ping-controls-drawer-stub').getAttribute('data-disabled')).toBe('');
+    });
+
+    it('populates every section\'s value from the first robot in the locale, across companies and Freelance alike', () => {
+      const r1 = makeRobot({ id: 'r1', companyId: 'c1', masterVolume: 0.6, rhythmicDensity: 42 });
+      const r2 = makeRobot({ id: 'r2', companyId: undefined }); // Freelance
+      useLocaleStore.getState().addRobot(localeId, r1);
+      useLocaleStore.getState().addRobot(localeId, r2);
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
+      useUIStore.getState().selectAllRobots();
+
+      render(<CompanyOptionsSection />);
+
+      expect(screen.getByTestId('audio-setting-section-stub').getAttribute('data-volume')).toBe('0.6');
+      expect(screen.getByTestId('ping-controls-drawer-stub').getAttribute('data-density')).toBe('42');
+      expect(screen.getByTestId('ping-controls-drawer-stub').getAttribute('data-disabled')).toBeNull();
+    });
+
+    it('editing Volume while All is selected calls applyVolume once per robot in the locale, regardless of company', () => {
+      const r1 = makeRobot({ id: 'r1', companyId: 'c1' });
+      const r2 = makeRobot({ id: 'r2', companyId: 'c2' });
+      const r3 = makeRobot({ id: 'r3', companyId: undefined }); // Freelance
+      useLocaleStore.getState().addRobot(localeId, r1);
+      useLocaleStore.getState().addRobot(localeId, r2);
+      useLocaleStore.getState().addRobot(localeId, r3);
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
+      useLocaleStore.getState().addCompany(localeId, { id: 'c2', name: 'Null Syndicate', robotIds: ['r2'] });
+      useUIStore.getState().selectAllRobots();
+      const applyVolumeSpy = vi.spyOn(robotOptionsActions, 'applyVolume').mockImplementation(() => {});
+
+      render(<CompanyOptionsSection />);
+      fireEvent.click(screen.getByText('probe-volume'));
+
+      expect(applyVolumeSpy).toHaveBeenCalledTimes(3);
+      expect(applyVolumeSpy.mock.calls.map((c) => c[0].id).sort()).toEqual(['r1', 'r2', 'r3']);
+    });
+
+    it('editing one field while All is selected patches locale.allRobotsLastEditedOptions, not any company\'s lastEditedOptions', () => {
+      const r1 = makeRobot({ id: 'r1', companyId: 'c1', masterVolume: 0.6 });
+      useLocaleStore.getState().addRobot(localeId, r1);
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
+      useUIStore.getState().selectAllRobots();
+      vi.spyOn(robotOptionsActions, 'applyVolume').mockImplementation(() => {});
+      const updateCompanySpy = vi.spyOn(useLocaleStore.getState(), 'updateCompany');
+
+      render(<CompanyOptionsSection />);
+      fireEvent.click(screen.getByText('probe-volume'));
+
+      expect(updateCompanySpy).not.toHaveBeenCalled();
+      const editedVolume = useLocaleStore.getState().getLocaleById(localeId)?.allRobotsLastEditedOptions?.masterVolume;
+      expect(editedVolume).toBeCloseTo(0.77, 5);
+      expect(useLocaleStore.getState().getCompanyById(localeId, 'c1')?.lastEditedOptions).toBeUndefined();
+    });
+
+    it('All\'s last-edited value is independent of any company\'s — switching between them shows each one\'s own snapshot', () => {
+      const r1 = makeRobot({ id: 'r1', companyId: 'c1', masterVolume: 0.5 });
+      useLocaleStore.getState().addRobot(localeId, r1);
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
+      vi.spyOn(robotOptionsActions, 'applyVolume').mockImplementation(() => {});
+
+      // Edit while "All" is selected (probe fires a fixed 77%).
+      useUIStore.getState().selectAllRobots();
+      const { unmount: unmount1 } = render(<CompanyOptionsSection />);
+      fireEvent.click(screen.getByText('probe-volume'));
+      unmount1();
+
+      // Switch to the company and confirm ITS resolved value still reflects the robot's own live
+      // value (0.5), not All's edited 77% — the two snapshots never cross-contaminate.
+      useUIStore.getState().selectCompany('c1');
+      render(<CompanyOptionsSection />);
+      expect(screen.getByTestId('audio-setting-section-stub').getAttribute('data-volume')).toBe('0.5');
+    });
+  });
 });

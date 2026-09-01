@@ -41,7 +41,7 @@ describe('resolveCompanyOptions', () => {
     const firstMember = makeRobot();
     const company = makeCompany();
 
-    const resolved = resolveCompanyOptions(company, firstMember);
+    const resolved = resolveCompanyOptions(company.lastEditedOptions, firstMember);
 
     expect(resolved.audioMode).toBe('solo');
     expect(resolved.masterVolume).toBe(0.6);
@@ -63,7 +63,7 @@ describe('resolveCompanyOptions', () => {
     });
     const company = makeCompany();
 
-    const resolved = resolveCompanyOptions(company, firstMember);
+    const resolved = resolveCompanyOptions(company.lastEditedOptions, firstMember);
 
     expect(resolved.audioMode).toBe('none');
     expect(resolved.rhythmicDensity).toBe(50);
@@ -76,7 +76,7 @@ describe('resolveCompanyOptions', () => {
     const firstMember = makeRobot({ masterVolume: 0.6, rhythmicDensity: 42 });
     const company = makeCompany({ lastEditedOptions: { masterVolume: 0.9 } });
 
-    const resolved = resolveCompanyOptions(company, firstMember);
+    const resolved = resolveCompanyOptions(company.lastEditedOptions, firstMember);
 
     expect(resolved.masterVolume).toBe(0.9); // recorded override wins
     expect(resolved.rhythmicDensity).toBe(42); // untouched field still falls back live
@@ -85,12 +85,12 @@ describe('resolveCompanyOptions', () => {
   it('the first member\'s own subsequent live changes are reflected for any field the snapshot does not cover — never frozen at first-selection time', () => {
     const company = makeCompany({ lastEditedOptions: { masterVolume: 0.9 } });
 
-    const before = resolveCompanyOptions(company, makeRobot({ rhythmicDensity: 10 }));
+    const before = resolveCompanyOptions(company.lastEditedOptions, makeRobot({ rhythmicDensity: 10 }));
     expect(before.rhythmicDensity).toBe(10);
 
     // The "first member" robot object drifted (e.g. edited individually) between two calls —
     // resolveCompanyOptions has no memory of its own; it re-reads whatever is passed in.
-    const after = resolveCompanyOptions(company, makeRobot({ rhythmicDensity: 77 }));
+    const after = resolveCompanyOptions(company.lastEditedOptions, makeRobot({ rhythmicDensity: 77 }));
     expect(after.rhythmicDensity).toBe(77);
     // The recorded override is unaffected by the drift.
     expect(after.masterVolume).toBe(0.9);
