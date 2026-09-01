@@ -435,6 +435,41 @@ describe('AudioEngine - Polyphony Management', () => {
       expect(triggerWithCap({ robotId: 'test', note: 'C4', duration: '4n', time: 0, velocity: 0.8 })).toBe(true); // freed up again
     });
   });
+
+  // Skipped Notes counter (bottom-left debug overlay) reads this history.
+  describe('Skipped notes per-measure recording (debugStore)', () => {
+    it('records 0 for a measure where nothing was skipped', async () => {
+      const { subscribeToMeasure } = await import('./beatClock');
+      const { useDebugStore } = await import('../stores/debugStore');
+      useDebugStore.setState({ skippedNotesHistory: [] });
+
+      const measureCallback = (subscribeToMeasure as unknown as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0] as (m: number) => void;
+      measureCallback(0);
+
+      expect(useDebugStore.getState().skippedNotesHistory).toEqual([0]);
+    });
+
+    it('records the number of notes skipped due to the polyphony cap that measure, then resets for the next', async () => {
+      const { triggerWithCap } = await import('./AudioEngine');
+      const { subscribeToMeasure } = await import('./beatClock');
+      const { useDebugStore } = await import('../stores/debugStore');
+      useDebugStore.setState({ skippedNotesHistory: [] });
+      const measureCallback = (subscribeToMeasure as unknown as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0] as (m: number) => void;
+
+      for (let i = 0; i < 16; i++) triggerWithCap({ robotId: 'test', note: 'C4', duration: '4n', time: 0, velocity: 0.8 });
+      // 3 more this measure, all rejected by the cap.
+      triggerWithCap({ robotId: 'test', note: 'C4', duration: '4n', time: 0, velocity: 0.8 });
+      triggerWithCap({ robotId: 'test', note: 'C4', duration: '4n', time: 0, velocity: 0.8 });
+      triggerWithCap({ robotId: 'test', note: 'C4', duration: '4n', time: 0, velocity: 0.8 });
+
+      measureCallback(1);
+      expect(useDebugStore.getState().skippedNotesHistory).toEqual([3]);
+
+      // Next measure has no skips — recorded as 0, not carried over from the last measure.
+      measureCallback(2);
+      expect(useDebugStore.getState().skippedNotesHistory).toEqual([3, 0]);
+    });
+  });
 });
 
 describe('AudioEngine - audioMode enforcement (solo/mute/highlight)', () => {

@@ -4,6 +4,7 @@
 import * as Tone from 'tone';
 import gsap from 'gsap';
 import { useLocaleStore } from '../stores/localeStore';
+import { useDebugStore } from '../stores/debugStore';
 import { getActiveLocaleId } from '../utils/localeHelpers';
 import { lfoEngine } from './lfoEngine';
 
@@ -107,6 +108,11 @@ let initialized = false;
 let instrumentsLoaded = false;
 // Reservation state
 let activeVoices = 0;
+// Notes rejected by the polyphony cap (triggerWithCap) so far this measure —
+// snapshotted into useDebugStore.skippedNotesHistory and reset to 0 on every
+// measure boundary (see the subscribeToMeasure callback in start()). Feeds
+// the Skipped Notes debug counter (src/components/debug/SkippedNotesCounter.tsx).
+let skippedNotesThisMeasure = 0;
 // Global FX chain (compressor, reverb/delay/limiter/EQ/filters, master
 // gain) lives in src/engine/audioEngine/globalFx.ts as its own module state.
 // Unsubscribe handle for the BeatClock measure listener; prevents duplicate
@@ -305,6 +311,7 @@ export function triggerWithCap(params: NoteParams): boolean {
 
   if (activeVoices >= MAX_POLYPHONY) {
     devLog(`[AudioEngine] Polyphony capped: ${activeVoices}/${MAX_POLYPHONY}`);
+    skippedNotesThisMeasure++;
     return false;
   }
 
@@ -581,6 +588,10 @@ export const AudioEngine = {
       _unsubscribeMeasure?.();
       _unsubscribeMeasure = subscribeToMeasure((m: number) => {
         useLocaleStore.getState().setLocaleData(getActiveLocaleId(), { currentMeasure: m });
+        // Snapshot this measure's polyphony-cap skips into the debug history,
+        // then reset the counter for the next measure.
+        useDebugStore.getState().recordSkippedNotesForMeasure(skippedNotesThisMeasure);
+        skippedNotesThisMeasure = 0;
       });
     } catch (err) {
       devWarn('[AudioEngine] subscribeToMeasure failed', err);
@@ -610,6 +621,7 @@ export const AudioEngine = {
 
     stepCounter = 0;
     activeVoices = 0;
+    skippedNotesThisMeasure = 0;
     initialized = false;
 
     devLog('[AudioEngine] Stopped');
@@ -1179,6 +1191,7 @@ export const AudioEngine = {
 
       stepCounter = 0;
       activeVoices = 0;
+      skippedNotesThisMeasure = 0;
       initialized = false;
       // Reset beatClock so initBeatClock() re-registers its internal tick on next start.
       // transport.cancel() above cleared the old 16n tick; resetBeatClock() lets it be recreated.
