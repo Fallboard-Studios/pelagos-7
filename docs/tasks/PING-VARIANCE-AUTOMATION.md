@@ -168,7 +168,7 @@ Note: a couple of `audioSwells.test.ts`'s real-noise robot-pool tests showed occ
 
 ### Phase 3: UI — the new slider
 
-- [ ] **Task 6: `audioRigConfig.ts` + `AudioRigDrawer.tsx` — the Ping Variance Automation slider**
+- [x] **Task 6: `audioRigConfig.ts` + `AudioRigDrawer.tsx` — the Ping Variance Automation slider**
 
   **Description:** Add `PING_VARIANCE_AUTOMATION_SCHEMA` (`SliderLinearSchema`, `min: 0, max: 100, step: 1, unit: '%'`, `humanLabel: 'Automatic Effects'`, confirmed) to `audioRigConfig.ts`, exported as a bare schema alongside `DECAY_MODE_SCHEMA`. Render a bare `SliderLinear` in `AudioRigDrawer.tsx`, after the `LFO_DRIFT_GROUPS.map(...)` block and outside any `AccordionContainer`, wired to `pingVarianceAutomation`/`setPingVarianceAutomation` with the same `* 100` / `/ 100` conversion the LFO Drift rows already use, `disabled={rigDisabled}` — spec §1.2, §4. Can be implemented in parallel with Tasks 3–5 (see Architecture Decisions) since it touches no shared file.
 
@@ -189,7 +189,7 @@ Note: a couple of `audioSwells.test.ts`'s real-noise robot-pool tests showed occ
   **Estimated scope:** M (4 files, new UI wiring reusing an existing primitive)
 
 ### Checkpoint: New control live
-- [ ] `npm run build:types`, `npm run lint`, `npx vitest run src/data/audioRigConfig.test.ts src/components/panels/screen/console/AudioRigDrawer.test.tsx` clean.
+- [x] `npm run build:types`, `npm run lint`, `npx vitest run src/data/audioRigConfig.test.ts src/components/panels/screen/console/AudioRigDrawer.test.tsx` clean. `npm test` also clean: 1596 tests across 103 files.
 - [ ] Manual check: the slider is visible at the bottom of the Audio Rig drawer, drags correctly, and disables under Bypass. The old Sector Settings toggle is still present too (harmless, temporary overlap — removed in Task 7).
 - [ ] Review with human before proceeding.
 
