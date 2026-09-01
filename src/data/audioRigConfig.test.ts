@@ -3,7 +3,7 @@
 // ========================================
 import { describe, it, expect } from 'vitest';
 
-import { AUDIO_RIG_CONFIG, DECAY_MODE_SCHEMA, LFO_DRIFT_GROUPS } from './audioRigConfig';
+import { AUDIO_RIG_CONFIG, DECAY_MODE_SCHEMA, LFO_DRIFT_GROUPS, PING_VARIANCE_AUTOMATION_SCHEMA } from './audioRigConfig';
 import { DRIFT_GROUP_IDS } from '../types/lfo';
 import { GLOBAL_LFO_TARGET_IDS } from '../types/lfo';
 
@@ -314,5 +314,40 @@ describe('LFO_DRIFT_GROUPS', () => {
 
   it('the closed-set coverage assertion over AUDIO_RIG_CONFIG\'s own param schema types is unaffected — LFO_DRIFT_GROUPS is a standalone export, not part of that array', () => {
     expect(AUDIO_RIG_CONFIG.length).toBe(7); // still exactly the 7 GLOBAL_CHAIN_GRID.md effect blocks
+  });
+});
+
+describe('PING_VARIANCE_AUTOMATION_SCHEMA', () => {
+  it('is a linear slider, 0-100%, id audioRig.pingVarianceAutomation', () => {
+    expect(PING_VARIANCE_AUTOMATION_SCHEMA).toMatchObject({
+      id: 'audioRig.pingVarianceAutomation',
+      type: 'sliderLinear',
+      min: 0,
+      max: 100,
+      unit: '%',
+    });
+  });
+
+  it('carries the confirmed lore label and human label', () => {
+    expect(PING_VARIANCE_AUTOMATION_SCHEMA.loreLabel).toBe('PING VARIANCE AUTOMATION');
+    expect(PING_VARIANCE_AUTOMATION_SCHEMA.humanLabel).toBe('Automatic Effects');
+  });
+
+  it('carries an explicit fine-grained step, same regression guard as every other sliderLinear schema in this file', () => {
+    expect(PING_VARIANCE_AUTOMATION_SCHEMA.step).toBeDefined();
+    expect(PING_VARIANCE_AUTOMATION_SCHEMA.step!).toBeLessThan(PING_VARIANCE_AUTOMATION_SCHEMA.max - PING_VARIANCE_AUTOMATION_SCHEMA.min);
+  });
+
+  it('is not part of AUDIO_RIG_CONFIG\'s per-effect array — it is a bare, Rig-wide meta-setting, not an effect param', () => {
+    const allConfigSchemaIds = AUDIO_RIG_CONFIG.flatMap((b) => [
+      b.accordion.id,
+      b.enabledSchema.id,
+      ...b.params.flatMap((p) => [p.schema.id, p.lfoAccordion?.id].filter((id): id is string => Boolean(id))),
+    ]);
+    expect(allConfigSchemaIds).not.toContain(PING_VARIANCE_AUTOMATION_SCHEMA.id);
+  });
+
+  it('remains JSON-serializable', () => {
+    expect(() => JSON.stringify(PING_VARIANCE_AUTOMATION_SCHEMA)).not.toThrow();
   });
 });

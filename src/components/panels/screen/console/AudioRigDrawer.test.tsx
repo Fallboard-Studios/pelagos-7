@@ -445,4 +445,44 @@ describe('AudioRigDrawer', () => {
       }
     });
   });
+
+  describe('Ping Variance Automation slider (Task 6)', () => {
+    it('renders exactly once, showing the store\'s current fraction as a 0-100 percent', () => {
+      useAudioStore.setState({ pingVarianceAutomation: 0.42 });
+      render(<AudioRigDrawer />);
+      const slider = screen.getByRole('slider', { name: 'Automatic Effects' });
+      expect(slider.getAttribute('aria-valuenow')).toBe('42');
+    });
+
+    it('dragging it calls setPingVarianceAutomation with the dragged percent divided by 100', () => {
+      useAudioStore.setState({ pingVarianceAutomation: 0.5 });
+      render(<AudioRigDrawer />);
+      const slider = screen.getByRole('slider', { name: 'Automatic Effects' });
+      slider.focus();
+      fireEvent.keyDown(slider, { key: 'ArrowRight' });
+
+      const newPercent = Number(slider.getAttribute('aria-valuenow'));
+      expect(newPercent).not.toBe(50); // the key press actually moved it
+      expect(useAudioStore.getState().pingVarianceAutomation).toBeCloseTo(newPercent / 100);
+    });
+
+    it('is disabled when the rig-wide bypass is on, matching every other Rig-wide control', () => {
+      useAudioStore.setState((s) => ({ globalAudio: { ...s.globalAudio, globalBypass: true } }));
+      render(<AudioRigDrawer />);
+      const slider = screen.getByRole('slider', { name: 'Automatic Effects' });
+      expect(slider.getAttribute('data-disabled')).toBe('');
+    });
+
+    it('is enabled when the rig-wide bypass is off', () => {
+      render(<AudioRigDrawer />);
+      const slider = screen.getByRole('slider', { name: 'Automatic Effects' });
+      expect(slider.getAttribute('data-disabled')).toBeNull();
+    });
+
+    it('renders as a bare control, outside any accordion — not nested inside an effect block or Drift group', () => {
+      render(<AudioRigDrawer />);
+      const slider = screen.getByRole('slider', { name: 'Automatic Effects' });
+      expect(slider.closest('.sc-accordion')).toBeNull();
+    });
+  });
 });
