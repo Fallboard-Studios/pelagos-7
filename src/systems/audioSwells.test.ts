@@ -507,6 +507,60 @@ describe('pingVarianceAutomation forced return at 0% (Task 4)', () => {
   });
 });
 
+describe('globalBypass fully silences the global pool (Task 5)', () => {
+  it('starts no new global swell when globalBypass is true, even when the trigger draw would otherwise succeed; a robot swell can still start the same tick', () => {
+    useAudioStore.setState((s) => ({ globalAudio: { ...s.globalAudio, globalBypass: true } }));
+    useLocaleStore.getState().addRobot(LOCALE_ID, makeRobot());
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
+
+    tickAudioSwells(LOCALE_ID, 0);
+
+    expect(getActiveSwellSnapshot('global')).toEqual([]);
+    expect(getActiveSwellSnapshot('robot').length).toBeGreaterThan(0);
+  });
+
+  it('cancels an in-flight global swell immediately and snaps to baseValue the tick globalBypass flips true, not a gradual fall', () => {
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
+    tickAudioSwells(LOCALE_ID, 0); // eq3.low: base 0, peak 12, rising 3, falling 3
+
+    tickAudioSwells(LOCALE_ID, 1); // partway into rising
+    expect(useAudioStore.getState().globalAudio.eq3.low).toBeCloseTo(4);
+
+    useAudioStore.setState((s) => ({ globalAudio: { ...s.globalAudio, globalBypass: true } }));
+
+    tickAudioSwells(LOCALE_ID, 1); // same measure — bypass now on
+    expect(useAudioStore.getState().globalAudio.eq3.low).toBe(0); // snapped directly to base, not a partial step toward it
+    expect(getActiveSwellSnapshot('global').some((s) => s.globalTarget === 'eq3.low')).toBe(false);
+  });
+
+  it('leaves the robot pool completely unaffected by globalBypass — new eligibility and in-flight advancement both continue normally', () => {
+    useLocaleStore.getState().addRobot(LOCALE_ID, makeRobot({ masterVolume: 0.1 })); // up: peak 0.6, peakDelta 0.5 via ALWAYS_MIN
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
+    tickAudioSwells(LOCALE_ID, 0); // robot volume swell starts
+
+    useAudioStore.setState((s) => ({ globalAudio: { ...s.globalAudio, globalBypass: true } }));
+
+    tickAudioSwells(LOCALE_ID, 3); // falling phase's first tick — still advances despite globalBypass
+    expect(useLocaleStore.getState().getRobotById(LOCALE_ID, 'r1')!.masterVolume).toBeCloseTo(0.6);
+    expect(getActiveSwellSnapshot('robot').some((s) => s.robotAttribute === 'volume')).toBe(true);
+
+    const robotCountBefore = getActiveSwellSnapshot('robot').length;
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
+    tickAudioSwells(LOCALE_ID, 4); // a new whole measure — a fresh robot trigger can still roll
+
+    expect(getActiveSwellSnapshot('robot').length).toBeGreaterThan(robotCountBefore);
+  });
+
+  it('composes with pingVarianceAutomation — globalBypass true blocks new global swells even when automation is 1 (bypass alone is sufficient)', () => {
+    useAudioStore.setState((s) => ({ globalAudio: { ...s.globalAudio, globalBypass: true }, pingVarianceAutomation: 1 }));
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
+
+    tickAudioSwells(LOCALE_ID, 0);
+
+    expect(getActiveSwellSnapshot('global')).toEqual([]);
+  });
+});
+
 describe('trigger gating (SWELL_TRIGGER_CHANCE)', () => {
   it('does not start a swell when the seeded trigger draw lands well above the trigger chance', () => {
     vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MID); // draw = 0.5

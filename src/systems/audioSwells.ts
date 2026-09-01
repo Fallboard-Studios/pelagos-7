@@ -453,10 +453,16 @@ export function tickAudioSwells(localeId: string, measure: number): void {
 // GLOBAL POOL — TRIGGER & SELECTION
 // ========================================
 
+/** globalBypass is treated exactly like a per-effect disable
+ *  (docs/specs/PING-VARIANCE-AUTOMATION.md §1.6) — a second, rig-wide way
+ *  for an effect to be inaudible, gating new-swell eligibility the same way
+ *  an individual effect's own `enabled: false` already does. Scoped to the
+ *  global pool only; the robot pool has no equivalent check. */
 function isGlobalTargetEligible(target: SwellGlobalTargetId): boolean {
   if (activeSwells.has(target)) return false;
-  const meta = GLOBAL_TARGET_META[target];
-  return useAudioStore.getState().globalAudio[meta.effect].enabled;
+  const globalAudio = useAudioStore.getState().globalAudio;
+  if (globalAudio.globalBypass) return false;
+  return globalAudio[GLOBAL_TARGET_META[target].effect].enabled;
 }
 
 /** HPF/LPF each get one clamp on their own frequency swell — same shape as
@@ -766,12 +772,14 @@ function advanceGlobalSwell(key: string, swell: ActiveSwell, measure: number, au
   const baseValue = swell.baseValue!;
   const peakDelta = swell.peakDelta!;
 
-  const stillEnabled = useAudioStore.getState().globalAudio[meta.effect].enabled;
+  const globalAudio = useAudioStore.getState().globalAudio;
+  const stillEnabled = globalAudio[meta.effect].enabled && !globalAudio.globalBypass;
   if (!stillEnabled) {
-    // An effect disabled mid-swell cancels that swell immediately, snapping
-    // back to its captured base value in the same tick — better than
-    // silently continuing to write into a bypassed node's now-irrelevant
-    // param (docs/specs/AUDIO_SWELLS.md §3).
+    // An effect disabled (or the whole Rig bypassed, docs/specs/
+    // PING-VARIANCE-AUTOMATION.md §1.6) mid-swell cancels that swell
+    // immediately, snapping back to its captured base value in the same
+    // tick — better than silently continuing to write into a bypassed
+    // node's now-irrelevant param (docs/specs/AUDIO_SWELLS.md §3).
     writeGlobalValue(target, baseValue);
     activeSwells.delete(key);
     return;
