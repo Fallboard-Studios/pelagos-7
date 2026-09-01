@@ -419,29 +419,29 @@ export function tickAudioSwells(localeId: string, measure: number): void {
   if (!as) return;
   const noiseMap = getAttenuationStyleNoiseMap(as.id, as.name);
 
-  // Advance runs every tick regardless of the automation gate below — an
-  // already-in-flight swell finishes its own ramp naturally even at
-  // automation 0; automation only ever prevents NEW swells from starting
-  // (docs/specs/PING-VARIANCE-AUTOMATION.md §1.3 — the 0%-forced-return
-  // behavior is a separate, later addition to advanceActiveSwells itself,
-  // not a gate here). Smooth, sub-measure interpolation from whatever
+  // Read once per tick — threaded through to advanceActiveSwells (the
+  // 0%-forced-return check, §1.4) and, below, to both pools' swell-creation
+  // call sites (magnitude scaling, §1.3). Advance runs every tick regardless
+  // of automation's value: a still-rising swell gets force-converted at
+  // exactly 0 (see maybeForceGlobalSwellReturn/maybeForceRobotSwellReturn),
+  // but a swell already falling always keeps riding its own ramp to base
+  // either way — automation never cancels a swell outright the way a
+  // disabled effect does. Smooth, sub-measure interpolation from whatever
   // fractional `measure` this tick carries (16n resolution in production;
   // tests may pass any real number). Trigger/selection stays gated to once
   // per WHOLE measure — SWELL_TRIGGER_CHANCE etc. are documented as
   // per-measure probabilities, and re-rolling them 16x a measure would
   // multiply the effective trigger rate and break the ~3-4-measure average
   // gap the spec calls for.
-  advanceActiveSwells(localeId, measure);
+  const automation = useAudioStore.getState().pingVarianceAutomation;
+  advanceActiveSwells(localeId, measure, automation);
 
   const wholeMeasure = Math.floor(measure);
   if (wholeMeasure !== lastRolledMeasure) {
     lastRolledMeasure = wholeMeasure;
-    // A continuous fraction, read once per tick and threaded through to both
-    // pools' swell-creation call sites so each can scale its own final
-    // peakDelta by it (docs/specs/PING-VARIANCE-AUTOMATION.md §1.3).
     // automation is never 0 past this point in the tick — the `> 0` check
-    // below is the one and only place that matters.
-    const automation = useAudioStore.getState().pingVarianceAutomation;
+    // below is the one and only place that matters for the trigger/selection
+    // side; magnitude scaling at each call site never sees a 0 automation.
     if (automation > 0) {
       maybeStartGlobalSwell(noiseMap, wholeMeasure, automation);
       maybeStartRobotSwell(localeId, noiseMap, wholeMeasure, automation);
@@ -700,19 +700,69 @@ function robotPeakDeltaForDirection(
 // ADVANCE / WRITE-BACK
 // ========================================
 
-function advanceActiveSwells(localeId: string, measure: number): void {
+function advanceActiveSwells(localeId: string, measure: number, automation: number): void {
   const processed = new Set<ActiveSwell>();
   for (const swell of activeSwells.values()) {
     if (processed.has(swell)) continue;
     processed.add(swell);
-    if (swell.pool === 'global') advanceGlobalSwell(swell.globalTarget!, swell, measure);
-    else advanceRobotSwell(swell, localeId, measure);
+    if (swell.pool === 'global') advanceGlobalSwell(swell.globalTarget!, swell, measure, automation);
+    else advanceRobotSwell(swell, localeId, measure, automation);
   }
 }
 
-function advanceGlobalSwell(key: string, swell: ActiveSwell, measure: number): void {
+/**
+ * 0%-forced-return (docs/specs/PING-VARIANCE-AUTOMATION.md §1.4): a swell
+ * still in its rising phase when automation is exactly 0 is converted in
+ * place to ride its own already-drawn fallingMeasures back to base, reusing
+ * the falling-phase formula below completely unchanged rather than a new
+ * snap/curve. Setting risingMeasures to 0 and startMeasure to `measure` (now)
+ * makes this tick's elapsed time 0, so the falling formula evaluates to
+ * exactly `currentValue` — no audible jump on the forcing tick itself.
+ *
+ * Guarded to `phase === 'rising'` only, which doubles as the "already
+ * forced" marker with no new ActiveSwell field: forcing flips phase to
+ * 'falling' immediately, so this can never re-fire for the same swell on a
+ * later tick (re-deriving peakDelta from currentValue every tick would
+ * otherwise freeze the swell in place instead of ever reaching base). A
+ * swell already falling — naturally or because it was forced earlier — is
+ * correctly left untouched: it's already walking to base.
+ */
+function maybeForceGlobalSwellReturn(swell: ActiveSwell, target: SwellGlobalTargetId, measure: number, automation: number): void {
+  if (automation !== 0 || swell.phase !== 'rising') return;
+  const currentValue = readGlobalValue(target);
+  swell.peakDelta = currentValue - swell.baseValue!;
+  swell.risingMeasures = 0;
+  swell.startMeasure = measure;
+  swell.phase = 'falling';
+}
+
+/** Same mechanism as maybeForceGlobalSwellReturn, generalized to the robot
+ *  pool's per-member baseValue/peakDelta shape — phase/timing are mutated
+ *  once at the swell level (shared, lock-step), each member's own peakDelta
+ *  is re-derived from its own current live value. A member whose robot no
+ *  longer exists is simply skipped here; the main advance loop below already
+ *  skips writing/reading such a member too, so a stale peakDelta on it is
+ *  never observed. */
+function maybeForceRobotSwellReturn(swell: ActiveSwell, localeId: string, measure: number, automation: number): void {
+  if (automation !== 0 || swell.phase !== 'rising') return;
+  const attribute = swell.robotAttribute!;
+  for (const member of swell.members!) {
+    const robot = useLocaleStore.getState().getRobotById(localeId, member.robotId);
+    if (!robot) continue;
+    const currentValue = readRobotValue(robot, attribute);
+    member.peakDelta = currentValue - member.baseValue;
+  }
+  swell.risingMeasures = 0;
+  swell.startMeasure = measure;
+  swell.phase = 'falling';
+}
+
+function advanceGlobalSwell(key: string, swell: ActiveSwell, measure: number, automation: number): void {
   const target = swell.globalTarget!;
   const meta = GLOBAL_TARGET_META[target];
+
+  maybeForceGlobalSwellReturn(swell, target, measure, automation);
+
   const baseValue = swell.baseValue!;
   const peakDelta = swell.peakDelta!;
 
@@ -762,9 +812,11 @@ function advanceGlobalSwell(key: string, swell: ActiveSwell, measure: number): v
  * time only (docs/specs/AUDIO_SWELLS.md §7, an explicitly deferred open
  * question, not addressed this task).
  */
-function advanceRobotSwell(swell: ActiveSwell, localeId: string, measure: number): void {
+function advanceRobotSwell(swell: ActiveSwell, localeId: string, measure: number, automation: number): void {
   const attribute = swell.robotAttribute!;
   const members = swell.members!;
+
+  maybeForceRobotSwellReturn(swell, localeId, measure, automation);
 
   const elapsed = measure - swell.startMeasure;
   const total = swell.risingMeasures + swell.fallingMeasures;

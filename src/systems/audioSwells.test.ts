@@ -243,9 +243,10 @@ describe('smooth sub-measure advance (16n ticking)', () => {
 describe('pingVarianceAutomation gate (docs/tasks/PING-VARIANCE-AUTOMATION.md Task 3)', () => {
   // Renamed/adapted from the former audioSwellsEnabled (Sector Settings
   // toggle) describe block — tickAudioSwells now reads pingVarianceAutomation
-  // instead. The "finish naturally while disabled" test below is still
-  // accurate at this point in the plan: forced-return-at-0% is Task 4, not
-  // this one, so 0% still behaves exactly like the old boolean's "off" did.
+  // instead. The old "finish naturally while disabled mid-ramp" test that
+  // used to live here is deleted, not adapted, as of Task 4 — 0% now forces
+  // an early return instead (see the 'pingVarianceAutomation forced return
+  // at 0%' describe block below).
   it('starts no new swell (global or robot) at automation 0, even when the trigger draw would otherwise succeed', () => {
     useAudioStore.setState({ pingVarianceAutomation: 0 });
     useLocaleStore.getState().addRobot(LOCALE_ID, makeRobot());
@@ -255,21 +256,6 @@ describe('pingVarianceAutomation gate (docs/tasks/PING-VARIANCE-AUTOMATION.md Ta
 
     expect(getActiveSwellSnapshot('global')).toEqual([]);
     expect(getActiveSwellSnapshot('robot')).toEqual([]);
-  });
-
-  it('lets an already-in-flight swell finish naturally at automation 0 mid-ramp, rather than cancelling it (still true — Task 4 changes this)', () => {
-    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
-    tickAudioSwells(LOCALE_ID, 0); // eq3.low: base 0, peak 12, rising 3, falling 3, automation still 1
-
-    useAudioStore.setState({ pingVarianceAutomation: 0 }); // drop to 0 mid-ramp
-
-    tickAudioSwells(LOCALE_ID, 3); // falling phase's first tick — still advances despite automation being 0
-    expect(useAudioStore.getState().globalAudio.eq3.low).toBeCloseTo(12);
-    expect(getActiveSwellSnapshot('global').some((s) => s.globalTarget === 'eq3.low')).toBe(true);
-
-    tickAudioSwells(LOCALE_ID, 6); // completes naturally, exactly like a normal (non-zero) finish
-    expect(useAudioStore.getState().globalAudio.eq3.low).toBe(0);
-    expect(getActiveSwellSnapshot('global').some((s) => s.globalTarget === 'eq3.low')).toBe(false);
   });
 
   it('resumes starting new swells once automation is nonzero again', () => {
@@ -391,6 +377,133 @@ describe('pingVarianceAutomation magnitude scaling (Task 3)', () => {
       expect(scaledMember.baseValue).toBe(unscaledMember.baseValue);
       expect(scaledMember.peakDelta).toBeCloseTo(unscaledMember.peakDelta * 0.5);
     }
+  });
+});
+
+describe('pingVarianceAutomation forced return at 0% (Task 4)', () => {
+  it('forces a rising global swell into its falling phase with no jump, then lands exactly on baseValue after its own original fallingMeasures', () => {
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
+    tickAudioSwells(LOCALE_ID, 0); // eq3.low: base 0, peak 12, rising 3, falling 3
+
+    tickAudioSwells(LOCALE_ID, 1); // partway into rising
+    const valueBeforeForcing = useAudioStore.getState().globalAudio.eq3.low;
+    expect(valueBeforeForcing).toBeCloseTo(4); // 12 * (1/3)
+
+    useAudioStore.setState({ pingVarianceAutomation: 0 });
+
+    tickAudioSwells(LOCALE_ID, 1); // the forcing tick itself — same measure, automation now 0
+    expect(useAudioStore.getState().globalAudio.eq3.low).toBeCloseTo(valueBeforeForcing); // no audible jump
+    const swell = getActiveSwellSnapshot('global').find((s) => s.globalTarget === 'eq3.low')!;
+    expect(swell.phase).toBe('falling');
+
+    tickAudioSwells(LOCALE_ID, 1 + 3); // rides its own original fallingMeasures (3) back to base
+    expect(useAudioStore.getState().globalAudio.eq3.low).toBe(0);
+    expect(getActiveSwellSnapshot('global').some((s) => s.globalTarget === 'eq3.low')).toBe(false);
+  });
+
+  it('forces a rising single-robot swell the same way', () => {
+    useLocaleStore.getState().addRobot(LOCALE_ID, makeRobot({ masterVolume: 0.1 })); // up: floor 0.6, peak 0.6 via ALWAYS_MIN
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
+    tickAudioSwells(LOCALE_ID, 0); // base 0.1, peak 0.6 (peakDelta 0.5), rising 3, falling 3
+
+    tickAudioSwells(LOCALE_ID, 1);
+    const valueBeforeForcing = useLocaleStore.getState().getRobotById(LOCALE_ID, 'r1')!.masterVolume;
+    expect(valueBeforeForcing).toBeCloseTo(0.1 + 0.5 * (1 / 3));
+
+    useAudioStore.setState({ pingVarianceAutomation: 0 });
+
+    tickAudioSwells(LOCALE_ID, 1); // forcing tick
+    expect(useLocaleStore.getState().getRobotById(LOCALE_ID, 'r1')!.masterVolume).toBeCloseTo(valueBeforeForcing);
+    const swell = getActiveSwellSnapshot('robot').find((s) => s.robotAttribute === 'volume')!;
+    expect(swell.phase).toBe('falling');
+
+    tickAudioSwells(LOCALE_ID, 1 + 3);
+    expect(useLocaleStore.getState().getRobotById(LOCALE_ID, 'r1')!.masterVolume).toBe(0.1);
+    expect(getActiveSwellSnapshot('robot').some((s) => s.robotAttribute === 'volume')).toBe(false);
+  });
+
+  it('forces every member of a company-wide swell together, sharing phase/timing, each landing exactly on its own baseValue', () => {
+    useLocaleStore.getState().addRobot(LOCALE_ID, makeRobot({ id: 'r1', masterVolume: 0.1 }));
+    useLocaleStore.getState().addRobot(LOCALE_ID, makeRobot({ id: 'r2', masterVolume: 0.9 }));
+    useLocaleStore.getState().addCompany(LOCALE_ID, makeCompany({ robotIds: ['r1', 'r2'] }));
+
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
+    tickAudioSwells(LOCALE_ID, 0); // company-wide volume swell, rising 3 / falling 3
+
+    tickAudioSwells(LOCALE_ID, 1); // partway into rising
+    const r1Before = useLocaleStore.getState().getRobotById(LOCALE_ID, 'r1')!.masterVolume;
+    const r2Before = useLocaleStore.getState().getRobotById(LOCALE_ID, 'r2')!.masterVolume;
+
+    useAudioStore.setState({ pingVarianceAutomation: 0 });
+    tickAudioSwells(LOCALE_ID, 1); // forcing tick — both members convert together
+
+    expect(useLocaleStore.getState().getRobotById(LOCALE_ID, 'r1')!.masterVolume).toBeCloseTo(r1Before);
+    expect(useLocaleStore.getState().getRobotById(LOCALE_ID, 'r2')!.masterVolume).toBeCloseTo(r2Before);
+    const swell = getActiveSwellSnapshot('robot').find((s) => s.companyId === 'c1')!;
+    expect(swell.phase).toBe('falling');
+
+    tickAudioSwells(LOCALE_ID, 1 + 3);
+    expect(useLocaleStore.getState().getRobotById(LOCALE_ID, 'r1')!.masterVolume).toBe(0.1);
+    expect(useLocaleStore.getState().getRobotById(LOCALE_ID, 'r2')!.masterVolume).toBe(0.9);
+    expect(getActiveSwellSnapshot('robot')).toEqual([]);
+  });
+
+  it('leaves a swell already in its falling phase untouched when automation drops to 0 — no re-forcing', () => {
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
+    tickAudioSwells(LOCALE_ID, 0); // eq3.low creates, rising 3 / falling 3
+
+    tickAudioSwells(LOCALE_ID, 3); // falling phase's first tick, naturally (automation still 1)
+    const swellBefore = getActiveSwellSnapshot('global').find((s) => s.globalTarget === 'eq3.low')!;
+    expect(swellBefore.phase).toBe('falling');
+    const { peakDelta: peakDeltaBefore, startMeasure: startMeasureBefore } = swellBefore;
+
+    useAudioStore.setState({ pingVarianceAutomation: 0 });
+    tickAudioSwells(LOCALE_ID, 4); // still falling, automation now 0
+
+    const swellAfter = getActiveSwellSnapshot('global').find((s) => s.globalTarget === 'eq3.low')!;
+    expect(swellAfter.peakDelta).toBe(peakDeltaBefore);
+    expect(swellAfter.startMeasure).toBe(startMeasureBefore);
+    expect(swellAfter.phase).toBe('falling');
+  });
+
+  it('does not re-derive peakDelta on an already-forced (now-falling) swell across repeated ticks at automation 0', () => {
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
+    tickAudioSwells(LOCALE_ID, 0);
+    tickAudioSwells(LOCALE_ID, 1);
+    useAudioStore.setState({ pingVarianceAutomation: 0 });
+    tickAudioSwells(LOCALE_ID, 1); // forcing tick
+    const { peakDelta, startMeasure } = getActiveSwellSnapshot('global').find((s) => s.globalTarget === 'eq3.low')!;
+
+    tickAudioSwells(LOCALE_ID, 1.5);
+    tickAudioSwells(LOCALE_ID, 2);
+
+    const swellLater = getActiveSwellSnapshot('global').find((s) => s.globalTarget === 'eq3.low')!;
+    expect(swellLater.peakDelta).toBe(peakDelta);
+    expect(swellLater.startMeasure).toBe(startMeasure);
+  });
+
+  it('does not interrupt, reverse, or resume a forced return when automation goes back to nonzero before it completes', () => {
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
+    tickAudioSwells(LOCALE_ID, 0);
+    tickAudioSwells(LOCALE_ID, 1);
+    useAudioStore.setState({ pingVarianceAutomation: 0 });
+    tickAudioSwells(LOCALE_ID, 1); // forced into falling, riding 3 measures back to base
+    const forced = getActiveSwellSnapshot('global').find((s) => s.globalTarget === 'eq3.low')!;
+    const { peakDelta, startMeasure, risingMeasures, fallingMeasures } = forced;
+
+    useAudioStore.setState({ pingVarianceAutomation: 1 }); // back to nonzero before the forced fall completes
+    tickAudioSwells(LOCALE_ID, 2); // still mid forced-fall
+
+    const stillForced = getActiveSwellSnapshot('global').find((s) => s.globalTarget === 'eq3.low')!;
+    expect(stillForced.phase).toBe('falling');
+    expect(stillForced.peakDelta).toBe(peakDelta);
+    expect(stillForced.startMeasure).toBe(startMeasure);
+    expect(stillForced.risingMeasures).toBe(risingMeasures);
+    expect(stillForced.fallingMeasures).toBe(fallingMeasures);
+
+    tickAudioSwells(LOCALE_ID, 1 + fallingMeasures); // completes on its forced schedule, not a fresh rise
+    expect(useAudioStore.getState().globalAudio.eq3.low).toBe(0);
+    expect(getActiveSwellSnapshot('global').some((s) => s.globalTarget === 'eq3.low')).toBe(false);
   });
 });
 
