@@ -80,7 +80,7 @@ Task 1 (localeBpmSeed.ts: generateLocaleBpm)      Task 2 (AudioEngine.ts: setBPM
 ### Checkpoint: Foundation
 - [x] `npm run build:types`, `npm run lint`, `npm test` all clean.
 - [x] `generateLocaleBpm` and `setBPM`'s new ramp are both independently correct; nothing in the app calls either from a new wiring path yet.
-- [ ] Review with human before proceeding.
+- [x] Review with human before proceeding.
 
 ---
 
@@ -129,7 +129,7 @@ Task 1 (localeBpmSeed.ts: generateLocaleBpm)      Task 2 (AudioEngine.ts: setBPM
 ### Checkpoint: Reseed wiring complete
 - [x] `npm run build:types`, `npm run lint`, `npm test` all clean. (1609 tests across 104 files; two intermittent noise-map-based flakes seen on one run self-resolved on rerun, unrelated to this feature — same known flakiness class `PING-VARIANCE-AUTOMATION.md`'s own plan flagged.)
 - [x] The exact behavior this feature exists for is now provably true: a coords-changing retransmit reseeds `audioStore.bpm` within `[40, 100]` and discards any manual override; an Attenuation-Style-only retransmit leaves `audioStore.bpm` completely untouched.
-- [ ] Review with human before proceeding.
+- [x] Review with human before proceeding.
 
 ---
 
@@ -159,8 +159,8 @@ Task 1 (localeBpmSeed.ts: generateLocaleBpm)      Task 2 (AudioEngine.ts: setBPM
 
 ### Checkpoint: UI live
 - [x] `npm run build:types`, `npm run lint`, `npx vitest run src/data/audioRigConfig.test.ts src/components/panels/screen/console/AudioRigDrawer.test.tsx` clean. `npm test` also clean (1620 tests across 104 files; one intermittent noise-map-based flake seen on one run self-resolved on rerun, same known class as the Reseed wiring checkpoint's).
-- [ ] Manual check: the Tempo slider is visible at the bottom of the Audio Rig drawer, below Ping Variance Automation; dragging it updates `TransportBar.tsx`'s live BPM readout with no visible/audible stutter; it disables under Bypass. **Not yet performed in a live browser** — automated coverage above confirms the wiring, but this manual pass is still pending.
-- [ ] Review with human before proceeding.
+- [x] Manual check: the Tempo slider is visible at the bottom of the Audio Rig drawer, below Ping Variance Automation; dragging it updates `TransportBar.tsx`'s live BPM readout with no visible/audible stutter; it disables under Bypass. Confirmed in a live browser.
+- [x] Review with human before proceeding.
 
 ---
 
@@ -189,8 +189,8 @@ Task 1 (localeBpmSeed.ts: generateLocaleBpm)      Task 2 (AudioEngine.ts: setBPM
 - [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean. Final full-suite count: 1620 tests across 104 files (1622 after the post-launch fix below).
 - [x] All acceptance criteria across all 6 tasks are met.
 - [x] `docs/AUDIO_SYSTEM.md` reflects the shipped API — every documented name spot-checked against source.
-- [ ] Manual check (spec §5): retransmit coordinates-only several times, confirm the Tempo slider jumps to a new value each time, always within `40`–`100` immediately after; drag to an extreme (e.g. `190`), retransmit Attenuation-Style-only (name change, same coordinates), confirm the dragged value survives untouched; drag to an extreme, retransmit coordinates-only, confirm the drag is discarded in favor of a freshly seeded value; drag the slider while a melody is audibly playing and confirm no audible click/zipper on each step. **Not yet performed in a live browser** — every behavior above has automated coverage (Tasks 3-5), but this pass is still pending.
-- [ ] Ready for human review / PR.
+- [x] Manual check (spec §5): retransmit coordinates-only several times, confirm the Tempo slider jumps to a new value each time, always within `40`–`100` immediately after; drag to an extreme (e.g. `190`), retransmit Attenuation-Style-only (name change, same coordinates), confirm the dragged value survives untouched; drag to an extreme, retransmit coordinates-only, confirm the drag is discarded in favor of a freshly seeded value; drag the slider while a melody is audibly playing and confirm no audible click/zipper on each step. Confirmed in a live browser (used the Click Track testing toggle, added afterward specifically to make this audible check unambiguous — see Post-launch addition below).
+- [x] Ready for human review / PR.
 
 ### Post-launch fix: voice releases stalling on a live BPM change
 
@@ -201,7 +201,7 @@ User-reported after Task 5 shipped: changing BPM made playback "peter out" — o
 - [x] Reproduction test written first (RED): asserts release scheduling goes through `Tone.getContext().setTimeout`, not `transport.scheduleOnce`, and that 16 in-flight voices are freed (polyphony cap lifts) after their releases fire, even with a `setBPM` call in between.
 - [x] Fix applied (GREEN): `src/engine/AudioEngine.ts`'s `scheduleVoiceRelease`.
 - [x] `npx vitest run src/engine/AudioEngine.test.ts` passes (97 tests). Full suite clean: 1622 tests across 104 files. `npm run build:types`, `npm run lint`, `npm run build` all clean.
-- [ ] Live-browser confirmation from the user that playback no longer peters out on a BPM change — the automated regression test proves the mechanism, but this specific fix hasn't been heard in a real browser yet.
+- [x] Live-browser confirmation from the user that playback no longer peters out on a BPM change.
 
 **Files:** `src/engine/AudioEngine.ts`, `src/engine/AudioEngine.test.ts`
 
@@ -215,9 +215,22 @@ User-reported (a trained musician) after the voice-release fix above shipped: dr
 - [x] Fix applied (GREEN): `src/engine/AudioEngine.ts`'s `setBPM`, `BPM_RAMP_SECONDS` constant removed.
 - [x] `npx vitest run src/engine/AudioEngine.test.ts` passes (103 tests). `npm run build:types`, `npm run lint` clean.
 - [x] `docs/AUDIO_SYSTEM.md`'s "BPM / Tempo" section and `AudioEngine` API listing updated to describe the instant assignment, not the ramp.
-- [ ] Live-browser confirmation from the user that dragging the Tempo slider now tracks a stable, locatable beat — the regression test proves the mechanism (no ramp, no restart), but hasn't been heard in a real browser yet.
+- [x] Live-browser confirmation from the user that dragging the Tempo slider now tracks a stable, locatable beat.
 
 **Files:** `src/engine/AudioEngine.ts`, `src/engine/AudioEngine.test.ts`, `docs/AUDIO_SYSTEM.md`
+
+### Post-launch addition: Click Track testing toggle
+
+Added to make the live-browser tempo checks above (Checkpoint: Complete, and the setBPM-ramp-revert's own live-browser confirmation) unambiguous — a robot's own generated melody is hard to track a downbeat against by ear, especially at higher BPM with longer seeded ADSR release times. A dev-only per-robot (or company/All-broadcast) toggle at the top of Ping Controls overrides playback with a fixed 4-quarter-note downbeat pattern instead.
+
+- [x] `src/engine/clickTrack.ts` — the fixed pattern, enforced centrally in `AudioEngine.registerRobotMelody` (the one funnel every melody-registration call site shares) rather than at each call site.
+- [x] Bug found and fixed during this addition: the docking pitch-drift reroll (`robotSystems.ts`'s `landOnDocked`) was silently overwriting an active click track with the drifted real melody while the toggle still read as on — now impossible, since the override is enforced at the shared funnel, not per call site.
+- [x] Available in both `RobotOptionsTab` (single robot) and `CompanyOptionsSection` (company/All broadcast).
+- [x] Gated entirely behind `DEV_TUNING` — same gate as the Skipped Notes debug counter — never reachable in a production build.
+- [x] `npm test` (1687 tests), `npm run build:types`, `npm run lint` all clean.
+- [x] Documented in `docs/MELODY_SYSTEM.md` (Click Track note), `docs/AUDIO_SYSTEM.md` (`registerRobotMelody`'s API listing), and `docs/COMPANIES.md` (`CompanyOptionsSnapshot`'s field list, the broadcast function list).
+
+**Files:** `src/engine/clickTrack.ts`, `src/engine/clickTrack.test.ts`, `src/engine/AudioEngine.ts`, `src/engine/AudioEngine.test.ts`, `src/types/Robot.ts`, `src/types/Company.ts`, `src/systems/robotOptionsActions.ts`, `src/systems/robotOptionsActions.test.ts`, `src/systems/companyOptions.ts`, `src/systems/companyOptions.test.ts`, `src/systems/robotSystems.test.ts`, `src/data/robotOptionsConfig.ts`, `src/data/robotOptionsConfig.test.ts`, `src/components/robot/PingControlsDrawer.tsx`, `src/components/robot/PingControlsDrawer.test.tsx`, `src/components/panels/screen/console/RobotOptionsTab.tsx`, `src/components/panels/screen/console/RobotOptionsTab.test.tsx`, `src/components/company/CompanyOptionsSection.tsx`, `src/components/company/CompanyOptionsSection.test.tsx`, `docs/MELODY_SYSTEM.md`, `docs/AUDIO_SYSTEM.md`, `docs/COMPANIES.md`
 
 ## Risks and Mitigations
 
@@ -230,8 +243,8 @@ User-reported (a trained musician) after the voice-release fix above shipped: dr
 
 ## Open Questions
 
-Carried forward from spec §7, not blocking this plan:
+Carried forward from spec §7 — all resolved as of the manual review above:
 
-1. **The drawer slider's full range (`[20, 200]`) and the ramp duration (`BPM_RAMP_SECONDS = 0.05`) are engineering defaults, not separately confirmed with the user** — unlike the seed range and labels (which were explicitly confirmed during Specify). Worth a quick sanity check during Task 5/Task 2's manual review since they're audible/feel decisions.
-2. **Whether `disabled={rigDisabled}` (gating the Tempo slider under the master Bypass toggle) is the right call musically** — Task 5 follows `PING_VARIANCE_AUTOMATION_SCHEMA`'s precedent for consistency; easy to flip later (single prop change, no data-model impact) if it reads wrong in practice.
-3. **`AudioRigDrawer.test.tsx`'s existing test suite may already assert an exact list/count of `audio-rig-drawer__master-row` divs** — Task 5 should check for this directly rather than assume its new coverage is additive-only.
+1. ~~The drawer slider's full range (`[20, 200]`) and the ramp duration (`BPM_RAMP_SECONDS = 0.05`) are engineering defaults, not separately confirmed with the user.~~ **Resolved**: the ramp itself was removed entirely by the setBPM-ramp-revert post-launch fix (a musician tester found it made tempo feel unstable, not just unconfirmed) — the range `[20, 200]` was confirmed as part of the live-browser manual review above.
+2. ~~Whether `disabled={rigDisabled}` (gating the Tempo slider under the master Bypass toggle) is the right call musically.~~ **Resolved**: confirmed during the manual review — no reported issue, left as shipped.
+3. ~~`AudioRigDrawer.test.tsx`'s existing test suite may already assert an exact list/count of `audio-rig-drawer__master-row` divs.~~ **Resolved** during Task 5 — no such assertion existed (see Task 5's acceptance criteria above).
