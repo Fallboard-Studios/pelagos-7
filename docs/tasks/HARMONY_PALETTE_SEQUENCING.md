@@ -50,7 +50,7 @@ Task 1 (harmonySystem.ts + harmonySystem.test.ts + AudioEngine.ts call site)
 
 ### Phase 1: Core mechanism
 
-- [ ] **Task 1: `harmonySystem.ts` — sequential palette cycling, plus the `AudioEngine.ts` call-site fix**
+- [x] **Task 1: `harmonySystem.ts` — sequential palette cycling, plus the `AudioEngine.ts` call-site fix**
 
   **Description:** Full rewrite per spec §4: `TIME_PITCHES` (`Record<number, EighthNotes>`, 24 keys) →
   `HARMONY_PALETTES` (`EighthNotes[]`, 12 entries — the unique tuples copied verbatim, hours 12-23's
@@ -65,31 +65,33 @@ Task 1 (harmonySystem.ts + harmonySystem.test.ts + AudioEngine.ts call site)
   then make it pass.
 
   **Acceptance criteria:**
-  - [ ] `HARMONY_PALETTES` contains exactly the 12 unique tuples from the old `TIME_PITCHES[0..11]`,
+  - [x] `HARMONY_PALETTES` contains exactly the 12 unique tuples from the old `TIME_PITCHES[0..11]`,
         copied verbatim (no note re-composition) — spot-check every tuple against the original source
         before deleting it, not just a length check.
-  - [ ] `MEASURES_PER_PALETTE_ENTRY` is read by both the index math and the `scheduleRepeat` interval
+  - [x] `MEASURES_PER_PALETTE_ENTRY` is read by both the index math and the `scheduleRepeat` interval
         string (built as `` `${MEASURES_PER_PALETTE_ENTRY}m` ``) — no independently-written second `2`
         or `'2m'` literal anywhere in the file.
-  - [ ] Palette index is stateless (derived fresh from `getCurrentMeasure()` every tick) — no
+  - [x] Palette index is stateless (derived fresh from `getCurrentMeasure()` every tick) — no
         `paletteIndex += 1`-shaped accumulator anywhere.
-  - [ ] `scheduleHarmonyCycle(): void` (no parameters); the local `TransportLike` interface and
+  - [x] `scheduleHarmonyCycle(): void` (no parameters); the local `TransportLike` interface and
         `transportInstance` are gone from the file entirely.
-  - [ ] The "already scheduled" double-call guard (warn + no-op on a second `scheduleHarmonyCycle()`
+  - [x] The "already scheduled" double-call guard (warn + no-op on a second `scheduleHarmonyCycle()`
         call without an intervening `stopHarmonyCycle()`) still holds.
-  - [ ] `getAvailableNotes()`, `resetHarmony()`, `setAvailableNotes()` signatures and behavior are
+  - [x] `getAvailableNotes()`, `resetHarmony()`, `setAvailableNotes()` signatures and behavior are
         byte-for-byte unchanged.
-  - [ ] `AudioEngine.ts:611` calls `scheduleHarmonyCycle()` with no argument.
+  - [x] `AudioEngine.ts:611` calls `scheduleHarmonyCycle()` with no argument.
 
   **Verification:**
-  - [ ] `harmonySystem.test.ts` rewritten per spec §5: mocks `beatClock`'s `getCurrentMeasure`/
+  - [x] `harmonySystem.test.ts` rewritten per spec §5: mocks `beatClock`'s `getCurrentMeasure`/
         `scheduleRepeat`/`cancelSchedule` (the old `mockTransport`/`vi.mock('tone', ...)` removed
         entirely); includes the new wraparound/length-independence test and the shared-interval-constant
         assertion (`scheduleRepeat` called with `'2m'`).
-  - [ ] `npx vitest run src/engine/harmonySystem.test.ts` passes.
-  - [ ] `npx vitest run src/engine/AudioEngine.test.ts` passes with no changes required (confirms the
-        existing `vi.mock('./harmonySystem', ...)`'s optional-param typing absorbs the zero-arg call).
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/engine/harmonySystem.test.ts` passes (8 tests — written RED against the old
+        implementation first, confirmed failing, then made GREEN).
+  - [x] `npx vitest run src/engine/AudioEngine.test.ts` passes with no changes required (107 tests —
+        confirms the existing `vi.mock('./harmonySystem', ...)`'s optional-param typing absorbs the
+        zero-arg call).
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** None.
 
@@ -99,10 +101,10 @@ Task 1 (harmonySystem.ts + harmonySystem.test.ts + AudioEngine.ts call site)
   own change is one line)
 
 ### Checkpoint: Core mechanism complete
-- [ ] `npm run build:types`, `npm run lint`, `npm test` all clean.
+- [x] `npm run build:types`, `npm run lint`, `npm test` all clean (108 files / 1740 tests).
 - [ ] Manual check (spec §5): start playback, watch the dev console's `[HarmonySystem] Palette changed
       to index N` lines — `N` advances `0, 1, 2, ..., 11, 0, ...` monotonically, exactly every 2
-      measures, independent of BPM.
+      measures, independent of BPM. **Pending — needs a live browser session.**
 - [ ] Review with human before proceeding.
 
 ---
