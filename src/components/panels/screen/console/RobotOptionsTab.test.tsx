@@ -13,17 +13,20 @@ vi.mock('@/components/robot/RobotDisplaySection', () => ({
 }));
 vi.mock('@/components/robot/PingControlsDrawer', () => ({
   PingControlsDrawer: (props: {
-    value: { rhythmicDensity: number; clickTrackActive: boolean };
+    value: { rhythmicDensity: number; pitchRepeat: number; clickTrackActive: boolean };
     onDensityChange: (v: number) => void;
+    onPitchRepeatChange: (v: number) => void;
     onResetMelody?: () => void;
     onClickTrackActiveChange: (v: boolean) => void;
   }) => (
     <div
       data-testid="ping-controls-drawer-stub"
       data-density={props.value.rhythmicDensity}
+      data-pitch-repeat={props.value.pitchRepeat}
       data-click-track-active={String(props.value.clickTrackActive)}
     >
       <button onClick={() => props.onDensityChange(77)}>probe-density</button>
+      <button onClick={() => props.onPitchRepeatChange(88)}>probe-pitch-repeat</button>
       {props.onResetMelody && <button onClick={props.onResetMelody}>probe-reset-melody</button>}
       <button onClick={() => props.onClickTrackActiveChange(true)}>probe-click-track</button>
     </div>
@@ -74,6 +77,7 @@ function makeRobot(id = 'r1'): Robot {
     docking: 'active',
     batteryLevel: 100,
     rhythmicDensity: 42,
+    pitchRepeat: 33,
   } as Robot;
 }
 
@@ -125,6 +129,15 @@ describe('RobotOptionsTab', () => {
     expect(screen.getByTestId('ping-controls-drawer-stub').getAttribute('data-density')).toBe('42');
   });
 
+  it('derives PingControlsDrawer\'s pitchRepeat value from the selected robot', () => {
+    const robot = makeRobot();
+    useLocaleStore.getState().addRobot(localeId, robot);
+    useUIStore.getState().selectRobot(robot.id);
+    render(<RobotOptionsTab />);
+
+    expect(screen.getByTestId('ping-controls-drawer-stub').getAttribute('data-pitch-repeat')).toBe('33');
+  });
+
   it('wires PingControlsDrawer\'s onDensityChange to robotOptionsActions.applyDensity', () => {
     const robot = makeRobot();
     useLocaleStore.getState().addRobot(localeId, robot);
@@ -135,6 +148,18 @@ describe('RobotOptionsTab', () => {
     fireEvent.click(screen.getByText('probe-density'));
 
     expect(applySpy).toHaveBeenCalledWith(robot, localeId, 77);
+  });
+
+  it('wires PingControlsDrawer\'s onPitchRepeatChange to robotOptionsActions.applyPitchRepeat', () => {
+    const robot = makeRobot();
+    useLocaleStore.getState().addRobot(localeId, robot);
+    useUIStore.getState().selectRobot(robot.id);
+    const applySpy = vi.spyOn(robotOptionsActions, 'applyPitchRepeat').mockImplementation(() => {});
+    render(<RobotOptionsTab />);
+
+    fireEvent.click(screen.getByText('probe-pitch-repeat'));
+
+    expect(applySpy).toHaveBeenCalledWith(robot, localeId, 88);
   });
 
   it('wires PingControlsDrawer\'s onResetMelody to regenerateMelody directly (not a robotOptionsActions function)', () => {

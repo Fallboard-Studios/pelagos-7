@@ -57,6 +57,11 @@ export function applyDensity(robot: Robot, localeId: string, density: number): v
   regenerateMelody({ ...robot, rhythmicDensity: density }, localeId);
 }
 
+export function applyPitchRepeat(robot: Robot, localeId: string, value: number): void {
+  useLocaleStore.getState().updateRobot(localeId, robot.id, { pitchRepeat: value });
+  regenerateMelody({ ...robot, pitchRepeat: value }, localeId);
+}
+
 export function applyMotifLength(robot: Robot, localeId: string, value: StepperWithToggleValue): void {
   useLocaleStore.getState().updateRobot(localeId, robot.id, { rhythmicMotifLength: value });
   regenerateMelody({ ...robot, rhythmicMotifLength: value }, localeId);

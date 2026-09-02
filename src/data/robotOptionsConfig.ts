@@ -33,6 +33,8 @@ import {
   NOTE_VARIANCE_MAX,
   OCTAVE_RANGE_MIN,
   OCTAVE_RANGE_MAX,
+  PITCH_REPEAT_MIN,
+  PITCH_REPEAT_MAX,
 } from '@/constants';
 
 // ========================================
@@ -129,6 +131,24 @@ export const MOTIF_LENGTH_SCHEMA: StepperWithToggleSchema = {
   humanLabel: 'Motif Length',
   min: RHYTHMIC_MOTIF_LENGTH_MIN,
   max: RHYTHMIC_MOTIF_LENGTH_MAX,
+};
+
+/**
+ * Increasingly locks a tiled motif's repeated cells to the base cell's pitches (0-100, same
+ * SliderLinear shape as Density — a plain percentage, no toggle of its own). Placed immediately
+ * after Motif Length, before Octave Range (Architecture Decision §7.5 in
+ * docs/tasks/PITCH_REPEAT.md) — adjacent to the field it's gated by
+ * (`rhythmicMotifLength.active`), so the dependency reads naturally without a label explaining
+ * it. See docs/specs/PITCH_REPEAT.md.
+ */
+export const PITCH_REPEAT_SCHEMA: SliderLinearSchema = {
+  id: 'robotOptions.pitchRepeat',
+  type: 'sliderLinear',
+  loreLabel: 'PING REPETITION ALLOWANCE',
+  humanLabel: 'Pitch Repeat',
+  min: PITCH_REPEAT_MIN,
+  max: PITCH_REPEAT_MAX,
+  unit: '%',
 };
 
 export const OCTAVE_RANGE_MIN_SCHEMA: StepperSchema = {

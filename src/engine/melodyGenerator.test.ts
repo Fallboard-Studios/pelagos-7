@@ -5,6 +5,7 @@ import {
   applyTonalVariance,
   pickRandomIndices,
   buildMotifOnsets,
+  computePitchLockPlan,
   gridUnitsToDuration,
   pickDurationForGap,
   generateMelodyForRobot,
@@ -693,6 +694,188 @@ describe('buildMotifOnsets', () => {
 });
 
 // ========================================
+// TEST SUITE: buildMotifOnsets — tail-cell pass (untruncating)
+//
+// Pitch Repeat (docs/specs/PITCH_REPEAT.md) bundles a fix to the shared rhythm engine: when
+// `rhythmicMotifLength` (M) doesn't evenly divide `subdivisions`, the leftover
+// `subdivisions - repeats * M` steps used to never receive an onset. This block pins the fix.
+// ========================================
+
+describe('buildMotifOnsets — tail-cell pass (untruncating)', () => {
+  const fixedRand = () => 0.5;
+
+  it.each([1, 2, 4, 8])(
+    'M=%i evenly divides 16 — repeats*M fills the whole measure, so there is no tail region to fill',
+    (M) => {
+      const repeats = Math.floor(16 / M);
+      expect(repeats * M).toBe(16); // sanity: no leftover steps exist for these M values
+      const onsets = buildMotifOnsets(M * repeats, M, 16, fixedRand);
+      onsets.forEach((o) => expect(o).toBeLessThan(16));
+    }
+  );
+
+  it.each([3, 5, 6, 7])(
+    'M=%i does not evenly divide 16 — the leftover tail steps now receive onsets',
+    (M) => {
+      const repeats = Math.floor(16 / M);
+      const tailOffset = repeats * M;
+      // K = M (full-density base cell) guarantees every base-motif position exists, so the
+      // tail — whichever base positions land inside it — is non-empty.
+      const onsets = buildMotifOnsets(M * repeats, M, 16, fixedRand);
+      const tailOnsets = onsets.filter((o) => o >= tailOffset);
+      expect(tailOnsets.length).toBeGreaterThan(0);
+    }
+  );
+
+  it('tail onset positions are a deterministic subset of the base motif (repeat 0), not a fresh draw', () => {
+    // M=6 against 16 → repeats=2, tailLength=4. K=3 (a partial base cell, not full) so the
+    // subset relationship is meaningful rather than vacuously true.
+    const M = 6;
+    const repeats = Math.floor(16 / M); // 2
+    const tailOffset = repeats * M; // 12
+    const tailLength = 16 - tailOffset; // 4
+    const onsets = buildMotifOnsets(6, M, 16, fixedRand); // density=6 → K=3, R=0
+
+    const basePositions = new Set(onsets.filter((o) => o < M));
+    const tailOnsets = onsets.filter((o) => o >= tailOffset);
+    expect(tailOnsets.length).toBeGreaterThan(0);
+    tailOnsets.forEach((o) => {
+      const pos = o - tailOffset;
+      expect(pos).toBeLessThan(tailLength);
+      expect(basePositions.has(pos)).toBe(true);
+    });
+  });
+
+  it('tail onset count never exceeds min(K, tailLength)', () => {
+    // M=6, density=6 → K=3 base positions, tailLength=4 → tail can hold at most min(3,4)=3.
+    const M = 6;
+    const repeats = Math.floor(16 / M);
+    const tailOffset = repeats * M;
+    const onsets = buildMotifOnsets(6, M, 16, fixedRand);
+    const tailOnsets = onsets.filter((o) => o >= tailOffset);
+    expect(tailOnsets.length).toBeLessThanOrEqual(3);
+  });
+
+  it('leaves the existing R-extra-onset-per-repeat and overshoot-trim branches unaffected', () => {
+    // Same case as the existing 'distributes remainder onsets to first R repeat copies' test
+    // above (density=5, motifLength=8, subdivisions=16 → repeats=2, tailLength=0) — the tail
+    // pass must be a no-op here since 8 evenly divides 16, so this must still hold exactly.
+    const onsets = buildMotifOnsets(5, 8, 16, fixedRand);
+    expect(onsets).toHaveLength(5);
+    const inFirstHalf = onsets.filter((o) => o < 8).length;
+    const inSecondHalf = onsets.filter((o) => o >= 8).length;
+    expect(inFirstHalf).toBe(3);
+    expect(inSecondHalf).toBe(2);
+  });
+
+  it('appended tail onsets are not counted against the combined.length <= rhythmicDensity trim check', () => {
+    // M=6, density=1, subdivisions=16 → repeats=2, tailLength=4. K floors to 1 per repeat window
+    // regardless of the requested density=1, so the pre-tail tiling loop already overshoots
+    // (2 onsets from 2 repeats) and the existing overshoot-trim branch fires, trimming back down
+    // to exactly 1 onset — before the tail-cell pass ever runs. If the tail pass were folded into
+    // that trim check, its onset could get discarded too; because it's appended *after*, the
+    // final count exceeds the requested density=1 once the tail lands inside the leftover span.
+    const onsets = buildMotifOnsets(1, 6, 16, fixedRand);
+    expect(onsets.length).toBeGreaterThan(1); // requested density=1, but tail fill adds more
+    expect(onsets.some((o) => o >= 12)).toBe(true); // the extra onset lives in the tail region
+  });
+});
+
+// ========================================
+// TEST SUITE: computePitchLockPlan
+//
+// Pitch Repeat's staged/seeded pitch-locking model (docs/specs/PITCH_REPEAT.md §4). Uses
+// hand-built onset arrays (rather than buildMotifOnsets output) so each scenario's K/repeats/tail
+// shape is exact and legible, and `rand = () => 0` where a specific, known permutation is needed
+// (pickUniqueInRange's Fisher-Yates shuffle degenerates to the identity order at rand() === 0).
+// ========================================
+
+describe('computePitchLockPlan', () => {
+  // motifLength=4, subdivisions=16 -> repeats=4, tailLength=0, totalRepeats=4.
+  // Base cell (repeat 0) has 2 onsets, positions 1 and 3; every repeat tiles the same positions.
+  const noTailOnsets = [1, 3, 5, 7, 9, 11, 13, 15];
+  const noTailMotifLength = 4;
+  const noTailSubdivisions = 16;
+
+  it('pitchRepeatPct: 0 -> every returned value is false', () => {
+    const plan = computePitchLockPlan(noTailOnsets, noTailMotifLength, noTailSubdivisions, 0, () => 0.37);
+    expect(plan).toEqual(noTailOnsets.map(() => false));
+  });
+
+  it('pitchRepeatPct: 100 -> every non-base-cell onset is true (full verbatim repetition)', () => {
+    const plan = computePitchLockPlan(noTailOnsets, noTailMotifLength, noTailSubdivisions, 100, () => 0.81);
+    // Indices 0-1 are repeat 0 (the base cell, never locked); indices 2-7 are repeats 1-3.
+    expect(plan.slice(0, 2)).toEqual([false, false]);
+    expect(plan.slice(2)).toEqual(plan.slice(2).map(() => true));
+  });
+
+  it("base-cell (repeat 0) onsets are always false, even at pitchRepeatPct: 100", () => {
+    const plan = computePitchLockPlan(noTailOnsets, noTailMotifLength, noTailSubdivisions, 100, () => 0.5);
+    expect(plan[0]).toBe(false); // onset 1, repeat 0
+    expect(plan[1]).toBe(false); // onset 3, repeat 0
+  });
+
+  it('is deterministic — identical inputs and a fresh identically-seeded rand produce identical plans', () => {
+    const planA = computePitchLockPlan(noTailOnsets, noTailMotifLength, noTailSubdivisions, 60, alea('pitch-repeat-determinism'));
+    const planB = computePitchLockPlan(noTailOnsets, noTailMotifLength, noTailSubdivisions, 60, alea('pitch-repeat-determinism'));
+    expect(planA).toEqual(planB);
+  });
+
+  it('is monotonic for a fixed seed: the locked set only grows as pitchRepeatPct rises', () => {
+    // Same seed re-created fresh for each pct (so only pct varies, not the RNG stream consumed).
+    let previousLocked = new Set<number>();
+    for (let pct = 0; pct <= 100; pct += 10) {
+      const plan = computePitchLockPlan(noTailOnsets, noTailMotifLength, noTailSubdivisions, pct, alea('pitch-repeat-monotonic'));
+      const locked = new Set(plan.flatMap((v, i) => (v ? [i] : [])));
+      previousLocked.forEach((i) => expect(locked.has(i)).toBe(true)); // nothing unlocks as pct rises
+      previousLocked = locked;
+    }
+  });
+
+  it('two different seeds produce different position-lock orders (not always position 0 first)', () => {
+    // K=2 (positions 1 and 3) -> stageWidth=50, so pct=50 exactly completes stage 0 (fully
+    // locking whichever position came first) while stage 1's position stays fully unlocked.
+    // Index 2 (onset value 5) is position 1's repeat-1 onset; index 3 (onset value 7) is
+    // position 3's repeat-1 onset — exactly one of the two is true at pct=50.
+    const position1FirstResults = new Set<boolean>();
+    for (let seedNum = 0; seedNum < 25; seedNum++) {
+      const plan = computePitchLockPlan(noTailOnsets, noTailMotifLength, noTailSubdivisions, 50, alea(`order-seed-${seedNum}`));
+      expect(plan[2]).not.toBe(plan[3]); // exactly one of the two positions is stage 0's winner
+      position1FirstResults.add(plan[2]);
+    }
+    expect(position1FirstResults.has(true)).toBe(true);
+    expect(position1FirstResults.has(false)).toBe(true);
+  });
+
+  it('excludes the tail repeat from a position\'s applicable-repeat list when that position is >= tailLength', () => {
+    // motifLength=6, subdivisions=16 -> repeats=2, tailLength=4, totalRepeats=3 (2 full + 1 tail).
+    // Base cell has 3 onsets: positions 0, 2 (both < tailLength, so the tail repeat has an onset
+    // at each) and 5 (>= tailLength, so the tail repeat has NO onset there).
+    const onsets = [0, 2, 5, 6, 8, 11, 12, 14]; // repeat0: 0,2,5 | repeat1: 6,8,11 | tail: 12,14
+    const motifLength = 6;
+    const subdivisions = 16;
+    // rand() === 0 degenerates pickUniqueInRange's shuffle to the identity order: positionOrder
+    // = [0,1,2] (basePositions[0,1,2] = 0,2,5 in that stage order), repeatOrder = [1,2].
+    const identityRand = () => 0;
+
+    // Position 5 is basePositions[2] -> stage index 2 -> stage range [66.667, 100). Its only
+    // applicable repeat is repeat 1 (onset value 11, index 5) — repeat 2 (tail) is excluded
+    // because position 5 >= tailLength, so applicable.length is 1, not 2.
+    const notYetLocked = computePitchLockPlan(onsets, motifLength, subdivisions, 80, identityRand);
+    expect(notYetLocked[5]).toBe(false); // fraction 0.4 through the stage, round(0.4 * 1) = 0
+
+    const locked = computePitchLockPlan(onsets, motifLength, subdivisions, 90, identityRand);
+    expect(locked[5]).toBe(true); // fraction 0.7 through the stage, round(0.7 * 1) = 1
+
+    // Contrast: position 0 (stage index 0, applicable.length = 2 — repeat1 AND the tail) is
+    // long past its own stage by pct=80/90, so it's fully locked in both onsets it has (repeat1
+    // at index1=6, tail at index6=12) — confirming the tail repeat DOES apply to position 0.
+    expect(locked[3]).toBe(true); // onset 6, position 0's repeat-1 onset
+    expect(locked[6]).toBe(true); // onset 12, position 0's tail onset
+  });
+});
+
+// ========================================
 // TEST SUITE: gridUnitsToDuration
 // ========================================
 
@@ -967,6 +1150,133 @@ describe('generateMelodyForRobot — GenerateMelodyForRobotOptions', () => {
 });
 
 // ========================================
+// TEST SUITE: generateMelodyForRobot — Pitch Repeat (Task 6)
+// ========================================
+
+describe('generateMelodyForRobot — Pitch Repeat', () => {
+  it('rhythmicMotifLength.active: false makes pitchRepeat inert regardless of value (gating)', () => {
+    const melody = generateMelodyForRobot({
+      rhythmicDensity: 75,
+      rhythmicMotifLength: { active: false, value: 8 },
+      pitchRepeat: 100,
+      octaveMin: 3,
+      octaveMax: 4,
+      seed: 20,
+    });
+    melody.forEach((e) => expect(e.pitchLocked).toBeUndefined());
+  });
+
+  it('pitchRepeat: 0 with motif active produces no pitchLocked events', () => {
+    const melody = generateMelodyForRobot({
+      rhythmicDensity: 100,
+      rhythmicMotifLength: { active: true, value: 4 },
+      pitchRepeat: 0,
+      octaveMin: 3,
+      octaveMax: 4,
+      seed: 21,
+    });
+    melody.forEach((e) => expect(e.pitchLocked).toBeUndefined());
+  });
+
+  it('pitchRepeat omitted behaves identically to pitchRepeat: 0 (DEFAULT_PITCH_REPEAT)', () => {
+    const base = { rhythmicDensity: 100, rhythmicMotifLength: { active: true, value: 4 }, octaveMin: 3, octaveMax: 4, seed: 22 };
+    const omitted = generateMelodyForRobot(base);
+    const explicit = generateMelodyForRobot({ ...base, pitchRepeat: 0 });
+    // id is crypto.randomUUID()-based, not seeded — compare every other field, same convention
+    // as the existing 'is deterministic with the same seed' test above.
+    expect(omitted.map((e) => ({ ...e, id: undefined }))).toEqual(explicit.map((e) => ({ ...e, id: undefined })));
+  });
+
+  it('pitchRepeat: 100 with motif active — every repeat\'s noteIndex sequence matches the base cell\'s', () => {
+    // value=4, density=100 → K=4 (fully dense cell), 4 repeat windows, no tail (4 evenly divides 16).
+    const melody = generateMelodyForRobot({
+      rhythmicDensity: 100,
+      rhythmicMotifLength: { active: true, value: 4 },
+      pitchRepeat: 100,
+      octaveMin: 3,
+      octaveMax: 4,
+      seed: 23,
+    });
+    expect(melody).toHaveLength(16);
+    const byPositionAndRepeat = new Map<number, Map<number, RobotMelodyEvent>>();
+    melody.forEach((e) => {
+      const step = e.startStep - 1;
+      const position = step % 4;
+      const repeat = Math.floor(step / 4);
+      if (!byPositionAndRepeat.has(position)) byPositionAndRepeat.set(position, new Map());
+      byPositionAndRepeat.get(position)!.set(repeat, e);
+    });
+    byPositionAndRepeat.forEach((repeatsForPosition) => {
+      const base = repeatsForPosition.get(0)!;
+      expect(base.pitchLocked).toBeUndefined(); // base cell is the copy source, never locked
+      for (let repeat = 1; repeat < 4; repeat++) {
+        const event = repeatsForPosition.get(repeat)!;
+        expect(event.noteIndex).toBe(base.noteIndex);
+        expect(event.pitchLocked).toBe(true);
+      }
+    });
+  });
+
+  it('is deterministic with the same seed', () => {
+    const opts = { rhythmicDensity: 60, rhythmicMotifLength: { active: true, value: 8 }, pitchRepeat: 60, octaveMin: 3, octaveMax: 5, seed: 24 };
+    const a = generateMelodyForRobot(opts);
+    const b = generateMelodyForRobot(opts);
+    expect(a.map((e) => e.startStep)).toEqual(b.map((e) => e.startStep));
+    expect(a.map((e) => e.noteIndex)).toEqual(b.map((e) => e.noteIndex));
+    expect(a.map((e) => e.octave)).toEqual(b.map((e) => e.octave));
+    expect(a.map((e) => e.pitchLocked)).toEqual(b.map((e) => e.pitchLocked));
+  });
+
+  it('partial lock: locked events copy the base cell\'s noteIndex verbatim; unlocked events are unconstrained by it', () => {
+    // value=8, density=50 → K=4 of 8 positions filled per cell, 2 repeat windows.
+    const melody = generateMelodyForRobot({
+      rhythmicDensity: 50,
+      rhythmicMotifLength: { active: true, value: 8 },
+      pitchRepeat: 50,
+      octaveMin: 3,
+      octaveMax: 4,
+      seed: 25,
+    });
+    const byPosition = new Map<number, RobotMelodyEvent[]>();
+    melody.forEach((e) => {
+      const position = (e.startStep - 1) % 8;
+      if (!byPosition.has(position)) byPosition.set(position, []);
+      byPosition.get(position)!.push(e);
+    });
+    let sawALockedEvent = false;
+    byPosition.forEach((eventsForPosition) => {
+      const base = eventsForPosition.find((e) => e.startStep - 1 < 8);
+      if (!base) return; // this position's onset only exists in a later repeat (R-extra) — not base-cell-locked
+      eventsForPosition.forEach((e) => {
+        if (e === base) {
+          expect(e.pitchLocked).toBeUndefined();
+        } else if (e.pitchLocked) {
+          sawALockedEvent = true;
+          expect(e.noteIndex).toBe(base.noteIndex); // verbatim copy
+        }
+      });
+    });
+    expect(sawALockedEvent).toBe(true); // sanity: this seed/pct actually exercises locking
+  });
+
+  it('noteVariance\'s uniqueness cap is unaffected by locked copies — only unlocked picks count toward it', () => {
+    // Locked events bypass Note Variance selection entirely, so they must not be able to push the
+    // running unique-note count past noteVariance's own value cap.
+    const melody = generateMelodyForRobot({
+      rhythmicDensity: 100,
+      rhythmicMotifLength: { active: true, value: 4 },
+      pitchRepeat: 50,
+      noteVariance: { active: true, value: 3 },
+      octaveMin: 3,
+      octaveMax: 4,
+      seed: 26,
+    });
+    const unlockedIndices = melody.filter((e) => !e.pitchLocked).map((e) => e.noteIndex);
+    expect(new Set(unlockedIndices).size).toBeLessThanOrEqual(3);
+  });
+});
+
+// ========================================
 // TEST SUITE: reRollMelodyPitches
 // ========================================
 
@@ -1054,5 +1364,38 @@ describe('reRollMelodyPitches', () => {
     const snapshot = melody.map((e) => ({ ...e }));
     reRollMelodyPitches(melody, 0.25, { rand: alea('reroll-seed-7') });
     expect(melody).toEqual(snapshot);
+  });
+
+  describe('Pitch Repeat — excluding pitchLocked events (Task 7)', () => {
+    it('a fully pitchLocked melody re-rolls zero events, not the old floor-of-1', () => {
+      const melody = makeEightEventMelody().map((e) => ({ ...e, pitchLocked: true }));
+      const result = reRollMelodyPitches(melody, 0.25, { rand: alea('reroll-all-locked') });
+      expect(result).toEqual(melody);
+    });
+
+    it('a single pitchLocked event is not force-changed by the old floor-of-1', () => {
+      const melody = [createMelodyEvent({ id: 'only', startStep: 1, noteIndex: 5, octave: 4, pitchLocked: true })];
+      const result = reRollMelodyPitches(melody, 0.25, { rand: alea('reroll-single-locked') });
+      expect(result).toBe(melody); // eligible pool is empty -> early-return the same reference
+    });
+
+    it('a partially-locked melody only ever selects unlocked events for change, across repeated seeded runs', () => {
+      // First 4 locked, last 4 unlocked. ratio=1 requests changing "all" 8, but only 4 are eligible.
+      const melody = makeEightEventMelody().map((e, i) => (i < 4 ? { ...e, pitchLocked: true } : e));
+      for (let seedNum = 0; seedNum < 20; seedNum++) {
+        const result = reRollMelodyPitches(melody, 1, { rand: alea(`reroll-partial-${seedNum}`) });
+        for (let i = 0; i < 4; i++) {
+          expect(result[i].noteIndex).toBe(melody[i].noteIndex); // locked events never change
+          expect(result[i].pitchLocked).toBe(true); // and stay flagged locked
+        }
+      }
+    });
+
+    it('a melody with no locked events behaves identically to before this change (regression guard)', () => {
+      const melody = makeEightEventMelody(); // no event has pitchLocked set
+      const result = reRollMelodyPitches(melody, 0.25, { rand: alea('reroll-seed-1') });
+      const changedCount = result.filter((e, i) => e.noteIndex !== melody[i].noteIndex).length;
+      expect(changedCount).toBe(2); // same seed/ratio as the very first test in this file — same result
+    });
   });
 });

@@ -16,6 +16,7 @@ function makeValue(overrides: Partial<PingControlsValue> = {}): PingControlsValu
     rhythmicDensity: 50,
     rhythmicMotifLength: { active: true, value: 8 },
     noteVariance: { active: false, value: 1 },
+    pitchRepeat: 0,
     octaveRange: [3, 5],
     clickTrackActive: false,
     ...overrides,
@@ -37,6 +38,7 @@ describe('PingControlsDrawer', () => {
         onOctaveMaxChange={() => {}}
         onNoteVarianceChange={() => {}}
         onClickTrackActiveChange={() => {}}
+        onPitchRepeatChange={() => {}}
       />
     );
     expect(screen.getAllByText('Ping Controls')).toHaveLength(1);
@@ -53,6 +55,7 @@ describe('PingControlsDrawer', () => {
         onOctaveMaxChange={() => {}}
         onNoteVarianceChange={() => {}}
         onClickTrackActiveChange={() => {}}
+        onPitchRepeatChange={() => {}}
       />
     );
 
@@ -72,6 +75,7 @@ describe('PingControlsDrawer', () => {
         onOctaveMaxChange={() => {}}
         onNoteVarianceChange={() => {}}
         onClickTrackActiveChange={() => {}}
+        onPitchRepeatChange={() => {}}
       />
     );
 
@@ -91,6 +95,7 @@ describe('PingControlsDrawer', () => {
         onOctaveMaxChange={() => {}}
         onNoteVarianceChange={() => {}}
         onClickTrackActiveChange={() => {}}
+        onPitchRepeatChange={() => {}}
       />
     );
 
@@ -110,6 +115,7 @@ describe('PingControlsDrawer', () => {
         onOctaveMaxChange={onOctaveMaxChange}
         onNoteVarianceChange={() => {}}
         onClickTrackActiveChange={() => {}}
+        onPitchRepeatChange={() => {}}
       />
     );
 
@@ -129,12 +135,70 @@ describe('PingControlsDrawer', () => {
         onOctaveMaxChange={() => {}}
         onNoteVarianceChange={onNoteVarianceChange}
         onClickTrackActiveChange={() => {}}
+        onPitchRepeatChange={() => {}}
       />
     );
 
     fireEvent.click(screen.getByRole('switch', { name: /Note Variance/i }));
 
     expect(onNoteVarianceChange).toHaveBeenCalledWith({ active: true, value: 1 });
+  });
+
+  it('changing Pitch Repeat calls onPitchRepeatChange', () => {
+    const onPitchRepeatChange = vi.fn();
+    render(
+      <PingControlsDrawer
+        value={makeValue({ pitchRepeat: 50, rhythmicMotifLength: { active: true, value: 8 } })}
+        onDensityChange={() => {}}
+        onMotifLengthChange={() => {}}
+        onOctaveMinChange={() => {}}
+        onOctaveMaxChange={() => {}}
+        onNoteVarianceChange={() => {}}
+        onClickTrackActiveChange={() => {}}
+        onPitchRepeatChange={onPitchRepeatChange}
+      />
+    );
+
+    fireEvent.keyDown(screen.getByRole('slider', { name: /pitch repeat/i }), { key: 'ArrowRight' });
+
+    expect(onPitchRepeatChange).toHaveBeenCalledWith(51);
+  });
+
+  it('Pitch Repeat is disabled when rhythmicMotifLength.active is false, even though generationDisabled is otherwise false', () => {
+    render(
+      <PingControlsDrawer
+        value={makeValue({ rhythmicMotifLength: { active: false, value: 8 } })}
+        onDensityChange={() => {}}
+        onMotifLengthChange={() => {}}
+        onOctaveMinChange={() => {}}
+        onOctaveMaxChange={() => {}}
+        onNoteVarianceChange={() => {}}
+        onClickTrackActiveChange={() => {}}
+        onPitchRepeatChange={() => {}}
+      />
+    );
+
+    // Density is NOT disabled here (motif being off doesn't gate it) — contrast confirms the
+    // Pitch Repeat disabled state comes specifically from the motif gate, not generationDisabled.
+    expect(screen.getByRole('slider', { name: /density/i }).getAttribute('data-disabled')).toBeNull();
+    expect(screen.getByRole('slider', { name: /pitch repeat/i }).getAttribute('data-disabled')).toBe('');
+  });
+
+  it('Pitch Repeat is enabled when rhythmicMotifLength.active is true and nothing else disables generation', () => {
+    render(
+      <PingControlsDrawer
+        value={makeValue({ rhythmicMotifLength: { active: true, value: 8 } })}
+        onDensityChange={() => {}}
+        onMotifLengthChange={() => {}}
+        onOctaveMinChange={() => {}}
+        onOctaveMaxChange={() => {}}
+        onNoteVarianceChange={() => {}}
+        onClickTrackActiveChange={() => {}}
+        onPitchRepeatChange={() => {}}
+      />
+    );
+
+    expect(screen.getByRole('slider', { name: /pitch repeat/i }).getAttribute('data-disabled')).toBeNull();
   });
 
   it('Reset Melody is a plain one-click Button when onResetMelody is provided - no confirmation dialog', () => {
@@ -148,6 +212,7 @@ describe('PingControlsDrawer', () => {
         onOctaveMaxChange={() => {}}
         onNoteVarianceChange={() => {}}
         onClickTrackActiveChange={() => {}}
+        onPitchRepeatChange={() => {}}
         onResetMelody={onResetMelody}
       />
     );
@@ -168,6 +233,7 @@ describe('PingControlsDrawer', () => {
         onOctaveMaxChange={() => {}}
         onNoteVarianceChange={() => {}}
         onClickTrackActiveChange={() => {}}
+        onPitchRepeatChange={() => {}}
       />
     );
 
@@ -184,6 +250,7 @@ describe('PingControlsDrawer', () => {
         onOctaveMaxChange={() => {}}
         onNoteVarianceChange={() => {}}
         onClickTrackActiveChange={() => {}}
+        onPitchRepeatChange={() => {}}
       />
     );
 
@@ -201,6 +268,7 @@ describe('PingControlsDrawer', () => {
         onOctaveMaxChange={() => {}}
         onNoteVarianceChange={() => {}}
         onClickTrackActiveChange={() => {}}
+        onPitchRepeatChange={() => {}}
       />
     );
 
@@ -218,6 +286,7 @@ describe('PingControlsDrawer', () => {
         onOctaveMaxChange={() => {}}
         onNoteVarianceChange={() => {}}
         onClickTrackActiveChange={onClickTrackActiveChange}
+        onPitchRepeatChange={() => {}}
       />
     );
 
@@ -236,6 +305,7 @@ describe('PingControlsDrawer', () => {
         onOctaveMaxChange={() => {}}
         onNoteVarianceChange={() => {}}
         onClickTrackActiveChange={() => {}}
+        onPitchRepeatChange={() => {}}
         onResetMelody={() => {}}
       />
     );
@@ -245,6 +315,7 @@ describe('PingControlsDrawer', () => {
     expect((screen.getByRole('button', { name: /Increment Octave Range Min/i }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole('button', { name: 'Reset Melody' }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole('switch', { name: /Click Track/i }) as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.getByRole('slider', { name: /pitch repeat/i }).getAttribute('data-disabled')).toBe('');
   });
 
   it('disables every internal control, including Click Track, when disabled is true', () => {
@@ -257,6 +328,7 @@ describe('PingControlsDrawer', () => {
         onOctaveMaxChange={() => {}}
         onNoteVarianceChange={() => {}}
         onClickTrackActiveChange={() => {}}
+        onPitchRepeatChange={() => {}}
         disabled
       />
     );
@@ -265,5 +337,6 @@ describe('PingControlsDrawer', () => {
     expect((screen.getByRole('switch', { name: /Motif Length/i }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole('button', { name: /Increment Octave Range Min/i }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole('switch', { name: /Click Track/i }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole('slider', { name: /pitch repeat/i }).getAttribute('data-disabled')).toBe('');
   });
 });

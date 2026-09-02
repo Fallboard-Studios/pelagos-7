@@ -169,6 +169,26 @@ describe('localeStore', () => {
       });
     });
 
+    describe('pitchRepeat clamping (0-100% lock strength)', () => {
+      it('clamps a value above 100 down to 100', () => {
+        useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, makeRobot('r1'));
+        useLocaleStore.getState().updateRobot(DEFAULT_LOCALE_ID, 'r1', { pitchRepeat: 150 });
+        expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].robots[0].pitchRepeat).toBe(100);
+      });
+
+      it('clamps a negative value up to 0', () => {
+        useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, makeRobot('r1'));
+        useLocaleStore.getState().updateRobot(DEFAULT_LOCALE_ID, 'r1', { pitchRepeat: -10 });
+        expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].robots[0].pitchRepeat).toBe(0);
+      });
+
+      it('passes an in-range value through untouched', () => {
+        useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, makeRobot('r1'));
+        useLocaleStore.getState().updateRobot(DEFAULT_LOCALE_ID, 'r1', { pitchRepeat: 42 });
+        expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].robots[0].pitchRepeat).toBe(42);
+      });
+    });
+
     describe('rhythmicMotifLength / noteVariance clamping ({ active, value } toggles, value 1-8)', () => {
       it('clamps rhythmicMotifLength.value above 8 down to 8 and preserves active', () => {
         useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, makeRobot('r1'));

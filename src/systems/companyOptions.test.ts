@@ -28,6 +28,7 @@ function makeRobot(overrides: Partial<Robot> = {}): Robot {
     rhythmicDensity: 42,
     rhythmicMotifLength: { active: true, value: 6 },
     noteVariance: { active: true, value: 2 },
+    pitchRepeat: 65,
     audioMode: 'solo',
     ...overrides,
   } as Robot;
@@ -49,6 +50,7 @@ describe('resolveCompanyOptions', () => {
     expect(resolved.rhythmicDensity).toBe(42);
     expect(resolved.rhythmicMotifLength).toEqual({ active: true, value: 6 });
     expect(resolved.noteVariance).toEqual({ active: true, value: 2 });
+    expect(resolved.pitchRepeat).toBe(65);
     expect(resolved.octaveRange).toEqual([3, 5]);
     expect(resolved.adsr).toEqual({ attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 });
     expect(resolved.layers).toEqual(firstMember.audioAttributes.layers);
@@ -61,6 +63,7 @@ describe('resolveCompanyOptions', () => {
       rhythmicDensity: undefined,
       rhythmicMotifLength: undefined,
       noteVariance: undefined,
+      pitchRepeat: undefined,
       lfoSettings: undefined,
     });
     const company = makeCompany();
@@ -71,6 +74,7 @@ describe('resolveCompanyOptions', () => {
     expect(resolved.rhythmicDensity).toBe(50);
     expect(resolved.rhythmicMotifLength).toEqual({ active: true, value: 8 });
     expect(resolved.noteVariance).toEqual({ active: false, value: 1 });
+    expect(resolved.pitchRepeat).toBe(0); // DEFAULT_PITCH_REPEAT
     expect(resolved.volumeLfo).toEqual({ shape: 'sine', rate: 0.1, depth: 0, active: false });
   });
 

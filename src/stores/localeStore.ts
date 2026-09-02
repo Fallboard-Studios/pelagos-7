@@ -16,6 +16,8 @@ import {
   NOTE_VARIANCE_MAX,
   OCTAVE_RANGE_MIN,
   OCTAVE_RANGE_MAX,
+  PITCH_REPEAT_MIN,
+  PITCH_REPEAT_MAX,
 } from '../constants';
 import { swallow } from '../utils/helpers';
 
@@ -153,6 +155,9 @@ export const useLocaleStore = create<LocaleState>((set, get) => ({
       const normalized = { ...updates } as Partial<import('../types/Robot').Robot>;
       if (typeof normalized.rhythmicDensity === 'number') {
         normalized.rhythmicDensity = Math.max(RHYTHMIC_DENSITY_MIN, Math.min(RHYTHMIC_DENSITY_MAX, Math.trunc(normalized.rhythmicDensity)));
+      }
+      if (typeof normalized.pitchRepeat === 'number') {
+        normalized.pitchRepeat = Math.max(PITCH_REPEAT_MIN, Math.min(PITCH_REPEAT_MAX, Math.trunc(normalized.pitchRepeat)));
       }
       if (typeof normalized.batteryLevel === 'number') {
         normalized.batteryLevel = Math.max(0, Math.min(100, Math.trunc(normalized.batteryLevel)));

@@ -4,6 +4,7 @@ import {
   applyAudioMode, applyVolume, applyVolumeLfo,
   applyDensity, applyMotifLength, applyNoteVariance, applyOctaveMin, applyOctaveMax,
   applyAdsr, applyLayersContinuous, applyLayersStructural, applyLayerLfo, applyClickTrackActive,
+  applyPitchRepeat,
 } from './robotOptionsActions';
 import { useLocaleStore } from '@/stores/localeStore';
 import { getActiveLocaleId } from '@/utils/localeHelpers';
@@ -139,6 +140,21 @@ describe('robotOptionsActions', () => {
       applyDensity(robot, localeId, 75);
 
       expect(updateSpy).toHaveBeenCalledWith(localeId, robot.id, { rhythmicDensity: 75 });
+      expect(genSpy).toHaveBeenCalled();
+    });
+  });
+
+  describe('applyPitchRepeat', () => {
+    it('writes pitchRepeat and regenerates the melody', () => {
+      const robot = makeRobot();
+      useLocaleStore.getState().addRobot(localeId, robot);
+      stubMelodyPipeline();
+      const updateSpy = vi.spyOn(useLocaleStore.getState(), 'updateRobot');
+      const genSpy = vi.spyOn(melodyGen, 'generateMelodyForRobot');
+
+      applyPitchRepeat(robot, localeId, 60);
+
+      expect(updateSpy).toHaveBeenCalledWith(localeId, robot.id, { pitchRepeat: 60 });
       expect(genSpy).toHaveBeenCalled();
     });
   });

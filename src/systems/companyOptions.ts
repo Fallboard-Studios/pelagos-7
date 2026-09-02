@@ -15,7 +15,7 @@
  */
 import { DEFAULT_LFO_SETTINGS } from '@/data/lfoConfig';
 import { VOLUME_LFO_TARGET } from '@/data/robotOptionsConfig';
-import { DEFAULT_RHYTHMIC_DENSITY, DEFAULT_RHYTHMIC_MOTIF_LENGTH, DEFAULT_NOTE_VARIANCE } from '@/engine/melodyGenerator';
+import { DEFAULT_RHYTHMIC_DENSITY, DEFAULT_RHYTHMIC_MOTIF_LENGTH, DEFAULT_NOTE_VARIANCE, DEFAULT_PITCH_REPEAT } from '@/engine/melodyGenerator';
 import type { CompanyOptionsSnapshot } from '@/types/Company';
 import type { Robot } from '@/types/Robot';
 import type { OscillatorLayer } from '@/types/layeredAudio';
@@ -33,6 +33,7 @@ export function resolveCompanyOptions(lastEditedOptions: CompanyOptionsSnapshot 
     layers: firstMember.audioAttributes.layers ?? [],
     lfoSettings: firstMember.lfoSettings ?? {},
     clickTrackActive: firstMember.clickTrackActive ?? false,
+    pitchRepeat: firstMember.pitchRepeat ?? DEFAULT_PITCH_REPEAT,
   };
   return { ...fromRobot, ...lastEditedOptions };
 }

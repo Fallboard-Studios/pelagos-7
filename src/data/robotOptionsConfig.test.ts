@@ -9,6 +9,7 @@ import {
   OCTAVE_RANGE_MIN_SCHEMA,
   OCTAVE_RANGE_MAX_SCHEMA,
   NOTE_VARIANCE_SCHEMA,
+  PITCH_REPEAT_SCHEMA,
   RESET_MELODY_SCHEMA,
   ATTACK_SCHEMA,
   DECAY_SCHEMA,
@@ -18,7 +19,7 @@ import {
 } from './robotOptionsConfig';
 import { CONTROL_SCHEMA_TYPES } from '@/types/controls';
 import { ROBOT_LFO_TARGET_IDS } from '@/types/lfo';
-import { RHYTHMIC_DENSITY_MIN, RHYTHMIC_DENSITY_MAX, OCTAVE_RANGE_MIN, OCTAVE_RANGE_MAX } from '@/constants';
+import { RHYTHMIC_DENSITY_MIN, RHYTHMIC_DENSITY_MAX, OCTAVE_RANGE_MIN, OCTAVE_RANGE_MAX, PITCH_REPEAT_MIN, PITCH_REPEAT_MAX } from '@/constants';
 
 const ALL_TOP_LEVEL_SCHEMAS = [
   AUDIO_SETTING_SCHEMA,
@@ -29,6 +30,7 @@ const ALL_TOP_LEVEL_SCHEMAS = [
   OCTAVE_RANGE_MIN_SCHEMA,
   OCTAVE_RANGE_MAX_SCHEMA,
   NOTE_VARIANCE_SCHEMA,
+  PITCH_REPEAT_SCHEMA,
   RESET_MELODY_SCHEMA,
   ATTACK_SCHEMA,
   DECAY_SCHEMA,
@@ -66,6 +68,18 @@ describe('robotOptionsConfig', () => {
   it('Click Track is a toggle, labeled "Click Track"', () => {
     expect(CLICK_TRACK_SCHEMA.type).toBe('toggle');
     expect(CLICK_TRACK_SCHEMA.humanLabel).toBe('Click Track');
+  });
+
+  it('Pitch Repeat is a sliderLinear using PITCH_REPEAT_MIN/MAX (0-100), labeled per Architecture Decision §7.4', () => {
+    expect(PITCH_REPEAT_SCHEMA.type).toBe('sliderLinear');
+    expect(PITCH_REPEAT_SCHEMA.id).toBe('robotOptions.pitchRepeat');
+    expect(PITCH_REPEAT_SCHEMA.loreLabel).toBe('PING REPETITION ALLOWANCE');
+    expect(PITCH_REPEAT_SCHEMA.humanLabel).toBe('Pitch Repeat');
+    expect(PITCH_REPEAT_SCHEMA.min).toBe(PITCH_REPEAT_MIN);
+    expect(PITCH_REPEAT_SCHEMA.max).toBe(PITCH_REPEAT_MAX);
+    expect(PITCH_REPEAT_SCHEMA.min).toBe(0);
+    expect(PITCH_REPEAT_SCHEMA.max).toBe(100);
+    expect(PITCH_REPEAT_SCHEMA.unit).toBe('%');
   });
 
   it('Volume displays 0-100% in 1% steps (stored as 0..1 - conversion happens at the component boundary, same as Sustain)', () => {
