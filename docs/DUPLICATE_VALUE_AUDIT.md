@@ -94,16 +94,30 @@ No behavior change — the cap still enforces exactly 16 concurrent voices. CLAU
 restatements of the constant's value, not an independent runtime source of truth).
 
 ### 4. Harmony-palette bounds (0..7 / 8 notes) — not centralized despite being a hard guardrail
-**Status:** ☐ open · **Confidence:** low-medium — unlikely to change (declared non-negotiable), but
-matches the exact concept the original bug was about.
+**Status:** ☑ fixed (2026-09-02, `bugs/duplicate-value-audit`) · **Confidence:** low-medium —
+unlikely to change (declared non-negotiable), but matched the exact concept the original bug was
+about.
 
-Enforced structurally by the `EighthNotes` 8-tuple type
-([`harmonySystem.ts:29`](../src/engine/harmonySystem.ts#L29)), but the numeric bounds derived from
-it are bare literals, not a named constant:
-- [`melodyGenerator.ts:212`](../src/engine/melodyGenerator.ts#L212) `Math.min(7, Math.max(0, ...))`
-- [`melodyGenerator.ts:560`](../src/engine/melodyGenerator.ts#L560) `Math.floor(rand() * 8)`
-- Test fixtures independently reflect `% 8` in several places (e.g.
-  [`melodyGenerator.test.ts:431`](../src/engine/melodyGenerator.test.ts#L431)).
+**Fix applied:** added `NOTE_PALETTE_SIZE = 8` to
+[`constants/index.ts`](../src/constants/index.ts), distinct from `NOTE_VARIANCE_MAX` (also `8`
+today, but a different concept — max tuning-knob value, not palette size — confirmed via
+`/interview-me` not to collapse the two). `melodyGenerator.ts`'s three bare-literal sites now import
+it: the `applyTonalVariance` clamp (`Math.min(7, ...)` → `Math.min(NOTE_PALETTE_SIZE - 1, ...)`), the
+unweighted `Math.floor(rand() * 8)` pick, and the without-replacement pool builders
+(`Array.from({ length: 8 }, ...)`, ×2). `melodyGenerator.test.ts`'s note-index bound assertions
+(7 locations) now derive from the same import instead of hardcoding `7`/`8`. Pure centralization, no
+behavior change — confirmed via `/interview-me` before implementation (out of TDD-ceremony scope,
+same as item 3). Full suite (108 files/1736 tests), lint, and type-check all green.
+
+Left out of scope (confirmed in the interview): `harmonySystem.ts`'s `TIME_PITCHES` map, since each
+entry is already structurally enforced by the `EighthNotes` 8-tuple type — not a bare-literal risk
+the same way. `melodyGenerator.test.ts:431`'s `% 8` (melody array length, unrelated to palette
+bounds) and the `buildMotifOnsets`-related `< 8`/`>= 8` assertions (subdivision/motif-length test
+data, a different concept) were also left untouched.
+
+Still enforced structurally by the `EighthNotes` 8-tuple type
+([`harmonySystem.ts:29`](../src/engine/harmonySystem.ts#L29)) — `NOTE_PALETTE_SIZE` doesn't replace
+that type, it only backs the numeric bounds derived from it downstream.
 
 ### 5. `MIN_LEAD` fallback literal — minor, mostly defensive
 **Status:** ☐ open · **Confidence:** low — no current drift; only bites a future test mock.
