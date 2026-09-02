@@ -71,7 +71,6 @@ const DEFAULT_LOCALE: Locale = {
   robots: [],
   actors: [],
   companies: [],
-  settings: { bpm: 60 },
   currentMeasure: 0,
 };
 

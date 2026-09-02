@@ -22,6 +22,24 @@ export const DEV_TUNING = import.meta.env.DEV;
 export const MIN_LEAD = 0.1;
 
 /**
+ * Global cap on simultaneously triggered notes, enforced by AudioEngine's
+ * triggerWithCap(). See docs/POLYPHONY_GUIDE.md. Not a per-robot limit — each
+ * robot's reserved composite voice is separate from this cap; only the act of
+ * triggering a note counts against it.
+ */
+export const MAX_POLYPHONY = 16;
+
+/**
+ * Fixed size of the harmony palette — every hour-equivalent's `TIME_PITCHES` entry
+ * (harmonySystem.ts) is exactly 8 notes, structurally enforced by the `EighthNotes`
+ * tuple type. This constant is for the bare-literal bounds derived from that size
+ * (note-index clamping, unweighted random pick) elsewhere in melodyGenerator.ts —
+ * not a substitute for the tuple type itself. Distinct from NOTE_VARIANCE_MAX below,
+ * which is a different concept (max tuning-knob value) that happens to equal 8 too.
+ */
+export const NOTE_PALETTE_SIZE = 8;
+
+/**
  * Fixed real-world milliseconds per full in-world day (6 minutes), and the
  * pure function that derives a locale's current hour from its own
  * dayStartTimestamp. See docs/specs/ATTENUATION_STYLE.md §1.1.

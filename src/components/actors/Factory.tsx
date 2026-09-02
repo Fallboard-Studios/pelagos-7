@@ -9,8 +9,7 @@ import { getLighting, getNightDepth, FLICKER_PERIOD, FILL_TRANSITION, DAY_CYCLE_
 import { ROOFTOP_RENDERERS } from './greebles/rooftopGreebles';
 import { FACADE_RENDERERS } from './greebles/facadeGreebles';
 import type { GreebleRendererContext } from './greebles/greebleTypes';
-import useLocaleStore from '../../stores/localeStore';
-import { useAttenuationStyleStore, selectCurrentAttenuationStyle } from '../../stores/attenuationStyleStore';
+import { useAudioStore } from '../../stores/audioStore';
 import { useUIStore } from '../../stores/uiStore';
 import BubbleStream from './BubbleStream';
 import type { FactoryPurpose } from './factoryVariants';
@@ -95,8 +94,9 @@ const FactoryInner: React.FC<FactoryProps> = ({ actor }) => {
   // FLICKER_PERIOD consecutive measures rather than all firing at once.
   const flickerEpoch = Math.floor((lightMeasure + buildingPhase) / FLICKER_PERIOD);
 
-  const localeId = useAttenuationStyleStore((s) => selectCurrentAttenuationStyle(s)?.currentLocaleId ?? '');
-  const bpm = useLocaleStore((s) => s.locales[localeId]?.settings?.bpm ?? 120);
+  // bpm is a global transport value (audioStore), not locale-scoped — no
+  // locale lookup or fallback needed. See docs/DUPLICATE_VALUE_AUDIT.md #1.
+  const bpm = useAudioStore((s) => s.bpm);
 
   const preset = DEBUG_LIGHTING_PRESET ? LIGHTING_PRESETS[DEBUG_LIGHTING_PRESET] : null;
 

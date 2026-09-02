@@ -19,7 +19,6 @@ export interface Locale {
   robots: Robot[];
   actors: Actor[];
   companies: Company[];
-  settings: LocaleSettings;
   currentMeasure: number;
   /** The "All" selection's own edit snapshot (CompanyButtonRow's All button, uiStore's
    *  allRobotsSelected) — same role as Company.lastEditedOptions, but locale-scoped rather than
@@ -28,11 +27,6 @@ export interface Locale {
    *  a stale full clone" shape CompanyOptionsSnapshot already documents. Resets naturally on
    *  retransmit along with everything else on the Locale object — no separate cleanup needed. */
   allRobotsLastEditedOptions?: CompanyOptionsSnapshot;
-}
-
-export interface LocaleSettings {
-  bpm?: number;
-  [key: string]: unknown;
 }
 
 export interface LocaleState {

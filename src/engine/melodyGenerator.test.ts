@@ -16,6 +16,7 @@ import {
   DEFAULT_NOTE_VARIANCE,
 } from './melodyGenerator';
 import type { MelodyEvent } from '../types/Robot';
+import { NOTE_PALETTE_SIZE } from '../constants';
 
 // ========================================
 // HELPERS
@@ -376,10 +377,10 @@ describe('applyTonalVariance', () => {
 
     const result = applyTonalVariance(melody, 0.5, alwaysApplyRand);
 
-    // All noteIndex values should be in range 0-7
+    // All noteIndex values should be in range 0-(NOTE_PALETTE_SIZE - 1)
     result.forEach((event) => {
       expect(event.noteIndex).toBeGreaterThanOrEqual(0);
-      expect(event.noteIndex).toBeLessThanOrEqual(7);
+      expect(event.noteIndex).toBeLessThanOrEqual(NOTE_PALETTE_SIZE - 1);
     });
   });
 
@@ -454,7 +455,7 @@ describe('applyTonalVariance', () => {
 
     expect(result).toHaveLength(1);
     expect(result[0].noteIndex).toBeGreaterThanOrEqual(0);
-    expect(result[0].noteIndex).toBeLessThanOrEqual(7);
+    expect(result[0].noteIndex).toBeLessThanOrEqual(NOTE_PALETTE_SIZE - 1);
   });
 
   it('handles empty melody gracefully', () => {
@@ -522,8 +523,8 @@ describe('applyTonalVariance', () => {
 
     const result = applyTonalVariance(melody, 0.5, alwaysPositiveShiftRand);
 
-    // Should clamp to 7, not go beyond
-    expect(result[0].noteIndex).toBe(7);
+    // Should clamp to NOTE_PALETTE_SIZE - 1, not go beyond
+    expect(result[0].noteIndex).toBe(NOTE_PALETTE_SIZE - 1);
   });
 
   it('fires independently from rhythmic variance', () => {
@@ -1026,11 +1027,11 @@ describe('generateMelodyForRobot — GenerateMelodyForRobotOptions', () => {
     windowCounts.forEach((count) => expect(count).toBe(2));
   });
 
-  it('all noteIndex values are in [0, 7]', () => {
+  it('all noteIndex values are in [0, NOTE_PALETTE_SIZE - 1]', () => {
     const melody = generateMelodyForRobot({ rhythmicDensity: 75, octaveMin: 2, octaveMax: 6, seed: 42 });
     melody.forEach((e) => {
       expect(e.noteIndex).toBeGreaterThanOrEqual(0);
-      expect(e.noteIndex).toBeLessThanOrEqual(7);
+      expect(e.noteIndex).toBeLessThanOrEqual(NOTE_PALETTE_SIZE - 1);
     });
   });
 
@@ -1100,7 +1101,7 @@ describe('generateMelodyForRobot — GenerateMelodyForRobotOptions', () => {
     expect(seen.size).toBeLessThanOrEqual(value);
   });
 
-  it('noteVariance active with value=8 draws without replacement until all 8 notes used', () => {
+  it('noteVariance active with value=8 draws without replacement until all NOTE_PALETTE_SIZE notes used', () => {
     const melody = generateMelodyForRobot({
       rhythmicDensity: 100,
       rhythmicMotifLength: { active: false, value: 8 },
@@ -1111,7 +1112,7 @@ describe('generateMelodyForRobot — GenerateMelodyForRobotOptions', () => {
     });
     const indices = melody.map((e) => e.noteIndex);
     const uniq = new Set(indices);
-    expect(uniq.size).toBe(8);
+    expect(uniq.size).toBe(NOTE_PALETTE_SIZE);
   });
 
   it('is deterministic with the same seed', () => {
@@ -1331,23 +1332,23 @@ describe('reRollMelodyPitches', () => {
     expect(result[0]).not.toBe(melody[0]);
   });
 
-  it('noteVariance inactive (or absent) produces unweighted picks in the valid 0-7 range', () => {
+  it('noteVariance inactive (or absent) produces unweighted picks in the valid palette range', () => {
     const melody = makeEightEventMelody();
     const rand = alea('reroll-seed-5');
     const result = reRollMelodyPitches(melody, 1, { rand }); // ratio 1 -> every event re-rolled
     result.forEach((e) => {
       expect(e.noteIndex).toBeGreaterThanOrEqual(0);
-      expect(e.noteIndex).toBeLessThan(8);
+      expect(e.noteIndex).toBeLessThan(NOTE_PALETTE_SIZE);
     });
   });
 
-  it('noteVariance active produces picks within the valid 0-7 range (weighted selection)', () => {
+  it('noteVariance active produces picks within the valid palette range (weighted selection)', () => {
     const melody = makeEightEventMelody();
     const rand = alea('reroll-seed-6');
     const result = reRollMelodyPitches(melody, 1, { noteVariance: { active: true, value: 8 }, rand });
     result.forEach((e) => {
       expect(e.noteIndex).toBeGreaterThanOrEqual(0);
-      expect(e.noteIndex).toBeLessThan(8);
+      expect(e.noteIndex).toBeLessThan(NOTE_PALETTE_SIZE);
     });
   });
 

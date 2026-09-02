@@ -59,7 +59,6 @@ function buildLocale(attenuationStyleId: string, coordinates: { x: number; y: nu
     robots: [],
     actors: [],
     companies: [],
-    settings: { bpm: 60 },
     currentMeasure: 0,
   };
 }

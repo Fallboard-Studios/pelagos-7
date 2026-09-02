@@ -12,6 +12,7 @@ import {
   NOTE_VARIANCE_MAX,
   PITCH_REPEAT_MIN,
   PITCH_REPEAT_MAX,
+  NOTE_PALETTE_SIZE,
 } from '../constants';
 
 // ========================================
@@ -208,8 +209,8 @@ export function applyTonalVariance(
     }
 
     const delta = NOTE_SHIFT_OPTIONS[Math.floor(rand() * NOTE_SHIFT_OPTIONS.length)];
-    // Clamp to 0..7 (harmony palette size)
-    const newIndex = Math.min(7, Math.max(0, event.noteIndex + delta));
+    // Clamp to 0..(NOTE_PALETTE_SIZE - 1)
+    const newIndex = Math.min(NOTE_PALETTE_SIZE - 1, Math.max(0, event.noteIndex + delta));
 
     return {
       ...event,
@@ -557,10 +558,10 @@ export function generateMelodyForRobot(
       // NOT pickWeightedIndex(); "off" now means no weighting at all, not just no
       // uniqueness constraint (a behavior change from the old noteVariance === 0
       // default, which was still weighted).
-      noteIndex = Math.floor(rand() * 8);
-    } else if (noteVarianceValue === 8) {
+      noteIndex = Math.floor(rand() * NOTE_PALETTE_SIZE);
+    } else if (noteVarianceValue === NOTE_VARIANCE_MAX) {
       if (!withoutReplacementPool || withoutReplacementPool.length === 0) {
-        const pool = Array.from({ length: 8 }, (_, i) => i);
+        const pool = Array.from({ length: NOTE_PALETTE_SIZE }, (_, i) => i);
         withoutReplacementPool = [];
         while (pool.length > 0) {
           const j = Math.floor(rand() * pool.length);

@@ -15,7 +15,7 @@ import { getAvailableNotes, scheduleHarmonyCycle, stopHarmonyCycle } from './har
 import { resetBeatClock, subscribeToMeasure, initBeatClock } from './beatClock';
 import { applyRhythmicVariance, applyTonalVariance } from './melodyGenerator';
 import { buildClickTrackMelody } from './clickTrack';
-import { DEV_TUNING, MIN_LEAD as CONST_MIN_LEAD } from '../constants';
+import { DEV_TUNING, MIN_LEAD, MAX_POLYPHONY } from '../constants';
 
 import { getRef } from '../utils/refs';
 import { precomputeDataX } from '../utils/getSeededVal';
@@ -43,9 +43,6 @@ import {
   getGlobalModulationTarget,
 } from './audioEngine/globalFx';
 
-// MIN_LEAD: prefer project constant, fall back to 0.1s for headless/tests
-const MIN_LEAD = CONST_MIN_LEAD ?? 0.1;
-
 // ========================================
 // TYPES
 // ========================================
@@ -71,8 +68,7 @@ interface MelodyEventEntry {
 // ========================================
 // CONSTANTS
 // ========================================
-const MAX_POLYPHONY = 16;
-// NOTE: MIN_LEAD is provided from src/constants for consistency across modules
+// NOTE: MAX_POLYPHONY and MIN_LEAD are provided from src/constants for consistency across modules
 /** Fraction of notes that receive a random velocity offset for organic expressiveness. */
 const VELOCITY_VARIANCE_RATE = 0.15;
 /** Maximum ± deviation applied to a note's velocity when variance is triggered. */
