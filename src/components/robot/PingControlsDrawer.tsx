@@ -9,6 +9,7 @@ import {
   CLICK_TRACK_SCHEMA,
   DENSITY_SCHEMA,
   MOTIF_LENGTH_SCHEMA,
+  PITCH_REPEAT_SCHEMA,
   OCTAVE_RANGE_MIN_SCHEMA,
   OCTAVE_RANGE_MAX_SCHEMA,
   NOTE_VARIANCE_SCHEMA,
@@ -22,6 +23,12 @@ export interface PingControlsValue {
   rhythmicDensity: number;
   rhythmicMotifLength: StepperWithToggleValue;
   noteVariance: StepperWithToggleValue;
+  /**
+   * 0-100. Increasingly locks a tiled motif's repeated cells to the base cell's pitches. Only
+   * meaningful while `rhythmicMotifLength.active` is true — the slider is disabled whenever it
+   * isn't, in addition to the usual `generationDisabled` gate.
+   */
+  pitchRepeat: number;
   octaveRange: [number, number];
   /**
    * Testing-only: whether the robot's (or, in company mode, every broadcast member's) real
@@ -38,6 +45,7 @@ interface PingControlsDrawerProps {
   value: PingControlsValue;
   onDensityChange: (value: number) => void;
   onMotifLengthChange: (value: StepperWithToggleValue) => void;
+  onPitchRepeatChange: (value: number) => void;
   onOctaveMinChange: (value: number) => void;
   onOctaveMaxChange: (value: number) => void;
   onNoteVarianceChange: (value: StepperWithToggleValue) => void;
@@ -63,6 +71,7 @@ export function PingControlsDrawer({
   value,
   onDensityChange,
   onMotifLengthChange,
+  onPitchRepeatChange,
   onOctaveMinChange,
   onOctaveMaxChange,
   onNoteVarianceChange,
@@ -87,6 +96,14 @@ export function PingControlsDrawer({
         )}
         <SliderLinear schema={DENSITY_SCHEMA} value={value.rhythmicDensity} onChange={onDensityChange} disabled={generationDisabled} />
         <StepperWithToggle schema={MOTIF_LENGTH_SCHEMA} value={value.rhythmicMotifLength} onChange={onMotifLengthChange} disabled={generationDisabled} />
+        {/* Gated by rhythmicMotifLength.active too — no cell concept to lock pitches within
+            when tiling is off (docs/specs/PITCH_REPEAT.md). */}
+        <SliderLinear
+          schema={PITCH_REPEAT_SCHEMA}
+          value={value.pitchRepeat}
+          onChange={onPitchRepeatChange}
+          disabled={generationDisabled || !value.rhythmicMotifLength.active}
+        />
         <Stepper schema={OCTAVE_RANGE_MIN_SCHEMA} value={octMin} onChange={onOctaveMinChange} disabled={generationDisabled} />
         <Stepper schema={OCTAVE_RANGE_MAX_SCHEMA} value={octMax} onChange={onOctaveMaxChange} disabled={generationDisabled} />
         <StepperWithToggle schema={NOTE_VARIANCE_SCHEMA} value={value.noteVariance} onChange={onNoteVarianceChange} disabled={generationDisabled} />
