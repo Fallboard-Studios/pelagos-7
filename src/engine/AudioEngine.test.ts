@@ -1030,6 +1030,117 @@ describe('AudioEngine - Motif Group Accent', () => {
   });
 });
 
+describe('AudioEngine.registerRobotMelody — Click Track override', () => {
+  beforeEach(async () => {
+    vi.resetModules();
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+  });
+
+  function makeRobot(id: string, overrides: { clickTrackActive?: boolean; octaveRange?: [number, number] } = {}) {
+    return {
+      id,
+      clickTrackActive: overrides.clickTrackActive ?? false,
+      audioAttributes: { adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.2 }, waveform: 'sine' as const, filterFreq: 100 },
+      masterVolume: 0.8,
+      melody: [],
+      octaveRange: overrides.octaveRange ?? ([3, 4] as [number, number]),
+      position: { x: 0, y: 0 },
+      destination: null,
+      createdAt: Date.now(),
+      name: '',
+      state: 'idle' as const,
+      direction: 'right' as const,
+      docking: 'active' as const,
+      batteryLevel: 100,
+    };
+  }
+
+  async function setActiveRobot(robot: ReturnType<typeof makeRobot>) {
+    const storeMod = await import('../stores/localeStore');
+    const attenuationStyleMod = await import('../stores/attenuationStyleStore');
+    const helpers = await import('../utils/localeHelpers');
+    (helpers.getActiveLocaleId as ReturnType<typeof vi.fn>).mockReturnValue(attenuationStyleMod.DEFAULT_LOCALE_ID);
+    storeMod.useLocaleStore.getState().setLocaleData(attenuationStyleMod.DEFAULT_LOCALE_ID, { robots: [robot] });
+  }
+
+  it('registers the passed-in melody unchanged when clickTrackActive is false', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await setActiveRobot(makeRobot('r1', { clickTrackActive: false }));
+
+    const melody = [{ id: 'real-1', startStep: 3, length: '8n' as const, noteIndex: 5, octave: 4 }];
+    const spy = vi.spyOn(AudioEngine, 'scheduleNote').mockImplementation(() => {});
+    AudioEngine.registerRobotMelody('r1', melody);
+    AudioEngine.processMelodyStep(3, 0);
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    spy.mockRestore();
+  });
+
+  it('substitutes the fixed click-track pattern, ignoring the passed-in melody entirely, when clickTrackActive is true', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await setActiveRobot(makeRobot('r2', { clickTrackActive: true, octaveRange: [3, 6] }));
+
+    // A real melody with an onset nowhere near the click track's own downbeats (1/5/9/13).
+    const realMelody = [{ id: 'real-1', startStep: 7, length: '8n' as const, noteIndex: 5, octave: 4 }];
+    const spy = vi.spyOn(AudioEngine, 'scheduleNote').mockImplementation(() => {});
+    AudioEngine.registerRobotMelody('r2', realMelody);
+
+    // The real melody's own step never fires...
+    AudioEngine.processMelodyStep(7, 0);
+    expect(spy).not.toHaveBeenCalled();
+
+    // ...but the click track's downbeats do, at the robot's own octave-range minimum (3).
+    AudioEngine.processMelodyStep(1, 0);
+    AudioEngine.processMelodyStep(5, 0);
+    AudioEngine.processMelodyStep(9, 0);
+    AudioEngine.processMelodyStep(13, 0);
+
+    expect(spy).toHaveBeenCalledTimes(4);
+    const notes = spy.mock.calls.map((c) => c[0].note);
+    // This file's getAvailableNotes() mock (line ~126) returns note NAMES that already carry
+    // their own octave digit (['C4','D4',...]) — scheduleNote's `${noteName}${event.octave}`
+    // concatenation then appends the click track's own octave (3) after that, e.g. 'C4' + 3 =
+    // 'C43'. Odd-looking but consistent with every other note-string assertion in this file.
+    expect(notes).toEqual(['C43', 'D43', 'C43', 'E43']);
+    spy.mockRestore();
+  });
+
+  it('keeps enforcing the click track even when a later registerRobotMelody call carries a freshly regenerated real melody (e.g. the docking pitch-drift reroll)', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await setActiveRobot(makeRobot('r3', { clickTrackActive: true }));
+
+    const spy = vi.spyOn(AudioEngine, 'scheduleNote').mockImplementation(() => {});
+    // First registration, as if from turning the toggle on.
+    AudioEngine.registerRobotMelody('r3', []);
+    // A second, unrelated registration carrying a real (drifted) melody — simulates
+    // robotSystems.ts's landOnDocked re-registering after a pitch-drift reroll while the
+    // click track is still toggled on.
+    AudioEngine.registerRobotMelody('r3', [{ id: 'drifted-1', startStep: 2, length: '8n' as const, noteIndex: 3, octave: 5 }]);
+
+    AudioEngine.processMelodyStep(2, 0); // the drifted melody's own step — must NOT fire
+    AudioEngine.processMelodyStep(1, 0); // a click-track downbeat — must fire
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0][0].note).toBe('C43'); // 'C4' (mocked note name) + octave 3
+    spy.mockRestore();
+  });
+
+  it('does not accent any click-track event, even when the robot\'s own Motif Length toggle is active', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    const robot = makeRobot('r4', { clickTrackActive: true });
+    await setActiveRobot({ ...robot, rhythmicMotifLength: { active: true, value: 4 } } as never);
+
+    const spy = vi.spyOn(AudioEngine, 'scheduleNote').mockImplementation(() => {});
+    AudioEngine.registerRobotMelody('r4', []);
+    AudioEngine.processMelodyStep(1, 0);
+    AudioEngine.processMelodyStep(5, 0);
+
+    spy.mock.calls.forEach((c) => expect(c[0].accentMultiplier ?? 1).toBe(1));
+    spy.mockRestore();
+  });
+});
+
 describe('AudioEngine — masterVolume drives a live per-robot bus gain, not per-note velocity', () => {
   beforeEach(() => {
     vi.resetModules();

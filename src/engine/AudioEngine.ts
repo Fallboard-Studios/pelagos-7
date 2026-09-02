@@ -15,6 +15,7 @@ import { getAvailableNotes, scheduleHarmonyCycle, stopHarmonyCycle } from './har
 import { resetBeatClock, subscribeToMeasure, initBeatClock } from './beatClock';
 import type { RobotMelodyEvent } from './melodyGenerator';
 import { applyRhythmicVariance, applyTonalVariance } from './melodyGenerator';
+import { buildClickTrackMelody } from './clickTrack';
 import { DEV_TUNING, MIN_LEAD as CONST_MIN_LEAD } from '../constants';
 
 import { getRef } from '../utils/refs';
@@ -1000,9 +1001,16 @@ export const AudioEngine = {
    * - The scheduler reads `stepRegistry` on the transport tick; callers should
    *   expect the new melody to take effect on the next scheduled tick after
    *   registration.
+   * - When the robot's own `clickTrackActive` flag (Robot.ts) is true, `melody` is ignored
+   *   entirely and the fixed click-track pattern (src/engine/clickTrack.ts) is registered
+   *   instead — enforced *here*, the one funnel every melody-registration call site shares
+   *   (spawn, Reset Melody, Density/Motif/Note Variance edits, docking's pitch-drift reroll,
+   *   this file's own per-loop rhythmic/tonal variance), rather than trusting each call site to
+   *   remember to check the flag itself. See docs/MELODY_SYSTEM.md's Click Track note.
    *
    * @param robotId - Unique robot identifier
-   * @param melody - Array of `RobotMelodyEvent` describing start steps and notes
+   * @param melody - Array of `RobotMelodyEvent` describing start steps and notes; superseded by
+   *   the click-track pattern while this robot's `clickTrackActive` is true.
    */
   registerRobotMelody(robotId: string, melody: RobotMelodyEvent[]): void {
     // Purge any existing entries for this robot before adding new ones so this
@@ -1018,16 +1026,21 @@ export const AudioEngine = {
       }
     });
 
+    const robot = findActiveRobot(robotId);
+    const effectiveMelody = robot?.clickTrackActive
+      ? buildClickTrackMelody(robot.octaveRange[0])
+      : melody;
+
     // Motif-group accent: computed once here (not per-tick) so it stays off the
     // scheduling hot path. Only meaningful when the robot's Motif Length toggle
-    // is active — scatter mode has no repeat windows to accent.
-    const robot = findActiveRobot(robotId);
+    // is active — scatter mode has no repeat windows to accent. Skipped entirely for the
+    // click track — it's a flat, unaccented test pulse, not the robot's own motif structure.
     const motif = robot?.rhythmicMotifLength;
     const accentedStartSteps = new Set<number>();
-    if (motif?.active) {
+    if (motif?.active && !robot?.clickTrackActive) {
       const windowLength = Math.max(1, motif.value);
       const earliestInWindow = new Map<number, number>(); // window index -> earliest startStep
-      melody.forEach((event) => {
+      effectiveMelody.forEach((event) => {
         const windowIndex = Math.floor((event.startStep - 1) / windowLength);
         const current = earliestInWindow.get(windowIndex);
         if (current === undefined || event.startStep < current) {
@@ -1037,13 +1050,13 @@ export const AudioEngine = {
       earliestInWindow.forEach((step) => accentedStartSteps.add(step));
     }
 
-    melody.forEach((event) => {
+    effectiveMelody.forEach((event) => {
       const entries = stepRegistry.get(event.startStep) || [];
       entries.push({ robotId, event, isGroupAccent: accentedStartSteps.has(event.startStep) });
       stepRegistry.set(event.startStep, entries);
     });
 
-    devLog(`[AudioEngine] Registered melody for robot ${robotId} (${melody.length} events)`);
+    devLog(`[AudioEngine] Registered melody for robot ${robotId} (${effectiveMelody.length} events)`);
   },
 
   unregisterRobotMelody(robotId: string): void {
