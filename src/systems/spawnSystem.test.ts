@@ -250,6 +250,10 @@ describe('spawnSystem', () => {
       );
       expect(robot.noteVariance!.value).toBeGreaterThanOrEqual(1);
       expect(robot.noteVariance!.value).toBeLessThanOrEqual(8);
+
+      expect(typeof robot.pitchRepeat).toBe('number');
+      expect(robot.pitchRepeat).toBeGreaterThanOrEqual(0);
+      expect(robot.pitchRepeat).toBeLessThanOrEqual(100);
     });
 
     it('seeds rhythmicMotifLength.active at roughly an 85% chance across many spawns', () => {
@@ -314,6 +318,7 @@ describe('spawnSystem', () => {
       expect(a.rhythmicDensity).toBe(b.rhythmicDensity);
       expect(a.rhythmicMotifLength).toEqual(b.rhythmicMotifLength);
       expect(a.noteVariance).toEqual(b.noteVariance);
+      expect(a.pitchRepeat).toBe(b.pitchRepeat);
     });
 
     it('a copied robot inherits the source\'s lfoSettings rather than generating fresh ones', () => {

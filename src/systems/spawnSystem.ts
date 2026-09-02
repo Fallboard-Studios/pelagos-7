@@ -11,6 +11,7 @@ import {
   DEFAULT_RHYTHMIC_DENSITY,
   DEFAULT_RHYTHMIC_MOTIF_LENGTH,
   DEFAULT_NOTE_VARIANCE,
+  DEFAULT_PITCH_REPEAT,
 } from '../engine/melodyGenerator';
 import type { ToggleValue } from '../engine/melodyGenerator';
 import { AudioEngine } from '../engine/AudioEngine';
@@ -329,6 +330,7 @@ export function spawnRobot(localeId: string, options?: { docking?: DockingState;
   let spawnRhythmicDensity: number;
   let spawnRhythmicMotifLength: ToggleValue;
   let spawnNoteVariance: ToggleValue;
+  let spawnPitchRepeat: number;
   let spawnLfoSettings: ReturnType<typeof generateRobotLfoSettings>;
 
   if (shouldCopy) {
@@ -346,6 +348,7 @@ export function spawnRobot(localeId: string, options?: { docking?: DockingState;
     spawnRhythmicDensity = source.rhythmicDensity ?? DEFAULT_RHYTHMIC_DENSITY;
     spawnRhythmicMotifLength = source.rhythmicMotifLength ?? DEFAULT_RHYTHMIC_MOTIF_LENGTH;
     spawnNoteVariance = source.noteVariance ?? DEFAULT_NOTE_VARIANCE;
+    spawnPitchRepeat = source.pitchRepeat ?? DEFAULT_PITCH_REPEAT;
     spawnLfoSettings = source.lfoSettings ?? generateRobotLfoSettings(noiseMap ?? ((_x: number, _y: number) => 0 as number), spawnCount);
     if (DEV_TUNING) console.log(`[SpawnSystem] Robot copying audio personality from ${source.id}`);
   } else {
@@ -385,6 +388,12 @@ export function spawnRobot(localeId: string, options?: { docking?: DockingState;
       active: noteVarianceActiveRaw >= NOTE_VARIANCE_ACTIVE_THRESHOLD,
       value: Math.min(8, Math.floor(noteVarianceValueRaw)),
     };
+
+    spawnPitchRepeat = Math.round(
+      noiseMap
+        ? getSeededVal(noiseMap, 'robot.pitchRepeat', spawnCount, 0, 100)
+        : alea(`${localeId}:${spawnCount}:pitchRepeat`)() * 100
+    );
   }
 
   // Seeded melody — always fresh from the robot's octaveRange/rhythmicDensity/
@@ -400,6 +409,7 @@ export function spawnRobot(localeId: string, options?: { docking?: DockingState;
     rhythmicDensity: spawnRhythmicDensity,
     rhythmicMotifLength: spawnRhythmicMotifLength,
     noteVariance: spawnNoteVariance,
+    pitchRepeat: spawnPitchRepeat,
     rand: melodyRand,
   });
 
@@ -423,6 +433,7 @@ export function spawnRobot(localeId: string, options?: { docking?: DockingState;
     rhythmicDensity: spawnRhythmicDensity,
     rhythmicMotifLength: spawnRhythmicMotifLength,
     noteVariance: spawnNoteVariance,
+    pitchRepeat: spawnPitchRepeat,
     lfoSettings: spawnLfoSettings,
     masterVolume: (() => {
       const seeded = noiseMap
