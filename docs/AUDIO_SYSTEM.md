@@ -130,13 +130,13 @@ Note: `note` is resolved to a validated pitch string (`/^[A-Ga-g][b#]{0,2}\d+$/`
 
 ## Harmony System
 
-The Harmony System provides dynamic 8-note palettes that change as the world clock advances, using the beat clock to derive the current hour from measure position (4 measures per hour-equivalent). This allows robot melodies to adapt without regenerating the melody events themselves.
+The Harmony System provides dynamic 8-note palettes that cycle sequentially through a fixed 12-entry set as the transport's measure count advances — each entry holds for `MEASURES_PER_PALETTE_ENTRY` (2) measures before advancing to the next, wrapping back to the first once it reaches the end. This allows robot melodies to adapt without regenerating the melody events themselves.
 
 **Key concepts:**
 - Robots store note **indices (0-7)**, not pitch strings
-- Palette updates are derived from the current hour and applied through the transport-driven cycle
+- The active palette index is derived fresh from the transport's measure position every tick (never accumulated), so a missed tick self-corrects rather than drifting
 - Melody events remain immutable; only the palette changes
-- Updates are driven by BeatClock/Transport rather than timers
+- Updates are driven by BeatClock/Transport rather than timers, via `beatClock.ts`'s own `scheduleRepeat`/`cancelSchedule` — no locally-owned transport handle
 
 **For complete Harmony System implementation details, see [HARMONY_SYSTEM.md](HARMONY_SYSTEM.md).**
 
