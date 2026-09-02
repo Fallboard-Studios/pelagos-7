@@ -35,7 +35,7 @@ const TEST_LOCALE: Locale = {
 function setStoreFixtures() {
   useAttenuationStyleStore.setState({ attenuationStyles: [TEST_ATTENUATION_STYLE], currentAttenuationStyleId: TEST_ATTENUATION_STYLE.id });
   useLocaleStore.setState({ locales: { [TEST_LOCALE.id]: TEST_LOCALE } });
-  useAudioStore.setState({ bpm: 128, isMuted: false, preMuteVolume: 1.0 });
+  useAudioStore.setState({ bpm: 128, isMuted: false, volume: 1 });
   useUIStore.setState({ isPoweredOn: true, activeLocaleLocalTime: 14.5 }); // 14:30
 }
 
@@ -137,5 +137,52 @@ describe('TransportBar (Task 9 — rebuild)', () => {
     });
     render(<TransportBar />);
     expect(screen.queryByText('undefined')).toBeNull();
+  });
+
+  describe('volume slider (docs/specs/GLOBAL_VOLUME_CONTROL.md §1.4)', () => {
+    it('renders next to the mute button, reflecting audioStore.volume', () => {
+      useAudioStore.setState({ volume: 0.6 });
+      render(<TransportBar />);
+      const slider = screen.getByRole('slider', { name: /volume/i });
+      expect(slider.getAttribute('aria-valuenow')).toBe('0.6');
+      expect(slider.getAttribute('aria-valuemin')).toBe('0');
+      expect(slider.getAttribute('aria-valuemax')).toBe('1');
+    });
+
+    it('is disabled when powered off, same condition as the mute button', () => {
+      useUIStore.setState({ isPoweredOn: false });
+      render(<TransportBar />);
+      const slider = screen.getByRole('slider', { name: /volume/i });
+      expect(slider.getAttribute('data-disabled')).toBe('');
+    });
+
+    it('stepping it with the keyboard calls setVolume, observable as a real store update', () => {
+      useAudioStore.setState({ volume: 0.5 });
+      render(<TransportBar />);
+      const slider = screen.getByRole('slider', { name: /volume/i });
+
+      slider.focus();
+      fireEvent.keyDown(slider, { key: 'ArrowRight' });
+
+      expect(useAudioStore.getState().volume).toBeGreaterThan(0.5);
+    });
+
+    it('clicking mute does not change volume — mute and volume are fully independent', async () => {
+      useAudioStore.setState({ volume: 0.8, isMuted: false });
+      render(<TransportBar />);
+      const muteBtn = screen.getByRole('button', { name: /mute/i });
+
+      await fireEvent.click(muteBtn);
+
+      expect(useAudioStore.getState().isMuted).toBe(true);
+      expect(useAudioStore.getState().volume).toBe(0.8);
+    });
+
+    it('the mute icon stays 🔊 when volume is 0 and isMuted is false — the icon never reacts to slider position', () => {
+      useAudioStore.setState({ volume: 0, isMuted: false });
+      render(<TransportBar />);
+      const muteBtn = screen.getByRole('button', { name: /mute/i });
+      expect(muteBtn.textContent).toBe('🔊');
+    });
   });
 });

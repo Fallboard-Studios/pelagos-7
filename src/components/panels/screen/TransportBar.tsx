@@ -2,14 +2,13 @@
 // IMPORTS
 // ========================================
 import * as Toolbar from '@radix-ui/react-toolbar';
+import * as Slider from '@radix-ui/react-slider';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 
 import { useLocaleStore } from '../../../stores/localeStore';
 import { useAttenuationStyleStore, selectCurrentAttenuationStyle } from '../../../stores/attenuationStyleStore';
 import { useUIStore } from '../../../stores/uiStore';
 import { useAudioStore } from '../../../stores/audioStore';
-import { AudioEngine } from '../../../engine/AudioEngine';
-import { swallow } from '../../../utils/helpers';
 
 import './TransportBar.css';
 
@@ -29,24 +28,16 @@ function TransportBar() {
   const bpm = useAudioStore((s) => s.bpm);
 
   const isMuted = useAudioStore((s) => s.isMuted);
+  const volume = useAudioStore((s) => s.volume);
 
-  const handleMuteClick = async () => {
+  const handleMuteClick = () => {
     if (!isPoweredOn) return;
-    try {
-      const store = useAudioStore.getState();
-      if (!isMuted) {
-        const current = AudioEngine.getMasterVolume();
-        store.setPreMuteVolume(current);
-        AudioEngine.setMasterVolume(0);
-        store.setMuted(true);
-      } else {
-        const pre = store.preMuteVolume ?? 1.0;
-        AudioEngine.setMasterVolume(pre);
-        store.setMuted(false);
-      }
-    } catch (err) {
-      swallow(err, '[TransportBar] Mute toggle failed');
-    }
+    useAudioStore.getState().setMuted(!isMuted);
+  };
+
+  const handleVolumeChange = (values: number[]) => {
+    if (!isPoweredOn) return;
+    useAudioStore.getState().setVolume(values[0]);
   };
 
   const hh = String(Math.max(0, Math.min(23, Math.floor(localHour ?? 0)))).padStart(2, '0');
@@ -66,6 +57,21 @@ function TransportBar() {
         >
           {isMuted ? '🔇' : '🔊'}
         </Toolbar.Button>
+
+        <Slider.Root
+          className="transport-bar__volume-slider"
+          min={0}
+          max={1}
+          step={0.01}
+          value={[volume]}
+          onValueChange={handleVolumeChange}
+          disabled={!isPoweredOn}
+        >
+          <Slider.Track className="transport-bar__volume-track">
+            <Slider.Range className="transport-bar__volume-range" />
+          </Slider.Track>
+          <Slider.Thumb className="transport-bar__volume-thumb" aria-label="Volume" />
+        </Slider.Root>
       </div>
 
       <Toolbar.Separator className="transport-bar__separator" />
