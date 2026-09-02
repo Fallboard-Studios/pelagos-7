@@ -13,9 +13,8 @@ import type { OscillatorLayer } from '../types/layeredAudio';
 import { GLOBAL_LFO_TARGET_IDS, type RobotLfoTargetId } from '../types/lfo';
 import { getAvailableNotes, scheduleHarmonyCycle, stopHarmonyCycle } from './harmonySystem';
 import { resetBeatClock, subscribeToMeasure, initBeatClock } from './beatClock';
-import { applyRhythmicVariance, applyTonalVariance } from './melodyGenerator';
 import { buildClickTrackMelody } from './clickTrack';
-import { DEV_TUNING, MIN_LEAD, MAX_POLYPHONY } from '../constants';
+import { MIN_LEAD, MAX_POLYPHONY } from '../constants';
 
 import { getRef } from '../utils/refs';
 import { precomputeDataX } from '../utils/getSeededVal';
@@ -388,8 +387,6 @@ export function triggerWithCap(params: NoteParams): boolean {
 /**
  * Start the main melody playback loop (16th-note tick — 16 steps = 1 measure,
  * matching melodyGenerator's own subdivision model).
- * At each 16-step loop completion, apply rhythmic variance to all active robots' melodies
- * and update their state for the next loop iteration.
  */
 function startMelodyPlayback(): void {
   if (scheduledTickId !== null) return;
@@ -436,61 +433,6 @@ function startMelodyPlayback(): void {
     });
 
     stepCounter++;
-
-    // ========================================
-    // LOOP COMPLETION: Apply rhythmic variance
-    // ========================================
-    // At loop boundary (16-step loop completed), apply O(robots × registry) variance
-    // synchronously — Tone.js transport callbacks run on the main thread, so Zustand
-    // reads/writes and stepRegistry mutations are safe here without any deferral.
-    if (stepCounter % 16 === 0) {
-      devLog(`[AudioEngine] Loop boundary reached at step ${stepCounter}`);
-      try {
-        const robots = getActiveLocaleRobots();
-        const robotCount = robots.length;
-        devLog(`[AudioEngine] Checking variance for ${robotCount} robots`);
-
-        robots.forEach((robot) => {
-          const originalMelody = robot.melody;
-          const originalSteps = originalMelody.map((e) => e.startStep);
-
-          // Apply variance (returns new array or original); both apply independently
-          const rhythmicVaried = applyRhythmicVariance(originalMelody as never);
-          const variedMelody = applyTonalVariance(rhythmicVaried as never);
-
-          const newSteps = variedMelody.map((e) => e.startStep);
-          const newIndices = variedMelody.map((e) => e.noteIndex);
-          const originalIndices = originalMelody.map((e) => e.noteIndex);
-          const changed =
-            originalSteps.some((step, i) => step !== newSteps[i]) ||
-            originalIndices.some((idx, i) => idx !== newIndices[i]);
-
-          if (changed) {
-            // Update stepRegistry with varied melody for THIS loop's playback only
-            // (don't persist to state, so next loop resets to original)
-            AudioEngine.unregisterRobotMelody(robot.id);
-            AudioEngine.registerRobotMelody(robot.id, variedMelody as never);
-
-            if (DEV_TUNING) {
-              const stepShifts = originalSteps
-                .map((step, i) => (step !== newSteps[i] ? `step${i}:${step}→${newSteps[i]}` : null))
-                .filter((x) => x !== null)
-                .join(', ');
-              const noteShifts = originalIndices
-                .map((idx, i) => (idx !== newIndices[i] ? `note${i}:${idx}→${newIndices[i]}` : null))
-                .filter((x) => x !== null)
-                .join(', ');
-              const summary = [stepShifts, noteShifts].filter(Boolean).join(' | ');
-              console.log(
-                `[AudioEngine] Variance applied to robot ${robot.id}: ${summary}`
-              );
-            }
-          }
-        });
-      } catch (err) {
-        console.warn('[AudioEngine] Failed to apply rhythmic variance:', err);
-      }
-    }
   }, '16n');
 
   devLog('[AudioEngine] Melody playback started (16n tick)');

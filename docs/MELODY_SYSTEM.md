@@ -10,7 +10,7 @@ Melody generation creates procedurally generated musical patterns for each robot
 2. **Index-based**: each event stores a `noteIndex` (0–7), not a literal pitch string.
 3. **16-subdivision grid**: onset positions are chosen across a one-measure grid of 16 subdivisions.
 4. **Motif-based density**: rhythmic structure comes from a motif repetition algorithm rather than a simple random step picker.
-5. **Optional variance**: the generator can bias note choices and shift timings in a controlled way for variation.
+5. **Optional variance**: the generator can bias note choices in a controlled way via the Note Variance toggle.
 
 ## Data Structure
 
@@ -168,15 +168,6 @@ change (nothing about Pitch Repeat is preserved across one, same as Density); ma
 other three fields — takes the existing unseeded `Math.random` manual-edit path, not the seeded one
 above.
 
-## Variance Helpers
-
-The module also exposes two helpers used by playback and tests:
-
-- `applyRhythmicVariance(melody, probability = 0.20, rand?)` — shifts 1–2 events by `[-2, -1, 1, 2]` steps with a default 20% chance.
-- `applyTonalVariance(melody, probability = 0.20, rand?)` — shifts 1–2 `noteIndex` values by `[-1, 1]` with a default 20% chance.
-
-These helpers are pure and return a new melody array when a change occurs.
-
 ## Constants of Interest
 
 - `RHYTHMIC_DENSITY_MIN = 0`, `RHYTHMIC_DENSITY_MAX = 100` (`src/constants/index.ts`) — the shared 0-100% fill-rate range. Was `4`/`12` (an onset count) before this phase.
@@ -189,7 +180,6 @@ These helpers are pure and return a new melody array when a change occurs.
 - `DEFAULT_PITCH_REPEAT = 0` — the neutral/off state (unlike the other three defaults, `0` isn't a mid-range compromise; it's what makes generation at the default statistically indistinguishable from having no Pitch Repeat).
 - `DEFAULT_SUBDIVISIONS = 16`
 - `OCTAVE_JUMP_CHANCE = 0.15`
-- `DEFAULT_VARIANCE_PROBABILITY = 0.20`
 - `DURATION_UNIT_VALUES`: `[[1,'16n'], [2,'8n'], [4,'4n'], [8,'2n']]` — grid-unit lengths used to weight `pickDurationForGap()`'s choice (weight = unit value, so `2n` is ~8x more likely than `16n` whenever both fit)
 
 ## Integration at Spawn
@@ -219,13 +209,12 @@ The playback layer uses the melody events as index-based cues and applies the cu
 
 ### Click Track (testing aid)
 
-`AudioEngine.registerRobotMelody(robotId, melody)` — the one funnel every melody-registration call site shares (spawn, Reset Melody, a Density/Motif Length/Note Variance edit, `robotSystems.ts`'s docking pitch-drift reroll, and this file's own per-loop rhythmic/tonal variance) — ignores its `melody` argument entirely and substitutes a fixed 4-quarter-note downbeat pattern (`src/engine/clickTrack.ts`'s `buildClickTrackMelody`, noteIndex `0/1/0/2` at `startStep` `1/5/9/13`) whenever the robot's own `clickTrackActive` flag (`Robot.ts`) is true. The override is enforced at that single funnel rather than at each call site, so nothing — including automatic melody changes a user never directly triggered, like the docking reroll — can silently fall back to the real melody while the toggle still reads as on. Toggled per-robot (or broadcast per-company) from the top of the Ping Controls accordion; purely a tempo/BPM-by-ear testing aid, not part of a robot's generated melody. The toggle itself only renders behind `DEV_TUNING` (`PingControlsDrawer.tsx`) — the same dev-only gate the Skipped Notes debug counter uses (`App.tsx`) — so it's unreachable in a production build.
+`AudioEngine.registerRobotMelody(robotId, melody)` — the one funnel every melody-registration call site shares (spawn, Reset Melody, a Density/Motif Length/Note Variance edit, and `robotSystems.ts`'s docking pitch-drift reroll) — ignores its `melody` argument entirely and substitutes a fixed 4-quarter-note downbeat pattern (`src/engine/clickTrack.ts`'s `buildClickTrackMelody`, noteIndex `0/1/0/2` at `startStep` `1/5/9/13`) whenever the robot's own `clickTrackActive` flag (`Robot.ts`) is true. The override is enforced at that single funnel rather than at each call site, so nothing — including automatic melody changes a user never directly triggered, like the docking reroll — can silently fall back to the real melody while the toggle still reads as on. Toggled per-robot (or broadcast per-company) from the top of the Ping Controls accordion; purely a tempo/BPM-by-ear testing aid, not part of a robot's generated melody. The toggle itself only renders behind `DEV_TUNING` (`PingControlsDrawer.tsx`) — the same dev-only gate the Skipped Notes debug counter uses (`App.tsx`) — so it's unreachable in a production build.
 
 ## Testing Notes
 
 The current tests cover:
 - deterministic generation with `seed` or `rand`
-- rhythm and tonal variance behavior
 - duration selection through `pickDurationForGap()` (never exceeds the available gap, weighted toward longer durations)
 - duration mapping through `gridUnitsToDuration()`
 - onset construction through `buildMotifOnsets()`

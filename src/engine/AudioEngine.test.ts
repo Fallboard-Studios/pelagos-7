@@ -139,12 +139,6 @@ vi.mock('./beatClock', () => ({
   resetBeatClock: vi.fn(() => undefined),
 }));
 
-// Mock melody generator
-vi.mock('./melodyGenerator', () => ({
-  applyRhythmicVariance: vi.fn(<T>(m: T) => m),
-  applyTonalVariance: vi.fn(<T>(m: T) => m),
-}));
-
 // Mock refs utility
 vi.mock('../utils/refs', () => ({
   getRef: vi.fn(() => undefined), // Returns undefined by default in tests
