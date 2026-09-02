@@ -1,10 +1,12 @@
 import { Stepper } from '@/components/ui/controls/Stepper';
 import { SliderLinear } from '@/components/ui/controls/SliderLinear';
 import { StepperWithToggle, type StepperWithToggleValue } from '@/components/ui/controls/StepperWithToggle';
+import { Toggle } from '@/components/ui/controls/Toggle';
 import { Button } from '@/components/ui/controls/Button';
 import { AccordionContainer } from '@/components/ui/controls/AccordionContainer';
 import {
   PING_CONTROLS_ACCORDION_SCHEMA,
+  CLICK_TRACK_SCHEMA,
   DENSITY_SCHEMA,
   MOTIF_LENGTH_SCHEMA,
   OCTAVE_RANGE_MIN_SCHEMA,
@@ -12,6 +14,7 @@ import {
   NOTE_VARIANCE_SCHEMA,
   RESET_MELODY_SCHEMA,
 } from '@/data/robotOptionsConfig';
+import { DEV_TUNING } from '@/constants';
 
 import './PingControlsDrawer.css';
 
@@ -20,6 +23,15 @@ export interface PingControlsValue {
   rhythmicMotifLength: StepperWithToggleValue;
   noteVariance: StepperWithToggleValue;
   octaveRange: [number, number];
+  /**
+   * Testing-only: whether the robot's (or, in company mode, every broadcast member's) real
+   * melody is currently overridden by the fixed click-track pattern (see
+   * src/engine/clickTrack.ts). Unlike onResetMelody, this one *is* company-scoped — broadcasting
+   * it turns the click track on/off for every member at once, e.g. to check tempo consistency
+   * across a whole company. The toggle itself only renders behind `DEV_TUNING` (see below) — a
+   * production build can never set this true.
+   */
+  clickTrackActive: boolean;
 }
 
 interface PingControlsDrawerProps {
@@ -29,6 +41,7 @@ interface PingControlsDrawerProps {
   onOctaveMinChange: (value: number) => void;
   onOctaveMaxChange: (value: number) => void;
   onNoteVarianceChange: (value: StepperWithToggleValue) => void;
+  onClickTrackActiveChange: (active: boolean) => void;
   /** Undefined omits the Reset Melody button entirely — it has no company-scoped meaning
    *  (Roadmap Phase 10's company panel never renders it), so absence, not disabling, is how a
    *  caller opts it out. */
@@ -54,19 +67,30 @@ export function PingControlsDrawer({
   onOctaveMaxChange,
   onNoteVarianceChange,
   onResetMelody,
+  onClickTrackActiveChange,
   disabled,
 }: PingControlsDrawerProps) {
   const [octMin, octMax] = value.octaveRange;
+  // While the click track is playing, the rest of this accordion's controls would silently
+  // overwrite it (every one of density/motif/note-variance's handlers re-registers a freshly
+  // generated melody with AudioEngine) without ever clearing the toggle's own visual state —
+  // so they're disabled alongside it, not just cosmetically greyed but genuinely inert.
+  const generationDisabled = disabled || value.clickTrackActive;
 
   return (
     <AccordionContainer schema={PING_CONTROLS_ACCORDION_SCHEMA}>
       <div className="ping-controls-drawer">
-        <SliderLinear schema={DENSITY_SCHEMA} value={value.rhythmicDensity} onChange={onDensityChange} disabled={disabled} />
-        <StepperWithToggle schema={MOTIF_LENGTH_SCHEMA} value={value.rhythmicMotifLength} onChange={onMotifLengthChange} disabled={disabled} />
-        <Stepper schema={OCTAVE_RANGE_MIN_SCHEMA} value={octMin} onChange={onOctaveMinChange} disabled={disabled} />
-        <Stepper schema={OCTAVE_RANGE_MAX_SCHEMA} value={octMax} onChange={onOctaveMaxChange} disabled={disabled} />
-        <StepperWithToggle schema={NOTE_VARIANCE_SCHEMA} value={value.noteVariance} onChange={onNoteVarianceChange} disabled={disabled} />
-        {onResetMelody && <Button schema={RESET_MELODY_SCHEMA} onClick={onResetMelody} />}
+        {/* Dev-only, same gate as the Skipped Notes debug counter (App.tsx) — a testing aid,
+            not something a production build's audience should see or be able to reach. */}
+        {DEV_TUNING && (
+          <Toggle schema={CLICK_TRACK_SCHEMA} value={value.clickTrackActive} onChange={onClickTrackActiveChange} disabled={disabled} />
+        )}
+        <SliderLinear schema={DENSITY_SCHEMA} value={value.rhythmicDensity} onChange={onDensityChange} disabled={generationDisabled} />
+        <StepperWithToggle schema={MOTIF_LENGTH_SCHEMA} value={value.rhythmicMotifLength} onChange={onMotifLengthChange} disabled={generationDisabled} />
+        <Stepper schema={OCTAVE_RANGE_MIN_SCHEMA} value={octMin} onChange={onOctaveMinChange} disabled={generationDisabled} />
+        <Stepper schema={OCTAVE_RANGE_MAX_SCHEMA} value={octMax} onChange={onOctaveMaxChange} disabled={generationDisabled} />
+        <StepperWithToggle schema={NOTE_VARIANCE_SCHEMA} value={value.noteVariance} onChange={onNoteVarianceChange} disabled={generationDisabled} />
+        {onResetMelody && <Button schema={RESET_MELODY_SCHEMA} onClick={onResetMelody} disabled={generationDisabled} />}
       </div>
     </AccordionContainer>
   );

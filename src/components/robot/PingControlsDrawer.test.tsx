@@ -1,5 +1,13 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+
+// Mutable so the Click Track dev-gating tests can flip DEV_TUNING false without faking
+// import.meta.env.DEV directly — same pattern lfoDebug.test.ts already uses for the same flag.
+let mockDevTuning = true;
+vi.mock('@/constants', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/constants')>();
+  return { ...actual, get DEV_TUNING() { return mockDevTuning; } };
+});
 
 import { PingControlsDrawer, type PingControlsValue } from './PingControlsDrawer';
 
@@ -9,11 +17,16 @@ function makeValue(overrides: Partial<PingControlsValue> = {}): PingControlsValu
     rhythmicMotifLength: { active: true, value: 8 },
     noteVariance: { active: false, value: 1 },
     octaveRange: [3, 5],
+    clickTrackActive: false,
     ...overrides,
   };
 }
 
 describe('PingControlsDrawer', () => {
+  beforeEach(() => {
+    mockDevTuning = true;
+  });
+
   it('wraps its controls in exactly one AccordionContainer', () => {
     render(
       <PingControlsDrawer
@@ -23,6 +36,7 @@ describe('PingControlsDrawer', () => {
         onOctaveMinChange={() => {}}
         onOctaveMaxChange={() => {}}
         onNoteVarianceChange={() => {}}
+        onClickTrackActiveChange={() => {}}
       />
     );
     expect(screen.getAllByText('Ping Controls')).toHaveLength(1);
@@ -38,6 +52,7 @@ describe('PingControlsDrawer', () => {
         onOctaveMinChange={() => {}}
         onOctaveMaxChange={() => {}}
         onNoteVarianceChange={() => {}}
+        onClickTrackActiveChange={() => {}}
       />
     );
 
@@ -56,6 +71,7 @@ describe('PingControlsDrawer', () => {
         onOctaveMinChange={() => {}}
         onOctaveMaxChange={() => {}}
         onNoteVarianceChange={() => {}}
+        onClickTrackActiveChange={() => {}}
       />
     );
 
@@ -74,6 +90,7 @@ describe('PingControlsDrawer', () => {
         onOctaveMinChange={onOctaveMinChange}
         onOctaveMaxChange={() => {}}
         onNoteVarianceChange={() => {}}
+        onClickTrackActiveChange={() => {}}
       />
     );
 
@@ -92,6 +109,7 @@ describe('PingControlsDrawer', () => {
         onOctaveMinChange={() => {}}
         onOctaveMaxChange={onOctaveMaxChange}
         onNoteVarianceChange={() => {}}
+        onClickTrackActiveChange={() => {}}
       />
     );
 
@@ -110,6 +128,7 @@ describe('PingControlsDrawer', () => {
         onOctaveMinChange={() => {}}
         onOctaveMaxChange={() => {}}
         onNoteVarianceChange={onNoteVarianceChange}
+        onClickTrackActiveChange={() => {}}
       />
     );
 
@@ -128,6 +147,7 @@ describe('PingControlsDrawer', () => {
         onOctaveMinChange={() => {}}
         onOctaveMaxChange={() => {}}
         onNoteVarianceChange={() => {}}
+        onClickTrackActiveChange={() => {}}
         onResetMelody={onResetMelody}
       />
     );
@@ -147,13 +167,14 @@ describe('PingControlsDrawer', () => {
         onOctaveMinChange={() => {}}
         onOctaveMaxChange={() => {}}
         onNoteVarianceChange={() => {}}
+        onClickTrackActiveChange={() => {}}
       />
     );
 
     expect(screen.queryByRole('button', { name: 'Reset Melody' })).toBeNull();
   });
 
-  it('disables every internal control when disabled is true', () => {
+  it('renders the Click Track toggle regardless of mode — unlike Reset Melody, it has a company-scoped meaning', () => {
     render(
       <PingControlsDrawer
         value={makeValue()}
@@ -162,6 +183,80 @@ describe('PingControlsDrawer', () => {
         onOctaveMinChange={() => {}}
         onOctaveMaxChange={() => {}}
         onNoteVarianceChange={() => {}}
+        onClickTrackActiveChange={() => {}}
+      />
+    );
+
+    expect(screen.getByRole('switch', { name: /Click Track/i })).toBeTruthy();
+  });
+
+  it('omits the Click Track toggle entirely when DEV_TUNING is false — never reachable in a production build', () => {
+    mockDevTuning = false;
+    render(
+      <PingControlsDrawer
+        value={makeValue()}
+        onDensityChange={() => {}}
+        onMotifLengthChange={() => {}}
+        onOctaveMinChange={() => {}}
+        onOctaveMaxChange={() => {}}
+        onNoteVarianceChange={() => {}}
+        onClickTrackActiveChange={() => {}}
+      />
+    );
+
+    expect(screen.queryByRole('switch', { name: /Click Track/i })).toBeNull();
+  });
+
+  it('toggling Click Track calls onClickTrackActiveChange', () => {
+    const onClickTrackActiveChange = vi.fn();
+    render(
+      <PingControlsDrawer
+        value={makeValue({ clickTrackActive: false })}
+        onDensityChange={() => {}}
+        onMotifLengthChange={() => {}}
+        onOctaveMinChange={() => {}}
+        onOctaveMaxChange={() => {}}
+        onNoteVarianceChange={() => {}}
+        onClickTrackActiveChange={onClickTrackActiveChange}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('switch', { name: /Click Track/i }));
+
+    expect(onClickTrackActiveChange).toHaveBeenCalledWith(true);
+  });
+
+  it('disables Density/Motif Length/Octave Range/Note Variance/Reset Melody, but not the Click Track toggle itself, while Click Track is active', () => {
+    render(
+      <PingControlsDrawer
+        value={makeValue({ clickTrackActive: true })}
+        onDensityChange={() => {}}
+        onMotifLengthChange={() => {}}
+        onOctaveMinChange={() => {}}
+        onOctaveMaxChange={() => {}}
+        onNoteVarianceChange={() => {}}
+        onClickTrackActiveChange={() => {}}
+        onResetMelody={() => {}}
+      />
+    );
+
+    expect(screen.getByRole('slider', { name: /density/i }).getAttribute('data-disabled')).toBe('');
+    expect((screen.getByRole('switch', { name: /Motif Length/i }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: /Increment Octave Range Min/i }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: 'Reset Melody' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('switch', { name: /Click Track/i }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('disables every internal control, including Click Track, when disabled is true', () => {
+    render(
+      <PingControlsDrawer
+        value={makeValue()}
+        onDensityChange={() => {}}
+        onMotifLengthChange={() => {}}
+        onOctaveMinChange={() => {}}
+        onOctaveMaxChange={() => {}}
+        onNoteVarianceChange={() => {}}
+        onClickTrackActiveChange={() => {}}
         disabled
       />
     );
@@ -169,5 +264,6 @@ describe('PingControlsDrawer', () => {
     expect(screen.getByRole('slider', { name: /density/i }).getAttribute('data-disabled')).toBe('');
     expect((screen.getByRole('switch', { name: /Motif Length/i }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole('button', { name: /Increment Octave Range Min/i }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('switch', { name: /Click Track/i }) as HTMLButtonElement).disabled).toBe(true);
   });
 });

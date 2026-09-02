@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAttenuationStyleStore, selectCurrentAttenuationStyle } from '@/stores/attenuationStyleStore';
 import { useLocaleStore } from '@/stores/localeStore';
 import { retransmitWorld, type RetransmitInput } from '@/systems/worldTransition';
-import { generateRandomAttenuationStyleName } from '@/utils/seedUtils';
+import { generateRandomAttenuationStyleName, randomCoordinate } from '@/utils/seedUtils';
 import { TextInput } from '@/components/ui/controls/TextInput';
 import { CoordsInput } from '@/components/ui/controls/CoordsInput';
 import { Button } from '@/components/ui/controls/Button';
@@ -20,14 +20,6 @@ import './SectorSettingsDrawer.css';
 
 const RANDOM_ATTENUATION_STYLE_SCHEMA: ButtonSchema = { id: 'sectorSettings.randomPlanet', type: 'button', humanLabel: 'Random' };
 const RANDOM_COORDS_SCHEMA: ButtonSchema = { id: 'sectorSettings.randomCoords', type: 'button', humanLabel: 'Random' };
-
-/** A random integer coordinate pair — no existing utility covers this
- *  (unlike Attenuation Style names, which reuse seedUtils' generateRandomAttenuationStyleName).
- *  Range is arbitrary but generous enough to feel like "a different plot,"
- *  not a variation on the current one. */
-function randomCoordinate(): number {
-  return Math.round((Math.random() - 0.5) * 400);
-}
 
 function presetSchema(idSuffix: string, humanLabel: string): ButtonSchema {
   return { id: `sectorSettings.preset.${idSuffix}`, type: 'button', humanLabel };

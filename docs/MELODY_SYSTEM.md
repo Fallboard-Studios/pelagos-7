@@ -155,6 +155,10 @@ The playback layer uses the melody events as index-based cues and applies the cu
 
 `AudioEngine`'s playback scheduler ticks on `'16n'` — 16 ticks per measure — so the 16 `startStep` slots this generator produces map 1:1 onto a single measure, exactly matching the "one measure, 16 subdivisions" model above. (This alignment was previously broken — the scheduler ticked on `'8n'`, stretching every melody's loop to 2 measures at half the tuned density — and was fixed to match this generator's model rather than the other way around.)
 
+### Click Track (testing aid)
+
+`AudioEngine.registerRobotMelody(robotId, melody)` — the one funnel every melody-registration call site shares (spawn, Reset Melody, a Density/Motif Length/Note Variance edit, `robotSystems.ts`'s docking pitch-drift reroll, and this file's own per-loop rhythmic/tonal variance) — ignores its `melody` argument entirely and substitutes a fixed 4-quarter-note downbeat pattern (`src/engine/clickTrack.ts`'s `buildClickTrackMelody`, noteIndex `0/1/0/2` at `startStep` `1/5/9/13`) whenever the robot's own `clickTrackActive` flag (`Robot.ts`) is true. The override is enforced at that single funnel rather than at each call site, so nothing — including automatic melody changes a user never directly triggered, like the docking reroll — can silently fall back to the real melody while the toggle still reads as on. Toggled per-robot (or broadcast per-company) from the top of the Ping Controls accordion; purely a tempo/BPM-by-ear testing aid, not part of a robot's generated melody. The toggle itself only renders behind `DEV_TUNING` (`PingControlsDrawer.tsx`) — the same dev-only gate the Skipped Notes debug counter uses (`App.tsx`) — so it's unreachable in a production build.
+
 ## Testing Notes
 
 The current tests cover:

@@ -25,6 +25,16 @@ vi.mock('tone', () => ({
     scheduleOnce: vi.fn(),
     scheduleRepeat: vi.fn(() => 1),
   })),
+  // Tone.getContext().setTimeout is the AudioContext-clock-based, tempo-independent
+  // scheduling primitive scheduleVoiceRelease uses (docs/specs/BPM_CONTROL.md's
+  // bug-fix follow-up) — distinct from Transport.scheduleOnce, which resolves a
+  // '+N' offset against Transport's own tick timeline and is therefore skewed by
+  // any bpm change between scheduling and firing.
+  getContext: vi.fn(() => ({
+    now: vi.fn(() => 0),
+    setTimeout: vi.fn(() => 1),
+    clearTimeout: vi.fn(),
+  })),
   PolySynth: vi.fn(() => ({
     connect: vi.fn().mockReturnThis(),
     triggerAttackRelease: vi.fn(),
@@ -372,6 +382,172 @@ describe('AudioEngine - Polyphony Management', () => {
       // Should accept exactly 16, skip 4
       expect(acceptedCount).toBe(16);
       expect(skippedCount).toBe(4);
+    });
+  });
+
+  // Bug: changing BPM while notes are sounding made playback "peter out" —
+  // only already-triggered notes finished, then nothing new played. Root
+  // cause: scheduleVoiceRelease computed a real-seconds voice-release delay
+  // but scheduled it via transport.scheduleOnce('+N'), which Tone.js resolves
+  // against the TRANSPORT's own tick timeline (Transport.scheduleOnce ->
+  // TransportTimeClass(...).toTicks()) — a fixed tick position computed at
+  // the CURRENT tempo. Any bpm change before that tick position is reached
+  // shifts how much real time it takes to get there, so releases fire late
+  // (bpm decreased) or early (bpm increased). Enough skew — one Tempo slider
+  // drag while 16 notes are in flight is enough — strands activeVoices at
+  // MAX_POLYPHONY for an extended stretch, silently blocking every new
+  // trigger. docs/specs/BPM_CONTROL.md's bug-fix follow-up.
+  describe('Voice release scheduling is tempo-independent', () => {
+    it('schedules the release via the AudioContext clock (context.setTimeout), not Transport.scheduleOnce', async () => {
+      const Tone = await import('tone');
+      const { triggerWithCap } = await import('./AudioEngine');
+
+      triggerWithCap({ robotId: 'test', note: 'C4', duration: '4n', time: 0, velocity: 0.8 });
+
+      const contextMock = (Tone.getContext as unknown as ReturnType<typeof vi.fn>).mock.results.at(-1)?.value;
+      expect(contextMock.setTimeout).toHaveBeenCalled();
+
+      const transportMock = (Tone.getTransport as unknown as ReturnType<typeof vi.fn>).mock.results.at(-1)?.value;
+      expect(transportMock.scheduleOnce).not.toHaveBeenCalled();
+    });
+
+    it('frees the voice when the context.setTimeout callback fires, even after an intervening setBPM call — a bpm change must not strand activeVoices at the polyphony cap', async () => {
+      const Tone = await import('tone');
+      const { AudioEngine, triggerWithCap } = await import('./AudioEngine');
+
+      // Fill to the polyphony cap.
+      for (let i = 0; i < 16; i++) {
+        expect(triggerWithCap({ robotId: 'test', note: 'C4', duration: '4n', time: 0, velocity: 0.8 })).toBe(true);
+      }
+      expect(triggerWithCap({ robotId: 'test', note: 'C4', duration: '4n', time: 0, velocity: 0.8 })).toBe(false); // capped
+
+      // The Tempo slider does exactly this while those 16 notes are still
+      // sounding — must not prevent their scheduled releases from firing.
+      AudioEngine.setBPM(90);
+
+      // Fire every release scheduled so far (simulates the AudioContext clock
+      // reaching each one, regardless of whatever bpm did in between).
+      const contextCalls = (Tone.getContext as unknown as ReturnType<typeof vi.fn>).mock.results as Array<{ value: { setTimeout: ReturnType<typeof vi.fn> } }>;
+      contextCalls.forEach((result) => {
+        result.value.setTimeout.mock.calls.forEach((call: unknown[]) => (call[0] as () => void)());
+      });
+
+      expect(triggerWithCap({ robotId: 'test', note: 'C4', duration: '4n', time: 0, velocity: 0.8 })).toBe(true); // freed up again
+    });
+  });
+
+  // Skipped Notes counter (bottom-left debug overlay) reads this history.
+  describe('Skipped notes per-measure recording (debugStore)', () => {
+    it('records 0 for a measure where nothing was skipped', async () => {
+      const { subscribeToMeasure } = await import('./beatClock');
+      const { useDebugStore } = await import('../stores/debugStore');
+      useDebugStore.setState({ skippedNotesHistory: [] });
+
+      const measureCallback = (subscribeToMeasure as unknown as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0] as (m: number) => void;
+      measureCallback(0);
+
+      expect(useDebugStore.getState().skippedNotesHistory).toEqual([0]);
+    });
+
+    it('records the number of notes skipped due to the polyphony cap that measure, then resets for the next', async () => {
+      const { triggerWithCap } = await import('./AudioEngine');
+      const { subscribeToMeasure } = await import('./beatClock');
+      const { useDebugStore } = await import('../stores/debugStore');
+      useDebugStore.setState({ skippedNotesHistory: [] });
+      const measureCallback = (subscribeToMeasure as unknown as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0] as (m: number) => void;
+
+      for (let i = 0; i < 16; i++) triggerWithCap({ robotId: 'test', note: 'C4', duration: '4n', time: 0, velocity: 0.8 });
+      // 3 more this measure, all rejected by the cap.
+      triggerWithCap({ robotId: 'test', note: 'C4', duration: '4n', time: 0, velocity: 0.8 });
+      triggerWithCap({ robotId: 'test', note: 'C4', duration: '4n', time: 0, velocity: 0.8 });
+      triggerWithCap({ robotId: 'test', note: 'C4', duration: '4n', time: 0, velocity: 0.8 });
+
+      measureCallback(1);
+      expect(useDebugStore.getState().skippedNotesHistory).toEqual([3]);
+
+      // Next measure has no skips — recorded as 0, not carried over from the last measure.
+      measureCallback(2);
+      expect(useDebugStore.getState().skippedNotesHistory).toEqual([3, 0]);
+    });
+
+    // Every one of these is "we intended to play this note and didn't, for a
+    // reason other than mute/solo" — mute/solo are deliberately NOT counted
+    // (those notes were never intended to play in the first place).
+
+    it('counts an invalid note string (fails NOTE_RE validation) as a skip', async () => {
+      const { triggerWithCap } = await import('./AudioEngine');
+      const { subscribeToMeasure } = await import('./beatClock');
+      const { useDebugStore } = await import('../stores/debugStore');
+      useDebugStore.setState({ skippedNotesHistory: [] });
+      const measureCallback = (subscribeToMeasure as unknown as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0] as (m: number) => void;
+
+      expect(triggerWithCap({ robotId: 'test', note: 'NOT_A_NOTE', duration: '4n', time: 0, velocity: 0.8 })).toBe(false);
+
+      measureCallback(0);
+      expect(useDebugStore.getState().skippedNotesHistory).toEqual([1]);
+    });
+
+    it('counts "no composite voice reserved for this robot" as a skip', async () => {
+      const { triggerWithCap } = await import('./AudioEngine');
+      const { subscribeToMeasure } = await import('./beatClock');
+      const { useDebugStore } = await import('../stores/debugStore');
+      useDebugStore.setState({ skippedNotesHistory: [] });
+      const measureCallback = (subscribeToMeasure as unknown as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0] as (m: number) => void;
+
+      expect(triggerWithCap({ robotId: 'never-reserved', note: 'C4', duration: '4n', time: 0, velocity: 0.8 })).toBe(false);
+
+      measureCallback(0);
+      expect(useDebugStore.getState().skippedNotesHistory).toEqual([1]);
+    });
+
+    it('counts an invalid melody note index (out of the currently-available range) as a skip', async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      const { subscribeToMeasure } = await import('./beatClock');
+      const { useDebugStore } = await import('../stores/debugStore');
+      useDebugStore.setState({ skippedNotesHistory: [] });
+      const measureCallback = (subscribeToMeasure as unknown as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0] as (m: number) => void;
+
+      // getAvailableNotes() is mocked to 8 entries (indices 0-7) — 99 is out of range.
+      AudioEngine.registerRobotMelody('bad-index-robot', [
+        { id: 'e1', startStep: 1, length: '8n' as const, noteIndex: 99, octave: 4 },
+      ]);
+
+      AudioEngine.processMelodyStep(1, 0);
+
+      measureCallback(0);
+      expect(useDebugStore.getState().skippedNotesHistory).toEqual([1]);
+
+      AudioEngine.unregisterRobotMelody('bad-index-robot');
+    });
+
+    it("isolates one event's uncaught scheduling exception from its sibling event in the same step — counts only the failure, still schedules the sibling", async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      const { subscribeToMeasure } = await import('./beatClock');
+      const { useDebugStore } = await import('../stores/debugStore');
+      useDebugStore.setState({ skippedNotesHistory: [] });
+      const measureCallback = (subscribeToMeasure as unknown as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0] as (m: number) => void;
+
+      AudioEngine.reserveVoice('ok-robot', TEST_LAYERED, TEST_ADSR);
+      AudioEngine.registerRobotMelody('throws-robot', [{ id: 'e1', startStep: 1, length: '8n' as const, noteIndex: 0, octave: 4 }]);
+      AudioEngine.registerRobotMelody('ok-robot', [{ id: 'e2', startStep: 1, length: '8n' as const, noteIndex: 0, octave: 4 }]);
+
+      const original = AudioEngine.scheduleNote.bind(AudioEngine);
+      const spy = vi.spyOn(AudioEngine, 'scheduleNote').mockImplementation((params) => {
+        if (params.robotId === 'throws-robot') throw new Error('simulated scheduling failure');
+        return original(params);
+      });
+
+      // Must not propagate — one event throwing shouldn't take down the whole step.
+      expect(() => AudioEngine.processMelodyStep(1, 0)).not.toThrow();
+
+      spy.mockRestore();
+      measureCallback(0);
+      // Exactly the throwing event is counted — the sibling wasn't also
+      // (wrongly) counted, proving it wasn't blocked by its neighbor's failure.
+      expect(useDebugStore.getState().skippedNotesHistory).toEqual([1]);
+
+      AudioEngine.unregisterRobotMelody('throws-robot');
+      AudioEngine.unregisterRobotMelody('ok-robot');
     });
   });
 });
@@ -854,6 +1030,117 @@ describe('AudioEngine - Motif Group Accent', () => {
   });
 });
 
+describe('AudioEngine.registerRobotMelody — Click Track override', () => {
+  beforeEach(async () => {
+    vi.resetModules();
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+  });
+
+  function makeRobot(id: string, overrides: { clickTrackActive?: boolean; octaveRange?: [number, number] } = {}) {
+    return {
+      id,
+      clickTrackActive: overrides.clickTrackActive ?? false,
+      audioAttributes: { adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.2 }, waveform: 'sine' as const, filterFreq: 100 },
+      masterVolume: 0.8,
+      melody: [],
+      octaveRange: overrides.octaveRange ?? ([3, 4] as [number, number]),
+      position: { x: 0, y: 0 },
+      destination: null,
+      createdAt: Date.now(),
+      name: '',
+      state: 'idle' as const,
+      direction: 'right' as const,
+      docking: 'active' as const,
+      batteryLevel: 100,
+    };
+  }
+
+  async function setActiveRobot(robot: ReturnType<typeof makeRobot>) {
+    const storeMod = await import('../stores/localeStore');
+    const attenuationStyleMod = await import('../stores/attenuationStyleStore');
+    const helpers = await import('../utils/localeHelpers');
+    (helpers.getActiveLocaleId as ReturnType<typeof vi.fn>).mockReturnValue(attenuationStyleMod.DEFAULT_LOCALE_ID);
+    storeMod.useLocaleStore.getState().setLocaleData(attenuationStyleMod.DEFAULT_LOCALE_ID, { robots: [robot] });
+  }
+
+  it('registers the passed-in melody unchanged when clickTrackActive is false', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await setActiveRobot(makeRobot('r1', { clickTrackActive: false }));
+
+    const melody = [{ id: 'real-1', startStep: 3, length: '8n' as const, noteIndex: 5, octave: 4 }];
+    const spy = vi.spyOn(AudioEngine, 'scheduleNote').mockImplementation(() => {});
+    AudioEngine.registerRobotMelody('r1', melody);
+    AudioEngine.processMelodyStep(3, 0);
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    spy.mockRestore();
+  });
+
+  it('substitutes the fixed click-track pattern, ignoring the passed-in melody entirely, when clickTrackActive is true', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await setActiveRobot(makeRobot('r2', { clickTrackActive: true, octaveRange: [3, 6] }));
+
+    // A real melody with an onset nowhere near the click track's own downbeats (1/5/9/13).
+    const realMelody = [{ id: 'real-1', startStep: 7, length: '8n' as const, noteIndex: 5, octave: 4 }];
+    const spy = vi.spyOn(AudioEngine, 'scheduleNote').mockImplementation(() => {});
+    AudioEngine.registerRobotMelody('r2', realMelody);
+
+    // The real melody's own step never fires...
+    AudioEngine.processMelodyStep(7, 0);
+    expect(spy).not.toHaveBeenCalled();
+
+    // ...but the click track's downbeats do, at the robot's own octave-range minimum (3).
+    AudioEngine.processMelodyStep(1, 0);
+    AudioEngine.processMelodyStep(5, 0);
+    AudioEngine.processMelodyStep(9, 0);
+    AudioEngine.processMelodyStep(13, 0);
+
+    expect(spy).toHaveBeenCalledTimes(4);
+    const notes = spy.mock.calls.map((c) => c[0].note);
+    // This file's getAvailableNotes() mock (line ~126) returns note NAMES that already carry
+    // their own octave digit (['C4','D4',...]) — scheduleNote's `${noteName}${event.octave}`
+    // concatenation then appends the click track's own octave (3) after that, e.g. 'C4' + 3 =
+    // 'C43'. Odd-looking but consistent with every other note-string assertion in this file.
+    expect(notes).toEqual(['C43', 'D43', 'C43', 'E43']);
+    spy.mockRestore();
+  });
+
+  it('keeps enforcing the click track even when a later registerRobotMelody call carries a freshly regenerated real melody (e.g. the docking pitch-drift reroll)', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await setActiveRobot(makeRobot('r3', { clickTrackActive: true }));
+
+    const spy = vi.spyOn(AudioEngine, 'scheduleNote').mockImplementation(() => {});
+    // First registration, as if from turning the toggle on.
+    AudioEngine.registerRobotMelody('r3', []);
+    // A second, unrelated registration carrying a real (drifted) melody — simulates
+    // robotSystems.ts's landOnDocked re-registering after a pitch-drift reroll while the
+    // click track is still toggled on.
+    AudioEngine.registerRobotMelody('r3', [{ id: 'drifted-1', startStep: 2, length: '8n' as const, noteIndex: 3, octave: 5 }]);
+
+    AudioEngine.processMelodyStep(2, 0); // the drifted melody's own step — must NOT fire
+    AudioEngine.processMelodyStep(1, 0); // a click-track downbeat — must fire
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0][0].note).toBe('C43'); // 'C4' (mocked note name) + octave 3
+    spy.mockRestore();
+  });
+
+  it('does not accent any click-track event, even when the robot\'s own Motif Length toggle is active', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    const robot = makeRobot('r4', { clickTrackActive: true });
+    await setActiveRobot({ ...robot, rhythmicMotifLength: { active: true, value: 4 } } as never);
+
+    const spy = vi.spyOn(AudioEngine, 'scheduleNote').mockImplementation(() => {});
+    AudioEngine.registerRobotMelody('r4', []);
+    AudioEngine.processMelodyStep(1, 0);
+    AudioEngine.processMelodyStep(5, 0);
+
+    spy.mock.calls.forEach((c) => expect(c[0].accentMultiplier ?? 1).toBe(1));
+    spy.mockRestore();
+  });
+});
+
 describe('AudioEngine — masterVolume drives a live per-robot bus gain, not per-note velocity', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -1330,6 +1617,61 @@ describe('AudioEngine - Transport methods & Master Volume (Issue #220)', () => {
     it('does not throw when called on an uninitialised engine', async () => {
       const { AudioEngine } = await import('./AudioEngine');
       expect(() => AudioEngine.killAll()).not.toThrow();
+    });
+  });
+
+  // ── setBPM (docs/specs/BPM_CONTROL.md §1.6) ───────────── //
+  describe('setBPM()', () => {
+    // Deliberately instant, not ramped — see the doc comment on setBPM itself.
+    // A ramp that gets cancelled and restarted on every rapid call (exactly
+    // what the Tempo slider's continuous onValueChange produces during a
+    // drag) never settles, making the actual tempo wobble for the whole
+    // drag gesture instead of tracking the slider precisely.
+    it('assigns the transport bpm value directly, with no ramp', async () => {
+      const Tone = await import('tone');
+      (Tone.getTransport as unknown as AnyMock).mockReturnValueOnce({
+        state: 'stopped',
+        start: vi.fn().mockResolvedValue(undefined),
+        pause: vi.fn(),
+        stop: vi.fn(),
+        clear: vi.fn(),
+        scheduleOnce: vi.fn(),
+        scheduleRepeat: vi.fn(() => 1),
+        bpm: { value: 60, rampTo: vi.fn() },
+      });
+      const { AudioEngine } = await import('./AudioEngine');
+      await AudioEngine.start();
+      const transport = (Tone.getTransport as unknown as AnyMock).mock.results.at(-1)?.value;
+      AudioEngine.setBPM(140);
+      expect(transport.bpm.value).toBe(140);
+      expect(transport.bpm.rampTo).not.toHaveBeenCalled();
+    });
+
+    it('does not restart/interrupt itself across rapid successive calls — each is an independent instant set, not a cancelled ramp', async () => {
+      const Tone = await import('tone');
+      (Tone.getTransport as unknown as AnyMock).mockReturnValueOnce({
+        state: 'stopped',
+        start: vi.fn().mockResolvedValue(undefined),
+        pause: vi.fn(),
+        stop: vi.fn(),
+        clear: vi.fn(),
+        scheduleOnce: vi.fn(),
+        scheduleRepeat: vi.fn(() => 1),
+        bpm: { value: 60 },
+      });
+      const { AudioEngine } = await import('./AudioEngine');
+      await AudioEngine.start();
+      const transport = (Tone.getTransport as unknown as AnyMock).mock.results.at(-1)?.value;
+
+      // Simulates a fast slider drag — many onChange calls in quick succession.
+      for (let bpm = 61; bpm <= 90; bpm++) AudioEngine.setBPM(bpm);
+
+      expect(transport.bpm.value).toBe(90);
+    });
+
+    it('does not throw when called before start (no-op)', async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      expect(() => AudioEngine.setBPM(140)).not.toThrow();
     });
   });
 

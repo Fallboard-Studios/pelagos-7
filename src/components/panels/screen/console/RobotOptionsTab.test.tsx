@@ -13,13 +13,19 @@ vi.mock('@/components/robot/RobotDisplaySection', () => ({
 }));
 vi.mock('@/components/robot/PingControlsDrawer', () => ({
   PingControlsDrawer: (props: {
-    value: { rhythmicDensity: number };
+    value: { rhythmicDensity: number; clickTrackActive: boolean };
     onDensityChange: (v: number) => void;
     onResetMelody?: () => void;
+    onClickTrackActiveChange: (v: boolean) => void;
   }) => (
-    <div data-testid="ping-controls-drawer-stub" data-density={props.value.rhythmicDensity}>
+    <div
+      data-testid="ping-controls-drawer-stub"
+      data-density={props.value.rhythmicDensity}
+      data-click-track-active={String(props.value.clickTrackActive)}
+    >
       <button onClick={() => props.onDensityChange(77)}>probe-density</button>
       {props.onResetMelody && <button onClick={props.onResetMelody}>probe-reset-melody</button>}
+      <button onClick={() => props.onClickTrackActiveChange(true)}>probe-click-track</button>
     </div>
   ),
 }));
@@ -141,6 +147,20 @@ describe('RobotOptionsTab', () => {
     fireEvent.click(screen.getByText('probe-reset-melody'));
 
     expect(regenSpy).toHaveBeenCalledWith(robot, localeId);
+  });
+
+  it('derives PingControlsDrawer\'s clickTrackActive from the robot and wires onClickTrackActiveChange to applyClickTrackActive', () => {
+    const robot = { ...makeRobot(), clickTrackActive: true };
+    useLocaleStore.getState().addRobot(localeId, robot);
+    useUIStore.getState().selectRobot(robot.id);
+    const applySpy = vi.spyOn(robotOptionsActions, 'applyClickTrackActive').mockImplementation(() => {});
+    render(<RobotOptionsTab />);
+
+    expect(screen.getByTestId('ping-controls-drawer-stub').getAttribute('data-click-track-active')).toBe('true');
+
+    fireEvent.click(screen.getByText('probe-click-track'));
+
+    expect(applySpy).toHaveBeenCalledWith(robot, localeId, true);
   });
 
   it('derives PingContourDrawer\'s value from the robot\'s audioAttributes.adsr and wires onChange to applyAdsr', () => {

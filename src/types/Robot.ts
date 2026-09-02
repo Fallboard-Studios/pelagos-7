@@ -181,4 +181,12 @@ export interface Robot {
    * RobotSelectionCard/RobotDisplaySection (localeStore.assignRobotToCompany).
    */
   companyId?: string;
+  /**
+   * Testing-only override, toggled from the top of Ping Controls: when true, AudioEngine plays
+   * a fixed 4-quarter-note downbeat pattern (see src/engine/clickTrack.ts) instead of this
+   * robot's real melody, to make tempo/BPM changes easy to track by ear. `melody` itself is left
+   * untouched — turning this back off restores exact playback of the real, generated melody.
+   * Default: false/undefined.
+   */
+  clickTrackActive?: boolean;
 }

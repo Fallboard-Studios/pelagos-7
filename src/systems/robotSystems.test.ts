@@ -15,6 +15,7 @@ import {
 import { useLocaleStore, DEFAULT_LOCALE } from '../stores/localeStore';
 import { DEFAULT_LOCALE_ID } from '../stores/attenuationStyleStore';
 import { AudioEngine } from '../engine/AudioEngine';
+import { buildClickTrackMelody } from '../engine/clickTrack';
 import { DockingState, JobType, RobotState } from '../types/Robot';
 import type { Robot } from '../types/Robot';
 import {
@@ -446,6 +447,26 @@ describe('robotSystems', () => {
 
       const updated = useLocaleStore.getState().getRobotById(DEFAULT_LOCALE_ID, robot.id)!;
       expect(AudioEngine.getRegisteredMelody(robot.id)).toEqual(updated.melody);
+    });
+
+    it('keeps playing the click track through a dock cycle\'s pitch-drift reroll, even though the stored melody itself still drifts', () => {
+      // Regression: landOnDocked unconditionally re-registers its freshly-drifted melody with
+      // AudioEngine, which used to silently replace whatever was actually playing — including an
+      // active click-track override — while the Ping Controls toggle kept showing it as on.
+      const robot = makeRobot({ id: 'docked-click-track', docking: DockingState.Departing, clickTrackActive: true });
+      setupLocaleWithRobots([robot]);
+      AudioEngine.reserveVoice(robot.id, robot.audioAttributes.layers!, robot.audioAttributes.adsr);
+      AudioEngine.registerRobotMelody(robot.id, robot.melody);
+
+      landOnDocked(DEFAULT_LOCALE_ID, robot.id);
+
+      // The store's own pitch-drift bookkeeping happens exactly as it would for any other robot
+      // (covered by the "re-rolls ~25%..." test above) — the toggle itself is untouched by the
+      // dock cycle, and what's actually registered with AudioEngine is still the click track,
+      // never the freshly-drifted real melody.
+      const updated = useLocaleStore.getState().getRobotById(DEFAULT_LOCALE_ID, robot.id)!;
+      expect(updated.clickTrackActive).toBe(true);
+      expect(AudioEngine.getRegisteredMelody(robot.id)).toEqual(buildClickTrackMelody(robot.octaveRange[0]));
     });
 
     it('repositions the robot off-screen (outside the world bounds)', () => {

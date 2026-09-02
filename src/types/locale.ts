@@ -1,6 +1,6 @@
 import type { Actor } from './Actor';
 import type { Robot } from './Robot';
-import type { Company } from './Company';
+import type { Company, CompanyOptionsSnapshot } from './Company';
 
 export interface LocaleCoordinates {
   x: number;
@@ -21,6 +21,13 @@ export interface Locale {
   companies: Company[];
   settings: LocaleSettings;
   currentMeasure: number;
+  /** The "All" selection's own edit snapshot (CompanyButtonRow's All button, uiStore's
+   *  allRobotsSelected) — same role as Company.lastEditedOptions, but locale-scoped rather than
+   *  company-scoped, since "All" has no Company object of its own to store it on. Optional and
+   *  absent on a freshly-built locale, same "grows one field at a time as actually edited, never
+   *  a stale full clone" shape CompanyOptionsSnapshot already documents. Resets naturally on
+   *  retransmit along with everything else on the Locale object — no separate cleanup needed. */
+  allRobotsLastEditedOptions?: CompanyOptionsSnapshot;
 }
 
 export interface LocaleSettings {

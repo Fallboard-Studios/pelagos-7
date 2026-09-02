@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   applyAudioMode, applyVolume, applyVolumeLfo,
   applyDensity, applyMotifLength, applyNoteVariance, applyOctaveMin, applyOctaveMax,
-  applyAdsr, applyLayersContinuous, applyLayersStructural, applyLayerLfo,
+  applyAdsr, applyLayersContinuous, applyLayersStructural, applyLayerLfo, applyClickTrackActive,
 } from './robotOptionsActions';
 import { useLocaleStore } from '@/stores/localeStore';
 import { getActiveLocaleId } from '@/utils/localeHelpers';
@@ -214,6 +214,38 @@ describe('robotOptionsActions', () => {
       applyOctaveMax(robot, localeId, 6);
 
       expect(genSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('applyClickTrackActive', () => {
+    it('writes clickTrackActive and registers the fixed click-track melody, at the octave range minimum, when turned on', () => {
+      const robot = makeRobot({ octaveRange: [3, 5], melody: [{ id: 'real', startStep: 1, length: '8n', noteIndex: 0, octave: 4 }] });
+      useLocaleStore.getState().addRobot(localeId, robot);
+      const updateSpy = vi.spyOn(useLocaleStore.getState(), 'updateRobot');
+      const registerSpy = vi.spyOn(AudioEngine, 'registerRobotMelody').mockImplementation(() => {});
+
+      applyClickTrackActive(robot, localeId, true);
+
+      expect(updateSpy).toHaveBeenCalledWith(localeId, robot.id, { clickTrackActive: true });
+      expect(registerSpy).toHaveBeenCalledWith(robot.id, [
+        { id: 'click-track-0', startStep: 1, length: '4n', noteIndex: 0, octave: 3 },
+        { id: 'click-track-1', startStep: 5, length: '4n', noteIndex: 1, octave: 3 },
+        { id: 'click-track-2', startStep: 9, length: '4n', noteIndex: 0, octave: 3 },
+        { id: 'click-track-3', startStep: 13, length: '4n', noteIndex: 2, octave: 3 },
+      ]);
+    });
+
+    it('writes clickTrackActive false and re-registers the robot\'s own real melody, unchanged, when turned off', () => {
+      const realMelody = [{ id: 'real', startStep: 1, length: '8n' as const, noteIndex: 0, octave: 4 }];
+      const robot = makeRobot({ melody: realMelody });
+      useLocaleStore.getState().addRobot(localeId, robot);
+      const updateSpy = vi.spyOn(useLocaleStore.getState(), 'updateRobot');
+      const registerSpy = vi.spyOn(AudioEngine, 'registerRobotMelody').mockImplementation(() => {});
+
+      applyClickTrackActive(robot, localeId, false);
+
+      expect(updateSpy).toHaveBeenCalledWith(localeId, robot.id, { clickTrackActive: false });
+      expect(registerSpy).toHaveBeenCalledWith(robot.id, realMelody);
     });
   });
 

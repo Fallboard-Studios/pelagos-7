@@ -3,6 +3,7 @@ import {
   AUDIO_SETTING_SCHEMA,
   VOLUME_SCHEMA,
   VOLUME_LFO_TARGET,
+  CLICK_TRACK_SCHEMA,
   DENSITY_SCHEMA,
   MOTIF_LENGTH_SCHEMA,
   OCTAVE_RANGE_MIN_SCHEMA,
@@ -22,6 +23,7 @@ import { RHYTHMIC_DENSITY_MIN, RHYTHMIC_DENSITY_MAX, OCTAVE_RANGE_MIN, OCTAVE_RA
 const ALL_TOP_LEVEL_SCHEMAS = [
   AUDIO_SETTING_SCHEMA,
   VOLUME_SCHEMA,
+  CLICK_TRACK_SCHEMA,
   DENSITY_SCHEMA,
   MOTIF_LENGTH_SCHEMA,
   OCTAVE_RANGE_MIN_SCHEMA,
@@ -59,6 +61,11 @@ describe('robotOptionsConfig', () => {
     expect(AUDIO_SETTING_SCHEMA.options.map((o) => o.value).sort()).toEqual(
       ['highlight', 'mute', 'none', 'solo'].sort()
     );
+  });
+
+  it('Click Track is a toggle, labeled "Click Track"', () => {
+    expect(CLICK_TRACK_SCHEMA.type).toBe('toggle');
+    expect(CLICK_TRACK_SCHEMA.humanLabel).toBe('Click Track');
   });
 
   it('Volume displays 0-100% in 1% steps (stored as 0..1 - conversion happens at the component boundary, same as Sustain)', () => {

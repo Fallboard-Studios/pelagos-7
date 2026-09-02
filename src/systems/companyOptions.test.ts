@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
 
-import { resolveCompanyOptions } from './companyOptions';
+import { resolveCompanyOptions, diffCompoundField, diffLayerField } from './companyOptions';
 import type { Company } from '@/types/Company';
 import type { Robot } from '@/types/Robot';
+import type { OscillatorLayer } from '@/types/layeredAudio';
 
 function makeRobot(overrides: Partial<Robot> = {}): Robot {
   return {
@@ -41,7 +42,7 @@ describe('resolveCompanyOptions', () => {
     const firstMember = makeRobot();
     const company = makeCompany();
 
-    const resolved = resolveCompanyOptions(company, firstMember);
+    const resolved = resolveCompanyOptions(company.lastEditedOptions, firstMember);
 
     expect(resolved.audioMode).toBe('solo');
     expect(resolved.masterVolume).toBe(0.6);
@@ -51,6 +52,7 @@ describe('resolveCompanyOptions', () => {
     expect(resolved.octaveRange).toEqual([3, 5]);
     expect(resolved.adsr).toEqual({ attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 });
     expect(resolved.layers).toEqual(firstMember.audioAttributes.layers);
+    expect(resolved.clickTrackActive).toBe(false);
   });
 
   it('falls back to documented defaults for fields the first member has never had set', () => {
@@ -63,7 +65,7 @@ describe('resolveCompanyOptions', () => {
     });
     const company = makeCompany();
 
-    const resolved = resolveCompanyOptions(company, firstMember);
+    const resolved = resolveCompanyOptions(company.lastEditedOptions, firstMember);
 
     expect(resolved.audioMode).toBe('none');
     expect(resolved.rhythmicDensity).toBe(50);
@@ -76,23 +78,79 @@ describe('resolveCompanyOptions', () => {
     const firstMember = makeRobot({ masterVolume: 0.6, rhythmicDensity: 42 });
     const company = makeCompany({ lastEditedOptions: { masterVolume: 0.9 } });
 
-    const resolved = resolveCompanyOptions(company, firstMember);
+    const resolved = resolveCompanyOptions(company.lastEditedOptions, firstMember);
 
     expect(resolved.masterVolume).toBe(0.9); // recorded override wins
     expect(resolved.rhythmicDensity).toBe(42); // untouched field still falls back live
   });
 
+  it('clickTrackActive falls back to the first member\'s own live value when true, not just its false default', () => {
+    const firstMember = makeRobot({ clickTrackActive: true });
+    const company = makeCompany();
+
+    const resolved = resolveCompanyOptions(company.lastEditedOptions, firstMember);
+
+    expect(resolved.clickTrackActive).toBe(true);
+  });
+
   it('the first member\'s own subsequent live changes are reflected for any field the snapshot does not cover — never frozen at first-selection time', () => {
     const company = makeCompany({ lastEditedOptions: { masterVolume: 0.9 } });
 
-    const before = resolveCompanyOptions(company, makeRobot({ rhythmicDensity: 10 }));
+    const before = resolveCompanyOptions(company.lastEditedOptions, makeRobot({ rhythmicDensity: 10 }));
     expect(before.rhythmicDensity).toBe(10);
 
     // The "first member" robot object drifted (e.g. edited individually) between two calls —
     // resolveCompanyOptions has no memory of its own; it re-reads whatever is passed in.
-    const after = resolveCompanyOptions(company, makeRobot({ rhythmicDensity: 77 }));
+    const after = resolveCompanyOptions(company.lastEditedOptions, makeRobot({ rhythmicDensity: 77 }));
     expect(after.rhythmicDensity).toBe(77);
     // The recorded override is unaffected by the drift.
     expect(after.masterVolume).toBe(0.9);
+  });
+});
+
+describe('diffCompoundField', () => {
+  it('returns a patch with just the one field that changed', () => {
+    const prev = { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 };
+    const next = { attack: 0.9, decay: 0.3, sustain: 0.8, release: 1.5 };
+
+    expect(diffCompoundField(prev, next)).toEqual({ attack: 0.9 });
+  });
+
+  it('returns an empty patch when nothing differs', () => {
+    const value = { shape: 'sine' as const, rate: 1, depth: 20, active: true };
+
+    expect(diffCompoundField(value, { ...value })).toEqual({});
+  });
+
+  it('only reports the first differing key when multiple differ (defensive — real callers never do this)', () => {
+    const prev = { active: false, value: 1 };
+    const next = { active: true, value: 5 };
+
+    const patch = diffCompoundField(prev, next);
+    expect(Object.keys(patch)).toHaveLength(1);
+  });
+});
+
+describe('diffLayerField', () => {
+  const layers: OscillatorLayer[] = [
+    { type: 'sine', gain: 1, detune: 0, phase: 0, active: true },
+    { type: 'square', gain: 0.8, detune: 5, phase: 10, active: true },
+    { type: 'triangle', gain: 0.6, detune: -5, phase: 20, active: false },
+  ];
+
+  it('finds the one layer index and field that changed', () => {
+    const next = layers.map((l, i) => (i === 1 ? { ...l, gain: 0.4 } : l));
+
+    expect(diffLayerField(layers, next)).toEqual({ idx: 1, patch: { gain: 0.4 } });
+  });
+
+  it('finds a structural change (type) the same way as a continuous change (gain)', () => {
+    const next = layers.map((l, i) => (i === 2 ? { ...l, type: 'pulse' as const } : l));
+
+    expect(diffLayerField(layers, next)).toEqual({ idx: 2, patch: { type: 'pulse' } });
+  });
+
+  it('returns null when no layer differs', () => {
+    expect(diffLayerField(layers, layers.map((l) => ({ ...l })))).toBeNull();
   });
 });

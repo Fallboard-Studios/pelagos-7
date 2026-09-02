@@ -18,7 +18,7 @@ interface Company {
 }
 ```
 
-`CompanyOptionsSnapshot` mirrors every editable field the four Robot Options sections expose — Audio Setting, Volume + its LFO, and the full contents of the Ping Controls, Ping Contour, and Signature Array drawers. It deliberately excludes the read-only Display rows (Name/Job/Battery/Docking) and the Reset Melody action, neither of which has a company-scoped meaning. Every field on it is optional — see "The Snapshot Merge" below for why.
+`CompanyOptionsSnapshot` mirrors every editable field the four Robot Options sections expose — Audio Setting, Volume + its LFO, and the full contents of the Ping Controls, Ping Contour, and Signature Array drawers. It deliberately excludes the read-only Display rows (Name/Job/Battery/Docking) and the Reset Melody action, neither of which has a company-scoped meaning. Every field on it is optional — see "The Snapshot Merge" below for why. This includes `clickTrackActive` — Ping Controls' Click Track testing toggle (see [MELODY_SYSTEM.md](MELODY_SYSTEM.md)'s Click Track note) — which, unlike Reset Melody, *does* have a company-scoped meaning (broadcasting it puts every member's playback into click-track mode at once) even though its own control only ever renders behind `DEV_TUNING`.
 
 ## Spawn-Time Generation
 
@@ -28,39 +28,41 @@ Because `spawnInitialCompanies` hooks into the exact same guard `spawnInitialRos
 
 ## Selection & Highlighting
 
-`uiStore.ts` tracks `selectedCompanyId: string | null`, independent of the existing `selectedRobotId` — selecting one never touches the other. Selecting a company:
+`uiStore.ts` tracks `selectedCompanyId: string | null` and `allRobotsSelected: boolean`, independent of the existing `selectedRobotId` — selecting a robot never touches either. The two are mutually exclusive: `selectCompany` (any id, or `null` for "None") always clears `allRobotsSelected`, and `selectAllRobots` always clears `selectedCompanyId`. Selecting a company:
 
 - Highlights each member robot's card in the robot list (`RobotsTab`).
 - Glows each member robot in the world view — `Robot.tsx`'s `isCompanyMember` (`robot.companyId === selectedCompanyId && selectedCompanyId !== null`) reuses the exact same `.robot.selected` CSS declaration single-robot selection already defines (`OceanScene.css`), not a second visual language. `isCompanyMember` and `isSelected` are independent and can both apply to the same robot at once.
 - Populates `CompanyOptionsSection` (see below) from that company's state.
 
-Selecting "None" (the default) — or deleting the currently-selected company, or a selected company dropping to zero members — all return the panel to its disabled, valueless state.
+Selecting "None" (the default) — or deleting the currently-selected company, or a selected company dropping to zero members — all return the panel to its disabled, valueless state. Selecting **"All"** instead activates the panel over every robot in the locale regardless of company (Freelance included) — added as a testing convenience (checking a broadcast edit, e.g. the Click Track toggle, across the whole locale used to mean selecting each company one at a time; see [BPM_CONTROL.md](tasks/BPM_CONTROL.md)'s "Post-launch addition: Company 'All' broadcast mode") and kept afterward as a general bulk-edit option. It has no `Company` object to bind to, so `CompanyCrudControls` (Rename/Delete) stays driven by `selectedCompanyId` alone, same as "None" — "All" only ever affects `CompanyOptionsSection`.
 
 ## The Company Manager
 
 `RobotsTab` renders `CompanyManager` (`src/components/company/CompanyManager.tsx`) beneath the existing robot card list — pure composition of three components, in this order:
 
-1. **`CompanyButtonRow`** — one button per company plus "None." Reuses the `RadioButton` primitive (an options-list "one active among many" control RadioButton already implements, including active-state styling) rather than a bespoke button list.
+1. **`CompanyButtonRow`** — one button per company, plus "None" and "All" (in that order, both ahead of the per-company list). Reuses the `RadioButton` primitive (an options-list "one active among many" control RadioButton already implements, including active-state styling) rather than a bespoke button list.
 2. **`CompanyCrudControls`** — Create (a locally-staged name draft pre-filled by a fresh `generateCompanyName` suggestion, fed by `Math.random()` rather than a seeded noise map since it's a live UI convenience roll, not replayable world generation; disabled at `MAX_COMPANIES`), Rename (a `TextInput` bound live to the selected company's name, disabled with none selected), and Delete (disabled with none selected).
 3. **`CompanyOptionsSection`** — the bulk-edit panel: `AudioSettingSection` (extracted from `RobotDisplaySection` — Audio Setting + Volume + its LFO, *not* the read-only Name/Job/Battery/Docking rows, which have no company-scoped meaning), `PingControlsDrawer`, `PingContourDrawer`, and `SignatureArrayDrawer` — the exact same four presentational sections `RobotOptionsTab` (single-robot editing) renders, each refactored to a `value`/`onChange`/`disabled` contract with no `robot` prop and no store access of its own.
 
-With "None" selected, or a selected company with zero members, every section in `CompanyOptionsSection` renders `disabled` with a placeholder value (structurally complete — e.g. 3 signature-array layer slots, not an empty array — so the panel's layout doesn't jump when a company is selected). With a non-empty company selected, each section's value comes from `resolveCompanyOptions` (see below).
+With "None" selected, or a selected company with zero members, every section in `CompanyOptionsSection` renders `disabled` with a placeholder value (structurally complete — e.g. 3 signature-array layer slots, not an empty array — so the panel's layout doesn't jump when a company is selected). With a non-empty company selected, or "All" selected over a non-empty locale, each section's value comes from `resolveCompanyOptions` (see below).
 
 ## The Snapshot Merge
 
-`resolveCompanyOptions(company, firstMember)` (`src/systems/companyOptions.ts`) is what makes "revert to the last state it was in when last editing, or the first robot's options if unused" true without a special-cased first-edit branch:
+`resolveCompanyOptions(lastEditedOptions, firstMember)` (`src/systems/companyOptions.ts`) is what makes "revert to the last state it was in when last editing, or the first robot's options if unused" true without a special-cased first-edit branch. `lastEditedOptions` is `Company.lastEditedOptions` for a selected company, or `Locale.allRobotsLastEditedOptions` for "All" — the function itself doesn't know or care which:
 
 ```ts
-return { ...fromFirstMember, ...company.lastEditedOptions };
+return { ...fromFirstMember, ...lastEditedOptions };
 ```
 
 Every field the company has never been edited for falls back live to `firstMember`'s (the company's first member robot's) *current* value — not a value frozen at whenever the company was first selected. A field the company *has* been edited for reads from its own recorded `lastEditedOptions` instead, regardless of what the first member has since drifted to individually. Re-selecting a company after switching away and back always shows exactly what was last dialed in for it, field by field — this is a deliberate simplification over literally cloning every field into `lastEditedOptions` at first-edit time (functionally identical from the user's perspective; see `docs/specs/COMPANIES.md` §7.1 for the reasoning), and it's why `CompanyOptionsSnapshot`'s fields are all optional rather than a fully-populated snapshot.
 
 ## Editing Semantics: Broadcast, Not Link
 
-A company-scoped edit is a one-time broadcast, not a live binding. Changing a field in `CompanyOptionsSection` calls the matching function from `src/systems/robotOptionsActions.ts` — `applyAudioMode`, `applyVolume`, `applyVolumeLfo`, `applyDensity`, `applyMotifLength`, `applyNoteVariance`, `applyOctaveMin`, `applyOctaveMax`, `applyAdsr`, `applyLayersContinuous`, `applyLayersStructural`, `applyLayerLfo` — once per current member robot. These are the exact same functions `RobotOptionsTab` calls once for a single robot; nothing about what an edit *does* differs between the two call sites, only how many robots it's called for. Skipping the matching `AudioEngine`/`lfoEngine`/`regenerateMelody` call a company-wide edit would otherwise miss would reproduce the exact stale-cache bug Roadmap Phase 9's post-launch fixes already found and fixed for the single-robot case.
+A company-scoped edit is a one-time broadcast, not a live binding. Changing a field in `CompanyOptionsSection` calls the matching function from `src/systems/robotOptionsActions.ts` — `applyAudioMode`, `applyVolume`, `applyVolumeLfo`, `applyDensity`, `applyMotifLength`, `applyNoteVariance`, `applyOctaveMin`, `applyOctaveMax`, `applyClickTrackActive`, `applyAdsr`, `applyLayersContinuous`, `applyLayersStructural`, `applyLayerLfo` — once per current member robot. These are the exact same functions `RobotOptionsTab` calls once for a single robot; nothing about what an edit *does* differs between the two call sites, only how many robots it's called for. Skipping the matching `AudioEngine`/`lfoEngine`/`regenerateMelody` call a company-wide edit would otherwise miss would reproduce the exact stale-cache bug Roadmap Phase 9's post-launch fixes already found and fixed for the single-robot case.
 
 Only the one field that was changed propagates into `lastEditedOptions` — never the company's entire resolved snapshot. A user editing a single member robot's value afterward (even from that robot's own Robot Options screen) changes only that robot; the company's `lastEditedOptions` and every other member robot are untouched. There is no ongoing link between a robot and its company's settings after the broadcast — reassigning a robot to a different company, or leaving it in the same one, doesn't retroactively apply anything.
+
+The same "only the one changed thing" rule applies one level deeper for compound fields (`volumeLfo`, `rhythmicMotifLength`, `noteVariance`, `adsr`, `layers`, per-layer `lfoSettings`) — dragging Ping Contour's Attack slider, for instance, must not overwrite every member's own Decay/Sustain/Release with the panel's shared baseline. Every compound drawer (`Lfo`, `PingContourDrawer`, `StepperWithToggle`, `SignatureArrayDrawer`) always emits a *whole* replacement value built by spreading its `value` prop — which is `CompanyOptionsSection`'s resolved baseline, not any individual member's own state — with just the touched sub-field set. `CompanyOptionsSection` diffs the old vs. new value (`diffCompoundField`/`diffLayerField`, `src/systems/companyOptions.ts`) to isolate that single sub-field, then merges just it onto each member's own current value (via `resolveCompanyOptions(undefined, member)`, or the member's own `lfoSettings` entry) before calling the matching `applyXxx` — so a member's own untouched sub-fields survive a broadcast intact, even when they differ from the panel's baseline.
 
 ## Company Membership
 

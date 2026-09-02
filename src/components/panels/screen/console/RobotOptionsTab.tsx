@@ -8,7 +8,7 @@ import { useLocaleStore } from '@/stores/localeStore';
 import { regenerateMelody } from '@/engine/regenerateMelody';
 import {
   applyDensity, applyMotifLength, applyNoteVariance, applyOctaveMin, applyOctaveMax,
-  applyAdsr, applyLayersContinuous, applyLayersStructural, applyLayerLfo,
+  applyAdsr, applyLayersContinuous, applyLayersStructural, applyLayerLfo, applyClickTrackActive,
 } from '@/systems/robotOptionsActions';
 
 import './RobotOptionsTab.css';
@@ -56,6 +56,7 @@ export function RobotOptionsTab() {
     rhythmicMotifLength: robot.rhythmicMotifLength ?? { active: true, value: 8 },
     noteVariance: robot.noteVariance ?? { active: false, value: 1 },
     octaveRange: robot.octaveRange,
+    clickTrackActive: robot.clickTrackActive ?? false,
   };
 
   const signatureArrayValue: SignatureArrayValue = {
@@ -74,6 +75,7 @@ export function RobotOptionsTab() {
         onOctaveMaxChange={(v) => applyOctaveMax(robot, localeId, v)}
         onNoteVarianceChange={(v) => applyNoteVariance(robot, localeId, v)}
         onResetMelody={() => regenerateMelody(robot, localeId)}
+        onClickTrackActiveChange={(v) => applyClickTrackActive(robot, localeId, v)}
       />
       <PingContourDrawer
         value={robot.audioAttributes.adsr}

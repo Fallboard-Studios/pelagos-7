@@ -4,6 +4,7 @@
 import * as Tone from 'tone';
 import gsap from 'gsap';
 import { useLocaleStore } from '../stores/localeStore';
+import { useDebugStore } from '../stores/debugStore';
 import { getActiveLocaleId } from '../utils/localeHelpers';
 import { lfoEngine } from './lfoEngine';
 
@@ -14,6 +15,7 @@ import { getAvailableNotes, scheduleHarmonyCycle, stopHarmonyCycle } from './har
 import { resetBeatClock, subscribeToMeasure, initBeatClock } from './beatClock';
 import type { RobotMelodyEvent } from './melodyGenerator';
 import { applyRhythmicVariance, applyTonalVariance } from './melodyGenerator';
+import { buildClickTrackMelody } from './clickTrack';
 import { DEV_TUNING, MIN_LEAD as CONST_MIN_LEAD } from '../constants';
 
 import { getRef } from '../utils/refs';
@@ -103,6 +105,11 @@ let initialized = false;
 let instrumentsLoaded = false;
 // Reservation state
 let activeVoices = 0;
+// Notes rejected by the polyphony cap (triggerWithCap) so far this measure —
+// snapshotted into useDebugStore.skippedNotesHistory and reset to 0 on every
+// measure boundary (see the subscribeToMeasure callback in start()). Feeds
+// the Skipped Notes debug counter (src/components/debug/SkippedNotesCounter.tsx).
+let skippedNotesThisMeasure = 0;
 // Global FX chain (compressor, reverb/delay/limiter/EQ/filters, master
 // gain) lives in src/engine/audioEngine/globalFx.ts as its own module state.
 // Unsubscribe handle for the BeatClock measure listener; prevents duplicate
@@ -240,20 +247,30 @@ async function loadInstruments(): Promise<void> {
 
 /**
  * Schedule voice release at the exact time note ends.
+ *
+ * Uses `Tone.getContext().setTimeout` — a real-seconds, AudioContext-clock-based
+ * timeout — NOT `transport.scheduleOnce`. `transport.scheduleOnce`'s `'+N'` offset
+ * resolves against the TRANSPORT's own tick timeline (`Transport.scheduleOnce` ->
+ * `TransportTimeClass(...).toTicks()`), converting the real-seconds delay into a
+ * fixed tick position using the tempo in effect at schedule time. If BPM changes
+ * before that tick position is reached (docs/specs/BPM_CONTROL.md's live Tempo
+ * slider makes this routine now), the real time it takes to reach that fixed tick
+ * shifts — releases fire late (bpm decreased) or early (bpm increased). Enough
+ * skew strands `activeVoices` at `MAX_POLYPHONY`, silently blocking every new
+ * trigger ("plays a few more notes, then nothing"). `context.setTimeout` is
+ * genuinely tempo-independent: it fires `delayFromNow` real seconds later
+ * regardless of anything `Transport.bpm` does in between.
  */
 function scheduleVoiceRelease(duration: NoteDuration, time: number): void {
   const durSec = Tone.Time(duration).toSeconds();
-  // Use a transport-relative offset ('+N' syntax) so the release fires correctly
-  // regardless of when in the AudioContext lifetime the note was scheduled.
   // `time` is an absolute AudioContext timestamp; `Tone.now()` is the current
   // AudioContext time, so their difference is the lookahead until the note fires.
   const delayFromNow = Math.max(0, (time - Tone.now()) + durSec + 0.04);
 
   try {
-    const transport = _transport ?? Tone.getTransport();
-    transport.scheduleOnce(() => {
+    Tone.getContext().setTimeout(() => {
       activeVoices = Math.max(0, activeVoices - 1);
-    }, `+${delayFromNow}`);
+    }, delayFromNow);
   } catch (err) {
     devWarn('[AudioEngine] scheduleVoiceRelease failed', err);
     activeVoices = Math.max(0, activeVoices - 1);
@@ -289,29 +306,36 @@ function updateAllPanners(_time?: number): void {
 export function triggerWithCap(params: NoteParams): boolean {
   const { robotId, note, duration, time } = params;
 
-  if (activeVoices >= MAX_POLYPHONY) {
-    devLog(`[AudioEngine] Polyphony capped: ${activeVoices}/${MAX_POLYPHONY}`);
-    return false;
-  }
-
-  // Enforce audioMode at trigger time as a safety net in case schedule path missed it.
+  // Enforce audioMode (mute/solo) here — this is the sole enforcement point,
+  // not a backup: scheduleNote's own audioMode block only handles highlight
+  // attenuation. Checked before the polyphony cap below so a muted/non-solo
+  // robot's note never counts against skippedNotesThisMeasure just because
+  // the cap happens to be full at the same time — that note was never going
+  // to play either way, unlike every reason the cap check below counts. No
+  // devLog on the mute/solo branches below — muted/non-solo robots hit this
+  // on every note attempt, and that's routine, intended behavior, not
+  // something worth logging per-note.
   try {
     const localeRobots = getActiveLocaleRobots();
     if (localeRobots.length > 0) {
       const robotFromStore = localeRobots.find((r) => r.id === robotId);
       if (robotFromStore?.audioMode === 'mute') {
-        devLog(`[AudioEngine] Robot ${robotId} is muted (trigger); skipping note`);
         return false;
       }
       const anySoloInStore = localeRobots.some((r) => r.audioMode === 'solo');
       if (anySoloInStore && robotFromStore?.audioMode !== 'solo') {
-        devLog(`[AudioEngine] Robot ${robotId} suppressed due to solo (trigger)`);
         return false;
       }
       // Highlight attenuation is handled in scheduleNote; skip here to avoid double-attenuation.
     }
   } catch (err) {
     devWarn('[AudioEngine] triggerWithCap.audioMode failed', err);
+  }
+
+  if (activeVoices >= MAX_POLYPHONY) {
+    devLog(`[AudioEngine] Polyphony capped: ${activeVoices}/${MAX_POLYPHONY}`);
+    skippedNotesThisMeasure++;
+    return false;
   }
 
   const scheduleTime = time ?? Tone.now();
@@ -321,6 +345,7 @@ export function triggerWithCap(params: NoteParams): boolean {
     if (!compositeVoices.has(robotId)) {
       activeVoices = Math.max(0, activeVoices - 1);
       devWarn(`[AudioEngine] No composite voice reserved for ${robotId}, skipping note`);
+      skippedNotesThisMeasure++;
       return false;
     }
 
@@ -331,6 +356,7 @@ export function triggerWithCap(params: NoteParams): boolean {
     if (!synth) {
       activeVoices = Math.max(0, activeVoices - 1);
       devWarn('[AudioEngine] No composite voice available, skipping note');
+      skippedNotesThisMeasure++;
       return false;
     }
 
@@ -340,6 +366,7 @@ export function triggerWithCap(params: NoteParams): boolean {
     if (!NOTE_RE.test(note)) {
       activeVoices = Math.max(0, activeVoices - 1);
       console.warn(`[AudioEngine] Invalid note string "${note}", skipping`);
+      skippedNotesThisMeasure++;
       return false;
     }
 
@@ -358,6 +385,7 @@ export function triggerWithCap(params: NoteParams): boolean {
   } catch (err) {
     console.error('[AudioEngine] Failed to trigger note:', err);
     activeVoices = Math.max(0, activeVoices - 1);
+    skippedNotesThisMeasure++;
     return false;
   }
 }
@@ -382,25 +410,34 @@ function startMelodyPlayback(): void {
     const notes = getAvailableNotes();
 
     events.forEach(({ robotId, event }) => {
-      const noteName = notes[event.noteIndex]; // note name without octave, e.g. "C"
+      // Each event is isolated in its own try/catch — an uncaught exception from
+      // one robot's scheduleNote call must not abort the forEach and silently
+      // drop every remaining event in this same step.
+      try {
+        const noteName = notes[event.noteIndex]; // note name without octave, e.g. "C"
 
-      if (!noteName) {
-        devWarn(
-          `[AudioEngine] Invalid note index ${event.noteIndex} for robot ${robotId}`
-        );
-        return;
+        if (!noteName) {
+          devWarn(
+            `[AudioEngine] Invalid note index ${event.noteIndex} for robot ${robotId}`
+          );
+          skippedNotesThisMeasure++;
+          return;
+        }
+
+        // Fallback octave of 4 handles stale events that pre-date the octaveRange change.
+        const octave = event.octave ?? 4;
+        const note = `${noteName}${octave}`; // combine with per-event octave, e.g. "C4"
+
+        AudioEngine.scheduleNote({
+          robotId,
+          note,
+          duration: event.length,
+          time: time + MIN_LEAD,
+        });
+      } catch (err) {
+        devWarn(`[AudioEngine] Failed to schedule note for robot ${robotId}`, err);
+        skippedNotesThisMeasure++;
       }
-
-      // Fallback octave of 4 handles stale events that pre-date the octaveRange change.
-      const octave = event.octave ?? 4;
-      const note = `${noteName}${octave}`; // combine with per-event octave, e.g. "C4"
-
-      AudioEngine.scheduleNote({
-        robotId,
-        note,
-        duration: event.length,
-        time: time + MIN_LEAD,
-      });
     });
 
     stepCounter++;
@@ -567,6 +604,10 @@ export const AudioEngine = {
       _unsubscribeMeasure?.();
       _unsubscribeMeasure = subscribeToMeasure((m: number) => {
         useLocaleStore.getState().setLocaleData(getActiveLocaleId(), { currentMeasure: m });
+        // Snapshot this measure's polyphony-cap skips into the debug history,
+        // then reset the counter for the next measure.
+        useDebugStore.getState().recordSkippedNotesForMeasure(skippedNotesThisMeasure);
+        skippedNotesThisMeasure = 0;
       });
     } catch (err) {
       devWarn('[AudioEngine] subscribeToMeasure failed', err);
@@ -596,6 +637,7 @@ export const AudioEngine = {
 
     stepCounter = 0;
     activeVoices = 0;
+    skippedNotesThisMeasure = 0;
     initialized = false;
 
     devLog('[AudioEngine] Stopped');
@@ -624,15 +666,6 @@ export const AudioEngine = {
     try {
       const localeRobots = getActiveLocaleRobots();
       const robotFromStore = localeRobots.find((r) => r.id === robotId);
-      if (robotFromStore?.audioMode === 'mute') {
-        devLog(`[AudioEngine] Robot ${robotId} is muted; skipping note`);
-        return;
-      }
-      const anySolo = localeRobots.some((r) => r.audioMode === 'solo');
-      if (anySolo && robotFromStore?.audioMode !== 'solo') {
-        devLog(`[AudioEngine] Robot ${robotId} suppressed due to solo`);
-        return;
-      }
       const anyHighlight = localeRobots.some((r) => r.audioMode === 'highlight');
       if (anyHighlight && robotFromStore?.audioMode !== 'highlight') {
         // Apply ~50% attenuation (~-6dB) to non-highlighted robots
@@ -971,9 +1004,16 @@ export const AudioEngine = {
    * - The scheduler reads `stepRegistry` on the transport tick; callers should
    *   expect the new melody to take effect on the next scheduled tick after
    *   registration.
+   * - When the robot's own `clickTrackActive` flag (Robot.ts) is true, `melody` is ignored
+   *   entirely and the fixed click-track pattern (src/engine/clickTrack.ts) is registered
+   *   instead — enforced *here*, the one funnel every melody-registration call site shares
+   *   (spawn, Reset Melody, Density/Motif/Note Variance edits, docking's pitch-drift reroll,
+   *   this file's own per-loop rhythmic/tonal variance), rather than trusting each call site to
+   *   remember to check the flag itself. See docs/MELODY_SYSTEM.md's Click Track note.
    *
    * @param robotId - Unique robot identifier
-   * @param melody - Array of `RobotMelodyEvent` describing start steps and notes
+   * @param melody - Array of `RobotMelodyEvent` describing start steps and notes; superseded by
+   *   the click-track pattern while this robot's `clickTrackActive` is true.
    */
   registerRobotMelody(robotId: string, melody: RobotMelodyEvent[]): void {
     // Purge any existing entries for this robot before adding new ones so this
@@ -989,16 +1029,21 @@ export const AudioEngine = {
       }
     });
 
+    const robot = findActiveRobot(robotId);
+    const effectiveMelody = robot?.clickTrackActive
+      ? buildClickTrackMelody(robot.octaveRange[0])
+      : melody;
+
     // Motif-group accent: computed once here (not per-tick) so it stays off the
     // scheduling hot path. Only meaningful when the robot's Motif Length toggle
-    // is active — scatter mode has no repeat windows to accent.
-    const robot = findActiveRobot(robotId);
+    // is active — scatter mode has no repeat windows to accent. Skipped entirely for the
+    // click track — it's a flat, unaccented test pulse, not the robot's own motif structure.
     const motif = robot?.rhythmicMotifLength;
     const accentedStartSteps = new Set<number>();
-    if (motif?.active) {
+    if (motif?.active && !robot?.clickTrackActive) {
       const windowLength = Math.max(1, motif.value);
       const earliestInWindow = new Map<number, number>(); // window index -> earliest startStep
-      melody.forEach((event) => {
+      effectiveMelody.forEach((event) => {
         const windowIndex = Math.floor((event.startStep - 1) / windowLength);
         const current = earliestInWindow.get(windowIndex);
         if (current === undefined || event.startStep < current) {
@@ -1008,13 +1053,13 @@ export const AudioEngine = {
       earliestInWindow.forEach((step) => accentedStartSteps.add(step));
     }
 
-    melody.forEach((event) => {
+    effectiveMelody.forEach((event) => {
       const entries = stepRegistry.get(event.startStep) || [];
       entries.push({ robotId, event, isGroupAccent: accentedStartSteps.has(event.startStep) });
       stepRegistry.set(event.startStep, entries);
     });
 
-    devLog(`[AudioEngine] Registered melody for robot ${robotId} (${melody.length} events)`);
+    devLog(`[AudioEngine] Registered melody for robot ${robotId} (${effectiveMelody.length} events)`);
   },
 
   unregisterRobotMelody(robotId: string): void {
@@ -1062,18 +1107,30 @@ export const AudioEngine = {
     const notes = getAvailableNotes();
 
     events.forEach(({ robotId, event, isGroupAccent }) => {
-      const noteName = notes[event.noteIndex];
-      if (!noteName) return;
-      const octave = event.octave ?? 4;
-      const note = `${noteName}${octave}`;
+      // Mirrors startMelodyPlayback's own per-event isolation (this function
+      // documents itself as "process a single melody step as the transport
+      // tick would" — keep the two in sync).
+      try {
+        const noteName = notes[event.noteIndex];
+        if (!noteName) {
+          devWarn(`[AudioEngine] Invalid note index ${event.noteIndex} for robot ${robotId}`);
+          skippedNotesThisMeasure++;
+          return;
+        }
+        const octave = event.octave ?? 4;
+        const note = `${noteName}${octave}`;
 
-      AudioEngine.scheduleNote({
-        robotId,
-        note,
-        duration: event.length,
-        time: time + MIN_LEAD,
-        accentMultiplier: isGroupAccent ? GROUP_ACCENT_MULTIPLIER : undefined,
-      });
+        AudioEngine.scheduleNote({
+          robotId,
+          note,
+          duration: event.length,
+          time: time + MIN_LEAD,
+          accentMultiplier: isGroupAccent ? GROUP_ACCENT_MULTIPLIER : undefined,
+        });
+      } catch (err) {
+        devWarn(`[AudioEngine] Failed to schedule note for robot ${robotId}`, err);
+        skippedNotesThisMeasure++;
+      }
     });
   },
 
@@ -1095,11 +1152,29 @@ export const AudioEngine = {
   /**
    * Update Tone.Transport BPM. No-op if AudioEngine has not been started
    * (audio context not yet running) to avoid errors in headless environments.
+   *
+   * Deliberately an instant assignment, not a ramp. BPM/tempo isn't a
+   * continuously-summed audio signal like Gain — it only governs when
+   * future notes get scheduled, so an instant change doesn't produce a
+   * click the way an instant Gain jump does; there's nothing here for a
+   * ramp to protect against. Worse, a ramp actively hurts: the Audio Rig
+   * Tempo slider's onChange fires continuously during a drag (Radix's
+   * onValueChange, not onValueCommit), far more often than any short ramp
+   * could complete — each call would cancel the previous still-in-flight
+   * ramp and restart a new one (Tone.Param.rampTo's own
+   * cancelAndHoldAtTime behavior), so the tempo would never actually
+   * settle for the whole drag gesture. That's exactly what surfaced as a
+   * real, reported bug: the beat became audibly unstable ("wishy-washy",
+   * no locatable downbeat) while dragging, not just "different." Standard
+   * DAW behavior — and this function's own original pre-ramp shape —
+   * applies tempo changes instantly for the same reason.
    */
   setBPM(bpm: number): void {
     if (!initialized) return;
     const transport = _transport ?? Tone.getTransport();
-    try { transport.bpm.value = bpm; } catch (err) { devWarn('[AudioEngine] setBPM failed', err); }
+    try {
+      transport.bpm.value = bpm;
+    } catch (err) { devWarn('[AudioEngine] setBPM failed', err); }
   },
 
   /** Pause transport without resetting position (soft pause). */
@@ -1152,6 +1227,7 @@ export const AudioEngine = {
 
       stepCounter = 0;
       activeVoices = 0;
+      skippedNotesThisMeasure = 0;
       initialized = false;
       // Reset beatClock so initBeatClock() re-registers its internal tick on next start.
       // transport.cancel() above cleared the old 16n tick; resetBeatClock() lets it be recreated.

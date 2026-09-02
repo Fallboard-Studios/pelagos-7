@@ -485,4 +485,54 @@ describe('AudioRigDrawer', () => {
       expect(slider.closest('.sc-accordion')).toBeNull();
     });
   });
+
+  describe('Tempo slider (BPM Control Task 5)', () => {
+    it('renders exactly once, showing the store\'s current bpm directly — no scaling', () => {
+      useAudioStore.setState({ bpm: 72 });
+      render(<AudioRigDrawer />);
+      const slider = screen.getByRole('slider', { name: 'Tempo' });
+      expect(slider.getAttribute('aria-valuenow')).toBe('72');
+    });
+
+    it('dragging it calls setBPM directly with the dragged value — no conversion', () => {
+      useAudioStore.setState({ bpm: 72 });
+      render(<AudioRigDrawer />);
+      const slider = screen.getByRole('slider', { name: 'Tempo' });
+      slider.focus();
+      fireEvent.keyDown(slider, { key: 'ArrowRight' });
+
+      const newValue = Number(slider.getAttribute('aria-valuenow'));
+      expect(newValue).not.toBe(72); // the key press actually moved it
+      expect(useAudioStore.getState().bpm).toBe(newValue);
+    });
+
+    it('is disabled when the rig-wide bypass is on, matching every other Rig-wide control', () => {
+      useAudioStore.setState((s) => ({ globalAudio: { ...s.globalAudio, globalBypass: true } }));
+      render(<AudioRigDrawer />);
+      const slider = screen.getByRole('slider', { name: 'Tempo' });
+      expect(slider.getAttribute('data-disabled')).toBe('');
+    });
+
+    it('is enabled when the rig-wide bypass is off', () => {
+      render(<AudioRigDrawer />);
+      const slider = screen.getByRole('slider', { name: 'Tempo' });
+      expect(slider.getAttribute('data-disabled')).toBeNull();
+    });
+
+    it('renders as a bare control, outside any accordion — not nested inside an effect block or Drift group', () => {
+      render(<AudioRigDrawer />);
+      const slider = screen.getByRole('slider', { name: 'Tempo' });
+      expect(slider.closest('.sc-accordion')).toBeNull();
+    });
+
+    it('renders after the Ping Variance Automation row, in its own master-row', () => {
+      render(<AudioRigDrawer />);
+      const pingRow = screen.getByRole('slider', { name: 'Automatic Effects' }).closest('.audio-rig-drawer__master-row');
+      const tempoRow = screen.getByRole('slider', { name: 'Tempo' }).closest('.audio-rig-drawer__master-row');
+      expect(tempoRow).not.toBeNull();
+      expect(tempoRow).not.toBe(pingRow);
+      // DOM order: Tempo's master-row comes after Ping Variance Automation's.
+      expect(pingRow!.compareDocumentPosition(tempoRow!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+  });
 });

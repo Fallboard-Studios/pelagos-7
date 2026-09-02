@@ -24,6 +24,7 @@ export interface CompanyOptionsSnapshot {
   adsr?: ADSREnvelope;
   layers?: OscillatorLayer[];
   lfoSettings?: Partial<Record<RobotLfoTargetId, LfoSettings & { active: boolean }>>;
+  clickTrackActive?: boolean;
 }
 
 export interface Company {

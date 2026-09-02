@@ -10,6 +10,7 @@ This guide documents the current Pelagos-7 audio architecture and the convention
 - [Melody Generation Guide](MELODY_SYSTEM.md) - Procedural melody creation
 - [LFO Modulation](#lfo-modulation) - Audio-rate parameter modulation for robot and global-chain targets (below, no separate file yet)
 - [Audio Swells](#audio-swells) - Rare, self-reversing ramp events on one global or robot parameter at a time (below, no separate file yet) — independent of LFO Modulation, not an extension of it
+- [BPM / Tempo](#bpm--tempo) - Locale-seeded transport tempo with a live Audio Rig override (below, no separate file yet) — distinct from `locale.settings.bpm`'s unrelated production-cadence use
 
 ## Core Audio Rules
 
@@ -68,7 +69,7 @@ export const AudioEngine = {
   killAll: () => void,                  // full reset: cancels transport, resets position/counters, calls resetBeatClock()
   pause: () => void,
   resume: () => void,
-  setBPM: (bpm: number) => void,        // no-op if not initialized
+  setBPM: (bpm: number) => void,        // no-op if not initialized; instant transport.bpm.value assignment, deliberately not ramped — see "BPM / Tempo" below
   now: () => number,
 
   // Scheduling
@@ -84,7 +85,7 @@ export const AudioEngine = {
   getVoiceForRobot: (robotId?: string) => CompositeVoice | null,
 
   // Melody registry
-  registerRobotMelody: (robotId: string, melody: RobotMelodyEvent[]) => void,
+  registerRobotMelody: (robotId: string, melody: RobotMelodyEvent[]) => void,  // `melody` is superseded by the fixed Click Track pattern while the robot's `clickTrackActive` is true — see MELODY_SYSTEM.md's Click Track note
   unregisterRobotMelody: (robotId: string) => void,
   getRegisteredMelody: (robotId: string) => RobotMelodyEvent[],   // test helper
   processMelodyStep: (currentStep: number, time: number) => void, // test helper
@@ -169,6 +170,8 @@ Polyphony management controls the maximum number of simultaneous audio voices to
 - Ensures stable performance across devices
 
 **For complete implementation details, see [POLYPHONY_GUIDE.md](POLYPHONY_GUIDE.md).**
+
+**Skipped Notes debug counter.** A bottom-left, dev-only overlay (`SkippedNotesCounter.tsx`, rendered from `App.tsx` behind `DEV_TUNING` — unreachable in a production build) showing how many note triggers were rejected in the current measure. `triggerWithCap`, `startMelodyPlayback`, and `playRegisteredEvents` each count every reason a trigger fails — the polyphony cap, a missing composite voice, an invalid note string, or a thrown scheduling error — not just the cap alone. The running count is snapshotted into `useDebugStore`'s rolling per-measure history on each `subscribeToMeasure` tick, then reset for the next measure. Originally added to diagnose the voice-release stall bug (see [BPM_CONTROL.md](tasks/BPM_CONTROL.md)'s "Post-launch addition: Skipped Notes debug counter"); kept afterward as a standing tool — a rising count during a live tempo change is a fast way to notice voices genuinely aren't clearing, without waiting to hear playback audibly degrade.
 
 ## Layered / Composite Voices and Visual Mapping
 
@@ -365,13 +368,23 @@ Two behaviors, both gated on this one value:
 
 Every trigger/selection/timing/direction/magnitude decision is a `getSeededVal(noiseMap, dataId, offset, min, max)` draw against the **Attenuation Style** noise map (`getAttenuationStyleNoiseMap`) — `offset` is always the current *unwrapped whole* measure (`Math.floor(getCurrentMeasurePrecise())`, gated as above), never the `% 96`-wrapped value `subscribeToMeasure`'s own callback argument carries elsewhere in this codebase (the same trap `robotSystems.ts`'s `startRobotLifecycle` documents — a wrapped measure would replay an identical decision every 96 measures). `Math.random()` appears nowhere in `audioSwells.ts`. Two sessions on the same seed produce an identical swell timeline; a user's own manual edits are the only thing that can make two sessions diverge.
 
+## BPM / Tempo
+
+`audioStore.bpm` — the real `Tone.Transport` tempo, driving every beat-based schedule in the app — is a locale-seeded, live-adjustable value (docs/specs/BPM_CONTROL.md), not a hardcoded constant. This is unrelated to `locale.settings.bpm`, a separate field consumed only by `Factory.tsx`/`BubbleStream.tsx` for production-cadence/burst-interval math — the two happen to share a name and, coincidentally, the same default (`60`), but nothing else connects them; `locale.settings.bpm` is untouched by everything described in this section.
+
+**Seeded per locale, on coordinate change only.** `generateLocaleBpm(localeId, x, y)` (`src/utils/localeBpmSeed.ts`) draws a `getSeededVal` sample against that locale's own noise map (`getLocaleNoiseMap` — coordinate-derived, no Attenuation Style dependency, same as every other locale-scoped seeded field) into `LOCALE_BPM_SEED_RANGE` (`[40, 100]`), rounded to the nearest integer. `audioStore.regenerateBpmFromSeed(localeId, coordinates)` draws this fresh value and pushes it through the existing `setBPM` action (state write + `AudioEngine.setBPM`). It's called from exactly two places in `worldTransition.ts` — `retransmitCoordsOnly` and `retransmitBoth`, both of which build a genuinely new `Locale` via `buildLocale` — plus once at `audioStore.ts` module load (`syncBpmToCurrentLocale()`) to seed the locale active at app boot. **`retransmitAttenuationStyleOnly` never reseeds BPM** — it re-parents the existing locale onto a new Attenuation Style without rebuilding it, so whatever BPM was already in effect (seeded or hand-dragged) survives untouched, exactly like every other robot/actor/edit on that preserved locale. This is a deliberate divergence from `globalAudio`'s own Attenuation-Style-keyed reseeding (a `useAttenuationStyleStore.subscribe` that fires on every `currentAttenuationStyleId` change) — a subscription shaped that way would have incorrectly reseeded BPM on an Attenuation-Style-only retransmit too, since that branch also changes `currentAttenuationStyleId` even though the locale itself is preserved. BPM's reseed is call-site-triggered instead, not subscription-driven, and the seeded value is never stored on the `Locale` object itself — `generateLocaleBpm` is a pure function, recomputed fresh at each of the three call sites, the same "don't cache on the domain object" shape `generateGlobalAudioSettings` already uses for `AttenuationStyle`.
+
+**Live manual override.** The Audio Rig drawer's "Tempo" slider (`BPM_SCHEMA`, `src/data/audioRigConfig.ts` — `[20, 200]`, deliberately wider than the `[40, 100]` seed band on both ends, same "seed narrow, drag wide" convention `PING_VARIANCE_AUTOMATION_SCHEMA` established) binds directly to `audioStore.bpm`/`setBPM`, no unit conversion — unlike Ping Variance Automation's fraction-to-percent split, `bpm` is already stored in the same units the slider displays. Disabled under the Rig-wide Bypass toggle, matching every other master-row control.
+
+**Instant, not ramped.** `AudioEngine.setBPM` assigns `transport.bpm.value` directly — no `rampTo`. An earlier version ramped it (mirroring `updateRobotMasterVolume`'s `Tone.Gain` ramp), but BPM isn't a continuously-summed audio signal like Gain — an instant tempo change doesn't click, it only affects when future notes get scheduled. Ramping was actively harmful for the live case: the Tempo slider's `onChange` fires continuously during a drag (Radix's `onValueChange`, not `onValueCommit`), far more often than any short ramp could complete, so each call cancelled the previous still-in-flight ramp and restarted a new one — the tempo never settled for the whole drag gesture, audibly ("wishy-washy", no locatable downbeat). Reverted to the instant assignment every DAW uses for tempo changes.
+
 ## Note Resolution Pipeline
 
 `scheduleNote(params)` does more than forward to the transport — four real behaviors run on every note, none previously documented:
 
 1. **Velocity.** If `params.velocity` is omitted, velocity is derived via `computeNoteVelocitySeeded()`: it samples a per-locale seeded noise map plus a per-robot counter (mod 97, for a long non-repeating period) and, with probability `VELOCITY_VARIANCE_RATE` (0.15), applies a signed offset up to `± VELOCITY_VARIANCE_AMOUNT` (0.25) to a neutral baseline (`NOTE_VELOCITY_BASELINE`, `1`). Result is always clamped to `[VELOCITY_MIN, 1]` (floor `0.05`). This is deliberately independent of `robot.masterVolume` (Roadmap Phase 9) — overall robot loudness moved off per-note velocity entirely and onto each robot's own live bus gain (see `reserveVoice`'s `masterVolume` parameter and `updateRobotMasterVolume`, in "Layered / Composite Voices" above), so a live Volume edit affects an already-sounding note's tail too, not just the next note — something baking the value into per-note velocity could never do, since a struck note's velocity is fixed the instant it triggers.
 2. **Motif-group accent.** If `params.accentMultiplier` is set, the velocity resolved in step 1 (or the caller-supplied `params.velocity`) is multiplied by it and clamped back to `[0, 1]`. `processMelodyStep` sets this to `GROUP_ACCENT_MULTIPLIER` (`1.25`) for exactly one event per motif-tiling repeat window — whichever of a robot's events has the earliest `startStep` within that window — computed once at `registerRobotMelody()` time (not per-tick) by grouping the melody's `startStep`s by `Math.floor((startStep - 1) / rhythmicMotifLength.value)`. Only applies when the robot's `rhythmicMotifLength.active` is `true`; scatter mode (`active: false`) has no repeat windows, so no event is ever accented. See [MELODY_SYSTEM.md](MELODY_SYSTEM.md) for the motif-tiling model this accents.
-3. **`audioMode` policy** (read fresh from the store each call, not cached): `mute` drops the note; if any robot in the locale is `solo`, all non-solo robots are suppressed; if any robot is `highlight`, non-highlighted robots have velocity multiplied by `0.5` (~-6dB). `triggerWithCap` re-checks mute/solo as a safety net in case a caller bypasses `scheduleNote`.
+3. **`audioMode` policy** (read fresh from the store each call, not cached): `scheduleNote` itself applies only the `highlight` half — if any robot in the locale is `highlight`, non-highlighted robots have velocity multiplied by `0.5` (~-6dB). `mute`/`solo` enforcement (`mute` drops the note; if any robot is `solo`, every non-solo robot is suppressed) happens downstream in `triggerWithCap`, which every `scheduleNote` call funnels into — the sole enforcement point for mute/solo, not a backup check for a caller that bypasses `scheduleNote`.
 4. **Panning.** Every reserved voice's pan is recomputed once per `16n` playback tick (not per note) via `calculatePanFromPosition(x) = (x / WORLD_WIDTH) - 0.5`, giving a range of `[-0.5, +0.5]` (intentionally narrower than full stereo width, to keep the mix centered). `x` comes from the robot's **live GSAP-animated transform** (`getRef('robot-' + robotId)`), falling back to the robot's stored `position.x` if the ref/transform isn't available.
 
 ## Scheduling Patterns

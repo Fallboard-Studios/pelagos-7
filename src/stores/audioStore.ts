@@ -7,7 +7,9 @@ import { AudioEngine } from '../engine/AudioEngine';
 import { wireGlobalFxChain } from '../engine/audioEngine/globalFx';
 import { lfoEngine } from '../engine/lfoEngine';
 import { generateGlobalAudioSettings, generateGlobalLfoSettings, generatePingVarianceAutomation } from '../utils/globalAudioSeed';
+import { generateLocaleBpm } from '../utils/localeBpmSeed';
 import { useAttenuationStyleStore, selectCurrentAttenuationStyle } from './attenuationStyleStore';
+import { useLocaleStore } from './localeStore';
 import { DEFAULT_LFO_SETTINGS } from '../data/lfoConfig';
 
 import type { GlobalAudioSettings } from '../types/globalAudio';
@@ -115,6 +117,14 @@ export interface AudioStore {
    *  switch — freely draggable via the Audio Rig slider at any time. */
   pingVarianceAutomation: number;
   setBPM: (bpm: number) => void;
+  /**
+   * Reseed `bpm` for the given (newly built) locale — draws a fresh value
+   * via generateLocaleBpm and pushes it through the existing setBPM action
+   * (state write + AudioEngine.setBPM). Called only from worldTransition.ts's
+   * retransmitCoordsOnly/retransmitBoth (docs/specs/BPM_CONTROL.md §1.3) —
+   * NOT from retransmitAttenuationStyleOnly, and NOT a subscription.
+   */
+  regenerateBpmFromSeed: (localeId: string, coordinates: { x: number; y: number }) => void;
   setGlobalAudio: <K extends EffectKey>(
     effect: K,
     partial: Partial<GlobalAudioSettings[K]>
@@ -190,6 +200,10 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
     // Delegate to AudioEngine — the only module allowed to call Tone.js directly.
     // AudioEngine.setBPM guards against calling Transport before audio is started.
     AudioEngine.setBPM(bpm);
+  },
+
+  regenerateBpmFromSeed: (localeId, coordinates) => {
+    get().setBPM(generateLocaleBpm(localeId, coordinates.x, coordinates.y));
   },
 
   setGlobalAudio: (effect, partial) => {
@@ -339,3 +353,22 @@ useAttenuationStyleStore.subscribe((state, prevState) => {
     syncGlobalAudioToCurrentAttenuationStyle();
   }
 });
+
+// ========================================
+// LOCALE BPM SYNC (module load only — see docs/specs/BPM_CONTROL.md §1.3)
+// ========================================
+// Seeds audioStore.bpm for whichever locale is current at app boot. Every
+// LATER reseed is triggered explicitly by worldTransition.ts's
+// retransmitCoordsOnly/retransmitBoth, not by a subscription here — unlike
+// syncGlobalAudioToCurrentAttenuationStyle above, this deliberately does NOT
+// re-run on every currentAttenuationStyleId change, since
+// retransmitAttenuationStyleOnly must leave bpm untouched.
+function syncBpmToCurrentLocale(): void {
+  const attenuationStyle = selectCurrentAttenuationStyle(useAttenuationStyleStore.getState());
+  const localeId = attenuationStyle?.currentLocaleId;
+  const locale = localeId ? useLocaleStore.getState().getLocaleById(localeId) : undefined;
+  if (!locale) return;
+  useAudioStore.getState().regenerateBpmFromSeed(locale.id, locale.coordinates);
+}
+
+syncBpmToCurrentLocale();
