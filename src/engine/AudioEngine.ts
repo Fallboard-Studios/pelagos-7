@@ -608,7 +608,7 @@ export const AudioEngine = {
       devWarn('[AudioEngine] subscribeToMeasure failed', err);
     }
     startMelodyPlayback();
-    scheduleHarmonyCycle(transport);
+    scheduleHarmonyCycle();
 
     initialized = true;
     devLog('[AudioEngine] Started');

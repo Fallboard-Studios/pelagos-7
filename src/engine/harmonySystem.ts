@@ -1,69 +1,48 @@
 // ========================================
 // IMPORTS
 // ========================================
-import { getCurrentHour } from './beatClock';
+import { getCurrentMeasure, scheduleRepeat, cancelSchedule } from './beatClock';
 import { devLog, devWarn } from '../utils/helpers';
-
-// Minimal transport-like interface to avoid importing Tone.js here.
-interface TransportLike {
-  scheduleRepeat(callback: (time?: unknown) => void, interval: string, startTime?: unknown): unknown;
-  clear(id: unknown): void;
-  // position may be present on some transport implementations; accept unknown
-  position?: unknown;
-}
-
-// Transport instance provided by AudioEngine at startup
-let transportInstance: TransportLike | null = null;
 
 // ========================================
 // TYPES
 // ========================================
-// Exactly 8 note-name strings (no octave digit) per hour-equivalent.
+// Exactly 8 note-name strings (no octave digit) per palette entry.
 // Octave is determined per-robot at spawn time; melody events store note index + octave separately.
-// Hour is derived from beatClock.ts's own measure-based getCurrentHour() (see
-// import above) — a 96-measure day cycle, unrelated to AttenuationStyle/Locale world
-// time entirely. (Previously this comment claimed the hour came from
-// selectCurrentPlanet(usePlanetStore.getState())?.currentHour — already
-// inaccurate before this phase; currentHour itself is deleted as of
-// docs/specs/ATTENUATION_STYLE.md.)
 export type EighthNotes = [string, string, string, string, string, string, string, string];
 
 // ========================================
 // CONSTANTS
 // ========================================
-const TIME_PITCHES: Record<number, EighthNotes> = {
-  0: ['C', 'G', 'E', 'D', 'B', 'C', 'E', 'G'],
-  1: ['C', 'G', 'F', 'D', 'A', 'C', 'F', 'F'],
-  2: ['D', 'A', 'F', 'D', 'A', 'C', 'F', 'D'],
-  3: ['F', 'G', 'B', 'D', 'G', 'D', 'G', 'G'],
-  4: ['G', 'D', 'B', 'A', 'B', 'D', 'A', 'G'],
-  5: ['A', 'D', 'C', 'G', 'E', 'C', 'A', 'E'],
-  6: ['Bb', 'D', 'C', 'G', 'F', 'C', 'Bb', 'F'],
-  7: ['Bb', 'Eb', 'C', 'G', 'F', 'D', 'Bb', 'Eb'],
-  8: ['Ab', 'Eb', 'C', 'G', 'Ab', 'D', 'Ab', 'Eb'],
-  9: ['Db', 'F', 'C', 'Ab', 'Bb', 'Db', 'Ab', 'F'],
-  10: ['B', 'F#', 'D#', 'C#', 'A', 'B', 'D#', 'F#'],
-  11: ['E', 'C', 'G#', 'D', 'Bb', 'E', 'G#', 'B'],
-  12: ['C', 'G', 'E', 'D', 'B', 'C', 'E', 'G'],
-  13: ['C', 'G', 'F', 'D', 'A', 'C', 'F', 'F'],
-  14: ['D', 'A', 'F', 'D', 'A', 'C', 'F', 'D'],
-  15: ['F', 'G', 'B', 'D', 'G', 'D', 'G', 'G'],
-  16: ['G', 'D', 'B', 'A', 'B', 'D', 'A', 'G'],
-  17: ['A', 'D', 'C', 'G', 'E', 'C', 'A', 'E'],
-  18: ['Bb', 'D', 'C', 'G', 'F', 'C', 'Bb', 'F'],
-  19: ['Bb', 'Eb', 'C', 'G', 'F', 'D', 'Bb', 'Eb'],
-  20: ['Ab', 'Eb', 'C', 'G', 'Ab', 'D', 'Ab', 'Eb'],
-  21: ['Db', 'F', 'C', 'Ab', 'Bb', 'Db', 'Ab', 'F'],
-  22: ['B', 'F#', 'D#', 'C#', 'A', 'B', 'D#', 'F#'],
-  23: ['E', 'C', 'G#', 'D', 'Bb', 'E', 'G#', 'B'],
-};
+// 12 structurally-unique palettes, cycled sequentially — no hour-of-day meaning. Copied verbatim
+// from the old TIME_PITCHES[0..11] (hours 12-23 were byte-for-byte duplicates of 0-11 and are
+// dropped, not re-derived, by this restructuring). See docs/specs/HARMONY_PALETTE_SEQUENCING.md.
+const HARMONY_PALETTES: EighthNotes[] = [
+  ['C', 'G', 'E', 'D', 'B', 'C', 'E', 'G'],
+  ['C', 'G', 'F', 'D', 'A', 'C', 'F', 'F'],
+  ['D', 'A', 'F', 'D', 'A', 'C', 'F', 'D'],
+  ['F', 'G', 'B', 'D', 'G', 'D', 'G', 'G'],
+  ['G', 'D', 'B', 'A', 'B', 'D', 'A', 'G'],
+  ['A', 'D', 'C', 'G', 'E', 'C', 'A', 'E'],
+  ['Bb', 'D', 'C', 'G', 'F', 'C', 'Bb', 'F'],
+  ['Bb', 'Eb', 'C', 'G', 'F', 'D', 'Bb', 'Eb'],
+  ['Ab', 'Eb', 'C', 'G', 'Ab', 'D', 'Ab', 'Eb'],
+  ['Db', 'F', 'C', 'Ab', 'Bb', 'Db', 'Ab', 'F'],
+  ['B', 'F#', 'D#', 'C#', 'A', 'B', 'D#', 'F#'],
+  ['E', 'C', 'G#', 'D', 'Bb', 'E', 'G#', 'B'],
+];
+
+// Measures each palette entry holds before advancing to the next. One value read by both the
+// index derivation and the schedule interval below — not independently restated as two literal
+// `2`s. Not yet user-configurable (docs/intent/harmony-palette-sequencing.md's "Out of scope").
+const MEASURES_PER_PALETTE_ENTRY = 2;
 
 // ========================================
 // MODULE STATE
 // ========================================
-let availableNotes: EighthNotes = TIME_PITCHES[0];
+let availableNotes: EighthNotes = HARMONY_PALETTES[0];
 let lastPaletteIndex = 0;
-let scheduledEventId: unknown | null = null;
+let scheduleId: string | null = null;
 
 // ========================================
 // EXPORTS
@@ -78,11 +57,11 @@ export function getAvailableNotes(): string[] {
 }
 
 /**
- * Reset the harmony palette to hour 0 (start of the day cycle).
- * Call on power-on so music resumes from the beginning of the chord progression.
+ * Reset the harmony palette to the first entry.
+ * Call on power-on so music resumes from the start of the progression.
  */
 export function resetHarmony(): void {
-  availableNotes = TIME_PITCHES[0];
+  availableNotes = HARMONY_PALETTES[0];
   lastPaletteIndex = 0;
 }
 
@@ -95,42 +74,42 @@ export function setAvailableNotes(notes: EighthNotes): void {
 }
 
 /**
- * Initialize automatic palette updates synchronized to Transport.
- * Checks every 2 measures if the derived hour has changed.
- * Call once after Transport starts.
+ * Initialize automatic palette cycling. Every MEASURES_PER_PALETTE_ENTRY measures, advances to
+ * the next HARMONY_PALETTES entry (wrapping via % HARMONY_PALETTES.length — no assumption about
+ * the array's length). The index is derived fresh from getCurrentMeasure() on every tick, not
+ * accumulated, so a missed/errored tick can never leave the palette permanently out of sync with
+ * the transport. Call once after Transport starts.
  */
-export function scheduleHarmonyCycle(transport: TransportLike): void {
-  if (scheduledEventId !== null) {
+export function scheduleHarmonyCycle(): void {
+  if (scheduleId !== null) {
     devWarn('[HarmonySystem] Harmony cycle already scheduled');
     return;
   }
 
-  transportInstance = transport;
-  scheduledEventId = transportInstance.scheduleRepeat(() => {
+  scheduleId = scheduleRepeat(`${MEASURES_PER_PALETTE_ENTRY}m`, () => {
     try {
-      const paletteIndex = Math.floor(getCurrentHour()) % Object.keys(TIME_PITCHES).length;
+      const paletteIndex = Math.floor(getCurrentMeasure() / MEASURES_PER_PALETTE_ENTRY) % HARMONY_PALETTES.length;
 
       if (paletteIndex !== lastPaletteIndex) {
         lastPaletteIndex = paletteIndex;
-        availableNotes = TIME_PITCHES[paletteIndex] ?? TIME_PITCHES[0];
+        availableNotes = HARMONY_PALETTES[paletteIndex] ?? HARMONY_PALETTES[0];
         devLog(`[HarmonySystem] Palette changed to index ${paletteIndex}:`, availableNotes);
       }
     } catch (err) {
       devWarn('[HarmonySystem] palette cycle callback threw', err);
     }
-  }, '2m');
+  });
 
-  devLog('[HarmonySystem] Harmony cycle scheduled (updates every 2 measures)');
+  devLog(`[HarmonySystem] Harmony cycle scheduled (updates every ${MEASURES_PER_PALETTE_ENTRY} measures)`);
 }
 
 /**
  * Stop the harmony cycle (for cleanup/testing).
  */
 export function stopHarmonyCycle(): void {
-  if (scheduledEventId !== null) {
-    transportInstance?.clear(scheduledEventId);
-    scheduledEventId = null;
-    transportInstance = null;
+  if (scheduleId !== null) {
+    cancelSchedule(scheduleId);
+    scheduleId = null;
     devLog('[HarmonySystem] Harmony cycle stopped');
   }
 }
