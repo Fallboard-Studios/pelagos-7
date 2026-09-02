@@ -297,14 +297,34 @@ export function buildMotifOnsets(
     }
 
     const combined = Array.from(onsetSet).sort((a, b) => a - b);
+    let result: number[];
     if (combined.length <= rhythmicDensity) {
-      return combined;
+      result = combined;
+    } else {
+      // K's minimum of 1 per repeat window overshot the target density (short
+      // motif relative to density) — trim back down to exactly rhythmicDensity.
+      const keepIndices = pickUniqueInRange(combined.length, rhythmicDensity, rand).sort((a, b) => a - b);
+      result = keepIndices.map(i => combined[i]);
     }
 
-    // K's minimum of 1 per repeat window overshot the target density (short
-    // motif relative to density) — trim back down to exactly rhythmicDensity.
-    const keepIndices = pickUniqueInRange(combined.length, rhythmicDensity, rand).sort((a, b) => a - b);
-    return keepIndices.map(i => combined[i]);
+    // Tail-cell pass (untruncating), appended AFTER the trim check/branch above — both are
+    // otherwise untouched. The leftover `subdivisions - repeats * M` steps past the last full
+    // repeat never receive an onset from the loop above; copy whichever base-motif positions
+    // fall inside that leftover span into one final partial cell — a deterministic subset of the
+    // same base motif, not a fresh random draw. This is bonus fill from previously-dead grid
+    // space and deliberately does NOT count against `rhythmicDensity` — it can push the final
+    // onset count above the requested density, and is never itself trimmed.
+    const tailLength = subdivisions - repeats * M;
+    if (tailLength > 0) {
+      const tailOffset = repeats * M;
+      const resultSet = new Set(result);
+      for (const pos of baseMotif) {
+        if (pos < tailLength) resultSet.add(tailOffset + pos);
+      }
+      result = Array.from(resultSet).sort((a, b) => a - b);
+    }
+
+    return result;
   }
 
   // Non-repeating fallback

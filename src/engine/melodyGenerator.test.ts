@@ -693,6 +693,94 @@ describe('buildMotifOnsets', () => {
 });
 
 // ========================================
+// TEST SUITE: buildMotifOnsets — tail-cell pass (untruncating)
+//
+// Pitch Repeat (docs/specs/PITCH_REPEAT.md) bundles a fix to the shared rhythm engine: when
+// `rhythmicMotifLength` (M) doesn't evenly divide `subdivisions`, the leftover
+// `subdivisions - repeats * M` steps used to never receive an onset. This block pins the fix.
+// ========================================
+
+describe('buildMotifOnsets — tail-cell pass (untruncating)', () => {
+  const fixedRand = () => 0.5;
+
+  it.each([1, 2, 4, 8])(
+    'M=%i evenly divides 16 — repeats*M fills the whole measure, so there is no tail region to fill',
+    (M) => {
+      const repeats = Math.floor(16 / M);
+      expect(repeats * M).toBe(16); // sanity: no leftover steps exist for these M values
+      const onsets = buildMotifOnsets(M * repeats, M, 16, fixedRand);
+      onsets.forEach((o) => expect(o).toBeLessThan(16));
+    }
+  );
+
+  it.each([3, 5, 6, 7])(
+    'M=%i does not evenly divide 16 — the leftover tail steps now receive onsets',
+    (M) => {
+      const repeats = Math.floor(16 / M);
+      const tailOffset = repeats * M;
+      // K = M (full-density base cell) guarantees every base-motif position exists, so the
+      // tail — whichever base positions land inside it — is non-empty.
+      const onsets = buildMotifOnsets(M * repeats, M, 16, fixedRand);
+      const tailOnsets = onsets.filter((o) => o >= tailOffset);
+      expect(tailOnsets.length).toBeGreaterThan(0);
+    }
+  );
+
+  it('tail onset positions are a deterministic subset of the base motif (repeat 0), not a fresh draw', () => {
+    // M=6 against 16 → repeats=2, tailLength=4. K=3 (a partial base cell, not full) so the
+    // subset relationship is meaningful rather than vacuously true.
+    const M = 6;
+    const repeats = Math.floor(16 / M); // 2
+    const tailOffset = repeats * M; // 12
+    const tailLength = 16 - tailOffset; // 4
+    const onsets = buildMotifOnsets(6, M, 16, fixedRand); // density=6 → K=3, R=0
+
+    const basePositions = new Set(onsets.filter((o) => o < M));
+    const tailOnsets = onsets.filter((o) => o >= tailOffset);
+    expect(tailOnsets.length).toBeGreaterThan(0);
+    tailOnsets.forEach((o) => {
+      const pos = o - tailOffset;
+      expect(pos).toBeLessThan(tailLength);
+      expect(basePositions.has(pos)).toBe(true);
+    });
+  });
+
+  it('tail onset count never exceeds min(K, tailLength)', () => {
+    // M=6, density=6 → K=3 base positions, tailLength=4 → tail can hold at most min(3,4)=3.
+    const M = 6;
+    const repeats = Math.floor(16 / M);
+    const tailOffset = repeats * M;
+    const onsets = buildMotifOnsets(6, M, 16, fixedRand);
+    const tailOnsets = onsets.filter((o) => o >= tailOffset);
+    expect(tailOnsets.length).toBeLessThanOrEqual(3);
+  });
+
+  it('leaves the existing R-extra-onset-per-repeat and overshoot-trim branches unaffected', () => {
+    // Same case as the existing 'distributes remainder onsets to first R repeat copies' test
+    // above (density=5, motifLength=8, subdivisions=16 → repeats=2, tailLength=0) — the tail
+    // pass must be a no-op here since 8 evenly divides 16, so this must still hold exactly.
+    const onsets = buildMotifOnsets(5, 8, 16, fixedRand);
+    expect(onsets).toHaveLength(5);
+    const inFirstHalf = onsets.filter((o) => o < 8).length;
+    const inSecondHalf = onsets.filter((o) => o >= 8).length;
+    expect(inFirstHalf).toBe(3);
+    expect(inSecondHalf).toBe(2);
+  });
+
+  it('appended tail onsets are not counted against the combined.length <= rhythmicDensity trim check', () => {
+    // M=6, density=1, subdivisions=16 → repeats=2, tailLength=4. K floors to 1 per repeat window
+    // regardless of the requested density=1, so the pre-tail tiling loop already overshoots
+    // (2 onsets from 2 repeats) and the existing overshoot-trim branch fires, trimming back down
+    // to exactly 1 onset — before the tail-cell pass ever runs. If the tail pass were folded into
+    // that trim check, its onset could get discarded too; because it's appended *after*, the
+    // final count exceeds the requested density=1 once the tail lands inside the leftover span.
+    const onsets = buildMotifOnsets(1, 6, 16, fixedRand);
+    expect(onsets.length).toBeGreaterThan(1); // requested density=1, but tail fill adds more
+    expect(onsets.some((o) => o >= 12)).toBe(true); // the extra onset lives in the tail region
+  });
+});
+
+// ========================================
 // TEST SUITE: gridUnitsToDuration
 // ========================================
 
