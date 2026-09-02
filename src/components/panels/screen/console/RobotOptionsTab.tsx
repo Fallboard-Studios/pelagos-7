@@ -7,7 +7,7 @@ import { useUIStore } from '@/stores/uiStore';
 import { useLocaleStore } from '@/stores/localeStore';
 import { regenerateMelody } from '@/engine/regenerateMelody';
 import {
-  applyDensity, applyMotifLength, applyNoteVariance, applyOctaveMin, applyOctaveMax,
+  applyDensity, applyMotifLength, applyNoteVariance, applyPitchRepeat, applyOctaveMin, applyOctaveMax,
   applyAdsr, applyLayersContinuous, applyLayersStructural, applyLayerLfo, applyClickTrackActive,
 } from '@/systems/robotOptionsActions';
 
@@ -55,6 +55,7 @@ export function RobotOptionsTab() {
     rhythmicDensity: robot.rhythmicDensity ?? 50,
     rhythmicMotifLength: robot.rhythmicMotifLength ?? { active: true, value: 8 },
     noteVariance: robot.noteVariance ?? { active: false, value: 1 },
+    pitchRepeat: robot.pitchRepeat ?? 0,
     octaveRange: robot.octaveRange,
     clickTrackActive: robot.clickTrackActive ?? false,
   };
@@ -71,6 +72,7 @@ export function RobotOptionsTab() {
         value={pingControlsValue}
         onDensityChange={(v) => applyDensity(robot, localeId, v)}
         onMotifLengthChange={(v) => applyMotifLength(robot, localeId, v)}
+        onPitchRepeatChange={(v) => applyPitchRepeat(robot, localeId, v)}
         onOctaveMinChange={(v) => applyOctaveMin(robot, localeId, v)}
         onOctaveMaxChange={(v) => applyOctaveMax(robot, localeId, v)}
         onNoteVarianceChange={(v) => applyNoteVariance(robot, localeId, v)}
