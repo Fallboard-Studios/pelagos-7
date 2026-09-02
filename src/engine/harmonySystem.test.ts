@@ -1,42 +1,35 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-let currentHour = 0;
+let currentMeasure = 0;
 
 const callbacks: Array<() => void> = [];
+const scheduleRepeatMock = vi.fn<(interval: string, cb: () => void) => string>((_interval, cb) => {
+  callbacks.push(cb);
+  return `schedule-${callbacks.length}`;
+});
+const cancelScheduleMock = vi.fn<(id: string) => void>();
 
-const mockTransport = {
-  scheduleRepeat: vi.fn<(cb: () => void, interval: string) => string>((cb) => {
-    callbacks.push(cb);
-    return 'repeat-id';
-  }),
-  clear: vi.fn<(id: unknown) => void>(),
-};
-
+// harmonySystem.ts now goes through beatClock.ts's own scheduleRepeat/cancelSchedule exports
+// (docs/specs/HARMONY_PALETTE_SEQUENCING.md §1.5) instead of a locally-owned transport interface,
+// so this is the only mock this file needs — no more mockTransport, no more vi.mock('tone', ...).
 vi.mock('./beatClock', () => ({
-  getCurrentHour: () => currentHour,
+  getCurrentMeasure: () => currentMeasure,
+  scheduleRepeat: (interval: string, cb: () => void) => scheduleRepeatMock(interval, cb),
+  cancelSchedule: (id: string) => cancelScheduleMock(id),
 }));
-
-vi.mock('tone', () => ({
-  getTransport: () => mockTransport,
-}));
-
-type TestTransport = {
-  scheduleRepeat: (cb: () => void, interval: string) => string;
-  clear: (id: unknown) => void;
-};
 
 let getAvailableNotes: () => string[];
 let setAvailableNotes: (notes: [string, string, string, string, string, string, string, string]) => void;
 let resetHarmony: () => void;
-let scheduleHarmonyCycle: (transport: TestTransport) => void;
+let scheduleHarmonyCycle: () => void;
 let stopHarmonyCycle: () => void;
 
 describe('harmonySystem', () => {
   beforeEach(async () => {
-    currentHour = 0;
+    currentMeasure = 0;
     callbacks.length = 0;
-    mockTransport.scheduleRepeat.mockClear();
-    mockTransport.clear.mockClear();
+    scheduleRepeatMock.mockClear();
+    cancelScheduleMock.mockClear();
     vi.resetModules();
     ({
       getAvailableNotes,
@@ -58,7 +51,7 @@ describe('harmonySystem', () => {
     expect(getAvailableNotes()).toHaveLength(8);
   });
 
-  it('resetHarmony restores the hour-0 palette', () => {
+  it('resetHarmony restores the first palette entry', () => {
     setAvailableNotes(['A1', 'B1', 'C2', 'D2', 'E2', 'F2', 'G2', 'A2']);
     expect(getAvailableNotes()[0]).not.toBe('C');
 
@@ -66,19 +59,62 @@ describe('harmonySystem', () => {
     expect(getAvailableNotes()).toEqual(['C', 'G', 'E', 'D', 'B', 'C', 'E', 'G']);
   });
 
-  it('schedules harmony cycle once and updates when hour changes', () => {
-    scheduleHarmonyCycle(mockTransport);
-    expect(mockTransport.scheduleRepeat).toHaveBeenCalledTimes(1);
-    currentHour = 5;
+  it('schedules the harmony cycle once, on a 2-measure interval', () => {
+    scheduleHarmonyCycle();
+    expect(scheduleRepeatMock).toHaveBeenCalledTimes(1);
+    // '2m' must come from MEASURES_PER_PALETTE_ENTRY, not an independently-written literal
+    // (docs/specs/HARMONY_PALETTE_SEQUENCING.md §1.4) — this is the regression guard for that.
+    expect(scheduleRepeatMock).toHaveBeenCalledWith('2m', expect.any(Function));
+  });
+
+  it('warns and no-ops on a second scheduleHarmonyCycle call without an intervening stop', () => {
+    scheduleHarmonyCycle();
+    scheduleHarmonyCycle();
+    expect(scheduleRepeatMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('advances the palette as the transport measure advances', () => {
+    scheduleHarmonyCycle();
+    currentMeasure = 10; // floor(10/2) % 12 = index 5
     callbacks[0]?.();
     expect(getAvailableNotes()[0]).toBe('A');
   });
 
-  it('stops harmony cycle and clears scheduled event', () => {
-    scheduleHarmonyCycle(mockTransport);
+  it('does not reassign the palette when the computed index has not changed', () => {
+    scheduleHarmonyCycle();
+    setAvailableNotes(['Z', 'Z', 'Z', 'Z', 'Z', 'Z', 'Z', 'Z']); // prove a no-op tick leaves this alone
+    currentMeasure = 1; // floor(1/2) % 12 = 0 — same index the module already started on
+    callbacks[0]?.();
+    expect(getAvailableNotes()).toEqual(['Z', 'Z', 'Z', 'Z', 'Z', 'Z', 'Z', 'Z']);
+  });
+
+  it('wraps back to the first entry and keeps advancing correctly past one full lap', () => {
+    // Regression guard for "don't assume the palette's length" — these assertions are pinned to
+    // known note content at each measure, not to a restated `% 12` in the test itself, so they
+    // fail loudly (wrong note) rather than silently if the wrap math or the palette data drifts.
+    scheduleHarmonyCycle();
+
+    currentMeasure = 22; // floor(22/2) % 12 = 11 — last entry before the wrap
+    callbacks[0]?.();
+    expect(getAvailableNotes()[0]).toBe('E');
+
+    currentMeasure = 24; // floor(24/2) % 12 = 0 — one full lap, wraps back to the first entry
+    callbacks[0]?.();
+    expect(getAvailableNotes()).toEqual(['C', 'G', 'E', 'D', 'B', 'C', 'E', 'G']);
+
+    currentMeasure = 30; // floor(30/2) % 12 = 3 — proves it keeps advancing past the wrap, not stuck
+    callbacks[0]?.();
+    expect(getAvailableNotes()[0]).toBe('F');
+  });
+
+  it('stops the harmony cycle and clears the scheduled entry via cancelSchedule', () => {
+    scheduleHarmonyCycle();
+    const scheduledId = scheduleRepeatMock.mock.results[0]?.value as string;
+
     stopHarmonyCycle();
-    expect(mockTransport.clear).toHaveBeenCalledWith('repeat-id');
-    scheduleHarmonyCycle(mockTransport);
-    expect(mockTransport.scheduleRepeat).toHaveBeenCalledTimes(2);
+    expect(cancelScheduleMock).toHaveBeenCalledWith(scheduledId);
+
+    scheduleHarmonyCycle();
+    expect(scheduleRepeatMock).toHaveBeenCalledTimes(2);
   });
 });

@@ -1,44 +1,62 @@
 # Harmony System Guide
 
-The Harmony System provides dynamic musical palettes that change throughout the **measure-based** day/night cycle (96 `Tone.Transport` measures = 1 cycle), creating evolving ambient textures without requiring manual composition. **This is a distinct clock from each locale's own visual day/night cycle** (a flat, universal `DAY_DURATION_MS` real-world duration, wall-clock-driven from that locale's own `dayStartTimestamp`, see `src/constants/time.ts`). The two are deliberately decoupled: a locale's visual lighting always completes a day in that fixed real-world duration regardless of tempo, while the harmony palette moves with musical measures. See "Hour Derivation" below for the implementation detail.
+The Harmony System provides dynamic musical palettes that cycle sequentially through a fixed set of
+12 palettes as `Tone.Transport` measures advance, creating evolving ambient textures without requiring
+manual composition. Each palette holds for `MEASURES_PER_PALETTE_ENTRY` (2) measures before the system
+advances to the next one, wrapping back to the first once it reaches the end. **This is a distinct clock
+from each locale's own visual day/night cycle** (a flat, universal `DAY_DURATION_MS` real-world duration,
+wall-clock-driven from that locale's own `dayStartTimestamp`, see `src/constants/time.ts`). The two are
+deliberately decoupled: a locale's visual lighting always completes a day in that fixed real-world
+duration regardless of tempo, while the harmony palette moves with musical measures. See "Palette
+Advancement" below for the implementation detail.
 
 ## Purpose
 
-Robots do not store literal note strings in their melodies. Instead, they store **note indices (0-7)** that map into a global 8-note palette (`availableNotes`). In the current implementation, the palette is re-evaluated from the beat clock on a repeating transport callback and only swaps when the derived hour index changes, so melody events stay stable while the active harmony palette evolves.
+Robots do not store literal note strings in their melodies. Instead, they store **note indices (0-7)**
+that map into a global 8-note palette (`availableNotes`). The palette is re-evaluated from the beat clock
+on a repeating transport callback and only swaps when the currently-active palette index changes, so
+melody events stay stable while the active harmony palette evolves.
 
 ## Core Concept
 
 ```
 Robot Melody: [2, 0, 5, 3, ...]  (note indices, immutable)
                 ↓  ↓  ↓  ↓
-Available Notes: ['C', 'G', 'E', 'D', 'B', 'C', 'E', 'G']  (note names, no octave — checked every 2 measures, value typically changes at hour boundaries)
+Available Notes: ['C', 'G', 'E', 'D', 'B', 'C', 'E', 'G']  (note names, no octave — checked every 2 measures, value changes when the computed palette index advances)
                 ↓  ↓  ↓  ↓
 Per-event octave: [4,  4,  4,  3,  ...]  (concrete octave stored on each MelodyEvent at spawn)
                 ↓  ↓  ↓  ↓
 Actual Playback: E4, C4, A3, ... (note name + event octave combined at scheduling time)
 ```
 
-When the hour changes, only `availableNotes` swaps—robot melodies (indices + octaves) remain untouched.
+When the active palette entry changes, only `availableNotes` swaps—robot melodies (indices + octaves)
+remain untouched.
 
 ## Data Structure
 
 ```typescript
-// Exactly 8 note-name strings (no octave digit) per palette.
-// Octave is determined per-robot at spawn; each MelodyEvent stores a concrete octave.
+// Exactly 8 note-name strings (no octave digit) per palette entry.
 export type EighthNotes = [string, string, string, string, string, string, string, string];
 
-// 24-hour cycle mapping (hours 0-23)
-const TIME_PITCHES: Record<number, EighthNotes> = {
-  0:  ['C',  'G',  'E',  'D',  'B',  'C',  'E',  'G' ],  // Midnight
-  1:  ['C',  'G',  'F',  'D',  'A',  'C',  'F',  'F' ],  // 1am
-  2:  ['D',  'A',  'F',  'D',  'A',  'C',  'F',  'D' ],  // 2am
-  // ... hours 12-23 are byte-for-byte identical to hours 0-11 — only 12 unique palettes, mirrored
-  6:  ['Bb', 'D',  'C',  'G',  'F',  'C',  'Bb', 'F' ],  // Dawn
-  12: ['C',  'G',  'E',  'D',  'B',  'C',  'E',  'G' ],  // Noon
-  18: ['Bb', 'D',  'C',  'G',  'F',  'C',  'Bb', 'F' ],  // Dusk
-  23: ['E',  'C',  'G#', 'D',  'Bb', 'E',  'G#', 'B' ],  // Late night
-};
+// 12 structurally-unique palettes, cycled sequentially — no hour-of-day meaning.
+const HARMONY_PALETTES: EighthNotes[] = [
+  ['C',  'G',  'E',  'D',  'B',  'C',  'E',  'G' ],
+  ['C',  'G',  'F',  'D',  'A',  'C',  'F',  'F' ],
+  ['D',  'A',  'F',  'D',  'A',  'C',  'F',  'D' ],
+  ['F',  'G',  'B',  'D',  'G',  'D',  'G',  'G' ],
+  ['G',  'D',  'B',  'A',  'B',  'D',  'A',  'G' ],
+  ['A',  'D',  'C',  'G',  'E',  'C',  'A',  'E' ],
+  ['Bb', 'D',  'C',  'G',  'F',  'C',  'Bb', 'F' ],
+  ['Bb', 'Eb', 'C',  'G',  'F',  'D',  'Bb', 'Eb'],
+  ['Ab', 'Eb', 'C',  'G',  'Ab', 'D',  'Ab', 'Eb'],
+  ['Db', 'F',  'C',  'Ab', 'Bb', 'Db', 'Ab', 'F' ],
+  ['B',  'F#', 'D#', 'C#', 'A',  'B',  'D#', 'F#'],
+  ['E',  'C',  'G#', 'D',  'Bb', 'E',  'G#', 'B' ],
+];
 ```
+
+A plain array, not an hour-keyed map — nothing in the cycling mechanism assumes this array's length,
+so a future palette set of any size works unchanged (docs/specs/HARMONY_PALETTE_SEQUENCING.md).
 
 ## API
 
@@ -46,14 +64,16 @@ const TIME_PITCHES: Record<number, EighthNotes> = {
 // Retrieve a copy of the current palette (safe to iterate)
 export function getAvailableNotes(): string[];
 
-// Reset the palette to the start of the day cycle
+// Reset the palette to the first entry
 export function resetHarmony(): void;
 
 // Manually set palette (for testing or custom harmonies)
 export function setAvailableNotes(notes: EighthNotes): void;
 
-// Initialize automatic palette updates (call once after Transport starts)
-export function scheduleHarmonyCycle(transport: TransportLike): void;
+// Initialize automatic palette cycling (call once after Transport starts). Takes no arguments —
+// scheduling goes through beatClock.ts's own scheduleRepeat/cancelSchedule, not a transport passed
+// in by the caller.
+export function scheduleHarmonyCycle(): void;
 
 // Stop the scheduled harmony cycle
 export function stopHarmonyCycle(): void;
@@ -64,16 +84,26 @@ export function stopHarmonyCycle(): void;
 **File: `src/engine/harmonySystem.ts`**
 
 ```typescript
-// The runtime keeps an internal `availableNotes` and updates it from the provided transport.
-let availableNotes: EighthNotes = TIME_PITCHES[0];
+// The runtime keeps an internal `availableNotes` and updates it from beatClock's transport-driven
+// measure count.
+let availableNotes: EighthNotes = HARMONY_PALETTES[0];
 
-export function scheduleHarmonyCycle(transport: TransportLike): void {
-  // Schedules a transport.repeat on '2m' and swaps the palette when the derived hour changes.
-  // If scheduleHarmonyCycle is called twice, the implementation warns and ignores the second call.
+export function scheduleHarmonyCycle(): void {
+  // Schedules a beatClock.scheduleRepeat('2m', ...) tick and swaps the palette when the computed
+  // index changes. If scheduleHarmonyCycle is called twice, the implementation warns and ignores
+  // the second call.
 }
 ```
 
-The current implementation schedules a repeating transport callback on `'2m'`. Inside that callback it tries to read the derived hour from `getCurrentHour()`, then computes a palette index with `Math.floor(hour) % Object.keys(TIME_PITCHES).length`. If that hour-based lookup is unavailable, it falls back to a measure-driven step derived from the locale store. The palette only changes if the computed index differs from the previous one, and the callback is wrapped in `try/catch` so a failure does not break the loop. `stopHarmonyCycle()` clears the transport id and resets internal references.
+`scheduleHarmonyCycle()` schedules a repeating callback via `beatClock.ts`'s own `scheduleRepeat`,
+on an interval built from `MEASURES_PER_PALETTE_ENTRY` (`` `${MEASURES_PER_PALETTE_ENTRY}m` ``, i.e.
+`'2m'` today) — the same constant the index math below reads from, so the two can't independently drift
+apart. Inside that callback it computes `paletteIndex = Math.floor(getCurrentMeasure() /
+MEASURES_PER_PALETTE_ENTRY) % HARMONY_PALETTES.length`, fresh on every tick — never an accumulated
+counter, so a missed or errored tick can't leave the palette permanently out of sync with the transport.
+The palette only reassigns if the computed index differs from the previous one, and the callback is
+wrapped in `try/catch` so a failure does not break the loop. `stopHarmonyCycle()` calls `cancelSchedule()`
+on the tracked schedule id and resets internal references.
 
 ## Usage in Melody Playback
 
@@ -117,32 +147,36 @@ scheduleRepeat('8n', (time) => {
 - Use `setInterval` or `setTimeout` for palette updates
 - Reschedule melody loops on harmony change
 
-## Hour Derivation
+## Palette Advancement
 
 ```typescript
-import { getCurrentMeasure, getCurrentHour } from '../engine/beatClock'; // named exports, no `BeatClock` object
+import { getCurrentMeasure } from '../engine/beatClock'; // named export, no `BeatClock` object
 
-// 96 measures = 1 full day/night cycle; 4 measures = 1 "hour equivalent"
-const derivedHour = getCurrentHour(); // equivalent to Math.floor((getCurrentMeasure() % 96) / 4), clamped 0..23
+// Recomputed fresh every '2m' tick — never accumulated.
+const paletteIndex = Math.floor(getCurrentMeasure() / MEASURES_PER_PALETTE_ENTRY) % HARMONY_PALETTES.length;
 ```
 
-**Important:** Hour is **derived** from measures, never stored in state.
+**Important:** the active index is **derived** from the transport's measure count on every tick, never
+stored or incremented in state — a missed/errored tick self-corrects on the next one rather than drifting.
 
-**This is a different clock from the visual day/night cycle.** The harmony palette's hour is driven by `Tone.Transport`'s measure position — it moves with musical tempo, not real time. Facade/window lighting (`Factory.tsx`, `src/utils/lightingUtils.ts`) instead derives its hour from real wall-clock elapsed time (`computeLocaleHour` in `src/constants/time.ts`, scaled by a single fixed `DAY_DURATION_MS` — no more per-planet-size keying since [Attenuation Style](specs/ATTENUATION_STYLE.md) moved world time onto `Locale`). The two are **not synchronized** — a BPM change shifts the harmony palette's rate but has no effect on the visual lighting cycle, and vice versa.
+**This is a different clock from the visual day/night cycle.** The harmony palette advances with
+`Tone.Transport`'s measure position — it moves with musical tempo, not real time. Facade/window lighting
+(`Factory.tsx`, `src/utils/lightingUtils.ts`) instead derives its position from real wall-clock elapsed
+time (`computeLocaleHour` in `src/constants/time.ts`, scaled by a single fixed `DAY_DURATION_MS`). The
+two are **not synchronized** — a BPM change shifts how quickly the harmony palette cycles but has no
+effect on the visual lighting cycle, and vice versa.
 
 ## Palette Design Guidelines
 
-When creating custom `TIME_PITCHES`:
+When creating custom `HARMONY_PALETTES` entries:
 
-1. **Use 8 notes exactly** (EightNotes type enforces this)
+1. **Use 8 notes exactly** (`EighthNotes` type enforces this)
 2. **No octave digits:** All entries are bare note names (`'C'`, `'Bb'`, `'F#'`). Octave is a robot-level attribute, not a palette concern.
 3. **Avoid extreme leaps:** Adjacent indices should be reasonably close in pitch character
-4. **Smooth transitions:** Hour N and N+1 should share some note names for continuity
-5. **Mood mapping:**
-   - Midnight-Dawn (0-6): Lower, darker tones
-   - Morning (6-12): Brighter, rising pitches
-   - Afternoon (12-18): Sustained high energy
-   - Evening (18-24): Descending, warmer tones
+4. **Smooth transitions:** Entry N and entry N+1 should share some note names for continuity
+5. **Order is the only structure that matters now** — entries no longer carry a mood-to-hour mapping;
+   sequencing/mood arcs are a property of the order you list entries in the array, not a fixed clock
+   position.
 
 ## Index Safety
 
@@ -163,16 +197,19 @@ setAvailableNotes(['C', 'E', 'G', 'B', 'D', 'F', 'A', 'C']);
 
 **Debug display:**
 ```typescript
-import { getCurrentHour } from '../engine/beatClock';
+import { getCurrentMeasure } from '../engine/beatClock';
 console.log('Current notes:', getAvailableNotes());
-console.log('Derived hour:', getCurrentHour());
+console.log('Current measure:', getCurrentMeasure());
 ```
 
 ## Performance
 
 - `getAvailableNotes()` returns a copy (safe, no mutation risk)
 - Array copy overhead is negligible (8 strings, ~1μs)
-- The palette check runs every 2 measures (`scheduleHarmonyCycle`'s `'2m'` schedule); the palette *value* only reassigns when the computed index actually differs from last time — via `getCurrentHour()` it typically differs at most once per 4-measure hour boundary, but the measure-based fallback path (used when `getCurrentHour()` is unavailable) divides by 2, not 4, so it can change every 2 measures
+- The palette check runs every `MEASURES_PER_PALETTE_ENTRY` measures (2 today,
+  `scheduleHarmonyCycle`'s own schedule interval); the palette *value* only reassigns when the computed
+  index actually differs from last time — in practice that means every tick, since the index and the
+  check interval move in lockstep
 - No iteration over robot arrays on harmony change
 
 ## Integration with Melody System
@@ -189,7 +226,9 @@ interface MelodyEvent {
 }
 ```
 
-At scheduling time, `note = availableNotes[event.noteIndex] + event.octave` (e.g. `"C" + 4 = "C4"`). This means a harmony change silently updates the pitch class while the octave register stays as the robot was born with.
+At scheduling time, `note = availableNotes[event.noteIndex] + event.octave` (e.g. `"C" + 4 = "C4"`). This
+means a harmony change silently updates the pitch class while the octave register stays as the robot was
+born with.
 
 At playback:
 ```typescript
