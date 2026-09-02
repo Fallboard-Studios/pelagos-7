@@ -33,6 +33,10 @@ export function resolveCompanyOptions(lastEditedOptions: CompanyOptionsSnapshot 
     layers: firstMember.audioAttributes.layers ?? [],
     lfoSettings: firstMember.lfoSettings ?? {},
     clickTrackActive: firstMember.clickTrackActive ?? false,
+    // TODO(PITCH_REPEAT Task 14): swap the literal 0 for DEFAULT_PITCH_REPEAT once
+    // melodyGenerator.ts exports it (Task 6) — pulled forward from Task 14 to keep
+    // `Required<CompanyOptionsSnapshot>` compiling after Task 3 adds the optional field.
+    pitchRepeat: firstMember.pitchRepeat ?? 0,
   };
   return { ...fromRobot, ...lastEditedOptions };
 }

@@ -48,6 +48,13 @@ export const OCTAVE_RANGE_MIN = 1;
 export const OCTAVE_RANGE_MAX = 7;
 
 /**
+ * `pitchRepeat` is a 0-100% lock strength (not a toggle) — same shape as `rhythmicDensity`. See
+ * docs/specs/PITCH_REPEAT.md.
+ */
+export const PITCH_REPEAT_MIN = 0;
+export const PITCH_REPEAT_MAX = 100;
+
+/**
  * Robot Systems Engine (Roadmap Phase 7) — Battery/Docking/Job lifecycle constants.
  * See docs/specs/ROBOT_SYSTEMS_ENGINE.md and src/systems/robotSystems.ts.
  */

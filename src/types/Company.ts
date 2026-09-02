@@ -20,6 +20,7 @@ export interface CompanyOptionsSnapshot {
   rhythmicDensity?: number;
   rhythmicMotifLength?: { active: boolean; value: number };
   noteVariance?: { active: boolean; value: number };
+  pitchRepeat?: number;
   octaveRange?: [number, number];
   adsr?: ADSREnvelope;
   layers?: OscillatorLayer[];
