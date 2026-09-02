@@ -10,6 +10,7 @@ import {
   RHYTHMIC_MOTIF_LENGTH_MAX,
   NOTE_VARIANCE_MIN,
   NOTE_VARIANCE_MAX,
+  PITCH_REPEAT_MIN,
   PITCH_REPEAT_MAX,
 } from '../constants';
 
@@ -22,6 +23,14 @@ export interface RobotMelodyEvent {
   length: NoteDuration; // Note duration
   noteIndex: number; // 0..7 (maps into availableNotes palette)
   octave: number;   // Concrete octave assigned at spawn time
+  /**
+   * Pitch Repeat: true only on a locked non-base-cell repeat whose noteIndex was copied verbatim
+   * from the base cell, bypassing Note Variance. Never set on base-cell (repeat 0) events or on
+   * any event when locking didn't apply — those stay `undefined`, not `false`. See
+   * computePitchLockPlan. NOTE: structurally identical to but separately declared from
+   * `MelodyEvent` in `types/Robot.ts` — keep both in sync.
+   */
+  pitchLocked?: boolean;
 }
 
 /** A 1–8 magnitude paired with an on/off toggle — shared shape for Motif Length and Note Variance. */
@@ -75,6 +84,12 @@ export interface GenerateMelodyForRobotOptions {
    * Default: DEFAULT_NOTE_VARIANCE.
    */
   noteVariance?: ToggleValue;
+  /**
+   * 0-100. Increasingly locks a tiled motif's repeated cells to the base cell's pitches as it
+   * rises (100 = full verbatim repetition). Inert whenever `rhythmicMotifLength.active` is false.
+   * Default: DEFAULT_PITCH_REPEAT.
+   */
+  pitchRepeat?: number;
 }
 
 // ========================================
@@ -101,6 +116,12 @@ export const DEFAULT_RHYTHMIC_MOTIF_LENGTH: ToggleValue = { active: true, value:
  * noteVariance === 0 / unweighted default exactly.
  */
 export const DEFAULT_NOTE_VARIANCE: ToggleValue = { active: false, value: 1 };
+/**
+ * Default Pitch Repeat lock strength — 0 (no locking), the neutral/off state. Unlike the
+ * mid-range defaults above, 0 isn't a compromise value; it's what makes generation at the
+ * default statistically indistinguishable from having no Pitch Repeat at all.
+ */
+export const DEFAULT_PITCH_REPEAT = 0;
 /** Default subdivision grid per measure (16 sixteenth notes in 4/4). */
 export const DEFAULT_SUBDIVISIONS = 16;
 
@@ -480,8 +501,12 @@ export function generateMelodyForRobot(
   // before calling it, keeping every repeat identically filled (no remainder
   // distributed unevenly, unlike the old total-onset-count model).
   let onsets: number[];
+  // Set only when motif tiling is active — computePitchLockPlan needs the motif length, and
+  // Pitch Repeat is gated inert whenever tiling is off (no cell concept to lock pitches within).
+  let motifLengthForLock: number | null = null;
   if (motif.active) {
     const motifLength = Math.max(RHYTHMIC_MOTIF_LENGTH_MIN, Math.min(RHYTHMIC_MOTIF_LENGTH_MAX, Math.trunc(motif.value)));
+    motifLengthForLock = motifLength;
     const repeats = Math.max(1, Math.floor(subdivisions / motifLength));
     const perCell = Math.max(1, Math.round((densityPct / 100) * motifLength));
     onsets = buildMotifOnsets(perCell * repeats, motifLength, subdivisions, rand);
@@ -489,6 +514,16 @@ export function generateMelodyForRobot(
     const onsetCount = Math.max(1, Math.round((densityPct / 100) * subdivisions));
     onsets = buildMotifOnsets(onsetCount, subdivisions, subdivisions, rand);
   }
+
+  // Pitch Repeat: which onsets copy the base cell's noteIndex verbatim (docs/specs/PITCH_REPEAT.md).
+  // Inert (all-false, no `computePitchLockPlan` call at all) whenever motif tiling is off.
+  const pitchRepeatPct = Math.max(
+    PITCH_REPEAT_MIN,
+    Math.min(PITCH_REPEAT_MAX, opts.pitchRepeat ?? DEFAULT_PITCH_REPEAT),
+  );
+  const lockPlan: boolean[] = motifLengthForLock !== null
+    ? computePitchLockPlan(onsets, motifLengthForLock, subdivisions, pitchRepeatPct, rand)
+    : onsets.map(() => false);
 
   let currentOctave = octMin + Math.floor(rand() * (octMax - octMin + 1));
   const melody: RobotMelodyEvent[] = [];
@@ -499,6 +534,10 @@ export function generateMelodyForRobot(
   const uniqueSet = new Set<number>();
   // Lazily built below on first use when noteVariance === 8 (shuffled draw-without-replacement pool).
   let withoutReplacementPool: number[] | null = null;
+  // Base-cell (repeat 0) noteIndex per position, keyed by grid position — populated as repeat-0
+  // events are pushed (they always sort first, before any later repeat's onsets) so a locked
+  // onset later in the loop can copy its base position's already-chosen noteIndex verbatim.
+  const basePositionNoteIndex = new Map<number, number>();
 
   for (let i = 0; i < onsets.length; i++) {
     // 15% chance to jump to a non-adjacent octave when range allows
@@ -516,9 +555,14 @@ export function generateMelodyForRobot(
     const nextOnset = i < onsets.length - 1 ? onsets[i + 1] : subdivisions;
     const durationUnits = nextOnset - onsets[i];
 
-    // Pick noteIndex honoring the noteVariance toggle
+    // Pick noteIndex honoring the noteVariance toggle — unless Pitch Repeat has locked this
+    // onset, in which case it copies the base cell's noteIndex verbatim, bypassing Note Variance
+    // entirely (and not touching uniqueSet/withoutReplacementPool), so unlocked onsets later in
+    // the same melody see identical selection state to today's unmodified run.
     let noteIndex: number;
-    if (!variance.active) {
+    if (lockPlan[i]) {
+      noteIndex = basePositionNoteIndex.get(onsets[i] % motifLengthForLock!)!;
+    } else if (!variance.active) {
       // Off: unweighted, unconstrained random pick from all 8 indices — deliberately
       // NOT pickWeightedIndex(); "off" now means no weighting at all, not just no
       // uniqueness constraint (a behavior change from the old noteVariance === 0
@@ -554,12 +598,17 @@ export function generateMelodyForRobot(
       }
     }
 
+    if (motifLengthForLock !== null && onsets[i] < motifLengthForLock) {
+      basePositionNoteIndex.set(onsets[i], noteIndex);
+    }
+
     melody.push({
       id: crypto.randomUUID(),
       startStep: onsets[i] + 1, // 1-indexed to match existing RobotMelodyEvent convention
       length: pickDurationForGap(durationUnits, rand),
       noteIndex,
       octave: currentOctave,
+      ...(lockPlan[i] ? { pitchLocked: true } : {}),
     });
   }
 

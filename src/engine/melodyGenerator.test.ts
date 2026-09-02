@@ -1150,6 +1150,133 @@ describe('generateMelodyForRobot — GenerateMelodyForRobotOptions', () => {
 });
 
 // ========================================
+// TEST SUITE: generateMelodyForRobot — Pitch Repeat (Task 6)
+// ========================================
+
+describe('generateMelodyForRobot — Pitch Repeat', () => {
+  it('rhythmicMotifLength.active: false makes pitchRepeat inert regardless of value (gating)', () => {
+    const melody = generateMelodyForRobot({
+      rhythmicDensity: 75,
+      rhythmicMotifLength: { active: false, value: 8 },
+      pitchRepeat: 100,
+      octaveMin: 3,
+      octaveMax: 4,
+      seed: 20,
+    });
+    melody.forEach((e) => expect(e.pitchLocked).toBeUndefined());
+  });
+
+  it('pitchRepeat: 0 with motif active produces no pitchLocked events', () => {
+    const melody = generateMelodyForRobot({
+      rhythmicDensity: 100,
+      rhythmicMotifLength: { active: true, value: 4 },
+      pitchRepeat: 0,
+      octaveMin: 3,
+      octaveMax: 4,
+      seed: 21,
+    });
+    melody.forEach((e) => expect(e.pitchLocked).toBeUndefined());
+  });
+
+  it('pitchRepeat omitted behaves identically to pitchRepeat: 0 (DEFAULT_PITCH_REPEAT)', () => {
+    const base = { rhythmicDensity: 100, rhythmicMotifLength: { active: true, value: 4 }, octaveMin: 3, octaveMax: 4, seed: 22 };
+    const omitted = generateMelodyForRobot(base);
+    const explicit = generateMelodyForRobot({ ...base, pitchRepeat: 0 });
+    // id is crypto.randomUUID()-based, not seeded — compare every other field, same convention
+    // as the existing 'is deterministic with the same seed' test above.
+    expect(omitted.map((e) => ({ ...e, id: undefined }))).toEqual(explicit.map((e) => ({ ...e, id: undefined })));
+  });
+
+  it('pitchRepeat: 100 with motif active — every repeat\'s noteIndex sequence matches the base cell\'s', () => {
+    // value=4, density=100 → K=4 (fully dense cell), 4 repeat windows, no tail (4 evenly divides 16).
+    const melody = generateMelodyForRobot({
+      rhythmicDensity: 100,
+      rhythmicMotifLength: { active: true, value: 4 },
+      pitchRepeat: 100,
+      octaveMin: 3,
+      octaveMax: 4,
+      seed: 23,
+    });
+    expect(melody).toHaveLength(16);
+    const byPositionAndRepeat = new Map<number, Map<number, RobotMelodyEvent>>();
+    melody.forEach((e) => {
+      const step = e.startStep - 1;
+      const position = step % 4;
+      const repeat = Math.floor(step / 4);
+      if (!byPositionAndRepeat.has(position)) byPositionAndRepeat.set(position, new Map());
+      byPositionAndRepeat.get(position)!.set(repeat, e);
+    });
+    byPositionAndRepeat.forEach((repeatsForPosition) => {
+      const base = repeatsForPosition.get(0)!;
+      expect(base.pitchLocked).toBeUndefined(); // base cell is the copy source, never locked
+      for (let repeat = 1; repeat < 4; repeat++) {
+        const event = repeatsForPosition.get(repeat)!;
+        expect(event.noteIndex).toBe(base.noteIndex);
+        expect(event.pitchLocked).toBe(true);
+      }
+    });
+  });
+
+  it('is deterministic with the same seed', () => {
+    const opts = { rhythmicDensity: 60, rhythmicMotifLength: { active: true, value: 8 }, pitchRepeat: 60, octaveMin: 3, octaveMax: 5, seed: 24 };
+    const a = generateMelodyForRobot(opts);
+    const b = generateMelodyForRobot(opts);
+    expect(a.map((e) => e.startStep)).toEqual(b.map((e) => e.startStep));
+    expect(a.map((e) => e.noteIndex)).toEqual(b.map((e) => e.noteIndex));
+    expect(a.map((e) => e.octave)).toEqual(b.map((e) => e.octave));
+    expect(a.map((e) => e.pitchLocked)).toEqual(b.map((e) => e.pitchLocked));
+  });
+
+  it('partial lock: locked events copy the base cell\'s noteIndex verbatim; unlocked events are unconstrained by it', () => {
+    // value=8, density=50 → K=4 of 8 positions filled per cell, 2 repeat windows.
+    const melody = generateMelodyForRobot({
+      rhythmicDensity: 50,
+      rhythmicMotifLength: { active: true, value: 8 },
+      pitchRepeat: 50,
+      octaveMin: 3,
+      octaveMax: 4,
+      seed: 25,
+    });
+    const byPosition = new Map<number, RobotMelodyEvent[]>();
+    melody.forEach((e) => {
+      const position = (e.startStep - 1) % 8;
+      if (!byPosition.has(position)) byPosition.set(position, []);
+      byPosition.get(position)!.push(e);
+    });
+    let sawALockedEvent = false;
+    byPosition.forEach((eventsForPosition) => {
+      const base = eventsForPosition.find((e) => e.startStep - 1 < 8);
+      if (!base) return; // this position's onset only exists in a later repeat (R-extra) — not base-cell-locked
+      eventsForPosition.forEach((e) => {
+        if (e === base) {
+          expect(e.pitchLocked).toBeUndefined();
+        } else if (e.pitchLocked) {
+          sawALockedEvent = true;
+          expect(e.noteIndex).toBe(base.noteIndex); // verbatim copy
+        }
+      });
+    });
+    expect(sawALockedEvent).toBe(true); // sanity: this seed/pct actually exercises locking
+  });
+
+  it('noteVariance\'s uniqueness cap is unaffected by locked copies — only unlocked picks count toward it', () => {
+    // Locked events bypass Note Variance selection entirely, so they must not be able to push the
+    // running unique-note count past noteVariance's own value cap.
+    const melody = generateMelodyForRobot({
+      rhythmicDensity: 100,
+      rhythmicMotifLength: { active: true, value: 4 },
+      pitchRepeat: 50,
+      noteVariance: { active: true, value: 3 },
+      octaveMin: 3,
+      octaveMax: 4,
+      seed: 26,
+    });
+    const unlockedIndices = melody.filter((e) => !e.pitchLocked).map((e) => e.noteIndex);
+    expect(new Set(unlockedIndices).size).toBeLessThanOrEqual(3);
+  });
+});
+
+// ========================================
 // TEST SUITE: reRollMelodyPitches
 // ========================================
 
