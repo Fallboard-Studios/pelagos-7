@@ -5,6 +5,7 @@ import { create } from 'zustand';
 
 import { AudioEngine } from '../engine/AudioEngine';
 import { wireGlobalFxChain } from '../engine/audioEngine/globalFx';
+import { volumePositionToGain } from '../engine/audioEngine/volumeTaper';
 import { lfoEngine } from '../engine/lfoEngine';
 import { generateGlobalAudioSettings, generateGlobalLfoSettings, generatePingVarianceAutomation } from '../utils/globalAudioSeed';
 import { generateLocaleBpm } from '../utils/localeBpmSeed';
@@ -107,7 +108,11 @@ export interface AudioStore {
   /** Global-chain LFO settings, one entry per GlobalLfoTargetId — seeded per Attenuation Style, see regenerateGlobalLfoFromSeed. */
   globalLfo: Record<GlobalLfoTargetId, LfoSettings & { active: boolean }>;
   isMuted: boolean;
-  preMuteVolume: number;
+  /** Live master-volume slider position, [0, 1] — TransportBar's volume slider's single source
+   *  of truth. Default 1 (100%), never persisted across sessions. The engine's actual live gain
+   *  is `isMuted ? 0 : volumePositionToGain(volume)` — see setVolume/setMuted below.
+   *  docs/specs/GLOBAL_VOLUME_CONTROL.md §1.3. */
+  volume: number;
   /** Continuous automation-amount fraction, [0, 1] — the Audio Rig's "Ping
    *  Variance Automation" slider, replacing the former audioSwellsEnabled
    *  boolean (docs/specs/PING-VARIANCE-AUTOMATION.md). Read directly by
@@ -139,8 +144,16 @@ export interface AudioStore {
    * disconnects+stops (active: false) the live node.
    */
   setGlobalLfo: (target: GlobalLfoTargetId, value: LfoSettings & { active: boolean }) => void;
+  /** Sets isMuted and pushes the resulting gain to AudioEngine — 0 when muted,
+   *  volumePositionToGain(volume) (the live slider position) when not. Owns its own
+   *  AudioEngine call, matching every other audioStore setter's shape (setBPM,
+   *  setGlobalBypassEnabled, etc.) — TransportBar.tsx no longer calls AudioEngine
+   *  directly for mute. docs/specs/GLOBAL_VOLUME_CONTROL.md §1.3, §1.5. */
   setMuted: (muted: boolean) => void;
-  setPreMuteVolume: (volume: number) => void;
+  /** Sets the master-volume slider position and pushes the tapered gain to AudioEngine.
+   *  Always also clears isMuted — dragging the slider while muted un-mutes as a side
+   *  effect, jumping straight to the dragged-to level. docs/specs/GLOBAL_VOLUME_CONTROL.md §1.3. */
+  setVolume: (volume: number) => void;
   /** Sets the Audio Rig "Ping Variance Automation" slider — a plain state
    *  write, no AudioEngine call; audioSwells.ts reads this fraction fresh
    *  on its own next tick (both for scaling a newly-created swell's peak
@@ -192,7 +205,7 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
   globalAudio: { ...DEFAULT_GLOBAL_AUDIO_SETTINGS },
   globalLfo: buildDefaultGlobalLfo(),
   isMuted: false,
-  preMuteVolume: 1.0,
+  volume: 1,
   pingVarianceAutomation: PING_VARIANCE_AUTOMATION_UNSEEDED, // real value assigned by the first regenerateGlobalAudioFromSeed call below (module-load AS-sync)
 
   setBPM: (bpm) => {
@@ -270,9 +283,11 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
 
   setMuted: (muted) => {
     set({ isMuted: muted });
+    AudioEngine.setMasterVolume(muted ? 0 : volumePositionToGain(get().volume));
   },
-  setPreMuteVolume: (volume) => {
-    set({ preMuteVolume: volume });
+  setVolume: (volume) => {
+    set({ volume, isMuted: false });
+    AudioEngine.setMasterVolume(volumePositionToGain(volume));
   },
   setPingVarianceAutomation: (value) => {
     set({ pingVarianceAutomation: value });
