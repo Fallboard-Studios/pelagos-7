@@ -496,6 +496,45 @@ describe('robotSystems', () => {
       expect(changedCount).toBeGreaterThanOrEqual(1); // round(4 * 0.25) = 1
     });
 
+    it('a fully Pitch-Repeat-locked robot (pitchLocked on every event) changes zero notes on re-roll', () => {
+      // Task 11 (docs/tasks/PITCH_REPEAT.md): landOnDocked's own code is unchanged (it already
+      // passes the full melody to reRollMelodyPitches, which now excludes pitchLocked events
+      // internally — Task 7). This is end-to-end coverage through the real dock transition.
+      const robot = makeRobot({
+        id: 'pitch-repeat-fully-locked',
+        docking: DockingState.Departing,
+        melody: [
+          { id: 'e1', startStep: 1, length: '16n', noteIndex: 0, octave: 4 }, // base cell, never locked itself
+          { id: 'e2', startStep: 5, length: '16n', noteIndex: 0, octave: 4, pitchLocked: true },
+          { id: 'e3', startStep: 9, length: '16n', noteIndex: 0, octave: 4, pitchLocked: true },
+          { id: 'e4', startStep: 13, length: '16n', noteIndex: 0, octave: 4, pitchLocked: true },
+        ],
+      });
+      setupLocaleWithRobots([robot]);
+
+      landOnDocked(DEFAULT_LOCALE_ID, robot.id);
+
+      const updated = useLocaleStore.getState().getRobotById(DEFAULT_LOCALE_ID, robot.id)!;
+      // Only e1 (unlocked) is eligible, so the "always changes at least 1" floor could still pick
+      // it — but every pitchLocked event must stay byte-identical regardless.
+      expect(updated.melody.filter((e) => e.pitchLocked).every((e) => e.noteIndex === 0)).toBe(true);
+      const lockedChangedCount = updated.melody.filter((e, i) => e.pitchLocked && e.noteIndex !== robot.melody[i].noteIndex).length;
+      expect(lockedChangedCount).toBe(0);
+    });
+
+    it('docking a robot with no pitchLocked events behaves exactly as before Pitch Repeat (regression guard)', () => {
+      // Same scenario/assertions as the pre-existing 're-rolls ~25%...' test above — explicit
+      // regression guard per Task 11's acceptance criteria, not just "still passes incidentally".
+      const robot = makeRobot({ id: 'pitch-repeat-unlocked-regression', docking: DockingState.Departing });
+      setupLocaleWithRobots([robot]);
+
+      landOnDocked(DEFAULT_LOCALE_ID, robot.id);
+
+      const updated = useLocaleStore.getState().getRobotById(DEFAULT_LOCALE_ID, robot.id);
+      const changedCount = updated!.melody.filter((e, i) => e.noteIndex !== robot.melody[i].noteIndex).length;
+      expect(changedCount).toBeGreaterThanOrEqual(1); // round(4 * 0.25) = 1, same as the existing test
+    });
+
     it('re-rolls a different subset of pitches on successive dock cycles for the same robot', () => {
       const robot = makeRobot({ docking: DockingState.Departing, id: 'drift-robot' });
       setupLocaleWithRobots([robot]);
