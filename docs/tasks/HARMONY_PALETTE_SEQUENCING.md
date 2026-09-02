@@ -102,10 +102,10 @@ Task 1 (harmonySystem.ts + harmonySystem.test.ts + AudioEngine.ts call site)
 
 ### Checkpoint: Core mechanism complete
 - [x] `npm run build:types`, `npm run lint`, `npm test` all clean (108 files / 1740 tests).
-- [ ] Manual check (spec §5): start playback, watch the dev console's `[HarmonySystem] Palette changed
+- [x] Manual check (spec §5): start playback, watch the dev console's `[HarmonySystem] Palette changed
       to index N` lines — `N` advances `0, 1, 2, ..., 11, 0, ...` monotonically, exactly every 2
-      measures, independent of BPM. **Pending — needs a live browser session.**
-- [ ] Review with human before proceeding.
+      measures, independent of BPM. Confirmed by the user in a live browser session.
+- [x] Review with human before proceeding.
 
 ---
 
