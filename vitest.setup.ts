@@ -1,5 +1,26 @@
 import { vi } from 'vitest';
 
+// randomCoordinate() (src/utils/seedUtils.ts) drives useLocaleStore's default
+// locale coordinates (localeStore.ts) so a real page load lands somewhere
+// different each time, rather than always the same fixed plot. The whole
+// suite predates that change and widely assumes the default locale sits at a
+// fixed, reproducible coordinate pair — spawnSystem/factoryPlacementSystem/
+// audioSwells etc. all derive seeded (noise-map) generation from it and
+// assert determinism across repeated calls. Rather than pin coordinates in
+// every one of those test files individually, mock randomCoordinate() back
+// to a fixed (12, 68)-equivalent sequence (alternating on each call) for the
+// whole suite — restoring the exact pre-randomization default. Individual
+// test files that want to verify the *real* random behavior (seedUtils.test.ts)
+// call vi.unmock('@/utils/seedUtils') to opt back out of this.
+vi.mock('@/utils/seedUtils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./src/utils/seedUtils')>();
+  let call = 0;
+  return {
+    ...actual,
+    randomCoordinate: () => (call++ % 2 === 0 ? 12 : 68),
+  };
+});
+
 // Minimal GSAP mock for unit tests to avoid DOM queries and timing issues.
 vi.mock('gsap', () => {
   type TimelineConfig = { onComplete?: () => void } | undefined;

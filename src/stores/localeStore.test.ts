@@ -85,7 +85,10 @@ describe('localeStore', () => {
     });
 
     it("computeLocaleHour(dayStartTimestamp) reads abs(x % 24) — 12 for x=12 — immediately after module load", () => {
-      // DEFAULT_LOCALE.coordinates.x is 12; abs(12 % 24) === 12.
+      // DEFAULT_LOCALE.coordinates.x is 12; abs(12 % 24) === 12. True in tests
+      // because vitest.setup.ts mocks randomCoordinate() back to a fixed
+      // (12, 68)-equivalent sequence — see seedUtils.test.ts for coverage of
+      // the real (unmocked) random behavior.
       expect(computeLocaleHour(DEFAULT_LOCALE.dayStartTimestamp)).toBeCloseTo(12, 0);
     });
 

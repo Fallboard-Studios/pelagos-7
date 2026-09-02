@@ -62,6 +62,21 @@ export function generateRandomAttenuationStyleName(): string {
 }
 
 /**
+ * A random integer coordinate — one axis of a locale coordinate pair. No
+ * seed/reproducibility contract applies to locale coordinates the way
+ * `resolveDefaultAttenuationStyleName`'s override does for the Attenuation
+ * Style name: coordinates are already a freely user-driven axis everywhere
+ * else in the app (Sector Settings' own "Random" coordinate button has
+ * always called exactly this, ungated by any seed override), so the
+ * default locale's own starting coordinates follow the same rule. Range is
+ * arbitrary but generous enough to feel like "a different plot," not a
+ * variation on the current one.
+ */
+export function randomCoordinate(): number {
+  return Math.round((Math.random() - 0.5) * 400);
+}
+
+/**
  * Resolve the name to use for the app's default Attenuation Style on load.
  *
  * If a global seed override is active (`?seed=`,
