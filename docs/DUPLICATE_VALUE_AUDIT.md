@@ -70,19 +70,28 @@ a stale comment already gestures at a variable `dayLengthMeasures`
 ([`Factory.tsx:105`](../src/components/actors/Factory.tsx#L105)) that doesn't exist as a real field.
 
 ### 3. `MAX_POLYPHONY = 16` — not centralized like its sibling constants
-**Status:** ☐ open · **Confidence:** medium — self-correcting on drift (test would fail), docs
-wouldn't.
+**Status:** ☑ fixed (2026-09-02, `bugs/duplicate-value-audit`) · **Confidence:** medium —
+self-correcting on drift (test would fail), docs wouldn't.
 
 Every other domain-tunable constant lives in `src/constants/index.ts` and gets imported by all
 consumers (verified clean for `RHYTHMIC_DENSITY_*`, `PITCH_REPEAT_*`, `OCTAVE_RANGE_*`,
-`NOTE_VARIANCE_*`). `MAX_POLYPHONY` is the outlier:
-- Declared as a private, non-exported local const:
+`NOTE_VARIANCE_*`). `MAX_POLYPHONY` was the outlier:
+- Was declared as a private, non-exported local const:
   [`AudioEngine.ts:74`](../src/engine/AudioEngine.ts#L74).
 - Restated as a literal in `CLAUDE.md` ("Polyphony defaults to MAX_POLYPHONY = 16") and
   [`POLYPHONY_GUIDE.md:9`](POLYPHONY_GUIDE.md#L9).
-- Not exported, so [`AudioEngine.test.ts:373,383-384`](../src/engine/AudioEngine.test.ts#L373)
-  independently hardcodes the loop count (20) and expectations (`toBe(16)` / `toBe(4)`) instead of
-  importing it.
+- Not exported, so `AudioEngine.test.ts` independently hardcoded the loop count (20) and
+  expectations (`toBe(16)` / `toBe(4)`) instead of importing it.
+
+**Fix applied:** `MAX_POLYPHONY` moved to [`constants/index.ts`](../src/constants/index.ts) as an
+exported constant, alongside `MIN_LEAD` and the other domain-tunable constants. `AudioEngine.ts`
+imports it directly (no local const, no defensive fallback — an undefined import fails loudly
+rather than silently drifting, unlike item 5's `MIN_LEAD ?? 0.1` pattern). `AudioEngine.test.ts`'s
+`../constants` mock now includes it, and the polyphony test derives its trigger-attempt count and
+both accept/skip assertions from the imported constant instead of the bare `20`/`16`/`4` literals.
+No behavior change — the cap still enforces exactly 16 concurrent voices. CLAUDE.md and
+`POLYPHONY_GUIDE.md`'s prose mentions of `16` were left as-is (out of scope — plain-English
+restatements of the constant's value, not an independent runtime source of truth).
 
 ### 4. Harmony-palette bounds (0..7 / 8 notes) — not centralized despite being a hard guardrail
 **Status:** ☐ open · **Confidence:** low-medium — unlikely to change (declared non-negotiable), but

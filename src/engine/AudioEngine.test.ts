@@ -3,6 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { MAX_POLYPHONY } from '../constants';
 
 vi.mock('../utils/localeHelpers', () => ({ getActiveLocaleId: vi.fn(() => 'testLocale') }));
 
@@ -164,6 +165,7 @@ vi.mock('../constants', () => ({
   DEV_TUNING: false,
   WORLD_WIDTH: 1920,
   MIN_LEAD: 0.1,
+  MAX_POLYPHONY: 16,
 }));
 
 // Mock lfoEngine (Task 9) — AudioEngine.start() primes/connects/starts global
@@ -362,14 +364,15 @@ describe('AudioEngine - Polyphony Management', () => {
   });
 
   describe('Polyphony Limit', () => {
-    it('enforces MAX_POLYPHONY of 16 voices', async () => {
+    it('enforces MAX_POLYPHONY voices', async () => {
       const { triggerWithCap } = await import('./AudioEngine');
 
       let acceptedCount = 0;
       let skippedCount = 0;
 
-      // Try to trigger 20 notes
-      for (let i = 0; i < 20; i++) {
+      // Try to trigger more notes than the cap allows
+      const attempts = MAX_POLYPHONY + 4;
+      for (let i = 0; i < attempts; i++) {
         const result = triggerWithCap({ robotId: 'test', note: 'C4', duration: '4n', time: 0, velocity: 0.8 });
         if (result) {
           acceptedCount++;
@@ -378,9 +381,9 @@ describe('AudioEngine - Polyphony Management', () => {
         }
       }
 
-      // Should accept exactly 16, skip 4
-      expect(acceptedCount).toBe(16);
-      expect(skippedCount).toBe(4);
+      // Should accept exactly MAX_POLYPHONY, skip the rest
+      expect(acceptedCount).toBe(MAX_POLYPHONY);
+      expect(skippedCount).toBe(attempts - MAX_POLYPHONY);
     });
   });
 
