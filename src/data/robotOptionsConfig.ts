@@ -91,6 +91,23 @@ export const PING_CONTROLS_ACCORDION_SCHEMA: AccordionSchema = {
 };
 
 /**
+ * Testing-only toggle (see PingControlsDrawer.tsx's clickTrackActive value field and
+ * robotOptionsActions.ts's applyClickTrackActive) — overrides the robot's real melody with a
+ * fixed 4-quarter-note downbeat pattern so tempo/BPM changes are easy to track by ear. Available
+ * in both robot mode (RobotOptionsTab) and company/All broadcast mode (CompanyOptionsSection) —
+ * broadcasting it puts every member's playback into click-track mode at once. Rendered first,
+ * above Density, so it reads as a mode switch for the rest of the accordion rather than one
+ * control among many. PingControlsDrawer.tsx only renders it behind `DEV_TUNING` — same dev-only
+ * gate as the Skipped Notes debug counter (App.tsx) — so it never reaches a production build.
+ */
+export const CLICK_TRACK_SCHEMA: ToggleSchema = {
+  id: 'robotOptions.clickTrack',
+  type: 'toggle',
+  loreLabel: 'CALIBRATION PULSE',
+  humanLabel: 'Click Track',
+};
+
+/**
  * A SliderLinear, not a Stepper — the grid originally called for a Stepper, but clicking through
  * a 0-100 range one increment at a time was too slow to be usable; a drag/keyboard slider covers
  * the same range in one gesture.

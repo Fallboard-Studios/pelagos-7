@@ -14,6 +14,7 @@ import { useLocaleStore } from '@/stores/localeStore';
 import { AudioEngine } from '@/engine/AudioEngine';
 import { lfoEngine } from '@/engine/lfoEngine';
 import { regenerateMelody } from '@/engine/regenerateMelody';
+import { buildClickTrackMelody } from '@/engine/clickTrack';
 import { VOLUME_LFO_TARGET } from '@/data/robotOptionsConfig';
 import type { StepperWithToggleValue } from '@/components/ui/controls/StepperWithToggle';
 import type { Robot, ADSREnvelope } from '@/types/Robot';
@@ -64,6 +65,15 @@ export function applyMotifLength(robot: Robot, localeId: string, value: StepperW
 export function applyNoteVariance(robot: Robot, localeId: string, value: StepperWithToggleValue): void {
   useLocaleStore.getState().updateRobot(localeId, robot.id, { noteVariance: value });
   regenerateMelody({ ...robot, noteVariance: value }, localeId);
+}
+
+/** Testing-only override — see clickTrackActive on Robot.ts and src/engine/clickTrack.ts.
+ *  Never writes to `robot.melody`: turning the click track off re-registers the exact melody
+ *  already in the store, not a freshly generated one. */
+export function applyClickTrackActive(robot: Robot, localeId: string, active: boolean): void {
+  useLocaleStore.getState().updateRobot(localeId, robot.id, { clickTrackActive: active });
+  const melody = active ? buildClickTrackMelody(robot.octaveRange[0]) : robot.melody;
+  AudioEngine.registerRobotMelody(robot.id, melody);
 }
 
 // Keeps min <= max at all times — the same guard PingControlsDrawer's two independent Steppers
