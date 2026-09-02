@@ -646,6 +646,11 @@ export function pickWeightedIndex(rand: () => number = Math.random): number {
  *   matching `generateMelodyForRobot`'s own off/on split.
  * @param opts.rand Seeded RNG — never Math.random (see CLAUDE.md).
  * @returns A new array; unchanged events are unchanged, changed events are new objects with only `noteIndex` different.
+ *
+ * Pitch Repeat (docs/specs/PITCH_REPEAT.md): `pitchLocked` events are excluded from the candidate
+ * pool entirely — locking should visibly resist drift, not quietly compensate to preserve a fixed
+ * amount of change. The "always changes at least 1" floor only applies once the eligible
+ * (unlocked) pool is non-empty; a fully-locked melody re-rolls zero events.
  */
 export function reRollMelodyPitches(
   melody: RobotMelodyEvent[],
@@ -654,8 +659,12 @@ export function reRollMelodyPitches(
 ): RobotMelodyEvent[] {
   if (melody.length === 0) return melody;
 
-  const count = Math.max(1, Math.round(melody.length * ratio));
-  const changeIndices = new Set(pickRandomIndices(melody, count, opts.rand));
+  const eligible = melody.map((_, i) => i).filter((i) => !melody[i].pitchLocked);
+  if (eligible.length === 0) return melody;
+
+  const count = Math.max(1, Math.min(Math.round(melody.length * ratio), eligible.length));
+  const pickedPositions = pickRandomIndices(eligible, count, opts.rand);
+  const changeIndices = new Set(pickedPositions.map((p) => eligible[p]));
 
   return melody.map((event, i) => {
     if (!changeIndices.has(i)) return event;

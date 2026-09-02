@@ -1365,4 +1365,37 @@ describe('reRollMelodyPitches', () => {
     reRollMelodyPitches(melody, 0.25, { rand: alea('reroll-seed-7') });
     expect(melody).toEqual(snapshot);
   });
+
+  describe('Pitch Repeat — excluding pitchLocked events (Task 7)', () => {
+    it('a fully pitchLocked melody re-rolls zero events, not the old floor-of-1', () => {
+      const melody = makeEightEventMelody().map((e) => ({ ...e, pitchLocked: true }));
+      const result = reRollMelodyPitches(melody, 0.25, { rand: alea('reroll-all-locked') });
+      expect(result).toEqual(melody);
+    });
+
+    it('a single pitchLocked event is not force-changed by the old floor-of-1', () => {
+      const melody = [createMelodyEvent({ id: 'only', startStep: 1, noteIndex: 5, octave: 4, pitchLocked: true })];
+      const result = reRollMelodyPitches(melody, 0.25, { rand: alea('reroll-single-locked') });
+      expect(result).toBe(melody); // eligible pool is empty -> early-return the same reference
+    });
+
+    it('a partially-locked melody only ever selects unlocked events for change, across repeated seeded runs', () => {
+      // First 4 locked, last 4 unlocked. ratio=1 requests changing "all" 8, but only 4 are eligible.
+      const melody = makeEightEventMelody().map((e, i) => (i < 4 ? { ...e, pitchLocked: true } : e));
+      for (let seedNum = 0; seedNum < 20; seedNum++) {
+        const result = reRollMelodyPitches(melody, 1, { rand: alea(`reroll-partial-${seedNum}`) });
+        for (let i = 0; i < 4; i++) {
+          expect(result[i].noteIndex).toBe(melody[i].noteIndex); // locked events never change
+          expect(result[i].pitchLocked).toBe(true); // and stay flagged locked
+        }
+      }
+    });
+
+    it('a melody with no locked events behaves identically to before this change (regression guard)', () => {
+      const melody = makeEightEventMelody(); // no event has pitchLocked set
+      const result = reRollMelodyPitches(melody, 0.25, { rand: alea('reroll-seed-1') });
+      const changedCount = result.filter((e, i) => e.noteIndex !== melody[i].noteIndex).length;
+      expect(changedCount).toBe(2); // same seed/ratio as the very first test in this file — same result
+    });
+  });
 });
