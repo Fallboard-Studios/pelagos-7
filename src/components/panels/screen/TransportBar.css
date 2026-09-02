@@ -60,6 +60,53 @@
 }
 
 /* ----------------------------------------
+   Volume slider (Radix)
+   ---------------------------------------- */
+.transport-bar__volume-slider {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 80px;
+  height: var(--touch-target-size);
+  touch-action: none;
+}
+
+.transport-bar__volume-track {
+  position: relative;
+  flex: 1;
+  height: 3px;
+  border-radius: var(--border-radius);
+  background: var(--color-border);
+}
+
+.transport-bar__volume-range {
+  position: absolute;
+  height: 100%;
+  border-radius: var(--border-radius);
+  background: var(--color-accent);
+}
+
+.transport-bar__volume-thumb {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.transport-bar__volume-thumb:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.transport-bar__volume-slider[data-disabled] .transport-bar__volume-thumb,
+.transport-bar__volume-slider[data-disabled] .transport-bar__volume-range {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ----------------------------------------
    Displays
    ---------------------------------------- */
 .transport-bar__displays {

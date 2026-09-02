@@ -191,6 +191,12 @@ Recommended usage:
 - For envelope edits after reservation: call `AudioEngine.updateVoiceEnvelope(robotId, adsr)` rather than re-reserving — instant, no audio gap.
 - In components: prefer reading `audioAttributes.visualAudioMap` for visual properties; do not instantiate synths in components.
 
+### Global volume vs. robot volume — two unrelated fields, one shared taper
+
+`audioStore.volume` ([docs/specs/GLOBAL_VOLUME_CONTROL.md](specs/GLOBAL_VOLUME_CONTROL.md)) is **not** the same field as robot-level `masterVolume` above, despite both being called "volume" and both being passed through the same `volumePositionToGain()` taper. `audioStore.volume` (`[0, 1]`, default `1`, never persisted across sessions) is the master-output slider position shown next to the mute button in `TransportBar.tsx`, driving `AudioEngine.setMasterVolume()` — the final gain stage after the global FX chain, affecting every robot at once. Robot `masterVolume` is a per-robot bus gain, set independently per robot via Robot Options and `AudioEngine.updateRobotMasterVolume()`. The two are unrelated: changing one never affects the other, and there is no field that combines them — a robot's audible loudness is its own `masterVolume` attenuated a second time by the master `audioStore.volume` gain stage downstream.
+
+`audioStore.setVolume(volume)` writes `volume` and calls `AudioEngine.setMasterVolume(volumePositionToGain(volume))`, always also clearing `isMuted` (dragging the slider while muted un-mutes as a side effect, jumping straight to the dragged-to level). `audioStore.setMuted(muted)` calls `AudioEngine.setMasterVolume(muted ? 0 : volumePositionToGain(volume))` without touching `volume` itself — mute and volume are fully independent controls; the mute icon reflects only `isMuted`, never slider position. `AudioEngine.setMasterVolume`/`getMasterVolume` themselves are unchanged by this feature — still a plain clamped-gain passthrough with no taper of their own; the taper is applied once, at the `audioStore` call site.
+
 ## Signal Graph
 
 Two graphs compose: a **per-robot bus** (built per `reserveVoice` call) feeding a **global FX chain** (built once in `loadInstruments`, called from `start()`). The chain entry point is **EQ3**, first in both topologies below — every robot bus connects into whichever node `src/engine/audioEngine/globalFx.ts`'s `getGlobalChainEntry()` returns (`AudioEngine.reserveVoice()`'s only caller), not a hardcoded compressor reference.

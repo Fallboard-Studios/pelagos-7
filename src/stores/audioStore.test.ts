@@ -18,6 +18,7 @@ vi.mock('../engine/AudioEngine', () => ({
     setGlobalReverb: vi.fn(),
     setEffectBypass: vi.fn(),
     setGlobalBypass: vi.fn(),
+    setMasterVolume: vi.fn(),
   },
 }));
 
@@ -666,5 +667,87 @@ describe('useAudioStore - BPM locale sync on module load (docs/specs/BPM_CONTROL
     useAttenuationStyleStore.getState().setCurrentAttenuationStyleId('bpm-sync-zenith');
 
     expect(useAudioStore.getState().bpm).toBe(before);
+  });
+});
+
+describe('useAudioStore - volume / setVolume / setMuted (docs/specs/GLOBAL_VOLUME_CONTROL.md §1.3, §4)', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  it('defaults volume to 1 on a fresh module import', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    expect(useAudioStore.getState().volume).toBe(1);
+  });
+
+  it('setVolume updates store.volume to exactly the given value', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    useAudioStore.getState().setVolume(0.42);
+    expect(useAudioStore.getState().volume).toBe(0.42);
+  });
+
+  it('setVolume calls AudioEngine.setMasterVolume with volumePositionToGain(volume), not the raw position', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const { AudioEngine } = await import('../engine/AudioEngine');
+    const { volumePositionToGain } = await import('../engine/audioEngine/volumeTaper');
+    vi.clearAllMocks();
+
+    useAudioStore.getState().setVolume(0.5);
+
+    expect(AudioEngine.setMasterVolume).toHaveBeenCalledWith(volumePositionToGain(0.5));
+  });
+
+  it('setVolume clears isMuted, even when it was already true — dragging the slider while muted auto-unmutes to the dragged-to level', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    useAudioStore.setState({ isMuted: true });
+
+    useAudioStore.getState().setVolume(0.8);
+
+    expect(useAudioStore.getState().isMuted).toBe(false);
+  });
+
+  it('setVolume is a harmless no-op on isMuted when it was already false', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    useAudioStore.setState({ isMuted: false });
+
+    useAudioStore.getState().setVolume(0.3);
+
+    expect(useAudioStore.getState().isMuted).toBe(false);
+  });
+
+  it('setMuted(true) sets isMuted and calls AudioEngine.setMasterVolume(0), without touching volume', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    useAudioStore.getState().setVolume(0.65);
+    const { AudioEngine } = await import('../engine/AudioEngine');
+    vi.clearAllMocks();
+
+    useAudioStore.getState().setMuted(true);
+
+    expect(useAudioStore.getState().isMuted).toBe(true);
+    expect(useAudioStore.getState().volume).toBe(0.65);
+    expect(AudioEngine.setMasterVolume).toHaveBeenCalledWith(0);
+  });
+
+  it('setMuted(false) reads the LIVE volume already in state — not a stale/default snapshot', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const { AudioEngine } = await import('../engine/AudioEngine');
+    const { volumePositionToGain } = await import('../engine/audioEngine/volumeTaper');
+    // Set a non-default volume, then mute — mirroring the real interaction order
+    // (drag to 0.7, then mute) — without going through setVolume's own auto-unmute,
+    // so isMuted genuinely starts true here.
+    useAudioStore.setState({ volume: 0.7, isMuted: true });
+    vi.clearAllMocks();
+
+    useAudioStore.getState().setMuted(false);
+
+    expect(useAudioStore.getState().isMuted).toBe(false);
+    expect(AudioEngine.setMasterVolume).toHaveBeenCalledWith(volumePositionToGain(0.7));
+  });
+
+  it('preMuteVolume/setPreMuteVolume no longer exist on the store', async () => {
+    const { useAudioStore } = await import('./audioStore');
+    const state = useAudioStore.getState();
+    expect('preMuteVolume' in state).toBe(false);
+    expect('setPreMuteVolume' in state).toBe(false);
   });
 });
