@@ -160,13 +160,14 @@ vi.mock('gsap', () => ({
   },
 }));
 
-// Mock constants
-vi.mock('../constants', () => ({
-  DEV_TUNING: false,
-  WORLD_WIDTH: 1920,
-  MIN_LEAD: 0.1,
-  MAX_POLYPHONY: 16,
-}));
+// Mock constants — spread the real module and override only DEV_TUNING (genuinely
+// different in tests; prod derives it from import.meta.env.DEV). Everything else
+// (MIN_LEAD, MAX_POLYPHONY, WORLD_WIDTH, ...) comes from the real module so it can
+// never silently drift from src/constants/index.ts.
+vi.mock('../constants', async () => {
+  const actual = await vi.importActual<typeof import('../constants')>('../constants');
+  return { ...actual, DEV_TUNING: false };
+});
 
 // Mock lfoEngine (Task 9) — AudioEngine.start() primes/connects/starts global
 // LFOs through this, but exercising the real lfoEngine here would mean also

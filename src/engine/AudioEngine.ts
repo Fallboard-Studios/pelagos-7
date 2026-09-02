@@ -15,7 +15,7 @@ import { getAvailableNotes, scheduleHarmonyCycle, stopHarmonyCycle } from './har
 import { resetBeatClock, subscribeToMeasure, initBeatClock } from './beatClock';
 import { applyRhythmicVariance, applyTonalVariance } from './melodyGenerator';
 import { buildClickTrackMelody } from './clickTrack';
-import { DEV_TUNING, MIN_LEAD as CONST_MIN_LEAD, MAX_POLYPHONY } from '../constants';
+import { DEV_TUNING, MIN_LEAD, MAX_POLYPHONY } from '../constants';
 
 import { getRef } from '../utils/refs';
 import { precomputeDataX } from '../utils/getSeededVal';
@@ -42,9 +42,6 @@ import {
   setEffectBypass,
   getGlobalModulationTarget,
 } from './audioEngine/globalFx';
-
-// MIN_LEAD: prefer project constant, fall back to 0.1s for headless/tests
-const MIN_LEAD = CONST_MIN_LEAD ?? 0.1;
 
 // ========================================
 // TYPES

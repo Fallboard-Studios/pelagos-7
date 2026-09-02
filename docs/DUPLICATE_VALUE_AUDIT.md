@@ -120,15 +120,27 @@ Still enforced structurally by the `EighthNotes` 8-tuple type
 that type, it only backs the numeric bounds derived from it downstream.
 
 ### 5. `MIN_LEAD` fallback literal — minor, mostly defensive
-**Status:** ☐ open · **Confidence:** low — no current drift; only bites a future test mock.
+**Status:** ☑ fixed (2026-09-02, `bugs/duplicate-value-audit`) · **Confidence:** low — no current
+drift; only bit a future test mock.
 
-[`AudioEngine.ts:47`](../src/engine/AudioEngine.ts#L47): `const MIN_LEAD = CONST_MIN_LEAD ?? 0.1;`
-duplicates [`constants/index.ts:22`](../src/constants/index.ts#L22)'s `MIN_LEAD = 0.1` as a fallback
-literal. Never fires in production (the import is never falsy); only fires if a test mocks
-`../constants` without including `MIN_LEAD`. Current mock
-([`AudioEngine.test.ts:166`](../src/engine/AudioEngine.test.ts#L166)) correctly matches at `0.1`. If
-the real constant ever changes, this fallback silently stays behind for any test mocking the module
-without updating it too.
+**Fix applied:** [`AudioEngine.ts:47`](../src/engine/AudioEngine.ts#L47) used to read
+`const MIN_LEAD = CONST_MIN_LEAD ?? 0.1;`, duplicating
+[`constants/index.ts:22`](../src/constants/index.ts#L22)'s `MIN_LEAD = 0.1` as a fallback literal.
+The fallback never fired in production (the import is never falsy — `MIN_LEAD` is a plain literal
+export with no environment branching, unlike `DEV_TUNING`); it only existed to paper over
+`AudioEngine.test.ts`'s hand-written `vi.mock('../constants', …)`, which restated `MIN_LEAD: 0.1`
+(and `WORLD_WIDTH: 1920`, `MAX_POLYPHONY: 16`) as literals alongside the one field that's genuinely
+different in tests, `DEV_TUNING`. Removed the fallback and the local alias entirely —
+`AudioEngine.ts` now imports and uses `MIN_LEAD` directly, matching item 3's pattern for
+`MAX_POLYPHONY`. Fixed the root cause in the test mock too: it now spreads
+`vi.importActual('../constants')` and overrides only `DEV_TUNING`, so `MIN_LEAD` (and, as a
+mechanical side effect, `WORLD_WIDTH`/`MAX_POLYPHONY`'s duplicate literals in that same block) can
+never again silently diverge from `constants/index.ts` — for this constant or any future one nobody
+remembers to add to a hand-written mock. `lfoDebug.test.ts` also mocks `../constants` but only
+overrides `DEV_TUNING` via a getter and doesn't restate any other constant, so it needed no change.
+Confirmed via `/interview-me` before implementation (out of TDD-ceremony scope, same reasoning as
+items 3–4 — pure centralization/robustness, no behavior change). Full suite (108 files/1736 tests),
+lint, and type-check all green.
 
 ## Noted, not tracked as this bug class
 
