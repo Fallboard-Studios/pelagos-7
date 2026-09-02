@@ -8,12 +8,11 @@ import { useDebugStore } from '../stores/debugStore';
 import { getActiveLocaleId } from '../utils/localeHelpers';
 import { lfoEngine } from './lfoEngine';
 
-import type { ADSREnvelope, NoteDuration, WaveformType, Robot } from '../types/Robot';
+import type { ADSREnvelope, MelodyEvent, NoteDuration, WaveformType, Robot } from '../types/Robot';
 import type { OscillatorLayer } from '../types/layeredAudio';
 import { GLOBAL_LFO_TARGET_IDS, type RobotLfoTargetId } from '../types/lfo';
 import { getAvailableNotes, scheduleHarmonyCycle, stopHarmonyCycle } from './harmonySystem';
 import { resetBeatClock, subscribeToMeasure, initBeatClock } from './beatClock';
-import type { RobotMelodyEvent } from './melodyGenerator';
 import { applyRhythmicVariance, applyTonalVariance } from './melodyGenerator';
 import { buildClickTrackMelody } from './clickTrack';
 import { DEV_TUNING, MIN_LEAD as CONST_MIN_LEAD } from '../constants';
@@ -63,7 +62,7 @@ export interface NoteParams {
 
 interface MelodyEventEntry {
   robotId: string;
-  event: RobotMelodyEvent;
+  event: MelodyEvent;
   /** True when this event is the earliest `startStep` within its motif-tiling
    * repeat window (computed once at registration — see registerRobotMelody). */
   isGroupAccent?: boolean;
@@ -1012,10 +1011,10 @@ export const AudioEngine = {
    *   remember to check the flag itself. See docs/MELODY_SYSTEM.md's Click Track note.
    *
    * @param robotId - Unique robot identifier
-   * @param melody - Array of `RobotMelodyEvent` describing start steps and notes; superseded by
+   * @param melody - Array of `MelodyEvent` describing start steps and notes; superseded by
    *   the click-track pattern while this robot's `clickTrackActive` is true.
    */
-  registerRobotMelody(robotId: string, melody: RobotMelodyEvent[]): void {
+  registerRobotMelody(robotId: string, melody: MelodyEvent[]): void {
     // Purge any existing entries for this robot before adding new ones so this
     // method is idempotent regardless of call site — prevents duplicate triggers.
     stepRegistry.forEach((entries, step) => {
@@ -1084,8 +1083,8 @@ export const AudioEngine = {
    * Test helper: return the currently registered melody events for a robot.
    * This exposes a read-only snapshot of the internal `stepRegistry` for tests.
    */
-  getRegisteredMelody(robotId: string): RobotMelodyEvent[] {
-    const out: RobotMelodyEvent[] = [];
+  getRegisteredMelody(robotId: string): MelodyEvent[] {
+    const out: MelodyEvent[] = [];
     stepRegistry.forEach((entries) => {
       entries.forEach((e) => {
         if (e.robotId === robotId) out.push(e.event);

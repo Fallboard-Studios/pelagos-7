@@ -366,10 +366,10 @@ logic invented):**
  * `startStep`/`length`/`octave` are never modified — only `noteIndex`.
  */
 export function reRollMelodyPitches(
-  melody: RobotMelodyEvent[],
+  melody: MelodyEvent[],
   ratio: number,
   opts: { noteVariance?: ToggleValue; rand: () => number },
-): RobotMelodyEvent[] {
+): MelodyEvent[] {
   const count = Math.max(1, Math.round(melody.length * ratio));
   const indices = pickRandomIndices(melody, count, opts.rand); // already exported (line 124)
   const changeSet = new Set(indices);

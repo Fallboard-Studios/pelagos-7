@@ -179,7 +179,8 @@ console.log('Derived hour:', getCurrentHour());
 
 Robots generate melodies at spawn. Each event stores the note index *and* a concrete octave:
 ```typescript
-interface RobotMelodyEvent {
+// Declared once, in types/Robot.ts.
+interface MelodyEvent {
   id: string;
   startStep: number;   // 1..16
   length: NoteDuration; // '32n'|'16n'|'8n'|'4n'|'2n'|'1n'|'2m'|'4m' (types/Robot.ts) — melody generation only ever produces '16n'|'8n'|'4n'|'2n', but the field's type is the full union

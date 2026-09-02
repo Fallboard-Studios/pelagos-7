@@ -47,7 +47,7 @@ pitches within when tiling is off.
 - Both permutations, and every stage/count calculation, are drawn from the same seeded `rand`
   stream `generateMelodyForRobot` already threads through onset/pitch generation — no new
   `Math.random`, no new seeding utility (per CLAUDE.md and this feature's own Constraint).
-- Locked onsets are stamped `pitchLocked: true` on their `RobotMelodyEvent` — a new, plain,
+- Locked onsets are stamped `pitchLocked: true` on their `MelodyEvent` — a new, plain,
   serializable boolean field. Base-cell (repeat 0) events and unlocked events leave the field
   `undefined`. This is what lets `reRollMelodyPitches` (docking) skip re-derivation entirely.
 
@@ -92,13 +92,15 @@ src/
 │   └── index.ts                       # MODIFIED — new PITCH_REPEAT_MIN = 0, PITCH_REPEAT_MAX = 100
 ├── types/
 │   ├── Robot.ts                       # MODIFIED — new `pitchRepeat?: number` field on Robot;
-│   │                                   #   `pitchLocked?: boolean` added to the local `MelodyEvent`
-│   │                                   #   interface (separately declared from melodyGenerator.ts's
-│   │                                   #   RobotMelodyEvent — see § 3)
+│   │                                   #   `pitchLocked?: boolean` added to `MelodyEvent` (at the
+│   │                                   #   time, separately declared from melodyGenerator.ts's own
+│   │                                   #   RobotMelodyEvent copy — see § 3; the two were later
+│   │                                   #   merged into this one canonical interface)
 │   └── Company.ts                     # MODIFIED — `CompanyOptionsSnapshot.pitchRepeat?: number`
 │                                       #   alongside its existing rhythmicDensity field
 ├── engine/
-│   ├── melodyGenerator.ts             # MODIFIED — RobotMelodyEvent gains `pitchLocked?: boolean`;
+│   ├── melodyGenerator.ts             # MODIFIED — RobotMelodyEvent (since merged into MelodyEvent,
+│   │                                   #   see § 3) gained `pitchLocked?: boolean`;
 │   │                                   #   buildMotifOnsets gains the tail-cell pass; new exported
 │   │                                   #   `computePitchLockPlan` pure function; generateMelodyForRobot
 │   │                                   #   wires pitchRepeat through and stamps pitchLocked;
@@ -185,12 +187,16 @@ selection, never duration or octave), `src/components/robot/PingContourDrawer.ts
   branch and its `combined.length <= rhythmicDensity` overshoot-trim branch are both untouched — the
   tail-cell pass is additive, appended *after* that existing logic runs, never counted against the
   density target passed in.
-* **`RobotMelodyEvent` (melodyGenerator.ts) and `MelodyEvent` (types/Robot.ts) are two
+* **`RobotMelodyEvent` (melodyGenerator.ts) and `MelodyEvent` (types/Robot.ts) were two
   separately-declared, structurally-identical interfaces** (pre-existing duplication, not introduced
-  by this phase). `pitchLocked?: boolean` must be added to *both* — a locked event flows from
-  `generateMelodyForRobot`'s return type into `Robot.melody` via `updateRobot`/
+  by this phase). At the time, `pitchLocked?: boolean` had to be added to *both* — a locked event
+  flows from `generateMelodyForRobot`'s return type into `Robot.melody` via `updateRobot`/
   `AudioEngine.registerRobotMelody`, and any read of `robot.melody[i].pitchLocked` (the docking
-  re-roll, in particular) won't type-check against a `MelodyEvent[]` that's missing the field.
+  re-roll, in particular) wouldn't type-check against a `MelodyEvent[]` missing the field. The
+  duplication was later resolved on `bug/duplicate-melody-event`: `melodyGenerator.ts` now imports
+  the single `MelodyEvent` interface from `types/Robot.ts` instead of declaring its own copy, and
+  every call site (`AudioEngine.ts`, test files) was renamed to match — `RobotMelodyEvent` no
+  longer exists as a name in the codebase.
 * **State stays JSON-serializable.** `pitchRepeat` is a plain number on `Robot` (same shape as
   `rhythmicDensity` — no `{active, value}` toggle of its own). `pitchLocked` is a plain boolean on
   the melody event types. No functions, no derived-at-read-time closures.
@@ -418,7 +424,7 @@ if (typeof normalized.pitchRepeat === 'number') {
   `diffCompoundField`).
 * **Verification Steps:**
   1. `npm run build:types` — zero TypeScript errors (catches any missing `pitchLocked` field on
-     either `MelodyEvent`/`RobotMelodyEvent`, or a stale prop shape).
+     `MelodyEvent`, or a stale prop shape).
   2. `npm run lint` — zero ESLint errors.
   3. `npm test` — all new and existing tests pass, including the regression guards above.
   4. `npm run build` — production bundle builds cleanly.

@@ -85,9 +85,9 @@ export const AudioEngine = {
   getVoiceForRobot: (robotId?: string) => CompositeVoice | null,
 
   // Melody registry
-  registerRobotMelody: (robotId: string, melody: RobotMelodyEvent[]) => void,  // `melody` is superseded by the fixed Click Track pattern while the robot's `clickTrackActive` is true — see MELODY_SYSTEM.md's Click Track note
+  registerRobotMelody: (robotId: string, melody: MelodyEvent[]) => void,  // `melody` is superseded by the fixed Click Track pattern while the robot's `clickTrackActive` is true — see MELODY_SYSTEM.md's Click Track note
   unregisterRobotMelody: (robotId: string) => void,
-  getRegisteredMelody: (robotId: string) => RobotMelodyEvent[],   // test helper
+  getRegisteredMelody: (robotId: string) => MelodyEvent[],   // test helper
   processMelodyStep: (currentStep: number, time: number) => void, // test helper
   getPolyphonyStats: () => { voices: number; maxVoices: number; step: number },
 
