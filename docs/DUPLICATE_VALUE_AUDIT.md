@@ -52,22 +52,39 @@ landed near 60), and the `?? 120` fallback already disagreed with the actual def
 everywhere else.
 
 ### 2. `MEASURES_PER_CYCLE` / `DAY_CYCLE_MEASURES` — one guardrail, two constants
-**Status:** ☐ open · **Confidence:** medium — not yet diverged, but architecturally unlinked.
+**Status:** ☐ open, reframed (2026-09-02, `feature/harmony-palette-update`) · **Confidence:** low —
+was medium; narrowed by [Harmony Palette Sequencing](specs/HARMONY_PALETTE_SEQUENCING.md)
+([intent](intent/harmony-palette-sequencing.md)), which removed the only production caller on one
+side of the split. The duplication itself (two independently-declared `96` literals) is unchanged —
+nothing here has been fixed — only the practical risk of the two silently disagreeing has dropped.
 
-CLAUDE.md's guardrail ("96 measures = 1 day cycle") is encoded as two separately-declared module
+CLAUDE.md's guardrail ("96 measures = 1 day cycle") is still encoded as two separately-declared module
 constants, each `96`, in unrelated subsystems with no shared import:
-- [`beatClock.ts:21`](../src/engine/beatClock.ts#L21) `MEASURES_PER_CYCLE = 96` — drives
-  `getCurrentHour()`/measure-wrap for audio/harmony (documented in
-  [`BEAT_CLOCK.md:26`](BEAT_CLOCK.md#L26)).
-- [`lightingUtils.ts:6`](../src/utils/lightingUtils.ts#L6) `DAY_CYCLE_MEASURES = 96` — drives
-  building-lighting phase, consumed by
-  [`Factory.tsx:93,108,113`](../src/components/actors/Factory.tsx#L93).
+- [`beatClock.ts:21`](../src/engine/beatClock.ts#L21) `MEASURES_PER_CYCLE = 96` — as of this rewrite,
+  only backs `getCurrentHour()`'s own internal wrap math. `getCurrentHour()` itself now has **zero
+  production callers anywhere in `src/`** (confirmed by grep, 2026-09-02: the only remaining
+  references are `beatClock.ts`'s own definition/doc comment, `beatClock.test.ts`'s own tests of the
+  function, and an unused stub inside `AudioEngine.test.ts`'s `vi.mock('./beatClock', ...)` block).
+  `harmonySystem.ts` was that function's one production caller before this rewrite — it now derives
+  its palette index from `getCurrentMeasure()` directly instead (spec §1.3). `getCurrentHour()` was
+  deliberately left in place, not removed or deprecated, per the harmony spec's explicit "left as-is"
+  call-out — this item does not ask for its removal either.
+- [`lightingUtils.ts:6`](../src/utils/lightingUtils.ts#L6) `DAY_CYCLE_MEASURES = 96` — unchanged,
+  still drives building-lighting phase, consumed by
+  [`Factory.tsx:93,108,113`](../src/components/actors/Factory.tsx#L93). This is now the **only**
+  real "day cycle" consumer outside `beatClock.ts` itself.
 
-By design these run off different clocks (Factory.tsx derives its `lightMeasure` from Attenuation
-Style local time, not the transport — [`Factory.tsx:89-91`](../src/components/actors/Factory.tsx#L89-L91)),
-so this may be an intentional split rather than a bug — but nothing ties the two `96`s together, and
-a stale comment already gestures at a variable `dayLengthMeasures`
-([`Factory.tsx:105`](../src/components/actors/Factory.tsx#L105)) that doesn't exist as a real field.
+By design these already ran off different clocks (Factory.tsx derives its `lightMeasure` from
+Attenuation Style local time, not the transport — [`Factory.tsx:89-91`](../src/components/actors/Factory.tsx#L89-L91)),
+so this was flagged as a possibly-intentional split even before this rewrite. What's changed is
+narrower and more concrete: the two constants no longer do the same *kind* of job in production at
+all — one drives real, visible behavior; the other only backs an exported-but-uncalled function — so
+a future drift between the two `96`s can no longer manifest as an observable bug today. That's why this
+item's status stays **open** rather than flipping to fixed: the underlying duplication (two
+independently-declared literals for one CLAUDE.md guardrail) is still there, unaddressed, and would
+matter again the moment `getCurrentHour()` gains a new caller. A stale comment still gestures at a
+variable `dayLengthMeasures` ([`Factory.tsx:105`](../src/components/actors/Factory.tsx#L105)) that
+doesn't exist as a real field — untouched by this rewrite, still worth a separate doc fix if picked up.
 
 ### 3. `MAX_POLYPHONY = 16` — not centralized like its sibling constants
 **Status:** ☑ fixed (2026-09-02, `bugs/duplicate-value-audit`) · **Confidence:** medium —
@@ -109,15 +126,19 @@ unweighted `Math.floor(rand() * 8)` pick, and the without-replacement pool build
 behavior change — confirmed via `/interview-me` before implementation (out of TDD-ceremony scope,
 same as item 3). Full suite (108 files/1736 tests), lint, and type-check all green.
 
-Left out of scope (confirmed in the interview): `harmonySystem.ts`'s `TIME_PITCHES` map, since each
+Left out of scope (confirmed in the interview): `harmonySystem.ts`'s palette collection, since each
 entry is already structurally enforced by the `EighthNotes` 8-tuple type — not a bare-literal risk
 the same way. `melodyGenerator.test.ts:431`'s `% 8` (melody array length, unrelated to palette
 bounds) and the `buildMotifOnsets`-related `< 8`/`>= 8` assertions (subdivision/motif-length test
 data, a different concept) were also left untouched.
 
 Still enforced structurally by the `EighthNotes` 8-tuple type
-([`harmonySystem.ts:29`](../src/engine/harmonySystem.ts#L29)) — `NOTE_PALETTE_SIZE` doesn't replace
-that type, it only backs the numeric bounds derived from it downstream.
+([`harmonySystem.ts:12`](../src/engine/harmonySystem.ts#L12)) — `NOTE_PALETTE_SIZE` doesn't replace
+that type, it only backs the numeric bounds derived from it downstream. *(Updated 2026-09-02: this
+item originally named the palette collection `TIME_PITCHES`, a `Record<number, EighthNotes>` keyed
+0-23; [Harmony Palette Sequencing](specs/HARMONY_PALETTE_SEQUENCING.md) renamed/restructured it to
+`HARMONY_PALETTES`, a plain 12-entry `EighthNotes[]` — the `EighthNotes` type itself, and this item's
+reasoning about it, are unaffected by that rename.)*
 
 ### 5. `MIN_LEAD` fallback literal — minor, mostly defensive
 **Status:** ☑ fixed (2026-09-02, `bugs/duplicate-value-audit`) · **Confidence:** low — no current
