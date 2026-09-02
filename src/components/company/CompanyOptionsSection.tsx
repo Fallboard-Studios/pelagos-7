@@ -5,12 +5,14 @@ import { SignatureArrayDrawer, type SignatureArrayValue } from '@/components/rob
 import { useLocaleStore } from '@/stores/localeStore';
 import { useUIStore } from '@/stores/uiStore';
 import { getActiveLocaleId } from '@/utils/localeHelpers';
-import { resolveCompanyOptions } from '@/systems/companyOptions';
+import { resolveCompanyOptions, diffCompoundField, diffLayerField } from '@/systems/companyOptions';
 import {
   applyAudioMode, applyVolume, applyVolumeLfo,
   applyDensity, applyMotifLength, applyNoteVariance, applyOctaveMin, applyOctaveMax,
-  applyAdsr, applyLayersContinuous, applyLayersStructural, applyLayerLfo,
+  applyAdsr, applyLayersContinuous, applyLayersStructural, applyLayerLfo, applyClickTrackActive,
 } from '@/systems/robotOptionsActions';
+import { DEFAULT_LFO_SETTINGS } from '@/data/lfoConfig';
+import { VOLUME_LFO_TARGET } from '@/data/robotOptionsConfig';
 import { LFO_RATE_MIN, LFO_DEPTH_MIN } from '@/types/lfo';
 import type { ADSREnvelope } from '@/types/Robot';
 import type { CompanyOptionsSnapshot } from '@/types/Company';
@@ -32,6 +34,7 @@ const DISABLED_PING_CONTROLS: PingControlsValue = {
   rhythmicMotifLength: { active: false, value: 1 },
   noteVariance: { active: false, value: 1 },
   octaveRange: [1, 7],
+  clickTrackActive: false,
 };
 
 const DISABLED_ADSR: ADSREnvelope = { attack: 0, decay: 0, sustain: 0, release: 0 };
@@ -62,6 +65,17 @@ const DISABLED_SIGNATURE_ARRAY: SignatureArrayValue = {
  * `locale.allRobotsLastEditedOptions` instead of a Company's own snapshot, since there is no
  * Company object for "All" to bind to. Deliberately never touches any individual company's
  * lastEditedOptions, and vice versa — the two snapshots are independent.
+ *
+ * Every compound value (volumeLfo, rhythmicMotifLength, noteVariance, adsr, layers, per-layer
+ * lfoSettings) arrives from its drawer as a *whole* replacement object/array built by spreading
+ * `resolved` — the panel's own shared baseline — with just the one touched field set (e.g. Ping
+ * Contour's Attack slider fires `{ ...adsr, attack: v }`). Broadcasting that whole object to every
+ * member would silently overwrite each member's own untouched sub-fields (their own Decay/
+ * Sustain/Release, their own other 2 signature layers, etc.) with whatever `resolved` held. Each
+ * such handler instead diffs the old vs. new value (diffCompoundField/diffLayerField, both in
+ * systems/companyOptions.ts) to find the single field that changed, then merges just that field
+ * onto each member's own current value before calling the matching applyXxx — so a broadcast edit
+ * only ever touches the one attribute the user actually changed, member by member.
  */
 export function CompanyOptionsSection() {
   const localeId = getActiveLocaleId();
@@ -108,7 +122,11 @@ export function CompanyOptionsSection() {
           patchSnapshot({ masterVolume: pct / 100 });
         }}
         onVolumeLfoChange={(value) => {
-          members.forEach((m) => applyVolumeLfo(m, localeId, value));
+          const patch = resolved ? diffCompoundField(resolved.volumeLfo, value) : value;
+          members.forEach((m) => {
+            const memberOwn = m.lfoSettings?.[VOLUME_LFO_TARGET] ?? { ...DEFAULT_LFO_SETTINGS[VOLUME_LFO_TARGET], active: false };
+            applyVolumeLfo(m, localeId, { ...memberOwn, ...patch });
+          });
           patchSnapshot({ volumeLfo: value });
         }}
       />
@@ -121,7 +139,11 @@ export function CompanyOptionsSection() {
           patchSnapshot({ rhythmicDensity: v });
         }}
         onMotifLengthChange={(v) => {
-          members.forEach((m) => applyMotifLength(m, localeId, v));
+          const patch = resolved ? diffCompoundField(resolved.rhythmicMotifLength, v) : v;
+          members.forEach((m) => {
+            const memberOwn = resolveCompanyOptions(undefined, m).rhythmicMotifLength;
+            applyMotifLength(m, localeId, { ...memberOwn, ...patch });
+          });
           patchSnapshot({ rhythmicMotifLength: v });
         }}
         onOctaveMinChange={(v) => {
@@ -133,8 +155,16 @@ export function CompanyOptionsSection() {
           patchSnapshot({ octaveRange: [resolved?.octaveRange[0] ?? v, v] });
         }}
         onNoteVarianceChange={(v) => {
-          members.forEach((m) => applyNoteVariance(m, localeId, v));
+          const patch = resolved ? diffCompoundField(resolved.noteVariance, v) : v;
+          members.forEach((m) => {
+            const memberOwn = resolveCompanyOptions(undefined, m).noteVariance;
+            applyNoteVariance(m, localeId, { ...memberOwn, ...patch });
+          });
           patchSnapshot({ noteVariance: v });
+        }}
+        onClickTrackActiveChange={(active) => {
+          members.forEach((m) => applyClickTrackActive(m, localeId, active));
+          patchSnapshot({ clickTrackActive: active });
         }}
         // No onResetMelody — omitted entirely in company mode, it has no company-scoped meaning.
       />
@@ -143,7 +173,11 @@ export function CompanyOptionsSection() {
         value={resolved?.adsr ?? DISABLED_ADSR}
         disabled={!active}
         onChange={(adsr) => {
-          members.forEach((m) => applyAdsr(m, localeId, adsr));
+          const patch = resolved ? diffCompoundField(resolved.adsr, adsr) : adsr;
+          members.forEach((m) => {
+            const memberOwn = resolveCompanyOptions(undefined, m).adsr;
+            applyAdsr(m, localeId, { ...memberOwn, ...patch });
+          });
           patchSnapshot({ adsr });
         }}
       />
@@ -152,15 +186,34 @@ export function CompanyOptionsSection() {
         value={resolved ? { layers: resolved.layers, lfoSettings: resolved.lfoSettings } : DISABLED_SIGNATURE_ARRAY}
         disabled={!active}
         onContinuousChange={(layers) => {
-          members.forEach((m) => applyLayersContinuous(m, localeId, layers));
+          const diff = resolved ? diffLayerField(resolved.layers, layers) : null;
+          members.forEach((m) => {
+            const memberOwn = resolveCompanyOptions(undefined, m).layers;
+            const memberLayers = diff
+              ? memberOwn.map((l, i) => (i === diff.idx ? { ...l, ...diff.patch } : l))
+              : layers;
+            applyLayersContinuous(m, localeId, memberLayers);
+          });
           patchSnapshot({ layers });
         }}
         onStructuralChange={(layers) => {
-          members.forEach((m) => applyLayersStructural(m, localeId, layers));
+          const diff = resolved ? diffLayerField(resolved.layers, layers) : null;
+          members.forEach((m) => {
+            const memberOwn = resolveCompanyOptions(undefined, m).layers;
+            const memberLayers = diff
+              ? memberOwn.map((l, i) => (i === diff.idx ? { ...l, ...diff.patch } : l))
+              : layers;
+            applyLayersStructural(m, localeId, memberLayers);
+          });
           patchSnapshot({ layers });
         }}
         onLfoChange={(target, value) => {
-          members.forEach((m) => applyLayerLfo(m, localeId, target, value));
+          const oldValue = resolved?.lfoSettings?.[target] ?? { ...DEFAULT_LFO_SETTINGS[target], active: false };
+          const patch = diffCompoundField(oldValue, value);
+          members.forEach((m) => {
+            const memberOwn = m.lfoSettings?.[target] ?? { ...DEFAULT_LFO_SETTINGS[target], active: false };
+            applyLayerLfo(m, localeId, target, { ...memberOwn, ...patch });
+          });
           patchSnapshot({ lfoSettings: { ...resolved?.lfoSettings, [target]: value } });
         }}
       />

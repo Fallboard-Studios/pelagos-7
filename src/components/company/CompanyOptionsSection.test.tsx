@@ -11,9 +11,18 @@ import { render, screen, fireEvent } from '@testing-library/react';
 // suite) — the mocks render probe buttons that invoke the captured callback props, so wiring bugs
 // (wrong function, wrong argument, wrong per-member count) still surface here even though the
 // real section JSX never mounts.
+//
+// Every probe button below builds its onChange payload the same way the real drawer components
+// do — spreading the received `props.value` (CompanyOptionsSection's shared `resolved` baseline)
+// and touching only one field — e.g. real Lfo.tsx's `onChange({ ...value, rate })`,
+// PingContourDrawer's `onChange({ ...adsr, attack: v })`, SignatureArrayDrawer's
+// `withUpdatedLayer`. A stub that instead fired a fully-independent hardcoded object would never
+// exercise CompanyOptionsSection's diff-and-preserve broadcast logic (diffCompoundField/
+// diffLayerField) — it has to look like a real single-field edit for the "other members' own
+// untouched sub-fields survive" regression tests below to mean anything.
 vi.mock('@/components/robot/AudioSettingSection', () => ({
   AudioSettingSection: (props: {
-    value: { audioMode: string; masterVolume: number };
+    value: { audioMode: string; masterVolume: number; volumeLfo: { shape: string; rate: number; depth: number; active: boolean } };
     onAudioModeChange: (mode: string) => void;
     onVolumeChange: (pct: number) => void;
     onVolumeLfoChange: (value: unknown) => void;
@@ -27,41 +36,60 @@ vi.mock('@/components/robot/AudioSettingSection', () => ({
     >
       <button onClick={() => props.onAudioModeChange('solo')}>probe-audio-mode</button>
       <button onClick={() => props.onVolumeChange(77)}>probe-volume</button>
-      <button onClick={() => props.onVolumeLfoChange({ shape: 'sine', rate: 1, depth: 20, active: true })}>probe-volume-lfo</button>
+      <button onClick={() => props.onVolumeLfoChange({ ...props.value.volumeLfo, rate: 9 })}>probe-volume-lfo</button>
     </div>
   ),
 }));
 vi.mock('@/components/robot/PingControlsDrawer', () => ({
   PingControlsDrawer: (props: {
-    value: { rhythmicDensity: number };
+    value: {
+      rhythmicDensity: number;
+      rhythmicMotifLength: { active: boolean; value: number };
+      noteVariance: { active: boolean; value: number };
+      clickTrackActive: boolean;
+    };
     onDensityChange: (v: number) => void;
+    onMotifLengthChange: (v: unknown) => void;
+    onNoteVarianceChange: (v: unknown) => void;
+    onClickTrackActiveChange: (v: boolean) => void;
     onResetMelody?: () => void;
     disabled?: boolean;
   }) => (
     <div
       data-testid="ping-controls-drawer-stub"
       data-density={props.value.rhythmicDensity}
+      data-click-track-active={String(props.value.clickTrackActive)}
       data-disabled={props.disabled ? '' : undefined}
     >
       <button onClick={() => props.onDensityChange(77)}>probe-density</button>
+      <button onClick={() => props.onMotifLengthChange({ ...props.value.rhythmicMotifLength, value: 12 })}>probe-motif-length</button>
+      <button onClick={() => props.onNoteVarianceChange({ ...props.value.noteVariance, active: !props.value.noteVariance.active })}>probe-note-variance</button>
+      <button onClick={() => props.onClickTrackActiveChange(!props.value.clickTrackActive)}>probe-click-track</button>
       {props.onResetMelody && <button onClick={props.onResetMelody}>probe-reset-melody</button>}
     </div>
   ),
 }));
 vi.mock('@/components/robot/PingContourDrawer', () => ({
-  PingContourDrawer: (props: { value: { attack: number }; onChange: (next: unknown) => void; disabled?: boolean }) => (
+  PingContourDrawer: (props: {
+    value: { attack: number; decay: number; sustain: number; release: number };
+    onChange: (next: unknown) => void;
+    disabled?: boolean;
+  }) => (
     <div
       data-testid="ping-contour-drawer-stub"
       data-attack={props.value.attack}
       data-disabled={props.disabled ? '' : undefined}
     >
-      <button onClick={() => props.onChange({ attack: 0.9, decay: 0.1, sustain: 0.5, release: 0.2 })}>probe-adsr</button>
+      <button onClick={() => props.onChange({ ...props.value, attack: 0.9 })}>probe-adsr</button>
     </div>
   ),
 }));
 vi.mock('@/components/robot/SignatureArrayDrawer', () => ({
   SignatureArrayDrawer: (props: {
-    value: { layers: unknown[] };
+    value: {
+      layers: { type: string; gain: number; detune: number; phase: number; active: boolean }[];
+      lfoSettings?: Record<string, { shape: string; rate: number; depth: number; active: boolean }>;
+    };
     onContinuousChange: (v: unknown) => void;
     onStructuralChange: (v: unknown) => void;
     onLfoChange: (target: string, value: unknown) => void;
@@ -72,9 +100,24 @@ vi.mock('@/components/robot/SignatureArrayDrawer', () => ({
       data-layer-count={props.value.layers.length}
       data-disabled={props.disabled ? '' : undefined}
     >
-      <button onClick={() => props.onContinuousChange([{ type: 'sine', gain: 1, detune: 0, phase: 0, active: true }])}>probe-layers-continuous</button>
-      <button onClick={() => props.onStructuralChange([{ type: 'square', gain: 1, detune: 0, phase: 0, active: true }])}>probe-layers-structural</button>
-      <button onClick={() => props.onLfoChange('layer0.gain', { shape: 'sine', rate: 1, depth: 20, active: true })}>probe-layer-lfo</button>
+      <button
+        onClick={() => props.onContinuousChange(props.value.layers.map((l, i) => (i === 1 ? { ...l, gain: 0.4 } : l)))}
+      >
+        probe-layers-continuous
+      </button>
+      <button
+        onClick={() => props.onStructuralChange(props.value.layers.map((l, i) => (i === 2 ? { ...l, type: 'square' } : l)))}
+      >
+        probe-layers-structural
+      </button>
+      <button
+        onClick={() => {
+          const current = props.value.lfoSettings?.['layer0.gain'] ?? { shape: 'sine', rate: 0.1, depth: 0, active: false };
+          props.onLfoChange('layer0.gain', { ...current, rate: 9 });
+        }}
+      >
+        probe-layer-lfo
+      </button>
     </div>
   ),
 }));
@@ -189,6 +232,40 @@ describe('CompanyOptionsSection', () => {
     expect(Object.keys(update.lastEditedOptions ?? {})).toEqual(['masterVolume']);
   });
 
+  it('editing Click Track calls applyClickTrackActive once per member robot, not a single bulk call', () => {
+    const r1 = makeRobot({ id: 'r1', companyId: 'c1' });
+    const r2 = makeRobot({ id: 'r2', companyId: 'c1' });
+    useLocaleStore.getState().addRobot(localeId, r1);
+    useLocaleStore.getState().addRobot(localeId, r2);
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1', 'r2'] });
+    useUIStore.getState().selectCompany('c1');
+    const applyClickTrackSpy = vi.spyOn(robotOptionsActions, 'applyClickTrackActive').mockImplementation(() => {});
+
+    render(<CompanyOptionsSection />);
+    fireEvent.click(screen.getByText('probe-click-track'));
+
+    expect(applyClickTrackSpy).toHaveBeenCalledTimes(2);
+    expect(applyClickTrackSpy.mock.calls.map((c) => [c[0].id, c[2]])).toEqual([
+      ['r1', true],
+      ['r2', true],
+    ]);
+  });
+
+  it('editing Click Track patches clickTrackActive into company.lastEditedOptions', () => {
+    const robot = makeRobot({ id: 'r1', companyId: 'c1' });
+    useLocaleStore.getState().addRobot(localeId, robot);
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
+    useUIStore.getState().selectCompany('c1');
+    vi.spyOn(robotOptionsActions, 'applyClickTrackActive').mockImplementation(() => {});
+    const updateCompanySpy = vi.spyOn(useLocaleStore.getState(), 'updateCompany');
+
+    render(<CompanyOptionsSection />);
+    fireEvent.click(screen.getByText('probe-click-track'));
+
+    const [, , update] = updateCompanySpy.mock.calls[0];
+    expect(update.lastEditedOptions).toEqual({ clickTrackActive: true });
+  });
+
   it('omits Reset Melody entirely in company mode', () => {
     const robot = makeRobot({ id: 'r1', companyId: 'c1' });
     useLocaleStore.getState().addRobot(localeId, robot);
@@ -282,7 +359,100 @@ describe('CompanyOptionsSection', () => {
     render(<CompanyOptionsSection />);
     fireEvent.click(screen.getByText('probe-layer-lfo'));
 
-    expect(lfoSpy).toHaveBeenCalledWith(r1, localeId, 'layer0.gain', { shape: 'sine', rate: 1, depth: 20, active: true });
+    expect(lfoSpy).toHaveBeenCalledWith(r1, localeId, 'layer0.gain', { shape: 'sine', rate: 9, depth: 0, active: false });
+  });
+
+  describe('broadcast preserves each member\'s own untouched sub-fields (only the single changed attribute propagates)', () => {
+    it('editing Attack broadcasts only attack — each member keeps its own Decay/Sustain/Release', () => {
+      const r1 = makeRobot({
+        id: 'r1', companyId: 'c1',
+        audioAttributes: {
+          adsr: { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 },
+          filterFreq: 0, waveform: 'sine',
+          layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0, active: true }],
+        },
+      });
+      const r2 = makeRobot({
+        id: 'r2', companyId: 'c1',
+        audioAttributes: {
+          adsr: { attack: 0.1, decay: 0.9, sustain: 0.1, release: 0.4 },
+          filterFreq: 0, waveform: 'sine',
+          layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0, active: true }],
+        },
+      });
+      useLocaleStore.getState().addRobot(localeId, r1);
+      useLocaleStore.getState().addRobot(localeId, r2);
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1', 'r2'] });
+      useUIStore.getState().selectCompany('c1');
+      const adsrSpy = vi.spyOn(robotOptionsActions, 'applyAdsr').mockImplementation(() => {});
+
+      render(<CompanyOptionsSection />);
+      fireEvent.click(screen.getByText('probe-adsr')); // stub sends { ...resolved-from-r1, attack: 0.9 }
+
+      const r1Call = adsrSpy.mock.calls.find((c) => c[0].id === 'r1');
+      const r2Call = adsrSpy.mock.calls.find((c) => c[0].id === 'r2');
+      expect(r1Call?.[2]).toEqual({ attack: 0.9, decay: 0.3, sustain: 0.8, release: 1.5 });
+      // r2's own decay/sustain/release survive untouched — not clobbered by r1's (the resolved
+      // baseline's) values, which is what a whole-object broadcast would have done.
+      expect(r2Call?.[2]).toEqual({ attack: 0.9, decay: 0.9, sustain: 0.1, release: 0.4 });
+    });
+
+    it('editing one Signature Array layer\'s Gain broadcasts only that layer\'s gain — other layers and other members\' own layer values survive', () => {
+      const r1 = makeRobot({
+        id: 'r1', companyId: 'c1',
+        audioAttributes: {
+          adsr: { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 }, filterFreq: 0, waveform: 'sine',
+          layers: [
+            { type: 'sine', gain: 1, detune: 0, phase: 0, active: true },
+            { type: 'square', gain: 0.8, detune: 5, phase: 10, active: true },
+            { type: 'triangle', gain: 0.6, detune: -5, phase: 20, active: false },
+          ],
+        },
+      });
+      const r2 = makeRobot({
+        id: 'r2', companyId: 'c1',
+        audioAttributes: {
+          adsr: { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 }, filterFreq: 0, waveform: 'sine',
+          layers: [
+            { type: 'pulse', gain: 0.2, detune: 40, phase: 90, active: true },
+            { type: 'triangle', gain: 0.5, detune: -10, phase: 30, active: true },
+            { type: 'sine', gain: 0.9, detune: 15, phase: 5, active: true },
+          ],
+        },
+      });
+      useLocaleStore.getState().addRobot(localeId, r1);
+      useLocaleStore.getState().addRobot(localeId, r2);
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1', 'r2'] });
+      useUIStore.getState().selectCompany('c1');
+      const continuousSpy = vi.spyOn(robotOptionsActions, 'applyLayersContinuous').mockImplementation(() => {});
+
+      render(<CompanyOptionsSection />);
+      fireEvent.click(screen.getByText('probe-layers-continuous')); // stub sets layer[1].gain = 0.4
+
+      const r2Call = continuousSpy.mock.calls.find((c) => c[0].id === 'r2');
+      const r2Layers = r2Call?.[2] as { type: string; gain: number; detune: number; phase: number; active: boolean }[];
+      // Only layer[1]'s gain changed; r2's own layer[0] and layer[2] — and layer[1]'s own
+      // type/detune/phase/active — are untouched, not overwritten with r1's (resolved's) values.
+      expect(r2Layers[0]).toEqual({ type: 'pulse', gain: 0.2, detune: 40, phase: 90, active: true });
+      expect(r2Layers[1]).toEqual({ type: 'triangle', gain: 0.4, detune: -10, phase: 30, active: true });
+      expect(r2Layers[2]).toEqual({ type: 'sine', gain: 0.9, detune: 15, phase: 5, active: true });
+    });
+
+    it('editing the Volume LFO\'s rate broadcasts only rate — each member keeps its own shape/depth/active', () => {
+      const r1 = makeRobot({ id: 'r1', companyId: 'c1', lfoSettings: { volume: { shape: 'sine', rate: 1, depth: 20, active: true } } as Robot['lfoSettings'] });
+      const r2 = makeRobot({ id: 'r2', companyId: 'c1', lfoSettings: { volume: { shape: 'square', rate: 0.5, depth: 60, active: false } } as Robot['lfoSettings'] });
+      useLocaleStore.getState().addRobot(localeId, r1);
+      useLocaleStore.getState().addRobot(localeId, r2);
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1', 'r2'] });
+      useUIStore.getState().selectCompany('c1');
+      const volumeLfoSpy = vi.spyOn(robotOptionsActions, 'applyVolumeLfo').mockImplementation(() => {});
+
+      render(<CompanyOptionsSection />);
+      fireEvent.click(screen.getByText('probe-volume-lfo')); // stub sends { ...resolved-from-r1, rate: 9 }
+
+      const r2Call = volumeLfoSpy.mock.calls.find((c) => c[0].id === 'r2');
+      expect(r2Call?.[2]).toEqual({ shape: 'square', rate: 9, depth: 60, active: false });
+    });
   });
 
   describe('"All" selection (CompanyButtonRow\'s All button)', () => {
