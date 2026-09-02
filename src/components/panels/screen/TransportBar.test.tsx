@@ -29,7 +29,6 @@ const TEST_LOCALE: Locale = {
   robots: [],
   actors: [],
   companies: [],
-  settings: {},
   currentMeasure: 5,
 };
 

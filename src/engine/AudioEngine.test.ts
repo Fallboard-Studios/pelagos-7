@@ -189,7 +189,6 @@ vi.mock('./lfoEngine', () => ({
 
 import { AudioEngine } from './AudioEngine';
 import { useLocaleStore } from '../stores/localeStore';
-import { DEFAULT_LOCALE_ID } from '../stores/attenuationStyleStore';
 import { volumePositionToGain } from './audioEngine/volumeTaper';
 
 /** Shared placeholder ADSR for tests that don't care about specific envelope values —
@@ -562,7 +561,6 @@ describe('AudioEngine - audioMode enforcement (solo/mute/highlight)', () => {
       const attenuationStyleMod = await import('../stores/attenuationStyleStore');
       merged_useLocaleStore = storeMod.useLocaleStore;
       merged_DEFAULT_LOCALE_ID = attenuationStyleMod.DEFAULT_LOCALE_ID;
-      merged_useLocaleStore.getState().setLocaleData(merged_DEFAULT_LOCALE_ID, { settings: { bpm: 120 } });
     })();
   });
 
@@ -1243,8 +1241,6 @@ describe('AudioEngine.updateRobotMasterVolume', () => {
 describe('AudioEngine - Reservation & Isolation (focused)', () => {
   beforeEach(() => {
     vi.resetModules();
-    // Reset store to deterministic settings
-    useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { settings: { bpm: 120 } });
   });
 
   it('reserves a voice and getVoiceForRobot returns a synth', async () => {
@@ -1278,7 +1274,6 @@ describe('AudioEngine - Reservation & Isolation (focused)', () => {
 describe('AudioEngine - Composite Voices (Layered)', () => {
   beforeEach(() => {
     vi.resetModules();
-    useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { settings: { bpm: 120 } });
   });
 
   it('can reserve a composite voice from a LayeredWave descriptor', async () => {
@@ -1343,7 +1338,6 @@ describe('AudioEngine - Composite Voices (Layered)', () => {
 describe('AudioEngine.updateVoiceEnvelope', () => {
   beforeEach(() => {
     vi.resetModules();
-    useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { settings: { bpm: 120 } });
   });
 
   it('applies the new ADSR to every active layer\'s live synth via the existing set({ layers }) path', async () => {
@@ -1379,7 +1373,6 @@ describe('AudioEngine - Global FX Chain', () => {
 
   beforeEach(() => {
     vi.resetModules();
-    useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { settings: { bpm: 120 } });
   });
 
   it('starts without throwing when FX constructors are present', async () => {
@@ -1550,7 +1543,6 @@ describe('AudioEngine - Transport methods & Master Volume (Issue #220)', () => {
 
   beforeEach(() => {
     vi.resetModules();
-    useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { settings: { bpm: 120 } });
   });
 
   // ── pause ──────────────────────────────────────────────── //
@@ -1753,7 +1745,6 @@ describe('AudioEngine - Transport methods & Master Volume (Issue #220)', () => {
 describe('AudioEngine - getRobotModulationTarget', () => {
   beforeEach(() => {
     vi.resetModules();
-    useLocaleStore.getState().setLocaleData(DEFAULT_LOCALE_ID, { settings: { bpm: 120 } });
   });
 
   it('returns null (not throw) for an unreserved robotId', async () => {

@@ -16,26 +16,39 @@ excluded by design).
 ## Open items
 
 ### 1. Locale/transport BPM — already diverged, not just at risk
-**Status:** ☐ open · **Confidence:** high — this one has already drifted, not merely duplicated.
+**Status:** ☑ fixed (2026-09-02, `bugs/duplicate-value-audit`) · **Confidence:** high — this one had
+already drifted, not merely duplicated.
 
-Two independent sources of truth for "this locale's current BPM":
+**Fix applied:** `Locale.settings`/`LocaleSettings` was dead weight from a retired feature (its only
+reader in the whole codebase was the buggy `Factory.tsx:99` line; `AudioEngine.ts` never read it
+either, despite several `AudioEngine.test.ts` setups stubbing it). Deleted the type and both creation
+sites outright, along with the leftover test boilerplate that stubbed it. `Factory.tsx` now reads
+`audioStore.bpm` directly via `useAudioStore`; the `?? 120` fallback (and the now-unused
+`useLocaleStore`/`useAttenuationStyleStore` reads it depended on) are gone too, since `audioStore.bpm`
+is a global, always-defined number with no "locale not loaded" case to guard against. No
+persisted-data migration was needed — `SESSION_STORAGE.md` confirms locale persistence is
+unimplemented (Phase 12 design only). Covered by `src/components/actors/Factory.test.tsx`
+(reproduces the stale-fallback bug, then proves the live-bpm fix — including reactivity to Tempo-slider
+changes and behavior with no locale selected).
+
+There were two independent sources of truth for "this locale's current BPM":
 - Live value: `audioStore.bpm` — seeded per-locale via `generateLocaleBpm` (range `[40,100]`,
   `src/utils/localeBpmSeed.ts`), live-adjustable via the Tempo slider, drives
   `AudioEngine`/Transport. Initial default at [`audioStore.ts:191`](../src/stores/audioStore.ts#L191)
   (`bpm: 60`), regenerated via `regenerateBpmFromSeed`
   ([`audioStore.ts:205-206`](../src/stores/audioStore.ts#L205-L206)).
-- Stale value: `locale.settings.bpm` — written once at locale creation and **never updated again**:
-  [`localeStore.ts:74`](../src/stores/localeStore.ts#L74) and
-  [`worldTransition.ts:62`](../src/systems/worldTransition.ts#L62), both hardcoding `{ bpm: 60 }`.
+- Stale value (removed): `locale.settings.bpm` — written once at locale creation and never updated
+  again, hardcoded to `{ bpm: 60 }` at both creation sites.
 
-[`Factory.tsx:99`](../src/components/actors/Factory.tsx#L99) reads the **stale** field —
-`s.locales[localeId]?.settings?.bpm ?? 120` — and feeds it to `<BubbleStream bpm={bpm}>`
+[`Factory.tsx:99`](../src/components/actors/Factory.tsx#L99) used to read the stale field —
+`s.locales[localeId]?.settings?.bpm ?? 120` — and feed it to `<BubbleStream bpm={bpm}>`
 ([`Factory.tsx:286`](../src/components/actors/Factory.tsx#L286)), whose prop doc says *"Current
 transport BPM; used to convert measures to seconds"*
-([`BubbleStream.tsx:21-22`](../src/components/actors/BubbleStream.tsx#L21-L22)).
+([`BubbleStream.tsx:21-22`](../src/components/actors/BubbleStream.tsx#L21-L22)). It now reads
+`useAudioStore((s) => s.bpm)` at the same line instead.
 
-Bubble cadence never tracks the real seeded/live BPM (only coincidentally matches when the seed
-lands near 60), and the `?? 120` fallback already disagrees with the actual default (`60`) used
+Bubble cadence never tracked the real seeded/live BPM (only coincidentally matched when the seed
+landed near 60), and the `?? 120` fallback already disagreed with the actual default (`60`) used
 everywhere else.
 
 ### 2. `MEASURES_PER_CYCLE` / `DAY_CYCLE_MEASURES` — one guardrail, two constants
