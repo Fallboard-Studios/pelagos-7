@@ -15,7 +15,7 @@ import {
   DEFAULT_RHYTHMIC_MOTIF_LENGTH,
   DEFAULT_NOTE_VARIANCE,
 } from './melodyGenerator';
-import type { RobotMelodyEvent } from './melodyGenerator';
+import type { MelodyEvent } from '../types/Robot';
 
 // ========================================
 // HELPERS
@@ -24,7 +24,7 @@ import type { RobotMelodyEvent } from './melodyGenerator';
 /**
  * Create a test melody event with sensible defaults.
  */
-function createMelodyEvent(overrides: Partial<RobotMelodyEvent> = {}): RobotMelodyEvent {
+function createMelodyEvent(overrides: Partial<MelodyEvent> = {}): MelodyEvent {
   return {
     id: 'test-event-1',
     startStep: 1,
@@ -225,7 +225,7 @@ describe('applyRhythmicVariance', () => {
   });
 
   it('handles empty melody gracefully', () => {
-    const melody: RobotMelodyEvent[] = [];
+    const melody: MelodyEvent[] = [];
 
     const alwaysApplyRand = () => 0.0;
 
@@ -458,7 +458,7 @@ describe('applyTonalVariance', () => {
   });
 
   it('handles empty melody gracefully', () => {
-    const melody: RobotMelodyEvent[] = [];
+    const melody: MelodyEvent[] = [];
 
     const alwaysApplyRand = () => 0.0;
 
@@ -1198,7 +1198,7 @@ describe('generateMelodyForRobot — Pitch Repeat', () => {
       seed: 23,
     });
     expect(melody).toHaveLength(16);
-    const byPositionAndRepeat = new Map<number, Map<number, RobotMelodyEvent>>();
+    const byPositionAndRepeat = new Map<number, Map<number, MelodyEvent>>();
     melody.forEach((e) => {
       const step = e.startStep - 1;
       const position = step % 4;
@@ -1237,7 +1237,7 @@ describe('generateMelodyForRobot — Pitch Repeat', () => {
       octaveMax: 4,
       seed: 25,
     });
-    const byPosition = new Map<number, RobotMelodyEvent[]>();
+    const byPosition = new Map<number, MelodyEvent[]>();
     melody.forEach((e) => {
       const position = (e.startStep - 1) % 8;
       if (!byPosition.has(position)) byPosition.set(position, []);
@@ -1282,7 +1282,7 @@ describe('generateMelodyForRobot — Pitch Repeat', () => {
 
 describe('reRollMelodyPitches', () => {
   /** 8-event melody with distinct, easily-diffable startStep/noteIndex/octave per event. */
-  function makeEightEventMelody(): RobotMelodyEvent[] {
+  function makeEightEventMelody(): MelodyEvent[] {
     return Array.from({ length: 8 }, (_, i) =>
       createMelodyEvent({ id: `e${i}`, startStep: i + 1, length: '16n', noteIndex: i % 8, octave: 3 + (i % 3) })
     );

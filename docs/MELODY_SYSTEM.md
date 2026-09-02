@@ -2,7 +2,7 @@
 
 Source of truth: [`src/engine/melodyGenerator.ts`](../src/engine/melodyGenerator.ts).
 
-Melody generation creates procedurally generated musical patterns for each robot at spawn time, producing immutable `RobotMelodyEvent[]` values whose note choices are index-based and later resolved by the harmony palette at playback time.
+Melody generation creates procedurally generated musical patterns for each robot at spawn time, producing immutable `MelodyEvent[]` values whose note choices are index-based and later resolved by the harmony palette at playback time.
 
 ## Core Principles
 
@@ -15,7 +15,8 @@ Melody generation creates procedurally generated musical patterns for each robot
 ## Data Structure
 
 ```typescript
-interface RobotMelodyEvent {
+// Declared once, in types/Robot.ts — this is also the type of Robot.melody.
+interface MelodyEvent {
   id: string;
   startStep: number; // 1..16 (1-indexed slot in the 16-step grid)
   length: NoteDuration; // full union is '32n'|'16n'|'8n'|'4n'|'2n'|'1n'|'2m'|'4m' (types/Robot.ts); gridUnitsToDuration() only ever produces '16n'|'8n'|'4n'|'2n'
@@ -32,7 +33,7 @@ interface RobotMelodyEvent {
 The current generator entry point is:
 
 ```typescript
-export function generateMelodyForRobot(opts: GenerateMelodyForRobotOptions): RobotMelodyEvent[]
+export function generateMelodyForRobot(opts: GenerateMelodyForRobotOptions): MelodyEvent[]
 ```
 
 Supported options:

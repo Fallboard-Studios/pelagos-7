@@ -201,10 +201,10 @@ seeded `noteIndex` re-roll via `melodyGenerator.ts`'s `reRollMelodyPitches`:
 
 ```typescript
 export function reRollMelodyPitches(
-  melody: RobotMelodyEvent[],
+  melody: MelodyEvent[],
   ratio: number,
   opts: { noteVariance?: ToggleValue; rand: () => number },
-): RobotMelodyEvent[]
+): MelodyEvent[]
 ```
 
 `startStep`, `length`, and `octave` are never touched — only pitch drifts, never rhythm. The

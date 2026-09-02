@@ -11,11 +11,10 @@ import { getActiveLocaleId } from '@/utils/localeHelpers';
 import { AudioEngine } from '@/engine/AudioEngine';
 import { lfoEngine } from '@/engine/lfoEngine';
 import * as melodyGen from '@/engine/melodyGenerator';
-import type { Robot, ADSREnvelope } from '@/types/Robot';
+import type { Robot, ADSREnvelope, MelodyEvent } from '@/types/Robot';
 import type { OscillatorLayer } from '@/types/layeredAudio';
 import type { LfoValue } from '@/types/controls';
 import type { Locale } from '@/types/locale';
-import type { RobotMelodyEvent } from '@/engine/melodyGenerator';
 
 vi.mock('@/engine/lfoEngine', () => ({
   lfoEngine: {
@@ -60,7 +59,7 @@ function makeRobot(overrides: Partial<Robot> = {}): Robot {
 
 function stubMelodyPipeline() {
   const sampleMelody = [{ id: 'm1', startStep: 1, length: '8n', noteIndex: 0, octave: 3 }];
-  vi.spyOn(melodyGen, 'generateMelodyForRobot').mockReturnValue(sampleMelody as unknown as RobotMelodyEvent[]);
+  vi.spyOn(melodyGen, 'generateMelodyForRobot').mockReturnValue(sampleMelody as unknown as MelodyEvent[]);
   vi.spyOn(AudioEngine, 'registerRobotMelody').mockImplementation(() => {});
   vi.spyOn(AudioEngine, 'unregisterRobotMelody').mockImplementation(() => {});
 }

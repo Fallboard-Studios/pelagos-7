@@ -60,7 +60,7 @@ lock pitches within when tiling is off.
   setting. Values `1, 2, 4, 8` evenly divide 16, so those robots are unaffected — no tail exists for
   them. Bundled here (rather than filed separately) because without it, Pitch Repeat's tail-cell
   locking has nothing to lock — the cell would stay permanently empty.
-- Each event that ends up locked is stamped `pitchLocked: true` on the `RobotMelodyEvent` (a new,
+- Each event that ends up locked is stamped `pitchLocked: true` on the `MelodyEvent` (a new,
   plain, serializable boolean field) — this records the outcome so downstream consumers (the docking
   re-roll, in particular) don't need to re-derive the seeded position/repeat permutations to know
   which onsets are locked.
@@ -130,12 +130,14 @@ closing the "half-repeats" gap without touching rhythm, duration, or octave logi
 - Fully seeded/deterministic — no `Math.random` in the generation-time locking logic (per
   CLAUDE.md); `regenerateMelody.ts`'s existing unseeded manual-edit path is unchanged, not extended.
 - State stays JSON-serializable: the slider value is a plain number on `Robot`, `pitchLocked` is a
-  plain boolean on `RobotMelodyEvent` — no functions, no derived-at-read-time closures.
-- `Robot.melody` is typed `MelodyEvent[]` via a separately-declared, structurally-identical
-  interface in `types/Robot.ts` (not `RobotMelodyEvent` from `melodyGenerator.ts`) — pre-existing
-  duplication, not something this feature introduces. `pitchLocked?: boolean` needs adding to
-  *both* interfaces, or reads of `robot.melody[i].pitchLocked` (e.g. the docking re-roll) won't
-  type-check.
+  plain boolean on `MelodyEvent` — no functions, no derived-at-read-time closures.
+- `Robot.melody` is typed `MelodyEvent[]`. At the time this feature was built, `types/Robot.ts` and
+  `melodyGenerator.ts` each declared their own separate, structurally-identical copy of this
+  interface (`MelodyEvent` and `RobotMelodyEvent`, respectively) — pre-existing duplication, not
+  something this feature introduced, and `pitchLocked?: boolean` had to be added to *both* or reads
+  of `robot.melody[i].pitchLocked` (e.g. the docking re-roll) wouldn't type-check. That duplication
+  was resolved on `bug/duplicate-melody-event`: `types/Robot.ts` is now the sole declaration, and
+  `melodyGenerator.ts` imports it rather than keeping its own copy.
 - The tail-cell fix above is the *only* rhythm/onset-generation change this feature makes — duration
   selection and octave assignment are untouched, and no other onset-generation behavior changes.
   Everything else about this feature only ever affects `noteIndex` selection and adds the one new

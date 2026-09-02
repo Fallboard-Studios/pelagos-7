@@ -2,7 +2,7 @@
 // IMPORTS
 // ========================================
 import alea from 'alea';
-import type { NoteDuration } from '../types/Robot';
+import type { MelodyEvent, NoteDuration } from '../types/Robot';
 import {
   RHYTHMIC_DENSITY_MIN,
   RHYTHMIC_DENSITY_MAX,
@@ -17,22 +17,6 @@ import {
 // ========================================
 // TYPES
 // ========================================
-export interface RobotMelodyEvent {
-  id: string;
-  startStep: number; // 1..16 (16th-note position in a single-measure loop)
-  length: NoteDuration; // Note duration
-  noteIndex: number; // 0..7 (maps into availableNotes palette)
-  octave: number;   // Concrete octave assigned at spawn time
-  /**
-   * Pitch Repeat: true only on a locked non-base-cell repeat whose noteIndex was copied verbatim
-   * from the base cell, bypassing Note Variance. Never set on base-cell (repeat 0) events or on
-   * any event when locking didn't apply — those stay `undefined`, not `false`. See
-   * computePitchLockPlan. NOTE: structurally identical to but separately declared from
-   * `MelodyEvent` in `types/Robot.ts` — keep both in sync.
-   */
-  pitchLocked?: boolean;
-}
-
 /** A 1–8 magnitude paired with an on/off toggle — shared shape for Motif Length and Note Variance. */
 export interface ToggleValue {
   active: boolean;
@@ -168,10 +152,10 @@ export function pickRandomIndices(arr: unknown[], count: number, rand: () => num
  * @returns New melody array with variance applied (if triggered), or original melody
  */
 export function applyRhythmicVariance(
-  melody: RobotMelodyEvent[],
+  melody: MelodyEvent[],
   probability: number = DEFAULT_VARIANCE_PROBABILITY,
   rand: () => number = Math.random
-): RobotMelodyEvent[] {
+): MelodyEvent[] {
   if (rand() > probability) {
     return melody;
   }
@@ -207,10 +191,10 @@ export function applyRhythmicVariance(
  * @returns New melody array with variance applied (if triggered), or original melody
  */
 export function applyTonalVariance(
-  melody: RobotMelodyEvent[],
+  melody: MelodyEvent[],
   probability: number = DEFAULT_VARIANCE_PROBABILITY,
   rand: () => number = Math.random
-): RobotMelodyEvent[] {
+): MelodyEvent[] {
   if (rand() > probability) {
     return melody;
   }
@@ -489,7 +473,7 @@ export function pickDurationForGap(availableUnits: number, rand: () => number = 
  */
 export function generateMelodyForRobot(
   opts: GenerateMelodyForRobotOptions
-): RobotMelodyEvent[] {
+): MelodyEvent[] {
   const rand = opts.rand ?? (opts.seed !== undefined ? alea(String(opts.seed)) : Math.random);
   const subdivisions = opts.subdivisions ?? DEFAULT_SUBDIVISIONS;
   const densityPct = Math.max(
@@ -532,7 +516,7 @@ export function generateMelodyForRobot(
     : onsets.map(() => false);
 
   let currentOctave = octMin + Math.floor(rand() * (octMax - octMin + 1));
-  const melody: RobotMelodyEvent[] = [];
+  const melody: MelodyEvent[] = [];
 
   // Note-variance state
   const variance = opts.noteVariance ?? DEFAULT_NOTE_VARIANCE;
@@ -610,7 +594,7 @@ export function generateMelodyForRobot(
 
     melody.push({
       id: crypto.randomUUID(),
-      startStep: onsets[i] + 1, // 1-indexed to match existing RobotMelodyEvent convention
+      startStep: onsets[i] + 1, // 1-indexed to match existing MelodyEvent convention
       length: pickDurationForGap(durationUnits, rand),
       noteIndex,
       octave: currentOctave,
@@ -659,10 +643,10 @@ export function pickWeightedIndex(rand: () => number = Math.random): number {
  * (unlocked) pool is non-empty; a fully-locked melody re-rolls zero events.
  */
 export function reRollMelodyPitches(
-  melody: RobotMelodyEvent[],
+  melody: MelodyEvent[],
   ratio: number,
   opts: { noteVariance?: ToggleValue; rand: () => number },
-): RobotMelodyEvent[] {
+): MelodyEvent[] {
   if (melody.length === 0) return melody;
 
   const eligible = melody.map((_, i) => i).filter((i) => !melody[i].pitchLocked);
