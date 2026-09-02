@@ -8,7 +8,7 @@ import { getActiveLocaleId } from '@/utils/localeHelpers';
 import { resolveCompanyOptions, diffCompoundField, diffLayerField } from '@/systems/companyOptions';
 import {
   applyAudioMode, applyVolume, applyVolumeLfo,
-  applyDensity, applyMotifLength, applyNoteVariance, applyOctaveMin, applyOctaveMax,
+  applyDensity, applyMotifLength, applyNoteVariance, applyPitchRepeat, applyOctaveMin, applyOctaveMax,
   applyAdsr, applyLayersContinuous, applyLayersStructural, applyLayerLfo, applyClickTrackActive,
 } from '@/systems/robotOptionsActions';
 import { DEFAULT_LFO_SETTINGS } from '@/data/lfoConfig';
@@ -33,6 +33,7 @@ const DISABLED_PING_CONTROLS: PingControlsValue = {
   rhythmicDensity: 0,
   rhythmicMotifLength: { active: false, value: 1 },
   noteVariance: { active: false, value: 1 },
+  pitchRepeat: 0,
   octaveRange: [1, 7],
   clickTrackActive: false,
 };
@@ -161,6 +162,10 @@ export function CompanyOptionsSection() {
             applyNoteVariance(m, localeId, { ...memberOwn, ...patch });
           });
           patchSnapshot({ noteVariance: v });
+        }}
+        onPitchRepeatChange={(v) => {
+          members.forEach((m) => applyPitchRepeat(m, localeId, v));
+          patchSnapshot({ pitchRepeat: v });
         }}
         onClickTrackActiveChange={(active) => {
           members.forEach((m) => applyClickTrackActive(m, localeId, active));

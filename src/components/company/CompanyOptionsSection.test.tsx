@@ -46,11 +46,13 @@ vi.mock('@/components/robot/PingControlsDrawer', () => ({
       rhythmicDensity: number;
       rhythmicMotifLength: { active: boolean; value: number };
       noteVariance: { active: boolean; value: number };
+      pitchRepeat: number;
       clickTrackActive: boolean;
     };
     onDensityChange: (v: number) => void;
     onMotifLengthChange: (v: unknown) => void;
     onNoteVarianceChange: (v: unknown) => void;
+    onPitchRepeatChange: (v: number) => void;
     onClickTrackActiveChange: (v: boolean) => void;
     onResetMelody?: () => void;
     disabled?: boolean;
@@ -58,12 +60,14 @@ vi.mock('@/components/robot/PingControlsDrawer', () => ({
     <div
       data-testid="ping-controls-drawer-stub"
       data-density={props.value.rhythmicDensity}
+      data-pitch-repeat={props.value.pitchRepeat}
       data-click-track-active={String(props.value.clickTrackActive)}
       data-disabled={props.disabled ? '' : undefined}
     >
       <button onClick={() => props.onDensityChange(77)}>probe-density</button>
       <button onClick={() => props.onMotifLengthChange({ ...props.value.rhythmicMotifLength, value: 12 })}>probe-motif-length</button>
       <button onClick={() => props.onNoteVarianceChange({ ...props.value.noteVariance, active: !props.value.noteVariance.active })}>probe-note-variance</button>
+      <button onClick={() => props.onPitchRepeatChange(90)}>probe-pitch-repeat</button>
       <button onClick={() => props.onClickTrackActiveChange(!props.value.clickTrackActive)}>probe-click-track</button>
       {props.onResetMelody && <button onClick={props.onResetMelody}>probe-reset-melody</button>}
     </div>
@@ -155,6 +159,7 @@ function makeRobot(overrides: Partial<Robot> = {}): Robot {
     docking: 'active',
     batteryLevel: 100,
     rhythmicDensity: 42,
+    pitchRepeat: 30,
     audioMode: 'none',
     ...overrides,
   } as Robot;
@@ -188,7 +193,7 @@ describe('CompanyOptionsSection', () => {
   });
 
   it('populates every section\'s value from resolveCompanyOptions(company, firstMember) when a non-empty company is selected', () => {
-    const robot = makeRobot({ id: 'r1', companyId: 'c1', masterVolume: 0.6, rhythmicDensity: 42 });
+    const robot = makeRobot({ id: 'r1', companyId: 'c1', masterVolume: 0.6, rhythmicDensity: 42, pitchRepeat: 30 });
     useLocaleStore.getState().addRobot(localeId, robot);
     useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
     useUIStore.getState().selectCompany('c1');
@@ -197,6 +202,7 @@ describe('CompanyOptionsSection', () => {
 
     expect(screen.getByTestId('audio-setting-section-stub').getAttribute('data-volume')).toBe('0.6');
     expect(screen.getByTestId('ping-controls-drawer-stub').getAttribute('data-density')).toBe('42');
+    expect(screen.getByTestId('ping-controls-drawer-stub').getAttribute('data-pitch-repeat')).toBe('30');
     expect(screen.getByTestId('ping-controls-drawer-stub').getAttribute('data-disabled')).toBeNull();
   });
 
@@ -264,6 +270,40 @@ describe('CompanyOptionsSection', () => {
 
     const [, , update] = updateCompanySpy.mock.calls[0];
     expect(update.lastEditedOptions).toEqual({ clickTrackActive: true });
+  });
+
+  it('editing Pitch Repeat calls applyPitchRepeat once per member robot, not a single bulk call', () => {
+    const r1 = makeRobot({ id: 'r1', companyId: 'c1' });
+    const r2 = makeRobot({ id: 'r2', companyId: 'c1' });
+    useLocaleStore.getState().addRobot(localeId, r1);
+    useLocaleStore.getState().addRobot(localeId, r2);
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1', 'r2'] });
+    useUIStore.getState().selectCompany('c1');
+    const applyPitchRepeatSpy = vi.spyOn(robotOptionsActions, 'applyPitchRepeat').mockImplementation(() => {});
+
+    render(<CompanyOptionsSection />);
+    fireEvent.click(screen.getByText('probe-pitch-repeat'));
+
+    expect(applyPitchRepeatSpy).toHaveBeenCalledTimes(2);
+    expect(applyPitchRepeatSpy.mock.calls.map((c) => [c[0].id, c[2]])).toEqual([
+      ['r1', 90],
+      ['r2', 90],
+    ]);
+  });
+
+  it('editing Pitch Repeat patches only pitchRepeat into company.lastEditedOptions (plain-number pattern, not diffCompoundField)', () => {
+    const robot = makeRobot({ id: 'r1', companyId: 'c1' });
+    useLocaleStore.getState().addRobot(localeId, robot);
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
+    useUIStore.getState().selectCompany('c1');
+    vi.spyOn(robotOptionsActions, 'applyPitchRepeat').mockImplementation(() => {});
+    const updateCompanySpy = vi.spyOn(useLocaleStore.getState(), 'updateCompany');
+
+    render(<CompanyOptionsSection />);
+    fireEvent.click(screen.getByText('probe-pitch-repeat'));
+
+    const [, , update] = updateCompanySpy.mock.calls[0];
+    expect(update.lastEditedOptions).toEqual({ pitchRepeat: 90 });
   });
 
   it('omits Reset Melody entirely in company mode', () => {
