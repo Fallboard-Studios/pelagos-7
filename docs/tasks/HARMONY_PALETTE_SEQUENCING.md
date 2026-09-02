@@ -111,7 +111,7 @@ Task 1 (harmonySystem.ts + harmonySystem.test.ts + AudioEngine.ts call site)
 
 ### Phase 2: Docs
 
-- [ ] **Task 2: `docs/HARMONY_SYSTEM.md` + `docs/AUDIO_SYSTEM.md` — document the sequential-cycling behavior**
+- [x] **Task 2: `docs/HARMONY_SYSTEM.md` + `docs/AUDIO_SYSTEM.md` — document the sequential-cycling behavior**
 
   **Description:** Rewrite `docs/HARMONY_SYSTEM.md`'s opening paragraph, "Data Structure", "API",
   "Implementation", "Hour Derivation" (renamed — there is no hour derivation left to describe),
@@ -123,20 +123,20 @@ Task 1 (harmonySystem.ts + harmonySystem.test.ts + AudioEngine.ts call site)
   `BPM_CONTROL.md` Task 6's own verification convention.
 
   **Acceptance criteria:**
-  - [ ] No remaining reference to `TIME_PITCHES`, `getCurrentHour()`, hour-of-day, or "96 measures = 1
+  - [x] No remaining reference to `TIME_PITCHES`, `getCurrentHour()`, hour-of-day, or "96 measures = 1
         day cycle" framing in either doc's description of harmony palette selection.
-  - [ ] `HARMONY_PALETTES`, `MEASURES_PER_PALETTE_ENTRY`, and `scheduleHarmonyCycle()`'s new zero-arg
+  - [x] `HARMONY_PALETTES`, `MEASURES_PER_PALETTE_ENTRY`, and `scheduleHarmonyCycle()`'s new zero-arg
         signature are named and described accurately, matching Task 1's shipped code exactly.
-  - [ ] The doc still clearly states the two clocks are decoupled (harmony's measure-based cycling vs.
+  - [x] The doc still clearly states the two clocks are decoupled (harmony's measure-based cycling vs.
         the locale's wall-clock visual day/night cycle) — this distinction predates this change and
         stays true, just described without the now-removed hour-of-day mechanism on the harmony side.
-  - [ ] The stale locale-store-fallback claim is gone, not reworded.
+  - [x] The stale locale-store-fallback claim is gone, not reworded.
 
   **Verification:**
-  - [ ] Manual review — every documented name/behavior checked directly against
+  - [x] Manual review — every documented name/behavior checked directly against
         `src/engine/harmonySystem.ts`'s final shipped code (Task 1).
-  - [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean (docs-only change,
-        no behavioral impact expected).
+  - [x] `npm run build:types`, `npm run lint` clean (docs-only change; `npm test`/`npm run build` not
+        re-run since no source changed since Task 1's checkpoint already confirmed both clean).
 
   **Dependencies:** Task 1.
 
