@@ -10,6 +10,7 @@ import {
   RHYTHMIC_MOTIF_LENGTH_MAX,
   NOTE_VARIANCE_MIN,
   NOTE_VARIANCE_MAX,
+  PITCH_REPEAT_MAX,
 } from '../constants';
 
 // ========================================
@@ -330,6 +331,78 @@ export function buildMotifOnsets(
   // Non-repeating fallback
   const N = Math.min(rhythmicDensity, subdivisions);
   return pickUniqueInRange(subdivisions, N, rand).sort((a, b) => a - b);
+}
+
+/**
+ * Determine which onsets in a tiled-motif melody should copy the base cell's noteIndex
+ * verbatim, per Pitch Repeat's staged/seeded locking model (docs/intent/pitch-repeat.md,
+ * docs/specs/PITCH_REPEAT.md §4). Returns a boolean per onset, same order/length as `onsets`.
+ * Repeat-0 (base cell) onsets are always `false` — they're the copy source, never a locked
+ * target.
+ *
+ * Two independent seeded permutations, drawn once from `rand`:
+ *   - `positionOrder`: the order in which the base cell's K onset positions lock in, one per
+ *     `100/K`-wide stage of the `pitchRepeatPct` range. Not always position-0-first.
+ *   - `repeatOrder`: which non-base repeats lock first within a stage, shared across every
+ *     position (drawn once, not re-rolled per position) — a fixed-count prefix of this order is
+ *     locked per position/stage, not an independent per-repeat coin flip.
+ * A position's applicable repeats exclude the tail repeat when that position falls at or past
+ * `tailLength` (the tail cell has no onset there to lock) — see buildMotifOnsets' tail-cell pass.
+ *
+ * `pitchRepeatPct >= PITCH_REPEAT_MAX` short-circuits every stage's fraction to exactly 1 up
+ * front, bypassing the per-stage `100/K` float arithmetic (not always exact, e.g. K=3 repeats
+ * 33.3̄) so full lock is guaranteed rather than left to incidental float behavior.
+ */
+export function computePitchLockPlan(
+  onsets: number[],
+  motifLength: number,
+  subdivisions: number,
+  pitchRepeatPct: number,
+  rand: () => number,
+): boolean[] {
+  const repeats = Math.floor(subdivisions / motifLength);
+  const tailLength = subdivisions - repeats * motifLength;
+  const totalRepeats = repeats + (tailLength > 0 ? 1 : 0);
+
+  const basePositions = onsets.filter((o) => o < motifLength).sort((a, b) => a - b);
+  const K = basePositions.length;
+  if (K === 0 || totalRepeats <= 1) {
+    return onsets.map(() => false);
+  }
+
+  const positionOrder = pickUniqueInRange(K, K, rand);
+  const repeatOrder = pickUniqueInRange(totalRepeats - 1, totalRepeats - 1, rand).map((i) => i + 1);
+
+  const forceFullLock = pitchRepeatPct >= PITCH_REPEAT_MAX;
+  const stageWidth = 100 / K;
+  const locked = new Set<string>(); // `${position}:${repeatIdx}`
+
+  positionOrder.forEach((posIdx, stageNum) => {
+    const position = basePositions[posIdx];
+    // Only repeats that actually contain this position — the tail repeat may not (see doc comment).
+    const applicable = repeatOrder.filter((r) => r < repeats || (r === repeats && position < tailLength));
+    if (applicable.length === 0) return;
+
+    let fraction: number;
+    if (forceFullLock) {
+      fraction = 1;
+    } else {
+      const stageStart = stageNum * stageWidth;
+      const stageEnd = stageStart + stageWidth;
+      fraction = pitchRepeatPct <= stageStart ? 0
+        : pitchRepeatPct >= stageEnd ? 1
+        : (pitchRepeatPct - stageStart) / stageWidth;
+    }
+
+    const n = Math.round(fraction * applicable.length);
+    for (let i = 0; i < n; i++) locked.add(`${position}:${applicable[i]}`);
+  });
+
+  return onsets.map((o) => {
+    const repeatIdx = Math.floor(o / motifLength);
+    if (repeatIdx === 0) return false;
+    return locked.has(`${o % motifLength}:${repeatIdx}`);
+  });
 }
 
 /**

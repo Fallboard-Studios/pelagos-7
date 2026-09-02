@@ -5,6 +5,7 @@ import {
   applyTonalVariance,
   pickRandomIndices,
   buildMotifOnsets,
+  computePitchLockPlan,
   gridUnitsToDuration,
   pickDurationForGap,
   generateMelodyForRobot,
@@ -777,6 +778,100 @@ describe('buildMotifOnsets — tail-cell pass (untruncating)', () => {
     const onsets = buildMotifOnsets(1, 6, 16, fixedRand);
     expect(onsets.length).toBeGreaterThan(1); // requested density=1, but tail fill adds more
     expect(onsets.some((o) => o >= 12)).toBe(true); // the extra onset lives in the tail region
+  });
+});
+
+// ========================================
+// TEST SUITE: computePitchLockPlan
+//
+// Pitch Repeat's staged/seeded pitch-locking model (docs/specs/PITCH_REPEAT.md §4). Uses
+// hand-built onset arrays (rather than buildMotifOnsets output) so each scenario's K/repeats/tail
+// shape is exact and legible, and `rand = () => 0` where a specific, known permutation is needed
+// (pickUniqueInRange's Fisher-Yates shuffle degenerates to the identity order at rand() === 0).
+// ========================================
+
+describe('computePitchLockPlan', () => {
+  // motifLength=4, subdivisions=16 -> repeats=4, tailLength=0, totalRepeats=4.
+  // Base cell (repeat 0) has 2 onsets, positions 1 and 3; every repeat tiles the same positions.
+  const noTailOnsets = [1, 3, 5, 7, 9, 11, 13, 15];
+  const noTailMotifLength = 4;
+  const noTailSubdivisions = 16;
+
+  it('pitchRepeatPct: 0 -> every returned value is false', () => {
+    const plan = computePitchLockPlan(noTailOnsets, noTailMotifLength, noTailSubdivisions, 0, () => 0.37);
+    expect(plan).toEqual(noTailOnsets.map(() => false));
+  });
+
+  it('pitchRepeatPct: 100 -> every non-base-cell onset is true (full verbatim repetition)', () => {
+    const plan = computePitchLockPlan(noTailOnsets, noTailMotifLength, noTailSubdivisions, 100, () => 0.81);
+    // Indices 0-1 are repeat 0 (the base cell, never locked); indices 2-7 are repeats 1-3.
+    expect(plan.slice(0, 2)).toEqual([false, false]);
+    expect(plan.slice(2)).toEqual(plan.slice(2).map(() => true));
+  });
+
+  it("base-cell (repeat 0) onsets are always false, even at pitchRepeatPct: 100", () => {
+    const plan = computePitchLockPlan(noTailOnsets, noTailMotifLength, noTailSubdivisions, 100, () => 0.5);
+    expect(plan[0]).toBe(false); // onset 1, repeat 0
+    expect(plan[1]).toBe(false); // onset 3, repeat 0
+  });
+
+  it('is deterministic — identical inputs and a fresh identically-seeded rand produce identical plans', () => {
+    const planA = computePitchLockPlan(noTailOnsets, noTailMotifLength, noTailSubdivisions, 60, alea('pitch-repeat-determinism'));
+    const planB = computePitchLockPlan(noTailOnsets, noTailMotifLength, noTailSubdivisions, 60, alea('pitch-repeat-determinism'));
+    expect(planA).toEqual(planB);
+  });
+
+  it('is monotonic for a fixed seed: the locked set only grows as pitchRepeatPct rises', () => {
+    // Same seed re-created fresh for each pct (so only pct varies, not the RNG stream consumed).
+    let previousLocked = new Set<number>();
+    for (let pct = 0; pct <= 100; pct += 10) {
+      const plan = computePitchLockPlan(noTailOnsets, noTailMotifLength, noTailSubdivisions, pct, alea('pitch-repeat-monotonic'));
+      const locked = new Set(plan.flatMap((v, i) => (v ? [i] : [])));
+      previousLocked.forEach((i) => expect(locked.has(i)).toBe(true)); // nothing unlocks as pct rises
+      previousLocked = locked;
+    }
+  });
+
+  it('two different seeds produce different position-lock orders (not always position 0 first)', () => {
+    // K=2 (positions 1 and 3) -> stageWidth=50, so pct=50 exactly completes stage 0 (fully
+    // locking whichever position came first) while stage 1's position stays fully unlocked.
+    // Index 2 (onset value 5) is position 1's repeat-1 onset; index 3 (onset value 7) is
+    // position 3's repeat-1 onset — exactly one of the two is true at pct=50.
+    const position1FirstResults = new Set<boolean>();
+    for (let seedNum = 0; seedNum < 25; seedNum++) {
+      const plan = computePitchLockPlan(noTailOnsets, noTailMotifLength, noTailSubdivisions, 50, alea(`order-seed-${seedNum}`));
+      expect(plan[2]).not.toBe(plan[3]); // exactly one of the two positions is stage 0's winner
+      position1FirstResults.add(plan[2]);
+    }
+    expect(position1FirstResults.has(true)).toBe(true);
+    expect(position1FirstResults.has(false)).toBe(true);
+  });
+
+  it('excludes the tail repeat from a position\'s applicable-repeat list when that position is >= tailLength', () => {
+    // motifLength=6, subdivisions=16 -> repeats=2, tailLength=4, totalRepeats=3 (2 full + 1 tail).
+    // Base cell has 3 onsets: positions 0, 2 (both < tailLength, so the tail repeat has an onset
+    // at each) and 5 (>= tailLength, so the tail repeat has NO onset there).
+    const onsets = [0, 2, 5, 6, 8, 11, 12, 14]; // repeat0: 0,2,5 | repeat1: 6,8,11 | tail: 12,14
+    const motifLength = 6;
+    const subdivisions = 16;
+    // rand() === 0 degenerates pickUniqueInRange's shuffle to the identity order: positionOrder
+    // = [0,1,2] (basePositions[0,1,2] = 0,2,5 in that stage order), repeatOrder = [1,2].
+    const identityRand = () => 0;
+
+    // Position 5 is basePositions[2] -> stage index 2 -> stage range [66.667, 100). Its only
+    // applicable repeat is repeat 1 (onset value 11, index 5) — repeat 2 (tail) is excluded
+    // because position 5 >= tailLength, so applicable.length is 1, not 2.
+    const notYetLocked = computePitchLockPlan(onsets, motifLength, subdivisions, 80, identityRand);
+    expect(notYetLocked[5]).toBe(false); // fraction 0.4 through the stage, round(0.4 * 1) = 0
+
+    const locked = computePitchLockPlan(onsets, motifLength, subdivisions, 90, identityRand);
+    expect(locked[5]).toBe(true); // fraction 0.7 through the stage, round(0.7 * 1) = 1
+
+    // Contrast: position 0 (stage index 0, applicable.length = 2 — repeat1 AND the tail) is
+    // long past its own stage by pct=80/90, so it's fully locked in both onsets it has (repeat1
+    // at index1=6, tail at index6=12) — confirming the tail repeat DOES apply to position 0.
+    expect(locked[3]).toBe(true); // onset 6, position 0's repeat-1 onset
+    expect(locked[6]).toBe(true); // onset 12, position 0's tail onset
   });
 });
 
