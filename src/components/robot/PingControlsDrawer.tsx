@@ -85,6 +85,11 @@ export function PingControlsDrawer({
   // generated melody with AudioEngine) without ever clearing the toggle's own visual state —
   // so they're disabled alongside it, not just cosmetically greyed but genuinely inert.
   const generationDisabled = disabled || value.clickTrackActive;
+  // Pitch Repeat additionally needs a tiled motif to lock cells within — no cell concept exists
+  // when Motif Length is off (docs/specs/PITCH_REPEAT.md). Named separately from
+  // generationDisabled (rather than inlined at the one call site) so a future field with a
+  // similar cross-field gate has a pattern to match instead of inventing its own shape.
+  const pitchRepeatDisabled = generationDisabled || !value.rhythmicMotifLength.active;
 
   return (
     <AccordionContainer schema={PING_CONTROLS_ACCORDION_SCHEMA}>
@@ -96,13 +101,11 @@ export function PingControlsDrawer({
         )}
         <SliderLinear schema={DENSITY_SCHEMA} value={value.rhythmicDensity} onChange={onDensityChange} disabled={generationDisabled} />
         <StepperWithToggle schema={MOTIF_LENGTH_SCHEMA} value={value.rhythmicMotifLength} onChange={onMotifLengthChange} disabled={generationDisabled} />
-        {/* Gated by rhythmicMotifLength.active too — no cell concept to lock pitches within
-            when tiling is off (docs/specs/PITCH_REPEAT.md). */}
         <SliderLinear
           schema={PITCH_REPEAT_SCHEMA}
           value={value.pitchRepeat}
           onChange={onPitchRepeatChange}
-          disabled={generationDisabled || !value.rhythmicMotifLength.active}
+          disabled={pitchRepeatDisabled}
         />
         <Stepper schema={OCTAVE_RANGE_MIN_SCHEMA} value={octMin} onChange={onOctaveMinChange} disabled={generationDisabled} />
         <Stepper schema={OCTAVE_RANGE_MAX_SCHEMA} value={octMax} onChange={onOctaveMaxChange} disabled={generationDisabled} />

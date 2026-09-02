@@ -339,11 +339,12 @@ export function buildMotifOnsets(
     const tailLength = subdivisions - repeats * M;
     if (tailLength > 0) {
       const tailOffset = repeats * M;
-      const resultSet = new Set(result);
-      for (const pos of baseMotif) {
-        if (pos < tailLength) resultSet.add(tailOffset + pos);
-      }
-      result = Array.from(resultSet).sort((a, b) => a - b);
+      // No Set/re-sort needed: `result` is already ascending and every tail position
+      // (tailOffset + pos) is strictly greater than every element already in it — tailOffset
+      // (= repeats * M) exceeds any onset from a non-tail repeat by construction, and baseMotif
+      // is itself sorted ascending — so a plain concat preserves sort order with no duplicates.
+      const tailPositions = baseMotif.filter((pos) => pos < tailLength).map((pos) => tailOffset + pos);
+      result = result.concat(tailPositions);
     }
 
     return result;
@@ -387,7 +388,12 @@ export function computePitchLockPlan(
 
   const basePositions = onsets.filter((o) => o < motifLength).sort((a, b) => a - b);
   const K = basePositions.length;
-  if (K === 0 || totalRepeats <= 1) {
+  // `repeats < 2` mirrors buildMotifOnsets' own gate for the non-tiled fallback path exactly —
+  // onsets aren't tiled-motif positions at all below that threshold, so there's nothing valid to
+  // lock. (Strictly subsumes `totalRepeats <= 1`: totalRepeats >= repeats, so this never returns
+  // early in a case the old check wouldn't have — it only additionally catches repeats===1 with a
+  // tail, which `totalRepeats <= 1` alone let through.)
+  if (K === 0 || repeats < 2) {
     return onsets.map(() => false);
   }
 
@@ -501,12 +507,12 @@ export function generateMelodyForRobot(
   // before calling it, keeping every repeat identically filled (no remainder
   // distributed unevenly, unlike the old total-onset-count model).
   let onsets: number[];
-  // Set only when motif tiling is active — computePitchLockPlan needs the motif length, and
-  // Pitch Repeat is gated inert whenever tiling is off (no cell concept to lock pitches within).
-  let motifLengthForLock: number | null = null;
+  // Resolved only when motif tiling is active (`motif.active` stays the single source of truth
+  // for that below — this is just the value, not a second independent flag); Pitch Repeat is
+  // gated inert whenever tiling is off (no cell concept to lock pitches within).
+  let motifLength: number | null = null;
   if (motif.active) {
-    const motifLength = Math.max(RHYTHMIC_MOTIF_LENGTH_MIN, Math.min(RHYTHMIC_MOTIF_LENGTH_MAX, Math.trunc(motif.value)));
-    motifLengthForLock = motifLength;
+    motifLength = Math.max(RHYTHMIC_MOTIF_LENGTH_MIN, Math.min(RHYTHMIC_MOTIF_LENGTH_MAX, Math.trunc(motif.value)));
     const repeats = Math.max(1, Math.floor(subdivisions / motifLength));
     const perCell = Math.max(1, Math.round((densityPct / 100) * motifLength));
     onsets = buildMotifOnsets(perCell * repeats, motifLength, subdivisions, rand);
@@ -521,8 +527,8 @@ export function generateMelodyForRobot(
     PITCH_REPEAT_MIN,
     Math.min(PITCH_REPEAT_MAX, opts.pitchRepeat ?? DEFAULT_PITCH_REPEAT),
   );
-  const lockPlan: boolean[] = motifLengthForLock !== null
-    ? computePitchLockPlan(onsets, motifLengthForLock, subdivisions, pitchRepeatPct, rand)
+  const lockPlan: boolean[] = motif.active
+    ? computePitchLockPlan(onsets, motifLength!, subdivisions, pitchRepeatPct, rand)
     : onsets.map(() => false);
 
   let currentOctave = octMin + Math.floor(rand() * (octMax - octMin + 1));
@@ -561,7 +567,7 @@ export function generateMelodyForRobot(
     // the same melody see identical selection state to today's unmodified run.
     let noteIndex: number;
     if (lockPlan[i]) {
-      noteIndex = basePositionNoteIndex.get(onsets[i] % motifLengthForLock!)!;
+      noteIndex = basePositionNoteIndex.get(onsets[i] % motifLength!)!;
     } else if (!variance.active) {
       // Off: unweighted, unconstrained random pick from all 8 indices — deliberately
       // NOT pickWeightedIndex(); "off" now means no weighting at all, not just no
@@ -598,7 +604,7 @@ export function generateMelodyForRobot(
       }
     }
 
-    if (motifLengthForLock !== null && onsets[i] < motifLengthForLock) {
+    if (motif.active && onsets[i] < motifLength!) {
       basePositionNoteIndex.set(onsets[i], noteIndex);
     }
 
