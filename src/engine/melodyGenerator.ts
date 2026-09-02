@@ -110,13 +110,6 @@ export const DEFAULT_PITCH_REPEAT = 0;
 /** Default subdivision grid per measure (16 sixteenth notes in 4/4). */
 export const DEFAULT_SUBDIVISIONS = 16;
 
-/** Probability of applying rhythmic variance per 16-step loop (recommended: 0.2) */
-const DEFAULT_VARIANCE_PROBABILITY = 0.20;
-/** Possible step shifts (±1 or ±2 8th notes) */
-const SHIFT_OPTIONS = [-2, -1, 1, 2];
-/** Possible note index shifts (±1 semitone) */
-const NOTE_SHIFT_OPTIONS = [-1, 1];
-
 // ========================================
 // EXPORTS
 // ========================================
@@ -141,84 +134,6 @@ export function pickRandomIndices(arr: unknown[], count: number, rand: () => num
 
   return picked;
 }
-
-/**
- * Apply occasional rhythmic variance to a melody by shifting 1–2 events' startStep.
- * Called at loop completion (~20% chance per loop by default).
- * Preserves all other fields (id, length, noteIndex, octave).
- * 
- * @param melody Melody events to apply variance to
- * @param probability 0-1 chance to apply variance (default: 0.2 ~ 20%)
- * @param rand Optional RNG function (default: Math.random)
- * @returns New melody array with variance applied (if triggered), or original melody
- */
-export function applyRhythmicVariance(
-  melody: MelodyEvent[],
-  probability: number = DEFAULT_VARIANCE_PROBABILITY,
-  rand: () => number = Math.random
-): MelodyEvent[] {
-  if (rand() > probability) {
-    return melody;
-  }
-
-  const numToShift = rand() < 0.5 ? 1 : 2;
-  const indicesToShift = pickRandomIndices(melody, Math.min(numToShift, melody.length), rand);
-
-  return melody.map((event, idx) => {
-    if (!indicesToShift.includes(idx)) {
-      return event;
-    }
-
-    const delta = SHIFT_OPTIONS[Math.floor(rand() * SHIFT_OPTIONS.length)];
-    // Clamp to 1..16
-    const newStep = Math.min(16, Math.max(1, event.startStep + delta));
-
-    return {
-      ...event,
-      startStep: newStep,
-    };
-  });
-}
-
-/**
- * Apply occasional tonal variance to a melody by shifting 1–2 events' noteIndex.
- * Fires independently from rhythmic variance (~20% chance per loop by default).
- * Shift amount is ±1, clamped to 0–7 (the harmony palette size).
- * Preserves all other fields (id, startStep, length, octave).
- * 
- * @param melody Melody events to apply variance to
- * @param probability 0-1 chance to apply variance (default: 0.2 ~ 20%)
- * @param rand Optional RNG function (default: Math.random)
- * @returns New melody array with variance applied (if triggered), or original melody
- */
-export function applyTonalVariance(
-  melody: MelodyEvent[],
-  probability: number = DEFAULT_VARIANCE_PROBABILITY,
-  rand: () => number = Math.random
-): MelodyEvent[] {
-  if (rand() > probability) {
-    return melody;
-  }
-
-  const numToShift = rand() < 0.5 ? 1 : 2;
-  const indicesToShift = pickRandomIndices(melody, Math.min(numToShift, melody.length), rand);
-
-  return melody.map((event, idx) => {
-    if (!indicesToShift.includes(idx)) {
-      return event;
-    }
-
-    const delta = NOTE_SHIFT_OPTIONS[Math.floor(rand() * NOTE_SHIFT_OPTIONS.length)];
-    // Clamp to 0..(NOTE_PALETTE_SIZE - 1)
-    const newIndex = Math.min(NOTE_PALETTE_SIZE - 1, Math.max(0, event.noteIndex + delta));
-
-    return {
-      ...event,
-      noteIndex: newIndex,
-    };
-  });
-}
-
 
 // ========================================
 // MOTIF ALGORITHM HELPERS
