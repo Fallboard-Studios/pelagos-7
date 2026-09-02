@@ -145,7 +145,7 @@ Task 1 (harmonySystem.ts + harmonySystem.test.ts + AudioEngine.ts call site)
   **Estimated scope:** S (docs only, 2 files, but `HARMONY_SYSTEM.md`'s rewrite touches most of its
   sections)
 
-- [ ] **Task 3: `docs/DUPLICATE_VALUE_AUDIT.md` item 2 — resolve or reframe**
+- [x] **Task 3: `docs/DUPLICATE_VALUE_AUDIT.md` item 2 — resolve or reframe**
 
   **Description:** Per spec §2/§7 item 1: rewrite item 2 (`MEASURES_PER_CYCLE` / `DAY_CYCLE_MEASURES`)
   now that `harmonySystem.ts`'s only production dependency on `beatClock`'s 96-measure day concept
@@ -156,22 +156,26 @@ Task 1 (harmonySystem.ts + harmonySystem.test.ts + AudioEngine.ts call site)
   flip.
 
   **Acceptance criteria:**
-  - [ ] A `getCurrentHour` source grep across `src/` is run and its result (remaining production callers,
-        if any) is stated explicitly in the item's rewrite — not inferred from the spec alone.
-  - [ ] Item 2's status line reflects that grep's actual result: if `lightingUtils.ts`'s
+  - [x] A `getCurrentHour` source grep across `src/` is run and its result (remaining production callers,
+        if any) is stated explicitly in the item's rewrite — not inferred from the spec alone. Result:
+        zero production callers — only `beatClock.ts`'s own definition/doc comment, `beatClock.test.ts`'s
+        own tests, and an unused stub in `AudioEngine.test.ts`'s mock remain.
+  - [x] Item 2's status line reflects that grep's actual result: `lightingUtils.ts`'s
         `DAY_CYCLE_MEASURES` is confirmed as the only remaining real "day cycle" consumer outside
-        `beatClock.ts` itself, the item is reframed (or closed, if the two-independent-constants
-        tension is judged fully resolved) rather than left describing the pre-change state.
-  - [ ] The rewritten entry cross-references `docs/specs/HARMONY_PALETTE_SEQUENCING.md` and
+        `beatClock.ts` itself. Judgment call made: **reframed, kept open** (not closed) — the two `96`
+        literals are still independently declared and un-unified; only the practical drift risk dropped,
+        since only one side is a real production consumer now.
+  - [x] The rewritten entry cross-references `docs/specs/HARMONY_PALETTE_SEQUENCING.md` and
         `docs/intent/harmony-palette-sequencing.md`, matching the sourcing convention every other item
         in the file already follows.
-  - [ ] Item 4's own footnote ("`harmonySystem.ts`'s `TIME_PITCHES` map... left out of scope") is checked
-        for staleness now that `TIME_PITCHES` no longer exists, and corrected if it now reads as
-        inaccurate.
+  - [x] Item 4's own footnote (`harmonySystem.ts`'s `TIME_PITCHES` map... left out of scope) was checked
+        for staleness now that `TIME_PITCHES` no longer exists — corrected (renamed reference +
+        an updated `EighthNotes` line number, both stale after Task 1's rewrite).
 
   **Verification:**
-  - [ ] Manual review, including the source grep above, before finalizing the status line.
-  - [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean (docs-only).
+  - [x] Manual review, including the source grep above, before finalizing the status line.
+  - [x] `npm run build:types`, `npm run lint` clean (docs-only; `npm test`/`npm run build` not re-run,
+        no source changed since Task 1's checkpoint already confirmed both clean).
 
   **Dependencies:** Task 1, Task 2.
 
@@ -180,11 +184,17 @@ Task 1 (harmonySystem.ts + harmonySystem.test.ts + AudioEngine.ts call site)
   **Estimated scope:** XS (docs only, 1 file)
 
 ### Checkpoint: Complete
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] All acceptance criteria across all 3 tasks are met.
-- [ ] `docs/HARMONY_SYSTEM.md`, `docs/AUDIO_SYSTEM.md`, and `docs/DUPLICATE_VALUE_AUDIT.md` all reflect
+- [x] `npm run build:types`, `npm run lint`, `npm run build` all clean. `npm test`: two full-suite runs
+      each showed a different, non-overlapping small set of failures (1, then 3 — `CompanyManager`,
+      `AudioRigDrawer`, `RobotsTab`), every one `Error: Test timed out in 5000ms` alongside a
+      `[vitest-worker]: Timeout calling "onTaskUpdate"` unhandled error — worker/CPU-contention timeouts,
+      not assertion failures, and none in a file this plan touched. Re-running those 3 files in
+      isolation passed cleanly (59/59) — confirmed as the same known flakiness class
+      `BPM_CONTROL.md`'s own build log already documented, not a regression from this work.
+- [x] All acceptance criteria across all 3 tasks are met.
+- [x] `docs/HARMONY_SYSTEM.md`, `docs/AUDIO_SYSTEM.md`, and `docs/DUPLICATE_VALUE_AUDIT.md` all reflect
       the shipped code — every documented name spot-checked against source.
-- [ ] Ready for human review / PR.
+- [x] Ready for human review / PR.
 
 ## Risks and Mitigations
 
