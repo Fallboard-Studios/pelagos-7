@@ -28,30 +28,30 @@ Because `spawnInitialCompanies` hooks into the exact same guard `spawnInitialRos
 
 ## Selection & Highlighting
 
-`uiStore.ts` tracks `selectedCompanyId: string | null`, independent of the existing `selectedRobotId` — selecting one never touches the other. Selecting a company:
+`uiStore.ts` tracks `selectedCompanyId: string | null` and `allRobotsSelected: boolean`, independent of the existing `selectedRobotId` — selecting a robot never touches either. The two are mutually exclusive: `selectCompany` (any id, or `null` for "None") always clears `allRobotsSelected`, and `selectAllRobots` always clears `selectedCompanyId`. Selecting a company:
 
 - Highlights each member robot's card in the robot list (`RobotsTab`).
 - Glows each member robot in the world view — `Robot.tsx`'s `isCompanyMember` (`robot.companyId === selectedCompanyId && selectedCompanyId !== null`) reuses the exact same `.robot.selected` CSS declaration single-robot selection already defines (`OceanScene.css`), not a second visual language. `isCompanyMember` and `isSelected` are independent and can both apply to the same robot at once.
 - Populates `CompanyOptionsSection` (see below) from that company's state.
 
-Selecting "None" (the default) — or deleting the currently-selected company, or a selected company dropping to zero members — all return the panel to its disabled, valueless state.
+Selecting "None" (the default) — or deleting the currently-selected company, or a selected company dropping to zero members — all return the panel to its disabled, valueless state. Selecting **"All"** instead activates the panel over every robot in the locale regardless of company (Freelance included) — added as a testing convenience (checking a broadcast edit, e.g. the Click Track toggle, across the whole locale used to mean selecting each company one at a time; see [BPM_CONTROL.md](tasks/BPM_CONTROL.md)'s "Post-launch addition: Company 'All' broadcast mode") and kept afterward as a general bulk-edit option. It has no `Company` object to bind to, so `CompanyCrudControls` (Rename/Delete) stays driven by `selectedCompanyId` alone, same as "None" — "All" only ever affects `CompanyOptionsSection`.
 
 ## The Company Manager
 
 `RobotsTab` renders `CompanyManager` (`src/components/company/CompanyManager.tsx`) beneath the existing robot card list — pure composition of three components, in this order:
 
-1. **`CompanyButtonRow`** — one button per company plus "None." Reuses the `RadioButton` primitive (an options-list "one active among many" control RadioButton already implements, including active-state styling) rather than a bespoke button list.
+1. **`CompanyButtonRow`** — one button per company, plus "None" and "All" (in that order, both ahead of the per-company list). Reuses the `RadioButton` primitive (an options-list "one active among many" control RadioButton already implements, including active-state styling) rather than a bespoke button list.
 2. **`CompanyCrudControls`** — Create (a locally-staged name draft pre-filled by a fresh `generateCompanyName` suggestion, fed by `Math.random()` rather than a seeded noise map since it's a live UI convenience roll, not replayable world generation; disabled at `MAX_COMPANIES`), Rename (a `TextInput` bound live to the selected company's name, disabled with none selected), and Delete (disabled with none selected).
 3. **`CompanyOptionsSection`** — the bulk-edit panel: `AudioSettingSection` (extracted from `RobotDisplaySection` — Audio Setting + Volume + its LFO, *not* the read-only Name/Job/Battery/Docking rows, which have no company-scoped meaning), `PingControlsDrawer`, `PingContourDrawer`, and `SignatureArrayDrawer` — the exact same four presentational sections `RobotOptionsTab` (single-robot editing) renders, each refactored to a `value`/`onChange`/`disabled` contract with no `robot` prop and no store access of its own.
 
-With "None" selected, or a selected company with zero members, every section in `CompanyOptionsSection` renders `disabled` with a placeholder value (structurally complete — e.g. 3 signature-array layer slots, not an empty array — so the panel's layout doesn't jump when a company is selected). With a non-empty company selected, each section's value comes from `resolveCompanyOptions` (see below).
+With "None" selected, or a selected company with zero members, every section in `CompanyOptionsSection` renders `disabled` with a placeholder value (structurally complete — e.g. 3 signature-array layer slots, not an empty array — so the panel's layout doesn't jump when a company is selected). With a non-empty company selected, or "All" selected over a non-empty locale, each section's value comes from `resolveCompanyOptions` (see below).
 
 ## The Snapshot Merge
 
-`resolveCompanyOptions(company, firstMember)` (`src/systems/companyOptions.ts`) is what makes "revert to the last state it was in when last editing, or the first robot's options if unused" true without a special-cased first-edit branch:
+`resolveCompanyOptions(lastEditedOptions, firstMember)` (`src/systems/companyOptions.ts`) is what makes "revert to the last state it was in when last editing, or the first robot's options if unused" true without a special-cased first-edit branch. `lastEditedOptions` is `Company.lastEditedOptions` for a selected company, or `Locale.allRobotsLastEditedOptions` for "All" — the function itself doesn't know or care which:
 
 ```ts
-return { ...fromFirstMember, ...company.lastEditedOptions };
+return { ...fromFirstMember, ...lastEditedOptions };
 ```
 
 Every field the company has never been edited for falls back live to `firstMember`'s (the company's first member robot's) *current* value — not a value frozen at whenever the company was first selected. A field the company *has* been edited for reads from its own recorded `lastEditedOptions` instead, regardless of what the first member has since drifted to individually. Re-selecting a company after switching away and back always shows exactly what was last dialed in for it, field by field — this is a deliberate simplification over literally cloning every field into `lastEditedOptions` at first-edit time (functionally identical from the user's perspective; see `docs/specs/COMPANIES.md` §7.1 for the reasoning), and it's why `CompanyOptionsSnapshot`'s fields are all optional rather than a fully-populated snapshot.

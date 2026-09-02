@@ -306,18 +306,15 @@ function updateAllPanners(_time?: number): void {
 export function triggerWithCap(params: NoteParams): boolean {
   const { robotId, note, duration, time } = params;
 
-  if (activeVoices >= MAX_POLYPHONY) {
-    devLog(`[AudioEngine] Polyphony capped: ${activeVoices}/${MAX_POLYPHONY}`);
-    skippedNotesThisMeasure++;
-    return false;
-  }
-
   // Enforce audioMode (mute/solo) here — this is the sole enforcement point,
   // not a backup: scheduleNote's own audioMode block only handles highlight
-  // attenuation. No devLog on the mute/solo branches below — muted/non-solo
-  // robots hit this on every note attempt, and that's routine, intended
-  // behavior (never counted as a skip, unlike an actual failure to play),
-  // not something worth logging per-note.
+  // attenuation. Checked before the polyphony cap below so a muted/non-solo
+  // robot's note never counts against skippedNotesThisMeasure just because
+  // the cap happens to be full at the same time — that note was never going
+  // to play either way, unlike every reason the cap check below counts. No
+  // devLog on the mute/solo branches below — muted/non-solo robots hit this
+  // on every note attempt, and that's routine, intended behavior, not
+  // something worth logging per-note.
   try {
     const localeRobots = getActiveLocaleRobots();
     if (localeRobots.length > 0) {
@@ -333,6 +330,12 @@ export function triggerWithCap(params: NoteParams): boolean {
     }
   } catch (err) {
     devWarn('[AudioEngine] triggerWithCap.audioMode failed', err);
+  }
+
+  if (activeVoices >= MAX_POLYPHONY) {
+    devLog(`[AudioEngine] Polyphony capped: ${activeVoices}/${MAX_POLYPHONY}`);
+    skippedNotesThisMeasure++;
+    return false;
   }
 
   const scheduleTime = time ?? Tone.now();

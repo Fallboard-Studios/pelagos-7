@@ -205,6 +205,17 @@ User-reported after Task 5 shipped: changing BPM made playback "peter out" — o
 
 **Files:** `src/engine/AudioEngine.ts`, `src/engine/AudioEngine.test.ts`
 
+### Post-launch addition: Skipped Notes debug counter
+
+Added immediately after the voice-release stall fix above, to make the polyphony cap visible in real time rather than inferred from audible symptoms — a bottom-left, dev-only overlay showing how many note triggers were rejected in the current measure and why (polyphony cap, no composite voice reserved, invalid note string, a thrown scheduling error). Started as a one-off diagnostic for chasing that bug; kept afterward on its own merit — not a BPM Control task, no entry existed for it in the plan above, but it stayed useful for the live-browser tempo checks below (a rising skip count during a Tempo-slider drag flags voices genuinely not clearing, without waiting to hear playback audibly "peter out"), and the user has decided it's worth keeping as a standing tool rather than removing it. Recorded here as the build-log entry this file was otherwise missing.
+
+- [x] `debugStore.ts` — a rolling per-measure history of skip counts, written once per measure boundary and reset for the next.
+- [x] `AudioEngine.ts`'s `triggerWithCap`, `startMelodyPlayback`, and `playRegisteredEvents` each count every reason a note fails to play (not just the polyphony cap) into a per-measure counter, snapshotted into `debugStore` on each `subscribeToMeasure` tick.
+- [x] `SkippedNotesCounter.tsx` — the overlay itself, rendered from `App.tsx` behind `DEV_TUNING` (same gate the Click Track toggle below uses) — unreachable in a production build.
+- [x] `npm test`, `npm run build:types`, `npm run lint` all clean.
+
+**Files:** `src/stores/debugStore.ts`, `src/stores/debugStore.test.ts`, `src/components/debug/SkippedNotesCounter.tsx`, `src/components/debug/SkippedNotesCounter.css`, `src/components/debug/SkippedNotesCounter.test.tsx`, `src/engine/AudioEngine.ts`, `src/engine/AudioEngine.test.ts`, `src/App.tsx`
+
 ### Post-launch fix: reverted setBPM's ramp — it made live tempo changes feel unstable
 
 User-reported (a trained musician) after the voice-release fix above shipped: dragging the Tempo slider made the beat feel "wishy-washy," with no locatable downbeat — not just a tempo change, an *unstable* one. Root cause: Task 2 (§Foundation) had `setBPM` ramp the transport's `bpm` param over `BPM_RAMP_SECONDS` (0.05s) via `rampTo`, mirroring `updateRobotMasterVolume`'s `Tone.Gain` ramp. That precedent doesn't transfer: BPM isn't a continuously-summed audio signal, so an instant change doesn't click the way an instant Gain jump does — there was nothing for the ramp to protect against. Worse, the Tempo slider's `onChange` fires continuously during a drag (Radix's `onValueChange`, not `onValueCommit`), far more often than a 50ms ramp can complete — each call cancelled the previous still-in-flight ramp and restarted a new one (`Tone.Param.rampTo`'s own `cancelAndHoldAtTime` behavior), so the actual tempo never settled for the whole drag gesture. Standard DAW behavior — and this function's own pre-Task-2 shape — applies tempo changes instantly.
@@ -218,6 +229,19 @@ User-reported (a trained musician) after the voice-release fix above shipped: dr
 - [x] Live-browser confirmation from the user that dragging the Tempo slider now tracks a stable, locatable beat.
 
 **Files:** `src/engine/AudioEngine.ts`, `src/engine/AudioEngine.test.ts`, `docs/AUDIO_SYSTEM.md`
+
+### Post-launch addition: Company "All" broadcast mode
+
+Also added as a testing convenience, ahead of the Click Track toggle below: verifying a tempo behavior across every robot at once meant selecting each company one at a time, since `CompanyOptionsSection` only ever bound to a single company or nothing. A third `CompanyButtonRow` option — "All" (`uiStore.allRobotsSelected`, mutually exclusive with `selectedCompanyId`) — lets a broadcast edit reach every robot in the locale regardless of company in one action. Building it surfaced a latent, unrelated bug in the existing per-company broadcast path: every compound-value edit (Volume LFO, Motif Length, Note Variance, Ping Contour/ADSR, Signature Array layers) replaced each member's *entire* compound value with the panel's shared baseline plus the one changed field, silently overwriting members' own untouched sub-fields whenever they differed from that baseline — `diffCompoundField`/`diffLayerField` (`src/systems/companyOptions.ts`) now isolate just the changed field before broadcasting, for both the per-company and "All" paths alike.
+
+Not a BPM Control task itself — no entry existed for it in the plan above — but the user has decided it's worth keeping beyond testing, as a general bulk-edit capability. Its mechanics are documented fully in [docs/COMPANIES.md](../COMPANIES.md)'s "Editing Semantics" section; recorded here only as the build-log entry this file was otherwise missing.
+
+- [x] `CompanyButtonRow.tsx`/`uiStore.ts` — the "All" selection and its `selectAllRobots` action.
+- [x] `CompanyOptionsSection.tsx` — a third `members` source (every robot in the locale) alongside the existing single-company path; `resolveCompanyOptions` takes a snapshot directly (`Company.lastEditedOptions`, or the new `Locale.allRobotsLastEditedOptions` for "All") rather than a whole `Company`, since that's all it ever read.
+- [x] `diffCompoundField`/`diffLayerField` (`src/systems/companyOptions.ts`) — the sibling-field-overwrite fix, applied to every compound broadcast handler in both modes.
+- [x] `npm test`, `npm run build:types`, `npm run lint` all clean.
+
+**Files:** `src/components/company/CompanyButtonRow.tsx`, `src/components/company/CompanyButtonRow.test.tsx`, `src/stores/uiStore.ts`, `src/stores/uiStore.test.ts`, `src/components/company/CompanyOptionsSection.tsx`, `src/components/company/CompanyOptionsSection.test.tsx`, `src/systems/companyOptions.ts`, `src/systems/companyOptions.test.ts`, `src/data/companyConfig.ts`, `src/data/companyConfig.test.ts`, `src/types/locale.ts`, `docs/COMPANIES.md`
 
 ### Post-launch addition: Click Track testing toggle
 
