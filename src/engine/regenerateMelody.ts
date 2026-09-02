@@ -1,7 +1,7 @@
 // ========================================
 // IMPORTS
 // ========================================
-import { generateMelodyForRobot, DEFAULT_RHYTHMIC_DENSITY, DEFAULT_RHYTHMIC_MOTIF_LENGTH, DEFAULT_NOTE_VARIANCE } from './melodyGenerator';
+import { generateMelodyForRobot, DEFAULT_RHYTHMIC_DENSITY, DEFAULT_RHYTHMIC_MOTIF_LENGTH, DEFAULT_NOTE_VARIANCE, DEFAULT_PITCH_REPEAT } from './melodyGenerator';
 import { AudioEngine } from './AudioEngine';
 import { useLocaleStore } from '../stores/localeStore';
 import type { Robot } from '../types/Robot';
@@ -34,6 +34,7 @@ export function regenerateMelody(robot: Robot, localeId: string): void {
     rhythmicDensity: robot.rhythmicDensity ?? DEFAULT_RHYTHMIC_DENSITY,
     rhythmicMotifLength: robot.rhythmicMotifLength ?? DEFAULT_RHYTHMIC_MOTIF_LENGTH,
     noteVariance: robot.noteVariance ?? DEFAULT_NOTE_VARIANCE,
+    pitchRepeat: robot.pitchRepeat ?? DEFAULT_PITCH_REPEAT,
   });
 
   useLocaleStore.getState().updateRobot(localeId, robot.id, { melody: newMelody });

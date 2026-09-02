@@ -165,4 +165,21 @@ describe('regenerateMelody', () => {
     expect(passedOpts.onsetCount).toBeUndefined();
     genSpy.mockRestore();
   });
+
+  it('passes robot.pitchRepeat through to generateMelodyForRobot', async () => {
+    const genSpy = vi.spyOn(await import('./melodyGenerator'), 'generateMelodyForRobot');
+    const robot = makeRobot({ pitchRepeat: 75 });
+    regenerateMelody(robot, 'locale-1');
+    expect(genSpy).toHaveBeenCalledWith(expect.objectContaining({ pitchRepeat: 75 }));
+    genSpy.mockRestore();
+  });
+
+  it('falls back to DEFAULT_PITCH_REPEAT when robot.pitchRepeat is absent', async () => {
+    const { DEFAULT_PITCH_REPEAT } = await import('./melodyGenerator');
+    const genSpy = vi.spyOn(await import('./melodyGenerator'), 'generateMelodyForRobot');
+    const robot = makeRobot({ pitchRepeat: undefined });
+    regenerateMelody(robot, 'locale-1');
+    expect(genSpy).toHaveBeenCalledWith(expect.objectContaining({ pitchRepeat: DEFAULT_PITCH_REPEAT }));
+    genSpy.mockRestore();
+  });
 });
