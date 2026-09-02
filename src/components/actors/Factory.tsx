@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
+import Alea from 'alea';
 
 import type { Actor } from '../../types/Actor';
-import { selectVariantFromSeed, VARIANT_CONF } from './factoryVariants';
+import { selectVariantFromSeed, VARIANT_CONF, isBubbleEligible } from './factoryVariants';
 import { getRowConfig, DEFAULT_FACTORY_ROW } from '../../systems/factoryPlacementSystem';
 import { calcSilhouetteSize, bottomAnchorTransform } from './silhouetteUtils';
 import { applyColorShift, shiftHSL, clamp } from '../../utils/colorUtils';
@@ -9,10 +10,8 @@ import { getLighting, getNightDepth, FLICKER_PERIOD, FILL_TRANSITION, DAY_CYCLE_
 import { ROOFTOP_RENDERERS } from './greebles/rooftopGreebles';
 import { FACADE_RENDERERS } from './greebles/facadeGreebles';
 import type { GreebleRendererContext } from './greebles/greebleTypes';
-import { useAudioStore } from '../../stores/audioStore';
 import { useUIStore } from '../../stores/uiStore';
 import BubbleStream from './BubbleStream';
-import type { FactoryPurpose } from './factoryVariants';
 
 // ========================================
 // DEBUG LIGHTING
@@ -43,12 +42,22 @@ const DEBUG_LIGHTING_PRESET = null as keyof typeof LIGHTING_PRESETS | null;
 /** Belt course thickness in normalised 0-100 SVG units. */
 const BELT_H = 2;
 
-const BUBBLE_PURPOSES: Set<FactoryPurpose> = new Set([
-  'heavyIndustry',
-  'chemicalProcessing',
-  'pipeWorks',
-  'storageLogistics'
-]);
+// ========================================
+// HELPERS
+// ========================================
+
+/**
+ * Deterministic pseudo-random integer derived from the full actor id, used
+ * for `buildingSeed`. Real factory ids all share a `factory-{index}-` prefix
+ * (see `factoryPlacementSystem.ts`'s `generateFactoryId`), so seeding from
+ * only a fixed-length prefix — the previous `parseInt(id.slice(0, 8), 16)` —
+ * landed on the same value for every building. Reuses the same `Alea` PRNG
+ * every other id-seeded value in this codebase goes through (e.g.
+ * `factoryVariants.ts`'s `selectVariantFromSeed`) rather than a bespoke hash.
+ */
+function hashActorId(id: string): number {
+  return Math.floor(Alea(id)() * 0x100000000);
+}
 
 // ========================================
 // COMPONENT
@@ -56,11 +65,19 @@ const BUBBLE_PURPOSES: Set<FactoryPurpose> = new Set([
 
 interface FactoryProps {
   actor: Actor;
+  /**
+   * Total number of bubble-eligible buildings in the current locale. Each
+   * building's own bubble-burst interval scales with this count so the
+   * *aggregate* burst rate across the whole world stays roughly constant —
+   * see `BubbleStream`'s docblock. Defaults to 1 (a single building bursting
+   * on its own base interval) for standalone rendering/tests.
+   */
+  totalBubbleBuildings?: number;
 }
 
 
 
-const FactoryInner: React.FC<FactoryProps> = ({ actor }) => {
+const FactoryInner: React.FC<FactoryProps> = ({ actor, totalBubbleBuildings = 1 }) => {
   const config = useMemo(() => {
     const row = actor.config?.row ?? DEFAULT_FACTORY_ROW;
     const rowCfg = getRowConfig(row);
@@ -79,7 +96,7 @@ const FactoryInner: React.FC<FactoryProps> = ({ actor }) => {
   // Per-building phase offset (0..FLICKER_PERIOD-1) staggers window rerolls
   // across FLICKER_PERIOD consecutive measures so no two buildings re-render
   // in the same frame at an epoch boundary.
-  const buildingSeed = parseInt(actor.id.slice(0, 8), 16) || 0;
+  const buildingSeed = hashActorId(actor.id);
   const buildingPhase = buildingSeed % FLICKER_PERIOD;
 
   // Resolve east/west lightness multipliers:
@@ -93,10 +110,6 @@ const FactoryInner: React.FC<FactoryProps> = ({ actor }) => {
   // flickerEpoch: phased per building so window rerolls are spread across
   // FLICKER_PERIOD consecutive measures rather than all firing at once.
   const flickerEpoch = Math.floor((lightMeasure + buildingPhase) / FLICKER_PERIOD);
-
-  // bpm is a global transport value (audioStore), not locale-scoped — no
-  // locale lookup or fallback needed. See docs/DUPLICATE_VALUE_AUDIT.md #1.
-  const bpm = useAudioStore((s) => s.bpm);
 
   const preset = DEBUG_LIGHTING_PRESET ? LIGHTING_PRESETS[DEBUG_LIGHTING_PRESET] : null;
 
@@ -276,16 +289,16 @@ const FactoryInner: React.FC<FactoryProps> = ({ actor }) => {
 
       {/* bubble vent animation (scene coordinates) - placed outside transform group */}
       {
-        BUBBLE_PURPOSES.has(actor.config?.purpose ?? 'heavyIndustry') && (
+        isBubbleEligible(actor.config?.purpose) && (
           <BubbleStream
             actorId={actor.id}
             ventX={ventXWorld}
             ventY={ventY}
             seed={buildingSeed}
             isActive={isActive}
-            bpm={bpm}
             bodyHue={shiftedColors.body.h}
             depthScale={bubbleDepthScale}
+            totalBuildings={totalBubbleBuildings}
           />
         )
       }

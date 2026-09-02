@@ -168,10 +168,11 @@ lint, and type-check all green.
 - [`ROBOT_LIFECYCLE.md:16`](ROBOT_LIFECYCLE.md#L16) references `RobotAudioTab.tsx`, which doesn't
   exist (actual file is `RobotOptionsTab.tsx`). Stale doc pointer, not a duplicated value — file a
   doc fix separately if it matters.
-- `BubbleStream.tsx`'s `MEASURES_BETWEEN_BURSTS = 96`
-  ([`BubbleStream.tsx:42`](../src/components/actors/BubbleStream.tsx#L42)) — same numeral as #2
-  above, but nothing documents it as intentionally tied to day length. Could be coincidence; not
-  confirmed as "the same concept."
+- ~~`BubbleStream.tsx`'s `MEASURES_BETWEEN_BURSTS = 96`~~ — resolved by the bubble-timing
+  simplification (2026-09-02): bubble bursts now run on a plain wall-clock
+  `TARGET_GLOBAL_BURST_INTERVAL_SECONDS` constant (scaled by the locale's total bubble-eligible
+  building count), decoupled from `bpm`/measures entirely (also dropped the `bpm` prop from
+  `BubbleStream`/`Factory`), so the coincidental-96 question no longer applies.
 - `MAX_ROBOTS`, `BATTERY_*`, `COMPANY_*`, `INITIAL_*` constants (`ROBOT_LIFECYCLE.md`,
   `COMPANIES.md`) — checked doc vs. code, currently consistent; each doc quotes the actual
   `constants/index.ts` block directly rather than restating independently.

@@ -35,28 +35,32 @@ describe('BubbleStream', () => {
       }
     });
 
-    it('computes burst interval as MEASURES_BETWEEN_BURSTS measures in seconds at 120 BPM', () => {
-      const bpm = 120;
-      const MEASURES_BETWEEN_BURSTS = 20; // must match component constant
-      const secondsPerMeasure = (60 / bpm) * 4; // 2 s per measure at 120 BPM
-      const burstInterval = MEASURES_BETWEEN_BURSTS * secondsPerMeasure;
-      expect(burstInterval).toBe(40); // 40 s per burst
-    });
-
     it('initial delay is within [0, burstInterval)', () => {
       // Mirrors sequence: radius, burstStagger, count, initialDelay
       const seed = 42;
-      const bpm = 120;
-      const MEASURES_BETWEEN_BURSTS = 20; // must match component constant
+      const TARGET_GLOBAL_BURST_INTERVAL_SECONDS = 4; // must match component constant
+      const totalBuildings = 10;
+      const burstInterval = TARGET_GLOBAL_BURST_INTERVAL_SECONDS * totalBuildings;
       const rand = makeLcg(seed);
       rand(); // radius
       rand(); // burstStagger
       rand(); // count
-      const secondsPerMeasure = (60 / bpm) * 4;
-      const burstInterval = MEASURES_BETWEEN_BURSTS * secondsPerMeasure;
       const initialDelay = rand() * burstInterval;
       expect(initialDelay).toBeGreaterThanOrEqual(0);
       expect(initialDelay).toBeLessThan(burstInterval);
+    });
+
+    it('burst interval scales with totalBuildings so the aggregate rate stays constant', () => {
+      const TARGET_GLOBAL_BURST_INTERVAL_SECONDS = 4; // must match component constant
+      expect(TARGET_GLOBAL_BURST_INTERVAL_SECONDS * 1).toBe(4);
+      expect(TARGET_GLOBAL_BURST_INTERVAL_SECONDS * 25).toBe(100);
+      expect(TARGET_GLOBAL_BURST_INTERVAL_SECONDS * 100).toBe(400);
+    });
+
+    it('clamps totalBuildings to a minimum of 1 (never a zero/negative interval)', () => {
+      const TARGET_GLOBAL_BURST_INTERVAL_SECONDS = 4; // must match component constant
+      const burstInterval = TARGET_GLOBAL_BURST_INTERVAL_SECONDS * Math.max(1, 0);
+      expect(burstInterval).toBe(4);
     });
 
     it('depthScale halves the radius for midground (scale=0.5)', () => {

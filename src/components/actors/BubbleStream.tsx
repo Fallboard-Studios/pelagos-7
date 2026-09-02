@@ -18,8 +18,14 @@ export interface BubbleStreamProps {
   seed: number;
   /** When false the animation is paused and bubbles are hidden. */
   isActive: boolean;
-  /** Current transport BPM; used to convert measures to seconds. */
-  bpm: number;
+  /**
+   * Total number of bubble-eligible buildings in the current locale. This
+   * building's own burst interval is `TARGET_GLOBAL_BURST_INTERVAL_SECONDS *
+   * totalBuildings`, so the *aggregate* burst rate across every building
+   * stays roughly constant as buildings are added or removed — see this
+   * component's docblock.
+   */
+  totalBuildings: number;
   /**
    * Hue (0–360) of the parent building's body colour. A small fraction of
    * this is mixed into the bubble fill so each factory has subtly tinted
@@ -38,8 +44,17 @@ export interface BubbleStreamProps {
 // CONSTANTS
 // ----------------------------------------
 
-/** Measures between each bubble burst. */
-const MEASURES_BETWEEN_BURSTS = 96;
+/**
+ * Target average gap, in wall-clock seconds, between bubble bursts happening
+ * *anywhere* in the world — not per building. Purely decorative timing, so
+ * it runs on plain elapsed time with no relationship to the transport BPM.
+ * A single building's own repeat interval is this value multiplied by the
+ * total number of bubble-eligible buildings (`totalBuildings`), so adding
+ * more buildings spreads the same world-wide rate thinner instead of
+ * multiplying the total amount of bubbling — every ~4s a different building
+ * bursts, rather than every building bursting every ~4s.
+ */
+const TARGET_GLOBAL_BURST_INTERVAL_SECONDS = 4;
 
 /** Minimum pixels each bubble rises before popping. */
 const MIN_RISE_PX = 100;
@@ -78,11 +93,12 @@ function makeLcg(seed: number): () => number {
 /**
  * Renders a periodic burst of animated bubbles rising from a factory vent.
  *
- * Each burst fires every ~MEASURES_BETWEEN_BURSTS measures, releasing 5–10
- * bubbles that each rise 100–500 px before popping (some will travel off-screen).
+ * Only one building bursts at a time, roughly — see `totalBuildings` and
+ * `TARGET_GLOBAL_BURST_INTERVAL_SECONDS`. Each burst releases 5–10 bubbles
+ * that each rise 100–500 px before popping (some will travel off-screen).
  * Rise duration scales with distance so all bubbles move at a consistent speed.
- * On mount every factory gets a random initial phase offset so bursts are
- * staggered across the world.
+ * On mount every factory gets a random initial phase offset within its own
+ * interval so bursts are staggered rather than synchronized.
  */
 export const BubbleStream: React.FC<BubbleStreamProps> = ({
   actorId,
@@ -90,7 +106,7 @@ export const BubbleStream: React.FC<BubbleStreamProps> = ({
   ventY,
   seed,
   isActive,
-  bpm,
+  totalBuildings,
   bodyHue,
   depthScale = 1,
 }) => {
@@ -99,12 +115,11 @@ export const BubbleStream: React.FC<BubbleStreamProps> = ({
     const radius = (8 + rand() * 2) * depthScale;            // 8–10 px scaled by depth
     const burstStagger = 0.2 + rand() * 0.2;   // 0.20–0.40 s between bubbles (1–4 s total spread)
     const count = 5 + Math.floor(rand() * 6);  // 5–10 bubbles per burst
-    const secondsPerMeasure = (60 / bpm) * 4;
-    const burstInterval = MEASURES_BETWEEN_BURSTS * secondsPerMeasure;
+    const burstInterval = TARGET_GLOBAL_BURST_INTERVAL_SECONDS * Math.max(1, totalBuildings);
     // Scatter initial burst so factories don't all fire at the same time.
     const initialDelay = rand() * burstInterval;
     return { radius, burstStagger, count, burstInterval, initialDelay };
-  }, [seed, bpm, depthScale]);
+  }, [seed, depthScale, totalBuildings]);
 
   const circleRefs = React.useMemo(
     () => Array.from({ length: config.count }, () => React.createRef<SVGCircleElement>()),

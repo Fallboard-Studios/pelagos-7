@@ -146,6 +146,23 @@ export const VARIANT_CONF: Record<FactoryVariant, {
 // EXPORTS
 // ========================================
 
+/** Purposes whose buildings get a bubble vent (see `isBubbleEligible`). */
+const BUBBLE_PURPOSES: Set<FactoryPurpose> = new Set([
+  'heavyIndustry',
+  'chemicalProcessing',
+  'pipeWorks',
+  'storageLogistics',
+]);
+
+/**
+ * Whether a factory purpose is eligible for a bubble vent. `undefined`
+ * (config not yet populated) falls back to `'heavyIndustry'`, same as every
+ * other purpose-gated read of `Actor.config?.purpose` in `Factory.tsx`.
+ */
+export function isBubbleEligible(purpose: FactoryPurpose | undefined): boolean {
+  return BUBBLE_PURPOSES.has(purpose ?? 'heavyIndustry');
+}
+
 /**
  * Maps a noise value (0..1) to a FactoryVariant, respecting the
  * `availableTypes` allow-list. Variants are weighted by index order —
