@@ -8,6 +8,7 @@ import { useAttenuationStyleStore, selectCurrentAttenuationStyle } from '@/store
 import { stopRobotLifecycle } from '@/systems/robotSystems';
 import { initializeLocale } from '@/systems/worldTransition';
 import { Factory } from '@/components/actors/Factory';
+import { isBubbleEligible } from '@/components/actors/factoryVariants';
 import { getRowConfig } from '@/systems/factoryPlacementSystem';
 import { ActorType } from '@/types/Actor';
 
@@ -73,6 +74,15 @@ export function OceanScene({
     [actors],
   );
 
+  // Locale-wide count of bubble-eligible buildings (all rows, not just one),
+  // passed to every Factory so BubbleStream can spread the aggregate
+  // bubble-burst rate across all of them rather than have each one burst on
+  // its own fixed interval — see Factory's totalBubbleBuildings prop doc.
+  const bubbleBuildingCount = useMemo(
+    () => actors.filter((a) => a.type === ActorType.FACTORY && isBubbleEligible(a.config?.purpose)).length,
+    [actors],
+  );
+
   // Bring the active locale online on mount — guarded factory placement + the
   // fixed 12-robot roster + robot-lifecycle tick start, via the same
   // initializeLocale helper Sector Settings' retransmit action uses, so this
@@ -135,7 +145,7 @@ export function OceanScene({
         {/* Background-row factories (rendered furthest back) */}
         <g id="factory-background-layer">
           {backgroundFactories.map((actor) => (
-            <Factory key={actor.id} actor={actor} />
+            <Factory key={actor.id} actor={actor} totalBubbleBuildings={bubbleBuildingCount} />
           ))}
         </g>
         {/* Gradient between background and midground layers */}
@@ -152,7 +162,7 @@ export function OceanScene({
         <g id="factory-midground-layer">
           {/* full-type rows */}
           {midgroundFactories.map((actor) => (
-            <Factory key={actor.id} actor={actor} />
+            <Factory key={actor.id} actor={actor} totalBubbleBuildings={bubbleBuildingCount} />
           ))}
         </g>
         {/* Gradient between midground and foreground layers */}
@@ -176,7 +186,7 @@ export function OceanScene({
         {/* Foreground-row factories (rendered closest to viewer) */}
         <g id="factory-foreground-layer">
           {foregroundFactories.map((actor) => (
-            <Factory key={actor.id} actor={actor} />
+            <Factory key={actor.id} actor={actor} totalBubbleBuildings={bubbleBuildingCount} />
           ))}
         </g>
         <g id="ui-layer" />

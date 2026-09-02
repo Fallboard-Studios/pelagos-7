@@ -229,7 +229,7 @@ When factories are created at runtime, `createFactory` stashes per-instance deri
 - `cooldownRemaining` — initialised to `PRODUCTION_INTERVAL` so production scheduling and UI can read a serialisable cooldown value.
 
 Other related runtime details:
-- Bubble/vent timing: bubble bursts use `MEASURES_BETWEEN_BURSTS = 96` and per-burst parameters are seeded; see `src/components/actors/BubbleStream.tsx`.
+- Bubble/vent timing: each building's burst interval is `TARGET_GLOBAL_BURST_INTERVAL_SECONDS * totalBuildings` (currently 4s × the locale's total bubble-eligible building count, computed once in `OceanScene.tsx` and threaded through `Factory`'s `totalBubbleBuildings` prop) — plain wall-clock time, deliberately decoupled from `bpm`/measures since the effect is decorative, not musical. This spreads bursts so roughly one building bubbles every ~4s world-wide, rather than every building bursting on the same fixed interval regardless of how many buildings exist. Per-burst parameters (count, radius, stagger, wobble, rise) are seeded; see `src/components/actors/BubbleStream.tsx`.
 - `depthScale` is applied to bubble sizes/timings so vents in background rows have smaller/longer bubbles.
 
 Runtime files to reference:
