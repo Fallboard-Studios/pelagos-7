@@ -1,11 +1,18 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 
 // Real lfoEngine would construct a real Tone.LFO on first setter call
 // (getOrCreateLfo -> new Tone.LFO(...)), which throws without a real
 // AudioContext — the same class of bug fixed in Tasks 8/9. Mocked here so
 // setGlobalLfo's own Zustand-state-update logic still runs for real, but its
 // calls into lfoEngine land on mocks instead.
+// The shared GSAP mock in vitest.setup.ts returns a timeline object with no kill() method —
+// fine for AccordionContainer's own tests (which mock timelineMap directly, same as here) but
+// this file never used to exercise a same-key double-kill until useLfoTargetGroup's own
+// unmount/reselect cleanup started calling killTimeline on an already-registered entry.
+// Matches AccordionContainer.test.tsx's own convention for exactly this reason.
+vi.mock('@/animation/timelineMap', () => ({ setTimeline: vi.fn(), killTimeline: vi.fn() }));
+
 vi.mock('../../../../engine/lfoEngine', () => ({
   lfoEngine: {
     getLfoSettings: vi.fn(),
@@ -164,36 +171,34 @@ describe('AudioRigDrawer', () => {
     expect((screen.getByRole('switch', { name: 'Compressor Enabled' }) as HTMLButtonElement).disabled).toBe(false);
   });
 
-  describe('nested LFO accordions (Task 11)', () => {
-    it('renders exactly 7 nested LFO accordions — one per GlobalLfoTargetId', () => {
+  describe('shared LFO display (LFO_CONSOLIDATED_DISPLAY — replaces the old nested per-slider accordion)', () => {
+    it('renders exactly one shared LFO display per LFO-bearing block — 3 total (eq3, filterLPF, filterHPF), never one per param', () => {
       render(<AudioRigDrawer />);
-      expect(screen.getAllByText('Modulation')).toHaveLength(7);
+      // Each shared display renders exactly one Active toggle, so a plain count also proves
+      // "not one per param" — 7 GlobalLfoTargetId params would otherwise render 7.
+      expect(screen.getAllByRole('switch', { name: 'Active' })).toHaveLength(3);
     });
 
-    it('renders no LFO accordion for the 12 non-flagged params (e.g. compressor.threshold)', () => {
+    it('renders no shared LFO display for delay, reverb, compressor, or limiter — none of their params carry lfoTarget', () => {
       render(<AudioRigDrawer />);
-      // Threshold's own row shouldn't contain a nested "Modulation" trigger —
-      // scope by walking up from the Threshold slider to its param row.
-      const thresholdSlider = screen.getAllByRole('slider', { name: 'Threshold' })[0];
-      const paramRow = thresholdSlider.closest('.audio-rig-drawer__param-row');
-      expect(paramRow?.textContent).not.toContain('Modulation');
+      const thresholdSlider = screen.getAllByRole('slider', { name: 'Threshold' })[0]; // Compressor's
+      const accordionContent = thresholdSlider.closest('.sc-accordion__content-inner');
+      expect(accordionContent?.querySelector('.sc-lfo')).toBeNull();
     });
 
-    it('renders no LFO accordion for Limiter\'s threshold either — Limiter never gets one', () => {
+    it('renders no accordion nested inside eq3/filterLPF/filterHPF\'s own accordion — the shared display is plain content', () => {
       render(<AudioRigDrawer />);
-      const limiterThresholdSlider = screen.getAllByRole('slider', { name: 'Threshold' })[1];
-      const paramRow = limiterThresholdSlider.closest('.audio-rig-drawer__param-row');
-      expect(paramRow?.textContent).not.toContain('Modulation');
+      const eqAccordionContent = screen.getByRole('slider', { name: 'Low' }).closest('.sc-accordion__content-inner')!;
+      expect(eqAccordionContent.querySelectorAll('.sc-accordion')).toHaveLength(0);
     });
 
-    it('renders no LFO accordion for Delay\'s Time either — LFO removed from delay.delayTime', () => {
+    it('shows the targeted param\'s own name as the shared display\'s label, defaulting to the group\'s first param', () => {
       render(<AudioRigDrawer />);
-      const delayTimeSlider = screen.getByRole('slider', { name: 'Time' });
-      const paramRow = delayTimeSlider.closest('.audio-rig-drawer__param-row');
-      expect(paramRow?.textContent).not.toContain('Modulation');
+      const eqAccordionContent = screen.getByRole('slider', { name: 'Low' }).closest('.sc-accordion__content-inner')!;
+      expect(eqAccordionContent.querySelector('.sc-lfo')?.textContent).toContain('Low');
     });
 
-    it('binds the first LFO accordion (eq3.low) to its own globalLfo entry, not DEFAULT_LFO_SETTINGS', () => {
+    it('binds the default target (eq3.low) to its own globalLfo entry, not DEFAULT_LFO_SETTINGS', () => {
       useAudioStore.setState((s) => ({
         globalLfo: { ...s.globalLfo, 'eq3.low': { shape: 'square', rate: 5, depth: 60, active: true } },
       }));
@@ -208,9 +213,13 @@ describe('AudioRigDrawer', () => {
       expect(activeToggle.getAttribute('aria-checked')).toBe('true');
     });
 
-    it('changing the active toggle on an LFO accordion calls setGlobalLfo with the updated value', () => {
+    it('changing the shared display\'s active toggle calls setGlobalLfo for the currently-targeted field (eq3.low by default)', () => {
+      // The toggle is only interactive while its block is enabled — eq3 defaults disabled.
+      useAudioStore.setState((s) => ({
+        globalAudio: { ...s.globalAudio, eq3: { ...s.globalAudio.eq3, enabled: true } },
+      }));
       render(<AudioRigDrawer />);
-      const activeToggle = screen.getAllByRole('switch', { name: 'Active' })[0]; // eq3.low, per AUDIO_RIG_CONFIG's row order
+      const activeToggle = screen.getAllByRole('switch', { name: 'Active' })[0]; // eq3's shared display, defaulting to eq3.low
       expect(useAudioStore.getState().globalLfo['eq3.low'].active).toBe(false);
 
       fireEvent.click(activeToggle);
@@ -218,11 +227,21 @@ describe('AudioRigDrawer', () => {
       expect(useAudioStore.getState().globalLfo['eq3.low'].active).toBe(true);
     });
 
-    it('the nested LFO control stays interactive even when its parent effect is bypassed off', () => {
-      // eq3 defaults enabled: false (DEFAULT_GLOBAL_AUDIO_SETTINGS) — its own
-      // params are disabled, but the nested Lfo control must not be.
+    it('the shared LFO display is disabled when its parent effect is bypassed off, like every other param in that block', () => {
+      // eq3 defaults enabled: false (DEFAULT_GLOBAL_AUDIO_SETTINGS) — unlike the old nested
+      // accordion (which ignored the parent's own disabled state), the shared display now
+      // respects it, matching SignatureArrayDrawer/AudioSettingSection's existing Lfo wiring.
       render(<AudioRigDrawer />);
       const activeToggle = screen.getAllByRole('switch', { name: 'Active' })[0]; // eq3.low
+      expect((activeToggle as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    it('the shared LFO display is enabled once its parent effect is enabled', () => {
+      useAudioStore.setState((s) => ({
+        globalAudio: { ...s.globalAudio, eq3: { ...s.globalAudio.eq3, enabled: true } },
+      }));
+      render(<AudioRigDrawer />);
+      const activeToggle = screen.getAllByRole('switch', { name: 'Active' })[0];
       expect((activeToggle as HTMLButtonElement).disabled).toBe(false);
     });
 
@@ -237,41 +256,52 @@ describe('AudioRigDrawer', () => {
       expect(light?.getAttribute('data-content-active')).toBe('true');
     });
 
-    it("the LFO accordion's status light reflects that target's Active toggle", () => {
-      useAudioStore.setState((s) => ({
-        globalLfo: { ...s.globalLfo, 'eq3.low': { shape: 'square', rate: 5, depth: 60, active: true } },
-      }));
-      render(<AudioRigDrawer />);
-      const rateSlider = screen.getAllByRole('slider', { name: 'Rate' })[0]; // eq3.low
-      const light = rateSlider.closest('.sc-accordion')?.querySelector('.sc-accordion__light');
-      expect(light?.getAttribute('data-content-active')).toBe('true');
-    });
-
-    it('loads the nested LFO accordion already open when that target is seeded active', () => {
-      useAudioStore.setState((s) => ({
-        globalLfo: { ...s.globalLfo, 'eq3.low': { shape: 'square', rate: 5, depth: 60, active: true } },
-      }));
-      render(<AudioRigDrawer />);
-
-      const rateSlider = screen.getAllByRole('slider', { name: 'Rate' })[0]; // eq3.low
-      const trigger = rateSlider.closest('.sc-accordion')?.querySelector('.sc-accordion__trigger');
-      expect(trigger?.getAttribute('aria-expanded')).toBe('true');
-    });
-
-    it('leaves the nested LFO accordion closed by default when that target is not active', () => {
-      render(<AudioRigDrawer />); // resetAudioStore seeds every target active: false
-      const rateSlider = screen.getAllByRole('slider', { name: 'Rate' })[0];
-      const trigger = rateSlider.closest('.sc-accordion')?.querySelector('.sc-accordion__trigger');
-      expect(trigger?.getAttribute('aria-expanded')).toBe('false');
-    });
-
-    it('does not auto-open the parent effect accordion just because a nested LFO inside it is active', () => {
+    it('does not auto-open the parent effect accordion just because its LFO-tied target is active', () => {
       useAudioStore.setState((s) => ({
         globalLfo: { ...s.globalLfo, 'eq3.low': { shape: 'square', rate: 5, depth: 60, active: true } },
       }));
       render(<AudioRigDrawer />);
       const eqTrigger = screen.getByRole('button', { name: /3-Band EQ/i });
       expect(eqTrigger.getAttribute('aria-expanded')).toBe('false');
+    });
+
+    it('clicking a different band\'s row (click-around, not just the slider) marks that row targeted, once the transition completes', async () => {
+      render(<AudioRigDrawer />);
+      const midSlider = screen.getByRole('slider', { name: 'Mid' });
+      const midRow = midSlider.closest('.sc-lfo-target-group__row')!;
+      const lowRow = screen.getByRole('slider', { name: 'Low' }).closest('.sc-lfo-target-group__row')!;
+      expect(lowRow.classList.contains('isActive')).toBe(true);
+
+      fireEvent.click(midRow);
+
+      await waitFor(() => {
+        expect(midRow.classList.contains('isActive')).toBe(true);
+      });
+      expect(lowRow.classList.contains('isActive')).toBe(false);
+    });
+
+    it('keyboard-focusing a different band\'s slider switches which globalLfo entry the shared display edits, once the transition completes', async () => {
+      // Sliders are only focusable while their block is enabled — eq3 defaults disabled.
+      useAudioStore.setState((s) => ({
+        globalAudio: { ...s.globalAudio, eq3: { ...s.globalAudio.eq3, enabled: true } },
+      }));
+      render(<AudioRigDrawer />);
+      const highSlider = screen.getByRole('slider', { name: 'High' });
+      // Wrapped in an async act() so the transition's microtask-resolved onComplete (see
+      // useLfoTargetGroup.ts's select()) is flushed before any assertion runs.
+      await act(async () => {
+        highSlider.focus();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByRole('slider', { name: 'High' }).closest('.sc-lfo-target-group__row')?.classList.contains('isActive')).toBe(true);
+      });
+
+      const activeToggle = screen.getAllByRole('switch', { name: 'Active' })[0];
+      fireEvent.click(activeToggle);
+
+      expect(useAudioStore.getState().globalLfo['eq3.high'].active).toBe(true);
+      expect(useAudioStore.getState().globalLfo['eq3.low'].active).toBe(false);
     });
   });
 
@@ -351,15 +381,26 @@ describe('AudioRigDrawer', () => {
     });
   });
 
-  describe('Drift accordions (Task 9 — one per DriftGroupId)', () => {
-    it('renders 4 Drift accordions, one per group, each with its own Rate Drift and Depth Drift sliders', () => {
+  describe('Drift (LFO_CONSOLIDATED_DISPLAY — eq3/filterLPF/filterHPF\'s own drift moved inside their own accordion)', () => {
+    it('renders exactly one standalone Drift accordion — Robot Drift — the only group not scoped to one effect block', () => {
       render(<AudioRigDrawer />);
-      expect(screen.getByText('EQ Drift')).toBeTruthy();
-      expect(screen.getByText('Low-Pass Drift')).toBeTruthy();
-      expect(screen.getByText('High-Pass Drift')).toBeTruthy();
       expect(screen.getByText('Robot Drift')).toBeTruthy();
+      expect(screen.queryByText('EQ Drift')).toBeNull();
+      expect(screen.queryByText('Low-Pass Drift')).toBeNull();
+      expect(screen.queryByText('High-Pass Drift')).toBeNull();
+    });
+
+    it('still renders all 4 Rate Drift / Depth Drift slider pairs — eq3/filterLPF/filterHPF\'s own plus robots\'', () => {
+      render(<AudioRigDrawer />);
       expect(screen.getAllByRole('slider', { name: 'Rate Drift' })).toHaveLength(4);
       expect(screen.getAllByRole('slider', { name: 'Depth Drift' })).toHaveLength(4);
+    });
+
+    it("eq3's own Rate/Depth Drift sliders render inside eq3's own accordion, directly beneath its shared LFO display — not a separate titled block", () => {
+      render(<AudioRigDrawer />);
+      const eqAccordionContent = screen.getByRole('slider', { name: 'Low' }).closest('.sc-accordion__content-inner')!;
+      expect(eqAccordionContent.textContent).toContain('Rate Drift');
+      expect(eqAccordionContent.textContent).toContain('Depth Drift');
     });
 
     it('shows each group\'s own current lfoDrift values as a -100..100 percent, not the internal -1..1 fraction', () => {
