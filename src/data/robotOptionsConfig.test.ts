@@ -172,7 +172,6 @@ describe('robotOptionsConfig', () => {
           .forEach((p) => {
             expect(ROBOT_LFO_TARGET_IDS).toContain(p.lfoTarget);
             expect(p.lfoTarget!.startsWith(expectedPrefixes[i])).toBe(true);
-            expect(p.lfoAccordion).toBeDefined();
           });
       });
     });

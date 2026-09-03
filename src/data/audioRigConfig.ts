@@ -7,10 +7,13 @@
  * (`${key}.${field}`) match GlobalAudioSettings' own field names
  * (src/types/globalAudio.ts); the 7 params the grid flags `LFO?: X`
  * additionally carry a `lfoTarget` in GlobalLfoTargetId's short form
- * (src/types/lfo.ts) and their own nested `lfoAccordion` schema. Neither
- * Limiter nor Delay's delayTime carries one — Limiter was never a
- * GlobalLfoTargetId member (no LFO on the Limiter, by design); delayTime's
- * was removed after shipping (LFO judged unwanted on Delay's own time param).
+ * (src/types/lfo.ts). Neither Limiter nor Delay's delayTime carries one —
+ * Limiter was never a GlobalLfoTargetId member (no LFO on the Limiter, by
+ * design); delayTime's was removed after shipping (LFO judged unwanted on
+ * Delay's own time param). Per docs/specs/LFO_CONSOLIDATED_DISPLAY.md,
+ * AudioRigDrawer renders one shared LfoTargetGroup display per LFO-bearing
+ * block instead of a nested accordion per param — this file no longer
+ * carries a per-param accordion schema of its own.
  */
 import type { ControlSchema, ToggleSchema, AccordionSchema, RadioButtonSchema, SliderCenteredZeroSchema, SliderLinearSchema } from '@/types/controls';
 import type { GlobalLfoTargetId, DriftGroupId } from '@/types/lfo';
@@ -28,8 +31,6 @@ export interface AudioRigParamSchema {
   schema: ControlSchema;
   /** Present only for the 7 rows GLOBAL_CHAIN_GRID.md flags LFO?: X. Short form, matching GlobalLfoTargetId directly. */
   lfoTarget?: GlobalLfoTargetId;
-  /** The nested accordion wrapping this param's Lfo control — present iff lfoTarget is. */
-  lfoAccordion?: AccordionSchema;
 }
 
 export interface AudioRigEffectBlock {
@@ -55,10 +56,6 @@ function enabledSchema(key: AudioRigEffectKey, effectHumanName: string): ToggleS
   return { id: `audioRig.${key}.enabled`, type: 'toggle', humanLabel: `${effectHumanName} Enabled` };
 }
 
-function lfoAccordionSchema(key: AudioRigEffectKey, field: string): AccordionSchema {
-  return { id: `audioRig.${key}.${field}.lfo`, type: 'accordion', humanLabel: 'Modulation' };
-}
-
 // ========================================
 // CONFIG
 // ========================================
@@ -73,19 +70,16 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
         field: 'low',
         schema: { id: 'eq3.low', type: 'sliderCenteredZero', loreLabel: 'SUB-BAND DENSITY', humanLabel: 'Low', min: -12, max: 12, unit: 'dB' },
         lfoTarget: 'eq3.low',
-        lfoAccordion: lfoAccordionSchema('eq3', 'low'),
       },
       {
         field: 'mid',
         schema: { id: 'eq3.mid', type: 'sliderCenteredZero', loreLabel: 'MEDIAL-BAND DENSITY', humanLabel: 'Mid', min: -12, max: 12, unit: 'dB' },
         lfoTarget: 'eq3.mid',
-        lfoAccordion: lfoAccordionSchema('eq3', 'mid'),
       },
       {
         field: 'high',
         schema: { id: 'eq3.high', type: 'sliderCenteredZero', loreLabel: 'APICAL-BAND DENSITY', humanLabel: 'High', min: -12, max: 12, unit: 'dB' },
         lfoTarget: 'eq3.high',
-        lfoAccordion: lfoAccordionSchema('eq3', 'high'),
       },
     ],
   },
@@ -98,13 +92,11 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
         field: 'frequency',
         schema: { id: 'filterLPF.frequency', type: 'sliderLog', loreLabel: 'CUTOFF FREQUENCY', humanLabel: 'Frequency', min: 20, max: 20000, unit: 'Hz' },
         lfoTarget: 'lpf.frequency',
-        lfoAccordion: lfoAccordionSchema('filterLPF', 'frequency'),
       },
       {
         field: 'Q',
         schema: { id: 'filterLPF.Q', type: 'sliderLog', loreLabel: 'BOUNDARY RESONANCE', humanLabel: 'Resonance', min: 0.1, max: 20 },
         lfoTarget: 'lpf.Q',
-        lfoAccordion: lfoAccordionSchema('filterLPF', 'Q'),
       },
     ],
   },
@@ -117,13 +109,11 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
         field: 'frequency',
         schema: { id: 'filterHPF.frequency', type: 'sliderLog', loreLabel: 'CUTOFF FREQUENCY', humanLabel: 'Frequency', min: 20, max: 20000, unit: 'Hz' },
         lfoTarget: 'hpf.frequency',
-        lfoAccordion: lfoAccordionSchema('filterHPF', 'frequency'),
       },
       {
         field: 'Q',
         schema: { id: 'filterHPF.Q', type: 'sliderLog', loreLabel: 'BOUNDARY RESONANCE', humanLabel: 'Resonance', min: 0.1, max: 20 },
         lfoTarget: 'hpf.Q',
-        lfoAccordion: lfoAccordionSchema('filterHPF', 'Q'),
       },
     ],
   },

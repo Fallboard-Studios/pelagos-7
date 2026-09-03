@@ -1,6 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
+// Same reasoning as AudioRigDrawer/SignatureArrayDrawer's own test files: the shared
+// vitest.setup.ts GSAP mock's timeline object has no kill() method, and useLfoTargetGroup's
+// unmount cleanup calls killTimeline on an already-registered entry.
+vi.mock('@/animation/timelineMap', () => ({ setTimeline: vi.fn(), killTimeline: vi.fn() }));
+
 import { AudioSettingSection } from './AudioSettingSection';
 import type { LfoValue } from '@/types/controls';
 import type { Robot } from '@/types/Robot';
@@ -68,20 +73,38 @@ describe('AudioSettingSection', () => {
     expect(onVolumeChange).toHaveBeenCalledWith(43); // one 1% step up from 42%
   });
 
-  it("Volume's Lfo accordion reflects volumeLfo and calls onVolumeLfoChange on activation", () => {
-    const onVolumeLfoChange = vi.fn();
-    render(
-      <AudioSettingSection
-        value={makeValue({ volumeLfo: { shape: 'sine', rate: 1, depth: 20, active: false } })}
-        onAudioModeChange={() => {}}
-        onVolumeChange={() => {}}
-        onVolumeLfoChange={onVolumeLfoChange}
-      />
-    );
+  describe('shared LFO display (LFO_CONSOLIDATED_DISPLAY — replaces the old nested "Modulation" accordion)', () => {
+    it('renders Volume as a bare slider followed by its shared LFO display, no AccordionContainer wrapping it', () => {
+      const { container } = render(
+        <AudioSettingSection value={makeValue()} onAudioModeChange={() => {}} onVolumeChange={() => {}} onVolumeLfoChange={() => {}} />
+      );
+      expect(container.querySelectorAll('.sc-accordion')).toHaveLength(0);
+      expect(screen.getByRole('switch', { name: /active/i })).toBeTruthy();
+    });
 
-    fireEvent.click(screen.getByRole('switch', { name: /active/i }));
+    it("the shared display's own label reads 'Volume' — from VOLUME_SCHEMA.humanLabel, no new copy", () => {
+      const { container } = render(
+        <AudioSettingSection value={makeValue()} onAudioModeChange={() => {}} onVolumeChange={() => {}} onVolumeLfoChange={() => {}} />
+      );
+      const display = container.querySelector('.sc-lfo-target-group__display')!;
+      expect(display.textContent).toContain('Volume');
+    });
 
-    expect(onVolumeLfoChange).toHaveBeenCalledWith({ shape: 'sine', rate: 1, depth: 20, active: true });
+    it('reflects volumeLfo and calls onVolumeLfoChange on activation', () => {
+      const onVolumeLfoChange = vi.fn();
+      render(
+        <AudioSettingSection
+          value={makeValue({ volumeLfo: { shape: 'sine', rate: 1, depth: 20, active: false } })}
+          onAudioModeChange={() => {}}
+          onVolumeChange={() => {}}
+          onVolumeLfoChange={onVolumeLfoChange}
+        />
+      );
+
+      fireEvent.click(screen.getByRole('switch', { name: /active/i }));
+
+      expect(onVolumeLfoChange).toHaveBeenCalledWith({ shape: 'sine', rate: 1, depth: 20, active: true });
+    });
   });
 
   it('is not disabled by default', () => {
@@ -96,7 +119,7 @@ describe('AudioSettingSection', () => {
     expect(screen.getByRole('radio', { name: 'Solo' }).getAttribute('data-disabled')).toBeNull();
   });
 
-  it('disables Audio Setting, Volume, and the Volume LFO accordion\'s controls when disabled is true', () => {
+  it('disables Audio Setting, Volume, and the shared Volume LFO display\'s controls when disabled is true', () => {
     render(
       <AudioSettingSection
         value={makeValue()}
@@ -108,6 +131,7 @@ describe('AudioSettingSection', () => {
     );
     expect(screen.getByRole('radio', { name: 'Solo' }).getAttribute('data-disabled')).toBe('');
     expect(screen.getByRole('slider', { name: /volume/i }).getAttribute('data-disabled')).toBe('');
+    expect((screen.getByRole('switch', { name: /active/i }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('does not call onAudioModeChange or onVolumeChange when disabled', () => {

@@ -165,7 +165,6 @@ describe('AUDIO_RIG_CONFIG', () => {
       const param = findParam('delay', 'delayTime');
       expect(param.schema).toMatchObject({ type: 'sliderLinear', loreLabel: 'PROPAGATION LAG', min: 0, max: 1, unit: 's' });
       expect(param.lfoTarget).toBeUndefined();
-      expect(param.lfoAccordion).toBeUndefined();
     });
 
     it('feedback is a linear slider, 0 to 0.95, not LFO-flagged', () => {
@@ -222,7 +221,6 @@ describe('AUDIO_RIG_CONFIG', () => {
       const param = findParam('limiter', 'threshold');
       expect(param.schema).toMatchObject({ type: 'sliderLinear', loreLabel: 'OUTPUT CEILING', min: -20, max: 0, unit: 'dB' });
       expect(param.lfoTarget).toBeUndefined();
-      expect(param.lfoAccordion).toBeUndefined();
     });
   });
 
@@ -233,19 +231,6 @@ describe('AUDIO_RIG_CONFIG', () => {
   it('flags exactly the 7 GlobalLfoTargetId params — no more, no fewer', () => {
     const lfoTargets = AUDIO_RIG_CONFIG.flatMap((b) => b.params.map((p) => p.lfoTarget).filter(Boolean));
     expect([...lfoTargets].sort()).toEqual([...GLOBAL_LFO_TARGET_IDS].sort());
-  });
-
-  it('every LFO-flagged param carries its own lfoAccordion schema; every other param carries none', () => {
-    for (const block of AUDIO_RIG_CONFIG) {
-      for (const param of block.params) {
-        if (param.lfoTarget) {
-          expect(param.lfoAccordion).toMatchObject({ type: 'accordion' });
-          expect(param.lfoAccordion?.id).not.toBe(block.accordion.id);
-        } else {
-          expect(param.lfoAccordion).toBeUndefined();
-        }
-      }
-    }
   });
 
   it('remains JSON-serializable', () => {
@@ -304,7 +289,7 @@ describe('LFO_DRIFT_GROUPS', () => {
     const allConfigSchemaIds = AUDIO_RIG_CONFIG.flatMap((b) => [
       b.accordion.id,
       b.enabledSchema.id,
-      ...b.params.flatMap((p) => [p.schema.id, p.lfoAccordion?.id].filter((id): id is string => Boolean(id))),
+      ...b.params.map((p) => p.schema.id),
     ]);
     const driftSchemaIds = LFO_DRIFT_GROUPS.flatMap((g) => [g.accordion.id, g.rateSchema.id, g.depthSchema.id]);
     for (const id of driftSchemaIds) {
@@ -342,7 +327,7 @@ describe('PING_VARIANCE_AUTOMATION_SCHEMA', () => {
     const allConfigSchemaIds = AUDIO_RIG_CONFIG.flatMap((b) => [
       b.accordion.id,
       b.enabledSchema.id,
-      ...b.params.flatMap((p) => [p.schema.id, p.lfoAccordion?.id].filter((id): id is string => Boolean(id))),
+      ...b.params.map((p) => p.schema.id),
     ]);
     expect(allConfigSchemaIds).not.toContain(PING_VARIANCE_AUTOMATION_SCHEMA.id);
   });
@@ -378,7 +363,7 @@ describe('BPM_SCHEMA (docs/specs/BPM_CONTROL.md §1.4-§1.5)', () => {
     const allConfigSchemaIds = AUDIO_RIG_CONFIG.flatMap((b) => [
       b.accordion.id,
       b.enabledSchema.id,
-      ...b.params.flatMap((p) => [p.schema.id, p.lfoAccordion?.id].filter((id): id is string => Boolean(id))),
+      ...b.params.map((p) => p.schema.id),
     ]);
     expect(allConfigSchemaIds).not.toContain(BPM_SCHEMA.id);
   });

@@ -1,8 +1,7 @@
 import { RadioButton } from '@/components/ui/controls/RadioButton';
 import { SliderLinear } from '@/components/ui/controls/SliderLinear';
-import { AccordionContainer } from '@/components/ui/controls/AccordionContainer';
-import { Lfo } from '@/components/ui/controls/Lfo';
-import { AUDIO_SETTING_SCHEMA, VOLUME_SCHEMA, VOLUME_LFO_ACCORDION_SCHEMA } from '@/data/robotOptionsConfig';
+import { LfoTargetGroup } from '@/components/ui/controls/LfoTargetGroup';
+import { AUDIO_SETTING_SCHEMA, VOLUME_SCHEMA } from '@/data/robotOptionsConfig';
 import type { Robot } from '@/types/Robot';
 import type { LfoValue } from '@/types/controls';
 
@@ -26,11 +25,16 @@ interface AudioSettingSectionProps {
 }
 
 /**
- * Robot Options' editable Audio Setting + Volume (+ its LFO frame) block — extracted out of
+ * Robot Options' editable Audio Setting + Volume (+ its LFO display) block — extracted out of
  * RobotDisplaySection (Roadmap Phase 10) into its own presentational component so both the
  * single-robot screen and the company-broadcast panel can render the exact same controls, bound
  * to different value/onChange sources. No `robot` prop, no store access — a pure value/onChange
  * component, same contract every other refactored Robot Options section now uses.
+ *
+ * Volume renders through a shared LfoTargetGroup (docs/specs/LFO_CONSOLIDATED_DISPLAY.md) with
+ * a single field — the same bare-slider-plus-shared-display shape every other LFO-tied group
+ * uses, replacing the old nested "Modulation" accordion, even though there's nothing else to
+ * target yet. Keeps this section's shape consistent should more sliders join it later.
  */
 export function AudioSettingSection({ value, onAudioModeChange, onVolumeChange, onVolumeLfoChange, disabled }: AudioSettingSectionProps) {
   return (
@@ -45,24 +49,15 @@ export function AudioSettingSection({ value, onAudioModeChange, onVolumeChange, 
       </div>
 
       <div className="audio-setting-section__row">
-        <SliderLinear
-          schema={VOLUME_SCHEMA}
-          value={value.masterVolume * 100}
-          onChange={onVolumeChange}
+        <LfoTargetGroup
+          groupId="robotOptions.volume"
+          fields={[{ field: 'volume', label: VOLUME_SCHEMA.humanLabel!, lfoValue: value.volumeLfo }]}
+          onLfoChange={(_field, v) => onVolumeLfoChange(v)}
           disabled={disabled}
+          renderField={() => (
+            <SliderLinear schema={VOLUME_SCHEMA} value={value.masterVolume * 100} onChange={onVolumeChange} disabled={disabled} />
+          )}
         />
-        <AccordionContainer
-          schema={VOLUME_LFO_ACCORDION_SCHEMA}
-          defaultOpen={value.volumeLfo.active}
-          contentActive={value.volumeLfo.active}
-        >
-          <Lfo
-            schema={{ id: `${VOLUME_LFO_ACCORDION_SCHEMA.id}.control`, type: 'lfo' }}
-            value={value.volumeLfo}
-            onChange={onVolumeLfoChange}
-            disabled={disabled}
-          />
-        </AccordionContainer>
       </div>
     </div>
   );
