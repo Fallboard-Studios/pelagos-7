@@ -23,6 +23,11 @@ import type { ToggleSchema, LfoValue } from '@/types/controls';
 import type { GlobalAudioSettings } from '@/types/globalAudio';
 import type { GlobalLfoTargetId } from '@/types/lfo';
 import './AudioRigDrawer.css';
+// AudioRigLfoGroup below reuses LfoTargetGroup's own sc-lfo-target-group__row/__display
+// classes (styled in LfoTargetGroup.css) instead of LfoTargetGroup itself (see the Rules-of-
+// Hooks note on AudioRigLfoGroup) — importing the stylesheet directly here, rather than relying
+// on SignatureArrayDrawer/AudioSettingSection to have pulled it in elsewhere in the bundle.
+import '@/components/ui/controls/LfoTargetGroup.css';
 
 const GLOBAL_BYPASS_SCHEMA: ToggleSchema = { id: 'audioRig.globalBypass', type: 'toggle', humanLabel: 'Bypass (this may be loud or distorted)' };
 
