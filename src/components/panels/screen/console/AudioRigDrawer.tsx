@@ -200,10 +200,7 @@ export function AudioRigDrawer() {
         const groupSettings = globalAudio.lfoDrift[driftGroup.group];
         return (
           <div className="audio-rig-drawer__effect-block" key={driftGroup.group}>
-            <AccordionContainer
-              schema={driftGroup.accordion}
-              contentActive={groupSettings.rateDrift !== 0 || groupSettings.depthDrift !== 0}
-            >
+            <AccordionContainer schema={driftGroup.accordion}>
               <div className="audio-rig-drawer__param-row">
                 <SliderCenteredZero
                   schema={driftGroup.rateSchema}

@@ -183,11 +183,10 @@ describe('AudioRigDrawer', () => {
       expect(rateSlider.getAttribute('data-disabled')).toBeNull();
     });
 
-    it("the effect accordion's status light is unlit — no Enabled toggle left to drive it", () => {
+    it('renders no status light on the effect accordion — the feature was removed entirely', () => {
       render(<AudioRigDrawer />);
       const eqTrigger = screen.getByRole('button', { name: /3-Band EQ/i });
-      const light = eqTrigger.querySelector('.sc-accordion__light');
-      expect(light?.getAttribute('data-content-active')).toBeNull();
+      expect(eqTrigger.querySelector('.sc-accordion__light')).toBeNull();
     });
 
     it('does not auto-open the parent effect accordion just because its LFO-tied target is active', () => {
