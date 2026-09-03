@@ -73,13 +73,11 @@ export const VOLUME_SCHEMA: SliderLinearSchema = {
 };
 
 /** LFO-modulatable per src/types/lfo.ts's RobotLfoTargetId — editable, per /interview-me
- *  correcting the roadmap's earlier "read-only" framing. */
+ *  correcting the roadmap's earlier "read-only" framing. Rendered through a shared
+ *  LfoTargetGroup (docs/specs/LFO_CONSOLIDATED_DISPLAY.md), not its own nested accordion —
+ *  VOLUME_LFO_ACCORDION_SCHEMA is gone; AudioSettingSection builds the group's field label
+ *  from VOLUME_SCHEMA.humanLabel instead. */
 export const VOLUME_LFO_TARGET: RobotLfoTargetId = 'volume';
-export const VOLUME_LFO_ACCORDION_SCHEMA: AccordionSchema = {
-  id: 'robotOptions.volume.lfo',
-  type: 'accordion',
-  humanLabel: 'Modulation',
-};
 
 // ========================================
 // PING CONTROLS
