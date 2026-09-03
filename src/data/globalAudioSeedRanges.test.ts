@@ -14,9 +14,11 @@ import { DEFAULT_GLOBAL_AUDIO_SETTINGS } from '@/types/globalAudio';
 // HPF, Delay, Reverb, Limiter — Chorus removed, Limiter added), plus the 4
 // independent lfoDrift group pairs (docs/specs/LFO_DRIFT_GROUPS.md — 2 keys
 // per group, one group per DriftGroupId, replacing the single flat pair
-// docs/specs/LFO_DRIFT.md originally shipped). `enabled`, `type`,
-// `globalBypass`, and `compressorBeforeDelay` are excluded — not seeded as
-// continuous ranges (see docs/specs/AUDIO_RIG_V2.md §3).
+// docs/specs/LFO_DRIFT.md originally shipped). `type` and
+// `compressorBeforeDelay` are excluded — not seeded as continuous ranges
+// (see docs/specs/AUDIO_RIG_V2.md §3). The old `enabled`/`globalBypass`
+// booleans are gone entirely (off states are expressed via the params
+// themselves), so there's nothing left to exclude for them.
 const EXPECTED_KEYS = [
   'compressor.threshold', 'compressor.ratio', 'compressor.attack', 'compressor.release', 'compressor.knee',
   'eq3.low', 'eq3.mid', 'eq3.high',

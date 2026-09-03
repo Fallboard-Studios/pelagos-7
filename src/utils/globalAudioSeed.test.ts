@@ -141,50 +141,37 @@ describe('generateGlobalAudioSettings', () => {
     }
   });
 
-  it('does not seed globalBypass — it comes from DEFAULT_GLOBAL_AUDIO_SETTINGS unchanged', () => {
-    const a = generateGlobalAudioSettings('seed-test-planet', 'Nova');
-    const b = generateGlobalAudioSettings('seed-test-planet-b', 'Zenith');
-    expect(a.globalBypass).toBe(b.globalBypass);
+  it('no longer carries an enabled field on any effect, or a globalBypass flag — removed, off states are expressed via the params themselves', () => {
+    const settings = generateGlobalAudioSettings('seed-test-planet', 'Nova');
+    expect('globalBypass' in settings).toBe(false);
+    expect('enabled' in settings.compressor).toBe(false);
+    expect('enabled' in settings.eq3).toBe(false);
+    expect('enabled' in settings.filterLPF).toBe(false);
+    expect('enabled' in settings.filterHPF).toBe(false);
+    expect('enabled' in settings.reverb).toBe(false);
+    expect('enabled' in settings.limiter).toBe(false);
+    expect('enabled' in settings.delay).toBe(false);
   });
 
-  it('seeds enabled: true unconditionally for every effect except delay', () => {
-    // Two differently-seeded Attenuation Styles should agree on every non-delay effect's
-    // `enabled` (always true) even though their numeric fields differ.
-    const a = generateGlobalAudioSettings('seed-test-planet', 'Nova');
-    const b = generateGlobalAudioSettings('seed-test-planet-b', 'Zenith');
-    expect(a.compressor.enabled).toBe(true);
-    expect(a.eq3.enabled).toBe(true);
-    expect(a.filterLPF.enabled).toBe(true);
-    expect(a.filterHPF.enabled).toBe(true);
-    expect(a.reverb.enabled).toBe(true);
-    expect(a.limiter.enabled).toBe(true);
-    expect(b.compressor.enabled).toBe(true);
-    expect(b.eq3.enabled).toBe(true);
-    expect(b.filterLPF.enabled).toBe(true);
-    expect(b.filterHPF.enabled).toBe(true);
-    expect(b.reverb.enabled).toBe(true);
-    expect(b.limiter.enabled).toBe(true);
-  });
-
-  it('seeds delay.enabled true for roughly 1-in-4 Attenuation Styles, not roughly all or none (>= 0.75 threshold)', () => {
+  it('seeds delay.wet quiet (0) for roughly 1-in-4 Attenuation Styles, not roughly all or none (< 0.25 threshold) — replaces the old separate enabled:false roll', () => {
     const SAMPLE_ATTENUATION_STYLES = 40;
-    let enabledCount = 0;
+    let quietCount = 0;
     for (let i = 0; i < SAMPLE_ATTENUATION_STYLES; i++) {
       const settings = generateGlobalAudioSettings(`seed-delay-sample-${i}`, `DelaySample${i}`);
-      if (settings.delay.enabled) enabledCount++;
+      if (settings.delay.wet === 0) quietCount++;
       evictAttenuationStyleNoiseMap(`seed-delay-sample-${i}`);
     }
-    const enabledRate = enabledCount / SAMPLE_ATTENUATION_STYLES;
+    const quietRate = quietCount / SAMPLE_ATTENUATION_STYLES;
     // ~25% expected; a wide tolerance band avoids flakiness while still
-    // clearly distinguishing this from "always true" or "always false".
-    expect(enabledRate).toBeGreaterThan(0.05);
-    expect(enabledRate).toBeLessThan(0.5);
+    // clearly distinguishing this from "always quiet" or "never quiet".
+    expect(quietRate).toBeGreaterThan(0.05);
+    expect(quietRate).toBeLessThan(0.5);
   });
 
-  it('is deterministic for delay.enabled too — same attenuationStyleId + attenuationStyleName always agrees', () => {
+  it('is deterministic for delay\'s quiet roll too — same attenuationStyleId + attenuationStyleName always agrees', () => {
     const first = generateGlobalAudioSettings('seed-test-planet', 'Nova');
     const second = generateGlobalAudioSettings('seed-test-planet', 'Nova');
-    expect(second.delay.enabled).toBe(first.delay.enabled);
+    expect(second.delay.wet === 0).toBe(first.delay.wet === 0);
   });
 
   describe('lfoDrift', () => {

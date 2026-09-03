@@ -18,23 +18,6 @@ let _globalLimiter: Tone.Limiter | null = null;
 // Master output gain controlling overall volume (used by setMasterVolume/getMasterVolume)
 let _masterGain: Tone.Gain | null = null;
 let _masterVolume = 1;
-// Which of the two fixed topologies wireGlobalFxChain() last wired — read by
-// setGlobalBypass() to restore the correct order when un-bypassing.
-let _currentControlledDecay = false;
-
-/**
- * Cache of the last wet/level values for each FX node — used to restore values
- * when an effect is re-enabled after being bypassed via setEffectBypass().
- */
-const _fxParamCache = {
-  reverb: { wet: 0.3 },
-  delay: { wet: 0.15 },
-  eq3: { low: 0, mid: 0, high: 0 },
-  lpf: { frequency: 20000, Q: 1 },
-  hpf: { frequency: 20, Q: 1 },
-  compressor: { threshold: -18, ratio: 6, attack: 0.003, release: 0.15, knee: 0 },
-  limiter: { threshold: -12 },
-};
 
 /**
  * Build every global FX node and wire them into the default "Natural Decay"
@@ -134,7 +117,6 @@ function disconnectAllFxNodes(): void {
  * Decay" toggle flips (src/stores/audioStore.ts's setCompressorBeforeDelay).
  */
 export function wireGlobalFxChain(controlledDecay: boolean): void {
-  _currentControlledDecay = controlledDecay;
   disconnectAllFxNodes();
 
   const orderedNodes = controlledDecay
@@ -232,7 +214,6 @@ export function getMasterVolume(): number {
 // ========================================
 
 export function setGlobalReverb(params: Partial<ReverbSettings>): void {
-  if (params.wet !== undefined) _fxParamCache.reverb.wet = params.wet;
   const reverb = _globalReverb;
   if (!reverb) return;
   try {
@@ -245,7 +226,6 @@ export function setGlobalReverb(params: Partial<ReverbSettings>): void {
 }
 
 export function setGlobalDelay(params: Partial<DelaySettings>): void {
-  if (params.wet !== undefined) _fxParamCache.delay.wet = params.wet;
   const delay = _globalDelay;
   if (!delay) return;
   try {
@@ -258,8 +238,6 @@ export function setGlobalDelay(params: Partial<DelaySettings>): void {
 }
 
 export function setGlobalFilterLPF(params: Partial<FilterSettings>): void {
-  if (params.frequency !== undefined) _fxParamCache.lpf.frequency = params.frequency;
-  if (params.Q !== undefined) _fxParamCache.lpf.Q = params.Q;
   const lpf = _globalLPF;
   if (!lpf) return;
   try {
@@ -271,8 +249,6 @@ export function setGlobalFilterLPF(params: Partial<FilterSettings>): void {
 }
 
 export function setGlobalFilterHPF(params: Partial<FilterSettings>): void {
-  if (params.frequency !== undefined) _fxParamCache.hpf.frequency = params.frequency;
-  if (params.Q !== undefined) _fxParamCache.hpf.Q = params.Q;
   const hpf = _globalHPF;
   if (!hpf) return;
   try {
@@ -284,9 +260,6 @@ export function setGlobalFilterHPF(params: Partial<FilterSettings>): void {
 }
 
 export function setGlobalEQ(params: Partial<EQ3Settings>): void {
-  if (params.low !== undefined) _fxParamCache.eq3.low = params.low;
-  if (params.mid !== undefined) _fxParamCache.eq3.mid = params.mid;
-  if (params.high !== undefined) _fxParamCache.eq3.high = params.high;
   const eq = _globalEQ;
   if (!eq) return;
   try {
@@ -299,11 +272,6 @@ export function setGlobalEQ(params: Partial<EQ3Settings>): void {
 }
 
 export function setGlobalCompressor(params: Partial<CompressorSettings>): void {
-  if (params.threshold !== undefined) _fxParamCache.compressor.threshold = params.threshold;
-  if (params.ratio !== undefined) _fxParamCache.compressor.ratio = params.ratio;
-  if (params.attack !== undefined) _fxParamCache.compressor.attack = params.attack;
-  if (params.release !== undefined) _fxParamCache.compressor.release = params.release;
-  if (params.knee !== undefined) _fxParamCache.compressor.knee = params.knee;
   if (!_globalCompressor) return;
   try {
     if (params.threshold !== undefined) _globalCompressor.threshold.value = params.threshold;
@@ -317,100 +285,12 @@ export function setGlobalCompressor(params: Partial<CompressorSettings>): void {
 }
 
 export function setGlobalLimiter(params: Partial<LimiterSettings>): void {
-  if (params.threshold !== undefined) _fxParamCache.limiter.threshold = params.threshold;
   const limiter = _globalLimiter;
   if (!limiter) return;
   try {
     if (params.threshold !== undefined) limiter.threshold.value = params.threshold;
   } catch (err) {
     devWarn('[AudioEngine] setGlobalLimiter failed', err);
-  }
-}
-
-/**
- * Short-circuit the entire FX chain.
- * When bypass=true, disconnect the chain entry (EQ3) and connect it directly
- * to Destination. When bypass=false, re-run wireGlobalFxChain() for whichever
- * topology (Natural/Controlled Decay) was last selected, restoring it exactly.
- */
-export function setGlobalBypass(bypass: boolean): void {
-  devLog('[AudioEngine] global bypass state set to', bypass);
-  const entry = _globalEQ;
-  if (!entry) return;
-  try {
-    if (bypass) {
-      entry.disconnect();
-      entry.toDestination();
-      devLog('[AudioEngine] Global bypass ON — audio routed direct to destination');
-    } else {
-      wireGlobalFxChain(_currentControlledDecay);
-      devLog('[AudioEngine] Global bypass OFF — audio routed through FX chain');
-    }
-  } catch (err) {
-    devWarn('[AudioEngine] setGlobalBypass failed', err);
-  }
-}
-
-/**
- * Enable or disable an individual effect in the chain.
- * For wet effects (reverb, delay): sets wet=0 to disable, restores cached wet to enable.
- * For dry effects (eq3): zeros all bands to disable, restores cached values to enable.
- * For filters (lpf, hpf): sets frequency to passthrough value to disable, restores cached freq to enable.
- * For dynamics processors with no wet mix (compressor, limiter): neutralizes
- * via parameter (ratio→1/threshold→0) rather than physically rerouting the graph.
- *
- * @param effect - 'reverb' | 'delay' | 'eq3' | 'lpf' | 'hpf' | 'compressor' | 'limiter'
- * @param enabled - true to enable, false to bypass
- */
-export function setEffectBypass(effect: string, enabled: boolean): void {
-  try {
-    switch (effect) {
-      case 'reverb':
-        if (_globalReverb) {
-          _globalReverb.wet.value = enabled ? _fxParamCache.reverb.wet : 0;
-        }
-        break;
-      case 'delay':
-        if (_globalDelay) {
-          _globalDelay.wet.value = enabled ? _fxParamCache.delay.wet : 0;
-        }
-        break;
-      case 'eq3':
-        if (_globalEQ) {
-          _globalEQ.low.value = enabled ? _fxParamCache.eq3.low : 0;
-          _globalEQ.mid.value = enabled ? _fxParamCache.eq3.mid : 0;
-          _globalEQ.high.value = enabled ? _fxParamCache.eq3.high : 0;
-        }
-        break;
-      case 'lpf':
-        if (_globalLPF) {
-          _globalLPF.frequency.value = enabled ? _fxParamCache.lpf.frequency : 20000;
-        }
-        break;
-      case 'hpf':
-        if (_globalHPF) {
-          _globalHPF.frequency.value = enabled ? _fxParamCache.hpf.frequency : 20;
-        }
-        break;
-      case 'compressor':
-        // Compressor bypass: restore or clamp to passthrough (ratio=1, threshold=0)
-        if (_globalCompressor) {
-          _globalCompressor.ratio.value = enabled ? _fxParamCache.compressor.ratio : 1;
-          _globalCompressor.threshold.value = enabled ? _fxParamCache.compressor.threshold : 0;
-        }
-        break;
-      case 'limiter':
-        // Limiter bypass: push threshold to 0dB (transparent), same neutralize-
-        // via-parameter approach as Compressor — Limiter has no wet mix either.
-        if (_globalLimiter) {
-          _globalLimiter.threshold.value = enabled ? _fxParamCache.limiter.threshold : 0;
-        }
-        break;
-      default:
-        devWarn(`[AudioEngine] setEffectBypass: unknown effect "${effect}"`);
-    }
-  } catch (err) {
-    devWarn(`[AudioEngine] setEffectBypass(${effect}, ${enabled}) failed`, err);
   }
 }
 

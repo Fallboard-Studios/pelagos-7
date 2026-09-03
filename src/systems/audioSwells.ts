@@ -453,16 +453,32 @@ export function tickAudioSwells(localeId: string, measure: number): void {
 // GLOBAL POOL — TRIGGER & SELECTION
 // ========================================
 
-/** globalBypass is treated exactly like a per-effect disable
- *  (docs/specs/PING-VARIANCE-AUTOMATION.md §1.6) — a second, rig-wide way
- *  for an effect to be inaudible, gating new-swell eligibility the same way
- *  an individual effect's own `enabled: false` already does. Scoped to the
- *  global pool only; the robot pool has no equivalent check. */
+/**
+ * Whether a global target's own current value sits at its "off" position.
+ * Only delay.wet/reverb.wet get a real answer here: wet=0 unambiguously
+ * means "no audible contribution" for a mix parameter, matching the removed
+ * per-effect enabled/bypass toggle's own old wet=0 bypass behavior. Every
+ * other target (eq3 bands, filter frequency/Q) has no such unambiguous off
+ * value — 0dB EQ and a wide-open filter passthrough frequency are common,
+ * legitimate resting positions a user reaches by simply not touching the
+ * slider, not signals of "this effect is off" (unlike wet, which nothing
+ * else ever sets to exactly 0 by coincidence) — so they're always eligible,
+ * same as the robot pool's attributes. Governs both new-swell eligibility
+ * (isGlobalTargetEligible) and mid-swell cancellation (advanceGlobalSwell)
+ * for the global pool.
+ */
+function isGlobalTargetAtOffEquivalent(target: SwellGlobalTargetId): boolean {
+  const globalAudio = useAudioStore.getState().globalAudio;
+  switch (target) {
+    case 'delay.wet': return globalAudio.delay.wet === 0;
+    case 'reverb.wet': return globalAudio.reverb.wet === 0;
+    default: return false;
+  }
+}
+
 function isGlobalTargetEligible(target: SwellGlobalTargetId): boolean {
   if (activeSwells.has(target)) return false;
-  const globalAudio = useAudioStore.getState().globalAudio;
-  if (globalAudio.globalBypass) return false;
-  return globalAudio[GLOBAL_TARGET_META[target].effect].enabled;
+  return !isGlobalTargetAtOffEquivalent(target);
 }
 
 /** HPF/LPF each get one clamp on their own frequency swell — same shape as
@@ -765,21 +781,18 @@ function maybeForceRobotSwellReturn(swell: ActiveSwell, localeId: string, measur
 
 function advanceGlobalSwell(key: string, swell: ActiveSwell, measure: number, automation: number): void {
   const target = swell.globalTarget!;
-  const meta = GLOBAL_TARGET_META[target];
 
   maybeForceGlobalSwellReturn(swell, target, measure, automation);
 
   const baseValue = swell.baseValue!;
   const peakDelta = swell.peakDelta!;
 
-  const globalAudio = useAudioStore.getState().globalAudio;
-  const stillEnabled = globalAudio[meta.effect].enabled && !globalAudio.globalBypass;
-  if (!stillEnabled) {
-    // An effect disabled (or the whole Rig bypassed, docs/specs/
-    // PING-VARIANCE-AUTOMATION.md §1.6) mid-swell cancels that swell
-    // immediately, snapping back to its captured base value in the same
-    // tick — better than silently continuing to write into a bypassed
-    // node's now-irrelevant param (docs/specs/AUDIO_SWELLS.md §3).
+  if (isGlobalTargetAtOffEquivalent(target)) {
+    // The target got manually driven to its own off-equivalent value
+    // mid-swell (e.g. wet dragged to 0) — cancel immediately, snapping back
+    // to its captured base value in the same tick, rather than silently
+    // continuing to write into a now-irrelevant param (docs/specs/
+    // AUDIO_SWELLS.md §3).
     writeGlobalValue(target, baseValue);
     activeSwells.delete(key);
     return;

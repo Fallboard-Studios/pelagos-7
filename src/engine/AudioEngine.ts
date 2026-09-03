@@ -37,8 +37,6 @@ import {
   setGlobalEQ,
   setGlobalCompressor,
   setGlobalLimiter,
-  setGlobalBypass,
-  setEffectBypass,
   getGlobalModulationTarget,
 } from './audioEngine/globalFx';
 
@@ -1190,6 +1188,4 @@ export const AudioEngine = {
   setGlobalEQ,
   setGlobalCompressor,
   setGlobalLimiter,
-  setGlobalBypass,
-  setEffectBypass,
 };

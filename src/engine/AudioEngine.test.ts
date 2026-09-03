@@ -1472,62 +1472,10 @@ describe('AudioEngine - Global FX Chain', () => {
     });
   });
 
-  describe('setEffectBypass', () => {
-    it('silences reverb wet when bypassed', async () => {
-      const Tone = await import('tone');
-      const { AudioEngine } = await import('./AudioEngine');
-      await AudioEngine.start();
-      const reverbNode = lastInstance(Tone.Reverb) ?? { wet: { value: 0.3 } };
-      AudioEngine.setGlobalReverb({ wet: 0.6 });
-      AudioEngine.setEffectBypass('reverb', false);
-      expect(reverbNode.wet.value).toBe(0);
-    });
-
-    it('restores reverb wet when re-enabled', async () => {
-      const Tone = await import('tone');
-      const { AudioEngine } = await import('./AudioEngine');
-      await AudioEngine.start();
-      const reverbNode = lastInstance(Tone.Reverb) ?? { wet: { value: 0.3 } };
-      AudioEngine.setGlobalReverb({ wet: 0.7 });
-      AudioEngine.setEffectBypass('reverb', false);
-      AudioEngine.setEffectBypass('reverb', true);
-      expect(reverbNode.wet.value).toBe(0.7);
-    });
-
-    it('zeros EQ bands when bypassed', async () => {
-      const Tone = await import('tone');
-      const { AudioEngine } = await import('./AudioEngine');
-      await AudioEngine.start();
-      const eqNode = lastInstance(Tone.EQ3) ?? { low: { value: 0 }, mid: { value: 0 }, high: { value: 0 } };
-      AudioEngine.setGlobalEQ({ low: -3, mid: 2, high: 4 });
-      AudioEngine.setEffectBypass('eq3', false);
-      expect(eqNode.low.value).toBe(0);
-      expect(eqNode.mid.value).toBe(0);
-      expect(eqNode.high.value).toBe(0);
-    });
-
-    it('is a no-op for unknown effect names', async () => {
-      const { AudioEngine } = await import('./AudioEngine');
-      await AudioEngine.start();
-      expect(() => AudioEngine.setEffectBypass('unknown_fx', false)).not.toThrow();
-    });
-  });
-
-  describe('setGlobalBypass', () => {
-    it('calls disconnect then toDestination on the chain entry (EQ3) when bypass=true', async () => {
-      const Tone = await import('tone');
-      const { AudioEngine } = await import('./AudioEngine');
-      await AudioEngine.start();
-      const eqNode = lastInstance(Tone.EQ3) ?? { disconnect: vi.fn(), toDestination: vi.fn(), connect: vi.fn() };
-      AudioEngine.setGlobalBypass(true);
-      expect(eqNode.disconnect).toHaveBeenCalled();
-      expect(eqNode.toDestination).toHaveBeenCalled();
-    });
-
-    it('is a no-op when AudioEngine not started', async () => {
-      const { AudioEngine } = await import('./AudioEngine');
-      expect(() => AudioEngine.setGlobalBypass(true)).not.toThrow();
-    });
+  it('no longer exports setEffectBypass/setGlobalBypass — removed, off states are expressed via the sliders/params themselves', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    expect('setEffectBypass' in AudioEngine).toBe(false);
+    expect('setGlobalBypass' in AudioEngine).toBe(false);
   });
 });
 
@@ -1967,7 +1915,6 @@ describe('AudioEngine.start — primes the just-built global FX chain from curre
   // applies this fixture, the resulting node values can only have come from
   // the seeded globalAudio state, not buildGlobalFxChain()'s own literals.
   const FIXTURE_GLOBAL_AUDIO = {
-    globalBypass: false,
     compressorBeforeDelay: false,
     lfoDrift: {
       eq3: { rateDrift: 0, depthDrift: 0 },
@@ -1975,13 +1922,13 @@ describe('AudioEngine.start — primes the just-built global FX chain from curre
       filterHPF: { rateDrift: 0, depthDrift: 0 },
       robots: { rateDrift: 0, depthDrift: 0 },
     },
-    compressor: { enabled: true, threshold: -50, ratio: 15, attack: 0.02, release: 0.22, knee: 9 },
-    eq3: { enabled: true, low: 4, mid: -3, high: 2 },
-    filterLPF: { enabled: true, type: 'lowpass', frequency: 9000, Q: 3 },
-    filterHPF: { enabled: true, type: 'highpass', frequency: 250, Q: 2 },
-    delay: { enabled: true, delayTime: 0.4, feedback: 0.3, wet: 0.25 },
-    reverb: { enabled: true, decay: 3, preDelay: 0.05, wet: 0.35 },
-    limiter: { enabled: true, threshold: -2 },
+    compressor: { threshold: -50, ratio: 15, attack: 0.02, release: 0.22, knee: 9 },
+    eq3: { low: 4, mid: -3, high: 2 },
+    filterLPF: { type: 'lowpass', frequency: 9000, Q: 3 },
+    filterHPF: { type: 'highpass', frequency: 250, Q: 2 },
+    delay: { delayTime: 0.4, feedback: 0.3, wet: 0.25 },
+    reverb: { decay: 3, preDelay: 0.05, wet: 0.35 },
+    limiter: { threshold: -2 },
   };
 
   type AnyMock = ReturnType<typeof vi.fn>;
@@ -2025,25 +1972,5 @@ describe('AudioEngine.start — primes the just-built global FX chain from curre
     expect(lastInstance(Tone.Reverb).wet.value).toBe(0.35);
     expect(lastInstance(Tone.Limiter).threshold.value).toBe(-2);
     expect(lastInstance(Tone.FeedbackDelay).wet.value).toBe(0.25);
-  });
-
-  it('bypasses an effect at start() when its seeded enabled is false — bypass state, not just its param values, gets applied', async () => {
-    const Tone = await import('tone');
-    const { AudioEngine } = await import('./AudioEngine');
-    const { useAudioStore } = await import('../stores/audioStore');
-    useAudioStore.setState({
-      globalAudio: {
-        ...FIXTURE_GLOBAL_AUDIO,
-        compressor: { enabled: false, threshold: -50, ratio: 15, attack: 0.02, release: 0.22, knee: 9 },
-      } as any,
-    });
-    await AudioEngine.start();
-    const compNode = lastInstance(Tone.Compressor);
-    // Neither the raw seeded values (-50/15) nor buildGlobalFxChain()'s own
-    // literal construction defaults (-18/6) — the seeded bypass-off state
-    // must win, neutralizing the node exactly like setEffectBypass('compressor',
-    // false) always does (ratio -> 1, threshold -> 0).
-    expect(compNode.threshold.value).toBe(0);
-    expect(compNode.ratio.value).toBe(1);
   });
 });

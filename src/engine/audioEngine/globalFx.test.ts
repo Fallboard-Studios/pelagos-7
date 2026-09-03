@@ -227,27 +227,10 @@ describe('globalFx', () => {
     });
   });
 
-  describe('setEffectBypass — limiter', () => {
-    it('zeroes the threshold when disabled and restores the last-set value when re-enabled', async () => {
-      const globalFx = await import('./globalFx');
-      globalFx.buildGlobalFxChain();
-      const limiterNode = lastInstance(Tone.Limiter) ?? { threshold: { value: -12 } };
-
-      globalFx.setGlobalLimiter({ threshold: -8 });
-      globalFx.setEffectBypass('limiter', false);
-      expect(limiterNode.threshold.value).toBe(0);
-
-      globalFx.setEffectBypass('limiter', true);
-      expect(limiterNode.threshold.value).toBe(-8);
-    });
-  });
-
-  describe('setEffectBypass — chorus is no longer a recognized effect', () => {
-    it('does not throw for the now-unknown "chorus" key (falls through to the default no-op branch)', async () => {
-      const globalFx = await import('./globalFx');
-      globalFx.buildGlobalFxChain();
-      expect(() => globalFx.setEffectBypass('chorus', false)).not.toThrow();
-    });
+  it('no longer exports setEffectBypass/setGlobalBypass — removed, off states are expressed via the setGlobal* params themselves', async () => {
+    const globalFx = await import('./globalFx');
+    expect('setEffectBypass' in globalFx).toBe(false);
+    expect('setGlobalBypass' in globalFx).toBe(false);
   });
 
   describe('setGlobalReverb', () => {
@@ -259,36 +242,6 @@ describe('globalFx', () => {
       expect('dampening' in reverbNode).toBe(false);
       globalFx.setGlobalReverb({ wet: 0.6, decay: 2, preDelay: 0.05 });
       expect('dampening' in reverbNode).toBe(false);
-    });
-  });
-
-  describe('setGlobalBypass', () => {
-    it('routes the chain entry (EQ3) directly to Destination when bypass=true', async () => {
-      const globalFx = await import('./globalFx');
-      globalFx.buildGlobalFxChain();
-      const eqNode = lastInstance(Tone.EQ3);
-
-      globalFx.setGlobalBypass(true);
-
-      expect(eqNode.toDestination).toHaveBeenCalled();
-    });
-
-    it('rewires the current topology when bypass=false', async () => {
-      const globalFx = await import('./globalFx');
-      globalFx.buildGlobalFxChain();
-      const eqNode = lastInstance(Tone.EQ3);
-      const lpfNode = secondLastInstance(Tone.Filter);
-
-      globalFx.setGlobalBypass(true);
-      globalFx.setGlobalBypass(false);
-
-      expect(eqNode.connect).toHaveBeenCalledWith(lpfNode);
-    });
-
-    it('does not throw when called before buildGlobalFxChain()', async () => {
-      const globalFx = await import('./globalFx');
-      expect(() => globalFx.setGlobalBypass(true)).not.toThrow();
-      expect(() => globalFx.setGlobalBypass(false)).not.toThrow();
     });
   });
 });

@@ -21,11 +21,8 @@ import { GLOBAL_LFO_TARGET_IDS, DRIFT_GROUP_IDS, type GlobalLfoTargetId, type Lf
 // TYPES
 // ========================================
 
-/** Keys of GlobalAudioSettings that are effect-param objects (excludes the three top-level flags). */
-type EffectKey = Exclude<keyof GlobalAudioSettings, 'globalBypass' | 'compressorBeforeDelay' | 'lfoDrift'>;
-
-/** `AudioEngine.setEffectBypass`'s effect keys — note 'lpf'/'hpf', not 'filterLPF'/'filterHPF'. */
-type BypassEffectKey = 'reverb' | 'delay' | 'limiter' | 'eq3' | 'lpf' | 'hpf' | 'compressor';
+/** Keys of GlobalAudioSettings that are effect-param objects (excludes the two top-level flags). */
+type EffectKey = Exclude<keyof GlobalAudioSettings, 'compressorBeforeDelay' | 'lfoDrift'>;
 
 /** Routes a setGlobalAudio(effect, partial) call to its matching AudioEngine setter. */
 const GLOBAL_SETTER: { [K in EffectKey]: (params: Partial<GlobalAudioSettings[K]>) => void } = {
@@ -38,29 +35,15 @@ const GLOBAL_SETTER: { [K in EffectKey]: (params: Partial<GlobalAudioSettings[K]
   reverb: AudioEngine.setGlobalReverb,
 };
 
-/** EffectKey -> AudioEngine.setEffectBypass's short-form key. */
-const BYPASS_KEY: Record<EffectKey, BypassEffectKey> = {
-  compressor: 'compressor',
-  eq3: 'eq3',
-  filterLPF: 'lpf',
-  filterHPF: 'hpf',
-  limiter: 'limiter',
-  delay: 'delay',
-  reverb: 'reverb',
-};
-
 /**
- * Push every effect's current param values and enabled/bypass state onto
- * AudioEngine's live Tone FX chain. Used both by regenerateGlobalAudioFromSeed
- * (fresh seed values, right after generating them) and by AudioEngine.start()
- * (right after buildGlobalFxChain() constructs fresh nodes — which start on
- * globalFx.ts's own hardcoded construction literals, not whatever's already
- * seeded in the store; regenerateGlobalAudioFromSeed's own push runs at
- * module load, long before those nodes exist, so it lands as a no-op on
- * every one of these setters and needs re-applying once real nodes exist).
- * Values first, bypass second — setEffectBypass('compressor'/'limiter', ...)
- * reads its restore value from globalFx.ts's own _fxParamCache, which the
- * setGlobal* calls just above populate as a side effect.
+ * Push every effect's current param values onto AudioEngine's live Tone FX
+ * chain. Used both by regenerateGlobalAudioFromSeed (fresh seed values, right
+ * after generating them) and by AudioEngine.start() (right after
+ * buildGlobalFxChain() constructs fresh nodes — which start on globalFx.ts's
+ * own hardcoded construction literals, not whatever's already seeded in the
+ * store; regenerateGlobalAudioFromSeed's own push runs at module load, long
+ * before those nodes exist, so it lands as a no-op on every one of these
+ * setters and needs re-applying once real nodes exist).
  */
 export function applyGlobalAudioToEngine(globalAudio: GlobalAudioSettings): void {
   AudioEngine.setGlobalCompressor(globalAudio.compressor);
@@ -73,11 +56,6 @@ export function applyGlobalAudioToEngine(globalAudio: GlobalAudioSettings): void
   for (const group of DRIFT_GROUP_IDS) {
     lfoEngine.setGlobalRateDrift(group, globalAudio.lfoDrift[group].rateDrift);
     lfoEngine.setGlobalDepthDrift(group, globalAudio.lfoDrift[group].depthDrift);
-  }
-  // Push each effect's OWN enabled value, not a blanket true — Delay in
-  // particular may be seeded/set false and must stay bypassed.
-  for (const [effectKey, bypassKey] of Object.entries(BYPASS_KEY) as [EffectKey, BypassEffectKey][]) {
-    AudioEngine.setEffectBypass(bypassKey, globalAudio[effectKey].enabled);
   }
 }
 
@@ -96,10 +74,10 @@ function buildDefaultGlobalLfo(): Record<GlobalLfoTargetId, LfoSettings & { acti
  *  uses this to seed pingVarianceAutomation exactly once per session and
  *  carry it forward across every later Attenuation Style switch
  *  (docs/specs/PING-VARIANCE-AUTOMATION.md §1.2) — the field-level
- *  equivalent of how globalBypass/compressorBeforeDelay already survive
- *  regeneration via the current-value spread a few lines below, except those
- *  two never need a "have I seeded yet" check because their generator always
- *  returns the same static default, never a genuinely-seeded value. */
+ *  equivalent of how compressorBeforeDelay already survives regeneration via
+ *  the current-value spread a few lines below, except that field never needs
+ *  a "have I seeded yet" check because its generator always returns the
+ *  same static default, never a genuinely-seeded value. */
 const PING_VARIANCE_AUTOMATION_UNSEEDED = -1;
 
 export interface AudioStore {
@@ -134,10 +112,6 @@ export interface AudioStore {
     effect: K,
     partial: Partial<GlobalAudioSettings[K]>
   ) => void;
-  /** Sets one effect's own bypass — updates its `enabled` field and calls AudioEngine.setEffectBypass. */
-  setEffectEnabled: (effect: EffectKey, enabled: boolean) => void;
-  /** Sets the rig-wide bypass — updates `globalBypass` and calls AudioEngine.setGlobalBypass. */
-  setGlobalBypassEnabled: (bypass: boolean) => void;
   /**
    * Sets one global LFO target's settings — updates state, always pushes
    * shape/rate/depth to lfoEngine, and connects+starts (active: true) or
@@ -146,9 +120,9 @@ export interface AudioStore {
   setGlobalLfo: (target: GlobalLfoTargetId, value: LfoSettings & { active: boolean }) => void;
   /** Sets isMuted and pushes the resulting gain to AudioEngine — 0 when muted,
    *  volumePositionToGain(volume) (the live slider position) when not. Owns its own
-   *  AudioEngine call, matching every other audioStore setter's shape (setBPM,
-   *  setGlobalBypassEnabled, etc.) — TransportBar.tsx no longer calls AudioEngine
-   *  directly for mute. docs/specs/GLOBAL_VOLUME_CONTROL.md §1.3, §1.5. */
+   *  AudioEngine call, matching every other audioStore setter's shape (setBPM, etc.) —
+   *  TransportBar.tsx no longer calls AudioEngine directly for mute.
+   *  docs/specs/GLOBAL_VOLUME_CONTROL.md §1.3, §1.5. */
   setMuted: (muted: boolean) => void;
   /** Sets the master-volume slider position and pushes the tapered gain to AudioEngine.
    *  Always also clears isMuted — dragging the slider while muted un-mutes as a side
@@ -180,9 +154,7 @@ export interface AudioStore {
   /**
    * Regenerate `globalAudio` for the given Attenuation Style from the seed
    * (generateGlobalAudioSettings, src/utils/globalAudioSeed.ts) and push the
-   * result into AudioEngine's live Tone FX chain. `enabled` is used exactly
-   * as seeded — every effect true except Delay's real ~25% chance (spec §5)
-   * — no override here; that force-true shim was Phase 0-only and is gone.
+   * result into AudioEngine's live Tone FX chain.
    */
   regenerateGlobalAudioFromSeed: (attenuationStyleId: string, attenuationStyleName: string) => void;
   /**
@@ -237,21 +209,6 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
     (GLOBAL_SETTER[effect] as (params: any) => void)(partial);
   },
 
-  setEffectEnabled: (effect, enabled) => {
-    set((state) => ({
-      globalAudio: {
-        ...state.globalAudio,
-        [effect]: { ...(state.globalAudio[effect] as object), enabled },
-      },
-    }));
-    AudioEngine.setEffectBypass(BYPASS_KEY[effect], enabled);
-  },
-
-  setGlobalBypassEnabled: (bypass) => {
-    set((state) => ({ globalAudio: { ...state.globalAudio, globalBypass: bypass } }));
-    AudioEngine.setGlobalBypass(bypass);
-  },
-
   setCompressorBeforeDelay: (value) => {
     set((state) => ({ globalAudio: { ...state.globalAudio, compressorBeforeDelay: value } }));
     wireGlobalFxChain(value);
@@ -294,30 +251,27 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
   },
 
   regenerateGlobalAudioFromSeed: (attenuationStyleId, attenuationStyleName) => {
-    // generateGlobalAudioSettings's own output is used as-is, `enabled`
-    // included — seeding is where that decision lives now (V2, spec §5).
-    // globalBypass/compressorBeforeDelay are NOT seeded — generateGlobalAudioSettings
-    // always returns DEFAULT_GLOBAL_AUDIO_SETTINGS' value for both, which is
+    // compressorBeforeDelay is NOT seeded — generateGlobalAudioSettings
+    // always returns DEFAULT_GLOBAL_AUDIO_SETTINGS' value for it, which is
     // correct for the very first call (module load, state is still the
     // fresh default) but wrong for every later one (an Attenuation Style
-    // switch after the user has already flipped either flag): overwriting a
-    // live user choice back to default here, with nothing to push that reset
-    // to the engine, would silently desync the UI from the actual live audio
-    // graph. Carry the CURRENT values forward instead — same effect on first
-    // call, correct on every later one.
+    // switch after the user has already flipped it): overwriting a live user
+    // choice back to default here, with nothing to push that reset to the
+    // engine, would silently desync the UI from the actual live audio graph.
+    // Carry the CURRENT value forward instead — same effect on first call,
+    // correct on every later one.
     const generated = generateGlobalAudioSettings(attenuationStyleId, attenuationStyleName);
     const current = get().globalAudio;
     const globalAudio: GlobalAudioSettings = {
       ...generated,
-      globalBypass: current.globalBypass,
       compressorBeforeDelay: current.compressorBeforeDelay,
     };
     // pingVarianceAutomation seeds once per session, then carries forward
     // across every later switch — deliberately NOT spread from `current`
-    // like globalBypass/compressorBeforeDelay above; those two always
-    // regenerate to the same static default so overwriting with `current`
-    // is safe on every call. pingVarianceAutomation's generator returns a
-    // genuinely different value each time, so "already seeded" is tracked
+    // like compressorBeforeDelay above; that field always regenerates to the
+    // same static default so overwriting with `current` is safe on every
+    // call. pingVarianceAutomation's generator returns a genuinely different
+    // value each time, so "already seeded" is tracked
     // via the PING_VARIANCE_AUTOMATION_UNSEEDED sentinel instead — this key
     // is simply omitted from the set() call below on every later switch,
     // and Zustand's default merge leaves the current value untouched
