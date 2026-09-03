@@ -40,7 +40,7 @@ const DISABLED_PING_CONTROLS: PingControlsValue = {
 
 const DISABLED_ADSR: ADSREnvelope = { attack: 0, decay: 0, sustain: 0, release: 0 };
 
-const DISABLED_LAYER = { type: 'sine' as const, gain: 0, detune: 0, phase: 0, active: false };
+const DISABLED_LAYER = { type: 'sine' as const, gain: 0, detune: 0, phase: 0 };
 const DISABLED_SIGNATURE_ARRAY: SignatureArrayValue = {
   layers: [DISABLED_LAYER, DISABLED_LAYER, DISABLED_LAYER],
   lfoSettings: {},

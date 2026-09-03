@@ -13,9 +13,9 @@ import type { Robot } from '@/types/Robot';
 
 function makeLayers(): OscillatorLayer[] {
   return [
-    { type: 'sine', gain: 1, detune: 0, phase: 0, active: true },
-    { type: 'square', gain: 0.8, detune: 5, phase: 10, pulseWidth: 0.4, active: true },
-    { type: 'triangle', gain: 0.6, detune: -5, phase: 20, active: false },
+    { type: 'sine', gain: 1, detune: 0, phase: 0 },
+    { type: 'square', gain: 0.8, detune: 5, phase: 10, pulseWidth: 0.4 },
+    { type: 'triangle', gain: 0.6, detune: -5, phase: 20 },
   ];
 }
 
@@ -39,12 +39,10 @@ describe('SignatureArrayDrawer', () => {
     expect(Array.from(sections).map((s) => s.getAttribute('data-layer-key'))).toEqual(['layer0', 'layer1', 'layer2']);
   });
 
-  it('Baseline has no Active toggle; Coaxial and Harmonic each do', () => {
+  it('renders no Active toggle anywhere — muting is expressed via each layer\'s own Gain slider instead', () => {
     const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
 
-    expect(within(layerSection(container, 'layer0')).queryByRole('switch', { name: 'Baseline Active' })).toBeNull();
-    expect(within(layerSection(container, 'layer1')).getByRole('switch', { name: 'Coaxial Active' })).toBeTruthy();
-    expect(within(layerSection(container, 'layer2')).getByRole('switch', { name: 'Harmonic Active' })).toBeTruthy();
+    expect(within(container).queryAllByRole('switch')).toHaveLength(0);
   });
 
   it('each layer\'s Type radio has exactly the 5 waveform options, no Noise', () => {
@@ -100,19 +98,24 @@ describe('SignatureArrayDrawer', () => {
     expect(onStructuralChange).not.toHaveBeenCalled();
   });
 
-  it('toggling Coaxial\'s Active off calls onStructuralChange, keeping its Type/Gain values, not cleared', () => {
+  it('dragging Coaxial\'s Gain to 0 calls onContinuousChange (not onStructuralChange), keeping its Type/Detune/Phase values, not cleared', () => {
+    const onContinuousChange = vi.fn();
     const onStructuralChange = vi.fn();
     const { container } = render(
-      <SignatureArrayDrawer value={makeValue()} onContinuousChange={() => {}} onStructuralChange={onStructuralChange} onLfoChange={() => {}} />
+      <SignatureArrayDrawer value={makeValue()} onContinuousChange={onContinuousChange} onStructuralChange={onStructuralChange} onLfoChange={() => {}} />
     );
 
-    fireEvent.click(within(layerSection(container, 'layer1')).getByRole('switch', { name: 'Coaxial Active' }));
+    const coaxialGain = within(layerSection(container, 'layer1')).getByRole('slider', { name: 'Coaxial Gain' });
+    coaxialGain.focus();
+    fireEvent.keyDown(coaxialGain, { key: 'Home' }); // Radix's own jump-to-min key — lands exactly on 0
 
-    expect(onStructuralChange).toHaveBeenCalled();
-    const newLayers = onStructuralChange.mock.calls[0][0] as OscillatorLayer[];
-    expect(newLayers[1].active).toBe(false);
+    expect(onStructuralChange).not.toHaveBeenCalled();
+    expect(onContinuousChange).toHaveBeenCalled();
+    const newLayers = onContinuousChange.mock.calls.at(-1)![0] as OscillatorLayer[];
+    expect(newLayers[1].gain).toBe(0);
     expect(newLayers[1].type).toBe('square'); // config preserved, not cleared/reset
-    expect(newLayers[1].gain).toBe(0.8);
+    expect(newLayers[1].detune).toBe(5);
+    expect(newLayers[1].phase).toBe(10);
   });
 
   it('defaults each layer\'s shared LFO display to its first field (Gain) and wires onLfoChange to it', () => {
@@ -238,6 +241,6 @@ describe('SignatureArrayDrawer', () => {
     const baseline = layerSection(container, 'layer0');
     expect(within(baseline).getByRole('radio', { name: 'GRADIENT' }).getAttribute('data-disabled')).toBe('');
     expect(within(baseline).getByRole('slider', { name: /gain/i }).getAttribute('data-disabled')).toBe('');
-    expect((within(layerSection(container, 'layer1')).getByRole('switch', { name: 'Coaxial Active' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(within(layerSection(container, 'layer1')).getByRole('slider', { name: 'Coaxial Gain' }).getAttribute('data-disabled')).toBe('');
   });
 });

@@ -42,7 +42,7 @@ function makeRobot(overrides: Partial<Robot> = {}): Robot {
       filterFreq: 0,
       waveform: 'sine',
       layers: [
-        { type: 'sine', gain: 1, detune: 0, phase: 0, active: true },
+        { type: 'sine', gain: 1, detune: 0, phase: 0 },
       ],
     },
     octaveRange: [3, 4],
@@ -290,7 +290,7 @@ describe('robotOptionsActions', () => {
       const updateSpy = vi.spyOn(useLocaleStore.getState(), 'updateRobot');
       const paramsSpy = vi.spyOn(AudioEngine, 'updateVoiceLayerParams').mockImplementation(() => {});
       const reReserveSpy = vi.spyOn(AudioEngine, 'reReserveVoice').mockImplementation(() => true);
-      const nextLayers: OscillatorLayer[] = [{ type: 'sine', gain: 0.9, detune: 5, phase: 0, active: true }];
+      const nextLayers: OscillatorLayer[] = [{ type: 'sine', gain: 0.9, detune: 5, phase: 0 }];
 
       applyLayersContinuous(robot, localeId, nextLayers);
 
@@ -309,7 +309,7 @@ describe('robotOptionsActions', () => {
       const updateSpy = vi.spyOn(useLocaleStore.getState(), 'updateRobot');
       const paramsSpy = vi.spyOn(AudioEngine, 'updateVoiceLayerParams').mockImplementation(() => {});
       const reReserveSpy = vi.spyOn(AudioEngine, 'reReserveVoice').mockImplementation(() => true);
-      const nextLayers: OscillatorLayer[] = [{ type: 'square', gain: 1, detune: 0, phase: 0, active: true }];
+      const nextLayers: OscillatorLayer[] = [{ type: 'square', gain: 1, detune: 0, phase: 0 }];
 
       applyLayersStructural(robot, localeId, nextLayers);
 

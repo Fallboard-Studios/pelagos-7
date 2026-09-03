@@ -103,13 +103,13 @@ describe('spawnSystem', () => {
       expect(uniqueAttacks.size).toBeGreaterThan(10); // Should have variety
     });
 
-    it('always produces exactly 3 layers (Baseline/Coaxial/Harmonic), Baseline always active, shapeParams in range', () => {
+    it('always produces exactly 3 layers (Baseline/Coaxial/Harmonic), Baseline always audible, shapeParams in range', () => {
       const attrs = generateAudioAttributes(mockNoiseMap, 0);
       const vm = attrs.visualAudioMap;
       expect(vm).toBeDefined();
       const layers = attrs.layers ?? [];
       expect(layers).toHaveLength(3);
-      expect(layers[0].active).toBe(true);
+      expect(layers[0].gain).not.toBe(0); // Baseline never mutes — no quiet roll for layer0
       // shape params 0..1
       expect(vm?.shapeParams?.scale).toBeGreaterThanOrEqual(0);
       expect(vm?.shapeParams?.scale).toBeLessThanOrEqual(1);
@@ -145,14 +145,14 @@ describe('spawnSystem', () => {
       expect(shapeParams.detail).toBeCloseTo(0, 6);     // 0/5
     });
 
-    it('Coaxial and Harmonic are each independently seeded active/inactive (not both forced the same value)', () => {
+    it('Coaxial and Harmonic are each independently seeded muted/audible (not both forced the same value)', () => {
       const attributes = Array.from({ length: 60 }, (_, i) => generateAudioAttributes(mockNoiseMap, i));
-      const coaxialActive = attributes.map((a) => a.layers![1].active);
-      const harmonicActive = attributes.map((a) => a.layers![2].active);
-      expect(new Set(coaxialActive).size, 'Coaxial should take both true and false across many spawns').toBe(2);
-      expect(new Set(harmonicActive).size, 'Harmonic should take both true and false across many spawns').toBe(2);
+      const coaxialMuted = attributes.map((a) => a.layers![1].gain === 0);
+      const harmonicMuted = attributes.map((a) => a.layers![2].gain === 0);
+      expect(new Set(coaxialMuted).size, 'Coaxial should take both muted and audible across many spawns').toBe(2);
+      expect(new Set(harmonicMuted).size, 'Harmonic should take both muted and audible across many spawns').toBe(2);
       // Not perfectly correlated — some robot has Coaxial and Harmonic disagreeing
-      expect(attributes.some((a) => a.layers![1].active !== a.layers![2].active)).toBe(true);
+      expect(attributes.some((a) => (a.layers![1].gain === 0) !== (a.layers![2].gain === 0))).toBe(true);
     });
   });
 

@@ -155,14 +155,18 @@ function writeGlobalValue(target: SwellGlobalTargetId, value: number): void {
 const LAYER_FIELD_PATTERN = /^layer(\d)\.(gain|detune|phase|pulseWidth)$/;
 const ADSR_FIELD_PATTERN = /^adsr\.(attack|decay|sustain|release)$/;
 
-/** A robot attribute's own parent-toggle check (§1.5, §3): layerN.* requires
- *  that layer's own OscillatorLayer.active === true; volume and the 4 ADSR
+/** A robot attribute's own parent-mute check (§1.5, §3): layerN.* requires
+ *  that layer's own gain to be nonzero (the removed OscillatorLayer.active
+ *  flag's replacement — see its own doc comment); volume and the 4 ADSR
  *  fields have no such parent and are always structurally available. */
 function isRobotAttributeStructurallyLive(robot: Robot, attribute: SwellRobotAttributeId): boolean {
   const layerMatch = LAYER_FIELD_PATTERN.exec(attribute);
-  if (!layerMatch) return true; // volume, adsr.* — no parent toggle
+  if (!layerMatch) return true; // volume, adsr.* — no parent mute
   const layerIndex = Number(layerMatch[1]);
-  return robot.audioAttributes.layers?.[layerIndex]?.active === true;
+  // Nullish, not `!== 0` alone — a layer slot that doesn't exist at all (fewer than 3
+  // configured) must read as muted/ineligible, matching the old `=== true` check's
+  // behavior for a missing layer, not fall through to "eligible" the way `undefined !== 0` would.
+  return (robot.audioAttributes.layers?.[layerIndex]?.gain ?? 0) !== 0;
 }
 
 function readRobotValue(robot: Robot, attribute: SwellRobotAttributeId): number {

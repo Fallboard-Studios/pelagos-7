@@ -76,7 +76,7 @@ function makeRobot(overrides: Partial<Robot> = {}): Robot {
       adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.2 },
       filterFreq: 800,
       waveform: 'sine',
-      layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0, active: true }],
+      layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0 }],
     },
     octaveRange: [3, 4],
     createdAt: Date.now(),

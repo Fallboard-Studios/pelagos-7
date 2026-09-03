@@ -27,15 +27,13 @@
 | Layer 1: Detune | BASELINE DRIFT | Slider - centered zero Component | -50 cents | +50 cents | Yes | Linear scaling for held level ratio |
 | Layer 1: Phase | BASELINE ALIGNMENT | Slider - linear Component | 0 | 360 | Yes | Phase offset in degrees |
 | Layer 1: Interval | BASELINE PULSE WIDTH | Slider - linear Component | 0 | 1 | Yes | Only displayed when Type is BURST (pulse) — Tone.js's `OmniOscillator.width` getter returns `undefined` for every other type, including BINARY (square), so this was dropped from the BINARY case (`SignatureArrayDrawer.tsx`'s `showPulseWidth`) |
-| Layer 2: Active | COAXIAL WEIGHTS ACTIVE | Toggle Component | N/A | N/A | No | Options: ON, OFF |
 | Layer 2: Type | COAXIAL GEOMETRY | Radio Button Component | N/A | N/A | No | Options: SWEEP, GRADIENT, KINETIC, BINARY, BURST |
-| Layer 2: Gain | COAXIAL SATURATION | Slider - linear Component | 0 | 2 | Yes | Linear scaling for held level ratio |
+| Layer 2: Gain | COAXIAL SATURATION | Slider - linear Component | 0 | 2 | Yes | Linear scaling for held level ratio. 0 also mutes the layer — there is no separate Active toggle; `AudioEngine.ts`'s `filterAudibleLayers` excludes a `gain: 0` layer from the composite voice, matching the removed toggle's old "mute, don't delete" behavior |
 | Layer 2: Detune | COAXIAL DRIFT | Slider - centered zero Component | -50 cents | +50 cents | Yes | Linear scaling for held level ratio |
 | Layer 2: Phase | COAXIAL ALIGNMENT | Slider - linear Component | 0 | 360 | Yes | Phase offset in degrees |
 | Layer 2: Interval | COAXIAL PULSE WIDTH | Slider - linear Component | 0 | 1 | Yes | Only displayed when Type is BURST (pulse) — see Layer 1: Interval's note |
-| Layer 3: Active | HARMONIC WEIGHTS ACTIVE | Toggle Component | N/A | N/A | No | Options: ON, OFF |
 | Layer 3: Type | HARMONIC GEOMETRY | Radio Button Component | N/A | N/A | No | Options: SWEEP, GRADIENT, KINETIC, BINARY, BURST |
-| Layer 3: Gain | HARMONIC SATURATION | Slider - linear Component | 0 | 2 | Yes | Linear scaling for held level ratio |
+| Layer 3: Gain | HARMONIC SATURATION | Slider - linear Component | 0 | 2 | Yes | Linear scaling for held level ratio. 0 also mutes the layer — see Layer 2: Gain's own note |
 | Layer 3: Detune | HARMONIC DRIFT | Slider - centered zero Component | -50 cents | +50 cents | Yes | Linear scaling for held level ratio |
 | Layer 3: Phase | HARMONIC ALIGNMENT | Slider - linear Component | 0 | 360 | Yes | Phase offset in degrees |
 | Layer 3: Interval | HARMONIC PULSE WIDTH | Slider - linear Component | 0 | 1 | Yes | Only displayed when Type is BURST (pulse) — see Layer 1: Interval's note |

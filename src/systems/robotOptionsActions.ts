@@ -114,7 +114,10 @@ export function applyAdsr(robot: Robot, localeId: string, adsr: ADSREnvelope): v
 // SIGNATURE ARRAY (SignatureArrayDrawer.tsx today)
 // ========================================
 
-/** Continuous params (gain, detune, phase, pulseWidth): live, no gap in audio. */
+/** Continuous params (gain, detune, phase, pulseWidth): live, no gap in audio. Gain is also how
+ *  Coaxial/Harmonic are muted (gain: 0) — a live update on the existing voice, not a rebuild;
+ *  AudioEngine.ts's filterAudibleLayers only excludes a muted layer from the composite voice the
+ *  next time something else triggers a real rebuild (applyLayersStructural). */
 export function applyLayersContinuous(robot: Robot, localeId: string, layers: OscillatorLayer[]): void {
   useLocaleStore.getState().updateRobot(localeId, robot.id, {
     audioAttributes: { ...robot.audioAttributes, layers },
@@ -122,8 +125,8 @@ export function applyLayersContinuous(robot: Robot, localeId: string, layers: Os
   AudioEngine.updateVoiceLayerParams(robot.id, layers);
 }
 
-/** Structural changes (type, active/mute) — may cause a brief audio gap while the voice
- *  rebuilds; active toggling changes which layers the composite voice actually includes. */
+/** Structural changes (type) — may cause a brief audio gap while the voice rebuilds. Muting a
+ *  layer (gain: 0) goes through applyLayersContinuous instead — see its own doc comment. */
 export function applyLayersStructural(robot: Robot, localeId: string, layers: OscillatorLayer[]): void {
   useLocaleStore.getState().updateRobot(localeId, robot.id, {
     audioAttributes: { ...robot.audioAttributes, layers },

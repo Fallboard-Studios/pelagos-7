@@ -34,7 +34,7 @@ describe('CompanyOptionsSnapshot', () => {
       noteVariance: { active: false, value: 1 },
       octaveRange: [3, 5],
       adsr: { attack: 0.1, decay: 0.2, sustain: 0.8, release: 0.5 },
-      layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0, active: true }],
+      layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0 }],
       lfoSettings: { volume: { shape: 'triangle', rate: 1, depth: 20 } },
     };
     expect(full.audioMode).toBe('solo');

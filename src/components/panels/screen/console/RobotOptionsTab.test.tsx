@@ -42,7 +42,7 @@ vi.mock('@/components/robot/PingContourDrawer', () => ({
 vi.mock('@/components/robot/SignatureArrayDrawer', () => ({
   SignatureArrayDrawer: (props: { value: { layers: unknown[] }; onContinuousChange: (v: unknown) => void }) => (
     <div data-testid="signature-array-drawer-stub" data-layer-count={props.value.layers.length}>
-      <button onClick={() => props.onContinuousChange([{ type: 'sine', gain: 1, detune: 0, phase: 0, active: true }])}>probe-layers</button>
+      <button onClick={() => props.onContinuousChange([{ type: 'sine', gain: 1, detune: 0, phase: 0 }])}>probe-layers</button>
     </div>
   ),
 }));
@@ -69,7 +69,7 @@ function makeRobot(id = 'r1'): Robot {
       adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.3 },
       filterFreq: 0,
       waveform: 'sine',
-      layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0, active: true }],
+      layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0 }],
     },
     octaveRange: [3, 4],
     createdAt: Date.now(),
@@ -213,6 +213,6 @@ describe('RobotOptionsTab', () => {
 
     fireEvent.click(screen.getByText('probe-layers'));
 
-    expect(applySpy).toHaveBeenCalledWith(robot, localeId, [{ type: 'sine', gain: 1, detune: 0, phase: 0, active: true }]);
+    expect(applySpy).toHaveBeenCalledWith(robot, localeId, [{ type: 'sine', gain: 1, detune: 0, phase: 0 }]);
   });
 });

@@ -87,9 +87,9 @@ function noiseMapForDataIds(mapping: Record<string, number>, fallback = 0): Nois
 const LOCALE_ID = 'pelagos-default';
 
 /** Mirrors robotOptionsActions.test.ts's own makeRobot fixture. Defaults to a
- *  single active layer (layer0/Baseline only) — layer1/layer2 absent, so
+ *  single audible layer (layer0/Baseline only) — layer1/layer2 absent, so
  *  every layer1.* / layer2.* attribute is ineligible by construction (no
- *  parent OscillatorLayer to be active), matching a real 1-layer robot. */
+ *  parent OscillatorLayer present at all), matching a real 1-layer robot. */
 function makeRobot(overrides: Partial<Robot> = {}): Robot {
   return {
     id: 'r1',
@@ -103,7 +103,7 @@ function makeRobot(overrides: Partial<Robot> = {}): Robot {
       adsr: { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 },
       filterFreq: 0,
       waveform: 'sine',
-      layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0, active: true }],
+      layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0 }],
     },
     octaveRange: [3, 4],
     createdAt: Date.now(),
@@ -720,15 +720,15 @@ describe('robot pool — trigger and selection', () => {
     expect(getActiveSwellSnapshot('robot')).toEqual([]);
   });
 
-  it('fills its first 5 (=cap) picks with exactly volume + layer0\'s 4 continuous fields — layer0.phase reachable, an explicitly-present-but-inactive layer1 never picked', () => {
+  it('fills its first 5 (=cap) picks with exactly volume + layer0\'s 4 continuous fields — layer0.phase reachable, an explicitly-present-but-muted layer1 never picked', () => {
     const robot = makeRobot({
       audioAttributes: {
         adsr: { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 },
         filterFreq: 0,
         waveform: 'sine',
         layers: [
-          { type: 'sine', gain: 1, detune: 0, phase: 0, active: true },
-          { type: 'sine', gain: 1, detune: 0, phase: 0, active: false }, // present, inactive
+          { type: 'sine', gain: 1, detune: 0, phase: 0 },
+          { type: 'sine', gain: 0, detune: 0, phase: 0 }, // present, muted
         ],
       },
     });
@@ -746,13 +746,13 @@ describe('robot pool — trigger and selection', () => {
     );
   });
 
-  it('fills its first 5 (=cap) picks with exactly volume + all 4 ADSR fields when every layer is inactive', () => {
+  it('fills its first 5 (=cap) picks with exactly volume + all 4 ADSR fields when every layer is muted', () => {
     const robot = makeRobot({
       audioAttributes: {
         adsr: { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 },
         filterFreq: 0,
         waveform: 'sine',
-        layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0, active: false }],
+        layers: [{ type: 'sine', gain: 0, detune: 0, phase: 0 }],
       },
     });
     useLocaleStore.getState().addRobot(LOCALE_ID, robot);
@@ -868,13 +868,13 @@ describe('robot pool — ramp lifecycle and write path', () => {
 
   it('writes an ADSR swell through applyAdsr, never a bare updateRobot/AudioEngine call', () => {
     const spy = vi.spyOn(robotOptionsActions, 'applyAdsr');
-    // layer0 inactive too (synthetic — Baseline is always active in the real
+    // layer0 muted too (synthetic — Baseline is always audible in the real
     // app) narrows the eligible pool to exactly volume + the 4 ADSR fields,
-    // so excluding 'volume' alone (already-active) leaves adsr.attack as the
+    // so excluding 'volume' alone (already-picked) leaves adsr.attack as the
     // very next index-0 pick — no layer noise to walk past.
     useLocaleStore.getState().addRobot(
       LOCALE_ID,
-      makeRobot({ audioAttributes: { adsr: { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 }, filterFreq: 0, waveform: 'sine', layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0, active: false }] } })
+      makeRobot({ audioAttributes: { adsr: { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 }, filterFreq: 0, waveform: 'sine', layers: [{ type: 'sine', gain: 0, detune: 0, phase: 0 }] } })
     );
     vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
     tickAudioSwells(LOCALE_ID, 0); // picks 'volume'
@@ -965,11 +965,11 @@ describe('robot pool — company-wide swells', () => {
     expect(swell.members).toHaveLength(1);
   });
 
-  it('excludes an ineligible member (an inactive layer\'s field) from the company, every other eligible member still gets one', () => {
-    const eligible = makeRobot({ id: 'r1' }); // layer0 active (default)
+  it('excludes an ineligible member (a muted layer\'s field) from the company, every other eligible member still gets one', () => {
+    const eligible = makeRobot({ id: 'r1' }); // layer0 audible (default)
     const ineligible = makeRobot({
       id: 'r2',
-      audioAttributes: { adsr: { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 }, filterFreq: 0, waveform: 'sine', layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0, active: false }] },
+      audioAttributes: { adsr: { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 }, filterFreq: 0, waveform: 'sine', layers: [{ type: 'sine', gain: 0, detune: 0, phase: 0 }] },
     });
     useLocaleStore.getState().addRobot(LOCALE_ID, eligible);
     useLocaleStore.getState().addRobot(LOCALE_ID, ineligible);
@@ -990,12 +990,12 @@ describe('robot pool — company-wide swells', () => {
   });
 
   it('starts no swell at all this tick if every robot in the picked company is ineligible for the picked attribute (no re-roll, no fallback)', () => {
-    const allInactiveLayer0 = () =>
+    const allMutedLayer0 = () =>
       makeRobot({
         id: 'r1',
-        audioAttributes: { adsr: { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 }, filterFreq: 0, waveform: 'sine', layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0, active: false }] },
+        audioAttributes: { adsr: { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 }, filterFreq: 0, waveform: 'sine', layers: [{ type: 'sine', gain: 0, detune: 0, phase: 0 }] },
       });
-    useLocaleStore.getState().addRobot(LOCALE_ID, allInactiveLayer0());
+    useLocaleStore.getState().addRobot(LOCALE_ID, allMutedLayer0());
     useLocaleStore.getState().addCompany(LOCALE_ID, makeCompany({ robotIds: ['r1'] }));
 
     const noiseMap = noiseMapForDataIds({
@@ -1076,7 +1076,7 @@ describe('robot pool — detune swing cap (25% of range = 25 cents, either direc
         adsr: { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 },
         filterFreq: 0,
         waveform: 'sine',
-        layers: [{ type: 'sine', gain: 1, detune, phase: 0, active: true }],
+        layers: [{ type: 'sine', gain: 1, detune, phase: 0 }],
       },
     });
   }

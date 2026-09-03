@@ -91,7 +91,7 @@ vi.mock('@/components/robot/PingContourDrawer', () => ({
 vi.mock('@/components/robot/SignatureArrayDrawer', () => ({
   SignatureArrayDrawer: (props: {
     value: {
-      layers: { type: string; gain: number; detune: number; phase: number; active: boolean }[];
+      layers: { type: string; gain: number; detune: number; phase: number }[];
       lfoSettings?: Record<string, { shape: string; rate: number; depth: number }>;
     };
     onContinuousChange: (v: unknown) => void;
@@ -148,9 +148,9 @@ function makeRobot(overrides: Partial<Robot> = {}): Robot {
       filterFreq: 0,
       waveform: 'sine',
       layers: [
-        { type: 'sine', gain: 1, detune: 0, phase: 0, active: true },
-        { type: 'square', gain: 0.8, detune: 5, phase: 10, active: true },
-        { type: 'triangle', gain: 0.6, detune: -5, phase: 20, active: false },
+        { type: 'sine', gain: 1, detune: 0, phase: 0 },
+        { type: 'square', gain: 0.8, detune: 5, phase: 10 },
+        { type: 'triangle', gain: 0.6, detune: -5, phase: 20 },
       ],
     },
     octaveRange: [3, 5],
@@ -409,7 +409,7 @@ describe('CompanyOptionsSection', () => {
         audioAttributes: {
           adsr: { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 },
           filterFreq: 0, waveform: 'sine',
-          layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0, active: true }],
+          layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0 }],
         },
       });
       const r2 = makeRobot({
@@ -417,7 +417,7 @@ describe('CompanyOptionsSection', () => {
         audioAttributes: {
           adsr: { attack: 0.1, decay: 0.9, sustain: 0.1, release: 0.4 },
           filterFreq: 0, waveform: 'sine',
-          layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0, active: true }],
+          layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0 }],
         },
       });
       useLocaleStore.getState().addRobot(localeId, r1);
@@ -443,9 +443,9 @@ describe('CompanyOptionsSection', () => {
         audioAttributes: {
           adsr: { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 }, filterFreq: 0, waveform: 'sine',
           layers: [
-            { type: 'sine', gain: 1, detune: 0, phase: 0, active: true },
-            { type: 'square', gain: 0.8, detune: 5, phase: 10, active: true },
-            { type: 'triangle', gain: 0.6, detune: -5, phase: 20, active: false },
+            { type: 'sine', gain: 1, detune: 0, phase: 0 },
+            { type: 'square', gain: 0.8, detune: 5, phase: 10 },
+            { type: 'triangle', gain: 0.6, detune: -5, phase: 20 },
           ],
         },
       });
@@ -454,9 +454,9 @@ describe('CompanyOptionsSection', () => {
         audioAttributes: {
           adsr: { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 }, filterFreq: 0, waveform: 'sine',
           layers: [
-            { type: 'pulse', gain: 0.2, detune: 40, phase: 90, active: true },
-            { type: 'triangle', gain: 0.5, detune: -10, phase: 30, active: true },
-            { type: 'sine', gain: 0.9, detune: 15, phase: 5, active: true },
+            { type: 'pulse', gain: 0.2, detune: 40, phase: 90 },
+            { type: 'triangle', gain: 0.5, detune: -10, phase: 30 },
+            { type: 'sine', gain: 0.9, detune: 15, phase: 5 },
           ],
         },
       });
@@ -470,12 +470,12 @@ describe('CompanyOptionsSection', () => {
       fireEvent.click(screen.getByText('probe-layers-continuous')); // stub sets layer[1].gain = 0.4
 
       const r2Call = continuousSpy.mock.calls.find((c) => c[0].id === 'r2');
-      const r2Layers = r2Call?.[2] as { type: string; gain: number; detune: number; phase: number; active: boolean }[];
+      const r2Layers = r2Call?.[2] as { type: string; gain: number; detune: number; phase: number }[];
       // Only layer[1]'s gain changed; r2's own layer[0] and layer[2] — and layer[1]'s own
-      // type/detune/phase/active — are untouched, not overwritten with r1's (resolved's) values.
-      expect(r2Layers[0]).toEqual({ type: 'pulse', gain: 0.2, detune: 40, phase: 90, active: true });
-      expect(r2Layers[1]).toEqual({ type: 'triangle', gain: 0.4, detune: -10, phase: 30, active: true });
-      expect(r2Layers[2]).toEqual({ type: 'sine', gain: 0.9, detune: 15, phase: 5, active: true });
+      // type/detune/phase — are untouched, not overwritten with r1's (resolved's) values.
+      expect(r2Layers[0]).toEqual({ type: 'pulse', gain: 0.2, detune: 40, phase: 90 });
+      expect(r2Layers[1]).toEqual({ type: 'triangle', gain: 0.4, detune: -10, phase: 30 });
+      expect(r2Layers[2]).toEqual({ type: 'sine', gain: 0.9, detune: 15, phase: 5 });
     });
 
     it('editing the Volume LFO\'s rate broadcasts only rate — each member keeps its own shape/depth', () => {

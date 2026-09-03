@@ -1148,7 +1148,7 @@ describe('AudioEngine — masterVolume drives a live per-robot bus gain, not per
     await AudioEngine.start();
     (Tone.Gain as unknown as ReturnType<typeof vi.fn>).mockClear();
 
-    const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0, active: true }];
+    const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0 }];
     AudioEngine.reserveVoice('bus-gain-robot', layered as any, TEST_ADSR, undefined, undefined, undefined, 0.3);
 
     // The bus gain is constructed after the (single) layer's own gain node, inside the same
@@ -1168,7 +1168,7 @@ describe('AudioEngine — masterVolume drives a live per-robot bus gain, not per
     await AudioEngine.start();
     (Tone.Gain as unknown as ReturnType<typeof vi.fn>).mockClear();
 
-    const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0, active: true }];
+    const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0 }];
     AudioEngine.reserveVoice('bus-gain-default-robot', layered as any, TEST_ADSR);
 
     const gainCalls = (Tone.Gain as unknown as { mock: { calls: unknown[][] } }).mock.calls;
@@ -1187,7 +1187,7 @@ describe('AudioEngine — masterVolume drives a live per-robot bus gain, not per
     const { AudioEngine } = await import('./AudioEngine');
     await AudioEngine.start();
 
-    const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0, active: true }];
+    const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0 }];
     AudioEngine.reserveVoice('zero-volume-robot', layered as any, TEST_ADSR, undefined, undefined, undefined, 0);
     const synthResults = (Tone.Synth as unknown as any).mock.results;
 
@@ -1215,7 +1215,7 @@ describe('AudioEngine.updateRobotMasterVolume', () => {
     const { AudioEngine } = await import('./AudioEngine');
     await AudioEngine.start();
 
-    const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0, active: true }];
+    const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0 }];
     AudioEngine.reserveVoice('volume-live-edit-robot', layered as any, TEST_ADSR, undefined, undefined, undefined, 0.55);
 
     const gainResults = (Tone.Gain as unknown as { mock: { results: { value: { gain: { value: number } } }[] } }).mock.results;
@@ -1309,13 +1309,13 @@ describe('AudioEngine - Composite Voices (Layered)', () => {
     expect(voice).toBeNull();
   });
 
-  it('excludes active: false layers from the reserved composite voice (Roadmap Phase 9 — mute, not delete)', async () => {
+  it('excludes gain: 0 layers from the reserved composite voice (Roadmap Phase 9 — mute, not delete)', async () => {
     const { AudioEngine } = await import('./AudioEngine');
     await AudioEngine.start();
-    const layers: any[] = [
-      { type: 'sine', gain: 1, detune: 0, phase: 0, active: true },
-      { type: 'square', gain: 1, detune: 0, phase: 0, active: false },
-      { type: 'sawtooth', gain: 1, detune: 0, phase: 0, active: true },
+    const layers = [
+      { type: 'sine', gain: 1, detune: 0, phase: 0 },
+      { type: 'square', gain: 0, detune: 0, phase: 0 },
+      { type: 'sawtooth', gain: 1, detune: 0, phase: 0 },
     ];
     AudioEngine.reserveVoice('active-filter-robot', layers as any, TEST_ADSR);
     const voice = AudioEngine.getVoiceForRobot('active-filter-robot');
@@ -1323,12 +1323,12 @@ describe('AudioEngine - Composite Voices (Layered)', () => {
     expect(voice?.layers?.map((l) => l.layer.type)).toEqual(['sine', 'sawtooth']);
   });
 
-  it('treats a layer with no active field as active (fixtures predating the field stay audible)', async () => {
+  it('treats a layer with no gain field as audible (fixtures predating a real value stay audible)', async () => {
     const { AudioEngine } = await import('./AudioEngine');
     await AudioEngine.start();
-    const layers: any[] = [{ type: 'sine', gain: 1, detune: 0, phase: 0 }];
-    AudioEngine.reserveVoice('no-active-field-robot', layers as any, TEST_ADSR);
-    const voice = AudioEngine.getVoiceForRobot('no-active-field-robot');
+    const layers: any[] = [{ type: 'sine', detune: 0, phase: 0 }];
+    AudioEngine.reserveVoice('no-gain-field-robot', layers as any, TEST_ADSR);
+    const voice = AudioEngine.getVoiceForRobot('no-gain-field-robot');
     expect(voice?.layers?.length).toBe(1);
   });
 });
@@ -1338,12 +1338,12 @@ describe('AudioEngine.updateVoiceEnvelope', () => {
     vi.resetModules();
   });
 
-  it('applies the new ADSR to every active layer\'s live synth via the existing set({ layers }) path', async () => {
+  it('applies the new ADSR to every audible layer\'s live synth via the existing set({ layers }) path', async () => {
     const { AudioEngine } = await import('./AudioEngine');
     await AudioEngine.start();
     const layers: any[] = [
-      { type: 'sine', gain: 1, detune: 0, phase: 0, active: true },
-      { type: 'square', gain: 1, detune: 0, phase: 0, active: true },
+      { type: 'sine', gain: 1, detune: 0, phase: 0 },
+      { type: 'square', gain: 1, detune: 0, phase: 0 },
     ];
     AudioEngine.reserveVoice('envelope-robot', layers as any, TEST_ADSR);
 
