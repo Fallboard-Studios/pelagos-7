@@ -2,6 +2,7 @@
 // IMPORTS
 // ========================================
 import { devLog, devWarn } from '../utils/helpers';
+import { DAY_CYCLE_MEASURES } from '../constants';
 
 // Minimal transport-like interface to avoid importing Tone.js here.
 interface TransportLike {
@@ -18,7 +19,6 @@ let transportInstance: TransportLike | null = null;
 // CONSTANTS
 // ========================================
 const BEATS_PER_MEASURE = 4;
-const MEASURES_PER_CYCLE = 96;
 const MEASURES_PER_HOUR = 4;
 
 // ========================================
@@ -55,7 +55,7 @@ export function initBeatClock(transport?: TransportLike): void {
     currentMeasure = measure;
     if (currentMeasure !== lastNotifiedMeasure) {
       lastNotifiedMeasure = currentMeasure;
-      const wrappedMeasure = currentMeasure % MEASURES_PER_CYCLE;
+      const wrappedMeasure = currentMeasure % DAY_CYCLE_MEASURES;
       measureListeners.forEach(fn => {
         try {
           fn(wrappedMeasure);
@@ -129,7 +129,7 @@ export function getCurrentMeasure(): number {
  * `getCurrentMeasure()`. For callers needing finer-than-once-per-measure
  * resolution (e.g. audioSwells.ts's 16n advance tick) without re-deriving
  * BEATS_PER_MEASURE themselves. Unwrapped like `getCurrentMeasure()` — never
- * the `% MEASURES_PER_CYCLE`-wrapped value `subscribeToMeasure`'s own
+ * the `% DAY_CYCLE_MEASURES`-wrapped value `subscribeToMeasure`'s own
  * callback argument carries.
  */
 export function getCurrentMeasurePrecise(): number {
@@ -141,7 +141,7 @@ export function getCurrentMeasurePrecise(): number {
  * 96 measures = 1 full day cycle, 4 measures = 1 hour equivalent.
  */
 export function getCurrentHour(): number {
-  const derivedHour = Math.floor((currentMeasure % MEASURES_PER_CYCLE) / MEASURES_PER_HOUR);
+  const derivedHour = Math.floor((currentMeasure % DAY_CYCLE_MEASURES) / MEASURES_PER_HOUR);
   return Math.max(0, Math.min(23, derivedHour));
 }
 

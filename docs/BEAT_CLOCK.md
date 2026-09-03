@@ -23,7 +23,7 @@ import {
 |---|---|
 | `BEATS_PER_MEASURE` | `4` (4/4 time) |
 | `MEASURES_PER_HOUR` | `4` |
-| `MEASURES_PER_CYCLE` | `96` (24 hours × 4 measures) |
+| `DAY_CYCLE_MEASURES` (imported from `constants/index.ts`) | `96` (24 hours × 4 measures) |
 
 ## API
 
