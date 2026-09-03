@@ -123,8 +123,7 @@ export const CONTROL_SCHEMA_TYPES: readonly ControlSchema['type'][] = [
 // LFO VALUE
 // ========================================
 
-/** Lfo component's controlled value — reuses the real engine type from Phase 0,
- *  plus `active`, which sits outside LfoSettings per the OSCILLATION STATE row. */
-export interface LfoValue extends LfoSettings {
-  active: boolean;
-}
+/** Lfo component's controlled value — a plain alias of the real engine type
+ *  (Phase 0). No longer carries `active`: the OSCILLATION STATE toggle was
+ *  removed, and rate=0 is now the "off" signal instead of a separate flag. */
+export type LfoValue = LfoSettings;

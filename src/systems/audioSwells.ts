@@ -55,8 +55,8 @@ export const MAX_CONCURRENT_SWELLS_PER_POOL = 5;
 /** Per-measure probability a pool rolls a new swell, calibrated so an average
  *  gap of ~3-4 measures emerges (confirmed via interview) — NOT a fixed
  *  "every N measures" timer. First-pass placeholder, same caveat as every
- *  other probability-threshold field in this app (DELAY_ENABLED_THRESHOLD,
- *  LFO_ACTIVE_THRESHOLD) — tune during the manual/audible checkpoint. */
+ *  other probability-threshold field in this app (DELAY_QUIET_THRESHOLD,
+ *  LFO_QUIET_THRESHOLD) — tune during the manual/audible checkpoint. */
 export const SWELL_TRIGGER_CHANCE = 0.28; // ~= 1 / 3.5
 
 /** Second, small chance — evaluated only when the robot pool's own trigger

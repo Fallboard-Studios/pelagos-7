@@ -54,7 +54,7 @@ function sampleField(noiseMap: NoiseFunction2D, key: GlobalAudioSeedFieldKey): n
  * directly on wet since there's no separate enabled flag left to carry it.
  * The sole global effect a fresh Attenuation Style can load silent; every
  * other effect's wet/level always seeds a real, audible value. Mirrors the
- * shipped LFO_ACTIVE_THRESHOLD pattern below, just a different field/odds.
+ * shipped LFO_QUIET_THRESHOLD pattern below, just a different field/odds.
  */
 const DELAY_QUIET_THRESHOLD = 0.25;
 
@@ -126,16 +126,18 @@ export function generateGlobalAudioSettings(attenuationStyleId: string, attenuat
 }
 
 /**
- * Probability threshold an `active` seed draw ([0, 1]) must clear to seed
- * `true` — ~66% chance per target (not a flat 50/50), so a typical Attenuation Style
- * seeds roughly 5 active LFOs out of 7.
+ * Probability threshold a target's own "start quiet" seed draw ([0, 1]) must
+ * clear to force rate to 0 — ~34% chance per target (not a flat 50/50), so a
+ * typical Attenuation Style seeds roughly 5 already-oscillating LFOs out of 7.
+ * Replaces the old separate `active` boolean — see LFO_RATE_MIN's own doc
+ * comment (src/types/lfo.ts) for why rate=0 is now the "off" state.
  */
-const LFO_ACTIVE_THRESHOLD = 0.34;
+const LFO_QUIET_THRESHOLD = 0.34;
 
 /**
  * Ping Variance Automation's own seeded-default range — [33%, 66%] as a
  * fraction — same "bounded/legible default, freely draggable afterward"
- * convention every other seeded Rig field follows (e.g. DELAY_ENABLED_THRESHOLD
+ * convention every other seeded Rig field follows (e.g. DELAY_QUIET_THRESHOLD
  * above). docs/specs/PING-VARIANCE-AUTOMATION.md §1.2.
  */
 const PING_VARIANCE_AUTOMATION_SEED_RANGE = { min: 0.33, max: 0.66 };
@@ -188,29 +190,29 @@ const LFO_LOADING_SHAPES: readonly LfoShape[] = ['triangle', 'sine'];
  * Unlike the per-field GLOBAL_AUDIO_SEED_RANGES table, every target shares
  * the same single global rate/depth loading bounds (LFO_RATE_LOADING_MIN/MAX,
  * LFO_DEPTH_LOADING_MIN/MAX) — GLOBAL_CHAIN_GRID.md's LFO? column is a flat
- * flag, not per-field bounds. `active` is seeded too, unlike the robot-level
- * precedent (spawnSystem.ts's generateRobotLfoSettings, where connected/
- * active is a runtime UI concern never part of the generated data) — a
- * freshly loaded Attenuation Style can already have real, audible modulation running.
+ * flag, not per-field bounds. Each target has a real ~34% chance
+ * (LFO_QUIET_THRESHOLD) of forcing rate to 0 instead of its own sampled
+ * value — a freshly loaded Attenuation Style can already have real, audible
+ * modulation running on most targets.
  */
 export function generateGlobalLfoSettings(
   attenuationStyleId: string,
   attenuationStyleName: string,
-): Record<GlobalLfoTargetId, LfoSettings & { active: boolean }> {
+): Record<GlobalLfoTargetId, LfoSettings> {
   const noiseMap = getAttenuationStyleNoiseMap(attenuationStyleId, attenuationStyleName);
-  const result = {} as Record<GlobalLfoTargetId, LfoSettings & { active: boolean }>;
+  const result = {} as Record<GlobalLfoTargetId, LfoSettings>;
 
   for (const target of GLOBAL_LFO_TARGET_IDS) {
     const rateT = getSeededVal(noiseMap, `globalLfo.${target}.rate`, 0, 0, 1);
     const depthT = getSeededVal(noiseMap, `globalLfo.${target}.depth`, 0, 0, 1);
     const shapeT = getSeededVal(noiseMap, `globalLfo.${target}.shape`, 0, 0, 1);
-    const activeT = getSeededVal(noiseMap, `globalLfo.${target}.active`, 0, 0, 1);
+    const quietT = getSeededVal(noiseMap, `globalLfo.${target}.quiet`, 0, 0, 1);
+    const quiet = quietT < LFO_QUIET_THRESHOLD;
 
     result[target] = {
-      rate: scaleUnitValue(rateT, { min: LFO_RATE_LOADING_MIN, max: LFO_RATE_LOADING_MAX, scale: 'linear' }),
+      rate: quiet ? 0 : scaleUnitValue(rateT, { min: LFO_RATE_LOADING_MIN, max: LFO_RATE_LOADING_MAX, scale: 'linear' }),
       depth: scaleUnitValue(depthT, { min: LFO_DEPTH_LOADING_MIN, max: LFO_DEPTH_LOADING_MAX, scale: 'linear' }),
       shape: LFO_LOADING_SHAPES[Math.min(LFO_LOADING_SHAPES.length - 1, Math.floor(shapeT * LFO_LOADING_SHAPES.length))],
-      active: activeT >= LFO_ACTIVE_THRESHOLD,
     };
   }
   return result;

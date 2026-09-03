@@ -369,8 +369,8 @@ describe('useAudioStore - setGlobalLfo', () => {
 
   it('updates globalLfo state for the given target', async () => {
     const { useAudioStore } = await import('./audioStore');
-    useAudioStore.getState().setGlobalLfo('eq3.low', { shape: 'square', rate: 3, depth: 40, active: false });
-    expect(useAudioStore.getState().globalLfo['eq3.low']).toEqual({ shape: 'square', rate: 3, depth: 40, active: false });
+    useAudioStore.getState().setGlobalLfo('eq3.low', { shape: 'square', rate: 3, depth: 40 });
+    expect(useAudioStore.getState().globalLfo['eq3.low']).toEqual({ shape: 'square', rate: 3, depth: 40 });
   });
 
   it('always calls setLfoShape/setLfoRate/setLfoDepth with the value\'s fields', async () => {
@@ -378,20 +378,20 @@ describe('useAudioStore - setGlobalLfo', () => {
     const { lfoEngine } = await import('../engine/lfoEngine');
     vi.clearAllMocks();
 
-    useAudioStore.getState().setGlobalLfo('lpf.frequency', { shape: 'triangle', rate: 5, depth: 60, active: false });
+    useAudioStore.getState().setGlobalLfo('lpf.frequency', { shape: 'triangle', rate: 5, depth: 60 });
 
     expect(lfoEngine.setLfoShape).toHaveBeenCalledWith('lpf.frequency', 'triangle');
     expect(lfoEngine.setLfoRate).toHaveBeenCalledWith('lpf.frequency', 5);
     expect(lfoEngine.setLfoDepth).toHaveBeenCalledWith('lpf.frequency', 60);
   });
 
-  it('connects and starts when active is true and connect succeeds', async () => {
+  it('connects and starts when rate > 0 and connect succeeds', async () => {
     const { useAudioStore } = await import('./audioStore');
     const { lfoEngine } = await import('../engine/lfoEngine');
     vi.clearAllMocks();
     vi.mocked(lfoEngine.connectLfoTarget).mockReturnValue(true);
 
-    useAudioStore.getState().setGlobalLfo('hpf.Q', { shape: 'sine', rate: 1, depth: 20, active: true });
+    useAudioStore.getState().setGlobalLfo('hpf.Q', { shape: 'sine', rate: 1, depth: 20 });
 
     expect(lfoEngine.connectLfoTarget).toHaveBeenCalledWith('hpf.Q');
     expect(lfoEngine.start).toHaveBeenCalledWith('hpf.Q');
@@ -399,24 +399,24 @@ describe('useAudioStore - setGlobalLfo', () => {
     expect(lfoEngine.stop).not.toHaveBeenCalled();
   });
 
-  it('does not call start when active is true but connect fails', async () => {
+  it('does not call start when rate > 0 but connect fails', async () => {
     const { useAudioStore } = await import('./audioStore');
     const { lfoEngine } = await import('../engine/lfoEngine');
     vi.clearAllMocks();
     vi.mocked(lfoEngine.connectLfoTarget).mockReturnValue(false);
 
-    useAudioStore.getState().setGlobalLfo('hpf.frequency', { shape: 'sine', rate: 1, depth: 20, active: true });
+    useAudioStore.getState().setGlobalLfo('hpf.frequency', { shape: 'sine', rate: 1, depth: 20 });
 
     expect(lfoEngine.connectLfoTarget).toHaveBeenCalledWith('hpf.frequency');
     expect(lfoEngine.start).not.toHaveBeenCalled();
   });
 
-  it('disconnects and stops when active is false', async () => {
+  it('disconnects and stops when rate is 0', async () => {
     const { useAudioStore } = await import('./audioStore');
     const { lfoEngine } = await import('../engine/lfoEngine');
     vi.clearAllMocks();
 
-    useAudioStore.getState().setGlobalLfo('eq3.high', { shape: 'sine', rate: 1, depth: 20, active: false });
+    useAudioStore.getState().setGlobalLfo('eq3.high', { shape: 'sine', rate: 0, depth: 20 });
 
     expect(lfoEngine.disconnectLfoTarget).toHaveBeenCalledWith('eq3.high');
     expect(lfoEngine.stop).toHaveBeenCalledWith('eq3.high');

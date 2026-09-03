@@ -118,24 +118,23 @@ describe('SignatureArrayDrawer', () => {
   it('defaults each layer\'s shared LFO display to its first field (Gain) and wires onLfoChange to it', () => {
     const onLfoChange = vi.fn();
     const value = makeValue({
-      lfoSettings: { 'layer0.gain': { shape: 'sine', rate: 1, depth: 10, active: false } } as unknown as Robot['lfoSettings'],
+      lfoSettings: { 'layer0.gain': { shape: 'sine', rate: 1, depth: 10 } } as unknown as Robot['lfoSettings'],
     });
     const { container } = render(
       <SignatureArrayDrawer value={value} onContinuousChange={() => {}} onStructuralChange={() => {}} onLfoChange={onLfoChange} />
     );
 
-    const gainLfoToggle = within(layerSection(container, 'layer0')).getByRole('switch', { name: 'Active' });
-    fireEvent.click(gainLfoToggle);
+    const gainLfoRate = within(layerSection(container, 'layer0')).getByRole('slider', { name: 'Rate' });
+    gainLfoRate.focus();
+    fireEvent.keyDown(gainLfoRate, { key: 'ArrowRight' });
 
-    expect(onLfoChange).toHaveBeenCalledWith('layer0.gain', { shape: 'sine', rate: 1, depth: 10, active: true });
+    expect(onLfoChange).toHaveBeenCalledWith('layer0.gain', { shape: 'sine', rate: 1.25, depth: 10 });
   });
 
   describe('shared LFO display (LFO_CONSOLIDATED_DISPLAY — replaces the old per-param nested accordion)', () => {
     it('renders exactly one shared LFO display per layer — 3 total, never one per param', () => {
       const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
-      // 'Active' (exact) is the shared display's own toggle; layer-level toggles are named
-      // 'Coaxial Active'/'Harmonic Active', so this can't double-count them.
-      expect(within(container).getAllByRole('switch', { name: 'Active' })).toHaveLength(3);
+      expect(container.querySelectorAll('.sc-lfo')).toHaveLength(3);
     });
 
     it('renders no accordion anywhere except the drawer\'s own single Signature Array wrapper — no nested "Modulation" accordion per param', () => {
@@ -164,8 +163,9 @@ describe('SignatureArrayDrawer', () => {
         expect(detuneRow.classList.contains('isActive')).toBe(true);
       });
 
-      const activeToggle = within(layerSection(container, 'layer0')).getByRole('switch', { name: 'Active' });
-      fireEvent.click(activeToggle);
+      const rateSlider = within(layerSection(container, 'layer0')).getByRole('slider', { name: 'Rate' });
+      rateSlider.focus();
+      fireEvent.keyDown(rateSlider, { key: 'ArrowRight' });
       expect(onLfoChange.mock.calls[0][0]).toBe('layer0.detune');
     });
 
@@ -206,8 +206,9 @@ describe('SignatureArrayDrawer', () => {
 
       expect(within(layerSection(container, 'layer1')).queryByText(/Interval/i)).toBeNull();
       // Falls back to Gain (layer1's first field) — no crash, and the shared display still works.
-      const activeToggle = within(layerSection(container, 'layer1')).getByRole('switch', { name: 'Active' });
-      fireEvent.click(activeToggle);
+      const rateSlider = within(layerSection(container, 'layer1')).getByRole('slider', { name: 'Rate' });
+      rateSlider.focus();
+      fireEvent.keyDown(rateSlider, { key: 'ArrowRight' });
       expect(onLfoChange.mock.calls.at(-1)?.[0]).toBe('layer1.gain');
     });
 
@@ -216,7 +217,7 @@ describe('SignatureArrayDrawer', () => {
       const value = makeValue({
         // Only layer2's phase has been broadcast-edited — every other target falls back to
         // DEFAULT_LFO_SETTINGS, exactly as CompanyOptionsSection's own resolved snapshot does.
-        lfoSettings: { 'layer2.phase': { shape: 'square', rate: 3, depth: 25, active: true } } as unknown as Robot['lfoSettings'],
+        lfoSettings: { 'layer2.phase': { shape: 'square', rate: 3, depth: 25 } } as unknown as Robot['lfoSettings'],
       });
       const { container } = render(
         <SignatureArrayDrawer value={value} onContinuousChange={() => {}} onStructuralChange={() => {}} onLfoChange={onLfoChange} />
@@ -224,9 +225,10 @@ describe('SignatureArrayDrawer', () => {
 
       // layer2's shared display defaults to Gain (unaffected by the partial lfoSettings), so
       // this just proves no crash and normal default-fallback resolution across every layer.
-      const activeToggle = within(layerSection(container, 'layer2')).getByRole('switch', { name: 'Active' });
-      fireEvent.click(activeToggle);
-      expect(onLfoChange).toHaveBeenCalledWith('layer2.gain', expect.objectContaining({ active: true }));
+      const rateSlider = within(layerSection(container, 'layer2')).getByRole('slider', { name: 'Rate' });
+      rateSlider.focus();
+      fireEvent.keyDown(rateSlider, { key: 'ArrowRight' });
+      expect(onLfoChange).toHaveBeenCalledWith('layer2.gain', expect.objectContaining({ rate: expect.any(Number) }));
     });
   });
 

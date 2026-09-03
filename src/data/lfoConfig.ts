@@ -15,13 +15,14 @@ import {
 } from '../types/lfo';
 
 /**
- * Inert by default — depth pinned to LFO_DEPTH_MIN (0%) so a connected-but-
- * unconfigured LFO produces no audible modulation until a human (Phase 1/4/9
- * UI) or seeded generation (Task 13 for robot targets) sets a real depth.
- * Rate is pinned to LFO_RATE_MIN rather than an arbitrary "typical" value —
- * both bounds trace to Task 7's exported constants, not invented here.
- * 'sine' is the conventional default LFO waveform (smooth, no discontinuities
- * at zero depth) — not a bounds concern, just the shape pick.
+ * Inert by default — both rate and depth pinned to their own MIN constants
+ * (LFO_RATE_MIN/LFO_DEPTH_MIN, both 0) rather than an arbitrary "typical"
+ * value, tracing to Task 7's exported constants, not invented here. Rate 0
+ * doubles as the "off" state (replacing the removed OSCILLATION STATE
+ * toggle — see lfoEngine.ts's connect/disconnect callers), so an
+ * unconfigured LFO is doubly inert: not connected, and would add nothing
+ * even if it were. 'sine' is the conventional default LFO waveform (smooth,
+ * no discontinuities at zero depth) — not a bounds concern, just the shape pick.
  */
 function makeDefaultLfoSettings(): LfoSettings {
   return { shape: 'sine', rate: LFO_RATE_MIN, depth: LFO_DEPTH_MIN };

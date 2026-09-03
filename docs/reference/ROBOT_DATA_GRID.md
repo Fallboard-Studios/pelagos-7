@@ -40,12 +40,13 @@
 | Layer 3: Phase | HARMONIC ALIGNMENT | Slider - linear Component | 0 | 360 | Yes | Phase offset in degrees |
 | Layer 3: Interval | HARMONIC PULSE WIDTH | Slider - linear Component | 0 | 1 | Yes | Only displayed when Type is BURST (pulse) — see Layer 1: Interval's note |
 | **LFO MODULE** | OSCILLATION | LFO Component | N/A | N/A | No | Attached LFO module for parameters flagged with HAS LFO. Rendered inside a "Modulation" accordion (human label only — no lore label passed at either call site, `AudioRigDrawer.tsx`/`SignatureArrayDrawer.tsx`) |
-| LFO Active | OSCILLATION STATE † | Toggle Component | N/A | N/A | No | Options: ON, OFF |
 | LFO Shape | OSCILLATION SHAPE † | Radio Button Component | N/A | N/A | No | Options: TRIANGLE, SINE, SQUARE, SAWTOOTH |
-| LFO Rate | OSCILLATION RATE † | Slider - linear Component | 0.1 Hz | 10 Hz | No | LFO modulation speed |
+| LFO Rate | OSCILLATION RATE † | Slider - linear Component | 0 Hz | 10 Hz | No | LFO modulation speed. 0 Hz is a real, meaningful value — the LFO's "off" state, replacing the removed OSCILLATION STATE toggle below |
 | LFO Depth | OSCILLATION DEPTH † | Slider - linear Component | 0% | 100% | No | LFO modulation intensity |
 
-† These 4 lore labels exist only as source comments pointing back at this table (`src/types/lfo.ts`, `src/types/controls.ts`) — the actual `Lfo` component (`src/components/ui/controls/Lfo.tsx`) builds its Shape/Rate/Depth/Active sub-schemas with `humanLabel` only, no `loreLabel` field at all. If comping these as lore-labeled elements, that copy isn't live anywhere in the UI today.
+There is no separate OSCILLATION STATE / "LFO Active" toggle — it was removed. Rate=0 is now the "off" state, and a live LFO's `.connect()`/`.disconnect()` is driven off `rate > 0` instead of a boolean (see `src/stores/audioStore.ts`'s `setGlobalLfo` / `src/systems/robotOptionsActions.ts`'s `applyLayerLfo`).
+
+† These 3 lore labels exist only as source comments pointing back at this table (`src/types/lfo.ts`, `src/types/controls.ts`) — the actual `Lfo` component (`src/components/ui/controls/Lfo.tsx`) builds its Shape/Rate/Depth sub-schemas with `humanLabel` only, no `loreLabel` field at all. If comping these as lore-labeled elements, that copy isn't live anywhere in the UI today.
 
 ## Draft — pending review
 

@@ -59,12 +59,12 @@ export function applyGlobalAudioToEngine(globalAudio: GlobalAudioSettings): void
   }
 }
 
-/** Initial globalLfo — DEFAULT_LFO_SETTINGS' 9 global entries, each starting inactive
- *  (not connected) until the AS-sync below seeds real values. */
-function buildDefaultGlobalLfo(): Record<GlobalLfoTargetId, LfoSettings & { active: boolean }> {
-  const result = {} as Record<GlobalLfoTargetId, LfoSettings & { active: boolean }>;
+/** Initial globalLfo — DEFAULT_LFO_SETTINGS' 7 global entries, each starting inert
+ *  (rate 0, not connected) until the AS-sync below seeds real values. */
+function buildDefaultGlobalLfo(): Record<GlobalLfoTargetId, LfoSettings> {
+  const result = {} as Record<GlobalLfoTargetId, LfoSettings>;
   for (const target of GLOBAL_LFO_TARGET_IDS) {
-    result[target] = { ...DEFAULT_LFO_SETTINGS[target], active: false };
+    result[target] = { ...DEFAULT_LFO_SETTINGS[target] };
   }
   return result;
 }
@@ -84,7 +84,7 @@ export interface AudioStore {
   bpm: number;
   globalAudio: GlobalAudioSettings;
   /** Global-chain LFO settings, one entry per GlobalLfoTargetId — seeded per Attenuation Style, see regenerateGlobalLfoFromSeed. */
-  globalLfo: Record<GlobalLfoTargetId, LfoSettings & { active: boolean }>;
+  globalLfo: Record<GlobalLfoTargetId, LfoSettings>;
   isMuted: boolean;
   /** Live master-volume slider position, [0, 1] — TransportBar's volume slider's single source
    *  of truth. Default 1 (100%), never persisted across sessions. The engine's actual live gain
@@ -114,10 +114,10 @@ export interface AudioStore {
   ) => void;
   /**
    * Sets one global LFO target's settings — updates state, always pushes
-   * shape/rate/depth to lfoEngine, and connects+starts (active: true) or
-   * disconnects+stops (active: false) the live node.
+   * shape/rate/depth to lfoEngine, and connects+starts (rate > 0) or
+   * disconnects+stops (rate === 0) the live node.
    */
-  setGlobalLfo: (target: GlobalLfoTargetId, value: LfoSettings & { active: boolean }) => void;
+  setGlobalLfo: (target: GlobalLfoTargetId, value: LfoSettings) => void;
   /** Sets isMuted and pushes the resulting gain to AudioEngine — 0 when muted,
    *  volumePositionToGain(volume) (the live slider position) when not. Owns its own
    *  AudioEngine call, matching every other audioStore setter's shape (setBPM, etc.) —
@@ -230,7 +230,7 @@ export const useAudioStore = create<AudioStore>((set, get) => ({
     lfoEngine.setLfoShape(target, value.shape);
     lfoEngine.setLfoRate(target, value.rate);
     lfoEngine.setLfoDepth(target, value.depth);
-    if (value.active) {
+    if (value.rate > 0) {
       if (lfoEngine.connectLfoTarget(target)) lfoEngine.start(target);
     } else {
       lfoEngine.disconnectLfoTarget(target);

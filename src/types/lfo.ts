@@ -120,8 +120,11 @@ export const DRIFT_GROUP_IDS: readonly DriftGroupId[] = ['eq3', 'filterLPF', 'fi
 // SETTINGS
 // ========================================
 
-/** Hz — docs/reference/ROBOT_DATA_GRID.md's "LFO Rate" row (OSCILLATION RATE). */
-export const LFO_RATE_MIN = 0.1;
+/** Hz — docs/reference/ROBOT_DATA_GRID.md's "LFO Rate" row (OSCILLATION RATE).
+ *  0 is a real, meaningful value: it's the new "off" state, replacing the
+ *  removed OSCILLATION STATE toggle — rate=0 fully disconnects the LFO from
+ *  its target (see lfoEngine.ts's connect/disconnect callers). */
+export const LFO_RATE_MIN = 0;
 export const LFO_RATE_MAX = 10;
 
 /** Percent — docs/reference/ROBOT_DATA_GRID.md's "LFO Depth" row (OSCILLATION DEPTH). */

@@ -75,7 +75,7 @@ describe('resolveCompanyOptions', () => {
     expect(resolved.rhythmicMotifLength).toEqual({ active: true, value: 8 });
     expect(resolved.noteVariance).toEqual({ active: false, value: 1 });
     expect(resolved.pitchRepeat).toBe(0); // DEFAULT_PITCH_REPEAT
-    expect(resolved.volumeLfo).toEqual({ shape: 'sine', rate: 0.1, depth: 0, active: false });
+    expect(resolved.volumeLfo).toEqual({ shape: 'sine', rate: 0, depth: 0 });
   });
 
   it('with lastEditedOptions partially populated, only the recorded fields override — everything else still falls back to the first member', () => {

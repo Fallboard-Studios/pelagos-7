@@ -254,11 +254,14 @@ export function generateAudioAttributes(noiseMap: NoiseFunction2D, offset: numbe
 }
 
 /**
- * Probability threshold an LFO target's active seed draw ([0, 1]) must clear to seed `true` — a
- * plain 50/50 coin flip, matching LAYER_ACTIVE_THRESHOLD's rationale (no product requirement
- * pinned a specific bias for "each independently seeded active or inactive").
+ * Probability threshold an LFO target's own "start quiet" seed draw ([0, 1])
+ * must clear to force rate to 0 — a plain 50/50 coin flip, matching
+ * LAYER_ACTIVE_THRESHOLD's rationale (no product requirement pinned a
+ * specific bias for "each independently seeded on or off"). Replaces the old
+ * separate `active` boolean — see LFO_RATE_MIN's own doc comment
+ * (src/types/lfo.ts) for why rate=0 is now the "off" state.
  */
-const LFO_ACTIVE_THRESHOLD = 0.5;
+const LFO_QUIET_THRESHOLD = 0.5;
 
 /**
  * Generate seeded LfoSettings for all 13 RobotLfoTargetId modulation targets,
@@ -267,26 +270,27 @@ const LFO_ACTIVE_THRESHOLD = 0.5;
  * own dot-namespaced dataId ('robot.lfo.<target>.<field>'), so a single shared
  * `offset` naturally yields distinct values per target without needing the
  * per-index offset multiplier the oscillator-layer loop above uses (that's only
- * needed when multiple items share one dataId string). `active` is seeded per
- * target too (Roadmap Phase 9), mirroring how the global Audio Rig chain already
- * seeds some effects' LFOs already-on per Attenuation Style — a freshly-spawned robot can
+ * needed when multiple items share one dataId string). Each target has a real
+ * ~50% chance (LFO_QUIET_THRESHOLD) of forcing rate to 0 instead of its own
+ * sampled value, mirroring how the global Audio Rig chain already seeds some
+ * effects' LFOs already-on per Attenuation Style — a freshly-spawned robot can
  * have real modulation already audible before anything is touched.
  */
-export function generateRobotLfoSettings(noiseMap: NoiseFunction2D, offset: number): Record<RobotLfoTargetId, LfoSettings & { active: boolean }> {
+export function generateRobotLfoSettings(noiseMap: NoiseFunction2D, offset: number): Record<RobotLfoTargetId, LfoSettings> {
   const entries = ROBOT_LFO_TARGET_IDS.map((target) => {
     const shapeIdx = Math.min(
       LFO_SHAPES.length - 1,
       Math.floor(getSeededVal(noiseMap, `robot.lfo.${target}.shape`, offset, 0, LFO_SHAPES.length))
     );
-    const settings: LfoSettings & { active: boolean } = {
+    const quiet = getSeededVal(noiseMap, `robot.lfo.${target}.quiet`, offset, 0, 1) < LFO_QUIET_THRESHOLD;
+    const settings: LfoSettings = {
       shape: LFO_SHAPES[shapeIdx],
-      rate: getSeededVal(noiseMap, `robot.lfo.${target}.rate`, offset, LFO_RATE_MIN, LFO_RATE_MAX),
+      rate: quiet ? 0 : getSeededVal(noiseMap, `robot.lfo.${target}.rate`, offset, LFO_RATE_MIN, LFO_RATE_MAX),
       depth: getSeededVal(noiseMap, `robot.lfo.${target}.depth`, offset, LFO_DEPTH_MIN, LFO_DEPTH_MAX),
-      active: getSeededVal(noiseMap, `robot.lfo.${target}.active`, offset, 0, 1) >= LFO_ACTIVE_THRESHOLD,
     };
     return [target, settings] as const;
   });
-  return Object.fromEntries(entries) as Record<RobotLfoTargetId, LfoSettings & { active: boolean }>;
+  return Object.fromEntries(entries) as Record<RobotLfoTargetId, LfoSettings>;
 }
 
 /**

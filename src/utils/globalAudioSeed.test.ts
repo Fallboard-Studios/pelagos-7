@@ -285,12 +285,14 @@ describe('generateGlobalLfoSettings', () => {
     expect(b).not.toEqual(a);
   });
 
-  it('samples rate/depth from their narrower loading range (1-4Hz, 20-50%), not the full LFO_RATE/DEPTH_MIN/MAX range', () => {
+  it('samples rate/depth from their narrower loading range (1-4Hz, 20-50%), not the full LFO_RATE/DEPTH_MIN/MAX range — except a quietly-seeded target\'s rate, which is forced to exactly 0', () => {
     const settings = generateGlobalLfoSettings('seed-test-planet', 'Nova');
     for (const target of GLOBAL_LFO_TARGET_IDS) {
       const { rate, depth, shape } = settings[target];
-      expect(rate, `${target}.rate`).toBeGreaterThanOrEqual(LFO_RATE_LOADING_MIN);
-      expect(rate, `${target}.rate`).toBeLessThanOrEqual(LFO_RATE_LOADING_MAX);
+      if (rate !== 0) {
+        expect(rate, `${target}.rate`).toBeGreaterThanOrEqual(LFO_RATE_LOADING_MIN);
+        expect(rate, `${target}.rate`).toBeLessThanOrEqual(LFO_RATE_LOADING_MAX);
+      }
       expect(depth, `${target}.depth`).toBeGreaterThanOrEqual(LFO_DEPTH_LOADING_MIN);
       expect(depth, `${target}.depth`).toBeLessThanOrEqual(LFO_DEPTH_LOADING_MAX);
       expect(LFO_SHAPES, `${target}.shape`).toContain(shape);
@@ -326,29 +328,29 @@ describe('generateGlobalLfoSettings', () => {
     expect(seenShapes).toEqual(new Set(['triangle', 'sine']));
   });
 
-  it('seeds active as a real boolean for every target', () => {
+  it('no longer carries an active field on any target — removed, off is now expressed via rate: 0', () => {
     const settings = generateGlobalLfoSettings('seed-test-planet', 'Nova');
     for (const target of GLOBAL_LFO_TARGET_IDS) {
-      expect(typeof settings[target].active).toBe('boolean');
+      expect('active' in settings[target]).toBe(false);
     }
   });
 
-  it('seeds active true for roughly 2-in-3 targets across many Attenuation Styles, not roughly half (>= 0.34 threshold, not a flat 50/50)', () => {
+  it('seeds a nonzero (real, oscillating) rate for roughly 2-in-3 targets across many Attenuation Styles, not roughly half (>= 0.34 threshold, not a flat 50/50)', () => {
     const SAMPLE_ATTENUATION_STYLES = 40;
-    let activeCount = 0;
+    let nonzeroCount = 0;
     let totalCount = 0;
     for (let i = 0; i < SAMPLE_ATTENUATION_STYLES; i++) {
       const settings = generateGlobalLfoSettings(`seed-lfo-sample-${i}`, `Sample${i}`);
       for (const target of GLOBAL_LFO_TARGET_IDS) {
         totalCount++;
-        if (settings[target].active) activeCount++;
+        if (settings[target].rate > 0) nonzeroCount++;
       }
     }
-    const activeRate = activeCount / totalCount;
+    const nonzeroRate = nonzeroCount / totalCount;
     // ~66% expected; a wide tolerance band avoids flakiness while still
     // clearly distinguishing this from both a ~50% flat coin-flip and ~100%.
-    expect(activeRate).toBeGreaterThan(0.5);
-    expect(activeRate).toBeLessThan(0.8);
+    expect(nonzeroRate).toBeGreaterThan(0.5);
+    expect(nonzeroRate).toBeLessThan(0.8);
   });
 });
 

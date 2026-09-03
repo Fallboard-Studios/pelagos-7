@@ -26,7 +26,7 @@ import './CompanyOptionsSection.css';
 const DISABLED_AUDIO_SETTING: AudioSettingValue = {
   audioMode: 'none',
   masterVolume: 0,
-  volumeLfo: { shape: 'sine', rate: LFO_RATE_MIN, depth: LFO_DEPTH_MIN, active: false },
+  volumeLfo: { shape: 'sine', rate: LFO_RATE_MIN, depth: LFO_DEPTH_MIN },
 };
 
 const DISABLED_PING_CONTROLS: PingControlsValue = {
@@ -125,7 +125,7 @@ export function CompanyOptionsSection() {
         onVolumeLfoChange={(value) => {
           const patch = resolved ? diffCompoundField(resolved.volumeLfo, value) : value;
           members.forEach((m) => {
-            const memberOwn = m.lfoSettings?.[VOLUME_LFO_TARGET] ?? { ...DEFAULT_LFO_SETTINGS[VOLUME_LFO_TARGET], active: false };
+            const memberOwn = m.lfoSettings?.[VOLUME_LFO_TARGET] ?? { ...DEFAULT_LFO_SETTINGS[VOLUME_LFO_TARGET] };
             applyVolumeLfo(m, localeId, { ...memberOwn, ...patch });
           });
           patchSnapshot({ volumeLfo: value });
@@ -213,10 +213,10 @@ export function CompanyOptionsSection() {
           patchSnapshot({ layers });
         }}
         onLfoChange={(target, value) => {
-          const oldValue = resolved?.lfoSettings?.[target] ?? { ...DEFAULT_LFO_SETTINGS[target], active: false };
+          const oldValue = resolved?.lfoSettings?.[target] ?? { ...DEFAULT_LFO_SETTINGS[target] };
           const patch = diffCompoundField(oldValue, value);
           members.forEach((m) => {
-            const memberOwn = m.lfoSettings?.[target] ?? { ...DEFAULT_LFO_SETTINGS[target], active: false };
+            const memberOwn = m.lfoSettings?.[target] ?? { ...DEFAULT_LFO_SETTINGS[target] };
             applyLayerLfo(m, localeId, target, { ...memberOwn, ...patch });
           });
           patchSnapshot({ lfoSettings: { ...resolved?.lfoSettings, [target]: value } });

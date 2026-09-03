@@ -108,7 +108,7 @@ export function SignatureArrayDrawer({ value, onContinuousChange, onStructuralCh
                 fields={lfoParams.map((p) => ({
                   field: p.field,
                   label: (p.schema as SliderLinearSchema | SliderCenteredZeroSchema).humanLabel ?? p.field,
-                  lfoValue: value.lfoSettings?.[p.lfoTarget!] ?? { ...DEFAULT_LFO_SETTINGS[p.lfoTarget!], active: false },
+                  lfoValue: value.lfoSettings?.[p.lfoTarget!] ?? { ...DEFAULT_LFO_SETTINGS[p.lfoTarget!] },
                 }))}
                 onLfoChange={(field, v) => onLfoChange(lfoParams.find((p) => p.field === field)!.lfoTarget!, v)}
                 disabled={disabled}

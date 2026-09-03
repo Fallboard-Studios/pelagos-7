@@ -103,11 +103,11 @@ describe('robotOptionsActions', () => {
   });
 
   describe('applyVolumeLfo', () => {
-    it('writes lfoSettings.volume and connects the LFO target when active', () => {
+    it('writes lfoSettings.volume and connects the LFO target when rate > 0', () => {
       const robot = makeRobot({ lfoSettings: {} as unknown as Robot['lfoSettings'] });
       useLocaleStore.getState().addRobot(localeId, robot);
       const updateSpy = vi.spyOn(useLocaleStore.getState(), 'updateRobot');
-      const value: LfoValue = { shape: 'sine', rate: 1, depth: 20, active: true };
+      const value: LfoValue = { shape: 'sine', rate: 1, depth: 20 };
 
       applyVolumeLfo(robot, localeId, value);
 
@@ -116,10 +116,10 @@ describe('robotOptionsActions', () => {
       expect(lfoEngine.start).toHaveBeenCalledWith('volume', robot.id);
     });
 
-    it('disconnects the LFO target when set inactive', () => {
+    it('disconnects the LFO target when rate is 0', () => {
       const robot = makeRobot({ lfoSettings: {} as unknown as Robot['lfoSettings'] });
       useLocaleStore.getState().addRobot(localeId, robot);
-      const value: LfoValue = { shape: 'sine', rate: 1, depth: 20, active: false };
+      const value: LfoValue = { shape: 'sine', rate: 0, depth: 20 };
 
       applyVolumeLfo(robot, localeId, value);
 
@@ -322,11 +322,11 @@ describe('robotOptionsActions', () => {
   });
 
   describe('applyLayerLfo', () => {
-    it('writes lfoSettings[target] and connects the LFO target when active', () => {
+    it('writes lfoSettings[target] and connects the LFO target when rate > 0', () => {
       const robot = makeRobot({ lfoSettings: {} as unknown as Robot['lfoSettings'] });
       useLocaleStore.getState().addRobot(localeId, robot);
       const updateSpy = vi.spyOn(useLocaleStore.getState(), 'updateRobot');
-      const value: LfoValue = { shape: 'triangle', rate: 2, depth: 40, active: true };
+      const value: LfoValue = { shape: 'triangle', rate: 2, depth: 40 };
 
       applyLayerLfo(robot, localeId, 'layer0.gain', value);
 
@@ -335,10 +335,10 @@ describe('robotOptionsActions', () => {
       expect(lfoEngine.start).toHaveBeenCalledWith('layer0.gain', robot.id);
     });
 
-    it('disconnects the LFO target when set inactive', () => {
+    it('disconnects the LFO target when rate is 0', () => {
       const robot = makeRobot({ lfoSettings: {} as unknown as Robot['lfoSettings'] });
       useLocaleStore.getState().addRobot(localeId, robot);
-      const value: LfoValue = { shape: 'triangle', rate: 2, depth: 40, active: false };
+      const value: LfoValue = { shape: 'triangle', rate: 0, depth: 40 };
 
       applyLayerLfo(robot, localeId, 'layer0.gain', value);
 

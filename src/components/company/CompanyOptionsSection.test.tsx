@@ -22,7 +22,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 // untouched sub-fields survive" regression tests below to mean anything.
 vi.mock('@/components/robot/AudioSettingSection', () => ({
   AudioSettingSection: (props: {
-    value: { audioMode: string; masterVolume: number; volumeLfo: { shape: string; rate: number; depth: number; active: boolean } };
+    value: { audioMode: string; masterVolume: number; volumeLfo: { shape: string; rate: number; depth: number } };
     onAudioModeChange: (mode: string) => void;
     onVolumeChange: (pct: number) => void;
     onVolumeLfoChange: (value: unknown) => void;
@@ -92,7 +92,7 @@ vi.mock('@/components/robot/SignatureArrayDrawer', () => ({
   SignatureArrayDrawer: (props: {
     value: {
       layers: { type: string; gain: number; detune: number; phase: number; active: boolean }[];
-      lfoSettings?: Record<string, { shape: string; rate: number; depth: number; active: boolean }>;
+      lfoSettings?: Record<string, { shape: string; rate: number; depth: number }>;
     };
     onContinuousChange: (v: unknown) => void;
     onStructuralChange: (v: unknown) => void;
@@ -116,7 +116,7 @@ vi.mock('@/components/robot/SignatureArrayDrawer', () => ({
       </button>
       <button
         onClick={() => {
-          const current = props.value.lfoSettings?.['layer0.gain'] ?? { shape: 'sine', rate: 0.1, depth: 0, active: false };
+          const current = props.value.lfoSettings?.['layer0.gain'] ?? { shape: 'sine', rate: 0.1, depth: 0 };
           props.onLfoChange('layer0.gain', { ...current, rate: 9 });
         }}
       >
@@ -399,7 +399,7 @@ describe('CompanyOptionsSection', () => {
     render(<CompanyOptionsSection />);
     fireEvent.click(screen.getByText('probe-layer-lfo'));
 
-    expect(lfoSpy).toHaveBeenCalledWith(r1, localeId, 'layer0.gain', { shape: 'sine', rate: 9, depth: 0, active: false });
+    expect(lfoSpy).toHaveBeenCalledWith(r1, localeId, 'layer0.gain', { shape: 'sine', rate: 9, depth: 0 });
   });
 
   describe('broadcast preserves each member\'s own untouched sub-fields (only the single changed attribute propagates)', () => {
@@ -478,9 +478,9 @@ describe('CompanyOptionsSection', () => {
       expect(r2Layers[2]).toEqual({ type: 'sine', gain: 0.9, detune: 15, phase: 5, active: true });
     });
 
-    it('editing the Volume LFO\'s rate broadcasts only rate — each member keeps its own shape/depth/active', () => {
-      const r1 = makeRobot({ id: 'r1', companyId: 'c1', lfoSettings: { volume: { shape: 'sine', rate: 1, depth: 20, active: true } } as Robot['lfoSettings'] });
-      const r2 = makeRobot({ id: 'r2', companyId: 'c1', lfoSettings: { volume: { shape: 'square', rate: 0.5, depth: 60, active: false } } as Robot['lfoSettings'] });
+    it('editing the Volume LFO\'s rate broadcasts only rate — each member keeps its own shape/depth', () => {
+      const r1 = makeRobot({ id: 'r1', companyId: 'c1', lfoSettings: { volume: { shape: 'sine', rate: 1, depth: 20 } } as Robot['lfoSettings'] });
+      const r2 = makeRobot({ id: 'r2', companyId: 'c1', lfoSettings: { volume: { shape: 'square', rate: 0.5, depth: 60 } } as Robot['lfoSettings'] });
       useLocaleStore.getState().addRobot(localeId, r1);
       useLocaleStore.getState().addRobot(localeId, r2);
       useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1', 'r2'] });
@@ -491,7 +491,7 @@ describe('CompanyOptionsSection', () => {
       fireEvent.click(screen.getByText('probe-volume-lfo')); // stub sends { ...resolved-from-r1, rate: 9 }
 
       const r2Call = volumeLfoSpy.mock.calls.find((c) => c[0].id === 'r2');
-      expect(r2Call?.[2]).toEqual({ shape: 'square', rate: 9, depth: 60, active: false });
+      expect(r2Call?.[2]).toEqual({ shape: 'square', rate: 9, depth: 60 });
     });
   });
 

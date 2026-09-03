@@ -162,7 +162,7 @@ describe('spawnSystem', () => {
       expect(Object.keys(settings).sort()).toEqual([...ROBOT_LFO_TARGET_IDS].sort());
     });
 
-    it('every target\'s shape/rate/depth falls within documented bounds, active is a boolean', () => {
+    it('every target\'s shape/rate/depth falls within documented bounds — no active field left', () => {
       const settings = generateRobotLfoSettings(mockNoiseMap, 0);
       for (const target of ROBOT_LFO_TARGET_IDS) {
         const s = settings[target];
@@ -171,14 +171,14 @@ describe('spawnSystem', () => {
         expect(s.rate, `${target}.rate <= max`).toBeLessThanOrEqual(LFO_RATE_MAX);
         expect(s.depth, `${target}.depth >= min`).toBeGreaterThanOrEqual(LFO_DEPTH_MIN);
         expect(s.depth, `${target}.depth <= max`).toBeLessThanOrEqual(LFO_DEPTH_MAX);
-        expect(typeof s.active, `${target}.active`).toBe('boolean');
+        expect('active' in s, `${target} should not carry an active field`).toBe(false);
       }
     });
 
-    it('seeds active independently per target — not uniformly all-true or all-false (Roadmap Phase 9)', () => {
+    it('seeds quiet (rate: 0) independently per target — not uniformly all-quiet or all-oscillating (Roadmap Phase 9)', () => {
       const settings = generateRobotLfoSettings(mockNoiseMap, 0);
-      const activeValues = ROBOT_LFO_TARGET_IDS.map((t) => settings[t].active);
-      expect(new Set(activeValues).size, 'expected both true and false among the 13 targets').toBe(2);
+      const isQuiet = ROBOT_LFO_TARGET_IDS.map((t) => settings[t].rate === 0);
+      expect(new Set(isQuiet).size, 'expected both quiet and oscillating targets among the 13').toBe(2);
     });
 
     it('gives different targets different values within the same call — dataIds are genuinely distinct, not colliding', () => {

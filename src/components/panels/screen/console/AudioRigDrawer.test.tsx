@@ -41,7 +41,7 @@ function resetAudioStore() {
 }
 
 function buildLfoValue(target: GlobalLfoTargetId) {
-  return { ...DEFAULT_LFO_SETTINGS[target], active: false };
+  return { ...DEFAULT_LFO_SETTINGS[target] };
 }
 
 describe('AudioRigDrawer', () => {
@@ -128,10 +128,10 @@ describe('AudioRigDrawer', () => {
 
   describe('shared LFO display (LFO_CONSOLIDATED_DISPLAY — replaces the old nested per-slider accordion)', () => {
     it('renders exactly one shared LFO display per LFO-bearing block — 3 total (eq3, filterLPF, filterHPF), never one per param', () => {
-      render(<AudioRigDrawer />);
-      // Each shared display renders exactly one Active toggle, so a plain count also proves
-      // "not one per param" — 7 GlobalLfoTargetId params would otherwise render 7.
-      expect(screen.getAllByRole('switch', { name: 'Active' })).toHaveLength(3);
+      const { container } = render(<AudioRigDrawer />);
+      // A plain count of the shared display's own root class also proves "not one per param" —
+      // 7 GlobalLfoTargetId params would otherwise render 7.
+      expect(container.querySelectorAll('.sc-lfo')).toHaveLength(3);
     });
 
     it('renders no shared LFO display for delay, reverb, compressor, or limiter — none of their params carry lfoTarget', () => {
@@ -155,33 +155,32 @@ describe('AudioRigDrawer', () => {
 
     it('binds the default target (eq3.low) to its own globalLfo entry, not DEFAULT_LFO_SETTINGS', () => {
       useAudioStore.setState((s) => ({
-        globalLfo: { ...s.globalLfo, 'eq3.low': { shape: 'square', rate: 5, depth: 60, active: true } },
+        globalLfo: { ...s.globalLfo, 'eq3.low': { shape: 'square', rate: 5, depth: 60 } },
       }));
       render(<AudioRigDrawer />);
 
       const rateSlider = screen.getAllByRole('slider', { name: 'Rate' })[0];
       const depthSlider = screen.getAllByRole('slider', { name: 'Depth' })[0];
-      const activeToggle = screen.getAllByRole('switch', { name: 'Active' })[0];
 
       expect(rateSlider.getAttribute('aria-valuenow')).toBe('5');
       expect(depthSlider.getAttribute('aria-valuenow')).toBe('60');
-      expect(activeToggle.getAttribute('aria-checked')).toBe('true');
     });
 
-    it('changing the shared display\'s active toggle calls setGlobalLfo for the currently-targeted field (eq3.low by default)', () => {
+    it('dragging the shared display\'s rate slider off 0 calls setGlobalLfo for the currently-targeted field (eq3.low by default)', () => {
       render(<AudioRigDrawer />);
-      const activeToggle = screen.getAllByRole('switch', { name: 'Active' })[0]; // eq3's shared display, defaulting to eq3.low
-      expect(useAudioStore.getState().globalLfo['eq3.low'].active).toBe(false);
+      const rateSlider = screen.getAllByRole('slider', { name: 'Rate' })[0]; // eq3's shared display, defaulting to eq3.low
+      expect(useAudioStore.getState().globalLfo['eq3.low'].rate).toBe(0);
 
-      fireEvent.click(activeToggle);
+      rateSlider.focus();
+      fireEvent.keyDown(rateSlider, { key: 'ArrowRight' });
 
-      expect(useAudioStore.getState().globalLfo['eq3.low'].active).toBe(true);
+      expect(useAudioStore.getState().globalLfo['eq3.low'].rate).toBeGreaterThan(0);
     });
 
     it('the shared LFO display is enabled by default — no parent-effect enabled/disabled concept left to gate it', () => {
       render(<AudioRigDrawer />);
-      const activeToggle = screen.getAllByRole('switch', { name: 'Active' })[0];
-      expect((activeToggle as HTMLButtonElement).disabled).toBe(false);
+      const rateSlider = screen.getAllByRole('slider', { name: 'Rate' })[0];
+      expect(rateSlider.getAttribute('data-disabled')).toBeNull();
     });
 
     it("the effect accordion's status light is unlit — no Enabled toggle left to drive it", () => {
@@ -193,7 +192,7 @@ describe('AudioRigDrawer', () => {
 
     it('does not auto-open the parent effect accordion just because its LFO-tied target is active', () => {
       useAudioStore.setState((s) => ({
-        globalLfo: { ...s.globalLfo, 'eq3.low': { shape: 'square', rate: 5, depth: 60, active: true } },
+        globalLfo: { ...s.globalLfo, 'eq3.low': { shape: 'square', rate: 5, depth: 60 } },
       }));
       render(<AudioRigDrawer />);
       const eqTrigger = screen.getByRole('button', { name: /3-Band EQ/i });
@@ -228,11 +227,12 @@ describe('AudioRigDrawer', () => {
         expect(screen.getByRole('slider', { name: 'High' }).closest('.sc-lfo-target-group__row')?.classList.contains('isActive')).toBe(true);
       });
 
-      const activeToggle = screen.getAllByRole('switch', { name: 'Active' })[0];
-      fireEvent.click(activeToggle);
+      const rateSlider = screen.getAllByRole('slider', { name: 'Rate' })[0];
+      rateSlider.focus();
+      fireEvent.keyDown(rateSlider, { key: 'ArrowRight' });
 
-      expect(useAudioStore.getState().globalLfo['eq3.high'].active).toBe(true);
-      expect(useAudioStore.getState().globalLfo['eq3.low'].active).toBe(false);
+      expect(useAudioStore.getState().globalLfo['eq3.high'].rate).toBeGreaterThan(0);
+      expect(useAudioStore.getState().globalLfo['eq3.low'].rate).toBe(0);
     });
   });
 

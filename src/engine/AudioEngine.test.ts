@@ -1827,17 +1827,18 @@ describe('AudioEngine - getGlobalModulationTarget', () => {
 });
 
 describe('AudioEngine.start - prime, connect, and start seeded global LFOs (Task 9)', () => {
-  // One entry per GlobalLfoTargetId, with a deliberate mix: some active, some
-  // not, and one active target ('eq3.mid') whose connectLfoTarget call will be
-  // made to return false, to prove start() is conditioned on a real connect.
+  // One entry per GlobalLfoTargetId, with a deliberate mix: some with a
+  // nonzero (oscillating) rate, some at rate 0 (off), and one oscillating
+  // target ('eq3.mid') whose connectLfoTarget call will be made to return
+  // false, to prove start() is conditioned on a real connect.
   const FIXTURE_GLOBAL_LFO = {
-    'eq3.low': { shape: 'sine', rate: 2, depth: 30, active: true },
-    'eq3.mid': { shape: 'square', rate: 3, depth: 40, active: true },
-    'eq3.high': { shape: 'triangle', rate: 1, depth: 10, active: false },
-    'lpf.frequency': { shape: 'sawtooth', rate: 4, depth: 50, active: true },
-    'lpf.Q': { shape: 'sine', rate: 0.5, depth: 20, active: false },
-    'hpf.frequency': { shape: 'sine', rate: 1.5, depth: 60, active: false },
-    'hpf.Q': { shape: 'square', rate: 2.5, depth: 70, active: false },
+    'eq3.low': { shape: 'sine', rate: 2, depth: 30 },
+    'eq3.mid': { shape: 'square', rate: 3, depth: 40 },
+    'eq3.high': { shape: 'triangle', rate: 0, depth: 10 },
+    'lpf.frequency': { shape: 'sawtooth', rate: 4, depth: 50 },
+    'lpf.Q': { shape: 'sine', rate: 0, depth: 20 },
+    'hpf.frequency': { shape: 'sine', rate: 0, depth: 60 },
+    'hpf.Q': { shape: 'square', rate: 0, depth: 70 },
   } as const;
 
   beforeEach(() => {
@@ -1871,7 +1872,7 @@ describe('AudioEngine.start - prime, connect, and start seeded global LFOs (Task
     }
   });
 
-  it('connects every active target and starts it when connect succeeds', async () => {
+  it('connects every target with a nonzero rate and starts it when connect succeeds', async () => {
     const { lfoEngine } = await startWithFixture();
 
     expect(lfoEngine.connectLfoTarget).toHaveBeenCalledWith('eq3.low');
@@ -1881,14 +1882,14 @@ describe('AudioEngine.start - prime, connect, and start seeded global LFOs (Task
     expect(lfoEngine.start).toHaveBeenCalledWith('lpf.frequency');
   });
 
-  it('does not call start for an active target whose connect fails', async () => {
+  it('does not call start for a nonzero-rate target whose connect fails', async () => {
     const { lfoEngine } = await startWithFixture();
 
     expect(lfoEngine.connectLfoTarget).toHaveBeenCalledWith('eq3.mid');
     expect(lfoEngine.start).not.toHaveBeenCalledWith('eq3.mid');
   });
 
-  it('never connects or starts an inactive target', async () => {
+  it('never connects or starts a target whose rate is 0', async () => {
     const { lfoEngine } = await startWithFixture();
 
     for (const target of ['eq3.high', 'lpf.Q', 'hpf.frequency', 'hpf.Q']) {

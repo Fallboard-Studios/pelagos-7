@@ -311,8 +311,14 @@ describe('lfoEngine', () => {
     it('clamps below LFO_RATE_MIN', async () => {
       const { LFO_RATE_MIN } = await import('../types/lfo');
       const { lfoEngine } = await import('./lfoEngine');
-      lfoEngine.setLfoRate('volume', 0);
+      lfoEngine.setLfoRate('volume', -5); // LFO_RATE_MIN is 0 — a negative value is what's actually below the floor now
       expect(lfoEngine.getLfoSettings('volume').rate).toBe(LFO_RATE_MIN);
+    });
+
+    it('allows exactly 0 — the new "off" value, not something to clamp away from', async () => {
+      const { lfoEngine } = await import('./lfoEngine');
+      lfoEngine.setLfoRate('volume', 0);
+      expect(lfoEngine.getLfoSettings('volume').rate).toBe(0);
     });
 
     it('clamps above LFO_RATE_MAX', async () => {
