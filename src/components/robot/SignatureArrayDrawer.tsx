@@ -3,7 +3,7 @@ import { SliderLinear } from '@/components/ui/controls/SliderLinear';
 import { SliderCenteredZero } from '@/components/ui/controls/SliderCenteredZero';
 import { Toggle } from '@/components/ui/controls/Toggle';
 import { AccordionContainer } from '@/components/ui/controls/AccordionContainer';
-import { Lfo } from '@/components/ui/controls/Lfo';
+import { LfoTargetGroup } from '@/components/ui/controls/LfoTargetGroup';
 import { DEFAULT_LFO_SETTINGS } from '@/data/lfoConfig';
 import {
   SIGNATURE_ARRAY_ACCORDION_SCHEMA,
@@ -55,6 +55,11 @@ function paramValue(layer: OscillatorLayer, field: SignatureArrayParamSchema['fi
  * applyLayerLfo themselves. Toggling Coaxial/Harmonic's Active off mutes the layer (excluded from
  * the composite voice, see AudioEngine.reserveVoice's filterActiveLayers) without discarding its
  * Type/Gain/Detune/Phase/Interval configuration.
+ *
+ * Each layer's LFO-tied params (Gain/Detune/Phase/Interval) render through one LfoTargetGroup —
+ * a shared LFO display per layer, replacing the old per-param nested "Modulation" accordion
+ * (docs/specs/LFO_CONSOLIDATED_DISPLAY.md). Type stays rendered inline, outside the group — it
+ * has no LFO of its own.
  */
 export function SignatureArrayDrawer({ value, onContinuousChange, onStructuralChange, onLfoChange, disabled }: SignatureArrayDrawerProps) {
   const layers = value.layers ?? [];
@@ -84,58 +89,44 @@ export function SignatureArrayDrawer({ value, onContinuousChange, onStructuralCh
           // other type (including 'square'), so showing Interval there was an editable control
           // with no audible effect.
           const showPulseWidth = layer.type === 'pulse';
+          const typeParam = block.params.find((p) => p.field === 'type')!;
+          const lfoParams = block.params.filter((p) => p.field !== 'type' && (p.field !== 'pulseWidth' || showPulseWidth));
 
           return (
             <div key={block.key} className="signature-array-drawer__layer" data-layer-key={block.key}>
               {block.activeSchema && (
                 <Toggle schema={block.activeSchema} value={layer.active} onChange={handleActiveChange} disabled={disabled} />
               )}
-              {block.params.map((param) => {
-                if (param.field === 'pulseWidth' && !showPulseWidth) return null;
-
-                if (param.field === 'type') {
+              <RadioButton
+                schema={typeParam.schema as RadioButtonSchema}
+                value={layer.type}
+                onChange={handleTypeChange}
+                disabled={disabled}
+              />
+              <LfoTargetGroup
+                groupId={`robotOptions.${block.key}`}
+                fields={lfoParams.map((p) => ({
+                  field: p.field,
+                  label: (p.schema as SliderLinearSchema | SliderCenteredZeroSchema).humanLabel ?? p.field,
+                  lfoValue: value.lfoSettings?.[p.lfoTarget!] ?? { ...DEFAULT_LFO_SETTINGS[p.lfoTarget!], active: false },
+                }))}
+                onLfoChange={(field, v) => onLfoChange(lfoParams.find((p) => p.field === field)!.lfoTarget!, v)}
+                disabled={disabled}
+                renderField={(field) => {
+                  const param = lfoParams.find((p) => p.field === field)!;
+                  const paramVal = paramValue(layer, field);
+                  const onChange = handleParamChange(field);
                   return (
-                    <RadioButton
-                      key={param.field}
-                      schema={param.schema as RadioButtonSchema}
-                      value={layer.type}
-                      onChange={handleTypeChange}
-                      disabled={disabled}
-                    />
+                    <div className="signature-array-drawer__param">
+                      {field === 'detune' ? (
+                        <SliderCenteredZero schema={param.schema as SliderCenteredZeroSchema} value={paramVal} onChange={onChange} disabled={disabled} />
+                      ) : (
+                        <SliderLinear schema={param.schema as SliderLinearSchema} value={paramVal} onChange={onChange} disabled={disabled} />
+                      )}
+                    </div>
                   );
-                }
-
-                const paramVal = paramValue(layer, param.field);
-                const onChange = handleParamChange(param.field);
-                const lfoTarget = param.lfoTarget;
-                const lfoValue: LfoValue | undefined = lfoTarget
-                  ? (value.lfoSettings?.[lfoTarget] ?? { ...DEFAULT_LFO_SETTINGS[lfoTarget], active: false })
-                  : undefined;
-
-                return (
-                  <div key={param.field} className="signature-array-drawer__param">
-                    {param.field === 'detune' ? (
-                      <SliderCenteredZero schema={param.schema as SliderCenteredZeroSchema} value={paramVal} onChange={onChange} disabled={disabled} />
-                    ) : (
-                      <SliderLinear schema={param.schema as SliderLinearSchema} value={paramVal} onChange={onChange} disabled={disabled} />
-                    )}
-                    {lfoTarget && param.lfoAccordion && lfoValue && (
-                      <AccordionContainer
-                        schema={param.lfoAccordion}
-                        defaultOpen={lfoValue.active}
-                        contentActive={lfoValue.active}
-                      >
-                        <Lfo
-                          schema={{ id: `${param.lfoAccordion.id}.control`, type: 'lfo' }}
-                          value={lfoValue}
-                          onChange={(v) => onLfoChange(lfoTarget, v)}
-                          disabled={disabled}
-                        />
-                      </AccordionContainer>
-                    )}
-                  </div>
-                );
-              })}
+                }}
+              />
             </div>
           );
         })}

@@ -261,9 +261,6 @@ export interface SignatureArrayParamSchema {
   schema: ControlSchema;
   /** Absent only for `type`, which isn't LFO-modulatable. */
   lfoTarget?: RobotLfoTargetId;
-  /** The nested accordion wrapping this param's Lfo control — present iff lfoTarget is,
-   *  mirroring audioRigConfig.ts's per-param lfoAccordion pattern. */
-  lfoAccordion?: AccordionSchema;
 }
 
 export interface SignatureArrayLayerBlock {
@@ -284,10 +281,6 @@ const LAYER_TYPE_OPTIONS = [
   { value: 'square', label: 'BINARY' },
   { value: 'pulse', label: 'BURST' },
 ];
-
-function lfoAccordionSchema(key: SignatureArrayLayerKey, field: string): AccordionSchema {
-  return { id: `robotOptions.${key}.${field}.lfo`, type: 'accordion', humanLabel: 'Modulation' };
-}
 
 function makeLayerBlock(
   key: SignatureArrayLayerKey,
@@ -324,7 +317,6 @@ function makeLayerBlock(
           min: 0, max: 2, step: 0.01,
         } satisfies SliderLinearSchema,
         lfoTarget: gainTarget,
-        lfoAccordion: lfoAccordionSchema(key, 'gain'),
       },
       {
         field: 'detune',
@@ -334,7 +326,6 @@ function makeLayerBlock(
           min: -50, max: 50, unit: 'cents',
         } satisfies SliderCenteredZeroSchema,
         lfoTarget: detuneTarget,
-        lfoAccordion: lfoAccordionSchema(key, 'detune'),
       },
       {
         field: 'phase',
@@ -344,7 +335,6 @@ function makeLayerBlock(
           min: 0, max: 360,
         } satisfies SliderLinearSchema,
         lfoTarget: phaseTarget,
-        lfoAccordion: lfoAccordionSchema(key, 'phase'),
       },
       {
         field: 'pulseWidth',
@@ -354,7 +344,6 @@ function makeLayerBlock(
           min: 0, max: 1, step: 0.01,
         } satisfies SliderLinearSchema,
         lfoTarget: pulseWidthTarget,
-        lfoAccordion: lfoAccordionSchema(key, 'pulseWidth'),
       },
     ],
   };

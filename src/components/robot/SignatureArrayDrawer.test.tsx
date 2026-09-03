@@ -1,5 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, fireEvent, within } from '@testing-library/react';
+import { render, fireEvent, within, waitFor, act } from '@testing-library/react';
+
+// Same reasoning as AudioRigDrawer.test.tsx: the shared vitest.setup.ts GSAP mock's timeline
+// object has no kill() method, and useLfoTargetGroup's unmount/reselect cleanup calls
+// killTimeline on an already-registered entry — mock timelineMap directly, matching
+// AccordionContainer.test.tsx's own established convention.
+vi.mock('@/animation/timelineMap', () => ({ setTimeline: vi.fn(), killTimeline: vi.fn() }));
 
 import { SignatureArrayDrawer, type SignatureArrayValue } from './SignatureArrayDrawer';
 import type { OscillatorLayer } from '@/types/layeredAudio';
@@ -109,7 +115,7 @@ describe('SignatureArrayDrawer', () => {
     expect(newLayers[1].gain).toBe(0.8);
   });
 
-  it('each LFO-flagged param wires onLfoChange with the right target', () => {
+  it('defaults each layer\'s shared LFO display to its first field (Gain) and wires onLfoChange to it', () => {
     const onLfoChange = vi.fn();
     const value = makeValue({
       lfoSettings: { 'layer0.gain': { shape: 'sine', rate: 1, depth: 10, active: false } } as unknown as Robot['lfoSettings'],
@@ -118,10 +124,110 @@ describe('SignatureArrayDrawer', () => {
       <SignatureArrayDrawer value={value} onContinuousChange={() => {}} onStructuralChange={() => {}} onLfoChange={onLfoChange} />
     );
 
-    const gainLfoToggle = within(layerSection(container, 'layer0')).getAllByRole('switch', { name: /active/i })[0];
+    const gainLfoToggle = within(layerSection(container, 'layer0')).getByRole('switch', { name: 'Active' });
     fireEvent.click(gainLfoToggle);
 
     expect(onLfoChange).toHaveBeenCalledWith('layer0.gain', { shape: 'sine', rate: 1, depth: 10, active: true });
+  });
+
+  describe('shared LFO display (LFO_CONSOLIDATED_DISPLAY — replaces the old per-param nested accordion)', () => {
+    it('renders exactly one shared LFO display per layer — 3 total, never one per param', () => {
+      const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
+      // 'Active' (exact) is the shared display's own toggle; layer-level toggles are named
+      // 'Coaxial Active'/'Harmonic Active', so this can't double-count them.
+      expect(within(container).getAllByRole('switch', { name: 'Active' })).toHaveLength(3);
+    });
+
+    it('renders no accordion anywhere except the drawer\'s own single Signature Array wrapper — no nested "Modulation" accordion per param', () => {
+      const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
+      expect(container.querySelectorAll('.sc-accordion')).toHaveLength(1);
+    });
+
+    it('the Type radio renders inline among the layer\'s other controls, not inside the shared LFO group\'s row targeting', () => {
+      const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
+      const typeRadio = within(layerSection(container, 'layer0')).getByRole('radio', { name: 'GRADIENT' });
+      expect(typeRadio.closest('.sc-lfo-target-group__row')).toBeNull();
+    });
+
+    it('clicking a different param\'s row switches which target the shared display edits, once the transition completes', async () => {
+      const onLfoChange = vi.fn();
+      const { container } = render(
+        <SignatureArrayDrawer value={makeValue()} onContinuousChange={() => {}} onStructuralChange={() => {}} onLfoChange={onLfoChange} />
+      );
+      const detuneSlider = within(layerSection(container, 'layer0')).getByRole('slider', { name: /detune/i });
+      const detuneRow = detuneSlider.closest('.sc-lfo-target-group__row')!;
+
+      await act(async () => {
+        fireEvent.click(detuneRow);
+      });
+      await waitFor(() => {
+        expect(detuneRow.classList.contains('isActive')).toBe(true);
+      });
+
+      const activeToggle = within(layerSection(container, 'layer0')).getByRole('switch', { name: 'Active' });
+      fireEvent.click(activeToggle);
+      expect(onLfoChange.mock.calls[0][0]).toBe('layer0.detune');
+    });
+
+    it('toggling a layer\'s type to pulse shows the Interval row in that layer\'s shared group', () => {
+      const layers = makeLayers();
+      layers[1] = { ...layers[1], type: 'pulse' };
+      const { container } = render(<SignatureArrayDrawer value={makeValue({ layers })} {...noop} />);
+      const intervalSlider = within(layerSection(container, 'layer1')).getByRole('slider', { name: /interval/i });
+      expect(intervalSlider.closest('.sc-lfo-target-group__row')).not.toBeNull();
+    });
+
+    it('falls back to the first remaining field without erroring when the targeted Interval row disappears (type leaves pulse)', async () => {
+      const layers = makeLayers();
+      layers[1] = { ...layers[1], type: 'pulse' };
+      const value = makeValue({ layers });
+      const onLfoChange = vi.fn();
+      const { container, rerender } = render(
+        <SignatureArrayDrawer value={value} onContinuousChange={() => {}} onStructuralChange={() => {}} onLfoChange={onLfoChange} />
+      );
+
+      // Target Interval (the last field) before it disappears.
+      const intervalRow = within(layerSection(container, 'layer1')).getByRole('slider', { name: /interval/i }).closest('.sc-lfo-target-group__row')!;
+      await act(async () => {
+        fireEvent.click(intervalRow);
+      });
+      await waitFor(() => expect(intervalRow.classList.contains('isActive')).toBe(true));
+
+      // Type leaves 'pulse' — Interval's row disappears from the DOM entirely.
+      const layersWithoutPulse = layers.map((l, i) => (i === 1 ? { ...l, type: 'square' as const } : l));
+      rerender(
+        <SignatureArrayDrawer
+          value={makeValue({ layers: layersWithoutPulse })}
+          onContinuousChange={() => {}}
+          onStructuralChange={() => {}}
+          onLfoChange={onLfoChange}
+        />
+      );
+
+      expect(within(layerSection(container, 'layer1')).queryByText(/Interval/i)).toBeNull();
+      // Falls back to Gain (layer1's first field) — no crash, and the shared display still works.
+      const activeToggle = within(layerSection(container, 'layer1')).getByRole('switch', { name: 'Active' });
+      fireEvent.click(activeToggle);
+      expect(onLfoChange.mock.calls.at(-1)?.[0]).toBe('layer1.gain');
+    });
+
+    it('resolves a company-mode-shaped (partial) lfoSettings value the same way for every layer, unchanged from before consolidation', () => {
+      const onLfoChange = vi.fn();
+      const value = makeValue({
+        // Only layer2's phase has been broadcast-edited — every other target falls back to
+        // DEFAULT_LFO_SETTINGS, exactly as CompanyOptionsSection's own resolved snapshot does.
+        lfoSettings: { 'layer2.phase': { shape: 'square', rate: 3, depth: 25, active: true } } as unknown as Robot['lfoSettings'],
+      });
+      const { container } = render(
+        <SignatureArrayDrawer value={value} onContinuousChange={() => {}} onStructuralChange={() => {}} onLfoChange={onLfoChange} />
+      );
+
+      // layer2's shared display defaults to Gain (unaffected by the partial lfoSettings), so
+      // this just proves no crash and normal default-fallback resolution across every layer.
+      const activeToggle = within(layerSection(container, 'layer2')).getByRole('switch', { name: 'Active' });
+      fireEvent.click(activeToggle);
+      expect(onLfoChange).toHaveBeenCalledWith('layer2.gain', expect.objectContaining({ active: true }));
+    });
   });
 
   it('disables every internal control when disabled is true', () => {
