@@ -24,7 +24,7 @@ export function resolveCompanyOptions(lastEditedOptions: CompanyOptionsSnapshot 
   const fromRobot: Required<CompanyOptionsSnapshot> = {
     audioMode: firstMember.audioMode ?? 'none',
     masterVolume: firstMember.masterVolume,
-    volumeLfo: firstMember.lfoSettings?.[VOLUME_LFO_TARGET] ?? { ...DEFAULT_LFO_SETTINGS[VOLUME_LFO_TARGET], active: false },
+    volumeLfo: firstMember.lfoSettings?.[VOLUME_LFO_TARGET] ?? { ...DEFAULT_LFO_SETTINGS[VOLUME_LFO_TARGET] },
     rhythmicDensity: firstMember.rhythmicDensity ?? DEFAULT_RHYTHMIC_DENSITY,
     rhythmicMotifLength: firstMember.rhythmicMotifLength ?? DEFAULT_RHYTHMIC_MOTIF_LENGTH,
     noteVariance: firstMember.noteVariance ?? DEFAULT_NOTE_VARIANCE,

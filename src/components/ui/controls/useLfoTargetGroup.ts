@@ -10,7 +10,7 @@ import type { LfoValue } from '@/types/controls';
  * and CompanyOptionsSection.tsx's DISABLED_AUDIO_SETTING.volumeLfo already use for
  * "unconfigured/placeholder" LFO values — no new convention invented.
  */
-export const NEUTRAL_LFO_VALUE: LfoValue = { shape: 'sine', rate: LFO_RATE_MIN, depth: LFO_DEPTH_MIN, active: false };
+export const NEUTRAL_LFO_VALUE: LfoValue = { shape: 'sine', rate: LFO_RATE_MIN, depth: LFO_DEPTH_MIN };
 
 export interface LfoTargetGroupField<F extends string = string> {
   field: F;

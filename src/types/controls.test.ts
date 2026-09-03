@@ -85,9 +85,9 @@ describe('ControlSchema variants', () => {
 });
 
 describe('LfoValue', () => {
-  it('extends LfoSettings with an active flag', () => {
-    const value: LfoValue = { shape: 'triangle', rate: 2, depth: 40, active: true };
+  it('is a plain alias of LfoSettings — no separate active flag', () => {
+    const value: LfoValue = { shape: 'triangle', rate: 2, depth: 40 };
     expect(value.shape).toBe('triangle');
-    expect(value.active).toBe(true);
+    expect('active' in value).toBe(false);
   });
 });

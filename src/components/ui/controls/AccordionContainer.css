@@ -37,48 +37,6 @@
   line-height: 1;
 }
 
-/* ----------------------------------------
-   Status light — round indicator mirroring PowerRockerSwitch's power light:
-   red when the caller's contentActive is false, green when true, a plain
-   unlit dot (inherits the trigger's own text color, no glow/pulse) when
-   omitted entirely — this accordion has no domain "active" concept to show.
-   Sits 15px right of the label, not flush against the trigger's far edge.
-   Color/glow are JS-owned (AccordionContainer.tsx, via statusLightColors.ts)
-   and applied as inline style — this CSS only owns the pulse motion.
-   ---------------------------------------- */
-.sc-accordion__light {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: currentColor;
-  flex-shrink: 0;
-}
-
-.sc-accordion__light[data-content-active='false'] {
-  animation: accordion-light-pulse-off 2.5s ease-in-out infinite;
-}
-
-.sc-accordion__light[data-content-active='true'] {
-  animation: accordion-light-pulse-on 6s ease-in-out infinite;
-}
-
-@keyframes accordion-light-pulse-on {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 0.9; }
-}
-
-@keyframes accordion-light-pulse-off {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 0.8; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .sc-accordion__light[data-content-active='false'],
-  .sc-accordion__light[data-content-active='true'] {
-    animation: none;
-  }
-}
-
 .sc-accordion__content {
   overflow: hidden;
   height: 0;

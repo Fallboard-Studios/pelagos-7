@@ -16,7 +16,7 @@ import type { RobotLfoTargetId, LfoSettings } from './lfo';
 export interface CompanyOptionsSnapshot {
   audioMode?: Robot['audioMode'];
   masterVolume?: number;
-  volumeLfo?: LfoSettings & { active: boolean };
+  volumeLfo?: LfoSettings;
   rhythmicDensity?: number;
   rhythmicMotifLength?: { active: boolean; value: number };
   noteVariance?: { active: boolean; value: number };
@@ -24,7 +24,7 @@ export interface CompanyOptionsSnapshot {
   octaveRange?: [number, number];
   adsr?: ADSREnvelope;
   layers?: OscillatorLayer[];
-  lfoSettings?: Partial<Record<RobotLfoTargetId, LfoSettings & { active: boolean }>>;
+  lfoSettings?: Partial<Record<RobotLfoTargetId, LfoSettings>>;
   clickTrackActive?: boolean;
 }
 

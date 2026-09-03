@@ -265,8 +265,6 @@ export interface SignatureArrayLayerBlock {
   key: SignatureArrayLayerKey;
   humanLabel: 'Baseline' | 'Coaxial' | 'Harmonic';
   loreLabel: string;
-  /** Undefined for layer0 (Baseline) — always active, no toggle. */
-  activeSchema?: ToggleSchema;
   params: SignatureArrayParamSchema[];
 }
 
@@ -284,7 +282,6 @@ function makeLayerBlock(
   key: SignatureArrayLayerKey,
   humanLabel: 'Baseline' | 'Coaxial' | 'Harmonic',
   loreLabel: string,
-  includeActiveToggle: boolean,
 ): SignatureArrayLayerBlock {
   const gainTarget = `${key}.gain` as RobotLfoTargetId;
   const detuneTarget = `${key}.detune` as RobotLfoTargetId;
@@ -295,9 +292,6 @@ function makeLayerBlock(
     key,
     humanLabel,
     loreLabel,
-    activeSchema: includeActiveToggle
-      ? { id: `robotOptions.${key}.active`, type: 'toggle', humanLabel: `${humanLabel} Active` }
-      : undefined,
     params: [
       {
         field: 'type',
@@ -348,7 +342,7 @@ function makeLayerBlock(
 }
 
 export const SIGNATURE_ARRAY_CONFIG: SignatureArrayLayerBlock[] = [
-  makeLayerBlock('layer0', 'Baseline', 'BASELINE', false),
-  makeLayerBlock('layer1', 'Coaxial', 'COAXIAL', true),
-  makeLayerBlock('layer2', 'Harmonic', 'HARMONIC', true),
+  makeLayerBlock('layer0', 'Baseline', 'BASELINE'),
+  makeLayerBlock('layer1', 'Coaxial', 'COAXIAL'),
+  makeLayerBlock('layer2', 'Harmonic', 'HARMONIC'),
 ];

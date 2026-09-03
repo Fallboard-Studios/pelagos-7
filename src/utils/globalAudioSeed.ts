@@ -49,33 +49,35 @@ function sampleField(noiseMap: NoiseFunction2D, key: GlobalAudioSeedFieldKey): n
 }
 
 /**
- * Probability threshold Delay's `enabled` seed draw ([0, 1]) must clear to
- * seed `true` — spec §5: a 25% chance, the sole exception among global
- * effects (every other effect always seeds enabled: true). Mirrors the
- * shipped LFO_ACTIVE_THRESHOLD pattern below, just a different field/odds.
+ * Probability threshold Delay's own "start quiet" seed draw ([0, 1]) must
+ * clear to force wet to 0 — spec §5's original ~25% chance, now expressed
+ * directly on wet since there's no separate enabled flag left to carry it.
+ * The sole global effect a fresh Attenuation Style can load silent; every
+ * other effect's wet/level always seeds a real, audible value. Mirrors the
+ * shipped LFO_QUIET_THRESHOLD pattern below, just a different field/odds.
  */
-const DELAY_ENABLED_THRESHOLD = 0.75;
+const DELAY_QUIET_THRESHOLD = 0.25;
 
 /**
  * Generate deterministic GlobalAudioSettings for an Attenuation Style, sampled from the
  * Attenuation Style noise map — a new direct sample; previously that map was only
  * used to derive locale maps (see PROCEDURAL_GENERATION.md).
  *
- * `type`/`globalBypass` are NOT seeded — carried over from
- * DEFAULT_GLOBAL_AUDIO_SETTINGS unchanged. `enabled` IS seeded (V2 — see
- * spec §5, superseding the Phase 0 force-true shim that used to live in
- * audioStore.ts's regenerateGlobalAudioFromSeed): every effect seeds
- * enabled: true unconditionally except Delay, which gets a real ~25% chance
- * via DELAY_ENABLED_THRESHOLD — the sole global effect a fresh Attenuation Style can
- * load with off.
+ * `type`/`compressorBeforeDelay` are NOT seeded — carried over from
+ * DEFAULT_GLOBAL_AUDIO_SETTINGS unchanged. Every effect's params always seed
+ * a real, audible value except Delay's `wet`, which has a real ~25% chance
+ * (DELAY_QUIET_THRESHOLD) of forcing to 0 instead of its otherwise-sampled
+ * value — the sole global effect a fresh Attenuation Style can load
+ * effectively silent. This replaces the old per-effect `enabled` boolean
+ * (removed entirely, along with `globalBypass` — off states are expressed
+ * purely through the params themselves now).
  */
 export function generateGlobalAudioSettings(attenuationStyleId: string, attenuationStyleName: string): GlobalAudioSettings {
   const noiseMap = getAttenuationStyleNoiseMap(attenuationStyleId, attenuationStyleName);
   const defaults = DEFAULT_GLOBAL_AUDIO_SETTINGS;
-  const delayEnabledT = getSeededVal(noiseMap, 'globalAudio.delay.enabled', 0, 0, 1);
+  const delayQuietT = getSeededVal(noiseMap, 'globalAudio.delay.quiet', 0, 0, 1);
 
   return {
-    globalBypass: defaults.globalBypass,
     compressorBeforeDelay: defaults.compressorBeforeDelay,
     lfoDrift: {
       eq3: { rateDrift: sampleField(noiseMap, 'lfoDrift.eq3.rateDrift'), depthDrift: sampleField(noiseMap, 'lfoDrift.eq3.depthDrift') },
@@ -84,7 +86,6 @@ export function generateGlobalAudioSettings(attenuationStyleId: string, attenuat
       robots: { rateDrift: sampleField(noiseMap, 'lfoDrift.robots.rateDrift'), depthDrift: sampleField(noiseMap, 'lfoDrift.robots.depthDrift') },
     },
     compressor: {
-      enabled: true,
       threshold: sampleField(noiseMap, 'compressor.threshold'),
       ratio: sampleField(noiseMap, 'compressor.ratio'),
       attack: sampleField(noiseMap, 'compressor.attack'),
@@ -92,53 +93,51 @@ export function generateGlobalAudioSettings(attenuationStyleId: string, attenuat
       knee: sampleField(noiseMap, 'compressor.knee'),
     },
     eq3: {
-      enabled: true,
       low: sampleField(noiseMap, 'eq3.low'),
       mid: sampleField(noiseMap, 'eq3.mid'),
       high: sampleField(noiseMap, 'eq3.high'),
     },
     filterLPF: {
-      enabled: true,
       type: 'lowpass',
       frequency: sampleField(noiseMap, 'filterLPF.frequency'),
       Q: sampleField(noiseMap, 'filterLPF.Q'),
     },
     filterHPF: {
-      enabled: true,
       type: 'highpass',
       frequency: sampleField(noiseMap, 'filterHPF.frequency'),
       Q: sampleField(noiseMap, 'filterHPF.Q'),
     },
     delay: {
-      enabled: delayEnabledT >= DELAY_ENABLED_THRESHOLD,
       delayTime: sampleField(noiseMap, 'delay.delayTime'),
       feedback: sampleField(noiseMap, 'delay.feedback'),
-      wet: sampleField(noiseMap, 'delay.wet'),
+      // Quiet ~25% of the time (DELAY_QUIET_THRESHOLD) — wet forces to 0
+      // instead of its own sampled value, replacing the old enabled:false roll.
+      wet: delayQuietT < DELAY_QUIET_THRESHOLD ? 0 : sampleField(noiseMap, 'delay.wet'),
     },
     reverb: {
-      enabled: true,
       decay: sampleField(noiseMap, 'reverb.decay'),
       preDelay: sampleField(noiseMap, 'reverb.preDelay'),
       wet: sampleField(noiseMap, 'reverb.wet'),
     },
     limiter: {
-      enabled: true,
       threshold: sampleField(noiseMap, 'limiter.threshold'),
     },
   };
 }
 
 /**
- * Probability threshold an `active` seed draw ([0, 1]) must clear to seed
- * `true` — ~66% chance per target (not a flat 50/50), so a typical Attenuation Style
- * seeds roughly 5 active LFOs out of 7.
+ * Probability threshold a target's own "start quiet" seed draw ([0, 1]) must
+ * clear to force rate to 0 — ~34% chance per target (not a flat 50/50), so a
+ * typical Attenuation Style seeds roughly 5 already-oscillating LFOs out of 7.
+ * Replaces the old separate `active` boolean — see LFO_RATE_MIN's own doc
+ * comment (src/types/lfo.ts) for why rate=0 is now the "off" state.
  */
-const LFO_ACTIVE_THRESHOLD = 0.34;
+const LFO_QUIET_THRESHOLD = 0.34;
 
 /**
  * Ping Variance Automation's own seeded-default range — [33%, 66%] as a
  * fraction — same "bounded/legible default, freely draggable afterward"
- * convention every other seeded Rig field follows (e.g. DELAY_ENABLED_THRESHOLD
+ * convention every other seeded Rig field follows (e.g. DELAY_QUIET_THRESHOLD
  * above). docs/specs/PING-VARIANCE-AUTOMATION.md §1.2.
  */
 const PING_VARIANCE_AUTOMATION_SEED_RANGE = { min: 0.33, max: 0.66 };
@@ -191,29 +190,29 @@ const LFO_LOADING_SHAPES: readonly LfoShape[] = ['triangle', 'sine'];
  * Unlike the per-field GLOBAL_AUDIO_SEED_RANGES table, every target shares
  * the same single global rate/depth loading bounds (LFO_RATE_LOADING_MIN/MAX,
  * LFO_DEPTH_LOADING_MIN/MAX) — GLOBAL_CHAIN_GRID.md's LFO? column is a flat
- * flag, not per-field bounds. `active` is seeded too, unlike the robot-level
- * precedent (spawnSystem.ts's generateRobotLfoSettings, where connected/
- * active is a runtime UI concern never part of the generated data) — a
- * freshly loaded Attenuation Style can already have real, audible modulation running.
+ * flag, not per-field bounds. Each target has a real ~34% chance
+ * (LFO_QUIET_THRESHOLD) of forcing rate to 0 instead of its own sampled
+ * value — a freshly loaded Attenuation Style can already have real, audible
+ * modulation running on most targets.
  */
 export function generateGlobalLfoSettings(
   attenuationStyleId: string,
   attenuationStyleName: string,
-): Record<GlobalLfoTargetId, LfoSettings & { active: boolean }> {
+): Record<GlobalLfoTargetId, LfoSettings> {
   const noiseMap = getAttenuationStyleNoiseMap(attenuationStyleId, attenuationStyleName);
-  const result = {} as Record<GlobalLfoTargetId, LfoSettings & { active: boolean }>;
+  const result = {} as Record<GlobalLfoTargetId, LfoSettings>;
 
   for (const target of GLOBAL_LFO_TARGET_IDS) {
     const rateT = getSeededVal(noiseMap, `globalLfo.${target}.rate`, 0, 0, 1);
     const depthT = getSeededVal(noiseMap, `globalLfo.${target}.depth`, 0, 0, 1);
     const shapeT = getSeededVal(noiseMap, `globalLfo.${target}.shape`, 0, 0, 1);
-    const activeT = getSeededVal(noiseMap, `globalLfo.${target}.active`, 0, 0, 1);
+    const quietT = getSeededVal(noiseMap, `globalLfo.${target}.quiet`, 0, 0, 1);
+    const quiet = quietT < LFO_QUIET_THRESHOLD;
 
     result[target] = {
-      rate: scaleUnitValue(rateT, { min: LFO_RATE_LOADING_MIN, max: LFO_RATE_LOADING_MAX, scale: 'linear' }),
+      rate: quiet ? 0 : scaleUnitValue(rateT, { min: LFO_RATE_LOADING_MIN, max: LFO_RATE_LOADING_MAX, scale: 'linear' }),
       depth: scaleUnitValue(depthT, { min: LFO_DEPTH_LOADING_MIN, max: LFO_DEPTH_LOADING_MAX, scale: 'linear' }),
       shape: LFO_LOADING_SHAPES[Math.min(LFO_LOADING_SHAPES.length - 1, Math.floor(shapeT * LFO_LOADING_SHAPES.length))],
-      active: activeT >= LFO_ACTIVE_THRESHOLD,
     };
   }
   return result;

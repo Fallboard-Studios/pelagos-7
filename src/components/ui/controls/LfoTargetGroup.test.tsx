@@ -19,7 +19,7 @@ import { useLfoTargetGroup, type LfoTargetGroupField } from './useLfoTargetGroup
 import type { LfoValue } from '@/types/controls';
 
 function lfo(rate: number): LfoValue {
-  return { shape: 'sine', rate, depth: 50, active: true };
+  return { shape: 'sine', rate, depth: 50 };
 }
 
 const FIELDS: LfoTargetGroupField[] = [
@@ -71,7 +71,9 @@ describe('LfoTargetGroup', () => {
 
   it('renders exactly one shared Lfo display regardless of field count, showing the targeted field', () => {
     render(<LfoTargetGroup groupId="audioRig.eq3" fields={FIELDS} onLfoChange={() => {}} renderField={renderField} />);
-    expect(screen.getAllByRole('switch')).toHaveLength(1);
+    // renderField's own stub renders no sliders of its own — these 2 (Rate, Depth) can only
+    // come from the one shared Lfo display.
+    expect(screen.getAllByRole('slider')).toHaveLength(2);
     expect(screen.getByText('Low')).toBeTruthy();
   });
 
@@ -165,13 +167,13 @@ describe('LfoTargetGroup', () => {
     fireEvent.click(rows[1]);
     // Before flushTransition() — the display is mid-transition.
     expect(container.querySelector('.sc-lfo-target-group__display')?.classList.contains('isActive')).toBe(true);
-    expect((screen.getByRole('switch') as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getAllByRole('slider')[0].getAttribute('data-disabled')).toBe('');
   });
 
   it('disables the shared Lfo display when the disabled prop is true', () => {
     render(
       <LfoTargetGroup groupId="audioRig.eq3" fields={FIELDS} onLfoChange={() => {}} renderField={renderField} disabled />,
     );
-    expect((screen.getByRole('switch') as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getAllByRole('slider')[0].getAttribute('data-disabled')).toBe('');
   });
 });

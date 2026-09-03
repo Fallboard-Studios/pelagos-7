@@ -103,13 +103,13 @@ describe('spawnSystem', () => {
       expect(uniqueAttacks.size).toBeGreaterThan(10); // Should have variety
     });
 
-    it('always produces exactly 3 layers (Baseline/Coaxial/Harmonic), Baseline always active, shapeParams in range', () => {
+    it('always produces exactly 3 layers (Baseline/Coaxial/Harmonic), Baseline always audible, shapeParams in range', () => {
       const attrs = generateAudioAttributes(mockNoiseMap, 0);
       const vm = attrs.visualAudioMap;
       expect(vm).toBeDefined();
       const layers = attrs.layers ?? [];
       expect(layers).toHaveLength(3);
-      expect(layers[0].active).toBe(true);
+      expect(layers[0].gain).not.toBe(0); // Baseline never mutes — no quiet roll for layer0
       // shape params 0..1
       expect(vm?.shapeParams?.scale).toBeGreaterThanOrEqual(0);
       expect(vm?.shapeParams?.scale).toBeLessThanOrEqual(1);
@@ -145,14 +145,14 @@ describe('spawnSystem', () => {
       expect(shapeParams.detail).toBeCloseTo(0, 6);     // 0/5
     });
 
-    it('Coaxial and Harmonic are each independently seeded active/inactive (not both forced the same value)', () => {
+    it('Coaxial and Harmonic are each independently seeded muted/audible (not both forced the same value)', () => {
       const attributes = Array.from({ length: 60 }, (_, i) => generateAudioAttributes(mockNoiseMap, i));
-      const coaxialActive = attributes.map((a) => a.layers![1].active);
-      const harmonicActive = attributes.map((a) => a.layers![2].active);
-      expect(new Set(coaxialActive).size, 'Coaxial should take both true and false across many spawns').toBe(2);
-      expect(new Set(harmonicActive).size, 'Harmonic should take both true and false across many spawns').toBe(2);
+      const coaxialMuted = attributes.map((a) => a.layers![1].gain === 0);
+      const harmonicMuted = attributes.map((a) => a.layers![2].gain === 0);
+      expect(new Set(coaxialMuted).size, 'Coaxial should take both muted and audible across many spawns').toBe(2);
+      expect(new Set(harmonicMuted).size, 'Harmonic should take both muted and audible across many spawns').toBe(2);
       // Not perfectly correlated — some robot has Coaxial and Harmonic disagreeing
-      expect(attributes.some((a) => a.layers![1].active !== a.layers![2].active)).toBe(true);
+      expect(attributes.some((a) => (a.layers![1].gain === 0) !== (a.layers![2].gain === 0))).toBe(true);
     });
   });
 
@@ -162,7 +162,7 @@ describe('spawnSystem', () => {
       expect(Object.keys(settings).sort()).toEqual([...ROBOT_LFO_TARGET_IDS].sort());
     });
 
-    it('every target\'s shape/rate/depth falls within documented bounds, active is a boolean', () => {
+    it('every target\'s shape/rate/depth falls within documented bounds — no active field left', () => {
       const settings = generateRobotLfoSettings(mockNoiseMap, 0);
       for (const target of ROBOT_LFO_TARGET_IDS) {
         const s = settings[target];
@@ -171,14 +171,14 @@ describe('spawnSystem', () => {
         expect(s.rate, `${target}.rate <= max`).toBeLessThanOrEqual(LFO_RATE_MAX);
         expect(s.depth, `${target}.depth >= min`).toBeGreaterThanOrEqual(LFO_DEPTH_MIN);
         expect(s.depth, `${target}.depth <= max`).toBeLessThanOrEqual(LFO_DEPTH_MAX);
-        expect(typeof s.active, `${target}.active`).toBe('boolean');
+        expect('active' in s, `${target} should not carry an active field`).toBe(false);
       }
     });
 
-    it('seeds active independently per target — not uniformly all-true or all-false (Roadmap Phase 9)', () => {
+    it('seeds quiet (rate: 0) independently per target — not uniformly all-quiet or all-oscillating (Roadmap Phase 9)', () => {
       const settings = generateRobotLfoSettings(mockNoiseMap, 0);
-      const activeValues = ROBOT_LFO_TARGET_IDS.map((t) => settings[t].active);
-      expect(new Set(activeValues).size, 'expected both true and false among the 13 targets').toBe(2);
+      const isQuiet = ROBOT_LFO_TARGET_IDS.map((t) => settings[t].rate === 0);
+      expect(new Set(isQuiet).size, 'expected both quiet and oscillating targets among the 13').toBe(2);
     });
 
     it('gives different targets different values within the same call — dataIds are genuinely distinct, not colliding', () => {

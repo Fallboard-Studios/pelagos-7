@@ -41,7 +41,7 @@ function resetAudioStore() {
 }
 
 function buildLfoValue(target: GlobalLfoTargetId) {
-  return { ...DEFAULT_LFO_SETTINGS[target], active: false };
+  return { ...DEFAULT_LFO_SETTINGS[target] };
 }
 
 describe('AudioRigDrawer', () => {
@@ -92,11 +92,6 @@ describe('AudioRigDrawer', () => {
   });
 
   it('dragging a param control calls setGlobalAudio with the right effect/field/value', () => {
-    // compressor.enabled defaults to false (only reverb defaults true) — enable
-    // it first so its param controls aren't disabled for this interaction test.
-    useAudioStore.setState((s) => ({
-      globalAudio: { ...s.globalAudio, compressor: { ...s.globalAudio.compressor, enabled: true } },
-    }));
     render(<AudioRigDrawer />);
     const thresholdSlider = screen.getAllByRole('slider', { name: 'Threshold' })[0];
     thresholdSlider.focus();
@@ -106,7 +101,7 @@ describe('AudioRigDrawer', () => {
 
   it('a single arrow-key press on a Delay slider moves by a small increment, not straight to max — regression: sliderLinear schemas with a full range <= 1 and no explicit step used to act like toggles', () => {
     useAudioStore.setState((s) => ({
-      globalAudio: { ...s.globalAudio, delay: { ...s.globalAudio.delay, enabled: true, delayTime: 0.5 } },
+      globalAudio: { ...s.globalAudio, delay: { ...s.globalAudio.delay, delayTime: 0.5 } },
     }));
     render(<AudioRigDrawer />);
     const delayTimeSlider = screen.getByRole('slider', { name: 'Time' });
@@ -118,65 +113,25 @@ describe('AudioRigDrawer', () => {
     expect(newValue).toBeLessThan(1); // must not jump straight to max in one press
   });
 
-  it('toggling an effect\'s own bypass calls setEffectEnabled and updates state', () => {
+  it('renders no rig-wide bypass switch or per-effect Enabled toggles — removed, off states are expressed via the sliders themselves', () => {
     render(<AudioRigDrawer />);
-    const compressorToggle = screen.getByRole('switch', { name: 'Compressor Enabled' });
-    expect(useAudioStore.getState().globalAudio.compressor.enabled).toBe(false); // DEFAULT_GLOBAL_AUDIO_SETTINGS
-    fireEvent.click(compressorToggle);
-    expect(useAudioStore.getState().globalAudio.compressor.enabled).toBe(true);
+    expect(screen.queryByRole('switch', { name: 'Bypass (this may be loud or distorted)' })).toBeNull();
+    expect(screen.queryByRole('switch', { name: 'Compressor Enabled' })).toBeNull();
+    expect(screen.queryByRole('switch', { name: 'Reverb Enabled' })).toBeNull();
   });
 
-  it('an effect\'s bypass off disables that effect\'s other param controls', () => {
-    useAudioStore.setState((s) => ({
-      globalAudio: { ...s.globalAudio, compressor: { ...s.globalAudio.compressor, enabled: false } },
-    }));
-    render(<AudioRigDrawer />);
-    const thresholdSlider = screen.getAllByRole('slider', { name: 'Threshold' })[0];
-    expect(thresholdSlider.getAttribute('data-disabled')).toBe('');
-  });
-
-  it('an effect\'s bypass on leaves that effect\'s other param controls enabled', () => {
-    useAudioStore.setState((s) => ({
-      globalAudio: { ...s.globalAudio, compressor: { ...s.globalAudio.compressor, enabled: true } },
-    }));
+  it('every param control renders enabled — no drawer-level disabling concept left', () => {
     render(<AudioRigDrawer />);
     const thresholdSlider = screen.getAllByRole('slider', { name: 'Threshold' })[0];
     expect(thresholdSlider.getAttribute('data-disabled')).toBeNull();
   });
 
-  it('toggling the rig-wide bypass calls setGlobalBypassEnabled and updates state', () => {
-    render(<AudioRigDrawer />);
-    const rigBypass = screen.getByRole('switch', { name: 'Bypass (this may be loud or distorted)' });
-    expect(useAudioStore.getState().globalAudio.globalBypass).toBe(false);
-    fireEvent.click(rigBypass);
-    expect(useAudioStore.getState().globalAudio.globalBypass).toBe(true);
-  });
-
-  it('the rig-wide bypass on disables every effect\'s own bypass toggle', () => {
-    useAudioStore.setState((s) => ({ globalAudio: { ...s.globalAudio, globalBypass: true } }));
-    render(<AudioRigDrawer />);
-    expect((screen.getByRole('switch', { name: 'Compressor Enabled' }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole('switch', { name: 'Reverb Enabled' }) as HTMLButtonElement).disabled).toBe(true);
-  });
-
-  it('the rig-wide bypass on also disables every effect\'s param controls, even ones individually enabled', () => {
-    useAudioStore.setState((s) => ({ globalAudio: { ...s.globalAudio, globalBypass: true } }));
-    render(<AudioRigDrawer />);
-    const thresholdSlider = screen.getAllByRole('slider', { name: 'Threshold' })[0];
-    expect(thresholdSlider.getAttribute('data-disabled')).toBe('');
-  });
-
-  it('the rig-wide bypass off leaves every effect\'s own bypass toggle enabled', () => {
-    render(<AudioRigDrawer />);
-    expect((screen.getByRole('switch', { name: 'Compressor Enabled' }) as HTMLButtonElement).disabled).toBe(false);
-  });
-
   describe('shared LFO display (LFO_CONSOLIDATED_DISPLAY — replaces the old nested per-slider accordion)', () => {
     it('renders exactly one shared LFO display per LFO-bearing block — 3 total (eq3, filterLPF, filterHPF), never one per param', () => {
-      render(<AudioRigDrawer />);
-      // Each shared display renders exactly one Active toggle, so a plain count also proves
-      // "not one per param" — 7 GlobalLfoTargetId params would otherwise render 7.
-      expect(screen.getAllByRole('switch', { name: 'Active' })).toHaveLength(3);
+      const { container } = render(<AudioRigDrawer />);
+      // A plain count of the shared display's own root class also proves "not one per param" —
+      // 7 GlobalLfoTargetId params would otherwise render 7.
+      expect(container.querySelectorAll('.sc-lfo')).toHaveLength(3);
     });
 
     it('renders no shared LFO display for delay, reverb, compressor, or limiter — none of their params carry lfoTarget', () => {
@@ -200,65 +155,43 @@ describe('AudioRigDrawer', () => {
 
     it('binds the default target (eq3.low) to its own globalLfo entry, not DEFAULT_LFO_SETTINGS', () => {
       useAudioStore.setState((s) => ({
-        globalLfo: { ...s.globalLfo, 'eq3.low': { shape: 'square', rate: 5, depth: 60, active: true } },
+        globalLfo: { ...s.globalLfo, 'eq3.low': { shape: 'square', rate: 5, depth: 60 } },
       }));
       render(<AudioRigDrawer />);
 
       const rateSlider = screen.getAllByRole('slider', { name: 'Rate' })[0];
       const depthSlider = screen.getAllByRole('slider', { name: 'Depth' })[0];
-      const activeToggle = screen.getAllByRole('switch', { name: 'Active' })[0];
 
       expect(rateSlider.getAttribute('aria-valuenow')).toBe('5');
       expect(depthSlider.getAttribute('aria-valuenow')).toBe('60');
-      expect(activeToggle.getAttribute('aria-checked')).toBe('true');
     });
 
-    it('changing the shared display\'s active toggle calls setGlobalLfo for the currently-targeted field (eq3.low by default)', () => {
-      // The toggle is only interactive while its block is enabled — eq3 defaults disabled.
-      useAudioStore.setState((s) => ({
-        globalAudio: { ...s.globalAudio, eq3: { ...s.globalAudio.eq3, enabled: true } },
-      }));
+    it('dragging the shared display\'s rate slider off 0 calls setGlobalLfo for the currently-targeted field (eq3.low by default)', () => {
       render(<AudioRigDrawer />);
-      const activeToggle = screen.getAllByRole('switch', { name: 'Active' })[0]; // eq3's shared display, defaulting to eq3.low
-      expect(useAudioStore.getState().globalLfo['eq3.low'].active).toBe(false);
+      const rateSlider = screen.getAllByRole('slider', { name: 'Rate' })[0]; // eq3's shared display, defaulting to eq3.low
+      expect(useAudioStore.getState().globalLfo['eq3.low'].rate).toBe(0);
 
-      fireEvent.click(activeToggle);
+      rateSlider.focus();
+      fireEvent.keyDown(rateSlider, { key: 'ArrowRight' });
 
-      expect(useAudioStore.getState().globalLfo['eq3.low'].active).toBe(true);
+      expect(useAudioStore.getState().globalLfo['eq3.low'].rate).toBeGreaterThan(0);
     });
 
-    it('the shared LFO display is disabled when its parent effect is bypassed off, like every other param in that block', () => {
-      // eq3 defaults enabled: false (DEFAULT_GLOBAL_AUDIO_SETTINGS) — unlike the old nested
-      // accordion (which ignored the parent's own disabled state), the shared display now
-      // respects it, matching SignatureArrayDrawer/AudioSettingSection's existing Lfo wiring.
+    it('the shared LFO display is enabled by default — no parent-effect enabled/disabled concept left to gate it', () => {
       render(<AudioRigDrawer />);
-      const activeToggle = screen.getAllByRole('switch', { name: 'Active' })[0]; // eq3.low
-      expect((activeToggle as HTMLButtonElement).disabled).toBe(true);
+      const rateSlider = screen.getAllByRole('slider', { name: 'Rate' })[0];
+      expect(rateSlider.getAttribute('data-disabled')).toBeNull();
     });
 
-    it('the shared LFO display is enabled once its parent effect is enabled', () => {
-      useAudioStore.setState((s) => ({
-        globalAudio: { ...s.globalAudio, eq3: { ...s.globalAudio.eq3, enabled: true } },
-      }));
+    it('renders no status light on the effect accordion — the feature was removed entirely', () => {
       render(<AudioRigDrawer />);
-      const activeToggle = screen.getAllByRole('switch', { name: 'Active' })[0];
-      expect((activeToggle as HTMLButtonElement).disabled).toBe(false);
-    });
-
-    it("the effect accordion's status light reflects its own Enabled toggle, not open/closed", () => {
-      render(<AudioRigDrawer />);
-      // eq3 defaults enabled: false (DEFAULT_GLOBAL_AUDIO_SETTINGS)
       const eqTrigger = screen.getByRole('button', { name: /3-Band EQ/i });
-      const light = eqTrigger.querySelector('.sc-accordion__light');
-      expect(light?.getAttribute('data-content-active')).toBe('false');
-
-      fireEvent.click(screen.getByRole('switch', { name: '3-Band EQ Enabled' }));
-      expect(light?.getAttribute('data-content-active')).toBe('true');
+      expect(eqTrigger.querySelector('.sc-accordion__light')).toBeNull();
     });
 
     it('does not auto-open the parent effect accordion just because its LFO-tied target is active', () => {
       useAudioStore.setState((s) => ({
-        globalLfo: { ...s.globalLfo, 'eq3.low': { shape: 'square', rate: 5, depth: 60, active: true } },
+        globalLfo: { ...s.globalLfo, 'eq3.low': { shape: 'square', rate: 5, depth: 60 } },
       }));
       render(<AudioRigDrawer />);
       const eqTrigger = screen.getByRole('button', { name: /3-Band EQ/i });
@@ -281,10 +214,6 @@ describe('AudioRigDrawer', () => {
     });
 
     it('keyboard-focusing a different band\'s slider switches which globalLfo entry the shared display edits, once the transition completes', async () => {
-      // Sliders are only focusable while their block is enabled — eq3 defaults disabled.
-      useAudioStore.setState((s) => ({
-        globalAudio: { ...s.globalAudio, eq3: { ...s.globalAudio.eq3, enabled: true } },
-      }));
       render(<AudioRigDrawer />);
       const highSlider = screen.getByRole('slider', { name: 'High' });
       // Wrapped in an async act() so the transition's microtask-resolved onComplete (see
@@ -297,11 +226,12 @@ describe('AudioRigDrawer', () => {
         expect(screen.getByRole('slider', { name: 'High' }).closest('.sc-lfo-target-group__row')?.classList.contains('isActive')).toBe(true);
       });
 
-      const activeToggle = screen.getAllByRole('switch', { name: 'Active' })[0];
-      fireEvent.click(activeToggle);
+      const rateSlider = screen.getAllByRole('slider', { name: 'Rate' })[0];
+      rateSlider.focus();
+      fireEvent.keyDown(rateSlider, { key: 'ArrowRight' });
 
-      expect(useAudioStore.getState().globalLfo['eq3.high'].active).toBe(true);
-      expect(useAudioStore.getState().globalLfo['eq3.low'].active).toBe(false);
+      expect(useAudioStore.getState().globalLfo['eq3.high'].rate).toBeGreaterThan(0);
+      expect(useAudioStore.getState().globalLfo['eq3.low'].rate).toBe(0);
     });
   });
 
@@ -320,12 +250,6 @@ describe('AudioRigDrawer', () => {
     });
 
     it('clicking Controlled Decay calls setCompressorBeforeDelay(true)', () => {
-      // compressor.enabled defaults to false (only reverb defaults true) — the
-      // Decay radio now lives inside Compressor's own accordion and shares its
-      // disabled state, so enable it first for this interaction test.
-      useAudioStore.setState((s) => ({
-        globalAudio: { ...s.globalAudio, compressor: { ...s.globalAudio.compressor, enabled: true } },
-      }));
       render(<AudioRigDrawer />);
       expect(useAudioStore.getState().globalAudio.compressorBeforeDelay).toBe(false);
 
@@ -344,11 +268,7 @@ describe('AudioRigDrawer', () => {
 
     it('clicking Natural Decay while Controlled Decay is active calls setCompressorBeforeDelay(false)', () => {
       useAudioStore.setState((s) => ({
-        globalAudio: {
-          ...s.globalAudio,
-          compressorBeforeDelay: true,
-          compressor: { ...s.globalAudio.compressor, enabled: true },
-        },
+        globalAudio: { ...s.globalAudio, compressorBeforeDelay: true },
       }));
       render(<AudioRigDrawer />);
 
@@ -364,18 +284,7 @@ describe('AudioRigDrawer', () => {
       expect(accordionContent?.textContent).toContain('Threshold');
     });
 
-    it('is disabled when Compressor itself is bypassed off, matching its other param controls', () => {
-      useAudioStore.setState((s) => ({
-        globalAudio: { ...s.globalAudio, compressor: { ...s.globalAudio.compressor, enabled: false } },
-      }));
-      render(<AudioRigDrawer />);
-      expect(screen.getByRole('radio', { name: 'Natural Decay' }).getAttribute('data-disabled')).toBe('');
-    });
-
-    it('is enabled when Compressor is enabled and the rig-wide bypass is off', () => {
-      useAudioStore.setState((s) => ({
-        globalAudio: { ...s.globalAudio, compressor: { ...s.globalAudio.compressor, enabled: true } },
-      }));
+    it('renders enabled — no parent-effect enabled/disabled concept left to gate it', () => {
       render(<AudioRigDrawer />);
       expect(screen.getByRole('radio', { name: 'Natural Decay' }).getAttribute('data-disabled')).toBeNull();
     });
@@ -462,25 +371,13 @@ describe('AudioRigDrawer', () => {
       expect(useAudioStore.getState().globalAudio.lfoDrift.eq3).toEqual({ rateDrift: 0.4, depthDrift: 0.4 });
     });
 
-    it('all 8 sliders (4 groups x 2) are disabled when the rig-wide bypass is on, matching every other block\'s rigDisabled wiring', () => {
-      useAudioStore.setState((s) => ({ globalAudio: { ...s.globalAudio, globalBypass: true } }));
+    it('all 8 sliders (4 groups x 2) render enabled — no rig-wide bypass left to disable them', () => {
       render(<AudioRigDrawer />);
       const sliders = [
         ...screen.getAllByRole('slider', { name: 'Rate Drift' }),
         ...screen.getAllByRole('slider', { name: 'Depth Drift' }),
       ];
       expect(sliders).toHaveLength(8);
-      for (const slider of sliders) {
-        expect(slider.getAttribute('data-disabled')).toBe('');
-      }
-    });
-
-    it('all 8 sliders are enabled when the rig-wide bypass is off — unlike every effect block, Drift has no enabled toggle of its own to also check', () => {
-      render(<AudioRigDrawer />);
-      const sliders = [
-        ...screen.getAllByRole('slider', { name: 'Rate Drift' }),
-        ...screen.getAllByRole('slider', { name: 'Depth Drift' }),
-      ];
       for (const slider of sliders) {
         expect(slider.getAttribute('data-disabled')).toBeNull();
       }
@@ -507,14 +404,7 @@ describe('AudioRigDrawer', () => {
       expect(useAudioStore.getState().pingVarianceAutomation).toBeCloseTo(newPercent / 100);
     });
 
-    it('is disabled when the rig-wide bypass is on, matching every other Rig-wide control', () => {
-      useAudioStore.setState((s) => ({ globalAudio: { ...s.globalAudio, globalBypass: true } }));
-      render(<AudioRigDrawer />);
-      const slider = screen.getByRole('slider', { name: 'Automatic Effects' });
-      expect(slider.getAttribute('data-disabled')).toBe('');
-    });
-
-    it('is enabled when the rig-wide bypass is off', () => {
+    it('renders enabled — no rig-wide bypass left to disable it', () => {
       render(<AudioRigDrawer />);
       const slider = screen.getByRole('slider', { name: 'Automatic Effects' });
       expect(slider.getAttribute('data-disabled')).toBeNull();
@@ -547,14 +437,7 @@ describe('AudioRigDrawer', () => {
       expect(useAudioStore.getState().bpm).toBe(newValue);
     });
 
-    it('is disabled when the rig-wide bypass is on, matching every other Rig-wide control', () => {
-      useAudioStore.setState((s) => ({ globalAudio: { ...s.globalAudio, globalBypass: true } }));
-      render(<AudioRigDrawer />);
-      const slider = screen.getByRole('slider', { name: 'Tempo' });
-      expect(slider.getAttribute('data-disabled')).toBe('');
-    });
-
-    it('is enabled when the rig-wide bypass is off', () => {
+    it('renders enabled — no rig-wide bypass left to disable it', () => {
       render(<AudioRigDrawer />);
       const slider = screen.getByRole('slider', { name: 'Tempo' });
       expect(slider.getAttribute('data-disabled')).toBeNull();

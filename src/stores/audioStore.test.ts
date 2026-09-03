@@ -16,8 +16,6 @@ vi.mock('../engine/AudioEngine', () => ({
     setGlobalLimiter: vi.fn(),
     setGlobalDelay: vi.fn(),
     setGlobalReverb: vi.fn(),
-    setEffectBypass: vi.fn(),
-    setGlobalBypass: vi.fn(),
     setMasterVolume: vi.fn(),
   },
 }));
@@ -82,35 +80,22 @@ describe('useAudioStore - regenerateGlobalAudioFromSeed', () => {
     expect(AudioEngine.setGlobalCompressor).toHaveBeenCalled();
   });
 
-  it('seeds enabled: true unconditionally for every effect except delay', async () => {
-    const { useAudioStore } = await import('./audioStore');
-    const { globalAudio } = useAudioStore.getState();
-
-    expect(globalAudio.compressor.enabled).toBe(true);
-    expect(globalAudio.eq3.enabled).toBe(true);
-    expect(globalAudio.filterLPF.enabled).toBe(true);
-    expect(globalAudio.filterHPF.enabled).toBe(true);
-    expect(globalAudio.reverb.enabled).toBe(true);
-    expect(globalAudio.limiter.enabled).toBe(true);
-  });
-
-  it('no longer forces delay.enabled to true — the seeded ~25% chance survives regeneration unchanged', async () => {
-    // The regression this task explicitly calls out as most likely to slip
-    // back in silently: removing the force-enabled-true override must not be
-    // masked by every sampled Attenuation Style coincidentally seeding delay.enabled true.
+  it('seeds delay.wet quiet (0) for roughly 1-in-4 Attenuation Styles, not roughly all or none', async () => {
     // Same statistical-spot-check style as globalAudioSeed.test.ts's own
-    // delay.enabled test — a wide tolerance band instead of an exact count,
-    // to avoid flakiness while still clearly distinguishing this from "always true".
+    // delay.wet test — a wide tolerance band instead of an exact count, to
+    // avoid flakiness while still clearly distinguishing this from "always
+    // quiet" or "never quiet". Replaces the old force-enabled-true override
+    // regression guard now that there's no separate enabled field.
     const { useAudioStore } = await import('./audioStore');
     const SAMPLE_ATTENUATION_STYLES = 40;
-    let enabledCount = 0;
+    let quietCount = 0;
     for (let i = 0; i < SAMPLE_ATTENUATION_STYLES; i++) {
       useAudioStore.getState().regenerateGlobalAudioFromSeed(`store-delay-sample-${i}`, `StoreDelaySample${i}`);
-      if (useAudioStore.getState().globalAudio.delay.enabled) enabledCount++;
+      if (useAudioStore.getState().globalAudio.delay.wet === 0) quietCount++;
     }
-    const enabledRate = enabledCount / SAMPLE_ATTENUATION_STYLES;
-    expect(enabledRate).toBeGreaterThan(0.05);
-    expect(enabledRate).toBeLessThan(0.5);
+    const quietRate = quietCount / SAMPLE_ATTENUATION_STYLES;
+    expect(quietRate).toBeGreaterThan(0.05);
+    expect(quietRate).toBeLessThan(0.5);
   });
 
   it('fixes filterLPF/filterHPF type to their identity', async () => {
@@ -145,20 +130,6 @@ describe('useAudioStore - regenerateGlobalAudioFromSeed', () => {
     }
   });
 
-  it('calls AudioEngine.setEffectBypass with each effect\'s actual seeded enabled value — not hardcoded true', async () => {
-    const { useAudioStore } = await import('./audioStore');
-    const { AudioEngine } = await import('../engine/AudioEngine');
-    const { globalAudio } = useAudioStore.getState();
-
-    expect(AudioEngine.setEffectBypass).toHaveBeenCalledWith('reverb', globalAudio.reverb.enabled);
-    expect(AudioEngine.setEffectBypass).toHaveBeenCalledWith('delay', globalAudio.delay.enabled);
-    expect(AudioEngine.setEffectBypass).toHaveBeenCalledWith('eq3', globalAudio.eq3.enabled);
-    expect(AudioEngine.setEffectBypass).toHaveBeenCalledWith('lpf', globalAudio.filterLPF.enabled);
-    expect(AudioEngine.setEffectBypass).toHaveBeenCalledWith('hpf', globalAudio.filterHPF.enabled);
-    expect(AudioEngine.setEffectBypass).toHaveBeenCalledWith('compressor', globalAudio.compressor.enabled);
-    expect(AudioEngine.setEffectBypass).toHaveBeenCalledWith('limiter', globalAudio.limiter.enabled);
-  });
-
   it('is deterministic — calling it twice with the same Attenuation Style produces the same globalAudio', async () => {
     const { useAudioStore } = await import('./audioStore');
     const first = useAudioStore.getState().globalAudio;
@@ -175,14 +146,12 @@ describe('useAudioStore - regenerateGlobalAudioFromSeed', () => {
     expect(other).not.toEqual(pelagos);
   });
 
-  it('preserves globalBypass and compressorBeforeDelay across a reseed — neither is seeded, so an Attenuation Style switch must not silently reset a live user choice back to default', async () => {
+  it('preserves compressorBeforeDelay across a reseed — it is not seeded, so an Attenuation Style switch must not silently reset a live user choice back to default', async () => {
     const { useAudioStore } = await import('./audioStore');
-    useAudioStore.getState().setGlobalBypassEnabled(true);
     useAudioStore.getState().setCompressorBeforeDelay(true);
 
     useAudioStore.getState().regenerateGlobalAudioFromSeed('a-different-as-id', 'Zenith');
 
-    expect(useAudioStore.getState().globalAudio.globalBypass).toBe(true);
     expect(useAudioStore.getState().globalAudio.compressorBeforeDelay).toBe(true);
   });
 
@@ -262,54 +231,18 @@ describe('useAudioStore - setGlobalAudio pushes to AudioEngine', () => {
   });
 });
 
-describe('useAudioStore - setEffectEnabled', () => {
+describe('useAudioStore - no setEffectEnabled/setGlobalBypassEnabled', () => {
   beforeEach(() => {
     vi.resetModules();
   });
 
-  it('updates the given effect\'s enabled field in state', async () => {
+  it('no longer exposes setEffectEnabled/setGlobalBypassEnabled, or globalBypass/enabled fields — removed, off states are expressed via the params/sliders themselves', async () => {
     const { useAudioStore } = await import('./audioStore');
-    useAudioStore.getState().setEffectEnabled('reverb', false);
-    expect(useAudioStore.getState().globalAudio.reverb.enabled).toBe(false);
-  });
-
-  it('calls AudioEngine.setEffectBypass with the short-form key and the enabled value', async () => {
-    const { useAudioStore } = await import('./audioStore');
-    const { AudioEngine } = await import('../engine/AudioEngine');
-    vi.clearAllMocks();
-
-    useAudioStore.getState().setEffectEnabled('filterLPF', false);
-    expect(AudioEngine.setEffectBypass).toHaveBeenCalledWith('lpf', false);
-
-    useAudioStore.getState().setEffectEnabled('filterHPF', true);
-    expect(AudioEngine.setEffectBypass).toHaveBeenCalledWith('hpf', true);
-
-    useAudioStore.getState().setEffectEnabled('compressor', false);
-    expect(AudioEngine.setEffectBypass).toHaveBeenCalledWith('compressor', false);
-  });
-});
-
-describe('useAudioStore - setGlobalBypassEnabled', () => {
-  beforeEach(() => {
-    vi.resetModules();
-  });
-
-  it('updates globalBypass in state', async () => {
-    const { useAudioStore } = await import('./audioStore');
-    useAudioStore.getState().setGlobalBypassEnabled(true);
-    expect(useAudioStore.getState().globalAudio.globalBypass).toBe(true);
-  });
-
-  it('calls AudioEngine.setGlobalBypass with the value', async () => {
-    const { useAudioStore } = await import('./audioStore');
-    const { AudioEngine } = await import('../engine/AudioEngine');
-    vi.clearAllMocks();
-
-    useAudioStore.getState().setGlobalBypassEnabled(true);
-    expect(AudioEngine.setGlobalBypass).toHaveBeenCalledWith(true);
-
-    useAudioStore.getState().setGlobalBypassEnabled(false);
-    expect(AudioEngine.setGlobalBypass).toHaveBeenCalledWith(false);
+    const state = useAudioStore.getState();
+    expect('setEffectEnabled' in state).toBe(false);
+    expect('setGlobalBypassEnabled' in state).toBe(false);
+    expect('globalBypass' in state.globalAudio).toBe(false);
+    expect('enabled' in state.globalAudio.reverb).toBe(false);
   });
 });
 
@@ -436,8 +369,8 @@ describe('useAudioStore - setGlobalLfo', () => {
 
   it('updates globalLfo state for the given target', async () => {
     const { useAudioStore } = await import('./audioStore');
-    useAudioStore.getState().setGlobalLfo('eq3.low', { shape: 'square', rate: 3, depth: 40, active: false });
-    expect(useAudioStore.getState().globalLfo['eq3.low']).toEqual({ shape: 'square', rate: 3, depth: 40, active: false });
+    useAudioStore.getState().setGlobalLfo('eq3.low', { shape: 'square', rate: 3, depth: 40 });
+    expect(useAudioStore.getState().globalLfo['eq3.low']).toEqual({ shape: 'square', rate: 3, depth: 40 });
   });
 
   it('always calls setLfoShape/setLfoRate/setLfoDepth with the value\'s fields', async () => {
@@ -445,20 +378,20 @@ describe('useAudioStore - setGlobalLfo', () => {
     const { lfoEngine } = await import('../engine/lfoEngine');
     vi.clearAllMocks();
 
-    useAudioStore.getState().setGlobalLfo('lpf.frequency', { shape: 'triangle', rate: 5, depth: 60, active: false });
+    useAudioStore.getState().setGlobalLfo('lpf.frequency', { shape: 'triangle', rate: 5, depth: 60 });
 
     expect(lfoEngine.setLfoShape).toHaveBeenCalledWith('lpf.frequency', 'triangle');
     expect(lfoEngine.setLfoRate).toHaveBeenCalledWith('lpf.frequency', 5);
     expect(lfoEngine.setLfoDepth).toHaveBeenCalledWith('lpf.frequency', 60);
   });
 
-  it('connects and starts when active is true and connect succeeds', async () => {
+  it('connects and starts when rate > 0 and connect succeeds', async () => {
     const { useAudioStore } = await import('./audioStore');
     const { lfoEngine } = await import('../engine/lfoEngine');
     vi.clearAllMocks();
     vi.mocked(lfoEngine.connectLfoTarget).mockReturnValue(true);
 
-    useAudioStore.getState().setGlobalLfo('hpf.Q', { shape: 'sine', rate: 1, depth: 20, active: true });
+    useAudioStore.getState().setGlobalLfo('hpf.Q', { shape: 'sine', rate: 1, depth: 20 });
 
     expect(lfoEngine.connectLfoTarget).toHaveBeenCalledWith('hpf.Q');
     expect(lfoEngine.start).toHaveBeenCalledWith('hpf.Q');
@@ -466,24 +399,24 @@ describe('useAudioStore - setGlobalLfo', () => {
     expect(lfoEngine.stop).not.toHaveBeenCalled();
   });
 
-  it('does not call start when active is true but connect fails', async () => {
+  it('does not call start when rate > 0 but connect fails', async () => {
     const { useAudioStore } = await import('./audioStore');
     const { lfoEngine } = await import('../engine/lfoEngine');
     vi.clearAllMocks();
     vi.mocked(lfoEngine.connectLfoTarget).mockReturnValue(false);
 
-    useAudioStore.getState().setGlobalLfo('hpf.frequency', { shape: 'sine', rate: 1, depth: 20, active: true });
+    useAudioStore.getState().setGlobalLfo('hpf.frequency', { shape: 'sine', rate: 1, depth: 20 });
 
     expect(lfoEngine.connectLfoTarget).toHaveBeenCalledWith('hpf.frequency');
     expect(lfoEngine.start).not.toHaveBeenCalled();
   });
 
-  it('disconnects and stops when active is false', async () => {
+  it('disconnects and stops when rate is 0', async () => {
     const { useAudioStore } = await import('./audioStore');
     const { lfoEngine } = await import('../engine/lfoEngine');
     vi.clearAllMocks();
 
-    useAudioStore.getState().setGlobalLfo('eq3.high', { shape: 'sine', rate: 1, depth: 20, active: false });
+    useAudioStore.getState().setGlobalLfo('eq3.high', { shape: 'sine', rate: 0, depth: 20 });
 
     expect(lfoEngine.disconnectLfoTarget).toHaveBeenCalledWith('eq3.high');
     expect(lfoEngine.stop).toHaveBeenCalledWith('eq3.high');
@@ -554,14 +487,12 @@ describe('useAudioStore - pingVarianceAutomation / setPingVarianceAutomation', (
   it('setPingVarianceAutomation updates the store directly — a plain write, no AudioEngine call', async () => {
     const { useAudioStore } = await import('./audioStore');
     const { AudioEngine } = await import('../engine/AudioEngine');
-    const bypassCallsBefore = vi.mocked(AudioEngine.setGlobalBypass).mock.calls.length;
-    const effectBypassCallsBefore = vi.mocked(AudioEngine.setEffectBypass).mock.calls.length;
+    const reverbCallsBefore = vi.mocked(AudioEngine.setGlobalReverb).mock.calls.length;
 
     useAudioStore.getState().setPingVarianceAutomation(0.9);
     expect(useAudioStore.getState().pingVarianceAutomation).toBe(0.9);
 
-    expect(vi.mocked(AudioEngine.setGlobalBypass).mock.calls.length).toBe(bypassCallsBefore);
-    expect(vi.mocked(AudioEngine.setEffectBypass).mock.calls.length).toBe(effectBypassCallsBefore);
+    expect(vi.mocked(AudioEngine.setGlobalReverb).mock.calls.length).toBe(reverbCallsBefore);
   });
 
   it('carries the seeded value forward across a later Attenuation Style switch — does not reseed', async () => {

@@ -47,7 +47,7 @@ export function RobotDisplaySection({ robot }: RobotDisplaySectionProps) {
     audioMode: robot.audioMode ?? 'none',
     masterVolume: robot.masterVolume,
     volumeLfo: robot.lfoSettings?.[VOLUME_LFO_TARGET] as LfoValue
-      ?? { ...DEFAULT_LFO_SETTINGS[VOLUME_LFO_TARGET], active: false },
+      ?? { ...DEFAULT_LFO_SETTINGS[VOLUME_LFO_TARGET] },
   };
 
   return (

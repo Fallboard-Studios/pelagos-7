@@ -20,7 +20,7 @@ import { setTimeline, killTimeline } from '@/animation/timelineMap';
 import type { LfoValue } from '@/types/controls';
 
 function lfo(rate: number): LfoValue {
-  return { shape: 'sine', rate, depth: 50, active: true };
+  return { shape: 'sine', rate, depth: 50 };
 }
 
 const FIELDS: LfoTargetGroupField[] = [
@@ -73,7 +73,7 @@ describe('useLfoTargetGroup', () => {
     act(() => result.current.select('mid'));
     expect(result.current.transitioning).toBe(true);
     // Neutral placeholder while transitioning — never the outgoing or incoming field's real
-    // values (rate/depth/shape/active all reset). The label itself stays showing the still-
+    // values (rate/depth/shape all reset). The label itself stays showing the still-
     // committed field's name throughout — only the values blank out, not the whole control,
     // so the display never flickers empty/unlabeled mid-transition.
     expect(result.current.displayValue).toEqual(NEUTRAL_LFO_VALUE);

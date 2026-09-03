@@ -1,7 +1,6 @@
 import { RadioButton } from '@/components/ui/controls/RadioButton';
 import { SliderLinear } from '@/components/ui/controls/SliderLinear';
 import { SliderCenteredZero } from '@/components/ui/controls/SliderCenteredZero';
-import { Toggle } from '@/components/ui/controls/Toggle';
 import { AccordionContainer } from '@/components/ui/controls/AccordionContainer';
 import { LfoTargetGroup } from '@/components/ui/controls/LfoTargetGroup';
 import { DEFAULT_LFO_SETTINGS } from '@/data/lfoConfig';
@@ -28,10 +27,12 @@ export interface SignatureArrayValue {
 
 interface SignatureArrayDrawerProps {
   value: SignatureArrayValue;
-  /** Continuous params (gain, detune, phase, pulseWidth): live, no gap in audio. */
+  /** Continuous params (gain, detune, phase, pulseWidth): live, no gap in audio. Gain is also
+   *  how Coaxial/Harmonic are muted now (gain: 0) — a live update on the existing voice, not a
+   *  rebuild; `filterAudibleLayers` (AudioEngine.ts) only excludes a muted layer from the
+   *  composite voice the next time something else triggers a real rebuild (e.g. a Type change). */
   onContinuousChange: (layers: OscillatorLayer[]) => void;
-  /** Structural changes (type, active/mute) — may cause a brief audio gap while the voice
-   *  rebuilds; active toggling changes which layers the composite voice actually includes. */
+  /** Structural changes (type) — may cause a brief audio gap while the voice rebuilds. */
   onStructuralChange: (layers: OscillatorLayer[]) => void;
   onLfoChange: (target: RobotLfoTargetId, value: LfoValue) => void;
   disabled?: boolean;
@@ -52,9 +53,9 @@ function paramValue(layer: OscillatorLayer, field: SignatureArrayParamSchema['fi
  * presentational as of Roadmap Phase 10 (Task 16) — no `robot` prop, no store access; both
  * RobotOptionsTab (robot mode) and CompanyOptionsSection (company mode) derive `value` and wire
  * each callback through robotOptionsActions.applyLayersContinuous/applyLayersStructural/
- * applyLayerLfo themselves. Toggling Coaxial/Harmonic's Active off mutes the layer (excluded from
- * the composite voice, see AudioEngine.reserveVoice's filterActiveLayers) without discarding its
- * Type/Gain/Detune/Phase/Interval configuration.
+ * applyLayerLfo themselves. Dragging Coaxial/Harmonic's own Gain to 0 mutes the layer (eventually
+ * excluded from the composite voice, see AudioEngine.reserveVoice's filterAudibleLayers) without
+ * discarding its Type/Detune/Phase/Interval configuration — there's no separate Active toggle.
  *
  * Each layer's LFO-tied params (Gain/Detune/Phase/Interval) render through one LfoTargetGroup —
  * a shared LFO display per layer, replacing the old per-param nested "Modulation" accordion
@@ -74,9 +75,6 @@ export function SignatureArrayDrawer({ value, onContinuousChange, onStructuralCh
           const withUpdatedLayer = (updated: OscillatorLayer) =>
             layers.map((l, i) => (i === idx ? updated : l));
 
-          const handleActiveChange = (active: boolean) =>
-            onStructuralChange(withUpdatedLayer({ ...layer, active }));
-
           const handleTypeChange = (v: string) =>
             onStructuralChange(withUpdatedLayer({ ...layer, type: v as WaveformType }));
 
@@ -94,9 +92,6 @@ export function SignatureArrayDrawer({ value, onContinuousChange, onStructuralCh
 
           return (
             <div key={block.key} className="signature-array-drawer__layer" data-layer-key={block.key}>
-              {block.activeSchema && (
-                <Toggle schema={block.activeSchema} value={layer.active} onChange={handleActiveChange} disabled={disabled} />
-              )}
               <RadioButton
                 schema={typeParam.schema as RadioButtonSchema}
                 value={layer.type}
@@ -108,7 +103,7 @@ export function SignatureArrayDrawer({ value, onContinuousChange, onStructuralCh
                 fields={lfoParams.map((p) => ({
                   field: p.field,
                   label: (p.schema as SliderLinearSchema | SliderCenteredZeroSchema).humanLabel ?? p.field,
-                  lfoValue: value.lfoSettings?.[p.lfoTarget!] ?? { ...DEFAULT_LFO_SETTINGS[p.lfoTarget!], active: false },
+                  lfoValue: value.lfoSettings?.[p.lfoTarget!] ?? { ...DEFAULT_LFO_SETTINGS[p.lfoTarget!] },
                 }))}
                 onLfoChange={(field, v) => onLfoChange(lfoParams.find((p) => p.field === field)!.lfoTarget!, v)}
                 disabled={disabled}

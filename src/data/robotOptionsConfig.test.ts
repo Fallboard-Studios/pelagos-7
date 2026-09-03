@@ -112,10 +112,10 @@ describe('robotOptionsConfig', () => {
       expect(SIGNATURE_ARRAY_CONFIG.map((b) => b.key)).toEqual(['layer0', 'layer1', 'layer2']);
     });
 
-    it('only Coaxial and Harmonic carry an activeSchema — Baseline is always active, no toggle', () => {
-      expect(SIGNATURE_ARRAY_CONFIG[0].activeSchema).toBeUndefined();
-      expect(SIGNATURE_ARRAY_CONFIG[1].activeSchema).toBeDefined();
-      expect(SIGNATURE_ARRAY_CONFIG[2].activeSchema).toBeDefined();
+    it('no block carries an activeSchema — muting is expressed via each block\'s own Gain param instead', () => {
+      SIGNATURE_ARRAY_CONFIG.forEach((block) => {
+        expect('activeSchema' in block).toBe(false);
+      });
     });
 
     it('each block\'s Type param has exactly the 5 real waveform options — no Noise', () => {

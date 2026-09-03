@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { useAudioStore } from '@/stores/audioStore';
 import { AccordionContainer } from '@/components/ui/controls/AccordionContainer';
-import { Toggle } from '@/components/ui/controls/Toggle';
 import { RadioButton } from '@/components/ui/controls/RadioButton';
 import { SliderLinear } from '@/components/ui/controls/SliderLinear';
 import { SliderLog } from '@/components/ui/controls/SliderLog';
@@ -19,7 +18,7 @@ import {
   type AudioRigParamSchema,
   type AudioRigEffectKey,
 } from '@/data/audioRigConfig';
-import type { ToggleSchema, LfoValue } from '@/types/controls';
+import type { LfoValue } from '@/types/controls';
 import type { GlobalAudioSettings } from '@/types/globalAudio';
 import type { GlobalLfoTargetId } from '@/types/lfo';
 import './AudioRigDrawer.css';
@@ -29,21 +28,19 @@ import './AudioRigDrawer.css';
 // on SignatureArrayDrawer/AudioSettingSection to have pulled it in elsewhere in the bundle.
 import '@/components/ui/controls/LfoTargetGroup.css';
 
-const GLOBAL_BYPASS_SCHEMA: ToggleSchema = { id: 'audioRig.globalBypass', type: 'toggle', humanLabel: 'Bypass (this may be loud or distorted)' };
-
 /** Dispatches a param's ControlSchema to its matching primitive. Covers only
  *  the 4 variants GLOBAL_CHAIN_GRID.md's UI column actually uses for this
  *  drawer — audioRigConfig.test.ts is what guards the closed set in practice. */
-function renderParamControl(param: AudioRigParamSchema, value: number, onChange: (v: number) => void, disabled: boolean) {
+function renderParamControl(param: AudioRigParamSchema, value: number, onChange: (v: number) => void) {
   switch (param.schema.type) {
     case 'sliderLinear':
-      return <SliderLinear schema={param.schema} value={value} onChange={onChange} disabled={disabled} />;
+      return <SliderLinear schema={param.schema} value={value} onChange={onChange} />;
     case 'sliderLog':
-      return <SliderLog schema={param.schema} value={value} onChange={onChange} disabled={disabled} />;
+      return <SliderLog schema={param.schema} value={value} onChange={onChange} />;
     case 'sliderCenteredZero':
-      return <SliderCenteredZero schema={param.schema} value={value} onChange={onChange} disabled={disabled} />;
+      return <SliderCenteredZero schema={param.schema} value={value} onChange={onChange} />;
     case 'stepper':
-      return <Stepper schema={param.schema} value={value} onChange={onChange} disabled={disabled} />;
+      return <Stepper schema={param.schema} value={value} onChange={onChange} />;
     default:
       return null;
   }
@@ -59,7 +56,6 @@ interface AudioRigLfoGroupProps {
   updateParam: (field: string, value: number) => void;
   globalLfo: Record<GlobalLfoTargetId, LfoValue>;
   setGlobalLfo: (target: GlobalLfoTargetId, value: LfoValue) => void;
-  disabled: boolean;
   /** eq3/filterLPF/filterHPF's own Rate/Depth Drift sliders, rendered directly beneath the
    *  shared display — the only groups with a per-group drift control today. */
   driftContent?: ReactNode;
@@ -74,7 +70,7 @@ interface AudioRigLfoGroupProps {
  * conditionally *renders* this whole component only for blocks that have any lfoTarget param
  * (eq3/filterLPF/filterHPF), which is the legal way to make LFO wiring optional per block.
  */
-function AudioRigLfoGroup({ groupId, params, effect, updateParam, globalLfo, setGlobalLfo, disabled, driftContent }: AudioRigLfoGroupProps) {
+function AudioRigLfoGroup({ groupId, params, effect, updateParam, globalLfo, setGlobalLfo, driftContent }: AudioRigLfoGroupProps) {
   const fields = params.map((p) => ({ field: p.field, label: p.schema.humanLabel ?? p.field, lfoValue: globalLfo[p.lfoTarget!] }));
   const { selected, transitioning, select, isTargeted, displayValue, displayLabel } = useLfoTargetGroup({ groupId, fields });
   const selectedTarget = params.find((p) => p.field === selected)!.lfoTarget!;
@@ -88,7 +84,7 @@ function AudioRigLfoGroup({ groupId, params, effect, updateParam, globalLfo, set
           onClick={() => select(param.field)}
           onFocus={() => select(param.field)}
         >
-          {renderParamControl(param, effect[param.field], (v) => updateParam(param.field, v), disabled)}
+          {renderParamControl(param, effect[param.field], (v) => updateParam(param.field, v))}
         </div>
       ))}
       <div className={withActiveClass('sc-lfo-target-group__display', transitioning)}>
@@ -96,7 +92,7 @@ function AudioRigLfoGroup({ groupId, params, effect, updateParam, globalLfo, set
           schema={{ id: `${groupId}.lfo`, type: 'lfo', humanLabel: displayLabel }}
           value={displayValue}
           onChange={(v) => setGlobalLfo(selectedTarget, v)}
-          disabled={disabled || transitioning}
+          disabled={transitioning}
         />
       </div>
       {driftContent}
@@ -110,20 +106,20 @@ function AudioRigLfoGroup({ groupId, params, effect, updateParam, globalLfo, set
  * Task 11 (V2: Decay control — the rest of V2 needed no drawer-specific
  * change at all, purely a consequence of AUDIO_RIG_CONFIG being schema-
  * driven). Renders purely from AUDIO_RIG_CONFIG, wired to audioStore's
- * setGlobalAudio/setEffectEnabled/setGlobalBypassEnabled/
- * setCompressorBeforeDelay — every control here is live, not presentational.
- * The Decay Mode radio isn't part of AUDIO_RIG_CONFIG's per-effect params
- * (it binds a top-level GlobalAudioSettings field, compressorBeforeDelay,
- * not one nested under `compressor`) — it's a special case rendered inside
- * the Compressor block's own accordion, under its other params, sharing
- * that block's disabled state.
+ * setGlobalAudio/setCompressorBeforeDelay — every control here is live, not
+ * presentational. The rig-wide bypass switch and each effect's own Enabled
+ * toggle were removed: every effect's "off" state is fully expressible
+ * through its own sliders (wet=0, a filter's passthrough frequency, etc.),
+ * so a separate on/off flag was redundant. The Decay Mode radio isn't part
+ * of AUDIO_RIG_CONFIG's per-effect params (it binds a top-level
+ * GlobalAudioSettings field, compressorBeforeDelay, not one nested under
+ * `compressor`) — it's a special case rendered inside the Compressor
+ * block's own accordion, under its other params.
  */
 export function AudioRigDrawer() {
   const globalAudio = useAudioStore((s) => s.globalAudio);
   const globalLfo = useAudioStore((s) => s.globalLfo);
   const setGlobalAudio = useAudioStore((s) => s.setGlobalAudio);
-  const setEffectEnabled = useAudioStore((s) => s.setEffectEnabled);
-  const setGlobalBypassEnabled = useAudioStore((s) => s.setGlobalBypassEnabled);
   const setGlobalLfo = useAudioStore((s) => s.setGlobalLfo);
   const setCompressorBeforeDelay = useAudioStore((s) => s.setCompressorBeforeDelay);
   const setGlobalLfoDrift = useAudioStore((s) => s.setGlobalLfoDrift);
@@ -132,20 +128,14 @@ export function AudioRigDrawer() {
   const bpm = useAudioStore((s) => s.bpm);
   const setBPM = useAudioStore((s) => s.setBPM);
 
-  const rigDisabled = globalAudio.globalBypass;
-
   return (
     <div className="audio-rig-drawer">
-      <div className="audio-rig-drawer__master-row">
-        <Toggle schema={GLOBAL_BYPASS_SCHEMA} value={globalAudio.globalBypass} onChange={setGlobalBypassEnabled} />
-      </div>
       {AUDIO_RIG_CONFIG.map((block) => {
         // Every param field on every effect is a number (GLOBAL_CHAIN_GRID.md has
         // no string/boolean params) — this cast is read-only and narrow, matching
         // audioStore.ts's own GLOBAL_SETTER cast for the same "dynamic key against
         // a closed-but-varying settings shape" situation.
-        const effect = globalAudio[block.key] as unknown as Record<string, number> & { enabled: boolean };
-        const blockDisabled = rigDisabled || !effect.enabled;
+        const effect = globalAudio[block.key] as unknown as Record<string, number>;
         const lfoFields = block.params.filter((p) => p.lfoTarget);
         const driftGroup = LFO_DRIFT_GROUPS.find((g) => g.group === block.key); // undefined for non-LFO blocks
 
@@ -155,15 +145,7 @@ export function AudioRigDrawer() {
 
         return (
           <div className="audio-rig-drawer__effect-block" key={block.key}>
-            <div className="audio-rig-drawer__effect-header">
-              <Toggle
-                schema={block.enabledSchema}
-                value={effect.enabled}
-                onChange={(enabled) => setEffectEnabled(block.key, enabled)}
-                disabled={rigDisabled}
-              />
-            </div>
-            <AccordionContainer schema={block.accordion} contentActive={effect.enabled}>
+            <AccordionContainer schema={block.accordion}>
               {lfoFields.length > 0 ? (
                 <AudioRigLfoGroup
                   groupId={`audioRig.${block.key}`}
@@ -172,7 +154,6 @@ export function AudioRigDrawer() {
                   updateParam={updateParam}
                   globalLfo={globalLfo}
                   setGlobalLfo={setGlobalLfo}
-                  disabled={blockDisabled}
                   driftContent={driftGroup && (
                     <>
                       <div className="audio-rig-drawer__param-row">
@@ -180,7 +161,6 @@ export function AudioRigDrawer() {
                           schema={driftGroup.rateSchema}
                           value={globalAudio.lfoDrift[driftGroup.group].rateDrift * 100}
                           onChange={(v) => setGlobalLfoDrift(driftGroup.group, { rateDrift: v / 100 })}
-                          disabled={rigDisabled}
                         />
                       </div>
                       <div className="audio-rig-drawer__param-row">
@@ -188,7 +168,6 @@ export function AudioRigDrawer() {
                           schema={driftGroup.depthSchema}
                           value={globalAudio.lfoDrift[driftGroup.group].depthDrift * 100}
                           onChange={(v) => setGlobalLfoDrift(driftGroup.group, { depthDrift: v / 100 })}
-                          disabled={rigDisabled}
                         />
                       </div>
                     </>
@@ -197,7 +176,7 @@ export function AudioRigDrawer() {
               ) : (
                 block.params.map((param) => (
                   <div className="audio-rig-drawer__param-row" key={param.field}>
-                    {renderParamControl(param, effect[param.field], (v) => updateParam(param.field, v), blockDisabled)}
+                    {renderParamControl(param, effect[param.field], (v) => updateParam(param.field, v))}
                   </div>
                 ))
               )}
@@ -207,7 +186,6 @@ export function AudioRigDrawer() {
                     schema={DECAY_MODE_SCHEMA}
                     value={globalAudio.compressorBeforeDelay ? 'controlled' : 'natural'}
                     onChange={(v) => setCompressorBeforeDelay(v === 'controlled')}
-                    disabled={blockDisabled}
                   />
                 </div>
               )}
@@ -222,16 +200,12 @@ export function AudioRigDrawer() {
         const groupSettings = globalAudio.lfoDrift[driftGroup.group];
         return (
           <div className="audio-rig-drawer__effect-block" key={driftGroup.group}>
-            <AccordionContainer
-              schema={driftGroup.accordion}
-              contentActive={groupSettings.rateDrift !== 0 || groupSettings.depthDrift !== 0}
-            >
+            <AccordionContainer schema={driftGroup.accordion}>
               <div className="audio-rig-drawer__param-row">
                 <SliderCenteredZero
                   schema={driftGroup.rateSchema}
                   value={groupSettings.rateDrift * 100}
                   onChange={(v) => setGlobalLfoDrift(driftGroup.group, { rateDrift: v / 100 })}
-                  disabled={rigDisabled}
                 />
               </div>
               <div className="audio-rig-drawer__param-row">
@@ -239,7 +213,6 @@ export function AudioRigDrawer() {
                   schema={driftGroup.depthSchema}
                   value={groupSettings.depthDrift * 100}
                   onChange={(v) => setGlobalLfoDrift(driftGroup.group, { depthDrift: v / 100 })}
-                  disabled={rigDisabled}
                 />
               </div>
             </AccordionContainer>
@@ -251,7 +224,6 @@ export function AudioRigDrawer() {
           schema={PING_VARIANCE_AUTOMATION_SCHEMA}
           value={pingVarianceAutomation * 100}
           onChange={(v) => setPingVarianceAutomation(v / 100)}
-          disabled={rigDisabled}
         />
       </div>
       <div className="audio-rig-drawer__master-row">
@@ -259,7 +231,6 @@ export function AudioRigDrawer() {
           schema={BPM_SCHEMA}
           value={bpm}
           onChange={setBPM}
-          disabled={rigDisabled}
         />
       </div>
     </div>

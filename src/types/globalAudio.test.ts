@@ -13,7 +13,6 @@ import { DRIFT_GROUP_IDS } from './lfo';
 describe('DEFAULT_GLOBAL_AUDIO_SETTINGS', () => {
   it('has an independent filterLPF matching AudioEngine\'s lowpass node defaults', () => {
     expect(DEFAULT_GLOBAL_AUDIO_SETTINGS.filterLPF).toEqual({
-      enabled: false,
       type: 'lowpass',
       frequency: 20000,
       Q: 1,
@@ -22,7 +21,6 @@ describe('DEFAULT_GLOBAL_AUDIO_SETTINGS', () => {
 
   it('has an independent filterHPF matching AudioEngine\'s highpass node defaults', () => {
     expect(DEFAULT_GLOBAL_AUDIO_SETTINGS.filterHPF).toEqual({
-      enabled: false,
       type: 'highpass',
       frequency: 20,
       Q: 1,
@@ -54,9 +52,19 @@ describe('DEFAULT_GLOBAL_AUDIO_SETTINGS', () => {
 
   it('has a limiter field matching Tone.Limiter\'s own default threshold', () => {
     expect(DEFAULT_GLOBAL_AUDIO_SETTINGS.limiter).toEqual({
-      enabled: false,
       threshold: -12,
     });
+  });
+
+  it('no longer has an enabled field or a globalBypass flag anywhere — removed, off states are expressed via the params themselves', () => {
+    expect('globalBypass' in DEFAULT_GLOBAL_AUDIO_SETTINGS).toBe(false);
+    expect('enabled' in DEFAULT_GLOBAL_AUDIO_SETTINGS.reverb).toBe(false);
+    expect('enabled' in DEFAULT_GLOBAL_AUDIO_SETTINGS.delay).toBe(false);
+    expect('enabled' in DEFAULT_GLOBAL_AUDIO_SETTINGS.compressor).toBe(false);
+    expect('enabled' in DEFAULT_GLOBAL_AUDIO_SETTINGS.eq3).toBe(false);
+    expect('enabled' in DEFAULT_GLOBAL_AUDIO_SETTINGS.filterLPF).toBe(false);
+    expect('enabled' in DEFAULT_GLOBAL_AUDIO_SETTINGS.filterHPF).toBe(false);
+    expect('enabled' in DEFAULT_GLOBAL_AUDIO_SETTINGS.limiter).toBe(false);
   });
 
   it('defaults compressorBeforeDelay to false (Natural Decay)', () => {

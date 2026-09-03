@@ -141,50 +141,37 @@ describe('generateGlobalAudioSettings', () => {
     }
   });
 
-  it('does not seed globalBypass — it comes from DEFAULT_GLOBAL_AUDIO_SETTINGS unchanged', () => {
-    const a = generateGlobalAudioSettings('seed-test-planet', 'Nova');
-    const b = generateGlobalAudioSettings('seed-test-planet-b', 'Zenith');
-    expect(a.globalBypass).toBe(b.globalBypass);
+  it('no longer carries an enabled field on any effect, or a globalBypass flag — removed, off states are expressed via the params themselves', () => {
+    const settings = generateGlobalAudioSettings('seed-test-planet', 'Nova');
+    expect('globalBypass' in settings).toBe(false);
+    expect('enabled' in settings.compressor).toBe(false);
+    expect('enabled' in settings.eq3).toBe(false);
+    expect('enabled' in settings.filterLPF).toBe(false);
+    expect('enabled' in settings.filterHPF).toBe(false);
+    expect('enabled' in settings.reverb).toBe(false);
+    expect('enabled' in settings.limiter).toBe(false);
+    expect('enabled' in settings.delay).toBe(false);
   });
 
-  it('seeds enabled: true unconditionally for every effect except delay', () => {
-    // Two differently-seeded Attenuation Styles should agree on every non-delay effect's
-    // `enabled` (always true) even though their numeric fields differ.
-    const a = generateGlobalAudioSettings('seed-test-planet', 'Nova');
-    const b = generateGlobalAudioSettings('seed-test-planet-b', 'Zenith');
-    expect(a.compressor.enabled).toBe(true);
-    expect(a.eq3.enabled).toBe(true);
-    expect(a.filterLPF.enabled).toBe(true);
-    expect(a.filterHPF.enabled).toBe(true);
-    expect(a.reverb.enabled).toBe(true);
-    expect(a.limiter.enabled).toBe(true);
-    expect(b.compressor.enabled).toBe(true);
-    expect(b.eq3.enabled).toBe(true);
-    expect(b.filterLPF.enabled).toBe(true);
-    expect(b.filterHPF.enabled).toBe(true);
-    expect(b.reverb.enabled).toBe(true);
-    expect(b.limiter.enabled).toBe(true);
-  });
-
-  it('seeds delay.enabled true for roughly 1-in-4 Attenuation Styles, not roughly all or none (>= 0.75 threshold)', () => {
+  it('seeds delay.wet quiet (0) for roughly 1-in-4 Attenuation Styles, not roughly all or none (< 0.25 threshold) — replaces the old separate enabled:false roll', () => {
     const SAMPLE_ATTENUATION_STYLES = 40;
-    let enabledCount = 0;
+    let quietCount = 0;
     for (let i = 0; i < SAMPLE_ATTENUATION_STYLES; i++) {
       const settings = generateGlobalAudioSettings(`seed-delay-sample-${i}`, `DelaySample${i}`);
-      if (settings.delay.enabled) enabledCount++;
+      if (settings.delay.wet === 0) quietCount++;
       evictAttenuationStyleNoiseMap(`seed-delay-sample-${i}`);
     }
-    const enabledRate = enabledCount / SAMPLE_ATTENUATION_STYLES;
+    const quietRate = quietCount / SAMPLE_ATTENUATION_STYLES;
     // ~25% expected; a wide tolerance band avoids flakiness while still
-    // clearly distinguishing this from "always true" or "always false".
-    expect(enabledRate).toBeGreaterThan(0.05);
-    expect(enabledRate).toBeLessThan(0.5);
+    // clearly distinguishing this from "always quiet" or "never quiet".
+    expect(quietRate).toBeGreaterThan(0.05);
+    expect(quietRate).toBeLessThan(0.5);
   });
 
-  it('is deterministic for delay.enabled too — same attenuationStyleId + attenuationStyleName always agrees', () => {
+  it('is deterministic for delay\'s quiet roll too — same attenuationStyleId + attenuationStyleName always agrees', () => {
     const first = generateGlobalAudioSettings('seed-test-planet', 'Nova');
     const second = generateGlobalAudioSettings('seed-test-planet', 'Nova');
-    expect(second.delay.enabled).toBe(first.delay.enabled);
+    expect(second.delay.wet === 0).toBe(first.delay.wet === 0);
   });
 
   describe('lfoDrift', () => {
@@ -298,12 +285,14 @@ describe('generateGlobalLfoSettings', () => {
     expect(b).not.toEqual(a);
   });
 
-  it('samples rate/depth from their narrower loading range (1-4Hz, 20-50%), not the full LFO_RATE/DEPTH_MIN/MAX range', () => {
+  it('samples rate/depth from their narrower loading range (1-4Hz, 20-50%), not the full LFO_RATE/DEPTH_MIN/MAX range — except a quietly-seeded target\'s rate, which is forced to exactly 0', () => {
     const settings = generateGlobalLfoSettings('seed-test-planet', 'Nova');
     for (const target of GLOBAL_LFO_TARGET_IDS) {
       const { rate, depth, shape } = settings[target];
-      expect(rate, `${target}.rate`).toBeGreaterThanOrEqual(LFO_RATE_LOADING_MIN);
-      expect(rate, `${target}.rate`).toBeLessThanOrEqual(LFO_RATE_LOADING_MAX);
+      if (rate !== 0) {
+        expect(rate, `${target}.rate`).toBeGreaterThanOrEqual(LFO_RATE_LOADING_MIN);
+        expect(rate, `${target}.rate`).toBeLessThanOrEqual(LFO_RATE_LOADING_MAX);
+      }
       expect(depth, `${target}.depth`).toBeGreaterThanOrEqual(LFO_DEPTH_LOADING_MIN);
       expect(depth, `${target}.depth`).toBeLessThanOrEqual(LFO_DEPTH_LOADING_MAX);
       expect(LFO_SHAPES, `${target}.shape`).toContain(shape);
@@ -339,29 +328,29 @@ describe('generateGlobalLfoSettings', () => {
     expect(seenShapes).toEqual(new Set(['triangle', 'sine']));
   });
 
-  it('seeds active as a real boolean for every target', () => {
+  it('no longer carries an active field on any target — removed, off is now expressed via rate: 0', () => {
     const settings = generateGlobalLfoSettings('seed-test-planet', 'Nova');
     for (const target of GLOBAL_LFO_TARGET_IDS) {
-      expect(typeof settings[target].active).toBe('boolean');
+      expect('active' in settings[target]).toBe(false);
     }
   });
 
-  it('seeds active true for roughly 2-in-3 targets across many Attenuation Styles, not roughly half (>= 0.34 threshold, not a flat 50/50)', () => {
+  it('seeds a nonzero (real, oscillating) rate for roughly 2-in-3 targets across many Attenuation Styles, not roughly half (>= 0.34 threshold, not a flat 50/50)', () => {
     const SAMPLE_ATTENUATION_STYLES = 40;
-    let activeCount = 0;
+    let nonzeroCount = 0;
     let totalCount = 0;
     for (let i = 0; i < SAMPLE_ATTENUATION_STYLES; i++) {
       const settings = generateGlobalLfoSettings(`seed-lfo-sample-${i}`, `Sample${i}`);
       for (const target of GLOBAL_LFO_TARGET_IDS) {
         totalCount++;
-        if (settings[target].active) activeCount++;
+        if (settings[target].rate > 0) nonzeroCount++;
       }
     }
-    const activeRate = activeCount / totalCount;
+    const nonzeroRate = nonzeroCount / totalCount;
     // ~66% expected; a wide tolerance band avoids flakiness while still
     // clearly distinguishing this from both a ~50% flat coin-flip and ~100%.
-    expect(activeRate).toBeGreaterThan(0.5);
-    expect(activeRate).toBeLessThan(0.8);
+    expect(nonzeroRate).toBeGreaterThan(0.5);
+    expect(nonzeroRate).toBeLessThan(0.8);
   });
 });
 

@@ -87,9 +87,7 @@ describe('RobotDisplaySection', () => {
     useLocaleStore.getState().addRobot(localeId, robot);
     const { container } = render(<RobotDisplaySection robot={robot} />);
 
-    // Scoped to the component's own read-only value spans — 'Active' alone is ambiguous
-    // (Lfo.tsx's own nested Active toggle renders the same text, always mounted via Radix's
-    // Accordion forceMount regardless of open/closed state).
+    // Scoped to the component's own read-only value spans.
     const values = Array.from(container.querySelectorAll('.robot-display-section__value')).map((el) => el.textContent);
     expect(values).toEqual(['Test Robot', 'Acoustic Survey', '82%', 'Active']);
 
@@ -151,16 +149,18 @@ describe('RobotDisplaySection', () => {
     expect(volumeSpy).toHaveBeenCalledWith(robot.id, expect.closeTo(0.43, 5));
   });
 
-  it('a Volume LFO activation calls lfoEngine.connectLfoTarget via robotOptionsActions.applyVolumeLfo', () => {
+  it('moving the Volume LFO\'s rate off 0 calls lfoEngine.connectLfoTarget via robotOptionsActions.applyVolumeLfo', () => {
     const robot = makeRobot({
       lfoSettings: {
-        volume: { shape: 'sine', rate: 1, depth: 20, active: false },
+        volume: { shape: 'sine', rate: 0, depth: 20 },
       } as unknown as Robot['lfoSettings'],
     });
     useLocaleStore.getState().addRobot(localeId, robot);
     render(<RobotDisplaySection robot={robot} />);
 
-    fireEvent.click(screen.getByRole('switch', { name: /active/i }));
+    const rateSlider = screen.getByRole('slider', { name: 'Rate' });
+    rateSlider.focus();
+    fireEvent.keyDown(rateSlider, { key: 'ArrowRight' });
 
     expect(lfoEngine.connectLfoTarget).toHaveBeenCalledWith('volume', robot.id);
     expect(lfoEngine.start).toHaveBeenCalledWith('volume', robot.id);

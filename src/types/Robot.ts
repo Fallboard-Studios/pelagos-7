@@ -182,13 +182,12 @@ export interface Robot {
   /**
    * Seeded LFO settings for all 13 RobotLfoTargetId modulation targets,
    * generated once at spawn time (src/systems/spawnSystem.ts) the same way
-   * as the rest of audioAttributes. `active` mirrors audioStore.ts's
-   * `globalLfo` shape (`LfoSettings & { active: boolean }`) — each target is
-   * independently seeded on or off (Roadmap Phase 9), not universally inert;
-   * `active: false` means the target isn't currently connected (see
+   * as the rest of audioAttributes, mirroring audioStore.ts's `globalLfo`
+   * shape. Each target is independently seeded on or off (Roadmap Phase 9) —
+   * `rate: 0` means the target isn't currently connected (see
    * src/engine/lfoEngine.ts), not that it never will be.
    */
-  lfoSettings?: Record<RobotLfoTargetId, LfoSettings & { active: boolean }>;
+  lfoSettings?: Record<RobotLfoTargetId, LfoSettings>;
   /**
    * The Company (Roadmap Phase 10) this robot belongs to, if any. Undefined means Freelance —
    * the implicit default, not a distinct flag. Seeded at spawn (spawnSystem.ts's

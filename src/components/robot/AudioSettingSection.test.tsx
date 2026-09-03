@@ -10,7 +10,7 @@ import { AudioSettingSection } from './AudioSettingSection';
 import type { LfoValue } from '@/types/controls';
 import type { Robot } from '@/types/Robot';
 
-const DEFAULT_VOLUME_LFO: LfoValue = { shape: 'sine', rate: 1, depth: 20, active: false };
+const DEFAULT_VOLUME_LFO: LfoValue = { shape: 'sine', rate: 0, depth: 20 };
 
 function makeValue(overrides: Partial<{ audioMode: NonNullable<Robot['audioMode']>; masterVolume: number; volumeLfo: LfoValue }> = {}) {
   return {
@@ -79,7 +79,9 @@ describe('AudioSettingSection', () => {
         <AudioSettingSection value={makeValue()} onAudioModeChange={() => {}} onVolumeChange={() => {}} onVolumeLfoChange={() => {}} />
       );
       expect(container.querySelectorAll('.sc-accordion')).toHaveLength(0);
-      expect(screen.getByRole('switch', { name: /active/i })).toBeTruthy();
+      // Rate + Depth from the shared Lfo display — no separate active toggle rendered.
+      expect(screen.getAllByRole('slider', { name: 'Rate' })).toHaveLength(1);
+      expect(screen.getAllByRole('slider', { name: 'Depth' })).toHaveLength(1);
     });
 
     it("the shared display's own label reads 'Volume' — from VOLUME_SCHEMA.humanLabel, no new copy", () => {
@@ -90,20 +92,22 @@ describe('AudioSettingSection', () => {
       expect(display.textContent).toContain('Volume');
     });
 
-    it('reflects volumeLfo and calls onVolumeLfoChange on activation', () => {
+    it('reflects volumeLfo and calls onVolumeLfoChange when the rate slider moves off 0', () => {
       const onVolumeLfoChange = vi.fn();
       render(
         <AudioSettingSection
-          value={makeValue({ volumeLfo: { shape: 'sine', rate: 1, depth: 20, active: false } })}
+          value={makeValue({ volumeLfo: { shape: 'sine', rate: 0, depth: 20 } })}
           onAudioModeChange={() => {}}
           onVolumeChange={() => {}}
           onVolumeLfoChange={onVolumeLfoChange}
         />
       );
 
-      fireEvent.click(screen.getByRole('switch', { name: /active/i }));
+      const rateSlider = screen.getByRole('slider', { name: 'Rate' });
+      rateSlider.focus();
+      fireEvent.keyDown(rateSlider, { key: 'ArrowRight' });
 
-      expect(onVolumeLfoChange).toHaveBeenCalledWith({ shape: 'sine', rate: 1, depth: 20, active: true });
+      expect(onVolumeLfoChange).toHaveBeenCalledWith({ shape: 'sine', rate: 0.25, depth: 20 });
     });
   });
 
@@ -131,7 +135,7 @@ describe('AudioSettingSection', () => {
     );
     expect(screen.getByRole('radio', { name: 'Solo' }).getAttribute('data-disabled')).toBe('');
     expect(screen.getByRole('slider', { name: /volume/i }).getAttribute('data-disabled')).toBe('');
-    expect((screen.getByRole('switch', { name: /active/i }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole('slider', { name: 'Rate' }).getAttribute('data-disabled')).toBe('');
   });
 
   it('does not call onAudioModeChange or onVolumeChange when disabled', () => {

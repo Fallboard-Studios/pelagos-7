@@ -31,18 +31,10 @@ describe('AUDIO_RIG_CONFIG', () => {
     expect(AUDIO_RIG_CONFIG.map((b) => b.key)).toEqual([...EFFECT_KEYS]);
   });
 
-  it('every block has its own accordion schema and enabled toggle schema', () => {
+  it('every block has its own accordion schema — no separate enabled toggle schema (removed; a slider-only off state)', () => {
     for (const block of AUDIO_RIG_CONFIG) {
       expect(block.accordion).toMatchObject({ id: `audioRig.${block.key}`, type: 'accordion' });
-      expect(block.enabledSchema).toMatchObject({ id: `audioRig.${block.key}.enabled`, type: 'toggle' });
-    }
-  });
-
-  it('every block\'s enabled toggle has a distinct human label — never a shared "Enabled" indistinguishable across all 7', () => {
-    const labels = AUDIO_RIG_CONFIG.map((b) => b.enabledSchema.humanLabel);
-    expect(new Set(labels).size).toBe(AUDIO_RIG_CONFIG.length);
-    for (const label of labels) {
-      expect(label).not.toBe('Enabled');
+      expect('enabledSchema' in block).toBe(false);
     }
   });
 
@@ -288,7 +280,6 @@ describe('LFO_DRIFT_GROUPS', () => {
     expect(AUDIO_RIG_CONFIG.map((b) => b.key as string)).not.toContain('lfoDrift');
     const allConfigSchemaIds = AUDIO_RIG_CONFIG.flatMap((b) => [
       b.accordion.id,
-      b.enabledSchema.id,
       ...b.params.map((p) => p.schema.id),
     ]);
     const driftSchemaIds = LFO_DRIFT_GROUPS.flatMap((g) => [g.accordion.id, g.rateSchema.id, g.depthSchema.id]);
@@ -326,7 +317,6 @@ describe('PING_VARIANCE_AUTOMATION_SCHEMA', () => {
   it('is not part of AUDIO_RIG_CONFIG\'s per-effect array — it is a bare, Rig-wide meta-setting, not an effect param', () => {
     const allConfigSchemaIds = AUDIO_RIG_CONFIG.flatMap((b) => [
       b.accordion.id,
-      b.enabledSchema.id,
       ...b.params.map((p) => p.schema.id),
     ]);
     expect(allConfigSchemaIds).not.toContain(PING_VARIANCE_AUTOMATION_SCHEMA.id);
@@ -362,7 +352,6 @@ describe('BPM_SCHEMA (docs/specs/BPM_CONTROL.md §1.4-§1.5)', () => {
   it('is not part of AUDIO_RIG_CONFIG\'s per-effect array — it is a bare, Rig-wide meta-setting, not an effect param', () => {
     const allConfigSchemaIds = AUDIO_RIG_CONFIG.flatMap((b) => [
       b.accordion.id,
-      b.enabledSchema.id,
       ...b.params.map((p) => p.schema.id),
     ]);
     expect(allConfigSchemaIds).not.toContain(BPM_SCHEMA.id);

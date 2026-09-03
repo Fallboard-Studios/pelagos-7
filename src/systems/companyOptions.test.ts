@@ -18,7 +18,7 @@ function makeRobot(overrides: Partial<Robot> = {}): Robot {
       adsr: { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 },
       filterFreq: 0,
       waveform: 'sine',
-      layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0, active: true }],
+      layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0 }],
     },
     octaveRange: [3, 5],
     createdAt: Date.now(),
@@ -75,7 +75,7 @@ describe('resolveCompanyOptions', () => {
     expect(resolved.rhythmicMotifLength).toEqual({ active: true, value: 8 });
     expect(resolved.noteVariance).toEqual({ active: false, value: 1 });
     expect(resolved.pitchRepeat).toBe(0); // DEFAULT_PITCH_REPEAT
-    expect(resolved.volumeLfo).toEqual({ shape: 'sine', rate: 0.1, depth: 0, active: false });
+    expect(resolved.volumeLfo).toEqual({ shape: 'sine', rate: 0, depth: 0 });
   });
 
   it('with lastEditedOptions partially populated, only the recorded fields override — everything else still falls back to the first member', () => {
@@ -121,7 +121,7 @@ describe('diffCompoundField', () => {
   });
 
   it('returns an empty patch when nothing differs', () => {
-    const value = { shape: 'sine' as const, rate: 1, depth: 20, active: true };
+    const value = { shape: 'sine' as const, rate: 1, depth: 20 };
 
     expect(diffCompoundField(value, { ...value })).toEqual({});
   });
@@ -137,9 +137,9 @@ describe('diffCompoundField', () => {
 
 describe('diffLayerField', () => {
   const layers: OscillatorLayer[] = [
-    { type: 'sine', gain: 1, detune: 0, phase: 0, active: true },
-    { type: 'square', gain: 0.8, detune: 5, phase: 10, active: true },
-    { type: 'triangle', gain: 0.6, detune: -5, phase: 20, active: false },
+    { type: 'sine', gain: 1, detune: 0, phase: 0 },
+    { type: 'square', gain: 0.8, detune: 5, phase: 10 },
+    { type: 'triangle', gain: 0.6, detune: -5, phase: 20 },
   ];
 
   it('finds the one layer index and field that changed', () => {

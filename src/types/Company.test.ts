@@ -28,14 +28,14 @@ describe('CompanyOptionsSnapshot', () => {
     const full: CompanyOptionsSnapshot = {
       audioMode: 'solo',
       masterVolume: 0.75,
-      volumeLfo: { shape: 'sine', rate: 2, depth: 40, active: true },
+      volumeLfo: { shape: 'sine', rate: 2, depth: 40 },
       rhythmicDensity: 60,
       rhythmicMotifLength: { active: true, value: 4 },
       noteVariance: { active: false, value: 1 },
       octaveRange: [3, 5],
       adsr: { attack: 0.1, decay: 0.2, sustain: 0.8, release: 0.5 },
-      layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0, active: true }],
-      lfoSettings: { volume: { shape: 'triangle', rate: 1, depth: 20, active: false } },
+      layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0 }],
+      lfoSettings: { volume: { shape: 'triangle', rate: 1, depth: 20 } },
     };
     expect(full.audioMode).toBe('solo');
     expect(full.masterVolume).toBe(0.75);

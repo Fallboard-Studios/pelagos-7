@@ -87,9 +87,9 @@ function noiseMapForDataIds(mapping: Record<string, number>, fallback = 0): Nois
 const LOCALE_ID = 'pelagos-default';
 
 /** Mirrors robotOptionsActions.test.ts's own makeRobot fixture. Defaults to a
- *  single active layer (layer0/Baseline only) — layer1/layer2 absent, so
+ *  single audible layer (layer0/Baseline only) — layer1/layer2 absent, so
  *  every layer1.* / layer2.* attribute is ineligible by construction (no
- *  parent OscillatorLayer to be active), matching a real 1-layer robot. */
+ *  parent OscillatorLayer present at all), matching a real 1-layer robot. */
 function makeRobot(overrides: Partial<Robot> = {}): Robot {
   return {
     id: 'r1',
@@ -103,7 +103,7 @@ function makeRobot(overrides: Partial<Robot> = {}): Robot {
       adsr: { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 },
       filterFreq: 0,
       waveform: 'sine',
-      layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0, active: true }],
+      layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0 }],
     },
     octaveRange: [3, 4],
     createdAt: Date.now(),
@@ -121,19 +121,6 @@ function makeCompany(overrides: Partial<Company> = {}): Company {
   return { id: 'c1', name: 'Test Company', robotIds: [], ...overrides };
 }
 
-function enableAllGlobalEffects(): void {
-  useAudioStore.setState((s) => ({
-    globalAudio: {
-      ...s.globalAudio,
-      eq3: { ...s.globalAudio.eq3, enabled: true },
-      filterLPF: { ...s.globalAudio.filterLPF, enabled: true },
-      filterHPF: { ...s.globalAudio.filterHPF, enabled: true },
-      delay: { ...s.globalAudio.delay, enabled: true },
-      reverb: { ...s.globalAudio.reverb, enabled: true },
-    },
-  }));
-}
-
 beforeEach(() => {
   vi.mocked(getAttenuationStyleNoiseMap).mockClear();
   stopAudioSwells(); // idempotent — clears any leftover activeSwells + subscription state
@@ -144,7 +131,6 @@ beforeEach(() => {
   // those tests assert an UNSCALED peak; automation-scaling itself gets its
   // own dedicated describe block below, which sets a different value per test.
   useAudioStore.setState({ globalAudio: { ...DEFAULT_GLOBAL_AUDIO_SETTINGS }, pingVarianceAutomation: 1 });
-  enableAllGlobalEffects();
   useLocaleStore.getState().setLocaleData(LOCALE_ID, { robots: [], companies: [] } as unknown as Partial<Locale>);
   // Real AudioEngine voice calls need a live Tone context this jsdom test
   // environment doesn't have — no-op them, matching robotOptionsActions.test.ts's
@@ -498,60 +484,6 @@ describe('pingVarianceAutomation forced return at 0% (Task 4)', () => {
   });
 });
 
-describe('globalBypass fully silences the global pool (Task 5)', () => {
-  it('starts no new global swell when globalBypass is true, even when the trigger draw would otherwise succeed; a robot swell can still start the same tick', () => {
-    useAudioStore.setState((s) => ({ globalAudio: { ...s.globalAudio, globalBypass: true } }));
-    useLocaleStore.getState().addRobot(LOCALE_ID, makeRobot());
-    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
-
-    tickAudioSwells(LOCALE_ID, 0);
-
-    expect(getActiveSwellSnapshot('global')).toEqual([]);
-    expect(getActiveSwellSnapshot('robot').length).toBeGreaterThan(0);
-  });
-
-  it('cancels an in-flight global swell immediately and snaps to baseValue the tick globalBypass flips true, not a gradual fall', () => {
-    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
-    tickAudioSwells(LOCALE_ID, 0); // eq3.low: base 0, peak 12, rising 3, falling 3
-
-    tickAudioSwells(LOCALE_ID, 1); // partway into rising
-    expect(useAudioStore.getState().globalAudio.eq3.low).toBeCloseTo(4);
-
-    useAudioStore.setState((s) => ({ globalAudio: { ...s.globalAudio, globalBypass: true } }));
-
-    tickAudioSwells(LOCALE_ID, 1); // same measure — bypass now on
-    expect(useAudioStore.getState().globalAudio.eq3.low).toBe(0); // snapped directly to base, not a partial step toward it
-    expect(getActiveSwellSnapshot('global').some((s) => s.globalTarget === 'eq3.low')).toBe(false);
-  });
-
-  it('leaves the robot pool completely unaffected by globalBypass — new eligibility and in-flight advancement both continue normally', () => {
-    useLocaleStore.getState().addRobot(LOCALE_ID, makeRobot({ masterVolume: 0.1 })); // up: peak 0.6, peakDelta 0.5 via ALWAYS_MIN
-    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
-    tickAudioSwells(LOCALE_ID, 0); // robot volume swell starts
-
-    useAudioStore.setState((s) => ({ globalAudio: { ...s.globalAudio, globalBypass: true } }));
-
-    tickAudioSwells(LOCALE_ID, 3); // falling phase's first tick — still advances despite globalBypass
-    expect(useLocaleStore.getState().getRobotById(LOCALE_ID, 'r1')!.masterVolume).toBeCloseTo(0.6);
-    expect(getActiveSwellSnapshot('robot').some((s) => s.robotAttribute === 'volume')).toBe(true);
-
-    const robotCountBefore = getActiveSwellSnapshot('robot').length;
-    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
-    tickAudioSwells(LOCALE_ID, 4); // a new whole measure — a fresh robot trigger can still roll
-
-    expect(getActiveSwellSnapshot('robot').length).toBeGreaterThan(robotCountBefore);
-  });
-
-  it('composes with pingVarianceAutomation — globalBypass true blocks new global swells even when automation is 1 (bypass alone is sufficient)', () => {
-    useAudioStore.setState((s) => ({ globalAudio: { ...s.globalAudio, globalBypass: true }, pingVarianceAutomation: 1 }));
-    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
-
-    tickAudioSwells(LOCALE_ID, 0);
-
-    expect(getActiveSwellSnapshot('global')).toEqual([]);
-  });
-});
-
 describe('trigger gating (SWELL_TRIGGER_CHANCE)', () => {
   it('does not start a swell when the seeded trigger draw lands well above the trigger chance', () => {
     vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MID); // draw = 0.5
@@ -567,17 +499,28 @@ describe('trigger gating (SWELL_TRIGGER_CHANCE)', () => {
 });
 
 describe('eligibility', () => {
-  it('never picks a target belonging to a disabled effect — first eligible becomes lpf.frequency when eq3 is disabled', () => {
-    useAudioStore.setState((s) => ({ globalAudio: { ...s.globalAudio, eq3: { ...s.globalAudio.eq3, enabled: false } } }));
-    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
-    tickAudioSwells(LOCALE_ID, 3);
-    const targets = getActiveSwellSnapshot('global').map((s) => s.globalTarget);
-    expect(targets).toEqual(['lpf.frequency']);
+  it('never picks delay.wet while its own wet sits at 0 (off-equivalent) — the very same draw picks it once wet is nonzero again', () => {
+    // raw 0.6 -> rawIndex (0.6+1)/2*9 = 7.2 -> floor 7 -> the 9-item list's
+    // index 7 is delay.wet. Once delay.wet is excluded (wet: 0), the eligible
+    // list shrinks to 8 and the identical raw draw recomputes to a different
+    // index entirely — proving delay.wet itself was skipped, not coincidence.
+    const pickDelayNoiseMap = noiseMapForDataIds({ 'audioSwell.trigger.global': -1, 'audioSwell.target.global': 0.6 });
+
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(pickDelayNoiseMap);
+    tickAudioSwells(LOCALE_ID, 0);
+    expect(getActiveSwellSnapshot('global').map((s) => s.globalTarget)).toContain('delay.wet');
+
+    stopAudioSwells();
+    useAudioStore.setState((s) => ({ globalAudio: { ...s.globalAudio, delay: { ...s.globalAudio.delay, wet: 0 } } }));
+
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(pickDelayNoiseMap);
+    tickAudioSwells(LOCALE_ID, 0);
+    expect(getActiveSwellSnapshot('global').map((s) => s.globalTarget)).not.toContain('delay.wet');
   });
 
   it('excludes a target already mid-swell from being picked again — a second forced trigger picks the next eligible target', () => {
     vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
-    tickAudioSwells(LOCALE_ID, 1); // picks eq3.low (index 0, all enabled)
+    tickAudioSwells(LOCALE_ID, 1); // picks eq3.low (index 0, everything eligible)
     vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
     tickAudioSwells(LOCALE_ID, 2); // eq3.low now excluded -> picks eq3.mid
     const targets = getActiveSwellSnapshot('global').map((s) => s.globalTarget).sort();
@@ -633,16 +576,20 @@ describe('ramp lifecycle', () => {
     expect(getActiveSwellSnapshot('global').some((s) => s.globalTarget === 'eq3.low')).toBe(false);
   });
 
-  it('cancels a swell immediately and snaps back to base when its effect is disabled mid-swell', () => {
-    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
-    tickAudioSwells(LOCALE_ID, 0); // starts eq3.low
-    expect(getActiveSwellSnapshot('global').some((s) => s.globalTarget === 'eq3.low')).toBe(true);
+  it('cancels a swell immediately and snaps back to base when its own wet drops to 0 mid-swell', () => {
+    const pickReverbNoiseMap = noiseMapForDataIds({ 'audioSwell.trigger.global': -1, 'audioSwell.target.global': 1 }); // clamped to the last eligible index -> reverb.wet
+    vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(pickReverbNoiseMap);
+    tickAudioSwells(LOCALE_ID, 0); // starts reverb.wet
+    expect(getActiveSwellSnapshot('global').some((s) => s.globalTarget === 'reverb.wet')).toBe(true);
 
-    useAudioStore.setState((s) => ({ globalAudio: { ...s.globalAudio, eq3: { ...s.globalAudio.eq3, enabled: false } } }));
+    useAudioStore.setState((s) => ({ globalAudio: { ...s.globalAudio, reverb: { ...s.globalAudio.reverb, wet: 0 } } }));
 
-    tickAudioSwells(LOCALE_ID, 1); // mid-swell, now disabled
-    expect(useAudioStore.getState().globalAudio.eq3.low).toBe(0);
-    expect(getActiveSwellSnapshot('global').some((s) => s.globalTarget === 'eq3.low')).toBe(false);
+    tickAudioSwells(LOCALE_ID, 1); // mid-swell, now off
+    // Cancellation snaps back to the swell's own CAPTURED base value (0.3,
+    // the default reverb.wet at creation time) — not the manually-forced 0
+    // that triggered the cancellation in the first place.
+    expect(useAudioStore.getState().globalAudio.reverb.wet).toBe(DEFAULT_GLOBAL_AUDIO_SETTINGS.reverb.wet);
+    expect(getActiveSwellSnapshot('global').some((s) => s.globalTarget === 'reverb.wet')).toBe(false);
   });
 
   it('writes every value via useAudioStore.getState().setGlobalAudio, never a bare AudioEngine call', () => {
@@ -693,7 +640,6 @@ describe('determinism and zero Math.random()', () => {
     const runOnce = () => {
       stopAudioSwells();
       useAudioStore.setState({ globalAudio: { ...DEFAULT_GLOBAL_AUDIO_SETTINGS } });
-      enableAllGlobalEffects();
       tickAudioSwells(LOCALE_ID, 17);
       return { snapshot: getActiveSwellSnapshot('global'), audio: { ...useAudioStore.getState().globalAudio } };
     };
@@ -774,15 +720,15 @@ describe('robot pool — trigger and selection', () => {
     expect(getActiveSwellSnapshot('robot')).toEqual([]);
   });
 
-  it('fills its first 5 (=cap) picks with exactly volume + layer0\'s 4 continuous fields — layer0.phase reachable, an explicitly-present-but-inactive layer1 never picked', () => {
+  it('fills its first 5 (=cap) picks with exactly volume + layer0\'s 4 continuous fields — layer0.phase reachable, an explicitly-present-but-muted layer1 never picked', () => {
     const robot = makeRobot({
       audioAttributes: {
         adsr: { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 },
         filterFreq: 0,
         waveform: 'sine',
         layers: [
-          { type: 'sine', gain: 1, detune: 0, phase: 0, active: true },
-          { type: 'sine', gain: 1, detune: 0, phase: 0, active: false }, // present, inactive
+          { type: 'sine', gain: 1, detune: 0, phase: 0 },
+          { type: 'sine', gain: 0, detune: 0, phase: 0 }, // present, muted
         ],
       },
     });
@@ -800,13 +746,13 @@ describe('robot pool — trigger and selection', () => {
     );
   });
 
-  it('fills its first 5 (=cap) picks with exactly volume + all 4 ADSR fields when every layer is inactive', () => {
+  it('fills its first 5 (=cap) picks with exactly volume + all 4 ADSR fields when every layer is muted', () => {
     const robot = makeRobot({
       audioAttributes: {
         adsr: { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 },
         filterFreq: 0,
         waveform: 'sine',
-        layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0, active: false }],
+        layers: [{ type: 'sine', gain: 0, detune: 0, phase: 0 }],
       },
     });
     useLocaleStore.getState().addRobot(LOCALE_ID, robot);
@@ -922,13 +868,13 @@ describe('robot pool — ramp lifecycle and write path', () => {
 
   it('writes an ADSR swell through applyAdsr, never a bare updateRobot/AudioEngine call', () => {
     const spy = vi.spyOn(robotOptionsActions, 'applyAdsr');
-    // layer0 inactive too (synthetic — Baseline is always active in the real
+    // layer0 muted too (synthetic — Baseline is always audible in the real
     // app) narrows the eligible pool to exactly volume + the 4 ADSR fields,
-    // so excluding 'volume' alone (already-active) leaves adsr.attack as the
+    // so excluding 'volume' alone (already-picked) leaves adsr.attack as the
     // very next index-0 pick — no layer noise to walk past.
     useLocaleStore.getState().addRobot(
       LOCALE_ID,
-      makeRobot({ audioAttributes: { adsr: { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 }, filterFreq: 0, waveform: 'sine', layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0, active: false }] } })
+      makeRobot({ audioAttributes: { adsr: { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 }, filterFreq: 0, waveform: 'sine', layers: [{ type: 'sine', gain: 0, detune: 0, phase: 0 }] } })
     );
     vi.mocked(getAttenuationStyleNoiseMap).mockReturnValueOnce(ALWAYS_MIN);
     tickAudioSwells(LOCALE_ID, 0); // picks 'volume'
@@ -1019,11 +965,11 @@ describe('robot pool — company-wide swells', () => {
     expect(swell.members).toHaveLength(1);
   });
 
-  it('excludes an ineligible member (an inactive layer\'s field) from the company, every other eligible member still gets one', () => {
-    const eligible = makeRobot({ id: 'r1' }); // layer0 active (default)
+  it('excludes an ineligible member (a muted layer\'s field) from the company, every other eligible member still gets one', () => {
+    const eligible = makeRobot({ id: 'r1' }); // layer0 audible (default)
     const ineligible = makeRobot({
       id: 'r2',
-      audioAttributes: { adsr: { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 }, filterFreq: 0, waveform: 'sine', layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0, active: false }] },
+      audioAttributes: { adsr: { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 }, filterFreq: 0, waveform: 'sine', layers: [{ type: 'sine', gain: 0, detune: 0, phase: 0 }] },
     });
     useLocaleStore.getState().addRobot(LOCALE_ID, eligible);
     useLocaleStore.getState().addRobot(LOCALE_ID, ineligible);
@@ -1044,12 +990,12 @@ describe('robot pool — company-wide swells', () => {
   });
 
   it('starts no swell at all this tick if every robot in the picked company is ineligible for the picked attribute (no re-roll, no fallback)', () => {
-    const allInactiveLayer0 = () =>
+    const allMutedLayer0 = () =>
       makeRobot({
         id: 'r1',
-        audioAttributes: { adsr: { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 }, filterFreq: 0, waveform: 'sine', layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0, active: false }] },
+        audioAttributes: { adsr: { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 }, filterFreq: 0, waveform: 'sine', layers: [{ type: 'sine', gain: 0, detune: 0, phase: 0 }] },
       });
-    useLocaleStore.getState().addRobot(LOCALE_ID, allInactiveLayer0());
+    useLocaleStore.getState().addRobot(LOCALE_ID, allMutedLayer0());
     useLocaleStore.getState().addCompany(LOCALE_ID, makeCompany({ robotIds: ['r1'] }));
 
     const noiseMap = noiseMapForDataIds({
@@ -1130,7 +1076,7 @@ describe('robot pool — detune swing cap (25% of range = 25 cents, either direc
         adsr: { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 },
         filterFreq: 0,
         waveform: 'sine',
-        layers: [{ type: 'sine', gain: 1, detune, phase: 0, active: true }],
+        layers: [{ type: 'sine', gain: 1, detune, phase: 0 }],
       },
     });
   }

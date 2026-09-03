@@ -35,11 +35,12 @@
 
 ## Master / Chain-Level Controls (not per-effect-param)
 
-These govern the whole chain, a whole drift group, or both swell pools at once — none of them are a field on one `AudioRigEffectKey` block, so none get a row in the table above. `Global Bypass`, `Decay Mode`, and all 4 Drift groups are shipped (`src/data/audioRigConfig.ts` + `AudioRigDrawer.tsx`, rendered as the bare `master-row` above the effect blocks plus the 4 drift accordions below them). **Ping Variance Automation is not yet shipped** — see the status note beneath the table.
+These govern the whole chain, a whole drift group, or both swell pools at once — none of them are a field on one `AudioRigEffectKey` block, so none get a row in the table above. `Decay Mode` and all 4 Drift groups are shipped (`src/data/audioRigConfig.ts` + `AudioRigDrawer.tsx`, rendered as the bare `master-row` above the effect blocks plus the 4 drift accordions below them). **Ping Variance Automation is not yet shipped** — see the status note beneath the table.
+
+There is no rig-wide bypass control and no per-effect Enabled toggle — both were removed; every effect's "off" state is now expressed purely through its own params (wet=0, a filter's own passthrough frequency, etc.).
 
 | Control | Setter | Field | Unit / Range | Loading Range | Effect Label | Param Label | UI |
 |---|---|---|---|---|---|---|---|
-| Global Bypass | `setGlobalBypassEnabled()` | `globalBypass` | boolean | — (not seeded; always starts `false`) | — (no lore label defined) | *(human label only)* "Bypass (this may be loud or distorted)" | TOGGLE |
 | Decay Mode | `setCompressorBeforeDelay()` | `compressorBeforeDelay` | radio: Natural Decay / Controlled Decay | — (not seeded; always starts `natural`) | — (no lore label defined) | *(human label only)* "Decay Mode" | RADIO BUTTON (2-option) |
 | EQ Drift | `setGlobalLfoDrift('eq3', …)` | `lfoDrift.eq3.rateDrift` | %, −100 to 100 (stored fraction, −1 to 1) | −70 to 70 (stored −0.7 to 0.7) | SPECTRAL FLUX | CADENCE INSTABILITY | SLIDER (Center-Zero) |
 | EQ Drift | `setGlobalLfoDrift('eq3', …)` | `lfoDrift.eq3.depthDrift` | %, −100 to 100 (stored fraction, −1 to 1) | −70 to 70 (stored −0.7 to 0.7) | SPECTRAL FLUX | AMPLITUDE INSTABILITY | SLIDER (Center-Zero) |
@@ -53,7 +54,7 @@ These govern the whole chain, a whole drift group, or both swell pools at once �
 
 † Robot Drift modulates `RobotLfoTargetId` fields (per-robot volume/gain/detune/phase/pulseWidth), never a global-chain param — it's the 4th `DriftGroupId` but never appears in the **Drift Group** column above. Listed here for completeness of the master list; see `docs/reference/ROBOT_DATA_GRID.md` for the fields it actually touches.
 
-‡ **Not yet shipped.** Replaces the `audioSwellsEnabled` boolean (Sector Settings' "Enable automatic effects" toggle) currently still live in `src/data/sectorSettingsConfig.ts`/`SectorSettingsDrawer.tsx` — that toggle remains the actual swell on/off switch in the app today. Store-level plumbing (`pingVarianceAutomation`/`setPingVarianceAutomation` field+action, the seeded-once-per-session default via `generatePingVarianceAutomation`) is implemented in `src/stores/audioStore.ts` / `src/utils/globalAudioSeed.ts`, but not yet wired to any UI (no `audioRigConfig.ts` schema or `AudioRigDrawer.tsx` slider yet) or to the swell pipeline itself (`src/systems/audioSwells.ts` doesn't read it — magnitude scaling, the 0%-forced-return, and gating `globalBypass` against the global swell pool are all still TODO). Source: `docs/intent/ping-variance-automation.md`, `docs/specs/PING-VARIANCE-AUTOMATION.md`.
+‡ **Status note is stale** — Ping Variance Automation has since shipped (an `audioRigConfig.ts` schema and `AudioRigDrawer.tsx` slider exist, and `src/systems/audioSwells.ts` reads it for the trigger gate, magnitude scaling, and the 0%-forced-return); `globalBypass` no longer exists at all (removed — see the note above the table). Source: `docs/intent/ping-variance-automation.md`, `docs/specs/PING-VARIANCE-AUTOMATION.md`.
 
 ## Notes from the Tone.js verification pass (V2)
 

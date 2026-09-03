@@ -51,10 +51,12 @@ const RELEASE_RANGE = { min: 0.0, max: 5.0 };
 // above, unchanged by this phase.
 const LAYER_COUNT = 3;
 const ADSR_MAX = { attack: 2, decay: 2, sustain: 1, release: 5 };
-/** Probability threshold Coaxial's/Harmonic's active seed draw ([0, 1]) must clear to seed
- *  `true` — a plain 50/50 coin flip. No product requirement pinned a specific bias; this is the
- *  least-presumptuous default for "each independently seeded active or inactive." */
-const LAYER_ACTIVE_THRESHOLD = 0.5;
+/** Probability threshold Coaxial's/Harmonic's own "start muted" seed draw ([0, 1]) must clear to
+ *  force gain to 0 — a plain 50/50 coin flip. No product requirement pinned a specific bias; this
+ *  is the least-presumptuous default for "each independently seeded on or muted." Replaces the
+ *  old separate `active` boolean — see `OscillatorLayer`'s own doc comment (types/layeredAudio.ts)
+ *  for why gain=0 is now the "muted" state. */
+const LAYER_QUIET_THRESHOLD = 0.5;
 
 // Octave registers — seed directly without Hz indirection
 // [min, max] inclusive; 3 tiers: bass, mid, treble
@@ -207,23 +209,29 @@ export function generateAudioAttributes(noiseMap: NoiseFunction2D, offset: numbe
   const layers: OscillatorLayer[] = [];
   for (let i = 0; i < LAYER_COUNT; i++) {
     const layerOffset = offset * 10 + i;
-    // Baseline (layers[0]) is always active; Coaxial/Harmonic (layers[1]/[2]) are each
-    // independently seeded — muting one doesn't discard its configuration (see AudioEngine.ts's
-    // filterActiveLayers), so an inactive layer still gets a full, ready-to-resume config here.
-    const active = i === 0
-      ? true
-      : getSeededVal(noiseMap, 'robot.audio.layer.active', layerOffset, 0, 1) >= LAYER_ACTIVE_THRESHOLD;
+    // Baseline (layers[0]) always seeds a real, audible gain; Coaxial/Harmonic (layers[1]/[2])
+    // each have a real ~50% chance (LAYER_QUIET_THRESHOLD) of forcing gain to 0 instead of
+    // sampling one — muting doesn't discard the rest of the layer's configuration (see
+    // AudioEngine.ts's filterAudibleLayers), so a muted layer still gets a full,
+    // ready-to-resume config here.
+    const quiet = i !== 0 && getSeededVal(noiseMap, 'robot.audio.layer.quiet', layerOffset, 0, 1) < LAYER_QUIET_THRESHOLD;
     const layerWave: OscillatorLayer = {
       type: WAVEFORMS[Math.floor(getSeededVal(noiseMap, 'robot.audio.layer.waveform', layerOffset, 0, WAVEFORMS.length))],
-      gain: getSeededVal(noiseMap, 'robot.audio.layer.gain', layerOffset, 0.2, 1.2),
+      gain: quiet ? 0 : getSeededVal(noiseMap, 'robot.audio.layer.gain', layerOffset, 0.2, 1.2),
       detune: getSeededVal(noiseMap, 'robot.audio.layer.detune', layerOffset, -2, 2),
       phase: Math.floor(getSeededVal(noiseMap, 'robot.audio.layer.phase', layerOffset, 0, 361)) || 0,
-      active,
     };
     layers.push(layerWave);
   }
 
-  const averagedGain = (layers.reduce((s, l) => s + (l.gain ?? 1), 0) / layers.length) || 1;
+  // Averaged over only the audible (nonzero-gain) layers — a muted layer's gain is always exactly
+  // 0 now (never a real sampled-but-unused draw), so folding it into the average would pull a
+  // robot's visual brightness down without it actually contributing any sound. Falls back to 1
+  // if every layer happens to be muted (all-silent edge case), matching the old fallback's intent.
+  const audibleLayers = layers.filter((l) => l.gain !== 0);
+  const averagedGain = audibleLayers.length > 0
+    ? audibleLayers.reduce((s, l) => s + l.gain, 0) / audibleLayers.length
+    : 1;
 
   // Map the shared adsr (normalized by ADSR_MAX) into simple ShapeParams (0..1)
   // Mapping rules:
@@ -254,11 +262,14 @@ export function generateAudioAttributes(noiseMap: NoiseFunction2D, offset: numbe
 }
 
 /**
- * Probability threshold an LFO target's active seed draw ([0, 1]) must clear to seed `true` — a
- * plain 50/50 coin flip, matching LAYER_ACTIVE_THRESHOLD's rationale (no product requirement
- * pinned a specific bias for "each independently seeded active or inactive").
+ * Probability threshold an LFO target's own "start quiet" seed draw ([0, 1])
+ * must clear to force rate to 0 — a plain 50/50 coin flip, matching
+ * LAYER_QUIET_THRESHOLD's rationale (no product requirement pinned a
+ * specific bias for "each independently seeded on or off"). Replaces the old
+ * separate `active` boolean — see LFO_RATE_MIN's own doc comment
+ * (src/types/lfo.ts) for why rate=0 is now the "off" state.
  */
-const LFO_ACTIVE_THRESHOLD = 0.5;
+const LFO_QUIET_THRESHOLD = 0.5;
 
 /**
  * Generate seeded LfoSettings for all 13 RobotLfoTargetId modulation targets,
@@ -267,26 +278,27 @@ const LFO_ACTIVE_THRESHOLD = 0.5;
  * own dot-namespaced dataId ('robot.lfo.<target>.<field>'), so a single shared
  * `offset` naturally yields distinct values per target without needing the
  * per-index offset multiplier the oscillator-layer loop above uses (that's only
- * needed when multiple items share one dataId string). `active` is seeded per
- * target too (Roadmap Phase 9), mirroring how the global Audio Rig chain already
- * seeds some effects' LFOs already-on per Attenuation Style — a freshly-spawned robot can
+ * needed when multiple items share one dataId string). Each target has a real
+ * ~50% chance (LFO_QUIET_THRESHOLD) of forcing rate to 0 instead of its own
+ * sampled value, mirroring how the global Audio Rig chain already seeds some
+ * effects' LFOs already-on per Attenuation Style — a freshly-spawned robot can
  * have real modulation already audible before anything is touched.
  */
-export function generateRobotLfoSettings(noiseMap: NoiseFunction2D, offset: number): Record<RobotLfoTargetId, LfoSettings & { active: boolean }> {
+export function generateRobotLfoSettings(noiseMap: NoiseFunction2D, offset: number): Record<RobotLfoTargetId, LfoSettings> {
   const entries = ROBOT_LFO_TARGET_IDS.map((target) => {
     const shapeIdx = Math.min(
       LFO_SHAPES.length - 1,
       Math.floor(getSeededVal(noiseMap, `robot.lfo.${target}.shape`, offset, 0, LFO_SHAPES.length))
     );
-    const settings: LfoSettings & { active: boolean } = {
+    const quiet = getSeededVal(noiseMap, `robot.lfo.${target}.quiet`, offset, 0, 1) < LFO_QUIET_THRESHOLD;
+    const settings: LfoSettings = {
       shape: LFO_SHAPES[shapeIdx],
-      rate: getSeededVal(noiseMap, `robot.lfo.${target}.rate`, offset, LFO_RATE_MIN, LFO_RATE_MAX),
+      rate: quiet ? 0 : getSeededVal(noiseMap, `robot.lfo.${target}.rate`, offset, LFO_RATE_MIN, LFO_RATE_MAX),
       depth: getSeededVal(noiseMap, `robot.lfo.${target}.depth`, offset, LFO_DEPTH_MIN, LFO_DEPTH_MAX),
-      active: getSeededVal(noiseMap, `robot.lfo.${target}.active`, offset, 0, 1) >= LFO_ACTIVE_THRESHOLD,
     };
     return [target, settings] as const;
   });
-  return Object.fromEntries(entries) as Record<RobotLfoTargetId, LfoSettings & { active: boolean }>;
+  return Object.fromEntries(entries) as Record<RobotLfoTargetId, LfoSettings>;
 }
 
 /**

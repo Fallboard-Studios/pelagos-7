@@ -40,7 +40,7 @@ import type { ADSREnvelope } from '@/types/Robot';
 const SHARED_ADSR: ADSREnvelope = { attack: 0.2, decay: 0.3, sustain: 0.6, release: 1.5 };
 
 function makeLayer(overrides: Partial<OscillatorLayer> = {}): OscillatorLayer {
-  return { type: 'sine', gain: 1, detune: 0, phase: 0, active: true, ...overrides };
+  return { type: 'sine', gain: 1, detune: 0, phase: 0, ...overrides };
 }
 
 describe('createCompositeVoice', () => {

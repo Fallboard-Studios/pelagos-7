@@ -6,7 +6,6 @@ import { DualLabel } from './DualLabel';
 import { getAccordionDuration } from './accordionAnimation';
 import { withActiveClass } from './activeClass';
 import { setTimeline, killTimeline } from '@/animation/timelineMap';
-import { getStatusLightColor } from '@/utils/statusLightColors';
 import type { AccordionSchema } from '@/types/controls';
 import './AccordionContainer.css';
 
@@ -14,16 +13,6 @@ interface AccordionContainerProps {
   schema: AccordionSchema;
   children: ReactNode;
   defaultOpen?: boolean;
-  /**
-   * Drives the trigger's status light — green when true, red when false, a
-   * plain unlit dot when omitted (this accordion has no domain concept of
-   * "active" to show). Deliberately independent of the accordion's own
-   * open/closed state: a caller passes its own domain value here (e.g. an
-   * effect's own Enabled toggle, or an LFO's Active toggle) — the light
-   * never reflects expand/collapse, which aria-expanded already carries
-   * accessibly.
-   */
-  contentActive?: boolean;
 }
 
 /**
@@ -36,7 +25,7 @@ interface AccordionContainerProps {
  * following PowerRockerSwitch.tsx's pattern, and respects
  * prefers-reduced-motion the same way PowerRockerSwitch.css does.
  */
-export function AccordionContainer({ schema, children, defaultOpen = false, contentActive }: AccordionContainerProps) {
+export function AccordionContainer({ schema, children, defaultOpen = false }: AccordionContainerProps) {
   const [open, setOpen] = useState(defaultOpen);
   const contentRef = useRef<HTMLDivElement>(null);
   const timelineKey = `accordion-${schema.id}`;
@@ -86,16 +75,6 @@ export function AccordionContainer({ schema, children, defaultOpen = false, cont
     animateTo(nextOpen);
   }
 
-  // Color is JS-owned (computed from the single statusLightColors source), motion stays
-  // CSS-owned (the pulse animation in AccordionContainer.css) — same split PowerRockerSwitch
-  // uses. contentActive === undefined means "no domain active concept" — unlit dot, no inline
-  // style at all, matching the plain currentColor default in CSS. The glow alpha (0.7 active,
-  // 0.55 inactive) and box-shadow geometry below preserve the original hand-tuned values —
-  // active reads deliberately brighter/bigger than inactive, not just a different hue.
-  const light = contentActive === undefined
-    ? null
-    : getStatusLightColor(contentActive ? 'green' : 'red', contentActive ? 0.7 : 0.55);
-
   return (
     <Accordion.Root
       type="single"
@@ -114,16 +93,6 @@ export function AccordionContainer({ schema, children, defaultOpen = false, cont
                 everything else here, not a separate Radix data-state hook. */}
             <span className="sc-accordion__indicator" aria-hidden="true">{open ? '−' : '+'}</span>
             <DualLabel loreLabel={schema.loreLabel} humanLabel={schema.humanLabel} />
-            {/* Decorative — reflects contentActive, a domain concept the
-                caller supplies (e.g. this effect's own Enabled toggle, or an
-                LFO's Active toggle), never the accordion's own open/closed
-                state, which aria-expanded already carries accessibly. */}
-            <span
-              className="sc-accordion__light"
-              aria-hidden="true"
-              data-content-active={contentActive === undefined ? undefined : String(contentActive)}
-              style={light ? { color: light.color, boxShadow: `0 0 ${contentActive ? '5px 2px' : '4px 1px'} ${light.glow}` } : undefined}
-            />
           </Accordion.Trigger>
         </Accordion.Header>
         <Accordion.Content ref={contentRef} className="sc-accordion__content" forceMount>
