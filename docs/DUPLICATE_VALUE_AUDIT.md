@@ -52,39 +52,36 @@ landed near 60), and the `?? 120` fallback already disagreed with the actual def
 everywhere else.
 
 ### 2. `MEASURES_PER_CYCLE` / `DAY_CYCLE_MEASURES` — one guardrail, two constants
-**Status:** ☐ open, reframed (2026-09-02, `feature/harmony-palette-update`) · **Confidence:** low —
-was medium; narrowed by [Harmony Palette Sequencing](specs/HARMONY_PALETTE_SEQUENCING.md)
-([intent](intent/harmony-palette-sequencing.md)), which removed the only production caller on one
-side of the split. The duplication itself (two independently-declared `96` literals) is unchanged —
-nothing here has been fixed — only the practical risk of the two silently disagreeing has dropped.
+**Status:** ☑ fixed (2026-09-03) · **Confidence:** high — pure centralization, same pattern as
+items 3–5, confirmed by full test/lint/type-check pass.
 
-CLAUDE.md's guardrail ("96 measures = 1 day cycle") is still encoded as two separately-declared module
+CLAUDE.md's guardrail ("96 measures = 1 day cycle") was encoded as two separately-declared module
 constants, each `96`, in unrelated subsystems with no shared import:
-- [`beatClock.ts:21`](../src/engine/beatClock.ts#L21) `MEASURES_PER_CYCLE = 96` — as of this rewrite,
-  only backs `getCurrentHour()`'s own internal wrap math. `getCurrentHour()` itself now has **zero
-  production callers anywhere in `src/`** (confirmed by grep, 2026-09-02: the only remaining
-  references are `beatClock.ts`'s own definition/doc comment, `beatClock.test.ts`'s own tests of the
-  function, and an unused stub inside `AudioEngine.test.ts`'s `vi.mock('./beatClock', ...)` block).
-  `harmonySystem.ts` was that function's one production caller before this rewrite — it now derives
-  its palette index from `getCurrentMeasure()` directly instead (spec §1.3). `getCurrentHour()` was
-  deliberately left in place, not removed or deprecated, per the harmony spec's explicit "left as-is"
-  call-out — this item does not ask for its removal either.
-- [`lightingUtils.ts:6`](../src/utils/lightingUtils.ts#L6) `DAY_CYCLE_MEASURES = 96` — unchanged,
-  still drives building-lighting phase, consumed by
-  [`Factory.tsx:93,108,113`](../src/components/actors/Factory.tsx#L93). This is now the **only**
-  real "day cycle" consumer outside `beatClock.ts` itself.
+- [`beatClock.ts`](../src/engine/beatClock.ts) `MEASURES_PER_CYCLE = 96` (local, unexported) —
+  backed `getCurrentHour()`'s internal wrap math and `subscribeToMeasure`'s measure-wrap. As of the
+  Harmony Palette Sequencing rewrite, `getCurrentHour()` itself has zero production callers left
+  (`harmonySystem.ts` now derives its palette index from `getCurrentMeasure()` directly instead —
+  see [Harmony Palette Sequencing](specs/HARMONY_PALETTE_SEQUENCING.md)) but the constant is still
+  live via `subscribeToMeasure`'s own wrap math.
+- [`lightingUtils.ts`](../src/utils/lightingUtils.ts) `DAY_CYCLE_MEASURES = 96` (exported) — drives
+  building-lighting phase, consumed by [`Factory.tsx`](../src/components/actors/Factory.tsx).
 
-By design these already ran off different clocks (Factory.tsx derives its `lightMeasure` from
-Attenuation Style local time, not the transport — [`Factory.tsx:89-91`](../src/components/actors/Factory.tsx#L89-L91)),
-so this was flagged as a possibly-intentional split even before this rewrite. What's changed is
-narrower and more concrete: the two constants no longer do the same *kind* of job in production at
-all — one drives real, visible behavior; the other only backs an exported-but-uncalled function — so
-a future drift between the two `96`s can no longer manifest as an observable bug today. That's why this
-item's status stays **open** rather than flipping to fixed: the underlying duplication (two
-independently-declared literals for one CLAUDE.md guardrail) is still there, unaddressed, and would
-matter again the moment `getCurrentHour()` gains a new caller. A stale comment still gestures at a
-variable `dayLengthMeasures` ([`Factory.tsx:105`](../src/components/actors/Factory.tsx#L105)) that
-doesn't exist as a real field — untouched by this rewrite, still worth a separate doc fix if picked up.
+**Fix applied:** `DAY_CYCLE_MEASURES` moved to [`constants/index.ts`](../src/constants/index.ts) as
+the single exported source of truth, same pattern items 3–5 already established for
+`MAX_POLYPHONY`/`MIN_LEAD`/`NOTE_PALETTE_SIZE`. `beatClock.ts` now imports it directly in place of
+its own local `MEASURES_PER_CYCLE` (both use sites and the one doc-comment mention updated).
+`lightingUtils.ts` imports it from `constants/index.ts` and re-exports the same binding under the
+same name, so `Factory.tsx`'s and `lightingUtils.test.ts`'s existing `from './lightingUtils'`
+imports needed no changes. No behavior change — the value is still `96` everywhere. Full affected
+test files (`beatClock.test.ts`, `lightingUtils.test.ts`, `FactoryBubbleStream.test.tsx`), lint, and
+type-check all green. `docs/BEAT_CLOCK.md`'s constants table updated to note the shared source.
+
+By design these already ran off different clocks (`Factory.tsx` derives its `lightMeasure` from
+Attenuation Style local time, not the transport), so a shared constant doesn't collapse them into one
+clock — it only guarantees both keep agreeing on how many measures make up a day if either is ever
+tuned. A stale comment still gestures at a variable `dayLengthMeasures`
+([`Factory.tsx:105`](../src/components/actors/Factory.tsx#L105)) that doesn't exist as a real field —
+untouched by this fix, still worth a separate doc fix if picked up.
 
 ### 3. `MAX_POLYPHONY = 16` — not centralized like its sibling constants
 **Status:** ☑ fixed (2026-09-02, `bugs/duplicate-value-audit`) · **Confidence:** medium —

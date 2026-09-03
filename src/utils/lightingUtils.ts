@@ -1,9 +1,20 @@
 // ========================================
+// IMPORTS
+// ========================================
+import { DAY_CYCLE_MEASURES } from '../constants';
+
+// ========================================
 // CONSTANTS
 // ========================================
 
-/** Total measures in one full day/night cycle. */
-export const DAY_CYCLE_MEASURES = 96;
+/**
+ * Total measures in one full day/night cycle. Re-exported from
+ * constants/index.ts (the single source of truth shared with
+ * beatClock.ts — see docs/DUPLICATE_VALUE_AUDIT.md item 2) rather than
+ * declared locally, so existing `from './lightingUtils'` imports
+ * (Factory.tsx, lightingUtils.test.ts) don't need to change.
+ */
+export { DAY_CYCLE_MEASURES };
 
 /**
  * How many measures elapse between window flicker re-rolls.
