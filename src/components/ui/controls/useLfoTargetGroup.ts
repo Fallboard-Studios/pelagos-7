@@ -35,8 +35,9 @@ export interface UseLfoTargetGroupResult<F extends string = string> {
   isTargeted: (field: F) => boolean;
   /** NEUTRAL_LFO_VALUE while transitioning, else the selected field's own lfoValue. */
   displayValue: LfoValue;
-  /** undefined while transitioning, else the selected field's own label. */
-  displayLabel: string | undefined;
+  /** Always the committed (still-`selected`) field's own label, transitioning or not — the
+   *  display never goes unlabeled mid-transition, only its values blank out. */
+  displayLabel: string;
 }
 
 /**
@@ -88,7 +89,9 @@ export function useLfoTargetGroup<F extends string = string>({
 
   const activeField = fields.find((f) => f.field === selected) ?? fields[0];
   const displayValue = transitioning ? NEUTRAL_LFO_VALUE : activeField.lfoValue;
-  const displayLabel = transitioning ? undefined : activeField.label;
+  // Label stays visible through the transition (avoids the display flickering blank/unlabeled
+  // between renders) — only the values reset to neutral while transitioning.
+  const displayLabel = activeField.label;
 
   return {
     selected,

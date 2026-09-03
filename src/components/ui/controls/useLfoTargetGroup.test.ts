@@ -72,9 +72,12 @@ describe('useLfoTargetGroup', () => {
     const { result } = renderHook(() => useLfoTargetGroup({ groupId: 'audioRig.eq3', fields: FIELDS }));
     act(() => result.current.select('mid'));
     expect(result.current.transitioning).toBe(true);
-    // Neutral placeholder while transitioning — never the outgoing or incoming field's real values.
+    // Neutral placeholder while transitioning — never the outgoing or incoming field's real
+    // values (rate/depth/shape/active all reset). The label itself stays showing the still-
+    // committed field's name throughout — only the values blank out, not the whole control,
+    // so the display never flickers empty/unlabeled mid-transition.
     expect(result.current.displayValue).toEqual(NEUTRAL_LFO_VALUE);
-    expect(result.current.displayLabel).toBeUndefined();
+    expect(result.current.displayLabel).toBe('Low');
     // Committed selection (and the targeted row it drives) hasn't moved yet — deferred update.
     expect(result.current.selected).toBe('low');
     expect(result.current.isTargeted('low')).toBe(true);
