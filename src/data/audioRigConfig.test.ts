@@ -59,9 +59,9 @@ describe('AUDIO_RIG_CONFIG', () => {
       });
     });
 
-    it('ratio is a stepper, 1 to 20', () => {
+    it('ratio is a sliderLinear, step 1, 1 to 20 (STEPPER_TO_SLIDER Task 8)', () => {
       expect(findParam('compressor', 'ratio').schema).toMatchObject({
-        type: 'stepper', loreLabel: 'COMPRESSION RATIO', min: 1, max: 20,
+        type: 'sliderLinear', loreLabel: 'COMPRESSION RATIO', min: 1, max: 20, step: 1,
       });
     });
 

@@ -189,17 +189,17 @@ describe('localeStore', () => {
       });
     });
 
-    describe('rhythmicMotifLength / noteVariance clamping ({ active, value } toggles, value 1-8)', () => {
-      it('clamps rhythmicMotifLength.value above 8 down to 8 and preserves active', () => {
+    describe('rhythmicMotifLength / noteVariance clamping ({ active, value } toggles, value 0-8, active derived from value > 0)', () => {
+      it('clamps rhythmicMotifLength.value above 8 down to 8, active stays true', () => {
         useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, makeRobot('r1'));
         useLocaleStore.getState().updateRobot(DEFAULT_LOCALE_ID, 'r1', { rhythmicMotifLength: { active: true, value: 20 } });
         expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].robots[0].rhythmicMotifLength).toEqual({ active: true, value: 8 });
       });
 
-      it('clamps rhythmicMotifLength.value below 1 up to 1', () => {
+      it('clamps rhythmicMotifLength.value below 0 up to 0, deriving active: false', () => {
         useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, makeRobot('r1'));
         useLocaleStore.getState().updateRobot(DEFAULT_LOCALE_ID, 'r1', { rhythmicMotifLength: { active: false, value: -3 } });
-        expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].robots[0].rhythmicMotifLength).toEqual({ active: false, value: 1 });
+        expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].robots[0].rhythmicMotifLength).toEqual({ active: false, value: 0 });
       });
 
       it('clamps noteVariance.value above 8 down to 8', () => {
@@ -208,13 +208,30 @@ describe('localeStore', () => {
         expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].robots[0].noteVariance).toEqual({ active: true, value: 8 });
       });
 
-      it('coerces a non-boolean active to a real boolean', () => {
+      it('ignores a caller-supplied active: false when value > 0, deriving active: true instead', () => {
         useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, makeRobot('r1'));
         useLocaleStore.getState().updateRobot(DEFAULT_LOCALE_ID, 'r1', {
-          // @ts-expect-error — intentionally malformed to test coercion at the store boundary
-          noteVariance: { active: 'yes', value: 4 },
+          // active lies — the store must not trust it, and must derive from value instead
+          noteVariance: { active: false, value: 5 },
         });
-        expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].robots[0].noteVariance).toEqual({ active: true, value: 4 });
+        expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].robots[0].noteVariance).toEqual({ active: true, value: 5 });
+      });
+
+      it('ignores a caller-supplied active: true when value === 0, deriving active: false instead', () => {
+        useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, makeRobot('r1'));
+        useLocaleStore.getState().updateRobot(DEFAULT_LOCALE_ID, 'r1', {
+          // active lies the other direction — still must not be trusted
+          rhythmicMotifLength: { active: true, value: 0 },
+        });
+        expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].robots[0].rhythmicMotifLength).toEqual({ active: false, value: 0 });
+      });
+
+      it('derives active: false when value clamps down to exactly 0 after truncation', () => {
+        useLocaleStore.getState().addRobot(DEFAULT_LOCALE_ID, makeRobot('r1'));
+        useLocaleStore.getState().updateRobot(DEFAULT_LOCALE_ID, 'r1', {
+          noteVariance: { active: true, value: 0.4 }, // truncates to 0
+        });
+        expect(useLocaleStore.getState().locales[DEFAULT_LOCALE_ID].robots[0].noteVariance).toEqual({ active: false, value: 0 });
       });
 
       it('rejects a bare-number payload (the old shape) instead of silently mis-clamping it', () => {

@@ -23,16 +23,20 @@ import { swallow } from '../utils/helpers';
 
 /**
  * Clamp a { active, value } toggle payload (rhythmicMotifLength/noteVariance) to
- * [min, max], coercing `active` to a real boolean. Returns undefined for anything
- * that isn't a well-formed object with a finite `value` — notably the old
+ * [min, max], deriving `active` from the clamped `value` (`value > 0`) rather than
+ * trusting whatever the caller supplied for `active` — the single central enforcement
+ * point for the value > 0 <=> active invariant (docs/specs/STEPPER_TO_SLIDER.md); every
+ * store-mediated write funnels through here via updateRobot. Returns undefined for
+ * anything that isn't a well-formed object with a finite `value` — notably the old
  * pre-refactor bare-number shape — so the caller can reject it instead of
  * silently mis-clamping a number that was never meant to be read as `.value`.
  */
 function clampToggleValue(v: unknown, min: number, max: number): { active: boolean; value: number } | undefined {
   if (typeof v !== 'object' || v === null) return undefined;
-  const { active, value } = v as { active?: unknown; value?: unknown };
+  const { value } = v as { value?: unknown };
   if (typeof value !== 'number' || !Number.isFinite(value)) return undefined;
-  return { active: Boolean(active), value: Math.max(min, Math.min(max, Math.trunc(value))) };
+  const clamped = Math.max(min, Math.min(max, Math.trunc(value)));
+  return { active: clamped > 0, value: clamped };
 }
 
 // Randomized once per module load (page load), via the same randomCoordinate()

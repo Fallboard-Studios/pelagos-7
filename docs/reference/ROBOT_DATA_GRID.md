@@ -10,11 +10,11 @@
 | Audio Setting | PROBE DIAGNOSTICS | Radio Button Component | N/A | N/A | No | Options: Off, Mute, Solo, Highlight |
 | Volume | TRANSDUCER PRESSURE INDEX | Slider - linear Component | 0% | 100% | Yes | Linear scaling for held level ratio. Display-only 0–100%, 1% steps — stored as `robot.masterVolume`, a 0–1 fraction (`VOLUME_SCHEMA`, `robotOptionsConfig.ts`), same display-vs-storage split as Sustain below |
 | **DRAWER** | PING CONTROLS | Accordion Container | N/A | N/A | No | Parent container for ping controls |
-| Density | PING DENSITY | Stepper Component | 0 | 100 | No | Percentage fill rate of the measure/motif (Roadmap Phase 6) |
-| Motif Length | PING LENGTH | Stepper Component | 1 | 8 | No | Repeating rhythmic motif length in 16th notes |
-| Note Variance | PING FREQUENCY VARIANCE | Stepper with active toggle Component | 1 | 8 | No | Toggle OFF: unweighted random selection. Toggle ON: slices pitch array length (1–8) |
-| Octave Range Min | PING FREQUENCY RANGES (MIN) | Stepper Component | 1 | 7 | No | Minimum octave bound |
-| Octave Range Max | PING FREQUENCY RANGES (MAX) | Stepper Component | 1 | 7 | No | Maximum octave bound |
+| Density | PING DENSITY | Slider - linear Component | 0 | 100 | No | Percentage fill rate of the measure/motif (Roadmap Phase 6). Was a Stepper originally — converted early (clicking through 0-100 one increment at a time was too slow), this row was simply never updated until docs/specs/STEPPER_TO_SLIDER.md |
+| Motif Length | PING LENGTH | Slider - linear Component | 0 | 8 | No | Repeating rhythmic motif length in 16th notes. `0` is the off state (no separate toggle) — was a Stepper+Toggle, min `1`, before docs/specs/STEPPER_TO_SLIDER.md |
+| Note Variance | PING FREQUENCY VARIANCE | Slider - linear Component | 0 | 8 | No | `0`: unweighted random selection. `1`-`8`: slices pitch array length. `0` is the off state (no separate toggle) — was a Stepper+Toggle, min `1`, before docs/specs/STEPPER_TO_SLIDER.md |
+| Octave Range Min | PING FREQUENCY RANGES (MIN) | Slider - linear Component | 1 | 7 | No | Minimum octave bound. Was a Stepper before docs/specs/STEPPER_TO_SLIDER.md |
+| Octave Range Max | PING FREQUENCY RANGES (MAX) | Slider - linear Component | 1 | 7 | No | Maximum octave bound. Was a Stepper before docs/specs/STEPPER_TO_SLIDER.md |
 | Reset Melody | CALIBRATE PING | Button Component | N/A | N/A | No | Resets melody pattern generation |
 | **DRAWER** | PING CONTOUR | Accordion Container | N/A | N/A | No | Parent container for ADSR envelope |
 | Attack | COMPRESSION RATE | Slider - log Component | 0s | 10s | No | Logarithmic scaling for fast transient control |

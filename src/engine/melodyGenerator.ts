@@ -97,10 +97,12 @@ export const DEFAULT_RHYTHMIC_DENSITY = 50;
  */
 export const DEFAULT_RHYTHMIC_MOTIF_LENGTH: ToggleValue = { active: true, value: 8 };
 /**
- * Default note-variance toggle — inactive. Preserves the old
- * noteVariance === 0 / unweighted default exactly.
+ * Default note-variance toggle — inactive. value: 0 satisfies the value > 0 ⟺ active
+ * invariant (docs/specs/STEPPER_TO_SLIDER.md) — active: false paired with a nonzero
+ * value would violate it. Preserves the old noteVariance === 0 / unweighted default
+ * exactly.
  */
-export const DEFAULT_NOTE_VARIANCE: ToggleValue = { active: false, value: 1 };
+export const DEFAULT_NOTE_VARIANCE: ToggleValue = { active: false, value: 0 };
 /**
  * Default Pitch Repeat lock strength — 0 (no locking), the neutral/off state. Unlike the
  * mid-range defaults above, 0 isn't a compromise value; it's what makes generation at the

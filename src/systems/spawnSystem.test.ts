@@ -242,14 +242,16 @@ describe('spawnSystem', () => {
       expect(robot.rhythmicMotifLength).toEqual(
         expect.objectContaining({ active: expect.any(Boolean), value: expect.any(Number) })
       );
-      expect(robot.rhythmicMotifLength!.value).toBeGreaterThanOrEqual(1);
+      expect(robot.rhythmicMotifLength!.value).toBeGreaterThanOrEqual(0);
       expect(robot.rhythmicMotifLength!.value).toBeLessThanOrEqual(8);
+      expect(robot.rhythmicMotifLength!.active).toBe(robot.rhythmicMotifLength!.value > 0);
 
       expect(robot.noteVariance).toEqual(
         expect.objectContaining({ active: expect.any(Boolean), value: expect.any(Number) })
       );
-      expect(robot.noteVariance!.value).toBeGreaterThanOrEqual(1);
+      expect(robot.noteVariance!.value).toBeGreaterThanOrEqual(0);
       expect(robot.noteVariance!.value).toBeLessThanOrEqual(8);
+      expect(robot.noteVariance!.active).toBe(robot.noteVariance!.value > 0);
 
       expect(typeof robot.pitchRepeat).toBe('number');
       expect(robot.pitchRepeat).toBeGreaterThanOrEqual(0);
@@ -281,6 +283,25 @@ describe('spawnSystem', () => {
       expect(activeFraction).toBeLessThanOrEqual(0.95);
     });
 
+    it('reaches rhythmicMotifLength.value: 0 (the off state) through the single consolidated draw', () => {
+      // Old two-draw implementation could never produce value: 0 at all (the value draw was
+      // seeded 1-9, floored, min 8) -- this is only reachable once active/value collapse to one
+      // draw where the off branch sets value itself to 0, not just active: false.
+      const localeId = 'motif-off-value-reachable-locale';
+      useLocaleStore.setState((state) => ({
+        locales: {
+          ...state.locales,
+          [localeId]: { ...DEFAULT_LOCALE, id: localeId, robots: [] },
+        },
+      }));
+      for (let i = 0; i < 500; i++) spawnRobot(localeId);
+      const robots = useLocaleStore.getState().getLocaleById(localeId)?.robots ?? [];
+      const offRobots = robots.filter((r) => r.rhythmicMotifLength?.value === 0);
+      expect(offRobots.length).toBeGreaterThan(0);
+      // Every off robot's active must agree -- no drawn-independently active field left behind.
+      for (const r of offRobots) expect(r.rhythmicMotifLength!.active).toBe(false);
+    });
+
     it('seeds noteVariance.active at roughly an 85% chance across many spawns', () => {
       // Dedicated locale ID -- see the rhythmicMotifLength.active test above
       // for why (spawnCounters is keyed per-locale; this avoids execution-order
@@ -301,6 +322,21 @@ describe('spawnSystem', () => {
       // version of this test above.
       expect(activeFraction).toBeGreaterThanOrEqual(0.75);
       expect(activeFraction).toBeLessThanOrEqual(0.95);
+    });
+
+    it('reaches noteVariance.value: 0 (the off state) through the single consolidated draw', () => {
+      const localeId = 'note-variance-off-value-reachable-locale';
+      useLocaleStore.setState((state) => ({
+        locales: {
+          ...state.locales,
+          [localeId]: { ...DEFAULT_LOCALE, id: localeId, robots: [] },
+        },
+      }));
+      for (let i = 0; i < 500; i++) spawnRobot(localeId);
+      const robots = useLocaleStore.getState().getLocaleById(localeId)?.robots ?? [];
+      const offRobots = robots.filter((r) => r.noteVariance?.value === 0);
+      expect(offRobots.length).toBeGreaterThan(0);
+      for (const r of offRobots) expect(r.noteVariance!.active).toBe(false);
     });
 
     it('a copied robot inherits the source\'s rhythmicDensity/rhythmicMotifLength/noteVariance rather than rolling fresh ones', () => {

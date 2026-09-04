@@ -27,7 +27,7 @@
 | Reverb | `setGlobalReverb()` | preDelay | seconds, 0–0.5 | 0–0.1 | SPATIAL DIFFUSION MATRIX | INITIAL LAG | SLIDER | – | – | – |
 | Reverb | `setGlobalReverb()` | wet | 0–1 | 0.1–0.4 | SPATIAL DIFFUSION MATRIX | DIFFUSED SIGNAL BALANCE | SLIDER | – | – | X |
 | Compressor | `setGlobalCompressor()` | threshold | dB, −60 to 0 | −55 to −45 | DYNAMIC RANGE CONDENSER | ATTENUATION THRESHOLD | SLIDER | – | – | – |
-| Compressor | `setGlobalCompressor()` | ratio | 1–20 | 10–20 | DYNAMIC RANGE CONDENSER | COMPRESSION RATIO | STEPPER (`[ - ] ( 2:1 ) [ + ]`) | – | – | – |
+| Compressor | `setGlobalCompressor()` | ratio | 1–20 | 10–20 | DYNAMIC RANGE CONDENSER | COMPRESSION RATIO | SLIDER (step 1) | – | – | – |
 | Compressor | `setGlobalCompressor()` | attack | seconds, 0.001–1 | 0.003–0.05 | DYNAMIC RANGE CONDENSER | COMPRESSION RATE | SLIDER (Logarithmic) | – | – | – |
 | Compressor | `setGlobalCompressor()` | release | seconds, 0.01–1 | 0.05–0.3 | DYNAMIC RANGE CONDENSER | RAREFACTION RATE | SLIDER (Logarithmic) | – | – | – |
 | Compressor | `setGlobalCompressor()` | knee | dB, 0–40 | 1–15 | DYNAMIC RANGE CONDENSER | CURVATURE DAMPING | SLIDER | – | – | – |

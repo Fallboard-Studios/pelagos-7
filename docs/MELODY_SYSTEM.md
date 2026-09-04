@@ -48,11 +48,11 @@ interface GenerateMelodyForRobotOptions {
   octaveMin: number;
   octaveMax: number;
   rhythmicDensity?: number;        // 0-100 fill-rate percentage (was a 4-12 onset count)
-  rhythmicMotifLength?: ToggleValue; // value: 1-8 (was a plain 1-16 number)
+  rhythmicMotifLength?: ToggleValue; // value: 0-8 (was a plain 1-16 number); active derives from value > 0
   subdivisions?: number;
   seed?: number;
   rand?: () => number;
-  noteVariance?: ToggleValue;       // value: 1-8 (was a plain 0-8 number, 0 meaning "off")
+  noteVariance?: ToggleValue;       // value: 0-8 (was a plain 0-8 number, 0 meaning "off"); active derives from value > 0
   pitchRepeat?: number;             // 0-100, only meaningful when rhythmicMotifLength.active is true
 }
 ```
@@ -108,10 +108,21 @@ This makes lower indices more common than higher ones.
 
 ### Note variance controls
 
-The `noteVariance` option is a `{ active, value }` toggle:
+The `noteVariance` option is a `{ active, value }` toggle. `generateMelodyForRobot`/
+`reRollMelodyPitches` still branch on `.active` exactly as described below — that logic is
+unchanged by docs/specs/STEPPER_TO_SLIDER.md. What changed is `active`'s derivation: it's no
+longer an independently-set field. Every write site (the UI slider, spawn-time seeding, the
+store's `updateRobot` clamp, manual-edit actions, company broadcast) derives it from `value > 0`
+instead — `value === 0` is now the sole off state (see Constants of Interest below for the
+corresponding `NOTE_VARIANCE_MIN`/`DEFAULT_NOTE_VARIANCE` changes).
+
 - `active: false` → **unweighted**, unconstrained random pick from all 8 indices (`Math.floor(rand() * 8)`). This is a deliberate behavior change from the pre-refactor `noteVariance === 0` default, which was still weighted — "off" now genuinely means no weighting at all, not just no uniqueness constraint.
 - `active: true, value: 1..7` → prefer a limited set of `value` unique notes, weighted among the established set once it fills
 - `active: true, value: 8` → use all eight note indices without replacement
+
+Motif Length's own `{ active, value }` toggle follows the identical derivation rule — `active` is
+`value > 0`, never independently set — even though its `active: false` branch (whole-measure onset
+generation instead of tiled-motif) lives in the Rhythm Model section above, not here.
 
 ## Pitch Repeat
 
@@ -171,11 +182,11 @@ above.
 ## Constants of Interest
 
 - `RHYTHMIC_DENSITY_MIN = 0`, `RHYTHMIC_DENSITY_MAX = 100` (`src/constants/index.ts`) — the shared 0-100% fill-rate range. Was `4`/`12` (an onset count) before this phase.
-- `RHYTHMIC_MOTIF_LENGTH_MIN = 1`, `RHYTHMIC_MOTIF_LENGTH_MAX = 8` (`src/constants/index.ts`) — the shared `ToggleValue.value` range for Motif Length. `RHYTHMIC_MOTIF_LENGTH_MAX` was `16` before this phase.
-- `NOTE_VARIANCE_MIN = 1`, `NOTE_VARIANCE_MAX = 8` (`src/constants/index.ts`) — the shared `ToggleValue.value` range for Note Variance. `NOTE_VARIANCE_MIN` was `0` before this phase (`0` meant "off"; now "off" is `active: false`, so `value` itself never needs to reach `0`).
+- `RHYTHMIC_MOTIF_LENGTH_MIN = 0`, `RHYTHMIC_MOTIF_LENGTH_MAX = 8` (`src/constants/index.ts`) — the shared `ToggleValue.value` range for Motif Length. `RHYTHMIC_MOTIF_LENGTH_MAX` was `16` before the Pitch Repeat phase; `RHYTHMIC_MOTIF_LENGTH_MIN` was `1` before docs/specs/STEPPER_TO_SLIDER.md, which extended it down to `0` — `value === 0` is now the off state (`active` derives from `value > 0`), reversing an earlier `0`→`1` migration (see the `NOTE_VARIANCE_MIN` line below, which made the same reverse move).
+- `NOTE_VARIANCE_MIN = 0`, `NOTE_VARIANCE_MAX = 8` (`src/constants/index.ts`) — the shared `ToggleValue.value` range for Note Variance. `NOTE_VARIANCE_MIN` was `0` before the Pitch Repeat phase (`0` meant "off" directly), then `1` once that phase moved "off" onto `active: false` alone (`value` itself never needed to reach `0`), then back to `0` under docs/specs/STEPPER_TO_SLIDER.md — `value === 0` is once again the off state, but this time `active` is a *derived, enforced* consequence of `value > 0` rather than an independently-settable flag with its own now-reachable-again `value: 0` floor.
 - `DEFAULT_RHYTHMIC_DENSITY = 50` — a clean round mid-point of the new percentage range (was `8`, out of the old `4-12` range).
-- `DEFAULT_RHYTHMIC_MOTIF_LENGTH = { active: true, value: 8 }` — behavior-preserving with the pre-refactor always-tiling-at-8 default (motif tiling had no off switch before this phase).
-- `DEFAULT_NOTE_VARIANCE = { active: false, value: 1 }` — behavior-preserving with the pre-refactor `noteVariance === 0` default.
+- `DEFAULT_RHYTHMIC_MOTIF_LENGTH = { active: true, value: 8 }` — behavior-preserving with the pre-refactor always-tiling-at-8 default (motif tiling had no off switch before the Pitch Repeat phase). Already satisfies `value > 0 ⟺ active`, unchanged by docs/specs/STEPPER_TO_SLIDER.md.
+- `DEFAULT_NOTE_VARIANCE = { active: false, value: 0 }` — was `{ active: false, value: 1 }`, which violated the `value > 0 ⟺ active` invariant docs/specs/STEPPER_TO_SLIDER.md introduces; `value: 0` is both invariant-correct and still behavior-preserving with the pre-Pitch-Repeat `noteVariance === 0` default.
 - `PITCH_REPEAT_MIN = 0`, `PITCH_REPEAT_MAX = 100` (`src/constants/index.ts`) — the shared 0-100% lock-strength range.
 - `DEFAULT_PITCH_REPEAT = 0` — the neutral/off state (unlike the other three defaults, `0` isn't a mid-range compromise; it's what makes generation at the default statistically indistinguishable from having no Pitch Repeat).
 - `DEFAULT_SUBDIVISIONS = 16`

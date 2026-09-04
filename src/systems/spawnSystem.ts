@@ -76,18 +76,33 @@ const MASTER_VOLUME_MIN = 0.65;
 const MASTER_VOLUME_MAX = 0.85;
 
 /**
- * Probability threshold rhythmicMotifLength.active's seed draw ([0, 1]) must
- * clear to seed `true` — 85% chance. A fresh robot tiles a repeating motif
- * far more often than it scatters freely.
+ * Fraction of rhythmicMotifLength's single seed draw ([0, 1)) that lands the field
+ * off (value: 0) — 15% chance, preserving the pre-STEPPER_TO_SLIDER two-draw scheme's
+ * exact off-rate (docs/specs/STEPPER_TO_SLIDER.md §7.1) now that active/value collapse
+ * to one draw. A fresh robot tiles a repeating motif far more often than it scatters
+ * freely.
  */
-const RHYTHMIC_MOTIF_LENGTH_ACTIVE_THRESHOLD = 0.15;
+const RHYTHMIC_MOTIF_LENGTH_OFF_THRESHOLD = 0.15;
 /**
- * Probability threshold noteVariance.active's seed draw ([0, 1]) must clear
- * to seed `true` — 85% chance, matching RHYTHMIC_MOTIF_LENGTH_ACTIVE_THRESHOLD.
- * Kept as its own named constant (not merged back into one shared value) so
- * the two toggles stay independently tunable even though they currently agree.
+ * Same idea as RHYTHMIC_MOTIF_LENGTH_OFF_THRESHOLD, for noteVariance's own draw.
+ * Kept as its own named constant (not merged back into one shared value) so the two
+ * fields stay independently tunable even though they currently agree.
  */
-const NOTE_VARIANCE_ACTIVE_THRESHOLD = 0.15;
+const NOTE_VARIANCE_OFF_THRESHOLD = 0.15;
+
+/**
+ * Seed a Motif Length/Note Variance-shaped { active, value } field from one
+ * consolidated [0, 1) draw (docs/specs/STEPPER_TO_SLIDER.md) — replaces the old
+ * two-draw (separate active/value) scheme. `raw < offThreshold` lands the field off
+ * (value: 0); the remaining `1 - offThreshold` span maps uniformly onto value 1-8.
+ * `active` is always derived from the resulting `value > 0`, never drawn independently.
+ */
+function seedToggleValue(raw: number, offThreshold: number): ToggleValue {
+  if (raw < offThreshold) return { active: false, value: 0 };
+  const fraction = (raw - offThreshold) / (1 - offThreshold); // 0..1 across the "on" span
+  const value = 1 + Math.min(7, Math.floor(fraction * 8)); // 1-8
+  return { active: true, value };
+}
 
 // Waveform types — even distribution gives ~20% each (includes pulse)
 const WAVEFORMS: WaveformType[] = ['sine', 'square', 'triangle', 'sawtooth', 'pulse'];
@@ -379,27 +394,20 @@ export function spawnRobot(localeId: string, options?: { docking?: DockingState;
         : alea(`${localeId}:${spawnCount}:density`)() * 100
     );
 
-    const motifActiveRaw = noiseMap
+    // Reuses the old '.active' dataId verbatim (not a freshly-named consolidated key) —
+    // getSeededVal's simplex slice is keyed off the exact dataId string, so a new string
+    // would sample a different curve with no guarantee of matching this one's already-
+    // tuned ~85%/15% split against RHYTHMIC_MOTIF_LENGTH_OFF_THRESHOLD. The old '.value'
+    // dataId is retired entirely — value is now derived from this same draw.
+    const motifRaw = noiseMap
       ? getSeededVal(noiseMap, 'robot.rhythmicMotifLength.active', spawnCount, 0, 1)
       : alea(`${localeId}:${spawnCount}:motifActive`)();
-    const motifValueRaw = noiseMap
-      ? getSeededVal(noiseMap, 'robot.rhythmicMotifLength.value', spawnCount, 1, 9)
-      : 1 + alea(`${localeId}:${spawnCount}:motifValue`)() * 8;
-    spawnRhythmicMotifLength = {
-      active: motifActiveRaw >= RHYTHMIC_MOTIF_LENGTH_ACTIVE_THRESHOLD,
-      value: Math.min(8, Math.floor(motifValueRaw)),
-    };
+    spawnRhythmicMotifLength = seedToggleValue(motifRaw, RHYTHMIC_MOTIF_LENGTH_OFF_THRESHOLD);
 
-    const noteVarianceActiveRaw = noiseMap
+    const noteVarianceRaw = noiseMap
       ? getSeededVal(noiseMap, 'robot.noteVariance.active', spawnCount, 0, 1)
       : alea(`${localeId}:${spawnCount}:nvActive`)();
-    const noteVarianceValueRaw = noiseMap
-      ? getSeededVal(noiseMap, 'robot.noteVariance.value', spawnCount, 1, 9)
-      : 1 + alea(`${localeId}:${spawnCount}:nvValue`)() * 8;
-    spawnNoteVariance = {
-      active: noteVarianceActiveRaw >= NOTE_VARIANCE_ACTIVE_THRESHOLD,
-      value: Math.min(8, Math.floor(noteVarianceValueRaw)),
-    };
+    spawnNoteVariance = seedToggleValue(noteVarianceRaw, NOTE_VARIANCE_OFF_THRESHOLD);
 
     spawnPitchRepeat = Math.round(
       noiseMap

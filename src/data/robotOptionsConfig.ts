@@ -19,8 +19,6 @@ import type {
   SliderCenteredZeroSchema,
   SliderLinearSchema,
   SliderLogSchema,
-  StepperSchema,
-  StepperWithToggleSchema,
   ToggleSchema,
 } from '@/types/controls';
 import type { RobotLfoTargetId } from '@/types/lfo';
@@ -122,13 +120,14 @@ export const DENSITY_SCHEMA: SliderLinearSchema = {
   unit: '%',
 };
 
-export const MOTIF_LENGTH_SCHEMA: StepperWithToggleSchema = {
+export const MOTIF_LENGTH_SCHEMA: SliderLinearSchema = {
   id: 'robotOptions.motifLength',
-  type: 'stepperToggle',
+  type: 'sliderLinear',
   loreLabel: 'PING LENGTH',
   humanLabel: 'Motif Length',
   min: RHYTHMIC_MOTIF_LENGTH_MIN,
   max: RHYTHMIC_MOTIF_LENGTH_MAX,
+  step: 1,
 };
 
 /**
@@ -149,31 +148,34 @@ export const PITCH_REPEAT_SCHEMA: SliderLinearSchema = {
   unit: '%',
 };
 
-export const OCTAVE_RANGE_MIN_SCHEMA: StepperSchema = {
+export const OCTAVE_RANGE_MIN_SCHEMA: SliderLinearSchema = {
   id: 'robotOptions.octaveRangeMin',
-  type: 'stepper',
+  type: 'sliderLinear',
   loreLabel: 'PING FREQUENCY RANGES (MIN)',
   humanLabel: 'Octave Range Min',
   min: OCTAVE_RANGE_MIN,
   max: OCTAVE_RANGE_MAX,
+  step: 1,
 };
 
-export const OCTAVE_RANGE_MAX_SCHEMA: StepperSchema = {
+export const OCTAVE_RANGE_MAX_SCHEMA: SliderLinearSchema = {
   id: 'robotOptions.octaveRangeMax',
-  type: 'stepper',
+  type: 'sliderLinear',
   loreLabel: 'PING FREQUENCY RANGES (MAX)',
   humanLabel: 'Octave Range Max',
   min: OCTAVE_RANGE_MIN,
   max: OCTAVE_RANGE_MAX,
+  step: 1,
 };
 
-export const NOTE_VARIANCE_SCHEMA: StepperWithToggleSchema = {
+export const NOTE_VARIANCE_SCHEMA: SliderLinearSchema = {
   id: 'robotOptions.noteVariance',
-  type: 'stepperToggle',
+  type: 'sliderLinear',
   loreLabel: 'PING FREQUENCY VARIANCE',
   humanLabel: 'Note Variance',
   min: NOTE_VARIANCE_MIN,
   max: NOTE_VARIANCE_MAX,
+  step: 1,
 };
 
 /** Plain one-click Button — no confirmation dialog, confirmed during /interview-me for

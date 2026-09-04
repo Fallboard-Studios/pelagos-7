@@ -31,8 +31,8 @@ const DISABLED_AUDIO_SETTING: AudioSettingValue = {
 
 const DISABLED_PING_CONTROLS: PingControlsValue = {
   rhythmicDensity: 0,
-  rhythmicMotifLength: { active: false, value: 1 },
-  noteVariance: { active: false, value: 1 },
+  rhythmicMotifLength: 0,
+  noteVariance: 0,
   pitchRepeat: 0,
   octaveRange: [1, 7],
   clickTrackActive: false,
@@ -95,6 +95,12 @@ export function CompanyOptionsSection() {
   const active = allRobotsSelected ? members.length > 0 : Boolean(company) && members.length > 0;
   const lastEditedOptions = allRobotsSelected ? allRobotsLastEditedOptions : company?.lastEditedOptions;
   const resolved = active ? resolveCompanyOptions(lastEditedOptions, members[0]) : undefined;
+  // PingControlsValue's rhythmicMotifLength/noteVariance are plain numbers (docs/specs/
+  // STEPPER_TO_SLIDER.md §7.3) but resolved/CompanyOptionsSnapshot still carry the {active, value}
+  // shape — flatten to .value here, the one place this section derives PingControlsDrawer's value.
+  const pingControlsValue: PingControlsValue = resolved
+    ? { ...resolved, rhythmicMotifLength: resolved.rhythmicMotifLength.value, noteVariance: resolved.noteVariance.value }
+    : DISABLED_PING_CONTROLS;
 
   function patchSnapshot(partial: Partial<CompanyOptionsSnapshot>) {
     if (allRobotsSelected) {
@@ -133,19 +139,19 @@ export function CompanyOptionsSection() {
       />
 
       <PingControlsDrawer
-        value={resolved ?? DISABLED_PING_CONTROLS}
+        value={pingControlsValue}
         disabled={!active}
         onDensityChange={(v) => {
           members.forEach((m) => applyDensity(m, localeId, v));
           patchSnapshot({ rhythmicDensity: v });
         }}
         onMotifLengthChange={(v) => {
-          const patch = resolved ? diffCompoundField(resolved.rhythmicMotifLength, v) : v;
-          members.forEach((m) => {
-            const memberOwn = resolveCompanyOptions(undefined, m).rhythmicMotifLength;
-            applyMotifLength(m, localeId, { ...memberOwn, ...patch });
-          });
-          patchSnapshot({ rhythmicMotifLength: v });
+          // Plain-number pattern, matching onDensityChange/onPitchRepeatChange — not
+          // diffCompoundField, whose single-changed-key assumption breaks once one edit can change
+          // both active and value at once (e.g. crossing 0). applyMotifLength reconstructs each
+          // member's own {active, value} internally; the snapshot patch does the same.
+          members.forEach((m) => applyMotifLength(m, localeId, v));
+          patchSnapshot({ rhythmicMotifLength: { active: v > 0, value: v } });
         }}
         onOctaveMinChange={(v) => {
           members.forEach((m) => applyOctaveMin(m, localeId, v));
@@ -156,12 +162,9 @@ export function CompanyOptionsSection() {
           patchSnapshot({ octaveRange: [resolved?.octaveRange[0] ?? v, v] });
         }}
         onNoteVarianceChange={(v) => {
-          const patch = resolved ? diffCompoundField(resolved.noteVariance, v) : v;
-          members.forEach((m) => {
-            const memberOwn = resolveCompanyOptions(undefined, m).noteVariance;
-            applyNoteVariance(m, localeId, { ...memberOwn, ...patch });
-          });
-          patchSnapshot({ noteVariance: v });
+          // Same plain-number pattern as onMotifLengthChange above.
+          members.forEach((m) => applyNoteVariance(m, localeId, v));
+          patchSnapshot({ noteVariance: { active: v > 0, value: v } });
         }}
         onPitchRepeatChange={(v) => {
           members.forEach((m) => applyPitchRepeat(m, localeId, v));

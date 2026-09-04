@@ -73,7 +73,7 @@ describe('resolveCompanyOptions', () => {
     expect(resolved.audioMode).toBe('none');
     expect(resolved.rhythmicDensity).toBe(50);
     expect(resolved.rhythmicMotifLength).toEqual({ active: true, value: 8 });
-    expect(resolved.noteVariance).toEqual({ active: false, value: 1 });
+    expect(resolved.noteVariance).toEqual({ active: false, value: 0 }); // DEFAULT_NOTE_VARIANCE
     expect(resolved.pitchRepeat).toBe(0); // DEFAULT_PITCH_REPEAT
     expect(resolved.volumeLfo).toEqual({ shape: 'sine', rate: 0, depth: 0 });
   });

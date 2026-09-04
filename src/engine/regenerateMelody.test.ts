@@ -48,8 +48,8 @@ function makeRobot(overrides: Partial<Robot> = {}): Robot {
     octaveRange: [3, 5],
     audioMode: 'none',
     rhythmicDensity: 50,
-    rhythmicMotifLength: { active: false, value: 8 },
-    noteVariance: { active: false, value: 1 },
+    rhythmicMotifLength: { active: false, value: 0 },
+    noteVariance: { active: false, value: 0 },
     masterVolume: 0.8,
     createdAt: Date.now(),
     ...overrides,
@@ -121,14 +121,14 @@ describe('regenerateMelody', () => {
 
   it('uses robot.rhythmicDensity as a fill-rate percentage, not a literal event count', () => {
     // 100% density with motif tiling off fills the entire 16-step measure.
-    const robot = makeRobot({ rhythmicDensity: 100, rhythmicMotifLength: { active: false, value: 8 } });
+    const robot = makeRobot({ rhythmicDensity: 100, rhythmicMotifLength: { active: false, value: 0 } });
     regenerateMelody(robot, 'locale-1');
     const melody: unknown[] = updateRobotMock.mock.calls[0][2].melody;
     expect(melody).toHaveLength(16);
   });
 
   it('a low rhythmicDensity never produces a silent (empty) melody', () => {
-    const robot = makeRobot({ rhythmicDensity: 0, rhythmicMotifLength: { active: false, value: 8 } });
+    const robot = makeRobot({ rhythmicDensity: 0, rhythmicMotifLength: { active: false, value: 0 } });
     regenerateMelody(robot, 'locale-1');
     const melody: unknown[] = updateRobotMock.mock.calls[0][2].melody;
     expect(melody.length).toBeGreaterThanOrEqual(1);

@@ -14,8 +14,8 @@ import { PingControlsDrawer, type PingControlsValue } from './PingControlsDrawer
 function makeValue(overrides: Partial<PingControlsValue> = {}): PingControlsValue {
   return {
     rhythmicDensity: 50,
-    rhythmicMotifLength: { active: true, value: 8 },
-    noteVariance: { active: false, value: 1 },
+    rhythmicMotifLength: 8,
+    noteVariance: 0,
     pitchRepeat: 0,
     octaveRange: [3, 5],
     clickTrackActive: false,
@@ -64,11 +64,11 @@ describe('PingControlsDrawer', () => {
     expect(onDensityChange).toHaveBeenCalledWith(51);
   });
 
-  it('changing Motif Length\'s active toggle calls onMotifLengthChange', () => {
+  it('changing Motif Length calls onMotifLengthChange with the raw number, no object wrapping', () => {
     const onMotifLengthChange = vi.fn();
     render(
       <PingControlsDrawer
-        value={makeValue({ rhythmicMotifLength: { active: false, value: 4 } })}
+        value={makeValue({ rhythmicMotifLength: 4 })}
         onDensityChange={() => {}}
         onMotifLengthChange={onMotifLengthChange}
         onOctaveMinChange={() => {}}
@@ -79,9 +79,28 @@ describe('PingControlsDrawer', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('switch', { name: /Motif Length/i }));
+    fireEvent.keyDown(screen.getByRole('slider', { name: /motif length/i }), { key: 'ArrowRight' });
 
-    expect(onMotifLengthChange).toHaveBeenCalledWith({ active: true, value: 4 });
+    expect(onMotifLengthChange).toHaveBeenCalledWith(5);
+  });
+
+  it('Motif Length slider reaches 0 and stays interactive there — never disabled purely because its own value is 0', () => {
+    render(
+      <PingControlsDrawer
+        value={makeValue({ rhythmicMotifLength: 0 })}
+        onDensityChange={() => {}}
+        onMotifLengthChange={() => {}}
+        onOctaveMinChange={() => {}}
+        onOctaveMaxChange={() => {}}
+        onNoteVarianceChange={() => {}}
+        onClickTrackActiveChange={() => {}}
+        onPitchRepeatChange={() => {}}
+      />
+    );
+
+    const slider = screen.getByRole('slider', { name: /motif length/i });
+    expect(slider.getAttribute('aria-valuenow')).toBe('0');
+    expect(slider.getAttribute('data-disabled')).toBeNull();
   });
 
   it('changing Octave Range Min calls onOctaveMinChange', () => {
@@ -99,7 +118,7 @@ describe('PingControlsDrawer', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Increment Octave Range Min/i }));
+    fireEvent.keyDown(screen.getByRole('slider', { name: /octave range min/i }), { key: 'ArrowRight' });
 
     expect(onOctaveMinChange).toHaveBeenCalledWith(4);
   });
@@ -119,16 +138,16 @@ describe('PingControlsDrawer', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Decrement Octave Range Max/i }));
+    fireEvent.keyDown(screen.getByRole('slider', { name: /octave range max/i }), { key: 'ArrowLeft' });
 
     expect(onOctaveMaxChange).toHaveBeenCalledWith(4);
   });
 
-  it('changing Note Variance\'s active toggle calls onNoteVarianceChange', () => {
+  it('changing Note Variance calls onNoteVarianceChange with the raw number, no object wrapping', () => {
     const onNoteVarianceChange = vi.fn();
     render(
       <PingControlsDrawer
-        value={makeValue({ noteVariance: { active: false, value: 1 } })}
+        value={makeValue({ noteVariance: 3 })}
         onDensityChange={() => {}}
         onMotifLengthChange={() => {}}
         onOctaveMinChange={() => {}}
@@ -139,16 +158,35 @@ describe('PingControlsDrawer', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('switch', { name: /Note Variance/i }));
+    fireEvent.keyDown(screen.getByRole('slider', { name: /note variance/i }), { key: 'ArrowRight' });
 
-    expect(onNoteVarianceChange).toHaveBeenCalledWith({ active: true, value: 1 });
+    expect(onNoteVarianceChange).toHaveBeenCalledWith(4);
+  });
+
+  it('Note Variance slider reaches 0 and stays interactive there — never disabled purely because its own value is 0', () => {
+    render(
+      <PingControlsDrawer
+        value={makeValue({ noteVariance: 0 })}
+        onDensityChange={() => {}}
+        onMotifLengthChange={() => {}}
+        onOctaveMinChange={() => {}}
+        onOctaveMaxChange={() => {}}
+        onNoteVarianceChange={() => {}}
+        onClickTrackActiveChange={() => {}}
+        onPitchRepeatChange={() => {}}
+      />
+    );
+
+    const slider = screen.getByRole('slider', { name: /note variance/i });
+    expect(slider.getAttribute('aria-valuenow')).toBe('0');
+    expect(slider.getAttribute('data-disabled')).toBeNull();
   });
 
   it('changing Pitch Repeat calls onPitchRepeatChange', () => {
     const onPitchRepeatChange = vi.fn();
     render(
       <PingControlsDrawer
-        value={makeValue({ pitchRepeat: 50, rhythmicMotifLength: { active: true, value: 8 } })}
+        value={makeValue({ pitchRepeat: 50, rhythmicMotifLength: 8 })}
         onDensityChange={() => {}}
         onMotifLengthChange={() => {}}
         onOctaveMinChange={() => {}}
@@ -164,10 +202,10 @@ describe('PingControlsDrawer', () => {
     expect(onPitchRepeatChange).toHaveBeenCalledWith(51);
   });
 
-  it('Pitch Repeat is disabled when rhythmicMotifLength.active is false, even though generationDisabled is otherwise false', () => {
+  it('Pitch Repeat is disabled when rhythmicMotifLength is 0, even though generationDisabled is otherwise false', () => {
     render(
       <PingControlsDrawer
-        value={makeValue({ rhythmicMotifLength: { active: false, value: 8 } })}
+        value={makeValue({ rhythmicMotifLength: 0 })}
         onDensityChange={() => {}}
         onMotifLengthChange={() => {}}
         onOctaveMinChange={() => {}}
@@ -184,10 +222,10 @@ describe('PingControlsDrawer', () => {
     expect(screen.getByRole('slider', { name: /pitch repeat/i }).getAttribute('data-disabled')).toBe('');
   });
 
-  it('Pitch Repeat is enabled when rhythmicMotifLength.active is true and nothing else disables generation', () => {
+  it('Pitch Repeat is enabled when rhythmicMotifLength is nonzero and nothing else disables generation', () => {
     render(
       <PingControlsDrawer
-        value={makeValue({ rhythmicMotifLength: { active: true, value: 8 } })}
+        value={makeValue({ rhythmicMotifLength: 8 })}
         onDensityChange={() => {}}
         onMotifLengthChange={() => {}}
         onOctaveMinChange={() => {}}
@@ -311,8 +349,8 @@ describe('PingControlsDrawer', () => {
     );
 
     expect(screen.getByRole('slider', { name: /density/i }).getAttribute('data-disabled')).toBe('');
-    expect((screen.getByRole('switch', { name: /Motif Length/i }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole('button', { name: /Increment Octave Range Min/i }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole('slider', { name: /motif length/i }).getAttribute('data-disabled')).toBe('');
+    expect(screen.getByRole('slider', { name: /octave range min/i }).getAttribute('data-disabled')).toBe('');
     expect((screen.getByRole('button', { name: 'Reset Melody' }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole('switch', { name: /Click Track/i }) as HTMLButtonElement).disabled).toBe(false);
     expect(screen.getByRole('slider', { name: /pitch repeat/i }).getAttribute('data-disabled')).toBe('');
@@ -334,8 +372,8 @@ describe('PingControlsDrawer', () => {
     );
 
     expect(screen.getByRole('slider', { name: /density/i }).getAttribute('data-disabled')).toBe('');
-    expect((screen.getByRole('switch', { name: /Motif Length/i }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole('button', { name: /Increment Octave Range Min/i }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole('slider', { name: /motif length/i }).getAttribute('data-disabled')).toBe('');
+    expect(screen.getByRole('slider', { name: /octave range min/i }).getAttribute('data-disabled')).toBe('');
     expect((screen.getByRole('switch', { name: /Click Track/i }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByRole('slider', { name: /pitch repeat/i }).getAttribute('data-disabled')).toBe('');
   });
