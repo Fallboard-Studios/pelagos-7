@@ -27,23 +27,23 @@ Task 1 (PanelOrientation type + DirectionalPanelSchema, controls.ts/controls.tes
 
 ### Phase 1: Foundation — the type
 
-- [ ] **Task 1: `PanelOrientation` type + `DirectionalPanelSchema`**
+- [x] **Task 1: `PanelOrientation` type + `DirectionalPanelSchema`**
 
   **Description:** In `src/types/controls.ts`, add `export type PanelOrientation = 'row' | 'column';` and `export interface DirectionalPanelSchema extends ControlSchemaBase { type: 'directionalPanel'; orientation?: PanelOrientation; }` (spec §4 — `orientation` optional, no widen/narrow staging needed). Add `DirectionalPanelSchema` to the `ControlSchema` union and `'directionalPanel'` to `CONTROL_SCHEMA_TYPES` (14 → 15 entries). In `src/types/controls.test.ts`: bump the `CONTROL_SCHEMA_TYPES` "has exactly N entries" assertion to 15 and add `'directionalPanel'` to the sorted-discriminants assertion; add a `directionalPanel: DirectionalPanelSchema = { id: 'eq3Panel', type: 'directionalPanel', orientation: 'row' }` literal to the "one literal object per variant" test, add it to the `variants` array, bump that `toHaveLength` to 15; add a new `describe('PanelOrientation', ...)` block mirroring the existing `describe('SliderOrientation', ...)` block — asserting `'row'`/`'column'` are accepted literal values, and that `orientation` is optional (a literal omitting it type-checks).
 
   **Acceptance criteria:**
-  - [ ] `PanelOrientation` is exported from `src/types/controls.ts` as `'row' | 'column'`.
-  - [ ] `DirectionalPanelSchema` is exported, extends `ControlSchemaBase`, `type: 'directionalPanel'`, `orientation?: PanelOrientation` (optional — not required, unlike `SliderOrientation` on the 3 slider schemas).
-  - [ ] `DirectionalPanelSchema` is a member of the `ControlSchema` union.
-  - [ ] `CONTROL_SCHEMA_TYPES` has exactly 15 entries, no duplicates, including `'directionalPanel'`.
-  - [ ] No other schema type gains a field — this task only adds one new type and one new union member.
-  - [ ] `controls.test.ts`'s "one literal object per variant" test constructs a `DirectionalPanelSchema` literal and includes it in its 15-entry `variants` array.
-  - [ ] `controls.test.ts` has a `PanelOrientation` describe block asserting both literal values and that `orientation` is optional.
+  - [x] `PanelOrientation` is exported from `src/types/controls.ts` as `'row' | 'column'`.
+  - [x] `DirectionalPanelSchema` is exported, extends `ControlSchemaBase`, `type: 'directionalPanel'`, `orientation?: PanelOrientation` (optional — not required, unlike `SliderOrientation` on the 3 slider schemas).
+  - [x] `DirectionalPanelSchema` is a member of the `ControlSchema` union.
+  - [x] `CONTROL_SCHEMA_TYPES` has exactly 15 entries, no duplicates, including `'directionalPanel'`.
+  - [x] No other schema type gains a field — this task only adds one new type and one new union member.
+  - [x] `controls.test.ts`'s "one literal object per variant" test constructs a `DirectionalPanelSchema` literal and includes it in its 15-entry `variants` array.
+  - [x] `controls.test.ts` has a `PanelOrientation` describe block asserting both literal values and that `orientation` is optional.
 
   **Verification:**
-  - [ ] `npx vitest run src/types/controls.test.ts` passes.
-  - [ ] `npm run build:types` clean.
-  - [ ] `npm run lint` clean.
+  - [x] `npx vitest run src/types/controls.test.ts` passes.
+  - [x] `npm run build:types` clean.
+  - [x] `npm run lint` clean.
 
   **Dependencies:** None.
 
@@ -52,34 +52,34 @@ Task 1 (PanelOrientation type + DirectionalPanelSchema, controls.ts/controls.tes
   **Estimated scope:** S (2 files, additive-only — no existing literal anywhere needs updating, since nothing constructs this schema yet)
 
 ### Checkpoint: Foundation
-- [ ] `npm run build:types`, `npm run lint`, `npm test` all clean.
-- [ ] `grep -n "directionalPanel" src/types/controls.ts src/types/controls.test.ts` shows the type, schema, union member, `CONTROL_SCHEMA_TYPES` entry, and test fixtures all present.
-- [ ] No visual or behavioral change in the running app — nothing renders this schema yet.
+- [x] `npm run build:types`, `npm run lint`, `npm test` all clean.
+- [x] `grep -n "directionalPanel" src/types/controls.ts src/types/controls.test.ts` shows the type, schema, union member, `CONTROL_SCHEMA_TYPES` entry, and test fixtures all present.
+- [x] No visual or behavioral change in the running app — nothing renders this schema yet.
 - [ ] Review with human before proceeding.
 
 ---
 
 ### Phase 2: The component
 
-- [ ] **Task 2: `DirectionalPanel` component**
+- [x] **Task 2: `DirectionalPanel` component**
 
   **Description:** Add `src/components/ui/controls/DirectionalPanel.tsx` per spec §4's full shape: `{ schema: DirectionalPanelSchema; children: ReactNode }` props, no `value`/`onChange`, no local state; resolves `orientation = schema.orientation ?? 'row'`; renders a `DualLabel` (reading `schema.loreLabel`/`schema.humanLabel`) above a `.sc-directional-panel__content` flex wrapper stamped with `data-orientation={orientation}` wrapping `children`. Add `src/components/ui/controls/DirectionalPanel.css` per spec §4: outer `.sc-directional-panel` (`flex; column; gap: 4px`), `.sc-directional-panel__content` (`flex; row; nowrap; gap: 8px`), and the `[data-orientation='column']` override (`flex-direction: column`). Add `src/components/ui/controls/DirectionalPanel.test.tsx` covering spec §5's 6 testable cases: renders children; renders `DualLabel` output correctly across the neither/one/both label-presence cases; `data-orientation` defaults to `'row'` when `schema.orientation` is omitted; is `'row'` when explicitly set; is `'column'` when set; multiple children render in the same DOM order passed in.
 
   **Acceptance criteria:**
-  - [ ] `DirectionalPanel` renders with no `value`/`onChange` props and no internal state — a pure function of `schema`/`children`.
-  - [ ] `schema.orientation` omitted or explicitly `'row'`: content wrapper has `data-orientation="row"`.
-  - [ ] `schema.orientation: 'column'`: content wrapper has `data-orientation="column"`.
-  - [ ] `DualLabel` renders correctly for all 4 label-presence combinations (neither/lore-only/human-only/both), matching `DualLabel`'s existing "renders nothing/one/both" behavior.
-  - [ ] Children render inside the content wrapper, in the same order passed in.
-  - [ ] No Radix import, no `timelineMap`/GSAP import, no `accessibleName.ts` import (spec §1.1, §3 — not an interactive primitive).
-  - [ ] `.sc-directional-panel__content` is `flex-wrap: nowrap` in the CSS (spec §1.4) — no `wrap` prop exists on the component.
-  - [ ] CSS class names follow the `sc-directional-panel`/`sc-directional-panel__content` convention (spec §4).
+  - [x] `DirectionalPanel` renders with no `value`/`onChange` props and no internal state — a pure function of `schema`/`children`.
+  - [x] `schema.orientation` omitted or explicitly `'row'`: content wrapper has `data-orientation="row"`.
+  - [x] `schema.orientation: 'column'`: content wrapper has `data-orientation="column"`.
+  - [x] `DualLabel` renders correctly for all 4 label-presence combinations (neither/lore-only/human-only/both), matching `DualLabel`'s existing "renders nothing/one/both" behavior.
+  - [x] Children render inside the content wrapper, in the same order passed in.
+  - [x] No Radix import, no `timelineMap`/GSAP import, no `accessibleName.ts` import (spec §1.1, §3 — not an interactive primitive).
+  - [x] `.sc-directional-panel__content` is `flex-wrap: nowrap` in the CSS (spec §1.4) — no `wrap` prop exists on the component.
+  - [x] CSS class names follow the `sc-directional-panel`/`sc-directional-panel__content` convention (spec §4).
 
   **Verification:**
-  - [ ] `npx vitest run src/components/ui/controls/DirectionalPanel.test.tsx` passes, covering every acceptance criterion above.
-  - [ ] `npm run build:types` clean.
-  - [ ] `npm run lint` clean.
-  - [ ] Manual check: none applicable — zero real consumers exist yet (spec §5); nothing to open in the running app for this task.
+  - [x] `npx vitest run src/components/ui/controls/DirectionalPanel.test.tsx` passes, covering every acceptance criterion above.
+  - [x] `npm run build:types` clean.
+  - [x] `npm run lint` clean.
+  - [x] Manual check: none applicable — zero real consumers exist yet (spec §5); nothing to open in the running app for this task.
 
   **Dependencies:** Task 1.
 
@@ -88,27 +88,27 @@ Task 1 (PanelOrientation type + DirectionalPanelSchema, controls.ts/controls.tes
   **Estimated scope:** S (3 files, one self-contained component — no consumer wiring)
 
 ### Checkpoint: Component ships
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] `DirectionalPanel` is importable and renders correctly in isolation (verified by its own test suite) with zero other files in the app referencing it yet.
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [x] `DirectionalPanel` is importable and renders correctly in isolation (verified by its own test suite) with zero other files in the app referencing it yet.
 - [ ] Review with human before proceeding.
 
 ---
 
 ### Phase 3: Docs
 
-- [ ] **Task 3: `docs/COMPONENT_LIBRARY.md` — document `DirectionalPanel`**
+- [x] **Task 3: `docs/COMPONENT_LIBRARY.md` — document `DirectionalPanel`**
 
   **Description:** Add a `DirectionalPanel` row to the primitives table (`ControlSchema` variant `DirectionalPanelSchema`, props `{ schema: DirectionalPanelSchema; children: ReactNode }`, no `ROBOT_DATA_GRID.md` row — same "not in the robot grid" treatment `TextInput`/`CoordsInput` already get). Update "All 14 live in `src/components/ui/controls/`" to "All 15". Add a short subsection (mirroring "Slider orientation (`SliderOrientation`)") introducing `PanelOrientation`, the `'row'`-never-wraps decision, the standalone/nestable composition model (spec §1.2), and a pointer to `docs/specs/DIRECTIONAL_PANEL.md` for the full rationale — including the `LfoTargetGroup` composability note (spec §1.3), since that's the concrete case the fuller wiring pass will hit first.
 
   **Acceptance criteria:**
-  - [ ] `docs/COMPONENT_LIBRARY.md`'s primitive table includes `DirectionalPanel`, matching the shipped props exactly.
-  - [ ] The "All 14 live in..." sentence is updated to 15.
-  - [ ] The new subsection documents `PanelOrientation`, the no-wrap decision, and the composition/nesting model, and links to `docs/specs/DIRECTIONAL_PANEL.md`.
-  - [ ] No claim in the new section is contradicted by the actual shipped source (spot-check against Task 2's final code).
+  - [x] `docs/COMPONENT_LIBRARY.md`'s primitive table includes `DirectionalPanel`, matching the shipped props exactly.
+  - [x] The "All 14 live in..." sentence is updated to 15.
+  - [x] The new subsection documents `PanelOrientation`, the no-wrap decision, and the composition/nesting model, and links to `docs/specs/DIRECTIONAL_PANEL.md`.
+  - [x] No claim in the new section is contradicted by the actual shipped source (spot-check against Task 2's final code).
 
   **Verification:**
-  - [ ] Manual review — every documented detail spot-checked directly against the shipped `DirectionalPanel.tsx`/`.css`.
-  - [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean (docs-only change, no behavioral impact expected).
+  - [x] Manual review — every documented detail spot-checked directly against the shipped `DirectionalPanel.tsx`/`.css`.
+  - [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean (docs-only change, no behavioral impact expected).
 
   **Dependencies:** Task 2.
 
@@ -117,9 +117,9 @@ Task 1 (PanelOrientation type + DirectionalPanelSchema, controls.ts/controls.tes
   **Estimated scope:** XS (docs only)
 
 ### Checkpoint: Complete
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] All acceptance criteria across all 3 tasks are met.
-- [ ] `docs/COMPONENT_LIBRARY.md` reflects the shipped feature.
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [x] All acceptance criteria across all 3 tasks are met.
+- [x] `docs/COMPONENT_LIBRARY.md` reflects the shipped feature.
 - [ ] Ready for human review / PR.
 
 ## Risks and Mitigations
