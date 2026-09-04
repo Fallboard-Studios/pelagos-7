@@ -109,4 +109,94 @@ describe('SliderCenteredZero component', () => {
     expect(fillEl?.style.left).toBe(`${rect.left}%`);
     expect(fillEl?.style.width).toBe(`${rect.width}%`);
   });
+
+  describe('orientation', () => {
+    const verticalSchema: SliderCenteredZeroSchema = { ...detuneSchema, orientation: 'vertical' };
+    const autoSchema: SliderCenteredZeroSchema = { ...detuneSchema, orientation: 'auto' };
+
+    it("'vertical': passes orientation=\"vertical\" through to the underlying Radix root", () => {
+      const { container } = render(<SliderCenteredZero schema={verticalSchema} value={0} onChange={() => {}} />);
+      const root = container.querySelector('.sc-slider-centered-zero__root');
+      expect(root?.getAttribute('data-orientation')).toBe('vertical');
+    });
+
+    it("'vertical': renders the value readout before the track in DOM order — a dragging thumb must never cover it", () => {
+      const { container } = render(<SliderCenteredZero schema={verticalSchema} value={0} onChange={() => {}} />);
+      const wrapper = container.querySelector('.sc-slider-centered-zero')!;
+      const children = Array.from(wrapper.children);
+      const valueIndex = children.findIndex((c) => c.classList.contains('sc-slider-centered-zero__value'));
+      const rootIndex = children.findIndex((c) => c.classList.contains('sc-slider-centered-zero__root'));
+      expect(valueIndex).toBeGreaterThanOrEqual(0);
+      expect(rootIndex).toBeGreaterThanOrEqual(0);
+      expect(valueIndex).toBeLessThan(rootIndex);
+    });
+
+    it("'horizontal' (default): renders the value readout after the track, unchanged from before orientation existed", () => {
+      const { container } = render(<SliderCenteredZero schema={detuneSchema} value={0} onChange={() => {}} />);
+      const wrapper = container.querySelector('.sc-slider-centered-zero')!;
+      const children = Array.from(wrapper.children);
+      const valueIndex = children.findIndex((c) => c.classList.contains('sc-slider-centered-zero__value'));
+      const rootIndex = children.findIndex((c) => c.classList.contains('sc-slider-centered-zero__root'));
+      expect(rootIndex).toBeLessThan(valueIndex);
+    });
+
+    it("'vertical': does not set an inline height when verticalHeight is omitted — the default comes from the --slider-vertical-height CSS custom property", () => {
+      const { container } = render(<SliderCenteredZero schema={verticalSchema} value={0} onChange={() => {}} />);
+      const root = container.querySelector<HTMLElement>('.sc-slider-centered-zero__root');
+      expect(root?.style.height).toBe('');
+    });
+
+    it("'vertical': sets an inline height from the verticalHeight prop when provided, overriding the CSS default", () => {
+      const { container } = render(
+        <SliderCenteredZero schema={verticalSchema} value={0} onChange={() => {}} verticalHeight={300} />,
+      );
+      const root = container.querySelector<HTMLElement>('.sc-slider-centered-zero__root');
+      expect(root?.style.height).toBe('300px');
+    });
+
+    it("'horizontal': ignores a verticalHeight prop entirely (no inline height set)", () => {
+      const { container } = render(
+        <SliderCenteredZero schema={detuneSchema} value={0} onChange={() => {}} verticalHeight={300} />,
+      );
+      const root = container.querySelector<HTMLElement>('.sc-slider-centered-zero__root');
+      expect(root?.style.height).toBe('');
+    });
+
+    it("'auto': renders without throwing, resolving to horizontal-looking output before any ResizeObserver measurement fires", () => {
+      const { container } = render(<SliderCenteredZero schema={autoSchema} value={0} onChange={() => {}} />);
+      const root = container.querySelector('.sc-slider-centered-zero__root');
+      expect(root?.getAttribute('data-orientation')).toBe('horizontal');
+    });
+
+    it("'horizontal': the fill's inline style still uses left/width (unchanged from before this task)", () => {
+      const { container } = render(<SliderCenteredZero schema={detuneSchema} value={25} onChange={() => {}} />);
+      const fillEl = container.querySelector<HTMLDivElement>('.sc-slider-centered-zero__fill');
+      const rect = computeFillRect(25, -50, 50);
+      expect(fillEl?.style.left).toBe(`${rect.left}%`);
+      expect(fillEl?.style.width).toBe(`${rect.width}%`);
+      expect(fillEl?.style.bottom).toBe('');
+      expect(fillEl?.style.height).toBe('');
+    });
+
+    it("'vertical': the fill's inline style uses bottom/height, not left/width — reusing computeFillRect's existing percentages on the new axis", () => {
+      const { container } = render(<SliderCenteredZero schema={verticalSchema} value={25} onChange={() => {}} />);
+      const fillEl = container.querySelector<HTMLDivElement>('.sc-slider-centered-zero__fill');
+      const rect = computeFillRect(25, -50, 50);
+      expect(fillEl?.style.bottom).toBe(`${rect.left}%`);
+      expect(fillEl?.style.height).toBe(`${rect.width}%`);
+      expect(fillEl?.style.left).toBe('');
+      expect(fillEl?.style.width).toBe('');
+    });
+
+    it("'vertical': a negative value's fill still spans from the zero point (asymmetric bounds, -20/+50)", () => {
+      const asymmetricSchema: SliderCenteredZeroSchema = {
+        id: 'asym', type: 'sliderCenteredZero', min: -20, max: 50, orientation: 'vertical',
+      };
+      const { container } = render(<SliderCenteredZero schema={asymmetricSchema} value={-10} onChange={() => {}} />);
+      const fillEl = container.querySelector<HTMLDivElement>('.sc-slider-centered-zero__fill');
+      const rect = computeFillRect(-10, -20, 50);
+      expect(fillEl?.style.bottom).toBe(`${rect.left}%`);
+      expect(fillEl?.style.height).toBe(`${rect.width}%`);
+    });
+  });
 });
