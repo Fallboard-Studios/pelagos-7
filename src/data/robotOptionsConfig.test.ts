@@ -19,7 +19,11 @@ import {
 } from './robotOptionsConfig';
 import { CONTROL_SCHEMA_TYPES } from '@/types/controls';
 import { ROBOT_LFO_TARGET_IDS } from '@/types/lfo';
-import { RHYTHMIC_DENSITY_MIN, RHYTHMIC_DENSITY_MAX, OCTAVE_RANGE_MIN, OCTAVE_RANGE_MAX, PITCH_REPEAT_MIN, PITCH_REPEAT_MAX } from '@/constants';
+import {
+  RHYTHMIC_DENSITY_MIN, RHYTHMIC_DENSITY_MAX, OCTAVE_RANGE_MIN, OCTAVE_RANGE_MAX,
+  PITCH_REPEAT_MIN, PITCH_REPEAT_MAX, RHYTHMIC_MOTIF_LENGTH_MIN, RHYTHMIC_MOTIF_LENGTH_MAX,
+  NOTE_VARIANCE_MIN, NOTE_VARIANCE_MAX,
+} from '@/constants';
 
 const ALL_TOP_LEVEL_SCHEMAS = [
   AUDIO_SETTING_SCHEMA,
@@ -57,6 +61,27 @@ describe('robotOptionsConfig', () => {
     expect(OCTAVE_RANGE_MIN_SCHEMA.max).toBe(OCTAVE_RANGE_MAX);
     expect(OCTAVE_RANGE_MAX_SCHEMA.min).toBe(OCTAVE_RANGE_MIN);
     expect(OCTAVE_RANGE_MAX_SCHEMA.max).toBe(OCTAVE_RANGE_MAX);
+  });
+
+  it('Octave Range Min/Max are sliderLinear with step 1 (STEPPER_TO_SLIDER Task 7)', () => {
+    [OCTAVE_RANGE_MIN_SCHEMA, OCTAVE_RANGE_MAX_SCHEMA].forEach((schema) => {
+      expect(schema.type).toBe('sliderLinear');
+      expect(schema.step).toBe(1);
+    });
+  });
+
+  it('Motif Length/Note Variance are sliderLinear, step 1, min 0 (STEPPER_TO_SLIDER Task 7)', () => {
+    expect(MOTIF_LENGTH_SCHEMA.type).toBe('sliderLinear');
+    expect(MOTIF_LENGTH_SCHEMA.step).toBe(1);
+    expect(MOTIF_LENGTH_SCHEMA.min).toBe(RHYTHMIC_MOTIF_LENGTH_MIN);
+    expect(MOTIF_LENGTH_SCHEMA.min).toBe(0);
+    expect(MOTIF_LENGTH_SCHEMA.max).toBe(RHYTHMIC_MOTIF_LENGTH_MAX);
+
+    expect(NOTE_VARIANCE_SCHEMA.type).toBe('sliderLinear');
+    expect(NOTE_VARIANCE_SCHEMA.step).toBe(1);
+    expect(NOTE_VARIANCE_SCHEMA.min).toBe(NOTE_VARIANCE_MIN);
+    expect(NOTE_VARIANCE_SCHEMA.min).toBe(0);
+    expect(NOTE_VARIANCE_SCHEMA.max).toBe(NOTE_VARIANCE_MAX);
   });
 
   it('Audio Setting has all 4 options, including Off — not the grid prose\'s stale 3', () => {
