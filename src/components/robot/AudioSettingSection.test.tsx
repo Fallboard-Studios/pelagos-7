@@ -111,6 +111,33 @@ describe('AudioSettingSection', () => {
     });
   });
 
+  describe('DirectionalPanel wrapper (docs/tasks/DIRECTIONAL_PANEL_WIRING.md Task 4)', () => {
+    it('renders its own DirectionalPanel wrapper around the existing content, column orientation', () => {
+      const { container } = render(
+        <AudioSettingSection value={makeValue()} onAudioModeChange={() => {}} onVolumeChange={() => {}} onVolumeLfoChange={() => {}} />
+      );
+      const panel = container.querySelector('.sc-directional-panel');
+      expect(panel).not.toBeNull();
+      expect(panel!.querySelector('.sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('column');
+    });
+
+    it('the panel carries the Output label (ROBOT_OUTPUT_PANEL_SCHEMA.humanLabel)', () => {
+      render(
+        <AudioSettingSection value={makeValue()} onAudioModeChange={() => {}} onVolumeChange={() => {}} onVolumeLfoChange={() => {}} />
+      );
+      expect(screen.getByText('Output')).toBeTruthy();
+    });
+
+    it('the Audio Setting radio and Volume slider both render inside the panel', () => {
+      const { container } = render(
+        <AudioSettingSection value={makeValue()} onAudioModeChange={() => {}} onVolumeChange={() => {}} onVolumeLfoChange={() => {}} />
+      );
+      const panel = container.querySelector('.sc-directional-panel')!;
+      expect(panel.contains(screen.getByRole('radio', { name: 'Solo' }))).toBe(true);
+      expect(panel.contains(screen.getByRole('slider', { name: /volume/i }))).toBe(true);
+    });
+  });
+
   it('is not disabled by default', () => {
     render(
       <AudioSettingSection
