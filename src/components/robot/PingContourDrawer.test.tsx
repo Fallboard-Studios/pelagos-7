@@ -49,9 +49,14 @@ describe('PingContourDrawer', () => {
     expect(newAdsr.sustain).toBeGreaterThanOrEqual(0);
   });
 
-  it('wraps its controls in exactly one AccordionContainer', () => {
-    render(<PingContourDrawer value={adsr} onChange={() => {}} />);
-    expect(screen.getAllByText('Ping Contour')).toHaveLength(1);
+  it('wraps its controls in one Envelope accordion containing one Ping Contour panel (DIRECTIONAL_PANEL_WIRING Task 7) — keeps its old accordion\'s label as the panel\'s', () => {
+    const { container } = render(<PingContourDrawer value={adsr} onChange={() => {}} />);
+    expect(container.querySelectorAll('.sc-accordion')).toHaveLength(1);
+    expect(screen.getAllByText('Envelope')).toHaveLength(1);
+    const pingContourPanel = screen.getByText('Ping Contour').closest('.sc-directional-panel');
+    expect(pingContourPanel).not.toBeNull();
+    expect(pingContourPanel!.closest('.sc-accordion')?.textContent).toContain('Envelope');
+    expect(pingContourPanel!.contains(screen.getByRole('slider', { name: /attack/i }))).toBe(true);
   });
 
   it('disables every internal control when disabled is true', () => {
