@@ -1,5 +1,23 @@
 /* ─── Sleeve Container ────────────────────────────────────────────────────── */
 
+/* Console Theming (Phase 11) is Glass-side only — SleeveContainer (both
+   instances) and its own top strip, plus everything nested inside them
+   (PowerRockerSwitch), must stay static regardless of the active seed. Both
+   selectors below sit inside .tablet, so without this pin they'd silently
+   inherit whatever seed-driven value Tablet.tsx's inline style gives
+   --color-bg/--color-surface/--color-accent/--color-border. Re-declared to
+   the fixed counterparts index.css defines (--color-*-fixed) rather than
+   restating the literal here — the SleeveContainer counterpart of
+   Console.css's own local --color-surface override. See
+   docs/CONSOLE_THEMING.md's "What This Is Not". */
+.sleeve-container,
+.sleeve-container__top-strip {
+  --color-bg: var(--color-bg-fixed);
+  --color-surface: var(--color-surface-fixed);
+  --color-accent: var(--color-accent-fixed);
+  --color-border: var(--color-border-fixed);
+}
+
 .sleeve-container {
   position: relative;
   height: var(--sleeve-width);
