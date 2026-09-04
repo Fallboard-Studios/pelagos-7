@@ -23,15 +23,8 @@
   /* Every descendant surface (accordion triggers, buttons, effect blocks,
      text inputs, ...) paints its background from var(--color-surface) —
      overriding it here cascades a "glass" translucency through all of them
-     at once, letting the robot world read through the hub's own chrome.
-     Re-derived from whatever --color-surface the seed-driven theme
-     (consoleTheme.ts) actually produced, via a self-referential color-mix()
-     — the var() on the right resolves against the INHERITED value from
-     .tablet before this declaration overrides it for .console and below.
-     Not a cycle; not a new coupling to consoleTheme.ts. See
-     docs/specs/CONSOLE_THEMING.md §1.3. Same 75% opacity the old static
-     rgba(26, 26, 26, 0.75) already expressed. */
-  --color-surface: color-mix(in srgb, var(--color-surface) 75%, transparent);
+     at once, letting the robot world read through the hub's own chrome. */
+  --color-surface: rgba(26, 26, 26, 0.75);
 }
 
 /* Hub grid state only (ConsolePanel renders bare HubNav here, nothing else) — lets clicks in
