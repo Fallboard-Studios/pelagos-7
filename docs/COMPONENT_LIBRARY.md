@@ -83,7 +83,7 @@ No drawer currently gives an `'auto'` slider a parent sized independently of its
 
 `DirectionalPanel` is a pure layout container: no `value`/`onChange`, no state of its own (not even `AccordionContainer`'s open/closed `useState`), and no Radix primitive wrapped — plain CSS flexbox is enough since there's no interactive behavior to manage. It composes standalone (same `{ schema, children }` shape as every other primitive — no dependency on `AccordionContainer`), and nesting `DirectionalPanel` inside `DirectionalPanel` is the intended way to build 2D layouts from this one axis-flippable primitive, the same way flexbox itself or an `HStack`/`VStack`-style stack does. It composes safely around `LfoTargetGroup`'s click/focus-targeted rows (below) too — wrapping *around* them, never replacing them, since `DirectionalPanel` adds no event handlers of its own and has no prop passthrough for `onClick`/`onFocus`/`className`.
 
-Full design rationale, including the `LfoTargetGroup` composability check and the shallow real-world nesting depth against the app's actual multi-slider groups: `docs/specs/DIRECTIONAL_PANEL.md`. No drawer is wired to this primitive yet — it shipped standalone, consumers land in a follow-up pass.
+Full design rationale, including the `LfoTargetGroup` composability check and the shallow real-world nesting depth against the app's actual multi-slider groups: `docs/specs/DIRECTIONAL_PANEL.md`. `DirectionalPanel` shipped standalone with no consumers; it got its first two in the Audio Rig drawer and the Robot Effects drawers (`AudioRigDrawer`, `AudioSettingSection`, `PingControlsDrawer`, `PingContourDrawer`, `SignatureArrayDrawer`) — `docs/specs/DIRECTIONAL_PANEL_WIRING.md`.
 
 ### `SliderLog`'s epsilon-floor curve
 
