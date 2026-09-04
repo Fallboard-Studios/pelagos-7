@@ -1,5 +1,4 @@
 import { SliderLinear } from '@/components/ui/controls/SliderLinear';
-import { StepperWithToggle, type StepperWithToggleValue } from '@/components/ui/controls/StepperWithToggle';
 import { Toggle } from '@/components/ui/controls/Toggle';
 import { Button } from '@/components/ui/controls/Button';
 import { AccordionContainer } from '@/components/ui/controls/AccordionContainer';
@@ -20,12 +19,20 @@ import './PingControlsDrawer.css';
 
 export interface PingControlsValue {
   rhythmicDensity: number;
-  rhythmicMotifLength: StepperWithToggleValue;
-  noteVariance: StepperWithToggleValue;
+  /**
+   * 0-8, min extended down to 0 (docs/specs/STEPPER_TO_SLIDER.md) — 0 is the off state
+   * (equivalent to the old rhythmicMotifLength.active === false), reproduced exactly in
+   * melodyGenerator.ts. The slider itself is never disabled purely because its value is 0 —
+   * there's no separate toggle left to turn it back on, so dragging it back above 0 is the
+   * only way. {active, value} reconstruction happens only in robotOptionsActions.ts.
+   */
+  rhythmicMotifLength: number;
+  /** Same off-via-0 shape as rhythmicMotifLength above. */
+  noteVariance: number;
   /**
    * 0-100. Increasingly locks a tiled motif's repeated cells to the base cell's pitches. Only
-   * meaningful while `rhythmicMotifLength.active` is true — the slider is disabled whenever it
-   * isn't, in addition to the usual `generationDisabled` gate.
+   * meaningful while `rhythmicMotifLength` is nonzero — the slider is disabled whenever it's 0,
+   * in addition to the usual `generationDisabled` gate.
    */
   pitchRepeat: number;
   octaveRange: [number, number];
@@ -43,11 +50,11 @@ export interface PingControlsValue {
 interface PingControlsDrawerProps {
   value: PingControlsValue;
   onDensityChange: (value: number) => void;
-  onMotifLengthChange: (value: StepperWithToggleValue) => void;
+  onMotifLengthChange: (value: number) => void;
   onPitchRepeatChange: (value: number) => void;
   onOctaveMinChange: (value: number) => void;
   onOctaveMaxChange: (value: number) => void;
-  onNoteVarianceChange: (value: StepperWithToggleValue) => void;
+  onNoteVarianceChange: (value: number) => void;
   onClickTrackActiveChange: (active: boolean) => void;
   /** Undefined omits the Reset Melody button entirely — it has no company-scoped meaning
    *  (Roadmap Phase 10's company panel never renders it), so absence, not disabling, is how a
@@ -85,10 +92,11 @@ export function PingControlsDrawer({
   // so they're disabled alongside it, not just cosmetically greyed but genuinely inert.
   const generationDisabled = disabled || value.clickTrackActive;
   // Pitch Repeat additionally needs a tiled motif to lock cells within — no cell concept exists
-  // when Motif Length is off (docs/specs/PITCH_REPEAT.md). Named separately from
-  // generationDisabled (rather than inlined at the one call site) so a future field with a
-  // similar cross-field gate has a pattern to match instead of inventing its own shape.
-  const pitchRepeatDisabled = generationDisabled || !value.rhythmicMotifLength.active;
+  // when Motif Length is off (docs/specs/PITCH_REPEAT.md). rhythmicMotifLength === 0 is the off
+  // state (equivalent to the old .active === false) — see docs/specs/STEPPER_TO_SLIDER.md. Named
+  // separately from generationDisabled (rather than inlined at the one call site) so a future
+  // field with a similar cross-field gate has a pattern to match instead of inventing its own shape.
+  const pitchRepeatDisabled = generationDisabled || value.rhythmicMotifLength === 0;
 
   return (
     <AccordionContainer schema={PING_CONTROLS_ACCORDION_SCHEMA}>
@@ -99,7 +107,7 @@ export function PingControlsDrawer({
           <Toggle schema={CLICK_TRACK_SCHEMA} value={value.clickTrackActive} onChange={onClickTrackActiveChange} disabled={disabled} />
         )}
         <SliderLinear schema={DENSITY_SCHEMA} value={value.rhythmicDensity} onChange={onDensityChange} disabled={generationDisabled} />
-        <StepperWithToggle schema={MOTIF_LENGTH_SCHEMA} value={value.rhythmicMotifLength} onChange={onMotifLengthChange} disabled={generationDisabled} />
+        <SliderLinear schema={MOTIF_LENGTH_SCHEMA} value={value.rhythmicMotifLength} onChange={onMotifLengthChange} disabled={generationDisabled} />
         <SliderLinear
           schema={PITCH_REPEAT_SCHEMA}
           value={value.pitchRepeat}
@@ -108,7 +116,7 @@ export function PingControlsDrawer({
         />
         <SliderLinear schema={OCTAVE_RANGE_MIN_SCHEMA} value={octMin} onChange={onOctaveMinChange} disabled={generationDisabled} />
         <SliderLinear schema={OCTAVE_RANGE_MAX_SCHEMA} value={octMax} onChange={onOctaveMaxChange} disabled={generationDisabled} />
-        <StepperWithToggle schema={NOTE_VARIANCE_SCHEMA} value={value.noteVariance} onChange={onNoteVarianceChange} disabled={generationDisabled} />
+        <SliderLinear schema={NOTE_VARIANCE_SCHEMA} value={value.noteVariance} onChange={onNoteVarianceChange} disabled={generationDisabled} />
         {onResetMelody && <Button schema={RESET_MELODY_SCHEMA} onClick={onResetMelody} disabled={generationDisabled} />}
       </div>
     </AccordionContainer>
