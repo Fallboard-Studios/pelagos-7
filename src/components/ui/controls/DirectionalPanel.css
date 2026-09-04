@@ -1,0 +1,16 @@
+.sc-directional-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sc-directional-panel__content {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.sc-directional-panel__content[data-orientation='column'] {
+  flex-direction: column;
+}
