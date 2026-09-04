@@ -52,7 +52,7 @@ function makeRobot(overrides: Partial<Robot> = {}): Robot {
     batteryLevel: 100,
     rhythmicDensity: 50,
     rhythmicMotifLength: { active: true, value: 8 },
-    noteVariance: { active: false, value: 1 },
+    noteVariance: { active: false, value: 0 },
     ...overrides,
   } as Robot;
 }

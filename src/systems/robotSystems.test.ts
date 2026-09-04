@@ -571,8 +571,8 @@ describe('robotSystems', () => {
       const robot = makeRobot({
         octaveRange: [6, 7],
         rhythmicDensity: 20,
-        rhythmicMotifLength: { active: false, value: 8 },
-        noteVariance: { active: false, value: 1 },
+        rhythmicMotifLength: { active: false, value: 0 },
+        noteVariance: { active: false, value: 0 },
       });
       const scores = scoreJobAffinities(robot);
       const highest = (Object.keys(scores) as JobType[]).sort((a, b) => scores[b] - scores[a])[0];
@@ -584,7 +584,7 @@ describe('robotSystems', () => {
         octaveRange: [1, 7],
         rhythmicDensity: 70,
         rhythmicMotifLength: { active: true, value: 6 },
-        noteVariance: { active: false, value: 1 },
+        noteVariance: { active: false, value: 0 },
       });
       const scores = scoreJobAffinities(robot);
       const highest = (Object.keys(scores) as JobType[]).sort((a, b) => scores[b] - scores[a])[0];
@@ -596,7 +596,7 @@ describe('robotSystems', () => {
         octaveRange: [3, 4],
         rhythmicDensity: 50,
         rhythmicMotifLength: { active: true, value: 8 },
-        noteVariance: { active: false, value: 1 },
+        noteVariance: { active: false, value: 0 },
       });
       const scores = scoreJobAffinities(robot);
       const highest = (Object.keys(scores) as JobType[]).sort((a, b) => scores[b] - scores[a])[0];
@@ -605,7 +605,7 @@ describe('robotSystems', () => {
 
     it('Fluid Monitoring score is higher for a robot with default (inactive) noteVariance than an otherwise-identical robot with highly active, narrow variance', () => {
       const base = { octaveRange: [3, 4] as [number, number], rhythmicDensity: 50, rhythmicMotifLength: { active: true, value: 8 } };
-      const defaultVarianceRobot = makeRobot({ ...base, noteVariance: { active: false, value: 1 } });
+      const defaultVarianceRobot = makeRobot({ ...base, noteVariance: { active: false, value: 0 } });
       const narrowVarianceRobot = makeRobot({ ...base, noteVariance: { active: true, value: 2 } });
 
       const defaultScore = scoreJobAffinities(defaultVarianceRobot)[JobType.FluidMonitoring];
@@ -623,7 +623,7 @@ describe('robotSystems', () => {
         octaveRange: [1, 7],
         rhythmicDensity: 70,
         rhythmicMotifLength: { active: true, value: 6 },
-        noteVariance: { active: false, value: 1 },
+        noteVariance: { active: false, value: 0 },
       });
       const scores = scoreJobAffinities(robot);
       expect(scores[JobType.StructuralInspection]).toBeGreaterThan(scores[JobType.FluidMonitoring]);

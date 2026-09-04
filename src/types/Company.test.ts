@@ -31,7 +31,7 @@ describe('CompanyOptionsSnapshot', () => {
       volumeLfo: { shape: 'sine', rate: 2, depth: 40 },
       rhythmicDensity: 60,
       rhythmicMotifLength: { active: true, value: 4 },
-      noteVariance: { active: false, value: 1 },
+      noteVariance: { active: false, value: 0 },
       octaveRange: [3, 5],
       adsr: { attack: 0.1, decay: 0.2, sustain: 0.8, release: 0.5 },
       layers: [{ type: 'sine', gain: 1, detune: 0, phase: 0 }],
