@@ -31,7 +31,14 @@
      at any height) and SleeveContainer.css's own width share one source. */
   --sleeve-bar-width: 200px;
 
-  /* Color tokens (fallbacks; prefer assets/color-theme.json mapping elsewhere) */
+  /* Color tokens. --color-bg/--color-surface/--color-accent/--color-border
+     are seed-driven at runtime (src/utils/consoleTheme.ts, applied as an
+     inline style on Tablet.tsx's .tablet root — see
+     docs/specs/CONSOLE_THEMING.md) — the values below are the pre-theme
+     fallback, visible only before the first computeConsoleTheme() result
+     lands. --color-text-primary/--color-text-muted are NOT seed-driven and
+     never change — legibility for body/label text wins over full-palette
+     variety (docs/specs/CONSOLE_THEMING.md §3). */
   --color-bg: #121212;
   --color-surface: #1a1a1a;
   --color-border: rgba(255, 255, 255, 0.08);
@@ -125,5 +132,23 @@ button:focus-visible {
 
   button {
     background-color: #f9f9f9;
+  }
+}
+
+/* Retransmitting a seed (Sector Settings) crossfades the theme rather than
+   snapping — a plain CSS transition, not GSAP/timeline-worthy on its own
+   (docs/CONSOLE_THEMING.md). Intentionally broad (every element, not one
+   component at a time — see docs/specs/CONSOLE_THEMING.md §3) but LOWER
+   specificity than any element's own transition declaration (e.g. button's
+   above), so it only applies where nothing more specific already does. */
+*, *::before, *::after {
+  transition: background-color 250ms ease, border-color 250ms ease, color 250ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Same pattern PowerRockerSwitch.css already uses for its own
+     reduced-motion handling: cancel outright, don't just shorten. */
+  *, *::before, *::after {
+    transition: none;
   }
 }
