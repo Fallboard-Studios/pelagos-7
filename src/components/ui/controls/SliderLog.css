@@ -42,6 +42,22 @@
   outline-offset: 2px;
 }
 
+.sc-slider-log__root[data-orientation='vertical'] {
+  flex-direction: column;
+  width: 20px;
+  height: var(--slider-vertical-height, 256px);
+}
+
+.sc-slider-log__track[data-orientation='vertical'] {
+  width: 3px;
+  height: 100%;
+}
+
+.sc-slider-log__range[data-orientation='vertical'] {
+  width: 100%;
+  height: auto;
+}
+
 .sc-slider-log__value {
   font-size: 0.75rem;
   color: var(--color-text-muted);
