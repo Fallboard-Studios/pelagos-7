@@ -2,8 +2,11 @@ import { SliderLinear } from '@/components/ui/controls/SliderLinear';
 import { Toggle } from '@/components/ui/controls/Toggle';
 import { Button } from '@/components/ui/controls/Button';
 import { AccordionContainer } from '@/components/ui/controls/AccordionContainer';
+import { DirectionalPanel } from '@/components/ui/controls/DirectionalPanel';
 import {
-  PING_CONTROLS_ACCORDION_SCHEMA,
+  MELODY_ACCORDION_SCHEMA,
+  PHRASING_PANEL_SCHEMA,
+  FREQUENCY_PANEL_SCHEMA,
   CLICK_TRACK_SCHEMA,
   DENSITY_SCHEMA,
   MOTIF_LENGTH_SCHEMA,
@@ -64,14 +67,17 @@ interface PingControlsDrawerProps {
 }
 
 /**
- * One AccordionContainer wrapping Density/Motif Length/Octave Range/Note Variance/Reset Melody —
- * the direct schema-driven replacement for RobotAudioTab's hand-rolled Radix sliders/toggle-
- * group. Purely presentational as of Roadmap Phase 10 (Task 14) — no `robot` prop, no store
- * access; both RobotOptionsTab (robot mode) and CompanyOptionsSection (company mode) derive
- * `value` and wire each callback through robotOptionsActions themselves. Octave Range is two
- * independent SliderLinears (not the old dual-thumb Slider) — each was a Stepper before
- * docs/specs/STEPPER_TO_SLIDER.md, same "too slow to click through" reasoning Density's own
- * SliderLinear conversion established first.
+ * One Melody AccordionContainer wrapping 2 DirectionalPanels — Phrasing (Density, Motif Length,
+ * Pitch Repeat, the dev-only Click Track toggle, Reset Melody) and Frequency (Octave Range, Note
+ * Variance) — the direct schema-driven replacement for RobotAudioTab's hand-rolled Radix
+ * sliders/toggle-group. Purely presentational as of Roadmap Phase 10 (Task 14), regrouped into
+ * Melody/Phrasing/Frequency by docs/tasks/DIRECTIONAL_PANEL_WIRING.md Task 6 — no `robot` prop,
+ * no store access; both RobotOptionsTab (robot mode) and CompanyOptionsSection (company mode)
+ * derive `value` and wire each callback through robotOptionsActions themselves, and neither call
+ * site needed any change for this restructure (`PingControlsDrawerProps` is unchanged). Octave
+ * Range is two independent SliderLinears (not the old dual-thumb Slider) — each was a Stepper
+ * before docs/specs/STEPPER_TO_SLIDER.md, same "too slow to click through" reasoning Density's
+ * own SliderLinear conversion established first.
  */
 export function PingControlsDrawer({
   value,
@@ -99,25 +105,29 @@ export function PingControlsDrawer({
   const pitchRepeatDisabled = generationDisabled || value.rhythmicMotifLength === 0;
 
   return (
-    <AccordionContainer schema={PING_CONTROLS_ACCORDION_SCHEMA}>
+    <AccordionContainer schema={MELODY_ACCORDION_SCHEMA}>
       <div className="ping-controls-drawer">
-        {/* Dev-only, same gate as the Skipped Notes debug counter (App.tsx) — a testing aid,
-            not something a production build's audience should see or be able to reach. */}
-        {DEV_TUNING && (
-          <Toggle schema={CLICK_TRACK_SCHEMA} value={value.clickTrackActive} onChange={onClickTrackActiveChange} disabled={disabled} />
-        )}
-        <SliderLinear schema={DENSITY_SCHEMA} value={value.rhythmicDensity} onChange={onDensityChange} disabled={generationDisabled} />
-        <SliderLinear schema={MOTIF_LENGTH_SCHEMA} value={value.rhythmicMotifLength} onChange={onMotifLengthChange} disabled={generationDisabled} />
-        <SliderLinear
-          schema={PITCH_REPEAT_SCHEMA}
-          value={value.pitchRepeat}
-          onChange={onPitchRepeatChange}
-          disabled={pitchRepeatDisabled}
-        />
-        <SliderLinear schema={OCTAVE_RANGE_MIN_SCHEMA} value={octMin} onChange={onOctaveMinChange} disabled={generationDisabled} />
-        <SliderLinear schema={OCTAVE_RANGE_MAX_SCHEMA} value={octMax} onChange={onOctaveMaxChange} disabled={generationDisabled} />
-        <SliderLinear schema={NOTE_VARIANCE_SCHEMA} value={value.noteVariance} onChange={onNoteVarianceChange} disabled={generationDisabled} />
-        {onResetMelody && <Button schema={RESET_MELODY_SCHEMA} onClick={onResetMelody} disabled={generationDisabled} />}
+        <DirectionalPanel schema={PHRASING_PANEL_SCHEMA}>
+          {/* Dev-only, same gate as the Skipped Notes debug counter (App.tsx) — a testing aid,
+              not something a production build's audience should see or be able to reach. */}
+          {DEV_TUNING && (
+            <Toggle schema={CLICK_TRACK_SCHEMA} value={value.clickTrackActive} onChange={onClickTrackActiveChange} disabled={disabled} />
+          )}
+          <SliderLinear schema={DENSITY_SCHEMA} value={value.rhythmicDensity} onChange={onDensityChange} disabled={generationDisabled} />
+          <SliderLinear schema={MOTIF_LENGTH_SCHEMA} value={value.rhythmicMotifLength} onChange={onMotifLengthChange} disabled={generationDisabled} />
+          <SliderLinear
+            schema={PITCH_REPEAT_SCHEMA}
+            value={value.pitchRepeat}
+            onChange={onPitchRepeatChange}
+            disabled={pitchRepeatDisabled}
+          />
+          {onResetMelody && <Button schema={RESET_MELODY_SCHEMA} onClick={onResetMelody} disabled={generationDisabled} />}
+        </DirectionalPanel>
+        <DirectionalPanel schema={FREQUENCY_PANEL_SCHEMA}>
+          <SliderLinear schema={OCTAVE_RANGE_MIN_SCHEMA} value={octMin} onChange={onOctaveMinChange} disabled={generationDisabled} />
+          <SliderLinear schema={OCTAVE_RANGE_MAX_SCHEMA} value={octMax} onChange={onOctaveMaxChange} disabled={generationDisabled} />
+          <SliderLinear schema={NOTE_VARIANCE_SCHEMA} value={value.noteVariance} onChange={onNoteVarianceChange} disabled={generationDisabled} />
+        </DirectionalPanel>
       </div>
     </AccordionContainer>
   );

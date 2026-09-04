@@ -28,8 +28,8 @@ describe('PingControlsDrawer', () => {
     mockDevTuning = true;
   });
 
-  it('wraps its controls in exactly one AccordionContainer', () => {
-    render(
+  it('wraps its content in exactly one Melody accordion, containing 2 nested panels — Phrasing and Frequency (DIRECTIONAL_PANEL_WIRING Task 6)', () => {
+    const { container } = render(
       <PingControlsDrawer
         value={makeValue()}
         onDensityChange={() => {}}
@@ -41,7 +41,39 @@ describe('PingControlsDrawer', () => {
         onPitchRepeatChange={() => {}}
       />
     );
-    expect(screen.getAllByText('Ping Controls')).toHaveLength(1);
+    expect(container.querySelectorAll('.sc-accordion')).toHaveLength(1);
+    expect(screen.getAllByText('Melody')).toHaveLength(1);
+    expect(screen.getByText('Phrasing')).toBeTruthy();
+    expect(screen.getByText('Frequency')).toBeTruthy();
+    expect(screen.queryByText('Ping Controls')).toBeNull(); // old flat accordion label is gone
+  });
+
+  it('Density, Motif Length, and Pitch Repeat render inside the Phrasing panel; Octave Min/Max and Note Variance render inside the Frequency panel', () => {
+    render(
+      <PingControlsDrawer
+        value={makeValue()}
+        onDensityChange={() => {}}
+        onMotifLengthChange={() => {}}
+        onOctaveMinChange={() => {}}
+        onOctaveMaxChange={() => {}}
+        onNoteVarianceChange={() => {}}
+        onClickTrackActiveChange={() => {}}
+        onPitchRepeatChange={() => {}}
+        onResetMelody={() => {}}
+      />
+    );
+    const phrasingPanel = screen.getByText('Phrasing').closest('.sc-directional-panel')!;
+    const frequencyPanel = screen.getByText('Frequency').closest('.sc-directional-panel')!;
+
+    expect(phrasingPanel.contains(screen.getByRole('slider', { name: /density/i }))).toBe(true);
+    expect(phrasingPanel.contains(screen.getByRole('slider', { name: /motif length/i }))).toBe(true);
+    expect(phrasingPanel.contains(screen.getByRole('slider', { name: /pitch repeat/i }))).toBe(true);
+    expect(phrasingPanel.contains(screen.getByRole('switch', { name: /Click Track/i }))).toBe(true);
+    expect(phrasingPanel.contains(screen.getByRole('button', { name: 'Reset Melody' }))).toBe(true);
+
+    expect(frequencyPanel.contains(screen.getByRole('slider', { name: /octave range min/i }))).toBe(true);
+    expect(frequencyPanel.contains(screen.getByRole('slider', { name: /octave range max/i }))).toBe(true);
+    expect(frequencyPanel.contains(screen.getByRole('slider', { name: /note variance/i }))).toBe(true);
   });
 
   it('changing Density calls onDensityChange', () => {
