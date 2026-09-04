@@ -52,9 +52,9 @@ All 14 live in `src/components/ui/controls/`. Naming: PascalCase files, CSS clas
 | `Stepper` | `StepperSchema` | `{ schema: StepperSchema; value: number; onChange: (value: number) => void; disabled?: boolean }` | None — every former consumer (Density, Octave Range Min/Max, and Compressor Ratio in `audioRigConfig.ts`) moved to `SliderLinear`; see `SliderLinear`'s row below and docs/specs/STEPPER_TO_SLIDER.md. Kept in the codebase, unused by any real app schema. |
 | `StepperWithToggle` | `StepperWithToggleSchema` | `{ schema: StepperWithToggleSchema; value: { active: boolean; value: number }; onChange: (value) => void }` — composes `Toggle` + `Stepper` (disabled when `!active`) | None — Motif Length/Note Variance moved to `SliderLinear` (docs/specs/STEPPER_TO_SLIDER.md); the toggle they used to compose was removed entirely, not replaced. Kept in the codebase, unused by any real app schema. |
 | `RadioButton` | `RadioButtonSchema` | `{ schema: RadioButtonSchema; value: string; onChange: (value: string) => void }` — wraps `@radix-ui/react-toggle-group` (`type="single"`) | Audio Setting, Layer Type, LFO Shape |
-| `SliderLinear` | `SliderLinearSchema` | `{ schema: SliderLinearSchema; value: number; onChange: (value: number) => void }` | Volume, Sustain, Gain, Phase, Interval, LFO Rate/Depth, Density, Motif Length, Note Variance, Octave Range Min/Max, Compressor Ratio |
-| `SliderLog` | `SliderLogSchema` | `{ schema: SliderLogSchema; value: number; onChange: (value: number) => void }` — epsilon-floor log curve, see below | Attack, Decay, Release |
-| `SliderCenteredZero` | `SliderCenteredZeroSchema` | `{ schema: SliderCenteredZeroSchema; value: number; onChange: (value: number) => void }` — zero-anchored custom fill, see below | Detune (all 3 layers) |
+| `SliderLinear` | `SliderLinearSchema` | `{ schema: SliderLinearSchema; value: number; onChange: (value: number) => void; disabled?: boolean; verticalHeight?: number }` — renders all 3 `SliderOrientation` values, see below | Volume, Sustain, Gain, Phase, Interval, LFO Rate/Depth, Density, Motif Length, Note Variance, Octave Range Min/Max, Compressor Ratio |
+| `SliderLog` | `SliderLogSchema` | `{ schema: SliderLogSchema; value: number; onChange: (value: number) => void; disabled?: boolean; verticalHeight?: number }` — epsilon-floor log curve, see below; orientation-aware the same way `SliderLinear` is | Attack, Decay, Release |
+| `SliderCenteredZero` | `SliderCenteredZeroSchema` | `{ schema: SliderCenteredZeroSchema; value: number; onChange: (value: number) => void; disabled?: boolean; verticalHeight?: number }` — zero-anchored custom fill, see below; orientation-aware the same way `SliderLinear` is | Detune (all 3 layers) |
 | `CoordsInput` | `CoordsInputSchema` | `{ schema: CoordsInputSchema; value: { x: number; y: number }; onChange: (value) => void }` — composes two `TextInput`s with `numeric` set, so X/Y render as native numeric inputs; a blank or non-numeric field is guarded and does not call `onChange` | Not in the robot grid — roadmap Phase 5's Sector Settings |
 | `AccordionContainer` | `AccordionSchema` | `{ schema: AccordionSchema; children: ReactNode; defaultOpen?: boolean }` — one independent collapsible section, not a group coordinator | Ping Controls, Ping Contour, Signature Array (drawer rows) |
 | `Lfo` | `LfoSchema` | `{ schema: LfoSchema; value: LfoValue; onChange: (value: LfoValue) => void; disabled?: boolean }` — composes `RadioButton` + 2×`SliderLinear` + `Toggle` | OSCILLATION rows (LFO Active/Shape/Rate/Depth) |
@@ -64,13 +64,25 @@ All 14 live in `src/components/ui/controls/`. Naming: PascalCase files, CSS clas
 
 The 14th primitive, and the first dropdown in the inventory — the 13 shipped by this phase had no options-list control that opens a floating panel (`RadioButton`'s segmented toggle-group doesn't scale to an open-ended, user-growable list like companies). Same props shape as `RadioButton`, the closest existing precedent (an options-list control wrapping a Radix primitive), plus `disabled` — which every other options-list control here already had by the time this one shipped. `@radix-ui/react-select` was already present in `package.json` from an earlier install; this primitive is simply its first real consumer, so adding it required no new dependency and no confirmation-with-user step the way `@radix-ui/react-accordion` did in this phase's own history.
 
+### Slider orientation (`SliderOrientation`)
+
+`SliderLinearSchema`/`SliderLogSchema`/`SliderCenteredZeroSchema` each carry a required `orientation: SliderOrientation` field (`src/types/controls.ts`), resolving `docs/specs/VERTICAL_SLIDERS.md`:
+
+- **`'horizontal'`** — the original, still-default rendering (unchanged from before this field existed).
+- **`'vertical'`** — Radix `orientation="vertical"`, track height defaults to 256px via the `--slider-vertical-height` CSS custom property (`src/index.css`), overridable per-instance through the `verticalHeight` prop. Layout order is label → value readout → track (not the horizontal order's track → value) — the value renders above the track specifically so a dragging thumb can never cover it.
+- **`'auto'`** — resolved at render time by `src/components/ui/controls/useAutoSliderOrientation.ts`: a `ResizeObserver` measures the slider's *parent* element (never the slider's own rendered box — flipping orientation changes that box's own size, which would feed back into a self-observed measurement) and resolves to whichever axis, width or height, is longer. Defaults to `'horizontal'` before the first measurement.
+
+`SliderCenteredZero`'s zero-anchored fill (below) needs no separate vertical math — its `{ left, width }` percentages are already axis-agnostic (0% = `min`, 100% = `max`) and are reused unchanged as `{ bottom, height }` on the vertical axis, since Radix's vertical slider already places `min` at the bottom and `max` at the top by default.
+
+No drawer currently gives an `'auto'` slider a parent sized independently of its own content, so `'auto'` sliders render horizontal-looking in every real screen today — expected, not a bug; reworking any drawer's layout into real side-by-side groupings is deferred to a later pass (`docs/specs/VERTICAL_SLIDERS.md` §1.2, §7).
+
 ### `SliderLog`'s epsilon-floor curve
 
 A pure `value = min * (max/min)^t` exponential is undefined at `min = 0` (Attack/Decay/Release all start at 0s). `src/components/ui/controls/sliderLogMath.ts` resolves this: the Radix track operates on an internal `t ∈ [0, 1]`; `t = 0` maps to exactly `schema.min` (including `min = 0`), otherwise `floor * (max/floor)^t` where `floor = Math.max(min, LOG_EPSILON)` and `LOG_EPSILON = 0.001`. `onChange` always receives the mapped display value, never the raw internal `t`.
 
 ### `SliderCenteredZero`'s zero-anchored fill
 
-Radix's own `Slider.Range` fills from the track start, not a center zero-point. `src/components/ui/controls/sliderCenteredZeroMath.ts` computes the zero point generally — `(0 - min) / (max - min) * 100%`, not hardcoded to 50% — and a custom fill `<div>` spans from that zero point to the thumb's position via computed inline `left`/`width` styles (the code style's documented exception to "no inline style objects"). Radix's own `Range` stays in the DOM (visually hidden) for structural/a11y parity.
+Radix's own `Slider.Range` fills from the track start, not a center zero-point. `src/components/ui/controls/sliderCenteredZeroMath.ts` computes the zero point generally — `(0 - min) / (max - min) * 100%`, not hardcoded to 50% — and a custom fill `<div>` spans from that zero point to the thumb's position via computed inline styles: `left`/`width` when horizontal, `bottom`/`height` when vertical (the code style's documented exception to "no inline style objects" — see "Slider orientation" above). Radix's own `Range` stays in the DOM (visually hidden) for structural/a11y parity.
 
 ### Displayed-value precision cap
 
