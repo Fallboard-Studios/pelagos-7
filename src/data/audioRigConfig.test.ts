@@ -397,11 +397,15 @@ describe('slider orientation classification (docs/specs/VERTICAL_SLIDERS.md §1.
     }
   });
 
-  it('Compressor (Threshold/Attack/Release/Knee) is auto — Ratio is a Stepper, not a slider, and carries no orientation', () => {
-    for (const field of ['threshold', 'attack', 'release', 'knee']) {
+  it('Compressor (Threshold/Ratio/Attack/Release/Knee) is auto', () => {
+    // Ratio was a Stepper when this classification was first written
+    // (docs/specs/VERTICAL_SLIDERS.md predates the Stepper->Slider conversion) —
+    // converted to a slider by the separate STEPPER_TO_SLIDER work
+    // (audioRigConfig.ts Task 8), merged in afterward. Same Compressor block, same
+    // "everything auto" classification, now that it's a real slider to classify.
+    for (const field of ['threshold', 'ratio', 'attack', 'release', 'knee']) {
       expect(orientationOf(findParam('compressor', field).schema), field).toBe('auto');
     }
-    expect(orientationOf(findParam('compressor', 'ratio').schema)).toBeUndefined();
   });
 
   it('Limiter (Threshold) is auto', () => {

@@ -130,6 +130,7 @@ export const MOTIF_LENGTH_SCHEMA: SliderLinearSchema = {
   min: RHYTHMIC_MOTIF_LENGTH_MIN,
   max: RHYTHMIC_MOTIF_LENGTH_MAX,
   step: 1,
+  orientation: 'auto',
 };
 
 /**
@@ -159,6 +160,7 @@ export const OCTAVE_RANGE_MIN_SCHEMA: SliderLinearSchema = {
   min: OCTAVE_RANGE_MIN,
   max: OCTAVE_RANGE_MAX,
   step: 1,
+  orientation: 'auto',
 };
 
 export const OCTAVE_RANGE_MAX_SCHEMA: SliderLinearSchema = {
@@ -169,6 +171,7 @@ export const OCTAVE_RANGE_MAX_SCHEMA: SliderLinearSchema = {
   min: OCTAVE_RANGE_MIN,
   max: OCTAVE_RANGE_MAX,
   step: 1,
+  orientation: 'auto',
 };
 
 export const NOTE_VARIANCE_SCHEMA: SliderLinearSchema = {
@@ -179,6 +182,7 @@ export const NOTE_VARIANCE_SCHEMA: SliderLinearSchema = {
   min: NOTE_VARIANCE_MIN,
   max: NOTE_VARIANCE_MAX,
   step: 1,
+  orientation: 'auto',
 };
 
 /** Plain one-click Button — no confirmation dialog, confirmed during /interview-me for
