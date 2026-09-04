@@ -618,7 +618,7 @@ describe('generateMelodyForRobot — GenerateMelodyForRobotOptions', () => {
   it('applies behavior-preserving defaults when rhythmicDensity/rhythmicMotifLength/noteVariance are omitted', () => {
     expect(DEFAULT_RHYTHMIC_DENSITY).toBe(50);
     expect(DEFAULT_RHYTHMIC_MOTIF_LENGTH).toEqual({ active: true, value: 8 });
-    expect(DEFAULT_NOTE_VARIANCE).toEqual({ active: false, value: 1 });
+    expect(DEFAULT_NOTE_VARIANCE).toEqual({ active: false, value: 0 });
     const melody = generateMelodyForRobot({ octaveMin: 3, octaveMax: 4, seed: 9 });
     expect(melody.length).toBeGreaterThanOrEqual(1);
   });
