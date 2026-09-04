@@ -65,14 +65,17 @@ export { DAY_DURATION_MS, computeLocaleHour } from './time';
  *
  * `rhythmicDensity` is a 0-100% fill rate (not an onset count). `rhythmicMotifLength`
  * and `noteVariance` are both `{ active: boolean; value: number }` — MIN/MAX below
- * bound the nested `value`, 1-8 for both. `active: false` is the sole "off" state for
- * each; `value` itself has no reachable "off"/magic-zero meaning.
+ * bound the nested `value`, 0-8 for both (docs/specs/STEPPER_TO_SLIDER.md). `value === 0`
+ * is now itself the "off" state for each; `active` is a derived, enforced consequence of
+ * `value > 0` everywhere a payload for these two fields is written, never independently
+ * settable. (Prior to that phase, `value`'s floor was 1 and `active: false` was the sole
+ * off state — this reverses that.)
  */
 export const RHYTHMIC_DENSITY_MIN = 0;
 export const RHYTHMIC_DENSITY_MAX = 100;
-export const RHYTHMIC_MOTIF_LENGTH_MIN = 1;
+export const RHYTHMIC_MOTIF_LENGTH_MIN = 0;
 export const RHYTHMIC_MOTIF_LENGTH_MAX = 8;
-export const NOTE_VARIANCE_MIN = 1;
+export const NOTE_VARIANCE_MIN = 0;
 export const NOTE_VARIANCE_MAX = 8;
 export const OCTAVE_RANGE_MIN = 1;
 export const OCTAVE_RANGE_MAX = 7;
