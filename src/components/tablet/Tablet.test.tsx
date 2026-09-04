@@ -35,4 +35,20 @@ describe('Tablet', () => {
     expect(getByTestId('sleeve-plain')).toBeTruthy();
     expect(getByTestId('screen-viewport-stub')).toBeTruthy();
   });
+
+  it('applies the seed-driven console theme as inline CSS custom properties on .tablet, using real default store state', () => {
+    // attenuationStyleStore/localeStore are NOT mocked here — the real
+    // default AS/locale populate fine, same as the two tests above (per
+    // docs/specs/CONSOLE_THEMING.md §5's Tablet.test.tsx requirement).
+    const { container } = render(<Tablet />);
+    const tablet = container.querySelector('.tablet') as HTMLElement | null;
+    expect(tablet).toBeTruthy();
+
+    const style = tablet!.style;
+    for (const prop of ['--color-bg', '--color-surface', '--color-accent', '--color-border']) {
+      const value = style.getPropertyValue(prop);
+      expect(value, `${prop} on .tablet's inline style`).not.toBe('');
+      expect(value, `${prop} on .tablet's inline style`).toMatch(/^hsl\(\d+ \d+% \d+%\)$/);
+    }
+  });
 });
