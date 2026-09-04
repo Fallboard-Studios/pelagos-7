@@ -16,7 +16,7 @@ interface ControlSchemaBase {
 }
 ```
 
-`CONTROL_SCHEMA_TYPES` is a `readonly` array of all 14 discriminant strings, mirroring `src/types/lfo.ts`'s `LFO_SHAPES`/`ROBOT_LFO_TARGET_IDS` pattern — it makes "all 14 variants covered, no duplicates" a runtime-testable assertion (`src/types/controls.test.ts`), not just a compile-time property. `select` (`Select`) was added in Roadmap Phase 10 (Companies), the first addition to this inventory since this phase shipped it at 13.
+`CONTROL_SCHEMA_TYPES` is a `readonly` array of all 15 discriminant strings, mirroring `src/types/lfo.ts`'s `LFO_SHAPES`/`ROBOT_LFO_TARGET_IDS` pattern — it makes "all 15 variants covered, no duplicates" a runtime-testable assertion (`src/types/controls.test.ts`), not just a compile-time property. `select` (`Select`) was added in Roadmap Phase 10 (Companies), the first addition to this inventory since this phase shipped it at 13; `directionalPanel` (`DirectionalPanel`) is the second, added by `docs/specs/DIRECTIONAL_PANEL.md`.
 
 `LfoValue` (`LfoSettings & { active: boolean }`) is the `Lfo` component's controlled value — a type-only reuse of the real Phase 0 engine type (`src/types/lfo.ts`), with no import of `src/engine/lfoEngine.ts` or any `Tone` object.
 
@@ -41,7 +41,7 @@ Because `loreLabel`/`humanLabel` are both optional (`ControlSchemaBase`, exporte
 
 ## Primitives
 
-All 14 live in `src/components/ui/controls/`. Naming: PascalCase files, CSS class prefix `sc-` (schema control) to avoid collisions with the existing `rat-`/`rocker-` prefixes.
+All 15 live in `src/components/ui/controls/`. Naming: PascalCase files, CSS class prefix `sc-` (schema control) to avoid collisions with the existing `rat-`/`rocker-` prefixes.
 
 | Component | `ControlSchema` variant | Props | `ROBOT_DATA_GRID.md` row(s) |
 |---|---|---|---|
@@ -59,6 +59,7 @@ All 14 live in `src/components/ui/controls/`. Naming: PascalCase files, CSS clas
 | `AccordionContainer` | `AccordionSchema` | `{ schema: AccordionSchema; children: ReactNode; defaultOpen?: boolean }` — one independent collapsible section, not a group coordinator | Ping Controls, Ping Contour, Signature Array (drawer rows) |
 | `Lfo` | `LfoSchema` | `{ schema: LfoSchema; value: LfoValue; onChange: (value: LfoValue) => void; disabled?: boolean }` — composes `RadioButton` + 2×`SliderLinear` + `Toggle` | OSCILLATION rows (LFO Active/Shape/Rate/Depth) |
 | `Select` | `SelectSchema` | `{ schema: SelectSchema; value: string; onChange: (value: string) => void; disabled?: boolean }` — wraps `@radix-ui/react-select` (already a dependency before this primitive existed — no new package added) | Not in the robot grid — Roadmap Phase 10's robot-to-company assignment dropdown (`src/data/companyConfig.ts`'s `buildCompanySelectSchema`) |
+| `DirectionalPanel` | `DirectionalPanelSchema` | `{ schema: DirectionalPanelSchema; children: ReactNode }` — pure layout container, no `value`/`onChange`, no state; see "Panel orientation" below | Not in the robot grid — pure layout, no data-backed field |
 
 ### `Select` (added Roadmap Phase 10)
 
@@ -75,6 +76,14 @@ The 14th primitive, and the first dropdown in the inventory — the 13 shipped b
 `SliderCenteredZero`'s zero-anchored fill (below) needs no separate vertical math — its `{ left, width }` percentages are already axis-agnostic (0% = `min`, 100% = `max`) and are reused unchanged as `{ bottom, height }` on the vertical axis, since Radix's vertical slider already places `min` at the bottom and `max` at the top by default.
 
 No drawer currently gives an `'auto'` slider a parent sized independently of its own content, so `'auto'` sliders render horizontal-looking in every real screen today — expected, not a bug; reworking any drawer's layout into real side-by-side groupings is deferred to a later pass (`docs/specs/VERTICAL_SLIDERS.md` §1.2, §7).
+
+### Panel orientation (`PanelOrientation`)
+
+`DirectionalPanelSchema` carries an *optional* `orientation?: PanelOrientation` field (`'row' | 'column'`, `src/types/controls.ts`) — the opposite of the 3 sliders' `SliderOrientation`, which is required. Omitting it defaults to `'row'` inside the component, not the type. The resolved value is exposed as `data-orientation="row" | "column"` on the component's content wrapper, reusing the same `data-orientation` CSS-attribute-selector pattern the slider orientation work established above, rather than inventing a second one. `'row'` is always `flex-wrap: nowrap` — there is no `wrap` prop; an overflowing row is solved by nesting another `DirectionalPanel` around the group that needs to break, not by this component growing wrap behavior.
+
+`DirectionalPanel` is a pure layout container: no `value`/`onChange`, no state of its own (not even `AccordionContainer`'s open/closed `useState`), and no Radix primitive wrapped — plain CSS flexbox is enough since there's no interactive behavior to manage. It composes standalone (same `{ schema, children }` shape as every other primitive — no dependency on `AccordionContainer`), and nesting `DirectionalPanel` inside `DirectionalPanel` is the intended way to build 2D layouts from this one axis-flippable primitive, the same way flexbox itself or an `HStack`/`VStack`-style stack does. It composes safely around `LfoTargetGroup`'s click/focus-targeted rows (below) too — wrapping *around* them, never replacing them, since `DirectionalPanel` adds no event handlers of its own and has no prop passthrough for `onClick`/`onFocus`/`className`.
+
+Full design rationale, including the `LfoTargetGroup` composability check and the shallow real-world nesting depth against the app's actual multi-slider groups: `docs/specs/DIRECTIONAL_PANEL.md`. No drawer is wired to this primitive yet — it shipped standalone, consumers land in a follow-up pass.
 
 ### `SliderLog`'s epsilon-floor curve
 
@@ -99,7 +108,7 @@ The trigger's contents, left to right: a decorative `+`/`−` open-state indicat
 
 ## Shared composition components
 
-Not part of the 14-primitive `ControlSchema` inventory above — these compose several already-rendered primitives (caller-rendered sliders, one `Lfo`) rather than rendering from a single schema-driven leaf. No new `ControlSchema` variant was added for either.
+Not part of the 15-primitive `ControlSchema` inventory above — these compose several already-rendered primitives (caller-rendered sliders, one `Lfo`) rather than rendering from a single schema-driven leaf. No new `ControlSchema` variant was added for either.
 
 ### `LfoTargetGroup` / `useLfoTargetGroup`
 
