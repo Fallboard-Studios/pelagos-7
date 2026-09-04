@@ -15,7 +15,7 @@
  * block instead of a nested accordion per param — this file no longer
  * carries a per-param accordion schema of its own.
  */
-import type { ControlSchema, AccordionSchema, RadioButtonSchema, SliderCenteredZeroSchema, SliderLinearSchema } from '@/types/controls';
+import type { ControlSchema, AccordionSchema, DirectionalPanelSchema, PanelOrientation, RadioButtonSchema, SliderCenteredZeroSchema, SliderLinearSchema } from '@/types/controls';
 import type { GlobalLfoTargetId, DriftGroupId } from '@/types/lfo';
 
 // ========================================
@@ -37,6 +37,11 @@ export interface AudioRigEffectBlock {
   /** Matches GlobalAudioSettings' own key. */
   key: AudioRigEffectKey;
   accordion: AccordionSchema;
+  /** DirectionalPanel wiring (docs/tasks/DIRECTIONAL_PANEL_WIRING.md) — same id/loreLabel/
+   *  humanLabel as `accordion` above, added alongside it (additive staging, Task 1). Once every
+   *  consumer switches to rendering blocks as panels nested in AUDIO_RIG_ACCORDION_GROUPS'
+   *  top-level accordions, `accordion` is removed (Task 2). */
+  panel: DirectionalPanelSchema;
   params: AudioRigParamSchema[];
 }
 
@@ -44,8 +49,19 @@ export interface AudioRigEffectBlock {
 // HELPERS
 // ========================================
 
-function accordionSchema(key: AudioRigEffectKey, loreLabel: string, humanLabel: string): AccordionSchema {
-  return { id: `audioRig.${key}`, type: 'accordion', loreLabel, humanLabel };
+/** `id` was `key: AudioRigEffectKey`-typed until Task 1 — loosened to `string` so it can also
+ *  build the 4 new top-level accordions in AUDIO_RIG_ACCORDION_GROUPS/
+ *  TRANSPORT_COMPOSITION_ACCORDION_SCHEMA below, none of which are AudioRigEffectKeys. Every
+ *  existing call site still passes an AudioRigEffectKey, itself a string, so this widening is
+ *  source-compatible. */
+function accordionSchema(id: string, loreLabel: string, humanLabel: string): AccordionSchema {
+  return { id: `audioRig.${id}`, type: 'accordion', loreLabel, humanLabel };
+}
+
+/** DirectionalPanel counterpart to accordionSchema() above — same id/loreLabel/humanLabel
+ *  shape, plus the orientation every DirectionalPanel needs. */
+function panelSchema(key: AudioRigEffectKey, loreLabel: string, humanLabel: string, orientation: PanelOrientation): DirectionalPanelSchema {
+  return { id: `audioRig.${key}`, type: 'directionalPanel', loreLabel, humanLabel, orientation };
 }
 
 // ========================================
@@ -56,6 +72,7 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
   {
     key: 'eq3',
     accordion: accordionSchema('eq3', 'SPECTRAL FREQUENCY EQUALIZER', '3-Band EQ'),
+    panel: panelSchema('eq3', 'SPECTRAL FREQUENCY EQUALIZER', '3-Band EQ', 'row'),
     params: [
       {
         field: 'low',
@@ -77,6 +94,7 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
   {
     key: 'filterLPF',
     accordion: accordionSchema('filterLPF', 'HIGH-FREQUENCY MASK', 'Low-Pass Filter'),
+    panel: panelSchema('filterLPF', 'HIGH-FREQUENCY MASK', 'Low-Pass Filter', 'column'),
     params: [
       {
         field: 'frequency',
@@ -93,6 +111,7 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
   {
     key: 'filterHPF',
     accordion: accordionSchema('filterHPF', 'LOW-FREQUENCY MASK', 'High-Pass Filter'),
+    panel: panelSchema('filterHPF', 'LOW-FREQUENCY MASK', 'High-Pass Filter', 'column'),
     params: [
       {
         field: 'frequency',
@@ -109,6 +128,7 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
   {
     key: 'delay',
     accordion: accordionSchema('delay', 'TEMPORAL REFLECTION MATRIX', 'Delay'),
+    panel: panelSchema('delay', 'TEMPORAL REFLECTION MATRIX', 'Delay', 'column'),
     params: [
       // No lfoTarget/lfoAccordion — LFO removed from delayTime; the effect
       // still seeds/edits its value normally (GlobalAudioSeedFieldKey is a
@@ -121,6 +141,7 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
   {
     key: 'reverb',
     accordion: accordionSchema('reverb', 'SPATIAL DIFFUSION MATRIX', 'Reverb'),
+    panel: panelSchema('reverb', 'SPATIAL DIFFUSION MATRIX', 'Reverb', 'column'),
     params: [
       { field: 'decay', schema: { id: 'reverb.decay', type: 'sliderLog', loreLabel: 'DISSIPATION DURATION', humanLabel: 'Decay', min: 0.1, max: 10, unit: 's', orientation: 'auto' } },
       { field: 'preDelay', schema: { id: 'reverb.preDelay', type: 'sliderLinear', loreLabel: 'INITIAL LAG', humanLabel: 'Pre-Delay', min: 0, max: 0.5, step: 0.01, unit: 's', orientation: 'auto' } },
@@ -132,6 +153,7 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
   {
     key: 'compressor',
     accordion: accordionSchema('compressor', 'DYNAMIC RANGE CONDENSER', 'Compressor'),
+    panel: panelSchema('compressor', 'DYNAMIC RANGE CONDENSER', 'Compressor', 'column'),
     params: [
       { field: 'threshold', schema: { id: 'compressor.threshold', type: 'sliderLinear', loreLabel: 'ATTENUATION THRESHOLD', humanLabel: 'Threshold', min: -60, max: 0, unit: 'dB', orientation: 'auto' } },
       { field: 'ratio', schema: { id: 'compressor.ratio', type: 'sliderLinear', loreLabel: 'COMPRESSION RATIO', humanLabel: 'Ratio', min: 1, max: 20, step: 1, orientation: 'auto' } },
@@ -143,6 +165,7 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
   {
     key: 'limiter',
     accordion: accordionSchema('limiter', 'TERMINAL CEILING GATE', 'Limiter'),
+    panel: panelSchema('limiter', 'TERMINAL CEILING GATE', 'Limiter', 'column'),
     params: [
       // No lfoTarget/lfoAccordion — Limiter never gets an LFO (spec: not a
       // GlobalLfoTargetId member, consistent with Compressor/Reverb having none).
@@ -189,6 +212,12 @@ export const DECAY_MODE_SCHEMA: RadioButtonSchema = {
 export interface LfoDriftGroupSchema {
   group: DriftGroupId;
   accordion: AccordionSchema;
+  /** DirectionalPanel wiring (docs/tasks/DIRECTIONAL_PANEL_WIRING.md) — same id/loreLabel/
+   *  humanLabel as `accordion` above, added alongside it (additive staging, Task 1). Only the
+   *  'robots' entry's `.panel` is actually read post-wiring (AudioRigDrawer.tsx nests it inside
+   *  Transport & Composition); the eq3/filterLPF/filterHPF entries keep it for schema-shape
+   *  consistency across this array, same as their `.accordion` field is unused by the drawer today. */
+  panel: DirectionalPanelSchema;
   rateSchema: SliderCenteredZeroSchema;
   depthSchema: SliderCenteredZeroSchema;
 }
@@ -197,6 +226,7 @@ function driftGroupSchema(group: DriftGroupId, loreLabel: string, humanLabel: st
   return {
     group,
     accordion: { id: `audioRig.lfoDrift.${group}`, type: 'accordion', loreLabel, humanLabel },
+    panel: { id: `audioRig.lfoDrift.${group}`, type: 'directionalPanel', loreLabel, humanLabel, orientation: 'column' },
     rateSchema: {
       id: `audioRig.lfoDrift.${group}.rateDrift`,
       type: 'sliderCenteredZero',
@@ -275,3 +305,43 @@ export const BPM_SCHEMA: SliderLinearSchema = {
   unit: 'BPM',
   orientation: 'horizontal',
 };
+
+// ========================================
+// DIRECTIONAL PANEL WIRING — new top-level accordions
+// (docs/specs/DIRECTIONAL_PANEL_WIRING.md §4.1)
+// ========================================
+
+/**
+ * The 4th top-level accordion — not keyed to any AudioRigEffectBlock, wraps
+ * SPEED_AUTOMATION_PANEL_SCHEMA (Automatic Effects + Tempo) and the 'robots' LFO_DRIFT_GROUPS
+ * entry's own panel. Built via the same accordionSchema() helper every other top-level accordion
+ * uses (loosened to take a plain `id: string` above).
+ */
+export const TRANSPORT_COMPOSITION_ACCORDION_SCHEMA: AccordionSchema =
+  accordionSchema('transportComposition', 'CHRONOMETRIC CONTROL ARRAY', 'Transport & Composition');
+
+/**
+ * Wraps PING_VARIANCE_AUTOMATION_SCHEMA + BPM_SCHEMA — today's two bare
+ * `audio-rig-drawer__master-row` sliders, given a panel of their own inside Transport &
+ * Composition. No prior accordion to inherit copy from (intent doc) — first-pass invented lore,
+ * same "confirm during manual check" treatment as LFO_DRIFT_GROUPS' own labels.
+ */
+export const SPEED_AUTOMATION_PANEL_SCHEMA: DirectionalPanelSchema = {
+  id: 'audioRig.speedAutomation',
+  type: 'directionalPanel',
+  loreLabel: 'CHRONOMETRIC CONTROL ARRAY',
+  humanLabel: 'Speed & Automation',
+  orientation: 'column',
+};
+
+/**
+ * The 3 remaining top-level accordions, each grouping a fixed set of AUDIO_RIG_CONFIG block keys
+ * (looked up by key at render time — AudioRigDrawer.tsx no longer maps AUDIO_RIG_CONFIG directly).
+ * Order matches docs/intent/directional-panel-wiring.md's Outcome table: EQ & Filters, Time &
+ * Space, Output.
+ */
+export const AUDIO_RIG_ACCORDION_GROUPS: { accordion: AccordionSchema; blockKeys: AudioRigEffectKey[] }[] = [
+  { accordion: accordionSchema('eqFilters', 'SPECTRAL CONDITIONING SUITE', 'EQ & Filters'), blockKeys: ['eq3', 'filterLPF', 'filterHPF'] },
+  { accordion: accordionSchema('timeSpace', 'TEMPORAL-SPATIAL PROCESSING SUITE', 'Time & Space'), blockKeys: ['delay', 'reverb'] },
+  { accordion: accordionSchema('output', 'TERMINAL SIGNAL CONDITIONING', 'Output'), blockKeys: ['compressor', 'limiter'] },
+];

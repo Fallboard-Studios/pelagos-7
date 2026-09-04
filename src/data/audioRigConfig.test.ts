@@ -3,7 +3,16 @@
 // ========================================
 import { describe, it, expect } from 'vitest';
 
-import { AUDIO_RIG_CONFIG, DECAY_MODE_SCHEMA, LFO_DRIFT_GROUPS, PING_VARIANCE_AUTOMATION_SCHEMA, BPM_SCHEMA } from './audioRigConfig';
+import {
+  AUDIO_RIG_CONFIG,
+  DECAY_MODE_SCHEMA,
+  LFO_DRIFT_GROUPS,
+  PING_VARIANCE_AUTOMATION_SCHEMA,
+  BPM_SCHEMA,
+  AUDIO_RIG_ACCORDION_GROUPS,
+  TRANSPORT_COMPOSITION_ACCORDION_SCHEMA,
+  SPEED_AUTOMATION_PANEL_SCHEMA,
+} from './audioRigConfig';
 import { DRIFT_GROUP_IDS } from '../types/lfo';
 import { GLOBAL_LFO_TARGET_IDS } from '../types/lfo';
 import type { ControlSchema } from '@/types/controls';
@@ -422,5 +431,135 @@ describe('slider orientation classification (docs/specs/VERTICAL_SLIDERS.md §1.
   it('Automatic Effects (PING_VARIANCE_AUTOMATION_SCHEMA) and Tempo (BPM_SCHEMA) are horizontal', () => {
     expect(PING_VARIANCE_AUTOMATION_SCHEMA.orientation).toBe('horizontal');
     expect(BPM_SCHEMA.orientation).toBe('horizontal');
+  });
+});
+
+// ========================================
+// DirectionalPanel wiring — additive schema work
+// (docs/tasks/DIRECTIONAL_PANEL_WIRING.md Task 1)
+// ========================================
+
+describe('AudioRigEffectBlock.panel (additive — coexists with .accordion, Task 1)', () => {
+  it('every block has a panel field, type directionalPanel, same id as its accordion', () => {
+    for (const block of AUDIO_RIG_CONFIG) {
+      expect(block.panel, block.key).toMatchObject({ id: `audioRig.${block.key}`, type: 'directionalPanel' });
+    }
+  });
+
+  it("every panel's loreLabel/humanLabel is byte-identical to its sibling accordion's text — verbatim preservation", () => {
+    for (const block of AUDIO_RIG_CONFIG) {
+      expect(block.panel.loreLabel, block.key).toBe(block.accordion.loreLabel);
+      expect(block.panel.humanLabel, block.key).toBe(block.accordion.humanLabel);
+    }
+  });
+
+  it('eq3 is the only row-orientation panel — every other block is column', () => {
+    for (const block of AUDIO_RIG_CONFIG) {
+      expect(block.panel.orientation, block.key).toBe(block.key === 'eq3' ? 'row' : 'column');
+    }
+  });
+
+  it('leaves the existing accordion field untouched — nothing removed this task', () => {
+    for (const block of AUDIO_RIG_CONFIG) {
+      expect(block.accordion, block.key).toMatchObject({ id: `audioRig.${block.key}`, type: 'accordion' });
+    }
+  });
+});
+
+describe('LfoDriftGroupSchema.panel (additive — coexists with .accordion, Task 1)', () => {
+  it('every drift group has a panel field, type directionalPanel, column orientation, same id as its accordion', () => {
+    for (const group of LFO_DRIFT_GROUPS) {
+      expect(group.panel, group.group).toMatchObject({
+        id: `audioRig.lfoDrift.${group.group}`,
+        type: 'directionalPanel',
+        orientation: 'column',
+      });
+    }
+  });
+
+  it("every panel's loreLabel/humanLabel is byte-identical to its sibling accordion's text", () => {
+    for (const group of LFO_DRIFT_GROUPS) {
+      expect(group.panel.loreLabel, group.group).toBe(group.accordion.loreLabel);
+      expect(group.panel.humanLabel, group.group).toBe(group.accordion.humanLabel);
+    }
+  });
+
+  it('leaves the existing accordion field untouched — nothing removed this task', () => {
+    for (const group of LFO_DRIFT_GROUPS) {
+      expect(group.accordion, group.group).toMatchObject({ id: `audioRig.lfoDrift.${group.group}`, type: 'accordion' });
+    }
+  });
+});
+
+describe('AUDIO_RIG_ACCORDION_GROUPS (new top-level accordions, Task 1)', () => {
+  it('has exactly 3 entries, in EQ & Filters / Time & Space / Output order', () => {
+    expect(AUDIO_RIG_ACCORDION_GROUPS.map((g) => g.accordion.humanLabel)).toEqual([
+      'EQ & Filters', 'Time & Space', 'Output',
+    ]);
+  });
+
+  it('groups the correct block keys per accordion, in order', () => {
+    expect(AUDIO_RIG_ACCORDION_GROUPS.map((g) => g.blockKeys)).toEqual([
+      ['eq3', 'filterLPF', 'filterHPF'],
+      ['delay', 'reverb'],
+      ['compressor', 'limiter'],
+    ]);
+  });
+
+  it('every accordion has type accordion and a unique id in the audioRig.* namespace', () => {
+    for (const group of AUDIO_RIG_ACCORDION_GROUPS) {
+      expect(group.accordion.type, group.accordion.humanLabel).toBe('accordion');
+      expect(group.accordion.id, group.accordion.humanLabel).toMatch(/^audioRig\./);
+    }
+    const ids = AUDIO_RIG_ACCORDION_GROUPS.map((g) => g.accordion.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("blockKeys across all 3 groups cover exactly the 7 effect keys once each, minus none, no duplicates", () => {
+    const allKeys = AUDIO_RIG_ACCORDION_GROUPS.flatMap((g) => g.blockKeys);
+    expect([...allKeys].sort()).toEqual([...EFFECT_KEYS].sort());
+    expect(new Set(allKeys).size).toBe(allKeys.length);
+  });
+});
+
+describe('TRANSPORT_COMPOSITION_ACCORDION_SCHEMA (Task 1)', () => {
+  it('is an accordion schema with humanLabel Transport & Composition', () => {
+    expect(TRANSPORT_COMPOSITION_ACCORDION_SCHEMA).toMatchObject({
+      id: 'audioRig.transportComposition',
+      type: 'accordion',
+      humanLabel: 'Transport & Composition',
+    });
+  });
+
+  it('has a non-empty invented loreLabel', () => {
+    expect(TRANSPORT_COMPOSITION_ACCORDION_SCHEMA.loreLabel).toBeTruthy();
+  });
+});
+
+describe('SPEED_AUTOMATION_PANEL_SCHEMA (Task 1)', () => {
+  it('is a column-orientation directionalPanel with humanLabel Speed & Automation', () => {
+    expect(SPEED_AUTOMATION_PANEL_SCHEMA).toMatchObject({
+      type: 'directionalPanel',
+      orientation: 'column',
+      humanLabel: 'Speed & Automation',
+    });
+  });
+
+  it('has a non-empty invented loreLabel and an id in the audioRig.* namespace', () => {
+    expect(SPEED_AUTOMATION_PANEL_SCHEMA.loreLabel).toBeTruthy();
+    expect(SPEED_AUTOMATION_PANEL_SCHEMA.id).toMatch(/^audioRig\./);
+  });
+
+  it('is not part of AUDIO_RIG_CONFIG\'s per-effect array — it is a bare, new panel, not an effect param', () => {
+    const allConfigSchemaIds = AUDIO_RIG_CONFIG.flatMap((b) => [
+      b.accordion.id,
+      b.panel.id,
+      ...b.params.map((p) => p.schema.id),
+    ]);
+    expect(allConfigSchemaIds).not.toContain(SPEED_AUTOMATION_PANEL_SCHEMA.id);
+  });
+
+  it('remains JSON-serializable', () => {
+    expect(() => JSON.stringify(SPEED_AUTOMATION_PANEL_SCHEMA)).not.toThrow();
   });
 });
