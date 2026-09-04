@@ -6,7 +6,7 @@ import { LOG_EPSILON, sliderLogTToValue, sliderLogValueToT } from './sliderLogMa
 import type { SliderLogSchema } from '@/types/controls';
 
 // Attack/Decay/Release bounds (docs/reference/ROBOT_DATA_GRID.md), the min = 0 fixture.
-const schema: SliderLogSchema = { id: 'attack', type: 'sliderLog', min: 0, max: 10, humanLabel: 'Attack', unit: 's' };
+const schema: SliderLogSchema = { id: 'attack', type: 'sliderLog', min: 0, max: 10, humanLabel: 'Attack', unit: 's', orientation: 'horizontal' };
 
 describe('sliderLogTToValue / sliderLogValueToT (exact math, min = 0)', () => {
   it('maps t = 0 to exactly schema.min, including the min = 0 case', () => {
@@ -57,7 +57,7 @@ describe('SliderLog component', () => {
   });
 
   it('still renders the bare value when schema.unit is absent — a unitless param like Resonance/Q must not be left blank', () => {
-    const noUnitSchema: SliderLogSchema = { id: 'q', type: 'sliderLog', min: 0.1, max: 20, humanLabel: 'Resonance' };
+    const noUnitSchema: SliderLogSchema = { id: 'q', type: 'sliderLog', min: 0.1, max: 20, humanLabel: 'Resonance', orientation: 'horizontal' };
     render(<SliderLog schema={noUnitSchema} value={5} onChange={() => {}} />);
     expect(screen.getByText('5')).toBeTruthy();
   });
@@ -84,7 +84,7 @@ describe('SliderLog component', () => {
   });
 
   it('falls back to schema.id for the accessible name when neither label is present, never leaving it unlabeled', () => {
-    const bareSchema: SliderLogSchema = { id: 'attack', type: 'sliderLog', min: 0, max: 10 };
+    const bareSchema: SliderLogSchema = { id: 'attack', type: 'sliderLog', min: 0, max: 10, orientation: 'horizontal' };
     render(<SliderLog schema={bareSchema} value={2} onChange={() => {}} />);
     expect(screen.getByRole('slider', { name: 'attack' })).toBeTruthy();
   });

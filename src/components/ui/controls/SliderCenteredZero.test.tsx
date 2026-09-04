@@ -5,7 +5,7 @@ import { SliderCenteredZero } from './SliderCenteredZero';
 import { computeFillRect, zeroPointPercent } from './sliderCenteredZeroMath';
 import type { SliderCenteredZeroSchema } from '@/types/controls';
 
-const detuneSchema: SliderCenteredZeroSchema = { id: 'detune', type: 'sliderCenteredZero', min: -50, max: 50, humanLabel: 'Detune', unit: 'ct' };
+const detuneSchema: SliderCenteredZeroSchema = { id: 'detune', type: 'sliderCenteredZero', min: -50, max: 50, humanLabel: 'Detune', unit: 'ct', orientation: 'horizontal' };
 
 describe('sliderCenteredZeroMath', () => {
   it('computes the zero point generally, not hardcoded to 50% (asymmetric -20/+50 fixture)', () => {
@@ -60,7 +60,7 @@ describe('SliderCenteredZero component', () => {
   });
 
   it('still renders the bare value when schema.unit is absent', () => {
-    const noUnitSchema: SliderCenteredZeroSchema = { id: 'x', type: 'sliderCenteredZero', min: -50, max: 50 };
+    const noUnitSchema: SliderCenteredZeroSchema = { id: 'x', type: 'sliderCenteredZero', min: -50, max: 50, orientation: 'horizontal' };
     render(<SliderCenteredZero schema={noUnitSchema} value={-15} onChange={() => {}} />);
     expect(screen.getByText('-15')).toBeTruthy();
   });
@@ -74,7 +74,7 @@ describe('SliderCenteredZero component', () => {
   });
 
   it('falls back to schema.id for the accessible name when neither label is present, never leaving it unlabeled', () => {
-    const bareSchema: SliderCenteredZeroSchema = { id: 'detune', type: 'sliderCenteredZero', min: -50, max: 50 };
+    const bareSchema: SliderCenteredZeroSchema = { id: 'detune', type: 'sliderCenteredZero', min: -50, max: 50, orientation: 'horizontal' };
     render(<SliderCenteredZero schema={bareSchema} value={0} onChange={() => {}} />);
     expect(screen.getByRole('slider', { name: 'detune' })).toBeTruthy();
   });
