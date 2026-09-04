@@ -199,7 +199,11 @@ describe('CompanyOptionsSection', () => {
   });
 
   it('populates every section\'s value from resolveCompanyOptions(company, firstMember) when a non-empty company is selected', () => {
-    const robot = makeRobot({ id: 'r1', companyId: 'c1', masterVolume: 0.6, rhythmicDensity: 42, pitchRepeat: 30 });
+    const robot = makeRobot({
+      id: 'r1', companyId: 'c1', masterVolume: 0.6, rhythmicDensity: 42, pitchRepeat: 30,
+      rhythmicMotifLength: { active: true, value: 6 },
+      noteVariance: { active: true, value: 2 },
+    });
     useLocaleStore.getState().addRobot(localeId, robot);
     useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
     useUIStore.getState().selectCompany('c1');
@@ -210,6 +214,19 @@ describe('CompanyOptionsSection', () => {
     expect(screen.getByTestId('ping-controls-drawer-stub').getAttribute('data-density')).toBe('42');
     expect(screen.getByTestId('ping-controls-drawer-stub').getAttribute('data-pitch-repeat')).toBe('30');
     expect(screen.getByTestId('ping-controls-drawer-stub').getAttribute('data-disabled')).toBeNull();
+    // rhythmicMotifLength/noteVariance flatten from the resolved { active, value } shape to plain
+    // numbers here (pingControlsValue, CompanyOptionsSection.tsx) — distinct values on each field
+    // so a field-swap bug (e.g. deriving noteVariance from resolved.rhythmicMotifLength.value)
+    // would surface as a mismatch rather than passing by coincidence.
+    expect(screen.getByTestId('ping-controls-drawer-stub').getAttribute('data-motif-length')).toBe('6');
+    expect(screen.getByTestId('ping-controls-drawer-stub').getAttribute('data-note-variance')).toBe('2');
+  });
+
+  it('flattens rhythmicMotifLength/noteVariance to 0 (DISABLED_PING_CONTROLS) when no company is selected', () => {
+    render(<CompanyOptionsSection />);
+
+    expect(screen.getByTestId('ping-controls-drawer-stub').getAttribute('data-motif-length')).toBe('0');
+    expect(screen.getByTestId('ping-controls-drawer-stub').getAttribute('data-note-variance')).toBe('0');
   });
 
   it('editing Volume calls applyVolume once per member robot, not a single bulk call', () => {
