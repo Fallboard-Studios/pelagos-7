@@ -99,18 +99,10 @@ export const ROBOT_OUTPUT_PANEL_SCHEMA: DirectionalPanelSchema = {
 // PING CONTROLS
 // ========================================
 
-export const PING_CONTROLS_ACCORDION_SCHEMA: AccordionSchema = {
-  id: 'robotOptions.pingControls',
-  type: 'accordion',
-  loreLabel: 'PING CONTROLS',
-  humanLabel: 'Ping Controls',
-};
-
 /**
- * DirectionalPanel wiring (docs/tasks/DIRECTIONAL_PANEL_WIRING.md) — supersedes
- * PING_CONTROLS_ACCORDION_SCHEMA above (removed once PingControlsDrawer.tsx switches over, Task
- * 9): the old flat "Ping Controls" accordion splits into this new Melody accordion wrapping 2
- * panels (PHRASING_PANEL_SCHEMA, FREQUENCY_PANEL_SCHEMA below).
+ * DirectionalPanel wiring (docs/tasks/DIRECTIONAL_PANEL_WIRING.md) — supersedes the old flat
+ * "Ping Controls" AccordionSchema (removed, Task 9): it splits into this Melody accordion
+ * wrapping 2 panels (PHRASING_PANEL_SCHEMA, FREQUENCY_PANEL_SCHEMA below).
  */
 export const MELODY_ACCORDION_SCHEMA: AccordionSchema = {
   id: 'robotOptions.melody',
@@ -121,8 +113,8 @@ export const MELODY_ACCORDION_SCHEMA: AccordionSchema = {
 
 /**
  * Density, Motif Length, Pitch Repeat, plus the dev-only Click Track toggle and Reset Melody
- * button — a new label, not inherited from PING_CONTROLS_ACCORDION_SCHEMA (that whole accordion
- * is split into 2 differently-labeled panels, not moved as one unit).
+ * button — a new label, not inherited from the old flat "Ping Controls" accordion (that whole
+ * accordion is split into 2 differently-labeled panels, not moved as one unit).
  */
 export const PHRASING_PANEL_SCHEMA: DirectionalPanelSchema = {
   id: 'robotOptions.phrasing',
@@ -250,16 +242,9 @@ export const RESET_MELODY_SCHEMA: ButtonSchema = {
 // PING CONTOUR — the robot's one shared ADSR envelope
 // ========================================
 
-export const PING_CONTOUR_ACCORDION_SCHEMA: AccordionSchema = {
-  id: 'robotOptions.pingContour',
-  type: 'accordion',
-  loreLabel: 'PING CONTOUR',
-  humanLabel: 'Ping Contour',
-};
-
 /**
  * DirectionalPanel wiring (docs/tasks/DIRECTIONAL_PANEL_WIRING.md) — new top-level accordion that
- * wraps PING_CONTOUR_PANEL_SCHEMA below (once PingContourDrawer.tsx switches over, Task 7).
+ * wraps PING_CONTOUR_PANEL_SCHEMA below.
  */
 export const ENVELOPE_ACCORDION_SCHEMA: AccordionSchema = {
   id: 'robotOptions.envelope',
@@ -269,10 +254,10 @@ export const ENVELOPE_ACCORDION_SCHEMA: AccordionSchema = {
 };
 
 /**
- * DirectionalPanel wiring (docs/tasks/DIRECTIONAL_PANEL_WIRING.md) — supersedes
- * PING_CONTOUR_ACCORDION_SCHEMA above (removed once its one consumer switches over, Task 9).
- * Keeps that schema's exact loreLabel/humanLabel verbatim — the whole "Ping Contour" accordion
- * becomes one panel nested inside the new Envelope accordion, not relabeled.
+ * DirectionalPanel wiring (docs/tasks/DIRECTIONAL_PANEL_WIRING.md) — supersedes the old flat
+ * "Ping Contour" AccordionSchema (removed, Task 9). Keeps that schema's exact loreLabel/
+ * humanLabel verbatim — the whole "Ping Contour" accordion becomes one panel nested inside the
+ * new Envelope accordion, not relabeled.
  */
 export const PING_CONTOUR_PANEL_SCHEMA: DirectionalPanelSchema = {
   id: 'robotOptions.pingContour',
@@ -335,18 +320,11 @@ export const RELEASE_SCHEMA: SliderLogSchema = {
 // SIGNATURE ARRAY — 3 fixed layers (Baseline/Coaxial/Harmonic)
 // ========================================
 
-export const SIGNATURE_ARRAY_ACCORDION_SCHEMA: AccordionSchema = {
-  id: 'robotOptions.signatureArray',
-  type: 'accordion',
-  loreLabel: 'SIGNATURE ARRAY',
-  humanLabel: 'Signature Array',
-};
-
 /**
- * DirectionalPanel wiring (docs/tasks/DIRECTIONAL_PANEL_WIRING.md) — supersedes
- * SIGNATURE_ARRAY_ACCORDION_SCHEMA above (removed once SignatureArrayDrawer.tsx switches over,
- * Task 9): each layer becomes its own panel (SignatureArrayLayerBlock.panel below) nested inside
- * this new Source accordion, instead of the 3 layers sharing one "Signature Array" accordion.
+ * DirectionalPanel wiring (docs/tasks/DIRECTIONAL_PANEL_WIRING.md) — supersedes the old flat
+ * "Signature Array" AccordionSchema (removed, Task 9): each layer becomes its own panel
+ * (SignatureArrayLayerBlock.panel below) nested inside this new Source accordion, instead of the
+ * 3 layers sharing one "Signature Array" accordion.
  */
 export const SOURCE_ACCORDION_SCHEMA: AccordionSchema = {
   id: 'robotOptions.source',

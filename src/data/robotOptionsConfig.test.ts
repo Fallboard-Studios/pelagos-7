@@ -11,13 +11,10 @@ import {
   NOTE_VARIANCE_SCHEMA,
   PITCH_REPEAT_SCHEMA,
   RESET_MELODY_SCHEMA,
-  PING_CONTOUR_ACCORDION_SCHEMA,
   ATTACK_SCHEMA,
   DECAY_SCHEMA,
   SUSTAIN_SCHEMA,
   RELEASE_SCHEMA,
-  PING_CONTROLS_ACCORDION_SCHEMA,
-  SIGNATURE_ARRAY_ACCORDION_SCHEMA,
   SIGNATURE_ARRAY_CONFIG,
   ROBOT_OUTPUT_PANEL_SCHEMA,
   MELODY_ACCORDION_SCHEMA,
@@ -27,6 +24,10 @@ import {
   FREQUENCY_PANEL_SCHEMA,
   PING_CONTOUR_PANEL_SCHEMA,
 } from './robotOptionsConfig';
+// Namespace import (not named) so Task 9's cleanup assertions below can check for the 3 old
+// accordion consts' absence at runtime, without a named import that would itself fail to compile
+// the instant they're removed from the source module.
+import * as robotOptionsConfigModule from './robotOptionsConfig';
 import { CONTROL_SCHEMA_TYPES } from '@/types/controls';
 import { ROBOT_LFO_TARGET_IDS } from '@/types/lfo';
 import {
@@ -305,14 +306,14 @@ describe('MELODY_ACCORDION_SCHEMA / ENVELOPE_ACCORDION_SCHEMA / SOURCE_ACCORDION
 });
 
 describe('PHRASING_PANEL_SCHEMA / FREQUENCY_PANEL_SCHEMA (Task 3)', () => {
-  it('are column-orientation directionalPanels with the confirmed humanLabels — new labels, not derived from PING_CONTROLS_ACCORDION_SCHEMA', () => {
+  it('are column-orientation directionalPanels with the confirmed humanLabels — new labels, not derived from the old flat "Ping Controls" accordion', () => {
     expect(PHRASING_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'column', humanLabel: 'Phrasing' });
     expect(FREQUENCY_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'column', humanLabel: 'Frequency' });
   });
 
-  it('neither reuses PING_CONTROLS_ACCORDION_SCHEMA\'s own label text', () => {
-    expect(PHRASING_PANEL_SCHEMA.humanLabel).not.toBe(PING_CONTROLS_ACCORDION_SCHEMA.humanLabel);
-    expect(FREQUENCY_PANEL_SCHEMA.humanLabel).not.toBe(PING_CONTROLS_ACCORDION_SCHEMA.humanLabel);
+  it('neither reuses "Ping Controls" as its own label text', () => {
+    expect(PHRASING_PANEL_SCHEMA.humanLabel).not.toBe('Ping Controls');
+    expect(FREQUENCY_PANEL_SCHEMA.humanLabel).not.toBe('Ping Controls');
   });
 
   it('each has a non-empty invented loreLabel and a unique id', () => {
@@ -322,29 +323,23 @@ describe('PHRASING_PANEL_SCHEMA / FREQUENCY_PANEL_SCHEMA (Task 3)', () => {
   });
 });
 
-describe('PING_CONTOUR_PANEL_SCHEMA (additive — coexists with PING_CONTOUR_ACCORDION_SCHEMA, Task 3)', () => {
+describe('PING_CONTOUR_PANEL_SCHEMA (DirectionalPanel wiring, Tasks 3+9)', () => {
   it('is a column-orientation directionalPanel', () => {
     expect(PING_CONTOUR_PANEL_SCHEMA.type).toBe('directionalPanel');
     expect(PING_CONTOUR_PANEL_SCHEMA.orientation).toBe('column');
   });
 
-  it('has loreLabel/humanLabel byte-identical to PING_CONTOUR_ACCORDION_SCHEMA\'s — verbatim preservation', () => {
-    expect(PING_CONTOUR_PANEL_SCHEMA.loreLabel).toBe(PING_CONTOUR_ACCORDION_SCHEMA.loreLabel);
-    expect(PING_CONTOUR_PANEL_SCHEMA.humanLabel).toBe(PING_CONTOUR_ACCORDION_SCHEMA.humanLabel);
-  });
-
-  it('PING_CONTOUR_ACCORDION_SCHEMA still exists, untouched — nothing removed this task', () => {
-    expect(PING_CONTOUR_ACCORDION_SCHEMA).toMatchObject({ id: 'robotOptions.pingContour', type: 'accordion' });
+  it('has loreLabel/humanLabel byte-identical to the old PING_CONTOUR_ACCORDION_SCHEMA\'s text — verbatim preservation across the type swap', () => {
+    expect(PING_CONTOUR_PANEL_SCHEMA.loreLabel).toBe('PING CONTOUR');
+    expect(PING_CONTOUR_PANEL_SCHEMA.humanLabel).toBe('Ping Contour');
   });
 });
 
-describe('PING_CONTROLS_ACCORDION_SCHEMA / SIGNATURE_ARRAY_ACCORDION_SCHEMA still exist (Task 3 is additive-only)', () => {
-  it('PING_CONTROLS_ACCORDION_SCHEMA is untouched', () => {
-    expect(PING_CONTROLS_ACCORDION_SCHEMA).toMatchObject({ id: 'robotOptions.pingControls', type: 'accordion' });
-  });
-
-  it('SIGNATURE_ARRAY_ACCORDION_SCHEMA is untouched', () => {
-    expect(SIGNATURE_ARRAY_ACCORDION_SCHEMA).toMatchObject({ id: 'robotOptions.signatureArray', type: 'accordion' });
+describe('PING_CONTROLS_ACCORDION_SCHEMA / PING_CONTOUR_ACCORDION_SCHEMA / SIGNATURE_ARRAY_ACCORDION_SCHEMA no longer exist (Task 9 cleanup)', () => {
+  it('are not exported by the module — fully superseded by MELODY/ENVELOPE/SOURCE_ACCORDION_SCHEMA + the new panels', () => {
+    expect('PING_CONTROLS_ACCORDION_SCHEMA' in robotOptionsConfigModule).toBe(false);
+    expect('PING_CONTOUR_ACCORDION_SCHEMA' in robotOptionsConfigModule).toBe(false);
+    expect('SIGNATURE_ARRAY_ACCORDION_SCHEMA' in robotOptionsConfigModule).toBe(false);
   });
 });
 
