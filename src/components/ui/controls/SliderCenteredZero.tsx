@@ -49,7 +49,7 @@ export function SliderCenteredZero({ schema, value, onChange, disabled, vertical
   );
 
   return (
-    <div ref={wrapperRef} className="sc-slider-centered-zero">
+    <div ref={wrapperRef} className="sc-slider-centered-zero" data-orientation={orientation}>
       <DualLabel loreLabel={schema.loreLabel} humanLabel={schema.humanLabel} />
       {isVertical && valueLabel}
       <Slider.Root

@@ -29,7 +29,7 @@ export function SliderLinear({ schema, value, onChange, disabled, verticalHeight
   );
 
   return (
-    <div ref={wrapperRef} className="sc-slider-linear">
+    <div ref={wrapperRef} className="sc-slider-linear" data-orientation={orientation}>
       <DualLabel loreLabel={schema.loreLabel} humanLabel={schema.humanLabel} />
       {isVertical && valueLabel}
       <Slider.Root

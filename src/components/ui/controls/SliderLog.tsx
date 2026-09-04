@@ -37,7 +37,7 @@ export function SliderLog({ schema, value, onChange, disabled, verticalHeight }:
   );
 
   return (
-    <div ref={wrapperRef} className="sc-slider-log">
+    <div ref={wrapperRef} className="sc-slider-log" data-orientation={orientation}>
       <DualLabel loreLabel={schema.loreLabel} humanLabel={schema.humanLabel} />
       {isVertical && valueLabel}
       <Slider.Root

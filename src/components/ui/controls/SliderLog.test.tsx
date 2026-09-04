@@ -122,6 +122,18 @@ describe('SliderLog component', () => {
       expect(root?.getAttribute('data-orientation')).toBe('vertical');
     });
 
+    it("'vertical': the outer wrapper carries data-orientation=\"vertical\" — CSS keys off this to go inline-flex and center its column", () => {
+      const { container } = render(<SliderLog schema={verticalSchema} value={2} onChange={() => {}} />);
+      const wrapper = container.querySelector('.sc-slider-log');
+      expect(wrapper?.getAttribute('data-orientation')).toBe('vertical');
+    });
+
+    it("'horizontal' (default): the outer wrapper carries data-orientation=\"horizontal\", not left unset", () => {
+      const { container } = render(<SliderLog schema={schema} value={2} onChange={() => {}} />);
+      const wrapper = container.querySelector('.sc-slider-log');
+      expect(wrapper?.getAttribute('data-orientation')).toBe('horizontal');
+    });
+
     it("'vertical': renders the value readout before the track in DOM order — a dragging thumb must never cover it", () => {
       const { container } = render(<SliderLog schema={verticalSchema} value={2} onChange={() => {}} />);
       const wrapper = container.querySelector('.sc-slider-log')!;
