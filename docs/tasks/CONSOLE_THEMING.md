@@ -1,5 +1,11 @@
 # Implementation Plan: Console Theming (Roadmap Phase 11)
 
+> **Status: cut.** All 6 tasks below were completed exactly as planned (TDD, one commit per task,
+> every checkpoint green) and then reverted at Crawford's call after evaluating the shipped feature
+> against the real running app — not a bug, an aesthetic call. See
+> [docs/CONSOLE_THEMING.md](../CONSOLE_THEMING.md) for the reasoning and what replaced it. Kept as a
+> historical record that this plan executed cleanly end-to-end; not current or planned behavior.
+
 Source spec: [docs/specs/CONSOLE_THEMING.md](../specs/CONSOLE_THEMING.md). Source intent:
 [docs/intent/console-theming.md](../intent/console-theming.md). No dependency on any unshipped
 phase — Oblique Cabinetry (Phase 11.1) depends on this phase's output, not the reverse.
