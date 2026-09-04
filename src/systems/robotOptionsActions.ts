@@ -62,14 +62,19 @@ export function applyPitchRepeat(robot: Robot, localeId: string, value: number):
   regenerateMelody({ ...robot, pitchRepeat: value }, localeId);
 }
 
-export function applyMotifLength(robot: Robot, localeId: string, value: StepperWithToggleValue): void {
-  useLocaleStore.getState().updateRobot(localeId, robot.id, { rhythmicMotifLength: value });
-  regenerateMelody({ ...robot, rhythmicMotifLength: value }, localeId);
+// Number-in: active is a derived, enforced consequence of value > 0, never
+// independently settable (docs/specs/STEPPER_TO_SLIDER.md) — the caller (a bare
+// SliderLinear, post-toggle-removal) only ever has the raw number.
+export function applyMotifLength(robot: Robot, localeId: string, value: number): void {
+  const next: StepperWithToggleValue = { active: value > 0, value };
+  useLocaleStore.getState().updateRobot(localeId, robot.id, { rhythmicMotifLength: next });
+  regenerateMelody({ ...robot, rhythmicMotifLength: next }, localeId);
 }
 
-export function applyNoteVariance(robot: Robot, localeId: string, value: StepperWithToggleValue): void {
-  useLocaleStore.getState().updateRobot(localeId, robot.id, { noteVariance: value });
-  regenerateMelody({ ...robot, noteVariance: value }, localeId);
+export function applyNoteVariance(robot: Robot, localeId: string, value: number): void {
+  const next: StepperWithToggleValue = { active: value > 0, value };
+  useLocaleStore.getState().updateRobot(localeId, robot.id, { noteVariance: next });
+  regenerateMelody({ ...robot, noteVariance: next }, localeId);
 }
 
 /** Testing-only override — see clickTrackActive on Robot.ts and src/engine/clickTrack.ts.

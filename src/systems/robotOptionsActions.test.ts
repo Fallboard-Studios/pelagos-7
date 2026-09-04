@@ -159,32 +159,67 @@ describe('robotOptionsActions', () => {
   });
 
   describe('applyMotifLength', () => {
-    it('writes rhythmicMotifLength and regenerates the melody', () => {
+    it('takes a plain number and writes { active: true, value } when value > 0', () => {
       const robot = makeRobot();
       useLocaleStore.getState().addRobot(localeId, robot);
       stubMelodyPipeline();
       const updateSpy = vi.spyOn(useLocaleStore.getState(), 'updateRobot');
       const genSpy = vi.spyOn(melodyGen, 'generateMelodyForRobot');
 
-      applyMotifLength(robot, localeId, { active: true, value: 4 });
+      applyMotifLength(robot, localeId, 4);
 
       expect(updateSpy).toHaveBeenCalledWith(localeId, robot.id, { rhythmicMotifLength: { active: true, value: 4 } });
       expect(genSpy).toHaveBeenCalled();
     });
+
+    it('writes { active: false, value: 0 } when value is 0', () => {
+      const robot = makeRobot();
+      useLocaleStore.getState().addRobot(localeId, robot);
+      stubMelodyPipeline();
+      const updateSpy = vi.spyOn(useLocaleStore.getState(), 'updateRobot');
+
+      applyMotifLength(robot, localeId, 0);
+
+      expect(updateSpy).toHaveBeenCalledWith(localeId, robot.id, { rhythmicMotifLength: { active: false, value: 0 } });
+    });
+
+    it('passes the same constructed { active, value } object into regenerateMelody, not the raw robot field', () => {
+      const robot = makeRobot({ rhythmicMotifLength: { active: true, value: 8 } });
+      useLocaleStore.getState().addRobot(localeId, robot);
+      stubMelodyPipeline();
+      const genSpy = vi.spyOn(melodyGen, 'generateMelodyForRobot');
+
+      applyMotifLength(robot, localeId, 0);
+
+      expect(genSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ rhythmicMotifLength: { active: false, value: 0 } })
+      );
+    });
   });
 
   describe('applyNoteVariance', () => {
-    it('writes noteVariance and regenerates the melody', () => {
+    it('takes a plain number and writes { active: true, value } when value > 0', () => {
       const robot = makeRobot();
       useLocaleStore.getState().addRobot(localeId, robot);
       stubMelodyPipeline();
       const updateSpy = vi.spyOn(useLocaleStore.getState(), 'updateRobot');
       const genSpy = vi.spyOn(melodyGen, 'generateMelodyForRobot');
 
-      applyNoteVariance(robot, localeId, { active: true, value: 3 });
+      applyNoteVariance(robot, localeId, 3);
 
       expect(updateSpy).toHaveBeenCalledWith(localeId, robot.id, { noteVariance: { active: true, value: 3 } });
       expect(genSpy).toHaveBeenCalled();
+    });
+
+    it('writes { active: false, value: 0 } when value is 0', () => {
+      const robot = makeRobot();
+      useLocaleStore.getState().addRobot(localeId, robot);
+      stubMelodyPipeline();
+      const updateSpy = vi.spyOn(useLocaleStore.getState(), 'updateRobot');
+
+      applyNoteVariance(robot, localeId, 0);
+
+      expect(updateSpy).toHaveBeenCalledWith(localeId, robot.id, { noteVariance: { active: false, value: 0 } });
     });
   });
 
