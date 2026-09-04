@@ -114,20 +114,35 @@ export interface SelectSchema extends ControlSchemaBase {
   options: { value: string; label: string }[];
 }
 
+/** Layout axis for DirectionalPanel — mirrors SliderOrientation's own precedent
+ *  as a named, exported union rather than an inline literal type. Optional on
+ *  the schema (unlike SliderOrientation, which is required): omitting it
+ *  defaults to 'row' in the component, not the type. */
+export type PanelOrientation = 'row' | 'column';
+
+/** Pure layout container — groups already-rendered controls into a row or
+ *  column flex box. No value/onChange: docs/specs/DIRECTIONAL_PANEL.md. */
+export interface DirectionalPanelSchema extends ControlSchemaBase {
+  type: 'directionalPanel';
+  orientation?: PanelOrientation;
+}
+
 export type ControlSchema =
   | StepperSchema | StepperWithToggleSchema
   | SliderLinearSchema | SliderLogSchema | SliderCenteredZeroSchema
   | RadioButtonSchema | ToggleSchema | TextInputSchema | CoordsInputSchema
-  | ButtonSchema | DualLabelSchema | AccordionSchema | LfoSchema | SelectSchema;
+  | ButtonSchema | DualLabelSchema | AccordionSchema | LfoSchema | SelectSchema
+  | DirectionalPanelSchema;
 
 /** Every ControlSchema discriminant, paired with the union per the pattern
  *  src/types/lfo.ts established (LFO_SHAPES, ROBOT_LFO_TARGET_IDS) — makes
- *  "all 14 variants covered, no duplicates" a runtime-testable assertion. */
+ *  "all 15 variants covered, no duplicates" a runtime-testable assertion. */
 export const CONTROL_SCHEMA_TYPES: readonly ControlSchema['type'][] = [
   'stepper', 'stepperToggle',
   'sliderLinear', 'sliderLog', 'sliderCenteredZero',
   'radio', 'toggle', 'textInput', 'coordsInput',
   'button', 'dualLabel', 'accordion', 'lfo', 'select',
+  'directionalPanel',
 ];
 
 // ========================================

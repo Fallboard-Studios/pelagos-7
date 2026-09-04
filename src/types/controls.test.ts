@@ -21,6 +21,8 @@ import {
   type AccordionSchema,
   type LfoSchema,
   type SelectSchema,
+  type DirectionalPanelSchema,
+  type PanelOrientation,
   type LfoValue,
 } from './controls';
 
@@ -29,9 +31,9 @@ import {
 // ========================================
 
 describe('CONTROL_SCHEMA_TYPES', () => {
-  it('has exactly 14 entries, no duplicates', () => {
-    expect(CONTROL_SCHEMA_TYPES).toHaveLength(14);
-    expect(new Set(CONTROL_SCHEMA_TYPES).size).toBe(14);
+  it('has exactly 15 entries, no duplicates', () => {
+    expect(CONTROL_SCHEMA_TYPES).toHaveLength(15);
+    expect(new Set(CONTROL_SCHEMA_TYPES).size).toBe(15);
   });
 
   it('matches the ControlSchema union discriminants exactly', () => {
@@ -41,6 +43,7 @@ describe('CONTROL_SCHEMA_TYPES', () => {
         'sliderLinear', 'sliderLog', 'sliderCenteredZero',
         'radio', 'toggle', 'textInput', 'coordsInput',
         'button', 'dualLabel', 'accordion', 'lfo', 'select',
+        'directionalPanel',
       ].sort()
     );
   });
@@ -62,13 +65,15 @@ describe('ControlSchema variants', () => {
     const accordion: AccordionSchema = { id: 'pingControls', type: 'accordion' };
     const lfo: LfoSchema = { id: 'volumeLfo', type: 'lfo' };
     const select: SelectSchema = { id: 'company.assign', type: 'select', options: [{ value: 'a', label: 'A' }] };
+    const directionalPanel: DirectionalPanelSchema = { id: 'eq3Panel', type: 'directionalPanel', orientation: 'row' };
 
     const variants: ControlSchema[] = [
       stepper, stepperToggle, sliderLinear, sliderLog, sliderCenteredZero,
       radio, toggle, textInput, coordsInput, button, dualLabel, accordion, lfo, select,
+      directionalPanel,
     ];
 
-    expect(variants).toHaveLength(14);
+    expect(variants).toHaveLength(15);
   });
 
   it('accepts loreLabel and/or humanLabel on the shared base, both optional', () => {
@@ -99,6 +104,21 @@ describe('SliderOrientation', () => {
     expect(linear.orientation).toBe('vertical');
     expect(log.orientation).toBe('auto');
     expect(centeredZero.orientation).toBe('horizontal');
+  });
+});
+
+describe('PanelOrientation', () => {
+  it('accepts row and column as literal values', () => {
+    const values: PanelOrientation[] = ['row', 'column'];
+    expect(values).toHaveLength(2);
+  });
+
+  it('is optional on DirectionalPanelSchema — omitting it still type-checks', () => {
+    const withOrientation: DirectionalPanelSchema = { id: 'a', type: 'directionalPanel', orientation: 'column' };
+    const withoutOrientation: DirectionalPanelSchema = { id: 'b', type: 'directionalPanel' };
+
+    expect(withOrientation.orientation).toBe('column');
+    expect(withoutOrientation.orientation).toBeUndefined();
   });
 });
 
