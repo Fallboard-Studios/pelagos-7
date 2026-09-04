@@ -99,7 +99,7 @@ describe('PingControlsDrawer', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Increment Octave Range Min/i }));
+    fireEvent.keyDown(screen.getByRole('slider', { name: /octave range min/i }), { key: 'ArrowRight' });
 
     expect(onOctaveMinChange).toHaveBeenCalledWith(4);
   });
@@ -119,7 +119,7 @@ describe('PingControlsDrawer', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Decrement Octave Range Max/i }));
+    fireEvent.keyDown(screen.getByRole('slider', { name: /octave range max/i }), { key: 'ArrowLeft' });
 
     expect(onOctaveMaxChange).toHaveBeenCalledWith(4);
   });
@@ -312,7 +312,7 @@ describe('PingControlsDrawer', () => {
 
     expect(screen.getByRole('slider', { name: /density/i }).getAttribute('data-disabled')).toBe('');
     expect((screen.getByRole('switch', { name: /Motif Length/i }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole('button', { name: /Increment Octave Range Min/i }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole('slider', { name: /octave range min/i }).getAttribute('data-disabled')).toBe('');
     expect((screen.getByRole('button', { name: 'Reset Melody' }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole('switch', { name: /Click Track/i }) as HTMLButtonElement).disabled).toBe(false);
     expect(screen.getByRole('slider', { name: /pitch repeat/i }).getAttribute('data-disabled')).toBe('');
@@ -335,7 +335,7 @@ describe('PingControlsDrawer', () => {
 
     expect(screen.getByRole('slider', { name: /density/i }).getAttribute('data-disabled')).toBe('');
     expect((screen.getByRole('switch', { name: /Motif Length/i }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole('button', { name: /Increment Octave Range Min/i }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole('slider', { name: /octave range min/i }).getAttribute('data-disabled')).toBe('');
     expect((screen.getByRole('switch', { name: /Click Track/i }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByRole('slider', { name: /pitch repeat/i }).getAttribute('data-disabled')).toBe('');
   });

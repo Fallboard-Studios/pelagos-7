@@ -1,4 +1,3 @@
-import { Stepper } from '@/components/ui/controls/Stepper';
 import { SliderLinear } from '@/components/ui/controls/SliderLinear';
 import { StepperWithToggle, type StepperWithToggleValue } from '@/components/ui/controls/StepperWithToggle';
 import { Toggle } from '@/components/ui/controls/Toggle';
@@ -63,9 +62,9 @@ interface PingControlsDrawerProps {
  * group. Purely presentational as of Roadmap Phase 10 (Task 14) — no `robot` prop, no store
  * access; both RobotOptionsTab (robot mode) and CompanyOptionsSection (company mode) derive
  * `value` and wire each callback through robotOptionsActions themselves. Octave Range is two
- * independent Steppers (per ROBOT_DATA_GRID.md), not the old dual-thumb Slider. Density is a
- * SliderLinear rather than the grid's Stepper — clicking through a 0-100 range one increment at a
- * time was too slow to be usable.
+ * independent SliderLinears (not the old dual-thumb Slider) — each was a Stepper before
+ * docs/specs/STEPPER_TO_SLIDER.md, same "too slow to click through" reasoning Density's own
+ * SliderLinear conversion established first.
  */
 export function PingControlsDrawer({
   value,
@@ -107,8 +106,8 @@ export function PingControlsDrawer({
           onChange={onPitchRepeatChange}
           disabled={pitchRepeatDisabled}
         />
-        <Stepper schema={OCTAVE_RANGE_MIN_SCHEMA} value={octMin} onChange={onOctaveMinChange} disabled={generationDisabled} />
-        <Stepper schema={OCTAVE_RANGE_MAX_SCHEMA} value={octMax} onChange={onOctaveMaxChange} disabled={generationDisabled} />
+        <SliderLinear schema={OCTAVE_RANGE_MIN_SCHEMA} value={octMin} onChange={onOctaveMinChange} disabled={generationDisabled} />
+        <SliderLinear schema={OCTAVE_RANGE_MAX_SCHEMA} value={octMax} onChange={onOctaveMaxChange} disabled={generationDisabled} />
         <StepperWithToggle schema={NOTE_VARIANCE_SCHEMA} value={value.noteVariance} onChange={onNoteVarianceChange} disabled={generationDisabled} />
         {onResetMelody && <Button schema={RESET_MELODY_SCHEMA} onClick={onResetMelody} disabled={generationDisabled} />}
       </div>
