@@ -44,10 +44,25 @@ is the one thing on screen at all times. Different subject, no obligation to inh
 
 ## What's there instead
 
-A hand-picked static palette — same 4 CSS custom properties (`--color-bg`/`--color-surface`/
-`--color-accent`/`--color-border`) in `src/index.css`, same fixed `--color-text-primary`/
-`--color-text-muted`, chosen with actual taste rather than generated inside a safety envelope. See
-`src/index.css` for the current values.
+**"Ballast"** — a hand-picked static palette, chosen with actual taste rather than generated inside a
+safety envelope. Picked from 5 named candidates (Ballast, Phosphor, Sonar, Signal Copper, Cold Iron)
+presented side-by-side as instrument-panel mockups; cold graphite bg/surface with a depth-gauge cyan
+accent. This is the deliberate, current choice, not a placeholder — swap it for a different mood if the
+project's needs change, but don't treat it as an unfinished value waiting on a "real" answer.
+
+Same 4 CSS custom properties as the seed-driven version targeted (`--color-bg`/`--color-surface`/
+`--color-accent`/`--color-border`), same fixed `--color-text-primary`/`--color-text-muted`, in
+`src/index.css`'s `:root` block:
+
+```css
+--color-bg: #12161a;
+--color-surface: #1a2027;
+--color-border: rgba(140, 190, 210, 0.14);
+--color-accent: #5fc9dc;
+```
+
+Changing this later is genuinely low-overhead — no architecture to migrate, just these 4 values in one
+place, since every component already consumes them via `var(--color-*)` rather than hardcoding colors.
 
 ## What was reverted
 
