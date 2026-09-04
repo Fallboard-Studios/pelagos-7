@@ -57,6 +57,11 @@
   --spacing-md: 12px;
   --transport-separator-height: 24px;
 
+  /* SliderLinear/SliderLog/SliderCenteredZero's default vertical track height
+     (docs/specs/VERTICAL_SLIDERS.md) — overridable per-instance via each
+     component's own verticalHeight prop. */
+  --slider-vertical-height: 256px;
+
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;

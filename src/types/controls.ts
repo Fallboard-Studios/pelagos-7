@@ -37,12 +37,21 @@ export interface StepperWithToggleSchema extends ControlSchemaBase {
   max: number;
 }
 
+/**
+ * Rendering orientation for the 3 slider primitives (SliderLinear/SliderLog/
+ * SliderCenteredZero) — docs/specs/VERTICAL_SLIDERS.md. 'horizontal'/'vertical'
+ * render fixed; 'auto' resolves at render time via useAutoSliderOrientation,
+ * measuring the slider's parent element and picking whichever axis is longer.
+ */
+export type SliderOrientation = 'horizontal' | 'vertical' | 'auto';
+
 export interface SliderLinearSchema extends ControlSchemaBase {
   type: 'sliderLinear';
   min: number;
   max: number;
   step?: number;
   unit?: string;
+  orientation: SliderOrientation;
 }
 
 export interface SliderLogSchema extends ControlSchemaBase {
@@ -50,6 +59,7 @@ export interface SliderLogSchema extends ControlSchemaBase {
   min: number;
   max: number;
   unit?: string;
+  orientation: SliderOrientation;
 }
 
 export interface SliderCenteredZeroSchema extends ControlSchemaBase {
@@ -57,6 +67,7 @@ export interface SliderCenteredZeroSchema extends ControlSchemaBase {
   min: number; // negative bound, e.g. -50
   max: number; // positive bound, e.g. +50
   unit?: string;
+  orientation: SliderOrientation;
 }
 
 export interface RadioButtonSchema extends ControlSchemaBase {

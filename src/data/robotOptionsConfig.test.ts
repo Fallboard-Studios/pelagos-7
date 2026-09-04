@@ -217,3 +217,35 @@ describe('robotOptionsConfig', () => {
     });
   });
 });
+
+describe('slider orientation classification (docs/specs/VERTICAL_SLIDERS.md §1.1)', () => {
+  it('Volume is horizontal', () => {
+    expect(VOLUME_SCHEMA.orientation).toBe('horizontal');
+  });
+
+  it('Ping Controls (Density, Motif Length, Pitch Repeat, Octave Range Min/Max, Note Variance) is auto', () => {
+    // Motif Length, Octave Range Min/Max, and Note Variance were Steppers when this
+    // classification was first written (docs/specs/VERTICAL_SLIDERS.md predates the
+    // Stepper->Slider conversion) — converted to sliders by the separate
+    // STEPPER_TO_SLIDER work, merged in afterward. Same Ping Controls section, same
+    // "everything auto" classification, now that they're real sliders to classify.
+    [DENSITY_SCHEMA, MOTIF_LENGTH_SCHEMA, PITCH_REPEAT_SCHEMA, OCTAVE_RANGE_MIN_SCHEMA, OCTAVE_RANGE_MAX_SCHEMA, NOTE_VARIANCE_SCHEMA].forEach((schema) => {
+      expect(schema.orientation, schema.id).toBe('auto');
+    });
+  });
+
+  it('Ping Contour (Attack/Decay/Sustain/Release) is auto', () => {
+    [ATTACK_SCHEMA, DECAY_SCHEMA, SUSTAIN_SCHEMA, RELEASE_SCHEMA].forEach((schema) => {
+      expect(schema.orientation).toBe('auto');
+    });
+  });
+
+  it('Signature Array (Gain/Detune/Phase/Interval) is auto on every layer', () => {
+    SIGNATURE_ARRAY_CONFIG.forEach((block) => {
+      for (const field of ['gain', 'detune', 'phase', 'pulseWidth']) {
+        const param = block.params.find((p) => p.field === field)!;
+        expect((param.schema as { orientation?: string }).orientation, `${block.key}.${field}`).toBe('auto');
+      }
+    });
+  });
+});

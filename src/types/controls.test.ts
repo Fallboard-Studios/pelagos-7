@@ -11,6 +11,7 @@ import {
   type SliderLinearSchema,
   type SliderLogSchema,
   type SliderCenteredZeroSchema,
+  type SliderOrientation,
   type RadioButtonSchema,
   type ToggleSchema,
   type TextInputSchema,
@@ -49,9 +50,9 @@ describe('ControlSchema variants', () => {
   it('accepts one literal object per variant, each optional loreLabel/humanLabel omitted', () => {
     const stepper: StepperSchema = { id: 'density', type: 'stepper', min: 1, max: 16 };
     const stepperToggle: StepperWithToggleSchema = { id: 'noteVariance', type: 'stepperToggle', min: 1, max: 8 };
-    const sliderLinear: SliderLinearSchema = { id: 'lfoRate', type: 'sliderLinear', min: 0.1, max: 10 };
-    const sliderLog: SliderLogSchema = { id: 'attack', type: 'sliderLog', min: 0, max: 10 };
-    const sliderCenteredZero: SliderCenteredZeroSchema = { id: 'detune', type: 'sliderCenteredZero', min: -50, max: 50 };
+    const sliderLinear: SliderLinearSchema = { id: 'lfoRate', type: 'sliderLinear', min: 0.1, max: 10, orientation: 'horizontal' };
+    const sliderLog: SliderLogSchema = { id: 'attack', type: 'sliderLog', min: 0, max: 10, orientation: 'horizontal' };
+    const sliderCenteredZero: SliderCenteredZeroSchema = { id: 'detune', type: 'sliderCenteredZero', min: -50, max: 50, orientation: 'horizontal' };
     const radio: RadioButtonSchema = { id: 'lfoShape', type: 'radio', options: [{ value: 'sine', label: 'SINE' }] };
     const toggle: ToggleSchema = { id: 'layerActive', type: 'toggle' };
     const textInput: TextInputSchema = { id: 'robotName', type: 'textInput' };
@@ -81,6 +82,23 @@ describe('ControlSchema variants', () => {
     expect(human.humanLabel).toBe('Reset Melody');
     expect(both.loreLabel).toBe('CALIBRATE PING');
     expect(both.humanLabel).toBe('Reset Melody');
+  });
+});
+
+describe('SliderOrientation', () => {
+  it('accepts horizontal, vertical, and auto as literal values', () => {
+    const values: SliderOrientation[] = ['horizontal', 'vertical', 'auto'];
+    expect(values).toHaveLength(3);
+  });
+
+  it('is accepted as the optional orientation field on all 3 slider schema variants', () => {
+    const linear: SliderLinearSchema = { id: 'a', type: 'sliderLinear', min: 0, max: 1, orientation: 'vertical' };
+    const log: SliderLogSchema = { id: 'b', type: 'sliderLog', min: 0, max: 1, orientation: 'auto' };
+    const centeredZero: SliderCenteredZeroSchema = { id: 'c', type: 'sliderCenteredZero', min: -1, max: 1, orientation: 'horizontal' };
+
+    expect(linear.orientation).toBe('vertical');
+    expect(log.orientation).toBe('auto');
+    expect(centeredZero.orientation).toBe('horizontal');
   });
 });
 

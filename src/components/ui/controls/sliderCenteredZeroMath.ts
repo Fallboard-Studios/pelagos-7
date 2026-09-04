@@ -6,6 +6,13 @@
  * thumb's position instead. The zero point is computed generally —
  * `(0 - min) / (max - min) * 100%` — not hardcoded to 50%, so it still
  * works for asymmetric bounds (e.g. -20/+50).
+ *
+ * These percentages are axis-agnostic (docs/specs/VERTICAL_SLIDERS.md §1.3):
+ * 0% is always schema.min, 100% is always schema.max, regardless of which
+ * screen axis the value travels along. SliderCenteredZero.tsx reuses the
+ * same { left, width } numbers unchanged for the vertical orientation,
+ * applying them as bottom/height instead — no separate vertical variant of
+ * this math exists or is needed.
  */
 
 export interface FillRect {

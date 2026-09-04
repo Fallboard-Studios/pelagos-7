@@ -6,6 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { AUDIO_RIG_CONFIG, DECAY_MODE_SCHEMA, LFO_DRIFT_GROUPS, PING_VARIANCE_AUTOMATION_SCHEMA, BPM_SCHEMA } from './audioRigConfig';
 import { DRIFT_GROUP_IDS } from '../types/lfo';
 import { GLOBAL_LFO_TARGET_IDS } from '../types/lfo';
+import type { ControlSchema } from '@/types/controls';
 
 // ========================================
 // TESTS
@@ -359,5 +360,67 @@ describe('BPM_SCHEMA (docs/specs/BPM_CONTROL.md §1.4-§1.5)', () => {
 
   it('remains JSON-serializable', () => {
     expect(() => JSON.stringify(BPM_SCHEMA)).not.toThrow();
+  });
+});
+
+// param.schema is typed as ControlSchema (the full 14-variant union) — orientation only exists
+// on the 3 slider variants, so every lookup below narrows through this helper rather than
+// asserting directly on the union type.
+function orientationOf(schema: ControlSchema): string | undefined {
+  return (schema as { orientation?: string }).orientation;
+}
+
+describe('slider orientation classification (docs/specs/VERTICAL_SLIDERS.md §1.1)', () => {
+  it('3-Band EQ (Low/Mid/High) is vertical', () => {
+    for (const field of ['low', 'mid', 'high']) {
+      expect(orientationOf(findParam('eq3', field).schema), field).toBe('vertical');
+    }
+  });
+
+  it('Low-Pass/High-Pass Filter (Frequency/Resonance) is auto', () => {
+    for (const key of ['filterLPF', 'filterHPF'] as const) {
+      for (const field of ['frequency', 'Q']) {
+        expect(orientationOf(findParam(key, field).schema), `${key}.${field}`).toBe('auto');
+      }
+    }
+  });
+
+  it('Delay (Time/Feedback/Mix) is auto', () => {
+    for (const field of ['delayTime', 'feedback', 'wet']) {
+      expect(orientationOf(findParam('delay', field).schema), field).toBe('auto');
+    }
+  });
+
+  it('Reverb (Decay/Pre-Delay/Mix) is auto', () => {
+    for (const field of ['decay', 'preDelay', 'wet']) {
+      expect(orientationOf(findParam('reverb', field).schema), field).toBe('auto');
+    }
+  });
+
+  it('Compressor (Threshold/Ratio/Attack/Release/Knee) is auto', () => {
+    // Ratio was a Stepper when this classification was first written
+    // (docs/specs/VERTICAL_SLIDERS.md predates the Stepper->Slider conversion) —
+    // converted to a slider by the separate STEPPER_TO_SLIDER work
+    // (audioRigConfig.ts Task 8), merged in afterward. Same Compressor block, same
+    // "everything auto" classification, now that it's a real slider to classify.
+    for (const field of ['threshold', 'ratio', 'attack', 'release', 'knee']) {
+      expect(orientationOf(findParam('compressor', field).schema), field).toBe('auto');
+    }
+  });
+
+  it('Limiter (Threshold) is auto', () => {
+    expect(orientationOf(findParam('limiter', 'threshold').schema)).toBe('auto');
+  });
+
+  it('all 4 LFO_DRIFT_GROUPS (Rate Drift/Depth Drift), including "robots", are auto', () => {
+    for (const group of LFO_DRIFT_GROUPS) {
+      expect(group.rateSchema.orientation, `${group.group}.rateDrift`).toBe('auto');
+      expect(group.depthSchema.orientation, `${group.group}.depthDrift`).toBe('auto');
+    }
+  });
+
+  it('Automatic Effects (PING_VARIANCE_AUTOMATION_SCHEMA) and Tempo (BPM_SCHEMA) are horizontal', () => {
+    expect(PING_VARIANCE_AUTOMATION_SCHEMA.orientation).toBe('horizontal');
+    expect(BPM_SCHEMA.orientation).toBe('horizontal');
   });
 });

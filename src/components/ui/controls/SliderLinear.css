@@ -4,6 +4,16 @@
   gap: 4px;
 }
 
+/* Vertical fader: inline so several can sit side by side in a row without a
+   parent grid/flex rework (docs/specs/VERTICAL_SLIDERS.md's own deferred
+   drawer-layout work isn't a prerequisite for this); centered cross-axis so
+   the narrow 20px track lines up under a wider label/value instead of
+   sitting flush left. */
+.sc-slider-linear[data-orientation='vertical'] {
+  display: inline-flex;
+  align-items: center;
+}
+
 .sc-slider-linear__root {
   position: relative;
   display: flex;
@@ -40,6 +50,22 @@
 .sc-slider-linear__thumb:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
+}
+
+.sc-slider-linear__root[data-orientation='vertical'] {
+  flex-direction: column;
+  width: 20px;
+  height: var(--slider-vertical-height, 256px);
+}
+
+.sc-slider-linear__track[data-orientation='vertical'] {
+  width: 3px;
+  height: 100%;
+}
+
+.sc-slider-linear__range[data-orientation='vertical'] {
+  width: 100%;
+  height: auto;
 }
 
 .sc-slider-linear__value {
