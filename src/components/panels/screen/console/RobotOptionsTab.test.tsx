@@ -13,8 +13,10 @@ vi.mock('@/components/robot/RobotDisplaySection', () => ({
 }));
 vi.mock('@/components/robot/PingControlsDrawer', () => ({
   PingControlsDrawer: (props: {
-    value: { rhythmicDensity: number; pitchRepeat: number; clickTrackActive: boolean };
+    value: { rhythmicDensity: number; rhythmicMotifLength: number; noteVariance: number; pitchRepeat: number; clickTrackActive: boolean };
     onDensityChange: (v: number) => void;
+    onMotifLengthChange: (v: number) => void;
+    onNoteVarianceChange: (v: number) => void;
     onPitchRepeatChange: (v: number) => void;
     onResetMelody?: () => void;
     onClickTrackActiveChange: (v: boolean) => void;
@@ -22,10 +24,14 @@ vi.mock('@/components/robot/PingControlsDrawer', () => ({
     <div
       data-testid="ping-controls-drawer-stub"
       data-density={props.value.rhythmicDensity}
+      data-motif-length={props.value.rhythmicMotifLength}
+      data-note-variance={props.value.noteVariance}
       data-pitch-repeat={props.value.pitchRepeat}
       data-click-track-active={String(props.value.clickTrackActive)}
     >
       <button onClick={() => props.onDensityChange(77)}>probe-density</button>
+      <button onClick={() => props.onMotifLengthChange(6)}>probe-motif-length</button>
+      <button onClick={() => props.onNoteVarianceChange(0)}>probe-note-variance</button>
       <button onClick={() => props.onPitchRepeatChange(88)}>probe-pitch-repeat</button>
       {props.onResetMelody && <button onClick={props.onResetMelody}>probe-reset-melody</button>}
       <button onClick={() => props.onClickTrackActiveChange(true)}>probe-click-track</button>
@@ -56,7 +62,7 @@ import * as regenerateMelodyModule from '@/engine/regenerateMelody';
 import type { Robot } from '@/types/Robot';
 import type { Locale } from '@/types/locale';
 
-function makeRobot(id = 'r1'): Robot {
+function makeRobot(id = 'r1', overrides: Partial<Robot> = {}): Robot {
   return {
     id,
     name: 'Test Robot',
@@ -78,6 +84,7 @@ function makeRobot(id = 'r1'): Robot {
     batteryLevel: 100,
     rhythmicDensity: 42,
     pitchRepeat: 33,
+    ...overrides,
   } as Robot;
 }
 
@@ -136,6 +143,54 @@ describe('RobotOptionsTab', () => {
     render(<RobotOptionsTab />);
 
     expect(screen.getByTestId('ping-controls-drawer-stub').getAttribute('data-pitch-repeat')).toBe('33');
+  });
+
+  it('derives PingControlsDrawer\'s rhythmicMotifLength/noteVariance as plain numbers from the robot\'s {active, value} fields', () => {
+    const robot = makeRobot('r1', {
+      rhythmicMotifLength: { active: true, value: 6 },
+      noteVariance: { active: true, value: 2 },
+    });
+    useLocaleStore.getState().addRobot(localeId, robot);
+    useUIStore.getState().selectRobot(robot.id);
+    render(<RobotOptionsTab />);
+
+    expect(screen.getByTestId('ping-controls-drawer-stub').getAttribute('data-motif-length')).toBe('6');
+    expect(screen.getByTestId('ping-controls-drawer-stub').getAttribute('data-note-variance')).toBe('2');
+  });
+
+  it('falls back to the invariant-correct defaults\' .value when the robot has never had these fields set', () => {
+    const robot = makeRobot(); // rhythmicMotifLength/noteVariance both omitted
+    useLocaleStore.getState().addRobot(localeId, robot);
+    useUIStore.getState().selectRobot(robot.id);
+    render(<RobotOptionsTab />);
+
+    // DEFAULT_RHYTHMIC_MOTIF_LENGTH = { active: true, value: 8 }, DEFAULT_NOTE_VARIANCE = { active: false, value: 0 }
+    expect(screen.getByTestId('ping-controls-drawer-stub').getAttribute('data-motif-length')).toBe('8');
+    expect(screen.getByTestId('ping-controls-drawer-stub').getAttribute('data-note-variance')).toBe('0');
+  });
+
+  it('wires PingControlsDrawer\'s onMotifLengthChange straight through to robotOptionsActions.applyMotifLength', () => {
+    const robot = makeRobot();
+    useLocaleStore.getState().addRobot(localeId, robot);
+    useUIStore.getState().selectRobot(robot.id);
+    const applySpy = vi.spyOn(robotOptionsActions, 'applyMotifLength').mockImplementation(() => {});
+    render(<RobotOptionsTab />);
+
+    fireEvent.click(screen.getByText('probe-motif-length'));
+
+    expect(applySpy).toHaveBeenCalledWith(robot, localeId, 6);
+  });
+
+  it('wires PingControlsDrawer\'s onNoteVarianceChange straight through to robotOptionsActions.applyNoteVariance', () => {
+    const robot = makeRobot();
+    useLocaleStore.getState().addRobot(localeId, robot);
+    useUIStore.getState().selectRobot(robot.id);
+    const applySpy = vi.spyOn(robotOptionsActions, 'applyNoteVariance').mockImplementation(() => {});
+    render(<RobotOptionsTab />);
+
+    fireEvent.click(screen.getByText('probe-note-variance'));
+
+    expect(applySpy).toHaveBeenCalledWith(robot, localeId, 0);
   });
 
   it('wires PingControlsDrawer\'s onDensityChange to robotOptionsActions.applyDensity', () => {

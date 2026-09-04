@@ -6,6 +6,7 @@ import { getActiveLocaleId } from '@/utils/localeHelpers';
 import { useUIStore } from '@/stores/uiStore';
 import { useLocaleStore } from '@/stores/localeStore';
 import { regenerateMelody } from '@/engine/regenerateMelody';
+import { DEFAULT_RHYTHMIC_MOTIF_LENGTH, DEFAULT_NOTE_VARIANCE } from '@/engine/melodyGenerator';
 import {
   applyDensity, applyMotifLength, applyNoteVariance, applyPitchRepeat, applyOctaveMin, applyOctaveMax,
   applyAdsr, applyLayersContinuous, applyLayersStructural, applyLayerLfo, applyClickTrackActive,
@@ -53,8 +54,8 @@ export function RobotOptionsTab() {
 
   const pingControlsValue: PingControlsValue = {
     rhythmicDensity: robot.rhythmicDensity ?? 50,
-    rhythmicMotifLength: robot.rhythmicMotifLength ?? { active: true, value: 8 },
-    noteVariance: robot.noteVariance ?? { active: false, value: 1 },
+    rhythmicMotifLength: robot.rhythmicMotifLength?.value ?? DEFAULT_RHYTHMIC_MOTIF_LENGTH.value,
+    noteVariance: robot.noteVariance?.value ?? DEFAULT_NOTE_VARIANCE.value,
     pitchRepeat: robot.pitchRepeat ?? 0,
     octaveRange: robot.octaveRange,
     clickTrackActive: robot.clickTrackActive ?? false,
