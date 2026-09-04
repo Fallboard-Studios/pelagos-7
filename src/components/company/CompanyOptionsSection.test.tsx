@@ -44,14 +44,14 @@ vi.mock('@/components/robot/PingControlsDrawer', () => ({
   PingControlsDrawer: (props: {
     value: {
       rhythmicDensity: number;
-      rhythmicMotifLength: { active: boolean; value: number };
-      noteVariance: { active: boolean; value: number };
+      rhythmicMotifLength: number;
+      noteVariance: number;
       pitchRepeat: number;
       clickTrackActive: boolean;
     };
     onDensityChange: (v: number) => void;
-    onMotifLengthChange: (v: unknown) => void;
-    onNoteVarianceChange: (v: unknown) => void;
+    onMotifLengthChange: (v: number) => void;
+    onNoteVarianceChange: (v: number) => void;
     onPitchRepeatChange: (v: number) => void;
     onClickTrackActiveChange: (v: boolean) => void;
     onResetMelody?: () => void;
@@ -60,13 +60,19 @@ vi.mock('@/components/robot/PingControlsDrawer', () => ({
     <div
       data-testid="ping-controls-drawer-stub"
       data-density={props.value.rhythmicDensity}
+      data-motif-length={props.value.rhythmicMotifLength}
+      data-note-variance={props.value.noteVariance}
       data-pitch-repeat={props.value.pitchRepeat}
       data-click-track-active={String(props.value.clickTrackActive)}
       data-disabled={props.disabled ? '' : undefined}
     >
       <button onClick={() => props.onDensityChange(77)}>probe-density</button>
-      <button onClick={() => props.onMotifLengthChange({ ...props.value.rhythmicMotifLength, value: 12 })}>probe-motif-length</button>
-      <button onClick={() => props.onNoteVarianceChange({ ...props.value.noteVariance, active: !props.value.noteVariance.active })}>probe-note-variance</button>
+      {/* Plain-number pattern, matching onDensityChange/onPitchRepeatChange — no {active, value} */}
+      {/* wrapping at this layer; reconstruction happens only in robotOptionsActions.ts. */}
+      <button onClick={() => props.onMotifLengthChange(12)}>probe-motif-length</button>
+      <button onClick={() => props.onMotifLengthChange(0)}>probe-motif-length-zero</button>
+      <button onClick={() => props.onNoteVarianceChange(5)}>probe-note-variance</button>
+      <button onClick={() => props.onNoteVarianceChange(0)}>probe-note-variance-zero</button>
       <button onClick={() => props.onPitchRepeatChange(90)}>probe-pitch-repeat</button>
       <button onClick={() => props.onClickTrackActiveChange(!props.value.clickTrackActive)}>probe-click-track</button>
       {props.onResetMelody && <button onClick={props.onResetMelody}>probe-reset-melody</button>}
@@ -304,6 +310,106 @@ describe('CompanyOptionsSection', () => {
 
     const [, , update] = updateCompanySpy.mock.calls[0];
     expect(update.lastEditedOptions).toEqual({ pitchRepeat: 90 });
+  });
+
+  it('editing Motif Length calls applyMotifLength once per member robot with the raw number, not diffCompoundField', () => {
+    const r1 = makeRobot({ id: 'r1', companyId: 'c1' });
+    const r2 = makeRobot({ id: 'r2', companyId: 'c1' });
+    useLocaleStore.getState().addRobot(localeId, r1);
+    useLocaleStore.getState().addRobot(localeId, r2);
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1', 'r2'] });
+    useUIStore.getState().selectCompany('c1');
+    const applyMotifLengthSpy = vi.spyOn(robotOptionsActions, 'applyMotifLength').mockImplementation(() => {});
+
+    render(<CompanyOptionsSection />);
+    fireEvent.click(screen.getByText('probe-motif-length'));
+
+    expect(applyMotifLengthSpy).toHaveBeenCalledTimes(2);
+    expect(applyMotifLengthSpy.mock.calls.map((c) => [c[0].id, c[2]])).toEqual([
+      ['r1', 12],
+      ['r2', 12],
+    ]);
+  });
+
+  it('editing Motif Length patches { active, value } (reconstructed) into company.lastEditedOptions', () => {
+    const robot = makeRobot({ id: 'r1', companyId: 'c1' });
+    useLocaleStore.getState().addRobot(localeId, robot);
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
+    useUIStore.getState().selectCompany('c1');
+    vi.spyOn(robotOptionsActions, 'applyMotifLength').mockImplementation(() => {});
+    const updateCompanySpy = vi.spyOn(useLocaleStore.getState(), 'updateCompany');
+
+    render(<CompanyOptionsSection />);
+    fireEvent.click(screen.getByText('probe-motif-length'));
+
+    const [, , update] = updateCompanySpy.mock.calls[0];
+    expect(update.lastEditedOptions).toEqual({ rhythmicMotifLength: { active: true, value: 12 } });
+  });
+
+  it('editing Motif Length across the 0 boundary patches both active and value together, not just one', () => {
+    const robot = makeRobot({ id: 'r1', companyId: 'c1' });
+    useLocaleStore.getState().addRobot(localeId, robot);
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
+    useUIStore.getState().selectCompany('c1');
+    const applyMotifLengthSpy = vi.spyOn(robotOptionsActions, 'applyMotifLength').mockImplementation(() => {});
+    const updateCompanySpy = vi.spyOn(useLocaleStore.getState(), 'updateCompany');
+
+    render(<CompanyOptionsSection />);
+    fireEvent.click(screen.getByText('probe-motif-length-zero'));
+
+    expect(applyMotifLengthSpy).toHaveBeenCalledWith(robot, localeId, 0);
+    const [, , update] = updateCompanySpy.mock.calls[0];
+    expect(update.lastEditedOptions).toEqual({ rhythmicMotifLength: { active: false, value: 0 } });
+  });
+
+  it('editing Note Variance calls applyNoteVariance once per member robot with the raw number, not diffCompoundField', () => {
+    const r1 = makeRobot({ id: 'r1', companyId: 'c1' });
+    const r2 = makeRobot({ id: 'r2', companyId: 'c1' });
+    useLocaleStore.getState().addRobot(localeId, r1);
+    useLocaleStore.getState().addRobot(localeId, r2);
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1', 'r2'] });
+    useUIStore.getState().selectCompany('c1');
+    const applyNoteVarianceSpy = vi.spyOn(robotOptionsActions, 'applyNoteVariance').mockImplementation(() => {});
+
+    render(<CompanyOptionsSection />);
+    fireEvent.click(screen.getByText('probe-note-variance'));
+
+    expect(applyNoteVarianceSpy).toHaveBeenCalledTimes(2);
+    expect(applyNoteVarianceSpy.mock.calls.map((c) => [c[0].id, c[2]])).toEqual([
+      ['r1', 5],
+      ['r2', 5],
+    ]);
+  });
+
+  it('editing Note Variance patches { active, value } (reconstructed) into company.lastEditedOptions', () => {
+    const robot = makeRobot({ id: 'r1', companyId: 'c1' });
+    useLocaleStore.getState().addRobot(localeId, robot);
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
+    useUIStore.getState().selectCompany('c1');
+    vi.spyOn(robotOptionsActions, 'applyNoteVariance').mockImplementation(() => {});
+    const updateCompanySpy = vi.spyOn(useLocaleStore.getState(), 'updateCompany');
+
+    render(<CompanyOptionsSection />);
+    fireEvent.click(screen.getByText('probe-note-variance'));
+
+    const [, , update] = updateCompanySpy.mock.calls[0];
+    expect(update.lastEditedOptions).toEqual({ noteVariance: { active: true, value: 5 } });
+  });
+
+  it('editing Note Variance across the 0 boundary patches both active and value together, not just one', () => {
+    const robot = makeRobot({ id: 'r1', companyId: 'c1' });
+    useLocaleStore.getState().addRobot(localeId, robot);
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
+    useUIStore.getState().selectCompany('c1');
+    const applyNoteVarianceSpy = vi.spyOn(robotOptionsActions, 'applyNoteVariance').mockImplementation(() => {});
+    const updateCompanySpy = vi.spyOn(useLocaleStore.getState(), 'updateCompany');
+
+    render(<CompanyOptionsSection />);
+    fireEvent.click(screen.getByText('probe-note-variance-zero'));
+
+    expect(applyNoteVarianceSpy).toHaveBeenCalledWith(robot, localeId, 0);
+    const [, , update] = updateCompanySpy.mock.calls[0];
+    expect(update.lastEditedOptions).toEqual({ noteVariance: { active: false, value: 0 } });
   });
 
   it('omits Reset Melody entirely in company mode', () => {
