@@ -134,7 +134,7 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
     accordion: accordionSchema('compressor', 'DYNAMIC RANGE CONDENSER', 'Compressor'),
     params: [
       { field: 'threshold', schema: { id: 'compressor.threshold', type: 'sliderLinear', loreLabel: 'ATTENUATION THRESHOLD', humanLabel: 'Threshold', min: -60, max: 0, unit: 'dB' } },
-      { field: 'ratio', schema: { id: 'compressor.ratio', type: 'stepper', loreLabel: 'COMPRESSION RATIO', humanLabel: 'Ratio', min: 1, max: 20 } },
+      { field: 'ratio', schema: { id: 'compressor.ratio', type: 'sliderLinear', loreLabel: 'COMPRESSION RATIO', humanLabel: 'Ratio', min: 1, max: 20, step: 1 } },
       { field: 'attack', schema: { id: 'compressor.attack', type: 'sliderLog', loreLabel: 'COMPRESSION RATE', humanLabel: 'Attack', min: 0.001, max: 1, unit: 's' } },
       { field: 'release', schema: { id: 'compressor.release', type: 'sliderLog', loreLabel: 'RAREFACTION RATE', humanLabel: 'Release', min: 0.01, max: 1, unit: 's' } },
       { field: 'knee', schema: { id: 'compressor.knee', type: 'sliderLinear', loreLabel: 'CURVATURE DAMPING', humanLabel: 'Knee', min: 0, max: 40, unit: 'dB' } },
