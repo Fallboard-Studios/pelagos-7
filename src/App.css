@@ -40,20 +40,4 @@
   z-index: -2;
 }
 
-/* Groups the dev-only debug overlays (PaletteSample, SkippedNotesCounter)
-   into one fixed, bottom-left stack instead of each owning its own
-   position: fixed (which would otherwise render both at the exact same
-   spot, on top of each other). Both children keep their own visual chrome
-   (background/border/padding) — this wrapper owns only positioning/layout. */
-.debug-hud {
-  position: fixed;
-  left: var(--spacing-md);
-  bottom: var(--spacing-md);
-  z-index: var(--z-popover);
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
-  pointer-events: none;
-}
-
 /* Vite default demo styles removed — layout tokens live in src/index.css */
