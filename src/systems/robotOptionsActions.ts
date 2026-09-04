@@ -86,8 +86,9 @@ export function applyClickTrackActive(robot: Robot, localeId: string, active: bo
   AudioEngine.registerRobotMelody(robot.id, melody);
 }
 
-// Keeps min <= max at all times — the same guard PingControlsDrawer's two independent Steppers
-// have always needed (no minStepsBetweenThumbs dual-thumb-slider enforcement here). Unlike
+// Keeps min <= max at all times — the same guard PingControlsDrawer's two independent
+// SliderLinears have always needed (no minStepsBetweenThumbs dual-thumb-slider enforcement
+// here). Unlike
 // density/motifLength/noteVariance, an octave-range edit does NOT regenerate the melody today —
 // preserved exactly as-is, not a gap this extraction fixes.
 export function applyOctaveMin(robot: Robot, localeId: string, value: number): void {
