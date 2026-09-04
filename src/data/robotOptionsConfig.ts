@@ -68,6 +68,7 @@ export const VOLUME_SCHEMA: SliderLinearSchema = {
   max: 100,
   step: 1,
   unit: '%',
+  orientation: 'horizontal',
 };
 
 /** LFO-modulatable per src/types/lfo.ts's RobotLfoTargetId — editable, per /interview-me
@@ -118,6 +119,7 @@ export const DENSITY_SCHEMA: SliderLinearSchema = {
   min: RHYTHMIC_DENSITY_MIN,
   max: RHYTHMIC_DENSITY_MAX,
   unit: '%',
+  orientation: 'auto',
 };
 
 export const MOTIF_LENGTH_SCHEMA: SliderLinearSchema = {
@@ -146,6 +148,7 @@ export const PITCH_REPEAT_SCHEMA: SliderLinearSchema = {
   min: PITCH_REPEAT_MIN,
   max: PITCH_REPEAT_MAX,
   unit: '%',
+  orientation: 'auto',
 };
 
 export const OCTAVE_RANGE_MIN_SCHEMA: SliderLinearSchema = {
@@ -206,6 +209,7 @@ export const ATTACK_SCHEMA: SliderLogSchema = {
   min: 0,
   max: 10,
   unit: 's',
+  orientation: 'auto',
 };
 
 export const DECAY_SCHEMA: SliderLogSchema = {
@@ -216,6 +220,7 @@ export const DECAY_SCHEMA: SliderLogSchema = {
   min: 0,
   max: 10,
   unit: 's',
+  orientation: 'auto',
 };
 
 /**
@@ -231,6 +236,7 @@ export const SUSTAIN_SCHEMA: SliderLinearSchema = {
   min: 0,
   max: 100,
   unit: '%',
+  orientation: 'auto',
 };
 
 export const RELEASE_SCHEMA: SliderLogSchema = {
@@ -241,6 +247,7 @@ export const RELEASE_SCHEMA: SliderLogSchema = {
   min: 0,
   max: 10,
   unit: 's',
+  orientation: 'auto',
 };
 
 // ========================================
@@ -308,7 +315,7 @@ function makeLayerBlock(
         schema: {
           id: `robotOptions.${key}.gain`, type: 'sliderLinear',
           loreLabel: `${loreLabel} SATURATION`, humanLabel: `${humanLabel} Gain`,
-          min: 0, max: 2, step: 0.01,
+          min: 0, max: 2, step: 0.01, orientation: 'auto',
         } satisfies SliderLinearSchema,
         lfoTarget: gainTarget,
       },
@@ -317,7 +324,7 @@ function makeLayerBlock(
         schema: {
           id: `robotOptions.${key}.detune`, type: 'sliderCenteredZero',
           loreLabel: `${loreLabel} DRIFT`, humanLabel: `${humanLabel} Detune`,
-          min: -50, max: 50, unit: 'cents',
+          min: -50, max: 50, unit: 'cents', orientation: 'auto',
         } satisfies SliderCenteredZeroSchema,
         lfoTarget: detuneTarget,
       },
@@ -326,7 +333,7 @@ function makeLayerBlock(
         schema: {
           id: `robotOptions.${key}.phase`, type: 'sliderLinear',
           loreLabel: `${loreLabel} ALIGNMENT`, humanLabel: `${humanLabel} Phase`,
-          min: 0, max: 360,
+          min: 0, max: 360, orientation: 'auto',
         } satisfies SliderLinearSchema,
         lfoTarget: phaseTarget,
       },
@@ -335,7 +342,7 @@ function makeLayerBlock(
         schema: {
           id: `robotOptions.${key}.pulseWidth`, type: 'sliderLinear',
           loreLabel: `${loreLabel} PULSE WIDTH`, humanLabel: `${humanLabel} Interval`,
-          min: 0, max: 1, step: 0.01,
+          min: 0, max: 1, step: 0.01, orientation: 'auto',
         } satisfies SliderLinearSchema,
         lfoTarget: pulseWidthTarget,
       },
