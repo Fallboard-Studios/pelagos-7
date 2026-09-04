@@ -31,11 +31,15 @@
      at any height) and SleeveContainer.css's own width share one source. */
   --sleeve-bar-width: 200px;
 
-  /* Color tokens (fallbacks; prefer assets/color-theme.json mapping elsewhere) */
-  --color-bg: #121212;
-  --color-surface: #1a1a1a;
-  --color-border: rgba(255, 255, 255, 0.08);
-  --color-accent: #646cff;
+  /* Color tokens (fallbacks; prefer assets/color-theme.json mapping elsewhere).
+     "Ballast" — hand-picked static console palette (cold graphite + depth-gauge
+     cyan), replacing the seed-driven system that was tried and cut (see
+     docs/CONSOLE_THEMING.md). Chosen from a set of candidates, not derived —
+     changing this later is just editing these 4 values, nothing else to migrate. */
+  --color-bg: #12161a;
+  --color-surface: #1a2027;
+  --color-border: rgba(140, 190, 210, 0.14);
+  --color-accent: #5fc9dc;
   --color-text-primary: rgba(255, 255, 255, 0.87);
   --color-text-muted: rgba(255, 255, 255, 0.6);
 
