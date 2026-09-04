@@ -39,6 +39,26 @@ describe('SignatureArrayDrawer', () => {
     expect(Array.from(sections).map((s) => s.getAttribute('data-layer-key'))).toEqual(['layer0', 'layer1', 'layer2']);
   });
 
+  it('wraps its content in one Source accordion containing 3 panels — Baseline/Coaxial/Harmonic, in order (DIRECTIONAL_PANEL_WIRING Task 8)', () => {
+    const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
+    expect(container.querySelectorAll('.sc-accordion')).toHaveLength(1);
+    expect(container.querySelector('.sc-accordion')?.textContent).toContain('Source');
+    const panels = Array.from(container.querySelectorAll('.sc-accordion .sc-directional-panel'));
+    expect(panels).toHaveLength(3);
+    // Each panel's own label is its direct-child DualLabel — not the many nested DualLabels
+    // every RadioButton/slider/LFO field inside it also renders for its own humanLabel.
+    const panelLabels = panels.map((p) => p.querySelector(':scope > .sc-dual-label > .sc-dual-label__human')?.textContent);
+    expect(panelLabels).toEqual(['Baseline', 'Coaxial', 'Harmonic']);
+  });
+
+  it("each layer's data-layer-key div is nested inside its own DirectionalPanel — wrapped around, not replaced", () => {
+    const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
+    (['layer0', 'layer1', 'layer2'] as const).forEach((key) => {
+      const layerDiv = layerSection(container, key);
+      expect(layerDiv.closest('.sc-directional-panel')).not.toBeNull();
+    });
+  });
+
   it('renders no Active toggle anywhere — muting is expressed via each layer\'s own Gain slider instead', () => {
     const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
 
@@ -140,7 +160,7 @@ describe('SignatureArrayDrawer', () => {
       expect(container.querySelectorAll('.sc-lfo')).toHaveLength(3);
     });
 
-    it('renders no accordion anywhere except the drawer\'s own single Signature Array wrapper — no nested "Modulation" accordion per param', () => {
+    it('renders no accordion anywhere except the drawer\'s own single Source wrapper — no nested "Modulation" accordion per param', () => {
       const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
       expect(container.querySelectorAll('.sc-accordion')).toHaveLength(1);
     });
