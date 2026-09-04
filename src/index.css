@@ -46,20 +46,6 @@
   --color-text-primary: rgba(255, 255, 255, 0.87);
   --color-text-muted: rgba(255, 255, 255, 0.6);
 
-  /* Static counterparts of the 4 seed-driven tokens above — same values,
-     never overridden. SleeveContainer.css pins its own --color-* custom
-     properties back to these (SleeveContainer, and everything inside it
-     like PowerRockerSwitch, is explicitly out of scope for Console Theming
-     — docs/CONSOLE_THEMING.md's "What This Is Not" — but both live inside
-     .tablet, so without an explicit pin they'd silently inherit whatever
-     Tablet.tsx's inline style makes --color-bg/etc resolve to). Single
-     source of truth for the fixed value, so SleeveContainer.css never
-     restates a literal that could drift from this block. */
-  --color-bg-fixed: #121212;
-  --color-surface-fixed: #1a1a1a;
-  --color-border-fixed: rgba(255, 255, 255, 0.08);
-  --color-accent-fixed: #646cff;
-
   /* Border & z-index */
   --border-width: 1px;
   --border-color: var(--color-border);
