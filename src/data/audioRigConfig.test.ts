@@ -41,9 +41,10 @@ describe('AUDIO_RIG_CONFIG', () => {
     expect(AUDIO_RIG_CONFIG.map((b) => b.key)).toEqual([...EFFECT_KEYS]);
   });
 
-  it('every block has its own accordion schema — no separate enabled toggle schema (removed; a slider-only off state)', () => {
+  it('every block has its own panel schema — no separate accordion field (removed, DirectionalPanel wiring Task 2) or enabled toggle schema (removed; a slider-only off state)', () => {
     for (const block of AUDIO_RIG_CONFIG) {
-      expect(block.accordion).toMatchObject({ id: `audioRig.${block.key}`, type: 'accordion' });
+      expect(block.panel).toMatchObject({ id: `audioRig.${block.key}`, type: 'directionalPanel' });
+      expect('accordion' in block).toBe(false);
       expect('enabledSchema' in block).toBe(false);
     }
   });
@@ -259,9 +260,10 @@ describe('LFO_DRIFT_GROUPS', () => {
     expect(LFO_DRIFT_GROUPS.map((g) => g.group).sort()).toEqual([...DRIFT_GROUP_IDS].sort());
   });
 
-  it('every entry has a valid, global chain-level accordion — not nested inside any effect block', () => {
+  it('every entry has a valid, global chain-level panel — no separate accordion field (removed, DirectionalPanel wiring Task 2)', () => {
     for (const driftGroup of LFO_DRIFT_GROUPS) {
-      expect(driftGroup.accordion).toMatchObject({ id: `audioRig.lfoDrift.${driftGroup.group}`, type: 'accordion' });
+      expect(driftGroup.panel).toMatchObject({ id: `audioRig.lfoDrift.${driftGroup.group}`, type: 'directionalPanel' });
+      expect('accordion' in driftGroup).toBe(false);
     }
   });
 
@@ -272,8 +274,8 @@ describe('LFO_DRIFT_GROUPS', () => {
     }
   });
 
-  it('every id across all 4 entries (4 accordions + 8 sliders) is unique', () => {
-    const allIds = LFO_DRIFT_GROUPS.flatMap((g) => [g.accordion.id, g.rateSchema.id, g.depthSchema.id]);
+  it('every id across all 4 entries (4 panels + 8 sliders) is unique', () => {
+    const allIds = LFO_DRIFT_GROUPS.flatMap((g) => [g.panel.id, g.rateSchema.id, g.depthSchema.id]);
     expect(allIds).toHaveLength(12);
     expect(new Set(allIds).size).toBe(12);
   });
@@ -289,10 +291,10 @@ describe('LFO_DRIFT_GROUPS', () => {
   it('none of LFO_DRIFT_GROUPS\' schema ids appear anywhere inside AUDIO_RIG_CONFIG\'s array — lfoDrift is a top-level GlobalAudioSettings flag, not a matching AudioRigEffectBlock key', () => {
     expect(AUDIO_RIG_CONFIG.map((b) => b.key as string)).not.toContain('lfoDrift');
     const allConfigSchemaIds = AUDIO_RIG_CONFIG.flatMap((b) => [
-      b.accordion.id,
+      b.panel.id,
       ...b.params.map((p) => p.schema.id),
     ]);
-    const driftSchemaIds = LFO_DRIFT_GROUPS.flatMap((g) => [g.accordion.id, g.rateSchema.id, g.depthSchema.id]);
+    const driftSchemaIds = LFO_DRIFT_GROUPS.flatMap((g) => [g.panel.id, g.rateSchema.id, g.depthSchema.id]);
     for (const id of driftSchemaIds) {
       expect(allConfigSchemaIds, id).not.toContain(id);
     }
@@ -326,7 +328,7 @@ describe('PING_VARIANCE_AUTOMATION_SCHEMA', () => {
 
   it('is not part of AUDIO_RIG_CONFIG\'s per-effect array — it is a bare, Rig-wide meta-setting, not an effect param', () => {
     const allConfigSchemaIds = AUDIO_RIG_CONFIG.flatMap((b) => [
-      b.accordion.id,
+      b.panel.id,
       ...b.params.map((p) => p.schema.id),
     ]);
     expect(allConfigSchemaIds).not.toContain(PING_VARIANCE_AUTOMATION_SCHEMA.id);
@@ -361,7 +363,7 @@ describe('BPM_SCHEMA (docs/specs/BPM_CONTROL.md §1.4-§1.5)', () => {
 
   it('is not part of AUDIO_RIG_CONFIG\'s per-effect array — it is a bare, Rig-wide meta-setting, not an effect param', () => {
     const allConfigSchemaIds = AUDIO_RIG_CONFIG.flatMap((b) => [
-      b.accordion.id,
+      b.panel.id,
       ...b.params.map((p) => p.schema.id),
     ]);
     expect(allConfigSchemaIds).not.toContain(BPM_SCHEMA.id);
@@ -439,17 +441,31 @@ describe('slider orientation classification (docs/specs/VERTICAL_SLIDERS.md §1.
 // (docs/tasks/DIRECTIONAL_PANEL_WIRING.md Task 1)
 // ========================================
 
-describe('AudioRigEffectBlock.panel (additive — coexists with .accordion, Task 1)', () => {
-  it('every block has a panel field, type directionalPanel, same id as its accordion', () => {
+// The exact loreLabel/humanLabel text every AudioRigEffectBlock's now-removed `accordion` field
+// used to carry, before the type swap to `panel` (docs/tasks/DIRECTIONAL_PANEL_WIRING.md Task 2)
+// — verbatim preservation is guarded by comparing `panel`'s text against these literals directly,
+// since there's no more sibling `accordion` field left to compare against at runtime.
+const EXPECTED_BLOCK_LABELS: Record<(typeof EFFECT_KEYS)[number], { loreLabel: string; humanLabel: string }> = {
+  eq3: { loreLabel: 'SPECTRAL FREQUENCY EQUALIZER', humanLabel: '3-Band EQ' },
+  filterLPF: { loreLabel: 'HIGH-FREQUENCY MASK', humanLabel: 'Low-Pass Filter' },
+  filterHPF: { loreLabel: 'LOW-FREQUENCY MASK', humanLabel: 'High-Pass Filter' },
+  delay: { loreLabel: 'TEMPORAL REFLECTION MATRIX', humanLabel: 'Delay' },
+  reverb: { loreLabel: 'SPATIAL DIFFUSION MATRIX', humanLabel: 'Reverb' },
+  compressor: { loreLabel: 'DYNAMIC RANGE CONDENSER', humanLabel: 'Compressor' },
+  limiter: { loreLabel: 'TERMINAL CEILING GATE', humanLabel: 'Limiter' },
+};
+
+describe('AudioRigEffectBlock.panel (DirectionalPanel wiring, Tasks 1-2)', () => {
+  it('every block has a panel field, type directionalPanel, id audioRig.<key>', () => {
     for (const block of AUDIO_RIG_CONFIG) {
       expect(block.panel, block.key).toMatchObject({ id: `audioRig.${block.key}`, type: 'directionalPanel' });
     }
   });
 
-  it("every panel's loreLabel/humanLabel is byte-identical to its sibling accordion's text — verbatim preservation", () => {
+  it("every panel's loreLabel/humanLabel is byte-identical to its pre-Task-2 accordion's text — verbatim preservation across the type swap", () => {
     for (const block of AUDIO_RIG_CONFIG) {
-      expect(block.panel.loreLabel, block.key).toBe(block.accordion.loreLabel);
-      expect(block.panel.humanLabel, block.key).toBe(block.accordion.humanLabel);
+      expect(block.panel.loreLabel, block.key).toBe(EXPECTED_BLOCK_LABELS[block.key].loreLabel);
+      expect(block.panel.humanLabel, block.key).toBe(EXPECTED_BLOCK_LABELS[block.key].humanLabel);
     }
   });
 
@@ -459,15 +475,15 @@ describe('AudioRigEffectBlock.panel (additive — coexists with .accordion, Task
     }
   });
 
-  it('leaves the existing accordion field untouched — nothing removed this task', () => {
+  it('no longer has an accordion field — superseded by panel (Task 2 cleanup)', () => {
     for (const block of AUDIO_RIG_CONFIG) {
-      expect(block.accordion, block.key).toMatchObject({ id: `audioRig.${block.key}`, type: 'accordion' });
+      expect('accordion' in block, block.key).toBe(false);
     }
   });
 });
 
-describe('LfoDriftGroupSchema.panel (additive — coexists with .accordion, Task 1)', () => {
-  it('every drift group has a panel field, type directionalPanel, column orientation, same id as its accordion', () => {
+describe('LfoDriftGroupSchema.panel (DirectionalPanel wiring, Tasks 1-2)', () => {
+  it('every drift group has a panel field, type directionalPanel, column orientation, id audioRig.lfoDrift.<group>', () => {
     for (const group of LFO_DRIFT_GROUPS) {
       expect(group.panel, group.group).toMatchObject({
         id: `audioRig.lfoDrift.${group.group}`,
@@ -477,16 +493,22 @@ describe('LfoDriftGroupSchema.panel (additive — coexists with .accordion, Task
     }
   });
 
-  it("every panel's loreLabel/humanLabel is byte-identical to its sibling accordion's text", () => {
+  it("every panel's loreLabel/humanLabel matches its known pre-Task-2 accordion text (LFO_DRIFT_GROUPS' own invented labels)", () => {
+    const expectedLabels: Record<string, { loreLabel: string; humanLabel: string }> = {
+      eq3: { loreLabel: 'SPECTRAL FLUX', humanLabel: 'EQ Drift' },
+      filterLPF: { loreLabel: 'HIGH-MASK FLUX', humanLabel: 'Low-Pass Drift' },
+      filterHPF: { loreLabel: 'LOW-MASK FLUX', humanLabel: 'High-Pass Drift' },
+      robots: { loreLabel: 'AGENT FLUX', humanLabel: 'Robot Drift' },
+    };
     for (const group of LFO_DRIFT_GROUPS) {
-      expect(group.panel.loreLabel, group.group).toBe(group.accordion.loreLabel);
-      expect(group.panel.humanLabel, group.group).toBe(group.accordion.humanLabel);
+      expect(group.panel.loreLabel, group.group).toBe(expectedLabels[group.group].loreLabel);
+      expect(group.panel.humanLabel, group.group).toBe(expectedLabels[group.group].humanLabel);
     }
   });
 
-  it('leaves the existing accordion field untouched — nothing removed this task', () => {
+  it('no longer has an accordion field — superseded by panel (Task 2 cleanup)', () => {
     for (const group of LFO_DRIFT_GROUPS) {
-      expect(group.accordion, group.group).toMatchObject({ id: `audioRig.lfoDrift.${group.group}`, type: 'accordion' });
+      expect('accordion' in group, group.group).toBe(false);
     }
   });
 });
@@ -552,7 +574,6 @@ describe('SPEED_AUTOMATION_PANEL_SCHEMA (Task 1)', () => {
 
   it('is not part of AUDIO_RIG_CONFIG\'s per-effect array — it is a bare, new panel, not an effect param', () => {
     const allConfigSchemaIds = AUDIO_RIG_CONFIG.flatMap((b) => [
-      b.accordion.id,
       b.panel.id,
       ...b.params.map((p) => p.schema.id),
     ]);

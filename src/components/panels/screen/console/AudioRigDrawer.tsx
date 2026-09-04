@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { useAudioStore } from '@/stores/audioStore';
 import { AccordionContainer } from '@/components/ui/controls/AccordionContainer';
+import { DirectionalPanel } from '@/components/ui/controls/DirectionalPanel';
 import { RadioButton } from '@/components/ui/controls/RadioButton';
 import { SliderLinear } from '@/components/ui/controls/SliderLinear';
 import { SliderLog } from '@/components/ui/controls/SliderLog';
@@ -11,6 +12,9 @@ import { useLfoTargetGroup } from '@/components/ui/controls/useLfoTargetGroup';
 import { withActiveClass } from '@/components/ui/controls/activeClass';
 import {
   AUDIO_RIG_CONFIG,
+  AUDIO_RIG_ACCORDION_GROUPS,
+  TRANSPORT_COMPOSITION_ACCORDION_SCHEMA,
+  SPEED_AUTOMATION_PANEL_SCHEMA,
   DECAY_MODE_SCHEMA,
   LFO_DRIFT_GROUPS,
   PING_VARIANCE_AUTOMATION_SCHEMA,
@@ -102,19 +106,28 @@ function AudioRigLfoGroup({ groupId, params, effect, updateParam, globalLfo, set
 
 /**
  * Live Audio Rig console — resolves docs/tasks/AUDIO_RIG.md Task 10/11 (V1:
- * bypass + params + nested LFO accordions) and docs/tasks/AUDIO_RIG_V2.md
- * Task 11 (V2: Decay control — the rest of V2 needed no drawer-specific
- * change at all, purely a consequence of AUDIO_RIG_CONFIG being schema-
- * driven). Renders purely from AUDIO_RIG_CONFIG, wired to audioStore's
- * setGlobalAudio/setCompressorBeforeDelay — every control here is live, not
- * presentational. The rig-wide bypass switch and each effect's own Enabled
- * toggle were removed: every effect's "off" state is fully expressible
- * through its own sliders (wet=0, a filter's passthrough frequency, etc.),
- * so a separate on/off flag was redundant. The Decay Mode radio isn't part
- * of AUDIO_RIG_CONFIG's per-effect params (it binds a top-level
- * GlobalAudioSettings field, compressorBeforeDelay, not one nested under
- * `compressor`) — it's a special case rendered inside the Compressor
- * block's own accordion, under its other params.
+ * bypass + params + nested LFO accordions), docs/tasks/AUDIO_RIG_V2.md Task
+ * 11 (V2: Decay control), and docs/tasks/DIRECTIONAL_PANEL_WIRING.md Task 2
+ * (regrouping into 4 top-level accordions of nested DirectionalPanels).
+ * Renders purely from AUDIO_RIG_CONFIG/AUDIO_RIG_ACCORDION_GROUPS, wired to
+ * audioStore's setGlobalAudio/setCompressorBeforeDelay — every control here
+ * is live, not presentational. The rig-wide bypass switch and each effect's
+ * own Enabled toggle were removed: every effect's "off" state is fully
+ * expressible through its own sliders (wet=0, a filter's passthrough
+ * frequency, etc.), so a separate on/off flag was redundant. The Decay Mode
+ * radio isn't part of AUDIO_RIG_CONFIG's per-effect params (it binds a
+ * top-level GlobalAudioSettings field, compressorBeforeDelay, not one
+ * nested under `compressor`) — it's a special case rendered inside the
+ * Compressor block's own panel, under its other params.
+ *
+ * Structure: Transport & Composition (Speed & Automation panel — Automatic
+ * Effects + Tempo; Robot Drift panel) as its own top-level accordion, then
+ * AUDIO_RIG_ACCORDION_GROUPS' 3 accordions (EQ & Filters, Time & Space,
+ * Output), each wrapping its blockKeys' blocks — every block's own body
+ * (AudioRigLfoGroup-or-plain-params-map, plus the compressor-only Decay
+ * Mode radio) is unchanged from before this restructure; only its wrapper
+ * changed from its own AccordionContainer to a DirectionalPanel nested
+ * inside its group's shared accordion.
  */
 export function AudioRigDrawer() {
   const globalAudio = useAudioStore((s) => s.globalAudio);
@@ -128,111 +141,106 @@ export function AudioRigDrawer() {
   const bpm = useAudioStore((s) => s.bpm);
   const setBPM = useAudioStore((s) => s.setBPM);
 
+  const robotsDriftGroup = LFO_DRIFT_GROUPS.find((g) => g.group === 'robots')!;
+  const robotsDriftSettings = globalAudio.lfoDrift[robotsDriftGroup.group];
+
   return (
     <div className="audio-rig-drawer">
-      {AUDIO_RIG_CONFIG.map((block) => {
-        // Every param field on every effect is a number (GLOBAL_CHAIN_GRID.md has
-        // no string/boolean params) — this cast is read-only and narrow, matching
-        // audioStore.ts's own GLOBAL_SETTER cast for the same "dynamic key against
-        // a closed-but-varying settings shape" situation.
-        const effect = globalAudio[block.key] as unknown as Record<string, number>;
-        const lfoFields = block.params.filter((p) => p.lfoTarget);
-        const driftGroup = LFO_DRIFT_GROUPS.find((g) => g.group === block.key); // undefined for non-LFO blocks
+      <AccordionContainer schema={TRANSPORT_COMPOSITION_ACCORDION_SCHEMA}>
+        <DirectionalPanel schema={SPEED_AUTOMATION_PANEL_SCHEMA}>
+          <SliderLinear
+            schema={PING_VARIANCE_AUTOMATION_SCHEMA}
+            value={pingVarianceAutomation * 100}
+            onChange={(v) => setPingVarianceAutomation(v / 100)}
+          />
+          <SliderLinear
+            schema={BPM_SCHEMA}
+            value={bpm}
+            onChange={setBPM}
+          />
+        </DirectionalPanel>
+        <DirectionalPanel schema={robotsDriftGroup.panel}>
+          <SliderCenteredZero
+            schema={robotsDriftGroup.rateSchema}
+            value={robotsDriftSettings.rateDrift * 100}
+            onChange={(v) => setGlobalLfoDrift(robotsDriftGroup.group, { rateDrift: v / 100 })}
+          />
+          <SliderCenteredZero
+            schema={robotsDriftGroup.depthSchema}
+            value={robotsDriftSettings.depthDrift * 100}
+            onChange={(v) => setGlobalLfoDrift(robotsDriftGroup.group, { depthDrift: v / 100 })}
+          />
+        </DirectionalPanel>
+      </AccordionContainer>
 
-        function updateParam(field: string, value: number) {
-          setGlobalAudio(block.key as AudioRigEffectKey, { [field]: value } as Partial<GlobalAudioSettings[AudioRigEffectKey]>);
-        }
+      {AUDIO_RIG_ACCORDION_GROUPS.map((group) => (
+        <AccordionContainer key={group.accordion.id} schema={group.accordion}>
+          {group.blockKeys.map((key) => {
+            const block = AUDIO_RIG_CONFIG.find((b) => b.key === key)!;
+            // Every param field on every effect is a number (GLOBAL_CHAIN_GRID.md has
+            // no string/boolean params) — this cast is read-only and narrow, matching
+            // audioStore.ts's own GLOBAL_SETTER cast for the same "dynamic key against
+            // a closed-but-varying settings shape" situation.
+            const effect = globalAudio[block.key] as unknown as Record<string, number>;
+            const lfoFields = block.params.filter((p) => p.lfoTarget);
+            const driftGroup = LFO_DRIFT_GROUPS.find((g) => g.group === block.key); // undefined for non-LFO blocks
 
-        return (
-          <div className="audio-rig-drawer__effect-block" key={block.key}>
-            <AccordionContainer schema={block.accordion}>
-              {lfoFields.length > 0 ? (
-                <AudioRigLfoGroup
-                  groupId={`audioRig.${block.key}`}
-                  params={lfoFields}
-                  effect={effect}
-                  updateParam={updateParam}
-                  globalLfo={globalLfo}
-                  setGlobalLfo={setGlobalLfo}
-                  driftContent={driftGroup && (
-                    <>
-                      <div className="audio-rig-drawer__param-row">
-                        <SliderCenteredZero
-                          schema={driftGroup.rateSchema}
-                          value={globalAudio.lfoDrift[driftGroup.group].rateDrift * 100}
-                          onChange={(v) => setGlobalLfoDrift(driftGroup.group, { rateDrift: v / 100 })}
-                        />
+            function updateParam(field: string, value: number) {
+              setGlobalAudio(block.key as AudioRigEffectKey, { [field]: value } as Partial<GlobalAudioSettings[AudioRigEffectKey]>);
+            }
+
+            return (
+              <div className="audio-rig-drawer__effect-block" key={block.key}>
+                <DirectionalPanel schema={block.panel}>
+                  {lfoFields.length > 0 ? (
+                    <AudioRigLfoGroup
+                      groupId={`audioRig.${block.key}`}
+                      params={lfoFields}
+                      effect={effect}
+                      updateParam={updateParam}
+                      globalLfo={globalLfo}
+                      setGlobalLfo={setGlobalLfo}
+                      driftContent={driftGroup && (
+                        <>
+                          <div className="audio-rig-drawer__param-row">
+                            <SliderCenteredZero
+                              schema={driftGroup.rateSchema}
+                              value={globalAudio.lfoDrift[driftGroup.group].rateDrift * 100}
+                              onChange={(v) => setGlobalLfoDrift(driftGroup.group, { rateDrift: v / 100 })}
+                            />
+                          </div>
+                          <div className="audio-rig-drawer__param-row">
+                            <SliderCenteredZero
+                              schema={driftGroup.depthSchema}
+                              value={globalAudio.lfoDrift[driftGroup.group].depthDrift * 100}
+                              onChange={(v) => setGlobalLfoDrift(driftGroup.group, { depthDrift: v / 100 })}
+                            />
+                          </div>
+                        </>
+                      )}
+                    />
+                  ) : (
+                    block.params.map((param) => (
+                      <div className="audio-rig-drawer__param-row" key={param.field}>
+                        {renderParamControl(param, effect[param.field], (v) => updateParam(param.field, v))}
                       </div>
-                      <div className="audio-rig-drawer__param-row">
-                        <SliderCenteredZero
-                          schema={driftGroup.depthSchema}
-                          value={globalAudio.lfoDrift[driftGroup.group].depthDrift * 100}
-                          onChange={(v) => setGlobalLfoDrift(driftGroup.group, { depthDrift: v / 100 })}
-                        />
-                      </div>
-                    </>
+                    ))
                   )}
-                />
-              ) : (
-                block.params.map((param) => (
-                  <div className="audio-rig-drawer__param-row" key={param.field}>
-                    {renderParamControl(param, effect[param.field], (v) => updateParam(param.field, v))}
-                  </div>
-                ))
-              )}
-              {block.key === 'compressor' && (
-                <div className="audio-rig-drawer__param-row">
-                  <RadioButton
-                    schema={DECAY_MODE_SCHEMA}
-                    value={globalAudio.compressorBeforeDelay ? 'controlled' : 'natural'}
-                    onChange={(v) => setCompressorBeforeDelay(v === 'controlled')}
-                  />
-                </div>
-              )}
-            </AccordionContainer>
-          </div>
-        );
-      })}
-      {/* eq3/filterLPF/filterHPF's own drift entries now render inside their own block above
-          (driftContent, via AudioRigLfoGroup) — 'robots' isn't scoped to any one effect block,
-          so it's the only entry that stays here as its own standalone accordion. */}
-      {LFO_DRIFT_GROUPS.filter((g) => g.group === 'robots').map((driftGroup) => {
-        const groupSettings = globalAudio.lfoDrift[driftGroup.group];
-        return (
-          <div className="audio-rig-drawer__effect-block" key={driftGroup.group}>
-            <AccordionContainer schema={driftGroup.accordion}>
-              <div className="audio-rig-drawer__param-row">
-                <SliderCenteredZero
-                  schema={driftGroup.rateSchema}
-                  value={groupSettings.rateDrift * 100}
-                  onChange={(v) => setGlobalLfoDrift(driftGroup.group, { rateDrift: v / 100 })}
-                />
+                  {block.key === 'compressor' && (
+                    <div className="audio-rig-drawer__param-row">
+                      <RadioButton
+                        schema={DECAY_MODE_SCHEMA}
+                        value={globalAudio.compressorBeforeDelay ? 'controlled' : 'natural'}
+                        onChange={(v) => setCompressorBeforeDelay(v === 'controlled')}
+                      />
+                    </div>
+                  )}
+                </DirectionalPanel>
               </div>
-              <div className="audio-rig-drawer__param-row">
-                <SliderCenteredZero
-                  schema={driftGroup.depthSchema}
-                  value={groupSettings.depthDrift * 100}
-                  onChange={(v) => setGlobalLfoDrift(driftGroup.group, { depthDrift: v / 100 })}
-                />
-              </div>
-            </AccordionContainer>
-          </div>
-        );
-      })}
-      <div className="audio-rig-drawer__master-row">
-        <SliderLinear
-          schema={PING_VARIANCE_AUTOMATION_SCHEMA}
-          value={pingVarianceAutomation * 100}
-          onChange={(v) => setPingVarianceAutomation(v / 100)}
-        />
-      </div>
-      <div className="audio-rig-drawer__master-row">
-        <SliderLinear
-          schema={BPM_SCHEMA}
-          value={bpm}
-          onChange={setBPM}
-        />
-      </div>
+            );
+          })}
+        </AccordionContainer>
+      ))}
     </div>
   );
 }

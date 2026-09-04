@@ -36,11 +36,10 @@ export interface AudioRigParamSchema {
 export interface AudioRigEffectBlock {
   /** Matches GlobalAudioSettings' own key. */
   key: AudioRigEffectKey;
-  accordion: AccordionSchema;
-  /** DirectionalPanel wiring (docs/tasks/DIRECTIONAL_PANEL_WIRING.md) — same id/loreLabel/
-   *  humanLabel as `accordion` above, added alongside it (additive staging, Task 1). Once every
-   *  consumer switches to rendering blocks as panels nested in AUDIO_RIG_ACCORDION_GROUPS'
-   *  top-level accordions, `accordion` is removed (Task 2). */
+  /** DirectionalPanel wiring (docs/tasks/DIRECTIONAL_PANEL_WIRING.md) — supersedes this block's
+   *  old `accordion: AccordionSchema` field (removed, Task 2): every block now renders as a
+   *  DirectionalPanel nested inside one of AUDIO_RIG_ACCORDION_GROUPS'/
+   *  TRANSPORT_COMPOSITION_ACCORDION_SCHEMA's top-level accordions instead of owning its own. */
   panel: DirectionalPanelSchema;
   params: AudioRigParamSchema[];
 }
@@ -49,11 +48,10 @@ export interface AudioRigEffectBlock {
 // HELPERS
 // ========================================
 
-/** `id` was `key: AudioRigEffectKey`-typed until Task 1 — loosened to `string` so it can also
- *  build the 4 new top-level accordions in AUDIO_RIG_ACCORDION_GROUPS/
- *  TRANSPORT_COMPOSITION_ACCORDION_SCHEMA below, none of which are AudioRigEffectKeys. Every
- *  existing call site still passes an AudioRigEffectKey, itself a string, so this widening is
- *  source-compatible. */
+/** `id` was `key: AudioRigEffectKey`-typed until docs/tasks/DIRECTIONAL_PANEL_WIRING.md Task 1 —
+ *  loosened to `string` so it can also build the 4 top-level accordions in
+ *  AUDIO_RIG_ACCORDION_GROUPS/TRANSPORT_COMPOSITION_ACCORDION_SCHEMA below, none of which are
+ *  AudioRigEffectKeys. */
 function accordionSchema(id: string, loreLabel: string, humanLabel: string): AccordionSchema {
   return { id: `audioRig.${id}`, type: 'accordion', loreLabel, humanLabel };
 }
@@ -71,7 +69,6 @@ function panelSchema(key: AudioRigEffectKey, loreLabel: string, humanLabel: stri
 export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
   {
     key: 'eq3',
-    accordion: accordionSchema('eq3', 'SPECTRAL FREQUENCY EQUALIZER', '3-Band EQ'),
     panel: panelSchema('eq3', 'SPECTRAL FREQUENCY EQUALIZER', '3-Band EQ', 'row'),
     params: [
       {
@@ -93,7 +90,6 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
   },
   {
     key: 'filterLPF',
-    accordion: accordionSchema('filterLPF', 'HIGH-FREQUENCY MASK', 'Low-Pass Filter'),
     panel: panelSchema('filterLPF', 'HIGH-FREQUENCY MASK', 'Low-Pass Filter', 'column'),
     params: [
       {
@@ -110,7 +106,6 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
   },
   {
     key: 'filterHPF',
-    accordion: accordionSchema('filterHPF', 'LOW-FREQUENCY MASK', 'High-Pass Filter'),
     panel: panelSchema('filterHPF', 'LOW-FREQUENCY MASK', 'High-Pass Filter', 'column'),
     params: [
       {
@@ -127,7 +122,6 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
   },
   {
     key: 'delay',
-    accordion: accordionSchema('delay', 'TEMPORAL REFLECTION MATRIX', 'Delay'),
     panel: panelSchema('delay', 'TEMPORAL REFLECTION MATRIX', 'Delay', 'column'),
     params: [
       // No lfoTarget/lfoAccordion — LFO removed from delayTime; the effect
@@ -140,7 +134,6 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
   },
   {
     key: 'reverb',
-    accordion: accordionSchema('reverb', 'SPATIAL DIFFUSION MATRIX', 'Reverb'),
     panel: panelSchema('reverb', 'SPATIAL DIFFUSION MATRIX', 'Reverb', 'column'),
     params: [
       { field: 'decay', schema: { id: 'reverb.decay', type: 'sliderLog', loreLabel: 'DISSIPATION DURATION', humanLabel: 'Decay', min: 0.1, max: 10, unit: 's', orientation: 'auto' } },
@@ -152,7 +145,6 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
   },
   {
     key: 'compressor',
-    accordion: accordionSchema('compressor', 'DYNAMIC RANGE CONDENSER', 'Compressor'),
     panel: panelSchema('compressor', 'DYNAMIC RANGE CONDENSER', 'Compressor', 'column'),
     params: [
       { field: 'threshold', schema: { id: 'compressor.threshold', type: 'sliderLinear', loreLabel: 'ATTENUATION THRESHOLD', humanLabel: 'Threshold', min: -60, max: 0, unit: 'dB', orientation: 'auto' } },
@@ -164,7 +156,6 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
   },
   {
     key: 'limiter',
-    accordion: accordionSchema('limiter', 'TERMINAL CEILING GATE', 'Limiter'),
     panel: panelSchema('limiter', 'TERMINAL CEILING GATE', 'Limiter', 'column'),
     params: [
       // No lfoTarget/lfoAccordion — Limiter never gets an LFO (spec: not a
@@ -211,12 +202,11 @@ export const DECAY_MODE_SCHEMA: RadioButtonSchema = {
  */
 export interface LfoDriftGroupSchema {
   group: DriftGroupId;
-  accordion: AccordionSchema;
-  /** DirectionalPanel wiring (docs/tasks/DIRECTIONAL_PANEL_WIRING.md) — same id/loreLabel/
-   *  humanLabel as `accordion` above, added alongside it (additive staging, Task 1). Only the
-   *  'robots' entry's `.panel` is actually read post-wiring (AudioRigDrawer.tsx nests it inside
-   *  Transport & Composition); the eq3/filterLPF/filterHPF entries keep it for schema-shape
-   *  consistency across this array, same as their `.accordion` field is unused by the drawer today. */
+  /** DirectionalPanel wiring (docs/tasks/DIRECTIONAL_PANEL_WIRING.md) — supersedes this entry's
+   *  old `accordion: AccordionSchema` field (removed, Task 2). Only the 'robots' entry's `.panel`
+   *  is actually read post-wiring (AudioRigDrawer.tsx nests it inside Transport & Composition);
+   *  the eq3/filterLPF/filterHPF entries keep it for schema-shape consistency across this array,
+   *  same as their `.accordion` field was unused by the drawer before this restructure. */
   panel: DirectionalPanelSchema;
   rateSchema: SliderCenteredZeroSchema;
   depthSchema: SliderCenteredZeroSchema;
@@ -225,7 +215,6 @@ export interface LfoDriftGroupSchema {
 function driftGroupSchema(group: DriftGroupId, loreLabel: string, humanLabel: string): LfoDriftGroupSchema {
   return {
     group,
-    accordion: { id: `audioRig.lfoDrift.${group}`, type: 'accordion', loreLabel, humanLabel },
     panel: { id: `audioRig.lfoDrift.${group}`, type: 'directionalPanel', loreLabel, humanLabel, orientation: 'column' },
     rateSchema: {
       id: `audioRig.lfoDrift.${group}.rateDrift`,
