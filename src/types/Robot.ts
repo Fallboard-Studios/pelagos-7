@@ -158,17 +158,19 @@ export interface Robot {
    */
   rhythmicDensity?: number;
   /**
-   * Motif length in 16th-note subdivisions, with an on/off toggle. `value` is 1-8.
-   * When `active` is false, onsets scatter freely across the measure and `value` is
-   * inert; when true, a `value`-length cell tiles across the measure and truncates
-   * at measure end. Default: { active: true, value: 8 }.
+   * Motif length in 16th-note subdivisions, with an on/off toggle. `value` is 0-8.
+   * `active` is a derived, enforced consequence of `value > 0` — never independently
+   * settable. When `active` is false (`value === 0`), onsets scatter freely across the
+   * measure and `value` is inert; when true, a `value`-length cell tiles across the
+   * measure and truncates at measure end. Default: { active: true, value: 8 }.
    */
   rhythmicMotifLength?: { active: boolean; value: number };
   /**
-   * Weighted note-selection toggle, with a 1-8 slice-size `value`. When `active` is
-   * false, notes are picked unweighted from all 8 indices and `value` is inert; when
-   * true, selection is a weighted slice of `value` notes from the pitch array.
-   * Default: { active: false, value: 1 }.
+   * Weighted note-selection toggle, with a 0-8 slice-size `value`. `active` is a
+   * derived, enforced consequence of `value > 0` — never independently settable. When
+   * `active` is false (`value === 0`), notes are picked unweighted from all 8 indices
+   * and `value` is inert; when true, selection is a weighted slice of `value` notes
+   * from the pitch array. Default: { active: false, value: 0 }.
    */
   noteVariance?: { active: boolean; value: number };
   /**
