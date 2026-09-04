@@ -15,6 +15,7 @@ import type {
   AccordionSchema,
   ButtonSchema,
   ControlSchema,
+  DirectionalPanelSchema,
   RadioButtonSchema,
   SliderCenteredZeroSchema,
   SliderLinearSchema,
@@ -78,6 +79,22 @@ export const VOLUME_SCHEMA: SliderLinearSchema = {
  *  from VOLUME_SCHEMA.humanLabel instead. */
 export const VOLUME_LFO_TARGET: RobotLfoTargetId = 'volume';
 
+/**
+ * DirectionalPanel wiring (docs/tasks/DIRECTIONAL_PANEL_WIRING.md) — wraps AudioSettingSection's
+ * existing content (Audio Setting radio + Volume's shared LfoTargetGroup) at both Robot Effects
+ * call sites, sitting above the Melody/Envelope/Source accordions rather than inside one. First
+ * new panel/accordion in this file with no prior AccordionSchema to inherit copy from — invented
+ * lore, same "confirm during manual check" treatment as LFO_DRIFT_GROUPS' own labels
+ * (audioRigConfig.ts).
+ */
+export const ROBOT_OUTPUT_PANEL_SCHEMA: DirectionalPanelSchema = {
+  id: 'robotOptions.output',
+  type: 'directionalPanel',
+  loreLabel: 'PROBE TRANSDUCER STAGE',
+  humanLabel: 'Output',
+  orientation: 'column',
+};
+
 // ========================================
 // PING CONTROLS
 // ========================================
@@ -87,6 +104,41 @@ export const PING_CONTROLS_ACCORDION_SCHEMA: AccordionSchema = {
   type: 'accordion',
   loreLabel: 'PING CONTROLS',
   humanLabel: 'Ping Controls',
+};
+
+/**
+ * DirectionalPanel wiring (docs/tasks/DIRECTIONAL_PANEL_WIRING.md) — supersedes
+ * PING_CONTROLS_ACCORDION_SCHEMA above (removed once PingControlsDrawer.tsx switches over, Task
+ * 9): the old flat "Ping Controls" accordion splits into this new Melody accordion wrapping 2
+ * panels (PHRASING_PANEL_SCHEMA, FREQUENCY_PANEL_SCHEMA below).
+ */
+export const MELODY_ACCORDION_SCHEMA: AccordionSchema = {
+  id: 'robotOptions.melody',
+  type: 'accordion',
+  loreLabel: 'MELODIC SUBSYSTEM',
+  humanLabel: 'Melody',
+};
+
+/**
+ * Density, Motif Length, Pitch Repeat, plus the dev-only Click Track toggle and Reset Melody
+ * button — a new label, not inherited from PING_CONTROLS_ACCORDION_SCHEMA (that whole accordion
+ * is split into 2 differently-labeled panels, not moved as one unit).
+ */
+export const PHRASING_PANEL_SCHEMA: DirectionalPanelSchema = {
+  id: 'robotOptions.phrasing',
+  type: 'directionalPanel',
+  loreLabel: 'RHYTHMIC PHRASING MATRIX',
+  humanLabel: 'Phrasing',
+  orientation: 'column',
+};
+
+/** Octave Min, Octave Max, Note Variance — the other half of the old Ping Controls accordion. */
+export const FREQUENCY_PANEL_SCHEMA: DirectionalPanelSchema = {
+  id: 'robotOptions.frequency',
+  type: 'directionalPanel',
+  loreLabel: 'PITCH FREQUENCY MATRIX',
+  humanLabel: 'Frequency',
+  orientation: 'column',
 };
 
 /**
@@ -205,6 +257,31 @@ export const PING_CONTOUR_ACCORDION_SCHEMA: AccordionSchema = {
   humanLabel: 'Ping Contour',
 };
 
+/**
+ * DirectionalPanel wiring (docs/tasks/DIRECTIONAL_PANEL_WIRING.md) — new top-level accordion that
+ * wraps PING_CONTOUR_PANEL_SCHEMA below (once PingContourDrawer.tsx switches over, Task 7).
+ */
+export const ENVELOPE_ACCORDION_SCHEMA: AccordionSchema = {
+  id: 'robotOptions.envelope',
+  type: 'accordion',
+  loreLabel: 'AMPLITUDE ENVELOPE STAGE',
+  humanLabel: 'Envelope',
+};
+
+/**
+ * DirectionalPanel wiring (docs/tasks/DIRECTIONAL_PANEL_WIRING.md) — supersedes
+ * PING_CONTOUR_ACCORDION_SCHEMA above (removed once its one consumer switches over, Task 9).
+ * Keeps that schema's exact loreLabel/humanLabel verbatim — the whole "Ping Contour" accordion
+ * becomes one panel nested inside the new Envelope accordion, not relabeled.
+ */
+export const PING_CONTOUR_PANEL_SCHEMA: DirectionalPanelSchema = {
+  id: 'robotOptions.pingContour',
+  type: 'directionalPanel',
+  loreLabel: 'PING CONTOUR',
+  humanLabel: 'Ping Contour',
+  orientation: 'column',
+};
+
 export const ATTACK_SCHEMA: SliderLogSchema = {
   id: 'robotOptions.attack',
   type: 'sliderLog',
@@ -265,6 +342,19 @@ export const SIGNATURE_ARRAY_ACCORDION_SCHEMA: AccordionSchema = {
   humanLabel: 'Signature Array',
 };
 
+/**
+ * DirectionalPanel wiring (docs/tasks/DIRECTIONAL_PANEL_WIRING.md) — supersedes
+ * SIGNATURE_ARRAY_ACCORDION_SCHEMA above (removed once SignatureArrayDrawer.tsx switches over,
+ * Task 9): each layer becomes its own panel (SignatureArrayLayerBlock.panel below) nested inside
+ * this new Source accordion, instead of the 3 layers sharing one "Signature Array" accordion.
+ */
+export const SOURCE_ACCORDION_SCHEMA: AccordionSchema = {
+  id: 'robotOptions.source',
+  type: 'accordion',
+  loreLabel: 'ACOUSTIC SOURCE ARRAY',
+  humanLabel: 'Source',
+};
+
 export type SignatureArrayLayerKey = 'layer0' | 'layer1' | 'layer2';
 
 export interface SignatureArrayParamSchema {
@@ -278,6 +368,10 @@ export interface SignatureArrayLayerBlock {
   key: SignatureArrayLayerKey;
   humanLabel: 'Baseline' | 'Coaxial' | 'Harmonic';
   loreLabel: string;
+  /** DirectionalPanel wiring (docs/tasks/DIRECTIONAL_PANEL_WIRING.md) — this layer's own panel,
+   *  nested inside SOURCE_ACCORDION_SCHEMA. Reuses this block's own humanLabel/loreLabel verbatim
+   *  (Baseline/Coaxial/Harmonic already had exactly the right per-layer label; no new copy). */
+  panel: DirectionalPanelSchema;
   params: SignatureArrayParamSchema[];
 }
 
@@ -305,6 +399,7 @@ function makeLayerBlock(
     key,
     humanLabel,
     loreLabel,
+    panel: { id: `robotOptions.${key}.panel`, type: 'directionalPanel', loreLabel, humanLabel, orientation: 'column' },
     params: [
       {
         field: 'type',

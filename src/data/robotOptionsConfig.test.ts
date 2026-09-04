@@ -11,11 +11,21 @@ import {
   NOTE_VARIANCE_SCHEMA,
   PITCH_REPEAT_SCHEMA,
   RESET_MELODY_SCHEMA,
+  PING_CONTOUR_ACCORDION_SCHEMA,
   ATTACK_SCHEMA,
   DECAY_SCHEMA,
   SUSTAIN_SCHEMA,
   RELEASE_SCHEMA,
+  PING_CONTROLS_ACCORDION_SCHEMA,
+  SIGNATURE_ARRAY_ACCORDION_SCHEMA,
   SIGNATURE_ARRAY_CONFIG,
+  ROBOT_OUTPUT_PANEL_SCHEMA,
+  MELODY_ACCORDION_SCHEMA,
+  ENVELOPE_ACCORDION_SCHEMA,
+  SOURCE_ACCORDION_SCHEMA,
+  PHRASING_PANEL_SCHEMA,
+  FREQUENCY_PANEL_SCHEMA,
+  PING_CONTOUR_PANEL_SCHEMA,
 } from './robotOptionsConfig';
 import { CONTROL_SCHEMA_TYPES } from '@/types/controls';
 import { ROBOT_LFO_TARGET_IDS } from '@/types/lfo';
@@ -247,5 +257,114 @@ describe('slider orientation classification (docs/specs/VERTICAL_SLIDERS.md §1.
         expect((param.schema as { orientation?: string }).orientation, `${block.key}.${field}`).toBe('auto');
       }
     });
+  });
+});
+
+// ========================================
+// DirectionalPanel wiring — additive schema work
+// (docs/tasks/DIRECTIONAL_PANEL_WIRING.md Task 3)
+// ========================================
+
+describe('ROBOT_OUTPUT_PANEL_SCHEMA (Task 3)', () => {
+  it('is a column-orientation directionalPanel with humanLabel Output, id robotOptions.output', () => {
+    expect(ROBOT_OUTPUT_PANEL_SCHEMA).toMatchObject({
+      id: 'robotOptions.output',
+      type: 'directionalPanel',
+      orientation: 'column',
+      humanLabel: 'Output',
+    });
+  });
+
+  it('has a non-empty invented loreLabel', () => {
+    expect(ROBOT_OUTPUT_PANEL_SCHEMA.loreLabel).toBeTruthy();
+  });
+});
+
+describe('MELODY_ACCORDION_SCHEMA / ENVELOPE_ACCORDION_SCHEMA / SOURCE_ACCORDION_SCHEMA (Task 3)', () => {
+  it('are accordion schemas with the confirmed humanLabels, in the robotOptions.* namespace', () => {
+    expect(MELODY_ACCORDION_SCHEMA.type).toBe('accordion');
+    expect(MELODY_ACCORDION_SCHEMA.humanLabel).toBe('Melody');
+    expect(MELODY_ACCORDION_SCHEMA.id).toMatch(/^robotOptions\./);
+
+    expect(ENVELOPE_ACCORDION_SCHEMA.type).toBe('accordion');
+    expect(ENVELOPE_ACCORDION_SCHEMA.humanLabel).toBe('Envelope');
+    expect(ENVELOPE_ACCORDION_SCHEMA.id).toMatch(/^robotOptions\./);
+
+    expect(SOURCE_ACCORDION_SCHEMA.type).toBe('accordion');
+    expect(SOURCE_ACCORDION_SCHEMA.humanLabel).toBe('Source');
+    expect(SOURCE_ACCORDION_SCHEMA.id).toMatch(/^robotOptions\./);
+  });
+
+  it('each has a non-empty invented loreLabel, and all 3 ids are unique', () => {
+    for (const schema of [MELODY_ACCORDION_SCHEMA, ENVELOPE_ACCORDION_SCHEMA, SOURCE_ACCORDION_SCHEMA]) {
+      expect(schema.loreLabel, schema.humanLabel).toBeTruthy();
+    }
+    const ids = [MELODY_ACCORDION_SCHEMA.id, ENVELOPE_ACCORDION_SCHEMA.id, SOURCE_ACCORDION_SCHEMA.id];
+    expect(new Set(ids).size).toBe(3);
+  });
+});
+
+describe('PHRASING_PANEL_SCHEMA / FREQUENCY_PANEL_SCHEMA (Task 3)', () => {
+  it('are column-orientation directionalPanels with the confirmed humanLabels — new labels, not derived from PING_CONTROLS_ACCORDION_SCHEMA', () => {
+    expect(PHRASING_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'column', humanLabel: 'Phrasing' });
+    expect(FREQUENCY_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'column', humanLabel: 'Frequency' });
+  });
+
+  it('neither reuses PING_CONTROLS_ACCORDION_SCHEMA\'s own label text', () => {
+    expect(PHRASING_PANEL_SCHEMA.humanLabel).not.toBe(PING_CONTROLS_ACCORDION_SCHEMA.humanLabel);
+    expect(FREQUENCY_PANEL_SCHEMA.humanLabel).not.toBe(PING_CONTROLS_ACCORDION_SCHEMA.humanLabel);
+  });
+
+  it('each has a non-empty invented loreLabel and a unique id', () => {
+    expect(PHRASING_PANEL_SCHEMA.loreLabel).toBeTruthy();
+    expect(FREQUENCY_PANEL_SCHEMA.loreLabel).toBeTruthy();
+    expect(PHRASING_PANEL_SCHEMA.id).not.toBe(FREQUENCY_PANEL_SCHEMA.id);
+  });
+});
+
+describe('PING_CONTOUR_PANEL_SCHEMA (additive — coexists with PING_CONTOUR_ACCORDION_SCHEMA, Task 3)', () => {
+  it('is a column-orientation directionalPanel', () => {
+    expect(PING_CONTOUR_PANEL_SCHEMA.type).toBe('directionalPanel');
+    expect(PING_CONTOUR_PANEL_SCHEMA.orientation).toBe('column');
+  });
+
+  it('has loreLabel/humanLabel byte-identical to PING_CONTOUR_ACCORDION_SCHEMA\'s — verbatim preservation', () => {
+    expect(PING_CONTOUR_PANEL_SCHEMA.loreLabel).toBe(PING_CONTOUR_ACCORDION_SCHEMA.loreLabel);
+    expect(PING_CONTOUR_PANEL_SCHEMA.humanLabel).toBe(PING_CONTOUR_ACCORDION_SCHEMA.humanLabel);
+  });
+
+  it('PING_CONTOUR_ACCORDION_SCHEMA still exists, untouched — nothing removed this task', () => {
+    expect(PING_CONTOUR_ACCORDION_SCHEMA).toMatchObject({ id: 'robotOptions.pingContour', type: 'accordion' });
+  });
+});
+
+describe('PING_CONTROLS_ACCORDION_SCHEMA / SIGNATURE_ARRAY_ACCORDION_SCHEMA still exist (Task 3 is additive-only)', () => {
+  it('PING_CONTROLS_ACCORDION_SCHEMA is untouched', () => {
+    expect(PING_CONTROLS_ACCORDION_SCHEMA).toMatchObject({ id: 'robotOptions.pingControls', type: 'accordion' });
+  });
+
+  it('SIGNATURE_ARRAY_ACCORDION_SCHEMA is untouched', () => {
+    expect(SIGNATURE_ARRAY_ACCORDION_SCHEMA).toMatchObject({ id: 'robotOptions.signatureArray', type: 'accordion' });
+  });
+});
+
+describe('SignatureArrayLayerBlock.panel (additive, Task 3)', () => {
+  it('every layer has a panel field, type directionalPanel, column orientation', () => {
+    for (const block of SIGNATURE_ARRAY_CONFIG) {
+      expect(block.panel, block.key).toMatchObject({ type: 'directionalPanel', orientation: 'column' });
+    }
+  });
+
+  it("every layer's panel loreLabel/humanLabel matches that layer's own loreLabel/humanLabel exactly — reused verbatim, never re-invented", () => {
+    for (const block of SIGNATURE_ARRAY_CONFIG) {
+      expect(block.panel.loreLabel, block.key).toBe(block.loreLabel);
+      expect(block.panel.humanLabel, block.key).toBe(block.humanLabel);
+    }
+  });
+
+  it('every layer panel has a unique id in the robotOptions.* namespace', () => {
+    const ids = SIGNATURE_ARRAY_CONFIG.map((b) => b.panel.id);
+    expect(new Set(ids).size).toBe(3);
+    for (const id of ids) expect(id).toMatch(/^robotOptions\./);
   });
 });
