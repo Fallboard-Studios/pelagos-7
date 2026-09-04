@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react';
 
 import Tablet from './components/tablet/Tablet';
 import { SkippedNotesCounter } from './components/debug/SkippedNotesCounter';
+import { PaletteSample } from './components/debug/PaletteSample';
 
 import { useAttenuationStyleStore, selectCurrentAttenuationStyle } from '@/stores/attenuationStyleStore';
 import useLocaleStore from '@/stores/localeStore';
@@ -39,7 +40,12 @@ function App() {
       <div className="real-world" style={realWorldStyle}>
         <Tablet />
       </div>
-      {DEV_TUNING && <SkippedNotesCounter />}
+      {DEV_TUNING && (
+        <div className="debug-hud">
+          <PaletteSample />
+          <SkippedNotesCounter />
+        </div>
+      )}
     </div>
   );
 }

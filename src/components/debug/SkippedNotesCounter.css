@@ -1,12 +1,10 @@
-/* Fixed, always-on-top debug overlay — see SkippedNotesCounter.tsx's own
-   doc comment. Solid (non-transparent) background per the request that
-   spawned this component: legible over any backdrop underneath it. */
+/* Always-on-top debug overlay — see SkippedNotesCounter.tsx's own doc
+   comment. Positioning (fixed, bottom-left) comes from App.css's
+   .debug-hud wrapper, which groups this with PaletteSample; this rule only
+   owns the panel's own visual chrome. Solid (non-transparent) background
+   per the request that spawned this component: legible over any backdrop
+   underneath it. */
 .skipped-notes-counter {
-  position: fixed;
-  left: var(--spacing-md);
-  bottom: var(--spacing-md);
-  z-index: var(--z-popover);
-
   background-color: var(--color-surface);
   border: var(--border-width) solid var(--color-border);
   border-radius: var(--border-radius);
