@@ -12,6 +12,8 @@ import {
   AUDIO_RIG_ACCORDION_GROUPS,
   TRANSPORT_COMPOSITION_ACCORDION_SCHEMA,
   SPEED_AUTOMATION_PANEL_SCHEMA,
+  EQ_FILTERS_ROW_PANEL_SCHEMA,
+  FILTERS_COLUMN_PANEL_SCHEMA,
 } from './audioRigConfig';
 import { DRIFT_GROUP_IDS } from '../types/lfo';
 import { GLOBAL_LFO_TARGET_IDS } from '../types/lfo';
@@ -520,6 +522,10 @@ describe('AUDIO_RIG_ACCORDION_GROUPS (new top-level accordions, Task 1)', () => 
     ]);
   });
 
+  it('carries a stable key per entry, matching each group\'s own concept — used to special-case EQ & Filters\' own internal layout without relying on a raw accordion id string', () => {
+    expect(AUDIO_RIG_ACCORDION_GROUPS.map((g) => g.key)).toEqual(['eqFilters', 'timeSpace', 'output']);
+  });
+
   it('groups the correct block keys per accordion, in order', () => {
     expect(AUDIO_RIG_ACCORDION_GROUPS.map((g) => g.blockKeys)).toEqual([
       ['eq3', 'filterLPF', 'filterHPF'],
@@ -582,5 +588,36 @@ describe('SPEED_AUTOMATION_PANEL_SCHEMA (Task 1)', () => {
 
   it('remains JSON-serializable', () => {
     expect(() => JSON.stringify(SPEED_AUTOMATION_PANEL_SCHEMA)).not.toThrow();
+  });
+});
+
+describe('EQ_FILTERS_ROW_PANEL_SCHEMA / FILTERS_COLUMN_PANEL_SCHEMA (EQ & Filters row-when-there\'s-room follow-up)', () => {
+  it('EQ_FILTERS_ROW_PANEL_SCHEMA is an auto-orientation directionalPanel, unlabeled', () => {
+    expect(EQ_FILTERS_ROW_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'auto' });
+    expect(EQ_FILTERS_ROW_PANEL_SCHEMA.loreLabel).toBeUndefined();
+    expect(EQ_FILTERS_ROW_PANEL_SCHEMA.humanLabel).toBeUndefined();
+    expect(EQ_FILTERS_ROW_PANEL_SCHEMA.id).toMatch(/^audioRig\./);
+  });
+
+  it('FILTERS_COLUMN_PANEL_SCHEMA is a column-orientation directionalPanel, unlabeled', () => {
+    expect(FILTERS_COLUMN_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'column' });
+    expect(FILTERS_COLUMN_PANEL_SCHEMA.loreLabel).toBeUndefined();
+    expect(FILTERS_COLUMN_PANEL_SCHEMA.humanLabel).toBeUndefined();
+    expect(FILTERS_COLUMN_PANEL_SCHEMA.id).toMatch(/^audioRig\./);
+  });
+
+  it('the two schemas have distinct, unique ids', () => {
+    expect(EQ_FILTERS_ROW_PANEL_SCHEMA.id).not.toBe(FILTERS_COLUMN_PANEL_SCHEMA.id);
+  });
+
+  it('neither id collides with any AUDIO_RIG_CONFIG block\'s own panel id', () => {
+    const blockPanelIds = AUDIO_RIG_CONFIG.map((b) => b.panel.id);
+    expect(blockPanelIds).not.toContain(EQ_FILTERS_ROW_PANEL_SCHEMA.id);
+    expect(blockPanelIds).not.toContain(FILTERS_COLUMN_PANEL_SCHEMA.id);
+  });
+
+  it('remain JSON-serializable', () => {
+    expect(() => JSON.stringify(EQ_FILTERS_ROW_PANEL_SCHEMA)).not.toThrow();
+    expect(() => JSON.stringify(FILTERS_COLUMN_PANEL_SCHEMA)).not.toThrow();
   });
 });

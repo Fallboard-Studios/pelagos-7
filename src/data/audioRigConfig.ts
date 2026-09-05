@@ -329,8 +329,33 @@ export const SPEED_AUTOMATION_PANEL_SCHEMA: DirectionalPanelSchema = {
  * Order matches docs/intent/directional-panel-wiring.md's Outcome table: EQ & Filters, Time &
  * Space, Output.
  */
-export const AUDIO_RIG_ACCORDION_GROUPS: { accordion: AccordionSchema; blockKeys: AudioRigEffectKey[] }[] = [
-  { accordion: accordionSchema('eqFilters', 'SPECTRAL CONDITIONING SUITE', 'EQ & Filters'), blockKeys: ['eq3', 'filterLPF', 'filterHPF'] },
-  { accordion: accordionSchema('timeSpace', 'TEMPORAL-SPATIAL PROCESSING SUITE', 'Time & Space'), blockKeys: ['delay', 'reverb'] },
-  { accordion: accordionSchema('output', 'TERMINAL SIGNAL CONDITIONING', 'Output'), blockKeys: ['compressor', 'limiter'] },
+export type AudioRigAccordionGroupKey = 'eqFilters' | 'timeSpace' | 'output';
+
+export const AUDIO_RIG_ACCORDION_GROUPS: { key: AudioRigAccordionGroupKey; accordion: AccordionSchema; blockKeys: AudioRigEffectKey[] }[] = [
+  { key: 'eqFilters', accordion: accordionSchema('eqFilters', 'SPECTRAL CONDITIONING SUITE', 'EQ & Filters'), blockKeys: ['eq3', 'filterLPF', 'filterHPF'] },
+  { key: 'timeSpace', accordion: accordionSchema('timeSpace', 'TEMPORAL-SPATIAL PROCESSING SUITE', 'Time & Space'), blockKeys: ['delay', 'reverb'] },
+  { key: 'output', accordion: accordionSchema('output', 'TERMINAL SIGNAL CONDITIONING', 'Output'), blockKeys: ['compressor', 'limiter'] },
 ];
+
+/**
+ * EQ & Filters' own internal layout (row-when-there's-room follow-up to
+ * docs/tasks/DIRECTIONAL_PANEL_WIRING.md) — the accordion's content is this one row/auto panel
+ * wrapping eq3's own block panel beside FILTERS_COLUMN_PANEL_SCHEMA (below), instead of the 3
+ * blocks stacking flat. 'auto' via useAutoPanelOrientation: row once there's room, column
+ * otherwise (AudioRigDrawer.tsx special-cases the 'eqFilters' group to build this shape — the
+ * other 2 groups still render their blockKeys as a flat stack). Unlabeled — pure layout
+ * grouping, same convention as AudioRigLfoGroup's own inner panels.
+ */
+export const EQ_FILTERS_ROW_PANEL_SCHEMA: DirectionalPanelSchema = {
+  id: 'audioRig.eqFiltersRow',
+  type: 'directionalPanel',
+  orientation: 'auto',
+};
+
+/** Low-Pass Filter stacked above High-Pass Filter, sitting beside 3-Band EQ inside
+ *  EQ_FILTERS_ROW_PANEL_SCHEMA above. Unlabeled, same convention. */
+export const FILTERS_COLUMN_PANEL_SCHEMA: DirectionalPanelSchema = {
+  id: 'audioRig.filtersColumn',
+  type: 'directionalPanel',
+  orientation: 'column',
+};
