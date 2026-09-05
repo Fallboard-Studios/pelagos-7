@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, fireEvent, within, waitFor, act } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, within, waitFor, act } from '@testing-library/react';
 
 // Same reasoning as AudioRigDrawer.test.tsx: the shared vitest.setup.ts GSAP mock's timeline
 // object has no kill() method, and useLfoTargetGroup's unmount/reselect cleanup calls
@@ -7,7 +7,20 @@ import { render, fireEvent, within, waitFor, act } from '@testing-library/react'
 // AccordionContainer.test.tsx's own established convention.
 vi.mock('@/animation/timelineMap', () => ({ setTimeline: vi.fn(), killTimeline: vi.fn() }));
 
+// The Robot Drift panel (docs/tasks/DIRECTIONAL_PANEL_WIRING.md "some fixes" follow-up) reads/
+// writes the global lfoDrift.robots slice directly via useAudioStore, whose setGlobalLfoDrift
+// calls into lfoEngine — same real-AudioContext-throws-in-jsdom concern AudioRigDrawer.test.tsx
+// already works around by mocking this module.
+vi.mock('@/engine/lfoEngine', () => ({
+  lfoEngine: {
+    setGlobalRateDrift: vi.fn(),
+    setGlobalDepthDrift: vi.fn(),
+  },
+}));
+
 import { SignatureArrayDrawer, type SignatureArrayValue } from './SignatureArrayDrawer';
+import { useAudioStore } from '@/stores/audioStore';
+import { DEFAULT_GLOBAL_AUDIO_SETTINGS } from '@/types/globalAudio';
 import type { OscillatorLayer } from '@/types/layeredAudio';
 import type { Robot } from '@/types/Robot';
 
@@ -32,6 +45,14 @@ function layerSection(container: HTMLElement, key: 'layer0' | 'layer1' | 'layer2
 const noop = { onContinuousChange: () => {}, onStructuralChange: () => {}, onLfoChange: () => {} };
 
 describe('SignatureArrayDrawer', () => {
+  beforeEach(() => {
+    // Robot Drift reads/writes the real global store directly (it's not part of this
+    // component's own `value` prop) — reset it so one test's edit can't leak into the next.
+    useAudioStore.setState((s) => ({
+      globalAudio: { ...s.globalAudio, lfoDrift: { ...DEFAULT_GLOBAL_AUDIO_SETTINGS.lfoDrift } },
+    }));
+  });
+
   it('renders exactly 3 layer sections, in Baseline/Coaxial/Harmonic order', () => {
     const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
     const sections = container.querySelectorAll('[data-layer-key]');
@@ -39,16 +60,61 @@ describe('SignatureArrayDrawer', () => {
     expect(Array.from(sections).map((s) => s.getAttribute('data-layer-key'))).toEqual(['layer0', 'layer1', 'layer2']);
   });
 
-  it('wraps its content in one Source accordion containing 3 panels — Baseline/Coaxial/Harmonic, in order (DIRECTIONAL_PANEL_WIRING Task 8)', () => {
+  it('wraps its content in one Source accordion containing 4 panels — Robot Drift, then Baseline/Coaxial/Harmonic, in order (DIRECTIONAL_PANEL_WIRING Task 8 + Robot Drift follow-up)', () => {
     const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
     expect(container.querySelectorAll('.sc-accordion')).toHaveLength(1);
     expect(container.querySelector('.sc-accordion')?.textContent).toContain('Source');
     const panels = Array.from(container.querySelectorAll('.sc-accordion .sc-directional-panel'));
-    expect(panels).toHaveLength(3);
+    expect(panels).toHaveLength(4);
     // Each panel's own label is its direct-child DualLabel — not the many nested DualLabels
     // every RadioButton/slider/LFO field inside it also renders for its own humanLabel.
     const panelLabels = panels.map((p) => p.querySelector(':scope > .sc-dual-label > .sc-dual-label__human')?.textContent);
-    expect(panelLabels).toEqual(['Baseline', 'Coaxial', 'Harmonic']);
+    expect(panelLabels).toEqual(['Robot Drift', 'Baseline', 'Coaxial', 'Harmonic']);
+  });
+
+  describe('Robot Drift panel (moved from AudioRigDrawer\'s Transport & Composition — global lfoDrift.robots, read/written directly via useAudioStore)', () => {
+    it('renders as the first panel in the Source accordion, before Baseline', () => {
+      const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
+      const driftPanel = screen.getByText('Robot Drift').closest('.sc-directional-panel');
+      const baselinePanel = screen.getByText('Baseline').closest('.sc-directional-panel');
+      expect(driftPanel).not.toBeNull();
+      expect(driftPanel!.compareDocumentPosition(baselinePanel!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      // Not nested inside — or replacing — any of the 3 layer sections.
+      expect(container.querySelector('[data-layer-key]')?.contains(driftPanel)).toBe(false);
+    });
+
+    it('shows the store\'s current lfoDrift.robots values as a -100..100 percent, not the internal -1..1 fraction', () => {
+      useAudioStore.setState((s) => ({
+        globalAudio: { ...s.globalAudio, lfoDrift: { ...s.globalAudio.lfoDrift, robots: { rateDrift: -0.2, depthDrift: 0.9 } } },
+      }));
+      render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
+      const driftPanel = screen.getByText('Robot Drift').closest('.sc-directional-panel') as HTMLElement;
+      expect(within(driftPanel).getByRole('slider', { name: 'Rate Drift' }).getAttribute('aria-valuenow')).toBe('-20');
+      expect(within(driftPanel).getByRole('slider', { name: 'Depth Drift' }).getAttribute('aria-valuenow')).toBe('90');
+    });
+
+    it('dragging Rate Drift calls the store\'s setGlobalLfoDrift with \'robots\' and the dragged percent divided by 100', () => {
+      useAudioStore.setState((s) => ({
+        globalAudio: { ...s.globalAudio, lfoDrift: { ...s.globalAudio.lfoDrift, robots: { rateDrift: 0, depthDrift: 0.5 } } },
+      }));
+      render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
+      const driftPanel = screen.getByText('Robot Drift').closest('.sc-directional-panel') as HTMLElement;
+      const rateSlider = within(driftPanel).getByRole('slider', { name: 'Rate Drift' });
+      rateSlider.focus();
+      fireEvent.keyDown(rateSlider, { key: 'ArrowRight' });
+
+      const newPercent = Number(rateSlider.getAttribute('aria-valuenow'));
+      expect(newPercent).not.toBe(0);
+      expect(useAudioStore.getState().globalAudio.lfoDrift.robots.rateDrift).toBeCloseTo(newPercent / 100);
+      expect(useAudioStore.getState().globalAudio.lfoDrift.robots.depthDrift).toBe(0.5); // untouched
+    });
+
+    it('renders identically regardless of the drawer\'s own `disabled` prop — a global control, not scoped to the selected robot/company', () => {
+      render(<SignatureArrayDrawer value={makeValue()} {...noop} disabled />);
+      const driftPanel = screen.getByText('Robot Drift').closest('.sc-directional-panel') as HTMLElement;
+      expect(within(driftPanel).getByRole('slider', { name: 'Rate Drift' }).getAttribute('data-disabled')).toBeNull();
+      expect(within(driftPanel).getByRole('slider', { name: 'Depth Drift' }).getAttribute('data-disabled')).toBeNull();
+    });
   });
 
   it("each layer's data-layer-key div is nested inside its own DirectionalPanel — wrapped around, not replaced", () => {

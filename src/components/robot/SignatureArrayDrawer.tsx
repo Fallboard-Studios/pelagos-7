@@ -10,12 +10,47 @@ import {
   SIGNATURE_ARRAY_CONFIG,
   type SignatureArrayParamSchema,
 } from '@/data/robotOptionsConfig';
+import { LFO_DRIFT_GROUPS } from '@/data/audioRigConfig';
+import { useAudioStore } from '@/stores/audioStore';
 import type { WaveformType } from '@/types/Robot';
 import type { OscillatorLayer } from '@/types/layeredAudio';
 import type { LfoValue, RadioButtonSchema, SliderCenteredZeroSchema, SliderLinearSchema } from '@/types/controls';
 import type { RobotLfoTargetId } from '@/types/lfo';
 
 import './SignatureArrayDrawer.css';
+
+const ROBOTS_DRIFT_GROUP = LFO_DRIFT_GROUPS.find((g) => g.group === 'robots')!;
+
+/**
+ * Robot Drift — moved here from AudioRigDrawer's Transport & Composition accordion (post-
+ * DIRECTIONAL_PANEL_WIRING follow-up fix). Still edits the same global `globalAudio.lfoDrift.
+ * robots` slice it always did — a rig-wide value, not a per-robot one — so unlike every other
+ * panel in this drawer it reads/writes `useAudioStore` directly instead of going through `value`/
+ * `onLfoChange` props. Deliberately ignores this drawer's own `disabled` prop: that prop reflects
+ * whether a robot/company is selected, which has no bearing on a global control. A separate
+ * component (not inlined in SignatureArrayDrawer's own render) purely to keep the store subscription
+ * out of a component whose own doc comment promises "no store access" for everything else in it.
+ */
+function RobotDriftPanel() {
+  const rateDrift = useAudioStore((s) => s.globalAudio.lfoDrift.robots.rateDrift);
+  const depthDrift = useAudioStore((s) => s.globalAudio.lfoDrift.robots.depthDrift);
+  const setGlobalLfoDrift = useAudioStore((s) => s.setGlobalLfoDrift);
+
+  return (
+    <DirectionalPanel schema={ROBOTS_DRIFT_GROUP.panel}>
+      <SliderCenteredZero
+        schema={ROBOTS_DRIFT_GROUP.rateSchema}
+        value={rateDrift * 100}
+        onChange={(v) => setGlobalLfoDrift('robots', { rateDrift: v / 100 })}
+      />
+      <SliderCenteredZero
+        schema={ROBOTS_DRIFT_GROUP.depthSchema}
+        value={depthDrift * 100}
+        onChange={(v) => setGlobalLfoDrift('robots', { depthDrift: v / 100 })}
+      />
+    </DirectionalPanel>
+  );
+}
 
 export interface SignatureArrayValue {
   layers: OscillatorLayer[];
@@ -50,13 +85,17 @@ function paramValue(layer: OscillatorLayer, field: SignatureArrayParamSchema['fi
 }
 
 /**
- * One Source AccordionContainer wrapping 3 DirectionalPanels, one per fixed layer slot
- * (Baseline/Coaxial/Harmonic) — docs/tasks/DIRECTIONAL_PANEL_WIRING.md Task 8, replacing the
- * former single "Signature Array" accordion around 3 unlabeled layer divs. Purely presentational
- * as of Roadmap Phase 10 (Task 16) — no `robot` prop, no store access; both RobotOptionsTab
- * (robot mode) and CompanyOptionsSection (company mode) derive `value` and wire each callback
- * through robotOptionsActions.applyLayersContinuous/applyLayersStructural/applyLayerLfo
- * themselves (`SignatureArrayDrawerProps` is unchanged — neither call site needed any edit).
+ * One Source AccordionContainer wrapping the Robot Drift panel plus 3 DirectionalPanels, one per
+ * fixed layer slot (Baseline/Coaxial/Harmonic) — docs/tasks/DIRECTIONAL_PANEL_WIRING.md Task 8,
+ * replacing the former single "Signature Array" accordion around 3 unlabeled layer divs. Robot
+ * Drift was moved here from AudioRigDrawer's Transport & Composition accordion in a follow-up
+ * fix, landing first, before Baseline — see RobotDriftPanel below.
+ *
+ * Otherwise purely presentational as of Roadmap Phase 10 (Task 16) — no `robot` prop, no store
+ * access beyond RobotDriftPanel's own global lfoDrift subscription; both RobotOptionsTab (robot
+ * mode) and CompanyOptionsSection (company mode) derive `value` and wire each callback through
+ * robotOptionsActions.applyLayersContinuous/applyLayersStructural/applyLayerLfo themselves
+ * (`SignatureArrayDrawerProps` is unchanged — neither call site needed any edit).
  * Dragging Coaxial/Harmonic's own Gain to 0 mutes the layer (eventually excluded from the
  * composite voice, see AudioEngine.reserveVoice's filterAudibleLayers) without discarding its
  * Type/Detune/Phase/Interval configuration — there's no separate Active toggle.
@@ -76,6 +115,7 @@ export function SignatureArrayDrawer({ value, onContinuousChange, onStructuralCh
   return (
     <AccordionContainer schema={SOURCE_ACCORDION_SCHEMA}>
       <div className="signature-array-drawer">
+        <RobotDriftPanel />
         {SIGNATURE_ARRAY_CONFIG.map((block, idx) => {
           const layer = layers[idx];
           if (!layer) return null;

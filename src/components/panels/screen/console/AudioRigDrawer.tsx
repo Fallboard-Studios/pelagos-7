@@ -120,14 +120,18 @@ function AudioRigLfoGroup({ groupId, params, effect, updateParam, globalLfo, set
  * nested under `compressor`) — it's a special case rendered inside the
  * Compressor block's own panel, under its other params.
  *
- * Structure: Transport & Composition (Speed & Automation panel — Automatic
- * Effects + Tempo; Robot Drift panel) as its own top-level accordion, then
+ * Structure: Transport & Composition (Speed & Automation panel — Tempo +
+ * Automatic Effects) as its own top-level accordion, then
  * AUDIO_RIG_ACCORDION_GROUPS' 3 accordions (EQ & Filters, Time & Space,
  * Output), each wrapping its blockKeys' blocks — every block's own body
  * (AudioRigLfoGroup-or-plain-params-map, plus the compressor-only Decay
  * Mode radio) is unchanged from before this restructure; only its wrapper
  * changed from its own AccordionContainer to a DirectionalPanel nested
- * inside its group's shared accordion.
+ * inside its group's shared accordion. The 'robots' LFO_DRIFT_GROUPS entry
+ * (Robot Drift) no longer renders here — it moved to SignatureArrayDrawer's
+ * own Source accordion, since it's a robot-facing control even though the
+ * value it edits (globalAudio.lfoDrift.robots) is still global, not
+ * per-robot.
  */
 export function AudioRigDrawer() {
   const globalAudio = useAudioStore((s) => s.globalAudio);
@@ -141,34 +145,19 @@ export function AudioRigDrawer() {
   const bpm = useAudioStore((s) => s.bpm);
   const setBPM = useAudioStore((s) => s.setBPM);
 
-  const robotsDriftGroup = LFO_DRIFT_GROUPS.find((g) => g.group === 'robots')!;
-  const robotsDriftSettings = globalAudio.lfoDrift[robotsDriftGroup.group];
-
   return (
     <div className="audio-rig-drawer">
       <AccordionContainer schema={TRANSPORT_COMPOSITION_ACCORDION_SCHEMA}>
         <DirectionalPanel schema={SPEED_AUTOMATION_PANEL_SCHEMA}>
           <SliderLinear
-            schema={PING_VARIANCE_AUTOMATION_SCHEMA}
-            value={pingVarianceAutomation * 100}
-            onChange={(v) => setPingVarianceAutomation(v / 100)}
-          />
-          <SliderLinear
             schema={BPM_SCHEMA}
             value={bpm}
             onChange={setBPM}
           />
-        </DirectionalPanel>
-        <DirectionalPanel schema={robotsDriftGroup.panel}>
-          <SliderCenteredZero
-            schema={robotsDriftGroup.rateSchema}
-            value={robotsDriftSettings.rateDrift * 100}
-            onChange={(v) => setGlobalLfoDrift(robotsDriftGroup.group, { rateDrift: v / 100 })}
-          />
-          <SliderCenteredZero
-            schema={robotsDriftGroup.depthSchema}
-            value={robotsDriftSettings.depthDrift * 100}
-            onChange={(v) => setGlobalLfoDrift(robotsDriftGroup.group, { depthDrift: v / 100 })}
+          <SliderLinear
+            schema={PING_VARIANCE_AUTOMATION_SCHEMA}
+            value={pingVarianceAutomation * 100}
+            onChange={(v) => setPingVarianceAutomation(v / 100)}
           />
         </DirectionalPanel>
       </AccordionContainer>
