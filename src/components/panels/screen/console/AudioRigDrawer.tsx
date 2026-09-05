@@ -22,7 +22,7 @@ import {
   type AudioRigParamSchema,
   type AudioRigEffectKey,
 } from '@/data/audioRigConfig';
-import type { LfoValue } from '@/types/controls';
+import type { LfoValue, PanelOrientation } from '@/types/controls';
 import type { GlobalAudioSettings } from '@/types/globalAudio';
 import type { GlobalLfoTargetId } from '@/types/lfo';
 import './AudioRigDrawer.css';
@@ -73,24 +73,45 @@ interface AudioRigLfoGroupProps {
  * conditionally inside AUDIO_RIG_CONFIG.map() itself (Rules of Hooks) — AudioRigDrawer instead
  * conditionally *renders* this whole component only for blocks that have any lfoTarget param
  * (eq3/filterLPF/filterHPF), which is the legal way to make LFO wiring optional per block.
+ *
+ * Renders as column[sliders-panel, Lfo, driftContent] (docs/tasks/DIRECTIONAL_PANEL_WIRING.md
+ * follow-up fix) — its own single DirectionalPanel root, always column, so the shared Lfo
+ * display and Drift sliders always stack beneath the params regardless of the caller's own
+ * block.panel orientation (eq3's is 'row', which used to squeeze the display/drift sliders into
+ * the same row as Low/Mid/High). The params themselves render inside a nested inner panel whose
+ * own orientation is "taken from slider children" — row if any param's own ControlSchema is
+ * `orientation: 'vertical'` (eq3 today), column otherwise (filterLPF/filterHPF) — the same rule
+ * VERTICAL_SLIDERS.md's classification already uses. Being a single root element, this
+ * component's own wrapper renders as one flex item inside block.panel's content regardless of
+ * block.panel's own orientation, which is why that orientation no longer needs to change.
  */
 function AudioRigLfoGroup({ groupId, params, effect, updateParam, globalLfo, setGlobalLfo, driftContent }: AudioRigLfoGroupProps) {
   const fields = params.map((p) => ({ field: p.field, label: p.schema.humanLabel ?? p.field, lfoValue: globalLfo[p.lfoTarget!] }));
   const { selected, transitioning, select, isTargeted, displayValue, displayLabel } = useLfoTargetGroup({ groupId, fields });
   const selectedTarget = params.find((p) => p.field === selected)!.lfoTarget!;
 
+  // "Taken from slider children" (docs/tasks/DIRECTIONAL_PANEL_WIRING.md follow-up fix): any
+  // vertical-oriented slider in the group renders its own row (eq3's Low/Mid/High today, per
+  // VERTICAL_SLIDERS.md's classification) — every other LFO-bearing block's sliders are 'auto',
+  // which resolves to column here just like everywhere else.
+  const slidersOrientation: PanelOrientation = params.some(
+    (p) => 'orientation' in p.schema && p.schema.orientation === 'vertical',
+  ) ? 'row' : 'column';
+
   return (
-    <>
-      {params.map((param) => (
-        <div
-          key={param.field}
-          className={withActiveClass('audio-rig-drawer__param-row sc-lfo-target-group__row', isTargeted(param.field))}
-          onClick={() => select(param.field)}
-          onFocus={() => select(param.field)}
-        >
-          {renderParamControl(param, effect[param.field], (v) => updateParam(param.field, v))}
-        </div>
-      ))}
+    <DirectionalPanel schema={{ id: `${groupId}.group`, type: 'directionalPanel', orientation: 'column' }}>
+      <DirectionalPanel schema={{ id: `${groupId}.sliders`, type: 'directionalPanel', orientation: slidersOrientation }}>
+        {params.map((param) => (
+          <div
+            key={param.field}
+            className={withActiveClass('audio-rig-drawer__param-row sc-lfo-target-group__row', isTargeted(param.field))}
+            onClick={() => select(param.field)}
+            onFocus={() => select(param.field)}
+          >
+            {renderParamControl(param, effect[param.field], (v) => updateParam(param.field, v))}
+          </div>
+        ))}
+      </DirectionalPanel>
       <div className={withActiveClass('sc-lfo-target-group__display', transitioning)}>
         <Lfo
           schema={{ id: `${groupId}.lfo`, type: 'lfo', humanLabel: displayLabel }}
@@ -100,7 +121,7 @@ function AudioRigLfoGroup({ groupId, params, effect, updateParam, globalLfo, set
         />
       </div>
       {driftContent}
-    </>
+    </DirectionalPanel>
   );
 }
 

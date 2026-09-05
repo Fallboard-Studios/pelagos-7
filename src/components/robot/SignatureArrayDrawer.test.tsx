@@ -60,11 +60,14 @@ describe('SignatureArrayDrawer', () => {
     expect(Array.from(sections).map((s) => s.getAttribute('data-layer-key'))).toEqual(['layer0', 'layer1', 'layer2']);
   });
 
-  it('wraps its content in one Source accordion containing 4 panels — Robot Drift, then Baseline/Coaxial/Harmonic, in order (DIRECTIONAL_PANEL_WIRING Task 8 + Robot Drift follow-up)', () => {
+  it('wraps its content in one Source accordion containing 4 top-level panels — Robot Drift, then Baseline/Coaxial/Harmonic, in order (DIRECTIONAL_PANEL_WIRING Task 8 + Robot Drift follow-up)', () => {
     const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
     expect(container.querySelectorAll('.sc-accordion')).toHaveLength(1);
     expect(container.querySelector('.sc-accordion')?.textContent).toContain('Source');
-    const panels = Array.from(container.querySelectorAll('.sc-accordion .sc-directional-panel'));
+    // Direct children only — each layer's own LfoTargetGroup now nests an inner sliders panel of
+    // its own one level deeper (the column[sliders-panel, Lfo, driftContent] follow-up fix), so a
+    // plain descendant selector would also match those.
+    const panels = Array.from(container.querySelectorAll('.signature-array-drawer > .sc-directional-panel'));
     expect(panels).toHaveLength(4);
     // Each panel's own label is its direct-child DualLabel — not the many nested DualLabels
     // every RadioButton/slider/LFO field inside it also renders for its own humanLabel.

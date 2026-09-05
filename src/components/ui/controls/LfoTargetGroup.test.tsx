@@ -84,6 +84,51 @@ describe('LfoTargetGroup', () => {
     expect(container.querySelectorAll('.sc-accordion')).toHaveLength(0);
   });
 
+  describe('sliders panel (docs/tasks/DIRECTIONAL_PANEL_WIRING.md follow-up: column[sliders-panel, Lfo, driftContent])', () => {
+    it('wraps the field rows in their own DirectionalPanel, defaulting to column orientation', () => {
+      const { container } = render(
+        <LfoTargetGroup groupId="audioRig.eq3" fields={FIELDS} onLfoChange={() => {}} renderField={renderField} />,
+      );
+      const slidersPanel = container.querySelector('.sc-directional-panel')!;
+      expect(slidersPanel).not.toBeNull();
+      expect(slidersPanel.querySelector('.sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('column');
+      expect(container.querySelectorAll('.sc-directional-panel .sc-lfo-target-group__row')).toHaveLength(3);
+    });
+
+    it('honors an explicit sliderPanelOrientation of "row"', () => {
+      const { container } = render(
+        <LfoTargetGroup
+          groupId="audioRig.eq3"
+          fields={FIELDS}
+          onLfoChange={() => {}}
+          renderField={renderField}
+          sliderPanelOrientation="row"
+        />,
+      );
+      const slidersPanel = container.querySelector('.sc-directional-panel')!;
+      expect(slidersPanel.querySelector('.sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('row');
+    });
+
+    it('renders the sliders panel, then the shared Lfo display, then driftContent — in that DOM order, all inside the outer sc-lfo-target-group wrapper', () => {
+      const { container } = render(
+        <LfoTargetGroup
+          groupId="audioRig.eq3"
+          fields={FIELDS}
+          onLfoChange={() => {}}
+          renderField={renderField}
+          driftContent={<div data-testid="drift">Drift</div>}
+        />,
+      );
+      const root = container.querySelector('.sc-lfo-target-group')!;
+      const slidersPanel = root.querySelector('.sc-directional-panel')!;
+      const display = root.querySelector('.sc-lfo-target-group__display')!;
+      const drift = screen.getByTestId('drift');
+      expect(root.contains(slidersPanel)).toBe(true);
+      expect(slidersPanel.compareDocumentPosition(display) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(display.compareDocumentPosition(drift) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+  });
+
   it('renders driftContent inside the same wrapper, below the shared Lfo display, only when passed', () => {
     const { container, rerender } = render(
       <LfoTargetGroup groupId="audioRig.eq3" fields={FIELDS} onLfoChange={() => {}} renderField={renderField} />,

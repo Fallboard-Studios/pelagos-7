@@ -77,14 +77,30 @@ describe('AudioRigDrawer', () => {
     }
   });
 
-  it('3-Band EQ renders as a row-orientation panel; every other effect block is column', () => {
+  it('Delay/Reverb/Compressor/Limiter (no LFO group) render as column-orientation blocks', () => {
     render(<AudioRigDrawer />);
-    const eqPanel = screen.getByText('3-Band EQ').closest('.sc-directional-panel') as HTMLElement;
-    expect(eqPanel.querySelector('.sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('row');
-    for (const label of ['Low-Pass Filter', 'High-Pass Filter', 'Delay', 'Reverb', 'Compressor', 'Limiter']) {
+    for (const label of ['Delay', 'Reverb', 'Compressor', 'Limiter']) {
       const panel = screen.getByText(label).closest('.sc-directional-panel')!;
-      expect(panel.querySelector('.sc-directional-panel__content')?.getAttribute('data-orientation'), label).toBe('column');
+      expect(panel.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation'), label).toBe('column');
     }
+  });
+
+  it("3-Band EQ's own sliders render in a row-orientation panel — the outer LFO group panel and every other group's sliders panel are column (docs/tasks/DIRECTIONAL_PANEL_WIRING.md follow-up: column[sliders-panel, Lfo, driftContent])", () => {
+    render(<AudioRigDrawer />);
+    const eqSlidersPanel = screen.getByRole('slider', { name: 'Low' }).closest('.sc-directional-panel') as HTMLElement;
+    expect(eqSlidersPanel.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('row');
+
+    const [lpfSlidersPanel, hpfSlidersPanel] = screen.getAllByRole('slider', { name: 'Frequency' }).map(
+      (el) => el.closest('.sc-directional-panel') as HTMLElement,
+    );
+    expect(lpfSlidersPanel.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('column');
+    expect(hpfSlidersPanel.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('column');
+
+    // The outer group panel that wraps [sliders-panel, Lfo, driftContent] is always column,
+    // regardless of the sliders panel's own orientation — otherwise the shared Lfo display and
+    // Drift sliders would get squeezed into eq3's row layout alongside Low/Mid/High.
+    const eqGroupPanel = eqSlidersPanel.parentElement!.closest('.sc-directional-panel') as HTMLElement;
+    expect(eqGroupPanel.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('column');
   });
 
   it('no longer renders a Chorus accordion', () => {
