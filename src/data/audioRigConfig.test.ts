@@ -14,6 +14,7 @@ import {
   SPEED_AUTOMATION_PANEL_SCHEMA,
   EQ_FILTERS_ROW_PANEL_SCHEMA,
   FILTERS_COLUMN_PANEL_SCHEMA,
+  type AudioRigEffectKey,
 } from './audioRigConfig';
 import { DRIFT_GROUP_IDS } from '../types/lfo';
 import { GLOBAL_LFO_TARGET_IDS } from '../types/lfo';
@@ -112,10 +113,12 @@ describe('AUDIO_RIG_CONFIG', () => {
       }
     });
 
-    it('has the grid\'s exact lore labels per band', () => {
-      expect(findParam('eq3', 'low').schema.loreLabel).toBe('SUB-BAND DENSITY');
-      expect(findParam('eq3', 'mid').schema.loreLabel).toBe('MEDIAL-BAND DENSITY');
-      expect(findParam('eq3', 'high').schema.loreLabel).toBe('APICAL-BAND DENSITY');
+    it('has the band lore labels, trimmed from the grid\'s own copy ("DENSITY" dropped)', () => {
+      // GLOBAL_CHAIN_GRID.md still literally reads "SUB-BAND DENSITY" etc. — deliberately
+      // shortened here during the DirectionalPanel layout pass, not a drift from the grid.
+      expect(findParam('eq3', 'low').schema.loreLabel).toBe('SUB-BAND');
+      expect(findParam('eq3', 'mid').schema.loreLabel).toBe('MEDIAL-BAND');
+      expect(findParam('eq3', 'high').schema.loreLabel).toBe('APICAL-BAND');
     });
 
     it('all 3 bands are LFO-flagged, mapping to their eq3.* GlobalLfoTargetId', () => {
@@ -398,15 +401,15 @@ describe('slider orientation classification (docs/specs/VERTICAL_SLIDERS.md §1.
     }
   });
 
-  it('Delay (Time/Feedback/Mix) is auto', () => {
+  it('Delay (Time/Feedback/Mix) is horizontal', () => {
     for (const field of ['delayTime', 'feedback', 'wet']) {
-      expect(orientationOf(findParam('delay', field).schema), field).toBe('auto');
+      expect(orientationOf(findParam('delay', field).schema), field).toBe('horizontal');
     }
   });
 
-  it('Reverb (Decay/Pre-Delay/Mix) is auto', () => {
+  it('Reverb (Decay/Pre-Delay/Mix) is horizontal', () => {
     for (const field of ['decay', 'preDelay', 'wet']) {
-      expect(orientationOf(findParam('reverb', field).schema), field).toBe('auto');
+      expect(orientationOf(findParam('reverb', field).schema), field).toBe('horizontal');
     }
   });
 
@@ -471,9 +474,10 @@ describe('AudioRigEffectBlock.panel (DirectionalPanel wiring, Tasks 1-2)', () =>
     }
   });
 
-  it('eq3 is the only row-orientation panel — every other block is column', () => {
+  it('eq3/filterLPF/filterHPF are row-orientation panels — delay/reverb/compressor/limiter are column', () => {
+    const rowBlocks: AudioRigEffectKey[] = ['eq3', 'filterLPF', 'filterHPF'];
     for (const block of AUDIO_RIG_CONFIG) {
-      expect(block.panel.orientation, block.key).toBe(block.key === 'eq3' ? 'row' : 'column');
+      expect(block.panel.orientation, block.key).toBe(rowBlocks.includes(block.key) ? 'row' : 'column');
     }
   });
 
@@ -565,10 +569,10 @@ describe('TRANSPORT_COMPOSITION_ACCORDION_SCHEMA (Task 1)', () => {
 });
 
 describe('SPEED_AUTOMATION_PANEL_SCHEMA (Task 1)', () => {
-  it('is a column-orientation directionalPanel with humanLabel Speed & Automation', () => {
+  it('is a row-orientation directionalPanel with humanLabel Speed & Automation', () => {
     expect(SPEED_AUTOMATION_PANEL_SCHEMA).toMatchObject({
       type: 'directionalPanel',
-      orientation: 'column',
+      orientation: 'row',
       humanLabel: 'Speed & Automation',
     });
   });
@@ -599,8 +603,8 @@ describe('EQ_FILTERS_ROW_PANEL_SCHEMA / FILTERS_COLUMN_PANEL_SCHEMA (EQ & Filter
     expect(EQ_FILTERS_ROW_PANEL_SCHEMA.id).toMatch(/^audioRig\./);
   });
 
-  it('FILTERS_COLUMN_PANEL_SCHEMA is a column-orientation directionalPanel, unlabeled', () => {
-    expect(FILTERS_COLUMN_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'column' });
+  it('FILTERS_COLUMN_PANEL_SCHEMA is a row-orientation directionalPanel, unlabeled — LPF/HPF share a row, not a stacked column, despite the name', () => {
+    expect(FILTERS_COLUMN_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'row' });
     expect(FILTERS_COLUMN_PANEL_SCHEMA.loreLabel).toBeUndefined();
     expect(FILTERS_COLUMN_PANEL_SCHEMA.humanLabel).toBeUndefined();
     expect(FILTERS_COLUMN_PANEL_SCHEMA.id).toMatch(/^audioRig\./);

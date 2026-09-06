@@ -27,7 +27,8 @@ export interface LfoTargetGroupProps<F extends string = string> {
    *  children": the caller owns each field's own ControlSchema (LfoTargetGroup only ever sees
    *  opaque `renderField` output), so it computes and passes this explicitly, same rule
    *  VERTICAL_SLIDERS.md's classification already uses elsewhere (vertical -> row, else
-   *  column). Defaults to 'column' — no current caller's fields are ever schema-'vertical'. */
+   *  column). Defaults to 'column'; SignatureArrayDrawer passes 'row' for its own Gain/Detune/
+   *  Phase/Interval fields, which are schema-'vertical'. */
   sliderPanelOrientation?: PanelOrientation;
 }
 

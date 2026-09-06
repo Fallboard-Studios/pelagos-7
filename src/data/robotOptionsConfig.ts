@@ -435,12 +435,6 @@ function makeLayerBlock(
   };
 }
 
-export const SIGNATURE_ARRAY_ROW_PANEL_SCHEMA: DirectionalPanelSchema = {
-  id: 'robotOptions.signatureArrayRow',
-  type: 'directionalPanel',
-  orientation: 'row',
-};
-
 export const SIGNATURE_ARRAY_CONFIG: SignatureArrayLayerBlock[] = [
   makeLayerBlock('layer0', 'Baseline', 'BASELINE'),
   makeLayerBlock('layer1', 'Coaxial', 'COAXIAL'),

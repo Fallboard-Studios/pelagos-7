@@ -175,9 +175,10 @@ function AudioRigLfoGroup({ groupId, params, effect, updateParam, globalLfo, set
  * orientation, matching a caller-supplied panel shape directly. Compressor/
  * Limiter keep the original flat params-map. EQ & Filters is special-cased
  * (by AUDIO_RIG_ACCORDION_GROUPS' own `key` field, not its raw accordion id)
- * into its own row-when-there's-room layout — 3-Band EQ beside a column
- * stacking Low-Pass above High-Pass
- * (EQ_FILTERS_ROW_PANEL_SCHEMA/FILTERS_COLUMN_PANEL_SCHEMA); Time & Space
+ * into its own row-when-there's-room layout — 3-Band EQ beside Low-Pass and
+ * High-Pass, which now share their own row too, not a stacked column
+ * (EQ_FILTERS_ROW_PANEL_SCHEMA/FILTERS_COLUMN_PANEL_SCHEMA — the latter's
+ * name predates this, kept as-is); Time & Space
  * wraps its own blockKeys in a shared row (TIME_SPACE_COLUMN_PANEL_SCHEMA),
  * while Output still stacks its blockKeys flat. The 'robots'
  * LFO_DRIFT_GROUPS entry (Robot Drift) no longer renders here — it moved to
@@ -217,8 +218,9 @@ export function AudioRigDrawer() {
       {AUDIO_RIG_ACCORDION_GROUPS.map((group) => (
         <AccordionContainer key={group.accordion.id} schema={group.accordion}>
           {group.key === 'eqFilters' ? (
-            // Row-when-there's-room follow-up: 3-Band EQ beside a column stacking Low-Pass
-            // above High-Pass, instead of all 3 blocks stacking flat like every other group.
+            // Row-when-there's-room follow-up: 3-Band EQ beside Low-Pass and High-Pass (which
+            // share their own row too), instead of all 3 blocks stacking flat like every other
+            // group.
             <DirectionalPanel schema={EQ_FILTERS_ROW_PANEL_SCHEMA}>
               {renderBlock('eq3')}
               <DirectionalPanel schema={FILTERS_COLUMN_PANEL_SCHEMA}>

@@ -340,8 +340,9 @@ export const AUDIO_RIG_ACCORDION_GROUPS: { key: AudioRigAccordionGroupKey; accor
 /**
  * EQ & Filters' own internal layout (row-when-there's-room follow-up to
  * docs/tasks/DIRECTIONAL_PANEL_WIRING.md) — the accordion's content is this one row/auto panel
- * wrapping eq3's own block panel beside FILTERS_COLUMN_PANEL_SCHEMA (below), instead of the 3
- * blocks stacking flat. 'auto' via useAutoPanelOrientation: row once there's room, column
+ * wrapping eq3's own block panel beside FILTERS_COLUMN_PANEL_SCHEMA (below, itself row-oriented —
+ * LPF/HPF share a row rather than stacking), instead of the 3 blocks stacking flat. 'auto' via
+ * useAutoPanelOrientation: row once there's room, column
  * otherwise (AudioRigDrawer.tsx special-cases the 'eqFilters' group to build this shape — the
  * other 2 groups still render their blockKeys as a flat stack). Unlabeled — pure layout
  * grouping, same convention as AudioRigLfoGroup's own inner panels.
@@ -352,8 +353,10 @@ export const EQ_FILTERS_ROW_PANEL_SCHEMA: DirectionalPanelSchema = {
   orientation: 'auto',
 };
 
-/** Low-Pass Filter stacked above High-Pass Filter, sitting beside 3-Band EQ inside
- *  EQ_FILTERS_ROW_PANEL_SCHEMA above. Unlabeled, same convention. */
+/** Low-Pass Filter beside High-Pass Filter, sitting beside 3-Band EQ inside
+ *  EQ_FILTERS_ROW_PANEL_SCHEMA above. Unlabeled, same convention. Orientation was 'column'
+ *  (stacked) when this was first added and named; deliberately flipped to 'row' since — name
+ *  kept as-is rather than a rename-plus-call-site-churn for what's still pure layout grouping. */
 export const FILTERS_COLUMN_PANEL_SCHEMA: DirectionalPanelSchema = {
   id: 'audioRig.filtersColumn',
   type: 'directionalPanel',

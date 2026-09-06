@@ -78,37 +78,47 @@ describe('AudioRigDrawer', () => {
   });
 
   describe('EQ & Filters internal layout (row-when-there\'s-room follow-up)', () => {
-    it('3-Band EQ sits beside a column wrapping Low-Pass Filter above High-Pass Filter, both inside one shared outer panel', () => {
+    it('3-Band EQ sits beside a shared row wrapping Low-Pass Filter and High-Pass Filter, both inside one shared outer panel', () => {
       render(<AudioRigDrawer />);
       const eqEffectBlock = screen.getByText('3-Band EQ').closest('.audio-rig-drawer__effect-block')!;
       const lpfEffectBlock = screen.getByText('Low-Pass Filter').closest('.audio-rig-drawer__effect-block')!;
       const hpfEffectBlock = screen.getByText('High-Pass Filter').closest('.audio-rig-drawer__effect-block')!;
 
-      // LPF and HPF share one column DirectionalPanel, in that order.
-      const lpfColumnPanel = lpfEffectBlock.closest('.sc-directional-panel')!;
-      const hpfColumnPanel = hpfEffectBlock.closest('.sc-directional-panel')!;
-      expect(lpfColumnPanel).toBe(hpfColumnPanel);
-      expect(lpfColumnPanel.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('column');
+      // LPF and HPF share one DirectionalPanel (FILTERS_COLUMN_PANEL_SCHEMA — row-oriented
+      // despite the name, confirmed intentional), in that order.
+      const lpfRowPanel = lpfEffectBlock.closest('.sc-directional-panel')!;
+      const hpfRowPanel = hpfEffectBlock.closest('.sc-directional-panel')!;
+      expect(lpfRowPanel).toBe(hpfRowPanel);
+      expect(lpfRowPanel.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('row');
       expect(lpfEffectBlock.compareDocumentPosition(hpfEffectBlock) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
-      // That LPF/HPF column and eq3's own effect-block are both direct children of one more
-      // outer wrapping panel (EQ_FILTERS_ROW_PANEL_SCHEMA) — not stacked flat in the accordion.
-      const outerPanel = lpfColumnPanel.parentElement!.closest('.sc-directional-panel')!;
+      // That LPF/HPF row and eq3's own effect-block are both direct children of one more outer
+      // wrapping panel (EQ_FILTERS_ROW_PANEL_SCHEMA) — not stacked flat in the accordion.
+      const outerPanel = lpfRowPanel.parentElement!.closest('.sc-directional-panel')!;
       expect(outerPanel.contains(eqEffectBlock)).toBe(true);
-      expect(outerPanel).not.toBe(lpfColumnPanel);
+      expect(outerPanel).not.toBe(lpfRowPanel);
 
-      // eq3 renders before the LPF/HPF column, matching the requested layout.
-      expect(eqEffectBlock.compareDocumentPosition(lpfColumnPanel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      // eq3 renders before the LPF/HPF row, matching the requested layout.
+      expect(eqEffectBlock.compareDocumentPosition(lpfRowPanel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
 
-    it('Time & Space and Output still render their blocks flat — no extra wrapping panel introduced, unlike EQ & Filters', () => {
+    it('Time & Space wraps Delay/Reverb in one shared row panel (TIME_SPACE_COLUMN_PANEL_SCHEMA); Output still renders Compressor/Limiter flat', () => {
       render(<AudioRigDrawer />);
-      for (const label of ['Delay', 'Reverb', 'Compressor', 'Limiter']) {
+
+      // Delay and Reverb share one further .sc-directional-panel ancestor above their own block
+      // panel — same shape as filterLPF/filterHPF's outer row wrapper above.
+      const delayBlock = screen.getByText('Delay').closest('.sc-directional-panel')!.closest('.audio-rig-drawer__effect-block')!;
+      const reverbBlock = screen.getByText('Reverb').closest('.sc-directional-panel')!.closest('.audio-rig-drawer__effect-block')!;
+      const delayOuterPanel = delayBlock.parentElement?.closest('.sc-directional-panel');
+      const reverbOuterPanel = reverbBlock.parentElement?.closest('.sc-directional-panel');
+      expect(delayOuterPanel).not.toBeNull();
+      expect(delayOuterPanel).toBe(reverbOuterPanel);
+      expect(delayOuterPanel?.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('row');
+
+      // Output's Compressor/Limiter still stack flat — no extra wrapping panel.
+      for (const label of ['Compressor', 'Limiter']) {
         const blockPanel = screen.getByText(label).closest('.sc-directional-panel')!;
         const effectBlockDiv = blockPanel.closest('.audio-rig-drawer__effect-block')!;
-        // No further .sc-directional-panel ancestor above the block's own — contrasts with
-        // filterLPF/filterHPF, which now each have 2 (their own column wrapper, then the outer
-        // row wrapper) above their own effect-block div.
         expect(effectBlockDiv.parentElement?.closest('.sc-directional-panel'), label).toBeNull();
       }
     });

@@ -251,11 +251,11 @@ describe('slider orientation classification (docs/specs/VERTICAL_SLIDERS.md §1.
     });
   });
 
-  it('Signature Array (Gain/Detune/Phase/Interval) is auto on every layer', () => {
+  it('Signature Array (Gain/Detune/Phase/Interval) is vertical on every layer — grouped into a row by LfoTargetGroup\'s own sliderPanelOrientation prop', () => {
     SIGNATURE_ARRAY_CONFIG.forEach((block) => {
       for (const field of ['gain', 'detune', 'phase', 'pulseWidth']) {
         const param = block.params.find((p) => p.field === field)!;
-        expect((param.schema as { orientation?: string }).orientation, `${block.key}.${field}`).toBe('auto');
+        expect((param.schema as { orientation?: string }).orientation, `${block.key}.${field}`).toBe('vertical');
       }
     });
   });
@@ -306,9 +306,9 @@ describe('MELODY_ACCORDION_SCHEMA / ENVELOPE_ACCORDION_SCHEMA / SOURCE_ACCORDION
 });
 
 describe('PHRASING_PANEL_SCHEMA / FREQUENCY_PANEL_SCHEMA (Task 3)', () => {
-  it('are column-orientation directionalPanels with the confirmed humanLabels — new labels, not derived from the old flat "Ping Controls" accordion', () => {
+  it('carry the confirmed humanLabels and directionalPanel type — new labels, not derived from the old flat "Ping Controls" accordion', () => {
     expect(PHRASING_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'column', humanLabel: 'Phrasing' });
-    expect(FREQUENCY_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'column', humanLabel: 'Frequency' });
+    expect(FREQUENCY_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'row', humanLabel: 'Frequency' });
   });
 
   it('neither reuses "Ping Controls" as its own label text', () => {
@@ -324,9 +324,9 @@ describe('PHRASING_PANEL_SCHEMA / FREQUENCY_PANEL_SCHEMA (Task 3)', () => {
 });
 
 describe('PING_CONTOUR_PANEL_SCHEMA (DirectionalPanel wiring, Tasks 3+9)', () => {
-  it('is a column-orientation directionalPanel', () => {
+  it('is a row-orientation directionalPanel', () => {
     expect(PING_CONTOUR_PANEL_SCHEMA.type).toBe('directionalPanel');
-    expect(PING_CONTOUR_PANEL_SCHEMA.orientation).toBe('column');
+    expect(PING_CONTOUR_PANEL_SCHEMA.orientation).toBe('row');
   });
 
   it('has loreLabel/humanLabel byte-identical to the old PING_CONTOUR_ACCORDION_SCHEMA\'s text — verbatim preservation across the type swap', () => {
@@ -344,9 +344,9 @@ describe('PING_CONTROLS_ACCORDION_SCHEMA / PING_CONTOUR_ACCORDION_SCHEMA / SIGNA
 });
 
 describe('SignatureArrayLayerBlock.panel (additive, Task 3)', () => {
-  it('every layer has a panel field, type directionalPanel, column orientation', () => {
+  it('every layer has a panel field, type directionalPanel, row orientation', () => {
     for (const block of SIGNATURE_ARRAY_CONFIG) {
-      expect(block.panel, block.key).toMatchObject({ type: 'directionalPanel', orientation: 'column' });
+      expect(block.panel, block.key).toMatchObject({ type: 'directionalPanel', orientation: 'row' });
     }
   });
 
