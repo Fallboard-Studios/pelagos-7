@@ -45,27 +45,25 @@ interface AudioSettingSectionProps {
 export function AudioSettingSection({ value, onAudioModeChange, onVolumeChange, onVolumeLfoChange, disabled }: AudioSettingSectionProps) {
   return (
     <DirectionalPanel schema={ROBOT_OUTPUT_PANEL_SCHEMA}>
-      <div className="audio-setting-section">
-        <div className="audio-setting-section__row">
-          <RadioButton
-            schema={AUDIO_SETTING_SCHEMA}
-            value={value.audioMode}
-            onChange={(v) => onAudioModeChange(v as Robot['audioMode'])}
-            disabled={disabled}
-          />
-        </div>
+      <div className="audio-setting-section__row">
+        <RadioButton
+          schema={AUDIO_SETTING_SCHEMA}
+          value={value.audioMode}
+          onChange={(v) => onAudioModeChange(v as Robot['audioMode'])}
+          disabled={disabled}
+        />
+      </div>
 
-        <div className="audio-setting-section__row">
-          <LfoTargetGroup
-            groupId="robotOptions.volume"
-            fields={[{ field: 'volume', label: VOLUME_SCHEMA.humanLabel!, lfoValue: value.volumeLfo }]}
-            onLfoChange={(_field, v) => onVolumeLfoChange(v)}
-            disabled={disabled}
-            renderField={() => (
-              <SliderLinear schema={VOLUME_SCHEMA} value={value.masterVolume * 100} onChange={onVolumeChange} disabled={disabled} />
-            )}
-          />
-        </div>
+      <div className="audio-setting-section__row">
+        <LfoTargetGroup
+          groupId="robotOptions.volume"
+          fields={[{ field: 'volume', label: VOLUME_SCHEMA.humanLabel!, lfoValue: value.volumeLfo }]}
+          onLfoChange={(_field, v) => onVolumeLfoChange(v)}
+          disabled={disabled}
+          renderField={() => (
+            <SliderLinear schema={VOLUME_SCHEMA} value={value.masterVolume * 100} onChange={onVolumeChange} disabled={disabled} />
+          )}
+        />
       </div>
     </DirectionalPanel>
   );

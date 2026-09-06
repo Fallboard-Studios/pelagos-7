@@ -60,7 +60,7 @@ describe('SignatureArrayDrawer', () => {
     expect(Array.from(sections).map((s) => s.getAttribute('data-layer-key'))).toEqual(['layer0', 'layer1', 'layer2']);
   });
 
-  it('wraps its content in one Source accordion containing 4 top-level panels — Robot Drift, then Baseline/Coaxial/Harmonic, in order (DIRECTIONAL_PANEL_WIRING Task 8 + Robot Drift follow-up)', () => {
+  it('wraps its content in one Source accordion containing 4 top-level panels — Baseline/Coaxial/Harmonic, then Robot Drift, in order (DIRECTIONAL_PANEL_WIRING Task 8 + Robot Drift follow-up, reordered to render last)', () => {
     const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
     expect(container.querySelectorAll('.sc-accordion')).toHaveLength(1);
     expect(container.querySelector('.sc-accordion')?.textContent).toContain('Source');
@@ -72,16 +72,16 @@ describe('SignatureArrayDrawer', () => {
     // Each panel's own label is its direct-child DualLabel — not the many nested DualLabels
     // every RadioButton/slider/LFO field inside it also renders for its own humanLabel.
     const panelLabels = panels.map((p) => p.querySelector(':scope > .sc-dual-label > .sc-dual-label__human')?.textContent);
-    expect(panelLabels).toEqual(['Robot Drift', 'Baseline', 'Coaxial', 'Harmonic']);
+    expect(panelLabels).toEqual(['Baseline', 'Coaxial', 'Harmonic', 'Robot Drift']);
   });
 
   describe('Robot Drift panel (moved from AudioRigDrawer\'s Transport & Composition — global lfoDrift.robots, read/written directly via useAudioStore)', () => {
-    it('renders as the first panel in the Source accordion, before Baseline', () => {
+    it('renders as the last panel in the Source accordion, after Harmonic', () => {
       const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
       const driftPanel = screen.getByText('Robot Drift').closest('.sc-directional-panel');
-      const baselinePanel = screen.getByText('Baseline').closest('.sc-directional-panel');
+      const harmonicPanel = screen.getByText('Harmonic').closest('.sc-directional-panel');
       expect(driftPanel).not.toBeNull();
-      expect(driftPanel!.compareDocumentPosition(baselinePanel!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(harmonicPanel!.compareDocumentPosition(driftPanel!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       // Not nested inside — or replacing — any of the 3 layer sections.
       expect(container.querySelector('[data-layer-key]')?.contains(driftPanel)).toBe(false);
     });

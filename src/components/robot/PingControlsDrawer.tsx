@@ -6,6 +6,7 @@ import { DirectionalPanel } from '@/components/ui/controls/DirectionalPanel';
 import {
   MELODY_ACCORDION_SCHEMA,
   PHRASING_PANEL_SCHEMA,
+  RHYTHM_PANEL_SCHEMA,
   FREQUENCY_PANEL_SCHEMA,
   CLICK_TRACK_SCHEMA,
   DENSITY_SCHEMA,
@@ -113,14 +114,16 @@ export function PingControlsDrawer({
           {DEV_TUNING && (
             <Toggle schema={CLICK_TRACK_SCHEMA} value={value.clickTrackActive} onChange={onClickTrackActiveChange} disabled={disabled} />
           )}
-          <SliderLinear schema={DENSITY_SCHEMA} value={value.rhythmicDensity} onChange={onDensityChange} disabled={generationDisabled} />
-          <SliderLinear schema={MOTIF_LENGTH_SCHEMA} value={value.rhythmicMotifLength} onChange={onMotifLengthChange} disabled={generationDisabled} />
-          <SliderLinear
-            schema={PITCH_REPEAT_SCHEMA}
-            value={value.pitchRepeat}
-            onChange={onPitchRepeatChange}
-            disabled={pitchRepeatDisabled}
-          />
+          <DirectionalPanel schema={RHYTHM_PANEL_SCHEMA}>
+            <SliderLinear schema={DENSITY_SCHEMA} value={value.rhythmicDensity} onChange={onDensityChange} disabled={generationDisabled} />
+            <SliderLinear schema={MOTIF_LENGTH_SCHEMA} value={value.rhythmicMotifLength} onChange={onMotifLengthChange} disabled={generationDisabled} />
+            <SliderLinear
+              schema={PITCH_REPEAT_SCHEMA}
+              value={value.pitchRepeat}
+              onChange={onPitchRepeatChange}
+              disabled={pitchRepeatDisabled}
+            />
+          </DirectionalPanel>
           {onResetMelody && <Button schema={RESET_MELODY_SCHEMA} onClick={onResetMelody} disabled={generationDisabled} />}
         </DirectionalPanel>
         <DirectionalPanel schema={FREQUENCY_PANEL_SCHEMA}>

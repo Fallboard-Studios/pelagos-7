@@ -73,24 +73,24 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
     params: [
       {
         field: 'low',
-        schema: { id: 'eq3.low', type: 'sliderCenteredZero', loreLabel: 'SUB-BAND DENSITY', humanLabel: 'Low', min: -12, max: 12, unit: 'dB', orientation: 'vertical' },
+        schema: { id: 'eq3.low', type: 'sliderCenteredZero', loreLabel: 'SUB-BAND', humanLabel: 'Low', min: -12, max: 12, unit: 'dB', orientation: 'vertical' },
         lfoTarget: 'eq3.low',
       },
       {
         field: 'mid',
-        schema: { id: 'eq3.mid', type: 'sliderCenteredZero', loreLabel: 'MEDIAL-BAND DENSITY', humanLabel: 'Mid', min: -12, max: 12, unit: 'dB', orientation: 'vertical' },
+        schema: { id: 'eq3.mid', type: 'sliderCenteredZero', loreLabel: 'MEDIAL-BAND', humanLabel: 'Mid', min: -12, max: 12, unit: 'dB', orientation: 'vertical' },
         lfoTarget: 'eq3.mid',
       },
       {
         field: 'high',
-        schema: { id: 'eq3.high', type: 'sliderCenteredZero', loreLabel: 'APICAL-BAND DENSITY', humanLabel: 'High', min: -12, max: 12, unit: 'dB', orientation: 'vertical' },
+        schema: { id: 'eq3.high', type: 'sliderCenteredZero', loreLabel: 'APICAL-BAND', humanLabel: 'High', min: -12, max: 12, unit: 'dB', orientation: 'vertical' },
         lfoTarget: 'eq3.high',
       },
     ],
   },
   {
     key: 'filterLPF',
-    panel: panelSchema('filterLPF', 'HIGH-FREQUENCY MASK', 'Low-Pass Filter', 'column'),
+    panel: panelSchema('filterLPF', 'HIGH-FREQUENCY MASK', 'Low-Pass Filter', 'row'),
     params: [
       {
         field: 'frequency',
@@ -106,7 +106,7 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
   },
   {
     key: 'filterHPF',
-    panel: panelSchema('filterHPF', 'LOW-FREQUENCY MASK', 'High-Pass Filter', 'column'),
+    panel: panelSchema('filterHPF', 'LOW-FREQUENCY MASK', 'High-Pass Filter', 'row'),
     params: [
       {
         field: 'frequency',
@@ -127,20 +127,20 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
       // No lfoTarget/lfoAccordion — LFO removed from delayTime; the effect
       // still seeds/edits its value normally (GlobalAudioSeedFieldKey is a
       // separate, unrelated type from GlobalLfoTargetId).
-      { field: 'delayTime', schema: { id: 'delay.delayTime', type: 'sliderLinear', loreLabel: 'PROPAGATION LAG', humanLabel: 'Time', min: 0, max: 1, step: 0.01, unit: 's', orientation: 'auto' } },
-      { field: 'feedback', schema: { id: 'delay.feedback', type: 'sliderLinear', loreLabel: 'RECIRCULATION RATE', humanLabel: 'Feedback', min: 0, max: 0.95, step: 0.01, orientation: 'auto' } },
-      { field: 'wet', schema: { id: 'delay.wet', type: 'sliderLinear', loreLabel: 'REFLECTED SIGNAL BALANCE', humanLabel: 'Mix', min: 0, max: 1, step: 0.01, orientation: 'auto' } },
+      { field: 'delayTime', schema: { id: 'delay.delayTime', type: 'sliderLinear', loreLabel: 'PROPAGATION LAG', humanLabel: 'Time', min: 0, max: 1, step: 0.01, unit: 's', orientation: 'horizontal' } },
+      { field: 'feedback', schema: { id: 'delay.feedback', type: 'sliderLinear', loreLabel: 'RECIRCULATION RATE', humanLabel: 'Feedback', min: 0, max: 0.95, step: 0.01, orientation: 'horizontal' } },
+      { field: 'wet', schema: { id: 'delay.wet', type: 'sliderLinear', loreLabel: 'REFLECTED SIGNAL BALANCE', humanLabel: 'Mix', min: 0, max: 1, step: 0.01, orientation: 'horizontal' } },
     ],
   },
   {
     key: 'reverb',
     panel: panelSchema('reverb', 'SPATIAL DIFFUSION MATRIX', 'Reverb', 'column'),
     params: [
-      { field: 'decay', schema: { id: 'reverb.decay', type: 'sliderLog', loreLabel: 'DISSIPATION DURATION', humanLabel: 'Decay', min: 0.1, max: 10, unit: 's', orientation: 'auto' } },
-      { field: 'preDelay', schema: { id: 'reverb.preDelay', type: 'sliderLinear', loreLabel: 'INITIAL LAG', humanLabel: 'Pre-Delay', min: 0, max: 0.5, step: 0.01, unit: 's', orientation: 'auto' } },
+      { field: 'decay', schema: { id: 'reverb.decay', type: 'sliderLog', loreLabel: 'DISSIPATION DURATION', humanLabel: 'Decay', min: 0.1, max: 10, unit: 's', orientation: 'horizontal' } },
+      { field: 'preDelay', schema: { id: 'reverb.preDelay', type: 'sliderLinear', loreLabel: 'INITIAL LAG', humanLabel: 'Pre-Delay', min: 0, max: 0.5, step: 0.01, unit: 's', orientation: 'horizontal' } },
       // dampening removed (V2) — Tone.Reverb has no such property; the slider
       // controlled a dead cast in globalFx.ts since Phase 0.
-      { field: 'wet', schema: { id: 'reverb.wet', type: 'sliderLinear', loreLabel: 'DIFFUSED SIGNAL BALANCE', humanLabel: 'Mix', min: 0, max: 1, step: 0.01, orientation: 'auto' } },
+      { field: 'wet', schema: { id: 'reverb.wet', type: 'sliderLinear', loreLabel: 'DIFFUSED SIGNAL BALANCE', humanLabel: 'Mix', min: 0, max: 1, step: 0.01, orientation: 'horizontal' } },
     ],
   },
   {
@@ -320,7 +320,7 @@ export const SPEED_AUTOMATION_PANEL_SCHEMA: DirectionalPanelSchema = {
   type: 'directionalPanel',
   loreLabel: 'CHRONOMETRIC CONTROL ARRAY',
   humanLabel: 'Speed & Automation',
-  orientation: 'column',
+  orientation: 'row',
 };
 
 /**
@@ -357,5 +357,11 @@ export const EQ_FILTERS_ROW_PANEL_SCHEMA: DirectionalPanelSchema = {
 export const FILTERS_COLUMN_PANEL_SCHEMA: DirectionalPanelSchema = {
   id: 'audioRig.filtersColumn',
   type: 'directionalPanel',
-  orientation: 'column',
+  orientation: 'row',
+};
+
+export const TIME_SPACE_COLUMN_PANEL_SCHEMA: DirectionalPanelSchema = {
+  id: 'audioRig.timeSpaceColumn',
+  type: 'directionalPanel',
+  orientation: 'row',
 };

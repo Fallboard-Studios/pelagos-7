@@ -7,8 +7,12 @@
 .sc-directional-panel__content {
   display: flex;
   flex-direction: row;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+.sc-directional-panel__content>* {
+  flex: 1 1 auto;
 }
 
 .sc-directional-panel__content[data-orientation='column'] {

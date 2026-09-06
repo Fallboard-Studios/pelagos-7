@@ -40,12 +40,10 @@ export function PingContourDrawer({ value: adsr, onChange, disabled }: PingConto
   return (
     <AccordionContainer schema={ENVELOPE_ACCORDION_SCHEMA}>
       <DirectionalPanel schema={PING_CONTOUR_PANEL_SCHEMA}>
-        <div className="ping-contour-drawer">
-          <SliderLog schema={ATTACK_SCHEMA} value={adsr.attack} onChange={handleAttackChange} disabled={disabled} />
-          <SliderLog schema={DECAY_SCHEMA} value={adsr.decay} onChange={handleDecayChange} disabled={disabled} />
-          <SliderLinear schema={SUSTAIN_SCHEMA} value={adsr.sustain * 100} onChange={handleSustainChange} disabled={disabled} />
-          <SliderLog schema={RELEASE_SCHEMA} value={adsr.release} onChange={handleReleaseChange} disabled={disabled} />
-        </div>
+        <SliderLog schema={ATTACK_SCHEMA} value={adsr.attack} onChange={handleAttackChange} disabled={disabled} />
+        <SliderLog schema={DECAY_SCHEMA} value={adsr.decay} onChange={handleDecayChange} disabled={disabled} />
+        <SliderLinear schema={SUSTAIN_SCHEMA} value={adsr.sustain * 100} onChange={handleSustainChange} disabled={disabled} />
+        <SliderLog schema={RELEASE_SCHEMA} value={adsr.release} onChange={handleReleaseChange} disabled={disabled} />
       </DirectionalPanel>
     </AccordionContainer>
   );

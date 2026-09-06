@@ -17,6 +17,7 @@ import {
   SPEED_AUTOMATION_PANEL_SCHEMA,
   EQ_FILTERS_ROW_PANEL_SCHEMA,
   FILTERS_COLUMN_PANEL_SCHEMA,
+  TIME_SPACE_COLUMN_PANEL_SCHEMA,
   DECAY_MODE_SCHEMA,
   LFO_DRIFT_GROUPS,
   PING_VARIANCE_AUTOMATION_SCHEMA,
@@ -50,6 +51,24 @@ function renderParamControl(param: AudioRigParamSchema, value: number, onChange:
     default:
       return null;
   }
+}
+
+/** Wraps one param's control in the shared `.audio-rig-drawer__param-row` div — the plain,
+ *  non-LFO rendering shape every block's params without an lfoTarget use (see renderBlock()). */
+function paramRow(param: AudioRigParamSchema, effect: Record<string, number>, updateParam: (field: string, value: number) => void) {
+  return (
+    <div className="audio-rig-drawer__param-row" key={param.field}>
+      {renderParamControl(param, effect[param.field], (v) => updateParam(param.field, v))}
+    </div>
+  );
+}
+
+/** Looks up one param by its field name — used by renderBlock()'s hand-composed delay/reverb
+ *  layouts below to pull a specific control out of block.params by name, rather than mapping the
+ *  array in bulk. Non-null assertion is safe: both call sites name fields that AUDIO_RIG_CONFIG's
+ *  own delay/reverb blocks are guaranteed to carry (audioRigConfig.test.ts guards the field list). */
+function findParam(params: AudioRigParamSchema[], field: string): AudioRigParamSchema {
+  return params.find((p) => p.field === field)!;
 }
 
 interface AudioRigLfoGroupProps {
@@ -147,15 +166,20 @@ function AudioRigLfoGroup({ groupId, params, effect, updateParam, globalLfo, set
  * Automatic Effects) as its own top-level accordion, then
  * AUDIO_RIG_ACCORDION_GROUPS' 3 accordions (EQ & Filters, Time & Space,
  * Output), each wrapping its blockKeys' blocks via the shared renderBlock()
- * helper — every block's own body (AudioRigLfoGroup-or-plain-params-map,
- * plus the compressor-only Decay Mode radio) is unchanged from before this
- * restructure; only its wrapper changed from its own AccordionContainer to
- * a DirectionalPanel nested inside its group's shared accordion. EQ &
- * Filters is special-cased (by AUDIO_RIG_ACCORDION_GROUPS' own `key` field,
- * not its raw accordion id) into its own row-when-there's-room layout —
- * 3-Band EQ beside a column stacking Low-Pass above High-Pass
- * (EQ_FILTERS_ROW_PANEL_SCHEMA/FILTERS_COLUMN_PANEL_SCHEMA) — while Time &
- * Space/Output still stack their blockKeys flat. The 'robots'
+ * helper — its wrapper changed from its own AccordionContainer to a
+ * DirectionalPanel nested inside its group's shared accordion. Delay and
+ * Reverb are hand-composed by block.key (findParam() pulls each named param
+ * out of block.params) into a nested row — Time+Feedback / Decay+Pre-Delay —
+ * with Mix stacked below it inside block.panel's own column; this is a
+ * literal, per-block layout, not a rule derived from param count or
+ * orientation, matching a caller-supplied panel shape directly. Compressor/
+ * Limiter keep the original flat params-map. EQ & Filters is special-cased
+ * (by AUDIO_RIG_ACCORDION_GROUPS' own `key` field, not its raw accordion id)
+ * into its own row-when-there's-room layout — 3-Band EQ beside a column
+ * stacking Low-Pass above High-Pass
+ * (EQ_FILTERS_ROW_PANEL_SCHEMA/FILTERS_COLUMN_PANEL_SCHEMA); Time & Space
+ * wraps its own blockKeys in a shared row (TIME_SPACE_COLUMN_PANEL_SCHEMA),
+ * while Output still stacks its blockKeys flat. The 'robots'
  * LFO_DRIFT_GROUPS entry (Robot Drift) no longer renders here — it moved to
  * SignatureArrayDrawer's own Source accordion, since it's a robot-facing
  * control even though the value it edits (globalAudio.lfoDrift.robots) is
@@ -201,6 +225,10 @@ export function AudioRigDrawer() {
                 {renderBlock('filterLPF')}
                 {renderBlock('filterHPF')}
               </DirectionalPanel>
+            </DirectionalPanel>
+          ) : group.key === 'timeSpace' ? (
+            <DirectionalPanel schema={TIME_SPACE_COLUMN_PANEL_SCHEMA}>
+              {group.blockKeys.map((key) => renderBlock(key))}
             </DirectionalPanel>
           ) : (
             group.blockKeys.map((key) => renderBlock(key))
@@ -257,21 +285,52 @@ export function AudioRigDrawer() {
                 </>
               )}
             />
+          ) : block.key === 'delay' ? (
+            // Hand-composed, not derived: Time+Feedback share a nested row, Mix sits below it,
+            // both inside block.panel's own column — matching the user-supplied layout directly
+            // rather than inferring a grouping rule from param count/orientation.
+            <>
+              <DirectionalPanel schema={{ id: 'audioRig.delay.topRow', type: 'directionalPanel', orientation: 'row' }}>
+                {paramRow(findParam(block.params, 'delayTime'), effect, updateParam)}
+                {paramRow(findParam(block.params, 'feedback'), effect, updateParam)}
+              </DirectionalPanel>
+              {paramRow(findParam(block.params, 'wet'), effect, updateParam)}
+            </>
+          ) : block.key === 'reverb' ? (
+            // Same hand-composed shape as delay above: Decay+Pre-Delay share a nested row, Mix
+            // sits below it.
+            <>
+              <DirectionalPanel schema={{ id: 'audioRig.reverb.topRow', type: 'directionalPanel', orientation: 'row' }}>
+                {paramRow(findParam(block.params, 'decay'), effect, updateParam)}
+                {paramRow(findParam(block.params, 'preDelay'), effect, updateParam)}
+              </DirectionalPanel>
+              {paramRow(findParam(block.params, 'wet'), effect, updateParam)}
+            </>
+          ) : block.key === 'compressor' ? (
+            <>
+              <DirectionalPanel schema={{ id: 'audioRig.compressor.topRow', type: 'directionalPanel', orientation: 'row' }}>
+                {paramRow(findParam(block.params, 'threshold'), effect, updateParam)}
+                {paramRow(findParam(block.params, 'ratio'), effect, updateParam)}
+              </DirectionalPanel>
+              <DirectionalPanel schema={{ id: 'audioRig.compressor.bottomRow', type: 'directionalPanel', orientation: 'row' }}>
+                {paramRow(findParam(block.params, 'attack'), effect, updateParam)}
+                {paramRow(findParam(block.params, 'release'), effect, updateParam)}
+              </DirectionalPanel>
+              <DirectionalPanel schema={{ id: 'audioRig.compressor.bottomRow', type: 'directionalPanel', orientation: 'row' }}>
+                {paramRow(findParam(block.params, 'knee'), effect, updateParam)}
+                <div className="audio-rig-drawer__param-row">
+                  <RadioButton
+                    schema={DECAY_MODE_SCHEMA}
+                    value={globalAudio.compressorBeforeDelay ? 'controlled' : 'natural'}
+                    onChange={(v) => setCompressorBeforeDelay(v === 'controlled')}
+                  />
+                </div>
+              </DirectionalPanel>
+
+
+            </>
           ) : (
-            block.params.map((param) => (
-              <div className="audio-rig-drawer__param-row" key={param.field}>
-                {renderParamControl(param, effect[param.field], (v) => updateParam(param.field, v))}
-              </div>
-            ))
-          )}
-          {block.key === 'compressor' && (
-            <div className="audio-rig-drawer__param-row">
-              <RadioButton
-                schema={DECAY_MODE_SCHEMA}
-                value={globalAudio.compressorBeforeDelay ? 'controlled' : 'natural'}
-                onChange={(v) => setCompressorBeforeDelay(v === 'controlled')}
-              />
-            </div>
+            block.params.map((param) => paramRow(param, effect, updateParam))
           )}
         </DirectionalPanel>
       </div>

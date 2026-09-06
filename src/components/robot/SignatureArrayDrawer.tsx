@@ -23,7 +23,8 @@ const ROBOTS_DRIFT_GROUP = LFO_DRIFT_GROUPS.find((g) => g.group === 'robots')!;
 
 /**
  * Robot Drift — moved here from AudioRigDrawer's Transport & Composition accordion (post-
- * DIRECTIONAL_PANEL_WIRING follow-up fix). Still edits the same global `globalAudio.lfoDrift.
+ * DIRECTIONAL_PANEL_WIRING follow-up fix), then reordered to render last, after Baseline/Coaxial/
+ * Harmonic, rather than first. Still edits the same global `globalAudio.lfoDrift.
  * robots` slice it always did — a rig-wide value, not a per-robot one — so unlike every other
  * panel in this drawer it reads/writes `useAudioStore` directly instead of going through `value`/
  * `onLfoChange` props. Deliberately ignores this drawer's own `disabled` prop: that prop reflects
@@ -85,11 +86,11 @@ function paramValue(layer: OscillatorLayer, field: SignatureArrayParamSchema['fi
 }
 
 /**
- * One Source AccordionContainer wrapping the Robot Drift panel plus 3 DirectionalPanels, one per
- * fixed layer slot (Baseline/Coaxial/Harmonic) — docs/tasks/DIRECTIONAL_PANEL_WIRING.md Task 8,
+ * One Source AccordionContainer wrapping 3 DirectionalPanels, one per fixed layer slot (Baseline/
+ * Coaxial/Harmonic), plus the Robot Drift panel — docs/tasks/DIRECTIONAL_PANEL_WIRING.md Task 8,
  * replacing the former single "Signature Array" accordion around 3 unlabeled layer divs. Robot
  * Drift was moved here from AudioRigDrawer's Transport & Composition accordion in a follow-up
- * fix, landing first, before Baseline — see RobotDriftPanel below.
+ * fix, landing last, after Harmonic — see RobotDriftPanel below.
  *
  * Otherwise purely presentational as of Roadmap Phase 10 (Task 16) — no `robot` prop, no store
  * access beyond RobotDriftPanel's own global lfoDrift subscription; both RobotOptionsTab (robot
@@ -115,7 +116,7 @@ export function SignatureArrayDrawer({ value, onContinuousChange, onStructuralCh
   return (
     <AccordionContainer schema={SOURCE_ACCORDION_SCHEMA}>
       <div className="signature-array-drawer">
-        <RobotDriftPanel />
+
         {SIGNATURE_ARRAY_CONFIG.map((block, idx) => {
           const layer = layers[idx];
           if (!layer) return null;
@@ -149,6 +150,7 @@ export function SignatureArrayDrawer({ value, onContinuousChange, onStructuralCh
                 />
                 <LfoTargetGroup
                   groupId={`robotOptions.${block.key}`}
+                  sliderPanelOrientation="row"
                   fields={lfoParams.map((p) => ({
                     field: p.field,
                     label: (p.schema as SliderLinearSchema | SliderCenteredZeroSchema).humanLabel ?? p.field,
@@ -171,10 +173,12 @@ export function SignatureArrayDrawer({ value, onContinuousChange, onStructuralCh
                     );
                   }}
                 />
+
               </div>
             </DirectionalPanel>
           );
         })}
+        <RobotDriftPanel />
       </div>
     </AccordionContainer>
   );

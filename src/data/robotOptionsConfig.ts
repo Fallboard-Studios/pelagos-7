@@ -124,13 +124,21 @@ export const PHRASING_PANEL_SCHEMA: DirectionalPanelSchema = {
   orientation: 'column',
 };
 
+export const RHYTHM_PANEL_SCHEMA: DirectionalPanelSchema = {
+  id: 'robotOptions.rhythm',
+  type: 'directionalPanel',
+  loreLabel: 'RHYTHMIC PHRASING MATRIX',
+  humanLabel: 'Rhythm',
+  orientation: 'row',
+};
+
 /** Octave Min, Octave Max, Note Variance — the other half of the old Ping Controls accordion. */
 export const FREQUENCY_PANEL_SCHEMA: DirectionalPanelSchema = {
   id: 'robotOptions.frequency',
   type: 'directionalPanel',
   loreLabel: 'PITCH FREQUENCY MATRIX',
   humanLabel: 'Frequency',
-  orientation: 'column',
+  orientation: 'row',
 };
 
 /**
@@ -264,7 +272,7 @@ export const PING_CONTOUR_PANEL_SCHEMA: DirectionalPanelSchema = {
   type: 'directionalPanel',
   loreLabel: 'PING CONTOUR',
   humanLabel: 'Ping Contour',
-  orientation: 'column',
+  orientation: 'row',
 };
 
 export const ATTACK_SCHEMA: SliderLogSchema = {
@@ -377,7 +385,7 @@ function makeLayerBlock(
     key,
     humanLabel,
     loreLabel,
-    panel: { id: `robotOptions.${key}.panel`, type: 'directionalPanel', loreLabel, humanLabel, orientation: 'column' },
+    panel: { id: `robotOptions.${key}.panel`, type: 'directionalPanel', loreLabel, humanLabel, orientation: 'row' },
     params: [
       {
         field: 'type',
@@ -392,7 +400,7 @@ function makeLayerBlock(
         schema: {
           id: `robotOptions.${key}.gain`, type: 'sliderLinear',
           loreLabel: `${loreLabel} SATURATION`, humanLabel: `${humanLabel} Gain`,
-          min: 0, max: 2, step: 0.01, orientation: 'auto',
+          min: 0, max: 2, step: 0.01, orientation: 'vertical',
         } satisfies SliderLinearSchema,
         lfoTarget: gainTarget,
       },
@@ -401,7 +409,7 @@ function makeLayerBlock(
         schema: {
           id: `robotOptions.${key}.detune`, type: 'sliderCenteredZero',
           loreLabel: `${loreLabel} DRIFT`, humanLabel: `${humanLabel} Detune`,
-          min: -50, max: 50, unit: 'cents', orientation: 'auto',
+          min: -50, max: 50, unit: 'cents', orientation: 'vertical',
         } satisfies SliderCenteredZeroSchema,
         lfoTarget: detuneTarget,
       },
@@ -410,7 +418,7 @@ function makeLayerBlock(
         schema: {
           id: `robotOptions.${key}.phase`, type: 'sliderLinear',
           loreLabel: `${loreLabel} ALIGNMENT`, humanLabel: `${humanLabel} Phase`,
-          min: 0, max: 360, orientation: 'auto',
+          min: 0, max: 360, orientation: 'vertical',
         } satisfies SliderLinearSchema,
         lfoTarget: phaseTarget,
       },
@@ -419,13 +427,19 @@ function makeLayerBlock(
         schema: {
           id: `robotOptions.${key}.pulseWidth`, type: 'sliderLinear',
           loreLabel: `${loreLabel} PULSE WIDTH`, humanLabel: `${humanLabel} Interval`,
-          min: 0, max: 1, step: 0.01, orientation: 'auto',
+          min: 0, max: 1, step: 0.01, orientation: 'vertical',
         } satisfies SliderLinearSchema,
         lfoTarget: pulseWidthTarget,
       },
     ],
   };
 }
+
+export const SIGNATURE_ARRAY_ROW_PANEL_SCHEMA: DirectionalPanelSchema = {
+  id: 'robotOptions.signatureArrayRow',
+  type: 'directionalPanel',
+  orientation: 'row',
+};
 
 export const SIGNATURE_ARRAY_CONFIG: SignatureArrayLayerBlock[] = [
   makeLayerBlock('layer0', 'Baseline', 'BASELINE'),
