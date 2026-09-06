@@ -15,6 +15,7 @@ import type {
   AccordionSchema,
   ButtonSchema,
   ControlSchema,
+  DirectionalPanelSchema,
   RadioButtonSchema,
   SliderCenteredZeroSchema,
   SliderLinearSchema,
@@ -78,15 +79,66 @@ export const VOLUME_SCHEMA: SliderLinearSchema = {
  *  from VOLUME_SCHEMA.humanLabel instead. */
 export const VOLUME_LFO_TARGET: RobotLfoTargetId = 'volume';
 
+/**
+ * DirectionalPanel wiring (docs/tasks/DIRECTIONAL_PANEL_WIRING.md) — wraps AudioSettingSection's
+ * existing content (Audio Setting radio + Volume's shared LfoTargetGroup) at both Robot Effects
+ * call sites, sitting above the Melody/Envelope/Source accordions rather than inside one. First
+ * new panel/accordion in this file with no prior AccordionSchema to inherit copy from — invented
+ * lore, same "confirm during manual check" treatment as LFO_DRIFT_GROUPS' own labels
+ * (audioRigConfig.ts).
+ */
+export const ROBOT_OUTPUT_PANEL_SCHEMA: DirectionalPanelSchema = {
+  id: 'robotOptions.output',
+  type: 'directionalPanel',
+  loreLabel: 'PROBE TRANSDUCER STAGE',
+  humanLabel: 'Output',
+  orientation: 'column',
+};
+
 // ========================================
 // PING CONTROLS
 // ========================================
 
-export const PING_CONTROLS_ACCORDION_SCHEMA: AccordionSchema = {
-  id: 'robotOptions.pingControls',
+/**
+ * DirectionalPanel wiring (docs/tasks/DIRECTIONAL_PANEL_WIRING.md) — supersedes the old flat
+ * "Ping Controls" AccordionSchema (removed, Task 9): it splits into this Melody accordion
+ * wrapping 2 panels (PHRASING_PANEL_SCHEMA, FREQUENCY_PANEL_SCHEMA below).
+ */
+export const MELODY_ACCORDION_SCHEMA: AccordionSchema = {
+  id: 'robotOptions.melody',
   type: 'accordion',
-  loreLabel: 'PING CONTROLS',
-  humanLabel: 'Ping Controls',
+  loreLabel: 'MELODIC SUBSYSTEM',
+  humanLabel: 'Melody',
+};
+
+/**
+ * Density, Motif Length, Pitch Repeat, plus the dev-only Click Track toggle and Reset Melody
+ * button — a new label, not inherited from the old flat "Ping Controls" accordion (that whole
+ * accordion is split into 2 differently-labeled panels, not moved as one unit).
+ */
+export const PHRASING_PANEL_SCHEMA: DirectionalPanelSchema = {
+  id: 'robotOptions.phrasing',
+  type: 'directionalPanel',
+  loreLabel: 'RHYTHMIC PHRASING MATRIX',
+  humanLabel: 'Phrasing',
+  orientation: 'column',
+};
+
+export const RHYTHM_PANEL_SCHEMA: DirectionalPanelSchema = {
+  id: 'robotOptions.rhythm',
+  type: 'directionalPanel',
+  loreLabel: 'RHYTHMIC PHRASING MATRIX',
+  humanLabel: 'Rhythm',
+  orientation: 'row',
+};
+
+/** Octave Min, Octave Max, Note Variance — the other half of the old Ping Controls accordion. */
+export const FREQUENCY_PANEL_SCHEMA: DirectionalPanelSchema = {
+  id: 'robotOptions.frequency',
+  type: 'directionalPanel',
+  loreLabel: 'PITCH FREQUENCY MATRIX',
+  humanLabel: 'Frequency',
+  orientation: 'row',
 };
 
 /**
@@ -198,11 +250,29 @@ export const RESET_MELODY_SCHEMA: ButtonSchema = {
 // PING CONTOUR — the robot's one shared ADSR envelope
 // ========================================
 
-export const PING_CONTOUR_ACCORDION_SCHEMA: AccordionSchema = {
-  id: 'robotOptions.pingContour',
+/**
+ * DirectionalPanel wiring (docs/tasks/DIRECTIONAL_PANEL_WIRING.md) — new top-level accordion that
+ * wraps PING_CONTOUR_PANEL_SCHEMA below.
+ */
+export const ENVELOPE_ACCORDION_SCHEMA: AccordionSchema = {
+  id: 'robotOptions.envelope',
   type: 'accordion',
+  loreLabel: 'AMPLITUDE ENVELOPE STAGE',
+  humanLabel: 'Envelope',
+};
+
+/**
+ * DirectionalPanel wiring (docs/tasks/DIRECTIONAL_PANEL_WIRING.md) — supersedes the old flat
+ * "Ping Contour" AccordionSchema (removed, Task 9). Keeps that schema's exact loreLabel/
+ * humanLabel verbatim — the whole "Ping Contour" accordion becomes one panel nested inside the
+ * new Envelope accordion, not relabeled.
+ */
+export const PING_CONTOUR_PANEL_SCHEMA: DirectionalPanelSchema = {
+  id: 'robotOptions.pingContour',
+  type: 'directionalPanel',
   loreLabel: 'PING CONTOUR',
   humanLabel: 'Ping Contour',
+  orientation: 'row',
 };
 
 export const ATTACK_SCHEMA: SliderLogSchema = {
@@ -258,11 +328,17 @@ export const RELEASE_SCHEMA: SliderLogSchema = {
 // SIGNATURE ARRAY — 3 fixed layers (Baseline/Coaxial/Harmonic)
 // ========================================
 
-export const SIGNATURE_ARRAY_ACCORDION_SCHEMA: AccordionSchema = {
-  id: 'robotOptions.signatureArray',
+/**
+ * DirectionalPanel wiring (docs/tasks/DIRECTIONAL_PANEL_WIRING.md) — supersedes the old flat
+ * "Signature Array" AccordionSchema (removed, Task 9): each layer becomes its own panel
+ * (SignatureArrayLayerBlock.panel below) nested inside this new Source accordion, instead of the
+ * 3 layers sharing one "Signature Array" accordion.
+ */
+export const SOURCE_ACCORDION_SCHEMA: AccordionSchema = {
+  id: 'robotOptions.source',
   type: 'accordion',
-  loreLabel: 'SIGNATURE ARRAY',
-  humanLabel: 'Signature Array',
+  loreLabel: 'ACOUSTIC SOURCE ARRAY',
+  humanLabel: 'Source',
 };
 
 export type SignatureArrayLayerKey = 'layer0' | 'layer1' | 'layer2';
@@ -278,6 +354,10 @@ export interface SignatureArrayLayerBlock {
   key: SignatureArrayLayerKey;
   humanLabel: 'Baseline' | 'Coaxial' | 'Harmonic';
   loreLabel: string;
+  /** DirectionalPanel wiring (docs/tasks/DIRECTIONAL_PANEL_WIRING.md) — this layer's own panel,
+   *  nested inside SOURCE_ACCORDION_SCHEMA. Reuses this block's own humanLabel/loreLabel verbatim
+   *  (Baseline/Coaxial/Harmonic already had exactly the right per-layer label; no new copy). */
+  panel: DirectionalPanelSchema;
   params: SignatureArrayParamSchema[];
 }
 
@@ -305,6 +385,7 @@ function makeLayerBlock(
     key,
     humanLabel,
     loreLabel,
+    panel: { id: `robotOptions.${key}.panel`, type: 'directionalPanel', loreLabel, humanLabel, orientation: 'row' },
     params: [
       {
         field: 'type',
@@ -319,7 +400,7 @@ function makeLayerBlock(
         schema: {
           id: `robotOptions.${key}.gain`, type: 'sliderLinear',
           loreLabel: `${loreLabel} SATURATION`, humanLabel: `${humanLabel} Gain`,
-          min: 0, max: 2, step: 0.01, orientation: 'auto',
+          min: 0, max: 2, step: 0.01, orientation: 'vertical',
         } satisfies SliderLinearSchema,
         lfoTarget: gainTarget,
       },
@@ -328,7 +409,7 @@ function makeLayerBlock(
         schema: {
           id: `robotOptions.${key}.detune`, type: 'sliderCenteredZero',
           loreLabel: `${loreLabel} DRIFT`, humanLabel: `${humanLabel} Detune`,
-          min: -50, max: 50, unit: 'cents', orientation: 'auto',
+          min: -50, max: 50, unit: 'cents', orientation: 'vertical',
         } satisfies SliderCenteredZeroSchema,
         lfoTarget: detuneTarget,
       },
@@ -337,7 +418,7 @@ function makeLayerBlock(
         schema: {
           id: `robotOptions.${key}.phase`, type: 'sliderLinear',
           loreLabel: `${loreLabel} ALIGNMENT`, humanLabel: `${humanLabel} Phase`,
-          min: 0, max: 360, orientation: 'auto',
+          min: 0, max: 360, orientation: 'vertical',
         } satisfies SliderLinearSchema,
         lfoTarget: phaseTarget,
       },
@@ -346,7 +427,7 @@ function makeLayerBlock(
         schema: {
           id: `robotOptions.${key}.pulseWidth`, type: 'sliderLinear',
           loreLabel: `${loreLabel} PULSE WIDTH`, humanLabel: `${humanLabel} Interval`,
-          min: 0, max: 1, step: 0.01, orientation: 'auto',
+          min: 0, max: 1, step: 0.01, orientation: 'vertical',
         } satisfies SliderLinearSchema,
         lfoTarget: pulseWidthTarget,
       },

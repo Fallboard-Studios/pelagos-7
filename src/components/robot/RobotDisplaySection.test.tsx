@@ -5,22 +5,8 @@ import { RobotDisplaySection } from './RobotDisplaySection';
 import { useLocaleStore } from '@/stores/localeStore';
 import { useUIStore } from '@/stores/uiStore';
 import { getActiveLocaleId } from '@/utils/localeHelpers';
-import { lfoEngine } from '@/engine/lfoEngine';
-import { AudioEngine } from '@/engine/AudioEngine';
 import type { Robot } from '@/types/Robot';
 import type { Locale } from '@/types/locale';
-
-vi.mock('@/engine/lfoEngine', () => ({
-  lfoEngine: {
-    connectLfoTarget: vi.fn(() => true),
-    disconnectLfoTarget: vi.fn(),
-    setLfoRate: vi.fn(),
-    setLfoDepth: vi.fn(),
-    setLfoShape: vi.fn(),
-    start: vi.fn(),
-    stop: vi.fn(),
-  },
-}));
 
 function makeRobot(overrides: Partial<Robot> = {}): Robot {
   return {
@@ -113,57 +99,18 @@ describe('RobotDisplaySection', () => {
   });
 
   // Audio Setting/Volume/Volume-LFO assertions live in AudioSettingSection.test.tsx as of Task 13
-  // (Roadmap Phase 10) — RobotDisplaySection now only wires that component's value/callbacks
-  // through robotOptionsActions, it doesn't own that rendering itself anymore.
+  // (Roadmap Phase 10). As of docs/tasks/DIRECTIONAL_PANEL_WIRING.md Task 5, AudioSettingSection
+  // itself is no longer rendered inside RobotDisplaySection at all — it's extracted out to
+  // RobotOptionsTab as its own top-level Output panel; see RobotOptionsTab.test.tsx for the
+  // wiring assertions this file used to carry.
 
-  it('renders AudioSettingSection wired to the robot\'s current audioMode/masterVolume/volumeLfo', () => {
+  it('no longer renders AudioSettingSection\'s own controls — extracted to RobotOptionsTab (DIRECTIONAL_PANEL_WIRING Task 5)', () => {
     const robot = makeRobot({ audioMode: 'solo', masterVolume: 0.6 });
     useLocaleStore.getState().addRobot(localeId, robot);
     render(<RobotDisplaySection robot={robot} />);
 
-    expect(screen.getByRole('radio', { name: 'Solo' }).getAttribute('aria-checked')).toBe('true');
-    expect(screen.getByRole('slider', { name: /volume/i }).getAttribute('aria-valuenow')).toBe('60');
-  });
-
-  it('an Audio Setting edit calls updateRobot via robotOptionsActions.applyAudioMode', () => {
-    const robot = makeRobot({ audioMode: 'none' });
-    useLocaleStore.getState().addRobot(localeId, robot);
-    const updateSpy = vi.spyOn(useLocaleStore.getState(), 'updateRobot');
-    render(<RobotDisplaySection robot={robot} />);
-
-    fireEvent.click(screen.getByRole('radio', { name: 'Solo' }));
-
-    expect(updateSpy).toHaveBeenCalledWith(localeId, robot.id, { audioMode: 'solo' });
-  });
-
-  it('a Volume edit calls updateRobot and AudioEngine.updateRobotMasterVolume via robotOptionsActions.applyVolume', () => {
-    const robot = makeRobot({ masterVolume: 0.42 });
-    useLocaleStore.getState().addRobot(localeId, robot);
-    const updateSpy = vi.spyOn(useLocaleStore.getState(), 'updateRobot');
-    const volumeSpy = vi.spyOn(AudioEngine, 'updateRobotMasterVolume').mockImplementation(() => {});
-    render(<RobotDisplaySection robot={robot} />);
-
-    fireEvent.keyDown(screen.getByRole('slider', { name: /volume/i }), { key: 'ArrowRight' });
-
-    expect(updateSpy).toHaveBeenCalledWith(localeId, robot.id, { masterVolume: expect.closeTo(0.43, 5) });
-    expect(volumeSpy).toHaveBeenCalledWith(robot.id, expect.closeTo(0.43, 5));
-  });
-
-  it('moving the Volume LFO\'s rate off 0 calls lfoEngine.connectLfoTarget via robotOptionsActions.applyVolumeLfo', () => {
-    const robot = makeRobot({
-      lfoSettings: {
-        volume: { shape: 'sine', rate: 0, depth: 20 },
-      } as unknown as Robot['lfoSettings'],
-    });
-    useLocaleStore.getState().addRobot(localeId, robot);
-    render(<RobotDisplaySection robot={robot} />);
-
-    const rateSlider = screen.getByRole('slider', { name: 'Rate' });
-    rateSlider.focus();
-    fireEvent.keyDown(rateSlider, { key: 'ArrowRight' });
-
-    expect(lfoEngine.connectLfoTarget).toHaveBeenCalledWith('volume', robot.id);
-    expect(lfoEngine.start).toHaveBeenCalledWith('volume', robot.id);
+    expect(screen.queryByRole('radio', { name: 'Solo' })).toBeNull();
+    expect(screen.queryByRole('slider', { name: /volume/i })).toBeNull();
   });
 
   describe('company assignment (Roadmap Phase 10)', () => {

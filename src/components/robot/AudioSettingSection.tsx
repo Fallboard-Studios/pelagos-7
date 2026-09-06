@@ -1,7 +1,8 @@
 import { RadioButton } from '@/components/ui/controls/RadioButton';
 import { SliderLinear } from '@/components/ui/controls/SliderLinear';
 import { LfoTargetGroup } from '@/components/ui/controls/LfoTargetGroup';
-import { AUDIO_SETTING_SCHEMA, VOLUME_SCHEMA } from '@/data/robotOptionsConfig';
+import { DirectionalPanel } from '@/components/ui/controls/DirectionalPanel';
+import { AUDIO_SETTING_SCHEMA, VOLUME_SCHEMA, ROBOT_OUTPUT_PANEL_SCHEMA } from '@/data/robotOptionsConfig';
 import type { Robot } from '@/types/Robot';
 import type { LfoValue } from '@/types/controls';
 
@@ -35,10 +36,15 @@ interface AudioSettingSectionProps {
  * a single field — the same bare-slider-plus-shared-display shape every other LFO-tied group
  * uses, replacing the old nested "Modulation" accordion, even though there's nothing else to
  * target yet. Keeps this section's shape consistent should more sliders join it later.
+ *
+ * Self-wraps in a DirectionalPanel (docs/tasks/DIRECTIONAL_PANEL_WIRING.md Task 4), matching the
+ * "component wraps itself" precedent PingControlsDrawer/PingContourDrawer/SignatureArrayDrawer
+ * already established with their own AccordionContainer — this was the one drawer-ish component
+ * that didn't self-wrap before this task.
  */
 export function AudioSettingSection({ value, onAudioModeChange, onVolumeChange, onVolumeLfoChange, disabled }: AudioSettingSectionProps) {
   return (
-    <div className="audio-setting-section">
+    <DirectionalPanel schema={ROBOT_OUTPUT_PANEL_SCHEMA}>
       <div className="audio-setting-section__row">
         <RadioButton
           schema={AUDIO_SETTING_SCHEMA}
@@ -59,7 +65,7 @@ export function AudioSettingSection({ value, onAudioModeChange, onVolumeChange, 
           )}
         />
       </div>
-    </div>
+    </DirectionalPanel>
   );
 }
 

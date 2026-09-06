@@ -1,8 +1,10 @@
 import { SliderLog } from '@/components/ui/controls/SliderLog';
 import { SliderLinear } from '@/components/ui/controls/SliderLinear';
 import { AccordionContainer } from '@/components/ui/controls/AccordionContainer';
+import { DirectionalPanel } from '@/components/ui/controls/DirectionalPanel';
 import {
-  PING_CONTOUR_ACCORDION_SCHEMA,
+  ENVELOPE_ACCORDION_SCHEMA,
+  PING_CONTOUR_PANEL_SCHEMA,
   ATTACK_SCHEMA,
   DECAY_SCHEMA,
   SUSTAIN_SCHEMA,
@@ -19,11 +21,13 @@ interface PingContourDrawerProps {
 }
 
 /**
- * One AccordionContainer editing the robot's single shared ADSR envelope. Purely presentational
- * as of Roadmap Phase 10 (Task 15) — no `robot` prop, no store access; both RobotOptionsTab
- * (robot mode) and CompanyOptionsSection (company mode) derive `value` and wire `onChange`
- * through robotOptionsActions.applyAdsr themselves, which is what calls
+ * One Envelope AccordionContainer wrapping one Ping Contour DirectionalPanel, editing the
+ * robot's single shared ADSR envelope. Purely presentational as of Roadmap Phase 10 (Task 15),
+ * regrouped by docs/tasks/DIRECTIONAL_PANEL_WIRING.md Task 7 — no `robot` prop, no store access;
+ * both RobotOptionsTab (robot mode) and CompanyOptionsSection (company mode) derive `value` and
+ * wire `onChange` through robotOptionsActions.applyAdsr themselves, which is what calls
  * AudioEngine.updateVoiceEnvelope (never reReserveVoice, so there's no audio dropout).
+ * `PingContourDrawerProps` is unchanged — neither call site needed any edit for this restructure.
  */
 export function PingContourDrawer({ value: adsr, onChange, disabled }: PingContourDrawerProps) {
   const handleAttackChange = (v: number) => onChange({ ...adsr, attack: v });
@@ -34,13 +38,13 @@ export function PingContourDrawer({ value: adsr, onChange, disabled }: PingConto
   const handleSustainChange = (pct: number) => onChange({ ...adsr, sustain: pct / 100 });
 
   return (
-    <AccordionContainer schema={PING_CONTOUR_ACCORDION_SCHEMA}>
-      <div className="ping-contour-drawer">
+    <AccordionContainer schema={ENVELOPE_ACCORDION_SCHEMA}>
+      <DirectionalPanel schema={PING_CONTOUR_PANEL_SCHEMA}>
         <SliderLog schema={ATTACK_SCHEMA} value={adsr.attack} onChange={handleAttackChange} disabled={disabled} />
         <SliderLog schema={DECAY_SCHEMA} value={adsr.decay} onChange={handleDecayChange} disabled={disabled} />
         <SliderLinear schema={SUSTAIN_SCHEMA} value={adsr.sustain * 100} onChange={handleSustainChange} disabled={disabled} />
         <SliderLog schema={RELEASE_SCHEMA} value={adsr.release} onChange={handleReleaseChange} disabled={disabled} />
-      </div>
+      </DirectionalPanel>
     </AccordionContainer>
   );
 }

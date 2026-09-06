@@ -117,8 +117,12 @@ export interface SelectSchema extends ControlSchemaBase {
 /** Layout axis for DirectionalPanel — mirrors SliderOrientation's own precedent
  *  as a named, exported union rather than an inline literal type. Optional on
  *  the schema (unlike SliderOrientation, which is required): omitting it
- *  defaults to 'row' in the component, not the type. */
-export type PanelOrientation = 'row' | 'column';
+ *  defaults to 'row' in the component, not the type. 'auto' resolves at render
+ *  time via useAutoPanelOrientation, measuring the panel's own parent element
+ *  and going 'row' once it's wide enough, 'column' otherwise — the panel-level
+ *  counterpart to SliderOrientation's own 'auto' (docs/tasks/
+ *  DIRECTIONAL_PANEL_WIRING.md follow-up fix). */
+export type PanelOrientation = 'row' | 'column' | 'auto';
 
 /** Pure layout container — groups already-rendered controls into a row or
  *  column flex box. No value/onChange: docs/specs/DIRECTIONAL_PANEL.md. */

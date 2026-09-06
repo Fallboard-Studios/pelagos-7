@@ -11,6 +11,22 @@ import { render, screen, fireEvent } from '@testing-library/react';
 vi.mock('@/components/robot/RobotDisplaySection', () => ({
   RobotDisplaySection: () => <div data-testid="robot-display-section-stub" />,
 }));
+vi.mock('@/components/robot/AudioSettingSection', () => ({
+  AudioSettingSection: (props: {
+    value: { audioMode: string; masterVolume: number };
+    onAudioModeChange: (mode: string) => void;
+    onVolumeChange: (pct: number) => void;
+  }) => (
+    <div
+      data-testid="audio-setting-section-stub"
+      data-audio-mode={props.value.audioMode}
+      data-master-volume={props.value.masterVolume}
+    >
+      <button onClick={() => props.onAudioModeChange('solo')}>probe-audio-mode</button>
+      <button onClick={() => props.onVolumeChange(55)}>probe-volume</button>
+    </div>
+  ),
+}));
 vi.mock('@/components/robot/PingControlsDrawer', () => ({
   PingControlsDrawer: (props: {
     value: { rhythmicDensity: number; rhythmicMotifLength: number; noteVariance: number; pitchRepeat: number; clickTrackActive: boolean };
@@ -108,7 +124,7 @@ describe('RobotOptionsTab', () => {
     expect(screen.queryByTestId('robot-display-section-stub')).toBeNull();
   });
 
-  it('renders RobotDisplaySection plus all 3 drawers when a robot is selected', () => {
+  it('renders RobotDisplaySection, AudioSettingSection, plus all 3 drawers when a robot is selected', () => {
     const robot = makeRobot();
     useLocaleStore.getState().addRobot(localeId, robot);
     useUIStore.getState().selectRobot(robot.id);
@@ -116,9 +132,70 @@ describe('RobotOptionsTab', () => {
     render(<RobotOptionsTab />);
 
     expect(screen.getByTestId('robot-display-section-stub')).toBeTruthy();
+    expect(screen.getByTestId('audio-setting-section-stub')).toBeTruthy();
     expect(screen.getByTestId('ping-controls-drawer-stub')).toBeTruthy();
     expect(screen.getByTestId('ping-contour-drawer-stub')).toBeTruthy();
     expect(screen.getByTestId('signature-array-drawer-stub')).toBeTruthy();
+  });
+
+  describe('AudioSettingSection extraction (docs/tasks/DIRECTIONAL_PANEL_WIRING.md Task 5)', () => {
+    it('renders as a direct sibling between RobotDisplaySection and PingControlsDrawer', () => {
+      const robot = makeRobot();
+      useLocaleStore.getState().addRobot(localeId, robot);
+      useUIStore.getState().selectRobot(robot.id);
+      render(<RobotOptionsTab />);
+
+      const displaySection = screen.getByTestId('robot-display-section-stub');
+      const audioSetting = screen.getByTestId('audio-setting-section-stub');
+      const pingControls = screen.getByTestId('ping-controls-drawer-stub');
+
+      expect(displaySection.compareDocumentPosition(audioSetting) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(audioSetting.compareDocumentPosition(pingControls) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it("derives its value from the selected robot's audioMode/masterVolume", () => {
+      const robot = makeRobot('r1', { audioMode: 'mute', masterVolume: 0.42 });
+      useLocaleStore.getState().addRobot(localeId, robot);
+      useUIStore.getState().selectRobot(robot.id);
+      render(<RobotOptionsTab />);
+
+      const stub = screen.getByTestId('audio-setting-section-stub');
+      expect(stub.getAttribute('data-audio-mode')).toBe('mute');
+      expect(stub.getAttribute('data-master-volume')).toBe('0.42');
+    });
+
+    it('defaults audioMode to \'none\' when the robot has none set', () => {
+      const robot = makeRobot('r1', { audioMode: undefined });
+      useLocaleStore.getState().addRobot(localeId, robot);
+      useUIStore.getState().selectRobot(robot.id);
+      render(<RobotOptionsTab />);
+
+      expect(screen.getByTestId('audio-setting-section-stub').getAttribute('data-audio-mode')).toBe('none');
+    });
+
+    it('wires onAudioModeChange straight through to robotOptionsActions.applyAudioMode', () => {
+      const robot = makeRobot();
+      useLocaleStore.getState().addRobot(localeId, robot);
+      useUIStore.getState().selectRobot(robot.id);
+      const applySpy = vi.spyOn(robotOptionsActions, 'applyAudioMode').mockImplementation(() => {});
+      render(<RobotOptionsTab />);
+
+      fireEvent.click(screen.getByText('probe-audio-mode'));
+
+      expect(applySpy).toHaveBeenCalledWith(robot, localeId, 'solo');
+    });
+
+    it('wires onVolumeChange straight through to robotOptionsActions.applyVolume', () => {
+      const robot = makeRobot();
+      useLocaleStore.getState().addRobot(localeId, robot);
+      useUIStore.getState().selectRobot(robot.id);
+      const applySpy = vi.spyOn(robotOptionsActions, 'applyVolume').mockImplementation(() => {});
+      render(<RobotOptionsTab />);
+
+      fireEvent.click(screen.getByText('probe-volume'));
+
+      expect(applySpy).toHaveBeenCalledWith(robot, localeId, 55);
+    });
   });
 
   it('renders "Robot not found" when selectedRobotId points at a robot that no longer exists', () => {

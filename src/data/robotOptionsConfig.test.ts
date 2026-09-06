@@ -16,7 +16,18 @@ import {
   SUSTAIN_SCHEMA,
   RELEASE_SCHEMA,
   SIGNATURE_ARRAY_CONFIG,
+  ROBOT_OUTPUT_PANEL_SCHEMA,
+  MELODY_ACCORDION_SCHEMA,
+  ENVELOPE_ACCORDION_SCHEMA,
+  SOURCE_ACCORDION_SCHEMA,
+  PHRASING_PANEL_SCHEMA,
+  FREQUENCY_PANEL_SCHEMA,
+  PING_CONTOUR_PANEL_SCHEMA,
 } from './robotOptionsConfig';
+// Namespace import (not named) so Task 9's cleanup assertions below can check for the 3 old
+// accordion consts' absence at runtime, without a named import that would itself fail to compile
+// the instant they're removed from the source module.
+import * as robotOptionsConfigModule from './robotOptionsConfig';
 import { CONTROL_SCHEMA_TYPES } from '@/types/controls';
 import { ROBOT_LFO_TARGET_IDS } from '@/types/lfo';
 import {
@@ -240,12 +251,115 @@ describe('slider orientation classification (docs/specs/VERTICAL_SLIDERS.md §1.
     });
   });
 
-  it('Signature Array (Gain/Detune/Phase/Interval) is auto on every layer', () => {
+  it('Signature Array (Gain/Detune/Phase/Interval) is vertical on every layer — grouped into a row by LfoTargetGroup\'s own sliderPanelOrientation prop', () => {
     SIGNATURE_ARRAY_CONFIG.forEach((block) => {
       for (const field of ['gain', 'detune', 'phase', 'pulseWidth']) {
         const param = block.params.find((p) => p.field === field)!;
-        expect((param.schema as { orientation?: string }).orientation, `${block.key}.${field}`).toBe('auto');
+        expect((param.schema as { orientation?: string }).orientation, `${block.key}.${field}`).toBe('vertical');
       }
     });
+  });
+});
+
+// ========================================
+// DirectionalPanel wiring — additive schema work
+// (docs/tasks/DIRECTIONAL_PANEL_WIRING.md Task 3)
+// ========================================
+
+describe('ROBOT_OUTPUT_PANEL_SCHEMA (Task 3)', () => {
+  it('is a column-orientation directionalPanel with humanLabel Output, id robotOptions.output', () => {
+    expect(ROBOT_OUTPUT_PANEL_SCHEMA).toMatchObject({
+      id: 'robotOptions.output',
+      type: 'directionalPanel',
+      orientation: 'column',
+      humanLabel: 'Output',
+    });
+  });
+
+  it('has a non-empty invented loreLabel', () => {
+    expect(ROBOT_OUTPUT_PANEL_SCHEMA.loreLabel).toBeTruthy();
+  });
+});
+
+describe('MELODY_ACCORDION_SCHEMA / ENVELOPE_ACCORDION_SCHEMA / SOURCE_ACCORDION_SCHEMA (Task 3)', () => {
+  it('are accordion schemas with the confirmed humanLabels, in the robotOptions.* namespace', () => {
+    expect(MELODY_ACCORDION_SCHEMA.type).toBe('accordion');
+    expect(MELODY_ACCORDION_SCHEMA.humanLabel).toBe('Melody');
+    expect(MELODY_ACCORDION_SCHEMA.id).toMatch(/^robotOptions\./);
+
+    expect(ENVELOPE_ACCORDION_SCHEMA.type).toBe('accordion');
+    expect(ENVELOPE_ACCORDION_SCHEMA.humanLabel).toBe('Envelope');
+    expect(ENVELOPE_ACCORDION_SCHEMA.id).toMatch(/^robotOptions\./);
+
+    expect(SOURCE_ACCORDION_SCHEMA.type).toBe('accordion');
+    expect(SOURCE_ACCORDION_SCHEMA.humanLabel).toBe('Source');
+    expect(SOURCE_ACCORDION_SCHEMA.id).toMatch(/^robotOptions\./);
+  });
+
+  it('each has a non-empty invented loreLabel, and all 3 ids are unique', () => {
+    for (const schema of [MELODY_ACCORDION_SCHEMA, ENVELOPE_ACCORDION_SCHEMA, SOURCE_ACCORDION_SCHEMA]) {
+      expect(schema.loreLabel, schema.humanLabel).toBeTruthy();
+    }
+    const ids = [MELODY_ACCORDION_SCHEMA.id, ENVELOPE_ACCORDION_SCHEMA.id, SOURCE_ACCORDION_SCHEMA.id];
+    expect(new Set(ids).size).toBe(3);
+  });
+});
+
+describe('PHRASING_PANEL_SCHEMA / FREQUENCY_PANEL_SCHEMA (Task 3)', () => {
+  it('carry the confirmed humanLabels and directionalPanel type — new labels, not derived from the old flat "Ping Controls" accordion', () => {
+    expect(PHRASING_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'column', humanLabel: 'Phrasing' });
+    expect(FREQUENCY_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'row', humanLabel: 'Frequency' });
+  });
+
+  it('neither reuses "Ping Controls" as its own label text', () => {
+    expect(PHRASING_PANEL_SCHEMA.humanLabel).not.toBe('Ping Controls');
+    expect(FREQUENCY_PANEL_SCHEMA.humanLabel).not.toBe('Ping Controls');
+  });
+
+  it('each has a non-empty invented loreLabel and a unique id', () => {
+    expect(PHRASING_PANEL_SCHEMA.loreLabel).toBeTruthy();
+    expect(FREQUENCY_PANEL_SCHEMA.loreLabel).toBeTruthy();
+    expect(PHRASING_PANEL_SCHEMA.id).not.toBe(FREQUENCY_PANEL_SCHEMA.id);
+  });
+});
+
+describe('PING_CONTOUR_PANEL_SCHEMA (DirectionalPanel wiring, Tasks 3+9)', () => {
+  it('is a row-orientation directionalPanel', () => {
+    expect(PING_CONTOUR_PANEL_SCHEMA.type).toBe('directionalPanel');
+    expect(PING_CONTOUR_PANEL_SCHEMA.orientation).toBe('row');
+  });
+
+  it('has loreLabel/humanLabel byte-identical to the old PING_CONTOUR_ACCORDION_SCHEMA\'s text — verbatim preservation across the type swap', () => {
+    expect(PING_CONTOUR_PANEL_SCHEMA.loreLabel).toBe('PING CONTOUR');
+    expect(PING_CONTOUR_PANEL_SCHEMA.humanLabel).toBe('Ping Contour');
+  });
+});
+
+describe('PING_CONTROLS_ACCORDION_SCHEMA / PING_CONTOUR_ACCORDION_SCHEMA / SIGNATURE_ARRAY_ACCORDION_SCHEMA no longer exist (Task 9 cleanup)', () => {
+  it('are not exported by the module — fully superseded by MELODY/ENVELOPE/SOURCE_ACCORDION_SCHEMA + the new panels', () => {
+    expect('PING_CONTROLS_ACCORDION_SCHEMA' in robotOptionsConfigModule).toBe(false);
+    expect('PING_CONTOUR_ACCORDION_SCHEMA' in robotOptionsConfigModule).toBe(false);
+    expect('SIGNATURE_ARRAY_ACCORDION_SCHEMA' in robotOptionsConfigModule).toBe(false);
+  });
+});
+
+describe('SignatureArrayLayerBlock.panel (additive, Task 3)', () => {
+  it('every layer has a panel field, type directionalPanel, row orientation', () => {
+    for (const block of SIGNATURE_ARRAY_CONFIG) {
+      expect(block.panel, block.key).toMatchObject({ type: 'directionalPanel', orientation: 'row' });
+    }
+  });
+
+  it("every layer's panel loreLabel/humanLabel matches that layer's own loreLabel/humanLabel exactly — reused verbatim, never re-invented", () => {
+    for (const block of SIGNATURE_ARRAY_CONFIG) {
+      expect(block.panel.loreLabel, block.key).toBe(block.loreLabel);
+      expect(block.panel.humanLabel, block.key).toBe(block.humanLabel);
+    }
+  });
+
+  it('every layer panel has a unique id in the robotOptions.* namespace', () => {
+    const ids = SIGNATURE_ARRAY_CONFIG.map((b) => b.panel.id);
+    expect(new Set(ids).size).toBe(3);
+    for (const id of ids) expect(id).toMatch(/^robotOptions\./);
   });
 });

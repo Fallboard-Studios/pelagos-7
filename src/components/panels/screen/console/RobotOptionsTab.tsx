@@ -1,4 +1,5 @@
 import { RobotDisplaySection } from '@/components/robot/RobotDisplaySection';
+import { AudioSettingSection, type AudioSettingValue } from '@/components/robot/AudioSettingSection';
 import { PingControlsDrawer, type PingControlsValue } from '@/components/robot/PingControlsDrawer';
 import { PingContourDrawer } from '@/components/robot/PingContourDrawer';
 import { SignatureArrayDrawer, type SignatureArrayValue } from '@/components/robot/SignatureArrayDrawer';
@@ -7,10 +8,14 @@ import { useUIStore } from '@/stores/uiStore';
 import { useLocaleStore } from '@/stores/localeStore';
 import { regenerateMelody } from '@/engine/regenerateMelody';
 import { DEFAULT_RHYTHMIC_MOTIF_LENGTH, DEFAULT_NOTE_VARIANCE } from '@/engine/melodyGenerator';
+import { DEFAULT_LFO_SETTINGS } from '@/data/lfoConfig';
+import { VOLUME_LFO_TARGET } from '@/data/robotOptionsConfig';
 import {
   applyDensity, applyMotifLength, applyNoteVariance, applyPitchRepeat, applyOctaveMin, applyOctaveMax,
   applyAdsr, applyLayersContinuous, applyLayersStructural, applyLayerLfo, applyClickTrackActive,
+  applyAudioMode, applyVolume, applyVolumeLfo,
 } from '@/systems/robotOptionsActions';
+import type { LfoValue } from '@/types/controls';
 
 import './RobotOptionsTab.css';
 
@@ -18,14 +23,20 @@ import './RobotOptionsTab.css';
  * Robot Options screen (Roadmap Phase 9) — reached by selecting a robot from the Robot Selection
  * hub tile (Phase 8), scoped entirely to that robot. Replaces the old Tabs.Root shell
  * (RobotMetaTab/RobotAudioTab/RobotOscillatorsTab, all removed) with RobotDisplaySection followed
- * by the 3 schema-driven drawers, stacked. Renamed from RobotEditorTab.tsx — it stopped being a
- * tabbed "editor" and became the Robot Options screen (confirmed via /interview-me).
+ * by AudioSettingSection and the 3 schema-driven drawers, stacked. Renamed from
+ * RobotEditorTab.tsx — it stopped being a tabbed "editor" and became the Robot Options screen
+ * (confirmed via /interview-me).
  *
- * This is the "robot mode" call site for PingControlsDrawer/PingContourDrawer/
- * SignatureArrayDrawer (Roadmap Phase 10, Task 17) — each drawer's `value` is derived directly
- * from `robot`, and each callback is wired to the matching robotOptionsActions function. The
- * company-broadcast call site, CompanyOptionsSection, wires the same three drawers to a
- * company's resolved snapshot instead.
+ * This is the "robot mode" call site for AudioSettingSection/PingControlsDrawer/
+ * PingContourDrawer/SignatureArrayDrawer (Roadmap Phase 10, Task 17) — each component's `value`
+ * is derived directly from `robot`, and each callback is wired to the matching
+ * robotOptionsActions function. The company-broadcast call site, CompanyOptionsSection, wires the
+ * same components to a company's resolved snapshot instead.
+ *
+ * AudioSettingSection was previously rendered inside RobotDisplaySection (mixed into its avatar/
+ * meta-data card); docs/tasks/DIRECTIONAL_PANEL_WIRING.md Task 5 extracted it out to render here
+ * as its own top-level Output panel, directly after RobotDisplaySection and before Melody
+ * (PingControlsDrawer) — same derived value/handlers as before, just rendered one level up.
  */
 export function RobotOptionsTab() {
   const selectedRobotId = useUIStore((s) => s.selectedRobotId);
@@ -52,6 +63,13 @@ export function RobotOptionsTab() {
     return <div className="robot-options-empty">Robot not found</div>;
   }
 
+  const audioSettingValue: AudioSettingValue = {
+    audioMode: robot.audioMode ?? 'none',
+    masterVolume: robot.masterVolume,
+    volumeLfo: robot.lfoSettings?.[VOLUME_LFO_TARGET] as LfoValue
+      ?? { ...DEFAULT_LFO_SETTINGS[VOLUME_LFO_TARGET] },
+  };
+
   const pingControlsValue: PingControlsValue = {
     rhythmicDensity: robot.rhythmicDensity ?? 50,
     rhythmicMotifLength: robot.rhythmicMotifLength?.value ?? DEFAULT_RHYTHMIC_MOTIF_LENGTH.value,
@@ -69,6 +87,12 @@ export function RobotOptionsTab() {
   return (
     <div className="robot-options">
       <RobotDisplaySection robot={robot} />
+      <AudioSettingSection
+        value={audioSettingValue}
+        onAudioModeChange={(mode) => applyAudioMode(robot, localeId, mode)}
+        onVolumeChange={(pct) => applyVolume(robot, localeId, pct)}
+        onVolumeLfoChange={(value) => applyVolumeLfo(robot, localeId, value)}
+      />
       <PingControlsDrawer
         value={pingControlsValue}
         onDensityChange={(v) => applyDensity(robot, localeId, v)}
