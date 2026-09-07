@@ -10,4 +10,10 @@
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 12px;
   padding: 12px;
+  /* Each tile's Button now sizes to its own small Cabinetry footprint
+     instead of stretching to fill the cell (src/components/ui/controls/
+     Button.css's width: fit-content fix) — center it in the cell rather
+     than leaving it stuck at the top-left. */
+  justify-items: center;
+  align-items: center;
 }
