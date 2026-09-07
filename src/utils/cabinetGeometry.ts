@@ -13,12 +13,14 @@
  * by box height (the original design scaled it 2×height/height, which read
  * as far too much protrusion at the 40/48px tiers once actually seen
  * rendered). Still the same 2:1 oblique vector direction, just a small fixed
- * magnitude: 32px right, 16px down at t=1, identical across every
- * breakpoint's box height. CabinetBox.css's reserved hit-area padding must
- * match this exactly (2×16 / 16), not var(--cabinet-box-height) — see that
- * file's own comment.
+ * magnitude: `2 * CABINET_POP_DISTANCE` right, `CABINET_POP_DISTANCE` down at
+ * t=1, identical across every breakpoint's box height. CabinetBox.css's
+ * reserved hit-area padding must match this exactly (`2 * CABINET_POP_DISTANCE`
+ * / `CABINET_POP_DISTANCE`, in px), not var(--cabinet-box-height) — see that
+ * file's own comment. Tuned by feel after a real visual pass; if you change
+ * this value, update CabinetBox.css's padding-right/padding-bottom to match.
  */
-export const CABINET_POP_DISTANCE = 16;
+export const CABINET_POP_DISTANCE = 4;
 
 export interface CabinetGeometry {
   topFacePoints: string;

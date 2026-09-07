@@ -37,9 +37,18 @@ export function CabinetBox({ popped, timelineKey, children }: CabinetBoxProps) {
     const el = frontRef.current;
     if (!el) return;
     const observer = new ResizeObserver((entries) => {
-      setWidth(entries[0].contentRect.width);
+      const entry = entries[0];
+      // The front face has its own horizontal padding (CabinetBox.css's
+      // .sc-cabinet-box__front), so its real rendered width is the
+      // border-box size, not the content box — `contentRect` always
+      // reports content-box regardless of the `box` option below, so the
+      // wall geometry must read `borderBoxSize` instead. Falls back to
+      // contentRect.width only when borderBoxSize genuinely isn't
+      // available (e.g. an older environment/mock).
+      const borderBoxWidth = entry.borderBoxSize?.[0]?.inlineSize;
+      setWidth(borderBoxWidth ?? entry.contentRect.width);
     });
-    observer.observe(el);
+    observer.observe(el, { box: 'border-box' });
     return () => observer.disconnect();
   }, []);
 

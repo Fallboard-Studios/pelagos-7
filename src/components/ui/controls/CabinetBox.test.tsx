@@ -2,14 +2,20 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, act } from '@testing-library/react';
 
 vi.mock('@/animation/timelineMap', () => ({ setTimeline: vi.fn(), killTimeline: vi.fn() }));
+vi.mock('@/utils/cabinetGeometry', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/utils/cabinetGeometry')>();
+  return { ...actual, computeCabinetGeometry: vi.fn(actual.computeCabinetGeometry) };
+});
 
 import { CabinetBox } from './CabinetBox';
 import { setTimeline, killTimeline } from '@/animation/timelineMap';
+import { computeCabinetGeometry } from '@/utils/cabinetGeometry';
 
 /**
  * Controllable ResizeObserver mock, mirroring useAutoSliderOrientation.test.ts's
  * own local class exactly — captures its callback so tests can fire it
- * manually with a fake contentRect.
+ * manually with a fake contentRect/borderBoxSize pair (the front face's own
+ * padding makes these differ — border-box is what CabinetBox must measure).
  */
 class MockResizeObserver {
   static instances: MockResizeObserver[] = [];
@@ -24,7 +30,20 @@ class MockResizeObserver {
   unobserve() {}
   disconnect() {}
 
-  fire(width: number, height: number) {
+  /** `borderBoxWidth` defaults to `width` (no padding difference) unless a
+   *  test explicitly supplies a distinct value. */
+  fire(width: number, height: number, borderBoxWidth: number = width) {
+    this.callback(
+      [{
+        contentRect: { width, height },
+        borderBoxSize: [{ inlineSize: borderBoxWidth, blockSize: height }],
+      } as unknown as ResizeObserverEntry],
+      this as unknown as ResizeObserver,
+    );
+  }
+
+  /** Simulates an environment/mock with no borderBoxSize at all. */
+  fireContentRectOnly(width: number, height: number) {
     this.callback(
       [{ contentRect: { width, height } } as ResizeObserverEntry],
       this as unknown as ResizeObserver,
@@ -109,5 +128,26 @@ describe('CabinetBox', () => {
 
     rerender(<CabinetBox popped={true} timelineKey="test-box">x</CabinetBox>);
     expect((setTimeline as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(callsAfterMeasure);
+  });
+
+  it('measures the front face using its border-box size (padding included), not content-box', () => {
+    render(<CabinetBox popped={true} timelineKey="test-box">x</CabinetBox>);
+    const observer = MockResizeObserver.instances[0];
+    // content-box (no padding) = 100; border-box (padding included) = 128 — a
+    // real gap the front face's own `padding: 0 14px` produces (14+14=28px).
+    act(() => observer.fire(100, 48, 128));
+
+    const widthsUsed = (computeCabinetGeometry as ReturnType<typeof vi.fn>).mock.calls.map((args) => args[0]);
+    expect(widthsUsed).toContain(128);
+    expect(widthsUsed).not.toContain(100);
+  });
+
+  it('falls back to contentRect.width when borderBoxSize is unavailable', () => {
+    render(<CabinetBox popped={true} timelineKey="test-box">x</CabinetBox>);
+    const observer = MockResizeObserver.instances[0];
+    act(() => observer.fireContentRectOnly(100, 48));
+
+    const widthsUsed = (computeCabinetGeometry as ReturnType<typeof vi.fn>).mock.calls.map((args) => args[0]);
+    expect(widthsUsed).toContain(100);
   });
 });

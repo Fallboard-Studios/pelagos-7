@@ -8,11 +8,15 @@
 }
 
 @media (max-width: 1024px) {
-  :root { --cabinet-box-height: 40px; }
+  :root {
+    --cabinet-box-height: 40px;
+  }
 }
 
 @media (max-width: 640px) {
-  :root { --cabinet-box-height: 32px; }
+  :root {
+    --cabinet-box-height: 32px;
+  }
 }
 
 .sc-cabinet-box {
@@ -20,14 +24,16 @@
   display: inline-flex;
   /* Reserves room for the fully-popped footprint so the wrapper's own hit
      area never needs to grow/move when the content pops — the "stationary
-     hit box" rule. Fixed 32px/16px, NOT scaled by --cabinet-box-height —
-     mirrors src/utils/cabinetGeometry.ts's CABINET_POP_DISTANCE (16px) and
-     its 2:1 vector (32px right / 16px down) exactly. Must stay in sync with
-     that constant by hand, same duplication-by-necessity as
-     --cabinet-box-height's own breakpoint values above (CSS can't import
-     the JS constant) — if CABINET_POP_DISTANCE changes, update this too. */
-  padding-right: 32px;
-  padding-bottom: 16px;
+     hit box" rule. Fixed, NOT scaled by --cabinet-box-height — mirrors
+     src/utils/cabinetGeometry.ts's CABINET_POP_DISTANCE (currently 4px) and
+     its 2:1 vector (2×CABINET_POP_DISTANCE right / CABINET_POP_DISTANCE
+     down = 8px/4px) exactly. Must stay in sync with that constant by hand,
+     same duplication-by-necessity as --cabinet-box-height's own breakpoint
+     values above (CSS can't import the JS constant) — if
+     CABINET_POP_DISTANCE changes, update these two values to match
+     (2× / 1×). */
+  padding-right: 8px;
+  padding-bottom: 4px;
 }
 
 .sc-cabinet-box__walls {
