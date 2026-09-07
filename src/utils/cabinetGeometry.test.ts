@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest';
 
-import { computeCabinetGeometry } from './cabinetGeometry';
+import { computeCabinetGeometry, CABINET_POP_DISTANCE } from './cabinetGeometry';
+
+describe('CABINET_POP_DISTANCE', () => {
+  it('is fixed at 16px — the pop distance is independent of box height', () => {
+    expect(CABINET_POP_DISTANCE).toBe(16);
+  });
+});
 
 describe('computeCabinetGeometry', () => {
   it('t=0 (flat): front face offset is (0, 0)', () => {
@@ -15,16 +21,36 @@ describe('computeCabinetGeometry', () => {
     expect(geo.leftFacePoints).toBe('0,0 0,48 0,48 0,0');
   });
 
-  it('t=1 (fully popped): front face offset is (2*height, height)', () => {
+  it('t=1 (fully popped): front face offset is (2*CABINET_POP_DISTANCE, CABINET_POP_DISTANCE) — fixed, not scaled by height', () => {
     const geo = computeCabinetGeometry(100, 48, 1);
-    expect(geo.frontFaceOffsetX).toBe(96);
-    expect(geo.frontFaceOffsetY).toBe(48);
+    expect(geo.frontFaceOffsetX).toBe(32);
+    expect(geo.frontFaceOffsetY).toBe(16);
+  });
+
+  it('t=1 offset is identical across every breakpoint\'s box height (32/40/48) — decoupled from height', () => {
+    const mobile = computeCabinetGeometry(100, 32, 1);
+    const tablet = computeCabinetGeometry(100, 40, 1);
+    const desktop = computeCabinetGeometry(100, 48, 1);
+    expect(mobile.frontFaceOffsetX).toBe(32);
+    expect(mobile.frontFaceOffsetY).toBe(16);
+    expect(tablet.frontFaceOffsetX).toBe(32);
+    expect(tablet.frontFaceOffsetY).toBe(16);
+    expect(desktop.frontFaceOffsetX).toBe(32);
+    expect(desktop.frontFaceOffsetY).toBe(16);
   });
 
   it('t=1 (fully popped): wall polygons\' 3rd/4th points match the popped offset', () => {
     const geo = computeCabinetGeometry(100, 48, 1);
-    expect(geo.topFacePoints).toBe('0,0 100,0 196,48 96,48');
-    expect(geo.leftFacePoints).toBe('0,0 0,48 96,96 96,48');
+    expect(geo.topFacePoints).toBe('0,0 100,0 132,16 32,16');
+    expect(geo.leftFacePoints).toBe('0,0 0,48 32,64 32,16');
+  });
+
+  it('the flat footprint\'s own dimensions (top edge width, left edge height) still reflect the real width/height', () => {
+    const geo = computeCabinetGeometry(100, 48, 1);
+    // Top Face's 2nd point is the flat top-right corner: (width, 0)
+    expect(geo.topFacePoints.split(' ')[1]).toBe('100,0');
+    // Left Face's 2nd point is the flat bottom-left corner: (0, height)
+    expect(geo.leftFacePoints.split(' ')[1]).toBe('0,48');
   });
 
   it('t=0.5 is the exact midpoint between t=0 and t=1', () => {
@@ -33,8 +59,8 @@ describe('computeCabinetGeometry', () => {
     const mid = computeCabinetGeometry(100, 48, 0.5);
     expect(mid.frontFaceOffsetX).toBe((flat.frontFaceOffsetX + full.frontFaceOffsetX) / 2);
     expect(mid.frontFaceOffsetY).toBe((flat.frontFaceOffsetY + full.frontFaceOffsetY) / 2);
-    expect(mid.frontFaceOffsetX).toBe(48);
-    expect(mid.frontFaceOffsetY).toBe(24);
+    expect(mid.frontFaceOffsetX).toBe(16);
+    expect(mid.frontFaceOffsetY).toBe(8);
   });
 
   it('is a pure function — identical arguments produce identical output', () => {

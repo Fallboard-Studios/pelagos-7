@@ -30,6 +30,17 @@ topFacePoints  = (0,0) (W,0) (W+2Ht,Ht) (2Ht,Ht)
 leftFacePoints = (0,0) (0,H) (2Ht,H+Ht) (2Ht,Ht)
 ```
 
+> **Post-implementation correction (same day, after a real visual pass):** scaling the offset by box
+> height `H` read as far too much protrusion once actually seen rendered — +96px/+48px at the 48px
+> desktop tier. Replaced with a **fixed** pop distance, `CABINET_POP_DISTANCE = 16` (`src/utils/
+> cabinetGeometry.ts`), decoupled entirely from `H`: `frontFaceOffset = (32t, 16t)` for every
+> breakpoint, `H` only sizing the box's own flat-state footprint from here on. `topFacePoints`/
+> `leftFacePoints` above still hold with `2Ht`/`Ht` read as `2·CABINET_POP_DISTANCE·t`/
+> `CABINET_POP_DISTANCE·t` instead of height-scaled. `CabinetBox.css`'s reserved hit-area padding
+> (§4, `.sc-cabinet-box`) was updated to match this fixed distance — it had inherited the same
+> height-scaling bug, which would have silently reopened the hit-area-size fix below once this
+> constant decoupled from `H`.
+
 Both are parallelograms connecting the *stationary* footprint edge (top edge for Top Face, left edge for Left Face) to the *current* position of the front face's corresponding edge. At `t = 0` both collapse to zero-height/zero-width lines — invisible, matching "side walls collapsed" at rest. At `t = 1` they're the fully-open walls of a box whose front face has slid `(2H, H)` toward the viewer. This is computed once by a pure function (`cabinetGeometry.ts`, §4) at the `t=0` and `t=1` endpoints only; GSAP tweens the `points` attribute string between those two endpoint strings directly — the exact technique `PowerRockerSwitch.tsx` already uses for its own polygon morphs, not a per-frame recompute.
 
 DOM stacking order (walls SVG first, front-face `<div>` second, both children of one `position: relative` wrapper) means the front face naturally paints over the portion of the walls that sits behind it at any point in the tween — no explicit `z-index` needed, same as how oblique box art is conventionally layered.
@@ -60,7 +71,7 @@ Confirmed intent: hover, focus, and press all trigger one full-pop state, no dis
 
 ### 1.6 Layout: how the wrapper reserves room for the pop without the front face leaving flow
 
-The front face must stay in normal document flow (an absolutely-positioned front face would remove itself from flow and collapse its own parent's intrinsic size to zero, since GSAP's `x`/`y` is a transform and transforms never affect layout). So: `CabinetBox`'s wrapper (`.sc-cabinet-box`, `display: inline-flex`) sizes itself naturally from the front face's own content-driven width and fixed `--cabinet-box-height`, then reserves the popped-state's extra footprint explicitly via `padding-right: calc(2 * var(--cabinet-box-height))` / `padding-bottom: var(--cabinet-box-height)` — the confirmed "CSS padding" option from the intent doc's two alternatives (padding vs. an invisible `::before`). Only the walls SVG is `position: absolute; inset: 0` (decorative-only, contributes no size); the front face slides into that reserved padding region via its transform without ever needing to. Because `Button`'s own `<button>` wraps `CabinetBox` with `padding: 0`, the button's own hit area equals `CabinetBox`'s full reserved footprint — satisfying "the hit area extends to cover the full popped-out footprint" without a separate pseudo-element.
+The front face must stay in normal document flow (an absolutely-positioned front face would remove itself from flow and collapse its own parent's intrinsic size to zero, since GSAP's `x`/`y` is a transform and transforms never affect layout). So: `CabinetBox`'s wrapper (`.sc-cabinet-box`, `display: inline-flex`) sizes itself naturally from the front face's own content-driven width and fixed `--cabinet-box-height`, then reserves the popped-state's extra footprint explicitly via `padding-right: 32px` / `padding-bottom: 16px` (matching `cabinetGeometry.ts`'s fixed `CABINET_POP_DISTANCE`, not `--cabinet-box-height` — see §1.2's post-implementation correction) — the confirmed "CSS padding" option from the intent doc's two alternatives (padding vs. an invisible `::before`). `Button`'s own hit area additionally needs `width: fit-content` on `.sc-button` itself (§4) so a flex/grid parent's default stretch behavior can't widen the real `<button>` past this reserved footprint — a second post-implementation correction, caught the same way. Only the walls SVG is `position: absolute; inset: 0` (decorative-only, contributes no size); the front face slides into that reserved padding region via its transform without ever needing to. Because `Button`'s own `<button>` wraps `CabinetBox` with `padding: 0`, the button's own hit area equals `CabinetBox`'s full reserved footprint — satisfying "the hit area extends to cover the full popped-out footprint" without a separate pseudo-element.
 
 ### 1.7 The focus ring survives the pop for free
 
@@ -366,11 +377,13 @@ export function CabinetBox({ popped, timelineKey, children }: CabinetBoxProps) {
 .sc-cabinet-box {
   position: relative;
   display: inline-flex;
-  /* Reserves room for the fully-popped footprint (2:1 vector scaled to box
-     height) so the wrapper's own hit area never needs to grow/move when the
-     content pops — the "stationary hit box" rule. */
-  padding-right: calc(2 * var(--cabinet-box-height));
-  padding-bottom: var(--cabinet-box-height);
+  /* Reserves room for the fully-popped footprint so the wrapper's own hit
+     area never needs to grow/move when the content pops — the "stationary
+     hit box" rule. Fixed 32px/16px, matching cabinetGeometry.ts's
+     CABINET_POP_DISTANCE exactly — NOT var(--cabinet-box-height); post-
+     implementation correction, see §1.2's note. */
+  padding-right: 32px;
+  padding-bottom: 16px;
 }
 
 .sc-cabinet-box__walls {
@@ -467,6 +480,13 @@ export function Button({ schema, onClick, disabled }: ButtonProps) {
    class name changes, update Console.css's selector in the same change. */
 .sc-button {
   display: inline-flex;
+  /* Post-implementation correction: a flex/grid parent's default stretch
+     behavior (e.g. HubNav.css's grid tiles) otherwise sizes the real
+     hit-testable <button> to fill the whole cell while CabinetBox's visible
+     content stays shrink-wrapped inside it — an invisible clickable/
+     hoverable dead zone. Pins the button to its own content's intrinsic
+     size in any container type. */
+  width: fit-content;
   padding: 0;
   border: none;
   background: transparent;

@@ -108,11 +108,18 @@ original combined draft assumed before Phase 11 was cut (see above). Full deriva
 
 **The projection vector.** "2px right for every 1px down" is a standard oblique/cabinet-projection
 depth axis. A cabinet box's front face sits flush with its resting footprint at rest and slides along
-that fixed `(2, 1)` vector, scaled to the box's own height `H`, as it pops fully toward the viewer:
-`frontFaceOffset = (2·H·t, H·t)` for pop progress `t ∈ [0, 1]`. The Top Face and Left Face walls are
-parallelograms connecting the *stationary* footprint edge to the *current* position of the front
-face's corresponding edge — at `t = 0` both collapse to zero-area (flat, side walls collapsed); at
-`t = 1` they're the fully-open walls of a box whose front face has slid `(2H, H)` toward the viewer.
+that fixed `(2, 1)` vector as it pops fully toward the viewer: `frontFaceOffset = (2·D·t, D·t)` for pop
+progress `t ∈ [0, 1]`, where `D` is `CABINET_POP_DISTANCE` (`src/utils/cabinetGeometry.ts`) — a fixed
+**16px**, deliberately *not* scaled by the box's own height `H` (the original design scaled the offset
+with `H`, 2×height/height, which read as far too much protrusion once actually seen rendered at the
+40/48px tiers — corrected after a real visual pass, not a theoretical concern). Every breakpoint pops
+the same fixed `(32, 16)` distance at `t = 1`; only the box's own footprint height `H` still varies by
+tier. The Top Face and Left Face walls are parallelograms connecting the *stationary* footprint edge to
+the *current* position of the front face's corresponding edge — at `t = 0` both collapse to zero-area
+(flat, side walls collapsed); at `t = 1` they're the fully-open walls of a box whose front face has slid
+`(32, 16)` toward the viewer. `CabinetBox.css`'s reserved hit-area padding (`padding-right`/
+`padding-bottom`) matches this fixed distance exactly, not `--cabinet-box-height` — the two are
+independent measurements, and conflating them was the specific bug that fix corrected.
 Implemented once as a pure function, `src/utils/cabinetGeometry.ts`'s `computeCabinetGeometry`, and
 tweened by GSAP between its `t=0`/`t=1` outputs directly — the same polygon-`points`-attribute-tweening
 technique `PowerRockerSwitch.tsx` already uses for its own rocker-switch faces, not a per-frame
