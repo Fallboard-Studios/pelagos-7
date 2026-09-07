@@ -6,6 +6,16 @@
    class name changes, update Console.css's selector in the same change. */
 .sc-button {
   display: inline-flex;
+  /* Never larger than its own content — a flex/grid parent's default
+     stretch behavior (e.g. HubNav.css's grid tiles, `justify-items: stretch`
+     by default) would otherwise size the actual hit-testable <button> to
+     fill the whole cell/row while CabinetBox's visible content stays
+     shrink-wrapped inside it, leaving an invisible clickable/hoverable dead
+     zone. `width: fit-content` pins the button to its content's own
+     intrinsic size regardless of container type (flex row, flex column, or
+     grid), so the interactive area is always exactly CabinetBox's own
+     footprint (flat ∪ popped rectangle) — never wider. */
+  width: fit-content;
   padding: 0;
   border: none;
   background: transparent;
