@@ -1,0 +1,52 @@
+/* Oblique Cabinetry box height — mirrors src/utils/cabinetBreakpoints.ts's
+   CABINET_BOX_HEIGHT / CABINET_BREAKPOINT_MOBILE_MAX / CABINET_BREAKPOINT_TABLET_MAX
+   exactly (640px / 1024px / 32-40-48px). CSS cannot import those JS
+   constants, so these numbers are manually kept in sync with that file — see
+   docs/specs/OBLIQUE_CABINETRY_FOUNDATION.md §1.3/§7. */
+:root {
+  --cabinet-box-height: 48px;
+}
+
+@media (max-width: 1024px) {
+  :root { --cabinet-box-height: 40px; }
+}
+
+@media (max-width: 640px) {
+  :root { --cabinet-box-height: 32px; }
+}
+
+.sc-cabinet-box {
+  position: relative;
+  display: inline-flex;
+  /* Reserves room for the fully-popped footprint (2:1 vector scaled to box
+     height) so the wrapper's own hit area never needs to grow/move when the
+     content pops — the "stationary hit box" rule. */
+  padding-right: calc(2 * var(--cabinet-box-height));
+  padding-bottom: var(--cabinet-box-height);
+}
+
+.sc-cabinet-box__walls {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.sc-cabinet-box__top-face {
+  fill: color-mix(in srgb, var(--color-accent) 100%, white 20%);
+}
+
+.sc-cabinet-box__left-face {
+  fill: color-mix(in srgb, var(--color-accent) 100%, black 25%);
+}
+
+.sc-cabinet-box__front {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--cabinet-box-height);
+  padding: 0 14px;
+  border-radius: 4px;
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+}
