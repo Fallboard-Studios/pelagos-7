@@ -96,3 +96,48 @@ rediscovered from scratch. A few directions that weren't tried and might resolve
   always land somewhere decent.
 - Apply the seed as a subtle tint/overlay on a static base rather than a full independent HSL
   derivation — "reacts to the seed" stays true with a much smaller chance of landing somewhere bad.
+
+## Oblique Cabinetry (Phase 11.1.1 — Foundation & Button)
+
+The Oblique Cabinetry system (roadmap [11.1.1](roadmap/roadmap.md#1111-oblique-cabinetry-foundation--button))
+gives interactive primitives a 2.5D "physical switch" identity — flat at rest, extruding toward the
+viewer when active. Its face-shading consumes this doc's **current, static** "Ballast" tokens
+(`--color-accent`/`--color-surface`, `src/index.css`) directly — not the seed-driven tokens the
+original combined draft assumed before Phase 11 was cut (see above). Full derivation:
+[docs/specs/OBLIQUE_CABINETRY_FOUNDATION.md](specs/OBLIQUE_CABINETRY_FOUNDATION.md).
+
+**The projection vector.** "2px right for every 1px down" is a standard oblique/cabinet-projection
+depth axis. A cabinet box's front face sits flush with its resting footprint at rest and slides along
+that fixed `(2, 1)` vector, scaled to the box's own height `H`, as it pops fully toward the viewer:
+`frontFaceOffset = (2·H·t, H·t)` for pop progress `t ∈ [0, 1]`. The Top Face and Left Face walls are
+parallelograms connecting the *stationary* footprint edge to the *current* position of the front
+face's corresponding edge — at `t = 0` both collapse to zero-area (flat, side walls collapsed); at
+`t = 1` they're the fully-open walls of a box whose front face has slid `(2H, H)` toward the viewer.
+Implemented once as a pure function, `src/utils/cabinetGeometry.ts`'s `computeCabinetGeometry`, and
+tweened by GSAP between its `t=0`/`t=1` outputs directly — the same polygon-`points`-attribute-tweening
+technique `PowerRockerSwitch.tsx` already uses for its own rocker-switch faces, not a per-frame
+recompute.
+
+**Face-shading via `color-mix()`, not a JS module.** Reusing this doc's own §1.3 `color-mix()`
+technique (above) rather than inventing a new one: `CabinetBox.css` derives the Top Face's lighter tint
+and the Left Face's darker tint directly from `--color-accent` —
+
+```css
+.sc-cabinet-box__top-face  { fill: color-mix(in srgb, var(--color-accent) 100%, white 20%); }
+.sc-cabinet-box__left-face { fill: color-mix(in srgb, var(--color-accent) 100%, black 25%); }
+```
+
+— Top Face lighter (overhead light), Left Face darker (shadowed side), the same convention
+`PowerRockerSwitch.css`'s own side/edge faces already use. The front face's own background stays
+`--color-surface`, unchanged from a flat button's today; only the walls, visible exclusively while
+popped, carry the accent-tinted "active" cue.
+
+**A new breakpoint concept, deliberately duplicated in two places.** Cabinetry introduces this app's
+first viewport-width breakpoint tiers (mobile ≤640px / tablet 641–1024px / desktop >1024px, driving box
+heights 32/40/48px) — nothing else in `src/` used one before. Because CSS cannot import JS constants,
+the same 4 numbers live in both `src/utils/cabinetBreakpoints.ts` (read via `useCabinetBoxHeight`'s
+`matchMedia`, for the geometry math) and `CabinetBox.css`'s own `--cabinet-box-height` custom property
++ `@media` overrides (for layout) — a confirmed, accepted duplication, not an oversight.
+
+Status as of Foundation & Button (11.1.1): `CabinetBox` (the shared rendering primitive) and `Button`
+(its first real consumer) have shipped; `Toggle` and the 3 sliders (11.1.2–11.1.5) have not yet.
