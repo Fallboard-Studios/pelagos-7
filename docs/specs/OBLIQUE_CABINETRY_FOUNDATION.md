@@ -40,8 +40,13 @@ leftFacePoints = (0,0) (0,H) (2Ht,H+Ht) (2Ht,Ht)
 > (§4, `.sc-cabinet-box`) was updated to match this fixed distance — it had inherited the same
 > height-scaling bug, which would have silently reopened the hit-area-size fix below once this
 > constant decoupled from `H`.
+>
+> **Retuned further since, more than once — `16` above is a historical value, not the current one.**
+> `CABINET_POP_DISTANCE` is being tuned by feel after each real visual pass; this doc doesn't chase
+> the exact number on every tweak. `src/utils/cabinetGeometry.ts` is the only source of truth for
+> what it's actually set to right now — check there, not here.
 
-Both are parallelograms connecting the *stationary* footprint edge (top edge for Top Face, left edge for Left Face) to the *current* position of the front face's corresponding edge. At `t = 0` both collapse to zero-height/zero-width lines — invisible, matching "side walls collapsed" at rest. At `t = 1` they're the fully-open walls of a box whose front face has slid `(2H, H)` toward the viewer. This is computed once by a pure function (`cabinetGeometry.ts`, §4) at the `t=0` and `t=1` endpoints only; GSAP tweens the `points` attribute string between those two endpoint strings directly — the exact technique `PowerRockerSwitch.tsx` already uses for its own polygon morphs, not a per-frame recompute.
+Both are parallelograms connecting the *stationary* footprint edge (top edge for Top Face, left edge for Left Face) to the *current* position of the front face's corresponding edge. At `t = 0` both collapse to zero-height/zero-width lines — invisible, matching "side walls collapsed" at rest. At `t = 1` they're the fully-open walls of a box whose front face has slid `(2·CABINET_POP_DISTANCE, CABINET_POP_DISTANCE)` toward the viewer. This is computed once by a pure function (`cabinetGeometry.ts`, §4) at the `t=0` and `t=1` endpoints only; GSAP tweens the `points` attribute string between those two endpoint strings directly — the exact technique `PowerRockerSwitch.tsx` already uses for its own polygon morphs, not a per-frame recompute.
 
 DOM stacking order (walls SVG first, front-face `<div>` second, both children of one `position: relative` wrapper) means the front face naturally paints over the portion of the walls that sits behind it at any point in the tween — no explicit `z-index` needed, same as how oblique box art is conventionally layered.
 
@@ -71,7 +76,7 @@ Confirmed intent: hover, focus, and press all trigger one full-pop state, no dis
 
 ### 1.6 Layout: how the wrapper reserves room for the pop without the front face leaving flow
 
-The front face must stay in normal document flow (an absolutely-positioned front face would remove itself from flow and collapse its own parent's intrinsic size to zero, since GSAP's `x`/`y` is a transform and transforms never affect layout). So: `CabinetBox`'s wrapper (`.sc-cabinet-box`, `display: inline-flex`) sizes itself naturally from the front face's own content-driven width and fixed `--cabinet-box-height`, then reserves the popped-state's extra footprint explicitly via `padding-right: 32px` / `padding-bottom: 16px` (matching `cabinetGeometry.ts`'s fixed `CABINET_POP_DISTANCE`, not `--cabinet-box-height` — see §1.2's post-implementation correction) — the confirmed "CSS padding" option from the intent doc's two alternatives (padding vs. an invisible `::before`). `Button`'s own hit area additionally needs `width: fit-content` on `.sc-button` itself (§4) so a flex/grid parent's default stretch behavior can't widen the real `<button>` past this reserved footprint — a second post-implementation correction, caught the same way. Only the walls SVG is `position: absolute; inset: 0` (decorative-only, contributes no size); the front face slides into that reserved padding region via its transform without ever needing to. Because `Button`'s own `<button>` wraps `CabinetBox` with `padding: 0`, the button's own hit area equals `CabinetBox`'s full reserved footprint — satisfying "the hit area extends to cover the full popped-out footprint" without a separate pseudo-element.
+The front face must stay in normal document flow (an absolutely-positioned front face would remove itself from flow and collapse its own parent's intrinsic size to zero, since GSAP's `x`/`y` is a transform and transforms never affect layout). So: `CabinetBox`'s wrapper (`.sc-cabinet-box`, `display: inline-flex`) sizes itself naturally from the front face's own content-driven width and fixed `--cabinet-box-height`, then reserves the popped-state's extra footprint explicitly via `padding-right`/`padding-bottom` set to `2×`/`1×` `cabinetGeometry.ts`'s fixed `CABINET_POP_DISTANCE`, not `--cabinet-box-height` (see §1.2's post-implementation correction — and its note that the constant has been retuned since; check the source for the current value, not this prose) — the confirmed "CSS padding" option from the intent doc's two alternatives (padding vs. an invisible `::before`). `Button`'s own hit area additionally needs `width: fit-content` on `.sc-button` itself (§4) so a flex/grid parent's default stretch behavior can't widen the real `<button>` past this reserved footprint — a second post-implementation correction, caught the same way. Only the walls SVG is `position: absolute; inset: 0` (decorative-only, contributes no size); the front face slides into that reserved padding region via its transform without ever needing to. Because `Button`'s own `<button>` wraps `CabinetBox` with `padding: 0`, the button's own hit area equals `CabinetBox`'s full reserved footprint — satisfying "the hit area extends to cover the full popped-out footprint" without a separate pseudo-element.
 
 ### 1.7 The focus ring survives the pop for free
 
@@ -172,7 +177,7 @@ export const CABINET_BOX_HEIGHT = {
 export type CabinetTier = keyof typeof CABINET_BOX_HEIGHT;
 ```
 
-**`src/utils/cabinetGeometry.ts`** (new, full file):
+**`src/utils/cabinetGeometry.ts`** (full file, post-correction — see §1.2's note; supersedes this section's original draft, which scaled the offset by `height` directly):
 
 ```typescript
 /**
@@ -184,6 +189,18 @@ export type CabinetTier = keyof typeof CABINET_BOX_HEIGHT;
  * already uses for its own polygon morphs) — this is never called per-frame.
  * See docs/specs/OBLIQUE_CABINETRY_FOUNDATION.md §1.2 for the derivation.
  */
+
+/**
+ * How far the front face slides at full pop — fixed, deliberately NOT scaled
+ * by box height. Tuned by feel after each real visual pass (changed more
+ * than once already) — this file is the source of truth for the current
+ * number, not this spec or any other doc; none of them restate it.
+ * CabinetBox.css's reserved hit-area padding must match this exactly
+ * (2×CABINET_POP_DISTANCE / CABINET_POP_DISTANCE, in px), not
+ * var(--cabinet-box-height) — see that file's own comment.
+ */
+export const CABINET_POP_DISTANCE = 2; // current value as of this spec's last edit — read the source, don't trust this comment to stay in sync
+
 export interface CabinetGeometry {
   topFacePoints: string;
   leftFacePoints: string;
@@ -192,8 +209,8 @@ export interface CabinetGeometry {
 }
 
 export function computeCabinetGeometry(width: number, height: number, t: number): CabinetGeometry {
-  const dx = 2 * height * t;
-  const dy = height * t;
+  const dx = 2 * CABINET_POP_DISTANCE * t;
+  const dy = CABINET_POP_DISTANCE * t;
   return {
     topFacePoints: `0,0 ${width},0 ${width + dx},${dy} ${dx},${dy}`,
     leftFacePoints: `0,0 0,${height} ${dx},${height + dy} ${dx},${dy}`,
@@ -379,11 +396,14 @@ export function CabinetBox({ popped, timelineKey, children }: CabinetBoxProps) {
   display: inline-flex;
   /* Reserves room for the fully-popped footprint so the wrapper's own hit
      area never needs to grow/move when the content pops — the "stationary
-     hit box" rule. Fixed 32px/16px, matching cabinetGeometry.ts's
-     CABINET_POP_DISTANCE exactly — NOT var(--cabinet-box-height); post-
-     implementation correction, see §1.2's note. */
-  padding-right: 32px;
-  padding-bottom: 16px;
+     hit box" rule. Fixed, matching cabinetGeometry.ts's CABINET_POP_DISTANCE
+     exactly (2×/1× that constant, in px) — NOT var(--cabinet-box-height);
+     post-implementation correction, see §1.2's note. Values below match
+     CABINET_POP_DISTANCE = 2 as of this spec's last edit; that constant has
+     been tuned by feel more than once, so read the actual source file
+     rather than trusting this number to still be current. */
+  padding-right: 4px;
+  padding-bottom: 2px;
 }
 
 .sc-cabinet-box__walls {

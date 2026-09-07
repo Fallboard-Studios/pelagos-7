@@ -20,7 +20,7 @@
  * file's own comment. Tuned by feel after a real visual pass; if you change
  * this value, update CabinetBox.css's padding-right/padding-bottom to match.
  */
-export const CABINET_POP_DISTANCE = 4;
+export const CABINET_POP_DISTANCE = 2;
 
 export interface CabinetGeometry {
   topFacePoints: string;
