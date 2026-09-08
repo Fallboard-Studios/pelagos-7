@@ -221,7 +221,7 @@ describe('SliderLinear', () => {
       expect(root?.style.height).not.toBe('310px');
     });
 
-    it("'horizontal': ignores a verticalHeight prop entirely (still no inline height) but now sets an inline width from the fitted box count", () => {
+    it("'horizontal': ignores a verticalHeight prop entirely for sizing, sets an inline width from the fitted box count (main axis) and an inline height equal to the box's own cross-axis size (not the old stale CSS default)", () => {
       const { container } = render(
         <SliderLinear schema={schema} value={2} onChange={() => {}} verticalHeight={300} />,
       );
@@ -229,10 +229,21 @@ describe('SliderLinear', () => {
       act(() => observer.fire(500, 0));
 
       const root = container.querySelector<HTMLElement>('.sc-slider-linear__root');
-      expect(root?.style.height).toBe('');
       const boxCount = computeFittedBoxCount(500, BOX_SIZE, GAP);
       const expectedLength = computeVoxelTrackLength(boxCount, BOX_SIZE, GAP);
       expect(root?.style.width).toBe(`${expectedLength}px`);
+      // Cross-axis: the boxes are BOX_SIZE tall, so Root must be too — no
+      // longer the stale 20px CSS default the old thin-line track used.
+      expect(root?.style.height).toBe(`${BOX_SIZE}px`);
+    });
+
+    it("'vertical': sets an inline width equal to the box's own cross-axis size, on top of the main-axis inline height — the boxes are BOX_SIZE wide, not the old stale 20px CSS default", () => {
+      const { container } = render(<SliderLinear schema={verticalSchema} value={2} onChange={() => {}} />);
+      const observer = MockResizeObserver.instances[0];
+      act(() => observer.fire(0, 300));
+
+      const root = container.querySelector<HTMLElement>('.sc-slider-linear__root');
+      expect(root?.style.width).toBe(`${BOX_SIZE}px`);
     });
 
     it("'auto': renders without throwing, resolving to horizontal-looking output before any ResizeObserver measurement fires", () => {

@@ -46,7 +46,13 @@ export function SliderLinear({ schema, value, onChange, disabled, verticalHeight
     <span className="sc-slider-linear__value">{formatDisplayValue(value)}{schema.unit}</span>
   );
 
-  const rootStyle: CSSProperties = isVertical ? { height: trackLength } : { width: trackLength };
+  // Main axis (the direction value travels) is the fitted/quantized track
+  // length; cross axis is always the box's own live size — Slider.Root is
+  // never left at the stale thin-line-track defaults (SliderLinear.css's
+  // own :root-fallback-only 20px) once boxes are actually rendering.
+  const rootStyle: CSSProperties = isVertical
+    ? { height: trackLength, width: boxSize }
+    : { width: trackLength, height: boxSize };
 
   return (
     <div ref={wrapperRef} className="sc-slider-linear" data-orientation={orientation}>

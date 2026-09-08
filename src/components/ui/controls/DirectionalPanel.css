@@ -13,6 +13,20 @@
 
 .sc-directional-panel__content>* {
   flex: 1 1 auto;
+  /* A flex item's default min-width is `auto`, which resolves to its
+     content's min-content size when the item's own overflow is visible —
+     meaning a child that renders wide (e.g. a SliderLinear sizing itself
+     off a live container measurement) can force this item wider than its
+     actual flex-track allotment instead of being shrunk to fit. Left
+     unset, that becomes a feedback loop for any child whose own sizing
+     depends on measuring *this* item's rendered width: bigger measured
+     width -> bigger child -> bigger item -> bigger measured width next
+     resize. min-width: 0 is the standard fix — lets the flex algorithm's
+     own shrink behavior actually govern this item's width, so
+     ResizeObserver-driven children (SliderLinear's voxel-track box-count
+     fitting, roadmap Phase 11.1.3) measure the real allotted space rather
+     than their own last (possibly already-inflated) render. */
+  min-width: 0;
 }
 
 .sc-directional-panel__content[data-orientation='column'] {
