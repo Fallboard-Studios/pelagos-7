@@ -67,10 +67,21 @@ describe('useVoxelTrackBoxCount', () => {
     expect(result.current).toBe(VOXEL_TRACK_MIN_BOX_COUNT);
   });
 
-  it("observes the ref's parent element, never the ref's own element", () => {
+  it("'horizontal': observes the ref's own element directly, never its parent — the element's width is externally determined (a plain block box) and never inflated by its own oversized content (overflow-x: auto contains that), so self-observation carries none of the circularity risk 'auto' orientation has", () => {
     const parent = document.createElement('div');
     const ref = makeRef(parent);
     renderHook(() => useVoxelTrackBoxCount(ref, 'horizontal', 40, 10));
+
+    expect(MockResizeObserver.instances).toHaveLength(1);
+    const observer = MockResizeObserver.instances[0];
+    expect(observer.observedTargets).toEqual([ref.current]);
+    expect(observer.observedTargets).not.toContain(parent);
+  });
+
+  it("'vertical': observes the ref's parent element, never the ref's own element — display: inline-flex there DOES shrink-wrap height to content by default, so self-observation would be genuinely circular the way 'auto' orientation's own convention already warns about", () => {
+    const parent = document.createElement('div');
+    const ref = makeRef(parent);
+    renderHook(() => useVoxelTrackBoxCount(ref, 'vertical', 40, 10));
 
     expect(MockResizeObserver.instances).toHaveLength(1);
     const observer = MockResizeObserver.instances[0];
@@ -78,7 +89,7 @@ describe('useVoxelTrackBoxCount', () => {
     expect(observer.observedTargets).not.toContain(ref.current);
   });
 
-  it("reads width from the parent's measured size when axis is 'horizontal'", () => {
+  it("reads width from its own measured size when axis is 'horizontal'", () => {
     const ref = makeRef(document.createElement('div'));
     const { result } = renderHook(() => useVoxelTrackBoxCount(ref, 'horizontal', 40, 10));
     const observer = MockResizeObserver.instances[0];
@@ -125,14 +136,31 @@ describe('useVoxelTrackBoxCount', () => {
     expect(result.current).toBe(5);
   });
 
-  it('resolves to the 3-box minimum without throwing when no parent element exists', () => {
+  it("'vertical': resolves to the 3-box minimum without throwing when no parent element exists", () => {
     const ref = makeRef(null);
+    expect(() => {
+      renderHook(() => useVoxelTrackBoxCount(ref, 'vertical', 40, 10));
+    }).not.toThrow();
+    const { result } = renderHook(() => useVoxelTrackBoxCount(ref, 'vertical', 40, 10));
+    expect(result.current).toBe(VOXEL_TRACK_MIN_BOX_COUNT);
+    expect(MockResizeObserver.instances).toHaveLength(0);
+  });
+
+  it("'horizontal': resolves to the 3-box minimum without throwing when ref.current itself is null", () => {
+    const ref = { current: null as HTMLElement | null };
     expect(() => {
       renderHook(() => useVoxelTrackBoxCount(ref, 'horizontal', 40, 10));
     }).not.toThrow();
     const { result } = renderHook(() => useVoxelTrackBoxCount(ref, 'horizontal', 40, 10));
     expect(result.current).toBe(VOXEL_TRACK_MIN_BOX_COUNT);
     expect(MockResizeObserver.instances).toHaveLength(0);
+  });
+
+  it("'horizontal': still observes and fits correctly even when the ref DOES have a parent — a parent's presence is irrelevant to the horizontal case now", () => {
+    const ref = makeRef(document.createElement('div'));
+    renderHook(() => useVoxelTrackBoxCount(ref, 'horizontal', 40, 10));
+    expect(MockResizeObserver.instances).toHaveLength(1);
+    expect(MockResizeObserver.instances[0].observedTargets).toEqual([ref.current]);
   });
 
   it('disconnects the observer on unmount', () => {
