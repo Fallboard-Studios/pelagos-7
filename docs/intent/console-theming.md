@@ -9,7 +9,7 @@
 Confirmed via `/interview-me` on `feature/theme-and-boxes`, 2026-09-03. Splits the original combined
 [Phase 11 "Console Theming & Cabinetry UI"](../roadmap/roadmap.md#11-console-theming) into two
 roadmap items: this phase (seed-driven CSS theming, scoped below) and a new deferred
-[Phase 11.1 "Oblique Cabinetry UI"](../roadmap/roadmap.md#111-oblique-cabinetry-ui) (not yet
+[Phase 11.1 "Oblique Cabinetry UI"](../roadmap/roadmap.md#1111-oblique-cabinetry-foundation--button) (not yet
 interviewed/specced). An earlier design comp existed for the combined phase but is explicitly
 discarded — not a reference for this document; treat this as a fresh scoping pass against the
 roadmap's own Phase 11 prose, not a resumption of that comp's decisions.
@@ -76,7 +76,7 @@ real and verified before Cabinetry's own (much larger, still-undecided) scope is
 ## Out of scope
 
 - **Oblique Cabinetry** (the 2.5D SVG/GSAP rendering system for the 7 interactive primitives) — split
-  out to its own future roadmap item, [Phase 11.1](../roadmap/roadmap.md#111-oblique-cabinetry-ui),
+  out to its own future roadmap item, [Phase 11.1](../roadmap/roadmap.md#1111-oblique-cabinetry-foundation--button),
   to be interviewed and specced separately once this phase's tokens exist and are trustworthy.
 - WorldView/terrain/sky styling (deferred to v2), robot visuals (locked to `audioAttributes` per
   CLAUDE.md's Visual Mapping guardrail), `SleeveContainer`, and the power rocker switch — all already

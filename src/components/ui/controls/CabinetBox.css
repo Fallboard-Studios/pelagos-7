@@ -1,0 +1,66 @@
+/* --cabinet-box-height and --cabinet-pop-distance are supplied as inline
+   custom properties by CabinetBox.tsx (computed from useCabinetBoxHeight()
+   and the CABINET_POP_DISTANCE constant — see that file's own comment) —
+   not redeclared here. This used to be two independently hand-synced
+   copies (this file's own @media rules mirroring cabinetBreakpoints.ts, and
+   a literal padding value mirroring cabinetGeometry.ts's constant); both
+   had already gone stale in prose more than once as those values were
+   tuned by feel. Collapsed to the one JS source instead of guarded against
+   drifting. The :root defaults below exist only as a same-paint fallback
+   for the moment before React's first commit applies the real inline
+   values in this all-client-rendered app — not a maintained duplicate, so
+   they don't need to track the JS constants precisely. */
+:root {
+  --cabinet-box-height: 48px;
+  --cabinet-pop-distance: 2px;
+}
+
+.sc-cabinet-box {
+  position: relative;
+  display: inline-flex;
+  /* Reserves room for the fully-popped footprint so the wrapper's own hit
+     area never needs to grow/move when the content pops — the "stationary
+     hit box" rule. The 2:1 oblique vector, expressed here via calc()
+     against the one JS-supplied --cabinet-pop-distance value above, rather
+     than as separately hand-tuned pixel literals. */
+  padding-right: calc(2 * var(--cabinet-pop-distance));
+  padding-bottom: var(--cabinet-pop-distance);
+}
+
+.sc-cabinet-box__walls {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+  /* Glows more, the further the box has popped — --cabinet-glow is tweened
+     0→1 on the shared wrapper by the same GSAP timeline that drives the pop
+     offset (CabinetBox.tsx), so the glow grows in lockstep with the actual
+     protrusion, not on its own separately-eased transition. drop-shadow,
+     not box-shadow, since this glow follows the actual wall polygon
+     silhouette — the "back" of the box, not the moving front — rather than
+     a rectangular bounding box. Confirmed against the real running app,
+     2026-09-07 — this is the shipped design, not a draft. */
+  filter: drop-shadow(0 0 calc(var(--cabinet-glow, 0) * 20px) var(--color-accent));
+}
+
+.sc-cabinet-box__top-face {
+  fill: color-mix(in srgb, var(--color-accent) 100%, white 20%);
+}
+
+.sc-cabinet-box__left-face {
+  fill: color-mix(in srgb, var(--color-accent) 100%, black 25%);
+}
+
+.sc-cabinet-box__front {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--cabinet-box-height);
+  padding: 0 14px;
+  /* No border-radius, deliberately — sharp corners read as a cleaner match
+     for the walls' own straight-edged parallelogram geometry than the
+     original 4px radius did; confirmed against the real running app,
+     2026-09-07. */
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+}
