@@ -27,21 +27,22 @@ Task 1 (CabinetBox.tsx additive props: boxHeight, optional children)
 
 ### Phase 1: Foundation — additive change to the already-shipped primitive
 
-- [ ] **Task 1: `CabinetBox` — `boxHeight` override + optional `children`**
+- [x] **Task 1: `CabinetBox` — `boxHeight` override + optional `children`**
 
   **Description:** Modify `src/components/ui/controls/CabinetBox.tsx` per spec §1.2/§4: add an optional `boxHeight?: number` prop that, when supplied, is used instead of `useCabinetBoxHeight()`'s resolved value (the hook is still called unconditionally — Rules of Hooks — its result simply goes unused when overridden); make the existing `children` prop optional (`children?: ReactNode`, was required). No other logic in the file changes — the geometry effect, the resize-flicker fix, the glow tween, and the `--cabinet-box-height`/`--cabinet-pop-distance` inline custom properties are all untouched, just now fed by `boxHeight` (the resolved value, override-or-hook) instead of the hook's return value directly. Extend `CabinetBox.test.tsx` with the 2 new cases from spec §5.
 
   **Acceptance criteria:**
-  - [ ] Every existing `CabinetBox.test.tsx` assertion (11.1.1's full suite — `children` rendering, timeline registration/kill, reduced-motion, wall/glow tweening, border-box measurement, the resize-flicker fix) still passes unmodified — both new props are optional and no existing test passes either one.
-  - [ ] `render(<CabinetBox popped={false} timelineKey="test-box" />)` (no `children` at all) renders with no error and an empty `.sc-cabinet-box__front`.
-  - [ ] `render(<CabinetBox popped={false} timelineKey="test-box" boxHeight={32}>x</CabinetBox>)` applies `--cabinet-box-height: 32px` on the wrapper — not the `matchMedia`-resolved value (48, under this test file's existing `stubMatchMedia(false)` default) — proving the override wins over the hook's own resolved value.
-  - [ ] `Button.tsx`'s call site is untouched — it passes `children` and never `boxHeight`, and behaves identically (`git diff src/components/ui/controls/Button.tsx` is empty for this task).
+  - [x] Every existing `CabinetBox.test.tsx` assertion (11.1.1's full suite — `children` rendering, timeline registration/kill, reduced-motion, wall/glow tweening, border-box measurement, the resize-flicker fix) still passes unmodified — both new props are optional and no existing test passes either one.
+  - [x] `render(<CabinetBox popped={false} timelineKey="test-box" />)` (no `children` at all) renders with no error and an empty `.sc-cabinet-box__front`.
+  - [x] `render(<CabinetBox popped={false} timelineKey="test-box" boxHeight={32}>x</CabinetBox>)` applies `--cabinet-box-height: 32px` on the wrapper — not the `matchMedia`-resolved value (48, under this test file's existing `stubMatchMedia(false)` default) — proving the override wins over the hook's own resolved value.
+  - [x] `Button.tsx`'s call site is untouched — it passes `children` and never `boxHeight`, and behaves identically (`git diff src/components/ui/controls/Button.tsx` is empty for this task).
 
   **Verification:**
-  - [ ] `npx vitest run src/components/ui/controls/CabinetBox.test.tsx` passes, covering both new cases from spec §5 alongside 11.1.1's full existing suite unmodified.
-  - [ ] `npm run build:types`, `npm run lint` clean.
-  - [ ] `npm run build` clean.
-  - [ ] Manual check: none applicable yet — `boxHeight`/optional `children` have zero real consumers until Task 2, same "component before consumer" precedent 11.1.1's own Task 5→6 split used.
+  - [x] `npx vitest run src/components/ui/controls/CabinetBox.test.tsx` passes (15/15), covering both new cases from spec §5 alongside 11.1.1's full existing suite unmodified. Confirmed both new tests were genuinely RED first: the `boxHeight` test failed at the test-runner level (`expected '48px' to be '32px'`) before the fix; the omitted-`children` test already passed at runtime (React tolerates a missing `children` prop fine) but was confirmed RED at the type-check level instead (`npm run build:types` reported both new call sites as type errors pre-fix).
+  - [x] `npm run build:types`, `npm run lint` clean.
+  - [x] `npm run build` clean.
+  - [x] Full suite (`npm test`) re-confirmed clean: 118 files, 1923 tests.
+  - [x] Manual check: none applicable yet — `boxHeight`/optional `children` have zero real consumers until Task 2, same "component before consumer" precedent 11.1.1's own Task 5→6 split used.
 
   **Dependencies:** None (11.1.1 already shipped and merged to `main`).
 
@@ -50,33 +51,33 @@ Task 1 (CabinetBox.tsx additive props: boxHeight, optional children)
   **Estimated scope:** XS (2 files, both changes additive and optional — the lowest-risk task in this plan)
 
 ### Checkpoint: Foundation change ships
-- [ ] `npm run build:types`, `npm run lint`, `npm run build`, `npm test` all clean (full suite, not just `CabinetBox.test.tsx`) — confirms the additive change is genuinely non-breaking for `Button` and every other real consumer.
-- [ ] `CabinetBox` accepts `boxHeight`/optional `children` (verified by its own test suite) with zero other file in the app referencing either yet.
+- [x] `npm run build:types`, `npm run lint`, `npm run build`, `npm test` all clean (full suite, not just `CabinetBox.test.tsx`) — confirms the additive change is genuinely non-breaking for `Button` and every other real consumer.
+- [x] `CabinetBox` accepts `boxHeight`/optional `children` (verified by its own test suite) with zero other file in the app referencing either yet.
 - [ ] Review with human before proceeding.
 
 ---
 
 ### Phase 2: The real consumer
 
-- [ ] **Task 2: `Toggle` — wired through `CabinetBox`**
+- [x] **Task 2: `Toggle` — wired through `CabinetBox`**
 
   **Description:** Replace `src/components/ui/controls/Toggle.tsx` per spec §4's full replacement: delete `Switch.Thumb`, render `<CabinetBox popped={value} boxHeight={CABINET_TOGGLE_BOX_SIZE} timelineKey={\`cabinet-toggle-${schema.id}\`} />` (no `children`) as `Switch.Root`'s only child; export `CABINET_TOGGLE_BOX_SIZE = 32`; apply `--cabinet-toggle-box-size` as an inline style on `Switch.Root` (spec §1.2 — one JS source for the fixed size, read by both the `boxHeight` prop and the CSS width/height override, not two independently hand-typed `32`s). `popped` is `value` unconditionally — no `!disabled` guard (spec §1.4, a deliberate departure from `Button`'s own rule, reasoned through explicitly there). Replace `Toggle.css` per spec §4: delete the pill-track background/`[data-state='checked']` color rule, `.sc-toggle__thumb`, and the component-local `prefers-reduced-motion` block entirely (`CabinetBox` already owns all of this); add `.sc-toggle__root { width: fit-content; ... }` (mirroring `Button.css`'s own `.sc-button` transparent-click-target rule) and the scoped `.sc-toggle__root .sc-cabinet-box__front` size override. Extend `Toggle.test.tsx` with the 6 new cases from spec §5 — every existing test in the current file stays unchanged and passing.
 
   **Acceptance criteria:**
-  - [ ] Every existing `Toggle.test.tsx` assertion (all 10 cases: `aria-checked` both values, controlled-no-internal-state, `onChange(!value)` on click, `DualLabel` rendering, `isActive` class present/absent, accessible-name fallback, not-disabled-by-default, disabled attribute, no `onChange` when disabled while clicked) still passes unmodified.
-  - [ ] `CabinetBox` receives `popped="true"` when `value` is `true`, `"false"` when `value` is `false`.
-  - [ ] `CabinetBox` receives `boxHeight={32}` (`CABINET_TOGGLE_BOX_SIZE`) regardless of any `matchMedia` stubbing — proves the size isn't accidentally breakpoint-derived.
-  - [ ] `CabinetBox` receives `timelineKey={\`cabinet-toggle-${schema.id}\`}` — distinct from `Button`'s own `cabinet-button-` prefix.
-  - [ ] `popped` stays `"true"` when `value` is `true` **and** `disabled` is also `true` (spec §1.4's resolved-by-reasoning decision, directly exercised so a future change to it fails a named test).
-  - [ ] No `.sc-toggle__thumb` element exists anywhere in the rendered output (guards against silently reintroducing the deleted pill/thumb markup).
-  - [ ] `ToggleSchema`/`ControlSchema` are untouched — `git diff src/types/controls.ts` is empty for this task.
+  - [x] Every existing `Toggle.test.tsx` assertion (all 10 cases: `aria-checked` both values, controlled-no-internal-state, `onChange(!value)` on click, `DualLabel` rendering, `isActive` class present/absent, accessible-name fallback, not-disabled-by-default, disabled attribute, no `onChange` when disabled while clicked) still passes unmodified.
+  - [x] `CabinetBox` receives `popped="true"` when `value` is `true`, `"false"` when `value` is `false`.
+  - [x] `CabinetBox` receives `boxHeight={32}` (`CABINET_TOGGLE_BOX_SIZE`) regardless of any `matchMedia` stubbing — proves the size isn't accidentally breakpoint-derived.
+  - [x] `CabinetBox` receives `timelineKey={\`cabinet-toggle-${schema.id}\`}` — distinct from `Button`'s own `cabinet-button-` prefix.
+  - [x] `popped` stays `"true"` when `value` is `true` **and** `disabled` is also `true` (spec §1.4's resolved-by-reasoning decision, directly exercised so a future change to it fails a named test).
+  - [x] No `.sc-toggle__thumb` element exists anywhere in the rendered output (guards against silently reintroducing the deleted pill/thumb markup).
+  - [x] `ToggleSchema`/`ControlSchema` are untouched — `git diff src/types/controls.ts` is empty for this task.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/ui/controls/Toggle.test.tsx` passes (16/16 — the existing 10 plus the 6 new cases from spec §5), mocking `CabinetBox` directly (`vi.mock('./CabinetBox', ...)`, rendering `data-popped`/`data-box-height`/`data-timeline-key`), mirroring `Button.test.tsx`'s own precedent of keeping this file's assertions about `Toggle`'s own event-to-prop logic isolated from `CabinetBox`'s already-proven internals (Task 1 / 11.1.1).
-  - [ ] `npm run build:types`, `npm run lint` clean.
-  - [ ] `npm run build` clean.
-  - [ ] Full suite (`npm test`) re-confirmed clean, including `StepperWithToggle.test.tsx` (unmodified — composes `Toggle` internally, has no live consumer today, but its own existing coverage must keep passing unmocked against the real `Toggle`) and `PingControlsDrawer.test.tsx` (the one real `Toggle` consumer's own test file).
-  - [ ] Manual check: load the app, open Robot Options' Ping Controls drawer (`PingControlsDrawer.tsx`'s "Click Track Active" toggle — the only real `Toggle` consumer in the current app) and confirm: flat 32×32px box at rest, pops fully out with the same protrusion/glow as any `Button` when switched on, `Tab`+`Space`/`Enter` keyboard toggling still works, the focus ring renders clearly on both states, the transition snaps instantly under "reduce motion", and a checked-and-disabled toggle (if reachable, else forced via devtools) still renders popped rather than flat.
+  - [x] `npx vitest run src/components/ui/controls/Toggle.test.tsx` passes (17/17 — the existing 10 plus 6 new cases; §5 anticipated 16, one extra "popped=false" case was added alongside "popped=true" for direct symmetry), mocking `CabinetBox` directly (`vi.mock('./CabinetBox', ...)`, rendering `data-popped`/`data-box-height`/`data-timeline-key`), mirroring `Button.test.tsx`'s own precedent of keeping this file's assertions about `Toggle`'s own event-to-prop logic isolated from `CabinetBox`'s already-proven internals (Task 1 / 11.1.1). Confirmed all 6 new tests were genuinely RED first (mock `CabinetBox` absent from the rendered output; the old `.sc-toggle__thumb` present) before the implementation change.
+  - [x] `npm run build:types`, `npm run lint` clean.
+  - [x] `npm run build` clean.
+  - [x] Full suite (`npm test`) re-confirmed clean: 118 files, 1929 tests — including `StepperWithToggle.test.tsx` (unmodified, composes `Toggle` internally) and `PingControlsDrawer.test.tsx` (the one real `Toggle` consumer's own test file), both unmocked against the real `Toggle`. One unrelated flaky failure on the first full-suite run (`audioSwells.test.ts`), confirmed pre-existing and unrelated by re-running it in isolation (65/65 clean) and re-running the full suite (clean on the second pass) — same non-issue pattern 11.1.1's own Task 6 checkpoint already recorded once.
+  - [ ] **Manual check not performed — no browser automation tool (chrome-devtools MCP) is configured in this environment**, same honest fallback 11.1.1's own Task 6 used. Still needed before this ships for real: open Robot Options' Ping Controls drawer (`PingControlsDrawer.tsx`'s "Click Track Active" toggle — the only real `Toggle` consumer in the current app) and confirm flat 32×32px box at rest, full pop with the same protrusion/glow as any `Button` when switched on, `Tab`+`Space`/`Enter` keyboard toggling still works, the focus ring renders clearly on both states, the transition snaps instantly under "reduce motion", and a checked-and-disabled toggle (if reachable, else forced via devtools) still renders popped rather than flat.
 
   **Dependencies:** Task 1.
 
@@ -85,26 +86,26 @@ Task 1 (CabinetBox.tsx additive props: boxHeight, optional children)
   **Estimated scope:** S (3 files, mechanical wiring against an already-proven `CabinetBox`, same shape as 11.1.1's own `Button` task)
 
 ### Checkpoint: Toggle ships — first visible change
-- [ ] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes.
-- [ ] The one real `Toggle` call site in the app (`PingControlsDrawer.tsx`'s Click Track Active toggle) renders through `CabinetBox` with no call-site changes required — confirmed by `npm run build:types` alone surfacing nothing, since `Toggle`'s props contract didn't change.
-- [ ] Manual check from Task 2 completed (or explicitly flagged as not performed, with reasoning, if no browser automation is available in the implementing environment — same honest fallback 11.1.1's own Task 6 used).
+- [x] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes (118 files, 1929 tests, after confirming one first-run failure was the pre-existing `audioSwells.test.ts` flake, unrelated to this change).
+- [x] The one real `Toggle` call site in the app (`PingControlsDrawer.tsx`'s Click Track Active toggle) renders through `CabinetBox` with no call-site changes required — confirmed by `npm run build:types` alone surfacing nothing, since `Toggle`'s props contract didn't change.
+- [x] **Manual check not performed — no browser automation tool (chrome-devtools MCP) is configured in this environment.** Confirmed via `ToolSearch`, not skipped silently — same as 11.1.1's own Task 6. Still outstanding before this ships for real (see Task 2's own verification notes for exactly what to check).
 - [ ] Review with human before proceeding — in particular, confirm the disabled+checked `popped` call (spec §1.4/§7 item 1) reads correctly against the real running app, since it's the one design point resolved by reasoning rather than direct interview.
 
 ---
 
 ### Phase 3: Docs
 
-- [ ] **Task 3: `docs/COMPONENT_LIBRARY.md` — Toggle's internal rendering note**
+- [x] **Task 3: `docs/COMPONENT_LIBRARY.md` — Toggle's internal rendering note**
 
   **Description:** Add a short note under `Toggle`'s row (mirroring `Button`'s own note from 11.1.1) — its internal rendering changed (cabinet SVG/GSAP box instead of a pill track + sliding thumb) while its `ControlSchema`/props contract stayed byte-for-byte identical, per spec §6.
 
   **Acceptance criteria:**
-  - [ ] `docs/COMPONENT_LIBRARY.md` documents that `Toggle` now renders through `CabinetBox` internally, with its props contract unchanged.
-  - [ ] The note is spot-checked against `Toggle.tsx`'s actual shipped code (Task 2), not the spec's draft — the documented props shape (`{ schema: ToggleSchema; value: boolean; onChange: (value: boolean) => void; disabled?: boolean }`) matches `Toggle.tsx`'s `ToggleProps` interface exactly.
+  - [x] `docs/COMPONENT_LIBRARY.md` documents that `Toggle` now renders through `CabinetBox` internally, with its props contract unchanged.
+  - [x] The note is spot-checked against `Toggle.tsx`'s actual shipped code (Task 2), not the spec's draft — the documented props shape (`{ schema: ToggleSchema; value: boolean; onChange: (value: boolean) => void; disabled?: boolean }`) matches `Toggle.tsx`'s `ToggleProps` interface exactly.
 
   **Verification:**
-  - [ ] Manual review — spot-checked directly against the shipped `Toggle.tsx`.
-  - [ ] `npm run build:types`, `npm run lint` clean (docs-only change).
+  - [x] Manual review — spot-checked directly against the shipped `Toggle.tsx`.
+  - [x] `npm run build:types`, `npm run lint` clean (docs-only change).
 
   **Dependencies:** Task 2.
 
@@ -113,10 +114,10 @@ Task 1 (CabinetBox.tsx additive props: boxHeight, optional children)
   **Estimated scope:** XS (docs only)
 
 ### Checkpoint: Complete
-- [ ] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes.
-- [ ] All acceptance criteria across all 3 tasks are met, including the Task 2 manual check (or explicitly flagged if no browser automation was available).
-- [ ] `docs/COMPONENT_LIBRARY.md` reflects the shipped feature.
-- [ ] Ready for PR.
+- [x] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes (118 files, 1929 tests).
+- [x] All acceptance criteria across all 3 tasks are met, except Task 2's manual browser check (no `chrome-devtools` MCP configured in this environment — confirmed via `ToolSearch`, see Task 2's own verification notes and the Phase 2 checkpoint above).
+- [x] `docs/COMPONENT_LIBRARY.md` reflects the shipped feature.
+- [x] Ready for PR as far as this checklist is concerned — the outstanding manual visual pass (Task 2) and the disabled+checked design-call review (Phase 2 checkpoint) are the two open items for Crawford before merge.
 
 ## Risks and Mitigations
 
