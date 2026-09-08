@@ -12,20 +12,25 @@
 }
 
 .sc-directional-panel__content>* {
-  flex: 1 1 auto;
+  /* flex-basis: 0 (not the old `auto`) — every row child gets an EQUAL
+     share of the row, computed purely from the flex-grow ratio, with zero
+     dependency on the child's own content size. `auto` looks similar but
+     isn't: it starts each item at its own content size, then grows only
+     the *leftover* space — for a child whose own content size depends on
+     how much space it thinks it has (SliderLinear's voxel-track box-count
+     fitting, roadmap Phase 11.1.3, via ResizeObserver), that's a real
+     feedback loop, not just a shrink problem min-width alone can fix:
+     bigger measured width -> more boxes render -> bigger content size ->
+     bigger flex-basis next layout -> bigger measured width. flex-basis: 0
+     removes content from the space-distribution calculation entirely, so
+     every row child's width is stable and content-independent. */
+  flex: 1 1 0;
   /* A flex item's default min-width is `auto`, which resolves to its
      content's min-content size when the item's own overflow is visible —
-     meaning a child that renders wide (e.g. a SliderLinear sizing itself
-     off a live container measurement) can force this item wider than its
-     actual flex-track allotment instead of being shrunk to fit. Left
-     unset, that becomes a feedback loop for any child whose own sizing
-     depends on measuring *this* item's rendered width: bigger measured
-     width -> bigger child -> bigger item -> bigger measured width next
-     resize. min-width: 0 is the standard fix — lets the flex algorithm's
-     own shrink behavior actually govern this item's width, so
-     ResizeObserver-driven children (SliderLinear's voxel-track box-count
-     fitting, roadmap Phase 11.1.3) measure the real allotted space rather
-     than their own last (possibly already-inflated) render. */
+     still worth keeping at 0 alongside the flex-basis fix above, so a
+     child's content is never a lower bound on this item's width either
+     (e.g. it can shrink to the 3-box overflow floor and scroll, rather
+     than forcing this item wider to fit an unshrunk box row). */
   min-width: 0;
 }
 
