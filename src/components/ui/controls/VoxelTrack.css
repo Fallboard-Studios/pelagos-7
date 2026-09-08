@@ -1,0 +1,35 @@
+.sc-voxel-track {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  gap: var(--voxel-gap);
+  pointer-events: none;
+}
+
+/* Box 0 (nearest min) renders leftmost. */
+.sc-voxel-track[data-axis='horizontal'] {
+  flex-direction: row;
+}
+
+/* Box 0 (nearest min) renders bottommost — matches Radix's own vertical
+   min-at-bottom convention (SliderCenteredZero's own existing precedent). */
+.sc-voxel-track[data-axis='vertical'] {
+  flex-direction: column-reverse;
+}
+
+/* Forces every box to an exact square at the current breakpoint's size —
+   CabinetBox's front face is otherwise content-driven (Button) or a
+   caller-forced fixed size (Toggle); this scopes the same override
+   technique to voxel-track boxes specifically, mirroring
+   docs/specs/OBLIQUE_CABINETRY_TOGGLE.md §1.2 exactly. See this item's own
+   §1.3. */
+.sc-voxel-track .sc-cabinet-box__front {
+  width: var(--voxel-box-size);
+  height: var(--voxel-box-size);
+  padding: 0;
+}
+
+.sc-voxel-track__fill {
+  width: 100%;
+  height: 100%;
+}

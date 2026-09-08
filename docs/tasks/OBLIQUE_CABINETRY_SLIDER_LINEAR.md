@@ -149,22 +149,22 @@ Task 1 (cabinetBreakpoints.ts +      Task 2 (voxelTrackMath.ts)      Task 3 (Cab
 
 ### Phase 3: The shared voxel-track component
 
-- [ ] **Task 5: `VoxelTrack` — the shared box-row rendering component**
+- [x] **Task 5: `VoxelTrack` — the shared box-row rendering component**
 
   **Description:** Add `src/components/ui/controls/VoxelTrack.tsx` per spec §1.2/§1.3/§1.9/§4: renders one `<CabinetBox popped={state.popT} boxHeight={boxSize} timelineKey={\`${timelineKeyPrefix}-${i}\`}>` per `VoxelBoxState` in `states`, each wrapping a `<div className="sc-voxel-track__fill">` whose `background` is `computeVoxelFillBackground(state.fillPercent, axis)` (Task 2). Root is `position: absolute; inset: 0; pointer-events: none; aria-hidden="true"`, `data-axis={axis}`. Add `VoxelTrack.css` per spec §4: `flex-direction: row` (horizontal, box 0 leftmost) / `column-reverse` (vertical, box 0 bottommost); the `.sc-voxel-track .sc-cabinet-box__front` square-footprint override (mirroring `Toggle.css`'s own scoped-override technique from 11.1.2 §1.2); `--voxel-box-size`/`--voxel-gap` supplied as inline custom properties from the `boxSize`/`gap` props.
 
   **Acceptance criteria:**
-  - [ ] Renders exactly `states.length` `CabinetBox` instances.
-  - [ ] Each instance's `popped` prop equals that index's `state.popT`, and is a `number` (not coerced to `boolean`) — guards against an accidental `!!` creeping in.
-  - [ ] Each instance's `timelineKey` is `` `${timelineKeyPrefix}-${i}` ``, unique per box.
-  - [ ] Each box's fill child's rendered `background` matches `computeVoxelFillBackground(state.fillPercent, axis)` exactly (spying on the real `voxelTrackMath` module via `importOriginal`, not re-deriving the expected string independently in the test).
-  - [ ] The root element carries `aria-hidden="true"` and `data-axis` matching the `axis` prop.
-  - [ ] `.sc-voxel-track .sc-cabinet-box__front` forces `width`/`height` to `var(--voxel-box-size)` and `padding: 0` (confirmed by reading the shipped CSS directly, per `VERTICAL_SLIDERS.md`'s own precedent of not unit-testing CSS-only rules).
+  - [x] Renders exactly `states.length` `CabinetBox` instances.
+  - [x] Each instance's `popped` prop equals that index's `state.popT`, and is a `number` (not coerced to `boolean`) — guards against an accidental `!!` creeping in.
+  - [x] Each instance's `timelineKey` is `` `${timelineKeyPrefix}-${i}` ``, unique per box.
+  - [x] Each box's fill child's rendered `background` matches `computeVoxelFillBackground(state.fillPercent, axis)` exactly (spying on the real `voxelTrackMath` module via `importOriginal`, not re-deriving the expected string independently in the test).
+  - [x] The root element carries `aria-hidden="true"` and `data-axis` matching the `axis` prop.
+  - [x] `.sc-voxel-track .sc-cabinet-box__front` forces `width`/`height` to `var(--voxel-box-size)` and `padding: 0` (confirmed by reading the shipped CSS directly, per `VERTICAL_SLIDERS.md`'s own precedent of not unit-testing CSS-only rules).
 
   **Verification:**
-  - [ ] `npx vitest run src/components/ui/controls/VoxelTrack.test.tsx` passes, mocking `CabinetBox` directly (mirroring `Button.test.tsx`'s own precedent).
-  - [ ] `npm run build:types`, `npm run lint`, `npm run build` clean.
-  - [ ] Manual check: none applicable yet — `VoxelTrack` has zero real consumers until Task 6, same "component before consumer" precedent every prior Cabinetry item used.
+  - [x] `npx vitest run src/components/ui/controls/VoxelTrack.test.tsx` passes, mocking `CabinetBox` directly (mirroring `Button.test.tsx`'s own precedent).
+  - [x] `npm run build:types`, `npm run lint`, `npm run build` clean.
+  - [x] Manual check: none applicable yet — `VoxelTrack` has zero real consumers until Task 6, same "component before consumer" precedent every prior Cabinetry item used.
 
   **Dependencies:** Task 2 (`VoxelBoxState`, `computeVoxelFillBackground`), Task 3 (`CabinetBox`'s widened `popped`).
 
@@ -173,8 +173,8 @@ Task 1 (cabinetBreakpoints.ts +      Task 2 (voxelTrackMath.ts)      Task 3 (Cab
   **Estimated scope:** M (3 files — the first real composition of N `CabinetBox` instances at once; more integration surface than a typical single-consumer wiring task, though lower-risk than Task 6 since nothing real depends on it yet)
 
 ### Checkpoint: Shared component ships
-- [ ] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes.
-- [ ] `VoxelTrack` is importable and renders N correctly-popped, correctly-filled boxes in isolation (verified by its own test suite) with zero other files in the app referencing it yet.
+- [x] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes. (One unrelated flake observed on the first full-suite run — `audioSwells.test.ts`'s "forces every member of a company-wide swell together" case — passed in isolation and on an immediate full-suite re-run with zero code changes in between; not touched by this task's files, not investigated further here.)
+- [x] `VoxelTrack` is importable and renders N correctly-popped, correctly-filled boxes in isolation (verified by its own test suite) with zero other files in the app referencing it yet.
 - [ ] Review with human before proceeding — highest-value checkpoint to catch a fill/extrusion math mistake before it reaches `SliderLinear`.
 
 ---
