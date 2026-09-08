@@ -111,8 +111,8 @@ Task 1 (cabinetBreakpoints.ts +      Task 2 (voxelTrackMath.ts)      Task 3 (Cab
 ### Checkpoint: Foundation modules
 - [x] `npm run build:types`, `npm run lint`, `npm run build`, `npm test` (full suite) all clean.
 - [x] `grep -rn "voxelTrackMath\|useVoxelTrackGap\|CABINET_VOXEL_GAP" src/` shows the new exports present with no real consumer yet, beyond the modules' own tests.
-- [ ] `Button`/`Toggle` render identically in the running app to before this checkpoint (no visual or behavioral change) — spot-checked, since Task 3 touched a shared primitive both depend on. **Not spot-checked in a running app this session (no browser automation tool configured) — `Button.tsx`/`Toggle.tsx` are byte-for-byte untouched (confirmed via empty `git diff`) and their full test suites pass unmodified, which is strong evidence but not the same as a visual check.**
-- [ ] Review with human before proceeding.
+- [x] `Button`/`Toggle` render identically in the running app to before this checkpoint (no visual or behavioral change) — spot-checked, since Task 3 touched a shared primitive both depend on. Confirmed working by Crawford in the running app.
+- [x] Review with human before proceeding.
 
 ---
 
