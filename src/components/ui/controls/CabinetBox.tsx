@@ -9,12 +9,23 @@ import './CabinetBox.css';
 
 interface CabinetBoxProps {
   /** Whether the box should be fully popped (true) or flat (false). The
-   *  caller decides *why* — hover/focus/press for Button, `active` for a
-   *  future Toggle — CabinetBox only renders the resulting boolean. */
+   *  caller decides *why* — hover/focus/press for Button, `value` (checked)
+   *  for Toggle — CabinetBox only renders the resulting boolean. */
   popped: boolean;
-  /** Unique timelineMap key for this instance, e.g. `cabinet-button-${schema.id}`. */
+  /** Unique timelineMap key for this instance, e.g. `cabinet-button-${schema.id}`
+   *  or `cabinet-toggle-${schema.id}`. */
   timelineKey: string;
-  children: ReactNode;
+  /** Optional fixed box height, overriding the breakpoint-driven 32/40/48px
+   *  default from useCabinetBoxHeight(). Toggle (roadmap Phase 11.1.2) passes
+   *  a fixed 32 regardless of viewport — it sits inline next to its own
+   *  DualLabel row rather than filling a hub tile, so there's no content to
+   *  accommodate at a larger size on wider breakpoints. See
+   *  docs/specs/OBLIQUE_CABINETRY_TOGGLE.md §1.2. */
+  boxHeight?: number;
+  /** Optional — Button nests its own DualLabel here; Toggle renders a bare,
+   *  textless box and omits this entirely. See
+   *  docs/specs/OBLIQUE_CABINETRY_TOGGLE.md §1.3. */
+  children?: ReactNode;
 }
 
 /**
@@ -28,13 +39,16 @@ interface CabinetBoxProps {
  * further it's popped. See docs/specs/OBLIQUE_CABINETRY_FOUNDATION.md §1
  * for the full derivation.
  */
-export function CabinetBox({ popped, timelineKey, children }: CabinetBoxProps) {
+export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, children }: CabinetBoxProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const frontRef = useRef<HTMLDivElement>(null);
   const topFaceRef = useRef<SVGPolygonElement>(null);
   const leftFaceRef = useRef<SVGPolygonElement>(null);
   const [width, setWidth] = useState(0);
-  const boxHeight = useCabinetBoxHeight();
+  // Always called (Rules of Hooks), even when boxHeightOverride is supplied —
+  // its result is simply unused in that case.
+  const responsiveBoxHeight = useCabinetBoxHeight();
+  const boxHeight = boxHeightOverride ?? responsiveBoxHeight;
   // Tracks the `popped` value the geometry effect last actually ran for —
   // null means "hasn't run yet". Lets the effect tell a real popped
   // transition apart from a width/boxHeight-only re-run (e.g. a

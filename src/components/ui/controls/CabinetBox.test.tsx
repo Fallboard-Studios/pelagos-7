@@ -243,4 +243,22 @@ describe('CabinetBox', () => {
     expect(fromToMock).toHaveBeenCalled();
     expect(setTimeline).toHaveBeenCalled();
   });
+
+  it('renders no content in the front face when children is omitted', () => {
+    const { container } = render(<CabinetBox popped={false} timelineKey="test-box" />);
+    const front = container.querySelector('.sc-cabinet-box__front');
+    expect(front).toBeTruthy();
+    expect(front?.textContent).toBe('');
+  });
+
+  it('applies a boxHeight override instead of the resolved breakpoint value, when provided', () => {
+    // stubMatchMedia(false) (beforeEach) never matches a breakpoint query,
+    // so useCabinetBoxHeight would otherwise resolve desktop (48) — the
+    // override must win over that resolved value, not merely be accepted.
+    const { container } = render(
+      <CabinetBox popped={false} timelineKey="test-box" boxHeight={32}>x</CabinetBox>,
+    );
+    const wrapper = container.querySelector('.sc-cabinet-box') as HTMLElement;
+    expect(wrapper.style.getPropertyValue('--cabinet-box-height')).toBe('32px');
+  });
 });
