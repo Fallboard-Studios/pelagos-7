@@ -89,7 +89,7 @@ Task 1 (CabinetBox.tsx additive props: boxHeight, optional children)
 - [x] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes (118 files, 1929 tests, after confirming one first-run failure was the pre-existing `audioSwells.test.ts` flake, unrelated to this change).
 - [x] The one real `Toggle` call site in the app (`PingControlsDrawer.tsx`'s Click Track Active toggle) renders through `CabinetBox` with no call-site changes required — confirmed by `npm run build:types` alone surfacing nothing, since `Toggle`'s props contract didn't change.
 - [x] **Manual check completed against the real running app (Chrome) — found and fixed a real bug** (the caret-browsing text cursor, see Task 2's own verification notes) not anticipated by the spec. Every other visual/behavioral point checked clean.
-- [ ] Review with human before proceeding — in particular, confirm the disabled+checked `popped` call (spec §1.4/§7 item 1) reads correctly against the real running app, since it's the one design point resolved by reasoning rather than direct interview. Also decide whether `Button` needs the same `user-select: none` fix (noticed, not yet checked).
+- [x] Reviewed with Crawford — confirmed good as shipped: the disabled+checked `popped` behavior (spec §1.4/§7 item 1) reads correctly, and `Button`'s own possible latent `user-select` issue is left alone (not reported, not fixed).
 
 ---
 
@@ -118,7 +118,7 @@ Task 1 (CabinetBox.tsx additive props: boxHeight, optional children)
 - [x] All acceptance criteria across all 3 tasks are met. Task 2's manual check is now complete (done directly by Crawford in Chrome, not via automated browser tooling — none is configured in this environment) — see Task 2's own verification notes for what it found.
 - [x] `docs/COMPONENT_LIBRARY.md` reflects the shipped feature.
 - [x] **Post-ship fix, found during the manual check, not anticipated by the original spec/tasks:** Chrome's "Navigate pages with a text cursor" mode parked a blinking caret on the bare toggle box on click. Fixed with `user-select: none` on `.sc-toggle__root`, mirroring the sliders' own existing precedent for the same reason. Shipped as its own commit, verified (lint/full suite) same as every other change here.
-- [x] Ready for PR as far as this checklist is concerned — the one remaining open item for Crawford is the disabled+checked design-call review (Phase 2 checkpoint), plus a decision on whether `Button` needs the same `user-select: none` fix (noticed during the caret-cursor fix, not yet checked).
+- [x] Ready for PR — reviewed and confirmed good by Crawford (Phase 2 checkpoint). No open items remain.
 
 ## Risks and Mitigations
 
