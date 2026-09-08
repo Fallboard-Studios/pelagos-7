@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 
-import { useCabinetBoxHeight, useVoxelTrackGap } from './useCabinetBoxHeight';
+import { useCabinetBoxHeight } from './useCabinetBoxHeight';
 
 /**
  * Stubs window.matchMedia so the mobile (max-width: 640px) and tablet
@@ -93,57 +93,5 @@ describe('useCabinetBoxHeight', () => {
     stubMatchMedia({ mobile: false, tablet: false });
     const { unmount } = renderHook(() => useCabinetBoxHeight());
     expect(() => unmount()).not.toThrow();
-  });
-});
-
-describe('useVoxelTrackGap', () => {
-  afterEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('resolves 12 (desktop) when neither the mobile nor tablet query matches', () => {
-    stubMatchMedia({ mobile: false, tablet: false });
-    const { result } = renderHook(() => useVoxelTrackGap());
-    expect(result.current).toBe(12);
-  });
-
-  it('resolves 10 (tablet) when only the tablet query matches', () => {
-    stubMatchMedia({ mobile: false, tablet: true });
-    const { result } = renderHook(() => useVoxelTrackGap());
-    expect(result.current).toBe(10);
-  });
-
-  it('resolves 8 (mobile) when the mobile query matches, regardless of the tablet query', () => {
-    stubMatchMedia({ mobile: true, tablet: true });
-    const { result } = renderHook(() => useVoxelTrackGap());
-    expect(result.current).toBe(8);
-  });
-
-  it('re-resolves when the mobile query change-fires to true', () => {
-    const { fireChange } = stubMatchMedia({ mobile: false, tablet: false });
-    const { result } = renderHook(() => useVoxelTrackGap());
-    expect(result.current).toBe(12);
-    act(() => fireChange('mobile', true));
-    expect(result.current).toBe(8);
-  });
-});
-
-describe('useCabinetBoxHeight and useVoxelTrackGap share tier resolution', () => {
-  afterEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('cross the mobile tier boundary at the exact same stubbed condition — proves shared logic, not independently duplicated logic', () => {
-    const { fireChange } = stubMatchMedia({ mobile: false, tablet: false });
-    const height = renderHook(() => useCabinetBoxHeight());
-    const gap = renderHook(() => useVoxelTrackGap());
-
-    expect(height.result.current).toBe(48);
-    expect(gap.result.current).toBe(12);
-
-    act(() => fireChange('mobile', true));
-
-    expect(height.result.current).toBe(32);
-    expect(gap.result.current).toBe(8);
   });
 });

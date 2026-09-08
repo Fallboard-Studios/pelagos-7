@@ -169,60 +169,8 @@ tuned by feel, and was collapsed away rather than guarded more carefully once a 
 as a real recurring pattern. Same "JS-owned value applied as an inline style" precedent `App.tsx`'s own
 `realWorldGradient` already established in this codebase.
 
-## Voxel-Track (Phase 11.1.3 — SliderLinear)
-
-The voxel-track system (roadmap [11.1.3](roadmap/roadmap.md#1113-oblique-cabinetry-sliderlinear-voxel-track-foundation))
-replaces a slider's traditional track+handle with a row of uniform `CabinetBox` facades, reusing the
-Foundation's own `CabinetBox` primitive unmodified in mechanism (only its `popped` prop widened from a
-boolean to a continuous `0–1` number, since extrusion-falloff below needs a genuine intermediate pop
-value no prior consumer did). Full derivation:
-[docs/specs/OBLIQUE_CABINETRY_SLIDER_LINEAR.md](specs/OBLIQUE_CABINETRY_SLIDER_LINEAR.md).
-
-**Box indexing.** Boxes are indexed `0` (nearest `min`) through `boxCount − 1` (nearest `max`) —
-Radix's own horizontal min-at-left / vertical min-at-bottom convention, the same one
-`SliderCenteredZero`'s own zero-anchored fill already relies on. Horizontally, box `0` renders
-leftmost; vertically (`flex-direction: column-reverse`), box `0` renders bottommost.
-
-**Self-fitting box count, not a fixed or schema-authored one.** Box size and gap are fixed per
-breakpoint (32/40/48px boxes, 8/10/12px gaps — `CABINET_BOX_HEIGHT`/`CABINET_VOXEL_GAP`,
-`src/utils/cabinetBreakpoints.ts`), but how *many* boxes render is derived live from the slider's own
-container: a `ResizeObserver` on the slider's parent (never its own rendered box — the same
-feedback-loop guard `useAutoSliderOrientation` already established) fits as many fixed-size boxes as
-possible without overflowing, floored, clamped to a minimum of 3 (`VOXEL_TRACK_MIN_BOX_COUNT`,
-`src/utils/voxelTrackMath.ts`) — a container too narrow even for 3 clamps to that floor and scrolls
-rather than shrinking boxes below their fixed size. Slider.Root's own rendered width/height becomes
-exactly this computed track length, a fixed function of box count, not `width: 100%`/a CSS default.
-
-**Dual-fill value readout.** Given `value`/`min`/`max`/`boxCount`, every box fully below the current
-value (toward `min`) renders 100% `--color-accent`; every box fully above renders 100%
-`--color-surface`; the one box straddling the exact value is **hard-split** — not blended — between
-the two at the local percentage within that box, via a two-color `linear-gradient` with both color
-stops at the same percent boundary:
-
-```css
-/* computeVoxelFillBackground(fillPercent, axis), src/utils/voxelTrackMath.ts */
-background: linear-gradient(to right, var(--color-accent) 0%, var(--color-accent) 37%,
-                             var(--color-surface) 37%, var(--color-surface) 100%);
-```
-
-No new CSS custom property — the same `--color-accent`/`--color-surface` pair this doc's own Oblique
-Cabinetry section already established as the "filled" and "resting" tokens, reused for a new purpose
-rather than duplicated. The fill renders as a plain child inside `CabinetBox`'s existing optional
-`children` slot (the same slot `Toggle`, 11.1.2, left empty) — `CabinetBox` itself stays unaware of
-"fill" the same way it's unaware of "checked."
-
-**Extrusion-falloff.** The straddling box pops fully out (`popT: 1`, against the exact same fixed
-`CABINET_POP_DISTANCE`/2:1 vector every Cabinetry item uses — not scaled by box height, and not a
-separate mechanism); boxes above it (toward `max`, not yet filled) stay flat (`popT: 0`); boxes below
-it (toward `min`, already filled) step down in *equal* decrements from the straddling box's `1` to `0`
-at the box nearest the minimum end, which does not extrude at all — `popT(i) = i / straddlingIndex` for
-`i` strictly between box `0` and the straddling box. The decrement scales with however many boxes
-currently sit below the straddling one, since box count is not fixed (above).
-
-Status as of SliderLinear (11.1.3): `CabinetBox` (Foundation & Button, 11.1.1), `Toggle` (11.1.2), and
-now `VoxelTrack`/`SliderLinear` have shipped and were confirmed against the automated test suite;
-`SliderLog`/`SliderCenteredZero` (11.1.4/11.1.5) have not yet — both reuse `VoxelTrack`/
-`voxelTrackMath.ts`/`useVoxelTrackBoxCount.ts` completely unchanged, swapping in only their own
-`t → value` curve. `CabinetBox` as it stands here — walls, glow, sharp corners, and the continuous
-`popped` value above — is the reference every later 11.1.x item's own cabinet box should match, not
-just the geometry/face-shading fundamentals.
+Status as of Foundation & Button (11.1.1): `CabinetBox` (the shared rendering primitive, including the
+pop-proportional glow and sharp front-face corners above) and `Button` (its first real consumer) have
+shipped and were confirmed against the real running app; `Toggle` and the 3 sliders (11.1.2–11.1.5)
+have not yet. `CabinetBox` as it stands here — walls, glow, and all — is the reference every later
+11.1.x item's own cabinet box should match, not just the geometry/face-shading fundamentals.

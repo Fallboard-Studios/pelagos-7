@@ -40,20 +40,20 @@ Task 1 (cabinetBreakpoints.ts +      Task 2 (voxelTrackMath.ts)      Task 3 (Cab
 
 ### Phase 1: Foundation — independent modules (parallelizable)
 
-- [x] **Task 1: `cabinetBreakpoints.ts` gains `CABINET_VOXEL_GAP`; `useCabinetBoxHeight.ts` refactors to share tier resolution**
+- [ ] **Task 1: `cabinetBreakpoints.ts` gains `CABINET_VOXEL_GAP`; `useCabinetBoxHeight.ts` refactors to share tier resolution**
 
   **Description:** Add `CABINET_VOXEL_GAP = { mobile: 8, tablet: 10, desktop: 12 }` to `src/utils/cabinetBreakpoints.ts` (spec §4) — `CABINET_BOX_HEIGHT`, the breakpoint-max constants, and `CabinetTier` are otherwise untouched. Refactor `src/components/ui/controls/useCabinetBoxHeight.ts` per spec §1.4/§4: factor the existing `matchMedia` tier-detection logic into a private `useCabinetTier(): CabinetTier` hook; `useCabinetBoxHeight()` keeps its exact existing export signature (`CABINET_BOX_HEIGHT[useCabinetTier()]`); add a new exported `useVoxelTrackGap(): number` (`CABINET_VOXEL_GAP[useCabinetTier()]`).
 
   **Acceptance criteria:**
-  - [x] `CABINET_VOXEL_GAP.mobile` (`8`) `< .tablet` (`10`) `< .desktop` (`12`).
-  - [x] Every existing `cabinetBreakpoints.test.ts`/`useCabinetBoxHeight.test.ts` assertion stays unchanged and passing — `useCabinetBoxHeight()`'s resolved value for all 3 stubbed tiers, and its re-resolution on a stubbed `change` event, are byte-identical to before this refactor.
-  - [x] `useVoxelTrackGap()` resolves `8`/`10`/`12` for the same 3 stubbed tiers `useCabinetBoxHeight.test.ts` already uses, and re-resolves when a stubbed query's `change` listener fires.
-  - [x] Both hooks derive from the same `resolveTier()`/`CABINET_BREAKPOINT_*` constants — a test changes a stubbed breakpoint boundary and asserts both `useCabinetBoxHeight()` and `useVoxelTrackGap()` cross their respective tier at the exact same stubbed condition (proves shared logic, not just visually-similar duplicated logic).
+  - [ ] `CABINET_VOXEL_GAP.mobile` (`8`) `< .tablet` (`10`) `< .desktop` (`12`).
+  - [ ] Every existing `cabinetBreakpoints.test.ts`/`useCabinetBoxHeight.test.ts` assertion stays unchanged and passing — `useCabinetBoxHeight()`'s resolved value for all 3 stubbed tiers, and its re-resolution on a stubbed `change` event, are byte-identical to before this refactor.
+  - [ ] `useVoxelTrackGap()` resolves `8`/`10`/`12` for the same 3 stubbed tiers `useCabinetBoxHeight.test.ts` already uses, and re-resolves when a stubbed query's `change` listener fires.
+  - [ ] Both hooks derive from the same `resolveTier()`/`CABINET_BREAKPOINT_*` constants — a test changes a stubbed breakpoint boundary and asserts both `useCabinetBoxHeight()` and `useVoxelTrackGap()` cross their respective tier at the exact same stubbed condition (proves shared logic, not just visually-similar duplicated logic).
 
   **Verification:**
-  - [x] `npx vitest run src/utils/cabinetBreakpoints.test.ts src/components/ui/controls/useCabinetBoxHeight.test.ts` passes.
-  - [x] `npm run build:types`, `npm run lint` clean.
-  - [x] Manual check: none applicable yet — `useVoxelTrackGap` has zero real consumers until Task 6.
+  - [ ] `npx vitest run src/utils/cabinetBreakpoints.test.ts src/components/ui/controls/useCabinetBoxHeight.test.ts` passes.
+  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [ ] Manual check: none applicable yet — `useVoxelTrackGap` has zero real consumers until Task 6.
 
   **Dependencies:** None.
 
@@ -61,22 +61,22 @@ Task 1 (cabinetBreakpoints.ts +      Task 2 (voxelTrackMath.ts)      Task 3 (Cab
 
   **Estimated scope:** S (4 files, but the refactor is a straightforward extraction — no new listener behavior, no new constants beyond one small object)
 
-- [x] **Task 2: `voxelTrackMath.ts` — box-count fitting, track length, dual-fill/extrusion-falloff, fill-color math**
+- [ ] **Task 2: `voxelTrackMath.ts` — box-count fitting, track length, dual-fill/extrusion-falloff, fill-color math**
 
   **Description:** Add `src/utils/voxelTrackMath.ts` per spec §4: `VOXEL_TRACK_MIN_BOX_COUNT = 3`; `computeFittedBoxCount(availableLength, boxSize, gap)`; `computeVoxelTrackLength(boxCount, boxSize, gap)`; `computeVoxelBoxStates(value, min, max, boxCount)` returning `VoxelBoxState[]` (`{ fillPercent, popT }` per box, indexed 0=nearest-min); `computeVoxelFillBackground(fillPercent, axis)`. Pure functions only — no DOM, no GSAP, no React.
 
   **Acceptance criteria:**
-  - [x] `computeFittedBoxCount`: an exact-fit case, an under-by-one-gap case, and a generous-space case all match the hand-derived formula (spec §1.5); `boxSize <= 0` returns `VOXEL_TRACK_MIN_BOX_COUNT`; a space too small even for 3 boxes still returns exactly `3`, never fewer.
-  - [x] `computeVoxelTrackLength(computeFittedBoxCount(availableLength, boxSize, gap), boxSize, gap) <= availableLength` holds for representative `(boxSize, gap)` pairs and a generous `availableLength` — the fitted count never overflows what was asked for. `computeVoxelTrackLength(1, boxSize, gap) === boxSize` (no gap term at `boxCount: 1`).
-  - [x] `computeVoxelBoxStates(min, min, max, boxCount)`: box `0`'s `fillPercent: 0`, `popT: 1` (it's the straddling box); every other box `fillPercent: 0`, `popT: 0`.
-  - [x] `computeVoxelBoxStates(max, min, max, boxCount)`: the **`t=1` clamp edge is explicitly verified** — the last box (`boxCount - 1`) is the straddling box (`fillPercent: 100`, `popT: 1`), every prior box is `fillPercent: 100` with a stepped-down `popT`, and no box reports `fillPercent: 0` (spec §5 names this as the off-by-one risk worth a dedicated test).
-  - [x] A mid-range value against a small `boxCount` (e.g. `4`) is hand-verified against the exact expected per-box `{fillPercent, popT}` array, not spot-checked.
-  - [x] `min === max` returns every box at the `t=0` shape without throwing (the divide-by-zero guard).
-  - [x] `computeVoxelFillBackground(100, axis)`/`computeVoxelFillBackground(0, axis)` return the two solid `var(...)` strings exactly, no gradient syntax; a mid-value (e.g. `37`) returns a `linear-gradient` with both color stops at the same `37%` boundary (hard stop); `axis: 'vertical'` uses `to top`, `'horizontal'` uses `to right`.
+  - [ ] `computeFittedBoxCount`: an exact-fit case, an under-by-one-gap case, and a generous-space case all match the hand-derived formula (spec §1.5); `boxSize <= 0` returns `VOXEL_TRACK_MIN_BOX_COUNT`; a space too small even for 3 boxes still returns exactly `3`, never fewer.
+  - [ ] `computeVoxelTrackLength(computeFittedBoxCount(availableLength, boxSize, gap), boxSize, gap) <= availableLength` holds for representative `(boxSize, gap)` pairs and a generous `availableLength` — the fitted count never overflows what was asked for. `computeVoxelTrackLength(1, boxSize, gap) === boxSize` (no gap term at `boxCount: 1`).
+  - [ ] `computeVoxelBoxStates(min, min, max, boxCount)`: box `0`'s `fillPercent: 0`, `popT: 1` (it's the straddling box); every other box `fillPercent: 0`, `popT: 0`.
+  - [ ] `computeVoxelBoxStates(max, min, max, boxCount)`: the **`t=1` clamp edge is explicitly verified** — the last box (`boxCount - 1`) is the straddling box (`fillPercent: 100`, `popT: 1`), every prior box is `fillPercent: 100` with a stepped-down `popT`, and no box reports `fillPercent: 0` (spec §5 names this as the off-by-one risk worth a dedicated test).
+  - [ ] A mid-range value against a small `boxCount` (e.g. `4`) is hand-verified against the exact expected per-box `{fillPercent, popT}` array, not spot-checked.
+  - [ ] `min === max` returns every box at the `t=0` shape without throwing (the divide-by-zero guard).
+  - [ ] `computeVoxelFillBackground(100, axis)`/`computeVoxelFillBackground(0, axis)` return the two solid `var(...)` strings exactly, no gradient syntax; a mid-value (e.g. `37`) returns a `linear-gradient` with both color stops at the same `37%` boundary (hard stop); `axis: 'vertical'` uses `to top`, `'horizontal'` uses `to right`.
 
   **Verification:**
-  - [x] `npx vitest run src/utils/voxelTrackMath.test.ts` passes, covering every acceptance criterion above.
-  - [x] `npm run build:types`, `npm run lint` clean.
+  - [ ] `npx vitest run src/utils/voxelTrackMath.test.ts` passes, covering every acceptance criterion above.
+  - [ ] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** None.
 
@@ -84,23 +84,23 @@ Task 1 (cabinetBreakpoints.ts +      Task 2 (voxelTrackMath.ts)      Task 3 (Cab
 
   **Estimated scope:** S (2 files, pure math — 4 functions with real derivations to verify, no DOM/GSAP/React)
 
-- [x] **Task 3: `CabinetBox` — `popped` widens from `boolean` to `boolean | number`**
+- [ ] **Task 3: `CabinetBox` — `popped` widens from `boolean` to `boolean | number`**
 
   **Description:** Modify `src/components/ui/controls/CabinetBox.tsx` per spec §1.1/§4: widen `CabinetBoxProps.popped` to `boolean | number`; normalize once on entry (`const poppedT = typeof popped === 'number' ? popped : (popped ? 1 : 0)`); replace every downstream use of the old binary `popped` (the `isTransition` comparison, the `target`/`from` geometry calls, the glow tween, the effect's dependency array) with `poppedT`. The `from` value generalizes from the old `popped ? 0 : 1` ternary to `previousPopped ?? (1 - poppedT)` (captured *before* `prevPoppedRef.current` is overwritten) — reproduces today's Button/Toggle behavior exactly at `poppedT` `0`/`1`, generalizes correctly for a fractional value. No other logic in the file changes — the `ResizeObserver` width measurement, the resize-flicker fix's overall shape, and the JSX are untouched.
 
   **Acceptance criteria:**
-  - [x] Every existing `CabinetBox.test.tsx` assertion (11.1.1/11.1.2's full suite) still passes unmodified — every existing case passes a `boolean`, which normalizes identically before and after this change.
-  - [x] `Button.test.tsx` and `Toggle.test.tsx` both stay unmodified and passing — direct proof the widening is behavior-preserving for both real consumers, not just type-compatible (`git diff src/components/ui/controls/Button.tsx src/components/ui/controls/Toggle.tsx` is empty for this task).
-  - [x] A fractional `popped` (e.g. `0.4`) computes geometry at `t = 0.4` exactly — asserted against `computeCabinetGeometry`'s actual call arguments (spied), not just "doesn't throw".
-  - [x] `--cabinet-glow` tweens to exactly `0.4` (not `0` or `1`) for a `popped={0.4}` render — extends the existing glow-direction test to a non-boundary value.
-  - [x] A transition between two fractional values (e.g. `0.4 → 0.7`, no boundary crossing) animates `from: 0.4` directly, not `from: 0` or `from: 1` — confirms `previousPopped` drives the tween once a real prior value exists.
-  - [x] The very first render at a fractional `popped` (e.g. `0.4`, no prior render) animates `from: 0.6` (`1 - 0.4`) — confirms the numeric-opposite fallback generalizes correctly past `0`/`1`.
+  - [ ] Every existing `CabinetBox.test.tsx` assertion (11.1.1/11.1.2's full suite) still passes unmodified — every existing case passes a `boolean`, which normalizes identically before and after this change.
+  - [ ] `Button.test.tsx` and `Toggle.test.tsx` both stay unmodified and passing — direct proof the widening is behavior-preserving for both real consumers, not just type-compatible (`git diff src/components/ui/controls/Button.tsx src/components/ui/controls/Toggle.tsx` is empty for this task).
+  - [ ] A fractional `popped` (e.g. `0.4`) computes geometry at `t = 0.4` exactly — asserted against `computeCabinetGeometry`'s actual call arguments (spied), not just "doesn't throw".
+  - [ ] `--cabinet-glow` tweens to exactly `0.4` (not `0` or `1`) for a `popped={0.4}` render — extends the existing glow-direction test to a non-boundary value.
+  - [ ] A transition between two fractional values (e.g. `0.4 → 0.7`, no boundary crossing) animates `from: 0.4` directly, not `from: 0` or `from: 1` — confirms `previousPopped` drives the tween once a real prior value exists.
+  - [ ] The very first render at a fractional `popped` (e.g. `0.4`, no prior render) animates `from: 0.6` (`1 - 0.4`) — confirms the numeric-opposite fallback generalizes correctly past `0`/`1`.
 
   **Verification:**
-  - [x] `npx vitest run src/components/ui/controls/CabinetBox.test.tsx src/components/ui/controls/Button.test.tsx src/components/ui/controls/Toggle.test.tsx` passes in full — all 3 files, not just the modified one.
-  - [x] `npm run build:types`, `npm run lint` clean.
-  - [x] `npm run build` clean.
-  - [x] Manual check: none applicable yet — no consumer passes a fractional value until Task 5.
+  - [ ] `npx vitest run src/components/ui/controls/CabinetBox.test.tsx src/components/ui/controls/Button.test.tsx src/components/ui/controls/Toggle.test.tsx` passes in full — all 3 files, not just the modified one.
+  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [ ] `npm run build` clean.
+  - [ ] Manual check: none applicable yet — no consumer passes a fractional value until Task 5.
 
   **Dependencies:** None.
 
@@ -109,30 +109,30 @@ Task 1 (cabinetBreakpoints.ts +      Task 2 (voxelTrackMath.ts)      Task 3 (Cab
   **Estimated scope:** S (2 files touched, but the highest-*regression*-risk task among the foundation trio — modifies an already-shipped, reference-example primitive two prior items depend on; treat its full verification step as non-optional, not a nice-to-have)
 
 ### Checkpoint: Foundation modules
-- [x] `npm run build:types`, `npm run lint`, `npm run build`, `npm test` (full suite) all clean.
-- [x] `grep -rn "voxelTrackMath\|useVoxelTrackGap\|CABINET_VOXEL_GAP" src/` shows the new exports present with no real consumer yet, beyond the modules' own tests.
-- [x] `Button`/`Toggle` render identically in the running app to before this checkpoint (no visual or behavioral change) — spot-checked, since Task 3 touched a shared primitive both depend on.
+- [ ] `npm run build:types`, `npm run lint`, `npm run build`, `npm test` (full suite) all clean.
+- [ ] `grep -rn "voxelTrackMath\|useVoxelTrackGap\|CABINET_VOXEL_GAP" src/` shows the new exports present with no real consumer yet, beyond the modules' own tests.
+- [ ] `Button`/`Toggle` render identically in the running app to before this checkpoint (no visual or behavioral change) — spot-checked, since Task 3 touched a shared primitive both depend on.
 - [ ] Review with human before proceeding.
 
 ---
 
 ### Phase 2: The box-count hook
 
-- [x] **Task 4: `useVoxelTrackBoxCount` — live, self-fitting box count**
+- [ ] **Task 4: `useVoxelTrackBoxCount` — live, self-fitting box count**
 
   **Description:** Add `src/components/ui/controls/useVoxelTrackBoxCount.ts` per spec §1.5/§1.7/§4: observes `ref.current?.parentElement` via `ResizeObserver` — never `ref.current` itself (mirrors `useAutoSliderOrientation.ts`'s exact feedback-loop-avoiding convention) — reading `width` or `height` depending on the (already-resolved) `axis` param, feeding `computeFittedBoxCount` (Task 2). An optional `explicitAvailableLength` param, when supplied, skips the observer entirely and fits against that fixed number instead (the `verticalHeight`-as-budget case, spec §1.7).
 
   **Acceptance criteria:**
-  - [x] Returns `VOXEL_TRACK_MIN_BOX_COUNT` before any `ResizeObserver` callback fires.
-  - [x] Observes the `ref`'s parent, never `ref.current` itself — asserted the same way `useAutoSliderOrientation.test.ts` already asserts this for orientation (`MockResizeObserver.instances[0].observedTargets`).
-  - [x] Reads `width` when `axis: 'horizontal'`, `height` when `axis: 'vertical'` — two separate test cases, not inferred from one.
-  - [x] Re-computes when the observer fires a new size (not just on mount).
-  - [x] When `explicitAvailableLength` is provided, no `ResizeObserver` is constructed at all (`MockResizeObserver.instances` stays empty), and the returned count comes directly from that number.
+  - [ ] Returns `VOXEL_TRACK_MIN_BOX_COUNT` before any `ResizeObserver` callback fires.
+  - [ ] Observes the `ref`'s parent, never `ref.current` itself — asserted the same way `useAutoSliderOrientation.test.ts` already asserts this for orientation (`MockResizeObserver.instances[0].observedTargets`).
+  - [ ] Reads `width` when `axis: 'horizontal'`, `height` when `axis: 'vertical'` — two separate test cases, not inferred from one.
+  - [ ] Re-computes when the observer fires a new size (not just on mount).
+  - [ ] When `explicitAvailableLength` is provided, no `ResizeObserver` is constructed at all (`MockResizeObserver.instances` stays empty), and the returned count comes directly from that number.
 
   **Verification:**
-  - [x] `npx vitest run src/components/ui/controls/useVoxelTrackBoxCount.test.ts` passes, using the `MockResizeObserver` convention from `useAutoSliderOrientation.test.ts`.
-  - [x] `npm run build:types`, `npm run lint` clean.
-  - [x] Manual check: none applicable yet — zero real consumers until Task 6.
+  - [ ] `npx vitest run src/components/ui/controls/useVoxelTrackBoxCount.test.ts` passes, using the `MockResizeObserver` convention from `useAutoSliderOrientation.test.ts`.
+  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [ ] Manual check: none applicable yet — zero real consumers until Task 6.
 
   **Dependencies:** Task 2 (`computeFittedBoxCount`).
 
@@ -141,30 +141,30 @@ Task 1 (cabinetBreakpoints.ts +      Task 2 (voxelTrackMath.ts)      Task 3 (Cab
   **Estimated scope:** S (2 files, one hook against an already-proven measurement convention)
 
 ### Checkpoint: Hook ships
-- [x] `npm run build:types`, `npm run lint` clean; `useVoxelTrackBoxCount.test.ts` passes in isolation.
-- [x] `useVoxelTrackBoxCount` is importable and correctly resolves fitted counts (verified by its own test suite) with zero other files in the app referencing it yet.
+- [ ] `npm run build:types`, `npm run lint` clean; `useVoxelTrackBoxCount.test.ts` passes in isolation.
+- [ ] `useVoxelTrackBoxCount` is importable and correctly resolves fitted counts (verified by its own test suite) with zero other files in the app referencing it yet.
 - [ ] Review with human before proceeding.
 
 ---
 
 ### Phase 3: The shared voxel-track component
 
-- [x] **Task 5: `VoxelTrack` — the shared box-row rendering component**
+- [ ] **Task 5: `VoxelTrack` — the shared box-row rendering component**
 
   **Description:** Add `src/components/ui/controls/VoxelTrack.tsx` per spec §1.2/§1.3/§1.9/§4: renders one `<CabinetBox popped={state.popT} boxHeight={boxSize} timelineKey={\`${timelineKeyPrefix}-${i}\`}>` per `VoxelBoxState` in `states`, each wrapping a `<div className="sc-voxel-track__fill">` whose `background` is `computeVoxelFillBackground(state.fillPercent, axis)` (Task 2). Root is `position: absolute; inset: 0; pointer-events: none; aria-hidden="true"`, `data-axis={axis}`. Add `VoxelTrack.css` per spec §4: `flex-direction: row` (horizontal, box 0 leftmost) / `column-reverse` (vertical, box 0 bottommost); the `.sc-voxel-track .sc-cabinet-box__front` square-footprint override (mirroring `Toggle.css`'s own scoped-override technique from 11.1.2 §1.2); `--voxel-box-size`/`--voxel-gap` supplied as inline custom properties from the `boxSize`/`gap` props.
 
   **Acceptance criteria:**
-  - [x] Renders exactly `states.length` `CabinetBox` instances.
-  - [x] Each instance's `popped` prop equals that index's `state.popT`, and is a `number` (not coerced to `boolean`) — guards against an accidental `!!` creeping in.
-  - [x] Each instance's `timelineKey` is `` `${timelineKeyPrefix}-${i}` ``, unique per box.
-  - [x] Each box's fill child's rendered `background` matches `computeVoxelFillBackground(state.fillPercent, axis)` exactly (spying on the real `voxelTrackMath` module via `importOriginal`, not re-deriving the expected string independently in the test).
-  - [x] The root element carries `aria-hidden="true"` and `data-axis` matching the `axis` prop.
-  - [x] `.sc-voxel-track .sc-cabinet-box__front` forces `width`/`height` to `var(--voxel-box-size)` and `padding: 0` (confirmed by reading the shipped CSS directly, per `VERTICAL_SLIDERS.md`'s own precedent of not unit-testing CSS-only rules).
+  - [ ] Renders exactly `states.length` `CabinetBox` instances.
+  - [ ] Each instance's `popped` prop equals that index's `state.popT`, and is a `number` (not coerced to `boolean`) — guards against an accidental `!!` creeping in.
+  - [ ] Each instance's `timelineKey` is `` `${timelineKeyPrefix}-${i}` ``, unique per box.
+  - [ ] Each box's fill child's rendered `background` matches `computeVoxelFillBackground(state.fillPercent, axis)` exactly (spying on the real `voxelTrackMath` module via `importOriginal`, not re-deriving the expected string independently in the test).
+  - [ ] The root element carries `aria-hidden="true"` and `data-axis` matching the `axis` prop.
+  - [ ] `.sc-voxel-track .sc-cabinet-box__front` forces `width`/`height` to `var(--voxel-box-size)` and `padding: 0` (confirmed by reading the shipped CSS directly, per `VERTICAL_SLIDERS.md`'s own precedent of not unit-testing CSS-only rules).
 
   **Verification:**
-  - [x] `npx vitest run src/components/ui/controls/VoxelTrack.test.tsx` passes, mocking `CabinetBox` directly (mirroring `Button.test.tsx`'s own precedent).
-  - [x] `npm run build:types`, `npm run lint`, `npm run build` clean.
-  - [x] Manual check: none applicable yet — `VoxelTrack` has zero real consumers until Task 6, same "component before consumer" precedent every prior Cabinetry item used.
+  - [ ] `npx vitest run src/components/ui/controls/VoxelTrack.test.tsx` passes, mocking `CabinetBox` directly (mirroring `Button.test.tsx`'s own precedent).
+  - [ ] `npm run build:types`, `npm run lint`, `npm run build` clean.
+  - [ ] Manual check: none applicable yet — `VoxelTrack` has zero real consumers until Task 6, same "component before consumer" precedent every prior Cabinetry item used.
 
   **Dependencies:** Task 2 (`VoxelBoxState`, `computeVoxelFillBackground`), Task 3 (`CabinetBox`'s widened `popped`).
 
@@ -173,32 +173,32 @@ Task 1 (cabinetBreakpoints.ts +      Task 2 (voxelTrackMath.ts)      Task 3 (Cab
   **Estimated scope:** M (3 files — the first real composition of N `CabinetBox` instances at once; more integration surface than a typical single-consumer wiring task, though lower-risk than Task 6 since nothing real depends on it yet)
 
 ### Checkpoint: Shared component ships
-- [x] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes.
-- [x] `VoxelTrack` is importable and renders N correctly-popped, correctly-filled boxes in isolation (verified by its own test suite) with zero other files in the app referencing it yet.
+- [ ] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes.
+- [ ] `VoxelTrack` is importable and renders N correctly-popped, correctly-filled boxes in isolation (verified by its own test suite) with zero other files in the app referencing it yet.
 - [ ] Review with human before proceeding — highest-value checkpoint to catch a fill/extrusion math mistake before it reaches `SliderLinear`.
 
 ---
 
 ### Phase 4: The first real consumer
 
-- [x] **Task 6: `SliderLinear` — wired through `VoxelTrack`**
+- [ ] **Task 6: `SliderLinear` — wired through `VoxelTrack`**
 
   **Description:** Replace `src/components/ui/controls/SliderLinear.tsx` per spec §4's full replacement: resolve `boxSize`/`gap` via `useCabinetBoxHeight()`/`useVoxelTrackGap()` (Task 1); resolve `boxCount` via `useVoxelTrackBoxCount(wrapperRef, orientation, boxSize, gap, isVertical ? verticalHeight : undefined)` (Task 4); compute `trackLength`/`states` via `voxelTrackMath.ts` (Task 2); set `Slider.Root`'s inline `width`/`height` to `trackLength`; render `<VoxelTrack>` (Task 5) as an absolutely-positioned sibling of `Slider.Range` inside `Slider.Track`. Replace `SliderLinear.css` per spec §1.10/§1.11/§4: `Slider.Range` stays `visibility: hidden` (mirrors `SliderCenteredZero.css`'s exact precedent); `Slider.Thumb`'s fill goes `background-color: transparent` while its `:focus-visible` outline stays untouched (never `visibility: hidden`/`opacity: 0` — both would also hide the focus ring); `overflow-x`/`overflow-y: auto` added directly to `.sc-slider-linear`'s existing `data-orientation` selectors (no new wrapper element — spec §1.11 explicitly rejected one to avoid breaking 2 existing DOM-order tests). Update `SliderLinear.test.tsx` per spec §5: 3 of the 17 existing cases must be rewritten (the `verticalHeight`-omitted/-provided/horizontal-ignores trio, since `verticalHeight` is now a fitting budget, not a literal value); the other 14 stay unchanged; 3 new cases added (renders `VoxelTrack` with the expected `states`, thumb fill is transparent, exactly one `role="slider"` element).
 
   **Acceptance criteria:**
-  - [x] The 14 unaffected existing `SliderLinear.test.tsx` cases (ARIA min/max/now, unit/no-unit value rendering, the 3-decimal display cap vs. full-precision `aria-valuenow`, `DualLabel` rendering, accessible-name fallback, not-disabled-by-default, disabled attribute + tabindex removal, no `onChange` on a disabled keyboard step, both `data-orientation` cases, the 2 value-label DOM-order cases, the `'auto'`-defaults-to-horizontal case) pass **unmodified** — confirms §1.11's no-new-wrapper decision genuinely preserved DOM order.
-  - [x] The 3 rewritten `verticalHeight` cases assert the new, correct behavior per spec §1.7/§5 exactly (an inline height is *always* set now; when `verticalHeight` is supplied, the rendered height is the box-quantized `computeVoxelTrackLength` output, not `verticalHeight` verbatim; horizontal sliders now also get an inline `width`).
-  - [x] Renders a `VoxelTrack` (mocked) with `states` matching `computeVoxelBoxStates(value, schema.min, schema.max, boxCount)` for the currently-fitted `boxCount`.
-  - [x] `Slider.Thumb`'s rendered `background-color` is `transparent`.
-  - [x] `screen.getByRole('slider')` still resolves to exactly one element (the voxel boxes introduce no ARIA-role ambiguity).
-  - [x] `SliderLinearSchema`/`ControlSchema` are untouched — `git diff src/types/controls.ts` is empty for this task.
+  - [ ] The 14 unaffected existing `SliderLinear.test.tsx` cases (ARIA min/max/now, unit/no-unit value rendering, the 3-decimal display cap vs. full-precision `aria-valuenow`, `DualLabel` rendering, accessible-name fallback, not-disabled-by-default, disabled attribute + tabindex removal, no `onChange` on a disabled keyboard step, both `data-orientation` cases, the 2 value-label DOM-order cases, the `'auto'`-defaults-to-horizontal case) pass **unmodified** — confirms §1.11's no-new-wrapper decision genuinely preserved DOM order.
+  - [ ] The 3 rewritten `verticalHeight` cases assert the new, correct behavior per spec §1.7/§5 exactly (an inline height is *always* set now; when `verticalHeight` is supplied, the rendered height is the box-quantized `computeVoxelTrackLength` output, not `verticalHeight` verbatim; horizontal sliders now also get an inline `width`).
+  - [ ] Renders a `VoxelTrack` (mocked) with `states` matching `computeVoxelBoxStates(value, schema.min, schema.max, boxCount)` for the currently-fitted `boxCount`.
+  - [ ] `Slider.Thumb`'s rendered `background-color` is `transparent`.
+  - [ ] `screen.getByRole('slider')` still resolves to exactly one element (the voxel boxes introduce no ARIA-role ambiguity).
+  - [ ] `SliderLinearSchema`/`ControlSchema` are untouched — `git diff src/types/controls.ts` is empty for this task.
 
   **Verification:**
-  - [x] `npx vitest run src/components/ui/controls/SliderLinear.test.tsx` passes (17 cases: 14 unmodified + 3 rewritten, plus 3 new = 20 total).
-  - [x] `npm run build:types`, `npm run lint` clean.
-  - [x] `npm run build` clean.
-  - [x] Full suite (`npm test`) re-confirmed clean — including every other real `SliderLinear` consumer's own test file (`AudioRigDrawer`, `PingControlsDrawer`, and any other drawer wiring a `SliderLinear`), unmocked against the real component.
-  - [ ] **Manual check not performed — no browser automation tool is configured in this environment, confirmed via `ToolSearch` (not assumed), same gap `OBLIQUE_CABINETRY_FOUNDATION.md`'s own Task 6 recorded.** Still needed before this ships for real: open a drawer with a real `SliderLinear` (e.g. Audio Rig's EQ3 Gain, or Robot Options' Ping Controls Density) at each of the 3 breakpoints. Confirm the track renders as a row of square boxes, not a thin line+dot; dragging/keyboard-stepping moves which box is straddling and updates the hard-split fill correctly; the straddling box pops fully while boxes below it (toward min) show a visibly graded partial pop and boxes above stay flat; the focus ring renders clearly on top of the box row; resizing the window/rotating a tablet emulation live-changes box count without a remount glitch; a narrow container clamps to 3 boxes and scrolls horizontally rather than shrinking; "reduce motion" makes pop/glow transitions snap instead of animate.
+  - [ ] `npx vitest run src/components/ui/controls/SliderLinear.test.tsx` passes (17 cases: 14 unmodified + 3 rewritten, plus 3 new = 20 total).
+  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [ ] `npm run build` clean.
+  - [ ] Full suite (`npm test`) re-confirmed clean — including every other real `SliderLinear` consumer's own test file (`AudioRigDrawer`, `PingControlsDrawer`, and any other drawer wiring a `SliderLinear`), unmocked against the real component.
+  - [ ] **Manual check (perform once implemented — no browser automation tool is configured in this environment per prior Cabinetry items' own experience; confirm via `ToolSearch` again rather than assuming):** open a drawer with a real `SliderLinear` (e.g. Audio Rig's EQ3 Gain, or Robot Options' Ping Controls Density) at each of the 3 breakpoints. Confirm the track renders as a row of square boxes, not a thin line+dot; dragging/keyboard-stepping moves which box is straddling and updates the hard-split fill correctly; the straddling box pops fully while boxes below it (toward min) show a visibly graded partial pop and boxes above stay flat; the focus ring renders clearly on top of the box row; resizing the window/rotating a tablet emulation live-changes box count without a remount glitch; a narrow container clamps to 3 boxes and scrolls horizontally rather than shrinking; "reduce motion" makes pop/glow transitions snap instead of animate.
 
   **Dependencies:** Task 1, Task 4, Task 5.
 
@@ -207,8 +207,8 @@ Task 1 (cabinetBreakpoints.ts +      Task 2 (voxelTrackMath.ts)      Task 3 (Cab
   **Estimated scope:** M (3 files, but the highest-risk task in this plan — integrates 4 upstream modules for the first time *and* makes a real, user-visible `verticalHeight` behavior change requiring 3 existing tests to be rewritten, not just extended; see Architecture Decisions)
 
 ### Checkpoint: SliderLinear ships — first visible change
-- [x] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes.
-- [x] Every real `SliderLinear` call site in the app renders through `VoxelTrack` with no call-site changes required — confirmed by `npm run build:types` alone surfacing nothing, since the props contract didn't change.
+- [ ] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes.
+- [ ] Every real `SliderLinear` call site in the app renders through `VoxelTrack` with no call-site changes required — confirmed by `npm run build:types` alone surfacing nothing, since the props contract didn't change.
 - [ ] **The `verticalHeight`-as-budget behavior change (spec §1.7) is explicitly reviewed with Crawford before merge** — if the intended behavior was actually "force the exact pixel height regardless of box quantization," that's a materially different design not built here (flagged in the spec's own §7, restated here so it isn't missed at this checkpoint specifically).
 - [ ] Manual pass completed (see Task 6's own verification notes) — or explicitly flagged as outstanding if no browser automation is available in the implementing session, matching how `OBLIQUE_CABINETRY_FOUNDATION.md`'s own Task 6 checkpoint recorded the same gap honestly rather than skipping it silently.
 - [ ] Review with human before proceeding.
@@ -217,17 +217,17 @@ Task 1 (cabinetBreakpoints.ts +      Task 2 (voxelTrackMath.ts)      Task 3 (Cab
 
 ### Phase 5: Docs (parallelizable once their own prerequisite lands)
 
-- [x] **Task 7: `docs/CONSOLE_THEMING.md` — voxel-track dual-fill/extrusion-falloff notes**
+- [ ] **Task 7: `docs/CONSOLE_THEMING.md` — voxel-track dual-fill/extrusion-falloff notes**
 
   **Description:** Add the voxel-track dual-fill/extrusion-falloff rules (spec §1.8) to `docs/CONSOLE_THEMING.md`, alongside 11.1.1's existing cabinet geometry/face-shading notes, per roadmap 11.1.3's own Docs bullet — spot-checked against `voxelTrackMath.ts`'s actual shipped shape (Task 2), not the spec's draft.
 
   **Acceptance criteria:**
-  - [x] `docs/CONSOLE_THEMING.md` documents the box-indexing convention (0 = nearest min), the dual-fill hard-split rule, and the extrusion-falloff step-down formula, matching `computeVoxelBoxStates`'s actual shipped formula.
-  - [x] No claim in the new section is contradicted by the actual shipped source (spot-checked line-by-line against `voxelTrackMath.ts`).
+  - [ ] `docs/CONSOLE_THEMING.md` documents the box-indexing convention (0 = nearest min), the dual-fill hard-split rule, and the extrusion-falloff step-down formula, matching `computeVoxelBoxStates`'s actual shipped formula.
+  - [ ] No claim in the new section is contradicted by the actual shipped source (spot-checked line-by-line against `voxelTrackMath.ts`).
 
   **Verification:**
-  - [x] Manual review — every documented detail spot-checked directly against the shipped `voxelTrackMath.ts`.
-  - [x] `npm run build:types`, `npm run lint` clean (docs-only change).
+  - [ ] Manual review — every documented detail spot-checked directly against the shipped `voxelTrackMath.ts`.
+  - [ ] `npm run build:types`, `npm run lint` clean (docs-only change).
 
   **Dependencies:** Task 5.
 
@@ -235,18 +235,18 @@ Task 1 (cabinetBreakpoints.ts +      Task 2 (voxelTrackMath.ts)      Task 3 (Cab
 
   **Estimated scope:** XS (docs only)
 
-- [x] **Task 8: `docs/COMPONENT_LIBRARY.md` — SliderLinear's internal rendering note**
+- [ ] **Task 8: `docs/COMPONENT_LIBRARY.md` — SliderLinear's internal rendering note**
 
   **Description:** Add the same "internal rendering changed, contract didn't" note `Button`/`Toggle`'s rows already carry, to `SliderLinear`'s row, plus a pointer to the shared `VoxelTrack`/`voxelTrackMath.ts` mechanism for 11.1.4/11.1.5 to reference rather than restate, per spec §6.
 
   **Acceptance criteria:**
-  - [x] `docs/COMPONENT_LIBRARY.md` documents that `SliderLinear` now renders through `VoxelTrack` internally, with its props contract unchanged.
-  - [x] The note is spot-checked against `SliderLinear.tsx`'s actual shipped code (Task 6), not the spec's draft.
-  - [x] Includes an explicit pointer for 11.1.4/11.1.5 to the shared mechanism, so neither restates the voxel-track rules independently.
+  - [ ] `docs/COMPONENT_LIBRARY.md` documents that `SliderLinear` now renders through `VoxelTrack` internally, with its props contract unchanged.
+  - [ ] The note is spot-checked against `SliderLinear.tsx`'s actual shipped code (Task 6), not the spec's draft.
+  - [ ] Includes an explicit pointer for 11.1.4/11.1.5 to the shared mechanism, so neither restates the voxel-track rules independently.
 
   **Verification:**
-  - [x] Manual review — spot-checked directly against the shipped `SliderLinear.tsx`.
-  - [x] `npm run build:types`, `npm run lint` clean (docs-only change).
+  - [ ] Manual review — spot-checked directly against the shipped `SliderLinear.tsx`.
+  - [ ] `npm run build:types`, `npm run lint` clean (docs-only change).
 
   **Dependencies:** Task 6.
 
@@ -255,9 +255,9 @@ Task 1 (cabinetBreakpoints.ts +      Task 2 (voxelTrackMath.ts)      Task 3 (Cab
   **Estimated scope:** XS (docs only)
 
 ### Checkpoint: Complete
-- [x] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes.
-- [x] All acceptance criteria across all 8 tasks are met.
-- [x] `docs/CONSOLE_THEMING.md` and `docs/COMPONENT_LIBRARY.md` both reflect the shipped feature.
+- [ ] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes.
+- [ ] All acceptance criteria across all 8 tasks are met.
+- [ ] `docs/CONSOLE_THEMING.md` and `docs/COMPONENT_LIBRARY.md` both reflect the shipped feature.
 - [ ] Manual check (Task 6) completed against the real running app.
 - [ ] Ready for PR.
 
