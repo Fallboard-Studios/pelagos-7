@@ -45,14 +45,20 @@
   height: 20px;
   touch-action: none;
   user-select: none;
-  /* Centers the fitted (and therefore usually shorter-than-available) box
-     row within whatever width .sc-slider-linear itself spans — harmless/
-     redundant for vertical (its own align-items: center below already
-     centers everything the same way), the only real effect for
-     horizontal, which had no centering at all before. Falls back to
-     flush-start automatically if the row is at the 3-box overflow floor
-     (auto margins compute to 0 once content overflows its container). */
-  margin: 0 auto;
+  /* NOT margin: 0 auto here (removed) — auto margins on a flex item inside
+     an overflow-x/y: auto ancestor are a known-flaky browser combination:
+     the browser's scrollable-overflow-region calculation can count the
+     auto-margin's "centering space" as real overflow even when the
+     centered content (Slider.Root) genuinely fits inside .sc-slider-linear
+     with room to spare — producing a scrollbar whose thumb visibly moves
+     but scrolls nothing meaningful, alongside a real, reproducible dead-
+     space gap. Found live in the running app (a fitted box row, correctly
+     inside its own container per computed widths, still showing a working
+     scrollbar and ~100px of unexplained trailing space) — not something a
+     unit test would have caught, since jsdom applies no real layout.
+     Flush-start (this rule's own plain block/flex-item default position,
+     no override) until a centering technique that doesn't trigger this is
+     found and verified against a real browser. */
 }
 
 .sc-slider-linear__track {
