@@ -7,6 +7,21 @@ vi.mock('@/utils/cabinetGeometry', async (importOriginal) => {
   return { ...actual, computeCabinetGeometry: vi.fn(actual.computeCabinetGeometry) };
 });
 
+// Local gsap mock (overriding vitest.setup.ts's global noop for this file
+// only), capturing every .fromTo() call so the --cabinet-glow tween can be
+// asserted on directly — the global mock doesn't expose call args. Mirrors
+// useLfoTargetGroup.test.ts's own local-gsap-mock precedent.
+const { fromToMock } = vi.hoisted(() => ({ fromToMock: vi.fn() }));
+vi.mock('gsap', () => {
+  const chainable = {
+    fromTo: (...args: unknown[]) => {
+      fromToMock(...args);
+      return chainable;
+    },
+  };
+  return { default: { timeline: vi.fn(() => chainable) } };
+});
+
 import { CabinetBox } from './CabinetBox';
 import { setTimeline, killTimeline } from '@/animation/timelineMap';
 import { computeCabinetGeometry } from '@/utils/cabinetGeometry';
@@ -149,5 +164,38 @@ describe('CabinetBox', () => {
 
     const widthsUsed = (computeCabinetGeometry as ReturnType<typeof vi.fn>).mock.calls.map((args) => args[0]);
     expect(widthsUsed).toContain(100);
+  });
+
+  it('tweens --cabinet-glow from 0 to 1 on the wrapper element (not the front face) when popping in', () => {
+    const { container } = render(<CabinetBox popped={true} timelineKey="test-box">x</CabinetBox>);
+    const observer = MockResizeObserver.instances[0];
+    act(() => observer.fire(100, 48));
+
+    const wrapper = container.querySelector('.sc-cabinet-box');
+    const front = container.querySelector('.sc-cabinet-box__front');
+    const glowCalls = fromToMock.mock.calls.filter(([target]) => target === wrapper);
+    expect(glowCalls).toHaveLength(1);
+    const [, fromVars, toVars] = glowCalls[0] as [unknown, Record<string, unknown>, Record<string, unknown>];
+    expect(fromVars['--cabinet-glow']).toBe(0);
+    expect(toVars['--cabinet-glow']).toBe(1);
+
+    // Never on the front face itself — the glow belongs to the "back".
+    const frontCalls = fromToMock.mock.calls.filter(([target]) => target === front);
+    expect(frontCalls.every(([, vars]) => !('--cabinet-glow' in (vars as object)))).toBe(true);
+  });
+
+  it('tweens --cabinet-glow from 1 to 0 when popping back out', () => {
+    const { container, rerender } = render(<CabinetBox popped={true} timelineKey="test-box">x</CabinetBox>);
+    const observer = MockResizeObserver.instances[0];
+    act(() => observer.fire(100, 48));
+    fromToMock.mockClear();
+
+    rerender(<CabinetBox popped={false} timelineKey="test-box">x</CabinetBox>);
+    const wrapper = container.querySelector('.sc-cabinet-box');
+    const glowCalls = fromToMock.mock.calls.filter(([target]) => target === wrapper);
+    expect(glowCalls).toHaveLength(1);
+    const [, fromVars, toVars] = glowCalls[0] as [unknown, Record<string, unknown>, Record<string, unknown>];
+    expect(fromVars['--cabinet-glow']).toBe(1);
+    expect(toVars['--cabinet-glow']).toBe(0);
   });
 });

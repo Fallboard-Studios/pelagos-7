@@ -44,6 +44,15 @@
   inset: 0;
   overflow: visible;
   pointer-events: none;
+  /* Glows more, the further the box has popped — --cabinet-glow is tweened
+     0→1 on the shared wrapper by the same GSAP timeline that drives the pop
+     offset (CabinetBox.tsx), so the glow grows in lockstep with the actual
+     protrusion, not on its own separately-eased transition. drop-shadow,
+     not box-shadow, since this glow follows the actual wall polygon
+     silhouette — the "back" of the box, not the moving front — rather than
+     a rectangular bounding box. Confirmed against the real running app,
+     2026-09-07 — this is the shipped design, not a draft. */
+  filter: drop-shadow(0 0 calc(var(--cabinet-glow, 0) * 20px) var(--color-accent));
 }
 
 .sc-cabinet-box__top-face {
@@ -60,7 +69,10 @@
   justify-content: center;
   height: var(--cabinet-box-height);
   padding: 0 14px;
-  border-radius: 4px;
+  /* No border-radius, deliberately — sharp corners read as a cleaner match
+     for the walls' own straight-edged parallelogram geometry than the
+     original 4px radius did; confirmed against the real running app,
+     2026-09-07. */
   background-color: var(--color-surface);
   color: var(--color-text-primary);
 }

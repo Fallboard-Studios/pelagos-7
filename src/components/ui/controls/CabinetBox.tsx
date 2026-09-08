@@ -23,10 +23,13 @@ interface CabinetBoxProps {
  * `children`, sliding along the fixed 2:1 oblique projection vector as
  * `popped` flips. The front face stays in normal document flow (its GSAP
  * x/y transform never affects layout); the wrapper reserves the popped
- * footprint via CSS padding. See docs/specs/OBLIQUE_CABINETRY_FOUNDATION.md
- * §1 for the full derivation.
+ * footprint via CSS padding, and carries the --cabinet-glow custom property
+ * the walls' drop-shadow reads (CabinetBox.css) — the box glows more, the
+ * further it's popped. See docs/specs/OBLIQUE_CABINETRY_FOUNDATION.md §1
+ * for the full derivation.
  */
 export function CabinetBox({ popped, timelineKey, children }: CabinetBoxProps) {
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const frontRef = useRef<HTMLDivElement>(null);
   const topFaceRef = useRef<SVGPolygonElement>(null);
   const leftFaceRef = useRef<SVGPolygonElement>(null);
@@ -78,12 +81,22 @@ export function CabinetBox({ popped, timelineKey, children }: CabinetBoxProps) {
         { attr: { points: to.leftFacePoints }, duration, ease: 'power2.out' }, 0)
       .fromTo(frontRef.current,
         { x: from.frontFaceOffsetX, y: from.frontFaceOffsetY },
-        { x: to.frontFaceOffsetX, y: to.frontFaceOffsetY, duration, ease: 'power2.out' }, 0);
+        { x: to.frontFaceOffsetX, y: to.frontFaceOffsetY, duration, ease: 'power2.out' }, 0)
+      // --cabinet-glow tweens 0→1 alongside the offset, set on the shared
+      // wrapper (not the front face) so the walls — a sibling of the front
+      // face, not its descendant — can also inherit it via CSS custom
+      // property inheritance. Drives CabinetBox.css's drop-shadow on the
+      // walls (the "back" of the box, not the moving front), tracking the
+      // exact same t as the pop distance rather than a separately-eased
+      // transition.
+      .fromTo(wrapperRef.current,
+        { '--cabinet-glow': popped ? 0 : 1 },
+        { '--cabinet-glow': popped ? 1 : 0, duration, ease: 'power2.out' }, 0);
     setTimeline(timelineKey, tl);
   }, [popped, width, boxHeight, timelineKey]);
 
   return (
-    <div className="sc-cabinet-box">
+    <div ref={wrapperRef} className="sc-cabinet-box">
       <svg className="sc-cabinet-box__walls" aria-hidden="true" focusable="false">
         <polygon ref={topFaceRef} className="sc-cabinet-box__top-face" />
         <polygon ref={leftFaceRef} className="sc-cabinet-box__left-face" />
