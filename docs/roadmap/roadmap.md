@@ -565,13 +565,100 @@ The last of the 3 sliders and the one genuine adaptation of 11.1.3's mechanism, 
 - `docs/COMPONENT_LIBRARY.md` gains the "internal rendering changed, contract didn't" note for `SliderCenteredZero`.
 - `docs/CONSOLE_THEMING.md`'s voxel-track section (added by 11.1.3) gains the zero-anchored adaptation once this item resolves it.
 
-## 11.2 Cabinetry Verification: Accessibility & Performance
+## 11.1.6 Oblique Cabinetry: RadioButton
 
-Follow-up to the 11.1.1–11.1.5 series, inserted the same way (out of sequence, not renumbering later phases), same as 10.1–10.4. Not a new feature — a dedicated verification pass once every Cabinetry item has actually shipped, before treating it as launch-ready.
+Wires `RadioButton` into the cabinet-box mechanism. Radix's `ToggleGroup` renders one segment per `schema.options` entry, which puts this item closer in shape to `Toggle` (11.1.2) than to `Button`'s single momentary box or the sliders' continuous voxel-track — each segment is itself a discrete on/off state (selected vs. not), just N of them instead of one. Depends on 11.1.1 having shipped (reuses its cabinet-box primitive and face-shading) and reuses 11.1.2's state-keyed (not click-keyed) pop precedent; not yet interviewed/specced.
+
+### Create
+
+- **`RadioButton` cabinet behavior**: one `CabinetBox` per `ToggleGroup.Item` (one per `schema.options` entry), each keyed off whether it is the currently-selected value — popped for the selected option, flat for every other, generalizing 11.1.2's value-keyed (not momentary) pop from one box to N. Same fixed 2:1 vector, pop-proportional glow, and sharp front-face corners as every prior item, inherited from `CabinetBox` for free.
+- **Row layout**: options render as a horizontal row of boxes, mirroring today's flat `ToggleGroup` row. Exact box sizing/spacing against option label content is left open here — `RadioButton` has no fixed box-count precedent the way the sliders' breakpoint-driven footprints do (`docs/reference/ROBOT_DATA_GRID.md`'s Audio Setting has 4 options, Layer Type and LFO Shape have their own counts) — to be settled during this item's own spec-driven-development pass.
+
+### Restructure
+
+- `RadioButton` (`src/components/ui/controls/`) re-renders internally through the cabinetry system — same `schema`/`value`/`onChange`/`disabled` contract as today. `disabled` continues to disable the whole `ToggleGroup.Root` at once (no per-item disabled), matching every other primitive's single `disabled` flag.
+- Same `timelineMap` registration and Strict Separation constraint as every prior item — `onChange` still fires straight from Radix's `ToggleGroup.Root`, never the cabinet timeline. The existing deselect-to-empty guard (Radix's single-mode `ToggleGroup` emitting `''` when the active item is clicked again) is preserved unchanged.
 
 ### About
 
-Cabinetry's design (each 11.1.x item's own Restructure section) keeps each primitive's real Radix element in charge of all interaction and hands accessibility semantics off to Radix "for free," rather than rebuilding hit-testing/focus/ARIA from scratch — but that's an architectural intent, not a verified outcome, and this is a change touching every interactive primitive in the app at once. This phase is the check: a real keyboard-only walkthrough of every drawer (Robot Options, Audio Rig, Sector Settings, Company Manager), confirming the focus ring stays visible against a fully popped-out cabinet box (not obscured by the front face's z-index), confirming tab order wasn't disturbed by the SVG overlay's own DOM position, confirming `prefers-reduced-motion` actually cancels every cabinet timeline (pop, wall-polygon morph, and the voxel dual-fill transition alike) rather than just the ones the primitive spec called out first-hand, and a screen-reader pass over the slider voxel tracks specifically (the visual dual-fill/extrusion state carries real information — current value, how close to min/max — that must still be available to `aria-valuenow`/`aria-valuetext` via the underlying Radix `Slider`, not just implied visually).
+`RadioButton` is the fourth consumer of 11.1.1's foundation and the first with more than one box per control — closer in that respect to the voxel-track sliders (11.1.3) than to `Button`/`Toggle`, but discrete-option-keyed rather than continuous-value-keyed, so it reuses 11.1.2's "state, not click" pop rule per-box rather than 11.1.3's dual-fill/extrusion-falloff math — there's no "between two options" state to render, only "selected" or not. How a longer option set fits its row is deferred the same way the sliders' own per-row box-count/layout question already is (not yet numbered). Same layout/WorldView/robot-visual/Sleeve exclusions as every prior item.
+
+### Docs
+
+- `docs/COMPONENT_LIBRARY.md` gains the "internal rendering changed, contract didn't" note for `RadioButton` once this item ships.
+
+## 11.1.7 Oblique Cabinetry: AccordionContainer
+
+Wires `AccordionContainer`'s trigger row into the cabinet-box mechanism — a single box wrapping the trigger's existing `+`/`−` indicator plus `DualLabel` content, popped when open and flat when closed, reusing 11.1.2's state-keyed pop rule (open/closed is exactly that shape: a persistent boolean, not a momentary click). The content panel's own existing GSAP height-tween expand/collapse is unchanged and out of scope — this item touches the trigger only. Depends on 11.1.1 having shipped; not yet interviewed/specced.
+
+### Create
+
+- **`AccordionContainer` trigger cabinet behavior**: the trigger's existing `+`/`−` indicator and `DualLabel` content move inside a single `CabinetBox`, keyed off the same local `open` state `AccordionContainer` already tracks — **not** `contentActive`, the status-light concept already removed entirely from this component (`docs/COMPONENT_LIBRARY.md`'s `AccordionContainer` section). Popped is open, flat is closed. Same fixed 2:1 vector, glow, and sharp corners as every prior item.
+- The box's width spans the full trigger row — content-sized like `Button`'s variable width (11.1.1), not a fixed square like `Toggle`'s (11.1.2) — so the indicator+label content still reads as one clickable row rather than shrinking to a small square.
+
+### Restructure
+
+- `AccordionContainer` (`src/components/ui/controls/`) re-renders its trigger internally through the cabinetry system — same `schema`/`children`/`defaultOpen` contract as today. `handleValueChange`/`animateTo` (the existing content-height GSAP timeline) are unchanged; the trigger's own pop is a second, independent `timelineMap` entry, not a replacement for the content-height one.
+- Per CLAUDE.md's Strict Separation guardrail, the trigger's cabinet timeline only drives its own pop/glow — `Accordion.Root`'s `onValueChange` still fires the open-state change directly, same as today.
+
+### About
+
+The first item to attach cabinetry to a control that already carries its own independent GSAP timeline (content expand/collapse) — proves the two timelines can coexist in `timelineMap` under distinct keys without either fighting the other, a pattern later items may need again if any future control wants both a pop animation and its own separate content animation. Same layout/WorldView/robot-visual/Sleeve exclusions as every prior item; the content panel and its inner children are explicitly untouched.
+
+### Docs
+
+- `docs/COMPONENT_LIBRARY.md`'s `AccordionContainer` section gains the same "internal rendering changed, contract didn't" note, scoped explicitly to the trigger.
+
+## 11.1.8 Oblique Cabinetry: Select
+
+Wires `Select`'s trigger into the cabinet-box mechanism — a single box wrapping the existing `RadixSelect.Trigger` content (`RadixSelect.Value` plus the `▾` icon), popped while open and flat when closed. The open floating options panel (`RadixSelect.Content`, rendered through a `Portal`) is unchanged and out of scope, the same way `AccordionContainer`'s content panel stayed out of scope in 11.1.7. Depends on 11.1.1 having shipped; not yet interviewed/specced.
+
+### Create
+
+- **`Select` trigger cabinet behavior**: `RadixSelect.Trigger`'s content renders inside a single `CabinetBox`, content-sized like `Button`'s variable-width box (not a fixed square), popped while open — reusing the state-keyed precedent 11.1.2/11.1.7 established, since `Select`'s open state is exactly as persistent as `Accordion`'s — and flat when closed. Same fixed 2:1 vector, glow, and sharp corners as every prior item.
+
+### Restructure
+
+- `Select` (`src/components/ui/controls/`) re-renders its trigger internally through the cabinetry system — same `schema`/`value`/`onChange`/`disabled` contract as today. `RadixSelect.Portal`/`Content`/`Viewport`/`Item` markup for the open options panel is untouched.
+- Same `timelineMap` registration and Strict Separation constraint as every prior item — `onValueChange` still fires straight from `RadixSelect.Root`.
+
+### About
+
+The third state-keyed (not momentary-click-keyed) consumer, after `Toggle` (11.1.2) and `AccordionContainer`'s trigger (11.1.7), and the first whose popped state is driven by Radix's own internal open/closed rather than a value this app's own state holds — confirms the mechanism doesn't care which side owns the boolean it reads. The options panel itself stays flat, unstyled markup, matching how `AccordionContainer`'s content panel stayed out of scope in 11.1.7 — Cabinetry styles triggers/controls, not floating or expanding content areas, a rule this item makes explicit for the first time rather than a new one. Same layout/WorldView/robot-visual/Sleeve exclusions as every prior item.
+
+### Docs
+
+- `docs/COMPONENT_LIBRARY.md` gains the "internal rendering changed, contract didn't" note for `Select`, plus the "Cabinetry styles triggers, not floating content" rule for future items to reference rather than restate.
+
+## 11.1.9 Oblique Cabinetry: TextInput / CoordsInput
+
+Wires `TextInput` — and, since it composes two `TextInput`s unchanged, `CoordsInput` for free — into the cabinet-box mechanism. Unlike every prior consumer, a text field has no discrete on/off or value-position state to key a pop off of; it's continuous free text, not a selection or a fill percentage. Flagged the same way 11.1.5 flagged `SliderCenteredZero`: the actual pop-trigger mechanism is left open here, to be worked out during this item's own spec-driven-development pass, not settled at roadmap level. Depends on 11.1.1 having shipped; not yet interviewed/specced.
+
+### Create
+
+- **`TextInput` cabinet behavior**: exact pop trigger left open for this item's spec pass. Candidates worth evaluating: focus-keyed (popped while the field is focused, flat otherwise — closest to `Button`'s momentary-interaction precedent, 11.1.1) or content-keyed (popped whenever the field holds a non-empty value — closer to `Toggle`'s persistent-state precedent, 11.1.2). Whichever is chosen, the box must not obscure the native `<input>`'s own text/caret — `CabinetBox`'s existing `pointer-events: none` overlay convention (11.1.1) already guarantees this structurally, but this item's spec pass should confirm it explicitly for a text-entry element specifically, given the caret-cursor bug already found and fixed once for `Toggle`'s own empty box (`docs/specs/OBLIQUE_CABINETRY_TOGGLE.md`).
+- **`CoordsInput` inherits whatever `TextInput` ships, unchanged** — it composes two `TextInput` instances with no rendering of its own beyond the wrapping `DualLabel` and field row, so no separate Create item exists for it.
+
+### Restructure
+
+- `TextInput` (`src/components/ui/controls/`) re-renders internally through the cabinetry system — same `schema`/`value`/`onChange`/`numeric`/`disabled` contract as today. `CoordsInput`'s own X/Y `TextInputSchema` construction and rounding/blank-guard logic are unchanged.
+- Same `timelineMap` registration and Strict Separation constraint as every prior item.
+
+### About
+
+The last of the 15 primitives to receive Cabinetry — `Stepper`/`StepperWithToggle` were already dropped (see 11.1.1), and `DualLabel`/`DirectionalPanel` are pure layout/display with no interactive hit box of their own and were never in scope. Flagged explicitly, like 11.1.5 was, as the item most likely to surface a genuine design gap rather than a straightforward wiring pass — free text is the one control shape in the entire inventory with no natural "popped" state precedent among 11.1.1–11.1.8's click/value/open-keyed options. Same layout/WorldView/robot-visual/Sleeve exclusions as every prior item.
+
+### Docs
+
+- `docs/COMPONENT_LIBRARY.md` gains the "internal rendering changed, contract didn't" note for `TextInput` and `CoordsInput` once this item ships, plus whichever pop-trigger rule this item's spec pass settles on.
+
+## 11.2 Cabinetry Verification: Accessibility & Performance
+
+Follow-up to the 11.1.1–11.1.9 series, inserted the same way (out of sequence, not renumbering later phases), same as 10.1–10.4. Not a new feature — a dedicated verification pass once every Cabinetry item has actually shipped, before treating it as launch-ready.
+
+### About
+
+Cabinetry's design (each 11.1.x item's own Restructure section) keeps each primitive's real Radix element in charge of all interaction and hands accessibility semantics off to Radix "for free," rather than rebuilding hit-testing/focus/ARIA from scratch — but that's an architectural intent, not a verified outcome, and this is a change touching every interactive primitive in the app at once. This phase is the check: a real keyboard-only walkthrough of every drawer (Robot Options, Audio Rig, Sector Settings, Company Manager), confirming the focus ring stays visible against a fully popped-out cabinet box (not obscured by the front face's z-index), confirming tab order wasn't disturbed by the SVG overlay's own DOM position, confirming `prefers-reduced-motion` actually cancels every cabinet timeline (pop, wall-polygon morph, and the voxel dual-fill transition alike) rather than just the ones the primitive spec called out first-hand, and a screen-reader pass over the slider voxel tracks specifically (the visual dual-fill/extrusion state carries real information — current value, how close to min/max — that must still be available to `aria-valuenow`/`aria-valuetext` via the underlying Radix `Slider`, not just implied visually). Extended by 11.1.6–11.1.9's own additions to the same check: `RadioButton`'s multi-box row (focus/selection state legible across every segment, not just the first), `AccordionContainer`/`Select`'s trigger-only boxes (confirming the trigger's own focus ring and the coexisting content-height/open-panel timeline both still behave correctly alongside the new pop timeline), and whatever pop-trigger `TextInput`/`CoordsInput` lands on (confirming it doesn't fight native text selection or caret visibility, the same class of bug already found once for `Toggle`, `docs/specs/OBLIQUE_CABINETRY_TOGGLE.md`).
 
 Bundled with the same pass rather than split into a separate item: a performance check across the primitive-heaviest screens (Audio Rig's seven effect blocks plus the Drift accordion, Robot Options' Signature Array with its per-layer LFO groups) now that every rendered slider/button/toggle carries its own GSAP timeline on top of whatever LFO-target-group/AccordionContainer timelines already existed — confirming that stacking hasn't reintroduced the kind of load 10.2's own spec flagged as a real constraint at "70-100+ primaries in a typical session," now compounded by a visual layer on every one of them.
 
