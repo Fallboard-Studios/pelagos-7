@@ -1,10 +1,81 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, act } from '@testing-library/react';
+
+vi.mock('./VoxelTrack', () => ({
+  VoxelTrack: ({
+    states,
+    boxSize,
+    gap,
+    axis,
+    timelineKeyPrefix,
+  }: {
+    states: unknown[];
+    boxSize: number;
+    gap: number;
+    axis: string;
+    timelineKeyPrefix: string;
+  }) => (
+    <div
+      data-testid="voxel-track"
+      data-states={JSON.stringify(states)}
+      data-box-size={boxSize}
+      data-gap={gap}
+      data-axis={axis}
+      data-timeline-key-prefix={timelineKeyPrefix}
+    />
+  ),
+}));
 
 import { SliderLinear } from './SliderLinear';
+import { computeFittedBoxCount, computeVoxelTrackLength, computeVoxelBoxStates } from '@/utils/voxelTrackMath';
 import type { SliderLinearSchema } from '@/types/controls';
 
 const schema: SliderLinearSchema = { id: 'lfoRate', type: 'sliderLinear', min: 0.1, max: 10, humanLabel: 'Oscillation Rate', unit: 'Hz', orientation: 'horizontal' };
+
+// Desktop-tier box geometry (no window.matchMedia in this jsdom environment
+// -> useCabinetBoxHeight()/useVoxelTrackGap() both fall back to 'desktop',
+// same assumption CabinetBox.test.tsx's own stubMatchMedia(false) makes).
+const BOX_SIZE = 48;
+const GAP = 12;
+
+/**
+ * Controllable ResizeObserver mock, mirroring useAutoSliderOrientation.test.ts/
+ * useVoxelTrackBoxCount.test.ts's own convention — captures the callback so a
+ * test can fire it manually with a fake contentRect, and records how many
+ * observers got constructed.
+ */
+class MockResizeObserver {
+  static instances: MockResizeObserver[] = [];
+  callback: ResizeObserverCallback;
+
+  constructor(callback: ResizeObserverCallback) {
+    this.callback = callback;
+    MockResizeObserver.instances.push(this);
+  }
+
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+
+  fire(width: number, height: number) {
+    this.callback(
+      [{ contentRect: { width, height } } as ResizeObserverEntry],
+      this as unknown as ResizeObserver,
+    );
+  }
+}
+
+let originalResizeObserver: typeof ResizeObserver;
+
+beforeEach(() => {
+  MockResizeObserver.instances = [];
+  originalResizeObserver = globalThis.ResizeObserver;
+  (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = MockResizeObserver;
+});
+
+afterEach(() => {
+  (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = originalResizeObserver;
+});
 
 describe('SliderLinear', () => {
   it('renders a slider reflecting min/max/value from schema', () => {
@@ -66,6 +137,25 @@ describe('SliderLinear', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it("resolves to exactly one role='slider' element — the voxel boxes introduce no accessibility-tree ambiguity", () => {
+    render(<SliderLinear schema={schema} value={2} onChange={() => {}} />);
+    expect(screen.getAllByRole('slider')).toHaveLength(1);
+  });
+
+  it('renders VoxelTrack with states matching computeVoxelBoxStates for the currently-fitted box count', () => {
+    const valueSchema: SliderLinearSchema = { ...schema, min: 0, max: 100 };
+    render(<SliderLinear schema={valueSchema} value={37} onChange={() => {}} />);
+    const observer = MockResizeObserver.instances[0];
+    act(() => observer.fire(240, 0));
+
+    const voxelTrack = screen.getByTestId('voxel-track');
+    const boxCount = computeFittedBoxCount(240, BOX_SIZE, GAP);
+    const expectedStates = computeVoxelBoxStates(37, 0, 100, boxCount);
+    expect(JSON.parse(voxelTrack.getAttribute('data-states')!)).toEqual(expectedStates);
+    expect(voxelTrack.getAttribute('data-box-size')).toBe(String(BOX_SIZE));
+    expect(voxelTrack.getAttribute('data-gap')).toBe(String(GAP));
+  });
+
   describe('orientation', () => {
     const verticalSchema: SliderLinearSchema = { ...schema, orientation: 'vertical' };
     const autoSchema: SliderLinearSchema = { ...schema, orientation: 'auto' };
@@ -108,26 +198,41 @@ describe('SliderLinear', () => {
       expect(rootIndex).toBeLessThan(valueIndex);
     });
 
-    it("'vertical': does not set an inline height when verticalHeight is omitted — the default comes from the --slider-vertical-height CSS custom property", () => {
+    it("'vertical': always sets an inline height computed from the live-fitted box count, even when verticalHeight is omitted — no longer the old --slider-vertical-height CSS default", () => {
       const { container } = render(<SliderLinear schema={verticalSchema} value={2} onChange={() => {}} />);
+      const observer = MockResizeObserver.instances[0];
+      act(() => observer.fire(0, 300));
+
       const root = container.querySelector<HTMLElement>('.sc-slider-linear__root');
-      expect(root?.style.height).toBe('');
+      const boxCount = computeFittedBoxCount(300, BOX_SIZE, GAP);
+      const expectedLength = computeVoxelTrackLength(boxCount, BOX_SIZE, GAP);
+      expect(root?.style.height).toBe(`${expectedLength}px`);
     });
 
-    it("'vertical': sets an inline height from the verticalHeight prop when provided, overriding the CSS default", () => {
+    it("'vertical': verticalHeight is a fitting BUDGET, not a literal applied value — the rendered height is the box-quantized length, even for a verticalHeight that isn't an exact multiple of (boxSize + gap)", () => {
+      // 310 is deliberately not a multiple of (48 + 12) = 60.
       const { container } = render(
-        <SliderLinear schema={verticalSchema} value={2} onChange={() => {}} verticalHeight={300} />,
+        <SliderLinear schema={verticalSchema} value={2} onChange={() => {}} verticalHeight={310} />,
       );
       const root = container.querySelector<HTMLElement>('.sc-slider-linear__root');
-      expect(root?.style.height).toBe('300px');
+      const boxCount = computeFittedBoxCount(310, BOX_SIZE, GAP);
+      const expectedLength = computeVoxelTrackLength(boxCount, BOX_SIZE, GAP);
+      expect(root?.style.height).toBe(`${expectedLength}px`);
+      expect(root?.style.height).not.toBe('310px');
     });
 
-    it("'horizontal': ignores a verticalHeight prop entirely (no inline height set)", () => {
+    it("'horizontal': ignores a verticalHeight prop entirely (still no inline height) but now sets an inline width from the fitted box count", () => {
       const { container } = render(
         <SliderLinear schema={schema} value={2} onChange={() => {}} verticalHeight={300} />,
       );
+      const observer = MockResizeObserver.instances[0];
+      act(() => observer.fire(500, 0));
+
       const root = container.querySelector<HTMLElement>('.sc-slider-linear__root');
       expect(root?.style.height).toBe('');
+      const boxCount = computeFittedBoxCount(500, BOX_SIZE, GAP);
+      const expectedLength = computeVoxelTrackLength(boxCount, BOX_SIZE, GAP);
+      expect(root?.style.width).toBe(`${expectedLength}px`);
     });
 
     it("'auto': renders without throwing, resolving to horizontal-looking output before any ResizeObserver measurement fires", () => {

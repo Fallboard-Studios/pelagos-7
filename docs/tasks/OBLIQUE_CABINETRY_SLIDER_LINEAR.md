@@ -181,24 +181,24 @@ Task 1 (cabinetBreakpoints.ts +      Task 2 (voxelTrackMath.ts)      Task 3 (Cab
 
 ### Phase 4: The first real consumer
 
-- [ ] **Task 6: `SliderLinear` — wired through `VoxelTrack`**
+- [x] **Task 6: `SliderLinear` — wired through `VoxelTrack`**
 
   **Description:** Replace `src/components/ui/controls/SliderLinear.tsx` per spec §4's full replacement: resolve `boxSize`/`gap` via `useCabinetBoxHeight()`/`useVoxelTrackGap()` (Task 1); resolve `boxCount` via `useVoxelTrackBoxCount(wrapperRef, orientation, boxSize, gap, isVertical ? verticalHeight : undefined)` (Task 4); compute `trackLength`/`states` via `voxelTrackMath.ts` (Task 2); set `Slider.Root`'s inline `width`/`height` to `trackLength`; render `<VoxelTrack>` (Task 5) as an absolutely-positioned sibling of `Slider.Range` inside `Slider.Track`. Replace `SliderLinear.css` per spec §1.10/§1.11/§4: `Slider.Range` stays `visibility: hidden` (mirrors `SliderCenteredZero.css`'s exact precedent); `Slider.Thumb`'s fill goes `background-color: transparent` while its `:focus-visible` outline stays untouched (never `visibility: hidden`/`opacity: 0` — both would also hide the focus ring); `overflow-x`/`overflow-y: auto` added directly to `.sc-slider-linear`'s existing `data-orientation` selectors (no new wrapper element — spec §1.11 explicitly rejected one to avoid breaking 2 existing DOM-order tests). Update `SliderLinear.test.tsx` per spec §5: 3 of the 17 existing cases must be rewritten (the `verticalHeight`-omitted/-provided/horizontal-ignores trio, since `verticalHeight` is now a fitting budget, not a literal value); the other 14 stay unchanged; 3 new cases added (renders `VoxelTrack` with the expected `states`, thumb fill is transparent, exactly one `role="slider"` element).
 
   **Acceptance criteria:**
-  - [ ] The 14 unaffected existing `SliderLinear.test.tsx` cases (ARIA min/max/now, unit/no-unit value rendering, the 3-decimal display cap vs. full-precision `aria-valuenow`, `DualLabel` rendering, accessible-name fallback, not-disabled-by-default, disabled attribute + tabindex removal, no `onChange` on a disabled keyboard step, both `data-orientation` cases, the 2 value-label DOM-order cases, the `'auto'`-defaults-to-horizontal case) pass **unmodified** — confirms §1.11's no-new-wrapper decision genuinely preserved DOM order.
-  - [ ] The 3 rewritten `verticalHeight` cases assert the new, correct behavior per spec §1.7/§5 exactly (an inline height is *always* set now; when `verticalHeight` is supplied, the rendered height is the box-quantized `computeVoxelTrackLength` output, not `verticalHeight` verbatim; horizontal sliders now also get an inline `width`).
-  - [ ] Renders a `VoxelTrack` (mocked) with `states` matching `computeVoxelBoxStates(value, schema.min, schema.max, boxCount)` for the currently-fitted `boxCount`.
-  - [ ] `Slider.Thumb`'s rendered `background-color` is `transparent`.
-  - [ ] `screen.getByRole('slider')` still resolves to exactly one element (the voxel boxes introduce no ARIA-role ambiguity).
-  - [ ] `SliderLinearSchema`/`ControlSchema` are untouched — `git diff src/types/controls.ts` is empty for this task.
+  - [x] The 14 unaffected existing `SliderLinear.test.tsx` cases (ARIA min/max/now, unit/no-unit value rendering, the 3-decimal display cap vs. full-precision `aria-valuenow`, `DualLabel` rendering, accessible-name fallback, not-disabled-by-default, disabled attribute + tabindex removal, no `onChange` on a disabled keyboard step, both `data-orientation` cases, the 2 value-label DOM-order cases, the `'auto'`-defaults-to-horizontal case) pass **unmodified** — confirms §1.11's no-new-wrapper decision genuinely preserved DOM order. (The actual pre-existing file had **15** such cases, not 14 — the spec's own count was off by one; all 15 kept byte-for-byte unmodified.)
+  - [x] The 3 rewritten `verticalHeight` cases assert the new, correct behavior per spec §1.7/§5 exactly (an inline height is *always* set now; when `verticalHeight` is supplied, the rendered height is the box-quantized `computeVoxelTrackLength` output, not `verticalHeight` verbatim; horizontal sliders now also get an inline `width`).
+  - [x] Renders a `VoxelTrack` (mocked) with `states` matching `computeVoxelBoxStates(value, schema.min, schema.max, boxCount)` for the currently-fitted `boxCount`.
+  - [x] `Slider.Thumb`'s rendered `background-color` is `transparent`. **Not asserted via a unit test** — empirically confirmed (a throwaway probe test) that this jsdom/vitest setup injects no `<style>` tags at all, so `getComputedStyle` always returns the browser default regardless of the CSS file's content; a test on it would pass identically whether the CSS said `transparent` or the old `var(--color-text-primary)`, proving nothing. Confirmed instead by reading the shipped `SliderLinear.css` directly — same "don't unit-test CSS-only rules" precedent already used for `VoxelTrack`'s front-face override (Task 5).
+  - [x] `screen.getByRole('slider')` still resolves to exactly one element (the voxel boxes introduce no ARIA-role ambiguity).
+  - [x] `SliderLinearSchema`/`ControlSchema` are untouched — `git diff src/types/controls.ts` is empty for this task.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/ui/controls/SliderLinear.test.tsx` passes (17 cases: 14 unmodified + 3 rewritten, plus 3 new = 20 total).
-  - [ ] `npm run build:types`, `npm run lint` clean.
-  - [ ] `npm run build` clean.
-  - [ ] Full suite (`npm test`) re-confirmed clean — including every other real `SliderLinear` consumer's own test file (`AudioRigDrawer`, `PingControlsDrawer`, and any other drawer wiring a `SliderLinear`), unmocked against the real component.
-  - [ ] **Manual check (perform once implemented — no browser automation tool is configured in this environment per prior Cabinetry items' own experience; confirm via `ToolSearch` again rather than assuming):** open a drawer with a real `SliderLinear` (e.g. Audio Rig's EQ3 Gain, or Robot Options' Ping Controls Density) at each of the 3 breakpoints. Confirm the track renders as a row of square boxes, not a thin line+dot; dragging/keyboard-stepping moves which box is straddling and updates the hard-split fill correctly; the straddling box pops fully while boxes below it (toward min) show a visibly graded partial pop and boxes above stay flat; the focus ring renders clearly on top of the box row; resizing the window/rotating a tablet emulation live-changes box count without a remount glitch; a narrow container clamps to 3 boxes and scrolls horizontally rather than shrinking; "reduce motion" makes pop/glow transitions snap instead of animate.
+  - [x] `npx vitest run src/components/ui/controls/SliderLinear.test.tsx` passes (15 unmodified + 3 rewritten + 2 new [VoxelTrack states, single-slider-role] = 20 total; the thumb-transparency criterion above is covered by reading CSS directly, not a 3rd new test).
+  - [x] `npm run build:types`, `npm run lint` clean.
+  - [x] `npm run build` clean.
+  - [x] Full suite (`npm test`) re-confirmed clean — including every other real `SliderLinear` consumer's own test file (`AudioRigDrawer` etc.), unmocked against the real component. (One pre-existing flaky test, `audioSwells.test.ts`'s "forces every member of a company-wide swell together" case — same one first seen at Task 5's checkpoint — failed once then passed on immediate re-run with zero code changes; unrelated to any file this task touches, not investigated further.)
+  - [x] **Manual check:** confirmed via `ToolSearch` that no browser-automation tool (e.g. chrome-devtools) is available in this environment — only `WebFetch` surfaced. **Outstanding — flagged for Crawford to perform in the running app**, same honest gap `OBLIQUE_CABINETRY_FOUNDATION.md`'s own Task 6 checkpoint recorded rather than skipping silently.
 
   **Dependencies:** Task 1, Task 4, Task 5.
 
@@ -207,10 +207,10 @@ Task 1 (cabinetBreakpoints.ts +      Task 2 (voxelTrackMath.ts)      Task 3 (Cab
   **Estimated scope:** M (3 files, but the highest-risk task in this plan — integrates 4 upstream modules for the first time *and* makes a real, user-visible `verticalHeight` behavior change requiring 3 existing tests to be rewritten, not just extended; see Architecture Decisions)
 
 ### Checkpoint: SliderLinear ships — first visible change
-- [ ] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes.
-- [ ] Every real `SliderLinear` call site in the app renders through `VoxelTrack` with no call-site changes required — confirmed by `npm run build:types` alone surfacing nothing, since the props contract didn't change.
+- [x] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes.
+- [x] Every real `SliderLinear` call site in the app renders through `VoxelTrack` with no call-site changes required — confirmed by `npm run build:types` alone surfacing nothing, since the props contract didn't change.
 - [ ] **The `verticalHeight`-as-budget behavior change (spec §1.7) is explicitly reviewed with Crawford before merge** — if the intended behavior was actually "force the exact pixel height regardless of box quantization," that's a materially different design not built here (flagged in the spec's own §7, restated here so it isn't missed at this checkpoint specifically).
-- [ ] Manual pass completed (see Task 6's own verification notes) — or explicitly flagged as outstanding if no browser automation is available in the implementing session, matching how `OBLIQUE_CABINETRY_FOUNDATION.md`'s own Task 6 checkpoint recorded the same gap honestly rather than skipping it silently.
+- [x] Manual pass — explicitly flagged as outstanding, no browser automation tool available in this environment (confirmed via `ToolSearch`), matching how `OBLIQUE_CABINETRY_FOUNDATION.md`'s own Task 6 checkpoint recorded the same gap honestly rather than skipping it silently.
 - [ ] Review with human before proceeding.
 
 ---
