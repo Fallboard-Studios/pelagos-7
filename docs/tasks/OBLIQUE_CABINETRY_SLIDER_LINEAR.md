@@ -217,17 +217,17 @@ Task 1 (cabinetBreakpoints.ts +      Task 2 (voxelTrackMath.ts)      Task 3 (Cab
 
 ### Phase 5: Docs (parallelizable once their own prerequisite lands)
 
-- [ ] **Task 7: `docs/CONSOLE_THEMING.md` — voxel-track dual-fill/extrusion-falloff notes**
+- [x] **Task 7: `docs/CONSOLE_THEMING.md` — voxel-track dual-fill/extrusion-falloff notes**
 
   **Description:** Add the voxel-track dual-fill/extrusion-falloff rules (spec §1.8) to `docs/CONSOLE_THEMING.md`, alongside 11.1.1's existing cabinet geometry/face-shading notes, per roadmap 11.1.3's own Docs bullet — spot-checked against `voxelTrackMath.ts`'s actual shipped shape (Task 2), not the spec's draft.
 
   **Acceptance criteria:**
-  - [ ] `docs/CONSOLE_THEMING.md` documents the box-indexing convention (0 = nearest min), the dual-fill hard-split rule, and the extrusion-falloff step-down formula, matching `computeVoxelBoxStates`'s actual shipped formula.
-  - [ ] No claim in the new section is contradicted by the actual shipped source (spot-checked line-by-line against `voxelTrackMath.ts`).
+  - [x] `docs/CONSOLE_THEMING.md` documents the box-indexing convention (0 = nearest min), the dual-fill hard-split rule, and the extrusion-falloff step-down formula, matching `computeVoxelBoxStates`'s actual shipped formula.
+  - [x] No claim in the new section is contradicted by the actual shipped source (spot-checked line-by-line against `voxelTrackMath.ts`).
 
   **Verification:**
-  - [ ] Manual review — every documented detail spot-checked directly against the shipped `voxelTrackMath.ts`.
-  - [ ] `npm run build:types`, `npm run lint` clean (docs-only change).
+  - [x] Manual review — every documented detail spot-checked directly against the shipped `voxelTrackMath.ts`.
+  - [x] `npm run build:types`, `npm run lint` clean (docs-only change).
 
   **Dependencies:** Task 5.
 
@@ -235,18 +235,18 @@ Task 1 (cabinetBreakpoints.ts +      Task 2 (voxelTrackMath.ts)      Task 3 (Cab
 
   **Estimated scope:** XS (docs only)
 
-- [ ] **Task 8: `docs/COMPONENT_LIBRARY.md` — SliderLinear's internal rendering note**
+- [x] **Task 8: `docs/COMPONENT_LIBRARY.md` — SliderLinear's internal rendering note**
 
   **Description:** Add the same "internal rendering changed, contract didn't" note `Button`/`Toggle`'s rows already carry, to `SliderLinear`'s row, plus a pointer to the shared `VoxelTrack`/`voxelTrackMath.ts` mechanism for 11.1.4/11.1.5 to reference rather than restate, per spec §6.
 
   **Acceptance criteria:**
-  - [ ] `docs/COMPONENT_LIBRARY.md` documents that `SliderLinear` now renders through `VoxelTrack` internally, with its props contract unchanged.
-  - [ ] The note is spot-checked against `SliderLinear.tsx`'s actual shipped code (Task 6), not the spec's draft.
-  - [ ] Includes an explicit pointer for 11.1.4/11.1.5 to the shared mechanism, so neither restates the voxel-track rules independently.
+  - [x] `docs/COMPONENT_LIBRARY.md` documents that `SliderLinear` now renders through `VoxelTrack` internally, with its props contract unchanged.
+  - [x] The note is spot-checked against `SliderLinear.tsx`'s actual shipped code (Task 6), not the spec's draft.
+  - [x] Includes an explicit pointer for 11.1.4/11.1.5 to the shared mechanism, so neither restates the voxel-track rules independently.
 
   **Verification:**
-  - [ ] Manual review — spot-checked directly against the shipped `SliderLinear.tsx`.
-  - [ ] `npm run build:types`, `npm run lint` clean (docs-only change).
+  - [x] Manual review — spot-checked directly against the shipped `SliderLinear.tsx`.
+  - [x] `npm run build:types`, `npm run lint` clean (docs-only change).
 
   **Dependencies:** Task 6.
 
@@ -255,9 +255,9 @@ Task 1 (cabinetBreakpoints.ts +      Task 2 (voxelTrackMath.ts)      Task 3 (Cab
   **Estimated scope:** XS (docs only)
 
 ### Checkpoint: Complete
-- [ ] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes.
-- [ ] All acceptance criteria across all 8 tasks are met.
-- [ ] `docs/CONSOLE_THEMING.md` and `docs/COMPONENT_LIBRARY.md` both reflect the shipped feature.
+- [x] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes.
+- [x] All acceptance criteria across all 8 tasks are met.
+- [x] `docs/CONSOLE_THEMING.md` and `docs/COMPONENT_LIBRARY.md` both reflect the shipped feature.
 - [ ] Manual check (Task 6) completed against the real running app.
 - [ ] Ready for PR.
 
