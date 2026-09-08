@@ -8,10 +8,11 @@ vi.mock('@/utils/cabinetGeometry', async (importOriginal) => {
 });
 
 // Local gsap mock (overriding vitest.setup.ts's global noop for this file
-// only), capturing every .fromTo() call so the --cabinet-glow tween can be
-// asserted on directly — the global mock doesn't expose call args. Mirrors
-// useLfoTargetGroup.test.ts's own local-gsap-mock precedent.
-const { fromToMock } = vi.hoisted(() => ({ fromToMock: vi.fn() }));
+// only), capturing every .fromTo() and .set() call so the --cabinet-glow
+// tween and the instant-reposition path can both be asserted on directly —
+// the global mock doesn't expose call args. Mirrors useLfoTargetGroup.test.ts's
+// own local-gsap-mock precedent.
+const { fromToMock, setMock } = vi.hoisted(() => ({ fromToMock: vi.fn(), setMock: vi.fn() }));
 vi.mock('gsap', () => {
   const chainable = {
     fromTo: (...args: unknown[]) => {
@@ -19,7 +20,7 @@ vi.mock('gsap', () => {
       return chainable;
     },
   };
-  return { default: { timeline: vi.fn(() => chainable) } };
+  return { default: { timeline: vi.fn(() => chainable), set: setMock } };
 });
 
 import { CabinetBox } from './CabinetBox';
@@ -197,5 +198,39 @@ describe('CabinetBox', () => {
     const [, fromVars, toVars] = glowCalls[0] as [unknown, Record<string, unknown>, Record<string, unknown>];
     expect(fromVars['--cabinet-glow']).toBe(1);
     expect(toVars['--cabinet-glow']).toBe(0);
+  });
+
+  it('does not replay the pop/flat animation when only the measured width changes while popped stays the same — repositions instantly instead', () => {
+    render(<CabinetBox popped={true} timelineKey="test-box">x</CabinetBox>);
+    const observer = MockResizeObserver.instances[0];
+    act(() => observer.fire(100, 48)); // initial measurement — a real popped transition, animates
+    expect(fromToMock).toHaveBeenCalled();
+
+    fromToMock.mockClear();
+    setMock.mockClear();
+    (setTimeline as ReturnType<typeof vi.fn>).mockClear();
+
+    // A breakpoint-crossing resize (or any width change) while `popped`
+    // hasn't changed — must NOT re-run the flat↔full tween (that would
+    // visibly flatten and re-pop an already-popped box for no reason).
+    act(() => observer.fire(120, 48));
+
+    expect(fromToMock).not.toHaveBeenCalled();
+    expect(setTimeline).not.toHaveBeenCalled();
+    expect(setMock).toHaveBeenCalled();
+  });
+
+  it('still animates a real transition normally after a width-only reposition has occurred', () => {
+    const { rerender } = render(<CabinetBox popped={true} timelineKey="test-box">x</CabinetBox>);
+    const observer = MockResizeObserver.instances[0];
+    act(() => observer.fire(100, 48));
+    act(() => observer.fire(120, 48)); // width-only reposition, no tween
+    fromToMock.mockClear();
+    (setTimeline as ReturnType<typeof vi.fn>).mockClear();
+
+    rerender(<CabinetBox popped={false} timelineKey="test-box">x</CabinetBox>);
+
+    expect(fromToMock).toHaveBeenCalled();
+    expect(setTimeline).toHaveBeenCalled();
   });
 });

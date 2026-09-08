@@ -35,6 +35,13 @@ export function CabinetBox({ popped, timelineKey, children }: CabinetBoxProps) {
   const leftFaceRef = useRef<SVGPolygonElement>(null);
   const [width, setWidth] = useState(0);
   const boxHeight = useCabinetBoxHeight();
+  // Tracks the `popped` value the geometry effect last actually ran for —
+  // null means "hasn't run yet". Lets the effect tell a real popped
+  // transition apart from a width/boxHeight-only re-run (e.g. a
+  // breakpoint-crossing resize while already popped), which must reposition
+  // instantly rather than replay the pop/flat animation from the opposite
+  // state — see the effect below.
+  const prevPoppedRef = useRef<boolean | null>(null);
 
   useEffect(() => {
     const el = frontRef.current;
@@ -60,17 +67,36 @@ export function CabinetBox({ popped, timelineKey, children }: CabinetBoxProps) {
   }, [timelineKey]);
 
   useEffect(() => {
-    if (!frontRef.current || !topFaceRef.current || !leftFaceRef.current || width === 0) return;
+    if (!frontRef.current || !topFaceRef.current || !leftFaceRef.current || !wrapperRef.current || width === 0) return;
     killTimeline(timelineKey);
+
+    // A real transition only when `popped` itself changed since the last
+    // time this effect ran — never on the very first run (prevPoppedRef
+    // still null), which always transitions in from the opposite state,
+    // same as before this distinction existed.
+    const isTransition = prevPoppedRef.current === null || prevPoppedRef.current !== popped;
+    prevPoppedRef.current = popped;
+
+    const target = computeCabinetGeometry(width, boxHeight, popped ? 1 : 0);
+
+    if (!isTransition) {
+      // width/boxHeight changed while `popped` stayed the same (e.g. a
+      // breakpoint-crossing resize while hovered/focused) — reposition
+      // instantly to the same target state. Replaying the pop/flat tween
+      // here would incorrectly assume the box is coming from the *opposite*
+      // state and visibly flatten-then-re-pop an already-popped box.
+      gsap.set(topFaceRef.current, { attr: { points: target.topFacePoints } });
+      gsap.set(leftFaceRef.current, { attr: { points: target.leftFacePoints } });
+      gsap.set(frontRef.current, { x: target.frontFaceOffsetX, y: target.frontFaceOffsetY });
+      gsap.set(wrapperRef.current, { '--cabinet-glow': popped ? 1 : 0 });
+      return;
+    }
 
     const prefersReducedMotion = typeof window.matchMedia === 'function'
       && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const duration = getCabinetPopDuration(prefersReducedMotion);
-
-    const flat = computeCabinetGeometry(width, boxHeight, 0);
-    const full = computeCabinetGeometry(width, boxHeight, 1);
-    const from = popped ? flat : full;
-    const to = popped ? full : flat;
+    const from = computeCabinetGeometry(width, boxHeight, popped ? 0 : 1);
+    const to = target;
 
     const tl = gsap.timeline();
     tl.fromTo(topFaceRef.current,
