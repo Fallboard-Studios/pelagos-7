@@ -25,7 +25,7 @@ vi.mock('gsap', () => {
 
 import { CabinetBox } from './CabinetBox';
 import { setTimeline, killTimeline } from '@/animation/timelineMap';
-import { computeCabinetGeometry } from '@/utils/cabinetGeometry';
+import { computeCabinetGeometry, CABINET_POP_DISTANCE } from '@/utils/cabinetGeometry';
 
 /**
  * Controllable ResizeObserver mock, mirroring useAutoSliderOrientation.test.ts's
@@ -198,6 +198,16 @@ describe('CabinetBox', () => {
     const [, fromVars, toVars] = glowCalls[0] as [unknown, Record<string, unknown>, Record<string, unknown>];
     expect(fromVars['--cabinet-glow']).toBe(1);
     expect(toVars['--cabinet-glow']).toBe(0);
+  });
+
+  it('applies --cabinet-box-height and --cabinet-pop-distance as inline custom properties on the wrapper, computed from JS — CSS no longer duplicates either', () => {
+    const { container } = render(<CabinetBox popped={false} timelineKey="test-box">x</CabinetBox>);
+    const wrapper = container.querySelector('.sc-cabinet-box') as HTMLElement;
+    // stubMatchMedia(false) (beforeEach) never matches a breakpoint query,
+    // so useCabinetBoxHeight resolves desktop (48) — same assumption every
+    // other test in this file already makes (fire(100, 48), etc.).
+    expect(wrapper.style.getPropertyValue('--cabinet-box-height')).toBe('48px');
+    expect(wrapper.style.getPropertyValue('--cabinet-pop-distance')).toBe(`${CABINET_POP_DISTANCE}px`);
   });
 
   it('does not replay the pop/flat animation when only the measured width changes while popped stays the same — repositions instantly instead', () => {

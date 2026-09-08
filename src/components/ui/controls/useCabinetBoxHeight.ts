@@ -13,10 +13,11 @@ function resolveHeight(): number {
 }
 
 /**
- * Live numeric cabinet box height for the current viewport tier — for the
- * wall-geometry math only (cabinetGeometry.ts). CabinetBox.css independently
- * drives the same 3 tiers for layout via --cabinet-box-height; see
- * docs/specs/OBLIQUE_CABINETRY_FOUNDATION.md §1.3.
+ * Live numeric cabinet box height for the current viewport tier. Feeds both
+ * the wall-geometry math (cabinetGeometry.ts) and CSS layout — CabinetBox.tsx
+ * applies this same value as an inline --cabinet-box-height custom property
+ * on its wrapper, rather than CSS independently re-deriving it via @media
+ * rules. See docs/specs/OBLIQUE_CABINETRY_FOUNDATION.md §1.3.
  */
 export function useCabinetBoxHeight(): number {
   const [height, setHeight] = useState(resolveHeight);

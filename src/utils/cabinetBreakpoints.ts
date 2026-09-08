@@ -1,9 +1,11 @@
 /**
- * Oblique Cabinetry's viewport-width breakpoint tiers — the JS-side source
- * of truth for the numeric box height the wall geometry math (cabinetGeometry.ts)
- * needs. CabinetBox.css independently expresses the SAME 3 breakpoint numbers
- * via plain CSS @media rules for layout purposes (padding, front-face height)
- * — CSS cannot import this file, so the two are manually kept in sync. See
+ * Oblique Cabinetry's viewport-width breakpoint tiers — the sole source of
+ * truth for box height, used both by the wall geometry math
+ * (cabinetGeometry.ts, via useCabinetBoxHeight) and by CSS layout: the
+ * resolved height is applied as an inline --cabinet-box-height custom
+ * property on CabinetBox's wrapper (CabinetBox.tsx), not redeclared in CSS
+ * via @media rules — that redundant copy was removed after going stale in
+ * prose more than once as this value was tuned. See
  * docs/specs/OBLIQUE_CABINETRY_FOUNDATION.md §1.3/§7.
  */
 export const CABINET_BREAKPOINT_MOBILE_MAX = 640;

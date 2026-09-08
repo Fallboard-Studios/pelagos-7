@@ -14,11 +14,12 @@
  * as far too much protrusion at the 40/48px tiers once actually seen
  * rendered). Still the same 2:1 oblique vector direction, just a small fixed
  * magnitude: `2 * CABINET_POP_DISTANCE` right, `CABINET_POP_DISTANCE` down at
- * t=1, identical across every breakpoint's box height. CabinetBox.css's
- * reserved hit-area padding must match this exactly (`2 * CABINET_POP_DISTANCE`
- * / `CABINET_POP_DISTANCE`, in px), not var(--cabinet-box-height) — see that
- * file's own comment. Tuned by feel after a real visual pass; if you change
- * this value, update CabinetBox.css's padding-right/padding-bottom to match.
+ * t=1, identical across every breakpoint's box height. CabinetBox.tsx applies
+ * this value directly as an inline --cabinet-pop-distance custom property, so
+ * CabinetBox.css's reserved hit-area padding (`calc(2 * var(--cabinet-pop-
+ * distance))` / `var(--cabinet-pop-distance)`) always matches it automatically
+ * — no separate value to hand-sync here anymore. Tuned by feel after a real
+ * visual pass; expect this number to keep moving.
  */
 export const CABINET_POP_DISTANCE = 2;
 

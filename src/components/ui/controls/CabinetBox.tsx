@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import gsap from 'gsap';
 
 import { getCabinetPopDuration } from './cabinetAnimation';
 import { useCabinetBoxHeight } from './useCabinetBoxHeight';
-import { computeCabinetGeometry } from '@/utils/cabinetGeometry';
+import { computeCabinetGeometry, CABINET_POP_DISTANCE } from '@/utils/cabinetGeometry';
 import { setTimeline, killTimeline } from '@/animation/timelineMap';
 import './CabinetBox.css';
 
@@ -121,8 +121,20 @@ export function CabinetBox({ popped, timelineKey, children }: CabinetBoxProps) {
     setTimeline(timelineKey, tl);
   }, [popped, width, boxHeight, timelineKey]);
 
+  // Both custom properties are computed here, in the one place that already
+  // resolves the breakpoint tier for the geometry math (useCabinetBoxHeight)
+  // and already imports CABINET_POP_DISTANCE — CSS reads them via var()
+  // instead of independently re-deriving the same two numbers through its
+  // own @media rules, collapsing what used to be two duplicated,
+  // hand-synced sources down to this one. Same "JS-owned value applied as
+  // an inline style" pattern App.tsx's own realWorldGradient already uses.
+  const cabinetTokens = {
+    '--cabinet-box-height': `${boxHeight}px`,
+    '--cabinet-pop-distance': `${CABINET_POP_DISTANCE}px`,
+  } as CSSProperties;
+
   return (
-    <div ref={wrapperRef} className="sc-cabinet-box">
+    <div ref={wrapperRef} className="sc-cabinet-box" style={cabinetTokens}>
       <svg className="sc-cabinet-box__walls" aria-hidden="true" focusable="false">
         <polygon ref={topFaceRef} className="sc-cabinet-box__top-face" />
         <polygon ref={leftFaceRef} className="sc-cabinet-box__left-face" />
