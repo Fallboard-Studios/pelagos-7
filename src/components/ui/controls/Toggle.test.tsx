@@ -1,6 +1,17 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
+vi.mock('./CabinetBox', () => ({
+  CabinetBox: (props: { popped: boolean; boxHeight?: number; timelineKey: string }) => (
+    <div
+      data-testid="cabinet-box"
+      data-popped={String(props.popped)}
+      data-box-height={props.boxHeight}
+      data-timeline-key={props.timelineKey}
+    />
+  ),
+}));
+
 import { Toggle } from './Toggle';
 import type { ToggleSchema } from '@/types/controls';
 
@@ -74,5 +85,35 @@ describe('Toggle', () => {
     render(<Toggle schema={schema} value={false} onChange={onChange} disabled />);
     fireEvent.click(screen.getByRole('switch'));
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('renders through CabinetBox with popped="true" when value is true (Oblique Cabinetry, roadmap 11.1.2)', () => {
+    render(<Toggle schema={schema} value={true} onChange={() => {}} />);
+    expect(screen.getByTestId('cabinet-box').getAttribute('data-popped')).toBe('true');
+  });
+
+  it('renders through CabinetBox with popped="false" when value is false', () => {
+    render(<Toggle schema={schema} value={false} onChange={() => {}} />);
+    expect(screen.getByTestId('cabinet-box').getAttribute('data-popped')).toBe('false');
+  });
+
+  it('passes a fixed 32px boxHeight to CabinetBox, regardless of viewport', () => {
+    render(<Toggle schema={schema} value={false} onChange={() => {}} />);
+    expect(screen.getByTestId('cabinet-box').getAttribute('data-box-height')).toBe('32');
+  });
+
+  it('passes a schema-scoped timelineKey distinct from Button\'s own cabinet-button- prefix', () => {
+    render(<Toggle schema={schema} value={false} onChange={() => {}} />);
+    expect(screen.getByTestId('cabinet-box').getAttribute('data-timeline-key')).toBe('cabinet-toggle-layerActive');
+  });
+
+  it('keeps CabinetBox popped="true" reflecting a checked value even when disabled', () => {
+    render(<Toggle schema={schema} value={true} onChange={() => {}} disabled />);
+    expect(screen.getByTestId('cabinet-box').getAttribute('data-popped')).toBe('true');
+  });
+
+  it('renders no separate thumb element — CabinetBox is the switch\'s only visual child', () => {
+    const { container } = render(<Toggle schema={schema} value={false} onChange={() => {}} />);
+    expect(container.querySelector('.sc-toggle__thumb')).toBeNull();
   });
 });
