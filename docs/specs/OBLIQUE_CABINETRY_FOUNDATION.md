@@ -50,14 +50,25 @@ Both are parallelograms connecting the *stationary* footprint edge (top edge for
 
 DOM stacking order (walls SVG first, front-face `<div>` second, both children of one `position: relative` wrapper) means the front face naturally paints over the portion of the walls that sits behind it at any point in the tween — no explicit `z-index` needed, same as how oblique box art is conventionally layered.
 
-### 1.3 The breakpoint system — two independent expressions of the same three numbers
+### 1.3 The breakpoint system — one JS source, applied to CSS via inline custom properties
 
-Confirmed intent: mobile ≤640px / tablet 641–1024px / desktop >1024px, plain CSS, no `ResizeObserver`/JS runtime detection for the app's *layout* concern. But the wall geometry (§1.2) needs the real numeric `H` in JavaScript regardless — polygon point arithmetic can't be expressed in CSS. So this phase introduces the breakpoint tiers **twice, deliberately**, not as an oversight:
+Confirmed intent: mobile ≤640px / tablet 641–1024px / desktop >1024px, no `ResizeObserver`/JS runtime detection for the app's *layout* concern (a plain viewport-width tier lookup is enough). The wall geometry (§1.2) needs the real numeric `H` in JavaScript regardless — polygon point arithmetic can't be expressed in CSS — via `src/utils/cabinetBreakpoints.ts` (`CABINET_BREAKPOINT_MOBILE_MAX`, `CABINET_BREAKPOINT_TABLET_MAX`, `CABINET_BOX_HEIGHT`) read by `useCabinetBoxHeight()` (`window.matchMedia`, mirroring `AccordionContainer`'s own `matchMedia('(prefers-reduced-motion: reduce)')` check).
 
-- `src/utils/cabinetBreakpoints.ts` — the JS-side source of truth (`CABINET_BREAKPOINT_MOBILE_MAX`, `CABINET_BREAKPOINT_TABLET_MAX`, `CABINET_BOX_HEIGHT`), read via `useCabinetBoxHeight()` (`window.matchMedia`, mirroring `AccordionContainer`'s own `matchMedia('(prefers-reduced-motion: reduce)')` check) for the geometry math.
-- `CabinetBox.css`'s own `:root` block and two `@media (max-width: ...)` overrides for `--cabinet-box-height` — needed for the wrapper's own `padding`/the front face's own `height`, entirely independent of the JS hook.
-
-CSS cannot import a JS constants file, so the same 4 numbers (`640`, `1024`, and the 3 height values) are manually duplicated between the two, cross-referenced by comment in both directions. This is a real, named risk (§7), not hidden.
+> **Post-implementation correction: originally shipped with a second, CSS-only expression of these
+> same numbers (a `:root` block + two `@media (max-width: ...)` overrides for `--cabinet-box-height`),
+> since removed.** That duplication was deliberate at the time — CSS can't import a JS constants file
+> — but it, plus an analogous hand-matched-literal duplication for `CABINET_POP_DISTANCE`'s hit-area
+> padding (§1.6), had already gone stale in prose three times as both values were retuned by feel,
+> flagged as a real recurring signal during code review, not a one-off. **Resolved by collapsing to one
+> source**, not by guarding the duplication more carefully: `CabinetBox.tsx` now applies both
+> `useCabinetBoxHeight()`'s resolved value and `CABINET_POP_DISTANCE` as inline `--cabinet-box-height`/
+> `--cabinet-pop-distance` custom properties on its own wrapper element, and `CabinetBox.css` reads them
+> via `var()` instead of re-deriving either independently. Same "JS-owned value applied as an inline
+> style" pattern `App.tsx`'s own `realWorldGradient` already uses elsewhere in this codebase — not a new
+> pattern introduced for this. A plain `:root` fallback remains in `CabinetBox.css` purely as a
+> same-paint safety net for the moment before React's first commit applies the real values (this is an
+> all-client-rendered app, so that gap is negligible in practice) — it does **not** need to track the JS
+> constants precisely, unlike the removed `@media` duplication it replaces.
 
 ### 1.4 Face-shading: `color-mix()`, not a JS module
 
@@ -76,7 +87,7 @@ Confirmed intent: hover, focus, and press all trigger one full-pop state, no dis
 
 ### 1.6 Layout: how the wrapper reserves room for the pop without the front face leaving flow
 
-The front face must stay in normal document flow (an absolutely-positioned front face would remove itself from flow and collapse its own parent's intrinsic size to zero, since GSAP's `x`/`y` is a transform and transforms never affect layout). So: `CabinetBox`'s wrapper (`.sc-cabinet-box`, `display: inline-flex`) sizes itself naturally from the front face's own content-driven width and fixed `--cabinet-box-height`, then reserves the popped-state's extra footprint explicitly via `padding-right`/`padding-bottom` set to `2×`/`1×` `cabinetGeometry.ts`'s fixed `CABINET_POP_DISTANCE`, not `--cabinet-box-height` (see §1.2's post-implementation correction — and its note that the constant has been retuned since; check the source for the current value, not this prose) — the confirmed "CSS padding" option from the intent doc's two alternatives (padding vs. an invisible `::before`). `Button`'s own hit area additionally needs `width: fit-content` on `.sc-button` itself (§4) so a flex/grid parent's default stretch behavior can't widen the real `<button>` past this reserved footprint — a second post-implementation correction, caught the same way. Only the walls SVG is `position: absolute; inset: 0` (decorative-only, contributes no size); the front face slides into that reserved padding region via its transform without ever needing to. Because `Button`'s own `<button>` wraps `CabinetBox` with `padding: 0`, the button's own hit area equals `CabinetBox`'s full reserved footprint — satisfying "the hit area extends to cover the full popped-out footprint" without a separate pseudo-element.
+The front face must stay in normal document flow (an absolutely-positioned front face would remove itself from flow and collapse its own parent's intrinsic size to zero, since GSAP's `x`/`y` is a transform and transforms never affect layout). So: `CabinetBox`'s wrapper (`.sc-cabinet-box`, `display: inline-flex`) sizes itself naturally from the front face's own content-driven width and `--cabinet-box-height`, then reserves the popped-state's extra footprint explicitly via `padding-right: calc(2 * var(--cabinet-pop-distance))` / `padding-bottom: var(--cabinet-pop-distance)` — `--cabinet-pop-distance` an inline custom property `CabinetBox.tsx` applies directly from `cabinetGeometry.ts`'s `CABINET_POP_DISTANCE` (§1.3), so the padding always matches that constant automatically rather than needing a hand-matched literal — the confirmed "CSS padding" option from the intent doc's two alternatives (padding vs. an invisible `::before`). `Button`'s own hit area additionally needs `width: fit-content` on `.sc-button` itself (§4) so a flex/grid parent's default stretch behavior can't widen the real `<button>` past this reserved footprint — a second post-implementation correction, caught the same way. Only the walls SVG is `position: absolute; inset: 0` (decorative-only, contributes no size); the front face slides into that reserved padding region via its transform without ever needing to. Because `Button`'s own `<button>` wraps `CabinetBox` with `padding: 0`, the button's own hit area equals `CabinetBox`'s full reserved footprint — satisfying "the hit area extends to cover the full popped-out footprint" without a separate pseudo-element.
 
 ### 1.7 The focus ring survives the pop for free
 
@@ -94,6 +105,14 @@ Two refinements added after the primitives above were already implemented and co
 The glow lives on the walls deliberately, not the front face — confirmed explicitly during design review as "the back," reading as light spilling from the cavity behind the box as it opens, rather than the moving front panel itself emitting light.
 
 **Sharp corners.** `.sc-cabinet-box__front`'s `border-radius: 4px` (present in every earlier draft, including this spec's own original §4 code block) was removed entirely. A rounded front panel sitting on straight-edged parallelogram walls read as visually inconsistent once actually seen popping — sharp corners on the front face match the walls' own geometry instead. A separate approach was tried and explicitly rejected first: rounding the *walls'* corners via a `blur()`/`contrast()` "goo" filter (a common CSS trick for approximating rounded corners on arbitrary SVG shapes without rewriting them as `<path>` + arc commands, which would have broken the simple `points`-string GSAP tweening this whole primitive relies on). At this box's small scale, the goo filter read as soft/melty rather than cleanly rounded and was reverted before shipping — worth recording so a future attempt at rounding doesn't rediscover the same result from scratch. True per-vertex rounding (an actual `<path>`-based rewrite) remains a real option if revisited later, at the cost of the tweening-approach change §1.2 already flags.
+
+### 1.9 A resize while already popped must not replay the pop animation — found by code review, not the manual visual pass
+
+The geometry effect (§4, `CabinetBox.tsx`) re-runs whenever `popped`, `width`, or `boxHeight` change — not only when `popped` itself flips. The original implementation computed `from`/`to` purely from the *current* `popped` boolean, silently assuming every effect run was a `popped` transition starting from the geometrically opposite state. That assumption breaks when `width` or `boxHeight` change **while `popped` stays the same** — concretely, a user focuses a `Button` (popping it), then resizes the browser window across the 640px/1024px breakpoint boundary while it's still focused. `boxHeight` changes, the effect re-runs, `popped` is still `true`, so the old code still computed `from = flat`, `to = full` — and GSAP's `.fromTo` immediately snapped the already-popped box back to flat before animating it back out over `duration`, a visible flicker with no interaction that should have caused it.
+
+**This class of bug — a caller-visible flicker with no corresponding user action — is exactly the kind of thing a manual pop-in/pop-out check doesn't surface**, since it only manifests on a *dependency* change during an *unrelated* interaction (resize while hovering, not resize itself). It was caught by code review reasoning through the effect's dependency array, not by the manual visual pass that closed out the original task plan — worth noting since `Toggle`/the sliders will copy this same effect shape and should carry the fix forward, not rediscover the bug.
+
+**Fix:** the effect now tracks the `popped` value it last actually ran for, in a ref (`prevPoppedRef`, initialized to `null` — "hasn't run yet"). A real transition (`prevPoppedRef.current === null || prevPoppedRef.current !== popped`) still runs the full animated `fromTo` exactly as before, including the glow. Anything else — `width`/`boxHeight` changing with `popped` unchanged — instead calls `gsap.set()` on all four targets (both wall polygons, the front face offset, and `--cabinet-glow`) to reposition instantly at the *same* `popped` state's geometry, with no animated replay and no `setTimeline` registration (there's no ongoing tween to track). The very first effect run is always treated as a transition regardless of `popped`'s starting value, matching pre-fix behavior exactly — this fix changes what happens on *subsequent* dependency-only changes, not on mount.
 
 ---
 
@@ -292,15 +311,15 @@ export function useCabinetBoxHeight(): number {
 }
 ```
 
-**`src/components/ui/controls/CabinetBox.tsx`** (full file, as actually shipped — supersedes this section's original draft, which predates the border-box measurement fix and the glow; see §1.2's and this section's own post-implementation notes):
+**`src/components/ui/controls/CabinetBox.tsx`** (full file, as actually shipped — supersedes this section's original draft, which predates the border-box measurement fix, the glow, the resize-flicker fix (§1.9), and the duplication collapse (§1.3)):
 
 ```tsx
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import gsap from 'gsap';
 
 import { getCabinetPopDuration } from './cabinetAnimation';
 import { useCabinetBoxHeight } from './useCabinetBoxHeight';
-import { computeCabinetGeometry } from '@/utils/cabinetGeometry';
+import { computeCabinetGeometry, CABINET_POP_DISTANCE } from '@/utils/cabinetGeometry';
 import { setTimeline, killTimeline } from '@/animation/timelineMap';
 import './CabinetBox.css';
 
@@ -332,6 +351,13 @@ export function CabinetBox({ popped, timelineKey, children }: CabinetBoxProps) {
   const leftFaceRef = useRef<SVGPolygonElement>(null);
   const [width, setWidth] = useState(0);
   const boxHeight = useCabinetBoxHeight();
+  // Tracks the `popped` value the geometry effect last actually ran for —
+  // null means "hasn't run yet". Lets the effect tell a real popped
+  // transition apart from a width/boxHeight-only re-run (e.g. a
+  // breakpoint-crossing resize while already popped), which must reposition
+  // instantly rather than replay the pop/flat animation from the opposite
+  // state — see the effect below, and §1.9.
+  const prevPoppedRef = useRef<boolean | null>(null);
 
   useEffect(() => {
     const el = frontRef.current;
@@ -357,17 +383,36 @@ export function CabinetBox({ popped, timelineKey, children }: CabinetBoxProps) {
   }, [timelineKey]);
 
   useEffect(() => {
-    if (!frontRef.current || !topFaceRef.current || !leftFaceRef.current || width === 0) return;
+    if (!frontRef.current || !topFaceRef.current || !leftFaceRef.current || !wrapperRef.current || width === 0) return;
     killTimeline(timelineKey);
+
+    // A real transition only when `popped` itself changed since the last
+    // time this effect ran — never on the very first run (prevPoppedRef
+    // still null), which always transitions in from the opposite state,
+    // same as before this distinction existed. See §1.9.
+    const isTransition = prevPoppedRef.current === null || prevPoppedRef.current !== popped;
+    prevPoppedRef.current = popped;
+
+    const target = computeCabinetGeometry(width, boxHeight, popped ? 1 : 0);
+
+    if (!isTransition) {
+      // width/boxHeight changed while `popped` stayed the same (e.g. a
+      // breakpoint-crossing resize while hovered/focused) — reposition
+      // instantly to the same target state. Replaying the pop/flat tween
+      // here would incorrectly assume the box is coming from the *opposite*
+      // state and visibly flatten-then-re-pop an already-popped box.
+      gsap.set(topFaceRef.current, { attr: { points: target.topFacePoints } });
+      gsap.set(leftFaceRef.current, { attr: { points: target.leftFacePoints } });
+      gsap.set(frontRef.current, { x: target.frontFaceOffsetX, y: target.frontFaceOffsetY });
+      gsap.set(wrapperRef.current, { '--cabinet-glow': popped ? 1 : 0 });
+      return;
+    }
 
     const prefersReducedMotion = typeof window.matchMedia === 'function'
       && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const duration = getCabinetPopDuration(prefersReducedMotion);
-
-    const flat = computeCabinetGeometry(width, boxHeight, 0);
-    const full = computeCabinetGeometry(width, boxHeight, 1);
-    const from = popped ? flat : full;
-    const to = popped ? full : flat;
+    const from = computeCabinetGeometry(width, boxHeight, popped ? 0 : 1);
+    const to = target;
 
     const tl = gsap.timeline();
     tl.fromTo(topFaceRef.current,
@@ -392,8 +437,19 @@ export function CabinetBox({ popped, timelineKey, children }: CabinetBoxProps) {
     setTimeline(timelineKey, tl);
   }, [popped, width, boxHeight, timelineKey]);
 
+  // Both custom properties are computed here, in the one place that already
+  // resolves the breakpoint tier for the geometry math (useCabinetBoxHeight)
+  // and already imports CABINET_POP_DISTANCE — CSS reads them via var()
+  // instead of independently re-deriving the same two numbers through its
+  // own @media rules, collapsing what used to be two duplicated, hand-synced
+  // sources down to this one. See §1.3.
+  const cabinetTokens = {
+    '--cabinet-box-height': `${boxHeight}px`,
+    '--cabinet-pop-distance': `${CABINET_POP_DISTANCE}px`,
+  } as CSSProperties;
+
   return (
-    <div ref={wrapperRef} className="sc-cabinet-box">
+    <div ref={wrapperRef} className="sc-cabinet-box" style={cabinetTokens}>
       <svg className="sc-cabinet-box__walls" aria-hidden="true" focusable="false">
         <polygon ref={topFaceRef} className="sc-cabinet-box__top-face" />
         <polygon ref={leftFaceRef} className="sc-cabinet-box__left-face" />
@@ -406,24 +462,24 @@ export function CabinetBox({ popped, timelineKey, children }: CabinetBoxProps) {
 }
 ```
 
-**`src/components/ui/controls/CabinetBox.css`** (full file, as actually shipped — supersedes this section's original draft; adds the pop-proportional glow and drops the front face's `border-radius`, both confirmed against the real running app):
+**`src/components/ui/controls/CabinetBox.css`** (full file, as actually shipped):
 
 ```css
-/* Oblique Cabinetry box height — mirrors src/utils/cabinetBreakpoints.ts's
-   CABINET_BOX_HEIGHT / CABINET_BREAKPOINT_MOBILE_MAX / CABINET_BREAKPOINT_TABLET_MAX
-   exactly (640px / 1024px / 32-40-48px). CSS cannot import those JS
-   constants, so these numbers are manually kept in sync with that file — see
-   docs/specs/OBLIQUE_CABINETRY_FOUNDATION.md §1.3/§7. */
+/* --cabinet-box-height and --cabinet-pop-distance are supplied as inline
+   custom properties by CabinetBox.tsx (computed from useCabinetBoxHeight()
+   and the CABINET_POP_DISTANCE constant — see that file's own comment) —
+   not redeclared here. This used to be two independently hand-synced
+   copies (this file's own @media rules mirroring cabinetBreakpoints.ts, and
+   a literal padding value mirroring cabinetGeometry.ts's constant); both
+   had already gone stale in prose more than once as those values were
+   tuned by feel. Collapsed to the one JS source instead of guarded against
+   drifting — see §1.3. The :root defaults below exist only as a same-paint
+   fallback for the moment before React's first commit applies the real
+   inline values in this all-client-rendered app — not a maintained
+   duplicate, so they don't need to track the JS constants precisely. */
 :root {
   --cabinet-box-height: 48px;
-}
-
-@media (max-width: 1024px) {
-  :root { --cabinet-box-height: 40px; }
-}
-
-@media (max-width: 640px) {
-  :root { --cabinet-box-height: 32px; }
+  --cabinet-pop-distance: 2px;
 }
 
 .sc-cabinet-box {
@@ -431,14 +487,11 @@ export function CabinetBox({ popped, timelineKey, children }: CabinetBoxProps) {
   display: inline-flex;
   /* Reserves room for the fully-popped footprint so the wrapper's own hit
      area never needs to grow/move when the content pops — the "stationary
-     hit box" rule. Fixed, matching cabinetGeometry.ts's CABINET_POP_DISTANCE
-     exactly (2×/1× that constant, in px) — NOT var(--cabinet-box-height);
-     post-implementation correction, see §1.2's note. Values below match
-     CABINET_POP_DISTANCE = 2 as of this spec's last edit; that constant has
-     been tuned by feel more than once, so read the actual source file
-     rather than trusting this number to still be current. */
-  padding-right: 4px;
-  padding-bottom: 2px;
+     hit box" rule. The 2:1 oblique vector, expressed here via calc()
+     against the one JS-supplied --cabinet-pop-distance value above, rather
+     than as separately hand-tuned pixel literals. */
+  padding-right: calc(2 * var(--cabinet-pop-distance));
+  padding-bottom: var(--cabinet-pop-distance);
 }
 
 .sc-cabinet-box__walls {
@@ -590,6 +643,8 @@ export function Button({ schema, onClick, disabled }: ButtonProps) {
   5. Renders exactly one `.sc-cabinet-box__top-face` and one `.sc-cabinet-box__left-face` polygon, both `aria-hidden` via the parent `<svg>`.
   6. Measures the front face using its border-box size (padding included), not content-box — asserted by locally mocking `@/utils/cabinetGeometry` (wrapping the real `computeCabinetGeometry` in a spy via `importOriginal`) and inspecting which width value it was actually called with, across a `ResizeObserver` entry whose `contentRect.width` and `borderBoxSize[0].inlineSize` deliberately differ; falls back to `contentRect.width` when `borderBoxSize` is absent (a second, explicit test).
   7. **`--cabinet-glow` tweens on the wrapper, never the front face, in both pop directions (`0→1` popping in, `1→0` popping out).** This needed a *local* `vi.mock('gsap', ...)` overriding `vitest.setup.ts`'s global noop for this file only (mirroring `useLfoTargetGroup.test.ts`'s own precedent) — the global mock doesn't expose `.fromTo()`'s call arguments for inspection, and asserting the glow tween's target/values requires exactly that. Both new tests were confirmed non-tautological by temporarily mistargeting the tween onto the front face in `CabinetBox.tsx`, watching both fail, then reverting — not just written and trusted.
+  8. **Applies `--cabinet-box-height`/`--cabinet-pop-distance` as inline custom properties on the wrapper**, matching `useCabinetBoxHeight()`'s resolved value and the imported `CABINET_POP_DISTANCE` constant directly (§1.3) — added alongside the duplication collapse.
+  9. **A width-only re-run (`popped` unchanged) does not replay the pop/flat tween — it repositions instantly via `gsap.set()` instead** (§1.9, found by code review). The local `gsap` mock (item 7) needed a `set: vi.fn()` alongside its `timeline`/`fromTo` mocking to assert this branch specifically; a companion test confirms a *real* `popped` transition still animates normally afterward, so the fix doesn't accidentally suppress legitimate tweens too.
 * **`Button.test.tsx` (modified)** — every existing test (§ current file) stays unchanged and passing; new coverage:
   1. `fireEvent.mouseEnter`/`mouseLeave` on the button toggles `popped` (asserted indirectly via `CabinetBox`'s `setTimeline` mock being called, same technique as #4 above, or via a lower-level unit assertion on the computed `popped` boolean if `CabinetBox` is shallow-mocked for this file — implementation detail for Tasks to pick, either is acceptable).
   2. `fireEvent.focus`/`blur` toggles `popped` independently of hover.
@@ -627,9 +682,13 @@ Resolved during Specify (confirmed directly against the intent doc and this code
 
 Still open — flag for Plan/Tasks, not blocking this spec:
 
-1. **The breakpoint numbers (640px/1024px, 32/40/48px) are duplicated between `cabinetBreakpoints.ts` and `CabinetBox.css`, by necessity (§1.3).** No build-time sync mechanism is introduced in this phase. If either changes later, both files need a manual, coordinated edit — worth a lint rule or codegen step in a future pass if this drifts in practice, not solved speculatively now.
+1. ~~The breakpoint numbers (640px/1024px, 32/40/48px) are duplicated between `cabinetBreakpoints.ts` and `CabinetBox.css`, by necessity (§1.3).~~ **Resolved — collapsed to one source, not just guarded (§1.3).** Flagged during a code review as a real recurring signal (`CABINET_POP_DISTANCE` alone had gone stale in prose three times), not a one-off worth only documenting more carefully. `CabinetBox.tsx` now applies both `--cabinet-box-height` and `--cabinet-pop-distance` as inline custom properties computed directly from the JS constants; `CabinetBox.css` no longer redeclares either independently.
 2. **`Button.test.tsx`'s new hover/focus/press coverage (§5) may assert against `CabinetBox`'s mocked `setTimeline` calls or against a lower-level exposed `popped` value — left as a Tasks-time implementation choice**, not fully pinned down here, since either satisfies the same acceptance criterion (the event correctly toggles the pop state) without changing this spec's public contracts. **Resolved during implementation:** `CabinetBox` is mocked directly in `Button.test.tsx` (renders `data-popped={popped}`), keeping Button's own event-to-state logic tested in isolation from `CabinetBox`'s internals.
 3. **Real disabled `Button` consumers already exist** (confirmed by grep, not assumed): `CompanyCrudControls.tsx`'s Create/Delete Company buttons (`disabled={atCap || nameIsBlank}` / `disabled={!hasSelectedCompany}`) and `PingControlsDrawer.tsx`'s Reset Melody button (`disabled={generationDisabled}`) — so the manual check's disabled-state verification (§5) has real, reachable call sites to exercise (toggle a company name field blank, or hit the company cap) rather than needing a devtools override.
+
+Found by a `code-review-and-quality` pass (2026-09-07), after the visual-review round above — not caught by either the original spec or the manual check:
+
+- ~~A resize (or any `width`/`boxHeight` change) while a box is already popped replayed the whole pop animation from flat, visible as a flicker.~~ **Resolved: §1.9** — the geometry effect now distinguishes a real `popped` transition from a dependency-only re-run and repositions instantly (`gsap.set()`) in the latter case, no animated replay. This is the kind of bug a manual pop-in/pop-out check structurally can't surface, since it only manifests on a *dependency* change during an *unrelated* interaction — worth remembering when `Toggle`/the sliders copy this effect shape, since a manual check on those won't catch it either; the fix needs to be carried forward, not re-discovered.
 
 Resolved after a real visual pass against the running app (2026-09-07), superseding this spec's original draft — not left open:
 

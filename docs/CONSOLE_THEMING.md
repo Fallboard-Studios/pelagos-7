@@ -157,12 +157,17 @@ this small a scale and was reverted before shipping). The glow is deliberately o
 walls, which stay visually anchored to the stationary footprint) rather than the moving front face —
 confirmed explicitly during design review, not an arbitrary choice.
 
-**A new breakpoint concept, deliberately duplicated in two places.** Cabinetry introduces this app's
-first viewport-width breakpoint tiers (mobile ≤640px / tablet 641–1024px / desktop >1024px, driving box
-heights 32/40/48px) — nothing else in `src/` used one before. Because CSS cannot import JS constants,
-the same 4 numbers live in both `src/utils/cabinetBreakpoints.ts` (read via `useCabinetBoxHeight`'s
-`matchMedia`, for the geometry math) and `CabinetBox.css`'s own `--cabinet-box-height` custom property
-+ `@media` overrides (for layout) — a confirmed, accepted duplication, not an oversight.
+**A new breakpoint concept, collapsed to one JS source.** Cabinetry introduces this app's first
+viewport-width breakpoint tiers (mobile ≤640px / tablet 641–1024px / desktop >1024px, driving box
+heights 32/40/48px) — nothing else in `src/` used one before. `src/utils/cabinetBreakpoints.ts` is the
+sole source of truth, read via `useCabinetBoxHeight`'s `matchMedia`; `CabinetBox.tsx` applies the
+resolved value (and, the same way, `cabinetGeometry.ts`'s `CABINET_POP_DISTANCE`) as inline
+`--cabinet-box-height`/`--cabinet-pop-distance` custom properties on its own wrapper, and `CabinetBox.css`
+reads them via `var()` rather than re-deriving either independently through its own `@media` rules —
+that CSS-side duplication existed briefly, went stale in prose more than once as both values were
+tuned by feel, and was collapsed away rather than guarded more carefully once a code review flagged it
+as a real recurring pattern. Same "JS-owned value applied as an inline style" precedent `App.tsx`'s own
+`realWorldGradient` already established in this codebase.
 
 Status as of Foundation & Button (11.1.1): `CabinetBox` (the shared rendering primitive, including the
 pop-proportional glow and sharp front-face corners above) and `Button` (its first real consumer) have
