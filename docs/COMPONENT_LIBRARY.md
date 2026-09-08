@@ -93,6 +93,36 @@ Full design rationale, including the `LfoTargetGroup` composability check and th
 
 `Toggle`'s internal rendering changed the same way `Button`'s did — the pill track and sliding thumb are gone, replaced by a bare, textless `CabinetBox` rendered inside Radix's `Switch.Root` in place of `Switch.Thumb`. Fixed at 32×32px regardless of viewport (not the breakpoint-driven 32/40/48px tiers `Button`'s content-sized box uses — `Toggle` sits inline next to its own `DualLabel` row rather than filling a hub tile), popped-out is the resting "on" state and flat is "off", keyed directly off the control's own `value`/`checked` — never hover, focus, or press. `popped` mirrors `value` even when `disabled`, unlike `Button`'s `!disabled` guard: `Button`'s `popped` is derived from momentary interaction that disabling correctly suppresses, while `Toggle`'s mirrors an already-committed state value that exists independently of whether the control can currently be changed. `DualLabel` stays exactly where it was, external to the switch — it was never the switch's own nested content the way `Button`'s label is. The `ControlSchema`/props contract (`{ schema: ToggleSchema; value: boolean; onChange: (value: boolean) => void; disabled?: boolean }`) and the existing `isActive` CSS hook are both unchanged; no call site needed to change. This was also the first real consumer of two small additive changes to `CabinetBox` itself: an optional `boxHeight` prop overriding its default breakpoint-driven height, and an optional `children` prop (was required) so a box can render with no content at all — both purely additive, `Button`'s own call site untouched. Full design rationale: `docs/specs/OBLIQUE_CABINETRY_TOGGLE.md`.
 
+### `SliderLinear`'s Oblique Cabinetry rendering (Roadmap Phase 11.1.3)
+
+`SliderLinear`'s internal rendering changed — its traditional track+handle is replaced by
+`VoxelTrack` (`src/components/ui/controls/VoxelTrack.tsx`), a row of uniform `CabinetBox` facades
+whose *count* self-fits live to the slider's own container (a `ResizeObserver` on the slider's
+parent, mirroring `useAutoSliderOrientation`'s own measurement convention, floored to a minimum of
+3 boxes with horizontal/vertical scroll below that) rather than being fixed or schema-authored.
+Radix's `Slider.Root`/`Track`/`Thumb` stay fully in charge of all real interaction — drag, keyboard,
+focus, ARIA — with `Slider.Range` kept in the DOM `visibility: hidden` (mirroring
+`SliderCenteredZero`'s own precedent below) and `Slider.Thumb`'s fill going transparent while its
+`:focus-visible` outline stays untouched; `VoxelTrack` itself is a `pointer-events: none` overlay,
+never a second hit-testable element. `Slider.Root`'s own rendered width/height becomes the computed
+voxel-track length — a fixed function of box count — superseding `width: 100%`/the old
+`--slider-vertical-height` CSS default for this component specifically (still live for
+`SliderLog`/`SliderCenteredZero` below, until 11.1.4/11.1.5 land). This was also the first real
+consumer of a widened `CabinetBox`: `popped` now accepts `boolean | number` (was `boolean`-only),
+since extrusion-falloff needs genuine intermediate pop values no prior consumer did — `Button`/
+`Toggle` keep passing a plain boolean, unaffected. The `ControlSchema`/props contract (`{ schema:
+SliderLinearSchema; value: number; onChange: (value: number) => void; disabled?: boolean;
+verticalHeight?: number }`) is unchanged in shape, but **`verticalHeight`'s meaning changed**: on a
+vertical slider it's now a box-count-fitting *budget* the rendered track quantizes into, not a
+literal pixel height applied verbatim. Full design rationale, including the dual-fill/
+extrusion-falloff math: `docs/specs/OBLIQUE_CABINETRY_SLIDER_LINEAR.md`; geometry/shading/glow and
+voxel-track notes: `docs/CONSOLE_THEMING.md`. `SliderLog`/`SliderCenteredZero` (11.1.4/11.1.5) reuse
+`VoxelTrack`/`src/utils/voxelTrackMath.ts`/`src/components/ui/controls/useVoxelTrackBoxCount.ts`
+completely unchanged — neither needs its own container-measurement or box-rendering logic, only
+their own `t → value` curve feeding the same `computeVoxelBoxStates` inputs (`SliderCenteredZero`'s
+zero-anchored fill is flagged as the one genuine adaptation, not a pure drop-in — see that item's
+own future spec).
+
 ### `SliderLog`'s epsilon-floor curve
 
 A pure `value = min * (max/min)^t` exponential is undefined at `min = 0` (Attack/Decay/Release all start at 0s). `src/components/ui/controls/sliderLogMath.ts` resolves this: the Radix track operates on an internal `t ∈ [0, 1]`; `t = 0` maps to exactly `schema.min` (including `min = 0`), otherwise `floor * (max/floor)^t` where `floor = Math.max(min, LOG_EPSILON)` and `LOG_EPSILON = 0.001`. `onChange` always receives the mapped display value, never the raw internal `t`.
