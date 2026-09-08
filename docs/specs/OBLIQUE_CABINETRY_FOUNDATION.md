@@ -82,6 +82,19 @@ The front face must stay in normal document flow (an absolutely-positioned front
 
 `:focus-visible`'s `outline` stays declared on the real `<button>` element (not moved onto the front face) — CSS outlines always paint after an element's own content/children, on top, regardless of any transform or stacking a descendant applies to itself. Because the popped `CabinetBox` is a descendant of the `<button>`, the outline necessarily renders over it without any extra `z-index` work. This is a direct, load-bearing consequence of keeping the interactive element as the actual `<button>` (§1.2's stationary-hit-box rule) — worth stating explicitly since 11.2's own verification pass names exactly this as something to confirm; this phase's structure already makes it true by construction, not by accident.
 
+### 1.8 The pop-proportional glow, and why sharp corners — added after visual review, now the shipped design
+
+Two refinements added after the primitives above were already implemented and confirmed against the real running app, not part of the original spec draft — recorded here as first-class decisions, not an afterthought, since **`CabinetBox` as it stands with both of these is the reference example for every later 11.1.x item** (`Toggle`, and the 3 sliders), not just the geometry/face-shading fundamentals from §1.1–§1.7.
+
+**The glow.** The walls (`.sc-cabinet-box__walls`) glow via `filter: drop-shadow(0 0 calc(var(--cabinet-glow, 0) * 20px) var(--color-accent))`, and the glow's intensity is driven by `--cabinet-glow`, a CSS custom property tweened `0 → 1` by the *same* GSAP timeline (same `duration`/`ease`) that already drives the pop offset — so the glow visibly tracks exactly how far the box has popped at every point in the animation, not a separately-eased effect that merely happens to look similar. Two implementation details this required, both load-bearing:
+
+- **The tween targets the shared wrapper `<div>`, not the front face.** The walls are the front face's *sibling* in the DOM (both children of `.sc-cabinet-box`), not its descendant — a CSS custom property set via `element.style.setProperty()` only cascades to descendants, so setting it on the front face would never reach the walls at all. `CabinetBox.tsx` gained a `wrapperRef` specifically for this.
+- **`drop-shadow`, not `box-shadow`.** The walls are SVG polygons (parallelograms), not a rectangular box — `box-shadow` would draw a glow around the walls SVG's own rectangular bounding box (including empty corners the polygons don't actually occupy), while `drop-shadow` follows the rendered shapes' actual alpha silhouette. This is the same reasoning that makes `drop-shadow` the correct primitive for shadowing arbitrary SVG content generally, not a Cabinetry-specific insight.
+
+The glow lives on the walls deliberately, not the front face — confirmed explicitly during design review as "the back," reading as light spilling from the cavity behind the box as it opens, rather than the moving front panel itself emitting light.
+
+**Sharp corners.** `.sc-cabinet-box__front`'s `border-radius: 4px` (present in every earlier draft, including this spec's own original §4 code block) was removed entirely. A rounded front panel sitting on straight-edged parallelogram walls read as visually inconsistent once actually seen popping — sharp corners on the front face match the walls' own geometry instead. A separate approach was tried and explicitly rejected first: rounding the *walls'* corners via a `blur()`/`contrast()` "goo" filter (a common CSS trick for approximating rounded corners on arbitrary SVG shapes without rewriting them as `<path>` + arc commands, which would have broken the simple `points`-string GSAP tweening this whole primitive relies on). At this box's small scale, the goo filter read as soft/melty rather than cleanly rounded and was reverted before shipping — worth recording so a future attempt at rounding doesn't rediscover the same result from scratch. True per-vertex rounding (an actual `<path>`-based rewrite) remains a real option if revisited later, at the cost of the tweening-approach change §1.2 already flags.
+
 ---
 
 ## 2. Target File Structure
@@ -279,15 +292,15 @@ export function useCabinetBoxHeight(): number {
 }
 ```
 
-**`src/components/ui/controls/CabinetBox.tsx`** (new, full file):
+**`src/components/ui/controls/CabinetBox.tsx`** (full file, as actually shipped — supersedes this section's original draft, which predates the border-box measurement fix and the glow; see §1.2's and this section's own post-implementation notes):
 
 ```tsx
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import gsap from 'gsap';
 
-import { computeCabinetGeometry } from '@/utils/cabinetGeometry';
 import { getCabinetPopDuration } from './cabinetAnimation';
 import { useCabinetBoxHeight } from './useCabinetBoxHeight';
+import { computeCabinetGeometry } from '@/utils/cabinetGeometry';
 import { setTimeline, killTimeline } from '@/animation/timelineMap';
 import './CabinetBox.css';
 
@@ -307,10 +320,13 @@ interface CabinetBoxProps {
  * `children`, sliding along the fixed 2:1 oblique projection vector as
  * `popped` flips. The front face stays in normal document flow (its GSAP
  * x/y transform never affects layout); the wrapper reserves the popped
- * footprint via CSS padding. See docs/specs/OBLIQUE_CABINETRY_FOUNDATION.md
- * §1 for the full derivation.
+ * footprint via CSS padding, and carries the --cabinet-glow custom property
+ * the walls' drop-shadow reads (CabinetBox.css) — the box glows more, the
+ * further it's popped. See docs/specs/OBLIQUE_CABINETRY_FOUNDATION.md §1
+ * for the full derivation.
  */
 export function CabinetBox({ popped, timelineKey, children }: CabinetBoxProps) {
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const frontRef = useRef<HTMLDivElement>(null);
   const topFaceRef = useRef<SVGPolygonElement>(null);
   const leftFaceRef = useRef<SVGPolygonElement>(null);
@@ -321,9 +337,18 @@ export function CabinetBox({ popped, timelineKey, children }: CabinetBoxProps) {
     const el = frontRef.current;
     if (!el) return;
     const observer = new ResizeObserver((entries) => {
-      setWidth(entries[0].contentRect.width);
+      const entry = entries[0];
+      // The front face has its own horizontal padding (CabinetBox.css's
+      // .sc-cabinet-box__front), so its real rendered width is the
+      // border-box size, not the content box — `contentRect` always
+      // reports content-box regardless of the `box` option below, so the
+      // wall geometry must read `borderBoxSize` instead. Falls back to
+      // contentRect.width only when borderBoxSize genuinely isn't
+      // available (e.g. an older environment/mock).
+      const borderBoxWidth = entry.borderBoxSize?.[0]?.inlineSize;
+      setWidth(borderBoxWidth ?? entry.contentRect.width);
     });
-    observer.observe(el);
+    observer.observe(el, { box: 'border-box' });
     return () => observer.disconnect();
   }, []);
 
@@ -353,12 +378,22 @@ export function CabinetBox({ popped, timelineKey, children }: CabinetBoxProps) {
         { attr: { points: to.leftFacePoints }, duration, ease: 'power2.out' }, 0)
       .fromTo(frontRef.current,
         { x: from.frontFaceOffsetX, y: from.frontFaceOffsetY },
-        { x: to.frontFaceOffsetX, y: to.frontFaceOffsetY, duration, ease: 'power2.out' }, 0);
+        { x: to.frontFaceOffsetX, y: to.frontFaceOffsetY, duration, ease: 'power2.out' }, 0)
+      // --cabinet-glow tweens 0→1 alongside the offset, set on the shared
+      // wrapper (not the front face) so the walls — a sibling of the front
+      // face, not its descendant — can also inherit it via CSS custom
+      // property inheritance. Drives CabinetBox.css's drop-shadow on the
+      // walls (the "back" of the box, not the moving front), tracking the
+      // exact same t as the pop distance rather than a separately-eased
+      // transition.
+      .fromTo(wrapperRef.current,
+        { '--cabinet-glow': popped ? 0 : 1 },
+        { '--cabinet-glow': popped ? 1 : 0, duration, ease: 'power2.out' }, 0);
     setTimeline(timelineKey, tl);
   }, [popped, width, boxHeight, timelineKey]);
 
   return (
-    <div className="sc-cabinet-box">
+    <div ref={wrapperRef} className="sc-cabinet-box">
       <svg className="sc-cabinet-box__walls" aria-hidden="true" focusable="false">
         <polygon ref={topFaceRef} className="sc-cabinet-box__top-face" />
         <polygon ref={leftFaceRef} className="sc-cabinet-box__left-face" />
@@ -371,7 +406,7 @@ export function CabinetBox({ popped, timelineKey, children }: CabinetBoxProps) {
 }
 ```
 
-**`src/components/ui/controls/CabinetBox.css`** (new, full file):
+**`src/components/ui/controls/CabinetBox.css`** (full file, as actually shipped — supersedes this section's original draft; adds the pop-proportional glow and drops the front face's `border-radius`, both confirmed against the real running app):
 
 ```css
 /* Oblique Cabinetry box height — mirrors src/utils/cabinetBreakpoints.ts's
@@ -411,6 +446,15 @@ export function CabinetBox({ popped, timelineKey, children }: CabinetBoxProps) {
   inset: 0;
   overflow: visible;
   pointer-events: none;
+  /* Glows more, the further the box has popped — --cabinet-glow is tweened
+     0→1 on the shared wrapper by the same GSAP timeline that drives the pop
+     offset (CabinetBox.tsx), so the glow grows in lockstep with the actual
+     protrusion, not on its own separately-eased transition. drop-shadow,
+     not box-shadow, since this glow follows the actual wall polygon
+     silhouette — the "back" of the box, not the moving front — rather than
+     a rectangular bounding box. Confirmed against the real running app,
+     2026-09-07 — this is the shipped design, not a draft. */
+  filter: drop-shadow(0 0 calc(var(--cabinet-glow, 0) * 20px) var(--color-accent));
 }
 
 .sc-cabinet-box__top-face {
@@ -427,7 +471,9 @@ export function CabinetBox({ popped, timelineKey, children }: CabinetBoxProps) {
   justify-content: center;
   height: var(--cabinet-box-height);
   padding: 0 14px;
-  border-radius: 4px;
+  /* No border-radius, deliberately — sharp corners read as a cleaner match
+     for the walls' own straight-edged geometry than the original 4px
+     radius did; confirmed against the real running app, 2026-09-07. */
   background-color: var(--color-surface);
   color: var(--color-text-primary);
 }
@@ -536,12 +582,14 @@ export function Button({ schema, onClick, disabled }: ButtonProps) {
   4. Output is a pure function of its 3 inputs — calling twice with identical arguments returns identical strings.
 * **`cabinetAnimation.test.ts` (new):** mirrors `accordionAnimation.test.ts`'s own two cases — `getCabinetPopDuration(true)` is `0`; `getCabinetPopDuration(false)` equals `CABINET_POP_DURATION` and is `> 0`.
 * **`useCabinetBoxHeight.test.ts` (new):** using a `stubMatchMedia`-style helper (mirroring `AccordionContainer.test.tsx`'s own, generalized to answer both the mobile and tablet queries independently): resolves `48` when neither query matches, `40` when only the tablet query matches, `32` when the mobile query matches (regardless of the tablet query's own state, since mobile is checked first) — and re-resolves when a stubbed query's `change` listener fires.
-* **`CabinetBox.test.tsx` (new)**, following `AccordionContainer.test.tsx`'s exact conventions (`vi.mock('@/animation/timelineMap', ...)`, the `stubMatchMedia` helper, `MockResizeObserver` from `useAutoSliderOrientation.test.ts`):
+* **`CabinetBox.test.tsx` (new, then extended post-ship for the glow)**, following `AccordionContainer.test.tsx`'s exact conventions (`vi.mock('@/animation/timelineMap', ...)`, the `stubMatchMedia` helper, `MockResizeObserver` from `useAutoSliderOrientation.test.ts`):
   1. Renders `children` inside the front face.
   2. Registers a GSAP timeline via `setTimeline` when `popped` changes (simulate a `ResizeObserver` callback reporting a non-zero width first, since the effect bails at `width === 0`).
   3. Calls `killTimeline` on unmount.
   4. Still calls `setTimeline` under `prefers-reduced-motion` (stubbed true) — the timeline still registers, just at `duration: 0` (asserted via the mock's call arguments, same shape `AccordionContainer.test.tsx` uses).
   5. Renders exactly one `.sc-cabinet-box__top-face` and one `.sc-cabinet-box__left-face` polygon, both `aria-hidden` via the parent `<svg>`.
+  6. Measures the front face using its border-box size (padding included), not content-box — asserted by locally mocking `@/utils/cabinetGeometry` (wrapping the real `computeCabinetGeometry` in a spy via `importOriginal`) and inspecting which width value it was actually called with, across a `ResizeObserver` entry whose `contentRect.width` and `borderBoxSize[0].inlineSize` deliberately differ; falls back to `contentRect.width` when `borderBoxSize` is absent (a second, explicit test).
+  7. **`--cabinet-glow` tweens on the wrapper, never the front face, in both pop directions (`0→1` popping in, `1→0` popping out).** This needed a *local* `vi.mock('gsap', ...)` overriding `vitest.setup.ts`'s global noop for this file only (mirroring `useLfoTargetGroup.test.ts`'s own precedent) — the global mock doesn't expose `.fromTo()`'s call arguments for inspection, and asserting the glow tween's target/values requires exactly that. Both new tests were confirmed non-tautological by temporarily mistargeting the tween onto the front face in `CabinetBox.tsx`, watching both fail, then reverting — not just written and trusted.
 * **`Button.test.tsx` (modified)** — every existing test (§ current file) stays unchanged and passing; new coverage:
   1. `fireEvent.mouseEnter`/`mouseLeave` on the button toggles `popped` (asserted indirectly via `CabinetBox`'s `setTimeline` mock being called, same technique as #4 above, or via a lower-level unit assertion on the computed `popped` boolean if `CabinetBox` is shallow-mocked for this file — implementation detail for Tasks to pick, either is acceptable).
   2. `fireEvent.focus`/`blur` toggles `popped` independently of hover.
@@ -580,6 +628,13 @@ Resolved during Specify (confirmed directly against the intent doc and this code
 Still open — flag for Plan/Tasks, not blocking this spec:
 
 1. **The breakpoint numbers (640px/1024px, 32/40/48px) are duplicated between `cabinetBreakpoints.ts` and `CabinetBox.css`, by necessity (§1.3).** No build-time sync mechanism is introduced in this phase. If either changes later, both files need a manual, coordinated edit — worth a lint rule or codegen step in a future pass if this drifts in practice, not solved speculatively now.
-2. **The exact `color-mix()` lighten/darken percentages (20% white / 25% black, §1.4) are a first-pass aesthetic guess, not confirmed against a real rendered screenshot.** Low risk (same technique as the already-shipped `Console.css` fix, just different offset numbers) — worth a visual check during the manual pass (§5) and adjustment if the walls read as too subtle or too harsh against the "Ballast" accent color (`#5fc9dc`).
-3. **`Button.test.tsx`'s new hover/focus/press coverage (§5) may assert against `CabinetBox`'s mocked `setTimeline` calls or against a lower-level exposed `popped` value — left as a Tasks-time implementation choice**, not fully pinned down here, since either satisfies the same acceptance criterion (the event correctly toggles the pop state) without changing this spec's public contracts.
-4. **Real disabled `Button` consumers already exist** (confirmed by grep, not assumed): `CompanyCrudControls.tsx`'s Create/Delete Company buttons (`disabled={atCap || nameIsBlank}` / `disabled={!hasSelectedCompany}`) and `PingControlsDrawer.tsx`'s Reset Melody button (`disabled={generationDisabled}`) — so the manual check's disabled-state verification (§5) has real, reachable call sites to exercise (toggle a company name field blank, or hit the company cap) rather than needing a devtools override.
+2. **`Button.test.tsx`'s new hover/focus/press coverage (§5) may assert against `CabinetBox`'s mocked `setTimeline` calls or against a lower-level exposed `popped` value — left as a Tasks-time implementation choice**, not fully pinned down here, since either satisfies the same acceptance criterion (the event correctly toggles the pop state) without changing this spec's public contracts. **Resolved during implementation:** `CabinetBox` is mocked directly in `Button.test.tsx` (renders `data-popped={popped}`), keeping Button's own event-to-state logic tested in isolation from `CabinetBox`'s internals.
+3. **Real disabled `Button` consumers already exist** (confirmed by grep, not assumed): `CompanyCrudControls.tsx`'s Create/Delete Company buttons (`disabled={atCap || nameIsBlank}` / `disabled={!hasSelectedCompany}`) and `PingControlsDrawer.tsx`'s Reset Melody button (`disabled={generationDisabled}`) — so the manual check's disabled-state verification (§5) has real, reachable call sites to exercise (toggle a company name field blank, or hit the company cap) rather than needing a devtools override.
+
+Resolved after a real visual pass against the running app (2026-09-07), superseding this spec's original draft — not left open:
+
+- ~~The exact `color-mix()` lighten/darken percentages (20% white / 25% black, §1.4) were a first-pass aesthetic guess.~~ **Resolved: confirmed as-is** — the wall fill shading wasn't changed during the review that added the glow (§1.8) and removed the front face's `border-radius`; only those two were revised.
+- ~~`CABINET_POP_DISTANCE`'s initial value (16px).~~ **Resolved, then re-resolved twice more: currently `2`** (§1.2's note) — read `cabinetGeometry.ts` directly rather than trusting any doc's restated number; it was tuned by feel each time, purely by looking at the rendered result.
+- ~~Does the box need any effect beyond geometry/shading?~~ **Resolved: yes — the pop-proportional glow (§1.8), added and confirmed after the primitives above already existed.** Not anticipated by this spec's original scope; recorded as a first-class decision once shipped, not folded silently into §1.4's face-shading section it's adjacent to but distinct from.
+
+**Forward note for 11.1.2 (`Toggle`) and 11.1.3–11.1.5 (the sliders):** `CabinetBox` as it stands after §1.8 — walls, face-shading, glow, and sharp front-face corners together — is the reference example those items' own cabinet boxes should match, not just the geometry/face-shading fundamentals from §1.1–§1.7. Confirmed explicitly by the user ("the box as it is now is the example going forward"), not an inference.

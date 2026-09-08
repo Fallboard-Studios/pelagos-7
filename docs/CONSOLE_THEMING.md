@@ -138,8 +138,24 @@ and the Left Face's darker tint directly from `--color-accent` —
 
 — Top Face lighter (overhead light), Left Face darker (shadowed side), the same convention
 `PowerRockerSwitch.css`'s own side/edge faces already use. The front face's own background stays
-`--color-surface`, unchanged from a flat button's today; only the walls, visible exclusively while
-popped, carry the accent-tinted "active" cue.
+`--color-surface`, unchanged from a flat button's today, and carries no `border-radius` — sharp
+corners read as a cleaner match for the walls' own straight-edged parallelogram geometry than a
+rounded front panel did. Only the walls, visible exclusively while popped, carry the accent-tinted
+"active" cue via their fill — and, since the same visual pass, via a glow too (below).
+
+**The pop-proportional glow.** The walls also glow — via `filter: drop-shadow(0 0 calc(var(--cabinet-glow,
+0) * 20px) var(--color-accent))` on `.sc-cabinet-box__walls` — and the glow's intensity tracks exactly
+how far the box has popped, not a separate on/off state. `--cabinet-glow` is a CSS custom property
+tweened `0 → 1` by the *same* GSAP timeline (same `duration`/`ease`) that drives the pop offset itself
+(`CabinetBox.tsx`), set on the shared wrapper `<div>` rather than the front face — the walls are the
+front face's *sibling*, not its descendant, so only a common ancestor's custom property reaches both
+via CSS inheritance. `drop-shadow`, not `box-shadow`, because the glow should follow the walls'
+actual polygon silhouette (a parallelogram, not the walls SVG's own rectangular bounding box) — the
+same reasoning that already ruled out `box-shadow` for the corner-rounding attempt that was tried and
+rejected first (a `blur()`/`contrast()` "goo" filter on the walls, which read as too soft/melty at
+this small a scale and was reverted before shipping). The glow is deliberately on the "back" (the
+walls, which stay visually anchored to the stationary footprint) rather than the moving front face —
+confirmed explicitly during design review, not an arbitrary choice.
 
 **A new breakpoint concept, deliberately duplicated in two places.** Cabinetry introduces this app's
 first viewport-width breakpoint tiers (mobile ≤640px / tablet 641–1024px / desktop >1024px, driving box
@@ -148,5 +164,8 @@ the same 4 numbers live in both `src/utils/cabinetBreakpoints.ts` (read via `use
 `matchMedia`, for the geometry math) and `CabinetBox.css`'s own `--cabinet-box-height` custom property
 + `@media` overrides (for layout) — a confirmed, accepted duplication, not an oversight.
 
-Status as of Foundation & Button (11.1.1): `CabinetBox` (the shared rendering primitive) and `Button`
-(its first real consumer) have shipped; `Toggle` and the 3 sliders (11.1.2–11.1.5) have not yet.
+Status as of Foundation & Button (11.1.1): `CabinetBox` (the shared rendering primitive, including the
+pop-proportional glow and sharp front-face corners above) and `Button` (its first real consumer) have
+shipped and were confirmed against the real running app; `Toggle` and the 3 sliders (11.1.2–11.1.5)
+have not yet. `CabinetBox` as it stands here — walls, glow, and all — is the reference every later
+11.1.x item's own cabinet box should match, not just the geometry/face-shading fundamentals.

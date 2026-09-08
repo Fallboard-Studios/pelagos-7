@@ -245,7 +245,7 @@ Task 1 (cabinetBreakpoints.ts)   Task 2 (cabinetGeometry.ts)   Task 3 (cabinetAn
 - [x] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes (118 files, 1912 tests).
 - [x] All acceptance criteria across all 8 tasks are met, except Task 6's manual browser check (no `chrome-devtools` MCP configured in this environment — see Task 6's verification notes and the Phase 4 checkpoint above).
 - [x] `docs/CONSOLE_THEMING.md` and `docs/COMPONENT_LIBRARY.md` both reflect the shipped feature.
-- [ ] **Not yet ready for PR** — the outstanding manual visual check (Task 6) should happen before this ships for real; automated verification alone doesn't prove the geometry/animation actually looks right in a browser.
+- [x] **Manual visual check completed — by Crawford, directly against the running app**, not via automated browser tooling (none was configured in the implementing session). This is *more* verification than the original checklist item anticipated, not less: it ran across several rounds of real iteration (see "Post-ship refinements" below), not a single pass. Ready for PR as far as this checklist is concerned.
 
 ## Risks and Mitigations
 
@@ -253,7 +253,7 @@ Task 1 (cabinetBreakpoints.ts)   Task 2 (cabinetGeometry.ts)   Task 3 (cabinetAn
 |---|---|---|
 | `--cabinet-box-height`'s breakpoint numbers are duplicated between `cabinetBreakpoints.ts` (Task 1) and `CabinetBox.css` (Task 5), by necessity — CSS cannot import JS constants (spec §1.3/§7) | Medium if either changes later without the other being updated | Both files carry an explicit cross-referencing comment (spec §4); Task 5's acceptance criteria don't re-derive this risk away, so it's carried forward here rather than silently assumed fixed |
 | `CabinetBox` (Task 5) is the first real use of GSAP SVG-attribute tweening + `ResizeObserver` composed together in this codebase — higher chance of a subtle timing/measurement bug than a typical S-sized task | Medium — could stall Task 5 past a single focused session | Sized M, not S, specifically to flag this (Architecture Decisions); its own Checkpoint is called out as "the highest-value checkpoint to catch a mistake before it propagates into Button" |
-| The exact `color-mix()` lighten/darken percentages (20% white / 25% black) are a first-pass aesthetic guess, not confirmed against a real rendered screenshot (spec §7 item 2) | Low — same technique as the already-shipped `Console.css` fix, just different offset numbers | Task 6's manual check includes a visual pass; adjust the two `color-mix()` percentages directly in `CabinetBox.css` if the walls read as too subtle or too harsh — no architecture change needed |
+| ~~The exact `color-mix()` lighten/darken percentages (20% white / 25% black) are a first-pass aesthetic guess, not confirmed against a real rendered screenshot (spec §7 item 2)~~ | **Resolved** — confirmed as-is during the post-ship visual review below; not changed | The review that added the glow and removed `border-radius` left the wall fill `color-mix()` percentages untouched, i.e. implicitly approved |
 | `Button.test.tsx`'s new hover/focus/press coverage (Task 6) could assert against `CabinetBox`'s mocked `setTimeline` calls or a lower-level exposed `popped` value — left as an implementation choice, not pinned down in the spec (spec §7 item 3) | Low — either satisfies the same acceptance criterion | Task 6's acceptance criteria describe the *behavior* to test (popped toggles per event), not the exact assertion mechanism — implementer's choice, doesn't block review |
 
 ## Open Questions
@@ -267,5 +267,17 @@ Resolved during Plan (not left open):
 Carried forward from spec §7, not blocking this plan:
 
 1. **The breakpoint-number duplication between `cabinetBreakpoints.ts` and `CabinetBox.css`** (spec §7 item 1) — no build-time sync mechanism is introduced by any task in this plan; worth a lint rule or codegen step in a future pass if it drifts in practice.
-2. **`color-mix()` percentage tuning** (spec §7 item 2) — deferred to Task 6's manual check, not a blocker to shipping Task 5.
+2. ~~`color-mix()` percentage tuning~~ (spec §7 item 2) — **resolved**, see the Risks table above.
 3. **Real disabled `Button` consumers already exist** (`CompanyCrudControls.tsx`, `PingControlsDrawer.tsx`, confirmed by grep during the spec pass, spec §7 item 4) — Task 6's manual check exercises these directly rather than needing a devtools override.
+
+## Post-ship refinements (beyond the original 8 tasks)
+
+Real, shipped changes made after all 8 tasks above were already complete and merged into this plan's own history — driven entirely by Crawford iterating against the real running app, not by any gap in the original spec/plan. Recorded here so this history isn't lost, and so anyone picking up 11.1.2 (`Toggle`) onward knows `CabinetBox` as it stands *now* — not as originally shipped by Task 5 — is the reference to match. Full rationale for all of these: `docs/specs/OBLIQUE_CABINETRY_FOUNDATION.md § 1.2` and `§ 1.8`.
+
+- **`CABINET_POP_DISTANCE` retuned by feel, more than once** (16 → 4 → 2) — each change verified against the real rendered box, not a theoretical target. Tests were written to derive their expected values from the constant itself (`cabinetGeometry.test.ts`), specifically so they wouldn't need editing on the next retune.
+- **Hit-area padding bug fixed**: `.sc-button` had no explicit `width`, so a flex/grid parent's default stretch (`HubNav.css`'s grid specifically) sized the real `<button>` to fill its whole cell while `CabinetBox`'s visible content stayed shrink-wrapped inside it — an invisible clickable/hoverable dead zone well past the visible box. Fixed with `width: fit-content` on `.sc-button`. `HubNav.css` gained `justify-items`/`align-items: center` as a direct follow-up, since its tile buttons had been relying on that same stretch to fill their grid cells.
+- **Front face's border-box, not content-box, is what the wall geometry measures**: the front face has its own horizontal padding, and `ResizeObserver`'s `contentRect` always reports content-box regardless of the `box` option — so the walls were rendering narrower than the front face's real width, leaving padding sticking out past the Top Face's edge. Fixed by observing with `{ box: 'border-box' }` and reading `borderBoxSize` (falling back to `contentRect.width` when unavailable).
+- **Pop-proportional glow added**: the walls glow via `filter: drop-shadow()`, scaled by a `--cabinet-glow` custom property tweened by the same GSAP timeline that drives the pop offset, set on a shared wrapper (not the front face) since the walls are a sibling, not a descendant. A `blur()`/`contrast()` "goo" corner-rounding attempt was tried first and explicitly rejected (read as too soft/melty at this scale) before the glow idea replaced it.
+- **`.sc-cabinet-box__front`'s `border-radius: 4px` removed** — sharp corners read as a cleaner match for the walls' own straight-edged geometry.
+
+All of the above shipped with real test coverage (TDD RED→GREEN, one commit per change) and full-suite/build verification, same discipline as the original 8 tasks — not exempted from it just because they came after the checkpoint above was first reached.
