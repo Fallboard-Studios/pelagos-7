@@ -118,21 +118,21 @@ Task 1 (cabinetBreakpoints.ts +      Task 2 (voxelTrackMath.ts)      Task 3 (Cab
 
 ### Phase 2: The box-count hook
 
-- [ ] **Task 4: `useVoxelTrackBoxCount` — live, self-fitting box count**
+- [x] **Task 4: `useVoxelTrackBoxCount` — live, self-fitting box count**
 
   **Description:** Add `src/components/ui/controls/useVoxelTrackBoxCount.ts` per spec §1.5/§1.7/§4: observes `ref.current?.parentElement` via `ResizeObserver` — never `ref.current` itself (mirrors `useAutoSliderOrientation.ts`'s exact feedback-loop-avoiding convention) — reading `width` or `height` depending on the (already-resolved) `axis` param, feeding `computeFittedBoxCount` (Task 2). An optional `explicitAvailableLength` param, when supplied, skips the observer entirely and fits against that fixed number instead (the `verticalHeight`-as-budget case, spec §1.7).
 
   **Acceptance criteria:**
-  - [ ] Returns `VOXEL_TRACK_MIN_BOX_COUNT` before any `ResizeObserver` callback fires.
-  - [ ] Observes the `ref`'s parent, never `ref.current` itself — asserted the same way `useAutoSliderOrientation.test.ts` already asserts this for orientation (`MockResizeObserver.instances[0].observedTargets`).
-  - [ ] Reads `width` when `axis: 'horizontal'`, `height` when `axis: 'vertical'` — two separate test cases, not inferred from one.
-  - [ ] Re-computes when the observer fires a new size (not just on mount).
-  - [ ] When `explicitAvailableLength` is provided, no `ResizeObserver` is constructed at all (`MockResizeObserver.instances` stays empty), and the returned count comes directly from that number.
+  - [x] Returns `VOXEL_TRACK_MIN_BOX_COUNT` before any `ResizeObserver` callback fires.
+  - [x] Observes the `ref`'s parent, never `ref.current` itself — asserted the same way `useAutoSliderOrientation.test.ts` already asserts this for orientation (`MockResizeObserver.instances[0].observedTargets`).
+  - [x] Reads `width` when `axis: 'horizontal'`, `height` when `axis: 'vertical'` — two separate test cases, not inferred from one.
+  - [x] Re-computes when the observer fires a new size (not just on mount).
+  - [x] When `explicitAvailableLength` is provided, no `ResizeObserver` is constructed at all (`MockResizeObserver.instances` stays empty), and the returned count comes directly from that number.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/ui/controls/useVoxelTrackBoxCount.test.ts` passes, using the `MockResizeObserver` convention from `useAutoSliderOrientation.test.ts`.
-  - [ ] `npm run build:types`, `npm run lint` clean.
-  - [ ] Manual check: none applicable yet — zero real consumers until Task 6.
+  - [x] `npx vitest run src/components/ui/controls/useVoxelTrackBoxCount.test.ts` passes, using the `MockResizeObserver` convention from `useAutoSliderOrientation.test.ts`.
+  - [x] `npm run build:types`, `npm run lint` clean.
+  - [x] Manual check: none applicable yet — zero real consumers until Task 6.
 
   **Dependencies:** Task 2 (`computeFittedBoxCount`).
 
@@ -141,8 +141,8 @@ Task 1 (cabinetBreakpoints.ts +      Task 2 (voxelTrackMath.ts)      Task 3 (Cab
   **Estimated scope:** S (2 files, one hook against an already-proven measurement convention)
 
 ### Checkpoint: Hook ships
-- [ ] `npm run build:types`, `npm run lint` clean; `useVoxelTrackBoxCount.test.ts` passes in isolation.
-- [ ] `useVoxelTrackBoxCount` is importable and correctly resolves fitted counts (verified by its own test suite) with zero other files in the app referencing it yet.
+- [x] `npm run build:types`, `npm run lint` clean; `useVoxelTrackBoxCount.test.ts` passes in isolation.
+- [x] `useVoxelTrackBoxCount` is importable and correctly resolves fitted counts (verified by its own test suite) with zero other files in the app referencing it yet.
 - [ ] Review with human before proceeding.
 
 ---
