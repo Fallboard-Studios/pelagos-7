@@ -61,22 +61,22 @@ Task 1 (cabinetBreakpoints.ts +      Task 2 (voxelTrackMath.ts)      Task 3 (Cab
 
   **Estimated scope:** S (4 files, but the refactor is a straightforward extraction — no new listener behavior, no new constants beyond one small object)
 
-- [ ] **Task 2: `voxelTrackMath.ts` — box-count fitting, track length, dual-fill/extrusion-falloff, fill-color math**
+- [x] **Task 2: `voxelTrackMath.ts` — box-count fitting, track length, dual-fill/extrusion-falloff, fill-color math**
 
   **Description:** Add `src/utils/voxelTrackMath.ts` per spec §4: `VOXEL_TRACK_MIN_BOX_COUNT = 3`; `computeFittedBoxCount(availableLength, boxSize, gap)`; `computeVoxelTrackLength(boxCount, boxSize, gap)`; `computeVoxelBoxStates(value, min, max, boxCount)` returning `VoxelBoxState[]` (`{ fillPercent, popT }` per box, indexed 0=nearest-min); `computeVoxelFillBackground(fillPercent, axis)`. Pure functions only — no DOM, no GSAP, no React.
 
   **Acceptance criteria:**
-  - [ ] `computeFittedBoxCount`: an exact-fit case, an under-by-one-gap case, and a generous-space case all match the hand-derived formula (spec §1.5); `boxSize <= 0` returns `VOXEL_TRACK_MIN_BOX_COUNT`; a space too small even for 3 boxes still returns exactly `3`, never fewer.
-  - [ ] `computeVoxelTrackLength(computeFittedBoxCount(availableLength, boxSize, gap), boxSize, gap) <= availableLength` holds for representative `(boxSize, gap)` pairs and a generous `availableLength` — the fitted count never overflows what was asked for. `computeVoxelTrackLength(1, boxSize, gap) === boxSize` (no gap term at `boxCount: 1`).
-  - [ ] `computeVoxelBoxStates(min, min, max, boxCount)`: box `0`'s `fillPercent: 0`, `popT: 1` (it's the straddling box); every other box `fillPercent: 0`, `popT: 0`.
-  - [ ] `computeVoxelBoxStates(max, min, max, boxCount)`: the **`t=1` clamp edge is explicitly verified** — the last box (`boxCount - 1`) is the straddling box (`fillPercent: 100`, `popT: 1`), every prior box is `fillPercent: 100` with a stepped-down `popT`, and no box reports `fillPercent: 0` (spec §5 names this as the off-by-one risk worth a dedicated test).
-  - [ ] A mid-range value against a small `boxCount` (e.g. `4`) is hand-verified against the exact expected per-box `{fillPercent, popT}` array, not spot-checked.
-  - [ ] `min === max` returns every box at the `t=0` shape without throwing (the divide-by-zero guard).
-  - [ ] `computeVoxelFillBackground(100, axis)`/`computeVoxelFillBackground(0, axis)` return the two solid `var(...)` strings exactly, no gradient syntax; a mid-value (e.g. `37`) returns a `linear-gradient` with both color stops at the same `37%` boundary (hard stop); `axis: 'vertical'` uses `to top`, `'horizontal'` uses `to right`.
+  - [x] `computeFittedBoxCount`: an exact-fit case, an under-by-one-gap case, and a generous-space case all match the hand-derived formula (spec §1.5); `boxSize <= 0` returns `VOXEL_TRACK_MIN_BOX_COUNT`; a space too small even for 3 boxes still returns exactly `3`, never fewer.
+  - [x] `computeVoxelTrackLength(computeFittedBoxCount(availableLength, boxSize, gap), boxSize, gap) <= availableLength` holds for representative `(boxSize, gap)` pairs and a generous `availableLength` — the fitted count never overflows what was asked for. `computeVoxelTrackLength(1, boxSize, gap) === boxSize` (no gap term at `boxCount: 1`).
+  - [x] `computeVoxelBoxStates(min, min, max, boxCount)`: box `0`'s `fillPercent: 0`, `popT: 1` (it's the straddling box); every other box `fillPercent: 0`, `popT: 0`.
+  - [x] `computeVoxelBoxStates(max, min, max, boxCount)`: the **`t=1` clamp edge is explicitly verified** — the last box (`boxCount - 1`) is the straddling box (`fillPercent: 100`, `popT: 1`), every prior box is `fillPercent: 100` with a stepped-down `popT`, and no box reports `fillPercent: 0` (spec §5 names this as the off-by-one risk worth a dedicated test).
+  - [x] A mid-range value against a small `boxCount` (e.g. `4`) is hand-verified against the exact expected per-box `{fillPercent, popT}` array, not spot-checked.
+  - [x] `min === max` returns every box at the `t=0` shape without throwing (the divide-by-zero guard).
+  - [x] `computeVoxelFillBackground(100, axis)`/`computeVoxelFillBackground(0, axis)` return the two solid `var(...)` strings exactly, no gradient syntax; a mid-value (e.g. `37`) returns a `linear-gradient` with both color stops at the same `37%` boundary (hard stop); `axis: 'vertical'` uses `to top`, `'horizontal'` uses `to right`.
 
   **Verification:**
-  - [ ] `npx vitest run src/utils/voxelTrackMath.test.ts` passes, covering every acceptance criterion above.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/utils/voxelTrackMath.test.ts` passes, covering every acceptance criterion above.
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** None.
 
