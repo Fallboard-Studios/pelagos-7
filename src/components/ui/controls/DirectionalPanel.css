@@ -7,7 +7,21 @@
 .sc-directional-panel__content {
   display: flex;
   flex-direction: row;
-  flex-wrap: wrap;
+  /* 'row' never wraps — a deliberate decision (docs/specs/DIRECTIONAL_PANEL.md
+     §1.4, confirmed during design discussion, 2026-09-04), not an oversight.
+     This was shipped as `wrap` instead — the opposite of the documented
+     decision — a pre-existing bug found while debugging the voxel-track
+     slider redesign (roadmap 11.1.3): thin-line sliders rarely had enough
+     natural content width to actually trigger a wrap, so it sat latent;
+     boxes with a real minimum width trigger it constantly, wrapping a
+     child onto its own solo line where it then grows (flex-grow: 1) to
+     fill that ENTIRE line — no min-width/flex-basis fix on the children
+     (above) can prevent that, since a solo item on a wrapped line always
+     gets 100% of it regardless. nowrap + flex-shrink: 1 + min-width: 0
+     (already set below) means row children always share one line,
+     shrinking to fit however tight, matching the documented "overflow is
+     solved with a nested DirectionalPanel, not a wrap prop" policy. */
+  flex-wrap: nowrap;
   gap: 8px;
 }
 
