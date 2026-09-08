@@ -5,18 +5,16 @@
 }
 
 .sc-toggle__root {
-  width: 34px;
-  height: 18px;
-  border-radius: 999px;
-  background-color: var(--color-border);
-  position: relative;
-  cursor: pointer;
-  border: none;
+  display: inline-flex;
+  /* Pins the hit area to CabinetBox's own footprint, same reasoning as
+     Button.css's own .sc-button rule (roadmap 11.1.1) — a flex/grid parent's
+     default stretch behavior would otherwise size the real switch element
+     past the box's own visible content. */
+  width: fit-content;
   padding: 0;
-}
-
-.sc-toggle__root[data-state='checked'] {
-  background-color: var(--color-accent);
+  border: none;
+  background: transparent;
+  cursor: pointer;
 }
 
 .sc-toggle__root:focus-visible {
@@ -24,23 +22,13 @@
   outline-offset: 2px;
 }
 
-.sc-toggle__thumb {
-  display: block;
-  width: 14px;
-  height: 14px;
-  border-radius: 999px;
-  background-color: var(--color-text-primary);
-  transform: translateX(2px);
-  transition: transform 0.15s ease;
-  will-change: transform;
-}
-
-.sc-toggle__thumb[data-state='checked'] {
-  transform: translateX(18px);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .sc-toggle__thumb {
-    transition: none;
-  }
+/* Overrides CabinetBox's own content-driven front-face sizing to the fixed
+   32×32px size Toggle.tsx computes into --cabinet-toggle-box-size — scoped
+   to .sc-toggle__root specifically so Button's own content-sized front face
+   (CabinetBox.css's own .sc-cabinet-box__front rule) is untouched. See
+   docs/specs/OBLIQUE_CABINETRY_TOGGLE.md §1.2. */
+.sc-toggle__root .sc-cabinet-box__front {
+  width: var(--cabinet-toggle-box-size);
+  height: var(--cabinet-toggle-box-size);
+  padding: 0;
 }
