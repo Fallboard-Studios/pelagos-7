@@ -15,6 +15,14 @@
   border: none;
   background: transparent;
   cursor: pointer;
+  /* Found via manual check: the box has no text content, but without this
+     Chrome's "Navigate pages with a text cursor" (caret browsing) mode still
+     parks a blinking text caret on/near it on click, reading as "this is
+     editable text" — confusing for a control that isn't. Same fix the
+     sliders' own Radix root already carries (SliderLinear.css et al.) for
+     the same reason; Toggle is the first non-slider control whose box has no
+     real text of its own to make the issue obvious. */
+  user-select: none;
 }
 
 .sc-toggle__root:focus-visible {
