@@ -40,20 +40,20 @@ Task 1 (cabinetBreakpoints.ts +      Task 2 (voxelTrackMath.ts)      Task 3 (Cab
 
 ### Phase 1: Foundation — independent modules (parallelizable)
 
-- [ ] **Task 1: `cabinetBreakpoints.ts` gains `CABINET_VOXEL_GAP`; `useCabinetBoxHeight.ts` refactors to share tier resolution**
+- [x] **Task 1: `cabinetBreakpoints.ts` gains `CABINET_VOXEL_GAP`; `useCabinetBoxHeight.ts` refactors to share tier resolution**
 
   **Description:** Add `CABINET_VOXEL_GAP = { mobile: 8, tablet: 10, desktop: 12 }` to `src/utils/cabinetBreakpoints.ts` (spec §4) — `CABINET_BOX_HEIGHT`, the breakpoint-max constants, and `CabinetTier` are otherwise untouched. Refactor `src/components/ui/controls/useCabinetBoxHeight.ts` per spec §1.4/§4: factor the existing `matchMedia` tier-detection logic into a private `useCabinetTier(): CabinetTier` hook; `useCabinetBoxHeight()` keeps its exact existing export signature (`CABINET_BOX_HEIGHT[useCabinetTier()]`); add a new exported `useVoxelTrackGap(): number` (`CABINET_VOXEL_GAP[useCabinetTier()]`).
 
   **Acceptance criteria:**
-  - [ ] `CABINET_VOXEL_GAP.mobile` (`8`) `< .tablet` (`10`) `< .desktop` (`12`).
-  - [ ] Every existing `cabinetBreakpoints.test.ts`/`useCabinetBoxHeight.test.ts` assertion stays unchanged and passing — `useCabinetBoxHeight()`'s resolved value for all 3 stubbed tiers, and its re-resolution on a stubbed `change` event, are byte-identical to before this refactor.
-  - [ ] `useVoxelTrackGap()` resolves `8`/`10`/`12` for the same 3 stubbed tiers `useCabinetBoxHeight.test.ts` already uses, and re-resolves when a stubbed query's `change` listener fires.
-  - [ ] Both hooks derive from the same `resolveTier()`/`CABINET_BREAKPOINT_*` constants — a test changes a stubbed breakpoint boundary and asserts both `useCabinetBoxHeight()` and `useVoxelTrackGap()` cross their respective tier at the exact same stubbed condition (proves shared logic, not just visually-similar duplicated logic).
+  - [x] `CABINET_VOXEL_GAP.mobile` (`8`) `< .tablet` (`10`) `< .desktop` (`12`).
+  - [x] Every existing `cabinetBreakpoints.test.ts`/`useCabinetBoxHeight.test.ts` assertion stays unchanged and passing — `useCabinetBoxHeight()`'s resolved value for all 3 stubbed tiers, and its re-resolution on a stubbed `change` event, are byte-identical to before this refactor.
+  - [x] `useVoxelTrackGap()` resolves `8`/`10`/`12` for the same 3 stubbed tiers `useCabinetBoxHeight.test.ts` already uses, and re-resolves when a stubbed query's `change` listener fires.
+  - [x] Both hooks derive from the same `resolveTier()`/`CABINET_BREAKPOINT_*` constants — a test changes a stubbed breakpoint boundary and asserts both `useCabinetBoxHeight()` and `useVoxelTrackGap()` cross their respective tier at the exact same stubbed condition (proves shared logic, not just visually-similar duplicated logic).
 
   **Verification:**
-  - [ ] `npx vitest run src/utils/cabinetBreakpoints.test.ts src/components/ui/controls/useCabinetBoxHeight.test.ts` passes.
-  - [ ] `npm run build:types`, `npm run lint` clean.
-  - [ ] Manual check: none applicable yet — `useVoxelTrackGap` has zero real consumers until Task 6.
+  - [x] `npx vitest run src/utils/cabinetBreakpoints.test.ts src/components/ui/controls/useCabinetBoxHeight.test.ts` passes.
+  - [x] `npm run build:types`, `npm run lint` clean.
+  - [x] Manual check: none applicable yet — `useVoxelTrackGap` has zero real consumers until Task 6.
 
   **Dependencies:** None.
 
