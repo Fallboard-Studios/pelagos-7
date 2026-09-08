@@ -84,23 +84,23 @@ Task 1 (cabinetBreakpoints.ts +      Task 2 (voxelTrackMath.ts)      Task 3 (Cab
 
   **Estimated scope:** S (2 files, pure math — 4 functions with real derivations to verify, no DOM/GSAP/React)
 
-- [ ] **Task 3: `CabinetBox` — `popped` widens from `boolean` to `boolean | number`**
+- [x] **Task 3: `CabinetBox` — `popped` widens from `boolean` to `boolean | number`**
 
   **Description:** Modify `src/components/ui/controls/CabinetBox.tsx` per spec §1.1/§4: widen `CabinetBoxProps.popped` to `boolean | number`; normalize once on entry (`const poppedT = typeof popped === 'number' ? popped : (popped ? 1 : 0)`); replace every downstream use of the old binary `popped` (the `isTransition` comparison, the `target`/`from` geometry calls, the glow tween, the effect's dependency array) with `poppedT`. The `from` value generalizes from the old `popped ? 0 : 1` ternary to `previousPopped ?? (1 - poppedT)` (captured *before* `prevPoppedRef.current` is overwritten) — reproduces today's Button/Toggle behavior exactly at `poppedT` `0`/`1`, generalizes correctly for a fractional value. No other logic in the file changes — the `ResizeObserver` width measurement, the resize-flicker fix's overall shape, and the JSX are untouched.
 
   **Acceptance criteria:**
-  - [ ] Every existing `CabinetBox.test.tsx` assertion (11.1.1/11.1.2's full suite) still passes unmodified — every existing case passes a `boolean`, which normalizes identically before and after this change.
-  - [ ] `Button.test.tsx` and `Toggle.test.tsx` both stay unmodified and passing — direct proof the widening is behavior-preserving for both real consumers, not just type-compatible (`git diff src/components/ui/controls/Button.tsx src/components/ui/controls/Toggle.tsx` is empty for this task).
-  - [ ] A fractional `popped` (e.g. `0.4`) computes geometry at `t = 0.4` exactly — asserted against `computeCabinetGeometry`'s actual call arguments (spied), not just "doesn't throw".
-  - [ ] `--cabinet-glow` tweens to exactly `0.4` (not `0` or `1`) for a `popped={0.4}` render — extends the existing glow-direction test to a non-boundary value.
-  - [ ] A transition between two fractional values (e.g. `0.4 → 0.7`, no boundary crossing) animates `from: 0.4` directly, not `from: 0` or `from: 1` — confirms `previousPopped` drives the tween once a real prior value exists.
-  - [ ] The very first render at a fractional `popped` (e.g. `0.4`, no prior render) animates `from: 0.6` (`1 - 0.4`) — confirms the numeric-opposite fallback generalizes correctly past `0`/`1`.
+  - [x] Every existing `CabinetBox.test.tsx` assertion (11.1.1/11.1.2's full suite) still passes unmodified — every existing case passes a `boolean`, which normalizes identically before and after this change.
+  - [x] `Button.test.tsx` and `Toggle.test.tsx` both stay unmodified and passing — direct proof the widening is behavior-preserving for both real consumers, not just type-compatible (`git diff src/components/ui/controls/Button.tsx src/components/ui/controls/Toggle.tsx` is empty for this task).
+  - [x] A fractional `popped` (e.g. `0.4`) computes geometry at `t = 0.4` exactly — asserted against `computeCabinetGeometry`'s actual call arguments (spied), not just "doesn't throw".
+  - [x] `--cabinet-glow` tweens to exactly `0.4` (not `0` or `1`) for a `popped={0.4}` render — extends the existing glow-direction test to a non-boundary value.
+  - [x] A transition between two fractional values (e.g. `0.4 → 0.7`, no boundary crossing) animates `from: 0.4` directly, not `from: 0` or `from: 1` — confirms `previousPopped` drives the tween once a real prior value exists.
+  - [x] The very first render at a fractional `popped` (e.g. `0.4`, no prior render) animates `from: 0.6` (`1 - 0.4`) — confirms the numeric-opposite fallback generalizes correctly past `0`/`1`.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/ui/controls/CabinetBox.test.tsx src/components/ui/controls/Button.test.tsx src/components/ui/controls/Toggle.test.tsx` passes in full — all 3 files, not just the modified one.
-  - [ ] `npm run build:types`, `npm run lint` clean.
-  - [ ] `npm run build` clean.
-  - [ ] Manual check: none applicable yet — no consumer passes a fractional value until Task 5.
+  - [x] `npx vitest run src/components/ui/controls/CabinetBox.test.tsx src/components/ui/controls/Button.test.tsx src/components/ui/controls/Toggle.test.tsx` passes in full — all 3 files, not just the modified one.
+  - [x] `npm run build:types`, `npm run lint` clean.
+  - [x] `npm run build` clean.
+  - [x] Manual check: none applicable yet — no consumer passes a fractional value until Task 5.
 
   **Dependencies:** None.
 
@@ -109,9 +109,9 @@ Task 1 (cabinetBreakpoints.ts +      Task 2 (voxelTrackMath.ts)      Task 3 (Cab
   **Estimated scope:** S (2 files touched, but the highest-*regression*-risk task among the foundation trio — modifies an already-shipped, reference-example primitive two prior items depend on; treat its full verification step as non-optional, not a nice-to-have)
 
 ### Checkpoint: Foundation modules
-- [ ] `npm run build:types`, `npm run lint`, `npm run build`, `npm test` (full suite) all clean.
-- [ ] `grep -rn "voxelTrackMath\|useVoxelTrackGap\|CABINET_VOXEL_GAP" src/` shows the new exports present with no real consumer yet, beyond the modules' own tests.
-- [ ] `Button`/`Toggle` render identically in the running app to before this checkpoint (no visual or behavioral change) — spot-checked, since Task 3 touched a shared primitive both depend on.
+- [x] `npm run build:types`, `npm run lint`, `npm run build`, `npm test` (full suite) all clean.
+- [x] `grep -rn "voxelTrackMath\|useVoxelTrackGap\|CABINET_VOXEL_GAP" src/` shows the new exports present with no real consumer yet, beyond the modules' own tests.
+- [ ] `Button`/`Toggle` render identically in the running app to before this checkpoint (no visual or behavioral change) — spot-checked, since Task 3 touched a shared primitive both depend on. **Not spot-checked in a running app this session (no browser automation tool configured) — `Button.tsx`/`Toggle.tsx` are byte-for-byte untouched (confirmed via empty `git diff`) and their full test suites pass unmodified, which is strong evidence but not the same as a visual check.**
 - [ ] Review with human before proceeding.
 
 ---

@@ -8,10 +8,14 @@ import { setTimeline, killTimeline } from '@/animation/timelineMap';
 import './CabinetBox.css';
 
 interface CabinetBoxProps {
-  /** Whether the box should be fully popped (true) or flat (false). The
-   *  caller decides *why* — hover/focus/press for Button, `value` (checked)
-   *  for Toggle — CabinetBox only renders the resulting boolean. */
-  popped: boolean;
+  /** Whether/how far the box should be popped. `true`/`1` is fully popped,
+   *  `false`/`0` is flat — Button and Toggle pass a boolean (no intermediate
+   *  state, per 11.1.1 §3/11.1.2). VoxelTrack (roadmap 11.1.3) is the first
+   *  consumer needing a genuine fractional value, for extrusion-falloff's
+   *  per-box step-down. Normalized to a 0-1 number immediately on entry —
+   *  everything downstream uses that normalized value only. See
+   *  docs/specs/OBLIQUE_CABINETRY_SLIDER_LINEAR.md §1.1. */
+  popped: boolean | number;
   /** Unique timelineMap key for this instance, e.g. `cabinet-button-${schema.id}`
    *  or `cabinet-toggle-${schema.id}`. */
   timelineKey: string;
@@ -49,13 +53,17 @@ export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, 
   // its result is simply unused in that case.
   const responsiveBoxHeight = useCabinetBoxHeight();
   const boxHeight = boxHeightOverride ?? responsiveBoxHeight;
-  // Tracks the `popped` value the geometry effect last actually ran for —
+  // Normalized once on entry — everything downstream (the geometry calls,
+  // the isTransition comparison, the dependency array) uses this 0-1 number
+  // only, never the raw boolean | number prop. See CabinetBoxProps.popped.
+  const poppedT = typeof popped === 'number' ? popped : (popped ? 1 : 0);
+  // Tracks the `poppedT` value the geometry effect last actually ran for —
   // null means "hasn't run yet". Lets the effect tell a real popped
   // transition apart from a width/boxHeight-only re-run (e.g. a
   // breakpoint-crossing resize while already popped), which must reposition
   // instantly rather than replay the pop/flat animation from the opposite
   // state — see the effect below.
-  const prevPoppedRef = useRef<boolean | null>(null);
+  const prevPoppedRef = useRef<number | null>(null);
 
   useEffect(() => {
     const el = frontRef.current;
@@ -84,17 +92,18 @@ export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, 
     if (!frontRef.current || !topFaceRef.current || !leftFaceRef.current || !wrapperRef.current || width === 0) return;
     killTimeline(timelineKey);
 
-    // A real transition only when `popped` itself changed since the last
+    // A real transition only when `poppedT` itself changed since the last
     // time this effect ran — never on the very first run (prevPoppedRef
     // still null), which always transitions in from the opposite state,
     // same as before this distinction existed.
-    const isTransition = prevPoppedRef.current === null || prevPoppedRef.current !== popped;
-    prevPoppedRef.current = popped;
+    const previousPopped = prevPoppedRef.current; // captured before being overwritten below
+    const isTransition = previousPopped === null || previousPopped !== poppedT;
+    prevPoppedRef.current = poppedT;
 
-    const target = computeCabinetGeometry(width, boxHeight, popped ? 1 : 0);
+    const target = computeCabinetGeometry(width, boxHeight, poppedT);
 
     if (!isTransition) {
-      // width/boxHeight changed while `popped` stayed the same (e.g. a
+      // width/boxHeight changed while `poppedT` stayed the same (e.g. a
       // breakpoint-crossing resize while hovered/focused) — reposition
       // instantly to the same target state. Replaying the pop/flat tween
       // here would incorrectly assume the box is coming from the *opposite*
@@ -102,14 +111,21 @@ export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, 
       gsap.set(topFaceRef.current, { attr: { points: target.topFacePoints } });
       gsap.set(leftFaceRef.current, { attr: { points: target.leftFacePoints } });
       gsap.set(frontRef.current, { x: target.frontFaceOffsetX, y: target.frontFaceOffsetY });
-      gsap.set(wrapperRef.current, { '--cabinet-glow': popped ? 1 : 0 });
+      gsap.set(wrapperRef.current, { '--cabinet-glow': poppedT });
       return;
     }
 
     const prefersReducedMotion = typeof window.matchMedia === 'function'
       && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const duration = getCabinetPopDuration(prefersReducedMotion);
-    const from = computeCabinetGeometry(width, boxHeight, popped ? 0 : 1);
+    // On the very first run (previousPopped === null), animate in from the
+    // numeric opposite — reproduces today's Button/Toggle "opposite of the
+    // binary state" behavior exactly when poppedT is 0 or 1 (1-0=1, 1-1=0,
+    // matching the old ternary bit-for-bit), and generalizes sensibly for a
+    // fractional starting value. Once a real prior value exists, animate
+    // from that instead — never the numeric opposite of the new value.
+    const fromPopped = previousPopped ?? (1 - poppedT);
+    const from = computeCabinetGeometry(width, boxHeight, fromPopped);
     const to = target;
 
     const tl = gsap.timeline();
@@ -122,7 +138,7 @@ export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, 
       .fromTo(frontRef.current,
         { x: from.frontFaceOffsetX, y: from.frontFaceOffsetY },
         { x: to.frontFaceOffsetX, y: to.frontFaceOffsetY, duration, ease: 'power2.out' }, 0)
-      // --cabinet-glow tweens 0→1 alongside the offset, set on the shared
+      // --cabinet-glow tweens alongside the offset, set on the shared
       // wrapper (not the front face) so the walls — a sibling of the front
       // face, not its descendant — can also inherit it via CSS custom
       // property inheritance. Drives CabinetBox.css's drop-shadow on the
@@ -130,10 +146,10 @@ export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, 
       // exact same t as the pop distance rather than a separately-eased
       // transition.
       .fromTo(wrapperRef.current,
-        { '--cabinet-glow': popped ? 0 : 1 },
-        { '--cabinet-glow': popped ? 1 : 0, duration, ease: 'power2.out' }, 0);
+        { '--cabinet-glow': fromPopped },
+        { '--cabinet-glow': poppedT, duration, ease: 'power2.out' }, 0);
     setTimeline(timelineKey, tl);
-  }, [popped, width, boxHeight, timelineKey]);
+  }, [poppedT, width, boxHeight, timelineKey]);
 
   // Both custom properties are computed here, in the one place that already
   // resolves the breakpoint tier for the geometry math (useCabinetBoxHeight)

@@ -261,4 +261,70 @@ describe('CabinetBox', () => {
     const wrapper = container.querySelector('.sc-cabinet-box') as HTMLElement;
     expect(wrapper.style.getPropertyValue('--cabinet-box-height')).toBe('32px');
   });
+
+  describe('fractional popped (roadmap 11.1.3 — VoxelTrack extrusion-falloff)', () => {
+    it('computes target geometry at t=0.4 exactly for a fractional popped value', () => {
+      render(<CabinetBox popped={0.4} timelineKey="test-box">x</CabinetBox>);
+      const observer = MockResizeObserver.instances[0];
+      act(() => observer.fire(100, 48));
+
+      expect(computeCabinetGeometry).toHaveBeenCalledWith(100, 48, 0.4);
+    });
+
+    it('tweens --cabinet-glow to exactly 0.4 (not 0 or 1) for popped={0.4}', () => {
+      const { container } = render(<CabinetBox popped={0.4} timelineKey="test-box">x</CabinetBox>);
+      const observer = MockResizeObserver.instances[0];
+      act(() => observer.fire(100, 48));
+
+      const wrapper = container.querySelector('.sc-cabinet-box');
+      const [, , toVars] = fromToMock.mock.calls.find(([target]) => target === wrapper) as [
+        unknown,
+        Record<string, unknown>,
+        Record<string, unknown>,
+      ];
+      expect(toVars['--cabinet-glow']).toBe(0.4);
+    });
+
+    it('on the very first render at a fractional popped value, animates in from the numeric opposite (1 - poppedT)', () => {
+      const { container } = render(<CabinetBox popped={0.4} timelineKey="test-box">x</CabinetBox>);
+      const observer = MockResizeObserver.instances[0];
+      act(() => observer.fire(100, 48));
+
+      // The geometry "from" call — no prior real popped value exists yet.
+      expect(computeCabinetGeometry).toHaveBeenCalledWith(100, 48, 0.6);
+
+      const wrapper = container.querySelector('.sc-cabinet-box');
+      const [, fromVars] = fromToMock.mock.calls.find(([target]) => target === wrapper) as [
+        unknown,
+        Record<string, unknown>,
+        Record<string, unknown>,
+      ];
+      expect(fromVars['--cabinet-glow']).toBe(0.6);
+    });
+
+    it('a transition between two fractional values (0.4 → 0.7, no boundary crossing) animates from the real previous value, not the numeric opposite', () => {
+      const { container, rerender } = render(<CabinetBox popped={0.4} timelineKey="test-box">x</CabinetBox>);
+      const observer = MockResizeObserver.instances[0];
+      act(() => observer.fire(100, 48));
+      (computeCabinetGeometry as ReturnType<typeof vi.fn>).mockClear();
+      fromToMock.mockClear();
+
+      rerender(<CabinetBox popped={0.7} timelineKey="test-box">x</CabinetBox>);
+
+      // "from" uses the real previous value (0.4), never the numeric
+      // opposite of the new value (1 - 0.7 = 0.3).
+      expect(computeCabinetGeometry).toHaveBeenCalledWith(100, 48, 0.4);
+      expect(computeCabinetGeometry).not.toHaveBeenCalledWith(100, 48, 0.3);
+      expect(computeCabinetGeometry).toHaveBeenCalledWith(100, 48, 0.7);
+
+      const wrapper = container.querySelector('.sc-cabinet-box');
+      const [, fromVars, toVars] = fromToMock.mock.calls.find(([target]) => target === wrapper) as [
+        unknown,
+        Record<string, unknown>,
+        Record<string, unknown>,
+      ];
+      expect(fromVars['--cabinet-glow']).toBe(0.4);
+      expect(toVars['--cabinet-glow']).toBe(0.7);
+    });
+  });
 });
