@@ -77,7 +77,7 @@ Task 1 (CabinetBox.tsx additive props: boxHeight, optional children)
   - [x] `npm run build:types`, `npm run lint` clean.
   - [x] `npm run build` clean.
   - [x] Full suite (`npm test`) re-confirmed clean: 118 files, 1929 tests — including `StepperWithToggle.test.tsx` (unmodified, composes `Toggle` internally) and `PingControlsDrawer.test.tsx` (the one real `Toggle` consumer's own test file), both unmocked against the real `Toggle`. One unrelated flaky failure on the first full-suite run (`audioSwells.test.ts`), confirmed pre-existing and unrelated by re-running it in isolation (65/65 clean) and re-running the full suite (clean on the second pass) — same non-issue pattern 11.1.1's own Task 6 checkpoint already recorded once.
-  - [ ] **Manual check not performed — no browser automation tool (chrome-devtools MCP) is configured in this environment**, same honest fallback 11.1.1's own Task 6 used. Still needed before this ships for real: open Robot Options' Ping Controls drawer (`PingControlsDrawer.tsx`'s "Click Track Active" toggle — the only real `Toggle` consumer in the current app) and confirm flat 32×32px box at rest, full pop with the same protrusion/glow as any `Button` when switched on, `Tab`+`Space`/`Enter` keyboard toggling still works, the focus ring renders clearly on both states, the transition snaps instantly under "reduce motion", and a checked-and-disabled toggle (if reachable, else forced via devtools) still renders popped rather than flat.
+  - [x] **Manual check completed — by Crawford, directly against the running app (Chrome, `npm run dev`)**, not via automated browser tooling (none was configured in the implementing session). Reached via Robot Selection → a robot → Ping Controls → Phrasing panel (the toggle only renders under `DEV_TUNING`). **Found and fixed one real issue not anticipated by the spec:** clicking the box parked a blinking text caret on it — Chrome's "Navigate pages with a text cursor" mode looks for the nearest text node, finds none inside the bare box, and reads as "this is editable text." Fixed with `user-select: none` on `.sc-toggle__root`, mirroring the sliders' own existing precedent for the same reason (`SliderLinear.css`/`SliderLog.css`/`SliderCenteredZero.css`'s own `.sc-slider-*__root` rule) — Toggle is just the first non-slider control whose box has no real text of its own to make the issue obvious. **Noticed but not fixed: `Button` may have the same latent issue** (it has real label text inside its box, so the failure mode may be less visible, but it was never actually checked) — flagged for Crawford, out of this task's scope to fix unilaterally. Every other item checked clean: flat 32×32px box at rest, full pop with the same protrusion/glow as a `Button`, keyboard toggling and focus ring both work, transition snaps under "reduce motion."
 
   **Dependencies:** Task 1.
 
@@ -88,8 +88,8 @@ Task 1 (CabinetBox.tsx additive props: boxHeight, optional children)
 ### Checkpoint: Toggle ships — first visible change
 - [x] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes (118 files, 1929 tests, after confirming one first-run failure was the pre-existing `audioSwells.test.ts` flake, unrelated to this change).
 - [x] The one real `Toggle` call site in the app (`PingControlsDrawer.tsx`'s Click Track Active toggle) renders through `CabinetBox` with no call-site changes required — confirmed by `npm run build:types` alone surfacing nothing, since `Toggle`'s props contract didn't change.
-- [x] **Manual check not performed — no browser automation tool (chrome-devtools MCP) is configured in this environment.** Confirmed via `ToolSearch`, not skipped silently — same as 11.1.1's own Task 6. Still outstanding before this ships for real (see Task 2's own verification notes for exactly what to check).
-- [ ] Review with human before proceeding — in particular, confirm the disabled+checked `popped` call (spec §1.4/§7 item 1) reads correctly against the real running app, since it's the one design point resolved by reasoning rather than direct interview.
+- [x] **Manual check completed against the real running app (Chrome) — found and fixed a real bug** (the caret-browsing text cursor, see Task 2's own verification notes) not anticipated by the spec. Every other visual/behavioral point checked clean.
+- [ ] Review with human before proceeding — in particular, confirm the disabled+checked `popped` call (spec §1.4/§7 item 1) reads correctly against the real running app, since it's the one design point resolved by reasoning rather than direct interview. Also decide whether `Button` needs the same `user-select: none` fix (noticed, not yet checked).
 
 ---
 
@@ -115,9 +115,10 @@ Task 1 (CabinetBox.tsx additive props: boxHeight, optional children)
 
 ### Checkpoint: Complete
 - [x] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes (118 files, 1929 tests).
-- [x] All acceptance criteria across all 3 tasks are met, except Task 2's manual browser check (no `chrome-devtools` MCP configured in this environment — confirmed via `ToolSearch`, see Task 2's own verification notes and the Phase 2 checkpoint above).
+- [x] All acceptance criteria across all 3 tasks are met. Task 2's manual check is now complete (done directly by Crawford in Chrome, not via automated browser tooling — none is configured in this environment) — see Task 2's own verification notes for what it found.
 - [x] `docs/COMPONENT_LIBRARY.md` reflects the shipped feature.
-- [x] Ready for PR as far as this checklist is concerned — the outstanding manual visual pass (Task 2) and the disabled+checked design-call review (Phase 2 checkpoint) are the two open items for Crawford before merge.
+- [x] **Post-ship fix, found during the manual check, not anticipated by the original spec/tasks:** Chrome's "Navigate pages with a text cursor" mode parked a blinking caret on the bare toggle box on click. Fixed with `user-select: none` on `.sc-toggle__root`, mirroring the sliders' own existing precedent for the same reason. Shipped as its own commit, verified (lint/full suite) same as every other change here.
+- [x] Ready for PR as far as this checklist is concerned — the one remaining open item for Crawford is the disabled+checked design-call review (Phase 2 checkpoint), plus a decision on whether `Button` needs the same `user-select: none` fix (noticed during the caret-cursor fix, not yet checked).
 
 ## Risks and Mitigations
 
