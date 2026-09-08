@@ -485,6 +485,12 @@ describe('AudioRigDrawer', () => {
       expect(panel!.querySelector('.sc-dual-label__human')?.textContent).toBe('Speed & Automation');
       expect(slider.closest('.sc-accordion')?.textContent).toContain('Transport & Composition');
     });
+
+    it('renders inside its own .audio-rig-drawer__param-row — a dedicated single-control wrapper, matching every other param in this drawer, so its own live box-count measurement reads its own fair share of the panel rather than the whole shared Speed & Automation panel', () => {
+      render(<AudioRigDrawer />);
+      const slider = screen.getByRole('slider', { name: 'Automatic Effects' });
+      expect(slider.closest('.audio-rig-drawer__param-row')).toBeTruthy();
+    });
   });
 
   describe('Tempo slider (BPM Control Task 5)', () => {
@@ -530,6 +536,23 @@ describe('AudioRigDrawer', () => {
       expect(tempoPanel).toBe(pingPanel);
       // DOM order: Tempo comes before Automatic Effects within the shared panel.
       expect(tempoSlider.compareDocumentPosition(pingSlider) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it('renders inside its own .audio-rig-drawer__param-row — a dedicated single-control wrapper, matching every other param in this drawer, so its own live box-count measurement reads its own fair share of the panel rather than the whole shared Speed & Automation panel', () => {
+      render(<AudioRigDrawer />);
+      const slider = screen.getByRole('slider', { name: 'Tempo' });
+      expect(slider.closest('.audio-rig-drawer__param-row')).toBeTruthy();
+    });
+
+    it("Tempo and Automatic Effects each get their own separate .audio-rig-drawer__param-row — not sharing one wrapper between them", () => {
+      render(<AudioRigDrawer />);
+      const tempoSlider = screen.getByRole('slider', { name: 'Tempo' });
+      const pingSlider = screen.getByRole('slider', { name: 'Automatic Effects' });
+      const tempoRow = tempoSlider.closest('.audio-rig-drawer__param-row');
+      const pingRow = pingSlider.closest('.audio-rig-drawer__param-row');
+      expect(tempoRow).toBeTruthy();
+      expect(pingRow).toBeTruthy();
+      expect(tempoRow).not.toBe(pingRow);
     });
   });
 });

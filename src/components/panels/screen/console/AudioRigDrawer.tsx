@@ -202,16 +202,20 @@ export function AudioRigDrawer() {
     <div className="audio-rig-drawer">
       <AccordionContainer schema={TRANSPORT_COMPOSITION_ACCORDION_SCHEMA}>
         <DirectionalPanel schema={SPEED_AUTOMATION_PANEL_SCHEMA}>
-          <SliderLinear
-            schema={BPM_SCHEMA}
-            value={bpm}
-            onChange={setBPM}
-          />
-          <SliderLinear
-            schema={PING_VARIANCE_AUTOMATION_SCHEMA}
-            value={pingVarianceAutomation * 100}
-            onChange={(v) => setPingVarianceAutomation(v / 100)}
-          />
+          <div className="audio-rig-drawer__param-row">
+            <SliderLinear
+              schema={BPM_SCHEMA}
+              value={bpm}
+              onChange={setBPM}
+            />
+          </div>
+          <div className="audio-rig-drawer__param-row">
+            <SliderLinear
+              schema={PING_VARIANCE_AUTOMATION_SCHEMA}
+              value={pingVarianceAutomation * 100}
+              onChange={(v) => setPingVarianceAutomation(v / 100)}
+            />
+          </div>
         </DirectionalPanel>
       </AccordionContainer>
 
