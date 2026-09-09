@@ -9,19 +9,32 @@
  */
 
 /**
- * How far the front face slides at full pop — fixed, deliberately NOT scaled
- * by box height (the original design scaled it 2×height/height, which read
- * as far too much protrusion at the 40/48px tiers once actually seen
- * rendered). Still the same 2:1 oblique vector direction, just a small fixed
- * magnitude: `2 * CABINET_POP_DISTANCE` right, `CABINET_POP_DISTANCE` down at
- * t=1, identical across every breakpoint's box height. CabinetBox.tsx applies
- * this value directly as an inline --cabinet-pop-distance custom property, so
- * CabinetBox.css's reserved hit-area padding (`calc(2 * var(--cabinet-pop-
- * distance))` / `var(--cabinet-pop-distance)`) always matches it automatically
- * — no separate value to hand-sync here anymore. Tuned by feel after a real
- * visual pass; expect this number to keep moving.
+ * How far the front face slides at full pop, for Button/Toggle — the two
+ * single-box consumers. Deliberately NOT scaled by box height (the original
+ * design scaled it 2×height/height, which read as far too much protrusion
+ * at the 40/48px tiers once actually seen rendered): a small fixed
+ * magnitude, identical across every breakpoint's box height. CabinetBox.tsx
+ * applies the resolved distance (this constant, unless a consumer overrides
+ * it via CabinetBoxProps.popDistance) directly as an inline
+ * --cabinet-pop-distance custom property.
+ *
+ * VoxelTrack (roadmap 11.1.3) is a different visual context — a row of many
+ * boxes read together, not one box in isolation — and reads better at a
+ * deeper protrusion than Button/Toggle's own value; see
+ * VOXEL_TRACK_POP_DISTANCE below. Tuned by feel after a real visual pass;
+ * expect these numbers to keep moving.
  */
 export const CABINET_POP_DISTANCE = 2;
+
+/**
+ * VoxelTrack's own pop distance (roadmap 11.1.3) — deeper than Button/
+ * Toggle's CABINET_POP_DISTANCE because a row of many boxes read together
+ * benefits from a more visible protrusion than a single isolated box does.
+ * Passed as VoxelTrack.tsx's own CabinetBox instances' `popDistance` prop;
+ * every other CabinetBox consumer keeps using the CABINET_POP_DISTANCE
+ * default. Tuned by feel against the real running app, 2026-09-08.
+ */
+export const VOXEL_TRACK_POP_DISTANCE = 8;
 
 export interface CabinetGeometry {
   topFacePoints: string;
@@ -30,9 +43,21 @@ export interface CabinetGeometry {
   frontFaceOffsetY: number;
 }
 
-export function computeCabinetGeometry(width: number, height: number, t: number): CabinetGeometry {
-  const dx = 2 * CABINET_POP_DISTANCE * t;
-  const dy = CABINET_POP_DISTANCE * t;
+/**
+ * `popDistance` defaults to CABINET_POP_DISTANCE (Button/Toggle's own
+ * value) when omitted — pass VOXEL_TRACK_POP_DISTANCE (or any other value)
+ * explicitly for a different visual context. Still the same 2:1 oblique
+ * vector direction regardless of magnitude: `2 * popDistance` right,
+ * `popDistance` down at t=1.
+ */
+export function computeCabinetGeometry(
+  width: number,
+  height: number,
+  t: number,
+  popDistance: number = CABINET_POP_DISTANCE,
+): CabinetGeometry {
+  const dx = 2 * popDistance * t;
+  const dy = popDistance * t;
   return {
     topFacePoints: `0,0 ${width},0 ${width + dx},${dy} ${dx},${dy}`,
     leftFacePoints: `0,0 0,${height} ${dx},${height + dy} ${dx},${dy}`,

@@ -64,4 +64,34 @@ describe('computeCabinetGeometry', () => {
     const b = computeCabinetGeometry(120, 40, 0.3);
     expect(a).toEqual(b);
   });
+
+  describe('popDistance override (4th param) — per-consumer pop distance, e.g. VoxelTrack.tsx passing a deeper value than Button/Toggle', () => {
+    it('defaults to CABINET_POP_DISTANCE when the 4th argument is omitted', () => {
+      const withDefault = computeCabinetGeometry(100, 48, 1);
+      const explicit = computeCabinetGeometry(100, 48, 1, CABINET_POP_DISTANCE);
+      expect(withDefault).toEqual(explicit);
+    });
+
+    it('a custom popDistance produces the same 2:1 vector at a different magnitude', () => {
+      // 20 is deliberately not CABINET_POP_DISTANCE's own value (whatever it
+      // currently is) — a test using the same number wouldn't be able to
+      // tell "uses the 4th argument" apart from "ignores it and falls back
+      // to the constant, which happens to equal this test's own number."
+      const geo = computeCabinetGeometry(100, 48, 1, 20);
+      expect(geo.frontFaceOffsetX).toBe(40); // 2 * 20
+      expect(geo.frontFaceOffsetY).toBe(20);
+    });
+
+    it('a custom popDistance still scales linearly with t', () => {
+      const geo = computeCabinetGeometry(100, 48, 0.5, 20);
+      expect(geo.frontFaceOffsetX).toBe(20); // 2 * 20 * 0.5
+      expect(geo.frontFaceOffsetY).toBe(10); // 20 * 0.5
+    });
+
+    it('a custom popDistance flows through to the wall polygons, not just the front-face offset', () => {
+      const geo = computeCabinetGeometry(100, 48, 1, 20);
+      expect(geo.topFacePoints).toBe('0,0 100,0 140,20 40,20');
+      expect(geo.leftFacePoints).toBe('0,0 0,48 40,68 40,20');
+    });
+  });
 });

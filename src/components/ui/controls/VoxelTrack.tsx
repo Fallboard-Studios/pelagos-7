@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import { CabinetBox } from './CabinetBox';
 import { computeVoxelFillBackground, type VoxelBoxState } from '@/utils/voxelTrackMath';
+import { VOXEL_TRACK_POP_DISTANCE } from '@/utils/cabinetGeometry';
 import './VoxelTrack.css';
 
 interface VoxelTrackProps {
@@ -33,6 +34,7 @@ export function VoxelTrack({ states, boxSize, gap, axis, timelineKeyPrefix }: Vo
           key={i}
           popped={state.popT}
           boxHeight={boxSize}
+          popDistance={VOXEL_TRACK_POP_DISTANCE}
           timelineKey={`${timelineKeyPrefix}-${i}`}
         >
           <div

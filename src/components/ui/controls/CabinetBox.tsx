@@ -26,6 +26,13 @@ interface CabinetBoxProps {
    *  accommodate at a larger size on wider breakpoints. See
    *  docs/specs/OBLIQUE_CABINETRY_TOGGLE.md §1.2. */
   boxHeight?: number;
+  /** Optional, overriding CABINET_POP_DISTANCE (cabinetGeometry.ts) — how
+   *  far the front face slides at full pop. Button/Toggle omit this (their
+   *  own single-box-in-isolation context reads right at the smaller
+   *  default); VoxelTrack (roadmap 11.1.3) passes VOXEL_TRACK_POP_DISTANCE,
+   *  since a row of many boxes read together benefits from a deeper,
+   *  more visible protrusion than one isolated box does. */
+  popDistance?: number;
   /** Optional — Button nests its own DualLabel here; Toggle renders a bare,
    *  textless box and omits this entirely. See
    *  docs/specs/OBLIQUE_CABINETRY_TOGGLE.md §1.3. */
@@ -43,7 +50,7 @@ interface CabinetBoxProps {
  * further it's popped. See docs/specs/OBLIQUE_CABINETRY_FOUNDATION.md §1
  * for the full derivation.
  */
-export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, children }: CabinetBoxProps) {
+export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, popDistance, children }: CabinetBoxProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const frontRef = useRef<HTMLDivElement>(null);
   const topFaceRef = useRef<SVGPolygonElement>(null);
@@ -53,6 +60,7 @@ export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, 
   // its result is simply unused in that case.
   const responsiveBoxHeight = useCabinetBoxHeight();
   const boxHeight = boxHeightOverride ?? responsiveBoxHeight;
+  const resolvedPopDistance = popDistance ?? CABINET_POP_DISTANCE;
   // Normalized once on entry — everything downstream (the geometry calls,
   // the isTransition comparison, the dependency array) uses this 0-1 number
   // only, never the raw boolean | number prop. See CabinetBoxProps.popped.
@@ -100,7 +108,7 @@ export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, 
     const isTransition = previousPopped === null || previousPopped !== poppedT;
     prevPoppedRef.current = poppedT;
 
-    const target = computeCabinetGeometry(width, boxHeight, poppedT);
+    const target = computeCabinetGeometry(width, boxHeight, poppedT, resolvedPopDistance);
 
     if (!isTransition) {
       // width/boxHeight changed while `poppedT` stayed the same (e.g. a
@@ -125,7 +133,7 @@ export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, 
     // fractional starting value. Once a real prior value exists, animate
     // from that instead — never the numeric opposite of the new value.
     const fromPopped = previousPopped ?? (1 - poppedT);
-    const from = computeCabinetGeometry(width, boxHeight, fromPopped);
+    const from = computeCabinetGeometry(width, boxHeight, fromPopped, resolvedPopDistance);
     const to = target;
 
     const tl = gsap.timeline();
@@ -149,7 +157,7 @@ export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, 
         { '--cabinet-glow': fromPopped },
         { '--cabinet-glow': poppedT, duration, ease: 'power2.out' }, 0);
     setTimeline(timelineKey, tl);
-  }, [poppedT, width, boxHeight, timelineKey]);
+  }, [poppedT, width, boxHeight, timelineKey, resolvedPopDistance]);
 
   // Both custom properties are computed here, in the one place that already
   // resolves the breakpoint tier for the geometry math (useCabinetBoxHeight)
@@ -160,7 +168,7 @@ export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, 
   // an inline style" pattern App.tsx's own realWorldGradient already uses.
   const cabinetTokens = {
     '--cabinet-box-height': `${boxHeight}px`,
-    '--cabinet-pop-distance': `${CABINET_POP_DISTANCE}px`,
+    '--cabinet-pop-distance': `${resolvedPopDistance}px`,
   } as CSSProperties;
 
   return (

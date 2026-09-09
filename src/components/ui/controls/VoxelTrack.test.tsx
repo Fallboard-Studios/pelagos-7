@@ -6,11 +6,13 @@ vi.mock('./CabinetBox', () => ({
     popped,
     timelineKey,
     boxHeight,
+    popDistance,
     children,
   }: {
     popped: number;
     timelineKey: string;
     boxHeight: number;
+    popDistance?: number;
     children: React.ReactNode;
   }) => (
     <div
@@ -19,6 +21,7 @@ vi.mock('./CabinetBox', () => ({
       data-popped-type={typeof popped}
       data-timeline-key={timelineKey}
       data-box-height={boxHeight}
+      data-pop-distance={popDistance}
     >
       {children}
     </div>
@@ -32,6 +35,7 @@ vi.mock('@/utils/voxelTrackMath', async (importOriginal) => {
 
 import { VoxelTrack } from './VoxelTrack';
 import { computeVoxelFillBackground, type VoxelBoxState } from '@/utils/voxelTrackMath';
+import { VOXEL_TRACK_POP_DISTANCE } from '@/utils/cabinetGeometry';
 
 const STATES: VoxelBoxState[] = [
   { fillPercent: 0, popT: 0 },
@@ -71,6 +75,14 @@ describe('VoxelTrack', () => {
     );
     const boxes = screen.getAllByTestId('cabinet-box');
     expect(boxes.every((box) => box.getAttribute('data-box-height') === '40')).toBe(true);
+  });
+
+  it('passes VOXEL_TRACK_POP_DISTANCE as every CabinetBox instance\'s popDistance prop — deeper than Button/Toggle\'s own default', () => {
+    render(
+      <VoxelTrack states={STATES} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
+    );
+    const boxes = screen.getAllByTestId('cabinet-box');
+    expect(boxes.every((box) => box.getAttribute('data-pop-distance') === String(VOXEL_TRACK_POP_DISTANCE))).toBe(true);
   });
 
   it('gives each CabinetBox instance a unique timelineKey of `${timelineKeyPrefix}-${i}`', () => {

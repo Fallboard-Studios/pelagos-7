@@ -268,7 +268,7 @@ describe('CabinetBox', () => {
       const observer = MockResizeObserver.instances[0];
       act(() => observer.fire(100, 48));
 
-      expect(computeCabinetGeometry).toHaveBeenCalledWith(100, 48, 0.4);
+      expect(computeCabinetGeometry).toHaveBeenCalledWith(100, 48, 0.4, CABINET_POP_DISTANCE);
     });
 
     it('tweens --cabinet-glow to exactly 0.4 (not 0 or 1) for popped={0.4}', () => {
@@ -291,7 +291,7 @@ describe('CabinetBox', () => {
       act(() => observer.fire(100, 48));
 
       // The geometry "from" call — no prior real popped value exists yet.
-      expect(computeCabinetGeometry).toHaveBeenCalledWith(100, 48, 0.6);
+      expect(computeCabinetGeometry).toHaveBeenCalledWith(100, 48, 0.6, CABINET_POP_DISTANCE);
 
       const wrapper = container.querySelector('.sc-cabinet-box');
       const [, fromVars] = fromToMock.mock.calls.find(([target]) => target === wrapper) as [
@@ -313,9 +313,9 @@ describe('CabinetBox', () => {
 
       // "from" uses the real previous value (0.4), never the numeric
       // opposite of the new value (1 - 0.7 = 0.3).
-      expect(computeCabinetGeometry).toHaveBeenCalledWith(100, 48, 0.4);
-      expect(computeCabinetGeometry).not.toHaveBeenCalledWith(100, 48, 0.3);
-      expect(computeCabinetGeometry).toHaveBeenCalledWith(100, 48, 0.7);
+      expect(computeCabinetGeometry).toHaveBeenCalledWith(100, 48, 0.4, CABINET_POP_DISTANCE);
+      expect(computeCabinetGeometry).not.toHaveBeenCalledWith(100, 48, 0.3, CABINET_POP_DISTANCE);
+      expect(computeCabinetGeometry).toHaveBeenCalledWith(100, 48, 0.7, CABINET_POP_DISTANCE);
 
       const wrapper = container.querySelector('.sc-cabinet-box');
       const [, fromVars, toVars] = fromToMock.mock.calls.find(([target]) => target === wrapper) as [
@@ -325,6 +325,47 @@ describe('CabinetBox', () => {
       ];
       expect(fromVars['--cabinet-glow']).toBe(0.4);
       expect(toVars['--cabinet-glow']).toBe(0.7);
+    });
+  });
+
+  describe('popDistance prop (roadmap 11.1.3 — VoxelTrack pops deeper than Button/Toggle)', () => {
+    it('defaults to CABINET_POP_DISTANCE when popDistance is omitted', () => {
+      render(<CabinetBox popped={true} timelineKey="test-box">x</CabinetBox>);
+      const observer = MockResizeObserver.instances[0];
+      act(() => observer.fire(100, 48));
+
+      expect(computeCabinetGeometry).toHaveBeenCalledWith(100, 48, 1, CABINET_POP_DISTANCE);
+    });
+
+    it('passes a custom popDistance through to computeCabinetGeometry instead of the default', () => {
+      render(<CabinetBox popped={true} timelineKey="test-box" popDistance={20}>x</CabinetBox>);
+      const observer = MockResizeObserver.instances[0];
+      act(() => observer.fire(100, 48));
+
+      expect(computeCabinetGeometry).toHaveBeenCalledWith(100, 48, 1, 20);
+      expect(computeCabinetGeometry).not.toHaveBeenCalledWith(100, 48, 1, CABINET_POP_DISTANCE);
+    });
+
+    it('applies the resolved popDistance (not always CABINET_POP_DISTANCE) as the --cabinet-pop-distance inline custom property', () => {
+      const { container } = render(
+        <CabinetBox popped={false} timelineKey="test-box" popDistance={20}>x</CabinetBox>,
+      );
+      const wrapper = container.querySelector('.sc-cabinet-box') as HTMLElement;
+      expect(wrapper.style.getPropertyValue('--cabinet-pop-distance')).toBe('20px');
+    });
+
+    it("uses the custom popDistance for the 'from' geometry too, not just the target", () => {
+      const { rerender } = render(
+        <CabinetBox popped={0.4} timelineKey="test-box" popDistance={20}>x</CabinetBox>,
+      );
+      const observer = MockResizeObserver.instances[0];
+      act(() => observer.fire(100, 48));
+      (computeCabinetGeometry as ReturnType<typeof vi.fn>).mockClear();
+
+      rerender(<CabinetBox popped={0.7} timelineKey="test-box" popDistance={20}>x</CabinetBox>);
+
+      expect(computeCabinetGeometry).toHaveBeenCalledWith(100, 48, 0.4, 20); // from
+      expect(computeCabinetGeometry).toHaveBeenCalledWith(100, 48, 0.7, 20); // target
     });
   });
 });
