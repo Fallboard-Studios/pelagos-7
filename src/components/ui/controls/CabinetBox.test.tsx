@@ -24,6 +24,7 @@ vi.mock('gsap', () => {
 });
 
 import { CabinetBox } from './CabinetBox';
+import { CABINET_POP_DURATION, CABINET_POP_DURATION_OUT } from './cabinetAnimation';
 import { setTimeline, killTimeline } from '@/animation/timelineMap';
 import {
   computeCabinetFrontFaceOffset,
@@ -689,6 +690,103 @@ describe('CabinetBox', () => {
       act(() => observer.fire(100, 48));
 
       expect(fromToMock).toHaveBeenCalled();
+      expect(setTimeline).toHaveBeenCalled();
+    });
+  });
+
+  describe('direction-dependent duration/ease (roadmap 11.1.1 follow-up — a flattening box should accelerate away, not decelerate into a lingering small-but-visible size)', () => {
+    it('popping in (flat → popped) uses power2.out and CABINET_POP_DURATION on every tweened property', () => {
+      const { container, rerender } = render(<CabinetBox popped={false} timelineKey="test-box">x</CabinetBox>);
+      const observer = MockResizeObserver.instances[0];
+      act(() => observer.fire(100, 48));
+      fromToMock.mockClear();
+
+      rerender(<CabinetBox popped={true} timelineKey="test-box">x</CabinetBox>);
+
+      const topFace = container.querySelector('.sc-cabinet-box__top-face');
+      const [, , toVars] = fromToMock.mock.calls.find(([target]) => target === topFace) as [
+        unknown, Record<string, unknown>, Record<string, unknown>,
+      ];
+      expect(toVars.ease).toBe('power2.out');
+      expect(toVars.duration).toBe(CABINET_POP_DURATION);
+    });
+
+    it('popping out (popped → flat) uses power2.in and the shorter CABINET_POP_DURATION_OUT on every tweened property', () => {
+      const { container, rerender } = render(<CabinetBox popped={true} timelineKey="test-box">x</CabinetBox>);
+      const observer = MockResizeObserver.instances[0];
+      act(() => observer.fire(100, 48));
+      fromToMock.mockClear();
+
+      rerender(<CabinetBox popped={false} timelineKey="test-box">x</CabinetBox>);
+
+      const topFace = container.querySelector('.sc-cabinet-box__top-face');
+      const leftFace = container.querySelector('.sc-cabinet-box__left-face');
+      const front = container.querySelector('.sc-cabinet-box__front');
+      const wrapper = container.querySelector('.sc-cabinet-box');
+
+      for (const target of [topFace, leftFace, front, wrapper]) {
+        const [, , toVars] = fromToMock.mock.calls.find(([callTarget]) => callTarget === target) as [
+          unknown, Record<string, unknown>, Record<string, unknown>,
+        ];
+        expect(toVars.ease).toBe('power2.in');
+        expect(toVars.duration).toBe(CABINET_POP_DURATION_OUT);
+      }
+    });
+
+    it('a fractional transition that decreases (0.7 → 0.4) is still treated as "popping out"', () => {
+      const { container, rerender } = render(<CabinetBox popped={0.7} timelineKey="test-box">x</CabinetBox>);
+      const observer = MockResizeObserver.instances[0];
+      act(() => observer.fire(100, 48));
+      fromToMock.mockClear();
+
+      rerender(<CabinetBox popped={0.4} timelineKey="test-box">x</CabinetBox>);
+
+      const topFace = container.querySelector('.sc-cabinet-box__top-face');
+      const [, , toVars] = fromToMock.mock.calls.find(([target]) => target === topFace) as [
+        unknown, Record<string, unknown>, Record<string, unknown>,
+      ];
+      expect(toVars.ease).toBe('power2.in');
+      expect(toVars.duration).toBe(CABINET_POP_DURATION_OUT);
+    });
+
+    it('a fractional transition that increases (0.4 → 0.7) is still treated as "popping in"', () => {
+      const { container, rerender } = render(<CabinetBox popped={0.4} timelineKey="test-box">x</CabinetBox>);
+      const observer = MockResizeObserver.instances[0];
+      act(() => observer.fire(100, 48));
+      fromToMock.mockClear();
+
+      rerender(<CabinetBox popped={0.7} timelineKey="test-box">x</CabinetBox>);
+
+      const topFace = container.querySelector('.sc-cabinet-box__top-face');
+      const [, , toVars] = fromToMock.mock.calls.find(([target]) => target === topFace) as [
+        unknown, Record<string, unknown>, Record<string, unknown>,
+      ];
+      expect(toVars.ease).toBe('power2.out');
+      expect(toVars.duration).toBe(CABINET_POP_DURATION);
+    });
+
+    it('the very first mount (no prior real value) at a partial popped value is treated as "popping in" — matches the existing numeric-opposite mount behavior', () => {
+      const { container } = render(<CabinetBox popped={0.4} timelineKey="test-box">x</CabinetBox>);
+      const observer = MockResizeObserver.instances[0];
+      act(() => observer.fire(100, 48));
+
+      const topFace = container.querySelector('.sc-cabinet-box__top-face');
+      const [, , toVars] = fromToMock.mock.calls.find(([target]) => target === topFace) as [
+        unknown, Record<string, unknown>, Record<string, unknown>,
+      ];
+      expect(toVars.ease).toBe('power2.out');
+      expect(toVars.duration).toBe(CABINET_POP_DURATION);
+    });
+
+    it('still returns duration 0 under prefers-reduced-motion when popping out, not CABINET_POP_DURATION_OUT', () => {
+      stubMatchMedia(true);
+      const { rerender } = render(<CabinetBox popped={true} timelineKey="test-box">x</CabinetBox>);
+      const observer = MockResizeObserver.instances[0];
+      act(() => observer.fire(100, 48));
+      (setTimeline as ReturnType<typeof vi.fn>).mockClear();
+
+      rerender(<CabinetBox popped={false} timelineKey="test-box">x</CabinetBox>);
+
       expect(setTimeline).toHaveBeenCalled();
     });
   });

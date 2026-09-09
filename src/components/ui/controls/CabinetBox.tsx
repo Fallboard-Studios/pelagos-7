@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import gsap from 'gsap';
 
-import { getCabinetPopDuration } from './cabinetAnimation';
+import { getCabinetPopDuration, getCabinetPopEase } from './cabinetAnimation';
 import { useCabinetBoxHeight } from './useCabinetBoxHeight';
 import {
   computeCabinetFrontFaceOffset,
@@ -211,9 +211,6 @@ export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, 
       return;
     }
 
-    const prefersReducedMotion = typeof window.matchMedia === 'function'
-      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const duration = getCabinetPopDuration(prefersReducedMotion);
     // On the very first run (previousPopped === null), animate in from the
     // numeric opposite — reproduces today's Button/Toggle "opposite of the
     // binary state" behavior exactly when poppedT is 0 or 1 (1-0=1, 1-1=0,
@@ -224,12 +221,29 @@ export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, 
     const from = computeCabinetFrontFaceOffset(fromPopped, resolvedPopDistance);
     const to = target;
 
+    // Direction-dependent duration/ease: popping OUT (flattening) uses a
+    // shorter duration and an accelerating ease, so the walls don't linger
+    // at a small-but-visible size the way power2.out's own slow-approach
+    // tail otherwise produces — see cabinetAnimation.ts's own comment.
+    // Compared against `previousPopped`, never `fromPopped` — on the very
+    // first mount, `fromPopped` is a fabricated numeric opposite (1 -
+    // poppedT), not a real prior state the box is exiting from, and
+    // whether that happens to be numerically larger or smaller than
+    // poppedT is arbitrary (purely a function of which side of 0.5 the
+    // starting value falls on). A genuine first appearance is always
+    // "popping in," regardless of its starting poppedT.
+    const direction = previousPopped !== null && poppedT < previousPopped ? 'out' : 'in';
+    const prefersReducedMotion = typeof window.matchMedia === 'function'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const duration = getCabinetPopDuration(prefersReducedMotion, direction);
+    const ease = getCabinetPopEase(direction);
+
     const tl = gsap.timeline();
-    tl.fromTo(topFaceRef.current, { scaleY: fromPopped }, { scaleY: poppedT, duration, ease: 'power2.out' }, 0)
-      .fromTo(leftFaceRef.current, { scaleX: fromPopped }, { scaleX: poppedT, duration, ease: 'power2.out' }, 0)
+    tl.fromTo(topFaceRef.current, { scaleY: fromPopped }, { scaleY: poppedT, duration, ease }, 0)
+      .fromTo(leftFaceRef.current, { scaleX: fromPopped }, { scaleX: poppedT, duration, ease }, 0)
       .fromTo(frontRef.current,
         { x: from.frontFaceOffsetX, y: from.frontFaceOffsetY },
-        { x: to.frontFaceOffsetX, y: to.frontFaceOffsetY, duration, ease: 'power2.out' }, 0)
+        { x: to.frontFaceOffsetX, y: to.frontFaceOffsetY, duration, ease }, 0)
       // --cabinet-glow tweens alongside the offset, set on the shared
       // wrapper (not the front face) so the walls — a sibling of the front
       // face, not its descendant — can also inherit it via CSS custom
@@ -239,7 +253,7 @@ export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, 
       // transition.
       .fromTo(wrapperRef.current,
         { '--cabinet-glow': fromPopped },
-        { '--cabinet-glow': poppedT, duration, ease: 'power2.out' }, 0);
+        { '--cabinet-glow': poppedT, duration, ease }, 0);
     setTimeline(timelineKey, tl);
   }, [poppedT, width, boxHeight, timelineKey, resolvedPopDistance, skipMountAnimation]);
 
