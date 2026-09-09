@@ -3,7 +3,12 @@ import gsap from 'gsap';
 
 import { getCabinetPopDuration } from './cabinetAnimation';
 import { useCabinetBoxHeight } from './useCabinetBoxHeight';
-import { computeCabinetGeometry, CABINET_POP_DISTANCE } from '@/utils/cabinetGeometry';
+import {
+  computeCabinetFrontFaceOffset,
+  CABINET_POP_DISTANCE,
+  CABINET_TOP_FACE_SKEW_DEG,
+  CABINET_LEFT_FACE_SKEW_DEG,
+} from '@/utils/cabinetGeometry';
 import { setTimeline, killTimeline } from '@/animation/timelineMap';
 import './CabinetBox.css';
 
@@ -44,6 +49,32 @@ interface CabinetBoxProps {
    *  along the value axis instead of showing an internal fill gradient. */
   frontWidth?: number;
   frontHeight?: number;
+  /** Optional inline z-index override for the wrapper (.sc-cabinet-box).
+   *  Button/Toggle (single box, no siblings to compete with) omit this and
+   *  keep CSS's own default (DOM order). VoxelTrack (roadmap 11.1.3) needs
+   *  it: every box's walls extend along the fixed down-right 2:1 oblique
+   *  vector regardless of position, so a box whose walls bleed into a
+   *  neighbor's space must paint OVER that neighbor — not guaranteed by
+   *  DOM order alone once pop distance varies per box. See
+   *  voxelTrackMath.ts's computeVoxelBoxZIndex. */
+  zIndex?: number;
+  /** Optional — skips the animated pop-in/pop-out tween on this instance's
+   *  very first render, positioning directly at the target geometry via
+   *  gsap.set() instead (same instant path the dependency-only-rerun branch
+   *  below already uses). Button/Toggle omit this: a genuinely new element
+   *  appearing for the first time deserves the pop-in flourish. VoxelTrack
+   *  passes it on every box it renders, because a "first mount" there is
+   *  frequently NOT a box appearing for the first time — React remounts a
+   *  box at the ordinary/straddling role boundary (element type changes at
+   *  the same key: a plain CabinetBox vs. the straddling slot's two-piece
+   *  wrapper) every time the straddling index moves, even though the box
+   *  was already visible a frame earlier. Without this flag, that remount's
+   *  reset prevPoppedRef (null) made every such boundary box replay a full
+   *  flat↔popped tween from the numeric opposite — a spurious animation
+   *  flash with no real transition behind it. A later REAL popped change on
+   *  the same (still-mounted) instance is unaffected and animates normally
+   *  regardless of this flag — see the effect below. */
+  skipMountAnimation?: boolean;
   /** Optional — Button nests its own DualLabel here; Toggle renders a bare,
    *  textless box and omits this entirely. See
    *  docs/specs/OBLIQUE_CABINETRY_TOGGLE.md §1.3. */
@@ -52,20 +83,34 @@ interface CabinetBoxProps {
 
 /**
  * The shared Oblique Cabinetry rendering primitive (roadmap Phase 11.1.1) —
- * an SVG wall overlay (pointer-events: none) plus an HTML front face holding
- * `children`, sliding along the fixed 2:1 oblique projection vector as
- * `popped` flips. The front face stays in normal document flow (its GSAP
- * x/y transform never affects layout); the wrapper reserves the popped
- * footprint via CSS padding, and carries the --cabinet-glow custom property
- * the walls' drop-shadow reads (CabinetBox.css) — the box glows more, the
- * further it's popped. See docs/specs/OBLIQUE_CABINETRY_FOUNDATION.md §1
- * for the full derivation.
+ * a static backing rectangle, two wall divs (pointer-events: none, a fixed
+ * CSS skew set once on mount plus an animated scaleY/scaleX — see the
+ * one-time skew effect and the geometry effect below), and an HTML front
+ * face holding `children`, sliding along the fixed 2:1 oblique projection
+ * vector as `popped` flips. The front face stays in normal document flow
+ * (its GSAP x/y transform never affects layout); the wrapper carries the
+ * --cabinet-glow custom property both the walls' drop-shadow and the walls'
+ * own opacity read (CabinetBox.css) — the box glows more AND fades toward
+ * 50% opaque, the further it's popped, so the backing (always fully opaque,
+ * always exactly the box's own resting footprint, never transformed) shows
+ * through behind the popped facade. Confirmed via /interview-me, 2026-09-09.
+ * See docs/specs/OBLIQUE_CABINETRY_FOUNDATION.md §1 for the original
+ * oblique-projection derivation, and
+ * docs/specs/OBLIQUE_CABINETRY_WALL_RENDERING.md for why the walls are two
+ * CSS-transformed divs rather than SVG polygons tweening a `points`
+ * attribute (the latter is main-thread/paint-bound and visibly lagged the
+ * front face's own compositor-driven transform under load).
  */
-export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, popDistance, frontWidth, frontHeight, children }: CabinetBoxProps) {
+export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, popDistance, frontWidth, frontHeight, zIndex, skipMountAnimation, children }: CabinetBoxProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const frontRef = useRef<HTMLDivElement>(null);
-  const topFaceRef = useRef<SVGPolygonElement>(null);
-  const leftFaceRef = useRef<SVGPolygonElement>(null);
+  // Both walls are plain <div>s (not SVG <polygon>s) — see
+  // docs/specs/OBLIQUE_CABINETRY_WALL_RENDERING.md. A fixed CSS skew
+  // (set once, below) plus an animated scale reproduces the same oblique
+  // parallelogram the old points-attribute tweening did, entirely on the
+  // compositor.
+  const topFaceRef = useRef<HTMLDivElement>(null);
+  const leftFaceRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   // Always called (Rules of Hooks), even when boxHeightOverride is supplied —
   // its result is simply unused in that case.
@@ -107,6 +152,20 @@ export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, 
     return () => killTimeline(timelineKey);
   }, [timelineKey]);
 
+  // The wall skew is a fixed property of the 2:1 oblique projection —
+  // independent of t, popDistance, or width/height — so it's set exactly
+  // once, on mount, and never touched again. GSAP must own the whole
+  // `transform` on these two elements (it fully replaces the inline style
+  // on every write); never author `transform`/`skewX`/`skewY` as a CSS rule
+  // on .sc-cabinet-box__top-face/__left-face, or it will be silently
+  // dropped the first time the geometry effect below sets scaleY/scaleX.
+  // See docs/specs/OBLIQUE_CABINETRY_WALL_RENDERING.md §1.4.
+  useEffect(() => {
+    if (!topFaceRef.current || !leftFaceRef.current) return;
+    gsap.set(topFaceRef.current, { skewX: CABINET_TOP_FACE_SKEW_DEG });
+    gsap.set(leftFaceRef.current, { skewY: CABINET_LEFT_FACE_SKEW_DEG });
+  }, []);
+
   useEffect(() => {
     if (!frontRef.current || !topFaceRef.current || !leftFaceRef.current || !wrapperRef.current || width === 0) return;
     killTimeline(timelineKey);
@@ -116,10 +175,15 @@ export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, 
     // still null), which always transitions in from the opposite state,
     // same as before this distinction existed.
     const previousPopped = prevPoppedRef.current; // captured before being overwritten below
-    const isTransition = previousPopped === null || previousPopped !== poppedT;
+    const isFirstRun = previousPopped === null;
+    const isTransition = isFirstRun || previousPopped !== poppedT;
     prevPoppedRef.current = poppedT;
 
-    const target = computeCabinetGeometry(width, boxHeight, poppedT, resolvedPopDistance);
+    // The wall scale IS poppedT directly (§1.2's derivation) — no function
+    // call needed for the walls. computeCabinetFrontFaceOffset is only
+    // needed for the front face's own translate offset, which never
+    // depended on width/height.
+    const target = computeCabinetFrontFaceOffset(poppedT, resolvedPopDistance);
 
     if (!isTransition) {
       // width/boxHeight changed while `poppedT` stayed the same (e.g. a
@@ -127,8 +191,21 @@ export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, 
       // instantly to the same target state. Replaying the pop/flat tween
       // here would incorrectly assume the box is coming from the *opposite*
       // state and visibly flatten-then-re-pop an already-popped box.
-      gsap.set(topFaceRef.current, { attr: { points: target.topFacePoints } });
-      gsap.set(leftFaceRef.current, { attr: { points: target.leftFacePoints } });
+      gsap.set(topFaceRef.current, { scaleY: poppedT });
+      gsap.set(leftFaceRef.current, { scaleX: poppedT });
+      gsap.set(frontRef.current, { x: target.frontFaceOffsetX, y: target.frontFaceOffsetY });
+      gsap.set(wrapperRef.current, { '--cabinet-glow': poppedT });
+      return;
+    }
+
+    if (isFirstRun && skipMountAnimation) {
+      // This instance's very first render, and the caller has told us not
+      // to animate in — position directly at the target state instead of
+      // tweening from the numeric opposite. No timeline to register: there
+      // is no tween. See CabinetBoxProps.skipMountAnimation for why this
+      // exists (VoxelTrack's straddle-boundary remounts).
+      gsap.set(topFaceRef.current, { scaleY: poppedT });
+      gsap.set(leftFaceRef.current, { scaleX: poppedT });
       gsap.set(frontRef.current, { x: target.frontFaceOffsetX, y: target.frontFaceOffsetY });
       gsap.set(wrapperRef.current, { '--cabinet-glow': poppedT });
       return;
@@ -144,16 +221,12 @@ export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, 
     // fractional starting value. Once a real prior value exists, animate
     // from that instead — never the numeric opposite of the new value.
     const fromPopped = previousPopped ?? (1 - poppedT);
-    const from = computeCabinetGeometry(width, boxHeight, fromPopped, resolvedPopDistance);
+    const from = computeCabinetFrontFaceOffset(fromPopped, resolvedPopDistance);
     const to = target;
 
     const tl = gsap.timeline();
-    tl.fromTo(topFaceRef.current,
-      { attr: { points: from.topFacePoints } },
-      { attr: { points: to.topFacePoints }, duration, ease: 'power2.out' }, 0)
-      .fromTo(leftFaceRef.current,
-        { attr: { points: from.leftFacePoints } },
-        { attr: { points: to.leftFacePoints }, duration, ease: 'power2.out' }, 0)
+    tl.fromTo(topFaceRef.current, { scaleY: fromPopped }, { scaleY: poppedT, duration, ease: 'power2.out' }, 0)
+      .fromTo(leftFaceRef.current, { scaleX: fromPopped }, { scaleX: poppedT, duration, ease: 'power2.out' }, 0)
       .fromTo(frontRef.current,
         { x: from.frontFaceOffsetX, y: from.frontFaceOffsetY },
         { x: to.frontFaceOffsetX, y: to.frontFaceOffsetY, duration, ease: 'power2.out' }, 0)
@@ -168,7 +241,7 @@ export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, 
         { '--cabinet-glow': fromPopped },
         { '--cabinet-glow': poppedT, duration, ease: 'power2.out' }, 0);
     setTimeline(timelineKey, tl);
-  }, [poppedT, width, boxHeight, timelineKey, resolvedPopDistance]);
+  }, [poppedT, width, boxHeight, timelineKey, resolvedPopDistance, skipMountAnimation]);
 
   // Both custom properties are computed here, in the one place that already
   // resolves the breakpoint tier for the geometry math (useCabinetBoxHeight)
@@ -180,6 +253,7 @@ export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, 
   const cabinetTokens = {
     '--cabinet-box-height': `${boxHeight}px`,
     '--cabinet-pop-distance': `${resolvedPopDistance}px`,
+    ...(zIndex !== undefined ? { zIndex } : {}),
   } as CSSProperties;
 
   const frontStyle: CSSProperties = {};
@@ -188,10 +262,19 @@ export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, 
 
   return (
     <div ref={wrapperRef} className="sc-cabinet-box" style={cabinetTokens}>
-      <svg className="sc-cabinet-box__walls" aria-hidden="true" focusable="false">
-        <polygon ref={topFaceRef} className="sc-cabinet-box__top-face" />
-        <polygon ref={leftFaceRef} className="sc-cabinet-box__left-face" />
-      </svg>
+      <div className="sc-cabinet-box__backing" aria-hidden="true" />
+      <div className="sc-cabinet-box__walls" aria-hidden="true">
+        <div
+          ref={topFaceRef}
+          className="sc-cabinet-box__top-face"
+          style={{ width: `${width}px`, height: `${resolvedPopDistance}px` }}
+        />
+        <div
+          ref={leftFaceRef}
+          className="sc-cabinet-box__left-face"
+          style={{ width: `${2 * resolvedPopDistance}px`, height: `${boxHeight}px` }}
+        />
+      </div>
       <div ref={frontRef} className="sc-cabinet-box__front" style={frontStyle}>
         {children}
       </div>

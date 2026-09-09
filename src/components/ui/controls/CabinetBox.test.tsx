@@ -4,14 +4,14 @@ import { render, screen, cleanup, act } from '@testing-library/react';
 vi.mock('@/animation/timelineMap', () => ({ setTimeline: vi.fn(), killTimeline: vi.fn() }));
 vi.mock('@/utils/cabinetGeometry', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/utils/cabinetGeometry')>();
-  return { ...actual, computeCabinetGeometry: vi.fn(actual.computeCabinetGeometry) };
+  return { ...actual, computeCabinetFrontFaceOffset: vi.fn(actual.computeCabinetFrontFaceOffset) };
 });
 
 // Local gsap mock (overriding vitest.setup.ts's global noop for this file
-// only), capturing every .fromTo() and .set() call so the --cabinet-glow
-// tween and the instant-reposition path can both be asserted on directly —
-// the global mock doesn't expose call args. Mirrors useLfoTargetGroup.test.ts's
-// own local-gsap-mock precedent.
+// only), capturing every .fromTo() and .set() call so the --cabinet-glow/
+// wall-scale tweens and the instant-reposition path can all be asserted on
+// directly — the global mock doesn't expose call args. Mirrors
+// useLfoTargetGroup.test.ts's own local-gsap-mock precedent.
 const { fromToMock, setMock } = vi.hoisted(() => ({ fromToMock: vi.fn(), setMock: vi.fn() }));
 vi.mock('gsap', () => {
   const chainable = {
@@ -25,7 +25,12 @@ vi.mock('gsap', () => {
 
 import { CabinetBox } from './CabinetBox';
 import { setTimeline, killTimeline } from '@/animation/timelineMap';
-import { computeCabinetGeometry, CABINET_POP_DISTANCE } from '@/utils/cabinetGeometry';
+import {
+  computeCabinetFrontFaceOffset,
+  CABINET_POP_DISTANCE,
+  CABINET_TOP_FACE_SKEW_DEG,
+  CABINET_LEFT_FACE_SKEW_DEG,
+} from '@/utils/cabinetGeometry';
 
 /**
  * Controllable ResizeObserver mock, mirroring useAutoSliderOrientation.test.ts's
@@ -104,13 +109,13 @@ describe('CabinetBox', () => {
     expect(screen.getByText('Reset Melody')).toBeTruthy();
   });
 
-  it('renders exactly one top-face and one left-face polygon, both inside an aria-hidden svg', () => {
+  it('renders exactly one top-face and one left-face div, both inside an aria-hidden walls div (not an SVG)', () => {
     const { container } = render(<CabinetBox popped={false} timelineKey="test-box">x</CabinetBox>);
     expect(container.querySelectorAll('.sc-cabinet-box__top-face')).toHaveLength(1);
     expect(container.querySelectorAll('.sc-cabinet-box__left-face')).toHaveLength(1);
-    const svg = container.querySelector('.sc-cabinet-box__walls');
-    expect(svg?.getAttribute('aria-hidden')).toBe('true');
-    expect(svg?.getAttribute('focusable')).toBe('false');
+    const walls = container.querySelector('.sc-cabinet-box__walls');
+    expect(walls?.tagName.toLowerCase()).toBe('div');
+    expect(walls?.getAttribute('aria-hidden')).toBe('true');
   });
 
   it('registers a GSAP timeline via setTimeline once a non-zero width has been measured', () => {
@@ -144,27 +149,6 @@ describe('CabinetBox', () => {
 
     rerender(<CabinetBox popped={true} timelineKey="test-box">x</CabinetBox>);
     expect((setTimeline as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(callsAfterMeasure);
-  });
-
-  it('measures the front face using its border-box size (padding included), not content-box', () => {
-    render(<CabinetBox popped={true} timelineKey="test-box">x</CabinetBox>);
-    const observer = MockResizeObserver.instances[0];
-    // content-box (no padding) = 100; border-box (padding included) = 128 — a
-    // real gap the front face's own `padding: 0 14px` produces (14+14=28px).
-    act(() => observer.fire(100, 48, 128));
-
-    const widthsUsed = (computeCabinetGeometry as ReturnType<typeof vi.fn>).mock.calls.map((args) => args[0]);
-    expect(widthsUsed).toContain(128);
-    expect(widthsUsed).not.toContain(100);
-  });
-
-  it('falls back to contentRect.width when borderBoxSize is unavailable', () => {
-    render(<CabinetBox popped={true} timelineKey="test-box">x</CabinetBox>);
-    const observer = MockResizeObserver.instances[0];
-    act(() => observer.fireContentRectOnly(100, 48));
-
-    const widthsUsed = (computeCabinetGeometry as ReturnType<typeof vi.fn>).mock.calls.map((args) => args[0]);
-    expect(widthsUsed).toContain(100);
   });
 
   it('tweens --cabinet-glow from 0 to 1 on the wrapper element (not the front face) when popping in', () => {
@@ -262,6 +246,193 @@ describe('CabinetBox', () => {
     expect(wrapper.style.getPropertyValue('--cabinet-box-height')).toBe('32px');
   });
 
+  describe('wall rendering (roadmap 11.1.1 follow-up — two fixed-skew, scale-tweened divs, replacing SVG polygons; docs/specs/OBLIQUE_CABINETRY_WALL_RENDERING.md)', () => {
+    it('the top-face and left-face elements are plain <div>s, not SVG polygons', () => {
+      const { container } = render(<CabinetBox popped={false} timelineKey="test-box">x</CabinetBox>);
+      const topFace = container.querySelector('.sc-cabinet-box__top-face');
+      const leftFace = container.querySelector('.sc-cabinet-box__left-face');
+      expect(topFace?.tagName.toLowerCase()).toBe('div');
+      expect(leftFace?.tagName.toLowerCase()).toBe('div');
+    });
+
+    it("sizes the top-face div's width to the measured border-box front-face width, and height to resolvedPopDistance", () => {
+      const { container } = render(<CabinetBox popped={true} timelineKey="test-box">x</CabinetBox>);
+      const observer = MockResizeObserver.instances[0];
+      // content-box (no padding) = 100; border-box (padding included) = 128 —
+      // the same real gap the front face's own `padding: 0 14px` produces.
+      act(() => observer.fire(100, 48, 128));
+
+      const topFace = container.querySelector('.sc-cabinet-box__top-face') as HTMLElement;
+      expect(topFace.style.width).toBe('128px');
+      expect(topFace.style.height).toBe(`${CABINET_POP_DISTANCE}px`);
+    });
+
+    it("falls back to contentRect.width for the top-face div's width when borderBoxSize is unavailable", () => {
+      const { container } = render(<CabinetBox popped={true} timelineKey="test-box">x</CabinetBox>);
+      const observer = MockResizeObserver.instances[0];
+      act(() => observer.fireContentRectOnly(100, 48));
+
+      const topFace = container.querySelector('.sc-cabinet-box__top-face') as HTMLElement;
+      expect(topFace.style.width).toBe('100px');
+    });
+
+    it("sizes the left-face div's width to 2×resolvedPopDistance and height to boxHeight — independent of the measured front-face width", () => {
+      const { container } = render(<CabinetBox popped={true} timelineKey="test-box">x</CabinetBox>);
+      const observer = MockResizeObserver.instances[0];
+      act(() => observer.fire(100, 48));
+
+      const leftFace = container.querySelector('.sc-cabinet-box__left-face') as HTMLElement;
+      expect(leftFace.style.width).toBe(`${2 * CABINET_POP_DISTANCE}px`);
+      expect(leftFace.style.height).toBe('48px');
+    });
+
+    it("a frontWidth override changes the top-face div's own width (reflecting the real measured width it drives) — the left-face div's fixed width is unaffected", () => {
+      const { container } = render(
+        <CabinetBox popped={true} timelineKey="test-box" frontWidth={20}>x</CabinetBox>,
+      );
+      const observer = MockResizeObserver.instances[0];
+      // Simulates the real browser reporting the narrower, overridden width.
+      act(() => observer.fire(20, 48));
+
+      const topFace = container.querySelector('.sc-cabinet-box__top-face') as HTMLElement;
+      const leftFace = container.querySelector('.sc-cabinet-box__left-face') as HTMLElement;
+      expect(topFace.style.width).toBe('20px');
+      expect(leftFace.style.width).toBe(`${2 * CABINET_POP_DISTANCE}px`);
+    });
+
+    describe("the fixed skew — set once via gsap.set() on mount, never re-set, never part of the animated tween", () => {
+      it('sets skewX on the top-face div and skewY on the left-face div, via gsap.set(), on mount', () => {
+        const { container } = render(<CabinetBox popped={false} timelineKey="test-box">x</CabinetBox>);
+        const topFace = container.querySelector('.sc-cabinet-box__top-face');
+        const leftFace = container.querySelector('.sc-cabinet-box__left-face');
+        expect(setMock).toHaveBeenCalledWith(topFace, { skewX: CABINET_TOP_FACE_SKEW_DEG });
+        expect(setMock).toHaveBeenCalledWith(leftFace, { skewY: CABINET_LEFT_FACE_SKEW_DEG });
+      });
+
+      it('does not re-set skewX/skewY when popped changes after mount — the skew is a one-time, fixed property of the projection', () => {
+        const { rerender } = render(<CabinetBox popped={false} timelineKey="test-box">x</CabinetBox>);
+        const observer = MockResizeObserver.instances[0];
+        act(() => observer.fire(100, 48));
+        setMock.mockClear();
+
+        rerender(<CabinetBox popped={true} timelineKey="test-box">x</CabinetBox>);
+
+        const skewCalls = setMock.mock.calls.filter(
+          ([, vars]) => vars && ('skewX' in (vars as object) || 'skewY' in (vars as object)),
+        );
+        expect(skewCalls).toHaveLength(0);
+      });
+    });
+
+    describe('wall scale tweening — scaleY (top face) / scaleX (left face), equal to poppedT/fromPopped directly, no per-frame computation', () => {
+      it('tweens the top face scaleY and left face scaleX from 0 to 1 when popping in', () => {
+        const { container } = render(<CabinetBox popped={true} timelineKey="test-box">x</CabinetBox>);
+        const observer = MockResizeObserver.instances[0];
+        act(() => observer.fire(100, 48));
+
+        const topFace = container.querySelector('.sc-cabinet-box__top-face');
+        const [, topFrom, topTo] = fromToMock.mock.calls.find(([target]) => target === topFace) as [
+          unknown, Record<string, unknown>, Record<string, unknown>,
+        ];
+        expect(topFrom.scaleY).toBe(0);
+        expect(topTo.scaleY).toBe(1);
+
+        const leftFace = container.querySelector('.sc-cabinet-box__left-face');
+        const [, leftFrom, leftTo] = fromToMock.mock.calls.find(([target]) => target === leftFace) as [
+          unknown, Record<string, unknown>, Record<string, unknown>,
+        ];
+        expect(leftFrom.scaleX).toBe(0);
+        expect(leftTo.scaleX).toBe(1);
+      });
+
+      it('tweens both wall scales from 1 to 0 when popping back out', () => {
+        const { container, rerender } = render(<CabinetBox popped={true} timelineKey="test-box">x</CabinetBox>);
+        const observer = MockResizeObserver.instances[0];
+        act(() => observer.fire(100, 48));
+        fromToMock.mockClear();
+
+        rerender(<CabinetBox popped={false} timelineKey="test-box">x</CabinetBox>);
+
+        const topFace = container.querySelector('.sc-cabinet-box__top-face');
+        const [, topFrom, topTo] = fromToMock.mock.calls.find(([target]) => target === topFace) as [
+          unknown, Record<string, unknown>, Record<string, unknown>,
+        ];
+        expect(topFrom.scaleY).toBe(1);
+        expect(topTo.scaleY).toBe(0);
+      });
+
+      it('a fractional popped (0.4) tweens the wall scales to exactly 0.4, not 0 or 1', () => {
+        const { container } = render(<CabinetBox popped={0.4} timelineKey="test-box">x</CabinetBox>);
+        const observer = MockResizeObserver.instances[0];
+        act(() => observer.fire(100, 48));
+
+        const topFace = container.querySelector('.sc-cabinet-box__top-face');
+        const [, , topTo] = fromToMock.mock.calls.find(([target]) => target === topFace) as [
+          unknown, Record<string, unknown>, Record<string, unknown>,
+        ];
+        expect(topTo.scaleY).toBe(0.4);
+      });
+
+      it('on the very first render at a fractional popped value, animates the wall scales in from the numeric opposite (1 - poppedT)', () => {
+        const { container } = render(<CabinetBox popped={0.4} timelineKey="test-box">x</CabinetBox>);
+        const observer = MockResizeObserver.instances[0];
+        act(() => observer.fire(100, 48));
+
+        const topFace = container.querySelector('.sc-cabinet-box__top-face');
+        const [, topFrom] = fromToMock.mock.calls.find(([target]) => target === topFace) as [
+          unknown, Record<string, unknown>, Record<string, unknown>,
+        ];
+        expect(topFrom.scaleY).toBe(0.6);
+      });
+
+      it('a transition between two fractional values (0.4 → 0.7, no boundary crossing) animates the wall scales from the real previous value, not the numeric opposite', () => {
+        const { container, rerender } = render(<CabinetBox popped={0.4} timelineKey="test-box">x</CabinetBox>);
+        const observer = MockResizeObserver.instances[0];
+        act(() => observer.fire(100, 48));
+        fromToMock.mockClear();
+
+        rerender(<CabinetBox popped={0.7} timelineKey="test-box">x</CabinetBox>);
+
+        const topFace = container.querySelector('.sc-cabinet-box__top-face');
+        const [, topFrom, topTo] = fromToMock.mock.calls.find(([target]) => target === topFace) as [
+          unknown, Record<string, unknown>, Record<string, unknown>,
+        ];
+        expect(topFrom.scaleY).toBe(0.4);
+        expect(topTo.scaleY).toBe(0.7);
+      });
+
+      it('the dependency-only reposition branch (width changes, popped unchanged) sets both wall scales instantly via gsap.set(), not an animated tween', () => {
+        render(<CabinetBox popped={true} timelineKey="test-box">x</CabinetBox>);
+        const observer = MockResizeObserver.instances[0];
+        act(() => observer.fire(100, 48));
+        fromToMock.mockClear();
+        setMock.mockClear();
+
+        act(() => observer.fire(120, 48));
+
+        const scaleSetCalls = setMock.mock.calls.filter(
+          ([, vars]) => vars && ('scaleY' in (vars as object) || 'scaleX' in (vars as object)),
+        );
+        expect(scaleSetCalls.length).toBeGreaterThan(0);
+        expect(fromToMock).not.toHaveBeenCalled();
+      });
+
+      it('skipMountAnimation sets both wall scales directly via gsap.set() to poppedT on first mount, not an animated tween', () => {
+        const { container } = render(
+          <CabinetBox popped={0.4} timelineKey="test-box" skipMountAnimation>x</CabinetBox>,
+        );
+        const observer = MockResizeObserver.instances[0];
+        act(() => observer.fire(100, 48));
+
+        const topFace = container.querySelector('.sc-cabinet-box__top-face');
+        const leftFace = container.querySelector('.sc-cabinet-box__left-face');
+        expect(setMock).toHaveBeenCalledWith(topFace, { scaleY: 0.4 });
+        expect(setMock).toHaveBeenCalledWith(leftFace, { scaleX: 0.4 });
+        expect(fromToMock).not.toHaveBeenCalled();
+      });
+    });
+  });
+
   describe('frontWidth/frontHeight overrides (roadmap 11.1.3 — VoxelTrack straddling-box resize)', () => {
     it('applies frontWidth as an inline width on the front face, overriding any CSS-forced sizing', () => {
       const { container } = render(
@@ -285,23 +456,66 @@ describe('CabinetBox', () => {
       expect(front.style.width).toBe('');
       expect(front.style.height).toBe('');
     });
+  });
 
-    it('the front face\'s own measured width (via ResizeObserver, e.g. reflecting a frontWidth override) still drives computeCabinetGeometry — no separate plumbing needed', () => {
-      render(<CabinetBox popped={true} timelineKey="test-box" frontWidth={20}>x</CabinetBox>);
-      const observer = MockResizeObserver.instances[0];
-      // Simulates the real browser reporting the narrower, overridden width.
-      act(() => observer.fire(20, 48));
-      expect(computeCabinetGeometry).toHaveBeenCalledWith(20, 48, 1, CABINET_POP_DISTANCE);
+  describe('zIndex override (roadmap 11.1.3 — VoxelTrack cross-box stacking)', () => {
+    it('applies zIndex as an inline z-index on the wrapper', () => {
+      const { container } = render(
+        <CabinetBox popped={false} timelineKey="test-box" zIndex={5}>x</CabinetBox>,
+      );
+      const wrapper = container.querySelector('.sc-cabinet-box') as HTMLElement;
+      expect(wrapper.style.zIndex).toBe('5');
+    });
+
+    it('applies a zIndex of exactly 0, not treating it as falsy/omitted', () => {
+      const { container } = render(
+        <CabinetBox popped={false} timelineKey="test-box" zIndex={0}>x</CabinetBox>,
+      );
+      const wrapper = container.querySelector('.sc-cabinet-box') as HTMLElement;
+      expect(wrapper.style.zIndex).toBe('0');
+    });
+
+    it('leaves the inline z-index unset when omitted — CSS default (DOM order), as every Button/Toggle usage already relies on', () => {
+      const { container } = render(<CabinetBox popped={false} timelineKey="test-box">x</CabinetBox>);
+      const wrapper = container.querySelector('.sc-cabinet-box') as HTMLElement;
+      expect(wrapper.style.zIndex).toBe('');
+    });
+  });
+
+  describe('static backing (roadmap 11.1.3 follow-up — always-visible footprint behind the popped facade)', () => {
+    it('always renders exactly one .sc-cabinet-box__backing element, regardless of popped state', () => {
+      const { container: flatContainer } = render(<CabinetBox popped={false} timelineKey="test-box">x</CabinetBox>);
+      expect(flatContainer.querySelectorAll('.sc-cabinet-box__backing')).toHaveLength(1);
+      cleanup();
+
+      const { container: poppedContainer } = render(<CabinetBox popped={true} timelineKey="test-box">x</CabinetBox>);
+      expect(poppedContainer.querySelectorAll('.sc-cabinet-box__backing')).toHaveLength(1);
+    });
+
+    it('renders the backing as the first child of the wrapper — behind both the walls and the front face in DOM/paint order', () => {
+      const { container } = render(<CabinetBox popped={true} timelineKey="test-box">x</CabinetBox>);
+      const wrapper = container.querySelector('.sc-cabinet-box') as HTMLElement;
+      const children = Array.from(wrapper.children);
+      expect(children[0].className).toContain('sc-cabinet-box__backing');
+      expect(children[1].tagName.toLowerCase()).toBe('div'); // .sc-cabinet-box__walls
+      expect(children[1].className).toContain('sc-cabinet-box__walls');
+      expect(children[2].className).toContain('sc-cabinet-box__front');
+    });
+
+    it('marks the backing aria-hidden — purely decorative, never exposed to assistive tech', () => {
+      const { container } = render(<CabinetBox popped={false} timelineKey="test-box">x</CabinetBox>);
+      const backing = container.querySelector('.sc-cabinet-box__backing') as HTMLElement;
+      expect(backing.getAttribute('aria-hidden')).toBe('true');
     });
   });
 
   describe('fractional popped (roadmap 11.1.3 — VoxelTrack extrusion-falloff)', () => {
-    it('computes target geometry at t=0.4 exactly for a fractional popped value', () => {
+    it('computes the front-face offset at t=0.4 exactly for a fractional popped value', () => {
       render(<CabinetBox popped={0.4} timelineKey="test-box">x</CabinetBox>);
       const observer = MockResizeObserver.instances[0];
       act(() => observer.fire(100, 48));
 
-      expect(computeCabinetGeometry).toHaveBeenCalledWith(100, 48, 0.4, CABINET_POP_DISTANCE);
+      expect(computeCabinetFrontFaceOffset).toHaveBeenCalledWith(0.4, CABINET_POP_DISTANCE);
     });
 
     it('tweens --cabinet-glow to exactly 0.4 (not 0 or 1) for popped={0.4}', () => {
@@ -318,13 +532,13 @@ describe('CabinetBox', () => {
       expect(toVars['--cabinet-glow']).toBe(0.4);
     });
 
-    it('on the very first render at a fractional popped value, animates in from the numeric opposite (1 - poppedT)', () => {
+    it('on the very first render at a fractional popped value, animates the front-face offset in from the numeric opposite (1 - poppedT)', () => {
       const { container } = render(<CabinetBox popped={0.4} timelineKey="test-box">x</CabinetBox>);
       const observer = MockResizeObserver.instances[0];
       act(() => observer.fire(100, 48));
 
-      // The geometry "from" call — no prior real popped value exists yet.
-      expect(computeCabinetGeometry).toHaveBeenCalledWith(100, 48, 0.6, CABINET_POP_DISTANCE);
+      // The offset "from" call — no prior real popped value exists yet.
+      expect(computeCabinetFrontFaceOffset).toHaveBeenCalledWith(0.6, CABINET_POP_DISTANCE);
 
       const wrapper = container.querySelector('.sc-cabinet-box');
       const [, fromVars] = fromToMock.mock.calls.find(([target]) => target === wrapper) as [
@@ -339,16 +553,16 @@ describe('CabinetBox', () => {
       const { container, rerender } = render(<CabinetBox popped={0.4} timelineKey="test-box">x</CabinetBox>);
       const observer = MockResizeObserver.instances[0];
       act(() => observer.fire(100, 48));
-      (computeCabinetGeometry as ReturnType<typeof vi.fn>).mockClear();
+      (computeCabinetFrontFaceOffset as ReturnType<typeof vi.fn>).mockClear();
       fromToMock.mockClear();
 
       rerender(<CabinetBox popped={0.7} timelineKey="test-box">x</CabinetBox>);
 
       // "from" uses the real previous value (0.4), never the numeric
       // opposite of the new value (1 - 0.7 = 0.3).
-      expect(computeCabinetGeometry).toHaveBeenCalledWith(100, 48, 0.4, CABINET_POP_DISTANCE);
-      expect(computeCabinetGeometry).not.toHaveBeenCalledWith(100, 48, 0.3, CABINET_POP_DISTANCE);
-      expect(computeCabinetGeometry).toHaveBeenCalledWith(100, 48, 0.7, CABINET_POP_DISTANCE);
+      expect(computeCabinetFrontFaceOffset).toHaveBeenCalledWith(0.4, CABINET_POP_DISTANCE);
+      expect(computeCabinetFrontFaceOffset).not.toHaveBeenCalledWith(0.3, CABINET_POP_DISTANCE);
+      expect(computeCabinetFrontFaceOffset).toHaveBeenCalledWith(0.7, CABINET_POP_DISTANCE);
 
       const wrapper = container.querySelector('.sc-cabinet-box');
       const [, fromVars, toVars] = fromToMock.mock.calls.find(([target]) => target === wrapper) as [
@@ -367,16 +581,16 @@ describe('CabinetBox', () => {
       const observer = MockResizeObserver.instances[0];
       act(() => observer.fire(100, 48));
 
-      expect(computeCabinetGeometry).toHaveBeenCalledWith(100, 48, 1, CABINET_POP_DISTANCE);
+      expect(computeCabinetFrontFaceOffset).toHaveBeenCalledWith(1, CABINET_POP_DISTANCE);
     });
 
-    it('passes a custom popDistance through to computeCabinetGeometry instead of the default', () => {
+    it('passes a custom popDistance through to computeCabinetFrontFaceOffset instead of the default', () => {
       render(<CabinetBox popped={true} timelineKey="test-box" popDistance={20}>x</CabinetBox>);
       const observer = MockResizeObserver.instances[0];
       act(() => observer.fire(100, 48));
 
-      expect(computeCabinetGeometry).toHaveBeenCalledWith(100, 48, 1, 20);
-      expect(computeCabinetGeometry).not.toHaveBeenCalledWith(100, 48, 1, CABINET_POP_DISTANCE);
+      expect(computeCabinetFrontFaceOffset).toHaveBeenCalledWith(1, 20);
+      expect(computeCabinetFrontFaceOffset).not.toHaveBeenCalledWith(1, CABINET_POP_DISTANCE);
     });
 
     it('applies the resolved popDistance (not always CABINET_POP_DISTANCE) as the --cabinet-pop-distance inline custom property', () => {
@@ -387,18 +601,95 @@ describe('CabinetBox', () => {
       expect(wrapper.style.getPropertyValue('--cabinet-pop-distance')).toBe('20px');
     });
 
-    it("uses the custom popDistance for the 'from' geometry too, not just the target", () => {
+    it("uses the custom popDistance for the 'from' offset too, not just the target", () => {
       const { rerender } = render(
         <CabinetBox popped={0.4} timelineKey="test-box" popDistance={20}>x</CabinetBox>,
       );
       const observer = MockResizeObserver.instances[0];
       act(() => observer.fire(100, 48));
-      (computeCabinetGeometry as ReturnType<typeof vi.fn>).mockClear();
+      (computeCabinetFrontFaceOffset as ReturnType<typeof vi.fn>).mockClear();
 
       rerender(<CabinetBox popped={0.7} timelineKey="test-box" popDistance={20}>x</CabinetBox>);
 
-      expect(computeCabinetGeometry).toHaveBeenCalledWith(100, 48, 0.4, 20); // from
-      expect(computeCabinetGeometry).toHaveBeenCalledWith(100, 48, 0.7, 20); // target
+      expect(computeCabinetFrontFaceOffset).toHaveBeenCalledWith(0.4, 20); // from
+      expect(computeCabinetFrontFaceOffset).toHaveBeenCalledWith(0.7, 20); // target
+    });
+  });
+
+  describe('skipMountAnimation prop (roadmap 11.1.3 follow-up — VoxelTrack straddle-boundary remount fix)', () => {
+    it('positions directly at the target offset via gsap.set(), not an animated tween, on first mount', () => {
+      const { container } = render(
+        <CabinetBox popped={true} timelineKey="test-box" skipMountAnimation>x</CabinetBox>,
+      );
+      const observer = MockResizeObserver.instances[0];
+      act(() => observer.fire(100, 48));
+
+      expect(computeCabinetFrontFaceOffset).toHaveBeenCalledWith(1, CABINET_POP_DISTANCE);
+      const topFace = container.querySelector('.sc-cabinet-box__top-face');
+      const setCalls = setMock.mock.calls.map(([target]) => target);
+      expect(setCalls).toContain(topFace);
+      expect(fromToMock).not.toHaveBeenCalled();
+    });
+
+    it('does not register a GSAP timeline for the skipped first mount — there is no tween to track', () => {
+      render(<CabinetBox popped={true} timelineKey="test-box" skipMountAnimation>x</CabinetBox>);
+      const observer = MockResizeObserver.instances[0];
+      act(() => observer.fire(100, 48));
+
+      expect(setTimeline).not.toHaveBeenCalled();
+    });
+
+    it('sets --cabinet-glow directly to the target poppedT via gsap.set(), not tweened from the numeric opposite', () => {
+      const { container } = render(
+        <CabinetBox popped={0.4} timelineKey="test-box" skipMountAnimation>x</CabinetBox>,
+      );
+      const observer = MockResizeObserver.instances[0];
+      act(() => observer.fire(100, 48));
+
+      const wrapper = container.querySelector('.sc-cabinet-box');
+      const glowSetCall = setMock.mock.calls.find(
+        ([target, vars]) => target === wrapper && vars && '--cabinet-glow' in (vars as object),
+      );
+      expect(glowSetCall?.[1]).toEqual({ '--cabinet-glow': 0.4 });
+    });
+
+    it('a real popped transition after a skip-mount render still animates normally — the skip only applies to the very first mount', () => {
+      const { rerender } = render(
+        <CabinetBox popped={false} timelineKey="test-box" skipMountAnimation>x</CabinetBox>,
+      );
+      const observer = MockResizeObserver.instances[0];
+      act(() => observer.fire(100, 48));
+      expect(fromToMock).not.toHaveBeenCalled(); // the skipped first mount
+
+      rerender(<CabinetBox popped={true} timelineKey="test-box" skipMountAnimation>x</CabinetBox>);
+
+      expect(fromToMock).toHaveBeenCalled();
+      expect(setTimeline).toHaveBeenCalled();
+      // Animates from the box's own real prior state (flat, false → 0), not
+      // the numeric opposite of the new target — the skipped mount already
+      // established 0 as the real starting point.
+      expect(computeCabinetFrontFaceOffset).toHaveBeenCalledWith(0, CABINET_POP_DISTANCE);
+    });
+
+    it('a width-only reposition after a skip-mount render still uses the instant gsap.set() path, unaffected by the flag', () => {
+      render(<CabinetBox popped={true} timelineKey="test-box" skipMountAnimation>x</CabinetBox>);
+      const observer = MockResizeObserver.instances[0];
+      act(() => observer.fire(100, 48));
+      setMock.mockClear();
+
+      act(() => observer.fire(120, 48));
+
+      expect(fromToMock).not.toHaveBeenCalled();
+      expect(setMock).toHaveBeenCalled();
+    });
+
+    it('defaults to the animated pop-in on first mount when skipMountAnimation is omitted — Button/Toggle behavior is unchanged', () => {
+      render(<CabinetBox popped={true} timelineKey="test-box">x</CabinetBox>);
+      const observer = MockResizeObserver.instances[0];
+      act(() => observer.fire(100, 48));
+
+      expect(fromToMock).toHaveBeenCalled();
+      expect(setTimeline).toHaveBeenCalled();
     });
   });
 });

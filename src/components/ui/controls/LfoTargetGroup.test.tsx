@@ -9,6 +9,13 @@ vi.mock('gsap', () => ({
       lastOnComplete = config?.onComplete;
       return { to: vi.fn(), kill: vi.fn() };
     }),
+    // LfoTargetGroup renders Lfo, which renders through SliderLinear/Toggle
+    // and therefore CabinetBox — CabinetBox now calls gsap.set() directly
+    // (its one-time wall-skew effect, unconditional on mount; see
+    // docs/specs/OBLIQUE_CABINETRY_WALL_RENDERING.md), which this file's
+    // own local gsap mock didn't previously need to stub. A no-op here is
+    // sufficient — no test in this file asserts on gsap.set's call args.
+    set: vi.fn(),
   },
 }));
 
