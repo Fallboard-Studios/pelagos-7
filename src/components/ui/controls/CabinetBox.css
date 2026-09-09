@@ -67,7 +67,7 @@
      silhouette — the "back" of the box, not the moving front — rather than
      a rectangular bounding box. Confirmed against the real running app,
      2026-09-07 — this is the shipped design, not a draft. This element's
-     own opacity now also rides the same tween, 1→0.5 as --cabinet-glow
+     own opacity now also rides the same tween, 0→0.5 as --cabinet-glow
      goes 0→1 — the walls fade toward translucent as they pop, letting
      .sc-cabinet-box__backing (above) show through. The front face stays
      fully opaque throughout (its own real content/label needs to stay
@@ -76,9 +76,23 @@
      whole group) rather than on each wall div individually costs nothing
      extra now that the walls are 2 <div>s instead of an <svg> with 2
      <polygon>s — filter composites a stacking context's full rendered
-     output as one operation regardless of child count. */
+     output as one operation regardless of child count.
+
+     Formula revised 2026-09-09 (was `1 - glow*0.5`, opaque-by-default —
+     see git history): a wall mid-collapse (small but nonzero scale) was
+     ALSO still near-fully-opaque under the old formula, so a shrinking
+     sliver stayed sharp/high-contrast right up until it hit exactly zero
+     scale — a visible "flash," worst on a slider click where many boxes
+     collapse at once. `glow*0.5` instead ties opacity directly to the
+     same value driving the scale — a near-flat wall is ALSO near-fully
+     transparent, so the collapse reads as a soft dissolve rather than a
+     shrinking hard-edged shard. The t=1 (fully popped) value is
+     unchanged at 0.5 — only the flat-end behavior changed, from opaque
+     to transparent (moot at exactly t=0, since zero scale already shows
+     nothing regardless of opacity — this only matters for the small
+     nonzero values in between). */
   filter: drop-shadow(0 0 calc(var(--cabinet-glow, 0) * 20px) var(--color-accent));
-  opacity: calc(1 - var(--cabinet-glow, 0) * 0.5);
+  opacity: calc(var(--cabinet-glow, 0) * 0.5);
 }
 
 /* Both walls are, geometrically, a plain rectangle skewed by a FIXED angle

@@ -694,7 +694,7 @@ describe('CabinetBox', () => {
     });
   });
 
-  describe('direction-dependent duration/ease (roadmap 11.1.1 follow-up — a flattening box should accelerate away, not decelerate into a lingering small-but-visible size)', () => {
+  describe('direction-dependent duration (roadmap 11.1.1 follow-up — popping out uses a shorter duration than popping in, so a flattening box doesn\'t linger; ease is power2.out both ways, see cabinetAnimation.ts)', () => {
     it('popping in (flat → popped) uses power2.out and CABINET_POP_DURATION on every tweened property', () => {
       const { container, rerender } = render(<CabinetBox popped={false} timelineKey="test-box">x</CabinetBox>);
       const observer = MockResizeObserver.instances[0];
@@ -711,7 +711,7 @@ describe('CabinetBox', () => {
       expect(toVars.duration).toBe(CABINET_POP_DURATION);
     });
 
-    it('popping out (popped → flat) uses power2.in and the shorter CABINET_POP_DURATION_OUT on every tweened property', () => {
+    it('popping out (popped → flat) uses power2.out (same ease as popping in) but the shorter CABINET_POP_DURATION_OUT, on every tweened property', () => {
       const { container, rerender } = render(<CabinetBox popped={true} timelineKey="test-box">x</CabinetBox>);
       const observer = MockResizeObserver.instances[0];
       act(() => observer.fire(100, 48));
@@ -728,12 +728,12 @@ describe('CabinetBox', () => {
         const [, , toVars] = fromToMock.mock.calls.find(([callTarget]) => callTarget === target) as [
           unknown, Record<string, unknown>, Record<string, unknown>,
         ];
-        expect(toVars.ease).toBe('power2.in');
+        expect(toVars.ease).toBe('power2.out');
         expect(toVars.duration).toBe(CABINET_POP_DURATION_OUT);
       }
     });
 
-    it('a fractional transition that decreases (0.7 → 0.4) is still treated as "popping out"', () => {
+    it('a fractional transition that decreases (0.7 → 0.4) is still treated as "popping out" — shorter duration, same power2.out ease', () => {
       const { container, rerender } = render(<CabinetBox popped={0.7} timelineKey="test-box">x</CabinetBox>);
       const observer = MockResizeObserver.instances[0];
       act(() => observer.fire(100, 48));
@@ -745,7 +745,7 @@ describe('CabinetBox', () => {
       const [, , toVars] = fromToMock.mock.calls.find(([target]) => target === topFace) as [
         unknown, Record<string, unknown>, Record<string, unknown>,
       ];
-      expect(toVars.ease).toBe('power2.in');
+      expect(toVars.ease).toBe('power2.out');
       expect(toVars.duration).toBe(CABINET_POP_DURATION_OUT);
     });
 

@@ -4,19 +4,25 @@
  * PowerRockerSwitch.css do — the box still pops/flattens, but the transition
  * snaps instead of animating.
  *
- * Direction-dependent duration/ease (2026-09-09 follow-up): a box popping
- * IN decelerates into place (power2.out) over CABINET_POP_DURATION — the
- * original, single-direction behavior. A box popping OUT (flattening)
- * instead ACCELERATES away (power2.in) over the shorter
- * CABINET_POP_DURATION_OUT. Both changes target the same real, felt
- * problem: power2.out's own slow-approaching-the-target tail meant a
- * flattening box's walls lingered at a small-but-visible size for a
- * disproportionate share of the transition — most noticeable on a slider
- * click (which can flip many boxes' popT from 1→0 in the same render, all
- * animating at once) rather than a drag (which flips at most one or two
- * boxes per frame). This is a well-established UI motion convention
- * (entering elements decelerate, exiting elements accelerate — Material
- * Design's own enter/exit easing split), not a reversal of it.
+ * Direction-dependent DURATION (2026-09-09 follow-up): popping OUT
+ * (flattening) uses the shorter CABINET_POP_DURATION_OUT instead of
+ * CABINET_POP_DURATION, targeting a real, felt problem — a flattening
+ * box's walls lingering at a small-but-visible size for too long, most
+ * noticeable on a slider click (which can flip many boxes' popT from 1→0
+ * in the same render, all animating at once) rather than a drag (which
+ * flips at most one or two boxes per frame).
+ *
+ * Direction-dependent EASE was also tried here — power2.in ("accelerate
+ * away") for popping out, reasoning by analogy to Material Design's
+ * enter/exit easing split — and REVERTED the same day: power2.in is
+ * slow-start/fast-finish, so it kept the wall near FULL size for most of
+ * the transition before a sudden late collapse, reading as a LONGER, more
+ * prominent flash than power2.out's own front-loaded shrink (most of the
+ * shrink happens early; by the time the remaining sliver is small, it's
+ * also nearly gone — the earlier "still lingers" complaint was really
+ * about CABINET_POP_DURATION being long overall, not the curve shape).
+ * Both directions use power2.out; only the duration differs. See
+ * getCabinetPopEase's own comment.
  */
 export const CABINET_POP_DURATION = 0.75;
 
@@ -36,15 +42,15 @@ export function getCabinetPopDuration(prefersReducedMotion: boolean, direction: 
 }
 
 /**
- * `power2.out` (decelerate into place) for popping in — the original,
- * single-direction ease. `power2.in` (accelerate away) for popping out, so
- * the tween's own rate of change is highest right as it reaches the flat
- * target instead of lowest — the direct fix for the lingering-small-sliver
- * problem `power2.out` produces on the way down. Applied uniformly to every
- * property in a single popped transition (front-face offset, both wall
- * scales, glow) by the caller, so all four stay synchronized — never mix
- * eases within one transition.
+ * `power2.out` (decelerate into place, front-loaded change) for both
+ * directions — kept as a function (not inlined at the 4 call sites) so the
+ * direction parameter stays available for a future retune, and so this
+ * comment has one place to live recording why `power2.in` for "out" was
+ * tried and reverted (see cabinetAnimation.ts's own top comment). Applied
+ * uniformly to every property in a single popped transition (front-face
+ * offset, both wall scales, glow) by the caller, so all four stay
+ * synchronized — never mix eases within one transition.
  */
 export function getCabinetPopEase(direction: CabinetPopDirection = 'in'): string {
-  return direction === 'out' ? 'power2.in' : 'power2.out';
+  return direction === 'out' ? 'power2.out' : 'power2.out';
 }

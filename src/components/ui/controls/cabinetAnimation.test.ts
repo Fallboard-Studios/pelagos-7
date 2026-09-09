@@ -27,8 +27,8 @@ describe('getCabinetPopDuration', () => {
   });
 });
 
-describe('getCabinetPopEase — direction-dependent easing (a box flattening out should accelerate away, not decelerate into a lingering small-but-visible size)', () => {
-  it('defaults to power2.out (decelerate into place) when direction is omitted — matches the existing popping-in behavior byte-for-byte', () => {
+describe('getCabinetPopEase — both directions currently resolve to power2.out (2026-09-09, reverted from an earlier power2.in attempt for "out")', () => {
+  it('defaults to power2.out when direction is omitted', () => {
     expect(getCabinetPopEase()).toBe('power2.out');
   });
 
@@ -36,7 +36,7 @@ describe('getCabinetPopEase — direction-dependent easing (a box flattening out
     expect(getCabinetPopEase('in')).toBe('power2.out');
   });
 
-  it('returns power2.in for the "out" direction — an exiting/flattening box accelerates away instead of crawling the last bit', () => {
-    expect(getCabinetPopEase('out')).toBe('power2.in');
+  it('returns power2.out for the "out" direction too — power2.in (slow-start/fast-finish) was tried here and reverted: it kept the wall near full size for most of the (shorter) duration before a sudden late collapse, reading as a LONGER, more prominent flash than power2.out\'s own front-loaded shrink, not a shorter one. power2.out already gets small fast; CABINET_POP_DURATION_OUT (the shorter duration) is what actually shortens the lingering tail', () => {
+    expect(getCabinetPopEase('out')).toBe('power2.out');
   });
 });
