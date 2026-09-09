@@ -32,6 +32,7 @@ import {
   computeVoxelTrackLength,
   computeVoxelBoxStates,
   computeVoxelTrackTrailingReserve,
+  VOXEL_TRACK_DEFAULT_VERTICAL_HEIGHT,
 } from '@/utils/voxelTrackMath';
 import type { SliderLinearSchema } from '@/types/controls';
 
@@ -223,13 +224,11 @@ describe('SliderLinear', () => {
       expect(rootIndex).toBeLessThan(valueIndex);
     });
 
-    it("'vertical': always sets an inline height computed from the live-fitted box count, even when verticalHeight is omitted — no longer the old --slider-vertical-height CSS default", () => {
+    it("'vertical': omitting verticalHeight fits synchronously against a fixed default budget (VOXEL_TRACK_DEFAULT_VERTICAL_HEIGHT, matching --slider-vertical-height's own 256px) rather than live-measuring the parent — the correct height is present on the very first render, with no ResizeObserver callback needed to reach it. The live measurement this replaces was genuinely circular for a shrink-wrapped parent: its own height depended on this slider's rendered height, which depended on measuring that same parent — an infinite resize loop found live in the running app for every vertical-resolving slider with no explicitly-sized container.", () => {
       const { container } = render(<SliderLinear schema={verticalSchema} value={2} onChange={() => {}} />);
-      const observer = MockResizeObserver.instances[0];
-      act(() => observer.fire(0, 300));
 
       const root = container.querySelector<HTMLElement>('.sc-slider-linear__root');
-      const boxCount = computeFittedBoxCount(300, BOX_SIZE, GAP);
+      const boxCount = computeFittedBoxCount(VOXEL_TRACK_DEFAULT_VERTICAL_HEIGHT, BOX_SIZE, GAP);
       const expectedLength = computeVoxelTrackLength(boxCount, BOX_SIZE, GAP);
       expect(root?.style.height).toBe(`${expectedLength}px`);
     });
@@ -265,9 +264,6 @@ describe('SliderLinear', () => {
 
     it("'vertical': sets an inline width equal to the box's own cross-axis size, on top of the main-axis inline height — the boxes are BOX_SIZE wide, not the old stale 20px CSS default", () => {
       const { container } = render(<SliderLinear schema={verticalSchema} value={2} onChange={() => {}} />);
-      const observer = MockResizeObserver.instances[0];
-      act(() => observer.fire(0, 300));
-
       const root = container.querySelector<HTMLElement>('.sc-slider-linear__root');
       expect(root?.style.width).toBe(`${BOX_SIZE}px`);
     });
@@ -276,6 +272,18 @@ describe('SliderLinear', () => {
       const { container } = render(<SliderLinear schema={autoSchema} value={2} onChange={() => {}} />);
       const root = container.querySelector('.sc-slider-linear__root');
       expect(root?.getAttribute('data-orientation')).toBe('horizontal');
+    });
+
+    it("'auto' resolving to vertical: the box count still fits against the fixed default budget, not a live measurement of the same parent useAutoSliderOrientation itself observes — this is the exact scenario that looped live in the running app (a container with no explicit height, orientation resolving to vertical, box-count fitting then trying to measure that same not-yet-sized parent)", () => {
+      const { container } = render(<SliderLinear schema={autoSchema} value={2} onChange={() => {}} />);
+      const orientationObserver = MockResizeObserver.instances[0];
+      act(() => orientationObserver.fire(50, 300)); // height > width -> resolves to vertical
+
+      const root = container.querySelector<HTMLElement>('.sc-slider-linear__root');
+      expect(root?.getAttribute('data-orientation')).toBe('vertical');
+      const boxCount = computeFittedBoxCount(VOXEL_TRACK_DEFAULT_VERTICAL_HEIGHT, BOX_SIZE, GAP);
+      const expectedLength = computeVoxelTrackLength(boxCount, BOX_SIZE, GAP);
+      expect(root?.style.height).toBe(`${expectedLength}px`);
     });
   });
 });

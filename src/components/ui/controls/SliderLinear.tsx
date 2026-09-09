@@ -12,6 +12,7 @@ import {
   computeVoxelTrackLength,
   computeVoxelBoxStates,
   computeVoxelTrackTrailingReserve,
+  VOXEL_TRACK_DEFAULT_VERTICAL_HEIGHT,
 } from '@/utils/voxelTrackMath';
 import type { SliderLinearSchema } from '@/types/controls';
 import './SliderLinear.css';
@@ -41,7 +42,17 @@ export function SliderLinear({ schema, value, onChange, disabled, verticalHeight
   const isVertical = orientation === 'vertical';
   const boxSize = useCabinetBoxHeight();
   const gap = useVoxelTrackGap();
-  const explicitLength = isVertical ? verticalHeight : undefined;
+  // Vertical always fits against a fixed budget — the caller's own
+  // verticalHeight when given, VOXEL_TRACK_DEFAULT_VERTICAL_HEIGHT (matching
+  // --slider-vertical-height's 256px default) otherwise — never a live
+  // ResizeObserver measurement of the parent. That live-measurement path
+  // (the hook's own default when explicitAvailableLength is undefined) is
+  // genuinely circular for any real container whose own height is
+  // auto/shrink-wrapped to its content: the parent's height would depend on
+  // this slider's rendered height, which depends on measuring that same
+  // parent. Found live in the running app as an infinite resize loop — see
+  // VOXEL_TRACK_DEFAULT_VERTICAL_HEIGHT's own comment.
+  const explicitLength = isVertical ? (verticalHeight ?? VOXEL_TRACK_DEFAULT_VERTICAL_HEIGHT) : undefined;
   // Reserves trailing room (horizontal only — see computeVoxelTrackTrailingReserve)
   // for the last box's own pop-out bleed, so a container whose width happens
   // to land on an exact multiple of (boxSize + gap) doesn't leave that bleed

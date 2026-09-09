@@ -13,6 +13,34 @@ import { VOXEL_TRACK_POP_DISTANCE, VOXEL_TRACK_POP_DISTANCE_MIN_RATIO } from './
 export const VOXEL_TRACK_MIN_BOX_COUNT = 3;
 
 /**
+ * The fitting BUDGET a vertical SliderLinear falls back to when its caller
+ * omits `verticalHeight` — matches index.css's `--slider-vertical-height:
+ * 256px`, the same default `SliderLog`/`SliderCenteredZero` already use
+ * (docs/specs/VERTICAL_SLIDERS.md's own resolved "256px default, optional
+ * per-instance override," which predates the voxel-track rewrite).
+ *
+ * Post-implementation correction, 2026-09-09: the voxel-track rewrite
+ * (roadmap 11.1.3) replaced that CSS-only fallback with a live
+ * `ResizeObserver` measurement of the slider's *parent* for the vertical
+ * case, with no non-measuring default of its own — silently dropping the
+ * original spec's resolved answer. For any real container whose own height
+ * is itself auto/shrink-wrapped to its content (common: a plain block div,
+ * not a fixed-height grid/flex cell), that measurement is genuinely
+ * circular: the parent's height depends on this slider's own rendered
+ * height, which — via `useVoxelTrackBoxCount` — depended on measuring that
+ * same parent. Found live in the running app as an infinite resize loop,
+ * hit first via `orientation: 'auto'` resolving to vertical in an
+ * unprepared container (no real vertical consumer had been exercised
+ * before), though the same circularity applies equally to an explicit
+ * `orientation: 'vertical'` schema with no `verticalHeight` override.
+ * `SliderLinear.tsx` now defaults to this constant instead of measuring —
+ * restoring the original non-circular design, quantized to real boxes via
+ * the same "fitting budget" treatment an explicit `verticalHeight` already
+ * gets (docs/specs/OBLIQUE_CABINETRY_SLIDER_LINEAR.md §1.7).
+ */
+export const VOXEL_TRACK_DEFAULT_VERTICAL_HEIGHT = 256;
+
+/**
  * How many fixed-size boxes fit in `availableLength` px without overflowing,
  * floored, clamped to VOXEL_TRACK_MIN_BOX_COUNT. N boxes of size `boxSize`
  * with (N-1) gaps of `gap` occupy N*(boxSize+gap) - gap px; solving for the
