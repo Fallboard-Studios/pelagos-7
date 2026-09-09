@@ -30,6 +30,23 @@
 .sc-cabinet-box__walls {
   position: absolute;
   inset: 0;
+  /* inset: 0 alone doesn't reliably stretch an <svg> — it has no viewBox
+     and no width/height attributes, so its browser-default intrinsic size
+     (300x150, the same historical default <canvas>/<img> use) can win out
+     as a replaced element, even though all 4 inset edges are pinned.
+     Found live in the running app: this element's own rendered box model
+     read exactly 300x150 instead of matching .sc-cabinet-box's ~48x48
+     footprint. Being position: absolute, that oversized box doesn't grow
+     .sc-cabinet-box itself (out of normal flow) — but since nothing
+     between here and .sc-slider-linear clips it (no overflow: hidden
+     anywhere in between), it silently inflates .sc-slider-linear's own
+     scrollable-overflow region once N of these exist in a voxel-track
+     row: a real (if invisible) scrollbar whose thumb genuinely moves,
+     scrolling nothing anyone can see. Explicit width/height alongside
+     inset: 0 is the standard fix for this exact "replaced element won't
+     stretch" class of bug. */
+  width: 100%;
+  height: 100%;
   overflow: visible;
   pointer-events: none;
   /* Glows more, the further the box has popped — --cabinet-glow is tweened
