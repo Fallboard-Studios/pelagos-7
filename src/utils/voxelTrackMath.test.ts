@@ -6,9 +6,12 @@ import {
   computeFittedBoxCount,
   computeVoxelTrackLength,
   computeVoxelBoxStates,
+  computeVoxelBoxPopDistance,
+  computeVoxelBoxZIndex,
   computeVoxelFillBackground,
   computeVoxelStraddleSizeFraction,
 } from './voxelTrackMath';
+import { VOXEL_TRACK_POP_DISTANCE, VOXEL_TRACK_POP_DISTANCE_MIN_RATIO } from './cabinetGeometry';
 
 describe('VOXEL_TRACK_MIN_BOX_COUNT', () => {
   it('is 3', () => {
@@ -82,22 +85,22 @@ describe('computeVoxelBoxStates', () => {
   it('at value === min: box 0 straddles at 0% fill, every other box is flat and empty', () => {
     const states = computeVoxelBoxStates(0, 0, 100, 5);
     expect(states).toEqual([
-      { fillPercent: 0, popT: 1 },
-      { fillPercent: 0, popT: 0 },
-      { fillPercent: 0, popT: 0 },
-      { fillPercent: 0, popT: 0 },
-      { fillPercent: 0, popT: 0 },
+      { fillPercent: 0, popT: 1, isStraddling: true },
+      { fillPercent: 0, popT: 0, isStraddling: false },
+      { fillPercent: 0, popT: 0, isStraddling: false },
+      { fillPercent: 0, popT: 0, isStraddling: false },
+      { fillPercent: 0, popT: 0, isStraddling: false },
     ]);
   });
 
-  it('at value === max: the last box straddles fully popped, every prior box is full with stepped-down popT, and no box reports 0% fill', () => {
+  it('at value === max: the last box straddles fully popped, every prior filled box is also popT: 1, and no box reports 0% fill', () => {
     const states = computeVoxelBoxStates(100, 0, 100, 5);
     expect(states).toEqual([
-      { fillPercent: 100, popT: 0 },
-      { fillPercent: 100, popT: 0.25 },
-      { fillPercent: 100, popT: 0.5 },
-      { fillPercent: 100, popT: 0.75 },
-      { fillPercent: 100, popT: 1 },
+      { fillPercent: 100, popT: 1, isStraddling: false },
+      { fillPercent: 100, popT: 1, isStraddling: false },
+      { fillPercent: 100, popT: 1, isStraddling: false },
+      { fillPercent: 100, popT: 1, isStraddling: false },
+      { fillPercent: 100, popT: 1, isStraddling: true },
     ]);
     expect(states.every((s) => s.fillPercent > 0)).toBe(true);
   });
@@ -107,21 +110,29 @@ describe('computeVoxelBoxStates', () => {
     // straddlingIndex=2, localFraction=0.5 → box 2 straddles at 50% fill.
     const states = computeVoxelBoxStates(62.5, 0, 100, 4);
     expect(states).toEqual([
-      { fillPercent: 100, popT: 0 },
-      { fillPercent: 100, popT: 0.5 },
-      { fillPercent: 50, popT: 1 },
-      { fillPercent: 0, popT: 0 },
+      { fillPercent: 100, popT: 1, isStraddling: false },
+      { fillPercent: 100, popT: 1, isStraddling: false },
+      { fillPercent: 50, popT: 1, isStraddling: true },
+      { fillPercent: 0, popT: 0, isStraddling: false },
     ]);
+  });
+
+  it('exactly one box is isStraddling: true, for a variety of representative values — popT alone can\'t distinguish the straddling box from an ordinary filled one (both are popT: 1), so this is asserted directly, not inferred', () => {
+    for (const value of [0, 1, 25, 50, 62.5, 99, 100]) {
+      const states = computeVoxelBoxStates(value, 0, 100, 7);
+      const straddlingCount = states.filter((s) => s.isStraddling).length;
+      expect(straddlingCount).toBe(1);
+    }
   });
 
   it('does not throw and returns the t=0 shape when min === max', () => {
     expect(() => computeVoxelBoxStates(50, 50, 50, 4)).not.toThrow();
     const states = computeVoxelBoxStates(50, 50, 50, 4);
     expect(states).toEqual([
-      { fillPercent: 0, popT: 1 },
-      { fillPercent: 0, popT: 0 },
-      { fillPercent: 0, popT: 0 },
-      { fillPercent: 0, popT: 0 },
+      { fillPercent: 0, popT: 1, isStraddling: true },
+      { fillPercent: 0, popT: 0, isStraddling: false },
+      { fillPercent: 0, popT: 0, isStraddling: false },
+      { fillPercent: 0, popT: 0, isStraddling: false },
     ]);
   });
 
@@ -134,7 +145,66 @@ describe('computeVoxelBoxStates', () => {
   });
 
   it('boxCount 1 always renders the single box as the fully-popped straddler', () => {
-    expect(computeVoxelBoxStates(25, 0, 100, 1)).toEqual([{ fillPercent: 25, popT: 1 }]);
+    expect(computeVoxelBoxStates(25, 0, 100, 1)).toEqual([{ fillPercent: 25, popT: 1, isStraddling: true }]);
+  });
+});
+
+describe('computeVoxelBoxPopDistance', () => {
+  it('at box 0 (nearest min), returns exactly VOXEL_TRACK_POP_DISTANCE_MIN_RATIO of the max distance', () => {
+    expect(computeVoxelBoxPopDistance(0, 5)).toBe(VOXEL_TRACK_POP_DISTANCE * VOXEL_TRACK_POP_DISTANCE_MIN_RATIO);
+  });
+
+  it('at the last box (nearest max), returns exactly the full VOXEL_TRACK_POP_DISTANCE', () => {
+    expect(computeVoxelBoxPopDistance(4, 5)).toBe(VOXEL_TRACK_POP_DISTANCE);
+  });
+
+  it('interpolates linearly by row position for boxes in between — independent of the slider value', () => {
+    // boxCount 5 → span 4; box 2 sits at positionFraction 0.5, exactly
+    // halfway between the min-ratio floor and the full max distance.
+    const min = VOXEL_TRACK_POP_DISTANCE * VOXEL_TRACK_POP_DISTANCE_MIN_RATIO;
+    const expected = min + (VOXEL_TRACK_POP_DISTANCE - min) * 0.5;
+    expect(computeVoxelBoxPopDistance(2, 5)).toBe(expected);
+  });
+
+  it('never exceeds VOXEL_TRACK_POP_DISTANCE or drops below the min-ratio floor, across a representative sweep of box counts', () => {
+    const min = VOXEL_TRACK_POP_DISTANCE * VOXEL_TRACK_POP_DISTANCE_MIN_RATIO;
+    for (const boxCount of [3, 4, 5, 8, 20]) {
+      for (let i = 0; i < boxCount; i++) {
+        const distance = computeVoxelBoxPopDistance(i, boxCount);
+        expect(distance).toBeGreaterThanOrEqual(min);
+        expect(distance).toBeLessThanOrEqual(VOXEL_TRACK_POP_DISTANCE);
+      }
+    }
+  });
+
+  it('does not throw for a single-box row (boxCount: 1) — the divide-by-zero guard; index 0 still reads as nearest-min, so it gets the floor distance, not the max', () => {
+    expect(() => computeVoxelBoxPopDistance(0, 1)).not.toThrow();
+    expect(computeVoxelBoxPopDistance(0, 1)).toBe(VOXEL_TRACK_POP_DISTANCE * VOXEL_TRACK_POP_DISTANCE_MIN_RATIO);
+  });
+});
+
+describe('computeVoxelBoxZIndex', () => {
+  it('horizontal: descends as index rises — box 0 (leftmost) outranks every box to its right', () => {
+    const zIndexes = [0, 1, 2, 3, 4].map((i) => computeVoxelBoxZIndex(i, 5, 'horizontal'));
+    expect(zIndexes).toEqual([5, 4, 3, 2, 1]);
+    for (let i = 1; i < zIndexes.length; i++) {
+      expect(zIndexes[i]).toBeLessThan(zIndexes[i - 1]);
+    }
+  });
+
+  it('vertical: ascends as index rises — the last box (topmost, per column-reverse) outranks every box below it', () => {
+    const zIndexes = [0, 1, 2, 3, 4].map((i) => computeVoxelBoxZIndex(i, 5, 'vertical'));
+    expect(zIndexes).toEqual([1, 2, 3, 4, 5]);
+    for (let i = 1; i < zIndexes.length; i++) {
+      expect(zIndexes[i]).toBeGreaterThan(zIndexes[i - 1]);
+    }
+  });
+
+  it('never produces a tie between two different indexes of the same row, for either axis', () => {
+    for (const axis of ['horizontal', 'vertical'] as const) {
+      const zIndexes = Array.from({ length: 8 }, (_, i) => computeVoxelBoxZIndex(i, 8, axis));
+      expect(new Set(zIndexes).size).toBe(zIndexes.length);
+    }
   });
 });
 

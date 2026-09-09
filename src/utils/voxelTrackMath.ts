@@ -5,6 +5,8 @@
  * §1.8, §1.9 for the derivations.
  */
 
+import { VOXEL_TRACK_POP_DISTANCE, VOXEL_TRACK_POP_DISTANCE_MIN_RATIO } from './cabinetGeometry';
+
 /** A container too narrow for even this many boxes clamps to this count and
  *  scrolls, rather than shrinking boxes below their fixed per-breakpoint
  *  size. Confirmed via /interview-me. */
@@ -34,6 +36,17 @@ export interface VoxelBoxState {
   fillPercent: number;
   /** 0-1, fed directly into CabinetBox's popped prop. */
   popT: number;
+  /**
+   * True for exactly one box per call — the one representing the slider's
+   * exact current value. `popT` alone can't identify it: every filled box
+   * (not just the straddling one) is ALSO `popT: 1` — found live, 2026-09-09,
+   * as the root cause of VoxelTrack.tsx rendering every filled box through
+   * the 2-piece glow+flat straddle path (a hidden, always-0-width "flat"
+   * CabinetBox riding along with every one of them), not just the actual
+   * straddling box. `VoxelTrack.tsx` branches on this field now, not
+   * `popT !== 1`.
+   */
+  isStraddling: boolean;
 }
 
 /**
@@ -48,15 +61,60 @@ export function computeVoxelBoxStates(value: number, min: number, max: number, b
   const straddlingIndex = Math.min(boxCount - 1, Math.floor(rawPosition));
   const localFraction = rawPosition - straddlingIndex;
 
+  // Every filled box (i <= straddlingIndex) is popT: 1 — fully popped.
+  // Revised 2026-09-08: previously stepped down toward 0 the further a
+  // filled box sat from the straddling box (i / straddlingIndex), tapering
+  // relative to how much of the track happened to be filled. That let a
+  // box near the minimum end reach the same full pop distance as a box
+  // near the maximum the moment it became the straddling box — wrong per
+  // /interview-me. Depth-by-row-position now lives entirely in
+  // computeVoxelBoxPopDistance below, keyed to each box's fixed index, not
+  // to its distance from wherever the value currently sits.
   return Array.from({ length: boxCount }, (_, i) => {
-    if (i < straddlingIndex) {
-      return { fillPercent: 100, popT: straddlingIndex === 0 ? 0 : i / straddlingIndex };
-    }
-    if (i > straddlingIndex) {
-      return { fillPercent: 0, popT: 0 };
-    }
-    return { fillPercent: localFraction * 100, popT: 1 };
+    if (i < straddlingIndex) return { fillPercent: 100, popT: 1, isStraddling: false };
+    if (i > straddlingIndex) return { fillPercent: 0, popT: 0, isStraddling: false };
+    return { fillPercent: localFraction * 100, popT: 1, isStraddling: true };
   });
+}
+
+/**
+ * How far box `index` (of `boxCount` total, 0 = nearest min) can protrude at
+ * full pop — a fixed ceiling determined by the box's own row position, never
+ * by the slider's current value. Interpolates linearly from
+ * VOXEL_TRACK_POP_DISTANCE_MIN_RATIO of VOXEL_TRACK_POP_DISTANCE at box 0 up
+ * to the full VOXEL_TRACK_POP_DISTANCE at the last box. Only meaningful for
+ * a box that's actually popped (popT > 0, from computeVoxelBoxStates above);
+ * a flat box never renders this value regardless of what it computes to.
+ * See docs/specs/OBLIQUE_CABINETRY_SLIDER_LINEAR.md §1.8 revision note.
+ */
+export function computeVoxelBoxPopDistance(index: number, boxCount: number): number {
+  const span = Math.max(1, boxCount - 1); // guards boxCount <= 1 (single-box row)
+  const positionFraction = Math.min(1, Math.max(0, index / span));
+  const minDistance = VOXEL_TRACK_POP_DISTANCE * VOXEL_TRACK_POP_DISTANCE_MIN_RATIO;
+  return minDistance + (VOXEL_TRACK_POP_DISTANCE - minDistance) * positionFraction;
+}
+
+/**
+ * Paint-order z-index for box `index` (of `boxCount` total) in a VoxelTrack
+ * row/column, so a box whose walls visually bleed into a neighbor's space
+ * (per computeVoxelBoxPopDistance's now-varying-by-position pop distance)
+ * paints OVER that neighbor rather than under it. The wall geometry always
+ * extends along the same fixed 2:1 oblique vector — right and down,
+ * regardless of axis (computeCabinetGeometry) — so which neighbor a box
+ * bleeds into depends on how index maps to screen position, which is
+ * axis-dependent (VoxelTrack.css):
+ *  - horizontal: box 0 (nearest min) renders leftmost, walls extend
+ *    rightward into the next box's space — z-index DESCENDS as index rises,
+ *    so the leftmost box always wins.
+ *  - vertical: box 0 (nearest min) renders bottommost (CSS's own
+ *    column-reverse), walls extend downward into the box BELOW it (the
+ *    next-lower index) — z-index ASCENDS as index rises, so the topmost
+ *    (highest-index) box always wins.
+ * In both cases: "up/left of a neighbor" outranks "down/right of it" —
+ * confirmed by feel against the real running app, 2026-09-08.
+ */
+export function computeVoxelBoxZIndex(index: number, boxCount: number, axis: 'horizontal' | 'vertical'): number {
+  return axis === 'horizontal' ? boxCount - index : index + 1;
 }
 
 /**

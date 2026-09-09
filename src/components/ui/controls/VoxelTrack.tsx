@@ -1,7 +1,12 @@
 import type { CSSProperties } from 'react';
 import { CabinetBox } from './CabinetBox';
-import { computeVoxelFillBackground, computeVoxelStraddleSizeFraction, type VoxelBoxState } from '@/utils/voxelTrackMath';
-import { VOXEL_TRACK_POP_DISTANCE } from '@/utils/cabinetGeometry';
+import {
+  computeVoxelFillBackground,
+  computeVoxelStraddleSizeFraction,
+  computeVoxelBoxPopDistance,
+  computeVoxelBoxZIndex,
+  type VoxelBoxState,
+} from '@/utils/voxelTrackMath';
 import './VoxelTrack.css';
 
 interface VoxelTrackProps {
@@ -20,6 +25,17 @@ interface VoxelTrackProps {
  * overlay; SliderLinear.tsx (and, unchanged, SliderLog/SliderCenteredZero in
  * 11.1.4/11.1.5) keeps Radix's own Slider.Root/Track/Thumb fully in charge
  * of interaction — see docs/specs/OBLIQUE_CABINETRY_SLIDER_LINEAR.md §1.10.
+ *
+ * Every CabinetBox instance below gets skipMountAnimation (2026-09-09 fix).
+ * The box at the ordinary/straddling role boundary — a plain CabinetBox vs.
+ * the straddling slot's two-piece glow+flat wrapper below — changes element
+ * type at the same React key every time the straddling index moves, which
+ * forces a remount even though the box was already visible a frame earlier.
+ * Without this flag, CabinetBox's own "animate in from the opposite state on
+ * first mount" behavior (correct for Button/Toggle, where a first mount is a
+ * genuinely new element) replayed a full flat↔popped tween on that remount —
+ * a spurious wall flash with no real transition behind it. See
+ * CabinetBox.tsx's own CabinetBoxProps.skipMountAnimation comment.
  */
 export function VoxelTrack({ states, boxSize, gap, axis, timelineKeyPrefix }: VoxelTrackProps) {
   const tokens = {
@@ -30,17 +46,34 @@ export function VoxelTrack({ states, boxSize, gap, axis, timelineKeyPrefix }: Vo
   return (
     <div className="sc-voxel-track" data-axis={axis} style={tokens} aria-hidden="true">
       {states.map((state, i) => {
+        // Each box's own pop distance ceiling is fixed by its row position
+        // (index i of states.length total), never by the slider's current
+        // value — a box near the minimum end tops out shallow even while
+        // it's the one currently popped. See computeVoxelBoxPopDistance.
+        const popDistance = computeVoxelBoxPopDistance(i, states.length);
+        // A box's walls bleed toward its down-right neighbor along the
+        // fixed oblique vector — this slot's z-index makes sure it paints
+        // over that neighbor rather than under it. See
+        // computeVoxelBoxZIndex.
+        const zIndex = computeVoxelBoxZIndex(i, states.length, axis);
+
         // The straddling box (the one representing the slider's exact
-        // current value) is the only one computeVoxelBoxStates ever assigns
-        // popT: 1 to. Every other box renders as a single, ordinary,
-        // full-size CabinetBox — unchanged.
-        if (state.popT !== 1) {
+        // current value) is identified by isStraddling, never popT — every
+        // filled box is ALSO popT: 1, not just the straddling one (found
+        // live, 2026-09-09: branching on `popT !== 1` here previously made
+        // EVERY filled box take the 2-piece straddle path below, each
+        // carrying a hidden, always-0-width "flat" CabinetBox along with
+        // it). Every non-straddling box renders as a single, ordinary,
+        // full-size CabinetBox.
+        if (!state.isStraddling) {
           return (
             <CabinetBox
               key={i}
               popped={state.popT}
               boxHeight={boxSize}
-              popDistance={VOXEL_TRACK_POP_DISTANCE}
+              popDistance={popDistance}
+              zIndex={zIndex}
+              skipMountAnimation
               timelineKey={`${timelineKeyPrefix}-${i}`}
             >
               <div
@@ -70,13 +103,14 @@ export function VoxelTrack({ states, boxSize, gap, axis, timelineKeyPrefix }: Vo
         const isHorizontal = axis === 'horizontal';
 
         return (
-          <div key={i} className="sc-voxel-track__straddle" data-axis={axis}>
+          <div key={i} className="sc-voxel-track__straddle" data-axis={axis} style={{ zIndex }}>
             <CabinetBox
               popped={1}
               boxHeight={boxSize}
-              popDistance={VOXEL_TRACK_POP_DISTANCE}
+              popDistance={popDistance}
               frontWidth={isHorizontal ? glowSize : undefined}
               frontHeight={isHorizontal ? undefined : glowSize}
+              skipMountAnimation
               timelineKey={`${timelineKeyPrefix}-${i}-glow`}
             >
               <div
@@ -87,9 +121,10 @@ export function VoxelTrack({ states, boxSize, gap, axis, timelineKeyPrefix }: Vo
             <CabinetBox
               popped={0}
               boxHeight={boxSize}
-              popDistance={VOXEL_TRACK_POP_DISTANCE}
+              popDistance={popDistance}
               frontWidth={isHorizontal ? flatSize : undefined}
               frontHeight={isHorizontal ? undefined : flatSize}
+              skipMountAnimation
               timelineKey={`${timelineKeyPrefix}-${i}-flat`}
             >
               <div

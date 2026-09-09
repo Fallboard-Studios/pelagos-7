@@ -7,16 +7,20 @@ vi.mock('./CabinetBox', () => ({
     timelineKey,
     boxHeight,
     popDistance,
+    zIndex,
     frontWidth,
     frontHeight,
+    skipMountAnimation,
     children,
   }: {
     popped: number;
     timelineKey: string;
     boxHeight: number;
     popDistance?: number;
+    zIndex?: number;
     frontWidth?: number;
     frontHeight?: number;
+    skipMountAnimation?: boolean;
     children: React.ReactNode;
   }) => (
     <div
@@ -26,8 +30,10 @@ vi.mock('./CabinetBox', () => ({
       data-timeline-key={timelineKey}
       data-box-height={boxHeight}
       data-pop-distance={popDistance}
+      data-z-index={zIndex}
       data-front-width={frontWidth}
       data-front-height={frontHeight}
+      data-skip-mount-animation={skipMountAnimation}
     >
       {children}
     </div>
@@ -40,25 +46,50 @@ vi.mock('@/utils/voxelTrackMath', async (importOriginal) => {
 });
 
 import { VoxelTrack } from './VoxelTrack';
-import { computeVoxelFillBackground, computeVoxelStraddleSizeFraction, type VoxelBoxState } from '@/utils/voxelTrackMath';
-import { VOXEL_TRACK_POP_DISTANCE } from '@/utils/cabinetGeometry';
+import {
+  computeVoxelFillBackground,
+  computeVoxelStraddleSizeFraction,
+  computeVoxelBoxPopDistance,
+  computeVoxelBoxZIndex,
+  type VoxelBoxState,
+} from '@/utils/voxelTrackMath';
 
-// STATES[2] is the straddling box (popT === 1, the only state computeVoxelBoxStates
-// ever assigns that to) — a genuinely fractional fillPercent (62), not 0 or 100,
-// so the glow/flat split is meaningfully exercised, not a degenerate edge case.
+// STATES[2] is the straddling box (isStraddling: true — NOT identifiable via
+// popT alone: an ordinary fully-filled box is ALSO popT: 1, found live
+// 2026-09-09; see VoxelBoxState's own isStraddling comment) — a genuinely
+// fractional fillPercent (62), not 0 or 100, so the glow/flat split is
+// meaningfully exercised, not a degenerate edge case.
 const STATES: VoxelBoxState[] = [
-  { fillPercent: 0, popT: 0 },
-  { fillPercent: 100, popT: 0.5 },
-  { fillPercent: 62, popT: 1 },
+  { fillPercent: 0, popT: 0, isStraddling: false },
+  { fillPercent: 100, popT: 0.5, isStraddling: false },
+  { fillPercent: 62, popT: 1, isStraddling: true },
 ];
 
 describe('VoxelTrack', () => {
-  it('renders one CabinetBox per non-straddling state, and two (glow + flat) for the one straddling state (popT === 1)', () => {
+  it('renders one CabinetBox per non-straddling state, and two (glow + flat) for the one straddling state (isStraddling: true)', () => {
     render(
       <VoxelTrack states={STATES} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
     );
     // 2 non-straddling states x 1 box each, + 1 straddling state x 2 boxes = 4.
     expect(screen.getAllByTestId('cabinet-box')).toHaveLength(4);
+  });
+
+  it('renders exactly ONE straddling slot even when multiple boxes are fully filled (popT: 1) — popT alone is not unique, isStraddling is what VoxelTrack must branch on (found live, 2026-09-09: every filled box was previously ALSO taking the 2-piece straddle path, not just the true straddling one)', () => {
+    // A realistic computeVoxelBoxStates(62.5, 0, 100, 4) output: boxes 0-1 are
+    // ordinary fully-filled (popT: 1, isStraddling: false), box 2 is the real
+    // straddling box (also popT: 1, isStraddling: true), box 3 is unfilled.
+    const multiFilled: VoxelBoxState[] = [
+      { fillPercent: 100, popT: 1, isStraddling: false },
+      { fillPercent: 100, popT: 1, isStraddling: false },
+      { fillPercent: 50, popT: 1, isStraddling: true },
+      { fillPercent: 0, popT: 0, isStraddling: false },
+    ];
+    const { container } = render(
+      <VoxelTrack states={multiFilled} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
+    );
+    // 3 ordinary boxes (0, 1, 3) x 1 CabinetBox each + 1 straddling slot (2) x 2 = 5.
+    expect(screen.getAllByTestId('cabinet-box')).toHaveLength(5);
+    expect(container.querySelectorAll('.sc-voxel-track__straddle')).toHaveLength(1);
   });
 
   it('renders zero CabinetBox instances for an empty states array, without throwing', () => {
@@ -87,12 +118,54 @@ describe('VoxelTrack', () => {
     expect(boxes.every((box) => box.getAttribute('data-box-height') === '40')).toBe(true);
   });
 
-  it('passes VOXEL_TRACK_POP_DISTANCE as every CabinetBox instance\'s popDistance prop — including both straddling sub-pieces — deeper than Button/Toggle\'s own default', () => {
+  it("passes each box's own row-position pop distance (computeVoxelBoxPopDistance(i, states.length)) as its popDistance prop — the straddling slot's two sub-pieces share the straddling box's own index", () => {
     render(
       <VoxelTrack states={STATES} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
     );
     const boxes = screen.getAllByTestId('cabinet-box');
-    expect(boxes.every((box) => box.getAttribute('data-pop-distance') === String(VOXEL_TRACK_POP_DISTANCE))).toBe(true);
+    // STATES has 3 entries; box 2 (the straddling one) renders as two pieces
+    // (glow, flat), both at index 2's own pop distance.
+    const expected = [
+      computeVoxelBoxPopDistance(0, 3),
+      computeVoxelBoxPopDistance(1, 3),
+      computeVoxelBoxPopDistance(2, 3),
+      computeVoxelBoxPopDistance(2, 3),
+    ];
+    expect(boxes.map((box) => box.getAttribute('data-pop-distance'))).toEqual(expected.map(String));
+    // Row position, not proximity to the straddling box, drives the value —
+    // the last box in the row is deepest regardless of which box straddles.
+    expect(computeVoxelBoxPopDistance(2, 3)).toBeGreaterThan(computeVoxelBoxPopDistance(0, 3));
+  });
+
+  it("passes each box's own row-position z-index (computeVoxelBoxZIndex(i, states.length, axis)) as its zIndex prop, on the CabinetBox instance for non-straddling boxes and as an inline style on the straddling slot's own wrapper — its two glow/flat sub-pieces stay unset, keeping their existing internal ordering", () => {
+    const { container } = render(
+      <VoxelTrack states={STATES} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
+    );
+    const boxes = screen.getAllByTestId('cabinet-box');
+    // Non-straddling boxes (0, 1) get their own index's z-index directly.
+    expect(boxes[0].getAttribute('data-z-index')).toBe(String(computeVoxelBoxZIndex(0, 3, 'horizontal')));
+    expect(boxes[1].getAttribute('data-z-index')).toBe(String(computeVoxelBoxZIndex(1, 3, 'horizontal')));
+    // The straddling slot's two sub-pieces (glow, flat) receive no zIndex
+    // prop of their own — the wrapper carries it instead (asserted below).
+    expect(boxes[2].getAttribute('data-z-index')).toBeNull();
+    expect(boxes[3].getAttribute('data-z-index')).toBeNull();
+
+    const straddle = container.querySelector('.sc-voxel-track__straddle') as HTMLElement;
+    expect(straddle.style.zIndex).toBe(String(computeVoxelBoxZIndex(2, 3, 'horizontal')));
+
+    // Left outranks right — box 0's z-index is the highest in this row.
+    expect(computeVoxelBoxZIndex(0, 3, 'horizontal')).toBeGreaterThan(computeVoxelBoxZIndex(1, 3, 'horizontal'));
+    expect(computeVoxelBoxZIndex(1, 3, 'horizontal')).toBeGreaterThan(computeVoxelBoxZIndex(2, 3, 'horizontal'));
+  });
+
+  it('vertical: the last (topmost, per column-reverse) box outranks every box below it — z-index ascends with index, the opposite direction from horizontal', () => {
+    render(
+      <VoxelTrack states={STATES} boxSize={40} gap={10} axis="vertical" timelineKeyPrefix="cabinet-voxel-test" />,
+    );
+    const boxes = screen.getAllByTestId('cabinet-box');
+    expect(boxes[0].getAttribute('data-z-index')).toBe(String(computeVoxelBoxZIndex(0, 3, 'vertical')));
+    expect(boxes[1].getAttribute('data-z-index')).toBe(String(computeVoxelBoxZIndex(1, 3, 'vertical')));
+    expect(computeVoxelBoxZIndex(1, 3, 'vertical')).toBeGreaterThan(computeVoxelBoxZIndex(0, 3, 'vertical'));
   });
 
   it('gives each non-straddling box a unique `${timelineKeyPrefix}-${i}` timelineKey, and the straddling slot\'s two pieces their own distinct `-glow`/`-flat` suffixed keys', () => {
@@ -208,9 +281,9 @@ describe('VoxelTrack', () => {
 
     it('at value === min (straddling fillPercent: 0), the glow piece still floors above zero width — the two pieces still sum to exactly boxSize, the flat piece simply takes up the rest', () => {
       const atMin: VoxelBoxState[] = [
-        { fillPercent: 0, popT: 1 }, // box 0 straddles at the exact minimum
-        { fillPercent: 0, popT: 0 },
-        { fillPercent: 0, popT: 0 },
+        { fillPercent: 0, popT: 1, isStraddling: true }, // box 0 straddles at the exact minimum
+        { fillPercent: 0, popT: 0, isStraddling: false },
+        { fillPercent: 0, popT: 0, isStraddling: false },
       ];
       render(
         <VoxelTrack states={atMin} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
@@ -225,9 +298,9 @@ describe('VoxelTrack', () => {
 
     it('at value === max (straddling fillPercent: 100), the flat piece legitimately goes to exactly zero width — no floor on that side, since a fully-popped box at the maximum is the correct look, not a broken one', () => {
       const atMax: VoxelBoxState[] = [
-        { fillPercent: 100, popT: 0 },
-        { fillPercent: 100, popT: 0 },
-        { fillPercent: 100, popT: 1 }, // straddles at the exact maximum
+        { fillPercent: 100, popT: 0, isStraddling: false },
+        { fillPercent: 100, popT: 0, isStraddling: false },
+        { fillPercent: 100, popT: 1, isStraddling: true }, // straddles at the exact maximum
       ];
       render(
         <VoxelTrack states={atMax} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
@@ -254,6 +327,14 @@ describe('VoxelTrack', () => {
     );
     const root = container.querySelector('.sc-voxel-track');
     expect(root?.getAttribute('data-axis')).toBe('vertical');
+  });
+
+  it("passes skipMountAnimation on every CabinetBox it renders — including both straddling sub-pieces — since a box's 'first mount' here is frequently a React remount at the ordinary/straddling role boundary, not a genuinely new box appearing (roadmap 11.1.3 follow-up)", () => {
+    render(
+      <VoxelTrack states={STATES} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
+    );
+    const boxes = screen.getAllByTestId('cabinet-box');
+    expect(boxes.every((box) => box.getAttribute('data-skip-mount-animation') === 'true')).toBe(true);
   });
 
   it('applies boxSize/gap as the --voxel-box-size/--voxel-gap inline custom properties on the root element', () => {
