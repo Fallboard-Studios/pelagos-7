@@ -148,6 +148,15 @@ export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, 
     return () => observer.disconnect();
   }, []);
 
+  // `width` now feeds ONLY the top-face div's own inline style (below) —
+  // sizing it to match the front face's real rendered width. It is
+  // deliberately NOT a dependency of the geometry effect below: since the
+  // wall-rendering rewrite (docs/specs/OBLIQUE_CABINETRY_WALL_RENDERING.md),
+  // nothing that effect computes (the wall scales, the front-face offset)
+  // depends on width at all — only the old SVG-polygon math did. See that
+  // effect's own comment for the bug this caused before being fixed,
+  // 2026-09-09.
+
   useEffect(() => {
     return () => killTimeline(timelineKey);
   }, [timelineKey]);
@@ -166,8 +175,22 @@ export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, 
     gsap.set(leftFaceRef.current, { skewY: CABINET_LEFT_FACE_SKEW_DEG });
   }, []);
 
+  // Post-implementation correction, 2026-09-09: this effect's guard used to
+  // also bail on `width === 0`, requiring the ResizeObserver above to have
+  // fired at least once before running at all. That made sense under the
+  // old SVG-polygon geometry (computeCabinetGeometry needed a real width to
+  // compute wall points), but nothing this effect computes has depended on
+  // width since the wall-rendering rewrite — the wall scales are poppedT
+  // directly, and the front-face offset is width-independent. Gating on an
+  // async measurement it no longer needed meant every fresh mount (e.g. a
+  // VoxelTrack box remounting at the straddle-boundary) sat with NO scale
+  // set on either wall for a real, if brief, window between paint and the
+  // ResizeObserver's first callback — visible live as a flash/flicker
+  // (found by Crawford: boxes briefly showing an incorrect intermediate
+  // state while sliding past). Removing the width gate closes that window
+  // entirely — the effect now runs synchronously with mount.
   useEffect(() => {
-    if (!frontRef.current || !topFaceRef.current || !leftFaceRef.current || !wrapperRef.current || width === 0) return;
+    if (!frontRef.current || !topFaceRef.current || !leftFaceRef.current || !wrapperRef.current) return;
     killTimeline(timelineKey);
 
     // A real transition only when `poppedT` itself changed since the last

@@ -119,13 +119,23 @@ describe('CabinetBox', () => {
     expect(walls?.getAttribute('aria-hidden')).toBe('true');
   });
 
-  it('registers a GSAP timeline via setTimeline once a non-zero width has been measured', () => {
+  it('registers a GSAP timeline immediately on mount — does not wait for a ResizeObserver measurement, since the geometry effect has not needed width since the wall-rendering rewrite (2026-09-09)', () => {
     render(<CabinetBox popped={true} timelineKey="test-box">x</CabinetBox>);
-    expect(setTimeline).not.toHaveBeenCalled();
-
-    const observer = MockResizeObserver.instances[0];
-    act(() => observer.fire(100, 48));
     expect(setTimeline).toHaveBeenCalledWith('test-box', expect.anything());
+  });
+
+  it('sets both wall scales (and skipMountAnimation\'s instant positioning) synchronously with mount, before any ResizeObserver callback — closes the real flicker window found live, 2026-09-09: a fresh CabinetBox instance used to sit for a frame with NO scale set on either wall (skew already applied by the always-immediate skew effect, but no matching scale yet) until the async ResizeObserver callback finally unblocked the geometry effect, most noticeable on VoxelTrack\'s constant straddle-boundary remounts while dragging a slider', () => {
+    const { container } = render(
+      <CabinetBox popped={0.4} timelineKey="test-box" skipMountAnimation>x</CabinetBox>,
+    );
+    // Deliberately NO `observer.fire(...)` here — MockResizeObserver.observe()
+    // is a no-op that never calls back on its own, so if the geometry effect
+    // still needed a real measurement to run, none of the assertions below
+    // could possibly pass at this point.
+    const topFace = container.querySelector('.sc-cabinet-box__top-face');
+    const leftFace = container.querySelector('.sc-cabinet-box__left-face');
+    expect(setMock).toHaveBeenCalledWith(topFace, { scaleY: 0.4 });
+    expect(setMock).toHaveBeenCalledWith(leftFace, { scaleX: 0.4 });
   });
 
   it('calls killTimeline on unmount', () => {
