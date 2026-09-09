@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import { CabinetBox } from './CabinetBox';
-import { computeVoxelFillBackground, type VoxelBoxState } from '@/utils/voxelTrackMath';
+import { computeVoxelFillBackground, computeVoxelStraddleSizeFraction, type VoxelBoxState } from '@/utils/voxelTrackMath';
 import { VOXEL_TRACK_POP_DISTANCE } from '@/utils/cabinetGeometry';
 import './VoxelTrack.css';
 
@@ -29,20 +29,34 @@ export function VoxelTrack({ states, boxSize, gap, axis, timelineKeyPrefix }: Vo
 
   return (
     <div className="sc-voxel-track" data-axis={axis} style={tokens} aria-hidden="true">
-      {states.map((state, i) => (
-        <CabinetBox
-          key={i}
-          popped={state.popT}
-          boxHeight={boxSize}
-          popDistance={VOXEL_TRACK_POP_DISTANCE}
-          timelineKey={`${timelineKeyPrefix}-${i}`}
-        >
-          <div
-            className="sc-voxel-track__fill"
-            style={{ background: computeVoxelFillBackground(state.fillPercent, axis) }}
-          />
-        </CabinetBox>
-      ))}
+      {states.map((state, i) => {
+        // The straddling box (the one representing the slider's exact
+        // current value) is the only one that ever pops fully — see
+        // computeVoxelBoxStates, which never assigns popT: 1 to any other
+        // box. It renders physically smaller (along the value axis only)
+        // instead of full-size with an internal fill gradient — see
+        // computeVoxelStraddleSizeFraction's own derivation.
+        const isStraddling = state.popT === 1;
+        const straddleSize = isStraddling ? boxSize * computeVoxelStraddleSizeFraction(state.fillPercent) : undefined;
+        const fillPercentForBackground = isStraddling ? 100 : state.fillPercent;
+
+        return (
+          <CabinetBox
+            key={i}
+            popped={state.popT}
+            boxHeight={boxSize}
+            popDistance={VOXEL_TRACK_POP_DISTANCE}
+            frontWidth={axis === 'horizontal' ? straddleSize : undefined}
+            frontHeight={axis === 'vertical' ? straddleSize : undefined}
+            timelineKey={`${timelineKeyPrefix}-${i}`}
+          >
+            <div
+              className="sc-voxel-track__fill"
+              style={{ background: computeVoxelFillBackground(fillPercentForBackground, axis) }}
+            />
+          </CabinetBox>
+        );
+      })}
     </div>
   );
 }

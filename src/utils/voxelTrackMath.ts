@@ -72,3 +72,23 @@ export function computeVoxelFillBackground(fillPercent: number, axis: 'horizonta
   const direction = axis === 'vertical' ? 'to top' : 'to right'; // box 0 = min = bottom/left = the filled side
   return `linear-gradient(${direction}, var(--color-accent) 0%, var(--color-accent) ${fillPercent}%, var(--color-surface) ${fillPercent}%, var(--color-surface) 100%)`;
 }
+
+/** Minimum visible size fraction for the straddling box (the one currently
+ *  representing the slider's exact value) — so it never fully disappears
+ *  at value === min, where its own local fill is exactly 0%. Tuned by
+ *  feel, expect to move (same posture as CABINET_POP_DISTANCE/
+ *  VOXEL_TRACK_POP_DISTANCE in cabinetGeometry.ts). */
+export const VOXEL_STRADDLE_MIN_SIZE_FRACTION = 0.1;
+
+/**
+ * How much of the normal box size the straddling box should actually
+ * render at, along the axis the value travels — replaces the old
+ * "full-size box with an internal hard-split gradient" representation
+ * with a physically smaller box (still fully popped, still solid-colored
+ * — see VoxelTrack.tsx), clamped so it never fully disappears at
+ * fillPercent: 0. Only ever applied to the one box whose popT === 1
+ * (the straddling box); every other box keeps rendering at full size.
+ */
+export function computeVoxelStraddleSizeFraction(fillPercent: number): number {
+  return Math.max(VOXEL_STRADDLE_MIN_SIZE_FRACTION, fillPercent / 100);
+}

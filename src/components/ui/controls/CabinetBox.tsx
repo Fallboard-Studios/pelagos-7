@@ -33,6 +33,17 @@ interface CabinetBoxProps {
    *  since a row of many boxes read together benefits from a deeper,
    *  more visible protrusion than one isolated box does. */
   popDistance?: number;
+  /** Optional per-instance front-face size overrides, applied as inline
+   *  styles that win over any CSS-forced sizing (e.g. VoxelTrack.css's
+   *  uniform --voxel-box-size square). Omit either/both to let CSS/content
+   *  decide, as every existing consumer already relies on. The front
+   *  face's own ResizeObserver measurement (below) picks up whatever the
+   *  real rendered width ends up being either way — no separate geometry
+   *  plumbing needed for these. VoxelTrack's own straddling box (roadmap
+   *  11.1.3) is the only consumer that needs these, to physically shrink
+   *  along the value axis instead of showing an internal fill gradient. */
+  frontWidth?: number;
+  frontHeight?: number;
   /** Optional — Button nests its own DualLabel here; Toggle renders a bare,
    *  textless box and omits this entirely. See
    *  docs/specs/OBLIQUE_CABINETRY_TOGGLE.md §1.3. */
@@ -50,7 +61,7 @@ interface CabinetBoxProps {
  * further it's popped. See docs/specs/OBLIQUE_CABINETRY_FOUNDATION.md §1
  * for the full derivation.
  */
-export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, popDistance, children }: CabinetBoxProps) {
+export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, popDistance, frontWidth, frontHeight, children }: CabinetBoxProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const frontRef = useRef<HTMLDivElement>(null);
   const topFaceRef = useRef<SVGPolygonElement>(null);
@@ -171,13 +182,17 @@ export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, 
     '--cabinet-pop-distance': `${resolvedPopDistance}px`,
   } as CSSProperties;
 
+  const frontStyle: CSSProperties = {};
+  if (frontWidth !== undefined) frontStyle.width = `${frontWidth}px`;
+  if (frontHeight !== undefined) frontStyle.height = `${frontHeight}px`;
+
   return (
     <div ref={wrapperRef} className="sc-cabinet-box" style={cabinetTokens}>
       <svg className="sc-cabinet-box__walls" aria-hidden="true" focusable="false">
         <polygon ref={topFaceRef} className="sc-cabinet-box__top-face" />
         <polygon ref={leftFaceRef} className="sc-cabinet-box__left-face" />
       </svg>
-      <div ref={frontRef} className="sc-cabinet-box__front">
+      <div ref={frontRef} className="sc-cabinet-box__front" style={frontStyle}>
         {children}
       </div>
     </div>

@@ -7,12 +7,16 @@ vi.mock('./CabinetBox', () => ({
     timelineKey,
     boxHeight,
     popDistance,
+    frontWidth,
+    frontHeight,
     children,
   }: {
     popped: number;
     timelineKey: string;
     boxHeight: number;
     popDistance?: number;
+    frontWidth?: number;
+    frontHeight?: number;
     children: React.ReactNode;
   }) => (
     <div
@@ -22,6 +26,8 @@ vi.mock('./CabinetBox', () => ({
       data-timeline-key={timelineKey}
       data-box-height={boxHeight}
       data-pop-distance={popDistance}
+      data-front-width={frontWidth}
+      data-front-height={frontHeight}
     >
       {children}
     </div>
@@ -34,7 +40,7 @@ vi.mock('@/utils/voxelTrackMath', async (importOriginal) => {
 });
 
 import { VoxelTrack } from './VoxelTrack';
-import { computeVoxelFillBackground, type VoxelBoxState } from '@/utils/voxelTrackMath';
+import { computeVoxelFillBackground, computeVoxelStraddleSizeFraction, type VoxelBoxState } from '@/utils/voxelTrackMath';
 import { VOXEL_TRACK_POP_DISTANCE } from '@/utils/cabinetGeometry';
 
 const STATES: VoxelBoxState[] = [
@@ -97,26 +103,85 @@ describe('VoxelTrack', () => {
     ]);
   });
 
-  it("renders each box's fill child with the background computeVoxelFillBackground actually returns for its fillPercent/axis", () => {
+  it("renders each NON-straddling box's fill child with the background computeVoxelFillBackground actually returns for its own fillPercent/axis", () => {
     const { container } = render(
       <VoxelTrack states={STATES} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
     );
     const fills = container.querySelectorAll<HTMLElement>('.sc-voxel-track__fill');
     expect(fills).toHaveLength(3);
-    STATES.forEach((state, i) => {
-      // computeVoxelFillBackground is spied (importOriginal), not
-      // hand-mocked — calling it here re-uses the real implementation to
-      // derive the expected string, rather than re-deriving it independently.
-      expect(fills[i].style.background).toBe(computeVoxelFillBackground(state.fillPercent, 'horizontal'));
-    });
+    // STATES[0] (popT: 0) and STATES[1] (popT: 0.5) are NOT the straddling
+    // box (only popT === 1 is) — computeVoxelFillBackground is spied
+    // (importOriginal), not hand-mocked, so calling it here re-uses the
+    // real implementation to derive the expected string.
+    expect(fills[0].style.background).toBe(computeVoxelFillBackground(0, 'horizontal'));
+    expect(fills[1].style.background).toBe(computeVoxelFillBackground(100, 'horizontal'));
     expect(computeVoxelFillBackground).toHaveBeenCalledWith(0, 'horizontal');
     expect(computeVoxelFillBackground).toHaveBeenCalledWith(100, 'horizontal');
-    expect(computeVoxelFillBackground).toHaveBeenCalledWith(62, 'horizontal');
+  });
+
+  it('renders the straddling box (popT === 1) solid — computeVoxelFillBackground(100, axis) — never its own raw (fractional) fillPercent, since the box\'s own size now communicates the fill fraction instead of an internal gradient', () => {
+    const { container } = render(
+      <VoxelTrack states={STATES} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
+    );
+    const fills = container.querySelectorAll<HTMLElement>('.sc-voxel-track__fill');
+    // STATES[2] is the straddling box: popT: 1, fillPercent: 62.
+    expect(fills[2].style.background).toBe(computeVoxelFillBackground(100, 'horizontal'));
+    expect(computeVoxelFillBackground).not.toHaveBeenCalledWith(62, 'horizontal');
   });
 
   it('passes the vertical axis through to computeVoxelFillBackground when axis is vertical', () => {
     render(<VoxelTrack states={STATES} boxSize={40} gap={10} axis="vertical" timelineKeyPrefix="cabinet-voxel-test" />);
     expect(computeVoxelFillBackground).toHaveBeenCalledWith(0, 'vertical');
+  });
+
+  describe('straddling-box resize (popT === 1 — replaces the old internal fill gradient with a physically smaller box)', () => {
+    it("horizontal: the straddling box's frontWidth is boxSize * computeVoxelStraddleSizeFraction(its own fillPercent); frontHeight is left at the full boxSize (unchanged, cross-axis)", () => {
+      render(
+        <VoxelTrack states={STATES} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
+      );
+      const boxes = screen.getAllByTestId('cabinet-box');
+      const straddling = boxes[2]; // STATES[2]: popT: 1, fillPercent: 62
+      const expectedWidth = 40 * computeVoxelStraddleSizeFraction(62);
+      expect(straddling.getAttribute('data-front-width')).toBe(String(expectedWidth));
+      expect(straddling.getAttribute('data-front-height')).toBeNull();
+    });
+
+    it("vertical: the straddling box's frontHeight is boxSize * computeVoxelStraddleSizeFraction(its own fillPercent); frontWidth is left at the full boxSize (unchanged, cross-axis)", () => {
+      render(
+        <VoxelTrack states={STATES} boxSize={40} gap={10} axis="vertical" timelineKeyPrefix="cabinet-voxel-test" />,
+      );
+      const boxes = screen.getAllByTestId('cabinet-box');
+      const straddling = boxes[2];
+      const expectedHeight = 40 * computeVoxelStraddleSizeFraction(62);
+      expect(straddling.getAttribute('data-front-height')).toBe(String(expectedHeight));
+      expect(straddling.getAttribute('data-front-width')).toBeNull();
+    });
+
+    it('every non-straddling box (popT !== 1) gets neither frontWidth nor frontHeight — full-size, exactly as before this feature', () => {
+      render(
+        <VoxelTrack states={STATES} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
+      );
+      const boxes = screen.getAllByTestId('cabinet-box');
+      expect(boxes[0].getAttribute('data-front-width')).toBeNull(); // popT: 0
+      expect(boxes[1].getAttribute('data-front-width')).toBeNull(); // popT: 0.5
+      expect(boxes[0].getAttribute('data-front-height')).toBeNull();
+      expect(boxes[1].getAttribute('data-front-height')).toBeNull();
+    });
+
+    it('at value === min (straddling box fillPercent: 0), the straddle size fraction still floors above zero — the box never fully disappears', () => {
+      const atMin: VoxelBoxState[] = [
+        { fillPercent: 0, popT: 1 }, // box 0 straddles at the exact minimum
+        { fillPercent: 0, popT: 0 },
+        { fillPercent: 0, popT: 0 },
+      ];
+      render(
+        <VoxelTrack states={atMin} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
+      );
+      const boxes = screen.getAllByTestId('cabinet-box');
+      const expectedWidth = 40 * computeVoxelStraddleSizeFraction(0);
+      expect(expectedWidth).toBeGreaterThan(0); // sanity-check the test's own premise
+      expect(boxes[0].getAttribute('data-front-width')).toBe(String(expectedWidth));
+    });
   });
 
   it('marks the root element aria-hidden and stamps data-axis matching the axis prop (horizontal)', () => {

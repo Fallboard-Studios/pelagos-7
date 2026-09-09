@@ -2,10 +2,12 @@ import { describe, it, expect } from 'vitest';
 
 import {
   VOXEL_TRACK_MIN_BOX_COUNT,
+  VOXEL_STRADDLE_MIN_SIZE_FRACTION,
   computeFittedBoxCount,
   computeVoxelTrackLength,
   computeVoxelBoxStates,
   computeVoxelFillBackground,
+  computeVoxelStraddleSizeFraction,
 } from './voxelTrackMath';
 
 describe('VOXEL_TRACK_MIN_BOX_COUNT', () => {
@@ -165,5 +167,36 @@ describe('computeVoxelFillBackground', () => {
 
   it('splits toward the top for the vertical axis', () => {
     expect(computeVoxelFillBackground(50, 'vertical')).toContain('to top');
+  });
+});
+
+describe('VOXEL_STRADDLE_MIN_SIZE_FRACTION', () => {
+  it('is a fraction strictly between 0 and 1', () => {
+    expect(VOXEL_STRADDLE_MIN_SIZE_FRACTION).toBeGreaterThan(0);
+    expect(VOXEL_STRADDLE_MIN_SIZE_FRACTION).toBeLessThan(1);
+  });
+});
+
+describe('computeVoxelStraddleSizeFraction', () => {
+  it('at fillPercent: 100, returns exactly 1 (full-size)', () => {
+    expect(computeVoxelStraddleSizeFraction(100)).toBe(1);
+  });
+
+  it('at fillPercent: 50, returns exactly 0.5 — no floor engaged', () => {
+    expect(computeVoxelStraddleSizeFraction(50)).toBe(0.5);
+  });
+
+  it('at fillPercent: 0 (value === min), floors to VOXEL_STRADDLE_MIN_SIZE_FRACTION rather than 0 — the straddling box must never fully disappear', () => {
+    expect(computeVoxelStraddleSizeFraction(0)).toBe(VOXEL_STRADDLE_MIN_SIZE_FRACTION);
+  });
+
+  it('at a fillPercent whose raw fraction is below the floor (e.g. 5%, i.e. 0.05), clamps up to the floor rather than returning the raw fraction', () => {
+    const raw = 5 / 100;
+    expect(raw).toBeLessThan(VOXEL_STRADDLE_MIN_SIZE_FRACTION); // sanity-check the test's own premise
+    expect(computeVoxelStraddleSizeFraction(5)).toBe(VOXEL_STRADDLE_MIN_SIZE_FRACTION);
+  });
+
+  it('at a fillPercent whose raw fraction is comfortably above the floor, returns the raw fraction unclamped', () => {
+    expect(computeVoxelStraddleSizeFraction(80)).toBe(0.8);
   });
 });

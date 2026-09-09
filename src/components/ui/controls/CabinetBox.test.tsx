@@ -262,6 +262,39 @@ describe('CabinetBox', () => {
     expect(wrapper.style.getPropertyValue('--cabinet-box-height')).toBe('32px');
   });
 
+  describe('frontWidth/frontHeight overrides (roadmap 11.1.3 — VoxelTrack straddling-box resize)', () => {
+    it('applies frontWidth as an inline width on the front face, overriding any CSS-forced sizing', () => {
+      const { container } = render(
+        <CabinetBox popped={false} timelineKey="test-box" frontWidth={20}>x</CabinetBox>,
+      );
+      const front = container.querySelector('.sc-cabinet-box__front') as HTMLElement;
+      expect(front.style.width).toBe('20px');
+    });
+
+    it('applies frontHeight as an inline height on the front face, overriding any CSS-forced sizing', () => {
+      const { container } = render(
+        <CabinetBox popped={false} timelineKey="test-box" frontHeight={20}>x</CabinetBox>,
+      );
+      const front = container.querySelector('.sc-cabinet-box__front') as HTMLElement;
+      expect(front.style.height).toBe('20px');
+    });
+
+    it('leaves both inline width and height unset when neither override is provided — CSS/content decides, as every existing consumer already relies on', () => {
+      const { container } = render(<CabinetBox popped={false} timelineKey="test-box">x</CabinetBox>);
+      const front = container.querySelector('.sc-cabinet-box__front') as HTMLElement;
+      expect(front.style.width).toBe('');
+      expect(front.style.height).toBe('');
+    });
+
+    it('the front face\'s own measured width (via ResizeObserver, e.g. reflecting a frontWidth override) still drives computeCabinetGeometry — no separate plumbing needed', () => {
+      render(<CabinetBox popped={true} timelineKey="test-box" frontWidth={20}>x</CabinetBox>);
+      const observer = MockResizeObserver.instances[0];
+      // Simulates the real browser reporting the narrower, overridden width.
+      act(() => observer.fire(20, 48));
+      expect(computeCabinetGeometry).toHaveBeenCalledWith(20, 48, 1, CABINET_POP_DISTANCE);
+    });
+  });
+
   describe('fractional popped (roadmap 11.1.3 — VoxelTrack extrusion-falloff)', () => {
     it('computes target geometry at t=0.4 exactly for a fractional popped value', () => {
       render(<CabinetBox popped={0.4} timelineKey="test-box">x</CabinetBox>);
