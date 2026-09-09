@@ -59,6 +59,18 @@
    bottommost for vertical. */
 .sc-voxel-track__straddle {
   display: flex;
+  /* position + an explicit z-index (0, not auto) makes this element
+     establish its OWN stacking context — containing the negative
+     z-index below to right here, rather than letting it potentially
+     escape upward past every non-stacking-context ancestor (.sc-voxel-
+     track, Slider.Track/Root, ... — none of which set an explicit
+     z-index of their own) and compete against unrelated content several
+     levels up (e.g. .console's own translucent background). Without
+     this, a plain z-index: -1 several layers down risks painting behind
+     things far outside this one slot instead of just behind its own
+     sibling piece. */
+  position: relative;
+  z-index: 0;
 }
 
 .sc-voxel-track__straddle[data-axis='horizontal'] {
@@ -67,4 +79,21 @@
 
 .sc-voxel-track__straddle[data-axis='vertical'] {
   flex-direction: column-reverse;
+}
+
+/* The flat piece paints BEHIND the glow piece within this one slot. The
+   glow piece's own protrusion — its front face's pop transform, and its
+   wall polygons extending past its own box per the 2:1 oblique vector —
+   visually bleeds into the flat piece's adjacent region (nothing clips
+   it; .sc-cabinet-box has no overflow: hidden). Without this, the flat
+   piece (the later DOM sibling, painting on top by default under normal
+   stacking rules) would cover that bleed, making the glow piece look
+   like it renders behind the "unselected" flat area instead of visibly
+   protruding in front of it. :last-child within .sc-voxel-track__straddle
+   is always the flat piece (glow is always first, DOM order) regardless
+   of axis — see VoxelTrack.tsx. Scoped here specifically: Button/Toggle
+   and every ordinary (non-straddling) voxel-track box are untouched.
+   Found live in the running app. */
+.sc-voxel-track__straddle > .sc-cabinet-box:last-child {
+  z-index: -1;
 }
