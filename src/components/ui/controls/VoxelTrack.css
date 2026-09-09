@@ -48,3 +48,23 @@
   width: 100%;
   height: 100%;
 }
+
+/* The straddling slot's own wrapper — always exactly boxSize (its two
+   CabinetBox children's frontWidth/frontHeight always sum to boxSize, so
+   this needs no explicit size of its own), laid out with no gap between
+   its two pieces so they sit flush against each other. Mirrors
+   .sc-voxel-track's own per-axis flex-direction rules exactly, so the
+   glow piece (always the first child, DOM-order) renders on the min side
+   the same way box 0 itself does — leftmost for horizontal,
+   bottommost for vertical. */
+.sc-voxel-track__straddle {
+  display: flex;
+}
+
+.sc-voxel-track__straddle[data-axis='horizontal'] {
+  flex-direction: row;
+}
+
+.sc-voxel-track__straddle[data-axis='vertical'] {
+  flex-direction: column-reverse;
+}

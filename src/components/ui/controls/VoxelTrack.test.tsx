@@ -43,6 +43,9 @@ import { VoxelTrack } from './VoxelTrack';
 import { computeVoxelFillBackground, computeVoxelStraddleSizeFraction, type VoxelBoxState } from '@/utils/voxelTrackMath';
 import { VOXEL_TRACK_POP_DISTANCE } from '@/utils/cabinetGeometry';
 
+// STATES[2] is the straddling box (popT === 1, the only state computeVoxelBoxStates
+// ever assigns that to) — a genuinely fractional fillPercent (62), not 0 or 100,
+// so the glow/flat split is meaningfully exercised, not a degenerate edge case.
 const STATES: VoxelBoxState[] = [
   { fillPercent: 0, popT: 0 },
   { fillPercent: 100, popT: 0.5 },
@@ -50,11 +53,12 @@ const STATES: VoxelBoxState[] = [
 ];
 
 describe('VoxelTrack', () => {
-  it('renders exactly states.length CabinetBox instances', () => {
+  it('renders one CabinetBox per non-straddling state, and two (glow + flat) for the one straddling state (popT === 1)', () => {
     render(
       <VoxelTrack states={STATES} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
     );
-    expect(screen.getAllByTestId('cabinet-box')).toHaveLength(3);
+    // 2 non-straddling states x 1 box each, + 1 straddling state x 2 boxes = 4.
+    expect(screen.getAllByTestId('cabinet-box')).toHaveLength(4);
   });
 
   it('renders zero CabinetBox instances for an empty states array, without throwing', () => {
@@ -66,16 +70,16 @@ describe('VoxelTrack', () => {
     expect(screen.queryAllByTestId('cabinet-box')).toHaveLength(0);
   });
 
-  it("passes each box's popT as CabinetBox's popped prop, in order, as a real number (not coerced to boolean)", () => {
+  it("passes each non-straddling box's popT as CabinetBox's popped prop, and (1, 0) for the straddling slot's (glow, flat) pieces — in DOM order, as real numbers (not coerced to boolean)", () => {
     render(
       <VoxelTrack states={STATES} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
     );
     const boxes = screen.getAllByTestId('cabinet-box');
-    expect(boxes.map((box) => box.getAttribute('data-popped'))).toEqual(['0', '0.5', '1']);
+    expect(boxes.map((box) => box.getAttribute('data-popped'))).toEqual(['0', '0.5', '1', '0']);
     expect(boxes.every((box) => box.getAttribute('data-popped-type') === 'number')).toBe(true);
   });
 
-  it('passes boxSize as every CabinetBox instance\'s boxHeight prop', () => {
+  it('passes boxSize as every CabinetBox instance\'s boxHeight prop — including both straddling sub-pieces', () => {
     render(
       <VoxelTrack states={STATES} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
     );
@@ -83,7 +87,7 @@ describe('VoxelTrack', () => {
     expect(boxes.every((box) => box.getAttribute('data-box-height') === '40')).toBe(true);
   });
 
-  it('passes VOXEL_TRACK_POP_DISTANCE as every CabinetBox instance\'s popDistance prop — deeper than Button/Toggle\'s own default', () => {
+  it('passes VOXEL_TRACK_POP_DISTANCE as every CabinetBox instance\'s popDistance prop — including both straddling sub-pieces — deeper than Button/Toggle\'s own default', () => {
     render(
       <VoxelTrack states={STATES} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
     );
@@ -91,41 +95,43 @@ describe('VoxelTrack', () => {
     expect(boxes.every((box) => box.getAttribute('data-pop-distance') === String(VOXEL_TRACK_POP_DISTANCE))).toBe(true);
   });
 
-  it('gives each CabinetBox instance a unique timelineKey of `${timelineKeyPrefix}-${i}`', () => {
+  it('gives each non-straddling box a unique `${timelineKeyPrefix}-${i}` timelineKey, and the straddling slot\'s two pieces their own distinct `-glow`/`-flat` suffixed keys', () => {
     render(
       <VoxelTrack states={STATES} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-slider1" />,
     );
     const boxes = screen.getAllByTestId('cabinet-box');
-    expect(boxes.map((box) => box.getAttribute('data-timeline-key'))).toEqual([
+    const keys = boxes.map((box) => box.getAttribute('data-timeline-key'));
+    expect(keys).toEqual([
       'cabinet-voxel-slider1-0',
       'cabinet-voxel-slider1-1',
-      'cabinet-voxel-slider1-2',
+      'cabinet-voxel-slider1-2-glow',
+      'cabinet-voxel-slider1-2-flat',
     ]);
+    expect(new Set(keys).size).toBe(keys.length); // all unique
   });
 
-  it("renders each NON-straddling box's fill child with the background computeVoxelFillBackground actually returns for its own fillPercent/axis", () => {
+  it("renders each non-straddling box's fill child with the background computeVoxelFillBackground actually returns for its own fillPercent/axis", () => {
     const { container } = render(
       <VoxelTrack states={STATES} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
     );
     const fills = container.querySelectorAll<HTMLElement>('.sc-voxel-track__fill');
-    expect(fills).toHaveLength(3);
-    // STATES[0] (popT: 0) and STATES[1] (popT: 0.5) are NOT the straddling
-    // box (only popT === 1 is) — computeVoxelFillBackground is spied
-    // (importOriginal), not hand-mocked, so calling it here re-uses the
-    // real implementation to derive the expected string.
+    expect(fills).toHaveLength(4);
+    // computeVoxelFillBackground is spied (importOriginal), not hand-mocked —
+    // calling it here re-uses the real implementation to derive the expected
+    // string, rather than re-deriving it independently.
     expect(fills[0].style.background).toBe(computeVoxelFillBackground(0, 'horizontal'));
     expect(fills[1].style.background).toBe(computeVoxelFillBackground(100, 'horizontal'));
-    expect(computeVoxelFillBackground).toHaveBeenCalledWith(0, 'horizontal');
-    expect(computeVoxelFillBackground).toHaveBeenCalledWith(100, 'horizontal');
   });
 
-  it('renders the straddling box (popT === 1) solid — computeVoxelFillBackground(100, axis) — never its own raw (fractional) fillPercent, since the box\'s own size now communicates the fill fraction instead of an internal gradient', () => {
+  it("renders the straddling slot's glow piece fully solid-accent and its flat piece fully solid-surface — never a gradient, and never either piece's own (there is no 'own') fractional fillPercent", () => {
     const { container } = render(
       <VoxelTrack states={STATES} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
     );
     const fills = container.querySelectorAll<HTMLElement>('.sc-voxel-track__fill');
-    // STATES[2] is the straddling box: popT: 1, fillPercent: 62.
+    // fills[2] = glow piece, fills[3] = flat piece (DOM order matches the
+    // CabinetBox order asserted above).
     expect(fills[2].style.background).toBe(computeVoxelFillBackground(100, 'horizontal'));
+    expect(fills[3].style.background).toBe(computeVoxelFillBackground(0, 'horizontal'));
     expect(computeVoxelFillBackground).not.toHaveBeenCalledWith(62, 'horizontal');
   });
 
@@ -134,30 +140,62 @@ describe('VoxelTrack', () => {
     expect(computeVoxelFillBackground).toHaveBeenCalledWith(0, 'vertical');
   });
 
-  describe('straddling-box resize (popT === 1 — replaces the old internal fill gradient with a physically smaller box)', () => {
-    it("horizontal: the straddling box's frontWidth is boxSize * computeVoxelStraddleSizeFraction(its own fillPercent); frontHeight is left at the full boxSize (unchanged, cross-axis)", () => {
+  describe('straddling slot — two adjacent full-size-summing pieces (glow + flat), replacing the old internal fill gradient', () => {
+    it("horizontal: glow piece's frontWidth is boxSize * computeVoxelStraddleSizeFraction(fillPercent); flat piece's frontWidth is the exact remainder — the two always sum to exactly boxSize", () => {
       render(
         <VoxelTrack states={STATES} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
       );
       const boxes = screen.getAllByTestId('cabinet-box');
-      const straddling = boxes[2]; // STATES[2]: popT: 1, fillPercent: 62
-      const expectedWidth = 40 * computeVoxelStraddleSizeFraction(62);
-      expect(straddling.getAttribute('data-front-width')).toBe(String(expectedWidth));
-      expect(straddling.getAttribute('data-front-height')).toBeNull();
+      const [glow, flat] = boxes.slice(2, 4); // the straddling slot's two pieces
+      const expectedGlowWidth = 40 * computeVoxelStraddleSizeFraction(62);
+      expect(glow.getAttribute('data-front-width')).toBe(String(expectedGlowWidth));
+      expect(flat.getAttribute('data-front-width')).toBe(String(40 - expectedGlowWidth));
+      const sum = Number(glow.getAttribute('data-front-width')) + Number(flat.getAttribute('data-front-width'));
+      expect(sum).toBe(40); // the box's own boxSize — never anything else
     });
 
-    it("vertical: the straddling box's frontHeight is boxSize * computeVoxelStraddleSizeFraction(its own fillPercent); frontWidth is left at the full boxSize (unchanged, cross-axis)", () => {
+    it('horizontal: neither piece overrides frontHeight — the cross-axis stays the full boxSize via CSS, for both pieces', () => {
+      render(
+        <VoxelTrack states={STATES} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
+      );
+      const boxes = screen.getAllByTestId('cabinet-box');
+      const [glow, flat] = boxes.slice(2, 4);
+      expect(glow.getAttribute('data-front-height')).toBeNull();
+      expect(flat.getAttribute('data-front-height')).toBeNull();
+    });
+
+    it("vertical: glow piece's frontHeight is boxSize * computeVoxelStraddleSizeFraction(fillPercent); flat piece's frontHeight is the exact remainder — the two always sum to exactly boxSize", () => {
       render(
         <VoxelTrack states={STATES} boxSize={40} gap={10} axis="vertical" timelineKeyPrefix="cabinet-voxel-test" />,
       );
       const boxes = screen.getAllByTestId('cabinet-box');
-      const straddling = boxes[2];
-      const expectedHeight = 40 * computeVoxelStraddleSizeFraction(62);
-      expect(straddling.getAttribute('data-front-height')).toBe(String(expectedHeight));
-      expect(straddling.getAttribute('data-front-width')).toBeNull();
+      const [glow, flat] = boxes.slice(2, 4);
+      const expectedGlowHeight = 40 * computeVoxelStraddleSizeFraction(62);
+      expect(glow.getAttribute('data-front-height')).toBe(String(expectedGlowHeight));
+      expect(flat.getAttribute('data-front-height')).toBe(String(40 - expectedGlowHeight));
     });
 
-    it('every non-straddling box (popT !== 1) gets neither frontWidth nor frontHeight — full-size, exactly as before this feature', () => {
+    it('vertical: neither piece overrides frontWidth — the cross-axis stays the full boxSize via CSS, for both pieces', () => {
+      render(
+        <VoxelTrack states={STATES} boxSize={40} gap={10} axis="vertical" timelineKeyPrefix="cabinet-voxel-test" />,
+      );
+      const boxes = screen.getAllByTestId('cabinet-box');
+      const [glow, flat] = boxes.slice(2, 4);
+      expect(glow.getAttribute('data-front-width')).toBeNull();
+      expect(flat.getAttribute('data-front-width')).toBeNull();
+    });
+
+    it('the glow piece is fully popped (popped: 1) and the flat piece fully flat (popped: 0) — matching how a normal fully-filled/fully-empty box already renders elsewhere in the row', () => {
+      render(
+        <VoxelTrack states={STATES} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
+      );
+      const boxes = screen.getAllByTestId('cabinet-box');
+      const [glow, flat] = boxes.slice(2, 4);
+      expect(glow.getAttribute('data-popped')).toBe('1');
+      expect(flat.getAttribute('data-popped')).toBe('0');
+    });
+
+    it('every non-straddling box (popT !== 1) gets neither frontWidth nor frontHeight — full-size, exactly as every box rendered before this feature existed', () => {
       render(
         <VoxelTrack states={STATES} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
       );
@@ -168,7 +206,7 @@ describe('VoxelTrack', () => {
       expect(boxes[1].getAttribute('data-front-height')).toBeNull();
     });
 
-    it('at value === min (straddling box fillPercent: 0), the straddle size fraction still floors above zero — the box never fully disappears', () => {
+    it('at value === min (straddling fillPercent: 0), the glow piece still floors above zero width — the two pieces still sum to exactly boxSize, the flat piece simply takes up the rest', () => {
       const atMin: VoxelBoxState[] = [
         { fillPercent: 0, popT: 1 }, // box 0 straddles at the exact minimum
         { fillPercent: 0, popT: 0 },
@@ -178,9 +216,26 @@ describe('VoxelTrack', () => {
         <VoxelTrack states={atMin} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
       );
       const boxes = screen.getAllByTestId('cabinet-box');
-      const expectedWidth = 40 * computeVoxelStraddleSizeFraction(0);
-      expect(expectedWidth).toBeGreaterThan(0); // sanity-check the test's own premise
-      expect(boxes[0].getAttribute('data-front-width')).toBe(String(expectedWidth));
+      const [glow, flat] = boxes.slice(0, 2); // this fixture's straddling slot is index 0
+      const expectedGlowWidth = 40 * computeVoxelStraddleSizeFraction(0);
+      expect(expectedGlowWidth).toBeGreaterThan(0); // sanity-check the test's own premise (the floor)
+      expect(glow.getAttribute('data-front-width')).toBe(String(expectedGlowWidth));
+      expect(Number(glow.getAttribute('data-front-width')) + Number(flat.getAttribute('data-front-width'))).toBe(40);
+    });
+
+    it('at value === max (straddling fillPercent: 100), the flat piece legitimately goes to exactly zero width — no floor on that side, since a fully-popped box at the maximum is the correct look, not a broken one', () => {
+      const atMax: VoxelBoxState[] = [
+        { fillPercent: 100, popT: 0 },
+        { fillPercent: 100, popT: 0 },
+        { fillPercent: 100, popT: 1 }, // straddles at the exact maximum
+      ];
+      render(
+        <VoxelTrack states={atMax} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
+      );
+      const boxes = screen.getAllByTestId('cabinet-box');
+      const [glow, flat] = boxes.slice(2, 4);
+      expect(glow.getAttribute('data-front-width')).toBe('40');
+      expect(flat.getAttribute('data-front-width')).toBe('0');
     });
   });
 
