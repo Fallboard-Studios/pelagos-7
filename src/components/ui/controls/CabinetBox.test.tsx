@@ -297,6 +297,22 @@ describe('CabinetBox', () => {
       expect(leftFace.style.height).toBe('48px');
     });
 
+    it("initializes the top-face div's width from boxHeight synchronously on mount, before any ResizeObserver callback — a same-paint best guess (exact for a square front, e.g. every VoxelTrack/Toggle box) instead of the old hardcoded 0. Closes a residual flicker the width-gate fix above didn't: that fix made the wall SCALE/POSITION instant on a fresh mount, but the top-face's own WIDTH still rendered 0px (collapsed to nothing) until the observer's first callback — most visible on VoxelTrack's constant straddle-boundary remounts while dragging a slider. Found live, reported directly by Crawford.", () => {
+      const { container } = render(<CabinetBox popped={true} timelineKey="test-box">x</CabinetBox>);
+      // Deliberately NO observer.fire(...) — this must hold on the very
+      // first paint, before any measurement.
+      const topFace = container.querySelector('.sc-cabinet-box__top-face') as HTMLElement;
+      expect(topFace.style.width).toBe('48px'); // stubMatchMedia(false) -> desktop boxHeight
+    });
+
+    it("initializes the top-face div's width from an explicit frontWidth override instead, when given — exact for a VoxelTrack straddle-piece box, whose real width is already known from the prop and never actually needed to wait for measurement in the first place", () => {
+      const { container } = render(
+        <CabinetBox popped={true} timelineKey="test-box" frontWidth={20}>x</CabinetBox>,
+      );
+      const topFace = container.querySelector('.sc-cabinet-box__top-face') as HTMLElement;
+      expect(topFace.style.width).toBe('20px');
+    });
+
     it("a frontWidth override changes the top-face div's own width (reflecting the real measured width it drives) — the left-face div's fixed width is unaffected", () => {
       const { container } = render(
         <CabinetBox popped={true} timelineKey="test-box" frontWidth={20}>x</CabinetBox>,

@@ -111,11 +111,28 @@ export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, 
   // compositor.
   const topFaceRef = useRef<HTMLDivElement>(null);
   const leftFaceRef = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(0);
   // Always called (Rules of Hooks), even when boxHeightOverride is supplied —
   // its result is simply unused in that case.
   const responsiveBoxHeight = useCabinetBoxHeight();
   const boxHeight = boxHeightOverride ?? responsiveBoxHeight;
+  // Post-implementation correction, 2026-09-09: initialized from a real,
+  // same-paint value instead of a hardcoded 0. The front face's real
+  // rendered width is only known asynchronously (the ResizeObserver below),
+  // but frontWidth (when given — every VoxelTrack box) IS that real width
+  // already, and boxHeight is an exact match too whenever the front is
+  // square (every VoxelTrack/Toggle box; a reasonable non-zero guess even
+  // for Button, corrected moments later by the observer regardless). This
+  // ONLY feeds the top-face div's own width style below — the geometry
+  // effect stopped depending on width entirely in the wall-rendering
+  // rewrite, so this doesn't change when either wall's pop animates.
+  // Starting from a real value instead of 0 closes a flicker the earlier
+  // width-gate fix (see the geometry effect's own comment below) didn't:
+  // that fix made the WALL SCALE/POSITION instant on a fresh mount, but the
+  // top-face's own WIDTH still rendered 0px until the observer's first
+  // callback — a collapsed-to-nothing top wall for a frame, most visible on
+  // VoxelTrack's constant straddle-boundary remounts (skipMountAnimation)
+  // while dragging a slider. Found live, reported directly by Crawford.
+  const [width, setWidth] = useState(frontWidth ?? boxHeight);
   const resolvedPopDistance = popDistance ?? CABINET_POP_DISTANCE;
   // Normalized once on entry — everything downstream (the geometry calls,
   // the isTransition comparison, the dependency array) uses this 0-1 number
