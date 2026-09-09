@@ -70,7 +70,6 @@
      overflow past) a 3px-tall container. */
   height: 100%;
   border-radius: 999px;
-  background-color: var(--color-border);
 }
 
 /* Decorative only, kept in the DOM for structural/a11y parity — the voxel
