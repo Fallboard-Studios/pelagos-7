@@ -116,32 +116,59 @@ with `H`, 2×height/height, which read as far too much protrusion once actually 
 tuned by feel more than once since that initial correction — this doc intentionally doesn't restate its
 current numeric value; `cabinetGeometry.ts` is the one source of truth for that. Every breakpoint pops
 the same fixed `(2D, D)` distance at `t = 1`; only the box's own footprint height `H` still varies by
-tier. The Top Face and Left Face walls are parallelograms connecting the *stationary* footprint edge to
-the *current* position of the front face's corresponding edge — at `t = 0` both collapse to zero-area
+tier. `CabinetBox.css` no longer reserves any hit-area padding for this popped-out distance — a later
+change (2026-09-09) removed the `padding-right`/`padding-bottom` reservation entirely in favor of a
+static backing layer (below); `Button`/`Toggle`'s hit area now ends at the box's flat resting
+footprint, not the popped one.
+
+**The walls, and why they're two `<div>`s, not SVG `<polygon>`s (2026-09-09).** The Top Face and Left
+Face walls are, geometrically, parallelograms connecting the *stationary* footprint edge to the
+*current* position of the front face's corresponding edge — at `t = 0` both collapse to zero-area
 (flat, side walls collapsed); at `t = 1` they're the fully-open walls of a box whose front face has slid
-`(2D, D)` toward the viewer. `CabinetBox.css`'s reserved hit-area padding (`padding-right`/
-`padding-bottom`) matches this fixed distance exactly, not `--cabinet-box-height` — the two are
-independent measurements, and conflating them was the specific bug that fix corrected.
-Implemented once as a pure function, `src/utils/cabinetGeometry.ts`'s `computeCabinetGeometry`, and
-tweened by GSAP between its `t=0`/`t=1` outputs directly — the same polygon-`points`-attribute-tweening
-technique `PowerRockerSwitch.tsx` already uses for its own rocker-switch faces, not a per-frame
-recompute.
+`(2D, D)` toward the viewer. The original implementation rendered these as two SVG `<polygon>`s, tweening
+their `points` attribute directly via GSAP — the same technique `PowerRockerSwitch.tsx` still uses for
+its own rocker-switch faces. That turned out to have a real, felt cost: SVG attribute animation forces a
+main-thread reflow/repaint every tick, while the front face's own `x`/`y` GSAP tween is a `transform` the
+browser can run entirely on the compositor — under a `VoxelTrack` row's worth of boxes animating at once,
+the walls visibly lagged behind the front face (the top wall reading as "filling in" after the facade had
+already arrived).
+
+Worked through algebraically, each wall parallelogram is exactly a plain rectangle at a **fixed** skew
+angle — `atan(2) ≈ 63.435°` for the Top Face, `atan(0.5) ≈ 26.565°` for the Left Face, independent of `t`
+or `D` — scaled along one axis by `t` itself (`CABINET_TOP_FACE_SKEW_DEG`/`CABINET_LEFT_FACE_SKEW_DEG`,
+`src/utils/cabinetGeometry.ts`). The walls are now two plain `<div>`s: the skew is set once via
+`gsap.set()` on mount and never animated, and only `scaleY` (Top Face) / `scaleX` (Left Face) tween —
+using the pop progress directly as the scale value, no per-frame geometry computation at all. Everything
+animated (front-face offset, both wall scales, the glow below) is now a compositor/custom-property write,
+not an SVG attribute mutation. Full derivation and the empirical verification against GSAP's own
+composition order: [docs/specs/OBLIQUE_CABINETRY_WALL_RENDERING.md](specs/OBLIQUE_CABINETRY_WALL_RENDERING.md).
+
+The front-face offset itself is still implemented once as a pure function,
+`src/utils/cabinetGeometry.ts`'s `computeCabinetFrontFaceOffset` (renamed from `computeCabinetGeometry`,
+which used to also compute the now-retired wall polygon points), and tweened by GSAP between its `t=0`/
+`t=1` outputs directly.
 
 **Face-shading via `color-mix()`, not a JS module.** Reusing this doc's own §1.3 `color-mix()`
 technique (above) rather than inventing a new one: `CabinetBox.css` derives the Top Face's lighter tint
 and the Left Face's darker tint directly from `--color-accent` —
 
 ```css
-.sc-cabinet-box__top-face  { fill: color-mix(in srgb, var(--color-accent) 100%, white 20%); }
-.sc-cabinet-box__left-face { fill: color-mix(in srgb, var(--color-accent) 100%, black 25%); }
+.sc-cabinet-box__top-face  { background-color: color-mix(in srgb, var(--color-accent) 100%, white 20%); }
+.sc-cabinet-box__left-face { background-color: color-mix(in srgb, var(--color-accent) 100%, black 25%); }
 ```
 
+(`background-color`, not SVG's `fill` — the walls are `<div>`s now, see above.)
+
 — Top Face lighter (overhead light), Left Face darker (shadowed side), the same convention
-`PowerRockerSwitch.css`'s own side/edge faces already use. The front face's own background stays
-`--color-surface`, unchanged from a flat button's today, and carries no `border-radius` — sharp
-corners read as a cleaner match for the walls' own straight-edged parallelogram geometry than a
-rounded front panel did. Only the walls, visible exclusively while popped, carry the accent-tinted
-"active" cue via their fill — and, since the same visual pass, via a glow too (below).
+`PowerRockerSwitch.css`'s own side/edge faces already use. The front face's own background is
+`--color-surface` by *default* — the box's own material when it carries no text (`Toggle`'s bare
+box, every `VoxelTrack` box) — and carries no `border-radius` — sharp corners read as a cleaner
+match for the walls' own straight-edged parallelogram geometry than a rounded front panel did.
+`Button.css` overrides its own front face to `--color-accent` specifically (2026-09-09), since it
+carries real text (`DualLabel`) and reads as the "live" surface; every other consumer keeps the
+`--color-surface` default. Only the walls, visible exclusively while popped, carry the
+accent-tinted "active" cue via their fill — and, since the same visual pass, via a glow too
+(below).
 
 **The pop-proportional glow.** The walls also glow — via `filter: drop-shadow(0 0 calc(var(--cabinet-glow,
 0) * 20px) var(--color-accent))` on `.sc-cabinet-box__walls` — and the glow's intensity tracks exactly
@@ -150,12 +177,23 @@ tweened `0 → 1` by the *same* GSAP timeline (same `duration`/`ease`) that driv
 (`CabinetBox.tsx`), set on the shared wrapper `<div>` rather than the front face — the walls are the
 front face's *sibling*, not its descendant, so only a common ancestor's custom property reaches both
 via CSS inheritance. `drop-shadow`, not `box-shadow`, because the glow should follow the walls'
-actual polygon silhouette (a parallelogram, not the walls SVG's own rectangular bounding box) — the
+actual rendered silhouette (a parallelogram, not the walls wrapper's own rectangular bounding box) — the
 same reasoning that already ruled out `box-shadow` for the corner-rounding attempt that was tried and
 rejected first (a `blur()`/`contrast()` "goo" filter on the walls, which read as too soft/melty at
 this small a scale and was reverted before shipping). The glow is deliberately on the "back" (the
 walls, which stay visually anchored to the stationary footprint) rather than the moving front face —
 confirmed explicitly during design review, not an arbitrary choice.
+
+**The static backing layer and opacity fade (2026-09-09).** A new `.sc-cabinet-box__backing` —
+always fully opaque, never transformed, sized to exactly the wrapper's own flat footprint —
+sits behind the walls and front face (DOM order: backing, walls, front). As `--cabinet-glow`
+tweens `0 → 1`, the walls (not the front face — it stays fully opaque so its real content/label
+stays legible) also fade from fully opaque toward 50% opacity, on the same tween driving the glow
+and pop offset. The effect: the box's own static, accent-tinted material visibly shows through
+behind the walls as they pop and glow, rather than the wrapper reserving layout room to contain
+the popped extent — this is what replaced the reserved hit-area padding described above.
+Confirmed via `/interview-me`, 2026-09-09 — full rationale:
+`docs/specs/OBLIQUE_CABINETRY_FOUNDATION.md § 1.6`'s post-implementation correction.
 
 **A new breakpoint concept, collapsed to one JS source.** Cabinetry introduces this app's first
 viewport-width breakpoint tiers (mobile ≤640px / tablet 641–1024px / desktop >1024px, driving box

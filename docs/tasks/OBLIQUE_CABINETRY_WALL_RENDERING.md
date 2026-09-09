@@ -114,18 +114,18 @@ Task 3 (docs/CONSOLE_THEMING.md +
 
 ### Phase 3: Docs
 
-- [ ] **Task 3: Docs brought in line with the shipped mechanism**
+- [x] **Task 3: Docs brought in line with the shipped mechanism**
 
   **Description:** Per spec §6: update `docs/CONSOLE_THEMING.md`'s Oblique Cabinetry projection-vector paragraph, which currently describes `computeCabinetGeometry`'s polygon-string output tweened by GSAP, to describe the fixed-skew/scaled-`<div>` mechanism instead — spot-checked against the actually-shipped `CabinetBox.tsx`/`.css` (Task 2), not this spec's draft code. The underlying `(2·popDistance, popDistance)` projection vector itself is unchanged and should not be re-derived. Add a short post-implementation correction note to `docs/specs/OBLIQUE_CABINETRY_FOUNDATION.md` (matching that doc's own established correction-note pattern) pointing to `docs/specs/OBLIQUE_CABINETRY_WALL_RENDERING.md` — its own §1.2 oblique-projection derivation and §1.8 glow mechanism are still accurate; only §4's SVG/`<polygon>` code block is superseded for rendering purposes.
 
   **Acceptance criteria:**
-  - [ ] `docs/CONSOLE_THEMING.md`'s projection-vector paragraph describes two `<div>`s with a fixed `skewX`/`skewY` (set once) and an animated `scaleY`/`scaleX` equal to `t`, not SVG `<polygon>` point-string tweening.
-  - [ ] No claim in the updated paragraph is contradicted by the actual shipped `CabinetBox.tsx`/`.css` (spot-checked line-by-line, not assumed from this spec's draft).
-  - [ ] `docs/specs/OBLIQUE_CABINETRY_FOUNDATION.md` gains a correction note pointing to this spec, without restating or duplicating the derivation already written there in §1.2.
+  - [x] `docs/CONSOLE_THEMING.md`'s projection-vector paragraph describes two `<div>`s with a fixed `skewX`/`skewY` (set once) and an animated `scaleY`/`scaleX` equal to `t`, not SVG `<polygon>` point-string tweening. Also updated: the `color-mix()` code block (`fill` → `background-color`), and the glow paragraph's "walls SVG" reference.
+  - [x] No claim in the updated paragraph is contradicted by the actual shipped `CabinetBox.tsx`/`.css` — spot-checked directly (`grep`'d the exact constant names/exports the new prose cites: `CABINET_TOP_FACE_SKEW_DEG`, `CABINET_LEFT_FACE_SKEW_DEG`, `computeCabinetFrontFaceOffset`, all confirmed present with matching values).
+  - [x] `docs/specs/OBLIQUE_CABINETRY_FOUNDATION.md` gains a correction note (after §1.2's own derivation) pointing to this spec, without restating or duplicating the derivation already written there.
 
   **Verification:**
-  - [ ] Manual review — every documented detail spot-checked directly against the shipped `CabinetBox.tsx`/`.css`.
-  - [ ] `npm run build:types`, `npm run lint` clean (docs-only change).
+  - [x] Manual review — every documented detail spot-checked directly against the shipped `CabinetBox.tsx`/`.css`/`cabinetGeometry.ts`.
+  - [x] `npm run build:types`, `npm run lint` clean (docs-only change — confirmed no regression).
 
   **Dependencies:** Task 2.
 
@@ -134,11 +134,11 @@ Task 3 (docs/CONSOLE_THEMING.md +
   **Estimated scope:** XS (docs only)
 
 ### Checkpoint: Complete
-- [ ] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes.
-- [ ] All acceptance criteria across all 3 tasks are met.
-- [ ] `docs/CONSOLE_THEMING.md` and `docs/specs/OBLIQUE_CABINETRY_FOUNDATION.md` both reflect the shipped mechanism.
-- [ ] Manual check (Task 2's checkpoint) re-confirmed one final time against the fully-merged state.
-- [ ] Ready for PR.
+- [x] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes.
+- [x] All acceptance criteria across all 3 tasks are met, except the one item no automated tool in this environment can close: the real-browser manual spot-check.
+- [x] `docs/CONSOLE_THEMING.md` and `docs/specs/OBLIQUE_CABINETRY_FOUNDATION.md` both reflect the shipped mechanism.
+- [ ] **Manual check still outstanding — no browser-automation tool available in this environment (confirmed via `ToolSearch`).** Everything automatable (unit tests including the real-`gsap` empirical geometry verification, type-check, lint, build, full suite) is done and green. Flagged for Crawford: drag a multi-box `SliderLinear` and confirm the front face and both walls now move together with no lag, at each breakpoint, with `prefers-reduced-motion` both off and on.
+- [ ] Ready for PR pending that check.
 
 ## Risks and Mitigations
 
