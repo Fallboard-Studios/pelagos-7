@@ -118,6 +118,35 @@ export function computeVoxelBoxZIndex(index: number, boxCount: number, axis: 'ho
 }
 
 /**
+ * How much trailing space (px), at the far end of the main axis, must be
+ * reserved so the LAST box's (nearest max) pop-out bleed never exits
+ * Slider.Root/Track's own bounding box. Every other box's bleed lands
+ * inside its own down-right neighbor's slot — computeVoxelBoxZIndex already
+ * makes sure it paints over that neighbor rather than under it — but the
+ * last box has no next slot to bleed into, and it's the one box guaranteed
+ * to reach the full VOXEL_TRACK_POP_DISTANCE (computeVoxelBoxPopDistance).
+ *
+ * Meaningful only for the horizontal axis: the fixed 2:1 oblique vector
+ * always bleeds right and down regardless of axis (computeVoxelBoxZIndex's
+ * own comment) — a vertical track's last box (topmost, per column-reverse)
+ * bleeds DOWN, into the column, not past its own top edge, so there's no
+ * equivalent main-axis gap to reserve there today.
+ *
+ * Found live in the running app, 2026-09-09 — visible only at value === max,
+ * and only for a container width close enough to an exact multiple of
+ * (boxSize + gap) that computeFittedBoxCount's own floor happened to leave
+ * no slack to absorb the bleed by chance. useVoxelTrackBoxCount subtracts
+ * this from the available length before fitting a box count, so real slack
+ * always exists regardless of the container's exact width; SliderLinear.tsx
+ * adds it back on top of computeVoxelTrackLength's own tight result when
+ * sizing Slider.Root, so the reserved slack is actually rendered, not just
+ * excluded from the fit.
+ */
+export function computeVoxelTrackTrailingReserve(axis: 'horizontal' | 'vertical'): number {
+  return axis === 'horizontal' ? 2 * VOXEL_TRACK_POP_DISTANCE : 0;
+}
+
+/**
  * A box's front-face background: solid accent when fully filled, solid
  * surface when fully empty, a HARD-STOP two-color linear-gradient (not a
  * blend) for the straddling box's local split. Reuses the same

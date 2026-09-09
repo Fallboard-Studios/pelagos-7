@@ -27,7 +27,12 @@ vi.mock('./VoxelTrack', () => ({
 }));
 
 import { SliderLinear } from './SliderLinear';
-import { computeFittedBoxCount, computeVoxelTrackLength, computeVoxelBoxStates } from '@/utils/voxelTrackMath';
+import {
+  computeFittedBoxCount,
+  computeVoxelTrackLength,
+  computeVoxelBoxStates,
+  computeVoxelTrackTrailingReserve,
+} from '@/utils/voxelTrackMath';
 import type { SliderLinearSchema } from '@/types/controls';
 
 const schema: SliderLinearSchema = { id: 'lfoRate', type: 'sliderLinear', min: 0.1, max: 10, humanLabel: 'Oscillation Rate', unit: 'Hz', orientation: 'horizontal' };
@@ -149,11 +154,31 @@ describe('SliderLinear', () => {
     act(() => observer.fire(240, 0));
 
     const voxelTrack = screen.getByTestId('voxel-track');
-    const boxCount = computeFittedBoxCount(240, BOX_SIZE, GAP);
+    // Horizontal fitting reserves trailing room for the last box's own
+    // pop-out bleed (computeVoxelTrackTrailingReserve) before flooring a box
+    // count — not the raw measured length.
+    const reserve = computeVoxelTrackTrailingReserve('horizontal');
+    const boxCount = computeFittedBoxCount(240 - reserve, BOX_SIZE, GAP);
     const expectedStates = computeVoxelBoxStates(37, 0, 100, boxCount);
     expect(JSON.parse(voxelTrack.getAttribute('data-states')!)).toEqual(expectedStates);
     expect(voxelTrack.getAttribute('data-box-size')).toBe(String(BOX_SIZE));
     expect(voxelTrack.getAttribute('data-gap')).toBe(String(GAP));
+  });
+
+  it("'horizontal': never renders Slider.Root flush to a container width that happens to be an exact multiple of (boxSize + gap) — real trailing slack for the last box's own pop-out bleed always exists, not just when the container's width happens to leave some by chance (found live in the running app: Limiter/Tempo/Automatic Effects overflowed at value 100% because their containers landed on exactly this case)", () => {
+    // 4 boxes of 48px with 3 gaps of 12px is exactly 228px — zero natural
+    // slack for computeFittedBoxCount to leave behind.
+    const exactFitWidth = 4 * BOX_SIZE + 3 * GAP;
+    render(<SliderLinear schema={schema} value={2} onChange={() => {}} />);
+    const observer = MockResizeObserver.instances[0];
+    act(() => observer.fire(exactFitWidth, 0));
+
+    const voxelTrack = screen.getByTestId('voxel-track');
+    const reserve = computeVoxelTrackTrailingReserve('horizontal');
+    const boxCount = Number(voxelTrack.getAttribute('data-states') && JSON.parse(voxelTrack.getAttribute('data-states')!).length);
+    const tightRowLength = computeVoxelTrackLength(boxCount, BOX_SIZE, GAP);
+    expect(tightRowLength + reserve).toBeLessThanOrEqual(exactFitWidth);
+    expect(reserve).toBeGreaterThan(0);
   });
 
   describe('orientation', () => {
@@ -221,7 +246,7 @@ describe('SliderLinear', () => {
       expect(root?.style.height).not.toBe('310px');
     });
 
-    it("'horizontal': ignores a verticalHeight prop entirely for sizing, sets an inline width from the fitted box count (main axis) and an inline height equal to the box's own cross-axis size (not the old stale CSS default)", () => {
+    it("'horizontal': ignores a verticalHeight prop entirely for sizing, sets an inline width from the fitted box count plus its own trailing pop-out reserve (main axis) and an inline height equal to the box's own cross-axis size (not the old stale CSS default)", () => {
       const { container } = render(
         <SliderLinear schema={schema} value={2} onChange={() => {}} verticalHeight={300} />,
       );
@@ -229,8 +254,9 @@ describe('SliderLinear', () => {
       act(() => observer.fire(500, 0));
 
       const root = container.querySelector<HTMLElement>('.sc-slider-linear__root');
-      const boxCount = computeFittedBoxCount(500, BOX_SIZE, GAP);
-      const expectedLength = computeVoxelTrackLength(boxCount, BOX_SIZE, GAP);
+      const reserve = computeVoxelTrackTrailingReserve('horizontal');
+      const boxCount = computeFittedBoxCount(500 - reserve, BOX_SIZE, GAP);
+      const expectedLength = computeVoxelTrackLength(boxCount, BOX_SIZE, GAP) + reserve;
       expect(root?.style.width).toBe(`${expectedLength}px`);
       // Cross-axis: the boxes are BOX_SIZE tall, so Root must be too — no
       // longer the stale 20px CSS default the old thin-line track used.

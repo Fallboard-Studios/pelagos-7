@@ -163,6 +163,40 @@ describe('useVoxelTrackBoxCount', () => {
     expect(MockResizeObserver.instances[0].observedTargets).toEqual([ref.current]);
   });
 
+  it('subtracts a reserve from a live measurement before fitting, when provided — leaves real trailing slack for a box\'s own pop-out bleed rather than fitting flush to the container edge', () => {
+    const ref = makeRef(document.createElement('div'));
+    const { result } = renderHook(() => useVoxelTrackBoxCount(ref, 'horizontal', 40, 10, undefined, 16));
+    const observer = MockResizeObserver.instances[0];
+
+    // 240 fits exactly 5 boxes untouched; reserving 16px leaves 224, one gap
+    // short of the 5th box's own slot, so it floors to 4.
+    act(() => observer.fire(240, 0));
+    expect(result.current).toBe(computeFittedBoxCount(240 - 16, 40, 10));
+    expect(result.current).toBe(4);
+  });
+
+  it('defaults reserve to 0 — an omitted reserve fits exactly as before', () => {
+    const ref = makeRef(document.createElement('div'));
+    const { result } = renderHook(() => useVoxelTrackBoxCount(ref, 'horizontal', 40, 10));
+    const observer = MockResizeObserver.instances[0];
+
+    act(() => observer.fire(240, 0));
+    expect(result.current).toBe(5);
+  });
+
+  it('subtracts the reserve from explicitAvailableLength too, not just a live measurement', () => {
+    const ref = makeRef(document.createElement('div'));
+    const { result } = renderHook(() => useVoxelTrackBoxCount(ref, 'horizontal', 40, 10, 240, 16));
+    expect(result.current).toBe(computeFittedBoxCount(240 - 16, 40, 10));
+    expect(result.current).toBe(4);
+  });
+
+  it('never fits against a negative effective length — a reserve larger than the available length still clamps to the 3-box minimum, not fewer', () => {
+    const ref = makeRef(document.createElement('div'));
+    const { result } = renderHook(() => useVoxelTrackBoxCount(ref, 'horizontal', 40, 10, 10, 100));
+    expect(result.current).toBe(VOXEL_TRACK_MIN_BOX_COUNT);
+  });
+
   it('disconnects the observer on unmount', () => {
     const ref = makeRef(document.createElement('div'));
     const { unmount } = renderHook(() => useVoxelTrackBoxCount(ref, 'horizontal', 40, 10));

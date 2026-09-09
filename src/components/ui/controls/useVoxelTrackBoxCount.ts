@@ -32,6 +32,14 @@ import { computeFittedBoxCount } from '@/utils/voxelTrackMath';
  * and fits against that fixed number instead — SliderLinear's own
  * verticalHeight prop, on a vertical slider, becomes a fitting BUDGET rather
  * than a literal applied length this way (§1.7).
+ *
+ * `reserve`, when provided, is subtracted from the available length (live-
+ * measured or explicit) before fitting — real trailing slack for the last
+ * box's own pop-out bleed (computeVoxelTrackTrailingReserve), rather than
+ * fitting boxes flush to the container's own edge and leaving that slack to
+ * chance. Clamped so a reserve larger than the available length still fits
+ * against 0, never a negative number. Defaults to 0 — existing callers see
+ * no behavior change.
  */
 export function useVoxelTrackBoxCount(
   ref: RefObject<HTMLElement | null>,
@@ -39,6 +47,7 @@ export function useVoxelTrackBoxCount(
   boxSize: number,
   gap: number,
   explicitAvailableLength?: number,
+  reserve = 0,
 ): number {
   const [measuredLength, setMeasuredLength] = useState(0);
 
@@ -56,5 +65,5 @@ export function useVoxelTrackBoxCount(
   }, [ref, axis, explicitAvailableLength]);
 
   const availableLength = explicitAvailableLength ?? measuredLength;
-  return computeFittedBoxCount(availableLength, boxSize, gap);
+  return computeFittedBoxCount(Math.max(0, availableLength - reserve), boxSize, gap);
 }

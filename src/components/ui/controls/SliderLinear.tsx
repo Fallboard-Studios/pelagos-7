@@ -8,7 +8,11 @@ import { formatDisplayValue } from './formatDisplayValue';
 import { useAutoSliderOrientation } from './useAutoSliderOrientation';
 import { useCabinetBoxHeight, useVoxelTrackGap } from './useCabinetBoxHeight';
 import { useVoxelTrackBoxCount } from './useVoxelTrackBoxCount';
-import { computeVoxelTrackLength, computeVoxelBoxStates } from '@/utils/voxelTrackMath';
+import {
+  computeVoxelTrackLength,
+  computeVoxelBoxStates,
+  computeVoxelTrackTrailingReserve,
+} from '@/utils/voxelTrackMath';
 import type { SliderLinearSchema } from '@/types/controls';
 import './SliderLinear.css';
 
@@ -38,8 +42,16 @@ export function SliderLinear({ schema, value, onChange, disabled, verticalHeight
   const boxSize = useCabinetBoxHeight();
   const gap = useVoxelTrackGap();
   const explicitLength = isVertical ? verticalHeight : undefined;
-  const boxCount = useVoxelTrackBoxCount(wrapperRef, orientation, boxSize, gap, explicitLength);
-  const trackLength = computeVoxelTrackLength(boxCount, boxSize, gap);
+  // Reserves trailing room (horizontal only — see computeVoxelTrackTrailingReserve)
+  // for the last box's own pop-out bleed, so a container whose width happens
+  // to land on an exact multiple of (boxSize + gap) doesn't leave that bleed
+  // to exit Slider.Root/Track's own edge at value === max. Subtracted before
+  // fitting a box count (useVoxelTrackBoxCount), then added back below when
+  // sizing Slider.Root, so the reserved slack is actually rendered, not just
+  // excluded from the fit.
+  const trailingReserve = computeVoxelTrackTrailingReserve(orientation);
+  const boxCount = useVoxelTrackBoxCount(wrapperRef, orientation, boxSize, gap, explicitLength, trailingReserve);
+  const trackLength = computeVoxelTrackLength(boxCount, boxSize, gap) + trailingReserve;
   const states = computeVoxelBoxStates(value, schema.min, schema.max, boxCount);
 
   const valueLabel = (

@@ -8,6 +8,7 @@ import {
   computeVoxelBoxStates,
   computeVoxelBoxPopDistance,
   computeVoxelBoxZIndex,
+  computeVoxelTrackTrailingReserve,
   computeVoxelFillBackground,
   computeVoxelStraddleSizeFraction,
 } from './voxelTrackMath';
@@ -205,6 +206,16 @@ describe('computeVoxelBoxZIndex', () => {
       const zIndexes = Array.from({ length: 8 }, (_, i) => computeVoxelBoxZIndex(i, 8, axis));
       expect(new Set(zIndexes).size).toBe(zIndexes.length);
     }
+  });
+});
+
+describe('computeVoxelTrackTrailingReserve', () => {
+  it("horizontal: returns exactly 2 * VOXEL_TRACK_POP_DISTANCE — the last box's own full rightward bleed", () => {
+    expect(computeVoxelTrackTrailingReserve('horizontal')).toBe(2 * VOXEL_TRACK_POP_DISTANCE);
+  });
+
+  it('vertical: returns 0 — the fixed 2:1 vector bleeds right and down regardless of axis, so a vertical track\'s last (topmost) box bleeds into the column, not past its own top edge', () => {
+    expect(computeVoxelTrackTrailingReserve('vertical')).toBe(0);
   });
 });
 
