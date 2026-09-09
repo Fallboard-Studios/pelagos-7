@@ -14,7 +14,10 @@
      zone. `width: fit-content` pins the button to its content's own
      intrinsic size regardless of container type (flex row, flex column, or
      grid), so the interactive area is always exactly CabinetBox's own
-     footprint (flat ∪ popped rectangle) — never wider. */
+     footprint — its flat, resting-state rectangle only, not the popped-out
+     one (CabinetBox no longer reserves padding for the popped state; see
+     OBLIQUE_CABINETRY_FOUNDATION.md §1.6's post-implementation correction,
+     2026-09-09 — confirmed intentional). */
   width: fit-content;
   padding: 0;
   border: none;
@@ -25,4 +28,17 @@
 .sc-button:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
+}
+
+/* Button's front face carries real text (DualLabel) — accent-tinted so it
+   reads as the "live" surface, unlike CabinetBox.css's own --color-surface
+   default (CabinetBox itself stays agnostic about which consumers have
+   text; this is a Button-only override, not a base CabinetBox change).
+   Scoped to .sc-button specifically so it does NOT reach VoxelTrack's
+   textless boxes (SliderLinear et al. — their .sc-voxel-track__fill divs
+   carry no text) or Toggle's bare box (docs/specs/OBLIQUE_CABINETRY_TOGGLE.md
+   §1.3) — both stay on the --color-surface default. Confirmed, 2026-09-09:
+   "any front facade with text on it," not every front facade. */
+.sc-button .sc-cabinet-box__front {
+  background-color: var(--color-accent);
 }

@@ -25,7 +25,9 @@ Same split as `Button`: the real interactive element keeps 100% of the interacti
 </Switch.Root>
 ```
 
-The "stationary hit box" rule from 11.1.1 §1.6 applies unchanged: `Switch.Root` is the stationary element every pointer/keyboard interaction targets; the front face slides inside it as a pure visual.
+The "stationary hit box" rule from 11.1.1 §1.6 applies: `Switch.Root` is the stationary element every pointer/keyboard interaction targets; the front face slides inside it as a pure visual.
+
+> **Post-implementation correction, 2026-09-09:** 11.1.1 §1.6's own padding-based hit-area *reservation* was later removed (see that section's own correction note) — `Switch.Root`'s hit area, like `Button`'s, now ends at `CabinetBox`'s flat resting footprint rather than extending to cover the popped-out one. The *stationary* part of this rule (the real interactive element never itself moves) still holds exactly as stated above; only the earlier claim that its hit area was sized to include the popped extent no longer does.
 
 ### 1.2 A fixed 32×32px box: one small additive change to `CabinetBox`'s own props, not a new component
 

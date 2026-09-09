@@ -1,6 +1,14 @@
 .sc-voxel-track {
   position: absolute;
   inset: 0;
+  /* An explicit z-index (0, not auto) makes this element establish its OWN
+     stacking context — containing the per-box z-index values below (see
+     computeVoxelBoxZIndex) to this row/column, rather than letting them
+     escape upward past every non-stacking-context ancestor (Slider.Track/
+     Root, ... — none of which set an explicit z-index of their own) and
+     compete against unrelated content several levels up. Same reasoning as
+     .sc-voxel-track__straddle's own local stacking context below. */
+  z-index: 0;
   display: flex;
   gap: var(--voxel-gap);
   pointer-events: none;
@@ -39,7 +47,16 @@
    --voxel-gap, making every box (and therefore the whole row,
    compounding per box) wider than computeVoxelTrackLength ever accounted
    for — every box's own slot was boxSize + 2*CABINET_POP_DISTANCE, not
-   boxSize. Found live in the running app. */
+   boxSize. Found live in the running app.
+
+   Addendum, 2026-09-09: CabinetBox.css's own padding-right/padding-bottom
+   reservation described above no longer exists at all (removed for every
+   consumer, not just zeroed here — see OBLIQUE_CABINETRY_FOUNDATION.md
+   §1.6's post-implementation correction). This override is now a no-op
+   (0 overriding a base value that's already 0) — left in place rather than
+   deleted, since it costs nothing and still documents that voxel-track
+   boxes deliberately want no padding reservation even if a future change
+   reintroduces one for Button/Toggle specifically. */
 .sc-voxel-track .sc-cabinet-box {
   padding: 0;
 }
@@ -59,18 +76,16 @@
    bottommost for vertical. */
 .sc-voxel-track__straddle {
   display: flex;
-  /* position + an explicit z-index (0, not auto) makes this element
-     establish its OWN stacking context — containing the negative
-     z-index below to right here, rather than letting it potentially
-     escape upward past every non-stacking-context ancestor (.sc-voxel-
-     track, Slider.Track/Root, ... — none of which set an explicit
-     z-index of their own) and compete against unrelated content several
-     levels up (e.g. .console's own translucent background). Without
-     this, a plain z-index: -1 several layers down risks painting behind
-     things far outside this one slot instead of just behind its own
-     sibling piece. */
+  /* position: relative + an explicit inline z-index (set by VoxelTrack.tsx,
+     via computeVoxelBoxZIndex — the same per-slot value every ordinary box
+     in this row/column gets) makes this element establish its OWN stacking
+     context — containing the negative z-index below to right here, rather
+     than letting it potentially escape upward past every non-stacking-
+     context ancestor and compete against unrelated content several levels
+     up (e.g. .console's own translucent background). Without this, a plain
+     z-index: -1 several layers down risks painting behind things far
+     outside this one slot instead of just behind its own sibling piece. */
   position: relative;
-  z-index: 0;
 }
 
 .sc-voxel-track__straddle[data-axis='horizontal'] {
