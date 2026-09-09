@@ -29,6 +29,21 @@
   padding: 0;
 }
 
+/* .sc-cabinet-box's own padding-right/padding-bottom (CabinetBox.css)
+   reserves room for a STANDALONE Button/Toggle's fully-popped footprint,
+   so its own hit area never shifts as it pops. A voxel-track box doesn't
+   need that: its "breathing room" from its neighbor is already --voxel-gap
+   (the flex gap above), and the pop itself is a GSAP transform (paint-
+   only, doesn't affect layout/box size) — not a resize the wrapper needs
+   to pre-reserve space for. Left in place, that padding stacked on TOP of
+   --voxel-gap, making every box (and therefore the whole row,
+   compounding per box) wider than computeVoxelTrackLength ever accounted
+   for — every box's own slot was boxSize + 2*CABINET_POP_DISTANCE, not
+   boxSize. Found live in the running app. */
+.sc-voxel-track .sc-cabinet-box {
+  padding: 0;
+}
+
 .sc-voxel-track__fill {
   width: 100%;
   height: 100%;
