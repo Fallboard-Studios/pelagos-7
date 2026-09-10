@@ -287,7 +287,7 @@ describe('CabinetBox', () => {
       expect(topFace.style.width).toBe('100px');
     });
 
-    it("sizes the left-face div's width to 2×resolvedPopDistance and height to boxHeight — independent of the measured front-face width", () => {
+    it("sizes the left-face div's width to 2×resolvedPopDistance and height to boxHeight, when no frontHeight override is given — independent of the measured front-face width", () => {
       const { container } = render(<CabinetBox popped={true} timelineKey="test-box">x</CabinetBox>);
       const observer = MockResizeObserver.instances[0];
       act(() => observer.fire(100, 48));
@@ -482,6 +482,36 @@ describe('CabinetBox', () => {
       const front = container.querySelector('.sc-cabinet-box__front') as HTMLElement;
       expect(front.style.width).toBe('');
       expect(front.style.height).toBe('');
+    });
+
+    it("sizes the left-face wall's height to frontHeight instead of boxHeight, when given — bugfix found via /interview-me, 2026-09-09: a vertical VoxelTrack straddle piece's wall used to stay a fixed full-boxHeight rectangle regardless of its own (shrunk) frontHeight, overflowing past its own wrapper and appearing to slide rather than shrink as the slider value changed", () => {
+      const { container } = render(
+        <CabinetBox popped={false} timelineKey="test-box" boxHeight={48} frontHeight={20}>x</CabinetBox>,
+      );
+      const leftFace = container.querySelector('.sc-cabinet-box__left-face') as HTMLElement;
+      expect(leftFace.style.height).toBe('20px');
+    });
+
+    it("falls back to boxHeight for the left-face wall's height when frontHeight is omitted — no behavior change for Button/Toggle/horizontal straddle pieces", () => {
+      const { container } = render(
+        <CabinetBox popped={false} timelineKey="test-box" boxHeight={48}>x</CabinetBox>,
+      );
+      const leftFace = container.querySelector('.sc-cabinet-box__left-face') as HTMLElement;
+      expect(leftFace.style.height).toBe('48px');
+    });
+
+    it("a frontHeight override changes the left-face wall's height (mirroring the front face's own real height) — the left-face div's fixed width is unaffected, and the top-face wall (unrelated to the shrinking axis here) is unaffected too", () => {
+      const { container } = render(
+        <CabinetBox popped={true} timelineKey="test-box" boxHeight={48} frontHeight={20}>x</CabinetBox>,
+      );
+      const observer = MockResizeObserver.instances[0];
+      act(() => observer.fire(48, 20));
+
+      const topFace = container.querySelector('.sc-cabinet-box__top-face') as HTMLElement;
+      const leftFace = container.querySelector('.sc-cabinet-box__left-face') as HTMLElement;
+      expect(leftFace.style.width).toBe(`${2 * CABINET_POP_DISTANCE}px`);
+      expect(leftFace.style.height).toBe('20px');
+      expect(topFace.style.height).toBe(`${CABINET_POP_DISTANCE}px`);
     });
   });
 

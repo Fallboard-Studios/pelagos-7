@@ -25,8 +25,13 @@ import { computeFittedBoxCount } from '@/utils/voxelTrackMath';
  * - **Vertical** still observes `ref`'s *parent*. `.sc-slider-linear` is
  *   `display: inline-flex` there, which DOES shrink-wrap its height to
  *   content by default — self-observing height would be genuinely
- *   circular. No real vertical `SliderLinear` consumer exists yet to
- *   verify a self-observing fix against, so this stays conservative.
+ *   circular. Real vertical consumers now exist (`robotOptionsConfig.ts`'s
+ *   per-layer Gain/Phase/Interval/Detune, `audioRigConfig.ts`'s EQ3 and
+ *   Filter Frequency/Resonance) and were checked against this parent-
+ *   observation approach live in the running app (roadmap 11.1.5.1-.3) —
+ *   confirmed to already read correctly as shipped, so this conservative
+ *   choice stands as the deliberate design, not a placeholder pending a
+ *   real consumer to test against.
  *
  * `explicitAvailableLength`, when provided, skips live measurement entirely
  * and fits against that fixed number instead — SliderLinear's own

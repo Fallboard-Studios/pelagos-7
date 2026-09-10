@@ -46,7 +46,10 @@ interface CabinetBoxProps {
    *  real rendered width ends up being either way — no separate geometry
    *  plumbing needed for these. VoxelTrack's own straddling box (roadmap
    *  11.1.3) is the only consumer that needs these, to physically shrink
-   *  along the value axis instead of showing an internal fill gradient. */
+   *  along the value axis instead of showing an internal fill gradient.
+   *  `frontHeight`, specifically, also sizes the left-face wall directly
+   *  (below) — unlike `frontWidth`/the top-face wall, no measurement step:
+   *  see the leftFaceHeight comment further down for why. */
   frontWidth?: number;
   frontHeight?: number;
   /** Optional inline z-index override for the wrapper (.sc-cabinet-box).
@@ -314,6 +317,35 @@ export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, 
   if (frontWidth !== undefined) frontStyle.width = `${frontWidth}px`;
   if (frontHeight !== undefined) frontStyle.height = `${frontHeight}px`;
 
+  // Bugfix, 2026-09-09 (found via /interview-me on a vertical SliderLinear):
+  // the left-face wall's height used to be hardcoded to `boxHeight` — the
+  // full, fixed square size — regardless of `frontHeight`. That's correct
+  // for Button/Toggle and for VoxelTrack's horizontal straddle pieces (their
+  // front face's real height never shrinks; only frontWidth does, and the
+  // top-face div above already tracks that via live measurement). But
+  // VoxelTrack's VERTICAL straddle pieces (roadmap 11.1.5.1-.3) shrink via
+  // frontHeight instead, and the wrapper they sit in (`.sc-voxel-track__straddle`,
+  // flex column-reverse, packed with no gap) already auto-sizes to exactly
+  // that height — so a left-face fixed at the full boxHeight always
+  // overflowed past its own wrapper's real (smaller) box. Because the
+  // wrapper's position is what the flex packing correctly anchors (glow's
+  // wrapper flush against the track's fixed min/bottom edge, flat's flush
+  // against the fixed max/top edge), that overflow didn't just look wrong in
+  // isolation — as frontHeight changed with the dragged value, the
+  // wrapper's own top edge moved, and the wall (same fixed height throughout)
+  // rode along with it: it read as the wall sliding up/down rather than
+  // shrinking in place. Unlike the top-face/frontWidth case, no live
+  // measurement is needed here — frontHeight, when VoxelTrack supplies it, is
+  // already the caller's own known synchronous value (glowSize/flatSize),
+  // the same value already applied to the front face's own inline height
+  // above. Using it directly here makes the left-face wall exactly match its
+  // own wrapper's real box (top:0-anchored, no overflow), which — combined
+  // with the flex packing already being correct — is what makes it read as
+  // anchored-and-shrinking instead of sliding. Omitted (Button/Toggle/every
+  // non-straddle voxel-track box), this is identical to the old hardcoded
+  // value — no behavior change for any existing horizontal-shrink consumer.
+  const leftFaceHeight = frontHeight ?? boxHeight;
+
   return (
     <div ref={wrapperRef} className="sc-cabinet-box" style={cabinetTokens}>
       <div className="sc-cabinet-box__backing" aria-hidden="true" />
@@ -326,7 +358,7 @@ export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, 
         <div
           ref={leftFaceRef}
           className="sc-cabinet-box__left-face"
-          style={{ width: `${2 * resolvedPopDistance}px`, height: `${boxHeight}px` }}
+          style={{ width: `${2 * resolvedPopDistance}px`, height: `${leftFaceHeight}px` }}
         />
       </div>
       <div ref={frontRef} className="sc-cabinet-box__front" style={frontStyle}>
