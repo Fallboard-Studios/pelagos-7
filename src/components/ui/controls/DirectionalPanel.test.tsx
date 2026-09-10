@@ -39,6 +39,32 @@ class MockResizeObserver {
 
 let originalResizeObserver: typeof ResizeObserver;
 
+/**
+ * Stubs window.matchMedia so the mobile (max-width: 640px) and tablet
+ * (max-width: 1024px) queries can be controlled independently — same shape
+ * as useCabinetBoxHeight.test.ts's own stubMatchMedia, since 'responsive'
+ * orientation resolves through useResponsivePanelOrientation's shared tier
+ * detection, not a ResizeObserver.
+ */
+function stubMatchMedia(initial: { mobile: boolean; tablet: boolean }) {
+  const state = { ...initial };
+  function queryKind(query: string): 'mobile' | 'tablet' {
+    return query.includes('640px') ? 'mobile' : 'tablet';
+  }
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    configurable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      get matches() {
+        return state[queryKind(query)];
+      },
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    })),
+  });
+}
+
 describe('DirectionalPanel', () => {
   beforeEach(() => {
     MockResizeObserver.instances = [];
@@ -206,6 +232,58 @@ describe('DirectionalPanel', () => {
       act(() => observer.fire(1000, 200));
 
       expect(container.querySelector('.sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('row');
+    });
+  });
+
+  // docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.2 — a fixed viewport-tier
+  // orientation, distinct from 'auto''s per-parent measurement.
+  describe("orientation=\"responsive\" (fixed viewport tier, not a per-parent measurement)", () => {
+    afterEach(() => {
+      vi.clearAllMocks();
+    });
+
+    it('renders data-orientation="column" when the mobile tier matches', () => {
+      stubMatchMedia({ mobile: true, tablet: true });
+      const schema: DirectionalPanelSchema = { id: 'speedAutomation', type: 'directionalPanel', orientation: 'responsive' };
+      const { container } = render(
+        <DirectionalPanel schema={schema}>
+          <span>Tempo</span>
+        </DirectionalPanel>,
+      );
+      expect(container.querySelector('.sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('column');
+    });
+
+    it('renders data-orientation="column" when the tablet tier matches', () => {
+      stubMatchMedia({ mobile: false, tablet: true });
+      const schema: DirectionalPanelSchema = { id: 'speedAutomation', type: 'directionalPanel', orientation: 'responsive' };
+      const { container } = render(
+        <DirectionalPanel schema={schema}>
+          <span>Tempo</span>
+        </DirectionalPanel>,
+      );
+      expect(container.querySelector('.sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('column');
+    });
+
+    it('renders data-orientation="row" when neither tier matches (desktop)', () => {
+      stubMatchMedia({ mobile: false, tablet: false });
+      const schema: DirectionalPanelSchema = { id: 'speedAutomation', type: 'directionalPanel', orientation: 'responsive' };
+      const { container } = render(
+        <DirectionalPanel schema={schema}>
+          <span>Tempo</span>
+        </DirectionalPanel>,
+      );
+      expect(container.querySelector('.sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('row');
+    });
+
+    it('constructs no ResizeObserver — a responsive panel never measures its own parent', () => {
+      stubMatchMedia({ mobile: false, tablet: false });
+      const schema: DirectionalPanelSchema = { id: 'speedAutomation', type: 'directionalPanel', orientation: 'responsive' };
+      render(
+        <DirectionalPanel schema={schema}>
+          <span>Tempo</span>
+        </DirectionalPanel>,
+      );
+      expect(MockResizeObserver.instances).toHaveLength(0);
     });
   });
 

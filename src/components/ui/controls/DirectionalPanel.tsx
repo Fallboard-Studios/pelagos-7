@@ -3,6 +3,7 @@ import { createContext, useContext, useRef, type ReactNode } from 'react';
 import { CabinetBox } from './CabinetBox';
 import { DualLabel } from './DualLabel';
 import { useAutoPanelOrientation } from './useAutoPanelOrientation';
+import { useResponsivePanelOrientation } from './useResponsivePanelOrientation';
 import type { DirectionalPanelSchema } from '@/types/controls';
 import './DirectionalPanel.css';
 
@@ -28,7 +29,16 @@ const DirectionalPanelNestingContext = createContext(false);
  * DirectionalPanel, not a wrap prop on this one. 'auto' resolves via
  * useAutoPanelOrientation, measuring this panel's own parent element and
  * going 'row' once there's enough room, 'column' otherwise
- * (docs/tasks/DIRECTIONAL_PANEL_WIRING.md follow-up fix).
+ * (docs/tasks/DIRECTIONAL_PANEL_WIRING.md follow-up fix). 'responsive'
+ * resolves via useResponsivePanelOrientation instead — the same fixed
+ * viewport tier every 'responsive' panel reads, never a per-parent
+ * measurement (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.2). Both hooks
+ * are called unconditionally (Rules of Hooks — the same "always call,
+ * sometimes ignore the result" shape CabinetBox.tsx already uses for
+ * useCabinetBoxHeight() when boxHeight is overridden); useAutoPanelOrientation
+ * receives 'row' instead of the real 'responsive' value so it short-circuits
+ * to its own cheap literal-passthrough branch rather than constructing an
+ * unused ResizeObserver.
  *
  * Renders through a permanently-popped, non-animating CabinetBox facade
  * ("Oblique Cabinetry — DirectionalPanel") whenever this instance is
@@ -43,7 +53,10 @@ const DirectionalPanelNestingContext = createContext(false);
  */
 export function DirectionalPanel({ schema, children }: DirectionalPanelProps) {
   const ref = useRef<HTMLDivElement>(null);
-  const orientation = useAutoPanelOrientation(ref, schema.orientation ?? 'row');
+  const autoInput = schema.orientation === 'responsive' ? 'row' : (schema.orientation ?? 'row');
+  const autoResolved = useAutoPanelOrientation(ref, autoInput);
+  const responsiveResolved = useResponsivePanelOrientation();
+  const orientation = schema.orientation === 'responsive' ? responsiveResolved : autoResolved;
   const isNested = useContext(DirectionalPanelNestingContext);
 
   const panel = (

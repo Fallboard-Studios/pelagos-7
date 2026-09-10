@@ -25,9 +25,13 @@ export const AUTO_PANEL_ROW_MIN_WIDTH = 640;
  * 'horizontal' default, since here the two orientations aren't symmetric: a too-narrow row is a
  * real overflow risk, a too-eager column never is).
  */
+// Never called with 'responsive' — that literal resolves through
+// useResponsivePanelOrientation instead (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md
+// §1.2), so it's excluded from this hook's own accepted input type;
+// DirectionalPanel.tsx sanitizes its call accordingly.
 export function useAutoPanelOrientation(
   ref: RefObject<HTMLElement | null>,
-  orientation: PanelOrientation,
+  orientation: Exclude<PanelOrientation, 'responsive'>,
 ): ResolvedPanelOrientation {
   // Only 'auto' needs observed state — 'row'/'column' are a pure function of the prop, returned
   // directly below with no state/effect involved (avoids a synchronous setState-in-effect for
