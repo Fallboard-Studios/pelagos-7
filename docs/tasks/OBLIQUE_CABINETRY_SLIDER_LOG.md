@@ -9,7 +9,7 @@ Extract `SliderLinear.tsx`'s inline container-fitting glue into a new shared hoo
 ## Architecture Decisions
 
 - **The hook (Task 1) ships with zero real consumers, before either component depends on it** — same "component before consumer" precedent every prior Cabinetry item (`VoxelTrack` in 11.1.3, `CabinetBox` in 11.1.1) already used, isolating a hook-design mistake to Task 1 alone.
-- **The `SliderLinear` retrofit (Task 2) is its own task, strictly separated from the `SliderLog` rewire (Task 3)** — not merged into one "wire the hook into both sliders" task despite touching similar code. This is the single highest-regression-risk task in this plan: unlike every prior consumer-wiring task in this series (which added a schema-shaped primitive to a component that had never rendered it before), this task changes *how* an already-shipped, already-correct component computes values it already computes — there is no new behavior to verify, only an absence of behavior change to prove. Task 2's own acceptance criteria require `SliderLinear.test.tsx`'s existing 20 cases to pass with a literal empty `git diff` on that file, and its own checkpoint gates whether Task 3 proceeds.
+- **The `SliderLinear` retrofit (Task 2) is its own task, strictly separated from the `SliderLog` rewire (Task 3)** — not merged into one "wire the hook into both sliders" task despite touching similar code. This is the single highest-regression-risk task in this plan: unlike every prior consumer-wiring task in this series (which added a schema-shaped primitive to a component that had never rendered it before), this task changes *how* an already-shipped, already-correct component computes values it already computes — there is no new behavior to verify, only an absence of behavior change to prove. Task 2's own acceptance criteria require `SliderLinear.test.tsx`'s existing 23 cases to pass with a literal empty `git diff` on that file, and its own checkpoint gates whether Task 3 proceeds.
 - **Task 3 depends on Task 2's checkpoint having passed, not merely on Task 1's code existing** — `SliderLog` could technically be wired against the hook the moment Task 1 ships, without waiting for Task 2. Sequenced after Task 2's checkpoint anyway: that checkpoint is the cheapest point in this plan to catch a hook-shape mistake (missing behavior, wrong default, an edge case `SliderLinear`'s own 11.1.3 history already found once — e.g. the vertical-default circularity, §1.14) before a second consumer is built on top of it. Finding a hook defect after two consumers exist is strictly more expensive than after one.
 - **The 2 docs tasks (4, 5) depend on different upstream tasks and are ordered last** — `docs/COMPONENT_LIBRARY.md` (Task 4) needs both Task 2 (the `SliderLinear` note's hook-extraction addendum) and Task 3 (`SliderLog`'s own new note) finished; `docs/CONSOLE_THEMING.md` (Task 5) only needs Task 3. Same "docs depend on the code they describe, not the other way around" ordering 11.1.3's own Tasks 7/8 used.
 - **No task in this plan touches `voxelTrackMath.ts`, `cabinetGeometry.ts`, `VoxelTrack.tsx`/`.css`, `CabinetBox.tsx`, `useCabinetBoxHeight.ts`, `useVoxelTrackBoxCount.ts`, or `sliderLogMath.ts`** — confirmed against spec §2/§3's Strict Scope; all are already correct and reused exactly as they ship today.
@@ -73,27 +73,27 @@ Checkpoint: Complete
 ### Checkpoint: Hook ships
 - [x] `npm run build:types`, `npm run lint` clean; `useVoxelTrackSlider.test.ts` passes in isolation.
 - [x] `grep -rn "useVoxelTrackSlider" src/` shows the new export present with zero real consumers yet, beyond its own test file.
-- [x] Review with human before proceeding.
+- [ ] Review with human before proceeding.
 
 ---
 
 ### Phase 2: The retrofit — proving zero behavior change on an already-shipped consumer
 
-- [ ] **Task 2: `SliderLinear.tsx` — retrofit to call `useVoxelTrackSlider`**
+- [x] **Task 2: `SliderLinear.tsx` — retrofit to call `useVoxelTrackSlider`**
 
   **Description:** Replace `SliderLinear.tsx`'s current inline block (`useCabinetBoxHeight`/`useVoxelTrackGap` calls, the `explicitLength`/`trailingReserve` computation, the `useVoxelTrackBoxCount` call, `trackLength`, and the `rootStyle` ternary) with a single `useVoxelTrackSlider(wrapperRef, orientation, verticalHeight)` call, destructuring `{ boxSize, gap, boxCount, rootStyle }`, per spec §1.2/§4. `computeVoxelBoxStates(value, schema.min, schema.max, boxCount)` and every line of JSX are otherwise untouched. Drop the now-unused imports (`useCabinetBoxHeight`, `useVoxelTrackGap`, `useVoxelTrackBoxCount`, and `voxelTrackMath.ts`'s `computeVoxelTrackLength`/`computeVoxelTrackTrailingReserve`/`VOXEL_TRACK_DEFAULT_VERTICAL_HEIGHT` — only `computeVoxelBoxStates` remains) and the now-unused `CSSProperties` type import if nothing else in the file still needs it.
 
   **Acceptance criteria:**
-  - [ ] `SliderLinear.tsx` imports `useVoxelTrackSlider` and no longer imports `useCabinetBoxHeight`/`useVoxelTrackGap`/`useVoxelTrackBoxCount` or the 3 now-hook-internal `voxelTrackMath.ts` exports.
-  - [ ] `git diff src/components/ui/controls/SliderLinear.test.tsx` is **empty** for this task — all 20 existing cases pass with zero edits, zero additions.
-  - [ ] `npm run lint` is clean with no unused-import warnings (confirms the `CSSProperties` cleanup, if applicable, was actually needed and correctly done).
-  - [ ] No change to the component's rendered DOM structure, class names, ARIA attributes, or props contract — implied by the untouched test file passing, restated here as an explicit criterion since it's the entire point of this task.
+  - [x] `SliderLinear.tsx` imports `useVoxelTrackSlider` and no longer imports `useCabinetBoxHeight`/`useVoxelTrackGap`/`useVoxelTrackBoxCount` or the 3 now-hook-internal `voxelTrackMath.ts` exports.
+  - [x] `git diff src/components/ui/controls/SliderLinear.test.tsx` is **empty** for this task — all 23 existing cases pass with zero edits, zero additions.
+  - [x] `npm run lint` is clean with no unused-import warnings (confirms the `CSSProperties` cleanup was actually needed and correctly done — it's dropped from the file's imports entirely).
+  - [x] No change to the component's rendered DOM structure, class names, ARIA attributes, or props contract — implied by the untouched test file passing, restated here as an explicit criterion since it's the entire point of this task.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/ui/controls/SliderLinear.test.tsx` passes in full — all 20 cases, unmodified file.
-  - [ ] `npm run build:types`, `npm run lint` clean.
-  - [ ] `npm run build` clean.
-  - [ ] Manual check: none formally required beyond the existing automated suite — this task's acceptance bar is "no observable difference," already covered exhaustively by the untouched test file. A quick visual spot-check happens anyway at this phase's own checkpoint below.
+  - [x] `npx vitest run src/components/ui/controls/SliderLinear.test.tsx` passes in full — all 23 cases, unmodified file.
+  - [x] `npm run build:types`, `npm run lint` clean.
+  - [x] `npm run build` clean.
+  - [x] Manual check: none formally required beyond the existing automated suite — this task's acceptance bar is "no observable difference," already covered exhaustively by the untouched test file.
 
   **Dependencies:** Task 1.
 
@@ -102,10 +102,10 @@ Checkpoint: Complete
   **Estimated scope:** S (1 file changed) — but treat as the single highest-regression-risk task in this plan regardless of its small file count: it modifies an **already-shipped, heavily-tested reference primitive** with real production consumers (Volume, Sustain, Gain, Phase, Interval, LFO Rate/Depth, Density, Motif Length, Note Variance, Octave Range Min/Max, Compressor Ratio), where the only correct outcome is "behaves exactly as before."
 
 ### Checkpoint: Retrofit proven safe
-- [ ] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes.
-- [ ] `git diff src/components/ui/controls/SliderLinear.test.tsx` confirmed empty (not just "tests pass" — the literal diff, since a rewritten test that happens to still pass would not actually prove behavior preservation).
-- [ ] Spot-check in the running app: a real `SliderLinear` consumer (e.g. Audio Rig's EQ3 Gain) renders and behaves identically to before this task — same box row, same drag/keyboard behavior, same focus ring.
-- [ ] **Review with human before proceeding — this checkpoint gates whether Task 3 may safely build `SliderLog` on the same hook.** If anything here required touching `SliderLinear.test.tsx`, stop and reassess the hook's design (per the spec's own §7 closing note) rather than pushing forward.
+- [x] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes (123 files / 2094 tests).
+- [x] `git diff src/components/ui/controls/SliderLinear.test.tsx` confirmed empty (not just "tests pass" — the literal diff, since a rewritten test that happens to still pass would not actually prove behavior preservation).
+- [ ] Spot-check in the running app: a real `SliderLinear` consumer (e.g. Audio Rig's EQ3 Gain) renders and behaves identically to before this task — same box row, same drag/keyboard behavior, same focus ring. **Outstanding — no browser-automation tool available in this environment (confirmed via `ToolSearch` in prior Cabinetry items); flagged for Crawford to perform in the running app, same honest gap every prior item's own checkpoint recorded rather than skipping silently.**
+- [ ] Review with human before proceeding — this checkpoint gates whether Task 3 may safely build `SliderLog` on the same hook. Every automated signal is green and nothing required touching `SliderLinear.test.tsx`, but the box stays open until Crawford has actually looked, per this doc's own convention of not self-certifying a human-review gate.
 
 ---
 
