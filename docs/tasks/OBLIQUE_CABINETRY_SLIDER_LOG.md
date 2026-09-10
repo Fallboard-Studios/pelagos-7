@@ -47,22 +47,22 @@ Checkpoint: Complete
 
 ### Phase 1: The shared hook — no consumer yet
 
-- [ ] **Task 1: `useVoxelTrackSlider` — the shared box-count/track-length/`rootStyle` hook**
+- [x] **Task 1: `useVoxelTrackSlider` — the shared box-count/track-length/`rootStyle` hook**
 
   **Description:** Add `src/components/ui/controls/useVoxelTrackSlider.ts` per spec §1.1/§4: takes an already-resolved `orientation` (`'horizontal' | 'vertical'`, never `'auto'`) and an optional `verticalHeight` budget; internally resolves `boxSize`/`gap` via `useCabinetBoxHeight`/`useVoxelTrackGap`, resolves `boxCount` via `useVoxelTrackBoxCount` (including the trailing-reserve subtraction and the vertical fixed-budget-vs-live-measurement branch `SliderLinear.tsx` already established in 11.1.3), and computes `trackLength`/`rootStyle`. Returns `{ boxSize, gap, boxCount, trackLength, rootStyle }`. Pure extraction — every value it computes must match what `SliderLinear.tsx`'s current inline code already computes for the same inputs; no new formula.
 
   **Acceptance criteria:**
-  - [ ] Returns `boxCount: VOXEL_TRACK_MIN_BOX_COUNT` before any `ResizeObserver` callback fires (horizontal, `verticalHeight` irrelevant to this axis).
-  - [ ] Horizontal, after a fired measurement: `rootStyle` is exactly `{ width: trackLength, height: boxSize }`, where `trackLength` matches `computeVoxelTrackLength(...) + computeVoxelTrackTrailingReserve('horizontal')` for that measurement — asserted against those real functions' own output, not a hand-derived number.
-  - [ ] Vertical, `verticalHeight` omitted: `boxCount` fits against `VOXEL_TRACK_DEFAULT_VERTICAL_HEIGHT` **synchronously** — correct before any `ResizeObserver` fires, no live measurement attempted.
-  - [ ] Vertical, `verticalHeight` supplied and deliberately not an exact multiple of `(boxSize + gap)`: `trackLength` is the box-quantized `computeVoxelTrackLength` output, not `verticalHeight` verbatim; `rootStyle` is `{ height: trackLength, width: boxSize }`.
-  - [ ] Horizontal, a container width landing on an exact multiple of `(boxSize + gap)`: `trackLength` still includes `computeVoxelTrackTrailingReserve('horizontal')` beyond the tight box-row length — re-verifies 11.1.3 §1.13's fix at the hook level, now that this logic no longer lives inline in `SliderLinear.tsx`.
-  - [ ] The returned object's shape matches `VoxelTrackSliderLayout` exactly (`boxSize`, `gap`, `boxCount`, `trackLength`, `rootStyle`) — no extra or missing field.
+  - [x] Returns `boxCount: VOXEL_TRACK_MIN_BOX_COUNT` before any `ResizeObserver` callback fires (horizontal, `verticalHeight` irrelevant to this axis).
+  - [x] Horizontal, after a fired measurement: `rootStyle` is exactly `{ width: trackLength, height: boxSize }`, where `trackLength` matches `computeVoxelTrackLength(...) + computeVoxelTrackTrailingReserve('horizontal')` for that measurement — asserted against those real functions' own output, not a hand-derived number.
+  - [x] Vertical, `verticalHeight` omitted: `boxCount` fits against `VOXEL_TRACK_DEFAULT_VERTICAL_HEIGHT` **synchronously** — correct before any `ResizeObserver` fires, no live measurement attempted.
+  - [x] Vertical, `verticalHeight` supplied and deliberately not an exact multiple of `(boxSize + gap)`: `trackLength` is the box-quantized `computeVoxelTrackLength` output, not `verticalHeight` verbatim; `rootStyle` is `{ height: trackLength, width: boxSize }`.
+  - [x] Horizontal, a container width landing on an exact multiple of `(boxSize + gap)`: `trackLength` still includes `computeVoxelTrackTrailingReserve('horizontal')` beyond the tight box-row length — re-verifies 11.1.3 §1.13's fix at the hook level, now that this logic no longer lives inline in `SliderLinear.tsx`.
+  - [x] The returned object's shape matches `VoxelTrackSliderLayout` exactly (`boxSize`, `gap`, `boxCount`, `trackLength`, `rootStyle`) — no extra or missing field.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/ui/controls/useVoxelTrackSlider.test.ts` passes.
-  - [ ] `npm run build:types`, `npm run lint` clean.
-  - [ ] Manual check: none applicable yet — zero real consumers until Task 2.
+  - [x] `npx vitest run src/components/ui/controls/useVoxelTrackSlider.test.ts` passes (7 tests).
+  - [x] `npm run build:types`, `npm run lint` clean.
+  - [x] Manual check: none applicable yet — zero real consumers until Task 2.
 
   **Dependencies:** None.
 
@@ -71,9 +71,9 @@ Checkpoint: Complete
   **Estimated scope:** S (2 files — pure composition over already-proven primitives; no new geometry, math, or rendering, just wiring already-shipped pieces together)
 
 ### Checkpoint: Hook ships
-- [ ] `npm run build:types`, `npm run lint` clean; `useVoxelTrackSlider.test.ts` passes in isolation.
-- [ ] `grep -rn "useVoxelTrackSlider" src/` shows the new export present with zero real consumers yet, beyond its own test file.
-- [ ] Review with human before proceeding.
+- [x] `npm run build:types`, `npm run lint` clean; `useVoxelTrackSlider.test.ts` passes in isolation.
+- [x] `grep -rn "useVoxelTrackSlider" src/` shows the new export present with zero real consumers yet, beyond its own test file.
+- [x] Review with human before proceeding.
 
 ---
 
