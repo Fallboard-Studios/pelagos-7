@@ -141,7 +141,7 @@ parallel.
 
 ### Phase 2: Regression guard for this item's own central decision
 
-- [ ] **Task 2: `CoordsInput.test.tsx` — two independent facades, not one shared**
+- [x] **Task 2: `CoordsInput.test.tsx` — two independent facades, not one shared**
 
   **Description:** Per spec §1.6/§5: add one new test to `CoordsInput.test.tsx`, using the file's existing
   real (unmocked) rendering path — it already renders real `CabinetBox`es through `TextInput` today, relying
@@ -153,24 +153,27 @@ parallel.
   it, that design decision is verified only by manual inspection.
 
   **Acceptance criteria:**
-  - [ ] `CoordsInput.test.tsx` gains exactly one new test asserting
+  - [x] `CoordsInput.test.tsx` gains exactly one new test asserting
     `container.querySelectorAll('.sc-text-input-facade')` has length `2` for a default-rendered `CoordsInput`.
-  - [ ] Every pre-existing `CoordsInput.test.tsx` test (two `spinbutton` instances render, controlled x/y
+  - [x] Every pre-existing `CoordsInput.test.tsx` test (two `spinbutton` instances render, controlled x/y
     values, `onChange` wiring for both fields, `DualLabel` label, non-numeric/blank-entry guards, rounding
     behavior, native numeric input type) passes unmodified — none of them touch `TextInput`'s internal DOM
     structure.
-  - [ ] `CoordsInput.tsx` and `CoordsInput.css` are untouched — `git diff` empty for both, confirming the
-    intent doc's own "needs no code change" claim held.
-  - [ ] No `CabinetBox` mock is added to this file — the new test relies on the real, already-proven-safe
+  - [x] `CoordsInput.tsx` and `CoordsInput.css` are untouched — `git diff` empty for both, confirmed via
+    `git status`/`git diff --stat`, the intent doc's own "needs no code change" claim held.
+  - [x] No `CabinetBox` mock is added to this file — the new test relies on the real, already-proven-safe
     rendering path this file already uses.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/ui/controls/CoordsInput.test.tsx` passes in full. Confirm genuinely
-    RED first: run the new test alone against `main` (pre-Task-1) or with Task 1's changes `git stash`ed —
-    it fails (0 or 1 `.sc-text-input-facade` elements exist, not 2, since `TextInput` didn't render a facade
-    at all before Task 1). Then GREEN once Task 1's changes are present.
-  - [ ] `npm run build:types`, `npx eslint .` clean.
-  - [ ] `npm test` (full suite) — no regression anywhere else.
+  - [x] `npx vitest run src/components/ui/controls/CoordsInput.test.tsx` passes in full — confirmed
+    genuinely RED first, by temporarily swapping in the pre-Task-1 `TextInput.tsx`/`.css` (`git show
+    ce16c7b:...`) and re-running: the new test failed (`expected [] to have a length of 2 but got +0`,
+    since `TextInput` rendered no `.sc-text-input-facade` at all yet), the other 11 pre-existing tests
+    stayed green. Restored Task 1's files (`git diff` empty afterward, confirming an exact restore) and
+    reran: GREEN, 12/12.
+  - [x] `npm run build:types`, `npx eslint .` clean.
+  - [x] `npm test` (full suite) — 2137/2139 passing, same 2 pre-existing/unrelated failures, no regression
+    anywhere else.
 
   **Dependencies:** Task 1.
 
