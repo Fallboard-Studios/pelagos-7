@@ -60,7 +60,7 @@ Tasks 3 and 4 are fully independent of the whole `'responsive'`-mechanism chain 
 
 ### Phase 1: The `'responsive'` mechanism
 
-- [ ] **Task 1: `useResponsivePanelOrientation` — new hook**
+- [x] **Task 1: `useResponsivePanelOrientation` — new hook**
 
   **Description:** Export `useCabinetTier` from `useCabinetBoxHeight.ts` (currently a private function in that file — same file, just drop the missing `export`). Add `src/components/ui/controls/useResponsivePanelOrientation.ts` per spec §4.4: a `useResponsivePanelOrientation(): 'row' | 'column'` hook with no `ref` parameter, returning `'row'` when `useCabinetTier()` is `'desktop'`, `'column'` otherwise. Nothing consumes this yet — `DirectionalPanel.tsx` is untouched this task.
 
@@ -80,7 +80,7 @@ Tasks 3 and 4 are fully independent of the whole `'responsive'`-mechanism chain 
 
   **Estimated scope:** S (3 files, one small new hook)
 
-- [ ] **Task 2: `PanelOrientation` gains `'responsive'`; `DirectionalPanel.tsx` wires it in**
+- [x] **Task 2: `PanelOrientation` gains `'responsive'`; `DirectionalPanel.tsx` wires it in**
 
   **Description:** Add `'responsive'` to `PanelOrientation` in `types/controls.ts` (spec §4.1), with a doc-comment sentence distinguishing it from `'auto'`. In `DirectionalPanel.tsx`, call both `useAutoPanelOrientation` (with `schema.orientation === 'responsive' ? 'row' : (schema.orientation ?? 'row')` as its input, per spec §1.2's exact shape) and `useResponsivePanelOrientation()` unconditionally, then resolve `orientation` to whichever result applies based on `schema.orientation === 'responsive'`. Directly check whether `controls.test.ts` enumerates `PanelOrientation`'s literals exhaustively (spec's open item #2) — if so, add `'responsive'` there too.
 
@@ -103,15 +103,15 @@ Tasks 3 and 4 are fully independent of the whole `'responsive'`-mechanism chain 
   **Estimated scope:** S (3-4 files, one resolution branch + a type literal)
 
 ### Checkpoint: Mechanism complete
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] No visible change to the running app yet — `'responsive'` exists and is tested but unused by any real schema.
-- [ ] Review with human before proceeding — Tasks 3-9 below can be parallelized across sessions once this lands, subject to the file-contention cautions in Architecture Decisions.
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [x] No visible change to the running app yet — `'responsive'` exists and is tested but unused by any real schema.
+- [x] Review with human before proceeding — Tasks 3-9 below can be parallelized across sessions once this lands, subject to the file-contention cautions in Architecture Decisions.
 
 ---
 
 ### Phase 2: Independent slider-orientation fixes
 
-- [ ] **Task 3: `Lfo.tsx` — Rate/Depth fixed horizontal**
+- [x] **Task 3: `Lfo.tsx` — Rate/Depth fixed horizontal**
 
   **Description:** Per spec §1.3: change `Lfo.tsx`'s `rateSchema`/`depthSchema` `orientation` from `'auto'` to `'horizontal'`, literal. No other change — `LfoProps`, the `RadioButton`/2×`SliderLinear` composition, and every handler stay exactly as-is.
 
@@ -129,7 +129,7 @@ Tasks 3 and 4 are fully independent of the whole `'responsive'`-mechanism chain 
 
   **Estimated scope:** XS (1-2 files, two literal value changes)
 
-- [ ] **Task 4: `audioRigConfig.ts` — remaining slider-orientation fixes**
+- [x] **Task 4: `audioRigConfig.ts` — remaining slider-orientation fixes**
 
   **Description:** Per spec §1.3/§1.4 and §4.2: change `filterLPF.frequency`/`.Q` and `filterHPF.frequency`/`.Q` from `orientation: 'auto'` back to `orientation: 'vertical'` (the pre-session value — this is the deliberate reversal §1.4 describes, and requires no change to `AudioRigLfoGroup`'s existing `slidersOrientation` heuristic, which already resolves `'row'` once any param in the group is `'vertical'`). Change Compressor's 5 param schemas (`threshold`, `ratio`, `attack`, `release`, `knee`) and Limiter's `threshold` from `'auto'` to `'horizontal'`. In `driftGroupSchema()`, change both `rateSchema.orientation` and `depthSchema.orientation` inline literals from `'auto'` to `'horizontal'` (confirmed: the function takes no `orientation` parameter to add — just the two literals in its body, resolving spec's open item #1 directly).
 
@@ -151,15 +151,15 @@ Tasks 3 and 4 are fully independent of the whole `'responsive'`-mechanism chain 
   **Estimated scope:** S (3 files, literal value edits + matching test rewrites)
 
 ### Checkpoint: Slider fixes complete
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] Manual check: LPF/HPF's Frequency/Resonance sliders are vertical and share a row at every width; Compressor/Limiter/LFO/Drift sliders are horizontal.
-- [ ] Review with human before proceeding.
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [x] Manual check: LPF/HPF's Frequency/Resonance sliders are vertical and share a row at every width; Compressor/Limiter/LFO/Drift sliders are horizontal.
+- [x] Review with human before proceeding.
 
 ---
 
 ### Phase 3: Transport & Time/Space orientation
 
-- [ ] **Task 5: `audioRigConfig.ts` — Transport and Time & Space orientation → `'responsive'`**
+- [x] **Task 5: `audioRigConfig.ts` — Transport and Time & Space orientation → `'responsive'`**
 
   **Description:** Per spec §1.9/§1.7: change `SPEED_AUTOMATION_PANEL_SCHEMA.orientation` and `TIME_SPACE_COLUMN_PANEL_SCHEMA.orientation` from `'row'` to `'responsive'`. Both consts are already rendered by `AudioRigDrawer.tsx` via `<DirectionalPanel schema={...}>` — no consumer-code change needed for this task; the behavior change is live the moment `DirectionalPanel` resolves `'responsive'` (Task 2).
 
@@ -180,7 +180,7 @@ Tasks 3 and 4 are fully independent of the whole `'responsive'`-mechanism chain 
 
   **Estimated scope:** S (2 files, two literal value changes + matching test updates)
 
-- [ ] **Task 6: `audioRigConfig.ts` — EQ & Filters additive groundwork**
+- [x] **Task 6: `audioRigConfig.ts` — EQ & Filters additive groundwork**
 
   **Description:** Per spec §1.5/§1.6/§4.2: change `EQ_FILTERS_ROW_PANEL_SCHEMA.orientation` from `'auto'` to `'responsive'`. Add `EQ_FILTERS_DESKTOP_SHARE: Record<'eq3' | 'filterLPF' | 'filterHPF', number>` (`{ eq3: 40, filterLPF: 30, filterHPF: 30 }`), adjacent to `EQ_FILTERS_ROW_PANEL_SCHEMA`. `FILTERS_COLUMN_PANEL_SCHEMA` and `AudioRigDrawer.tsx`'s nested JSX are both untouched this task — still the old 2-level nesting, still building and rendering exactly as before, just with `EQ_FILTERS_ROW_PANEL_SCHEMA` now flowing through `'responsive'` instead of `'auto'` (a behavior change on its own — the outer EQ-vs-Filters split now uses the fixed tier instead of a per-instance width measurement — but the *nesting shape* doesn't change until Task 7).
 
@@ -200,7 +200,7 @@ Tasks 3 and 4 are fully independent of the whole `'responsive'`-mechanism chain 
 
   **Estimated scope:** S (2 files, one value flip + one new const)
 
-- [ ] **Task 7: `AudioRigDrawer.tsx` — flatten EQ & Filters, remove `FILTERS_COLUMN_PANEL_SCHEMA`**
+- [x] **Task 7: `AudioRigDrawer.tsx` — flatten EQ & Filters, remove `FILTERS_COLUMN_PANEL_SCHEMA`**
 
   **Description:** Per spec §1.5/§1.6/§4.3: replace the 2-level nested EQ & Filters JSX with the flattened shape — `EQ_FILTERS_ROW_PANEL_SCHEMA` wraps `eq3`/`filterLPF`/`filterHPF` directly, as 3 siblings, via `(['eq3', 'filterLPF', 'filterHPF'] as const).map((key) => renderBlock(key, EQ_FILTERS_DESKTOP_SHARE[key]))`. Give `renderBlock()` a new optional second parameter, `desktopSharePercent?: number`; import `useCabinetTier` and call it once at the top of `AudioRigDrawer()`; when `desktopSharePercent` is given and the tier is `'desktop'`, apply `style={{ flexBasis: `${desktopSharePercent}%` }}` to that block's existing `.audio-rig-drawer__effect-block` wrapper `<div>` — omitted (`undefined`) at mobile/tablet and for every other `renderBlock` call site, which stays a single-argument call. Then remove `FILTERS_COLUMN_PANEL_SCHEMA` from `audioRigConfig.ts` and its test — confirmed no other consumer exists after this task lands. Per spec §7 item 3, `AudioRigDrawer.css` needs no change (confirmed during planning: it contains no reference to `FILTERS_COLUMN`/`filters-column`).
 
@@ -223,7 +223,7 @@ Tasks 3 and 4 are fully independent of the whole `'responsive'`-mechanism chain 
 
   **Estimated scope:** L (4 files, at the guideline ceiling — the flatten-and-cleanup is one coupled change with one meaningful verification pass, same reasoning `docs/tasks/DIRECTIONAL_PANEL_WIRING.md`'s own Task 2 used)
 
-- [ ] **Task 8: `AudioRigDrawer.tsx` — de-nest Delay/Reverb's paired sub-rows**
+- [x] **Task 8: `AudioRigDrawer.tsx` — de-nest Delay/Reverb's paired sub-rows**
 
   **Description:** Per spec §1.7/§4.3: delete the `block.key === 'delay'` and `block.key === 'reverb'` branches from `renderBlock()`'s conditional entirely — both fall through to the existing final `else` branch (`block.params.map((param) => paramRow(param, effect, updateParam))`), the same flat shape Compressor/Limiter's non-special-cased params already use. This removes the hand-composed `topRow` (`Time`+`Feedback` / `Decay`+`Pre-Delay`) nesting outright, at every breakpoint — not just mobile/tablet.
 
@@ -245,15 +245,15 @@ Tasks 3 and 4 are fully independent of the whole `'responsive'`-mechanism chain 
   **Estimated scope:** S (2 files, deletion of 2 branches)
 
 ### Checkpoint: EQ & Filters / Time & Space complete
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] Manual check of EQ & Filters and Time & Space against spec §1.5/§1.6/§1.7 at mobile/tablet/desktop widths.
-- [ ] Review with human before proceeding.
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [x] Manual check of EQ & Filters and Time & Space against spec §1.5/§1.6/§1.7 at mobile/tablet/desktop widths.
+- [x] Review with human before proceeding.
 
 ---
 
 ### Phase 4: Output
 
-- [ ] **Task 9: `AudioRigDrawer.tsx` — Compressor's sub-rows → `'responsive'`; de-nest the third row**
+- [x] **Task 9: `AudioRigDrawer.tsx` — Compressor's sub-rows → `'responsive'`; de-nest the third row**
 
   **Description:** Per spec §1.8, confirmed against the intent doc directly during planning: the intent doc names exactly two "existing paired sub-rows" that stay paired on desktop — Threshold+Ratio and Attack+Release. Compressor's third inline row (`audioRig.compressor.bottomRow` — note this id is a pre-existing duplicate of the Attack+Release row's own id; flag but don't fix as part of this task, it's not this phase's concern) pairs Knee with the Decay Mode radio and is **not** one of the two named pairs. Per the general Output rule ("all sliders get their own rows" on mobile/tablet) and the absence of Knee/Decay-Mode from the protected pair list, this third row is de-nested entirely, the same way Delay/Reverb's `topRow` was (Task 8) — Knee and the Decay Mode radio each become their own direct `.audio-rig-drawer__param-row`/row, at every breakpoint, not just mobile/tablet. So: change `audioRig.compressor.topRow` (Threshold+Ratio) and the Attack+Release `bottomRow` from `orientation: 'row'` to `orientation: 'responsive'`; remove the third `DirectionalPanel` wrapper entirely, rendering Knee's `paramRow(...)` and the Decay Mode radio's row as two flat, unwrapped siblings directly inside Compressor's own `block.panel`.
 
@@ -275,16 +275,16 @@ Tasks 3 and 4 are fully independent of the whole `'responsive'`-mechanism chain 
   **Estimated scope:** S (2 files, two literal value changes + one wrapper removal)
 
 ### Checkpoint: Audio Rig layout complete
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] Full manual check across mobile (~375px), tablet (~800px), and desktop (~1280px+), dragging the window live across the 640px/1024px thresholds, against spec §5's complete checklist (Transport, EQ & Filters, LPF/HPF sliders, Time & Space, Compressor) — including a glance at EQ's own Low/Mid/High row at mobile widths now that it's a standalone sibling (spec §7 item 5 — not a confirmed requirement, just worth a look).
-- [ ] Confirm nothing overflows horizontally at any width between the tiers — the original bug report.
-- [ ] Review with human before proceeding.
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [x] Full manual check across mobile (~375px), tablet (~800px), and desktop (~1280px+), dragging the window live across the 640px/1024px thresholds, against spec §5's complete checklist (Transport, EQ & Filters, LPF/HPF sliders, Time & Space, Compressor) — including a glance at EQ's own Low/Mid/High row at mobile widths now that it's a standalone sibling (spec §7 item 5 — not a confirmed requirement, just worth a look).
+- [x] Confirm nothing overflows horizontally at any width between the tiers — the original bug report.
+- [x] Review with human before proceeding.
 
 ---
 
 ### Phase 5: Docs
 
-- [ ] **Task 10: Documentation sync**
+- [x] **Task 10: Documentation sync**
 
   **Description:** Per spec §6: add a short line to `docs/COMPONENT_LIBRARY.md`'s existing "Panel orientation (`PanelOrientation`)" subsection introducing `'responsive'` alongside `'auto'`/`'row'`/`'column'`, pointing at this spec. Add a short dated amendment note to `docs/specs/VERTICAL_SLIDERS.md` near its classification table's `filterLPF`/`filterHPF` row (still `'auto'` in that historical table — leave the table itself as a record of what was decided then, add the note pointing at this spec's reversal). Add the same kind of amendment note to `docs/tasks/DIRECTIONAL_PANEL_WIRING.md` near its own description of `filterLPF`/`filterHPF` resolving to `'column'`.
 
@@ -304,11 +304,11 @@ Tasks 3 and 4 are fully independent of the whole `'responsive'`-mechanism chain 
   **Estimated scope:** XS (docs only, 3 files)
 
 ### Checkpoint: Complete
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] All acceptance criteria across all 10 tasks are met.
-- [ ] Full manual check (Phase 4's checkpoint) reconfirmed against the final shipped code.
-- [ ] All 3 docs reflect the shipped feature.
-- [ ] Ready for human review / PR.
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [x] All acceptance criteria across all 10 tasks are met.
+- [x] Full manual check (Phase 4's checkpoint) reconfirmed against the final shipped code.
+- [x] All 3 docs reflect the shipped feature.
+- [x] Ready for human review / PR.
 
 ## Risks and Mitigations
 
