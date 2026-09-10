@@ -73,7 +73,7 @@ Checkpoint: Complete
 ### Checkpoint: Hook ships
 - [x] `npm run build:types`, `npm run lint` clean; `useVoxelTrackSlider.test.ts` passes in isolation.
 - [x] `grep -rn "useVoxelTrackSlider" src/` shows the new export present with zero real consumers yet, beyond its own test file.
-- [ ] Review with human before proceeding.
+- [x] Review with human before proceeding.
 
 ---
 
@@ -105,7 +105,7 @@ Checkpoint: Complete
 - [x] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes (123 files / 2094 tests).
 - [x] `git diff src/components/ui/controls/SliderLinear.test.tsx` confirmed empty (not just "tests pass" — the literal diff, since a rewritten test that happens to still pass would not actually prove behavior preservation).
 - [ ] Spot-check in the running app: a real `SliderLinear` consumer (e.g. Audio Rig's EQ3 Gain) renders and behaves identically to before this task — same box row, same drag/keyboard behavior, same focus ring. **Outstanding — no browser-automation tool available in this environment (confirmed via `ToolSearch` in prior Cabinetry items); flagged for Crawford to perform in the running app, same honest gap every prior item's own checkpoint recorded rather than skipping silently.**
-- [ ] Review with human before proceeding — this checkpoint gates whether Task 3 may safely build `SliderLog` on the same hook. Every automated signal is green and nothing required touching `SliderLinear.test.tsx`, but the box stays open until Crawford has actually looked, per this doc's own convention of not self-certifying a human-review gate.
+- [x] Review with human before proceeding — this checkpoint gates whether Task 3 may safely build `SliderLog` on the same hook. Confirmed by Crawford.
 
 ---
 
@@ -130,7 +130,7 @@ Checkpoint: Complete
   - [x] `npm run build:types`, `npm run lint` clean.
   - [x] `npm run build` clean.
   - [x] Full suite (`npm test`) re-confirmed clean (123 files / 2096 tests) — including `SliderLinear.test.tsx` still unmodified and passing, and `PingContourDrawer.test.tsx` (the real, unmocked `SliderLog` consumer). One unrelated pre-existing flake observed on the first run (`worldTransition.test.ts`'s seeded-swell-snapshot assertion) — passed in isolation and on an immediate re-run with zero code changes; stack trace points to `spawnSystem`/`AudioEngine` voice creation, nothing this task touched.
-  - [ ] **Manual check:** confirmed via `ToolSearch` — no browser-automation tool is available in this environment (matching every prior Cabinetry item's own finding). **Outstanding — flagged for Crawford to perform in the running app**: load Ping Contour's Attack/Decay/Release at each of the 3 breakpoints, confirm the voxel-box track renders, confirm dragging/keyboard-stepping moves the straddling box non-linearly along the log curve (small drags near the low end travel further along the track than equal-sized drags near the high end), confirm the focus ring renders on top of the box row, confirm a narrow container clamps to 3 boxes and scrolls, confirm "reduce motion" snaps instead of animating, and spot-check that a real `SliderLinear` in the same drawer still looks/behaves unchanged.
+  - [x] **Manual check:** performed by Crawford in the running app — passed visual review. Surfaced one real bug not caught by the automated suite (jsdom applies no real layout): `.sc-slider-log__track`/`.sc-slider-log__root` still carried pre-Cabinetry CSS, letting the voxel box row overflow into the value label and intercept clicks — fixed as a post-ship refinement (spec §1.5, this doc's own "Post-ship refinements" section below).
 
   **Dependencies:** Task 1, Task 2 (sequenced after Task 2's own checkpoint — see Architecture Decisions for why).
 
@@ -141,8 +141,8 @@ Checkpoint: Complete
 ### Checkpoint: SliderLog ships — first visible change
 - [x] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes (123 files / 2096 tests).
 - [x] Every real `SliderLog` call site in the app renders through `VoxelTrack` with no call-site changes required — confirmed by `npm run build:types` alone surfacing nothing, since the props contract didn't change.
-- [ ] Manual pass — explicitly flagged as outstanding, no browser-automation tool available in this environment (confirmed via `ToolSearch`), matching how `OBLIQUE_CABINETRY_SLIDER_LINEAR.md`'s own Task 6 checkpoint recorded the same gap honestly rather than skipping it.
-- [ ] Review with human before proceeding.
+- [x] Manual pass — performed by Crawford; passed visual review (after the Track/Root fix above).
+- [x] Review with human before proceeding.
 
 ---
 
@@ -191,9 +191,9 @@ Checkpoint: Complete
 - [x] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes (123 files / 2096 tests).
 - [x] All acceptance criteria across all 5 tasks are met.
 - [x] `docs/COMPONENT_LIBRARY.md` and `docs/CONSOLE_THEMING.md` both reflect the shipped feature.
-- [ ] Manual check (Task 3) completed against the real running app. **Outstanding — no browser-automation tool available in this environment; flagged for Crawford.**
+- [x] Manual check (Task 3) completed against the real running app — performed by Crawford, passed visual review.
 - [x] `docs/roadmap/roadmap.md` gains the "Done" marker for 11.1.4, mirroring 11.1.2/11.1.3's own pattern.
-- [ ] Ready for PR — blocked only on the manual check above.
+- [x] Ready for PR.
 
 ## Risks and Mitigations
 
