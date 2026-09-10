@@ -479,3 +479,29 @@ Carried forward from the spec's own §7, not blocking this plan:
    `VoxelTrack.tsx`/`useVoxelTrackSlider.ts` should be treated as stable, closed infrastructure from
    this point forward; any further change to any of the three is a deliberate, reviewed modification,
    not a routine follow-up.
+
+## Post-ship refinements (beyond the original 6 tasks)
+
+A real, shipped fix made after all 6 tasks above were already complete — found by Crawford during
+the manual running-app check the "Checkpoint: Complete" gate had left outstanding, not a gap in the
+original spec/plan. Recorded here for the same reason `OBLIQUE_CABINETRY_SLIDER_LOG.md`'s own task
+doc records its own post-ship section: so this history isn't lost.
+
+- **Dragging below zero correctly activated the right box, but its accent color grew left-to-right
+  instead of right-to-left.** Root cause: `VoxelTrack`'s straddling slot always renders its glow
+  (filled) piece as the first DOM child, which CSS positions on the box's MIN side — correct for
+  `computeVoxelBoxStates`' own single min-anchored scan (and for `computeVoxelBoxStatesCenteredZero`'s
+  positive side, where the min side of the straddling box genuinely is the filled side), but backwards
+  for the negative side: after that side's own index reversal (spec §1.2), the filled portion of its
+  straddling box is the one nearer the seam — its MAX side, not its min side. `VoxelBoxState` gained a
+  3rd optional field, `flipStraddleFill` (`computeVoxelBoxStatesCenteredZero` sets it `true` for the
+  negative side, `false` for the positive side; `computeVoxelBoxStates`' own output never sets it, so
+  `SliderLinear`/`SliderLog` are unaffected). `VoxelTrack.tsx` stamps `data-flip="true"` on the
+  straddling slot's wrapper when set; a new `VoxelTrack.css` rule swaps visual flex `order` (not DOM
+  order, so the existing `:last-child` z-index rule — which must keep targeting the flat piece
+  structurally regardless of which side it visually renders on — needed no change). Reproduced first
+  via the Prove-It Pattern: 2 existing hand-derived exact-match tests in `voxelTrackMath.test.ts`
+  updated to include the new field, plus 2 new tests (one confirming
+  `computeVoxelBoxStatesCenteredZero` sets the field correctly per side, one confirming `VoxelTrack`
+  stamps the attribute) — all 4 failing before the fix, all passing after. `npm test` full suite:
+  123 files / 2118 tests. `npm run build:types`/`lint`/`build` clean.
