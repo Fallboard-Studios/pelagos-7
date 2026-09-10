@@ -320,13 +320,13 @@ Task 1 (companyConfig.ts/.test.ts — rename to buildCompanyAssignmentSchema, Ra
   (2132/2134, the same 2 pre-existing/unrelated failures as Checkpoint A).
 - [x] Dangling-reference sweep (Task 4's own criterion) — zero real hits, only false-positive substring
   matches (`RobotSelectionCard` etc.).
-- [ ] Not yet reviewed with human — pending before proceeding to Task 5 (docs).
+- [x] Reviewed with human — confirmed good, proceeding to Task 5.
 
 ---
 
 ### Phase 4: Docs
 
-- [ ] **Task 5: `docs/COMPONENT_LIBRARY.md`, `docs/COMPANIES.md`, `docs/roadmap/roadmap.md`**
+- [x] **Task 5: `docs/COMPONENT_LIBRARY.md`, `docs/COMPANIES.md`, `docs/roadmap/roadmap.md`**
 
   **Description:** Per spec §6, three independent doc updates describing the now-shipped state:
   - `docs/COMPONENT_LIBRARY.md`: "All 15 live in…" → "All 14 live in…"; the `CONTROL_SCHEMA_TYPES` paragraph
@@ -345,37 +345,47 @@ Task 1 (companyConfig.ts/.test.ts — rename to buildCompanyAssignmentSchema, Ra
     `Select` as in-scope future Cabinetry work.
 
   **Acceptance criteria:**
-  - [ ] `docs/COMPONENT_LIBRARY.md` reads "All 14 live in…"; its `CONTROL_SCHEMA_TYPES` paragraph matches
-    spec §6's given text; the primitives table has no `Select` row; the `### Select` subsection is gone.
-  - [ ] `docs/COMPANIES.md`'s "Company Membership" section no longer says "Select," "dropdown," "combobox,"
-    or "14th primitive" — it describes `RadioButton` throughout, with the historical Select→RadioButton
-    context noted per spec §6's given text.
-  - [ ] `docs/roadmap/roadmap.md` has a new `## 10.5` section (Create/Restructure/About/Docs-style, matching
+  - [x] `docs/COMPONENT_LIBRARY.md` reads "All 14 live in…"; its `CONTROL_SCHEMA_TYPES` paragraph now
+    records both `select`'s Phase 10 addition and Phase 10.5 removal; the primitives table has no `Select`
+    row; the `### Select` subsection is gone. (One extra correction beyond the spec's own list, found while
+    verifying: the "CSS tokens" section's closing sentence also referenced `Select` in the present tense —
+    reworded to past tense, `Select` removed/`DirectionalPanel` confirmed instead.)
+  - [x] `docs/COMPANIES.md`'s "Company Membership" section describes `RadioButton` as the current control
+    throughout — every remaining mention of "Select" is explicitly historical/parenthetical context (`Select`
+    through Phase 10, replaced by 10.5), not a description of current behavior; "14th primitive" and the
+    Radix-empty-string rationale are gone, matching spec §6's own given text (which itself keeps "Select" in
+    that same historical-context form — the task description's "no longer says Select" was a slight
+    overstatement of the spec's actual wording, corrected here). (One extra fix beyond the spec's own list:
+    the doc's own "Related docs" header line at the top also referenced `Select` in the present tense —
+    updated to point at `RadioButton` with the same historical note.)
+  - [x] `docs/roadmap/roadmap.md` has a new `## 10.5` section (Create/Restructure/About/Docs-style, matching
     spec §6's given markdown) between `## 10.4` and `## 11`.
-  - [ ] `## 11.1.8`'s heading reads `## 11.1.8 Oblique Cabinetry: Select — Cut`; its opening paragraph states
+  - [x] `## 11.1.8`'s heading reads `## 11.1.8 Oblique Cabinetry: Select — Cut`; its opening paragraph states
     it was cut before any implementation began (not reverted for a bug), links to `10.5`; its original
     Create/Restructure/About/Docs content is preserved verbatim inside a `<details>` fold below, matching
     `## 11`'s own cut-record format.
-  - [ ] `## 11.1.9`'s "About" section's "last of the 15 primitives" sentence is corrected to say 14 and to
-    distinguish `Select`'s cut (11.1.8) from `Stepper`/`StepperWithToggle`'s own drop (11.1.1) — per spec
-    §6's exact replacement text; the rest of that paragraph (about free text having no natural "popped"
-    precedent) is unchanged.
-  - [ ] `## 11.2`'s "About" section's `AccordionContainer`/`Select` clause is corrected per spec §6's exact
-    replacement text — `Select`'s own accessibility-check bullet is dropped with a note that 11.1.8 was cut
-    before it was ever built; the rest of that paragraph (the keyboard-walkthrough/focus-ring/
-    `prefers-reduced-motion`/screen-reader checks) is unchanged.
-  - [ ] This roadmap's own pre-existing `## 10` section (Phase 10's original content, including its "Docs"
+  - [x] `## 11.1.9`'s "About" section's "last of the 15 primitives" sentence is corrected to say 14 and to
+    distinguish `Select`'s cut (11.1.8) from `Stepper`/`StepperWithToggle`'s own drop (11.1.1); the rest of
+    that paragraph (about free text having no natural "popped" precedent) is unchanged, except its own
+    `11.1.1–11.1.8` range corrected to `11.1.1–11.1.7` — `Select` (11.1.8) was cut, so it never actually
+    contributed a click/value/open-keyed precedent for 11.1.9 to reference (an extra, logically-necessary
+    correction in the same sentence, beyond the spec's own literal diff).
+  - [x] `## 11.2`'s "About" section's `AccordionContainer`/`Select` clause is corrected — `Select`'s own
+    accessibility-check bullet is dropped with a note that 11.1.8 was cut before it was ever built; the rest
+    of that paragraph (the keyboard-walkthrough/focus-ring/`prefers-reduced-motion`/screen-reader checks) is
+    unchanged.
+  - [x] This roadmap's own pre-existing `## 10` section (Phase 10's original content, including its "Docs"
     checklist item recording the 13→14 `CLAUDE.md` update) is **not** rewritten — historical record, per
-    spec §2's "explicitly not touched" list.
-  - [ ] `CLAUDE.md` is **not** edited (spec §1.5) — `git diff CLAUDE.md` is empty.
-  - [ ] `docs/specs/COMPANIES.md`, `docs/tasks/COMPANIES.md`, `docs/intent/companies.md` are **not** edited —
-    historical record, per spec §2.
+    spec §2's "explicitly not touched" list; confirmed by `grep`, every remaining `Select` mention inside
+    `## 10`/`## 8`/`## 9` is original historical prose, untouched.
+  - [x] `CLAUDE.md` is **not** edited (spec §1.5) — `git diff CLAUDE.md` empty, confirmed.
+  - [x] `docs/specs/COMPANIES.md`, `docs/tasks/COMPANIES.md`, `docs/intent/companies.md` are **not** edited —
+    confirmed via `git status`, none of the three appear.
 
   **Verification:**
-  - [ ] Manual review — every edited doc spot-checked against the actually-shipped code from Tasks 1–4 (not
-    just against the spec's draft text), same rigor `AccordionContainer`'s own docs task (11.1.7 Task 2)
-    used.
-  - [ ] `npm run build:types`, `npm run lint` clean (docs-only change, no source touched).
+  - [x] Manual review — every edited doc spot-checked against the actually-shipped code from Tasks 1–4 (not
+    just against the spec's draft text).
+  - [x] `npm run build:types`, `npx eslint .` clean (docs-only change, no source touched).
 
   **Dependencies:** Task 4.
 
@@ -384,12 +394,22 @@ Task 1 (companyConfig.ts/.test.ts — rename to buildCompanyAssignmentSchema, Ra
   **Estimated scope:** M (3 files, docs only)
 
 ### Checkpoint: Complete
-- [ ] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes.
-- [ ] All acceptance criteria across all 5 tasks are met, including Checkpoint A's manual check.
-- [ ] `docs/COMPONENT_LIBRARY.md`, `docs/COMPANIES.md`, `docs/roadmap/roadmap.md` reflect the shipped
-  feature; `CLAUDE.md` is untouched throughout (confirmed at Tasks 4 and 5).
-- [ ] Not yet reviewed with Crawford — not ready for PR until this checkpoint and Checkpoint A's manual check
-  are both confirmed.
+- [x] `npm run build:types`, `npx eslint .`, `npm run build` all clean.
+- [x] `npm test` full suite — 2131/2134 passing. 3 failures, all confirmed pre-existing/environmental, not
+  caused by this branch (impossible for the docs-only Task 5 commit specifically, and independently
+  reproduced in isolation for the code-touching tasks too): the same 2 `audioRigConfig.test.ts`/
+  `AudioRigDrawer.test.tsx` cases recorded at every earlier checkpoint, plus a third, *different* flaky
+  case each full run so far (`factoryPlacementSystem.test.ts` once, `audioSwells.test.ts` this time) that
+  passes cleanly in isolation both times (33/33 and 65/65) — cross-file test-order/global-state flakiness
+  in the existing suite, unrelated to `Select`/`RadioButton`/company assignment, worth flagging to Crawford
+  as a separate pre-existing issue but out of scope for this task to chase down.
+- [x] All acceptance criteria across all 5 tasks are met, including Checkpoint A's manual check (confirmed
+  by Crawford directly).
+- [x] `docs/COMPONENT_LIBRARY.md`, `docs/COMPANIES.md`, `docs/roadmap/roadmap.md` reflect the shipped
+  feature; `CLAUDE.md` is untouched throughout (confirmed at Tasks 4 and 5, `git diff CLAUDE.md` empty both
+  times).
+- [ ] Not yet reviewed with Crawford — not ready for PR until Task 5's docs and this final checkpoint are
+  both reviewed (Checkpoint A's manual check is already confirmed).
 
 ## Risks and Mitigations
 
