@@ -21,7 +21,7 @@
      (already set below) means row children always share one line,
      shrinking to fit however tight, matching the documented "overflow is
      solved with a nested DirectionalPanel, not a wrap prop" policy. */
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
 }
 
@@ -38,7 +38,7 @@
      bigger flex-basis next layout -> bigger measured width. flex-basis: 0
      removes content from the space-distribution calculation entirely, so
      every row child's width is stable and content-independent. */
-  flex: 1 1 auto;
+  flex: 1 1 0;
   /* A flex item's default min-width is `auto`, which resolves to its
      content's min-content size when the item's own overflow is visible —
      still worth keeping at 0 alongside the flex-basis fix above, so a
