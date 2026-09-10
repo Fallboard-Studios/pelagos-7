@@ -114,9 +114,7 @@ parallel.
     rendering — neither asserts against `TextInput`'s internal DOM structure, both unaffected. The 2 remaining
     failures are the same pre-existing/unrelated pair (`audioRigConfig.test.ts`, `AudioRigDrawer.test.tsx`)
     recorded throughout this repo's other Cabinetry work; no third rotating-flaky failure this run.
-  - [ ] Manual check (spec §5, items 1–4 and 6) — **not performed in this session** (no browser/devtools
-    tooling configured). Flagged for Crawford to check directly against the running app before this item is
-    considered fully verified, same as every prior Cabinetry item's plan has required.
+  - [x] **Manual check completed — confirmed by Crawford directly against the running app.** Passed.
 
   **Dependencies:** None (11.1.1 and `DirectionalPanel`'s own Cabinetry treatment already shipped and merged
   to `main`).
@@ -133,9 +131,8 @@ parallel.
 - [x] Every real `TextInput` call site in the app renders through the new facade with zero call-site changes
   required — confirmed by `npm run build:types` alone surfacing nothing, since the props contract didn't
   change.
-- [ ] Manual check — **not yet performed** (no browser tooling in this session); still open before this
-  phase is considered fully verified.
-- [ ] Review with human before proceeding.
+- [x] Manual check — confirmed by Crawford directly against the running app. Passed.
+- [x] Reviewed with human — confirmed good, proceeding.
 
 ---
 
@@ -221,15 +218,10 @@ parallel.
 - [x] `npm run build:types`, `npx eslint .` clean after every task; `npm run build` clean (Task 1). `npm
   test` full suite run after both Task 1 (2136/2138) and Task 2 (2137/2139) — same 2 pre-existing/unrelated
   failures both times, no regression from either task; Task 3 is docs-only, no re-run needed.
-- [x] All acceptance criteria across all 3 tasks are met, **except** Task 1's manual check, which remains
-  open (see below).
+- [x] All acceptance criteria across all 3 tasks are met, including Task 1's manual check.
 - [x] `docs/COMPONENT_LIBRARY.md` reflects the shipped feature.
-- [ ] **Manual check (Task 1) still outstanding** — no browser tooling was available in this implementing
-  session; needs a human pass against the real running app (Company Manager's Create/Rename name fields,
-  Sector Settings' Attenuation Style name field, Sector Settings' `CoordsInput`) before this is called fully
-  done, same as `AccordionContainer`'s and `Company Assignment RadioButton`'s own plans required.
-- [ ] Not yet reviewed with Crawford — **not ready for PR** until the manual check above is done and
-  reviewed.
+- [x] **Manual check (Task 1) completed — confirmed by Crawford directly against the running app.** Passed.
+- [x] Reviewed with Crawford — ready for PR.
 
 ## Risks and Mitigations
 
