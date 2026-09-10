@@ -29,6 +29,7 @@ vi.mock('gsap', () => {
     fromTo(a?: unknown, b?: unknown, config?: TimelineConfig): TimelineObj;
     call(fn?: () => void): TimelineObj;
     eventCallback(): TimelineObj;
+    kill(): void;
   }
 
   const noop = (): TimelineObj => {
@@ -50,6 +51,20 @@ vi.mock('gsap', () => {
         return obj as TimelineObj;
       },
       eventCallback: () => obj as TimelineObj,
+      // Every real consumer stores a gsap.timeline() result via
+      // timelineMap.ts's setTimeline() and later calls .kill() on it via
+      // killTimeline() (on unmount, or at the top of any re-run of the
+      // effect that created it) — this mock's own timeline object needs a
+      // matching no-op, same as delayedCall's below already has. Missing
+      // until 2026-09-09: masked for a long time because most consumers'
+      // own tests either supply a local gsap mock with its own .kill(), or
+      // (CabinetBox specifically, before its width-gate fix) never
+      // actually got far enough to register a real timeline in tests that
+      // don't drive a ResizeObserver — found live once that gate was
+      // removed and CabinetBox's timeline started registering (and later
+      // getting killed) unconditionally on mount, in every test file that
+      // renders a Button/Toggle without a local gsap mock of its own.
+      kill: () => { },
     };
     return obj as TimelineObj;
   };

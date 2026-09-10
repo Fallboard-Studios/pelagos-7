@@ -14,29 +14,70 @@
   align-items: center;
 }
 
+/* Only the box row (Slider.Root) is ever wider/taller than its container —
+   the label/value are always narrower in practice, so this scrollbar only
+   ever engages for the 3-box overflow floor (voxelTrackMath.ts's
+   VOXEL_TRACK_MIN_BOX_COUNT). No separate wrapper element — see
+   docs/specs/OBLIQUE_CABINETRY_SLIDER_LINEAR.md §1.11 for why one was
+   deliberately avoided. */
+.sc-slider-linear[data-orientation='horizontal'] {
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.sc-slider-linear[data-orientation='vertical'] {
+  overflow-y: auto;
+  overflow-x: visible;
+}
+
 .sc-slider-linear__root {
   position: relative;
   display: flex;
   align-items: center;
+  /* Slider.Root's own inline width AND height (set in SliderLinear.tsx —
+     main axis from computeVoxelTrackLength, cross axis from the live
+     boxSize) now supersede both of these; kept only as a same-paint
+     fallback for the instant before that inline style applies, mirroring
+     CabinetBox.css's own :root fallback precedent. Not the old thin-line
+     track's real dimensions anymore — those are gone now that boxes
+     32-48px tall actually render here. */
   width: 100%;
   height: 20px;
   touch-action: none;
   user-select: none;
+  /* NOT margin: 0 auto here (removed) — auto margins on a flex item inside
+     an overflow-x/y: auto ancestor are a known-flaky browser combination:
+     the browser's scrollable-overflow-region calculation can count the
+     auto-margin's "centering space" as real overflow even when the
+     centered content (Slider.Root) genuinely fits inside .sc-slider-linear
+     with room to spare — producing a scrollbar whose thumb visibly moves
+     but scrolls nothing meaningful, alongside a real, reproducible dead-
+     space gap. Found live in the running app (a fitted box row, correctly
+     inside its own container per computed widths, still showing a working
+     scrollbar and ~100px of unexplained trailing space) — not something a
+     unit test would have caught, since jsdom applies no real layout.
+     Flush-start (this rule's own plain block/flex-item default position,
+     no override) until a centering technique that doesn't trigger this is
+     found and verified against a real browser. */
 }
 
 .sc-slider-linear__track {
   position: relative;
   flex-grow: 1;
-  height: 3px;
-  border-radius: 999px;
-  background-color: var(--color-border);
-}
-
-.sc-slider-linear__range {
-  position: absolute;
+  /* Always exactly Slider.Root's own cross-axis size — no longer a
+     separately hand-picked 3px literal left over from the old thin-line
+     track, which is what let a 32-48px box row render inside (and
+     overflow past) a 3px-tall container. */
   height: 100%;
   border-radius: 999px;
-  background-color: var(--color-accent);
+}
+
+/* Decorative only, kept in the DOM for structural/a11y parity — the voxel
+   track (an absolutely-positioned sibling inside Slider.Track) renders the
+   real visible fill. Mirrors SliderCenteredZero.css's own .__range rule
+   exactly. */
+.sc-slider-linear__range {
+  visibility: hidden;
 }
 
 .sc-slider-linear__thumb {
@@ -44,7 +85,12 @@
   width: 14px;
   height: 14px;
   border-radius: 999px;
-  background-color: var(--color-text-primary);
+  /* was background-color: var(--color-text-primary) — the voxel boxes now
+     carry all visible fill/position information; the thumb itself stays
+     real, hit-testable, and focusable (never visibility:hidden/opacity:0,
+     which would also hide the :focus-visible outline below). See
+     docs/specs/OBLIQUE_CABINETRY_SLIDER_LINEAR.md §1.10. */
+  background-color: transparent;
 }
 
 .sc-slider-linear__thumb:focus-visible {
@@ -54,12 +100,20 @@
 
 .sc-slider-linear__root[data-orientation='vertical'] {
   flex-direction: column;
+  /* Slider.Root's own inline width AND height (cross axis boxSize, main
+     axis computeVoxelTrackLength) always supersede both of these now —
+     same same-paint-fallback-only status as the base rule above. */
   width: 20px;
+  /* The old --slider-vertical-height fallback stays defined globally for
+     SliderCenteredZero/SliderLog (which don't consult it until
+     11.1.4/11.1.5), but SliderLinear no longer reads it live. */
   height: var(--slider-vertical-height, 256px);
 }
 
 .sc-slider-linear__track[data-orientation='vertical'] {
-  width: 3px;
+  /* Always exactly Slider.Root's own cross-axis size (see the base
+     .sc-slider-linear__track rule's own comment). */
+  width: 100%;
   height: 100%;
 }
 

@@ -17,4 +17,17 @@ export const CABINET_BOX_HEIGHT = {
   desktop: 48,
 } as const;
 
+/**
+ * Voxel-track box gap (roadmap Phase 11.1.3) — the same 3 breakpoint tiers
+ * CABINET_BOX_HEIGHT already uses, resolved by the same shared tier
+ * detection (useCabinetTier, useCabinetBoxHeight.ts) rather than a second,
+ * independently hand-synced set of matchMedia listeners. See
+ * docs/specs/OBLIQUE_CABINETRY_SLIDER_LINEAR.md §1.4.
+ */
+export const CABINET_VOXEL_GAP = {
+  mobile: 8,
+  tablet: 10,
+  desktop: 12,
+} as const;
+
 export type CabinetTier = keyof typeof CABINET_BOX_HEIGHT;

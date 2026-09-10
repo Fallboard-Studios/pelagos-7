@@ -7,12 +7,45 @@
 .sc-directional-panel__content {
   display: flex;
   flex-direction: row;
-  flex-wrap: wrap;
+  /* 'row' never wraps — a deliberate decision (docs/specs/DIRECTIONAL_PANEL.md
+     §1.4, confirmed during design discussion, 2026-09-04), not an oversight.
+     This was shipped as `wrap` instead — the opposite of the documented
+     decision — a pre-existing bug found while debugging the voxel-track
+     slider redesign (roadmap 11.1.3): thin-line sliders rarely had enough
+     natural content width to actually trigger a wrap, so it sat latent;
+     boxes with a real minimum width trigger it constantly, wrapping a
+     child onto its own solo line where it then grows (flex-grow: 1) to
+     fill that ENTIRE line — no min-width/flex-basis fix on the children
+     (above) can prevent that, since a solo item on a wrapped line always
+     gets 100% of it regardless. nowrap + flex-shrink: 1 + min-width: 0
+     (already set below) means row children always share one line,
+     shrinking to fit however tight, matching the documented "overflow is
+     solved with a nested DirectionalPanel, not a wrap prop" policy. */
+  flex-wrap: nowrap;
   gap: 8px;
 }
 
 .sc-directional-panel__content>* {
-  flex: 1 1 auto;
+  /* flex-basis: 0 (not the old `auto`) — every row child gets an EQUAL
+     share of the row, computed purely from the flex-grow ratio, with zero
+     dependency on the child's own content size. `auto` looks similar but
+     isn't: it starts each item at its own content size, then grows only
+     the *leftover* space — for a child whose own content size depends on
+     how much space it thinks it has (SliderLinear's voxel-track box-count
+     fitting, roadmap Phase 11.1.3, via ResizeObserver), that's a real
+     feedback loop, not just a shrink problem min-width alone can fix:
+     bigger measured width -> more boxes render -> bigger content size ->
+     bigger flex-basis next layout -> bigger measured width. flex-basis: 0
+     removes content from the space-distribution calculation entirely, so
+     every row child's width is stable and content-independent. */
+  flex: 1 1 0;
+  /* A flex item's default min-width is `auto`, which resolves to its
+     content's min-content size when the item's own overflow is visible —
+     still worth keeping at 0 alongside the flex-basis fix above, so a
+     child's content is never a lower bound on this item's width either
+     (e.g. it can shrink to the 3-box overflow floor and scroll, rather
+     than forcing this item wider to fit an unshrunk box row). */
+  min-width: 0;
 }
 
 .sc-directional-panel__content[data-orientation='column'] {

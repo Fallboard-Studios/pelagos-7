@@ -1,0 +1,114 @@
+.sc-voxel-track {
+  position: absolute;
+  inset: 0;
+  /* An explicit z-index (0, not auto) makes this element establish its OWN
+     stacking context — containing the per-box z-index values below (see
+     computeVoxelBoxZIndex) to this row/column, rather than letting them
+     escape upward past every non-stacking-context ancestor (Slider.Track/
+     Root, ... — none of which set an explicit z-index of their own) and
+     compete against unrelated content several levels up. Same reasoning as
+     .sc-voxel-track__straddle's own local stacking context below. */
+  z-index: 0;
+  display: flex;
+  gap: var(--voxel-gap);
+  pointer-events: none;
+}
+
+/* Box 0 (nearest min) renders leftmost. */
+.sc-voxel-track[data-axis='horizontal'] {
+  flex-direction: row;
+}
+
+/* Box 0 (nearest min) renders bottommost — matches Radix's own vertical
+   min-at-bottom convention (SliderCenteredZero's own existing precedent). */
+.sc-voxel-track[data-axis='vertical'] {
+  flex-direction: column-reverse;
+}
+
+/* Forces every box to an exact square at the current breakpoint's size —
+   CabinetBox's front face is otherwise content-driven (Button) or a
+   caller-forced fixed size (Toggle); this scopes the same override
+   technique to voxel-track boxes specifically, mirroring
+   docs/specs/OBLIQUE_CABINETRY_TOGGLE.md §1.2 exactly. See this item's own
+   §1.3. */
+.sc-voxel-track .sc-cabinet-box__front {
+  width: var(--voxel-box-size);
+  height: var(--voxel-box-size);
+  padding: 0;
+}
+
+/* .sc-cabinet-box's own padding-right/padding-bottom (CabinetBox.css)
+   reserves room for a STANDALONE Button/Toggle's fully-popped footprint,
+   so its own hit area never shifts as it pops. A voxel-track box doesn't
+   need that: its "breathing room" from its neighbor is already --voxel-gap
+   (the flex gap above), and the pop itself is a GSAP transform (paint-
+   only, doesn't affect layout/box size) — not a resize the wrapper needs
+   to pre-reserve space for. Left in place, that padding stacked on TOP of
+   --voxel-gap, making every box (and therefore the whole row,
+   compounding per box) wider than computeVoxelTrackLength ever accounted
+   for — every box's own slot was boxSize + 2*CABINET_POP_DISTANCE, not
+   boxSize. Found live in the running app.
+
+   Addendum, 2026-09-09: CabinetBox.css's own padding-right/padding-bottom
+   reservation described above no longer exists at all (removed for every
+   consumer, not just zeroed here — see OBLIQUE_CABINETRY_FOUNDATION.md
+   §1.6's post-implementation correction). This override is now a no-op
+   (0 overriding a base value that's already 0) — left in place rather than
+   deleted, since it costs nothing and still documents that voxel-track
+   boxes deliberately want no padding reservation even if a future change
+   reintroduces one for Button/Toggle specifically. */
+.sc-voxel-track .sc-cabinet-box {
+  padding: 0;
+}
+
+.sc-voxel-track__fill {
+  width: 100%;
+  height: 100%;
+}
+
+/* The straddling slot's own wrapper — always exactly boxSize (its two
+   CabinetBox children's frontWidth/frontHeight always sum to boxSize, so
+   this needs no explicit size of its own), laid out with no gap between
+   its two pieces so they sit flush against each other. Mirrors
+   .sc-voxel-track's own per-axis flex-direction rules exactly, so the
+   glow piece (always the first child, DOM-order) renders on the min side
+   the same way box 0 itself does — leftmost for horizontal,
+   bottommost for vertical. */
+.sc-voxel-track__straddle {
+  display: flex;
+  /* position: relative + an explicit inline z-index (set by VoxelTrack.tsx,
+     via computeVoxelBoxZIndex — the same per-slot value every ordinary box
+     in this row/column gets) makes this element establish its OWN stacking
+     context — containing the negative z-index below to right here, rather
+     than letting it potentially escape upward past every non-stacking-
+     context ancestor and compete against unrelated content several levels
+     up (e.g. .console's own translucent background). Without this, a plain
+     z-index: -1 several layers down risks painting behind things far
+     outside this one slot instead of just behind its own sibling piece. */
+  position: relative;
+}
+
+.sc-voxel-track__straddle[data-axis='horizontal'] {
+  flex-direction: row;
+}
+
+.sc-voxel-track__straddle[data-axis='vertical'] {
+  flex-direction: column-reverse;
+}
+
+/* The flat piece paints BEHIND the glow piece within this one slot. The
+   glow piece's own protrusion — its front face's pop transform, and its
+   wall polygons extending past its own box per the 2:1 oblique vector —
+   visually bleeds into the flat piece's adjacent region (nothing clips
+   it; .sc-cabinet-box has no overflow: hidden). Without this, the flat
+   piece (the later DOM sibling, painting on top by default under normal
+   stacking rules) would cover that bleed, making the glow piece look
+   like it renders behind the "unselected" flat area instead of visibly
+   protruding in front of it. :last-child within .sc-voxel-track__straddle
+   is always the flat piece (glow is always first, DOM order) regardless
+   of axis — see VoxelTrack.tsx. Scoped here specifically: Button/Toggle
+   and every ordinary (non-straddling) voxel-track box are untouched.
+   Found live in the running app. */
+.sc-voxel-track__straddle > .sc-cabinet-box:last-child {
+  z-index: -1;
+}

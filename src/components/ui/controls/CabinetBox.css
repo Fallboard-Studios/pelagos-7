@@ -18,37 +18,112 @@
 .sc-cabinet-box {
   position: relative;
   display: inline-flex;
-  /* Reserves room for the fully-popped footprint so the wrapper's own hit
-     area never needs to grow/move when the content pops — the "stationary
-     hit box" rule. The 2:1 oblique vector, expressed here via calc()
-     against the one JS-supplied --cabinet-pop-distance value above, rather
-     than as separately hand-tuned pixel literals. */
-  padding-right: calc(2 * var(--cabinet-pop-distance));
-  padding-bottom: var(--cabinet-pop-distance);
 }
 
+/* Always-present, always fully opaque, never transformed — sits at exactly
+   the box's own resting (flat) footprint, behind both the walls and the
+   front face (DOM order: backing, walls, front — the same "later paints
+   over earlier" stacking OBLIQUE_CABINETRY_FOUNDATION.md §1 already relies
+   on for front-over-walls, extended one layer further back). Sized to
+   exactly 100% of the wrapper's own box — which is already every
+   consumer's own flat, unpadded footprint now that .sc-cabinet-box no
+   longer reserves padding for the popped state (that reservation was
+   removed in this same change; see OBLIQUE_CABINETRY_FOUNDATION.md §1.6's
+   post-implementation correction — Button/Toggle's hit area now ends at
+   this same flat rectangle too, not the popped-out one). Confirmed via
+   /interview-me, 2026-09-09: the point is to visibly show the box's own
+   static footprint peeking out from behind the walls' own translucent,
+   offset popped facade (.sc-cabinet-box__walls' opacity fade below) — the
+   front face stays fully opaque throughout, so only the walls actually
+   reveal the backing. Accent-tinted (--color-accent at 40% opacity), not
+   the surface token, so it reads as the box's own material showing
+   through rather than a neutral gap. */
+.sc-cabinet-box__backing {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--color-accent);
+  opacity: .4;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* A plain <div> (roadmap 11.1.1 follow-up — was <svg>, see the two child
+   rules below): no replaced-element intrinsic-size concept, so the old
+   "SVG defaults to 300x150 unless given explicit width/height" bug this
+   rule used to work around is now structurally impossible — inset: 0 alone
+   is sufficient. See docs/specs/OBLIQUE_CABINETRY_WALL_RENDERING.md §1.5. */
 .sc-cabinet-box__walls {
   position: absolute;
   inset: 0;
-  overflow: visible;
   pointer-events: none;
   /* Glows more, the further the box has popped — --cabinet-glow is tweened
      0→1 on the shared wrapper by the same GSAP timeline that drives the pop
      offset (CabinetBox.tsx), so the glow grows in lockstep with the actual
      protrusion, not on its own separately-eased transition. drop-shadow,
-     not box-shadow, since this glow follows the actual wall polygon
+     not box-shadow, since this glow follows the walls' own rendered
      silhouette — the "back" of the box, not the moving front — rather than
      a rectangular bounding box. Confirmed against the real running app,
-     2026-09-07 — this is the shipped design, not a draft. */
+     2026-09-07 — this is the shipped design, not a draft. This element's
+     own opacity now also rides the same tween, 0→0.5 as --cabinet-glow
+     goes 0→1 — the walls fade toward translucent as they pop, letting
+     .sc-cabinet-box__backing (above) show through. The front face stays
+     fully opaque throughout (its own real content/label needs to stay
+     legible) — only the walls, the box's "back," fade. Confirmed via
+     /interview-me, 2026-09-09. Applying filter/opacity here (once, to the
+     whole group) rather than on each wall div individually costs nothing
+     extra now that the walls are 2 <div>s instead of an <svg> with 2
+     <polygon>s — filter composites a stacking context's full rendered
+     output as one operation regardless of child count.
+
+     Formula revised 2026-09-09 (was `1 - glow*0.5`, opaque-by-default —
+     see git history): a wall mid-collapse (small but nonzero scale) was
+     ALSO still near-fully-opaque under the old formula, so a shrinking
+     sliver stayed sharp/high-contrast right up until it hit exactly zero
+     scale — a visible "flash," worst on a slider click where many boxes
+     collapse at once. `glow*0.5` instead ties opacity directly to the
+     same value driving the scale — a near-flat wall is ALSO near-fully
+     transparent, so the collapse reads as a soft dissolve rather than a
+     shrinking hard-edged shard. The t=1 (fully popped) value is
+     unchanged at 0.5 — only the flat-end behavior changed, from opaque
+     to transparent (moot at exactly t=0, since zero scale already shows
+     nothing regardless of opacity — this only matters for the small
+     nonzero values in between). */
   filter: drop-shadow(0 0 calc(var(--cabinet-glow, 0) * 20px) var(--color-accent));
+  opacity: calc(var(--cabinet-glow, 0) * 0.5);
+}
+
+/* Both walls are, geometrically, a plain rectangle skewed by a FIXED angle
+   (independent of pop progress t) and scaled along one axis by t itself —
+   replacing the old SVG <polygon> `points`-attribute tweening (main-thread/
+   paint-bound) with GSAP-driven scaleY/scaleX transforms (compositor-bound),
+   fixing a real, felt lag between the walls and the front face during a
+   slider drag. transform-origin: top left matches the (0,0) origin
+   CabinetBox.tsx's geometry math assumes. See
+   docs/specs/OBLIQUE_CABINETRY_WALL_RENDERING.md §1.2/§1.4.
+
+   NEVER add a `transform:` rule here (including skewX/skewY) — GSAP owns
+   the entire transform on both elements. The skew is set exactly once via
+   gsap.set() on mount (CabinetBox.tsx); a CSS-authored transform would be
+   silently clobbered the instant GSAP writes scaleY/scaleX, since GSAP's
+   inline style write fully replaces the element's transform rather than
+   merging with a separate CSS declaration. */
+.sc-cabinet-box__top-face,
+.sc-cabinet-box__left-face {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: top left;
 }
 
 .sc-cabinet-box__top-face {
-  fill: color-mix(in srgb, var(--color-accent) 100%, white 20%);
+  background-color: color-mix(in srgb, var(--color-accent) 100%, white 20%);
 }
 
 .sc-cabinet-box__left-face {
-  fill: color-mix(in srgb, var(--color-accent) 100%, black 25%);
+  background-color: color-mix(in srgb, var(--color-accent) 100%, black 25%);
 }
 
 .sc-cabinet-box__front {
@@ -60,7 +135,12 @@
   /* No border-radius, deliberately — sharp corners read as a cleaner match
      for the walls' own straight-edged parallelogram geometry than the
      original 4px radius did; confirmed against the real running app,
-     2026-09-07. */
+     2026-09-07. --color-surface is the DEFAULT for a consumer whose front
+     face carries no text — Button.css overrides this to --color-accent for
+     its own front face specifically, since it carries real text (DualLabel)
+     and reads as the "live" surface; VoxelTrack's textless boxes and
+     Toggle's bare box stay on this default. See Button.css's own comment,
+     2026-09-09. */
   background-color: var(--color-surface);
   color: var(--color-text-primary);
 }
