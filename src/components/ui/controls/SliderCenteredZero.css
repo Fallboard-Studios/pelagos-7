@@ -7,17 +7,38 @@
 /* Vertical fader: inline so several can sit side by side in a row without a
    parent grid/flex rework (docs/specs/VERTICAL_SLIDERS.md's own deferred
    drawer-layout work isn't a prerequisite for this); centered cross-axis so
-   the narrow 20px track lines up under a wider label/value instead of
-   sitting flush left. */
+   the narrow box row lines up under a wider label/value instead of sitting
+   flush left. */
 .sc-slider-centered-zero[data-orientation='vertical'] {
   display: inline-flex;
   align-items: center;
+}
+
+/* Only the box row (Slider.Root) is ever wider/taller than its container —
+   engages only for the 4-box overflow floor (voxelTrackMath.ts's own
+   VOXEL_TRACK_MIN_BOX_COUNT_EVEN). Mirrors SliderLinear.css's/SliderLog.css's
+   own precedent — scoped to the existing data-orientation attribute, no new
+   wrapper element. */
+.sc-slider-centered-zero[data-orientation='horizontal'] {
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.sc-slider-centered-zero[data-orientation='vertical'] {
+  overflow-y: auto;
+  overflow-x: visible;
 }
 
 .sc-slider-centered-zero__root {
   position: relative;
   display: flex;
   align-items: center;
+  /* Slider.Root's own inline width AND height (set in SliderCenteredZero.tsx,
+     via useVoxelTrackSlider's rootStyle — main axis from
+     computeVoxelTrackLength, cross axis from the live boxSize) now supersede
+     both of these; kept only as a same-paint fallback for the instant before
+     that inline style applies. Mirrors SliderLinear.css's/SliderLog.css's own
+     precedent exactly. */
   width: 100%;
   height: 20px;
   touch-action: none;
@@ -27,25 +48,27 @@
 .sc-slider-centered-zero__track {
   position: relative;
   flex-grow: 1;
-  height: 3px;
+  /* Always exactly Slider.Root's own cross-axis size. Applied here
+     proactively (not discovered live) — SliderLog.css's own equivalent rule
+     started at a literal 3px and needed a post-implementation fix once
+     VoxelTrack's real 32-48px box row started overflowing that 3px container
+     into a DOM-later sibling's hit area (docs/specs/
+     OBLIQUE_CABINETRY_SLIDER_LOG.md §1.5); starting from the already-fixed
+     shape here avoids repeating that regression a third time. */
+  height: 100%;
   border-radius: 999px;
-  background-color: var(--color-border);
 }
 
 /* Radix's own Range fill is kept in the DOM for structural/a11y parity but
-   not shown — the custom .__fill div below handles the visible zero-anchored
-   fill instead. */
+   not shown — VoxelTrack (an absolutely-positioned sibling inside
+   Slider.Track) renders the real visible zero-anchored fill instead. */
 .sc-slider-centered-zero__range {
   visibility: hidden;
 }
 
-/* Positioning (left/width for horizontal, bottom/height for vertical) is
-   fully inline-style-driven (SliderCenteredZero.tsx's fillStyle) — both axes
-   need a computed value, so neither gets a static rule here. */
-.sc-slider-centered-zero__fill {
-  position: absolute;
-  border-radius: 999px;
-  background-color: var(--color-accent);
+.sc-slider-centered-zero__range[data-orientation='vertical'] {
+  width: 100%;
+  height: auto;
 }
 
 .sc-slider-centered-zero__root[data-orientation='vertical'] {
@@ -55,7 +78,7 @@
 }
 
 .sc-slider-centered-zero__track[data-orientation='vertical'] {
-  width: 3px;
+  width: 100%;
   height: 100%;
 }
 
@@ -64,7 +87,11 @@
   width: 14px;
   height: 14px;
   border-radius: 999px;
-  background-color: var(--color-text-primary);
+  /* was background-color: var(--color-text-primary) — the voxel boxes now
+     carry all visible fill/position information; the thumb itself stays
+     real, hit-testable, and focusable (never visibility:hidden/opacity:0,
+     which would also hide the :focus-visible outline below). */
+  background-color: transparent;
 }
 
 .sc-slider-centered-zero__thumb:focus-visible {

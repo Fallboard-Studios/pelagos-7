@@ -1,46 +1,85 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, act } from '@testing-library/react';
+
+vi.mock('./VoxelTrack', () => ({
+  VoxelTrack: ({
+    states,
+    boxSize,
+    gap,
+    axis,
+    timelineKeyPrefix,
+  }: {
+    states: unknown[];
+    boxSize: number;
+    gap: number;
+    axis: string;
+    timelineKeyPrefix: string;
+  }) => (
+    <div
+      data-testid="voxel-track"
+      data-states={JSON.stringify(states)}
+      data-box-size={boxSize}
+      data-gap={gap}
+      data-axis={axis}
+      data-timeline-key-prefix={timelineKeyPrefix}
+    />
+  ),
+}));
 
 import { SliderCenteredZero } from './SliderCenteredZero';
-import { computeFillRect, zeroPointPercent } from './sliderCenteredZeroMath';
+import {
+  computeFittedBoxCount,
+  computeVoxelTrackLength,
+  computeVoxelTrackTrailingReserve,
+  computeVoxelBoxStatesCenteredZero,
+  VOXEL_TRACK_DEFAULT_VERTICAL_HEIGHT,
+  VOXEL_TRACK_MIN_BOX_COUNT_EVEN,
+} from '@/utils/voxelTrackMath';
 import type { SliderCenteredZeroSchema } from '@/types/controls';
 
 const detuneSchema: SliderCenteredZeroSchema = { id: 'detune', type: 'sliderCenteredZero', min: -50, max: 50, humanLabel: 'Detune', unit: 'ct', orientation: 'horizontal' };
 
-describe('sliderCenteredZeroMath', () => {
-  it('computes the zero point generally, not hardcoded to 50% (asymmetric -20/+50 fixture)', () => {
-    // (0 - (-20)) / (50 - (-20)) * 100 = 20/70*100 ≈ 28.57%, not 50%.
-    expect(zeroPointPercent(-20, 50)).toBeCloseTo((20 / 70) * 100, 5);
-    expect(zeroPointPercent(-20, 50)).not.toBeCloseTo(50, 0);
-  });
+// Desktop-tier box geometry (no window.matchMedia in this jsdom environment
+// -> useCabinetBoxHeight()/useVoxelTrackGap() both fall back to 'desktop',
+// same assumption SliderLinear.test.tsx/SliderLog.test.tsx already make).
+const BOX_SIZE = 48;
+const GAP = 12;
 
-  it('computes a symmetric zero point at 50% for symmetric bounds', () => {
-    expect(zeroPointPercent(-50, 50)).toBeCloseTo(50, 5);
-  });
+/**
+ * Controllable ResizeObserver mock, mirroring SliderLog.test.tsx's own
+ * convention exactly.
+ */
+class MockResizeObserver {
+  static instances: MockResizeObserver[] = [];
+  callback: ResizeObserverCallback;
 
-  it('value = 0 renders a zero-width fill (symmetric bounds)', () => {
-    const rect = computeFillRect(0, -50, 50);
-    expect(rect.width).toBeCloseTo(0, 10);
-  });
+  constructor(callback: ResizeObserverCallback) {
+    this.callback = callback;
+    MockResizeObserver.instances.push(this);
+  }
 
-  it('value = 0 renders a zero-width fill (asymmetric bounds)', () => {
-    const rect = computeFillRect(0, -20, 50);
-    expect(rect.width).toBeCloseTo(0, 10);
-  });
+  observe() {}
+  unobserve() {}
+  disconnect() {}
 
-  it('fills from the zero point rightward for positive values', () => {
-    const zero = zeroPointPercent(-50, 50);
-    const rect = computeFillRect(25, -50, 50);
-    expect(rect.left).toBeCloseTo(zero, 5);
-    expect(rect.width).toBeGreaterThan(0);
-  });
+  fire(width: number, height: number) {
+    this.callback(
+      [{ contentRect: { width, height } } as ResizeObserverEntry],
+      this as unknown as ResizeObserver,
+    );
+  }
+}
 
-  it('fills from the zero point leftward for negative values', () => {
-    const zero = zeroPointPercent(-50, 50);
-    const rect = computeFillRect(-25, -50, 50);
-    expect(rect.left).toBeLessThan(zero);
-    expect(rect.left + rect.width).toBeCloseTo(zero, 5);
-  });
+let originalResizeObserver: typeof ResizeObserver;
+
+beforeEach(() => {
+  MockResizeObserver.instances = [];
+  originalResizeObserver = globalThis.ResizeObserver;
+  (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = MockResizeObserver;
+});
+
+afterEach(() => {
+  (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = originalResizeObserver;
 });
 
 describe('SliderCenteredZero component', () => {
@@ -102,12 +141,65 @@ describe('SliderCenteredZero component', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it('still renders the correct zero-anchored fill when disabled (visual state unaffected)', () => {
-    const { container } = render(<SliderCenteredZero schema={detuneSchema} value={25} onChange={() => {}} disabled />);
-    const fillEl = container.querySelector<HTMLDivElement>('.sc-slider-centered-zero__fill');
-    const rect = computeFillRect(25, -50, 50);
-    expect(fillEl?.style.left).toBe(`${rect.left}%`);
-    expect(fillEl?.style.width).toBe(`${rect.width}%`);
+  it("resolves to exactly one role='slider' element — the voxel boxes introduce no accessibility-tree ambiguity", () => {
+    render(<SliderCenteredZero schema={detuneSchema} value={0} onChange={() => {}} />);
+    expect(screen.getAllByRole('slider')).toHaveLength(1);
+  });
+
+  it('renders VoxelTrack with states matching computeVoxelBoxStatesCenteredZero(value, schema.min, schema.max, boxCount) for a positive value', () => {
+    render(<SliderCenteredZero schema={detuneSchema} value={25} onChange={() => {}} />);
+    const voxelTrack = screen.getByTestId('voxel-track');
+    // No ResizeObserver fired -> boxCount falls back to the forced-even floor.
+    const expectedStates = computeVoxelBoxStatesCenteredZero(25, -50, 50, VOXEL_TRACK_MIN_BOX_COUNT_EVEN);
+    expect(JSON.parse(voxelTrack.getAttribute('data-states')!)).toEqual(expectedStates);
+    expect(voxelTrack.getAttribute('data-box-size')).toBe(String(BOX_SIZE));
+    expect(voxelTrack.getAttribute('data-gap')).toBe(String(GAP));
+  });
+
+  it('renders VoxelTrack with states matching computeVoxelBoxStatesCenteredZero for a negative value', () => {
+    render(<SliderCenteredZero schema={detuneSchema} value={-25} onChange={() => {}} />);
+    const voxelTrack = screen.getByTestId('voxel-track');
+    const expectedStates = computeVoxelBoxStatesCenteredZero(-25, -50, 50, VOXEL_TRACK_MIN_BOX_COUNT_EVEN);
+    expect(JSON.parse(voxelTrack.getAttribute('data-states')!)).toEqual(expectedStates);
+  });
+
+  it('renders VoxelTrack with every box flat at value === 0', () => {
+    render(<SliderCenteredZero schema={detuneSchema} value={0} onChange={() => {}} />);
+    const voxelTrack = screen.getByTestId('voxel-track');
+    const states = JSON.parse(voxelTrack.getAttribute('data-states')!);
+    expect(states.every((s: { fillPercent: number; popT: number; isStraddling: boolean }) =>
+      s.fillPercent === 0 && s.popT === 0 && !s.isStraddling,
+    )).toBe(true);
+  });
+
+  it('the box count is always even — VoxelTrack never receives an odd-length states array', () => {
+    render(<SliderCenteredZero schema={detuneSchema} value={0} onChange={() => {}} />);
+    const voxelTrack = screen.getByTestId('voxel-track');
+    const states = JSON.parse(voxelTrack.getAttribute('data-states')!);
+    expect(states.length % 2).toBe(0);
+  });
+
+  it('disabled does not change the states passed to VoxelTrack — the visual read is unaffected by disabled', () => {
+    const { unmount } = render(<SliderCenteredZero schema={detuneSchema} value={25} onChange={() => {}} />);
+    const enabledStates = screen.getByTestId('voxel-track').getAttribute('data-states');
+    unmount();
+    render(<SliderCenteredZero schema={detuneSchema} value={25} onChange={() => {}} disabled />);
+    const disabledStates = screen.getByTestId('voxel-track').getAttribute('data-states');
+    expect(disabledStates).toBe(enabledStates);
+  });
+
+  it("the seam is always dead-center (Math.floor(boxCount / 2)), not proportional to the schema's own zero fraction — asymmetric bounds (-20/+50)", () => {
+    const asymmetricSchema: SliderCenteredZeroSchema = { id: 'asym', type: 'sliderCenteredZero', min: -20, max: 50, orientation: 'horizontal' };
+
+    render(<SliderCenteredZero schema={asymmetricSchema} value={5} onChange={() => {}} />);
+    const positiveVoxelTrack = screen.getByTestId('voxel-track');
+    const positiveStates = JSON.parse(positiveVoxelTrack.getAttribute('data-states')!);
+    // A 4-box row split dead-center puts exactly 2 boxes on each side —
+    // the first 2 (negative side) stay entirely flat for a positive value,
+    // regardless of how far zeroPointPercent(-20, 50) (~28.57%) sits from
+    // the row's true center.
+    expect(positiveStates.slice(0, 2).every((s: { fillPercent: number }) => s.fillPercent === 0)).toBe(true);
+    expect(positiveStates.slice(2, 4).some((s: { fillPercent: number }) => s.fillPercent > 0)).toBe(true);
   });
 
   describe('orientation', () => {
@@ -152,63 +244,51 @@ describe('SliderCenteredZero component', () => {
       expect(rootIndex).toBeLessThan(valueIndex);
     });
 
-    it("'vertical': does not set an inline height when verticalHeight is omitted — the default comes from the --slider-vertical-height CSS custom property", () => {
+    it("'vertical': omitting verticalHeight fits synchronously against the fixed VOXEL_TRACK_DEFAULT_VERTICAL_HEIGHT budget, then rounds down to the nearest even count — the correct height is present on the very first render, with no ResizeObserver callback needed", () => {
       const { container } = render(<SliderCenteredZero schema={verticalSchema} value={0} onChange={() => {}} />);
       const root = container.querySelector<HTMLElement>('.sc-slider-centered-zero__root');
-      expect(root?.style.height).toBe('');
+      const rawBoxCount = computeFittedBoxCount(VOXEL_TRACK_DEFAULT_VERTICAL_HEIGHT, BOX_SIZE, GAP);
+      expect(rawBoxCount % 2).toBe(0); // sanity-check this fixture doesn't accidentally exercise rounding
+      const expectedLength = computeVoxelTrackLength(rawBoxCount, BOX_SIZE, GAP);
+      expect(root?.style.height).toBe(`${expectedLength}px`);
     });
 
-    it("'vertical': sets an inline height from the verticalHeight prop when provided, overriding the CSS default", () => {
+    it("'vertical': verticalHeight is a fitting BUDGET, forced to an even box count — the rendered height is the box-quantized, forced-even length, not verticalHeight verbatim and not the raw odd-count length either", () => {
+      // 310 fits 5 boxes raw (odd) -> forced down to 4.
       const { container } = render(
-        <SliderCenteredZero schema={verticalSchema} value={0} onChange={() => {}} verticalHeight={300} />,
+        <SliderCenteredZero schema={verticalSchema} value={0} onChange={() => {}} verticalHeight={310} />,
       );
       const root = container.querySelector<HTMLElement>('.sc-slider-centered-zero__root');
-      expect(root?.style.height).toBe('300px');
+      const rawBoxCount = computeFittedBoxCount(310, BOX_SIZE, GAP);
+      expect(rawBoxCount % 2).toBe(1); // sanity-check the fixture's own premise (raw fit is odd)
+      const rawLength = computeVoxelTrackLength(rawBoxCount, BOX_SIZE, GAP);
+      const forcedEvenLength = computeVoxelTrackLength(rawBoxCount - 1, BOX_SIZE, GAP);
+      expect(root?.style.height).toBe(`${forcedEvenLength}px`);
+      expect(root?.style.height).not.toBe('310px');
+      expect(root?.style.height).not.toBe(`${rawLength}px`);
     });
 
-    it("'horizontal': ignores a verticalHeight prop entirely (no inline height set)", () => {
+    it("'horizontal': ignores a verticalHeight prop entirely for sizing, sets an inline width from the fitted-then-forced-even box count plus its own trailing pop-out reserve, and an inline height equal to the box's own cross-axis size", () => {
       const { container } = render(
         <SliderCenteredZero schema={detuneSchema} value={0} onChange={() => {}} verticalHeight={300} />,
       );
+      const observer = MockResizeObserver.instances[0];
+      // 288px fits exactly 5 boxes (odd) before the reserve is added back.
+      const reserve = computeVoxelTrackTrailingReserve('horizontal');
+      act(() => observer.fire(288 + reserve, 0));
+
       const root = container.querySelector<HTMLElement>('.sc-slider-centered-zero__root');
-      expect(root?.style.height).toBe('');
+      const rawBoxCount = computeFittedBoxCount(288, BOX_SIZE, GAP);
+      expect(rawBoxCount % 2).toBe(1); // sanity-check the fixture's own premise
+      const expectedLength = computeVoxelTrackLength(rawBoxCount - 1, BOX_SIZE, GAP) + reserve;
+      expect(root?.style.width).toBe(`${expectedLength}px`);
+      expect(root?.style.height).toBe(`${BOX_SIZE}px`);
     });
 
     it("'auto': renders without throwing, resolving to horizontal-looking output before any ResizeObserver measurement fires", () => {
       const { container } = render(<SliderCenteredZero schema={autoSchema} value={0} onChange={() => {}} />);
       const root = container.querySelector('.sc-slider-centered-zero__root');
       expect(root?.getAttribute('data-orientation')).toBe('horizontal');
-    });
-
-    it("'horizontal': the fill's inline style still uses left/width (unchanged from before this task)", () => {
-      const { container } = render(<SliderCenteredZero schema={detuneSchema} value={25} onChange={() => {}} />);
-      const fillEl = container.querySelector<HTMLDivElement>('.sc-slider-centered-zero__fill');
-      const rect = computeFillRect(25, -50, 50);
-      expect(fillEl?.style.left).toBe(`${rect.left}%`);
-      expect(fillEl?.style.width).toBe(`${rect.width}%`);
-      expect(fillEl?.style.bottom).toBe('');
-      expect(fillEl?.style.height).toBe('');
-    });
-
-    it("'vertical': the fill's inline style uses bottom/height, not left/width — reusing computeFillRect's existing percentages on the new axis", () => {
-      const { container } = render(<SliderCenteredZero schema={verticalSchema} value={25} onChange={() => {}} />);
-      const fillEl = container.querySelector<HTMLDivElement>('.sc-slider-centered-zero__fill');
-      const rect = computeFillRect(25, -50, 50);
-      expect(fillEl?.style.bottom).toBe(`${rect.left}%`);
-      expect(fillEl?.style.height).toBe(`${rect.width}%`);
-      expect(fillEl?.style.left).toBe('');
-      expect(fillEl?.style.width).toBe('');
-    });
-
-    it("'vertical': a negative value's fill still spans from the zero point (asymmetric bounds, -20/+50)", () => {
-      const asymmetricSchema: SliderCenteredZeroSchema = {
-        id: 'asym', type: 'sliderCenteredZero', min: -20, max: 50, orientation: 'vertical',
-      };
-      const { container } = render(<SliderCenteredZero schema={asymmetricSchema} value={-10} onChange={() => {}} />);
-      const fillEl = container.querySelector<HTMLDivElement>('.sc-slider-centered-zero__fill');
-      const rect = computeFillRect(-10, -20, 50);
-      expect(fillEl?.style.bottom).toBe(`${rect.left}%`);
-      expect(fillEl?.style.height).toBe(`${rect.width}%`);
     });
   });
 });
