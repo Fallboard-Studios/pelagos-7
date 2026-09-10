@@ -239,10 +239,9 @@ Task 1 (companyConfig.ts/.test.ts — rename to buildCompanyAssignmentSchema, Ra
   historically reference the old name (`companyConfig.ts`'s own function doc, `controls.ts`'s `SelectSchema`
   doc) — no real import/call site remains; `grep -rln "from '@/components/ui/controls/Select'" src/` returns
   nothing. Confirms both real consumers are fully converted.
-- [ ] Manual check, both call sites (spec §5's manual-check list) — **not performed in this session** (no
-  browser/devtools tooling configured). Flagged for Crawford to check directly against the running app
-  before Task 4 (the irreversible deletion) proceeds, same as `AccordionContainer`'s own plan (11.1.7)
-  required a human-performed check:
+- [x] Manual check, both call sites (spec §5's manual-check list) — **confirmed by Crawford directly against
+  the running app.** (Performed after the RadioButton hover-pop addition landed too — see that separate
+  commit — so the check also covers the hover behavior on both call sites, beyond the original list below.)
   1. Company row renders as a `RadioButton` pill row (Freelance, then companies) at both the Robot Selection
      hub tile's card list and an individual robot's Robot Options detail page — no click-to-open step.
   2. The currently-assigned company (or Freelance) shows popped/accent-tinted.
@@ -253,6 +252,7 @@ Task 1 (companyConfig.ts/.test.ts — rename to buildCompanyAssignmentSchema, Ra
      `RobotSelectionCard` with no layout break (confirms `RadioButton.css`'s existing `flex-wrap: wrap` is
      sufficient, no new CSS needed).
   6. Keyboard interaction (`Tab`, arrow keys, `Space`/`Enter`) works the same as `CompanyButtonRow` elsewhere.
+- [x] Reviewed with human — confirmed good, proceeding to Task 4.
 - [ ] Review with human before proceeding to Task 4 (the irreversible deletion step).
 
 ---
