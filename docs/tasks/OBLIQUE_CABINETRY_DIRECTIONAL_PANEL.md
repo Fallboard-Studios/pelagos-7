@@ -206,7 +206,7 @@ Task 1 (CabinetBox.tsx/.test.tsx — autoHeight prop)
 
 ### Phase 3: Docs
 
-- [ ] **Task 3: `docs/COMPONENT_LIBRARY.md` — DirectionalPanel's internal rendering note**
+- [x] **Task 3: `docs/COMPONENT_LIBRARY.md` — DirectionalPanel's internal rendering note**
 
   **Description:** Add a short note under `DirectionalPanel`'s existing section (mirroring every prior
   item's own "internal rendering changed, contract didn't" note) — its internal rendering changed for
@@ -216,14 +216,17 @@ Task 1 (CabinetBox.tsx/.test.tsx — autoHeight prop)
   additive `CabinetBox` changes got a mention in `Toggle`'s own note.
 
   **Acceptance criteria:**
-  - [ ] `docs/COMPONENT_LIBRARY.md` documents that `DirectionalPanel` now renders through `CabinetBox`
-    internally for top-level instances, with its props contract unchanged, and mentions `autoHeight`.
-  - [ ] The note is spot-checked against `DirectionalPanel.tsx`'s actual shipped code (Task 2), not the
+  - [x] `docs/COMPONENT_LIBRARY.md` documents that `DirectionalPanel` now renders through `CabinetBox`
+    internally for top-level instances, with its props contract unchanged, and mentions `autoHeight`. Added
+    as its own `### DirectionalPanel's Oblique Cabinetry rendering` section, following the exact pattern
+    `Button`/`Toggle`/`RadioButton`/`AccordionContainer`'s own sections use, immediately after
+    `AccordionContainer`'s.
+  - [x] The note is spot-checked against `DirectionalPanel.tsx`'s actual shipped code (Task 2), not the
     spec's draft.
 
   **Verification:**
-  - [ ] Manual review — spot-checked directly against the shipped `DirectionalPanel.tsx`.
-  - [ ] `npm run build:types`, `npm run lint` clean (docs-only change).
+  - [x] Manual review — spot-checked directly against the shipped `DirectionalPanel.tsx`.
+  - [x] `npm run build:types`, `npm run lint` clean (docs-only change).
 
   **Dependencies:** Task 2.
 
@@ -232,10 +235,19 @@ Task 1 (CabinetBox.tsx/.test.tsx — autoHeight prop)
   **Estimated scope:** XS (docs only)
 
 ### Checkpoint: Complete
-- [ ] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes.
-- [ ] All acceptance criteria across all 3 tasks are met, including Task 2's manual check.
-- [ ] `docs/COMPONENT_LIBRARY.md` reflects the shipped feature.
-- [ ] Reviewed with Crawford — ready for PR.
+- [x] `npm run build:types`, `npm run lint` clean after every task; `npm run build` clean after Task 2 (no
+  further source changes in Task 3 to re-verify against); `npm test` full suite passed after Task 2
+  (2137/2139, 2 pre-existing/unrelated failures — see Task 2's verification notes) with no source change
+  since to warrant a re-run.
+- [x] All acceptance criteria across all 3 tasks are met, **except** Task 2's manual check, which remains
+  open (see below).
+- [x] `docs/COMPONENT_LIBRARY.md` reflects the shipped feature.
+- [ ] **Manual check (Task 2) still outstanding** — no browser tooling was available in this implementing
+  session; needs a human pass against the real running app (Ping Controls, Ping Contour, Signature Array,
+  Audio Rig — see Task 2's own verification list) before this is called fully done, same as every prior
+  item's own plan required.
+- [ ] Not yet reviewed with Crawford — **not ready for PR** until the manual check above is done and
+  reviewed.
 
 ## Risks and Mitigations
 
