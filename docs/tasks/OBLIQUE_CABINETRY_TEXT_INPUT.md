@@ -59,7 +59,7 @@ parallel.
 
 ### Phase 1: The consumer — `TextInput`'s facade
 
-- [ ] **Task 1: `TextInput` — permanently-popped, `autoHeight` facade**
+- [x] **Task 1: `TextInput` — permanently-popped, `autoHeight` facade**
 
   **Description:** Replace `src/components/ui/controls/TextInput.tsx` per spec §1.1/§1.2/§4: wrap the
   existing `<div className="sc-text-input">` (unchanged `DualLabel` + `<input>` inside) in a `CabinetBox` —
@@ -74,55 +74,49 @@ parallel.
   in the file stays unchanged and passing underneath the mock.
 
   **Acceptance criteria:**
-  - [ ] Every existing `TextInput.test.tsx` assertion (placeholder, `maxLength`, `onChange` on keystroke,
+  - [x] Every existing `TextInput.test.tsx` assertion (placeholder, `maxLength`, `onChange` on keystroke,
     controlled `value`, `DualLabel` labels via `loreLabel`/`humanLabel`, plain-vs-numeric rendering,
     accessible-name fallback to `schema.id`, `disabled` default-false and blocking) passes unmodified once
     the `CabinetBox` mock is in place.
-  - [ ] The facade instance's `popped` is `"true"` **unconditionally** — verified both with `disabled` unset
+  - [x] The facade instance's `popped` is `"true"` **unconditionally** — verified both with `disabled` unset
     and with `disabled={true}` (it must never flip based on `disabled`, per spec §1.4/§3's explicit
     constraint).
-  - [ ] The facade instance receives `skipMountAnimation` and `autoHeight` both `"true"` — no `boxHeight`,
+  - [x] The facade instance receives `skipMountAnimation` and `autoHeight` both `"true"` — no `boxHeight`,
     `frontWidth`/`frontHeight`, `popDistance`, or `zIndex` override passed.
-  - [ ] `timelineKey` is exactly `` `cabinet-text-input-facade-${schema.id}` `` (verified against the file's
+  - [x] `timelineKey` is exactly `` `cabinet-text-input-facade-${schema.id}` `` (verified against the file's
     own existing `robotName` schema-id fixture).
-  - [ ] Both the `<input>` (queryable via `getByRole('textbox'|'spinbutton')`, unchanged) and its `DualLabel`
+  - [x] Both the `<input>` (queryable via `getByRole('textbox'|'spinbutton')`, unchanged) and its `DualLabel`
     text render **inside** the mocked `CabinetBox` element — confirming the label-inside-the-box wrapping
     shape (spec §1.1), not beside it.
-  - [ ] `TextInput.css`'s new facade rules use direct-child combinators
+  - [x] `TextInput.css`'s new facade rules use direct-child combinators
     (`.sc-text-input-facade > .sc-cabinet-box`, `.sc-text-input-facade > .sc-cabinet-box > .sc-cabinet-box__front`)
     and set `display: block; width: 100%; height: auto; padding: 12px 14px` on the front face — no
     `user-select: none` anywhere in the file (spec §1.4/§3 — explicitly forbidden for this consumer).
-  - [ ] `.sc-text-input`/`.sc-text-input__el`'s pre-existing rules (layout, width, padding, border,
+  - [x] `.sc-text-input`/`.sc-text-input__el`'s pre-existing rules (layout, width, padding, border,
     `:focus-visible` outline) are byte-for-byte unchanged.
-  - [ ] `TextInputSchema`/`CoordsInputSchema`/`ControlSchema` (`src/types/controls.ts`) are untouched — `git
+  - [x] `TextInputSchema`/`CoordsInputSchema`/`ControlSchema` (`src/types/controls.ts`) are untouched — `git
     diff src/types/controls.ts` is empty for this task.
-  - [ ] `CabinetBox.tsx`/`.css`, `DirectionalPanel.tsx`/`.css`, `CoordsInput.tsx`/`.css`, `cabinetGeometry.ts`,
+  - [x] `CabinetBox.tsx`/`.css`, `DirectionalPanel.tsx`/`.css`, `CoordsInput.tsx`/`.css`, `cabinetGeometry.ts`,
     `cabinetAnimation.ts`, `useCabinetBoxHeight.ts` are all untouched — `git diff` for each is empty for this
     task.
-  - [ ] The `<input>`'s own props (`type`/`inputMode`/`step`/`className`/`aria-label`/`placeholder`/
+  - [x] The `<input>`'s own props (`type`/`inputMode`/`step`/`className`/`aria-label`/`placeholder`/
     `maxLength`/`value`/`onChange`/`disabled`) are byte-for-byte unchanged from today's implementation.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/ui/controls/TextInput.test.tsx` passes in full. Confirm genuinely RED
-    first: with the `CabinetBox` mock added to the test file but `TextInput.tsx` not yet changed, the 4 new
-    facade-specific cases fail (no `data-testid="cabinet-box"` in the tree) while every pre-existing case
-    still passes (they query the real `<input>`/`DualLabel` content directly, unaffected by the mock being
-    present but unused). Then GREEN after the implementation change.
-  - [ ] `npm run build:types` — zero TypeScript errors.
-  - [ ] `npx eslint .` — zero ESLint errors.
-  - [ ] `npm run build` — production bundle builds cleanly.
-  - [ ] `npm test` (full suite) — passes, including `CompanyCrudControls.test.tsx`/`SectorSettingsDrawer.test.tsx`
-    (real, unmocked `CabinetBox` rendering via the global GSAP/`ResizeObserver` mocks in `vitest.setup.ts`,
-    same as every other drawer-level test already relies on) — neither asserts against `TextInput`'s internal
-    DOM structure (confirmed in spec §2's own research), only role/accessible-name, both unaffected.
-  - [ ] Manual check (spec §5, items 1–4 and 6): across all 3 real consumers (Company Manager's Create/Rename
-    name fields, Sector Settings' Attenuation Style name field, Sector Settings' `CoordsInput`) — permanently
-    popped at rest with no animation ever, facade height reads correctly against both a real 2-line label
-    (Company/AS name) and a real 1-line label (`CoordsInput`'s X/Y), typing/focus/caret/selection all work
-    exactly as before, a disabled field's box still looks identical to an enabled one's (no flattening), and
-    `prefers-reduced-motion` shows no console error either way. **Item 5** (the two-independent-boxes visual
-    check for `CoordsInput`) is covered by Task 2's own automated test instead of requiring a manual look,
-    though a visual glance costs nothing extra while already checking `CoordsInput`'s row.
+  - [x] `npx vitest run src/components/ui/controls/TextInput.test.tsx` passes in full — confirmed genuinely
+    RED first (the 4 new facade cases failed with `Unable to find an element by: [data-testid="cabinet-box"]`,
+    all 10 pre-existing cases already green), then GREEN after the implementation change (14/14).
+  - [x] `npm run build:types` — zero TypeScript errors.
+  - [x] `npx eslint .` — zero errors (CSS files aren't linted by this config; expected, not a gap).
+  - [x] `npm run build` — production bundle builds cleanly (pre-existing chunk-size warning, unrelated).
+  - [x] `npm test` (full suite) — 2136/2138 passing, including `CompanyCrudControls.test.tsx`
+    (38/38 across that file's own 3-file run)/`SectorSettingsDrawer.test.tsx` with real, unmocked `CabinetBox`
+    rendering — neither asserts against `TextInput`'s internal DOM structure, both unaffected. The 2 remaining
+    failures are the same pre-existing/unrelated pair (`audioRigConfig.test.ts`, `AudioRigDrawer.test.tsx`)
+    recorded throughout this repo's other Cabinetry work; no third rotating-flaky failure this run.
+  - [ ] Manual check (spec §5, items 1–4 and 6) — **not performed in this session** (no browser/devtools
+    tooling configured). Flagged for Crawford to check directly against the running app before this item is
+    considered fully verified, same as every prior Cabinetry item's plan has required.
 
   **Dependencies:** None (11.1.1 and `DirectionalPanel`'s own Cabinetry treatment already shipped and merged
   to `main`).
@@ -134,12 +128,13 @@ parallel.
   already-proven `CabinetBox`/`autoHeight` mechanics)
 
 ### Checkpoint: TextInput ships — first visible change
-- [ ] `npm run build:types`, `npx eslint .`, `npm run build` all clean; `npm test` full suite passes.
-- [ ] Every real `TextInput` call site in the app renders through the new facade with zero call-site changes
+- [x] `npm run build:types`, `npx eslint .`, `npm run build` all clean; `npm test` full suite passes
+  (2136/2138, 2 pre-existing/unrelated failures — see Task 1's own verification notes).
+- [x] Every real `TextInput` call site in the app renders through the new facade with zero call-site changes
   required — confirmed by `npm run build:types` alone surfacing nothing, since the props contract didn't
   change.
-- [ ] Manual check performed and confirmed (see Task 1's own verification list) — flag explicitly to Crawford
-  if a session lacks browser tooling to perform it, same as every prior Cabinetry item's plan has.
+- [ ] Manual check — **not yet performed** (no browser tooling in this session); still open before this
+  phase is considered fully verified.
 - [ ] Review with human before proceeding.
 
 ---
