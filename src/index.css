@@ -1,5 +1,10 @@
 :root {
   /* Typography */
+  /* App-wide default typeface (self-hosted via npm @fontsource/rajdhani,
+     imported for all 5 weights in main.tsx — not a Google Fonts CDN link).
+     --font-mono below is untouched and stays reserved for the console-chrome
+     telemetry look (PowerRockerSwitch/TransportBar/SleeveContainer). */
+  --font-sans: 'Rajdhani', system-ui, Avenir, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Segoe UI Mono", monospace;
   --font-size-sm: 12px;
   --font-size-md: 16px;
@@ -62,7 +67,7 @@
      component's own verticalHeight prop. */
   --slider-vertical-height: 256px;
 
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: var(--font-sans);
   line-height: 1.5;
   font-weight: 400;
 

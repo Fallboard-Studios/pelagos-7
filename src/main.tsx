@@ -2,6 +2,23 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 
 import App from './App.tsx'
+// Self-hosted (npm @fontsource/rajdhani, not a Google Fonts CDN link) — no
+// external network request at runtime. All 5 weights (300-700); index.css's
+// --font-sans token is the only consumer, applied as the app's default
+// typeface, replacing the prior system-ui stack. latin/latin-ext subsets
+// only (not the plain weight-only files, which also bundle Devanagari
+// glyphs the app never uses — latin-ext still covers accented Latin
+// characters at a fraction of Devanagari's per-weight size).
+import '@fontsource/rajdhani/latin-300.css'
+import '@fontsource/rajdhani/latin-ext-300.css'
+import '@fontsource/rajdhani/latin-400.css'
+import '@fontsource/rajdhani/latin-ext-400.css'
+import '@fontsource/rajdhani/latin-500.css'
+import '@fontsource/rajdhani/latin-ext-500.css'
+import '@fontsource/rajdhani/latin-600.css'
+import '@fontsource/rajdhani/latin-ext-600.css'
+import '@fontsource/rajdhani/latin-700.css'
+import '@fontsource/rajdhani/latin-ext-700.css'
 import './index.css'
 import { setGlobalAttenuationStyleSeedOverride } from './utils/seedUtils'
 
