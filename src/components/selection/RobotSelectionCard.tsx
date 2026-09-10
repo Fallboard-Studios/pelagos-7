@@ -2,7 +2,7 @@ import type { KeyboardEvent, ReactEventHandler } from 'react';
 import { AudioStatusBadge } from './AudioStatusBadge';
 import { RobotBody } from '@/components/robot/RobotBody';
 import { DualLabel } from '@/components/ui/controls/DualLabel';
-import { Select } from '@/components/ui/controls/Select';
+import { RadioButton } from '@/components/ui/controls/RadioButton';
 import { useUIStore } from '@/stores/uiStore';
 import { useLocaleStore } from '@/stores/localeStore';
 import { getActiveLocaleId } from '@/utils/localeHelpers';
@@ -12,7 +12,7 @@ import {
   UNASSIGNED_JOB_LABEL,
   DOCKING_STATE_LABELS,
 } from '@/data/robotSelectionConfig';
-import { FREELANCE_VALUE, buildCompanySelectSchema } from '@/data/companyConfig';
+import { FREELANCE_VALUE, buildCompanyAssignmentSchema } from '@/data/companyConfig';
 import type { Robot } from '@/types/Robot';
 import './RobotSelectionCard.css';
 
@@ -21,12 +21,13 @@ interface RobotSelectionCardProps {
 }
 
 /**
- * Stops a click/keydown from reaching the card's own onClick/onKeyDown. React re-propagates a
- * portal's events along the *React component tree*, not the DOM tree (see the React docs on
- * portal event bubbling) — so a `target.closest()` DOM check would miss clicks on the company
- * Select's dropdown items, which Radix renders into a portal outside this card's DOM subtree
- * entirely. Stopping propagation here, one level above the Select in the React tree, works
- * regardless of where Radix physically mounts the dropdown.
+ * Stops a click/keydown from reaching the card's own onClick/onKeyDown — the company RadioButton
+ * is a nested interactive element (real DOM buttons, not portaled), so without this guard,
+ * clicking or key-activating an option would also fire the card's own selectRobot activation via
+ * ordinary DOM bubbling. (Through Roadmap Phase 10.5 this guarded a Select whose dropdown options
+ * rendered via a Radix Portal outside the card's DOM subtree entirely — see
+ * docs/specs/COMPANY_ASSIGNMENT_RADIO.md §1.3 for why the portal-specific reasoning no longer
+ * applies but the guard itself still does.)
  */
 const stopBubble: ReactEventHandler = (event) => event.stopPropagation();
 
@@ -34,15 +35,15 @@ const stopBubble: ReactEventHandler = (event) => event.stopPropagation();
  * One robot's card in the Robot Selection hub tile (Roadmap Phase 8) — a native clickable
  * element, not the Button primitive, since Button accepts no children and can't hold a card's
  * worth of content. role="button"/tabIndex/onKeyDown give it the same activation contract a real
- * <button> gets for free. The company-assignment Select (Roadmap Phase 10) is this card's first
- * nested interactive element — its wrapper's stopBubble handlers keep it from also firing the
- * card's own selectRobot activation.
+ * <button> gets for free. The company-assignment RadioButton (Roadmap Phase 10, converted from
+ * Select by 10.5) is this card's first nested interactive element — its wrapper's stopBubble
+ * handlers keep it from also firing the card's own selectRobot activation.
  */
 export function RobotSelectionCard({ robot }: RobotSelectionCardProps) {
   const selectRobot = useUIStore((s) => s.selectRobot);
   const localeId = getActiveLocaleId();
   const companies = useLocaleStore((s) => s.locales[localeId]?.companies ?? []);
-  const companySelectSchema = buildCompanySelectSchema(companies);
+  const companyAssignmentSchema = buildCompanyAssignmentSchema(companies);
   const displayName = robot.name || robot.id;
   const jobLabel = robot.job ? JOB_TYPE_LABELS[robot.job.type] : UNASSIGNED_JOB_LABEL;
   const dockingLabel = DOCKING_STATE_LABELS[robot.docking];
@@ -85,7 +86,11 @@ export function RobotSelectionCard({ robot }: RobotSelectionCardProps) {
         onClick={stopBubble}
         onKeyDown={stopBubble}
       >
-        <Select schema={companySelectSchema} value={robot.companyId ?? FREELANCE_VALUE} onChange={handleCompanyChange} />
+        <RadioButton
+          schema={companyAssignmentSchema}
+          value={robot.companyId ?? FREELANCE_VALUE}
+          onChange={handleCompanyChange}
+        />
       </div>
 
       <div className="robot-selection-card__meta-grid">
