@@ -185,7 +185,7 @@ parallel.
 
 ### Phase 3: Docs
 
-- [ ] **Task 3: `docs/COMPONENT_LIBRARY.md` — TextInput's internal rendering note**
+- [x] **Task 3: `docs/COMPONENT_LIBRARY.md` — TextInput's internal rendering note**
 
   **Description:** Add a short note under `TextInput`'s row (mirroring
   `Button`/`Toggle`/`RadioButton`/`AccordionContainer`/`DirectionalPanel`'s own notes) — its internal
@@ -196,20 +196,20 @@ parallel.
   separate feature.
 
   **Acceptance criteria:**
-  - [ ] `docs/COMPONENT_LIBRARY.md` documents that `TextInput` now renders through `CabinetBox` internally
+  - [x] `docs/COMPONENT_LIBRARY.md` documents that `TextInput` now renders through `CabinetBox` internally
     (one permanently-popped, `autoHeight` facade per instance), with its props contract unchanged. Added as
     its own `### TextInput's Oblique Cabinetry rendering (Roadmap Phase 11.1.9)` section, following the exact
     pattern every prior item's own section uses, in roadmap-item order after `DirectionalPanel`'s.
-  - [ ] The note explicitly states `CoordsInput` required no code change — its two independent boxes are a
+  - [x] The note explicitly states `CoordsInput` required no code change — its two independent boxes are a
     side effect of composing two `TextInput`s, not a `CoordsInput`-specific feature.
-  - [ ] The note is spot-checked against `TextInput.tsx`'s actual shipped code (Task 1), not the spec's
+  - [x] The note is spot-checked against `TextInput.tsx`'s actual shipped code (Task 1), not the spec's
     draft — the documented props shape (`{ schema: TextInputSchema; value: string; onChange: (value: string)
     => void; numeric?: boolean; disabled?: boolean }`) matches `TextInput.tsx`'s `TextInputProps` interface
     exactly.
 
   **Verification:**
-  - [ ] Manual review — spot-checked directly against the shipped `TextInput.tsx`.
-  - [ ] `npm run build:types`, `npx eslint .` clean (docs-only change).
+  - [x] Manual review — spot-checked directly against the shipped `TextInput.tsx`.
+  - [x] `npm run build:types`, `npx eslint .` clean (docs-only change).
 
   **Dependencies:** Task 1.
 
@@ -218,14 +218,18 @@ parallel.
   **Estimated scope:** XS (docs only)
 
 ### Checkpoint: Complete
-- [ ] `npm run build:types`, `npx eslint .` clean after every task; `npm run build` clean after Task 1 (no
-  further source changes in Tasks 2/3 to re-verify against); `npm test` full suite passed after Task 1 with
-  no source change since in Task 2 (test-only) or Task 3 (docs-only) to warrant a re-run of the full suite,
-  though each task's own focused test file should still be run individually as each lands.
-- [ ] All acceptance criteria across all 3 tasks are met, including Task 1's manual check.
-- [ ] `docs/COMPONENT_LIBRARY.md` reflects the shipped feature.
-- [ ] Not yet reviewed with Crawford — not ready for PR until Task 1's manual check is done and this
-  checkpoint is reviewed.
+- [x] `npm run build:types`, `npx eslint .` clean after every task; `npm run build` clean (Task 1). `npm
+  test` full suite run after both Task 1 (2136/2138) and Task 2 (2137/2139) — same 2 pre-existing/unrelated
+  failures both times, no regression from either task; Task 3 is docs-only, no re-run needed.
+- [x] All acceptance criteria across all 3 tasks are met, **except** Task 1's manual check, which remains
+  open (see below).
+- [x] `docs/COMPONENT_LIBRARY.md` reflects the shipped feature.
+- [ ] **Manual check (Task 1) still outstanding** — no browser tooling was available in this implementing
+  session; needs a human pass against the real running app (Company Manager's Create/Rename name fields,
+  Sector Settings' Attenuation Style name field, Sector Settings' `CoordsInput`) before this is called fully
+  done, same as `AccordionContainer`'s and `Company Assignment RadioButton`'s own plans required.
+- [ ] Not yet reviewed with Crawford — **not ready for PR** until the manual check above is done and
+  reviewed.
 
 ## Risks and Mitigations
 
