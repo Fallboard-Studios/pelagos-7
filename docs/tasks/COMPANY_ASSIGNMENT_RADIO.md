@@ -131,7 +131,7 @@ Task 1 (companyConfig.ts/.test.ts — rename to buildCompanyAssignmentSchema, Ra
 
 ### Phase 2: The two consumers — independent, both depend only on Task 1
 
-- [ ] **Task 2: `RobotSelectionCard` — `Select` → `RadioButton`**
+- [x] **Task 2: `RobotSelectionCard` — `Select` → `RadioButton`**
 
   **Description:** Per spec §1.1/§1.3/§4/§5: full replacement of `RobotSelectionCard.tsx` per the spec's
   given source — swap the `Select` import for `RadioButton`, rename the local `companySelectSchema` variable
@@ -145,30 +145,34 @@ Task 1 (companyConfig.ts/.test.ts — rename to buildCompanyAssignmentSchema, Ra
   describe block is unchanged.
 
   **Acceptance criteria:**
-  - [ ] `RobotSelectionCard.tsx` imports `RadioButton` from `@/components/ui/controls/RadioButton`, not
+  - [x] `RobotSelectionCard.tsx` imports `RadioButton` from `@/components/ui/controls/RadioButton`, not
     `Select`.
-  - [ ] The company row renders `<RadioButton schema={companyAssignmentSchema} value={robot.companyId ??
+  - [x] The company row renders `<RadioButton schema={companyAssignmentSchema} value={robot.companyId ??
     FREELANCE_VALUE} onChange={handleCompanyChange} />` — `handleCompanyChange`'s body is unchanged
     (`assignRobotToCompany(localeId, robot.id, value === FREELANCE_VALUE ? null : value)`).
-  - [ ] The company row `<div>` still has both `onClick={stopBubble}` and `onKeyDown={stopBubble}`.
-  - [ ] `stopBubble`'s doc comment and the component's own top-of-file doc comment no longer claim a Radix
+  - [x] The company row `<div>` still has both `onClick={stopBubble}` and `onKeyDown={stopBubble}`.
+  - [x] `stopBubble`'s doc comment and the component's own top-of-file doc comment no longer claim a Radix
     `Portal` is involved; both explain the guard as being for a nested interactive DOM element.
-  - [ ] `RobotSelectionCard.css` is unmodified (`git diff` empty).
-  - [ ] `RobotSelectionCard.test.tsx`'s company-assignment tests use `getByRole('radio', { name: ... })` and
+  - [x] `RobotSelectionCard.css` is unmodified (`git diff` empty).
+  - [x] `RobotSelectionCard.test.tsx`'s company-assignment tests use `getByRole('radio', { name: ... })` and
     `.getAttribute('aria-checked')`, never `getByRole('combobox'|'option')`.
-  - [ ] Exactly one "does not also select the robot" double-fire test remains (merged per spec §1.7) —
+  - [x] Exactly one "does not also select the robot" double-fire test remains (merged per spec §1.7) —
     clicking a company radio option; the old separately-portal-focused test is gone, not duplicated.
-  - [ ] Every test outside the "company assignment" describe block (name/job/battery/docking/audio rendering,
+  - [x] Every test outside the "company assignment" describe block (name/job/battery/docking/audio rendering,
     click/keyboard activation, avatar daylight-independence, accessible name, "not the Button primitive")
     passes unmodified.
-  - [ ] `git diff src/types/controls.ts src/components/ui/controls/RadioButton.tsx
+  - [x] `git diff src/types/controls.ts src/components/ui/controls/RadioButton.tsx
     src/components/ui/controls/CabinetBox.tsx` is empty for this task.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/selection/RobotSelectionCard.test.tsx` passes in full.
-  - [ ] `npx tsc --noEmit` shows no error in `RobotSelectionCard.tsx` (still expected to show one in
-    `RobotDisplaySection.tsx` until Task 3 lands, if Task 3 hasn't landed yet).
-  - [ ] `npm run lint` — zero new ESLint errors.
+  - [x] `npx vitest run src/components/selection/RobotSelectionCard.test.tsx` passes in full — confirmed
+    genuinely RED first (all 20 tests failed, `buildCompanySelectSchema is not a function` — Task 1's own
+    flagged fallout, since the component hadn't switched to the renamed function yet), then GREEN after the
+    swap (20/20 passing). Non-fatal React `act(...)` warnings appear on 2 tests (Radix `ToggleGroup`'s async
+    internals in jsdom) — no test failure, same class of warning other `RadioButton` consumers already emit.
+  - [x] `npm run build:types` shows no error in `RobotSelectionCard.tsx`; still shows the expected one in
+    `RobotDisplaySection.tsx` (Task 3 not yet landed).
+  - [x] `npx eslint src/components/selection/RobotSelectionCard.tsx src/components/selection/RobotSelectionCard.test.tsx` — zero errors.
   - [ ] Manual check (deferred to Checkpoint A, once both consumers land — see below).
 
   **Dependencies:** Task 1.
