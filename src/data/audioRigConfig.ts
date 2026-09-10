@@ -320,7 +320,9 @@ export const SPEED_AUTOMATION_PANEL_SCHEMA: DirectionalPanelSchema = {
   type: 'directionalPanel',
   loreLabel: 'CHRONOMETRIC CONTROL ARRAY',
   humanLabel: 'Speed & Automation',
-  orientation: 'row',
+  // 'responsive', not fixed 'row' — 2 stacked rows (Tempo, Automatic Effects) on
+  // mobile/tablet, 1 shared row on desktop. docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.9.
+  orientation: 'responsive',
 };
 
 /**
@@ -363,8 +365,10 @@ export const FILTERS_COLUMN_PANEL_SCHEMA: DirectionalPanelSchema = {
   orientation: 'row',
 };
 
+// 'responsive', not fixed 'row' — Delay/Reverb stack on mobile/tablet, sit side by side
+// on desktop. docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.7.
 export const TIME_SPACE_COLUMN_PANEL_SCHEMA: DirectionalPanelSchema = {
   id: 'audioRig.timeSpaceColumn',
   type: 'directionalPanel',
-  orientation: 'row',
+  orientation: 'responsive',
 };

@@ -14,6 +14,7 @@ import {
   SPEED_AUTOMATION_PANEL_SCHEMA,
   EQ_FILTERS_ROW_PANEL_SCHEMA,
   FILTERS_COLUMN_PANEL_SCHEMA,
+  TIME_SPACE_COLUMN_PANEL_SCHEMA,
   type AudioRigEffectKey,
 } from './audioRigConfig';
 import { DRIFT_GROUP_IDS } from '../types/lfo';
@@ -564,10 +565,10 @@ describe('TRANSPORT_COMPOSITION_ACCORDION_SCHEMA (Task 1)', () => {
 });
 
 describe('SPEED_AUTOMATION_PANEL_SCHEMA (Task 1)', () => {
-  it('is a row-orientation directionalPanel with humanLabel Speed & Automation', () => {
+  it('is a responsive-orientation directionalPanel with humanLabel Speed & Automation (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.9 — 2 rows on mobile/tablet, 1 row on desktop)', () => {
     expect(SPEED_AUTOMATION_PANEL_SCHEMA).toMatchObject({
       type: 'directionalPanel',
-      orientation: 'row',
+      orientation: 'responsive',
       humanLabel: 'Speed & Automation',
     });
   });
@@ -587,6 +588,16 @@ describe('SPEED_AUTOMATION_PANEL_SCHEMA (Task 1)', () => {
 
   it('remains JSON-serializable', () => {
     expect(() => JSON.stringify(SPEED_AUTOMATION_PANEL_SCHEMA)).not.toThrow();
+  });
+});
+
+describe('TIME_SPACE_COLUMN_PANEL_SCHEMA (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.7)', () => {
+  it('is a responsive-orientation directionalPanel — Delay/Reverb stack on mobile/tablet, sit side by side on desktop', () => {
+    expect(TIME_SPACE_COLUMN_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'responsive' });
+  });
+
+  it('remains JSON-serializable', () => {
+    expect(() => JSON.stringify(TIME_SPACE_COLUMN_PANEL_SCHEMA)).not.toThrow();
   });
 });
 
