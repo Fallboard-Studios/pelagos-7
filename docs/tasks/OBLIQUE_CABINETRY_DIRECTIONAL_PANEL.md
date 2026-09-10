@@ -52,7 +52,7 @@ Task 1 (CabinetBox.tsx/.test.tsx — autoHeight prop)
 
 ### Phase 1: Foundation — additive change to the already-shipped primitive
 
-- [ ] **Task 1: `CabinetBox` — `autoHeight` prop**
+- [x] **Task 1: `CabinetBox` — `autoHeight` prop**
 
   **Description:** Modify `src/components/ui/controls/CabinetBox.tsx` per spec §1.1/§4: add an optional
   `autoHeight?: boolean` prop; thread it into the left-face wall's inline style so
@@ -62,29 +62,36 @@ Task 1 (CabinetBox.tsx/.test.tsx — autoHeight prop)
   untouched. Extend `CabinetBox.test.tsx` with the 2 new cases from spec §5.
 
   **Acceptance criteria:**
-  - [ ] Every existing `CabinetBox.test.tsx` assertion (every prior consumer's own contract — `children`
+  - [x] Every existing `CabinetBox.test.tsx` assertion (every prior consumer's own contract — `children`
     rendering, timeline registration/kill, reduced-motion, wall/glow tweening, border-box measurement,
     `boxHeight`/`skipMountAnimation`/`frontWidth`/`frontHeight`/`popDistance`/`zIndex` overrides) still
     passes unmodified — `autoHeight` is optional and no existing test passes it.
-  - [ ] `render(<CabinetBox popped timelineKey="test-box" autoHeight>x</CabinetBox>)` applies `height:
+  - [x] `render(<CabinetBox popped timelineKey="test-box" autoHeight>x</CabinetBox>)` applies `height:
     100%` on the left-face wall's inline style — not a pixel value.
-  - [ ] `render(<CabinetBox popped timelineKey="test-box" boxHeight={48}>x</CabinetBox>)` (no `autoHeight`)
+  - [x] `render(<CabinetBox popped timelineKey="test-box" boxHeight={48}>x</CabinetBox>)` (no `autoHeight`)
     still applies `height: 48px` on the left-face wall — proves the new prop doesn't leak into the default
     path.
-  - [ ] `Button.tsx`/`Toggle.tsx`/`RadioButton.tsx`/`AccordionContainer.tsx`'s own call sites are untouched
+  - [x] `Button.tsx`/`Toggle.tsx`/`RadioButton.tsx`/`AccordionContainer.tsx`'s own call sites are untouched
     — `git diff` on each is empty for this task.
-  - [ ] No new `ResizeObserver`, no new state, no new effect added to `CabinetBox.tsx` — the width
+  - [x] No new `ResizeObserver`, no new state, no new effect added to `CabinetBox.tsx` — the width
     `ResizeObserver` and the geometry effect are byte-for-byte unchanged apart from the one conditional in
-    the left-face wall's `style` prop.
+    the left-face wall's `style` prop. Added a 3rd test explicitly pinning `MockResizeObserver.instances`
+    to length 1 with `autoHeight` set, as a regression guard beyond what spec §5 itself listed.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/ui/controls/CabinetBox.test.tsx` passes, covering both new cases
-    alongside every existing consumer's own suite unmodified.
-  - [ ] `npm run build:types` — zero TypeScript errors.
-  - [ ] `npm run lint` — zero ESLint errors.
-  - [ ] `npm run build` — production bundle builds cleanly.
-  - [ ] `npm test` (full suite) passes.
-  - [ ] Manual check: none applicable yet — `autoHeight` has zero real consumers until Task 2, same
+  - [x] `npx vitest run src/components/ui/controls/CabinetBox.test.tsx` passes (65/65 — 62 existing plus 3
+    new). Confirmed genuinely RED first: the "sizes the left-face wall's height to 100%" case failed
+    (`expected '48px' to be '100%'`) before the implementation change; the other 2 new cases already passed
+    pre-change (they assert the *unchanged* default path), consistent with `Toggle`'s own Task 1 precedent
+    where one addition was confirmed RED at the type-check level instead.
+  - [x] `npm run build:types` — zero TypeScript errors.
+  - [x] `npm run lint` — zero ESLint errors.
+  - [x] `npm run build` — production bundle builds cleanly (pre-existing chunk-size warning, unrelated).
+  - [x] `npm test` (full suite) — 2133/2135 passing. The 2 remaining failures
+    (`audioRigConfig.test.ts`'s slider-orientation-classification case and `AudioRigDrawer.test.tsx`'s
+    3-Band-EQ row-orientation case) are the same pre-existing/unrelated pair recorded in AccordionContainer's
+    own plan.
+  - [x] Manual check: none applicable yet — `autoHeight` has zero real consumers until Task 2, same
     "component before consumer" precedent `Toggle`'s own Task 1→2 split used.
 
   **Dependencies:** None (11.1.1 and every prior Cabinetry item already shipped and merged to `main`).
@@ -94,10 +101,10 @@ Task 1 (CabinetBox.tsx/.test.tsx — autoHeight prop)
   **Estimated scope:** XS (2 files, a single additive/optional change — the lowest-risk task in this plan)
 
 ### Checkpoint: Foundation change ships
-- [ ] `npm run build:types`, `npm run lint`, `npm run build`, `npm test` all clean (full suite, not just
-  `CabinetBox.test.tsx`) — confirms the additive change is genuinely non-breaking for every existing
-  consumer.
-- [ ] `CabinetBox` accepts `autoHeight` (verified by its own test suite) with zero other file in the app
+- [x] `npm run build:types`, `npm run lint`, `npm run build`, `npm test` all clean (full suite: 2133/2135,
+  2 pre-existing/unrelated failures) — confirms the additive change is genuinely non-breaking for every
+  existing consumer.
+- [x] `CabinetBox` accepts `autoHeight` (verified by its own test suite) with zero other file in the app
   referencing it yet.
 - [ ] Review with human before proceeding.
 
