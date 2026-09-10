@@ -393,10 +393,10 @@ describe('slider orientation classification (docs/specs/VERTICAL_SLIDERS.md §1.
     }
   });
 
-  it('Low-Pass/High-Pass Filter (Frequency/Resonance) is auto', () => {
+  it('Low-Pass/High-Pass Filter (Frequency/Resonance) is vertical (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.3 — reverses the earlier auto classification)', () => {
     for (const key of ['filterLPF', 'filterHPF'] as const) {
       for (const field of ['frequency', 'Q']) {
-        expect(orientationOf(findParam(key, field).schema), `${key}.${field}`).toBe('auto');
+        expect(orientationOf(findParam(key, field).schema), `${key}.${field}`).toBe('vertical');
       }
     }
   });
@@ -413,25 +413,20 @@ describe('slider orientation classification (docs/specs/VERTICAL_SLIDERS.md §1.
     }
   });
 
-  it('Compressor (Threshold/Ratio/Attack/Release/Knee) is auto', () => {
-    // Ratio was a Stepper when this classification was first written
-    // (docs/specs/VERTICAL_SLIDERS.md predates the Stepper->Slider conversion) —
-    // converted to a slider by the separate STEPPER_TO_SLIDER work
-    // (audioRigConfig.ts Task 8), merged in afterward. Same Compressor block, same
-    // "everything auto" classification, now that it's a real slider to classify.
+  it('Compressor (Threshold/Ratio/Attack/Release/Knee) is horizontal (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.3)', () => {
     for (const field of ['threshold', 'ratio', 'attack', 'release', 'knee']) {
-      expect(orientationOf(findParam('compressor', field).schema), field).toBe('auto');
+      expect(orientationOf(findParam('compressor', field).schema), field).toBe('horizontal');
     }
   });
 
-  it('Limiter (Threshold) is auto', () => {
-    expect(orientationOf(findParam('limiter', 'threshold').schema)).toBe('auto');
+  it('Limiter (Threshold) is horizontal (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.3)', () => {
+    expect(orientationOf(findParam('limiter', 'threshold').schema)).toBe('horizontal');
   });
 
-  it('all 4 LFO_DRIFT_GROUPS (Rate Drift/Depth Drift), including "robots", are auto', () => {
+  it('all 4 LFO_DRIFT_GROUPS (Rate Drift/Depth Drift), including "robots", are horizontal (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.3)', () => {
     for (const group of LFO_DRIFT_GROUPS) {
-      expect(group.rateSchema.orientation, `${group.group}.rateDrift`).toBe('auto');
-      expect(group.depthSchema.orientation, `${group.group}.depthDrift`).toBe('auto');
+      expect(group.rateSchema.orientation, `${group.group}.rateDrift`).toBe('horizontal');
+      expect(group.depthSchema.orientation, `${group.group}.depthDrift`).toBe('horizontal');
     }
   });
 

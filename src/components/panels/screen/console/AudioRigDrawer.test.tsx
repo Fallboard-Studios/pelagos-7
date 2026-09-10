@@ -132,7 +132,7 @@ describe('AudioRigDrawer', () => {
     }
   });
 
-  it("3-Band EQ's own sliders render in a row-orientation panel — the outer LFO group panel and every other group's sliders panel are column (docs/tasks/DIRECTIONAL_PANEL_WIRING.md follow-up: column[sliders-panel, Lfo, driftContent])", () => {
+  it("3-Band EQ's, Low-Pass's, and High-Pass's own sliders all render in a row-orientation panel — every other group's sliders panel stays column (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.4: filterLPF/filterHPF's Frequency/Resonance reverted to 'vertical', so AudioRigLfoGroup's existing 'row if any param is vertical' heuristic now resolves 'row' for them too, same as eq3)", () => {
     render(<AudioRigDrawer />);
     const eqSlidersPanel = screen.getByRole('slider', { name: 'Low' }).closest('.sc-directional-panel') as HTMLElement;
     expect(eqSlidersPanel.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('row');
@@ -140,8 +140,8 @@ describe('AudioRigDrawer', () => {
     const [lpfSlidersPanel, hpfSlidersPanel] = screen.getAllByRole('slider', { name: 'Frequency' }).map(
       (el) => el.closest('.sc-directional-panel') as HTMLElement,
     );
-    expect(lpfSlidersPanel.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('column');
-    expect(hpfSlidersPanel.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('column');
+    expect(lpfSlidersPanel.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('row');
+    expect(hpfSlidersPanel.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('row');
 
     // The outer group panel that wraps [sliders-panel, Lfo, driftContent] is always column,
     // regardless of the sliders panel's own orientation — otherwise the shared Lfo display and
