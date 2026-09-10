@@ -49,7 +49,7 @@ Task 1 (AccordionContainer.tsx/.css/.test.tsx — nested facade + toggle Cabinet
 
 ### Phase 1: The consumer — `AccordionContainer`'s nested-`CabinetBox` rewrite
 
-- [ ] **Task 1: `AccordionContainer` — permanently-popped facade + animated toggle box**
+- [x] **Task 1: `AccordionContainer` — permanently-popped facade + animated toggle box**
 
   **Description:** Replace `src/components/ui/controls/AccordionContainer.tsx` per spec §1.1–§1.6/§4: keep
   `Accordion.Root`/`Accordion.Item`/`Accordion.Header`/`Accordion.Trigger`/`Accordion.Content` and
@@ -74,56 +74,61 @@ Task 1 (AccordionContainer.tsx/.css/.test.tsx — nested facade + toggle Cabinet
   cases from spec §5 — every other existing case stays unchanged and passing.
 
   **Acceptance criteria:**
-  - [ ] Every existing `AccordionContainer.test.tsx` assertion **except** the indicator-ordering one (title
+  - [x] Every existing `AccordionContainer.test.tsx` assertion **except** the indicator-ordering one (title
     via `DualLabel`, `aria-expanded` toggling, `setTimeline`/`killTimeline` generically called on
     expand/unmount, reduced-motion snapping, no status light, `defaultOpen` height handling both branches)
     passes unmodified.
-  - [ ] The indicator-ordering test is restructured (not deleted) to assert the toggle box precedes
+  - [x] The indicator-ordering test is restructured (not deleted) to assert the toggle box precedes
     `DualLabel` within `.sc-accordion__row`, per spec §5 item 1.
-  - [ ] Exactly 2 `CabinetBox` instances render per `AccordionContainer`, distinguishable by
+  - [x] Exactly 2 `CabinetBox` instances render per `AccordionContainer`, distinguishable by
     `` `cabinet-accordion-facade-${schema.id}` `` vs. `` `cabinet-accordion-toggle-${schema.id}` ``
     `timelineKey`s — no collision with each other, with the existing content-tween key
     (`` `accordion-${schema.id}` ``), or with any other consumer's own prefix.
-  - [ ] The facade instance's `popped` is `true` **unconditionally** — verified both before and after
+  - [x] The facade instance's `popped` is `true` **unconditionally** — verified both before and after
     clicking the trigger open (it must never flip), and it receives `skipMountAnimation` and
     `boxHeight={CABINET_ACCORDION_TRIGGER_HEIGHT}` (56).
-  - [ ] The toggle instance's `popped` mirrors `open` exactly as the old plain indicator's glyph did — `false`
+  - [x] The toggle instance's `popped` mirrors `open` exactly as the old plain indicator's glyph did — `false`
     before the first click, `true` after — and receives `boxHeight={CABINET_TOGGLE_BOX_SIZE}` (32, imported
     from `./Toggle`, not a locally redeclared `32`).
-  - [ ] The `+`/`−` glyph (`.sc-accordion__indicator`) renders inside the toggle instance specifically, not
+  - [x] The `+`/`−` glyph (`.sc-accordion__indicator`) renders inside the toggle instance specifically, not
     the facade instance.
-  - [ ] `.sc-accordion`'s CSS no longer declares `border`, `border-radius`, or `overflow: hidden`;
+  - [x] `.sc-accordion`'s CSS no longer declares `border`, `border-radius`, or `overflow: hidden`;
     `.sc-accordion__trigger`'s CSS no longer declares its own `background-color`.
-  - [ ] `.sc-accordion__content`'s own separate `overflow: hidden` rule (needed for the height tween) is
+  - [x] `.sc-accordion__content`'s own separate `overflow: hidden` rule (needed for the height tween) is
     unchanged; `.sc-accordion__content-inner` gains a `background-color: var(--color-surface)` rule.
-  - [ ] `AccordionSchema`/`ControlSchema` (`src/types/controls.ts`) are untouched — `git diff
+  - [x] `AccordionSchema`/`ControlSchema` (`src/types/controls.ts`) are untouched — `git diff
     src/types/controls.ts` is empty for this task.
-  - [ ] `CabinetBox.tsx`/`.css`, `Toggle.tsx`/`.css`, `Button.tsx`/`.css`, `RadioButton.tsx`/`.css`,
+  - [x] `CabinetBox.tsx`/`.css`, `Toggle.tsx`/`.css`, `Button.tsx`/`.css`, `RadioButton.tsx`/`.css`,
     `cabinetGeometry.ts`, `cabinetAnimation.ts`, `cabinetBreakpoints.ts`, `useCabinetBoxHeight.ts`,
     `accordionAnimation.ts` are all untouched — `git diff` for each is empty for this task.
-  - [ ] `handleValueChange`/`animateTo`/`contentRef` and the `Accordion.Content`/`forceMount`/height-tween
+  - [x] `handleValueChange`/`animateTo`/`contentRef` and the `Accordion.Content`/`forceMount`/height-tween
     logic are byte-for-byte unchanged from today.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/ui/controls/AccordionContainer.test.tsx` passes — the existing suite
-    (minus the one restructured case) plus the 5 new cases from spec §5, mocking `CabinetBox` directly
-    (following `Button.test.tsx`/`RadioButton.test.tsx`'s own precedent) for the new per-instance assertions.
-  - [ ] `npm run build:types` — zero TypeScript errors.
-  - [ ] `npm run lint` — zero ESLint errors.
-  - [ ] `npm run build` — production bundle builds cleanly.
-  - [ ] `npm test` (full suite) passes, including every real consumer's own test file
-    (`PingControlsDrawer.test.tsx`, `PingContourDrawer.test.tsx`, `SignatureArrayDrawer.test.tsx`,
-    `AudioRigDrawer.test.tsx`) unmocked against the real `AccordionContainer` — none of them assert against
-    the removed chrome or the old direct-children shape (only `.sc-accordion` presence/count,
-    `.sc-accordion__content-inner`, and `textContent`, per this spec's own research), but must be re-run to
-    confirm rather than assumed.
+  - [x] `npx vitest run src/components/ui/controls/AccordionContainer.test.tsx` passes (19/19 — the existing
+    suite minus the one restructured case, plus the 6 new cases spec §5 anticipated as 5; one extra case was
+    added alongside the "facade never flips" case to separately pin `skipMountAnimation`/`boxHeight` on the
+    facade). Confirmed genuinely RED first: all 6 new cases plus the restructured ordering test failed before
+    the implementation change (7 failing, 12 passing — the untouched pre-existing tests). One test's own
+    assertion needed a fix mid-cycle, not the implementation: "renders the +/- glyph inside the toggle box
+    specifically" originally asserted the facade's subtree does *not* contain `.sc-accordion__indicator`,
+    which is structurally false by design (the toggle box is nested inside the facade, §1.1) — rewritten to
+    assert the indicator's nearest `[data-testid="cabinet-box"]` ancestor (via `closest()`) is the toggle box
+    specifically, which is the actually-meaningful check.
+  - [x] `npm run build:types` — zero TypeScript errors.
+  - [x] `npm run lint` — zero ESLint errors.
+  - [x] `npm run build` — production bundle builds cleanly (pre-existing chunk-size warning, unrelated).
+  - [x] `npm test` (full suite) — 2130/2132 passing. The 2 remaining failures
+    (`audioRigConfig.test.ts`'s slider-orientation-classification case and `AudioRigDrawer.test.tsx`'s
+    3-Band-EQ row-orientation case) are confirmed pre-existing and unrelated: reproduced identically with
+    this task's changes `git stash`ed, so present on the branch before this task started — the same 2 cases
+    RadioButton's own plan (11.1.6) already recorded as pre-existing.
   - [ ] Manual check (spec §5): across all 4 real consumers (Ping Controls' Melody section, Ping Contour's
     Envelope section, Signature Array's Source section, and at least 2 of Audio Rig's sections including one
-    with a long `humanLabel`) — facade renders permanently popped with no animation ever (including across a
-    breakpoint-crossing resize); only the small `+`/`−` box animates on click; content panel background reads
-    continuous with the facade; keyboard interaction and focus ring both work; stacked accordions in Audio
-    Rig stay visually separated by their drawer's own `gap`; reduced-motion still snaps the toggle box
-    instantly.
+    with a long `humanLabel`) — **not performed in this session** (no browser/devtools tooling configured).
+    Flagged for Crawford to check directly against the running app before merge, same as Toggle's and
+    RadioButton's own plans required a human-performed check. Specifically worth a look: whether
+    `CABINET_ACCORDION_TRIGGER_HEIGHT`'s calculated 56px reads right against a real long `humanLabel`.
 
   **Dependencies:** None (11.1.1 and 11.1.2 already shipped and merged to `main`).
 
@@ -133,13 +138,14 @@ Task 1 (AccordionContainer.tsx/.css/.test.tsx — nested facade + toggle Cabinet
   against already-proven `CabinetBox` mechanics)
 
 ### Checkpoint: AccordionContainer ships — first visible change
-- [ ] `npm run build:types`, `npm run lint`, `npm run build`, `npm test` (full suite) all clean.
-- [ ] Every real `AccordionContainer` call site in the app renders through the new nested-box shape with
+- [x] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes
+  (2130/2132, 2 pre-existing/unrelated failures confirmed via `git stash` — see Task 1's own verification
+  notes).
+- [x] Every real `AccordionContainer` call site in the app renders through the new nested-box shape with
   zero call-site changes required — confirmed by `npm run build:types` alone surfacing nothing, since the
   props contract didn't change.
-- [ ] Manual check performed against the real running app (see Task 1's own verification list) — flag any
-  finding (e.g. the facade height reading too tight/loose against a real long label) for a follow-up fix
-  before merge, the same way Toggle's own Task 2 manual check surfaced and fixed a real issue.
+- [ ] Manual check — **not yet performed** (no browser tooling in this session); still open before this
+  phase is considered fully verified.
 - [ ] Review with human before proceeding.
 
 ---
