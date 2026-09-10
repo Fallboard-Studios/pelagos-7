@@ -90,17 +90,17 @@ Tasks 2 and 3 both depend only on Task 1, not on each other — safe to do in ei
 
   **Estimated scope:** XS (1 file, test-only)
 
-- [ ] **Task 3: `docs/COMPONENT_LIBRARY.md` — RadioButton's internal rendering note**
+- [x] **Task 3: `docs/COMPONENT_LIBRARY.md` — RadioButton's internal rendering note**
 
   **Description:** Add a short note under `RadioButton`'s row (mirroring `Button`/`Toggle`/the sliders' own notes) — its internal rendering changed (one `CabinetBox` per option instead of a bordered pill of flat segments) while its `ControlSchema`/props contract stayed byte-for-byte identical, per spec §6.
 
   **Acceptance criteria:**
-  - [ ] `docs/COMPONENT_LIBRARY.md` documents that `RadioButton` now renders through `CabinetBox` internally (one box per option, selected-only accent tint), with its props contract unchanged.
-  - [ ] The note is spot-checked against `RadioButton.tsx`'s actual shipped code (Task 1), not the spec's draft — the documented props shape (`{ schema: RadioButtonSchema; value: string; onChange: (value: string) => void; disabled?: boolean }`) matches `RadioButton.tsx`'s `RadioButtonProps` interface exactly.
+  - [x] `docs/COMPONENT_LIBRARY.md` documents that `RadioButton` now renders through `CabinetBox` internally (one box per option, selected-only accent tint), with its props contract unchanged. Added as its own `### RadioButton's Oblique Cabinetry rendering (Roadmap Phase 11.1.6)` section, following the exact pattern `Button`/`Toggle`/the 3 sliders' own sections already use, immediately after `SliderCenteredZero`'s.
+  - [x] The note is spot-checked against `RadioButton.tsx`'s actual shipped code (Task 1), not the spec's draft — the documented props shape (`{ schema: RadioButtonSchema; value: string; onChange: (value: string) => void; disabled?: boolean }`) matches `RadioButton.tsx`'s `RadioButtonProps` interface exactly (confirmed by direct comparison, not by re-reading the spec).
 
   **Verification:**
-  - [ ] Manual review — spot-checked directly against the shipped `RadioButton.tsx`.
-  - [ ] `npm run build:types`, `npm run lint` clean (docs-only change).
+  - [x] Manual review — spot-checked directly against the shipped `RadioButton.tsx`.
+  - [x] `npm run build:types`, `npm run lint` clean (docs-only change).
 
   **Dependencies:** Task 1.
 
@@ -109,10 +109,11 @@ Tasks 2 and 3 both depend only on Task 1, not on each other — safe to do in ei
   **Estimated scope:** XS (docs only)
 
 ### Checkpoint: Complete
-- [ ] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes.
-- [ ] All acceptance criteria across all 3 tasks are met, including Task 1's manual check across every real consumer shape.
-- [ ] `docs/COMPONENT_LIBRARY.md` reflects the shipped feature.
-- [ ] Ready for PR.
+- [x] `npm run build:types`, `npm run lint` clean after every task; `npm run build` clean after Task 1 (no further source changes in Tasks 2–3 to re-verify against); `npm test` full suite passed after Task 1/2 (2123/2125, 2 pre-existing/unrelated failures — see Task 1's verification notes) and re-run clean after Task 2's new test (12/12 in `CompanyButtonRow.test.tsx`; no other source changed since the last full-suite run).
+- [x] All acceptance criteria across all 3 tasks are met, **except** Task 1's manual check, which remains open (see below).
+- [x] `docs/COMPONENT_LIBRARY.md` reflects the shipped feature.
+- [ ] **Manual check (Task 1) still outstanding** — no browser tooling was available in this implementing session; needs a human pass against the real running app (Audio Setting, a Signature Array layer's Type row, Decay Mode, and the Companies drawer's button row — see Task 1's own verification list) before this is called fully done, same as Toggle's own plan required a human-performed check at its Phase 2 checkpoint.
+- [ ] Not yet reviewed with Crawford — **not ready for PR** until the manual check above is done and reviewed.
 
 ## Risks and Mitigations
 
