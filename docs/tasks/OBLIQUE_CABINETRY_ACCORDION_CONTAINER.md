@@ -152,7 +152,7 @@ Task 1 (AccordionContainer.tsx/.css/.test.tsx — nested facade + toggle Cabinet
 
 ### Phase 2: Docs
 
-- [ ] **Task 2: `docs/COMPONENT_LIBRARY.md` — AccordionContainer's internal rendering note**
+- [x] **Task 2: `docs/COMPONENT_LIBRARY.md` — AccordionContainer's internal rendering note**
 
   **Description:** Add a short note under `AccordionContainer`'s row (mirroring `Button`/`Toggle`/
   `RadioButton`'s own notes) — its internal rendering changed (a permanently-popped facade plus a small
@@ -162,16 +162,20 @@ Task 1 (AccordionContainer.tsx/.css/.test.tsx — nested facade + toggle Cabinet
   front face), since a future item may need the same trick.
 
   **Acceptance criteria:**
-  - [ ] `docs/COMPONENT_LIBRARY.md` documents that `AccordionContainer` now renders through `CabinetBox`
+  - [x] `docs/COMPONENT_LIBRARY.md` documents that `AccordionContainer` now renders through `CabinetBox`
     internally (2 nested instances: a static facade, a state-keyed toggle box), with its props contract
-    unchanged.
-  - [ ] The note is spot-checked against `AccordionContainer.tsx`'s actual shipped code (Task 1), not the
+    unchanged. Added as its own `### AccordionContainer's Oblique Cabinetry rendering (Roadmap Phase
+    11.1.7)` section, following the exact pattern `Button`/`Toggle`/`RadioButton`'s own sections use,
+    immediately after `RadioButton`'s. Also corrected one now-stale line in the pre-existing `###
+    AccordionContainer` section (the "fixed-width span" claim, which described the pre-11.1.7 indicator
+    markup no longer in the shipped CSS).
+  - [x] The note is spot-checked against `AccordionContainer.tsx`'s actual shipped code (Task 1), not the
     spec's draft — the documented props shape (`{ schema: AccordionSchema; children: ReactNode; defaultOpen?:
     boolean }`) matches `AccordionContainer.tsx`'s `AccordionContainerProps` interface exactly.
 
   **Verification:**
-  - [ ] Manual review — spot-checked directly against the shipped `AccordionContainer.tsx`.
-  - [ ] `npm run build:types`, `npm run lint` clean (docs-only change).
+  - [x] Manual review — spot-checked directly against the shipped `AccordionContainer.tsx`.
+  - [x] `npm run build:types`, `npm run lint` clean (docs-only change).
 
   **Dependencies:** Task 1.
 
@@ -180,10 +184,20 @@ Task 1 (AccordionContainer.tsx/.css/.test.tsx — nested facade + toggle Cabinet
   **Estimated scope:** XS (docs only)
 
 ### Checkpoint: Complete
-- [ ] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes.
-- [ ] All acceptance criteria across both tasks are met, including Task 1's manual check.
-- [ ] `docs/COMPONENT_LIBRARY.md` reflects the shipped feature.
-- [ ] Reviewed with Crawford — ready for PR.
+- [x] `npm run build:types`, `npm run lint` clean after every task; `npm run build` clean after Task 1 (no
+  further source changes in Task 2 to re-verify against); `npm test` full suite passed after Task 1
+  (2130/2132, 2 pre-existing/unrelated failures — see Task 1's verification notes) with no source change
+  since to warrant a re-run.
+- [x] All acceptance criteria across both tasks are met, **except** Task 1's manual check, which remains
+  open (see below).
+- [x] `docs/COMPONENT_LIBRARY.md` reflects the shipped feature.
+- [ ] **Manual check (Task 1) still outstanding** — no browser tooling was available in this implementing
+  session; needs a human pass against the real running app (Ping Controls' Melody section, Ping Contour's
+  Envelope section, Signature Array's Source section, and at least 2 of Audio Rig's sections including one
+  with a long `humanLabel` — see Task 1's own verification list) before this is called fully done, same as
+  Toggle's and RadioButton's own plans required a human-performed check.
+- [ ] Not yet reviewed with Crawford — **not ready for PR** until the manual check above is done and
+  reviewed.
 
 ## Risks and Mitigations
 
