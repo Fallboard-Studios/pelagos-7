@@ -14,6 +14,7 @@ import {
   SPEED_AUTOMATION_PANEL_SCHEMA,
   EQ_FILTERS_ROW_PANEL_SCHEMA,
   FILTERS_COLUMN_PANEL_SCHEMA,
+  EQ_FILTERS_DESKTOP_SHARE,
   TIME_SPACE_COLUMN_PANEL_SCHEMA,
   type AudioRigEffectKey,
 } from './audioRigConfig';
@@ -602,8 +603,8 @@ describe('TIME_SPACE_COLUMN_PANEL_SCHEMA (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT
 });
 
 describe('EQ_FILTERS_ROW_PANEL_SCHEMA / FILTERS_COLUMN_PANEL_SCHEMA (EQ & Filters row-when-there\'s-room follow-up)', () => {
-  it('EQ_FILTERS_ROW_PANEL_SCHEMA is an auto-orientation directionalPanel, unlabeled', () => {
-    expect(EQ_FILTERS_ROW_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'auto' });
+  it('EQ_FILTERS_ROW_PANEL_SCHEMA is a responsive-orientation directionalPanel, unlabeled (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.5 — stacks on mobile/tablet, one shared row on desktop)', () => {
+    expect(EQ_FILTERS_ROW_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'responsive' });
     expect(EQ_FILTERS_ROW_PANEL_SCHEMA.loreLabel).toBeUndefined();
     expect(EQ_FILTERS_ROW_PANEL_SCHEMA.humanLabel).toBeUndefined();
     expect(EQ_FILTERS_ROW_PANEL_SCHEMA.id).toMatch(/^audioRig\./);
@@ -629,5 +630,17 @@ describe('EQ_FILTERS_ROW_PANEL_SCHEMA / FILTERS_COLUMN_PANEL_SCHEMA (EQ & Filter
   it('remain JSON-serializable', () => {
     expect(() => JSON.stringify(EQ_FILTERS_ROW_PANEL_SCHEMA)).not.toThrow();
     expect(() => JSON.stringify(FILTERS_COLUMN_PANEL_SCHEMA)).not.toThrow();
+  });
+});
+
+describe('EQ_FILTERS_DESKTOP_SHARE (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.6)', () => {
+  it('gives eq3 40% and filterLPF/filterHPF 30% each, summing to 100', () => {
+    expect(EQ_FILTERS_DESKTOP_SHARE).toEqual({ eq3: 40, filterLPF: 30, filterHPF: 30 });
+    const total = Object.values(EQ_FILTERS_DESKTOP_SHARE).reduce((sum, n) => sum + n, 0);
+    expect(total).toBe(100);
+  });
+
+  it('remains JSON-serializable', () => {
+    expect(() => JSON.stringify(EQ_FILTERS_DESKTOP_SHARE)).not.toThrow();
   });
 });

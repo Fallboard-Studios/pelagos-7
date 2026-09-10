@@ -352,7 +352,21 @@ export const AUDIO_RIG_ACCORDION_GROUPS: { key: AudioRigAccordionGroupKey; accor
 export const EQ_FILTERS_ROW_PANEL_SCHEMA: DirectionalPanelSchema = {
   id: 'audioRig.eqFiltersRow',
   type: 'directionalPanel',
-  orientation: 'auto',
+  // 'responsive', not 'auto' — docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.5/§1.6.
+  // Stacks one-per-row on mobile/tablet; on desktop, eq3/filterLPF/filterHPF share one
+  // row at fixed shares (EQ_FILTERS_DESKTOP_SHARE below), applied by AudioRigDrawer.tsx
+  // as an inline flexBasis override at the desktop tier only.
+  orientation: 'responsive',
+};
+
+/** Desktop-only row shares for the flattened EQ & Filters row (§1.6) — eq3 gets 40%, the
+ *  remaining 60% splits evenly between filterLPF/filterHPF. Applied by AudioRigDrawer.tsx
+ *  as an inline flexBasis style on each block's own wrapper div; DirectionalPanel.css's
+ *  own flex: 1 1 0 default (equal shares) governs every other row in this app. */
+export const EQ_FILTERS_DESKTOP_SHARE: Record<'eq3' | 'filterLPF' | 'filterHPF', number> = {
+  eq3: 40,
+  filterLPF: 30,
+  filterHPF: 30,
 };
 
 /** Low-Pass Filter beside High-Pass Filter, sitting beside 3-Band EQ inside
