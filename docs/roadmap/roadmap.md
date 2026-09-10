@@ -763,26 +763,71 @@ The third state-keyed (not momentary-click-keyed) consumer, after `Toggle` (11.1
 
 ## 11.1.9 Oblique Cabinetry: TextInput / CoordsInput
 
-Wires `TextInput` — and, since it composes two `TextInput`s unchanged, `CoordsInput` for free — into the cabinet-box mechanism. **Settled directly by Crawford, not left to this item's own spec pass**: the `<input>` itself keeps acting exactly like a plain input always has — typing, focus, caret, text selection all completely untouched, no new hover/focus/content-keyed pop or any other state-keyed pop added on top. Instead, `TextInput`/`CoordsInput` get [`DirectionalPanel`](specs/OBLIQUE_CABINETRY_DIRECTIONAL_PANEL.md)'s own treatment exactly: a single permanently-popped, non-animating `CabinetBox` facade around the field row, purely for the Oblique Cabinetry visual look, with zero behavior change. This closes the roadmap draft's original "pop-trigger mechanism left open" framing — resolved in favor of reusing an existing static-facade precedent rather than inventing a new state-keyed one for free text (which has no natural on/off or value-position state to key a pop off of in the first place). Depends on 11.1.1 and `DirectionalPanel`'s own Cabinetry treatment (shipped) having landed; not yet interviewed/specced beyond this constraint.
+Wires `TextInput` into the cabinet-box mechanism. **Settled directly by Crawford, confirmed via `/interview-me`
+(2026-09-10), not left to this item's own spec pass**: the `<input>` itself keeps acting exactly like a plain
+input always has — typing, focus, caret, text selection, and `disabled` styling all completely untouched, no
+new hover/focus/content-keyed pop or any other state-keyed pop added on top, and the box itself never reacts
+to `disabled` either (always popped, purely decorative). `TextInput` gets [`DirectionalPanel`](specs/OBLIQUE_CABINETRY_DIRECTIONAL_PANEL.md)'s
+own *facade boundary* (a single permanently-popped, non-animating `CabinetBox` wrapping `DualLabel` + the
+field together, label inside the box) but explicitly **not** its nesting-context mechanism — every `TextInput`
+instance always renders its own facade unconditionally, with zero awareness of what composes it. Source of
+intent: [docs/intent/oblique-cabinetry-text-input.md](../intent/oblique-cabinetry-text-input.md). Depends on
+11.1.1 and `DirectionalPanel`'s own Cabinetry treatment (shipped) having landed; not yet interviewed/specced
+beyond this constraint.
 
 ### Create
 
-- **`TextInput`/`CoordsInput` cabinet behavior**: a single `CabinetBox` facade wraps the field row, `popped` a literal `true` (never a variable) plus `skipMountAnimation` — mirroring `DirectionalPanel`'s own facade instance exactly (`docs/specs/OBLIQUE_CABINETRY_DIRECTIONAL_PANEL.md` §1), not `AccordionContainer`'s two-box split (11.1.7) or any prior state-keyed precedent. The box must not obscure the native `<input>`'s own text/caret — `CabinetBox`'s existing `pointer-events: none` overlay convention (11.1.1) already guarantees this structurally, the same caret-cursor concern already resolved once for `Toggle`'s own empty box (`docs/specs/OBLIQUE_CABINETRY_TOGGLE.md`) — this item's own eventual spec pass should still confirm it explicitly for a real text-entry element, not assume the precedent transfers automatically.
-- **`CoordsInput` inherits whatever `TextInput` ships, unchanged** — it composes two `TextInput` instances with no rendering of its own beyond the wrapping `DualLabel` and field row, so no separate Create item exists for it.
+- **`TextInput` cabinet behavior**: a single `CabinetBox` facade wraps `DualLabel` + the `<input>` together,
+  `popped` a literal `true` (never a variable) plus `skipMountAnimation` — reusing `DirectionalPanel`'s own
+  facade boundary (`docs/specs/OBLIQUE_CABINETRY_DIRECTIONAL_PANEL.md` §1), not `AccordionContainer`'s
+  two-box split (11.1.7) or any prior state-keyed precedent. Unconditional and self-contained — no
+  `DirectionalPanelNestingContext`-style mechanism, no per-instance opt-out; every real and future `TextInput`
+  consumer (Company name, Sector Settings AS name, `CoordsInput`'s two fields, an eventual robot-detail name
+  field) gets exactly the same single facade with no special-casing. The box must not obscure the native
+  `<input>`'s own text/caret — `CabinetBox`'s existing `pointer-events: none` overlay convention (11.1.1)
+  already guarantees this structurally, the same caret-cursor concern already resolved once for `Toggle`'s
+  own empty box (`docs/specs/OBLIQUE_CABINETRY_TOGGLE.md`) — this item's own eventual spec pass should still
+  confirm it explicitly for a real text-entry element, not assume the precedent transfers automatically.
+- **`CoordsInput` needs no Create item of its own and no special-casing** — confirmed directly: it composes
+  two `TextInput` instances with no rendering of its own beyond its own wrapping `DualLabel` and field row,
+  and each inner `TextInput` renders its own facade exactly as it would standalone. The natural result is two
+  independent popped boxes side by side (X, then Y) — a side effect of `CoordsInput`'s existing composition,
+  not a deliberate design choice about `CoordsInput` specifically. Explicitly **not** `DirectionalPanel`'s
+  "only the top-level instance gets a facade" pattern, even though the underlying nesting shape (one
+  `ControlSchema`-driven component composing another) looks structurally similar.
 
 ### Restructure
 
-- `TextInput` (`src/components/ui/controls/`) re-renders internally through the cabinetry system — same `schema`/`value`/`onChange`/`numeric`/`disabled` contract as today. `CoordsInput`'s own X/Y `TextInputSchema` construction and rounding/blank-guard logic are unchanged.
-- The facade never actually animates (literal `popped={true}` + `skipMountAnimation`), so — matching `AccordionContainer`'s own static facade instance and `DirectionalPanel`'s own facade — no real `timelineMap` tween is ever registered for it; the box still needs a `timelineKey` prop (required), used only for the harmless unmount `killTimeline` call.
-- Same Strict Separation constraint as every prior item, though there's nothing left to separate here beyond the native `<input>`'s own existing `onChange` — no GSAP-driven state ever reaches it.
+- `TextInput` (`src/components/ui/controls/`) re-renders internally through the cabinetry system — same
+  `schema`/`value`/`onChange`/`numeric`/`disabled` contract as today. `CoordsInput`'s own X/Y
+  `TextInputSchema` construction and rounding/blank-guard logic are unchanged, and its own `.tsx` needs no
+  edit at all — its two-box appearance falls out of `TextInput`'s own change with zero call-site changes.
+- The facade never actually animates (literal `popped={true}` + `skipMountAnimation`) and never reads
+  `disabled` — so, matching `AccordionContainer`'s own static facade instance and `DirectionalPanel`'s own
+  facade, no real `timelineMap` tween is ever registered for it; the box still needs a `timelineKey` prop
+  (required), used only for the harmless unmount `killTimeline` call.
+- Same Strict Separation constraint as every prior item, though there's nothing left to separate here beyond
+  the native `<input>`'s own existing `onChange` — no GSAP-driven state ever reaches it.
 
 ### About
 
-The last of the 14 primitives to receive Cabinetry — `Stepper`/`StepperWithToggle` were already dropped (see 11.1.1), `Select` was cut entirely (see 11.1.8, above) rather than dropped from Cabinetry specifically, and `DualLabel` is pure layout/display with no interactive hit box of its own and was never in scope. Previously flagged, like 11.1.5 was, as the item most likely to surface a genuine design gap, since free text is the one control shape in the entire inventory with no natural "popped" state precedent among 11.1.1–11.1.7's click/value/open-keyed options — resolved by sidestepping that gap entirely rather than filling it: no new pop-trigger mechanism, just `DirectionalPanel`'s existing static-facade look. Same layout/WorldView/robot-visual/Sleeve exclusions as every prior item.
+The last of the 14 primitives to receive Cabinetry — `Stepper`/`StepperWithToggle` were already dropped (see
+11.1.1), `Select` was cut entirely (see 11.1.8, above) rather than dropped from Cabinetry specifically, and
+`DualLabel` is pure layout/display with no interactive hit box of its own and was never in scope. Previously
+flagged, like 11.1.5 was, as the item most likely to surface a genuine design gap, since free text is the one
+control shape in the entire inventory with no natural "popped" state precedent among 11.1.1–11.1.7's
+click/value/open-keyed options — resolved by sidestepping that gap entirely rather than filling it: no new
+pop-trigger mechanism, just `DirectionalPanel`'s existing static-facade *look*. Deliberately simpler than
+`DirectionalPanel` itself, though: no nesting-context, because `TextInput` — unlike `DirectionalPanel`, which
+is designed to nest arbitrarily deep — has no actual "box inside a box" problem to solve, only ever composed
+by a handful of fixed call sites (`CoordsInput` today) that don't themselves need Cabinetry awareness. Same
+layout/WorldView/robot-visual/Sleeve exclusions as every prior item.
 
 ### Docs
 
-- `docs/COMPONENT_LIBRARY.md` gains the "internal rendering changed, contract didn't" note for `TextInput` and `CoordsInput` once this item ships, describing the static facade (no pop-trigger rule to document, since there isn't one).
+- `docs/COMPONENT_LIBRARY.md` gains the "internal rendering changed, contract didn't" note for `TextInput`
+  once this item ships, describing the static per-instance facade (no pop-trigger rule to document, since
+  there isn't one) and explicitly noting `CoordsInput` needed no code change of its own.
 
 ## 11.2 Cabinetry Verification: Accessibility & Performance
 
