@@ -14,6 +14,21 @@
   align-items: center;
 }
 
+/* Only the box row (Slider.Root) is ever wider/taller than its container —
+   engages only for the 3-box overflow floor (voxelTrackMath.ts's
+   VOXEL_TRACK_MIN_BOX_COUNT). Mirrors SliderLinear.css's own §1.11
+   precedent — scoped to the existing data-orientation attribute, no new
+   wrapper element. */
+.sc-slider-log[data-orientation='horizontal'] {
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.sc-slider-log[data-orientation='vertical'] {
+  overflow-y: auto;
+  overflow-x: visible;
+}
+
 .sc-slider-log__root {
   position: relative;
   display: flex;
@@ -32,11 +47,12 @@
   background-color: var(--color-border);
 }
 
+/* Decorative only, kept in the DOM for structural/a11y parity — the voxel
+   track (an absolutely-positioned sibling inside Slider.Track) renders the
+   real visible fill. Mirrors SliderLinear.css's/SliderCenteredZero.css's
+   own .__range rule exactly. */
 .sc-slider-log__range {
-  position: absolute;
-  height: 100%;
-  border-radius: 999px;
-  background-color: var(--color-accent);
+  visibility: hidden;
 }
 
 .sc-slider-log__thumb {
@@ -44,7 +60,11 @@
   width: 14px;
   height: 14px;
   border-radius: 999px;
-  background-color: var(--color-text-primary);
+  /* was background-color: var(--color-text-primary) — the voxel boxes now
+     carry all visible fill/position information; the thumb itself stays
+     real, hit-testable, and focusable (never visibility:hidden/opacity:0,
+     which would also hide the :focus-visible outline below). */
+  background-color: transparent;
 }
 
 .sc-slider-log__thumb:focus-visible {
