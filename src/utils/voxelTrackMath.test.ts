@@ -2,10 +2,13 @@ import { describe, it, expect } from 'vitest';
 
 import {
   VOXEL_TRACK_MIN_BOX_COUNT,
+  VOXEL_TRACK_MIN_BOX_COUNT_EVEN,
   VOXEL_STRADDLE_MIN_SIZE_FRACTION,
   computeFittedBoxCount,
+  computeEvenBoxCount,
   computeVoxelTrackLength,
   computeVoxelBoxStates,
+  computeVoxelBoxStatesCenteredZero,
   computeVoxelBoxPopDistance,
   computeVoxelBoxZIndex,
   computeVoxelTrackTrailingReserve,
@@ -279,5 +282,116 @@ describe('computeVoxelStraddleSizeFraction', () => {
 
   it('at a fillPercent whose raw fraction is comfortably above the floor, returns the raw fraction unclamped', () => {
     expect(computeVoxelStraddleSizeFraction(80)).toBe(0.8);
+  });
+});
+
+describe('VOXEL_TRACK_MIN_BOX_COUNT_EVEN', () => {
+  it('is 4', () => {
+    expect(VOXEL_TRACK_MIN_BOX_COUNT_EVEN).toBe(4);
+  });
+});
+
+describe('computeEvenBoxCount', () => {
+  it('rounds an odd count down to the nearest even number', () => {
+    expect(computeEvenBoxCount(7)).toBe(6);
+  });
+
+  it('leaves an already-even count unchanged', () => {
+    expect(computeEvenBoxCount(6)).toBe(6);
+  });
+
+  it('floors at VOXEL_TRACK_MIN_BOX_COUNT_EVEN (4), not VOXEL_TRACK_MIN_BOX_COUNT (3) — an odd input of 3 produces 4, not 2', () => {
+    expect(computeEvenBoxCount(3)).toBe(VOXEL_TRACK_MIN_BOX_COUNT_EVEN);
+  });
+
+  it('floors non-positive input at VOXEL_TRACK_MIN_BOX_COUNT_EVEN', () => {
+    expect(computeEvenBoxCount(0)).toBe(VOXEL_TRACK_MIN_BOX_COUNT_EVEN);
+  });
+});
+
+describe('computeVoxelBoxStatesCenteredZero', () => {
+  it('at value === 0, every box on both sides is flat — no straddling box, no marker (symmetric bounds)', () => {
+    const states = computeVoxelBoxStatesCenteredZero(0, -50, 50, 4);
+    expect(states).toEqual([
+      { fillPercent: 0, popT: 0, isStraddling: false, popDistanceLocalIndex: 1, popDistanceLocalCount: 2, flipStraddleFill: true },
+      { fillPercent: 0, popT: 0, isStraddling: false, popDistanceLocalIndex: 0, popDistanceLocalCount: 2, flipStraddleFill: true },
+      { fillPercent: 0, popT: 0, isStraddling: false, popDistanceLocalIndex: 0, popDistanceLocalCount: 2, flipStraddleFill: false },
+      { fillPercent: 0, popT: 0, isStraddling: false, popDistanceLocalIndex: 1, popDistanceLocalCount: 2, flipStraddleFill: false },
+    ]);
+  });
+
+  it('at value === 0, every box on both sides is flat (asymmetric bounds too)', () => {
+    const states = computeVoxelBoxStatesCenteredZero(0, -20, 50, 6);
+    expect(states.every((s) => s.fillPercent === 0 && s.popT === 0 && !s.isStraddling)).toBe(true);
+  });
+
+  it('a positive value fills only the positive side, matching computeVoxelBoxStates(value, 0, max, positiveCount) exactly on fillPercent/popT/isStraddling', () => {
+    const states = computeVoxelBoxStatesCenteredZero(25, -50, 50, 4);
+    const expectedPositive = computeVoxelBoxStates(25, 0, 50, 2);
+    expect(states.slice(0, 2).every((s) => s.fillPercent === 0 && s.popT === 0 && !s.isStraddling)).toBe(true);
+    expect(states.slice(2, 4).map(({ fillPercent, popT, isStraddling }) => ({ fillPercent, popT, isStraddling }))).toEqual(
+      expectedPositive,
+    );
+  });
+
+  it('hand-derived negative-value case (min: -50, max: 50, boxCount: 4, value: -5): the box nearest min stays flat, the box nearest the seam straddles at 20%, the positive side is untouched', () => {
+    const states = computeVoxelBoxStatesCenteredZero(-5, -50, 50, 4);
+    expect(states).toEqual([
+      { fillPercent: 0, popT: 0, isStraddling: false, popDistanceLocalIndex: 1, popDistanceLocalCount: 2, flipStraddleFill: true },
+      { fillPercent: 20, popT: 1, isStraddling: true, popDistanceLocalIndex: 0, popDistanceLocalCount: 2, flipStraddleFill: true },
+      { fillPercent: 0, popT: 0, isStraddling: false, popDistanceLocalIndex: 0, popDistanceLocalCount: 2, flipStraddleFill: false },
+      { fillPercent: 0, popT: 0, isStraddling: false, popDistanceLocalIndex: 1, popDistanceLocalCount: 2, flipStraddleFill: false },
+    ]);
+  });
+
+  it("the negative side's straddling box carries flipStraddleFill: true (its filled portion must render on the seam side, not the min side that VoxelTrack's default DOM order paints) — the positive side's straddling box carries flipStraddleFill: false (default is already correct there)", () => {
+    const negative = computeVoxelBoxStatesCenteredZero(-25, -50, 50, 4);
+    const negativeStraddler = negative.find((s) => s.isStraddling)!;
+    expect(negativeStraddler.flipStraddleFill).toBe(true);
+
+    const positive = computeVoxelBoxStatesCenteredZero(25, -50, 50, 4);
+    const positiveStraddler = positive.find((s) => s.isStraddling)!;
+    expect(positiveStraddler.flipStraddleFill).toBe(false);
+  });
+
+  it('the seam is always Math.floor(boxCount / 2), never proportional to the schema\'s own zero fraction — asymmetric bounds (-20/+50) still split a 6-box row 3/3', () => {
+    // A positive value only ever touches the last 3 (indices 3-5); a negative
+    // value only ever touches the first 3 (indices 0-2) — regardless of how
+    // far zeroPointPercent(-20, 50) (~28.57%) sits from the row's true center.
+    const positive = computeVoxelBoxStatesCenteredZero(10, -20, 50, 6);
+    expect(positive.slice(0, 3).every((s) => s.fillPercent === 0 && !s.isStraddling)).toBe(true);
+    expect(positive.slice(3, 6).some((s) => s.fillPercent > 0)).toBe(true);
+
+    const negative = computeVoxelBoxStatesCenteredZero(-10, -20, 50, 6);
+    expect(negative.slice(3, 6).every((s) => s.fillPercent === 0 && !s.isStraddling)).toBe(true);
+    expect(negative.slice(0, 3).some((s) => s.fillPercent > 0)).toBe(true);
+  });
+
+  it('popDistanceLocalIndex is 0 at the box nearest the seam on either side, ascending outward to sideCount - 1 at that side\'s own physical end', () => {
+    const states = computeVoxelBoxStatesCenteredZero(25, -50, 50, 4);
+    // Negative side: global 0 (nearest min) -> local 1; global 1 (nearest seam) -> local 0.
+    expect(states[0].popDistanceLocalIndex).toBe(1);
+    expect(states[1].popDistanceLocalIndex).toBe(0);
+    // Positive side: global 2 (nearest seam) -> local 0; global 3 (nearest max) -> local 1.
+    expect(states[2].popDistanceLocalIndex).toBe(0);
+    expect(states[3].popDistanceLocalIndex).toBe(1);
+    expect(states.every((s) => s.popDistanceLocalCount === 2)).toBe(true);
+  });
+
+  it('exactly one isStraddling box for a sweep of representative non-zero values on both sides', () => {
+    for (const value of [-50, -25, -1, 1, 25, 50]) {
+      const states = computeVoxelBoxStatesCenteredZero(value, -50, 50, 8);
+      expect(states.filter((s) => s.isStraddling)).toHaveLength(1);
+    }
+  });
+
+  it('zero isStraddling boxes when value === 0', () => {
+    const states = computeVoxelBoxStatesCenteredZero(0, -50, 50, 8);
+    expect(states.filter((s) => s.isStraddling)).toHaveLength(0);
+  });
+
+  it('delegates out-of-range clamping to computeVoxelBoxStates rather than reimplementing it', () => {
+    expect(computeVoxelBoxStatesCenteredZero(-999, -50, 50, 4)).toEqual(computeVoxelBoxStatesCenteredZero(-50, -50, 50, 4));
+    expect(computeVoxelBoxStatesCenteredZero(999, -50, 50, 4)).toEqual(computeVoxelBoxStatesCenteredZero(50, -50, 50, 4));
   });
 });

@@ -222,12 +222,16 @@ of uniform `CabinetBox` facades, `32×32px`/`40×40px`/`48×48px` at the same mo
 `CabinetBox`'s own height uses, spaced `8px`/`10px`/`12px` apart (`CABINET_VOXEL_GAP`,
 `src/utils/cabinetBreakpoints.ts`). Box size and gap are fixed per tier; box **count** is not — it's
 fitted live to whatever space the slider's container actually gives it (below), never authored per
-schema or held to one flat constant. Reused unchanged by `SliderLog` (11.1.4, shipped) and
-`SliderCenteredZero` (11.1.5, still pending) — only their own value→`t` curve differs; `SliderLinear`
-and `SliderLog` also now share the `boxSize`/`gap`/`boxCount`/`trackLength`/`rootStyle` glue itself via
-one hook, `useVoxelTrackSlider` (`src/components/ui/controls/`), rather than each carrying its own
-copy. Full derivation: [docs/specs/OBLIQUE_CABINETRY_SLIDER_LINEAR.md](specs/OBLIQUE_CABINETRY_SLIDER_LINEAR.md)
-and [docs/specs/OBLIQUE_CABINETRY_SLIDER_LOG.md](specs/OBLIQUE_CABINETRY_SLIDER_LOG.md).
+schema or held to one flat constant. All 3 voxel-track sliders have now shipped: `SliderLog` (11.1.4)
+reuses this section's mechanism unchanged, feeding only its own value→`t` curve into the same
+`computeVoxelBoxStates`; `SliderCenteredZero` (11.1.5) is a genuine adaptation, not a drop-in — see
+"Zero-anchored dual-fill" below. `SliderLinear` and `SliderLog` share the
+`boxSize`/`gap`/`boxCount`/`trackLength`/`rootStyle` glue itself via one hook, `useVoxelTrackSlider`
+(`src/components/ui/controls/`), rather than each carrying its own copy; `SliderCenteredZero` calls the
+same hook with its own additional `forceEven` option (below). Full derivation:
+[docs/specs/OBLIQUE_CABINETRY_SLIDER_LINEAR.md](specs/OBLIQUE_CABINETRY_SLIDER_LINEAR.md),
+[docs/specs/OBLIQUE_CABINETRY_SLIDER_LOG.md](specs/OBLIQUE_CABINETRY_SLIDER_LOG.md), and
+[docs/specs/OBLIQUE_CABINETRY_SLIDER_CENTERED_ZERO.md](specs/OBLIQUE_CABINETRY_SLIDER_CENTERED_ZERO.md).
 
 **Self-fitting box count.** `useVoxelTrackBoxCount` (`src/components/ui/controls/`) measures available
 space via `ResizeObserver` and feeds `voxelTrackMath.ts`'s `computeFittedBoxCount(availableLength,
@@ -300,3 +304,48 @@ at the same key — without the flag, `CabinetBox`'s own "animate in from the op
 behavior (correct for `Button`/`Toggle`, where a mount is a genuinely new element) replayed a full
 flat↔popped tween with no real transition behind it, a spurious wall flash on every value change that
 crossed a box boundary.
+
+## Zero-anchored dual-fill (Phase 11.1.5 — SliderCenteredZero)
+
+`SliderCenteredZero` (Detune, EQ3 Low/Mid/High, LFO Rate/Depth Drift) is the one voxel-track slider
+whose fill can grow in either of two directions — toward `min` or toward `max` — depending on which
+side of zero the current value sits on, which the section above's single min-anchored scan
+(`computeVoxelBoxStates`) has no way to express. Rather than generalize that function in place,
+`voxelTrackMath.ts` adds a sibling, `computeVoxelBoxStatesCenteredZero(value, min, max, boxCount)`.
+
+**A fixed dead-center seam, not the schema's own proportional zero point.** The row splits into two
+independent halves at `Math.floor(boxCount / 2)` — never at `zeroPointPercent`'s general, asymmetric-
+bounds-aware formula (`(0 - min) / (max - min)`, the pre-Cabinetry math this component used to compute
+and no longer does). Every real schema shipped is symmetric anyway, so a proportional seam and a
+dead-center one already coincide for every live consumer today; the simplification exists to guarantee
+the seam always lands exactly on a box boundary, never inside one, regardless of how asymmetric a
+future schema's bounds might be.
+
+**Box count is forced even.** Because the seam must sit exactly between two boxes, box count can never
+be odd for this slider — `useVoxelTrackSlider`'s opt-in `forceEven` option rounds the fitted count down
+to the nearest even number via `computeEvenBoxCount`, floored at a new `VOXEL_TRACK_MIN_BOX_COUNT_EVEN`
+of `4` (2 boxes per side) rather than the odd `VOXEL_TRACK_MIN_BOX_COUNT` of `3` used above. `SliderLinear`/
+`SliderLog` never pass this option, so their own fitting is completely unaffected.
+
+**Each side reuses `computeVoxelBoxStates`, not a second fill formula.** The positive side needs no
+remapping — its own conceptual index `0` (fills first, at any small magnitude) is already the box
+nearest the seam. The negative side's conceptual index `0` must land at the *highest* global index on
+that side instead (nearest the seam, not nearest `min`) — computed against the side's own magnitude
+(`-value`, `0`, `-min`) and then reversed before assembly. Only the side matching the value's sign is
+ever computed with real fill; the other renders every box flat. At `value === 0` exactly, **both**
+sides are flat — no straddling box, no minimum-visibility marker — matching how a flat/recessed box
+already reads as "off"/neutral elsewhere in Cabinetry (`Toggle`'s own off state).
+
+**Extrusion-falloff is also per-side**, ramping shallow at the seam to full depth at each side's own
+physical end — the same shape the section above describes, just re-keyed per side rather than to the
+whole row. This required one small, additive extension to shared infrastructure: `VoxelBoxState` gained
+2 new optional fields, `popDistanceLocalIndex`/`popDistanceLocalCount`, and `VoxelTrack.tsx` prefers
+them over a box's real row index/length when present. `SliderLinear`/`SliderLog`'s own
+`computeVoxelBoxStates` output never sets either field, so their whole-row falloff is byte-for-byte
+unaffected. Paint order (`computeVoxelBoxZIndex`) is untouched and uses the box's real global index/
+row length regardless — it's purely a function of screen adjacency along the fixed oblique vector, not
+which side of the seam a box belongs to; giving it a per-side scale too would break paint order exactly
+at the one boundary that matters (the negative side's seam-adjacent box needs a *higher* global z than
+its positive-side neighbor to correctly paint over it, which a per-side-local z-index couldn't express).
+
+Full derivation: [docs/specs/OBLIQUE_CABINETRY_SLIDER_CENTERED_ZERO.md](specs/OBLIQUE_CABINETRY_SLIDER_CENTERED_ZERO.md).

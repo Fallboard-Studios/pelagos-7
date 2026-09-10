@@ -96,6 +96,26 @@
   flex-direction: column-reverse;
 }
 
+/* Roadmap 11.1.5 bugfix: SliderCenteredZero's negative side needs its glow
+   (filled) piece on the MAX side (seam-adjacent) instead of the default min
+   side — the box nearest the seam fills first as a negative value grows in
+   magnitude, not the box nearest the track's actual min end. Reordering the
+   DOM itself would misdirect the :last-child z-index rule below (which must
+   keep targeting the flat piece structurally, regardless of which side it
+   visually renders on — see that rule's own comment); swapping visual
+   `order` instead leaves DOM order, and therefore that rule, untouched.
+   VoxelTrack.tsx stamps data-flip only when VoxelBoxState.flipStraddleFill
+   is true (SliderCenteredZero's own negative-side boxes) — SliderLinear/
+   SliderLog's computeVoxelBoxStates output never sets it, so this rule
+   never engages for either. */
+.sc-voxel-track__straddle[data-flip='true'] > .sc-cabinet-box:first-child {
+  order: 1;
+}
+
+.sc-voxel-track__straddle[data-flip='true'] > .sc-cabinet-box:last-child {
+  order: 0;
+}
+
 /* The flat piece paints BEHIND the glow piece within this one slot. The
    glow piece's own protrusion — its front face's pop transform, and its
    wall polygons extending past its own box per the 2:1 oblique vector —

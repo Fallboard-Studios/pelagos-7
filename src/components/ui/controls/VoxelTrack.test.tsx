@@ -337,6 +337,51 @@ describe('VoxelTrack', () => {
     expect(boxes.every((box) => box.getAttribute('data-skip-mount-animation') === 'true')).toBe(true);
   });
 
+  it("when a state carries popDistanceLocalIndex/popDistanceLocalCount, computeVoxelBoxPopDistance is called with THOSE values instead of the box's row index/states.length — while its z-index still uses the real row index/length, unaffected (roadmap 11.1.5)", () => {
+    const withOverride: VoxelBoxState[] = [
+      { fillPercent: 100, popT: 1, isStraddling: false },
+      { fillPercent: 100, popT: 1, isStraddling: false },
+      // Row position 2 of 3, but its local index/count claim it's box 0 of 2
+      // — a value that would produce a different result than (2, 3).
+      { fillPercent: 50, popT: 1, isStraddling: true, popDistanceLocalIndex: 0, popDistanceLocalCount: 2 },
+    ];
+    const { container } = render(
+      <VoxelTrack states={withOverride} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
+    );
+    const boxes = screen.getAllByTestId('cabinet-box');
+    // The straddling slot (index 2) renders as 2 pieces (glow, flat) — both
+    // must use the override, not the real (2, 3) row position.
+    const overriddenDistance = computeVoxelBoxPopDistance(0, 2);
+    expect(overriddenDistance).not.toBe(computeVoxelBoxPopDistance(2, 3));
+    expect(boxes[2].getAttribute('data-pop-distance')).toBe(String(overriddenDistance));
+    expect(boxes[3].getAttribute('data-pop-distance')).toBe(String(overriddenDistance));
+
+    // z-index is NOT affected by the override — still the box's real global
+    // index (2) and the real row length (3).
+    const straddle = container.querySelector('.sc-voxel-track__straddle') as HTMLElement;
+    expect(straddle.style.zIndex).toBe(String(computeVoxelBoxZIndex(2, 3, 'horizontal')));
+  });
+
+  it("stamps data-flip=\"true\" on the straddling slot's wrapper when the straddling state carries flipStraddleFill: true — CSS keys off this to visually swap which side the glow (filled) piece renders on, for SliderCenteredZero's negative side (roadmap 11.1.5 bugfix: the fill direction read backwards — left-to-right instead of right-to-left — for a negative value)", () => {
+    const flippedStates: VoxelBoxState[] = [
+      { fillPercent: 0, popT: 0, isStraddling: false },
+      { fillPercent: 20, popT: 1, isStraddling: true, flipStraddleFill: true },
+    ];
+    const { container } = render(
+      <VoxelTrack states={flippedStates} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
+    );
+    const straddle = container.querySelector('.sc-voxel-track__straddle') as HTMLElement;
+    expect(straddle.getAttribute('data-flip')).toBe('true');
+  });
+
+  it('does not stamp data-flip when the straddling state omits flipStraddleFill (SliderLinear/SliderLog\'s own computeVoxelBoxStates output never sets it) — default rendering is unaffected', () => {
+    render(
+      <VoxelTrack states={STATES} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
+    );
+    const straddle = document.querySelector('.sc-voxel-track__straddle') as HTMLElement;
+    expect(straddle.getAttribute('data-flip')).toBeNull();
+  });
+
   it('applies boxSize/gap as the --voxel-box-size/--voxel-gap inline custom properties on the root element', () => {
     const { container } = render(
       <VoxelTrack states={STATES} boxSize={48} gap={12} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,

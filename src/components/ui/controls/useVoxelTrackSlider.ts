@@ -2,6 +2,7 @@ import { useMemo, type CSSProperties, type RefObject } from 'react';
 import { useCabinetBoxHeight, useVoxelTrackGap } from './useCabinetBoxHeight';
 import { useVoxelTrackBoxCount } from './useVoxelTrackBoxCount';
 import {
+  computeEvenBoxCount,
   computeVoxelTrackLength,
   computeVoxelTrackTrailingReserve,
   VOXEL_TRACK_DEFAULT_VERTICAL_HEIGHT,
@@ -14,6 +15,19 @@ export interface VoxelTrackSliderLayout {
   trackLength: number;
   /** Ready to spread directly onto Slider.Root's own `style` prop. */
   rootStyle: CSSProperties;
+}
+
+export interface VoxelTrackSliderOptions {
+  /**
+   * Forces the fitted box count down to the nearest even number (floored at
+   * VOXEL_TRACK_MIN_BOX_COUNT_EVEN, 4) before deriving trackLength/rootStyle
+   * — SliderCenteredZero's own requirement (roadmap 11.1.5) so its
+   * dead-center seam always lands exactly on a box boundary. Omitted or
+   * false preserves SliderLinear/SliderLog's exact existing behavior — this
+   * is a strictly additive, opt-in extension of this hook's contract. See
+   * docs/specs/OBLIQUE_CABINETRY_SLIDER_CENTERED_ZERO.md §1.4.
+   */
+  forceEven?: boolean;
 }
 
 /**
@@ -38,13 +52,15 @@ export function useVoxelTrackSlider(
   wrapperRef: RefObject<HTMLElement | null>,
   orientation: 'horizontal' | 'vertical',
   verticalHeight?: number,
+  options?: VoxelTrackSliderOptions,
 ): VoxelTrackSliderLayout {
   const boxSize = useCabinetBoxHeight();
   const gap = useVoxelTrackGap();
   const isVertical = orientation === 'vertical';
   const explicitLength = isVertical ? (verticalHeight ?? VOXEL_TRACK_DEFAULT_VERTICAL_HEIGHT) : undefined;
   const trailingReserve = computeVoxelTrackTrailingReserve(orientation);
-  const boxCount = useVoxelTrackBoxCount(wrapperRef, orientation, boxSize, gap, explicitLength, trailingReserve);
+  const rawBoxCount = useVoxelTrackBoxCount(wrapperRef, orientation, boxSize, gap, explicitLength, trailingReserve);
+  const boxCount = options?.forceEven ? computeEvenBoxCount(rawBoxCount) : rawBoxCount;
   const trackLength = computeVoxelTrackLength(boxCount, boxSize, gap) + trailingReserve;
 
   const rootStyle = useMemo<CSSProperties>(
