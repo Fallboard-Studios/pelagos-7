@@ -112,7 +112,7 @@ Task 1 (CabinetBox.tsx/.test.tsx — autoHeight prop)
 
 ### Phase 2: The real consumer
 
-- [ ] **Task 2: `DirectionalPanel` — Context-based top-level detection + permanently-popped facade**
+- [x] **Task 2: `DirectionalPanel` — Context-based top-level detection + permanently-popped facade**
 
   **Description:** Replace `src/components/ui/controls/DirectionalPanel.tsx` per spec §1.2/§1.3/§4: add an
   internal (not exported) `DirectionalPanelNestingContext` (`createContext(false)`); read it via
@@ -128,69 +128,78 @@ Task 1 (CabinetBox.tsx/.test.tsx — autoHeight prop)
   (nested-still-measures-true-parent; top-level-now-measures-the-facade); add the 3 new facade-wiring cases.
 
   **Acceptance criteria:**
-  - [ ] Every existing `DirectionalPanel.test.tsx` assertion **except** "observes its own parent element,
+  - [x] Every existing `DirectionalPanel.test.tsx` assertion **except** "observes its own parent element,
     not its own box" (children rendering, label presence/absence/fallback, `data-orientation` for
     `'row'`/`'column'`/`'auto'`-before-measurement, children order, `'auto'`-flips-to-row-once-wide-enough)
     passes unmodified.
-  - [ ] The parent-element test is restructured into 2 cases (spec §5 item 1), not deleted: a genuinely
+  - [x] The parent-element test is restructured into 2 cases (spec §5 item 1), not deleted: a genuinely
     nested panel still measures its true DOM parent (the outer panel's own `.sc-directional-panel__content`);
     a top-level panel now measures the mocked `CabinetBox` element instead of the true DOM parent, with
     `MockResizeObserver.instances` still exactly length 1.
-  - [ ] A standalone (top-level) `DirectionalPanel` renders exactly one `[data-testid="cabinet-box"]`, keyed
+  - [x] A standalone (top-level) `DirectionalPanel` renders exactly one `[data-testid="cabinet-box"]`, keyed
     `` `cabinet-directional-panel-facade-${schema.id}` ``.
-  - [ ] A `DirectionalPanel` nested inside another renders **zero** of its own `[data-testid="cabinet-box"]`
+  - [x] A `DirectionalPanel` nested inside another renders **zero** of its own `[data-testid="cabinet-box"]`
     — exactly one total for the pair (the outer's).
-  - [ ] Nesting 3 levels deep still renders exactly one facade (the outermost) — the Context propagates
+  - [x] Nesting 3 levels deep still renders exactly one facade (the outermost) — the Context propagates
     transitively, not just one level.
-  - [ ] `.sc-directional-panel-facade > .sc-cabinet-box > .sc-cabinet-box__front`/
+  - [x] `.sc-directional-panel-facade > .sc-cabinet-box > .sc-cabinet-box__front`/
     `.sc-directional-panel-facade > .sc-cabinet-box` are the only new CSS rules — no existing
     `.sc-directional-panel`/`.sc-directional-panel__content` rule is modified.
-  - [ ] `DirectionalPanelSchema`/`ControlSchema` (`src/types/controls.ts`) are untouched — `git diff
+  - [x] `DirectionalPanelSchema`/`ControlSchema` (`src/types/controls.ts`) are untouched — `git diff
     src/types/controls.ts` is empty for this task.
-  - [ ] `CabinetBox.tsx`/`.css`, `useAutoPanelOrientation.ts`, `cabinetGeometry.ts`, `cabinetAnimation.ts`,
+  - [x] `CabinetBox.tsx`/`.css`, `useAutoPanelOrientation.ts`, `cabinetGeometry.ts`, `cabinetAnimation.ts`,
     `cabinetBreakpoints.ts`, `useCabinetBoxHeight.ts` are all untouched — `git diff` for each is empty for
     this task.
-  - [ ] `DirectionalPanelNestingContext` is not exported from `DirectionalPanel.tsx`.
+  - [x] `DirectionalPanelNestingContext` is not exported from `DirectionalPanel.tsx`.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/ui/controls/DirectionalPanel.test.tsx` passes — the existing suite
-    (minus the one restructured case, now 2 cases) plus the 3 new facade-wiring cases.
-  - [ ] `npm run build:types` — zero TypeScript errors.
-  - [ ] `npm run lint` — zero ESLint errors.
-  - [ ] `npm run build` — production bundle builds cleanly.
-  - [ ] `npm test` (full suite) passes, including every real consumer's own test file
-    (`AudioSettingSection.test.tsx`, `PingContourDrawer.test.tsx`, `PingControlsDrawer.test.tsx`,
-    `SignatureArrayDrawer.test.tsx`, `AudioRigDrawer.test.tsx`, `LfoTargetGroup.test.tsx`) unmocked against
-    the real `DirectionalPanel` — several use `.closest('.sc-directional-panel')`/
-    `:scope > .sc-directional-panel__content` queries to check nesting relationships **between**
-    `DirectionalPanel` instances (audited in the spec as unaffected, since the new wrapper only inserts
-    *above* a top-level panel, never between two already-nested panels) — this must be confirmed by
-    actually running the suite, not assumed from the audit. The 2 pre-existing/unrelated failures already
-    recorded in AccordionContainer's own plan are expected to still be present and still unrelated.
+  - [x] `npx vitest run src/components/ui/controls/DirectionalPanel.test.tsx` passes (16/16 — 11 existing
+    minus the 1 restructured (now 2) plus the 3 new facade-wiring cases). Confirmed genuinely RED first: 4
+    of the 5 new/restructured cases failed before the implementation change (the top-level-measures-facade
+    case, and all 3 new facade-wiring cases); the nested-still-measures-true-parent case already passed
+    pre-change, since nested behavior is genuinely unaffected by this task — a legitimate regression guard,
+    not a RED-first case.
+  - [x] `npm run build:types` — zero TypeScript errors.
+  - [x] `npm run lint` — zero ESLint errors.
+  - [x] `npm run build` — production bundle builds cleanly (pre-existing chunk-size warning, unrelated).
+  - [x] `npm test` (full suite) — 2137/2139 passing. The 2 remaining failures are the same
+    pre-existing/unrelated pair recorded in AccordionContainer's own plan. **Found and fixed one real issue
+    not anticipated by the spec's own acceptance criteria (though flagged as a risk to verify):**
+    `SignatureArrayDrawer.test.tsx`'s "wraps its content in one Source accordion containing 4 top-level
+    panels" test used a direct-child selector (`.signature-array-drawer > .sc-directional-panel`) that
+    assumed a top-level panel's own root was a direct child of the drawer — no longer true now that it sits
+    inside its own facade. Fixed by extending the selector through the full facade chain
+    (`.signature-array-drawer > .sc-directional-panel-facade > .sc-cabinet-box > .sc-cabinet-box__front >
+    .sc-directional-panel`), which uniquely identifies "top-level" the same way the plain direct-child
+    selector used to. Confirmed this was the only such pattern in any of the 6 real consumers' own test
+    files — every other `:scope >`/`.closest()` usage checks a relationship *within* a single
+    `.sc-directional-panel` (e.g. its own `__content` child) or *between* two already-nested panels, both
+    unaffected by the facade wrapper, per the spec's own audit.
   - [ ] Manual check (spec §5): across at least one panel from each real consumer (Ping Controls'
     Phrasing/Frequency panels — Rhythm nested inside Phrasing; Ping Contour's Envelope panel; Signature
     Array's Drift/per-layer panels; Audio Rig's Speed & Automation / EQ & Filters / Time & Space / a plain
-    effect block like Compressor) — every top-level panel reads framed with no animation ever; nested
-    panels stay unframed with no facade-inside-facade stacking; `orientation="auto"` panels still flip
-    correctly at the expected width despite the ~28px facade-padding offset; the facade's vertical padding
-    reads right against both a short panel and a tall multi-row EQ block; no wall/glow bleed between a
-    facade and a nearby child control's own box.
+    effect block like Compressor) — **not performed in this session** (no browser/devtools tooling
+    configured). Flagged for Crawford to check directly against the running app before merge, same as every
+    prior item's own manual-check gate.
 
   **Dependencies:** Task 1.
 
-  **Files:** `src/components/ui/controls/DirectionalPanel.tsx`, `src/components/ui/controls/DirectionalPanel.css`, `src/components/ui/controls/DirectionalPanel.test.tsx`
+  **Files:** `src/components/ui/controls/DirectionalPanel.tsx`, `src/components/ui/controls/DirectionalPanel.css`, `src/components/ui/controls/DirectionalPanel.test.tsx`. **Scope ended up one file wider than
+  planned**, discovered during verification rather than planning: `src/components/robot/SignatureArrayDrawer.test.tsx`'s own direct-child selector (see above) — not touched by choice, required to keep
+  the full suite green.
 
-  **Estimated scope:** S (3 files, but the highest-risk task in this plan — the only one touching 6 real
-  consumers' worth of existing structural test assertions, not just its own file's tests)
+  **Estimated scope:** S (3 files as planned; 4 actual, the 4th a real consumer test fix the spec's own §5
+  flagged as a risk to verify, not something left unaudited)
 
 ### Checkpoint: DirectionalPanel ships — first visible change
-- [ ] `npm run build:types`, `npm run lint`, `npm run build`, `npm test` (full suite) all clean.
-- [ ] Every real `DirectionalPanel` call site in the app renders through the new Context-based facade logic
+- [x] `npm run build:types`, `npm run lint`, `npm run build`, `npm test` (full suite) all clean — 2137/2139,
+  the 2 remaining failures confirmed pre-existing and unrelated (see Task 2's own verification notes).
+- [x] Every real `DirectionalPanel` call site in the app renders through the new Context-based facade logic
   with zero call-site changes required — confirmed by `npm run build:types` alone surfacing nothing, since
   the props contract didn't change.
-- [ ] Manual check performed against the real running app (see Task 2's own verification list) — flag any
-  finding (e.g. an `orientation="auto"` panel flipping at a visibly wrong width, or the vertical padding
-  reading badly against a tall EQ block) for a follow-up fix before merge.
+- [ ] Manual check — **not yet performed** (no browser tooling in this session); still open before this
+  phase is considered fully verified.
+- [ ] Review with human before proceeding.
 - [ ] Review with human before proceeding.
 
 ---
