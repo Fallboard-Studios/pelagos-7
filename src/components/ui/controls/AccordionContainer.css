@@ -2,8 +2,7 @@
    permanently-popped facade CabinetBox nested inside .sc-accordion__trigger
    is now the section's only visible edge. See
    docs/specs/OBLIQUE_CABINETRY_ACCORDION_CONTAINER.md §1.2/§1.6. */
-.sc-accordion {
-}
+.sc-accordion {}
 
 /* A transparent, full-width click target — the same "real interactive
    element stays in charge, CabinetBox renders the visuals" split every
@@ -33,11 +32,11 @@
    selectors: the inner toggle box's own front (nested one level deeper,
    inside .sc-accordion__row) must never match either rule. See
    docs/specs/OBLIQUE_CABINETRY_ACCORDION_CONTAINER.md §1.4. */
-.sc-accordion__trigger > .sc-cabinet-box {
+.sc-accordion__trigger>.sc-cabinet-box {
   width: 100%;
 }
 
-.sc-accordion__trigger > .sc-cabinet-box > .sc-cabinet-box__front {
+.sc-accordion__trigger>.sc-cabinet-box>.sc-cabinet-box__front {
   width: 100%;
   justify-content: flex-start;
   padding: 0 12px;
@@ -72,19 +71,28 @@
   line-height: 1;
 }
 
+/* overflow-y here is closed-state-only baseline. The open state's
+   overflow-y: visible (needed so the oblique CabinetBox facades in the
+   content don't get clipped on their right edge) is NOT a CSS rule keyed
+   off Radix's [data-state] — that attribute flips synchronously with the
+   click, before the GSAP height tween below even starts/finishes, so a
+   plain attribute selector made the overflow change visible mid-animation
+   instead of hidden by it. AccordionContainer.tsx's animateTo() sets
+   overflow-y: visible as the first step of the open timeline and hidden
+   only in the close timeline's onComplete, so the switch always happens
+   while height is 0 either way and is never seen. */
 .sc-accordion__content {
-  overflow: hidden;
+  overflow-y: hidden;
   height: 0;
 }
 
-/* Gains the same --color-surface background CabinetBox.css's own front-face
-   default already paints the facade with, so the content panel reads as a
-   continuation of that surface rather than a bare gap now that the old
-   outer wrapper's own border no longer frames the two together. See
-   docs/specs/OBLIQUE_CABINETRY_ACCORDION_CONTAINER.md §1.6. */
+/* Closed-state baseline, same reasoning as .sc-accordion__content's own
+   comment above: opacity is owned by animateTo()'s GSAP timeline, not a
+   [data-state] selector, so it can be sequenced against the height tween
+   (height first then fade in on open, fade out then height on close)
+   instead of snapping the instant Radix's data-state flips. */
 .sc-accordion__content-inner {
-  padding: 12px;
-  background-color: var(--color-surface);
+  opacity: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

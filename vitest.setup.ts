@@ -25,6 +25,7 @@ vi.mock('@/utils/seedUtils', async (importOriginal) => {
 vi.mock('gsap', () => {
   type TimelineConfig = { onComplete?: () => void } | undefined;
   interface TimelineObj {
+    set(target?: unknown, vars?: unknown): TimelineObj;
     to(target?: unknown, config?: TimelineConfig): TimelineObj;
     fromTo(a?: unknown, b?: unknown, config?: TimelineConfig): TimelineObj;
     call(fn?: () => void): TimelineObj;
@@ -34,6 +35,14 @@ vi.mock('gsap', () => {
 
   const noop = (): TimelineObj => {
     const obj = {
+      // No onComplete on tl.set() (real GSAP's .set() vars don't take one
+      // either) — it's an immediate, synchronous step, unlike .to()/.fromTo()
+      // below. Missing until 2026-09-10, same class of gap as .kill() below:
+      // masked because no prior consumer called tl.set() until
+      // AccordionContainer's overflow-visibility fix needed a same-timeline
+      // step that runs before the height tween rather than a separate
+      // pre-timeline style mutation.
+      set: (_target?: unknown, _vars?: unknown) => obj as TimelineObj,
       to: (_target?: unknown, config?: TimelineConfig) => {
         if (config && typeof config.onComplete === 'function') {
           Promise.resolve().then(() => config.onComplete && config.onComplete());

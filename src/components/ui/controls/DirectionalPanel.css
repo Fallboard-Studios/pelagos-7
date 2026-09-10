@@ -21,7 +21,7 @@
      (already set below) means row children always share one line,
      shrinking to fit however tight, matching the documented "overflow is
      solved with a nested DirectionalPanel, not a wrap prop" policy. */
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -38,7 +38,7 @@
      bigger flex-basis next layout -> bigger measured width. flex-basis: 0
      removes content from the space-distribution calculation entirely, so
      every row child's width is stable and content-independent. */
-  flex: 1 1 0;
+  flex: 1 1 auto;
   /* A flex item's default min-width is `auto`, which resolves to its
      content's min-content size when the item's own overflow is visible —
      still worth keeping at 0 alongside the flex-basis fix above, so a
@@ -58,7 +58,7 @@
    CabinetBox (a Slider, Button, etc. rendered somewhere inside `children`)
    must never be caught by either rule. See
    docs/specs/OBLIQUE_CABINETRY_DIRECTIONAL_PANEL.md §1.3. */
-.sc-directional-panel-facade > .sc-cabinet-box {
+.sc-directional-panel-facade>.sc-cabinet-box {
   width: 100%;
 }
 
@@ -69,7 +69,7 @@
    left-face wall to be measured against. Vertical padding added (12px, not
    CabinetBox.css's own horizontal-only default) since this facade frames a
    whole block of content, not one centered line. */
-.sc-directional-panel-facade > .sc-cabinet-box > .sc-cabinet-box__front {
+.sc-directional-panel-facade>.sc-cabinet-box>.sc-cabinet-box__front {
   display: block;
   width: 100%;
   height: auto;

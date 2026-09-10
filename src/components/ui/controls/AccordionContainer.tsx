@@ -5,7 +5,7 @@ import gsap from 'gsap';
 import { CabinetBox } from './CabinetBox';
 import { CABINET_TOGGLE_BOX_SIZE } from './Toggle';
 import { DualLabel } from './DualLabel';
-import { getAccordionDuration } from './accordionAnimation';
+import { getAccordionDuration, getAccordionFadeDuration } from './accordionAnimation';
 import { withActiveClass } from './activeClass';
 import { setTimeline, killTimeline } from '@/animation/timelineMap';
 import type { AccordionSchema } from '@/types/controls';
@@ -54,19 +54,25 @@ const cabinetTokens = {
 export function AccordionContainer({ schema, children, defaultOpen = false }: AccordionContainerProps) {
   const [open, setOpen] = useState(defaultOpen);
   const contentRef = useRef<HTMLDivElement>(null);
+  const contentInnerRef = useRef<HTMLDivElement>(null);
   const timelineKey = `accordion-${schema.id}`;
 
   useEffect(() => {
     return () => killTimeline(timelineKey);
   }, [timelineKey]);
 
-  // If mounted already-open, the content still needs its height freed from
-  // the CSS default (height: 0) — animateTo() only runs from user
+  // If mounted already-open, the content still needs its height/overflow
+  // (see animateTo()) freed from the CSS closed-state default (height: 0,
+  // overflow-y: hidden), and the content-inner's own opacity raised off its
+  // CSS closed-state default (0) — animateTo() only runs from user
   // interaction (handleValueChange), so without this the section renders
-  // visually collapsed despite aria-expanded="true" on mount.
+  // visually collapsed/invisible, and the oblique facades inside it clipped,
+  // despite aria-expanded="true" on mount.
   useEffect(() => {
     if (defaultOpen && contentRef.current) {
       contentRef.current.style.height = 'auto';
+      contentRef.current.style.overflowY = 'visible';
+      if (contentInnerRef.current) contentInnerRef.current.style.opacity = '1';
     }
     // Intentionally mount-only: defaultOpen only describes the initial
     // state: post-mount opens/closes go through animateTo() instead.
@@ -75,23 +81,52 @@ export function AccordionContainer({ schema, children, defaultOpen = false }: Ac
 
   function animateTo(nextOpen: boolean) {
     const el = contentRef.current;
+    const innerEl = contentInnerRef.current;
     if (!el) return;
     killTimeline(timelineKey);
 
     const prefersReducedMotion = typeof window.matchMedia === 'function'
       && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const duration = getAccordionDuration(prefersReducedMotion);
+    const fadeDuration = getAccordionFadeDuration(prefersReducedMotion);
     const targetHeight = nextOpen ? el.scrollHeight : 0;
 
+    // Two sequential steps, deliberately never simultaneous, so the content
+    // is never visible while a sibling section is still mid-reposition:
+    // open makes room (height) before the content fades in; close fades the
+    // content out before collapsing (and pushing the next section up).
     const tl = gsap.timeline();
-    tl.to(el, {
-      height: targetHeight,
-      duration,
-      ease: 'power2.out',
-      onComplete: () => {
-        if (nextOpen) el.style.height = 'auto';
-      },
-    });
+    if (nextOpen) {
+      // Overflow must go visible before height starts growing, or the
+      // oblique CabinetBox facades in the content get clipped on their
+      // right edge for the first frame(s) of the expand.
+      tl.set(el, { overflowY: 'visible' });
+      tl.to(el, {
+        height: targetHeight,
+        duration,
+        ease: 'power2.out',
+        onComplete: () => {
+          el.style.height = 'auto';
+        },
+      });
+      if (innerEl) {
+        tl.to(innerEl, { opacity: 1, duration: fadeDuration, ease: 'power1.out' });
+      }
+    } else {
+      if (innerEl) {
+        tl.to(innerEl, { opacity: 0, duration: fadeDuration, ease: 'power1.in' });
+      }
+      tl.to(el, {
+        height: 0,
+        duration,
+        ease: 'power2.in',
+        onComplete: () => {
+          // Only clip back once fully collapsed, so the right-edge clipping
+          // fixed above never appears mid-collapse either.
+          el.style.overflowY = 'hidden';
+        },
+      });
+    }
     setTimeline(timelineKey, tl);
   }
 
@@ -139,7 +174,7 @@ export function AccordionContainer({ schema, children, defaultOpen = false }: Ac
           </Accordion.Trigger>
         </Accordion.Header>
         <Accordion.Content ref={contentRef} className="sc-accordion__content" forceMount>
-          <div className="sc-accordion__content-inner">{children}</div>
+          <div className="sc-accordion__content-inner" ref={contentInnerRef}>{children}</div>
         </Accordion.Content>
       </Accordion.Item>
     </Accordion.Root>
