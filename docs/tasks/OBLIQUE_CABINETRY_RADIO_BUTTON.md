@@ -71,18 +71,18 @@ Tasks 2 and 3 both depend only on Task 1, not on each other — safe to do in ei
 
 ### Phase 2: Scale coverage and docs
 
-- [ ] **Task 2: `CompanyButtonRow.test.tsx` — coverage at `MAX_COMPANIES` scale**
+- [x] **Task 2: `CompanyButtonRow.test.tsx` — coverage at `MAX_COMPANIES` scale**
 
   **Description:** Add the one new test case from spec §5: build a `companies` array of exactly `MAX_COMPANIES` (6) entries, including at least one deliberately long generated-style name (e.g. `"Static Bloom Vanguard"`), render `CompanyButtonRow`, and assert all 8 resulting radio items (`None`, `All`, plus the 6 companies) are queryable via `getByRole('radio', { name: ... })`. Confirms the real `buildCompanyButtonRowSchema` output renders cleanly through Task 1's new per-option shape at the shape's actual ceiling, not just whatever shorter list any other existing test happens to use. Does not assert pixel-level wrapping (jsdom performs no real layout) — that's covered by Task 1's own manual check.
 
   **Acceptance criteria:**
-  - [ ] A new test builds a 6-entry `companies` array (matching `MAX_COMPANIES`), with at least one long name.
-  - [ ] All 8 resulting items (`None`, `All`, 6 companies) are found via `getByRole('radio', { name: ... })`.
-  - [ ] Every existing `CompanyButtonRow.test.tsx` assertion passes unmodified.
+  - [x] A new test builds a 6-entry `companies` array (matching `MAX_COMPANIES`), with at least one long name.
+  - [x] All 8 resulting items (`None`, `All`, 6 companies) are found via `getByRole('radio', { name: ... })`.
+  - [x] Every existing `CompanyButtonRow.test.tsx` assertion passes unmodified.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/company/CompanyButtonRow.test.tsx` passes.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/components/company/CompanyButtonRow.test.tsx` passes (12/12 — 11 existing plus the 1 new case). Not RED-first in the bug-reproduction sense (this is coverage at scale, not a fix for a known-broken behavior) — confirmed it exercises real code by checking `getAllByRole('radio')` resolves to exactly `2 + MAX_COMPANIES` (8) elements, which would fail loudly if `buildCompanyButtonRowSchema` or `RadioButton`'s per-option rendering dropped or duplicated any entry at this scale. Pre-existing, unrelated React `act(...)` console warnings appear (from `CabinetBox`'s `ResizeObserver` callback firing after the initial render commit) — present for every test in this file post-Task-1, not specific to the new case, and don't affect pass/fail.
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** Task 1.
 
