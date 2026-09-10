@@ -47,10 +47,20 @@ export function VoxelTrack({ states, boxSize, gap, axis, timelineKeyPrefix }: Vo
     <div className="sc-voxel-track" data-axis={axis} style={tokens} aria-hidden="true">
       {states.map((state, i) => {
         // Each box's own pop distance ceiling is fixed by its row position
-        // (index i of states.length total), never by the slider's current
-        // value — a box near the minimum end tops out shallow even while
-        // it's the one currently popped. See computeVoxelBoxPopDistance.
-        const popDistance = computeVoxelBoxPopDistance(i, states.length);
+        // (index i of states.length total) by default, never by the
+        // slider's current value — a box near the minimum end tops out
+        // shallow even while it's the one currently popped. SliderCenteredZero
+        // (roadmap 11.1.5) overrides this with a LOCAL index/count pair —
+        // distance from its own side's zero seam, not the box's raw row
+        // position — via VoxelBoxState's own optional popDistanceLocalIndex/
+        // popDistanceLocalCount fields; SliderLinear/SliderLog never set
+        // either, so their own falloff is unaffected. See
+        // computeVoxelBoxPopDistance and docs/specs/
+        // OBLIQUE_CABINETRY_SLIDER_CENTERED_ZERO.md §1.3.
+        const popDistance = computeVoxelBoxPopDistance(
+          state.popDistanceLocalIndex ?? i,
+          state.popDistanceLocalCount ?? states.length,
+        );
         // A box's walls bleed toward its down-right neighbor along the
         // fixed oblique vector — this slot's z-index makes sure it paints
         // over that neighbor rather than under it. See
