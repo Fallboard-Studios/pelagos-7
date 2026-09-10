@@ -75,6 +75,19 @@ export interface VoxelBoxState {
    * `popT !== 1`.
    */
   isStraddling: boolean;
+  /**
+   * SliderCenteredZero only (roadmap 11.1.5). When set, VoxelTrack computes
+   * this box's popDistance ceiling from THIS local index/count pair —
+   * distance from the zero seam within this box's own side of the track —
+   * instead of the box's raw position in the whole row. Both fields are
+   * always set together or not at all. Omitted (the default for
+   * computeVoxelBoxStates' own output, used by SliderLinear/SliderLog)
+   * preserves their exact existing whole-row falloff. z-index
+   * (computeVoxelBoxZIndex) is NOT affected by either field — see
+   * docs/specs/OBLIQUE_CABINETRY_SLIDER_CENTERED_ZERO.md §1.3.
+   */
+  popDistanceLocalIndex?: number;
+  popDistanceLocalCount?: number;
 }
 
 /**
@@ -206,4 +219,91 @@ export const VOXEL_STRADDLE_MIN_SIZE_FRACTION = 0.1;
  */
 export function computeVoxelStraddleSizeFraction(fillPercent: number): number {
   return Math.max(VOXEL_STRADDLE_MIN_SIZE_FRACTION, fillPercent / 100);
+}
+
+/**
+ * SliderCenteredZero's own even-numbered floor (roadmap 11.1.5) — replaces
+ * the odd VOXEL_TRACK_MIN_BOX_COUNT (3) for this one consumer, so its
+ * dead-center seam (Math.floor(boxCount / 2)) always lands exactly on a box
+ * boundary, never inside one. 2 boxes per side is the smallest row that
+ * still leaves room for a purely-filled box before the straddling one on
+ * each side, closer to how every other voxel-track slider's own minimum
+ * reads than a lone 1-box-per-side straddler would.
+ */
+export const VOXEL_TRACK_MIN_BOX_COUNT_EVEN = 4;
+
+/**
+ * Rounds a fitted box count down to the nearest even number, floored at
+ * VOXEL_TRACK_MIN_BOX_COUNT_EVEN (4) rather than the odd VOXEL_TRACK_MIN_BOX_COUNT
+ * (3). An already-even count is returned unchanged. See
+ * docs/specs/OBLIQUE_CABINETRY_SLIDER_CENTERED_ZERO.md §1.4.
+ */
+export function computeEvenBoxCount(rawBoxCount: number): number {
+  const rounded = rawBoxCount - (rawBoxCount % 2);
+  return Math.max(VOXEL_TRACK_MIN_BOX_COUNT_EVEN, rounded);
+}
+
+/**
+ * Zero-anchored dual-fill (roadmap 11.1.5) — a genuine adaptation of
+ * computeVoxelBoxStates above, not a drop-in reuse. The row is split into
+ * two independent halves at a fixed dead-center seam, `Math.floor(boxCount /
+ * 2)` — never the schema's own proportional zero point — so the negative
+ * side always gets `seamIndex` boxes and the positive side the remainder.
+ * Only the side matching `value`'s sign is ever computed with real fill; the
+ * other renders every one of its boxes flat. At `value === 0` exactly, both
+ * sides are flat — no straddling box, no marker.
+ *
+ * Each side reuses computeVoxelBoxStates directly, unmodified. The positive
+ * side needs no remapping: its own conceptual index 0 (fills first, at any
+ * small magnitude) is already the box nearest the seam, which is also the
+ * lowest global index on that side. The negative side's conceptual index 0
+ * must land at the HIGHEST global index on that side instead (nearest the
+ * seam, not nearest min) — computed against the side's own magnitude
+ * (`-value`, `0`, `-min`) and then reversed before assembly. See
+ * docs/specs/OBLIQUE_CABINETRY_SLIDER_CENTERED_ZERO.md §1.2 for the full
+ * worked derivation.
+ *
+ * Every returned box also carries popDistanceLocalIndex/LocalCount — that
+ * box's distance from the seam within its own side (0 = adjacent to the
+ * seam), so VoxelTrack.tsx's falloff ramps shallow-at-the-seam ->
+ * full-depth-at-each-side's-own-physical-end, independently per side.
+ * z-index (computeVoxelBoxZIndex) is unaffected — SliderCenteredZero.tsx
+ * calls it exactly as SliderLinear/SliderLog do, with the real global
+ * index/boxCount.
+ */
+export function computeVoxelBoxStatesCenteredZero(
+  value: number,
+  min: number,
+  max: number,
+  boxCount: number,
+): VoxelBoxState[] {
+  const seamIndex = Math.floor(boxCount / 2);
+  const negativeCount = seamIndex;
+  const positiveCount = boxCount - seamIndex;
+
+  const flatState = (): VoxelBoxState => ({ fillPercent: 0, popT: 0, isStraddling: false });
+
+  const negativeFill =
+    value < 0
+      ? computeVoxelBoxStates(-value, 0, -min, negativeCount).slice().reverse()
+      : Array.from({ length: negativeCount }, flatState);
+
+  const positiveFill =
+    value > 0
+      ? computeVoxelBoxStates(value, 0, max, positiveCount)
+      : Array.from({ length: positiveCount }, flatState);
+
+  const negativeStates: VoxelBoxState[] = negativeFill.map((state, i) => ({
+    ...state,
+    popDistanceLocalIndex: negativeCount - 1 - i,
+    popDistanceLocalCount: negativeCount,
+  }));
+
+  const positiveStates: VoxelBoxState[] = positiveFill.map((state, i) => ({
+    ...state,
+    popDistanceLocalIndex: i,
+    popDistanceLocalCount: positiveCount,
+  }));
+
+  return [...negativeStates, ...positiveStates];
 }
