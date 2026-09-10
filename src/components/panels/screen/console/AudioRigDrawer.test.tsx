@@ -409,6 +409,40 @@ describe('AudioRigDrawer', () => {
     });
   });
 
+  describe('Compressor sub-rows (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.8)', () => {
+    it('Threshold+Ratio and Attack+Release pairs stack (column) on mobile/tablet', () => {
+      stubMatchMedia({ mobile: true, tablet: true });
+      render(<AudioRigDrawer />);
+      const thresholdRow = screen.getAllByRole('slider', { name: 'Threshold' })[0].closest('.sc-directional-panel')!;
+      const attackRow = screen.getByRole('slider', { name: 'Attack' }).closest('.sc-directional-panel')!;
+      expect(thresholdRow.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('column');
+      expect(attackRow.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('column');
+    });
+
+    it('Threshold+Ratio and Attack+Release pairs share a row (row) on desktop', () => {
+      stubMatchMedia({ mobile: false, tablet: false });
+      render(<AudioRigDrawer />);
+      const thresholdRow = screen.getAllByRole('slider', { name: 'Threshold' })[0].closest('.sc-directional-panel')!;
+      const attackRow = screen.getByRole('slider', { name: 'Attack' }).closest('.sc-directional-panel')!;
+      expect(thresholdRow.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('row');
+      expect(attackRow.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('row');
+    });
+
+    it('Knee and the Decay Mode radio each render as their own direct param-row — no shared wrapper between them', () => {
+      render(<AudioRigDrawer />);
+      const kneeRow = screen.getByRole('slider', { name: 'Knee' }).closest('.audio-rig-drawer__param-row')!;
+      const decayModeRow = screen.getByRole('radio', { name: 'Natural Decay' }).closest('.audio-rig-drawer__param-row')!;
+      expect(kneeRow).not.toBe(decayModeRow);
+      // Both are direct children of the Compressor block's own panel content — no
+      // intermediate DirectionalPanel wraps them together.
+      const compressorContent = screen.getAllByRole('slider', { name: 'Threshold' })[0]
+        .closest('.audio-rig-drawer__effect-block')!
+        .querySelector('.sc-directional-panel > .sc-directional-panel__content')!;
+      expect(kneeRow.parentElement).toBe(compressorContent);
+      expect(decayModeRow.parentElement).toBe(compressorContent);
+    });
+  });
+
   describe('Decay radio button', () => {
     it('renders both options, defaulting to Natural Decay selected (compressorBeforeDelay: false)', () => {
       render(<AudioRigDrawer />);

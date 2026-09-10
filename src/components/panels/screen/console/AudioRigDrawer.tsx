@@ -305,27 +305,30 @@ export function AudioRigDrawer() {
               )}
             />
           ) : block.key === 'compressor' ? (
+            // Threshold+Ratio and Attack+Release are the only 2 "existing paired sub-rows" the
+            // intent doc names as staying paired on desktop — 'responsive' stacks them on
+            // mobile/tablet. Knee and the Decay Mode radio are NOT one of those named pairs, so
+            // they de-nest entirely (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.8), each its
+            // own direct param-row at every breakpoint — the same treatment Delay/Reverb's own
+            // params already get (Task 8). This also resolves a pre-existing duplicate id
+            // ('audioRig.compressor.bottomRow' used to be shared by 2 different panels).
             <>
-              <DirectionalPanel schema={{ id: 'audioRig.compressor.topRow', type: 'directionalPanel', orientation: 'row' }}>
+              <DirectionalPanel schema={{ id: 'audioRig.compressor.topRow', type: 'directionalPanel', orientation: 'responsive' }}>
                 {paramRow(findParam(block.params, 'threshold'), effect, updateParam)}
                 {paramRow(findParam(block.params, 'ratio'), effect, updateParam)}
               </DirectionalPanel>
-              <DirectionalPanel schema={{ id: 'audioRig.compressor.bottomRow', type: 'directionalPanel', orientation: 'row' }}>
+              <DirectionalPanel schema={{ id: 'audioRig.compressor.bottomRow', type: 'directionalPanel', orientation: 'responsive' }}>
                 {paramRow(findParam(block.params, 'attack'), effect, updateParam)}
                 {paramRow(findParam(block.params, 'release'), effect, updateParam)}
               </DirectionalPanel>
-              <DirectionalPanel schema={{ id: 'audioRig.compressor.bottomRow', type: 'directionalPanel', orientation: 'row' }}>
-                {paramRow(findParam(block.params, 'knee'), effect, updateParam)}
-                <div className="audio-rig-drawer__param-row">
-                  <RadioButton
-                    schema={DECAY_MODE_SCHEMA}
-                    value={globalAudio.compressorBeforeDelay ? 'controlled' : 'natural'}
-                    onChange={(v) => setCompressorBeforeDelay(v === 'controlled')}
-                  />
-                </div>
-              </DirectionalPanel>
-
-
+              {paramRow(findParam(block.params, 'knee'), effect, updateParam)}
+              <div className="audio-rig-drawer__param-row">
+                <RadioButton
+                  schema={DECAY_MODE_SCHEMA}
+                  value={globalAudio.compressorBeforeDelay ? 'controlled' : 'natural'}
+                  onChange={(v) => setCompressorBeforeDelay(v === 'controlled')}
+                />
+              </div>
             </>
           ) : (
             block.params.map((param) => paramRow(param, effect, updateParam))
