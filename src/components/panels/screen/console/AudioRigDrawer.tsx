@@ -169,12 +169,12 @@ function AudioRigLfoGroup({ groupId, params, effect, updateParam, globalLfo, set
  * Output), each wrapping its blockKeys' blocks via the shared renderBlock()
  * helper — its wrapper changed from its own AccordionContainer to a
  * DirectionalPanel nested inside its group's shared accordion. Delay and
- * Reverb are hand-composed by block.key (findParam() pulls each named param
- * out of block.params) into a nested row — Time+Feedback / Decay+Pre-Delay —
- * with Mix stacked below it inside block.panel's own column; this is a
- * literal, per-block layout, not a rule derived from param count or
- * orientation, matching a caller-supplied panel shape directly. Compressor/
- * Limiter keep the original flat params-map. EQ & Filters is special-cased
+ * Reverb no longer hand-compose a paired topRow (docs/specs/
+ * AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.7) — every one of their params falls
+ * through to the same flat params-map every non-special-cased block uses,
+ * each its own full-width row, at every breakpoint. Compressor/Limiter keep
+ * the original flat params-map (Compressor's own topRow/bottomRow pairing is
+ * a separate, still-special-cased layout — §1.8). EQ & Filters is special-cased
  * (by AUDIO_RIG_ACCORDION_GROUPS' own `key` field, not its raw accordion id)
  * into a flattened row/column layout (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md
  * §1.5) — eq3, filterLPF, and filterHPF are 3 direct siblings of one shared
@@ -304,27 +304,6 @@ export function AudioRigDrawer() {
                 </>
               )}
             />
-          ) : block.key === 'delay' ? (
-            // Hand-composed, not derived: Time+Feedback share a nested row, Mix sits below it,
-            // both inside block.panel's own column — matching the user-supplied layout directly
-            // rather than inferring a grouping rule from param count/orientation.
-            <>
-              <DirectionalPanel schema={{ id: 'audioRig.delay.topRow', type: 'directionalPanel', orientation: 'row' }}>
-                {paramRow(findParam(block.params, 'delayTime'), effect, updateParam)}
-                {paramRow(findParam(block.params, 'feedback'), effect, updateParam)}
-              </DirectionalPanel>
-              {paramRow(findParam(block.params, 'wet'), effect, updateParam)}
-            </>
-          ) : block.key === 'reverb' ? (
-            // Same hand-composed shape as delay above: Decay+Pre-Delay share a nested row, Mix
-            // sits below it.
-            <>
-              <DirectionalPanel schema={{ id: 'audioRig.reverb.topRow', type: 'directionalPanel', orientation: 'row' }}>
-                {paramRow(findParam(block.params, 'decay'), effect, updateParam)}
-                {paramRow(findParam(block.params, 'preDelay'), effect, updateParam)}
-              </DirectionalPanel>
-              {paramRow(findParam(block.params, 'wet'), effect, updateParam)}
-            </>
           ) : block.key === 'compressor' ? (
             <>
               <DirectionalPanel schema={{ id: 'audioRig.compressor.topRow', type: 'directionalPanel', orientation: 'row' }}>

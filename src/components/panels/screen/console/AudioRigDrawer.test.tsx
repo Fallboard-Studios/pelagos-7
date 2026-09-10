@@ -181,6 +181,26 @@ describe('AudioRigDrawer', () => {
     });
   });
 
+  describe('Delay/Reverb param rows (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.7 — every slider own row, at every breakpoint, no paired topRow)', () => {
+    it('Delay renders Time, Feedback, and Mix as 3 direct param-rows inside its own block panel — no nested row wrapper', () => {
+      render(<AudioRigDrawer />);
+      const delayBlockContent = screen.getByText('Delay').closest('.sc-directional-panel')!
+        .querySelector(':scope > .sc-directional-panel__content')!;
+      const directRows = delayBlockContent.querySelectorAll(':scope > .audio-rig-drawer__param-row');
+      expect(directRows).toHaveLength(3);
+      expect(delayBlockContent.querySelector(':scope > .sc-directional-panel')).toBeNull();
+    });
+
+    it('Reverb renders Decay, Pre-Delay, and Mix as 3 direct param-rows inside its own block panel — no nested row wrapper', () => {
+      render(<AudioRigDrawer />);
+      const reverbBlockContent = screen.getByText('Reverb').closest('.sc-directional-panel')!
+        .querySelector(':scope > .sc-directional-panel__content')!;
+      const directRows = reverbBlockContent.querySelectorAll(':scope > .audio-rig-drawer__param-row');
+      expect(directRows).toHaveLength(3);
+      expect(reverbBlockContent.querySelector(':scope > .sc-directional-panel')).toBeNull();
+    });
+  });
+
   it('Delay/Reverb/Compressor/Limiter (no LFO group) render as column-orientation blocks', () => {
     render(<AudioRigDrawer />);
     for (const label of ['Delay', 'Reverb', 'Compressor', 'Limiter']) {
