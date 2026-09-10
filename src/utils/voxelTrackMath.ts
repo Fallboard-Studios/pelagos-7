@@ -88,6 +88,23 @@ export interface VoxelBoxState {
    */
   popDistanceLocalIndex?: number;
   popDistanceLocalCount?: number;
+  /**
+   * SliderCenteredZero only (roadmap 11.1.5 bugfix). VoxelTrack's straddling
+   * slot always renders its glow (filled) piece as the first DOM child,
+   * which CSS positions on the box's MIN side (leftmost/bottommost) — correct
+   * for computeVoxelBoxStates' own single min-anchored scan (used as-is by
+   * SliderLinear/SliderLog, and by computeVoxelBoxStatesCenteredZero's
+   * positive side below, where the min side of the straddling box IS the
+   * filled side). It's backwards for the negative side: after that side's
+   * own reversal (see computeVoxelBoxStatesCenteredZero), the filled portion
+   * of its straddling box is the one nearer the SEAM — its MAX side, not its
+   * min side. Set true there so VoxelTrack visually swaps which side the
+   * glow piece renders on; omitted/false (computeVoxelBoxStates' own output,
+   * and the positive side here) preserves the existing min-side-is-filled
+   * rendering. See docs/specs/OBLIQUE_CABINETRY_SLIDER_CENTERED_ZERO.md §1.2
+   * and its own post-ship bugfix note.
+   */
+  flipStraddleFill?: boolean;
 }
 
 /**
@@ -297,12 +314,14 @@ export function computeVoxelBoxStatesCenteredZero(
     ...state,
     popDistanceLocalIndex: negativeCount - 1 - i,
     popDistanceLocalCount: negativeCount,
+    flipStraddleFill: true,
   }));
 
   const positiveStates: VoxelBoxState[] = positiveFill.map((state, i) => ({
     ...state,
     popDistanceLocalIndex: i,
     popDistanceLocalCount: positiveCount,
+    flipStraddleFill: false,
   }));
 
   return [...negativeStates, ...positiveStates];

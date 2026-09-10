@@ -98,10 +98,15 @@ export function VoxelTrack({ states, boxSize, gap, axis, timelineKeyPrefix }: Vo
         // it's always exactly boxSize, same as every other box. Internally
         // it's two adjacent CabinetBox instances, flush against each other,
         // that always sum to exactly boxSize: a fully-popped glowing piece
-        // (min side) and a fully-flat dark piece (max side), matching how a
-        // normal fully-filled/fully-empty box already renders elsewhere in
-        // the row — replaces the old internal fill gradient with a real
-        // geometric split instead of a color transition. The glow piece's
+        // (min side by default) and a fully-flat dark piece (max side),
+        // matching how a normal fully-filled/fully-empty box already renders
+        // elsewhere in the row — replaces the old internal fill gradient
+        // with a real geometric split instead of a color transition.
+        // data-flip (state.flipStraddleFill, roadmap 11.1.5 bugfix) swaps
+        // which side is which via CSS `order` — SliderCenteredZero's
+        // negative side needs its filled portion on the MAX (seam) side, not
+        // the min side; DOM order (and the z-index rule below, which targets
+        // :last-child structurally) is unaffected either way. The glow piece's
         // own size floors above zero (computeVoxelStraddleSizeFraction) so
         // it never fully disappears at value === min; the flat piece is the
         // exact remainder (boxSize - glowSize, never independently derived)
@@ -113,7 +118,13 @@ export function VoxelTrack({ states, boxSize, gap, axis, timelineKeyPrefix }: Vo
         const isHorizontal = axis === 'horizontal';
 
         return (
-          <div key={i} className="sc-voxel-track__straddle" data-axis={axis} style={{ zIndex }}>
+          <div
+            key={i}
+            className="sc-voxel-track__straddle"
+            data-axis={axis}
+            data-flip={state.flipStraddleFill ? 'true' : undefined}
+            style={{ zIndex }}
+          >
             <CabinetBox
               popped={1}
               boxHeight={boxSize}

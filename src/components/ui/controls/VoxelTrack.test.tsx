@@ -362,6 +362,26 @@ describe('VoxelTrack', () => {
     expect(straddle.style.zIndex).toBe(String(computeVoxelBoxZIndex(2, 3, 'horizontal')));
   });
 
+  it("stamps data-flip=\"true\" on the straddling slot's wrapper when the straddling state carries flipStraddleFill: true — CSS keys off this to visually swap which side the glow (filled) piece renders on, for SliderCenteredZero's negative side (roadmap 11.1.5 bugfix: the fill direction read backwards — left-to-right instead of right-to-left — for a negative value)", () => {
+    const flippedStates: VoxelBoxState[] = [
+      { fillPercent: 0, popT: 0, isStraddling: false },
+      { fillPercent: 20, popT: 1, isStraddling: true, flipStraddleFill: true },
+    ];
+    const { container } = render(
+      <VoxelTrack states={flippedStates} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
+    );
+    const straddle = container.querySelector('.sc-voxel-track__straddle') as HTMLElement;
+    expect(straddle.getAttribute('data-flip')).toBe('true');
+  });
+
+  it('does not stamp data-flip when the straddling state omits flipStraddleFill (SliderLinear/SliderLog\'s own computeVoxelBoxStates output never sets it) — default rendering is unaffected', () => {
+    render(
+      <VoxelTrack states={STATES} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
+    );
+    const straddle = document.querySelector('.sc-voxel-track__straddle') as HTMLElement;
+    expect(straddle.getAttribute('data-flip')).toBeNull();
+  });
+
   it('applies boxSize/gap as the --voxel-box-size/--voxel-gap inline custom properties on the root element', () => {
     const { container } = render(
       <VoxelTrack states={STATES} boxSize={48} gap={12} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,

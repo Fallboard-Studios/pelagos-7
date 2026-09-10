@@ -313,10 +313,10 @@ describe('computeVoxelBoxStatesCenteredZero', () => {
   it('at value === 0, every box on both sides is flat — no straddling box, no marker (symmetric bounds)', () => {
     const states = computeVoxelBoxStatesCenteredZero(0, -50, 50, 4);
     expect(states).toEqual([
-      { fillPercent: 0, popT: 0, isStraddling: false, popDistanceLocalIndex: 1, popDistanceLocalCount: 2 },
-      { fillPercent: 0, popT: 0, isStraddling: false, popDistanceLocalIndex: 0, popDistanceLocalCount: 2 },
-      { fillPercent: 0, popT: 0, isStraddling: false, popDistanceLocalIndex: 0, popDistanceLocalCount: 2 },
-      { fillPercent: 0, popT: 0, isStraddling: false, popDistanceLocalIndex: 1, popDistanceLocalCount: 2 },
+      { fillPercent: 0, popT: 0, isStraddling: false, popDistanceLocalIndex: 1, popDistanceLocalCount: 2, flipStraddleFill: true },
+      { fillPercent: 0, popT: 0, isStraddling: false, popDistanceLocalIndex: 0, popDistanceLocalCount: 2, flipStraddleFill: true },
+      { fillPercent: 0, popT: 0, isStraddling: false, popDistanceLocalIndex: 0, popDistanceLocalCount: 2, flipStraddleFill: false },
+      { fillPercent: 0, popT: 0, isStraddling: false, popDistanceLocalIndex: 1, popDistanceLocalCount: 2, flipStraddleFill: false },
     ]);
   });
 
@@ -337,11 +337,21 @@ describe('computeVoxelBoxStatesCenteredZero', () => {
   it('hand-derived negative-value case (min: -50, max: 50, boxCount: 4, value: -5): the box nearest min stays flat, the box nearest the seam straddles at 20%, the positive side is untouched', () => {
     const states = computeVoxelBoxStatesCenteredZero(-5, -50, 50, 4);
     expect(states).toEqual([
-      { fillPercent: 0, popT: 0, isStraddling: false, popDistanceLocalIndex: 1, popDistanceLocalCount: 2 },
-      { fillPercent: 20, popT: 1, isStraddling: true, popDistanceLocalIndex: 0, popDistanceLocalCount: 2 },
-      { fillPercent: 0, popT: 0, isStraddling: false, popDistanceLocalIndex: 0, popDistanceLocalCount: 2 },
-      { fillPercent: 0, popT: 0, isStraddling: false, popDistanceLocalIndex: 1, popDistanceLocalCount: 2 },
+      { fillPercent: 0, popT: 0, isStraddling: false, popDistanceLocalIndex: 1, popDistanceLocalCount: 2, flipStraddleFill: true },
+      { fillPercent: 20, popT: 1, isStraddling: true, popDistanceLocalIndex: 0, popDistanceLocalCount: 2, flipStraddleFill: true },
+      { fillPercent: 0, popT: 0, isStraddling: false, popDistanceLocalIndex: 0, popDistanceLocalCount: 2, flipStraddleFill: false },
+      { fillPercent: 0, popT: 0, isStraddling: false, popDistanceLocalIndex: 1, popDistanceLocalCount: 2, flipStraddleFill: false },
     ]);
+  });
+
+  it("the negative side's straddling box carries flipStraddleFill: true (its filled portion must render on the seam side, not the min side that VoxelTrack's default DOM order paints) — the positive side's straddling box carries flipStraddleFill: false (default is already correct there)", () => {
+    const negative = computeVoxelBoxStatesCenteredZero(-25, -50, 50, 4);
+    const negativeStraddler = negative.find((s) => s.isStraddling)!;
+    expect(negativeStraddler.flipStraddleFill).toBe(true);
+
+    const positive = computeVoxelBoxStatesCenteredZero(25, -50, 50, 4);
+    const positiveStraddler = positive.find((s) => s.isStraddling)!;
+    expect(positiveStraddler.flipStraddleFill).toBe(false);
   });
 
   it('the seam is always Math.floor(boxCount / 2), never proportional to the schema\'s own zero fraction — asymmetric bounds (-20/+50) still split a 6-box row 3/3', () => {
