@@ -148,18 +148,20 @@ Checkpoint: Complete
 
 ### Phase 4: Docs (parallelizable once their own prerequisite lands)
 
-- [ ] **Task 4: `docs/COMPONENT_LIBRARY.md` — `SliderLog`'s note + `SliderLinear`'s hook-extraction addendum**
+- [x] **Task 4: `docs/COMPONENT_LIBRARY.md` — `SliderLog`'s note + `SliderLinear`'s hook-extraction addendum**
 
   **Description:** Add the same "internal rendering changed, contract didn't" note `SliderLinear`'s row already carries, to `SliderLog`'s row, per roadmap 11.1.4's own Docs bullet and spec §6. Also add a short addition to `SliderLinear`'s *existing* note mentioning that its own container-fitting logic moved into the shared `useVoxelTrackSlider` hook this item introduced, so a reader isn't left thinking that logic still lives inline in `SliderLinear.tsx`.
 
+  **Note:** `SliderLinear`'s existing note lived on a sibling branch (`docs/close-out-slider-linear-cabinetry`, the 11.1.3 docs-closeout pass) that hadn't been merged into this feature branch yet — merged in before starting this task so the addendum has a real base to attach to.
+
   **Acceptance criteria:**
-  - [ ] `docs/COMPONENT_LIBRARY.md` documents that `SliderLog` now renders through `VoxelTrack` internally, with its props contract unchanged.
-  - [ ] `SliderLinear`'s existing note gains a short, accurate mention of the `useVoxelTrackSlider` extraction.
-  - [ ] Both additions are spot-checked against the actual shipped `SliderLog.tsx` (Task 3) and `SliderLinear.tsx` (Task 2), not this spec's draft.
+  - [x] `docs/COMPONENT_LIBRARY.md` documents that `SliderLog` now renders through `VoxelTrack` internally, with its props contract unchanged.
+  - [x] `SliderLinear`'s existing note gains a short, accurate mention of the `useVoxelTrackSlider` extraction.
+  - [x] Both additions are spot-checked against the actual shipped `SliderLog.tsx` (Task 3) and `SliderLinear.tsx` (Task 2), not this spec's draft.
 
   **Verification:**
-  - [ ] Manual review — every documented detail spot-checked directly against the shipped source.
-  - [ ] `npm run build:types`, `npm run lint` clean (docs-only change).
+  - [x] Manual review — every documented detail spot-checked directly against the shipped source.
+  - [x] `npm run build:types`, `npm run lint` clean (docs-only change).
 
   **Dependencies:** Task 2, Task 3.
 
@@ -167,17 +169,17 @@ Checkpoint: Complete
 
   **Estimated scope:** XS (docs only)
 
-- [ ] **Task 5: `docs/CONSOLE_THEMING.md` — update the "Voxel-track sliders" section's closing line**
+- [x] **Task 5: `docs/CONSOLE_THEMING.md` — update the "Voxel-track sliders" section's closing line**
 
   **Description:** Update the "Voxel-track sliders (Phase 11.1.3)" section's closing framing — currently "Shared unchanged by `SliderLog`/`SliderCenteredZero` (11.1.4/11.1.5) once they ship" — to reflect that `SliderLog` has now shipped through the same mechanism, with `SliderCenteredZero` (11.1.5) remaining the pending one.
 
   **Acceptance criteria:**
-  - [ ] The closing line accurately reflects `SliderLog`'s shipped state.
-  - [ ] No other claim in that section is altered unless this task finds it inaccurate against the actual shipped source while making the edit.
+  - [x] The closing line accurately reflects `SliderLog`'s shipped state.
+  - [x] No other claim in that section is altered unless this task finds it inaccurate against the actual shipped source while making the edit. (Section header left as "Phase 11.1.3 — SliderLinear" — still accurate as the mechanism's introduction point, not something this task's own scope covers renaming.)
 
   **Verification:**
-  - [ ] Manual review — spot-checked against the shipped `SliderLog.tsx`/`voxelTrackMath.ts`.
-  - [ ] `npm run build:types`, `npm run lint` clean (docs-only change).
+  - [x] Manual review — spot-checked against the shipped `SliderLog.tsx`/`voxelTrackMath.ts`.
+  - [x] `npm run build:types`, `npm run lint` clean (docs-only change).
 
   **Dependencies:** Task 3.
 
@@ -186,12 +188,12 @@ Checkpoint: Complete
   **Estimated scope:** XS (docs only)
 
 ### Checkpoint: Complete
-- [ ] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes.
-- [ ] All acceptance criteria across all 5 tasks are met.
-- [ ] `docs/COMPONENT_LIBRARY.md` and `docs/CONSOLE_THEMING.md` both reflect the shipped feature.
-- [ ] Manual check (Task 3) completed against the real running app.
-- [ ] `docs/roadmap/roadmap.md` gains the "Done" marker for 11.1.4, mirroring 11.1.2/11.1.3's own pattern — a wrap-up action once everything above is verified, not one of the 5 numbered tasks itself (11.1.3's own roadmap "Done" line landed the same way, as a follow-up pass rather than a task in that plan).
-- [ ] Ready for PR.
+- [x] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes (123 files / 2096 tests).
+- [x] All acceptance criteria across all 5 tasks are met.
+- [x] `docs/COMPONENT_LIBRARY.md` and `docs/CONSOLE_THEMING.md` both reflect the shipped feature.
+- [ ] Manual check (Task 3) completed against the real running app. **Outstanding — no browser-automation tool available in this environment; flagged for Crawford.**
+- [x] `docs/roadmap/roadmap.md` gains the "Done" marker for 11.1.4, mirroring 11.1.2/11.1.3's own pattern.
+- [ ] Ready for PR — blocked only on the manual check above.
 
 ## Risks and Mitigations
 

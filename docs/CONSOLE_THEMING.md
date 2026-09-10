@@ -222,9 +222,12 @@ of uniform `CabinetBox` facades, `32×32px`/`40×40px`/`48×48px` at the same mo
 `CabinetBox`'s own height uses, spaced `8px`/`10px`/`12px` apart (`CABINET_VOXEL_GAP`,
 `src/utils/cabinetBreakpoints.ts`). Box size and gap are fixed per tier; box **count** is not — it's
 fitted live to whatever space the slider's container actually gives it (below), never authored per
-schema or held to one flat constant. Shared unchanged by `SliderLog`/`SliderCenteredZero`
-(11.1.4/11.1.5) once they ship — only their own value→`t` curve differs. Full derivation:
-[docs/specs/OBLIQUE_CABINETRY_SLIDER_LINEAR.md](specs/OBLIQUE_CABINETRY_SLIDER_LINEAR.md).
+schema or held to one flat constant. Reused unchanged by `SliderLog` (11.1.4, shipped) and
+`SliderCenteredZero` (11.1.5, still pending) — only their own value→`t` curve differs; `SliderLinear`
+and `SliderLog` also now share the `boxSize`/`gap`/`boxCount`/`trackLength`/`rootStyle` glue itself via
+one hook, `useVoxelTrackSlider` (`src/components/ui/controls/`), rather than each carrying its own
+copy. Full derivation: [docs/specs/OBLIQUE_CABINETRY_SLIDER_LINEAR.md](specs/OBLIQUE_CABINETRY_SLIDER_LINEAR.md)
+and [docs/specs/OBLIQUE_CABINETRY_SLIDER_LOG.md](specs/OBLIQUE_CABINETRY_SLIDER_LOG.md).
 
 **Self-fitting box count.** `useVoxelTrackBoxCount` (`src/components/ui/controls/`) measures available
 space via `ResizeObserver` and feeds `voxelTrackMath.ts`'s `computeFittedBoxCount(availableLength,

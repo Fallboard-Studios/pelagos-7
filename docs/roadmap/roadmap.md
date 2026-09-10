@@ -529,7 +529,9 @@ The voxel-track mechanism built here is deliberately shared infrastructure, not 
 
 ## 11.1.4 Oblique Cabinetry: SliderLog
 
-Wires `SliderLog` into the voxel-track system 11.1.3 built. Depends on 11.1.3 having shipped; not yet interviewed/specced.
+Wires `SliderLog` into the voxel-track system 11.1.3 built. Depends on 11.1.3 having shipped. Confirmed via `/interview-me` — source of intent: [docs/intent/oblique-cabinetry-slider-log.md](../intent/oblique-cabinetry-slider-log.md).
+
+**Done** — see [docs/specs/OBLIQUE_CABINETRY_SLIDER_LOG.md](../specs/OBLIQUE_CABINETRY_SLIDER_LOG.md) and [docs/tasks/OBLIQUE_CABINETRY_SLIDER_LOG.md](../tasks/OBLIQUE_CABINETRY_SLIDER_LOG.md). Scope ended up wider than this section's own original draft, resolved during the intent/spec passes rather than deferred: the interview surfaced a real architecture question the roadmap stub didn't address — `SliderLinear.tsx`'s inline `boxSize`/`gap`/`boxCount`/`trackLength`/`rootStyle` glue was extracted into a new shared hook, `useVoxelTrackSlider` (`src/components/ui/controls/`), and `SliderLinear.tsx` itself was retrofitted to call it, verified as a strictly behavior-preserving refactor (all 23 of its existing tests pass with a literal empty `git diff`) before `SliderLog` was allowed to depend on the same hook. `SliderLog`'s own box placement uses its normalized `t` (`sliderLogValueToT`'s output, the same value already fed to Radix's `Slider.Root`), not the raw log-scaled value against `schema.min`/`schema.max` — `voxelTrackMath.ts` assumes linear spacing, and only `t`-space is linear for a log curve. `verticalHeight` gained the identical fitting-budget semantics 11.1.3 already established for `SliderLinear`. `sliderLogMath.ts`'s own curve is untouched.
 
 ### Create
 
