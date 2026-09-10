@@ -3,6 +3,28 @@ import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 
 vi.mock('@/animation/timelineMap', () => ({ setTimeline: vi.fn(), killTimeline: vi.fn() }));
 
+// Local gsap mock (overrides vitest.setup.ts's shared one, same as
+// CabinetBox.test.tsx's own) — records each timeline step's method/target/
+// vars in call order and fires onComplete synchronously, so the
+// make-room-then-fade / fade-then-collapse sequencing tests below can assert
+// the exact order animateTo() queues steps in, not just that a timeline was
+// created.
+let timelineCalls: Array<{ method: 'set' | 'to'; target: unknown; vars: Record<string, unknown> }> = [];
+vi.mock('gsap', () => {
+  const chainable = {
+    set: (target: unknown, vars: Record<string, unknown>) => {
+      timelineCalls.push({ method: 'set', target, vars });
+      return chainable;
+    },
+    to: (target: unknown, vars: Record<string, unknown>) => {
+      timelineCalls.push({ method: 'to', target, vars });
+      if (typeof vars.onComplete === 'function') (vars.onComplete as () => void)();
+      return chainable;
+    },
+  };
+  return { default: { timeline: vi.fn(() => chainable) } };
+});
+
 // Mocked the same way Button.test.tsx/Toggle.test.tsx/RadioButton.test.tsx mock
 // CabinetBox — keeps this file's assertions about AccordionContainer's own
 // wiring (which box gets which popped/boxHeight/timelineKey/skipMountAnimation)
@@ -62,6 +84,7 @@ describe('getAccordionDuration', () => {
 describe('AccordionContainer', () => {
   beforeEach(() => {
     stubMatchMedia(false);
+    timelineCalls = [];
   });
 
   afterEach(() => {
@@ -208,5 +231,47 @@ describe('AccordionContainer', () => {
     // meaningful check is which cabinet-box the indicator's nearest
     // ancestor is, not merely "is it somewhere under the facade."
     expect(indicator?.closest('[data-testid="cabinet-box"]')).toBe(toggleBox(container));
+  });
+
+  // Requested follow-up: content must never be visible while a sibling
+  // section is still mid-reposition — open makes room (height) before
+  // fading content in, close fades content out before collapsing.
+  describe('height/opacity sequencing', () => {
+    function contentEls(container: HTMLElement) {
+      return {
+        content: container.querySelector('.sc-accordion__content'),
+        inner: container.querySelector('.sc-accordion__content-inner'),
+      };
+    }
+
+    it('on open, animates height to the target before fading the content in', () => {
+      const { container } = render(<AccordionContainer schema={schema}>Content</AccordionContainer>);
+      const { content, inner } = contentEls(container);
+      fireEvent.click(screen.getByRole('button'));
+
+      const heightStepIndex = timelineCalls.findIndex(
+        (c) => c.method === 'to' && c.target === content && 'height' in c.vars,
+      );
+      const fadeStepIndex = timelineCalls.findIndex(
+        (c) => c.method === 'to' && c.target === inner && c.vars.opacity === 1,
+      );
+      expect(heightStepIndex).toBeGreaterThanOrEqual(0);
+      expect(fadeStepIndex).toBeGreaterThan(heightStepIndex);
+    });
+
+    it('on close, fades the content out before animating height back to 0', () => {
+      const { container } = render(<AccordionContainer schema={schema} defaultOpen>Content</AccordionContainer>);
+      const { content, inner } = contentEls(container);
+      fireEvent.click(screen.getByRole('button'));
+
+      const fadeStepIndex = timelineCalls.findIndex(
+        (c) => c.method === 'to' && c.target === inner && c.vars.opacity === 0,
+      );
+      const heightStepIndex = timelineCalls.findIndex(
+        (c) => c.method === 'to' && c.target === content && c.vars.height === 0,
+      );
+      expect(fadeStepIndex).toBeGreaterThanOrEqual(0);
+      expect(heightStepIndex).toBeGreaterThan(fadeStepIndex);
+    });
   });
 });
