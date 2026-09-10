@@ -1,6 +1,18 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
+// Mocked the same way Button.test.tsx/Toggle.test.tsx mock CabinetBox — keeps
+// this file's assertions about RadioButton's own event-to-prop wiring
+// isolated from CabinetBox's already-proven internals (11.1.1). None of the
+// existing tests below depend on CabinetBox's real rendering (role/aria-label/
+// data-state/data-disabled all live on ToggleGroup.Item itself), so the mock
+// is safe for the whole file rather than needing a separate unmocked block.
+vi.mock('./CabinetBox', () => ({
+  CabinetBox: ({ popped, timelineKey, children }: { popped: boolean; timelineKey: string; children?: React.ReactNode }) => (
+    <div data-testid="cabinet-box" data-popped={popped} data-timeline-key={timelineKey}>{children}</div>
+  ),
+}));
+
 import { RadioButton } from './RadioButton';
 import type { RadioButtonSchema } from '@/types/controls';
 
@@ -69,5 +81,41 @@ describe('RadioButton', () => {
     render(<RadioButton schema={schema} value="sine" onChange={onChange} disabled />);
     fireEvent.click(screen.getByRole('radio', { name: 'SQUARE' }));
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  // Roadmap 11.1.6 — one CabinetBox per option, popped only for the
+  // currently-selected one. See docs/specs/OBLIQUE_CABINETRY_RADIO_BUTTON.md §1.1.
+  it('renders one CabinetBox per option, popped only for the option matching value', () => {
+    render(<RadioButton schema={schema} value="sine" onChange={() => {}} />);
+    expect(screen.getAllByTestId('cabinet-box')).toHaveLength(4);
+
+    const boxFor = (name: string) =>
+      screen.getByRole('radio', { name }).querySelector('[data-testid="cabinet-box"]');
+
+    expect(boxFor('SINE')?.getAttribute('data-popped')).toBe('true');
+    expect(boxFor('TRIANGLE')?.getAttribute('data-popped')).toBe('false');
+    expect(boxFor('SQUARE')?.getAttribute('data-popped')).toBe('false');
+    expect(boxFor('SAWTOOTH')?.getAttribute('data-popped')).toBe('false');
+  });
+
+  it('passes a distinct timelineKey per option, derived from schema.id and the option\'s own value', () => {
+    render(<RadioButton schema={schema} value="sine" onChange={() => {}} />);
+    const boxFor = (name: string) =>
+      screen.getByRole('radio', { name }).querySelector('[data-testid="cabinet-box"]');
+
+    expect(boxFor('TRIANGLE')?.getAttribute('data-timeline-key')).toBe('cabinet-radio-lfoShape-triangle');
+    expect(boxFor('SQUARE')?.getAttribute('data-timeline-key')).toBe('cabinet-radio-lfoShape-square');
+  });
+
+  it('renders the option\'s label as CabinetBox\'s own children, not directly inside the toggle item', () => {
+    render(<RadioButton schema={schema} value="sine" onChange={() => {}} />);
+    const box = screen.getByRole('radio', { name: 'SINE' }).querySelector('[data-testid="cabinet-box"]');
+    expect(box?.textContent).toBe('SINE');
+  });
+
+  it('reflects selection via Radix\'s own data-state attribute, which the accent-tint CSS rule depends on', () => {
+    render(<RadioButton schema={schema} value="sine" onChange={() => {}} />);
+    expect(screen.getByRole('radio', { name: 'SINE' }).getAttribute('data-state')).toBe('on');
+    expect(screen.getByRole('radio', { name: 'TRIANGLE' }).getAttribute('data-state')).toBe('off');
   });
 });
