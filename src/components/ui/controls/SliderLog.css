@@ -14,10 +14,30 @@
   align-items: center;
 }
 
+/* Only the box row (Slider.Root) is ever wider/taller than its container —
+   engages only for the 3-box overflow floor (voxelTrackMath.ts's
+   VOXEL_TRACK_MIN_BOX_COUNT). Mirrors SliderLinear.css's own §1.11
+   precedent — scoped to the existing data-orientation attribute, no new
+   wrapper element. */
+.sc-slider-log[data-orientation='horizontal'] {
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.sc-slider-log[data-orientation='vertical'] {
+  overflow-y: auto;
+  overflow-x: visible;
+}
+
 .sc-slider-log__root {
   position: relative;
   display: flex;
   align-items: center;
+  /* Slider.Root's own inline width AND height (set in SliderLog.tsx, via
+     useVoxelTrackSlider's rootStyle — main axis from computeVoxelTrackLength,
+     cross axis from the live boxSize) now supersede both of these; kept only
+     as a same-paint fallback for the instant before that inline style
+     applies. Mirrors SliderLinear.css's own §1.11 precedent exactly. */
   width: 100%;
   height: 20px;
   touch-action: none;
@@ -27,16 +47,26 @@
 .sc-slider-log__track {
   position: relative;
   flex-grow: 1;
-  height: 3px;
-  border-radius: 999px;
-  background-color: var(--color-border);
-}
-
-.sc-slider-log__range {
-  position: absolute;
+  /* Always exactly Slider.Root's own cross-axis size — was a separate
+     hand-picked 3px literal left over from the old thin-line track, which
+     let the 32-48px voxel box row render inside (and overflow past) a
+     3px-tall container: VoxelTrack's inset:0 sizes to Track's own box, so a
+     too-small Track clipped the real interactive region to 3px while the
+     boxes themselves painted overflow-visible, well outside it — a click
+     landing on a visually-present box could miss the real Slider.Root/
+     Track hit area entirely, or land on a DOM-later sibling (e.g. the value
+     label) painting on top of that overflow instead. Found live in the
+     running app. Mirrors SliderLinear.css's own fix exactly. */
   height: 100%;
   border-radius: 999px;
-  background-color: var(--color-accent);
+}
+
+/* Decorative only, kept in the DOM for structural/a11y parity — the voxel
+   track (an absolutely-positioned sibling inside Slider.Track) renders the
+   real visible fill. Mirrors SliderLinear.css's/SliderCenteredZero.css's
+   own .__range rule exactly. */
+.sc-slider-log__range {
+  visibility: hidden;
 }
 
 .sc-slider-log__thumb {
@@ -44,7 +74,11 @@
   width: 14px;
   height: 14px;
   border-radius: 999px;
-  background-color: var(--color-text-primary);
+  /* was background-color: var(--color-text-primary) — the voxel boxes now
+     carry all visible fill/position information; the thumb itself stays
+     real, hit-testable, and focusable (never visibility:hidden/opacity:0,
+     which would also hide the :focus-visible outline below). */
+  background-color: transparent;
 }
 
 .sc-slider-log__thumb:focus-visible {
@@ -54,12 +88,17 @@
 
 .sc-slider-log__root[data-orientation='vertical'] {
   flex-direction: column;
+  /* Slider.Root's own inline width AND height (cross axis boxSize, main
+     axis computeVoxelTrackLength) always supersede both of these now —
+     same same-paint-fallback-only status as the base rule above. */
   width: 20px;
   height: var(--slider-vertical-height, 256px);
 }
 
 .sc-slider-log__track[data-orientation='vertical'] {
-  width: 3px;
+  /* Always exactly Slider.Root's own cross-axis size (see the base
+     .sc-slider-log__track rule's own comment). */
+  width: 100%;
   height: 100%;
 }
 

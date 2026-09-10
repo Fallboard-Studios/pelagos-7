@@ -480,7 +480,7 @@ Establishes the cabinet-box visual language — flat and inert at rest, extrudin
 
 ## 11.1.2 Oblique Cabinetry: Toggle
 
-Wires `Toggle` into the cabinet-box mechanism 11.1.1 built — the second and last single-box (non-voxel-track) consumer. Depends on 11.1.1 having shipped; not yet interviewed/specced.
+Wires `Toggle` into the cabinet-box mechanism 11.1.1 built — the second and last single-box (non-voxel-track) consumer. Depends on 11.1.1 having shipped. **Done** — see [docs/intent/oblique-cabinetry-toggle.md](../intent/oblique-cabinetry-toggle.md), [docs/specs/OBLIQUE_CABINETRY_TOGGLE.md](../specs/OBLIQUE_CABINETRY_TOGGLE.md), and [docs/tasks/OBLIQUE_CABINETRY_TOGGLE.md](../tasks/OBLIQUE_CABINETRY_TOGGLE.md). Confirmed shipped on `main` (PR #431): `Toggle` renders through `CabinetBox` as described below, and `CabinetBox` itself gained the `boxHeight`/optional-`children` additions this item needed — both later reused unchanged by 11.1.3's `VoxelTrack`.
 
 ### Create
 
@@ -502,6 +502,8 @@ Confirms the foundation generalizes past its first consumer with no new mechanis
 ## 11.1.3 Oblique Cabinetry: SliderLinear (Voxel-Track Foundation)
 
 Wires `SliderLinear` into the cabinet-box mechanism and, alongside it, builds the voxel-track rendering shared by all 3 sliders (`SliderLinear`, `SliderLog`, `SliderCenteredZero`) — a genuinely different rendering shape from Button/Toggle's single box, so it's built once here rather than three times. 11.1.4 and 11.1.5 each wire this same voxel-track system into their own primitive as thin follow-ups. Depends on 11.1.1 having shipped (reuses its cabinet-box primitive and face-shading helper). Confirmed via `/interview-me` — source of intent: [docs/intent/oblique-cabinetry-slider-linear.md](../intent/oblique-cabinetry-slider-linear.md).
+
+**Done** — see [docs/specs/OBLIQUE_CABINETRY_SLIDER_LINEAR.md](../specs/OBLIQUE_CABINETRY_SLIDER_LINEAR.md) and [docs/tasks/OBLIQUE_CABINETRY_SLIDER_LINEAR.md](../tasks/OBLIQUE_CABINETRY_SLIDER_LINEAR.md). Confirmed shipped on `main` (PR #433): `VoxelTrack`/`voxelTrackMath.ts` exist and `SliderLinear` renders through them exactly as described below, plus all 5 post-ship refinements the task doc's own "Post-ship refinements" section records (the extrusion-falloff/straddle-box redesign, the `skipMountAnimation` remount-flash fix, the hit-area/backing-layer change shared with 11.1.1, the trailing-reserve overflow fix, and the vertical-default infinite-loop fix) — all already on `main` as of this pass, not still pending.
 
 ### Create
 
@@ -527,7 +529,9 @@ The voxel-track mechanism built here is deliberately shared infrastructure, not 
 
 ## 11.1.4 Oblique Cabinetry: SliderLog
 
-Wires `SliderLog` into the voxel-track system 11.1.3 built. Depends on 11.1.3 having shipped; not yet interviewed/specced.
+Wires `SliderLog` into the voxel-track system 11.1.3 built. Depends on 11.1.3 having shipped. Confirmed via `/interview-me` — source of intent: [docs/intent/oblique-cabinetry-slider-log.md](../intent/oblique-cabinetry-slider-log.md).
+
+**Done** — see [docs/specs/OBLIQUE_CABINETRY_SLIDER_LOG.md](../specs/OBLIQUE_CABINETRY_SLIDER_LOG.md) and [docs/tasks/OBLIQUE_CABINETRY_SLIDER_LOG.md](../tasks/OBLIQUE_CABINETRY_SLIDER_LOG.md). Scope ended up wider than this section's own original draft, resolved during the intent/spec passes rather than deferred: the interview surfaced a real architecture question the roadmap stub didn't address — `SliderLinear.tsx`'s inline `boxSize`/`gap`/`boxCount`/`trackLength`/`rootStyle` glue was extracted into a new shared hook, `useVoxelTrackSlider` (`src/components/ui/controls/`), and `SliderLinear.tsx` itself was retrofitted to call it, verified as a strictly behavior-preserving refactor (all 23 of its existing tests pass with a literal empty `git diff`) before `SliderLog` was allowed to depend on the same hook. `SliderLog`'s own box placement uses its normalized `t` (`sliderLogValueToT`'s output, the same value already fed to Radix's `Slider.Root`), not the raw log-scaled value against `schema.min`/`schema.max` — `voxelTrackMath.ts` assumes linear spacing, and only `t`-space is linear for a log curve. `verticalHeight` gained the identical fitting-budget semantics 11.1.3 already established for `SliderLinear`. `sliderLogMath.ts`'s own curve is untouched.
 
 ### Create
 

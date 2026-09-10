@@ -209,6 +209,94 @@ as a real recurring pattern. Same "JS-owned value applied as an inline style" pr
 
 Status as of Foundation & Button (11.1.1): `CabinetBox` (the shared rendering primitive, including the
 pop-proportional glow and sharp front-face corners above) and `Button` (its first real consumer) have
-shipped and were confirmed against the real running app; `Toggle` and the 3 sliders (11.1.2–11.1.5)
-have not yet. `CabinetBox` as it stands here — walls, glow, and all — is the reference every later
-11.1.x item's own cabinet box should match, not just the geometry/face-shading fundamentals.
+shipped and were confirmed against the real running app. `Toggle` (11.1.2) and `SliderLinear`
+(11.1.3, below) have since shipped too; `SliderLog`/`SliderCenteredZero` (11.1.4/11.1.5) have not yet.
+`CabinetBox` as it stands here — walls, glow, and all — is the reference every later 11.1.x item's own
+cabinet box should match, not just the geometry/face-shading fundamentals.
+
+## Voxel-track sliders (Phase 11.1.3 — SliderLinear)
+
+`SliderLinear`'s traditional track+handle is replaced by `VoxelTrack`
+(`src/components/ui/controls/VoxelTrack.tsx`) — a row (horizontal) or bottom-to-top column (vertical)
+of uniform `CabinetBox` facades, `32×32px`/`40×40px`/`48×48px` at the same mobile/tablet/desktop tiers
+`CabinetBox`'s own height uses, spaced `8px`/`10px`/`12px` apart (`CABINET_VOXEL_GAP`,
+`src/utils/cabinetBreakpoints.ts`). Box size and gap are fixed per tier; box **count** is not — it's
+fitted live to whatever space the slider's container actually gives it (below), never authored per
+schema or held to one flat constant. Reused unchanged by `SliderLog` (11.1.4, shipped) and
+`SliderCenteredZero` (11.1.5, still pending) — only their own value→`t` curve differs; `SliderLinear`
+and `SliderLog` also now share the `boxSize`/`gap`/`boxCount`/`trackLength`/`rootStyle` glue itself via
+one hook, `useVoxelTrackSlider` (`src/components/ui/controls/`), rather than each carrying its own
+copy. Full derivation: [docs/specs/OBLIQUE_CABINETRY_SLIDER_LINEAR.md](specs/OBLIQUE_CABINETRY_SLIDER_LINEAR.md)
+and [docs/specs/OBLIQUE_CABINETRY_SLIDER_LOG.md](specs/OBLIQUE_CABINETRY_SLIDER_LOG.md).
+
+**Self-fitting box count.** `useVoxelTrackBoxCount` (`src/components/ui/controls/`) measures available
+space via `ResizeObserver` and feeds `voxelTrackMath.ts`'s `computeFittedBoxCount(availableLength,
+boxSize, gap)`, which floors to the largest box count that fits without overflowing, clamped to a
+`VOXEL_TRACK_MIN_BOX_COUNT` of `3` — a container too narrow even for 3 boxes at the current
+breakpoint's size clamps to 3 and scrolls, rather than shrinking boxes below their fixed size.
+Horizontal observes the slider's own rendered element directly (`.sc-slider-linear` is a plain block
+box whose width is externally determined, so self-observation carries no feedback-loop risk); vertical
+observes the parent, following `useAutoSliderOrientation`'s existing convention, **except** when the
+caller omits `verticalHeight` — a live parent measurement there is genuinely circular for any container
+whose own height auto-sizes to its content (the parent's height depends on this slider's rendered
+height, which depends on measuring that same parent — found live as an infinite resize loop). In that
+case `SliderLinear.tsx` fits against the fixed `VOXEL_TRACK_DEFAULT_VERTICAL_HEIGHT` (256px, matching
+`--slider-vertical-height`) instead of measuring at all.
+
+A `computeVoxelTrackTrailingReserve(axis)` reserve (horizontal only — `2 × VOXEL_TRACK_POP_DISTANCE`)
+is subtracted from the available length before fitting a box count, then added back on top of
+`computeVoxelTrackLength`'s tight result when sizing `Slider.Root` — otherwise a container whose width
+happened to land on an exact multiple of `(boxSize + gap)` left no slack for the last (nearest-max)
+box's own pop-out bleed, visibly overflowing at value === 100% (found live for Limiter/Tempo/Automatic
+Effects).
+
+**Dual-fill value readout.** Boxes are indexed `0` (nearest min) through `boxCount - 1` (nearest max) —
+Radix's own horizontal min-at-left / vertical min-at-bottom convention. `voxelTrackMath.ts`'s
+`computeVoxelBoxStates(value, min, max, boxCount)` locates the *straddling* box — the one representing
+the slider's exact current value — and returns, per box, a `fillPercent` (0–100) and `popT` (0–1) fed
+straight into `CabinetBox`'s `popped` prop (widened from `boolean` to `boolean | number` for exactly
+this purpose). Every box below the straddling one renders fully filled (`fillPercent: 100`, `popT: 1`);
+every box above it renders fully empty (`fillPercent: 0`, `popT: 0`); the straddling box itself carries
+the local fractional percentage within its own slot. A dedicated `isStraddling` flag identifies that one
+box explicitly — `popT` alone can't, since every filled box is *also* `popT: 1`, not just the straddling
+one (found live as the root cause of every filled box briefly taking the two-piece straddle rendering
+path below, each carrying a hidden always-0-width partner). `computeVoxelFillBackground(fillPercent,
+axis)` renders each box's front face as solid `--color-accent` (100% filled), solid `--color-surface`
+(0% filled), or — for the straddling box only — a hard-stop (not blended) two-color `linear-gradient`
+split at the exact fill percentage.
+
+**The straddling box is two adjacent `CabinetBox`es, not one.** Rather than a single box rendering an
+internal gradient split, the straddling slot is a fully-popped glowing piece (the filled/min side) and a
+fully-flat dark piece (the empty/max side), flush against each other and always summing to exactly the
+row's normal `boxSize` — matching how a normal fully-filled or fully-empty box already renders
+elsewhere in the row, rather than a third visual language for "partially filled." The glow piece's size
+is `boxSize × computeVoxelStraddleSizeFraction(fillPercent)`, floored at `VOXEL_STRADDLE_MIN_SIZE_FRACTION`
+(`0.1`) so it never fully disappears at value === min; the flat piece is always the exact remainder
+(`boxSize - glowSize`, never independently derived), and legitimately shrinks to zero at value === max —
+a fully-popped box at the maximum, with no flat sliver, is correct.
+
+**Extrusion-falloff is a fixed per-row-position ceiling, not fill-relative.** Each box's own maximum pop
+distance — `computeVoxelBoxPopDistance(index, boxCount)` — interpolates linearly from
+`VOXEL_TRACK_POP_DISTANCE_MIN_RATIO` (`0.125`) of `VOXEL_TRACK_POP_DISTANCE` (`8`, `cabinetGeometry.ts`
+— deliberately larger than `Button`/`Toggle`'s own `CABINET_POP_DISTANCE`, since a full row of many
+boxes read as too subtle at that smaller distance) at box `0` (nearest min) up to the full
+`VOXEL_TRACK_POP_DISTANCE` at the last box (nearest max) — fixed by each box's own position in the row,
+never by which box currently happens to be popped. An earlier version tapered pop distance relative to
+how much of the track was filled (`i / straddlingIndex`), which let a box near the minimum reach full
+pop distance the moment it became the straddling box at a low value — corrected after review to depend
+only on fixed row position.
+
+**Paint order.** Because every popped box's walls bleed along the same fixed `(2, 1)` oblique vector
+(right and down) regardless of axis, `computeVoxelBoxZIndex(index, boxCount, axis)` orders boxes so one
+whose walls bleed into a neighbor's space paints *over* that neighbor: horizontal z-index descends as
+index rises (box 0, leftmost, always wins), vertical z-index ascends as index rises (the topmost/
+highest-index box, per the column's own `column-reverse` layout, always wins) — "up/left of a neighbor"
+outranks "down/right of it" in both cases.
+
+**Straddle-boundary remounts don't replay the mount flourish.** Every `CabinetBox` `VoxelTrack` renders
+gets a `skipMountAnimation` prop: because the box at the straddling index changes React element shape
+(plain box vs. the two-piece straddle wrapper) every time the straddling index moves, React remounts it
+at the same key — without the flag, `CabinetBox`'s own "animate in from the opposite state" first-mount
+behavior (correct for `Button`/`Toggle`, where a mount is a genuinely new element) replayed a full
+flat↔popped tween with no real transition behind it, a spurious wall flash on every value change that
+crossed a box boundary.

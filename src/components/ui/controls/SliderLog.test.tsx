@@ -1,12 +1,88 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, act } from '@testing-library/react';
+
+vi.mock('./VoxelTrack', () => ({
+  VoxelTrack: ({
+    states,
+    boxSize,
+    gap,
+    axis,
+    timelineKeyPrefix,
+  }: {
+    states: unknown[];
+    boxSize: number;
+    gap: number;
+    axis: string;
+    timelineKeyPrefix: string;
+  }) => (
+    <div
+      data-testid="voxel-track"
+      data-states={JSON.stringify(states)}
+      data-box-size={boxSize}
+      data-gap={gap}
+      data-axis={axis}
+      data-timeline-key-prefix={timelineKeyPrefix}
+    />
+  ),
+}));
 
 import { SliderLog } from './SliderLog';
 import { LOG_EPSILON, sliderLogTToValue, sliderLogValueToT } from './sliderLogMath';
+import {
+  computeFittedBoxCount,
+  computeVoxelTrackLength,
+  computeVoxelTrackTrailingReserve,
+  computeVoxelBoxStates,
+  VOXEL_TRACK_DEFAULT_VERTICAL_HEIGHT,
+} from '@/utils/voxelTrackMath';
 import type { SliderLogSchema } from '@/types/controls';
 
 // Attack/Decay/Release bounds (docs/reference/ROBOT_DATA_GRID.md), the min = 0 fixture.
 const schema: SliderLogSchema = { id: 'attack', type: 'sliderLog', min: 0, max: 10, humanLabel: 'Attack', unit: 's', orientation: 'horizontal' };
+
+// Desktop-tier box geometry (no window.matchMedia in this jsdom environment
+// -> useCabinetBoxHeight()/useVoxelTrackGap() both fall back to 'desktop',
+// same assumption SliderLinear.test.tsx already makes).
+const BOX_SIZE = 48;
+const GAP = 12;
+
+/**
+ * Controllable ResizeObserver mock, mirroring SliderLinear.test.tsx's own
+ * convention — captures the callback so a test can fire it manually with a
+ * fake contentRect, and records how many observers got constructed.
+ */
+class MockResizeObserver {
+  static instances: MockResizeObserver[] = [];
+  callback: ResizeObserverCallback;
+
+  constructor(callback: ResizeObserverCallback) {
+    this.callback = callback;
+    MockResizeObserver.instances.push(this);
+  }
+
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+
+  fire(width: number, height: number) {
+    this.callback(
+      [{ contentRect: { width, height } } as ResizeObserverEntry],
+      this as unknown as ResizeObserver,
+    );
+  }
+}
+
+let originalResizeObserver: typeof ResizeObserver;
+
+beforeEach(() => {
+  MockResizeObserver.instances = [];
+  originalResizeObserver = globalThis.ResizeObserver;
+  (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = MockResizeObserver;
+});
+
+afterEach(() => {
+  (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = originalResizeObserver;
+});
 
 describe('sliderLogTToValue / sliderLogValueToT (exact math, min = 0)', () => {
   it('maps t = 0 to exactly schema.min, including the min = 0 case', () => {
@@ -112,6 +188,26 @@ describe('SliderLog component', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it("resolves to exactly one role='slider' element — the voxel boxes introduce no accessibility-tree ambiguity", () => {
+    render(<SliderLog schema={schema} value={2} onChange={() => {}} />);
+    expect(screen.getAllByRole('slider')).toHaveLength(1);
+  });
+
+  it('renders VoxelTrack with states matching computeVoxelBoxStates(t, 0, 1, boxCount) — using the same normalized t already fed to Radix, not the raw value against schema.min/max', () => {
+    render(<SliderLog schema={schema} value={2} onChange={() => {}} />);
+    const observer = MockResizeObserver.instances[0];
+    act(() => observer.fire(500, 0));
+
+    const voxelTrack = screen.getByTestId('voxel-track');
+    const reserve = computeVoxelTrackTrailingReserve('horizontal');
+    const boxCount = computeFittedBoxCount(500 - reserve, BOX_SIZE, GAP);
+    const t = sliderLogValueToT(2, schema.min, schema.max);
+    const expectedStates = computeVoxelBoxStates(t, 0, 1, boxCount);
+    expect(JSON.parse(voxelTrack.getAttribute('data-states')!)).toEqual(expectedStates);
+    expect(voxelTrack.getAttribute('data-box-size')).toBe(String(BOX_SIZE));
+    expect(voxelTrack.getAttribute('data-gap')).toBe(String(GAP));
+  });
+
   describe('orientation', () => {
     const verticalSchema: SliderLogSchema = { ...schema, orientation: 'vertical' };
     const autoSchema: SliderLogSchema = { ...schema, orientation: 'auto' };
@@ -154,26 +250,42 @@ describe('SliderLog component', () => {
       expect(rootIndex).toBeLessThan(valueIndex);
     });
 
-    it("'vertical': does not set an inline height when verticalHeight is omitted — the default comes from the --slider-vertical-height CSS custom property", () => {
+    it("'vertical': omitting verticalHeight fits synchronously against a fixed default budget (VOXEL_TRACK_DEFAULT_VERTICAL_HEIGHT, matching --slider-vertical-height's own 256px) rather than live-measuring the parent — the correct height is present on the very first render, with no ResizeObserver callback needed to reach it", () => {
       const { container } = render(<SliderLog schema={verticalSchema} value={2} onChange={() => {}} />);
+
       const root = container.querySelector<HTMLElement>('.sc-slider-log__root');
-      expect(root?.style.height).toBe('');
+      const boxCount = computeFittedBoxCount(VOXEL_TRACK_DEFAULT_VERTICAL_HEIGHT, BOX_SIZE, GAP);
+      const expectedLength = computeVoxelTrackLength(boxCount, BOX_SIZE, GAP);
+      expect(root?.style.height).toBe(`${expectedLength}px`);
     });
 
-    it("'vertical': sets an inline height from the verticalHeight prop when provided, overriding the CSS default", () => {
+    it("'vertical': verticalHeight is a fitting BUDGET, not a literal applied value — the rendered height is the box-quantized length, even for a verticalHeight that isn't an exact multiple of (boxSize + gap)", () => {
+      // 310 is deliberately not a multiple of (48 + 12) = 60.
       const { container } = render(
-        <SliderLog schema={verticalSchema} value={2} onChange={() => {}} verticalHeight={300} />,
+        <SliderLog schema={verticalSchema} value={2} onChange={() => {}} verticalHeight={310} />,
       );
       const root = container.querySelector<HTMLElement>('.sc-slider-log__root');
-      expect(root?.style.height).toBe('300px');
+      const boxCount = computeFittedBoxCount(310, BOX_SIZE, GAP);
+      const expectedLength = computeVoxelTrackLength(boxCount, BOX_SIZE, GAP);
+      expect(root?.style.height).toBe(`${expectedLength}px`);
+      expect(root?.style.height).not.toBe('310px');
     });
 
-    it("'horizontal': ignores a verticalHeight prop entirely (no inline height set)", () => {
+    it("'horizontal': ignores a verticalHeight prop entirely for sizing, sets an inline width from the fitted box count plus its own trailing pop-out reserve (main axis) and an inline height equal to the box's own cross-axis size (not the old stale CSS default)", () => {
       const { container } = render(
         <SliderLog schema={schema} value={2} onChange={() => {}} verticalHeight={300} />,
       );
+      const observer = MockResizeObserver.instances[0];
+      act(() => observer.fire(500, 0));
+
       const root = container.querySelector<HTMLElement>('.sc-slider-log__root');
-      expect(root?.style.height).toBe('');
+      const reserve = computeVoxelTrackTrailingReserve('horizontal');
+      const boxCount = computeFittedBoxCount(500 - reserve, BOX_SIZE, GAP);
+      const expectedLength = computeVoxelTrackLength(boxCount, BOX_SIZE, GAP) + reserve;
+      expect(root?.style.width).toBe(`${expectedLength}px`);
+      // Cross-axis: the boxes are BOX_SIZE tall, so Root must be too — no
+      // longer the stale 20px CSS default the old thin-line track used.
+      expect(root?.style.height).toBe(`${BOX_SIZE}px`);
     });
 
     it("'auto': renders without throwing, resolving to horizontal-looking output before any ResizeObserver measurement fires", () => {
