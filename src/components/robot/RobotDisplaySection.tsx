@@ -1,6 +1,6 @@
 import { RobotBody } from '@/components/robot/RobotBody';
 import { DualLabel } from '@/components/ui/controls/DualLabel';
-import { Select } from '@/components/ui/controls/Select';
+import { RadioButton } from '@/components/ui/controls/RadioButton';
 import { useLocaleStore } from '@/stores/localeStore';
 import { getActiveLocaleId } from '@/utils/localeHelpers';
 import {
@@ -9,7 +9,7 @@ import {
   UNASSIGNED_JOB_LABEL,
   DOCKING_STATE_LABELS,
 } from '@/data/robotSelectionConfig';
-import { FREELANCE_VALUE, buildCompanySelectSchema } from '@/data/companyConfig';
+import { FREELANCE_VALUE, buildCompanyAssignmentSchema } from '@/data/companyConfig';
 import type { Robot } from '@/types/Robot';
 
 import './RobotDisplaySection.css';
@@ -24,17 +24,18 @@ interface RobotDisplaySectionProps {
  * exact display pattern Phase 8's RobotSelectionCard already established — same sunlight/time-
  * agnostic RobotBody rendering (ignoreDaylight, so the portrait reads consistently regardless of
  * the active locale's time of day), same read-only DualLabel rows, no job reassignment, no
- * docking-state override (both stay fully system-driven), plus the company picker. Audio Setting
- * and Volume were rendered here via AudioSettingSection through Roadmap Phase 10, then extracted
- * out to RobotOptionsTab/CompanyOptionsSection as their own top-level Output panel
+ * docking-state override (both stay fully system-driven), plus the company picker (a RadioButton
+ * as of Roadmap 10.5; a Select through Phase 10). Audio Setting and Volume were rendered here via
+ * AudioSettingSection through Roadmap Phase 10, then extracted out to
+ * RobotOptionsTab/CompanyOptionsSection as their own top-level Output panel
  * (docs/tasks/DIRECTIONAL_PANEL_WIRING.md Task 5) — this component is now pure read-only meta-
- * data display plus the company `Select`, nothing editable beyond that.
+ * data display plus the company RadioButton, nothing editable beyond that.
  */
 export function RobotDisplaySection({ robot }: RobotDisplaySectionProps) {
   const localeId = getActiveLocaleId();
   const jobLabel = robot.job ? JOB_TYPE_LABELS[robot.job.type] : UNASSIGNED_JOB_LABEL;
   const companies = useLocaleStore((s) => s.locales[localeId]?.companies ?? []);
-  const companySelectSchema = buildCompanySelectSchema(companies);
+  const companyAssignmentSchema = buildCompanyAssignmentSchema(companies);
 
   const handleCompanyChange = (value: string) => {
     useLocaleStore.getState().assignRobotToCompany(localeId, robot.id, value === FREELANCE_VALUE ? null : value);
@@ -64,8 +65,8 @@ export function RobotDisplaySection({ robot }: RobotDisplaySectionProps) {
       </div>
 
       <div className="robot-display-section__row">
-        <Select
-          schema={companySelectSchema}
+        <RadioButton
+          schema={companyAssignmentSchema}
           value={robot.companyId ?? FREELANCE_VALUE}
           onChange={handleCompanyChange}
         />
