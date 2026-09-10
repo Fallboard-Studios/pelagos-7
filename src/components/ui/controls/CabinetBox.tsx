@@ -78,6 +78,27 @@ interface CabinetBoxProps {
    *  the same (still-mounted) instance is unaffected and animates normally
    *  regardless of this flag — see the effect below. */
   skipMountAnimation?: boolean;
+  /** Optional — when true, the left-face wall is sized to 100% of the
+   *  wrapper's own real (CSS-derived) height instead of `frontHeight ??
+   *  boxHeight`, and `boxHeight`/`--cabinet-box-height` become irrelevant to
+   *  the front face's own visible height (the consumer's own CSS is
+   *  expected to override `.sc-cabinet-box__front`'s height to `auto`, the
+   *  same way every consumer's own scoped CSS already overrides its
+   *  width/height). For a facade whose content genuinely varies in height
+   *  per instance rather than a caller-known fixed/breakpoint size —
+   *  DirectionalPanel is the first consumer. Requires no new measurement:
+   *  `.sc-cabinet-box__backing` already sizes itself to 100% of the wrapper
+   *  the same way (CabinetBox.css); the left-face wall, being an
+   *  absolutely-positioned child of `.sc-cabinet-box__walls` (itself
+   *  `inset: 0` against the wrapper), resolves `height: 100%` against that
+   *  same real height — proven-safe by that existing precedent, not new
+   *  territory. Only meaningful alongside a permanently-popped,
+   *  non-animating instance (`popped={true}` + `skipMountAnimation`) — no
+   *  animating consumer exists yet, and this doesn't newly support one
+   *  (untested against a real height-tweening box, though nothing about the
+   *  wall's own scaleX/scaleY tween touches height). See
+   *  docs/specs/OBLIQUE_CABINETRY_DIRECTIONAL_PANEL.md §1.1. */
+  autoHeight?: boolean;
   /** Optional — Button nests its own DualLabel here; Toggle renders a bare,
    *  textless box and omits this entirely. See
    *  docs/specs/OBLIQUE_CABINETRY_TOGGLE.md §1.3. */
@@ -104,7 +125,7 @@ interface CabinetBoxProps {
  * attribute (the latter is main-thread/paint-bound and visibly lagged the
  * front face's own compositor-driven transform under load).
  */
-export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, popDistance, frontWidth, frontHeight, zIndex, skipMountAnimation, children }: CabinetBoxProps) {
+export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, popDistance, frontWidth, frontHeight, zIndex, skipMountAnimation, autoHeight, children }: CabinetBoxProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const frontRef = useRef<HTMLDivElement>(null);
   // Both walls are plain <div>s (not SVG <polygon>s) — see
@@ -358,7 +379,7 @@ export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, 
         <div
           ref={leftFaceRef}
           className="sc-cabinet-box__left-face"
-          style={{ width: `${2 * resolvedPopDistance}px`, height: `${leftFaceHeight}px` }}
+          style={{ width: `${2 * resolvedPopDistance}px`, height: autoHeight ? '100%' : `${leftFaceHeight}px` }}
         />
       </div>
       <div ref={frontRef} className="sc-cabinet-box__front" style={frontStyle}>
