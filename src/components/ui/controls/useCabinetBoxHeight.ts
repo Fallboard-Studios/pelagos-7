@@ -20,9 +20,11 @@ function resolveTier(): CabinetTier {
  * useCabinetBoxHeight (roadmap 11.1.1) when useVoxelTrackGap (11.1.3) needed
  * the same tier for a second, independent value — see
  * docs/specs/OBLIQUE_CABINETRY_SLIDER_LINEAR.md §1.4 for why this wasn't
- * simply a second copy of the same listener logic.
+ * simply a second copy of the same listener logic. Exported (was private)
+ * for useResponsivePanelOrientation's own reuse — see
+ * docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.2.
  */
-function useCabinetTier(): CabinetTier {
+export function useCabinetTier(): CabinetTier {
   const [tier, setTier] = useState(resolveTier);
 
   useEffect(() => {
