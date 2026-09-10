@@ -5,6 +5,7 @@ import { CompanyButtonRow } from './CompanyButtonRow';
 import { useLocaleStore } from '@/stores/localeStore';
 import { useUIStore } from '@/stores/uiStore';
 import { getActiveLocaleId } from '@/utils/localeHelpers';
+import { MAX_COMPANIES } from '@/constants';
 import type { Locale } from '@/types/locale';
 
 describe('CompanyButtonRow', () => {
@@ -111,5 +112,30 @@ describe('CompanyButtonRow', () => {
     fireEvent.click(screen.getByRole('radio', { name: 'None' }));
 
     expect(useUIStore.getState().allRobotsSelected).toBe(false);
+  });
+
+  // Roadmap 11.1.6 — CompanyButtonRow reuses RadioButton, which the roadmap
+  // draft's own 11.1.6 section didn't account for (Audio Setting/Decay
+  // Mode/Layer Type are all short, fixed lists — this row can hold up to
+  // MAX_COMPANIES user-named companies, plus "None"/"All"). See
+  // docs/specs/OBLIQUE_CABINETRY_RADIO_BUTTON.md's own scope section.
+  it('renders cleanly at the real MAX_COMPANIES ceiling, including a long company name', () => {
+    // Exactly MAX_COMPANIES total (the real CRUD ceiling — CompanyCrudControls.tsx's
+    // own atCap check), one of them a deliberately long generated-style name.
+    for (let i = 0; i < MAX_COMPANIES - 1; i++) {
+      useLocaleStore.getState().addCompany(localeId, { id: `c${i}`, name: `Company ${i}`, robotIds: [] });
+    }
+    useLocaleStore.getState().addCompany(localeId, { id: 'long', name: 'Static Bloom Vanguard', robotIds: [] });
+
+    render(<CompanyButtonRow />);
+
+    expect(screen.getByRole('radio', { name: 'None' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'All' })).toBeTruthy();
+    for (let i = 0; i < MAX_COMPANIES - 1; i++) {
+      expect(screen.getByRole('radio', { name: `Company ${i}` })).toBeTruthy();
+    }
+    expect(screen.getByRole('radio', { name: 'Static Bloom Vanguard' })).toBeTruthy();
+    // "None" + "All" + MAX_COMPANIES companies — the real ceiling this row can reach.
+    expect(screen.getAllByRole('radio')).toHaveLength(2 + MAX_COMPANIES);
   });
 });

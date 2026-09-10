@@ -7,7 +7,23 @@ vi.mock('gsap', () => ({
   default: {
     timeline: vi.fn((config?: { onComplete?: () => void }) => {
       lastOnComplete = config?.onComplete;
-      return { to: vi.fn(), kill: vi.fn() };
+      // Chainable — CabinetBox.tsx's own real (non-skipMountAnimation) mount
+      // path chains several .fromTo() calls on the same timeline instance
+      // (docs/specs/OBLIQUE_CABINETRY_WALL_RENDERING.md). Every CabinetBox
+      // this file exercised before roadmap 11.1.6 (SliderLinear's/Toggle's
+      // voxel-track boxes) passes skipMountAnimation, which skips this path
+      // entirely — RadioButton (Lfo's Shape row, 11.1.6) deliberately does
+      // NOT skip it, since a newly-selected option's pop is a real
+      // transition, not a remount — so this is the first real exercise of
+      // the .fromTo() branch in this file. `to` stays for LfoTargetGroup's
+      // own row-select transition timeline, unrelated to CabinetBox. See
+      // docs/specs/OBLIQUE_CABINETRY_RADIO_BUTTON.md.
+      const tl: { to: () => void; fromTo: () => typeof tl; kill: () => void } = {
+        to: vi.fn(),
+        fromTo: vi.fn(() => tl),
+        kill: vi.fn(),
+      };
+      return tl;
     }),
     // LfoTargetGroup renders Lfo, which renders through SliderLinear/Toggle
     // and therefore CabinetBox — CabinetBox now calls gsap.set() directly

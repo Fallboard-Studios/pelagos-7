@@ -1,7 +1,10 @@
 import * as ToggleGroup from '@radix-ui/react-toggle-group';
+import type { CSSProperties } from 'react';
 
+import { CabinetBox } from './CabinetBox';
 import { DualLabel } from './DualLabel';
 import { resolveAccessibleName } from './accessibleName';
+import { useVoxelTrackGap } from './useCabinetBoxHeight';
 import type { RadioButtonSchema } from '@/types/controls';
 import './RadioButton.css';
 
@@ -20,14 +23,32 @@ interface RadioButtonProps {
  *  clicked again) is guarded and does not call onChange. `disabled` disables
  *  the whole group at once (Radix's own `ToggleGroup.Root` prop) — there's no
  *  per-item disabled here, matching every other control primitive's single
- *  `disabled` flag. */
+ *  `disabled` flag.
+ *
+ *  Renders through CabinetBox (roadmap Phase 11.1.6) — one box per option,
+ *  popped for the option matching `value`, flat for every other. Reuses
+ *  Toggle's (11.1.2) value-keyed pop precedent generalized to N boxes, and
+ *  Button's (11.1.1) content-sized/breakpoint-scaled box sizing — never
+ *  Toggle's own fixed-32px/textless shape. Only the selected option's front
+ *  face is accent-tinted (RadioButton.css, keyed off Radix's own
+ *  data-state='on'); every other option stays on CabinetBox.css's
+ *  --color-surface default. See docs/specs/OBLIQUE_CABINETRY_RADIO_BUTTON.md
+ *  §1 for the full derivation, including why this is the first consumer with
+ *  more than one CabinetBox per control. */
 export function RadioButton({ schema, value, onChange, disabled }: RadioButtonProps) {
+  // Reuses the same breakpoint-tier gap VoxelTrack (11.1.3) uses between its
+  // own boxes — not renamed to something RadioButton-neutral; see
+  // docs/specs/OBLIQUE_CABINETRY_RADIO_BUTTON.md §1.5 for why.
+  const gap = useVoxelTrackGap();
+  const rowTokens = { '--cabinet-radio-gap': `${gap}px` } as CSSProperties;
+
   return (
     <div className="sc-radio-button">
       <DualLabel loreLabel={schema.loreLabel} humanLabel={schema.humanLabel} />
       <ToggleGroup.Root
         type="single"
         className="sc-radio-button__root"
+        style={rowTokens}
         value={value}
         onValueChange={(next) => { if (next) onChange(next); }}
         aria-label={resolveAccessibleName(schema)}
@@ -40,7 +61,12 @@ export function RadioButton({ schema, value, onChange, disabled }: RadioButtonPr
             value={option.value}
             aria-label={option.label}
           >
-            {option.label}
+            <CabinetBox
+              popped={option.value === value}
+              timelineKey={`cabinet-radio-${schema.id}-${option.value}`}
+            >
+              {option.label}
+            </CabinetBox>
           </ToggleGroup.Item>
         ))}
       </ToggleGroup.Root>
