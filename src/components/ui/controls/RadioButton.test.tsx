@@ -118,4 +118,46 @@ describe('RadioButton', () => {
     expect(screen.getByRole('radio', { name: 'SINE' }).getAttribute('data-state')).toBe('on');
     expect(screen.getByRole('radio', { name: 'TRIANGLE' }).getAttribute('data-state')).toBe('off');
   });
+
+  // Hover-pop, matching Button's own hover behavior — reverses 11.1.6's original
+  // "no hover/partial-pop on unselected options" exclusion (docs/specs/OBLIQUE_CABINETRY_RADIO_BUTTON.md §3).
+  it('pops an unselected option on mouseEnter and flattens again on mouseLeave', () => {
+    render(<RadioButton schema={schema} value="sine" onChange={() => {}} />);
+    const item = screen.getByRole('radio', { name: 'TRIANGLE' });
+    const box = () => item.querySelector('[data-testid="cabinet-box"]');
+
+    expect(box()?.getAttribute('data-popped')).toBe('false');
+    fireEvent.mouseEnter(item);
+    expect(box()?.getAttribute('data-popped')).toBe('true');
+    fireEvent.mouseLeave(item);
+    expect(box()?.getAttribute('data-popped')).toBe('false');
+  });
+
+  it('the selected option stays popped through a hover+unhover — hover only adds pop, never removes the selected state\'s own pop', () => {
+    render(<RadioButton schema={schema} value="sine" onChange={() => {}} />);
+    const item = screen.getByRole('radio', { name: 'SINE' });
+    const box = () => item.querySelector('[data-testid="cabinet-box"]');
+
+    fireEvent.mouseEnter(item);
+    fireEvent.mouseLeave(item);
+    expect(box()?.getAttribute('data-popped')).toBe('true');
+  });
+
+  it('hovering one option does not pop any other option', () => {
+    render(<RadioButton schema={schema} value="sine" onChange={() => {}} />);
+    fireEvent.mouseEnter(screen.getByRole('radio', { name: 'TRIANGLE' }));
+
+    const boxFor = (name: string) =>
+      screen.getByRole('radio', { name }).querySelector('[data-testid="cabinet-box"]');
+    expect(boxFor('TRIANGLE')?.getAttribute('data-popped')).toBe('true');
+    expect(boxFor('SQUARE')?.getAttribute('data-popped')).toBe('false');
+    expect(boxFor('SAWTOOTH')?.getAttribute('data-popped')).toBe('false');
+  });
+
+  it('never pops on hover while disabled, matching Button\'s own disabled-blocks-hover rule', () => {
+    render(<RadioButton schema={schema} value="sine" onChange={() => {}} disabled />);
+    const item = screen.getByRole('radio', { name: 'TRIANGLE' });
+    fireEvent.mouseEnter(item);
+    expect(item.querySelector('[data-testid="cabinet-box"]')?.getAttribute('data-popped')).toBe('false');
+  });
 });

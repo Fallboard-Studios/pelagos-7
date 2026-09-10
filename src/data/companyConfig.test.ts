@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 
 import {
   FREELANCE_VALUE,
-  buildCompanySelectSchema,
+  buildCompanyAssignmentSchema,
   NONE_VALUE,
   ALL_VALUE,
   buildCompanyButtonRowSchema,
@@ -29,22 +29,22 @@ describe('companyConfig', () => {
   });
 
   describe('FREELANCE_VALUE', () => {
-    it('is a non-empty string — Radix Select.Item rejects an empty-string value', () => {
+    it('is a non-empty string, kept for defensiveness/symmetry though RadioButton\'s own deselect guard no longer requires it', () => {
       expect(typeof FREELANCE_VALUE).toBe('string');
       expect(FREELANCE_VALUE.length).toBeGreaterThan(0);
     });
   });
 
-  describe('buildCompanySelectSchema', () => {
+  describe('buildCompanyAssignmentSchema', () => {
     it('starts with the Freelance option, followed by one entry per company', () => {
       const companies: Company[] = [
         { id: 'c1', name: 'Iron Consortium', robotIds: [] },
         { id: 'c2', name: 'Null Syndicate', robotIds: [] },
       ];
 
-      const schema = buildCompanySelectSchema(companies);
+      const schema = buildCompanyAssignmentSchema(companies);
 
-      expect(schema.type).toBe('select');
+      expect(schema.type).toBe('radio');
       expect(schema.options[0]).toEqual({ value: FREELANCE_VALUE, label: 'Freelance' });
       expect(schema.options[1]).toEqual({ value: 'c1', label: 'Iron Consortium' });
       expect(schema.options[2]).toEqual({ value: 'c2', label: 'Null Syndicate' });
@@ -52,12 +52,12 @@ describe('companyConfig', () => {
     });
 
     it('returns just the Freelance option when there are no companies yet', () => {
-      const schema = buildCompanySelectSchema([]);
+      const schema = buildCompanyAssignmentSchema([]);
       expect(schema.options).toEqual([{ value: FREELANCE_VALUE, label: 'Freelance' }]);
     });
 
     it('is namespaced under "company." like every other schema in this file', () => {
-      expect(buildCompanySelectSchema([]).id.startsWith('company.')).toBe(true);
+      expect(buildCompanyAssignmentSchema([]).id.startsWith('company.')).toBe(true);
     });
   });
 

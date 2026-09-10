@@ -1,27 +1,33 @@
 // ========================================
 // IMPORTS
 // ========================================
-import type { SelectSchema, RadioButtonSchema, ButtonSchema, TextInputSchema, DualLabelSchema } from '../types/controls';
+import type { RadioButtonSchema, ButtonSchema, TextInputSchema, DualLabelSchema } from '../types/controls';
 import type { Company } from '../types/Company';
 
 // ========================================
-// COMPANY ASSIGNMENT (Select)
+// COMPANY ASSIGNMENT (RadioButton)
 // ========================================
 
-/** Radix Select.Item rejects an empty-string value — this sentinel stands in for "no company"
- *  (Freelance) so the assignment dropdown never passes '' through onValueChange. */
+/** Radix ToggleGroup (RadioButton's own underlying primitive) emits '' on a deselect-to-empty
+ *  click, which RadioButton.tsx already guards against (never calls onChange with it) — this
+ *  sentinel isn't load-bearing against that the way it was for Radix Select.Item's own
+ *  empty-string rejection back when this schema built a Select. Kept non-empty anyway, for the
+ *  same defensive-and-symmetry reason NONE_VALUE documents below, and because every consumer
+ *  already branches on it (value === FREELANCE_VALUE ? null : value). */
 export const FREELANCE_VALUE = '__freelance__';
 
 /**
  * Dynamic — unlike every other schema in this file (and every other *Config.ts file in the
  * codebase), this one depends on runtime data (the current company list), so it's a function,
- * not a static export. Used for the robot-to-company assignment dropdown in both
- * RobotSelectionCard and RobotDisplaySection.
+ * not a static export. Used for the robot-to-company assignment RadioButton in both
+ * RobotSelectionCard and RobotDisplaySection. Named/typed for a Select (buildCompanySelectSchema,
+ * SelectSchema) through Roadmap Phase 10; renamed and retyped to RadioButtonSchema by 10.5 when
+ * Select was removed entirely — see docs/specs/COMPANY_ASSIGNMENT_RADIO.md.
  */
-export function buildCompanySelectSchema(companies: Company[]): SelectSchema {
+export function buildCompanyAssignmentSchema(companies: Company[]): RadioButtonSchema {
   return {
     id: 'company.assign',
-    type: 'select',
+    type: 'radio',
     loreLabel: 'UNIT AFFILIATION',
     humanLabel: 'Company',
     options: [
@@ -36,9 +42,9 @@ export function buildCompanySelectSchema(companies: Company[]): SelectSchema {
 // ========================================
 
 /** Distinct sentinel from FREELANCE_VALUE — two different UI surfaces (the robot-to-company
- *  assignment Select vs. this row's "view/edit this company's options" RadioButton), each with
- *  its own "nothing selected" meaning. RadioButton has no Radix empty-string restriction the way
- *  Select does, but a non-empty sentinel is kept for the same defensive reason and for symmetry. */
+ *  assignment RadioButton vs. this row's own "view/edit this company's options" RadioButton),
+ *  each with its own "nothing selected" meaning. Both are RadioButton today (Roadmap 10.5) — this
+ *  sentinel predates that and was already distinct from FREELANCE_VALUE for the same reason. */
 export const NONE_VALUE = '__none__';
 
 /** Distinct sentinel from both NONE_VALUE and FREELANCE_VALUE — "highlight every robot

@@ -113,33 +113,32 @@ describe('RobotDisplaySection', () => {
     expect(screen.queryByRole('slider', { name: /volume/i })).toBeNull();
   });
 
-  describe('company assignment (Roadmap Phase 10)', () => {
-    it('defaults to "Freelance" for an unassigned robot', () => {
+  describe('company assignment (Roadmap Phase 10, converted to RadioButton by 10.5)', () => {
+    it('defaults to "Freelance" selected for an unassigned robot', () => {
       const robot = makeRobot({ companyId: undefined });
       useLocaleStore.getState().addRobot(localeId, robot);
       render(<RobotDisplaySection robot={robot} />);
 
-      expect(screen.getByRole('combobox').textContent).toContain('Freelance');
+      expect(screen.getByRole('radio', { name: 'Freelance' }).getAttribute('aria-checked')).toBe('true');
     });
 
-    it('shows the assigned company\'s name when the robot belongs to one', () => {
+    it("shows the assigned company's option selected when the robot belongs to one", () => {
       const robot = makeRobot({ companyId: 'c1' });
       useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: [robot.id] });
       useLocaleStore.getState().addRobot(localeId, robot);
       render(<RobotDisplaySection robot={robot} />);
 
-      expect(screen.getByRole('combobox').textContent).toContain('Iron Consortium');
+      expect(screen.getByRole('radio', { name: 'Iron Consortium' }).getAttribute('aria-checked')).toBe('true');
     });
 
-    it('selecting a company calls assignRobotToCompany with that company\'s id', () => {
+    it("selecting a company calls assignRobotToCompany with that company's id", () => {
       const robot = makeRobot({ companyId: undefined });
       useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: [] });
       useLocaleStore.getState().addRobot(localeId, robot);
       const assignSpy = vi.spyOn(useLocaleStore.getState(), 'assignRobotToCompany');
       render(<RobotDisplaySection robot={robot} />);
 
-      fireEvent.click(screen.getByRole('combobox'));
-      fireEvent.click(screen.getByRole('option', { name: 'Iron Consortium' }));
+      fireEvent.click(screen.getByRole('radio', { name: 'Iron Consortium' }));
 
       expect(assignSpy).toHaveBeenCalledWith(localeId, robot.id, 'c1');
     });
@@ -151,8 +150,7 @@ describe('RobotDisplaySection', () => {
       const assignSpy = vi.spyOn(useLocaleStore.getState(), 'assignRobotToCompany');
       render(<RobotDisplaySection robot={robot} />);
 
-      fireEvent.click(screen.getByRole('combobox'));
-      fireEvent.click(screen.getByRole('option', { name: 'Freelance' }));
+      fireEvent.click(screen.getByRole('radio', { name: 'Freelance' }));
 
       expect(assignSpy).toHaveBeenCalledWith(localeId, robot.id, null);
     });

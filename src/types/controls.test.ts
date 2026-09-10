@@ -20,7 +20,6 @@ import {
   type DualLabelSchema,
   type AccordionSchema,
   type LfoSchema,
-  type SelectSchema,
   type DirectionalPanelSchema,
   type PanelOrientation,
   type LfoValue,
@@ -31,9 +30,9 @@ import {
 // ========================================
 
 describe('CONTROL_SCHEMA_TYPES', () => {
-  it('has exactly 15 entries, no duplicates', () => {
-    expect(CONTROL_SCHEMA_TYPES).toHaveLength(15);
-    expect(new Set(CONTROL_SCHEMA_TYPES).size).toBe(15);
+  it('has exactly 14 entries, no duplicates', () => {
+    expect(CONTROL_SCHEMA_TYPES).toHaveLength(14);
+    expect(new Set(CONTROL_SCHEMA_TYPES).size).toBe(14);
   });
 
   it('matches the ControlSchema union discriminants exactly', () => {
@@ -42,7 +41,7 @@ describe('CONTROL_SCHEMA_TYPES', () => {
         'stepper', 'stepperToggle',
         'sliderLinear', 'sliderLog', 'sliderCenteredZero',
         'radio', 'toggle', 'textInput', 'coordsInput',
-        'button', 'dualLabel', 'accordion', 'lfo', 'select',
+        'button', 'dualLabel', 'accordion', 'lfo',
         'directionalPanel',
       ].sort()
     );
@@ -64,16 +63,15 @@ describe('ControlSchema variants', () => {
     const dualLabel: DualLabelSchema = { id: 'jobData', type: 'dualLabel' };
     const accordion: AccordionSchema = { id: 'pingControls', type: 'accordion' };
     const lfo: LfoSchema = { id: 'volumeLfo', type: 'lfo' };
-    const select: SelectSchema = { id: 'company.assign', type: 'select', options: [{ value: 'a', label: 'A' }] };
     const directionalPanel: DirectionalPanelSchema = { id: 'eq3Panel', type: 'directionalPanel', orientation: 'row' };
 
     const variants: ControlSchema[] = [
       stepper, stepperToggle, sliderLinear, sliderLog, sliderCenteredZero,
-      radio, toggle, textInput, coordsInput, button, dualLabel, accordion, lfo, select,
+      radio, toggle, textInput, coordsInput, button, dualLabel, accordion, lfo,
       directionalPanel,
     ];
 
-    expect(variants).toHaveLength(15);
+    expect(variants).toHaveLength(14);
   });
 
   it('accepts loreLabel and/or humanLabel on the shared base, both optional', () => {

@@ -1,5 +1,5 @@
 import * as ToggleGroup from '@radix-ui/react-toggle-group';
-import type { CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 
 import { CabinetBox } from './CabinetBox';
 import { DualLabel } from './DualLabel';
@@ -34,13 +34,24 @@ interface RadioButtonProps {
  *  data-state='on'); every other option stays on CabinetBox.css's
  *  --color-surface default. See docs/specs/OBLIQUE_CABINETRY_RADIO_BUTTON.md
  *  §1 for the full derivation, including why this is the first consumer with
- *  more than one CabinetBox per control. */
+ *  more than one CabinetBox per control.
+ *
+ *  Each option also pops on mouseEnter/mouseLeave, matching Button's own
+ *  hover-pop feedback (Button.tsx) — added after 11.1.6 shipped, reversing
+ *  that phase's original "no hover/partial-pop on unselected options"
+ *  exclusion. `hoveredValue` tracks at most one hovered option at a time (not
+ *  a per-option boolean set), since only one option can be under the pointer;
+ *  a disabled group never pops on hover, mirroring Button's own
+ *  `!disabled && ...` guard. Hover only ever *adds* pop on top of the
+ *  selected-state pop — it never un-pops the selected option on
+ *  mouseLeave. */
 export function RadioButton({ schema, value, onChange, disabled }: RadioButtonProps) {
   // Reuses the same breakpoint-tier gap VoxelTrack (11.1.3) uses between its
   // own boxes — not renamed to something RadioButton-neutral; see
   // docs/specs/OBLIQUE_CABINETRY_RADIO_BUTTON.md §1.5 for why.
   const gap = useVoxelTrackGap();
   const rowTokens = { '--cabinet-radio-gap': `${gap}px` } as CSSProperties;
+  const [hoveredValue, setHoveredValue] = useState<string | null>(null);
 
   return (
     <div className="sc-radio-button">
@@ -60,9 +71,11 @@ export function RadioButton({ schema, value, onChange, disabled }: RadioButtonPr
             className="sc-radio-button__item"
             value={option.value}
             aria-label={option.label}
+            onMouseEnter={() => setHoveredValue(option.value)}
+            onMouseLeave={() => setHoveredValue((current) => (current === option.value ? null : current))}
           >
             <CabinetBox
-              popped={option.value === value}
+              popped={option.value === value || (!disabled && option.value === hoveredValue)}
               timelineKey={`cabinet-radio-${schema.id}-${option.value}`}
             >
               {option.label}

@@ -421,6 +421,50 @@ into more call sites and docs that have to guess which name is "the real one."
   historical record of what was decided at the time, including 10.1's own now-reversed
   no-rename call.
 
+## 10.5 Company Assignment: Select → RadioButton
+
+Inserted out of sequence, following 10.1–10.4's own precedent (not renumbering later phases). Not
+derived from the roadmap draft — raised directly by Crawford during review, confirmed via
+`/interview-me`. Source of intent: [docs/intent/company-assignment-radio.md](../intent/company-assignment-radio.md).
+
+### Restructure
+
+- The robot→company assignment `Select` dropdown, at both real call sites (`RobotSelectionCard`,
+  `RobotDisplaySection`), replaced by `RadioButton` — Freelance first, then every company in order,
+  the same option order `Select` already used. `assignRobotToCompany` and every other piece of the
+  company data flow are unchanged; this is a control-type swap only.
+- `Select` removed entirely — component, schema, tests — taking the Design System's live primitive
+  count from 15 back to 14. `Select`'s own Phase 10 addition is undone; `DirectionalPanel`, added
+  after `Select`, is unaffected and remains at 14 alongside the original 13.
+
+**Done** — see [docs/specs/COMPANY_ASSIGNMENT_RADIO.md](../specs/COMPANY_ASSIGNMENT_RADIO.md) and
+[docs/tasks/COMPANY_ASSIGNMENT_RADIO.md](../tasks/COMPANY_ASSIGNMENT_RADIO.md). Shipped as scoped —
+`buildCompanySelectSchema` renamed to `buildCompanyAssignmentSchema` (returning a `RadioButtonSchema`),
+both real consumers converted, `Select.tsx`/`.css`/`.test.tsx` deleted, `SelectSchema` removed from
+`controls.ts`/`CONTROL_SCHEMA_TYPES`. One follow-up addition beyond the original scope, also
+confirmed directly with Crawford mid-implementation: `RadioButton` now pops each option on
+`mouseEnter`/`mouseLeave` too, matching `Button`'s own hover-pop feedback — reversing
+[11.1.6](#1116-oblique-cabinetry-radiobutton)'s original "no hover/partial-pop on unselected
+options" exclusion, and applying to every `RadioButton` consumer app-wide (the primitive has no
+per-instance variant), not just the two company-assignment rows. See
+`docs/specs/OBLIQUE_CABINETRY_RADIO_BUTTON.md`'s own post-ship amendment note and
+`docs/COMPONENT_LIBRARY.md`'s `RadioButton` section for the up-to-date behavior.
+
+### About
+
+A UI preference against dropdowns for this one interaction, not a data-model concern — surfaced
+while reviewing the app with the Oblique Cabinetry series (11.1.1–11.1.9) freshly in progress, which
+is what caught the conflict with 11.1.8 (below) before that item's own work began.
+
+### Docs
+
+- `docs/COMPONENT_LIBRARY.md` updated: primitive count 15 → 14, `Select`'s table row and its own
+  subsection removed.
+- `docs/COMPANIES.md`'s "Company Membership" section updated for `RadioButton`.
+- `CLAUDE.md`'s reference bullet needed no edit — it already read "14," stale since `DirectionalPanel`
+  shipped (14→15, never updated), made accidentally correct again by this phase's own removal
+  (15→14). See `docs/specs/COMPANY_ASSIGNMENT_RADIO.md` §1.5.
+
 ## 11. Console Theming — Cut
 
 Originally scoped and shipped as one combined phase with a 2.5D "Oblique Cabinetry" rendering system for the interactive primitives, folded together because Cabinetry's face colors consume this phase's own seed-driven tokens directly. Split back into two separate roadmap items during scoping (confirmed via `/interview-me`, see [docs/intent/console-theming.md](../intent/console-theming.md)); this phase (seed-driven color tokens alone) was then fully implemented — `consoleTheme.ts`'s bounded HSL generation, `contrastRatio.ts`'s exhaustive WCAG-AA proof, `Tablet.tsx` wiring, the `Console.css`/`SleeveContainer.css` fixes — and evaluated against the real running app. **Cut at Crawford's call, not reverted for a bug**: the WCAG-safety-for-every-seed guarantee forced the structural tier into a narrow, same-y lightness band and pushed the accent tier too light/vivid to guarantee its own contrast margin — a tension structural to "provably safe for every seed" fighting "visually distinct per seed," not something a bounds-tuning pass could resolve. Replaced with a hand-picked static palette instead. Full retrospective, what was tried, and directions worth trying if this gets revisited: [docs/CONSOLE_THEMING.md](../CONSOLE_THEMING.md). The original Create/Restructure/About/Docs sections describing the seed-driven design are preserved below the cut line for historical reference; treat them as describing what was tried, not current or planned behavior.
@@ -684,7 +728,17 @@ The first item to attach cabinetry to a control that already carries its own ind
 
 - `docs/COMPONENT_LIBRARY.md`'s `AccordionContainer` section gains the same "internal rendering changed, contract didn't" note, scoped explicitly to the trigger.
 
-## 11.1.8 Oblique Cabinetry: Select
+## 11.1.8 Oblique Cabinetry: Select — Cut
+
+**Cut before any implementation began, not reverted for a bug**: `Select` itself was removed by
+[10.5](#105-company-assignment-select--radiobutton) — a UI preference against dropdowns for its one
+real use (robot→company assignment) — so there is no longer a trigger to wire into Cabinetry. The
+original scope below (a single state-keyed `CabinetBox` around `RadixSelect.Trigger`'s content) was
+never built; preserved for historical reference only, the same way `## 11`'s own original content is
+kept below its cut line.
+
+<details>
+<summary>Original 11.1.8 content (Select trigger cabinetry, as scoped — historical reference only, never implemented)</summary>
 
 Wires `Select`'s trigger into the cabinet-box mechanism — a single box wrapping the existing `RadixSelect.Trigger` content (`RadixSelect.Value` plus the `▾` icon), popped while open and flat when closed. The open floating options panel (`RadixSelect.Content`, rendered through a `Portal`) is unchanged and out of scope, the same way `AccordionContainer`'s content panel stayed out of scope in 11.1.7. Depends on 11.1.1 having shipped; not yet interviewed/specced.
 
@@ -705,6 +759,8 @@ The third state-keyed (not momentary-click-keyed) consumer, after `Toggle` (11.1
 
 - `docs/COMPONENT_LIBRARY.md` gains the "internal rendering changed, contract didn't" note for `Select`, plus the "Cabinetry styles triggers, not floating content" rule for future items to reference rather than restate.
 
+</details>
+
 ## 11.1.9 Oblique Cabinetry: TextInput / CoordsInput
 
 Wires `TextInput` — and, since it composes two `TextInput`s unchanged, `CoordsInput` for free — into the cabinet-box mechanism. Unlike every prior consumer, a text field has no discrete on/off or value-position state to key a pop off of; it's continuous free text, not a selection or a fill percentage. Flagged the same way 11.1.5 flagged `SliderCenteredZero`: the actual pop-trigger mechanism is left open here, to be worked out during this item's own spec-driven-development pass, not settled at roadmap level. Depends on 11.1.1 having shipped; not yet interviewed/specced.
@@ -721,7 +777,7 @@ Wires `TextInput` — and, since it composes two `TextInput`s unchanged, `Coords
 
 ### About
 
-The last of the 15 primitives to receive Cabinetry — `Stepper`/`StepperWithToggle` were already dropped (see 11.1.1), and `DualLabel`/`DirectionalPanel` are pure layout/display with no interactive hit box of their own and were never in scope. Flagged explicitly, like 11.1.5 was, as the item most likely to surface a genuine design gap rather than a straightforward wiring pass — free text is the one control shape in the entire inventory with no natural "popped" state precedent among 11.1.1–11.1.8's click/value/open-keyed options. Same layout/WorldView/robot-visual/Sleeve exclusions as every prior item.
+The last of the 14 primitives to receive Cabinetry — `Stepper`/`StepperWithToggle` were already dropped (see 11.1.1), `Select` was cut entirely (see 11.1.8, above) rather than dropped from Cabinetry specifically, and `DualLabel`/`DirectionalPanel` are pure layout/display with no interactive hit box of their own and were never in scope. Flagged explicitly, like 11.1.5 was, as the item most likely to surface a genuine design gap rather than a straightforward wiring pass — free text is the one control shape in the entire inventory with no natural "popped" state precedent among 11.1.1–11.1.7's click/value/open-keyed options. Same layout/WorldView/robot-visual/Sleeve exclusions as every prior item.
 
 ### Docs
 
@@ -733,7 +789,7 @@ Follow-up to the 11.1.1–11.1.9 series, inserted the same way (out of sequence,
 
 ### About
 
-Cabinetry's design (each 11.1.x item's own Restructure section) keeps each primitive's real Radix element in charge of all interaction and hands accessibility semantics off to Radix "for free," rather than rebuilding hit-testing/focus/ARIA from scratch — but that's an architectural intent, not a verified outcome, and this is a change touching every interactive primitive in the app at once. This phase is the check: a real keyboard-only walkthrough of every drawer (Robot Options, Audio Rig, Sector Settings, Company Manager), confirming the focus ring stays visible against a fully popped-out cabinet box (not obscured by the front face's z-index), confirming tab order wasn't disturbed by the SVG overlay's own DOM position, confirming `prefers-reduced-motion` actually cancels every cabinet timeline (pop, wall-polygon morph, and the voxel dual-fill transition alike) rather than just the ones the primitive spec called out first-hand, and a screen-reader pass over the slider voxel tracks specifically (the visual dual-fill/extrusion state carries real information — current value, how close to min/max — that must still be available to `aria-valuenow`/`aria-valuetext` via the underlying Radix `Slider`, not just implied visually). Extended by 11.1.6–11.1.9's own additions to the same check: `RadioButton`'s multi-box row (focus/selection state legible across every segment, not just the first), `AccordionContainer`/`Select`'s trigger-only boxes (confirming the trigger's own focus ring and the coexisting content-height/open-panel timeline both still behave correctly alongside the new pop timeline), and whatever pop-trigger `TextInput`/`CoordsInput` lands on (confirming it doesn't fight native text selection or caret visibility, the same class of bug already found once for `Toggle`, `docs/specs/OBLIQUE_CABINETRY_TOGGLE.md`).
+Cabinetry's design (each 11.1.x item's own Restructure section) keeps each primitive's real Radix element in charge of all interaction and hands accessibility semantics off to Radix "for free," rather than rebuilding hit-testing/focus/ARIA from scratch — but that's an architectural intent, not a verified outcome, and this is a change touching every interactive primitive in the app at once. This phase is the check: a real keyboard-only walkthrough of every drawer (Robot Options, Audio Rig, Sector Settings, Company Manager), confirming the focus ring stays visible against a fully popped-out cabinet box (not obscured by the front face's z-index), confirming tab order wasn't disturbed by the SVG overlay's own DOM position, confirming `prefers-reduced-motion` actually cancels every cabinet timeline (pop, wall-polygon morph, and the voxel dual-fill transition alike) rather than just the ones the primitive spec called out first-hand, and a screen-reader pass over the slider voxel tracks specifically (the visual dual-fill/extrusion state carries real information — current value, how close to min/max — that must still be available to `aria-valuenow`/`aria-valuetext` via the underlying Radix `Slider`, not just implied visually). Extended by 11.1.6–11.1.9's own additions to the same check: `RadioButton`'s multi-box row (focus/selection state legible across every segment, not just the first), `AccordionContainer`'s trigger-only box (confirming the trigger's own focus ring and the coexisting content-height timeline both still behave correctly alongside the new pop timeline) — `Select`'s own equivalent check no longer applies, since 11.1.8 was cut (10.5) before it was ever built — and whatever pop-trigger `TextInput`/`CoordsInput` lands on (confirming it doesn't fight native text selection or caret visibility, the same class of bug already found once for `Toggle`, `docs/specs/OBLIQUE_CABINETRY_TOGGLE.md`).
 
 Bundled with the same pass rather than split into a separate item: a performance check across the primitive-heaviest screens (Audio Rig's seven effect blocks plus the Drift accordion, Robot Options' Signature Array with its per-layer LFO groups) now that every rendered slider/button/toggle carries its own GSAP timeline on top of whatever LFO-target-group/AccordionContainer timelines already existed — confirming that stacking hasn't reintroduced the kind of load 10.2's own spec flagged as a real constraint at "70-100+ primaries in a typical session," now compounded by a visual layer on every one of them.
 
