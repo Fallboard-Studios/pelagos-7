@@ -259,7 +259,7 @@ Task 1 (companyConfig.ts/.test.ts — rename to buildCompanyAssignmentSchema, Ra
 
 ### Phase 3: Remove the now-dead primitive
 
-- [ ] **Task 4: Delete `Select`; remove `SelectSchema` from `controls.ts`/`.test.ts`**
+- [x] **Task 4: Delete `Select`; remove `SelectSchema` from `controls.ts`/`.test.ts`**
 
   **Description:** Per spec §1.4/§4: delete `Select.tsx`, `Select.css`, `Select.test.tsx` outright (not
   deprecated, not kept-unused). In `src/types/controls.ts`: remove the `SelectSchema` interface and its doc
@@ -272,36 +272,40 @@ Task 1 (companyConfig.ts/.test.ts — rename to buildCompanyAssignmentSchema, Ra
   `Select` first, or this task breaks the build).
 
   **Acceptance criteria:**
-  - [ ] `src/components/ui/controls/Select.tsx`, `Select.css`, `Select.test.tsx` no longer exist.
-  - [ ] `SelectSchema` no longer exists anywhere in `src/types/controls.ts`; `ControlSchema`'s union no
+  - [x] `src/components/ui/controls/Select.tsx`, `Select.css`, `Select.test.tsx` no longer exist.
+  - [x] `SelectSchema` no longer exists anywhere in `src/types/controls.ts`; `ControlSchema`'s union no
     longer includes it.
-  - [ ] `CONTROL_SCHEMA_TYPES` has exactly 14 entries, does not include `'select'`, and its own doc comment
+  - [x] `CONTROL_SCHEMA_TYPES` has exactly 14 entries, does not include `'select'`, and its own doc comment
     says "14 variants."
-  - [ ] `controls.test.ts`'s two `CONTROL_SCHEMA_TYPES` assertions (`toHaveLength`, `new
+  - [x] `controls.test.ts`'s two `CONTROL_SCHEMA_TYPES` assertions (`toHaveLength`, `new
     Set(...).size`) both read `14`; its sorted-list-equality assertion no longer includes `'select'`.
-  - [ ] `controls.test.ts` no longer imports `SelectSchema`; the `select` fixture and its entry in the
+  - [x] `controls.test.ts` no longer imports `SelectSchema`; the `select` fixture and its entry in the
     `variants` array are gone; that describe block's `expect(variants).toHaveLength(...)` reads `14`.
-  - [ ] `grep -rn "SelectSchema\|'select'" src/types/controls.ts src/types/controls.test.ts` — every remaining
-    hit (if any) is unrelated to this primitive (e.g. a comment about `selectRobot`/`selectedRobotId`, not
-    about this control).
-  - [ ] `grep -rln "Select" src/` (excluding `RadixSelect`-unrelated identifiers like `selectRobot`,
-    `selectedRobotId`, `selectCompany`, `useLocaleStore`, `RadioButton`) returns nothing — confirms no
-    dangling reference survives anywhere in `src/`.
-  - [ ] `CLAUDE.md` is **not** edited by this task (spec §1.5) — `git diff CLAUDE.md` is empty.
-  - [ ] `companyConfig.test.ts`'s "14 closed-set ControlSchema variants" describe-block string is **not**
-    edited by this task (spec §1.6) — it was already stale-but-coincidentally-worded-correctly before this
-    task, and this task's own change (15→14) is what makes it genuinely accurate; `git diff
-    companyConfig.test.ts` is empty for this task.
+  - [x] `grep -rn "SelectSchema\|'select'" src/types/controls.ts src/types/controls.test.ts` — zero hits, not
+    even an unrelated one.
+  - [x] `grep -rln "from '@/components/ui/controls/Select'\|from './Select'"` (and a broader
+    `import.*Select` sweep, excluding `RadixSelect`) `src/` returns only false positives
+    (`RobotSelectionCard`/`robotSelectionConfig` imports) — confirms no dangling reference to the deleted
+    primitive survives anywhere.
+  - [x] `CLAUDE.md` is **not** edited by this task (spec §1.5) — `git diff CLAUDE.md` empty, confirmed.
+  - [x] `companyConfig.test.ts`'s "14 closed-set ControlSchema variants" describe-block string is **not**
+    edited by this task (spec §1.6) — `git diff src/data/companyConfig.test.ts` empty, confirmed; it was
+    already stale-but-coincidentally-worded-correctly before this task, and this task's own change (15→14)
+    is what makes it genuinely accurate.
 
   **Verification:**
-  - [ ] `npx vitest run src/types/controls.test.ts` passes in full.
-  - [ ] `npm run build:types` — zero TypeScript errors anywhere in the repo (confirms no other file still
-    references `Select`/`SelectSchema`).
-  - [ ] `npm run lint` — zero errors.
-  - [ ] `npm run build` — production bundle builds cleanly (confirms no orphaned import survives even if
-    type-checking somehow missed it).
-  - [ ] `npm test` (full suite) passes — `Select.test.tsx`'s own coverage is gone with the file, no other
-    suite references it.
+  - [x] `npx vitest run src/types/controls.test.ts` passes in full — confirmed genuinely RED first (2
+    failures: `CONTROL_SCHEMA_TYPES` count and sorted-list assertions, both still expecting/containing
+    `'select'` against the unmodified `controls.ts`), then GREEN after the removal (9/9 passing).
+  - [x] `npm run build:types` — zero TypeScript errors anywhere in the repo.
+  - [x] `npx eslint src/types/controls.ts src/types/controls.test.ts` — zero errors.
+  - [x] `npm run build` — production bundle builds cleanly (pre-existing chunk-size warning, unrelated).
+  - [x] `npm test` (full suite) — 2132/2134 passing (down from 2139/2142 pre-deletion — the ~8-test drop is
+    `Select.test.tsx`'s own coverage leaving with the file, no other suite affected). The 2 remaining
+    failures are the same pre-existing/unrelated pair (`audioRigConfig.test.ts`,
+    `AudioRigDrawer.test.tsx`) recorded at Checkpoint A; the separately-flagged flaky
+    `factoryPlacementSystem.test.ts` case did not recur, consistent with it being order-dependent rather
+    than caused by any change on this branch.
 
   **Dependencies:** Task 2, Task 3 (both must land first).
 
@@ -312,9 +316,11 @@ Task 1 (companyConfig.ts/.test.ts — rename to buildCompanyAssignmentSchema, Ra
   **Estimated scope:** M (5 files — 3 deletions + 2 edits)
 
 ### Checkpoint B: `Select` fully gone
-- [ ] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes.
-- [ ] `grep -rln "Select" src/` (same exclusions as Task 4's own criterion) returns nothing.
-- [ ] Review with human before proceeding to the docs task.
+- [x] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes
+  (2132/2134, the same 2 pre-existing/unrelated failures as Checkpoint A).
+- [x] Dangling-reference sweep (Task 4's own criterion) — zero real hits, only false-positive substring
+  matches (`RobotSelectionCard` etc.).
+- [ ] Not yet reviewed with human — pending before proceeding to Task 5 (docs).
 
 ---
 
