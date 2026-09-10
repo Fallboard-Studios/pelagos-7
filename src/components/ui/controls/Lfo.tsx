@@ -35,8 +35,11 @@ const RATE_STEP = 0.25;
  */
 export function Lfo({ schema, value, onChange, disabled }: LfoProps) {
   const shapeSchema: RadioButtonSchema = { id: `${schema.id}.shape`, type: 'radio', humanLabel: 'Shape', options: SHAPE_OPTIONS };
-  const rateSchema: SliderLinearSchema = { id: `${schema.id}.rate`, type: 'sliderLinear', humanLabel: 'Rate', min: LFO_RATE_MIN, max: LFO_RATE_MAX, step: RATE_STEP, unit: 'Hz', orientation: 'auto' };
-  const depthSchema: SliderLinearSchema = { id: `${schema.id}.depth`, type: 'sliderLinear', humanLabel: 'Depth', min: LFO_DEPTH_MIN, max: LFO_DEPTH_MAX, unit: '%', orientation: 'auto' };
+  // Fixed 'horizontal', never 'auto' — docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.3:
+  // every LFO slider (this Rate/Depth pair, and Rate Drift/Depth Drift alongside it)
+  // is always horizontal, each its own row, at every breakpoint.
+  const rateSchema: SliderLinearSchema = { id: `${schema.id}.rate`, type: 'sliderLinear', humanLabel: 'Rate', min: LFO_RATE_MIN, max: LFO_RATE_MAX, step: RATE_STEP, unit: 'Hz', orientation: 'horizontal' };
+  const depthSchema: SliderLinearSchema = { id: `${schema.id}.depth`, type: 'sliderLinear', humanLabel: 'Depth', min: LFO_DEPTH_MIN, max: LFO_DEPTH_MAX, unit: '%', orientation: 'horizontal' };
 
   return (
     <div className={withActiveClass('sc-lfo', value.rate > 0)}>

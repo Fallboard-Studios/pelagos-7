@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 
 import { Lfo } from './Lfo';
 import { LFO_RATE_MIN, LFO_RATE_MAX, LFO_DEPTH_MIN, LFO_DEPTH_MAX } from '@/types/lfo';
@@ -8,7 +8,59 @@ import type { LfoSchema, LfoValue } from '@/types/controls';
 const schema: LfoSchema = { id: 'volumeLfo', type: 'lfo', humanLabel: 'Volume LFO' };
 const value: LfoValue = { shape: 'sine', rate: 2, depth: 40 };
 
+/** Controllable ResizeObserver mock, same shape as useAutoSliderOrientation.test.ts's own —
+ *  used here to prove Rate/Depth stay 'horizontal' even when every ResizeObserver in the
+ *  tree fires a tall ("would-be-vertical") rect. If either slider were still 'auto'
+ *  (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.3), its own orientation-driving observer
+ *  would flip it to 'vertical' on exactly this callback. */
+class MockResizeObserver {
+  static instances: MockResizeObserver[] = [];
+  callback: ResizeObserverCallback;
+  constructor(callback: ResizeObserverCallback) {
+    this.callback = callback;
+    MockResizeObserver.instances.push(this);
+  }
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+  fire(width: number, height: number) {
+    this.callback([{ contentRect: { width, height } } as ResizeObserverEntry], this as unknown as ResizeObserver);
+  }
+}
+let originalResizeObserver: typeof ResizeObserver;
+
 describe('Lfo', () => {
+  beforeEach(() => {
+    MockResizeObserver.instances = [];
+    originalResizeObserver = globalThis.ResizeObserver;
+    (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = MockResizeObserver;
+  });
+
+  afterEach(() => {
+    (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = originalResizeObserver;
+  });
+
+  it('renders both the Rate and Depth sliders with a fixed horizontal orientation, immune to a tall-parent resize', () => {
+    const { container, rerender } = render(<Lfo schema={schema} value={value} onChange={() => {}} />);
+    let sliders = container.querySelectorAll('.sc-slider-linear');
+    expect(sliders).toHaveLength(2);
+    sliders.forEach((slider) => {
+      expect(slider.getAttribute('data-orientation')).toBe('horizontal');
+    });
+
+    // Fire every ResizeObserver in the tree with a tall rect. If either slider were
+    // still 'auto', its own orientation observer would flip it to 'vertical' here.
+    act(() => {
+      MockResizeObserver.instances.forEach((observer) => observer.fire(100, 1000));
+    });
+    rerender(<Lfo schema={schema} value={value} onChange={() => {}} />);
+
+    sliders = container.querySelectorAll('.sc-slider-linear');
+    sliders.forEach((slider) => {
+      expect(slider.getAttribute('data-orientation')).toBe('horizontal');
+    });
+  });
+
   it('renders an actual RadioButton (4 shape options) and two SliderLinears — no separate active toggle', () => {
     render(<Lfo schema={schema} value={value} onChange={() => {}} />);
     expect(screen.getByRole('radio', { name: 'TRIANGLE' })).toBeTruthy();
