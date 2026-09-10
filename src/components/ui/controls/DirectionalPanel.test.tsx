@@ -1,5 +1,15 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
+
+// Mocked the same way every other CabinetBox consumer's own test file does
+// (Button/Toggle/RadioButton/AccordionContainer) — isolates this file's
+// assertions about DirectionalPanel's own facade-vs-nested wiring from
+// CabinetBox's already-proven internals (11.1.1/this phase's own Task 1).
+vi.mock('./CabinetBox', () => ({
+  CabinetBox: ({ timelineKey, children }: { timelineKey: string; children?: React.ReactNode }) => (
+    <div data-testid="cabinet-box" data-timeline-key={timelineKey}>{children}</div>
+  ),
+}));
 
 import { DirectionalPanel } from './DirectionalPanel';
 import type { DirectionalPanelSchema } from '@/types/controls';
@@ -146,7 +156,31 @@ describe('DirectionalPanel', () => {
       expect(container.querySelector('.sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('column');
     });
 
-    it('observes its own parent element, not its own box', () => {
+    // Roadmap "Oblique Cabinetry — DirectionalPanel" — a top-level panel now
+    // sits inside its own facade's CabinetBox, so "its own parent element"
+    // is no longer the true DOM parent for that case specifically. Split
+    // into 2 cases: nested panels are entirely unaffected (still measure
+    // their true parent); top-level panels measure the facade instead — a
+    // real, accepted consequence (spec §1.4), pinned here as an explicit
+    // regression guard rather than left implicit. See
+    // docs/specs/OBLIQUE_CABINETRY_DIRECTIONAL_PANEL.md §1.4/§5.
+    it('a nested panel still observes its own true parent element, unaffected by the facade', () => {
+      const outerSchema: DirectionalPanelSchema = { id: 'outer', type: 'directionalPanel' };
+      const innerSchema: DirectionalPanelSchema = { id: 'inner', type: 'directionalPanel', orientation: 'auto' };
+      const { container } = render(
+        <DirectionalPanel schema={outerSchema}>
+          <DirectionalPanel schema={innerSchema}>
+            <span>Low</span>
+          </DirectionalPanel>
+        </DirectionalPanel>,
+      );
+      expect(MockResizeObserver.instances).toHaveLength(1);
+      const innerRoot = container.querySelector('.sc-directional-panel .sc-directional-panel')!;
+      const outerContent = container.querySelector('.sc-directional-panel__content')!;
+      expect(innerRoot.parentElement).toBe(outerContent);
+    });
+
+    it('a top-level panel now observes its own facade (CabinetBox), not the true DOM parent directly', () => {
       const schema: DirectionalPanelSchema = { id: 'eqFiltersRow', type: 'directionalPanel', orientation: 'auto' };
       const { container } = render(
         <div data-testid="parent">
@@ -157,7 +191,7 @@ describe('DirectionalPanel', () => {
       );
       expect(MockResizeObserver.instances).toHaveLength(1);
       const panelRoot = container.querySelector('.sc-directional-panel')!;
-      expect(panelRoot.parentElement?.getAttribute('data-testid')).toBe('parent');
+      expect(panelRoot.parentElement?.getAttribute('data-testid')).toBe('cabinet-box');
     });
 
     it('flips to data-orientation="row" once the measured parent is wide enough', () => {
@@ -172,6 +206,55 @@ describe('DirectionalPanel', () => {
       act(() => observer.fire(1000, 200));
 
       expect(container.querySelector('.sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('row');
+    });
+  });
+
+  // Roadmap "Oblique Cabinetry — DirectionalPanel". See
+  // docs/specs/OBLIQUE_CABINETRY_DIRECTIONAL_PANEL.md §1.2/§1.3.
+  describe('Oblique Cabinetry facade (top-level only, never nested)', () => {
+    it('renders through a CabinetBox facade when top-level', () => {
+      const schema: DirectionalPanelSchema = { id: 'eq3Panel', type: 'directionalPanel' };
+      const { container } = render(
+        <DirectionalPanel schema={schema}>
+          <span>Low</span>
+        </DirectionalPanel>,
+      );
+      const box = container.querySelector('[data-testid="cabinet-box"]');
+      expect(box).toBeTruthy();
+      expect(box?.getAttribute('data-timeline-key')).toBe('cabinet-directional-panel-facade-eq3Panel');
+    });
+
+    it('renders no facade of its own when nested inside another DirectionalPanel — exactly one CabinetBox total for the pair', () => {
+      const outerSchema: DirectionalPanelSchema = { id: 'outer', type: 'directionalPanel' };
+      const innerSchema: DirectionalPanelSchema = { id: 'inner', type: 'directionalPanel' };
+      const { container } = render(
+        <DirectionalPanel schema={outerSchema}>
+          <DirectionalPanel schema={innerSchema}>
+            <span>Low</span>
+          </DirectionalPanel>
+        </DirectionalPanel>,
+      );
+      const boxes = container.querySelectorAll('[data-testid="cabinet-box"]');
+      expect(boxes).toHaveLength(1);
+      expect(boxes[0].getAttribute('data-timeline-key')).toBe('cabinet-directional-panel-facade-outer');
+    });
+
+    it('propagates nesting transitively — a panel 3 levels deep still renders no facade of its own', () => {
+      const schemaA: DirectionalPanelSchema = { id: 'a', type: 'directionalPanel' };
+      const schemaB: DirectionalPanelSchema = { id: 'b', type: 'directionalPanel' };
+      const schemaC: DirectionalPanelSchema = { id: 'c', type: 'directionalPanel' };
+      const { container } = render(
+        <DirectionalPanel schema={schemaA}>
+          <DirectionalPanel schema={schemaB}>
+            <DirectionalPanel schema={schemaC}>
+              <span>Low</span>
+            </DirectionalPanel>
+          </DirectionalPanel>
+        </DirectionalPanel>,
+      );
+      const boxes = container.querySelectorAll('[data-testid="cabinet-box"]');
+      expect(boxes).toHaveLength(1);
+      expect(boxes[0].getAttribute('data-timeline-key')).toBe('cabinet-directional-panel-facade-a');
     });
   });
 });
