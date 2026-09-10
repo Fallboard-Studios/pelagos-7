@@ -130,6 +130,16 @@ No new dependency. No file is renamed.
 * **The old bordered-pill/segment CSS (`.sc-radio-button__root`'s `border`/`border-radius`/`overflow: hidden`, `.sc-radio-button__item`'s `border-right`/`padding`/`font-size`/`background-color`/`color`) is deleted, not retained as dead/unused CSS.**
 * **Out of scope, per the intent doc:** per-item `disabled`; any new hover/partial-pop mechanism on unselected options; changes to the deselect-to-empty guard's own behavior; exact pixel values beyond what §1.5 already resolves; `Stepper`/`StepperWithToggle` (dropped from Cabinetry entirely, per 11.1.1); `AccordionContainer`, `Select`, `TextInput`/`CoordsInput` (11.1.7–11.1.9); WorldView/terrain/sky styling, robot visuals, the power rocker switch and the rest of the Sleeve casing; 11.2's accessibility/performance verification pass.
 
+> **Amendment, post-ship (during the Company Assignment RadioButton work, docs/specs/COMPANY_ASSIGNMENT_RADIO.md):**
+> the "no hover/partial-pop mechanism on unselected options" exclusion directly above was reversed at
+> Crawford's direct request ("the radio buttons should have the same hover effect as the buttons") —
+> `RadioButton.tsx` now pops an option on `mouseEnter`/`mouseLeave` in addition to the selected-state pop
+> this phase shipped, matching `Button`'s own hover-pop feedback. Confirmed to apply to every `RadioButton`
+> consumer app-wide (no per-instance opt-out), since the primitive has no variant prop to scope it narrower.
+> This paragraph amends the record rather than rewriting the historical text above, which still accurately
+> describes what 11.1.6 itself shipped. See `docs/COMPONENT_LIBRARY.md`'s `RadioButton` section for the
+> current, up-to-date behavior description.
+
 ---
 
 ## 4. Code Style & Architecture Conventions
