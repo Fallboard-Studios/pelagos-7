@@ -9,6 +9,7 @@ import { SliderCenteredZero } from '@/components/ui/controls/SliderCenteredZero'
 import { Stepper } from '@/components/ui/controls/Stepper';
 import { Lfo } from '@/components/ui/controls/Lfo';
 import { useLfoTargetGroup } from '@/components/ui/controls/useLfoTargetGroup';
+import { useCabinetTier } from '@/components/ui/controls/useCabinetBoxHeight';
 import { withActiveClass } from '@/components/ui/controls/activeClass';
 import {
   AUDIO_RIG_CONFIG,
@@ -16,7 +17,7 @@ import {
   TRANSPORT_COMPOSITION_ACCORDION_SCHEMA,
   SPEED_AUTOMATION_PANEL_SCHEMA,
   EQ_FILTERS_ROW_PANEL_SCHEMA,
-  FILTERS_COLUMN_PANEL_SCHEMA,
+  EQ_FILTERS_DESKTOP_SHARE,
   TIME_SPACE_COLUMN_PANEL_SCHEMA,
   DECAY_MODE_SCHEMA,
   LFO_DRIFT_GROUPS,
@@ -175,12 +176,15 @@ function AudioRigLfoGroup({ groupId, params, effect, updateParam, globalLfo, set
  * orientation, matching a caller-supplied panel shape directly. Compressor/
  * Limiter keep the original flat params-map. EQ & Filters is special-cased
  * (by AUDIO_RIG_ACCORDION_GROUPS' own `key` field, not its raw accordion id)
- * into its own row-when-there's-room layout — 3-Band EQ beside Low-Pass and
- * High-Pass, which now share their own row too, not a stacked column
- * (EQ_FILTERS_ROW_PANEL_SCHEMA/FILTERS_COLUMN_PANEL_SCHEMA — the latter's
- * name predates this, kept as-is); Time & Space
- * wraps its own blockKeys in a shared row (TIME_SPACE_COLUMN_PANEL_SCHEMA),
- * while Output still stacks its blockKeys flat. The 'robots'
+ * into a flattened row/column layout (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md
+ * §1.5) — eq3, filterLPF, and filterHPF are 3 direct siblings of one shared
+ * EQ_FILTERS_ROW_PANEL_SCHEMA panel (the earlier FILTERS_COLUMN_PANEL_SCHEMA
+ * sub-grouping is gone, since the new layout no longer needs it), stacking
+ * one-per-row on mobile/tablet and sharing one row at fixed 40/30/30 shares
+ * (EQ_FILTERS_DESKTOP_SHARE, applied as an inline flexBasis override) on
+ * desktop; Time & Space wraps its own blockKeys in a shared, tier-driven row
+ * (TIME_SPACE_COLUMN_PANEL_SCHEMA), while Output still stacks its blockKeys
+ * flat. The 'robots'
  * LFO_DRIFT_GROUPS entry (Robot Drift) no longer renders here — it moved to
  * SignatureArrayDrawer's own Source accordion, since it's a robot-facing
  * control even though the value it edits (globalAudio.lfoDrift.robots) is
@@ -197,6 +201,9 @@ export function AudioRigDrawer() {
   const setPingVarianceAutomation = useAudioStore((s) => s.setPingVarianceAutomation);
   const bpm = useAudioStore((s) => s.bpm);
   const setBPM = useAudioStore((s) => s.setBPM);
+  // Drives the EQ & Filters desktop-only flexBasis share (§1.6) — no other renderBlock()
+  // call site reads this.
+  const tier = useCabinetTier();
 
   return (
     <div className="audio-rig-drawer">
@@ -222,15 +229,14 @@ export function AudioRigDrawer() {
       {AUDIO_RIG_ACCORDION_GROUPS.map((group) => (
         <AccordionContainer key={group.accordion.id} schema={group.accordion}>
           {group.key === 'eqFilters' ? (
-            // Row-when-there's-room follow-up: 3-Band EQ beside Low-Pass and High-Pass (which
-            // share their own row too), instead of all 3 blocks stacking flat like every other
-            // group.
+            // Flattened (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.5) — eq3, filterLPF, and
+            // filterHPF are 3 direct siblings of one shared panel, no intermediate grouping
+            // panel. Stacks one-per-row on mobile/tablet; on desktop they share one row at the
+            // fixed EQ_FILTERS_DESKTOP_SHARE percentages (§1.6), applied as an inline flexBasis
+            // override on each block's own wrapper div — the one place this phase reaches past
+            // DirectionalPanel's own equal-share schema contract.
             <DirectionalPanel schema={EQ_FILTERS_ROW_PANEL_SCHEMA}>
-              {renderBlock('eq3')}
-              <DirectionalPanel schema={FILTERS_COLUMN_PANEL_SCHEMA}>
-                {renderBlock('filterLPF')}
-                {renderBlock('filterHPF')}
-              </DirectionalPanel>
+              {(['eq3', 'filterLPF', 'filterHPF'] as const).map((key) => renderBlock(key, EQ_FILTERS_DESKTOP_SHARE[key]))}
             </DirectionalPanel>
           ) : group.key === 'timeSpace' ? (
             <DirectionalPanel schema={TIME_SPACE_COLUMN_PANEL_SCHEMA}>
@@ -246,9 +252,16 @@ export function AudioRigDrawer() {
 
   /** Every effect block's own body (AudioRigLfoGroup-or-plain-params-map, plus the
    *  compressor-only Decay Mode radio) — shared by every AUDIO_RIG_ACCORDION_GROUPS entry's
-   *  flat stack and EQ & Filters' own special-cased row/column layout above. */
-  function renderBlock(key: AudioRigEffectKey) {
+   *  flat stack and EQ & Filters' own flattened row/column layout above. `desktopSharePercent`
+   *  (only ever passed by the EQ & Filters call site above) applies an inline flexBasis
+   *  override to this block's own wrapper div, but only at the desktop tier — every other
+   *  call site's single-argument call leaves it undefined, falling back to
+   *  DirectionalPanel.css's own equal-share `flex: 1 1 0` default. */
+  function renderBlock(key: AudioRigEffectKey, desktopSharePercent?: number) {
     const block = AUDIO_RIG_CONFIG.find((b) => b.key === key)!;
+    const style = desktopSharePercent !== undefined && tier === 'desktop'
+      ? { flexBasis: `${desktopSharePercent}%` }
+      : undefined;
     // Every param field on every effect is a number (GLOBAL_CHAIN_GRID.md has
     // no string/boolean params) — this cast is read-only and narrow, matching
     // audioStore.ts's own GLOBAL_SETTER cast for the same "dynamic key against
@@ -262,7 +275,7 @@ export function AudioRigDrawer() {
     }
 
     return (
-      <div className="audio-rig-drawer__effect-block" key={block.key}>
+      <div className="audio-rig-drawer__effect-block" key={block.key} style={style}>
         <DirectionalPanel schema={block.panel}>
           {lfoFields.length > 0 ? (
             <AudioRigLfoGroup

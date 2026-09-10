@@ -13,7 +13,6 @@ import {
   TRANSPORT_COMPOSITION_ACCORDION_SCHEMA,
   SPEED_AUTOMATION_PANEL_SCHEMA,
   EQ_FILTERS_ROW_PANEL_SCHEMA,
-  FILTERS_COLUMN_PANEL_SCHEMA,
   EQ_FILTERS_DESKTOP_SHARE,
   TIME_SPACE_COLUMN_PANEL_SCHEMA,
   type AudioRigEffectKey,
@@ -602,34 +601,21 @@ describe('TIME_SPACE_COLUMN_PANEL_SCHEMA (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT
   });
 });
 
-describe('EQ_FILTERS_ROW_PANEL_SCHEMA / FILTERS_COLUMN_PANEL_SCHEMA (EQ & Filters row-when-there\'s-room follow-up)', () => {
-  it('EQ_FILTERS_ROW_PANEL_SCHEMA is a responsive-orientation directionalPanel, unlabeled (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.5 — stacks on mobile/tablet, one shared row on desktop)', () => {
+describe('EQ_FILTERS_ROW_PANEL_SCHEMA (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.5 — flattened, FILTERS_COLUMN_PANEL_SCHEMA removed)', () => {
+  it('is a responsive-orientation directionalPanel, unlabeled — stacks on mobile/tablet, one shared row on desktop', () => {
     expect(EQ_FILTERS_ROW_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'responsive' });
     expect(EQ_FILTERS_ROW_PANEL_SCHEMA.loreLabel).toBeUndefined();
     expect(EQ_FILTERS_ROW_PANEL_SCHEMA.humanLabel).toBeUndefined();
     expect(EQ_FILTERS_ROW_PANEL_SCHEMA.id).toMatch(/^audioRig\./);
   });
 
-  it('FILTERS_COLUMN_PANEL_SCHEMA is a row-orientation directionalPanel, unlabeled — LPF/HPF share a row, not a stacked column, despite the name', () => {
-    expect(FILTERS_COLUMN_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'row' });
-    expect(FILTERS_COLUMN_PANEL_SCHEMA.loreLabel).toBeUndefined();
-    expect(FILTERS_COLUMN_PANEL_SCHEMA.humanLabel).toBeUndefined();
-    expect(FILTERS_COLUMN_PANEL_SCHEMA.id).toMatch(/^audioRig\./);
-  });
-
-  it('the two schemas have distinct, unique ids', () => {
-    expect(EQ_FILTERS_ROW_PANEL_SCHEMA.id).not.toBe(FILTERS_COLUMN_PANEL_SCHEMA.id);
-  });
-
-  it('neither id collides with any AUDIO_RIG_CONFIG block\'s own panel id', () => {
+  it('does not collide with any AUDIO_RIG_CONFIG block\'s own panel id', () => {
     const blockPanelIds = AUDIO_RIG_CONFIG.map((b) => b.panel.id);
     expect(blockPanelIds).not.toContain(EQ_FILTERS_ROW_PANEL_SCHEMA.id);
-    expect(blockPanelIds).not.toContain(FILTERS_COLUMN_PANEL_SCHEMA.id);
   });
 
-  it('remain JSON-serializable', () => {
+  it('remains JSON-serializable', () => {
     expect(() => JSON.stringify(EQ_FILTERS_ROW_PANEL_SCHEMA)).not.toThrow();
-    expect(() => JSON.stringify(FILTERS_COLUMN_PANEL_SCHEMA)).not.toThrow();
   });
 });
 

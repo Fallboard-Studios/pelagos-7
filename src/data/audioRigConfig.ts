@@ -369,16 +369,6 @@ export const EQ_FILTERS_DESKTOP_SHARE: Record<'eq3' | 'filterLPF' | 'filterHPF',
   filterHPF: 30,
 };
 
-/** Low-Pass Filter beside High-Pass Filter, sitting beside 3-Band EQ inside
- *  EQ_FILTERS_ROW_PANEL_SCHEMA above. Unlabeled, same convention. Orientation was 'column'
- *  (stacked) when this was first added and named; deliberately flipped to 'row' since — name
- *  kept as-is rather than a rename-plus-call-site-churn for what's still pure layout grouping. */
-export const FILTERS_COLUMN_PANEL_SCHEMA: DirectionalPanelSchema = {
-  id: 'audioRig.filtersColumn',
-  type: 'directionalPanel',
-  orientation: 'row',
-};
-
 // 'responsive', not fixed 'row' — Delay/Reverb stack on mobile/tablet, sit side by side
 // on desktop. docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.7.
 export const TIME_SPACE_COLUMN_PANEL_SCHEMA: DirectionalPanelSchema = {
