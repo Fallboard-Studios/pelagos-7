@@ -70,7 +70,7 @@ Task 1 (companyConfig.ts/.test.ts — rename to buildCompanyAssignmentSchema, Ra
 
 ### Phase 1: Foundation — the schema builder
 
-- [ ] **Task 1: `companyConfig.ts` — rename `buildCompanySelectSchema` to `buildCompanyAssignmentSchema`, return `RadioButtonSchema`**
+- [x] **Task 1: `companyConfig.ts` — rename `buildCompanySelectSchema` to `buildCompanyAssignmentSchema`, return `RadioButtonSchema`**
 
   **Description:** Per spec §1.1/§1.2/§4: rename the exported function, change its return type from
   `SelectSchema` (`type: 'select'`) to `RadioButtonSchema` (`type: 'radio'`), and drop the now-unused
@@ -84,39 +84,42 @@ Task 1 (companyConfig.ts/.test.ts — rename to buildCompanyAssignmentSchema, Ra
   still checks non-empty string).
 
   **Acceptance criteria:**
-  - [ ] `buildCompanySelectSchema` no longer exists anywhere in `src/`; `buildCompanyAssignmentSchema` exists,
+  - [x] `buildCompanySelectSchema` no longer exists anywhere in `src/`; `buildCompanyAssignmentSchema` exists,
     has the exact same signature (`(companies: Company[]) => RadioButtonSchema`), and returns
     `type: 'radio'` with `options` starting with `{ value: FREELANCE_VALUE, label: 'Freelance' }` followed by
     one `{ value: c.id, label: c.name }` per company, in array order — byte-identical option-building logic
     to before, only the return type/id-string literal changed.
-  - [ ] `id: 'company.assign'` is unchanged.
-  - [ ] `SelectSchema` is no longer imported anywhere in `companyConfig.ts`.
-  - [ ] `FREELANCE_VALUE`'s value (`'__freelance__'`) is unchanged; only its doc comment is reworded per spec
+  - [x] `id: 'company.assign'` is unchanged.
+  - [x] `SelectSchema` is no longer imported anywhere in `companyConfig.ts`.
+  - [x] `FREELANCE_VALUE`'s value (`'__freelance__'`) is unchanged; only its doc comment is reworded per spec
     §4's exact text.
-  - [ ] `NONE_VALUE`'s doc comment no longer mentions "Select" — reworded per spec §4.
-  - [ ] `buildCompanyButtonRowSchema`, `NONE_VALUE`, `ALL_VALUE`, `COMPANY_SELECTION_HEADER_SCHEMA`,
+  - [x] `NONE_VALUE`'s doc comment no longer mentions "Select" — reworded per spec §4.
+  - [x] `buildCompanyButtonRowSchema`, `NONE_VALUE`, `ALL_VALUE`, `COMPANY_SELECTION_HEADER_SCHEMA`,
     `COMPANY_NAME_INPUT_SCHEMA`, `CREATE_COMPANY_SCHEMA`, `DELETE_COMPANY_SCHEMA` are all byte-for-byte
     unchanged except `NONE_VALUE`'s comment above.
-  - [ ] `companyConfig.test.ts`'s `buildCompanySelectSchema` describe block is renamed to
+  - [x] `companyConfig.test.ts`'s `buildCompanySelectSchema` describe block is renamed to
     `buildCompanyAssignmentSchema`, its 3 tests updated to call the renamed function and assert
     `schema.type === 'radio'`, all other assertions (option order/content/length, `company.` id namespace)
     unchanged.
-  - [ ] `companyConfig.test.ts`'s `FREELANCE_VALUE` test description string no longer references
+  - [x] `companyConfig.test.ts`'s `FREELANCE_VALUE` test description string no longer references
     "Select.Item"; its assertions (`typeof === 'string'`, `.length > 0`) are unchanged.
-  - [ ] `companyConfig.test.ts`'s "every schema type is one of the 14 closed-set ControlSchema variants"
+  - [x] `companyConfig.test.ts`'s "every schema type is one of the 14 closed-set ControlSchema variants"
     describe-block string is **not** edited (spec §1.6 — it's already accidentally correct and stays that
     way once Task 4 lands).
-  - [ ] `RobotSelectionCard.tsx`/`RobotDisplaySection.tsx` are **not** touched by this task — they still
+  - [x] `RobotSelectionCard.tsx`/`RobotDisplaySection.tsx` are **not** touched by this task — they still
     import the now-nonexistent `buildCompanySelectSchema`, so `npm run build:types` is expected to fail
     against those two files specifically until Tasks 2/3 land. This is a deliberate, temporary,
     single-branch intermediate state (spec's own commit grouping), not a regression to fix here.
 
   **Verification:**
-  - [ ] `npx vitest run src/data/companyConfig.test.ts` passes in full.
-  - [ ] `npx tsc --noEmit` shows errors **only** in `RobotSelectionCard.tsx`/`RobotDisplaySection.tsx`
-    (unresolved `buildCompanySelectSchema` import) — no error anywhere else, confirming this task's own
-    changes are otherwise self-consistent.
-  - [ ] `npm run lint` — zero new ESLint errors in `companyConfig.ts`/`companyConfig.test.ts`.
+  - [x] `npx vitest run src/data/companyConfig.test.ts` passes in full — confirmed genuinely RED first (3
+    failures, `buildCompanyAssignmentSchema is not a function`, all 3 in the renamed describe block; the 8
+    other pre-existing tests in the file passed untouched), then GREEN after the rename (11/11 passing).
+  - [x] `npm run build:types` (the repo's real type-check script — plain `npx tsc --noEmit` at the repo root
+    is a no-op here, since `tsconfig.json` is a project-references shell with `files: []`; confirmed and used
+    `-p tsconfig.app.json` instead) shows errors **only** in `RobotSelectionCard.tsx`/`RobotDisplaySection.tsx`
+    (`TS2305: has no exported member 'buildCompanySelectSchema'`) — no error anywhere else.
+  - [x] `npx eslint src/data/companyConfig.ts src/data/companyConfig.test.ts` — zero errors.
 
   **Dependencies:** None.
 
