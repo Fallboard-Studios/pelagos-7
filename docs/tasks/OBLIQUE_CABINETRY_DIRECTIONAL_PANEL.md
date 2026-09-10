@@ -1,0 +1,251 @@
+# Implementation Plan: Oblique Cabinetry — DirectionalPanel
+
+Source spec: [docs/specs/OBLIQUE_CABINETRY_DIRECTIONAL_PANEL.md](../specs/OBLIQUE_CABINETRY_DIRECTIONAL_PANEL.md).
+Source intent: [docs/intent/oblique-cabinetry-directional-panel.md](../intent/oblique-cabinetry-directional-panel.md).
+Not a numbered roadmap item — raised directly by Crawford after AccordionContainer (11.1.7) shipped; the
+roadmap explicitly called `DirectionalPanel` out of scope for the original 11.1.x series. Pure presentation
+change — no `AudioEngine`/`BeatClock` change, no new Zustand field, no `DirectionalPanelSchema`/
+`ControlSchema` change. Every task below either makes a small additive change to the already-shipped
+`CabinetBox` primitive (11.1.1) or wires `DirectionalPanel` — this phase's only real consumer — through it.
+None touch audio scheduling, any domain config, or any other primitive.
+
+## Overview
+
+Like `Toggle` (11.1.2) and unlike `RadioButton`/`AccordionContainer` (11.1.6/11.1.7), this phase needs a
+small additive change to `CabinetBox` itself before its own consumer task — `autoHeight`, a new optional
+prop letting the left-face wall size itself to 100% of the wrapper's real height (CSS only, no new
+`ResizeObserver` — spec §1.1) instead of a caller-known fixed number. That collapses to 3 tasks: the
+primitive change, the real consumer (`DirectionalPanel`'s Context-based facade wiring), and docs.
+
+## Architecture Decisions
+
+- **`CabinetBox`'s `autoHeight` prop (Task 1) is a separate task from `DirectionalPanel` itself (Task 2),
+  not folded together** — same "component change before consumer" sequencing `Toggle`'s own Task 1→Task 2
+  split established (11.1.2), for the same risk-isolation reason: `CabinetBox`'s own test suite (already
+  covering every prior consumer's contract) stays provably unbroken by the additive change *before*
+  `DirectionalPanel` starts depending on it.
+- **`DirectionalPanel.tsx`/`.css`/`.test.tsx` land as one task, not split by file** — the Context-based
+  nesting detection, the facade wiring, and the CSS scoping only make sense read together (the selector
+  scoping in §1.3 depends on the exact wrapper structure §1.2/the code in §4 builds), same reasoning
+  AccordionContainer's own single consumer task used.
+- **The docs task depends only on the consumer task (Task 2), not Task 1** — `docs/COMPONENT_LIBRARY.md`'s
+  note describes `DirectionalPanel`'s own shipped behavior (plus a mention of `CabinetBox`'s new
+  capability), which isn't final until Task 2 lands; `autoHeight` isn't independently documented anywhere
+  else, matching how `Toggle`'s own additive `CabinetBox` props were never given their own doc entry either.
+- **No task in this plan touches `Button.tsx`/`.css`, `Toggle.tsx`/`.css`, `RadioButton.tsx`/`.css`,
+  `AccordionContainer.tsx`/`.css`, `cabinetGeometry.ts`, `cabinetAnimation.ts`, `cabinetBreakpoints.ts`,
+  `useCabinetBoxHeight.ts`, `useAutoPanelOrientation.ts`, or any domain config file** — confirmed against
+  spec §3's Strict Scope boundary. No real `DirectionalPanel` call site needs an edit, since the props
+  contract doesn't change.
+
+## Dependency Graph
+
+```
+Task 1 (CabinetBox.tsx/.test.tsx — autoHeight prop)
+        │
+        └──→ Task 2 (DirectionalPanel.tsx/.css/.test.tsx — Context + facade wiring)
+                        │
+                        └──→ Task 3 (docs/COMPONENT_LIBRARY.md)
+```
+
+## Task List
+
+### Phase 1: Foundation — additive change to the already-shipped primitive
+
+- [ ] **Task 1: `CabinetBox` — `autoHeight` prop**
+
+  **Description:** Modify `src/components/ui/controls/CabinetBox.tsx` per spec §1.1/§4: add an optional
+  `autoHeight?: boolean` prop; thread it into the left-face wall's inline style so
+  `height: autoHeight ? '100%' : \`${leftFaceHeight}px\`` replaces the current unconditional
+  `` `${leftFaceHeight}px` ``. No other logic in the file changes — `leftFaceHeight`'s own computation
+  (`frontHeight ?? boxHeight`), the width `ResizeObserver`, the geometry effect, and every other prop are
+  untouched. Extend `CabinetBox.test.tsx` with the 2 new cases from spec §5.
+
+  **Acceptance criteria:**
+  - [ ] Every existing `CabinetBox.test.tsx` assertion (every prior consumer's own contract — `children`
+    rendering, timeline registration/kill, reduced-motion, wall/glow tweening, border-box measurement,
+    `boxHeight`/`skipMountAnimation`/`frontWidth`/`frontHeight`/`popDistance`/`zIndex` overrides) still
+    passes unmodified — `autoHeight` is optional and no existing test passes it.
+  - [ ] `render(<CabinetBox popped timelineKey="test-box" autoHeight>x</CabinetBox>)` applies `height:
+    100%` on the left-face wall's inline style — not a pixel value.
+  - [ ] `render(<CabinetBox popped timelineKey="test-box" boxHeight={48}>x</CabinetBox>)` (no `autoHeight`)
+    still applies `height: 48px` on the left-face wall — proves the new prop doesn't leak into the default
+    path.
+  - [ ] `Button.tsx`/`Toggle.tsx`/`RadioButton.tsx`/`AccordionContainer.tsx`'s own call sites are untouched
+    — `git diff` on each is empty for this task.
+  - [ ] No new `ResizeObserver`, no new state, no new effect added to `CabinetBox.tsx` — the width
+    `ResizeObserver` and the geometry effect are byte-for-byte unchanged apart from the one conditional in
+    the left-face wall's `style` prop.
+
+  **Verification:**
+  - [ ] `npx vitest run src/components/ui/controls/CabinetBox.test.tsx` passes, covering both new cases
+    alongside every existing consumer's own suite unmodified.
+  - [ ] `npm run build:types` — zero TypeScript errors.
+  - [ ] `npm run lint` — zero ESLint errors.
+  - [ ] `npm run build` — production bundle builds cleanly.
+  - [ ] `npm test` (full suite) passes.
+  - [ ] Manual check: none applicable yet — `autoHeight` has zero real consumers until Task 2, same
+    "component before consumer" precedent `Toggle`'s own Task 1→2 split used.
+
+  **Dependencies:** None (11.1.1 and every prior Cabinetry item already shipped and merged to `main`).
+
+  **Files:** `src/components/ui/controls/CabinetBox.tsx`, `src/components/ui/controls/CabinetBox.test.tsx`
+
+  **Estimated scope:** XS (2 files, a single additive/optional change — the lowest-risk task in this plan)
+
+### Checkpoint: Foundation change ships
+- [ ] `npm run build:types`, `npm run lint`, `npm run build`, `npm test` all clean (full suite, not just
+  `CabinetBox.test.tsx`) — confirms the additive change is genuinely non-breaking for every existing
+  consumer.
+- [ ] `CabinetBox` accepts `autoHeight` (verified by its own test suite) with zero other file in the app
+  referencing it yet.
+- [ ] Review with human before proceeding.
+
+---
+
+### Phase 2: The real consumer
+
+- [ ] **Task 2: `DirectionalPanel` — Context-based top-level detection + permanently-popped facade**
+
+  **Description:** Replace `src/components/ui/controls/DirectionalPanel.tsx` per spec §1.2/§1.3/§4: add an
+  internal (not exported) `DirectionalPanelNestingContext` (`createContext(false)`); read it via
+  `useContext` to determine `isNested`; render the existing panel markup unwrapped when nested, or wrapped
+  in a new `<div className="sc-directional-panel-facade">` containing a `CabinetBox`
+  (`popped` literal `true`, `skipMountAnimation`, `autoHeight`, `timelineKey={\`cabinet-directional-panel-facade-${schema.id}\`}`)
+  when top-level; always re-provide `true` to `children` via the Context provider regardless of which
+  branch rendered, so nesting propagates transitively. Replace `DirectionalPanel.css` per spec §4: add the
+  2 new direct-child-combinator-scoped rules (`.sc-directional-panel-facade > .sc-cabinet-box`/
+  `> .sc-cabinet-box__front`, the latter setting `display: block; width: 100%; height: auto; padding: 12px
+  14px;`) — no existing rule changes. Extend `DirectionalPanel.test.tsx` per spec §5: mock `CabinetBox`
+  file-wide; restructure the existing "observes its own parent element, not its own box" test into 2 cases
+  (nested-still-measures-true-parent; top-level-now-measures-the-facade); add the 3 new facade-wiring cases.
+
+  **Acceptance criteria:**
+  - [ ] Every existing `DirectionalPanel.test.tsx` assertion **except** "observes its own parent element,
+    not its own box" (children rendering, label presence/absence/fallback, `data-orientation` for
+    `'row'`/`'column'`/`'auto'`-before-measurement, children order, `'auto'`-flips-to-row-once-wide-enough)
+    passes unmodified.
+  - [ ] The parent-element test is restructured into 2 cases (spec §5 item 1), not deleted: a genuinely
+    nested panel still measures its true DOM parent (the outer panel's own `.sc-directional-panel__content`);
+    a top-level panel now measures the mocked `CabinetBox` element instead of the true DOM parent, with
+    `MockResizeObserver.instances` still exactly length 1.
+  - [ ] A standalone (top-level) `DirectionalPanel` renders exactly one `[data-testid="cabinet-box"]`, keyed
+    `` `cabinet-directional-panel-facade-${schema.id}` ``.
+  - [ ] A `DirectionalPanel` nested inside another renders **zero** of its own `[data-testid="cabinet-box"]`
+    — exactly one total for the pair (the outer's).
+  - [ ] Nesting 3 levels deep still renders exactly one facade (the outermost) — the Context propagates
+    transitively, not just one level.
+  - [ ] `.sc-directional-panel-facade > .sc-cabinet-box > .sc-cabinet-box__front`/
+    `.sc-directional-panel-facade > .sc-cabinet-box` are the only new CSS rules — no existing
+    `.sc-directional-panel`/`.sc-directional-panel__content` rule is modified.
+  - [ ] `DirectionalPanelSchema`/`ControlSchema` (`src/types/controls.ts`) are untouched — `git diff
+    src/types/controls.ts` is empty for this task.
+  - [ ] `CabinetBox.tsx`/`.css`, `useAutoPanelOrientation.ts`, `cabinetGeometry.ts`, `cabinetAnimation.ts`,
+    `cabinetBreakpoints.ts`, `useCabinetBoxHeight.ts` are all untouched — `git diff` for each is empty for
+    this task.
+  - [ ] `DirectionalPanelNestingContext` is not exported from `DirectionalPanel.tsx`.
+
+  **Verification:**
+  - [ ] `npx vitest run src/components/ui/controls/DirectionalPanel.test.tsx` passes — the existing suite
+    (minus the one restructured case, now 2 cases) plus the 3 new facade-wiring cases.
+  - [ ] `npm run build:types` — zero TypeScript errors.
+  - [ ] `npm run lint` — zero ESLint errors.
+  - [ ] `npm run build` — production bundle builds cleanly.
+  - [ ] `npm test` (full suite) passes, including every real consumer's own test file
+    (`AudioSettingSection.test.tsx`, `PingContourDrawer.test.tsx`, `PingControlsDrawer.test.tsx`,
+    `SignatureArrayDrawer.test.tsx`, `AudioRigDrawer.test.tsx`, `LfoTargetGroup.test.tsx`) unmocked against
+    the real `DirectionalPanel` — several use `.closest('.sc-directional-panel')`/
+    `:scope > .sc-directional-panel__content` queries to check nesting relationships **between**
+    `DirectionalPanel` instances (audited in the spec as unaffected, since the new wrapper only inserts
+    *above* a top-level panel, never between two already-nested panels) — this must be confirmed by
+    actually running the suite, not assumed from the audit. The 2 pre-existing/unrelated failures already
+    recorded in AccordionContainer's own plan are expected to still be present and still unrelated.
+  - [ ] Manual check (spec §5): across at least one panel from each real consumer (Ping Controls'
+    Phrasing/Frequency panels — Rhythm nested inside Phrasing; Ping Contour's Envelope panel; Signature
+    Array's Drift/per-layer panels; Audio Rig's Speed & Automation / EQ & Filters / Time & Space / a plain
+    effect block like Compressor) — every top-level panel reads framed with no animation ever; nested
+    panels stay unframed with no facade-inside-facade stacking; `orientation="auto"` panels still flip
+    correctly at the expected width despite the ~28px facade-padding offset; the facade's vertical padding
+    reads right against both a short panel and a tall multi-row EQ block; no wall/glow bleed between a
+    facade and a nearby child control's own box.
+
+  **Dependencies:** Task 1.
+
+  **Files:** `src/components/ui/controls/DirectionalPanel.tsx`, `src/components/ui/controls/DirectionalPanel.css`, `src/components/ui/controls/DirectionalPanel.test.tsx`
+
+  **Estimated scope:** S (3 files, but the highest-risk task in this plan — the only one touching 6 real
+  consumers' worth of existing structural test assertions, not just its own file's tests)
+
+### Checkpoint: DirectionalPanel ships — first visible change
+- [ ] `npm run build:types`, `npm run lint`, `npm run build`, `npm test` (full suite) all clean.
+- [ ] Every real `DirectionalPanel` call site in the app renders through the new Context-based facade logic
+  with zero call-site changes required — confirmed by `npm run build:types` alone surfacing nothing, since
+  the props contract didn't change.
+- [ ] Manual check performed against the real running app (see Task 2's own verification list) — flag any
+  finding (e.g. an `orientation="auto"` panel flipping at a visibly wrong width, or the vertical padding
+  reading badly against a tall EQ block) for a follow-up fix before merge.
+- [ ] Review with human before proceeding.
+
+---
+
+### Phase 3: Docs
+
+- [ ] **Task 3: `docs/COMPONENT_LIBRARY.md` — DirectionalPanel's internal rendering note**
+
+  **Description:** Add a short note under `DirectionalPanel`'s existing section (mirroring every prior
+  item's own "internal rendering changed, contract didn't" note) — its internal rendering changed for
+  top-level instances only (a permanently-popped `CabinetBox` facade, detected via an internal Context
+  rather than a caller-supplied flag) while its `{ schema, children }` contract stayed byte-for-byte
+  identical, per spec §6. Also note `CabinetBox`'s own new `autoHeight` capability, mirroring how `Toggle`'s
+  additive `CabinetBox` changes got a mention in `Toggle`'s own note.
+
+  **Acceptance criteria:**
+  - [ ] `docs/COMPONENT_LIBRARY.md` documents that `DirectionalPanel` now renders through `CabinetBox`
+    internally for top-level instances, with its props contract unchanged, and mentions `autoHeight`.
+  - [ ] The note is spot-checked against `DirectionalPanel.tsx`'s actual shipped code (Task 2), not the
+    spec's draft.
+
+  **Verification:**
+  - [ ] Manual review — spot-checked directly against the shipped `DirectionalPanel.tsx`.
+  - [ ] `npm run build:types`, `npm run lint` clean (docs-only change).
+
+  **Dependencies:** Task 2.
+
+  **Files:** `docs/COMPONENT_LIBRARY.md`
+
+  **Estimated scope:** XS (docs only)
+
+### Checkpoint: Complete
+- [ ] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes.
+- [ ] All acceptance criteria across all 3 tasks are met, including Task 2's manual check.
+- [ ] `docs/COMPONENT_LIBRARY.md` reflects the shipped feature.
+- [ ] Reviewed with Crawford — ready for PR.
+
+## Risks and Mitigations
+
+| Risk | Impact | Mitigation |
+|---|---|---|
+| The `autoHeight` → `height: 100%` mechanism (spec §1.1) replaces what the intent doc's own interview confirmed (a `ResizeObserver`) — a real, deliberate substitution, not something Crawford explicitly re-confirmed | Low–Medium — functionally equivalent and lower-risk than the originally-floated approach, but a divergence from a literal confirmed answer | Spec §7 flags this prominently as "surfaced for explicit review, not silently substituted"; the Phase 1 checkpoint's human review is the point to catch it if the heavier version is actually wanted |
+| `orientation="auto"` panels now measure `.sc-cabinet-box__front` instead of their true DOM parent (spec §1.4) — `AUTO_PANEL_ROW_MIN_WIDTH` (640px) was already a first-pass, unconfirmed-in-the-real-app guess before this change | Low–Medium — a miscalculation only surfaces visually (a panel flipping row/column at a subtly wrong width), not via jsdom | Task 2's manual check explicitly includes EQ & Filters' own row-when-there's-room layout, the one real `'auto'` consumer with visible stakes |
+| 6 real consumers' own test files query `DirectionalPanel` nesting structure via `.closest()`/`:scope >` selectors — audited as unaffected, but the audit is reasoning, not a test run | Low — if the audit is wrong, it fails loudly (a specific, named test breaks) rather than silently | Task 2's own verification step explicitly calls out running the full suite (not the audit alone) as the actual gate; each consumer's test file is named individually so a failure is easy to trace back |
+| `DirectionalPanelNestingContext` is a new mechanism (this codebase's control primitives have used local `useState`/props exclusively until now, never Context) | Low — a well-understood, standard React pattern; internal-only, not exported, so its blast radius is contained to this one file | Acceptance criteria explicitly require the Context to stay unexported and tested only through observed behavior (facade present or not), not through direct context inspection |
+
+## Open Questions
+
+Resolved during Plan (not left open):
+
+- ~~Does this phase need a separate "shared-primitive change" task before the consumer task, the way
+  `Toggle`'s Task 1 did?~~ **Resolved: yes** — unlike `RadioButton`/`AccordionContainer`, this phase's
+  `autoHeight` prop is a genuine (if small) addition to `CabinetBox` itself, warranting the same
+  risk-isolation split `Toggle`'s own plan used.
+- ~~Does the docs task depend on both tasks, or just the consumer task?~~ **Resolved: Task 3 depends only
+  on Task 2** — `autoHeight` isn't independently documented anywhere, matching `Toggle`'s own precedent.
+
+Carried forward from spec §7, not blocking this plan:
+
+1. **The `autoHeight`-via-CSS-percentage substitution** (spec §7 item 1) — resolved by reasoning during
+   Specify, not directly re-confirmed against the interview's own literal "add a `ResizeObserver`" answer.
+   Flagged above in Risks and at the Phase 1 checkpoint for explicit human review before merge.
+2. **The `orientation="auto"` measurement-target shift** (spec §1.4/§7 item 2) — a real, accepted, but
+   newly-introduced behavior change for the one existing test that directly asserted the old target; pinned
+   as an explicit regression guard in Task 2 rather than left implicit.
