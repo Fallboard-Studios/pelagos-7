@@ -17,9 +17,10 @@ interface SliderCenteredZeroProps {
   onChange: (value: number) => void;
   disabled?: boolean;
   /** On a vertical slider, the box-count-fitting BUDGET (not a literal
-   *  applied length) the — always even, see useVoxelTrackSlider's forceEven
-   *  option — box count fits within. Omit to fit against the fixed
-   *  VOXEL_TRACK_DEFAULT_VERTICAL_HEIGHT budget. */
+   *  applied length — see useVoxelTrackSlider's forceEven option, which
+   *  additionally rounds the fitted count to always be even) the box count
+   *  fits within. Omit to fit against the fixed VOXEL_TRACK_DEFAULT_VERTICAL_HEIGHT
+   *  budget. */
   verticalHeight?: number;
 }
 
