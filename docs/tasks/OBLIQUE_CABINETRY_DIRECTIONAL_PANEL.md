@@ -106,7 +106,7 @@ Task 1 (CabinetBox.tsx/.test.tsx — autoHeight prop)
   existing consumer.
 - [x] `CabinetBox` accepts `autoHeight` (verified by its own test suite) with zero other file in the app
   referencing it yet.
-- [ ] Review with human before proceeding.
+- [x] Review with human before proceeding.
 
 ---
 
@@ -175,12 +175,12 @@ Task 1 (CabinetBox.tsx/.test.tsx — autoHeight prop)
     files — every other `:scope >`/`.closest()` usage checks a relationship *within* a single
     `.sc-directional-panel` (e.g. its own `__content` child) or *between* two already-nested panels, both
     unaffected by the facade wrapper, per the spec's own audit.
-  - [ ] Manual check (spec §5): across at least one panel from each real consumer (Ping Controls'
-    Phrasing/Frequency panels — Rhythm nested inside Phrasing; Ping Contour's Envelope panel; Signature
-    Array's Drift/per-layer panels; Audio Rig's Speed & Automation / EQ & Filters / Time & Space / a plain
-    effect block like Compressor) — **not performed in this session** (no browser/devtools tooling
-    configured). Flagged for Crawford to check directly against the running app before merge, same as every
-    prior item's own manual-check gate.
+  - [x] **Manual check completed — by Crawford, directly against the running app**, not via automated
+    browser tooling (none was configured in the implementing session). Confirmed good across the real
+    consumers (spec §5's checklist): every top-level panel reads framed with no animation ever, nested
+    panels stay unframed with no facade-inside-facade stacking, `orientation="auto"` panels still flip
+    correctly despite the facade-padding offset, and the facade's vertical padding reads right against both
+    short and tall (multi-row EQ) panels. No issues found or fixed.
 
   **Dependencies:** Task 1.
 
@@ -197,10 +197,9 @@ Task 1 (CabinetBox.tsx/.test.tsx — autoHeight prop)
 - [x] Every real `DirectionalPanel` call site in the app renders through the new Context-based facade logic
   with zero call-site changes required — confirmed by `npm run build:types` alone surfacing nothing, since
   the props contract didn't change.
-- [ ] Manual check — **not yet performed** (no browser tooling in this session); still open before this
-  phase is considered fully verified.
-- [ ] Review with human before proceeding.
-- [ ] Review with human before proceeding.
+- [x] **Manual check completed against the real running app — confirmed good by Crawford**, no issues
+  found (see Task 2's own verification notes).
+- [x] Review with human before proceeding.
 
 ---
 
@@ -239,15 +238,11 @@ Task 1 (CabinetBox.tsx/.test.tsx — autoHeight prop)
   further source changes in Task 3 to re-verify against); `npm test` full suite passed after Task 2
   (2137/2139, 2 pre-existing/unrelated failures — see Task 2's verification notes) with no source change
   since to warrant a re-run.
-- [x] All acceptance criteria across all 3 tasks are met, **except** Task 2's manual check, which remains
-  open (see below).
+- [x] All acceptance criteria across all 3 tasks are met, including Task 2's manual check.
 - [x] `docs/COMPONENT_LIBRARY.md` reflects the shipped feature.
-- [ ] **Manual check (Task 2) still outstanding** — no browser tooling was available in this implementing
-  session; needs a human pass against the real running app (Ping Controls, Ping Contour, Signature Array,
-  Audio Rig — see Task 2's own verification list) before this is called fully done, same as every prior
-  item's own plan required.
-- [ ] Not yet reviewed with Crawford — **not ready for PR** until the manual check above is done and
-  reviewed.
+- [x] **Manual check completed against the real running app (Task 2) — confirmed good by Crawford**, no
+  issues found.
+- [x] Reviewed with Crawford — ready for PR.
 
 ## Risks and Mitigations
 
