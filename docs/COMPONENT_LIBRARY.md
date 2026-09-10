@@ -138,6 +138,25 @@ narrower reading (the facade's own padding) that `AUTO_PANEL_ROW_MIN_WIDTH`'s ex
 visually" tolerance absorbs. The `{ schema, children }` props contract is unchanged — no call site needed to
 change. Full design rationale: `docs/specs/OBLIQUE_CABINETRY_DIRECTIONAL_PANEL.md`.
 
+### `TextInput`'s Oblique Cabinetry rendering (Roadmap Phase 11.1.9)
+
+`TextInput`'s internal rendering changed — the last of the 14 primitives to receive Cabinetry. Every
+instance renders through a permanently-popped, non-animating `CabinetBox` facade (`popped={true}` +
+`skipMountAnimation`), wrapping its own `DualLabel` plus the native `<input>` together as one framed unit —
+the same facade mechanism `DirectionalPanel`'s own top-level instances use, reused for its *boundary and
+`autoHeight` mechanism* but deliberately **not** its nesting-context gate: `TextInput` has no "top-level vs.
+nested" concept at all, and every instance renders its own facade unconditionally, regardless of what
+composes it. `autoHeight` is required here, not merely carried over defensively — real `TextInputSchema`
+consumers vary in `DualLabel` line count (`CoordsInput`'s X/Y fields set only `humanLabel`, one line;
+Company/Attenuation-Style name fields set both `loreLabel` and `humanLabel`, two lines), so a single fixed
+breakpoint-tier height would clip one or oversize the other. The facade never reacts to `disabled` or any
+other input state — always popped, purely decorative; the native `<input>` itself (typing, focus, caret,
+selection, `disabled` styling) is completely unaffected. **`CoordsInput` needed no code change of its own**
+— composing two `TextInput`s, it naturally ends up with two independent facades side by side, a side effect
+of `TextInput`'s own change rather than a `CoordsInput`-specific feature. The `{ schema, value, onChange,
+numeric?, disabled? }` props contract is unchanged — no call site needed to change. Full design rationale:
+`docs/specs/OBLIQUE_CABINETRY_TEXT_INPUT.md`.
+
 ### Displayed-value precision cap
 
 `SliderLinear`, `SliderLog`, `SliderCenteredZero`, and `Stepper` all round their visible `{value}{unit}` label through `src/components/ui/controls/formatDisplayValue.ts` before rendering — at most 3 decimal places, rounded rather than truncated (`5` stays `5`, not `5.000`). This exists to hide floating-point noise (log-scale math, repeated range conversions) that would otherwise surface as e.g. `4999.999999999999Hz`. It's display-only: the value passed to `onChange`/stored in Zustand, and `SliderLinear`/`SliderLog`/`SliderCenteredZero`'s underlying `aria-valuenow`, stay full precision — only the human-readable label is capped.

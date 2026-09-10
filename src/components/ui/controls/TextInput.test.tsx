@@ -1,6 +1,29 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
+// Mocked the same way every other CabinetBox consumer's own test file does
+// (Button/Toggle/RadioButton/AccordionContainer/DirectionalPanel) — isolates
+// this file's assertions about TextInput's own facade wiring from
+// CabinetBox's already-proven internals (11.1.1/DirectionalPanel's own
+// autoHeight, roadmap 11.1.9). Extended to also capture skipMountAnimation/
+// autoHeight, since this is the first consumer to pass both at once.
+vi.mock('./CabinetBox', () => ({
+  CabinetBox: ({ popped, timelineKey, skipMountAnimation, autoHeight, children }: {
+    popped: boolean; timelineKey: string; skipMountAnimation?: boolean; autoHeight?: boolean;
+    children?: React.ReactNode;
+  }) => (
+    <div
+      data-testid="cabinet-box"
+      data-popped={String(popped)}
+      data-timeline-key={timelineKey}
+      data-skip-mount-animation={String(!!skipMountAnimation)}
+      data-auto-height={String(!!autoHeight)}
+    >
+      {children}
+    </div>
+  ),
+}));
+
 import { TextInput } from './TextInput';
 import type { TextInputSchema } from '@/types/controls';
 
@@ -72,5 +95,37 @@ describe('TextInput', () => {
     render(<TextInput schema={schema} value="" onChange={onChange} disabled />);
     const input = screen.getByRole('textbox') as HTMLInputElement;
     expect(input.disabled).toBe(true);
+  });
+
+  // Roadmap 11.1.9 — a single, permanently-popped, autoHeight CabinetBox facade per instance.
+  // See docs/specs/OBLIQUE_CABINETRY_TEXT_INPUT.md §1.1/§1.2.
+  it('renders through a permanently-popped CabinetBox facade', () => {
+    const schema: TextInputSchema = { id: 'robotName', type: 'textInput' };
+    render(<TextInput schema={schema} value="" onChange={() => {}} />);
+    const box = screen.getByTestId('cabinet-box');
+    expect(box.getAttribute('data-popped')).toBe('true');
+    expect(box.getAttribute('data-timeline-key')).toBe('cabinet-text-input-facade-robotName');
+  });
+
+  it('passes skipMountAnimation and autoHeight, unconditionally', () => {
+    const schema: TextInputSchema = { id: 'robotName', type: 'textInput' };
+    render(<TextInput schema={schema} value="" onChange={() => {}} />);
+    const box = screen.getByTestId('cabinet-box');
+    expect(box.getAttribute('data-skip-mount-animation')).toBe('true');
+    expect(box.getAttribute('data-auto-height')).toBe('true');
+  });
+
+  it('stays popped when disabled — the facade never reacts to disabled', () => {
+    const schema: TextInputSchema = { id: 'robotName', type: 'textInput' };
+    render(<TextInput schema={schema} value="" onChange={() => {}} disabled />);
+    expect(screen.getByTestId('cabinet-box').getAttribute('data-popped')).toBe('true');
+  });
+
+  it('renders both the input and its DualLabel inside the facade, label inside not beside the box', () => {
+    const schema: TextInputSchema = { id: 'robotName', type: 'textInput', humanLabel: 'Robot Name' };
+    render(<TextInput schema={schema} value="" onChange={() => {}} />);
+    const box = screen.getByTestId('cabinet-box');
+    expect(box.contains(screen.getByRole('textbox'))).toBe(true);
+    expect(box.textContent).toContain('Robot Name');
   });
 });

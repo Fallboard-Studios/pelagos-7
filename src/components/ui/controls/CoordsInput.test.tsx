@@ -87,4 +87,13 @@ describe('CoordsInput', () => {
     fireEvent.change(xInput, { target: { value: '42' } });
     expect(onChange).toHaveBeenCalledWith({ x: 42, y: 5 });
   });
+
+  // Roadmap 11.1.9 — the regression guard for this item's own central design decision: each
+  // TextInput renders its own facade independently, so CoordsInput naturally ends up with two,
+  // not one shared facade around the whole X/Y row. See
+  // docs/specs/OBLIQUE_CABINETRY_TEXT_INPUT.md §1.1/§1.6.
+  it('renders two independent CabinetBox facades, one per field — not one shared facade', () => {
+    const { container } = render(<CoordsInput schema={schema} value={{ x: 0, y: 0 }} onChange={() => {}} />);
+    expect(container.querySelectorAll('.sc-text-input-facade')).toHaveLength(2);
+  });
 });
