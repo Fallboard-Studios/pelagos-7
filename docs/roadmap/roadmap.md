@@ -576,6 +576,8 @@ The last of the 3 sliders and the one genuine adaptation of 11.1.3's mechanism, 
 
 Inserted out of sequence, not renumbering later phases (same pattern as 10.1–10.4 and 11.2). Real vertical `SliderLinear` consumers exist today (`robotOptionsConfig.ts`'s per-layer Gain/Phase/Interval sliders, all `orientation: 'vertical'`), but vertical voxel-track box sizing/layout has never been manually verified against one — `useVoxelTrackBoxCount.ts`'s own comment ("No real vertical `SliderLinear` consumer exists yet to verify a self-observing fix against, so this stays conservative") predates those config entries and was never revisited once they landed. Depends on 11.1.3 having shipped (it has); not yet interviewed/specced — the exact scope (what's actually broken, if anything, and whether "stays conservative" should change now that a real consumer exists to test against) is left open here.
 
+**Done** — confirmed via `/interview-me`, 2026-09-10 (no separate intent/spec/tasks docs; a verification-pass finding, not a new feature). The manual check found one real bug: `CabinetBox`'s `left-face` wall (`src/components/ui/controls/CabinetBox.tsx`) hardcoded its height to the full `boxHeight` regardless of `frontHeight`, so a vertical straddle box's wall stayed full-size and, anchored to its own (correctly-sized, smaller) wrapper, visibly slid up/down as the dragged value changed `frontHeight` instead of shrinking in place. Fixed by sizing the wall to `frontHeight ?? boxHeight` directly — no live measurement needed, since `frontHeight` is already the caller's own known synchronous value. Because the fix lives in shared `CabinetBox`, it also resolved the identical bug for `SliderLog` (11.1.5.2) and `SliderCenteredZero` (11.1.5.3) in the same change — see those items. Verified live against `robotOptionsConfig.ts`'s per-layer Gain/Phase/Interval. `useVoxelTrackBoxCount.ts`'s vertical parent-observation conservatism was also checked against these real consumers and confirmed to already read correctly as shipped — no self-observation fix needed; its own stale "no real consumer yet" comment updated to reflect that. See `docs/CONSOLE_THEMING.md`'s "Voxel-track sliders" section for the full derivation.
+
 ### Create
 
 - Nothing new by default — this is a verification pass first. A fix only if the manual check below actually finds one.
@@ -597,6 +599,8 @@ Inserted out of sequence, not renumbering later phases (same pattern as 10.1–1
 
 Same shape as 11.1.5.1, for `SliderLog`. Real vertical consumers: `audioRigConfig.ts`'s Low-Pass/High-Pass Filter Frequency and Resonance (Q) sliders, all `orientation: 'vertical'`. Depends on 11.1.4 having shipped (it has); not yet interviewed/specced.
 
+**Done** — same shared `CabinetBox` `left-face` wall fix as 11.1.5.1 (found and fixed there in one pass; see that item and `docs/CONSOLE_THEMING.md`'s "Voxel-track sliders" section for the full writeup), verified separately here against `SliderLog`'s own real vertical consumers: `audioRigConfig.ts`'s Low-Pass/High-Pass Filter Frequency and Resonance (Q). No `SliderLog`-specific issues found — `sliderLogValueToT`'s own `t`-space box placement reads correctly on the vertical axis.
+
 ### Create
 
 - Nothing new by default — verification first, fix only if the manual check finds one.
@@ -616,6 +620,8 @@ Same shape as 11.1.5.1, for `SliderLog`. Real vertical consumers: `audioRigConfi
 ## 11.1.5.3 Oblique Cabinetry: SliderCenteredZero vertical box verification
 
 Same shape as 11.1.5.1/11.1.5.2, for `SliderCenteredZero` — and the most consequential of the three to check. Real vertical consumers: `audioRigConfig.ts`'s EQ3 Low/Mid/High and `robotOptionsConfig.ts`'s per-layer Detune, all `orientation: 'vertical'`. Depends on 11.1.5 having shipped (it has); not yet interviewed/specced.
+
+**Done** — same shared `CabinetBox` `left-face` wall fix as 11.1.5.1, verified against `SliderCenteredZero`'s real vertical consumers: `audioRigConfig.ts`'s EQ3 Low/Mid/High and `robotOptionsConfig.ts`'s per-layer Detune. `flipStraddleFill`'s CSS `order`-swap was specifically re-checked against a real vertical `column-reverse` render (the concern this item's own "About" section raised) and confirmed still correct — the negative side's filled piece lands on the seam side as intended, no correction needed. See `docs/CONSOLE_THEMING.md`'s "Zero-anchored dual-fill" section.
 
 ### Create
 

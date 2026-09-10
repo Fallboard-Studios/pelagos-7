@@ -305,6 +305,27 @@ behavior (correct for `Button`/`Toggle`, where a mount is a genuinely new elemen
 flat↔popped tween with no real transition behind it, a spurious wall flash on every value change that
 crossed a box boundary.
 
+**Vertical wall height/anchor fix (Phase 11.1.5.1/11.1.5.2, found live via manual verification).**
+`CabinetBox`'s `left-face` wall used to hardcode its `height` to the full square `boxHeight`, regardless
+of `frontHeight` — correct for the horizontal axis (only `frontWidth` shrinks there, and the top-face
+wall already tracks the front's real width via live `ResizeObserver` measurement) but wrong for a
+*vertical* straddle box, whose two pieces shrink via `frontHeight` instead. The wall stayed full-size
+and, anchored `top: 0` to its own wrapper — which the straddle layout below already sizes correctly to
+`frontHeight` — visibly overflowed past that wrapper and, as the dragged value changed `frontHeight`,
+read as sliding up/down rather than shrinking in place. Fixed by sizing the wall to `frontHeight ??
+boxHeight` directly: no live measurement needed here, unlike the top-face's width, since `frontHeight`
+is already the caller's own known synchronous value (the same one already applied to the front face's
+own inline height). Once the wall matches its wrapper's real box, the flex packing that was already
+correct (`column-reverse`, the glow piece flush against the track's fixed min edge, the flat piece flush
+against the fixed max edge, no gap between them) does the rest for free — each wall now reads as
+anchored at its own side's fixed track edge, shrinking from the seam as the value moves. Verified live
+against every real vertical consumer: `SliderLinear`'s per-layer Gain/Phase/Interval
+(`robotOptionsConfig.ts`) and `SliderLog`'s Filter Frequency/Resonance (`audioRigConfig.ts`). Because the
+fix lives in shared `CabinetBox`, it also resolved the identical bug for `SliderCenteredZero`'s vertical
+straddle boxes — see "Zero-anchored dual-fill" below. `useVoxelTrackBoxCount.ts`'s own vertical
+parent-observation conservatism was checked against these same real consumers and confirmed to already
+read correctly as shipped — no self-observation fix needed there.
+
 ## Zero-anchored dual-fill (Phase 11.1.5 — SliderCenteredZero)
 
 `SliderCenteredZero` (Detune, EQ3 Low/Mid/High, LFO Rate/Depth Drift) is the one voxel-track slider
@@ -349,3 +370,11 @@ at the one boundary that matters (the negative side's seam-adjacent box needs a 
 its positive-side neighbor to correctly paint over it, which a per-side-local z-index couldn't express).
 
 Full derivation: [docs/specs/OBLIQUE_CABINETRY_SLIDER_CENTERED_ZERO.md](specs/OBLIQUE_CABINETRY_SLIDER_CENTERED_ZERO.md).
+
+**Vertical wall height/anchor fix (Phase 11.1.5.3).** `SliderCenteredZero`'s straddle pieces hit the
+same `left-face` wall bug described in "Voxel-track sliders" above — same shared `CabinetBox` root
+cause, fixed there once for all three sliders. Checked separately here because this slider's straddle
+rendering also carries its own `flipStraddleFill` CSS `order`-swap (the negative side's filled piece
+renders on the seam side, not the min side). Confirmed against real vertical consumers (EQ3 Low/Mid/High,
+per-layer Detune) that `flipStraddleFill`'s fill placement is still correct on a real `column-reverse`
+render — no correction needed there, only the shared wall-height fix above.
