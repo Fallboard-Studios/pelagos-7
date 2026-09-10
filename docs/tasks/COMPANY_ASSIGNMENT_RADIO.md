@@ -181,7 +181,7 @@ Task 1 (companyConfig.ts/.test.ts — rename to buildCompanyAssignmentSchema, Ra
 
   **Estimated scope:** S (2 files)
 
-- [ ] **Task 3: `RobotDisplaySection` — `Select` → `RadioButton`**
+- [x] **Task 3: `RobotDisplaySection` — `Select` → `RadioButton`**
 
   **Description:** Same shape as Task 2, for the second call site. Per spec §1.1/§4/§5: full replacement of
   `RobotDisplaySection.tsx` — swap the `Select` import for `RadioButton`, rename the local
@@ -194,27 +194,30 @@ Task 1 (companyConfig.ts/.test.ts — rename to buildCompanyAssignmentSchema, Ra
   block is unchanged.
 
   **Acceptance criteria:**
-  - [ ] `RobotDisplaySection.tsx` imports `RadioButton` from `@/components/ui/controls/RadioButton`, not
+  - [x] `RobotDisplaySection.tsx` imports `RadioButton` from `@/components/ui/controls/RadioButton`, not
     `Select`.
-  - [ ] The company row renders `<RadioButton schema={companyAssignmentSchema} value={robot.companyId ??
+  - [x] The company row renders `<RadioButton schema={companyAssignmentSchema} value={robot.companyId ??
     FREELANCE_VALUE} onChange={handleCompanyChange} />` — `handleCompanyChange`'s body is unchanged.
-  - [ ] The component's own top-of-file doc comment says "RadioButton" (converted by 10.5), not "Select."
-  - [ ] `RobotDisplaySection.css` is unmodified (`git diff` empty).
-  - [ ] `RobotDisplaySection.test.tsx`'s company-assignment tests use `getByRole('radio', { name: ... })` and
+  - [x] The component's own top-of-file doc comment says "RadioButton" (converted by 10.5), not "Select."
+  - [x] `RobotDisplaySection.css` is unmodified (`git diff` empty).
+  - [x] `RobotDisplaySection.test.tsx`'s company-assignment tests use `getByRole('radio', { name: ... })` and
     `.getAttribute('aria-checked')`, never `getByRole('combobox'|'option')`.
-  - [ ] Every test outside the "company assignment" describe block (avatar daylight-independence, plain-text
+  - [x] Every test outside the "company assignment" describe block (avatar daylight-independence, plain-text
     Name/Job/Battery/Docking rendering, "Unassigned" fallback, no job-reassignment/docking-override control,
     no `AudioSettingSection` controls) passes unmodified — including the "no job-reassignment or
     docking-override control" test, which queries `combobox`/`radio` scoped to `/job/i`/docking names and is
     unaffected by the company row's own control-type change.
-  - [ ] `git diff src/types/controls.ts src/components/ui/controls/RadioButton.tsx
+  - [x] `git diff src/types/controls.ts src/components/ui/controls/RadioButton.tsx
     src/components/ui/controls/CabinetBox.tsx` is empty for this task.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/robot/RobotDisplaySection.test.tsx` passes in full.
-  - [ ] `npx tsc --noEmit` shows no error in `RobotDisplaySection.tsx`.
-  - [ ] `npm run lint` — zero new ESLint errors.
-  - [ ] Manual check (deferred to Checkpoint A below).
+  - [x] `npx vitest run src/components/robot/RobotDisplaySection.test.tsx` passes in full — confirmed
+    genuinely RED first (all 9 tests failed on the same `buildCompanySelectSchema is not a function` cause),
+    then GREEN after the swap (9/9 passing).
+  - [x] `npm run build:types` — zero errors anywhere in the repo (both consumers now resolve
+    `buildCompanyAssignmentSchema`; `Select.tsx` itself still compiles standalone).
+  - [x] `npx eslint src/components/robot/RobotDisplaySection.tsx src/components/robot/RobotDisplaySection.test.tsx` — zero errors.
+  - [x] Manual check — see Checkpoint A below.
 
   **Dependencies:** Task 1. Independent of Task 2 — safe to implement before, after, or in parallel with it.
 
@@ -223,16 +226,23 @@ Task 1 (companyConfig.ts/.test.ts — rename to buildCompanyAssignmentSchema, Ra
   **Estimated scope:** S (2 files)
 
 ### Checkpoint A: Both consumers ship — `Select` now fully orphaned but not yet deleted
-- [ ] `npm run build:types` — zero errors anywhere (both consumers now resolve
-  `buildCompanyAssignmentSchema`; `Select.tsx` itself still exists and still compiles on its own, just has no
-  real callers left).
-- [ ] `npm run lint` — zero errors.
-- [ ] `npm test` (full suite) passes, including `Select.test.tsx` (still present, still green — it tests the
-  primitive in isolation, not its call sites).
-- [ ] `npm run build` — production bundle builds cleanly.
-- [ ] `grep -rn "buildCompanySelectSchema\|from '@/components/ui/controls/Select'" src/` returns nothing —
-  confirms both real consumers are fully converted.
-- [ ] Manual check, both call sites (spec §5's manual-check list):
+- [x] `npm run build:types` — zero errors anywhere.
+- [x] `npm run lint` — zero errors.
+- [x] `npm test` (full suite) — 2136/2138 passing. The 2 remaining failures
+  (`audioRigConfig.test.ts`'s slider-orientation-classification case and `AudioRigDrawer.test.tsx`'s
+  3-Band-EQ row-orientation case) are confirmed pre-existing and unrelated: reproduced identically with this
+  phase's changes `git stash`ed, so present on the branch before Tasks 2/3 started — the same 2 cases the
+  `AccordionContainer` (11.1.7) plan already recorded as pre-existing. `Select.test.tsx` is still present and
+  still green — it tests the primitive in isolation, not its (now nonexistent) call sites.
+- [x] `npm run build` — production bundle builds cleanly (pre-existing chunk-size warning, unrelated).
+- [x] `grep -rn "buildCompanySelectSchema" src/` returns only 2 hits, both inside doc comments that
+  historically reference the old name (`companyConfig.ts`'s own function doc, `controls.ts`'s `SelectSchema`
+  doc) — no real import/call site remains; `grep -rln "from '@/components/ui/controls/Select'" src/` returns
+  nothing. Confirms both real consumers are fully converted.
+- [ ] Manual check, both call sites (spec §5's manual-check list) — **not performed in this session** (no
+  browser/devtools tooling configured). Flagged for Crawford to check directly against the running app
+  before Task 4 (the irreversible deletion) proceeds, same as `AccordionContainer`'s own plan (11.1.7)
+  required a human-performed check:
   1. Company row renders as a `RadioButton` pill row (Freelance, then companies) at both the Robot Selection
      hub tile's card list and an individual robot's Robot Options detail page — no click-to-open step.
   2. The currently-assigned company (or Freelance) shows popped/accent-tinted.
