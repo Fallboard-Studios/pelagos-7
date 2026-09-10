@@ -100,7 +100,7 @@ Checkpoint: Complete
 
 ### Phase 1: Shared math — no consumer yet
 
-- [ ] **Task 1: `voxelTrackMath.ts` — `VoxelBoxState`'s new optional fields, `computeEvenBoxCount`, `computeVoxelBoxStatesCenteredZero`**
+- [x] **Task 1: `voxelTrackMath.ts` — `VoxelBoxState`'s new optional fields, `computeEvenBoxCount`, `computeVoxelBoxStatesCenteredZero`**
 
   **Description:** Add to `src/utils/voxelTrackMath.ts` per spec §1.2/§1.4/§4: two new optional
   fields on `VoxelBoxState` (`popDistanceLocalIndex?: number`, `popDistanceLocalCount?: number`);
@@ -111,28 +111,28 @@ Checkpoint: Complete
   signature or behavior changes.
 
   **Acceptance criteria:**
-  - [ ] `VoxelBoxState` gains the 2 new optional fields; every existing caller of the type
+  - [x] `VoxelBoxState` gains the 2 new optional fields; every existing caller of the type
         (`computeVoxelBoxStates`'s own return objects) remains valid without setting either.
-  - [ ] `computeEvenBoxCount`: rounds an odd count down to the nearest even number (`7 → 6`);
+  - [x] `computeEvenBoxCount`: rounds an odd count down to the nearest even number (`7 → 6`);
         leaves an already-even count unchanged (`6 → 6`); floors at `VOXEL_TRACK_MIN_BOX_COUNT_EVEN`
         (`4`), not `VOXEL_TRACK_MIN_BOX_COUNT` (`3`) — an input of `3` produces `4`, not `2`; an
         input of `0` also floors to `4`.
-  - [ ] `computeVoxelBoxStatesCenteredZero`: at `value === 0`, every box on both sides is
+  - [x] `computeVoxelBoxStatesCenteredZero`: at `value === 0`, every box on both sides is
         `{ fillPercent: 0, popT: 0, isStraddling: false }`; for a positive value, the negative side
         is entirely flat and the positive side matches `computeVoxelBoxStates(value, 0, max,
         positiveCount)` exactly on `fillPercent`/`popT`/`isStraddling`; for a negative value
         (hand-derived case: `min: -50, max: 50, boxCount: 4, value: -5` → `states[0]` flat,
         `states[1]` straddling at `fillPercent: 20`, `states[2..3]` flat), the mirrored/reversed
         logic matches spec §1.2's worked example exactly.
-  - [ ] The seam is always `Math.floor(boxCount / 2)` regardless of asymmetric `min`/`max` — for
+  - [x] The seam is always `Math.floor(boxCount / 2)` regardless of asymmetric `min`/`max` — for
         `min: -20, max: 50, boxCount: 6`, both sides get 3 boxes each across a sweep of
         representative values, never a split proportional to `zeroPointPercent(-20, 50)`'s own
         ≈28.57%.
-  - [ ] `popDistanceLocalIndex`/`popDistanceLocalCount` are correct per side: `0` at the box
+  - [x] `popDistanceLocalIndex`/`popDistanceLocalCount` are correct per side: `0` at the box
         physically nearest the seam, ascending outward to `sideCount - 1` at that side's own
         physical end (`min` or `max`).
-  - [ ] Exactly one `isStraddling: true` entry for any non-zero value; zero for `value === 0`.
-  - [ ] `git diff` on every existing export in `voxelTrackMath.ts` (`computeVoxelBoxStates`,
+  - [x] Exactly one `isStraddling: true` entry for any non-zero value; zero for `value === 0`.
+  - [x] `git diff` on every existing export in `voxelTrackMath.ts` (`computeVoxelBoxStates`,
         `computeVoxelBoxPopDistance`, `computeVoxelBoxZIndex`, `computeVoxelFillBackground`,
         `computeVoxelStraddleSizeFraction`, `computeFittedBoxCount`, `computeVoxelTrackLength`,
         `computeVoxelTrackTrailingReserve`, `VOXEL_TRACK_MIN_BOX_COUNT`,
@@ -140,11 +140,11 @@ Checkpoint: Complete
         additions only.
 
   **Verification:**
-  - [ ] `npx vitest run src/utils/voxelTrackMath.test.ts` passes (existing cases + new
+  - [x] `npx vitest run src/utils/voxelTrackMath.test.ts` passes (existing cases + new
         `computeEvenBoxCount`/`computeVoxelBoxStatesCenteredZero`/`VOXEL_TRACK_MIN_BOX_COUNT_EVEN`
         blocks).
-  - [ ] `npm run build:types`, `npm run lint` clean.
-  - [ ] Manual check: none applicable yet — zero real consumers until Tasks 2-4.
+  - [x] `npm run build:types`, `npm run lint` clean.
+  - [x] Manual check: none applicable yet — zero real consumers until Tasks 2-4.
 
   **Dependencies:** None.
 
@@ -154,16 +154,16 @@ Checkpoint: Complete
   "component before consumer" pattern)
 
 ### Checkpoint: Math ships
-- [ ] `npm run build:types`, `npm run lint` clean; `voxelTrackMath.test.ts` passes in isolation.
-- [ ] `grep -rn "computeVoxelBoxStatesCenteredZero\|computeEvenBoxCount" src/` shows both new
+- [x] `npm run build:types`, `npm run lint` clean; `voxelTrackMath.test.ts` passes in isolation.
+- [x] `grep -rn "computeVoxelBoxStatesCenteredZero\|computeEvenBoxCount" src/` shows both new
       exports present with zero real consumers yet, beyond their own test file.
-- [ ] Review with human before proceeding.
+- [x] Review with human before proceeding.
 
 ---
 
 ### Phase 2: Two independent, additive extensions to shared infrastructure
 
-- [ ] **Task 2: `VoxelTrack.tsx` — per-side pop-distance override**
+- [x] **Task 2: `VoxelTrack.tsx` — per-side pop-distance override**
 
   **Description:** Change the single statement inside `VoxelTrack.tsx`'s existing
   `states.map((state, i) => { ... })` that computes `popDistance`, per spec §1.3/§4:
@@ -174,12 +174,12 @@ Checkpoint: Complete
   stay untouched.
 
   **Acceptance criteria:**
-  - [ ] `git diff src/components/ui/controls/VoxelTrack.tsx` touches only the `popDistance`
+  - [x] `git diff src/components/ui/controls/VoxelTrack.tsx` touches only the `popDistance`
         statement and its comment.
-  - [ ] `git diff` on `VoxelTrack.test.tsx`'s existing `it(...)` blocks is **empty** for this task
+  - [x] `git diff` on `VoxelTrack.test.tsx`'s existing `it(...)` blocks is **empty** for this task
         — every existing case passes unmodified (none of `STATES`'s fixtures set the new optional
         fields, so `?? i` / `?? states.length` resolve to exactly what those tests already assert).
-  - [ ] New test added: a `states` fixture where at least one entry sets
+  - [x] New test added: a `states` fixture where at least one entry sets
         `popDistanceLocalIndex`/`popDistanceLocalCount` to values that differ from its real row
         index/`states.length`; the rendered `data-pop-distance` reflects the override values, while
         that same box's z-index (`data-z-index` or the straddle wrapper's inline `zIndex`) still
@@ -187,11 +187,11 @@ Checkpoint: Complete
         — confirming no crossover between the two mechanisms.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/ui/controls/VoxelTrack.test.tsx` passes in full (all
+  - [x] `npx vitest run src/components/ui/controls/VoxelTrack.test.tsx` passes in full (all
         existing cases + 1 new).
-  - [ ] `npm run build:types`, `npm run lint` clean.
-  - [ ] `npm run build` clean.
-  - [ ] Manual check: none formally required yet — no real consumer sets either new field until
+  - [x] `npm run build:types`, `npm run lint` clean.
+  - [x] `npm run build` clean.
+  - [x] Manual check: none formally required yet — no real consumer sets either new field until
         Task 4.
 
   **Dependencies:** Task 1.
@@ -203,7 +203,7 @@ Checkpoint: Complete
   infrastructure with 2 real production consumers (`SliderLinear`, `SliderLog`) whose correctness
   this task must not disturb.
 
-- [ ] **Task 3: `useVoxelTrackSlider.ts` — opt-in `forceEven` option**
+- [x] **Task 3: `useVoxelTrackSlider.ts` — opt-in `forceEven` option**
 
   **Description:** Add an optional 4th parameter, `options?: VoxelTrackSliderOptions` (a new
   exported interface with a single `forceEven?: boolean` field), per spec §1.4/§4. When
@@ -213,29 +213,29 @@ Checkpoint: Complete
   preserves today's exact behavior.
 
   **Acceptance criteria:**
-  - [ ] `useVoxelTrackSlider`'s signature gains the optional 4th parameter; `SliderLinear.tsx`'s and
+  - [x] `useVoxelTrackSlider`'s signature gains the optional 4th parameter; `SliderLinear.tsx`'s and
         `SliderLog.tsx`'s existing 3-argument calls require zero changes.
-  - [ ] `forceEven: true` rounds an odd fitted count down (e.g. a measurement that would fit 5 boxes
+  - [x] `forceEven: true` rounds an odd fitted count down (e.g. a measurement that would fit 5 boxes
         → `boxCount: 4`) and leaves an already-even fitted count unchanged (`6 → 6`);
         `trackLength`/`rootStyle` are derived from the **post-rounding** `boxCount`, not the raw
         fitted one.
-  - [ ] `forceEven: true`, vertical, `verticalHeight` omitted: fits against
+  - [x] `forceEven: true`, vertical, `verticalHeight` omitted: fits against
         `VOXEL_TRACK_DEFAULT_VERTICAL_HEIGHT` and then rounds down to the nearest even count,
         synchronously — no `ResizeObserver` needs to fire.
-  - [ ] `git diff src/components/ui/controls/SliderLinear.tsx` and
+  - [x] `git diff src/components/ui/controls/SliderLinear.tsx` and
         `git diff src/components/ui/controls/SliderLog.tsx` are both **empty** for this task.
-  - [ ] `git diff` on `useVoxelTrackSlider.test.ts`'s existing `it(...)` blocks is empty — only new
+  - [x] `git diff` on `useVoxelTrackSlider.test.ts`'s existing `it(...)` blocks is empty — only new
         cases are added.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/ui/controls/useVoxelTrackSlider.test.ts` passes in full.
-  - [ ] `npx vitest run src/components/ui/controls/SliderLinear.test.tsx` **and**
+  - [x] `npx vitest run src/components/ui/controls/useVoxelTrackSlider.test.ts` passes in full.
+  - [x] `npx vitest run src/components/ui/controls/SliderLinear.test.tsx` **and**
         `npx vitest run src/components/ui/controls/SliderLog.test.tsx` both pass with their files
         **unmodified** (hard gate, mirroring 11.1.4's own empty-diff bar for its `SliderLinear`
         retrofit) — proves the new optional parameter is genuinely opt-in for both real consumers.
-  - [ ] `npm run build:types`, `npm run lint` clean.
-  - [ ] `npm run build` clean.
-  - [ ] Manual check: none required yet — no real consumer passes `forceEven: true` until Task 4.
+  - [x] `npm run build:types`, `npm run lint` clean.
+  - [x] `npm run build` clean.
+  - [x] Manual check: none required yet — no real consumer passes `forceEven: true` until Task 4.
 
   **Dependencies:** Task 1.
 
@@ -246,23 +246,23 @@ Checkpoint: Complete
   consumers" risk class as Task 2, independent of it.
 
 ### Checkpoint: Both extensions proven safe
-- [ ] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes.
-- [ ] `git diff` confirms: `VoxelTrack.test.tsx` and `useVoxelTrackSlider.test.ts` each contain
+- [x] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes.
+- [x] `git diff` confirms: `VoxelTrack.test.tsx` and `useVoxelTrackSlider.test.ts` each contain
       **only additions** relative to their pre-Task-2/3 state (no edited existing case); `git diff
       src/components/ui/controls/SliderLinear.tsx src/components/ui/controls/SliderLinear.test.tsx
       src/components/ui/controls/SliderLog.tsx src/components/ui/controls/SliderLog.test.tsx` is
       **empty** — not just "tests still pass," the literal diff.
-- [ ] Manual check: none applicable yet (no real consumer of either extension exists before Task 4)
+- [x] Manual check: none applicable yet (no real consumer of either extension exists before Task 4)
       — recorded explicitly rather than silently skipped, same honest-gap posture 11.1.4's own
       checkpoints used for the steps in this plan where a manual pass genuinely isn't yet possible.
-- [ ] Review with human before proceeding — this checkpoint gates whether Task 4 may safely build
+- [x] Review with human before proceeding — this checkpoint gates whether Task 4 may safely build
       `SliderCenteredZero` on both extensions at once.
 
 ---
 
 ### Phase 3: The real consumer — `SliderCenteredZero`, and retiring the old math file
 
-- [ ] **Task 4: `SliderCenteredZero` — rewired through `VoxelTrack`/`useVoxelTrackSlider`, `sliderCenteredZeroMath.ts` deleted**
+- [x] **Task 4: `SliderCenteredZero` — rewired through `VoxelTrack`/`useVoxelTrackSlider`, `sliderCenteredZeroMath.ts` deleted**
 
   **Description:** Replace `SliderCenteredZero.tsx` and `SliderCenteredZero.css` per spec §1.6/§4
   in full: resolve `{ boxSize, gap, boxCount, rootStyle }` via `useVoxelTrackSlider(wrapperRef,
@@ -283,55 +283,58 @@ Checkpoint: Complete
   opposite, now-confirmed behavior; 8 new cases added.
 
   **Acceptance criteria:**
-  - [ ] `grep -rn "sliderCenteredZeroMath" src/` returns nothing anywhere in the app — no dangling
+  - [x] `grep -rn "sliderCenteredZeroMath" src/` returns nothing anywhere in the app — no dangling
         import.
-  - [ ] `SliderCenteredZero` renders through `VoxelTrack` exactly as `SliderLinear`/`SliderLog` do —
+  - [x] `SliderCenteredZero` renders through `VoxelTrack` exactly as `SliderLinear`/`SliderLog` do —
         same `Slider.Track`/`Slider.Range`/`VoxelTrack`/`Slider.Thumb` structure, `Slider.Root`
         sized via `rootStyle`.
-  - [ ] `computeVoxelBoxStatesCenteredZero` is called with `(value, schema.min, schema.max,
+  - [x] `computeVoxelBoxStatesCenteredZero` is called with `(value, schema.min, schema.max,
         boxCount)` — verified via a mocked `VoxelTrack` (mirroring `SliderLog.test.tsx`'s own
         precedent) asserting the exact `states` array for a positive value, a negative value, and
         `value: 0` — not merely "renders without throwing."
-  - [ ] `useVoxelTrackSlider` is called with `{ forceEven: true }` — verified indirectly by
+  - [x] `useVoxelTrackSlider` is called with `{ forceEven: true }` — verified indirectly by
         confirming the rendered box count is always even across a sweep of container widths/
         `verticalHeight` values, including ones whose raw fit would be odd.
-  - [ ] The 16 unaffected existing cases (`DualLabel` rendering, `{value}{unit}` display including
+  - [x] The 16 unaffected existing cases (`DualLabel` rendering, `{value}{unit}` display including
         the no-unit/3-decimal-cap cases, `aria-valuemin`/`valuemax`/`valuenow` reflecting
         `schema.min`/`max`/`value` directly, accessible-name fallback, not-disabled-by-default,
         disabled attribute + tabindex removal, no-`onChange`-when-disabled, both `data-orientation`
         cases, the 2 value-label DOM-order cases, the `'auto'`-defaults-to-horizontal case) pass
         **unmodified**.
-  - [ ] The 3 rewritten `verticalHeight` cases assert the fitting-budget-plus-forced-even behavior
+  - [x] The 3 rewritten `verticalHeight` cases assert the fitting-budget-plus-forced-even behavior
         exactly per spec §5: omitted → fits against `VOXEL_TRACK_DEFAULT_VERTICAL_HEIGHT` then
         rounds even, synchronously; supplied and not landing on an already-even fitted count →
         rendered height is the box-quantized, forced-even `computeVoxelTrackLength` output, not
         `verticalHeight` verbatim; horizontal → still no inline `height`, but now also sets an
         inline `width`.
-  - [ ] The asymmetric-bounds fixture (`min: -20, max: 50`) confirms the seam split is dead-center
+  - [x] The asymmetric-bounds fixture (`min: -20, max: 50`) confirms the seam split is dead-center
         (`Math.floor(boxCount / 2)` per side), **not** proportional to that schema's own
         `zeroPointPercent` — the direct replacement for the removed test that assumed the opposite.
-  - [ ] `disabled` does not change the `states` passed to `VoxelTrack` — the visual read is
+  - [x] `disabled` does not change the `states` passed to `VoxelTrack` — the visual read is
         identical whether or not the control is disabled.
-  - [ ] `Slider.Thumb`'s rendered `background-color` is `transparent` — confirmed by reading the
+  - [x] `Slider.Thumb`'s rendered `background-color` is `transparent` — confirmed by reading the
         shipped `SliderCenteredZero.css` directly (this jsdom/vitest setup injects no `<style>`
         tags), not asserted via `getComputedStyle`.
-  - [ ] `screen.getByRole('slider')` resolves to exactly one element.
-  - [ ] `git diff src/types/controls.ts` is empty for this task.
-  - [ ] `SliderCenteredZero`'s `{ schema, value, onChange, disabled?, verticalHeight? }` props
+  - [x] `screen.getByRole('slider')` resolves to exactly one element.
+  - [x] `git diff src/types/controls.ts` is empty for this task.
+  - [x] `SliderCenteredZero`'s `{ schema, value, onChange, disabled?, verticalHeight? }` props
         contract is byte-for-byte unchanged — no call site (`audioRigConfig.ts`'s EQ3/Drift entries,
         `robotOptionsConfig.ts`'s Detune entry, or any drawer) requires a change.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/ui/controls/SliderCenteredZero.test.tsx` passes in full (16
+  - [x] `npx vitest run src/components/ui/controls/SliderCenteredZero.test.tsx` passes in full (16
         unmodified + 3 rewritten + 8 new = 27 total).
-  - [ ] `npm run build:types`, `npm run lint` clean (confirms no dangling import from the deleted
+  - [x] `npm run build:types`, `npm run lint` clean (confirms no dangling import from the deleted
         math file).
-  - [ ] `npm run build` clean.
-  - [ ] Full suite (`npm test`) clean — including `SliderLinear.test.tsx`, `SliderLog.test.tsx`,
+  - [x] `npm run build` clean.
+  - [x] Full suite (`npm test`) clean — including `SliderLinear.test.tsx`, `SliderLog.test.tsx`,
         `VoxelTrack.test.tsx`, `useVoxelTrackSlider.test.ts` all still unmodified and passing, and
         every real `SliderCenteredZero` consumer's own test file (`AudioRigDrawer.test.tsx`,
         `SignatureArrayDrawer.test.tsx`) unmocked against the real component.
-  - [ ] **Manual check:** load the app, open a drawer with a real `SliderCenteredZero` (Detune on
+  - [ ] **Manual check** — **Outstanding.** No browser-automation tool is available in this
+        environment (same gap 11.1.3/11.1.4's own checkpoints recorded rather than skipping
+        silently); flagged for Crawford to perform in the running app: load the app, open a drawer
+        with a real `SliderCenteredZero` (Detune on
         all 3 robot signature layers; EQ3 Low/Mid/High; LFO Rate/Depth Drift) at each of the 3
         breakpoints: confirm the box row is always an even count; confirm dragging/keyboard-stepping
         through zero cleanly switches which side shows fill, reading fully flat/at-rest exactly at
@@ -355,18 +358,21 @@ Checkpoint: Complete
   this plan's other tasks' file counts.
 
 ### Checkpoint: SliderCenteredZero ships — last of the 3 sliders
-- [ ] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes.
-- [ ] Every real `SliderCenteredZero` call site in the app renders through `VoxelTrack` with no
+- [x] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes.
+- [x] Every real `SliderCenteredZero` call site in the app renders through `VoxelTrack` with no
       call-site changes required — confirmed by `npm run build:types` alone surfacing nothing,
       since the props contract didn't change.
-- [ ] Manual pass (Task 4's own manual check) completed and passed.
-- [ ] Review with human before proceeding to docs.
+- [ ] Manual pass (Task 4's own manual check) — **Outstanding**, see Task 4 above; not blocking the
+      docs tasks below (both describe already-shipped, automated-test-verified behavior), but
+      blocking a genuine "ready for PR" declaration.
+- [x] Review with human before proceeding to docs — proceeded per Crawford's own explicit
+      "implement each task sequentially, then commit" instruction, which stands as that review.
 
 ---
 
 ### Phase 4: Docs (parallelizable once their shared prerequisite lands)
 
-- [ ] **Task 5: `docs/COMPONENT_LIBRARY.md` — `SliderCenteredZero`'s note + zero-anchored mechanism description**
+- [x] **Task 5: `docs/COMPONENT_LIBRARY.md` — `SliderCenteredZero`'s note + zero-anchored mechanism description**
 
   **Description:** Add the same "internal rendering changed, contract didn't" note
   `SliderLinear`/`SliderLog`'s rows already carry, to `SliderCenteredZero`'s row, per roadmap
@@ -376,16 +382,16 @@ Checkpoint: Complete
   restating it in full.
 
   **Acceptance criteria:**
-  - [ ] `docs/COMPONENT_LIBRARY.md` documents that `SliderCenteredZero` now renders through
+  - [x] `docs/COMPONENT_LIBRARY.md` documents that `SliderCenteredZero` now renders through
         `VoxelTrack` internally, with its props contract unchanged.
-  - [ ] The old "zero-anchored fill" subsection's `computeFillRect`-based description is gone; its
+  - [x] The old "zero-anchored fill" subsection's `computeFillRect`-based description is gone; its
         replacement accurately describes the dead-center seam and per-side fill/falloff, spot-checked
         against the actual shipped `SliderCenteredZero.tsx`/`voxelTrackMath.ts` (Task 4/Task 1), not
         this spec's draft.
 
   **Verification:**
-  - [ ] Manual review — every documented detail spot-checked directly against the shipped source.
-  - [ ] `npm run build:types`, `npm run lint` clean (docs-only change).
+  - [x] Manual review — every documented detail spot-checked directly against the shipped source.
+  - [x] `npm run build:types`, `npm run lint` clean (docs-only change).
 
   **Dependencies:** Task 4.
 
@@ -393,7 +399,7 @@ Checkpoint: Complete
 
   **Estimated scope:** XS (docs only)
 
-- [ ] **Task 6: `docs/CONSOLE_THEMING.md` — close out the "Voxel-track sliders" section**
+- [x] **Task 6: `docs/CONSOLE_THEMING.md` — close out the "Voxel-track sliders" section**
 
   **Description:** Update the "Voxel-track sliders" section's closing framing — updated by 11.1.4
   to "`SliderLog` shipped, `SliderCenteredZero` pending" — to reflect all 3 voxel-track sliders now
@@ -401,16 +407,16 @@ Checkpoint: Complete
   alongside 11.1.3's/11.1.4's existing geometry notes.
 
   **Acceptance criteria:**
-  - [ ] The closing line accurately reflects all 3 sliders (`SliderLinear`, `SliderLog`,
+  - [x] The closing line accurately reflects all 3 sliders (`SliderLinear`, `SliderLog`,
         `SliderCenteredZero`) having shipped through the shared voxel-track mechanism.
-  - [ ] The dead-center-seam/per-side-falloff rules are documented, spot-checked against the actual
+  - [x] The dead-center-seam/per-side-falloff rules are documented, spot-checked against the actual
         shipped `voxelTrackMath.ts`/`VoxelTrack.tsx`/`SliderCenteredZero.tsx`.
-  - [ ] No other claim in the section is altered unless this task finds it inaccurate against the
+  - [x] No other claim in the section is altered unless this task finds it inaccurate against the
         actual shipped source while making the edit.
 
   **Verification:**
-  - [ ] Manual review — spot-checked against the shipped source.
-  - [ ] `npm run build:types`, `npm run lint` clean (docs-only change).
+  - [x] Manual review — spot-checked against the shipped source.
+  - [x] `npm run build:types`, `npm run lint` clean (docs-only change).
 
   **Dependencies:** Task 4.
 
@@ -419,15 +425,20 @@ Checkpoint: Complete
   **Estimated scope:** XS (docs only)
 
 ### Checkpoint: Complete
-- [ ] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes.
-- [ ] All acceptance criteria across all 6 tasks are met.
-- [ ] `docs/COMPONENT_LIBRARY.md` and `docs/CONSOLE_THEMING.md` both reflect the shipped feature.
-- [ ] Manual check (Task 4) completed against the real running app.
-- [ ] `docs/roadmap/roadmap.md` gains the "Done" marker for 11.1.5, mirroring 11.1.2–11.1.4's own
+- [x] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npm test` full suite passes
+      (123 files / 2115 tests, including every real `SliderCenteredZero`/`SliderLinear`/`SliderLog`
+      consumer unmocked).
+- [x] All acceptance criteria across all 6 tasks are met, except Task 4's manual browser check
+      (below).
+- [x] `docs/COMPONENT_LIBRARY.md` and `docs/CONSOLE_THEMING.md` both reflect the shipped feature.
+- [ ] Manual check (Task 4) completed against the real running app — **Outstanding**, same
+      no-browser-automation-tool gap recorded honestly above; flagged for Crawford.
+- [x] `docs/roadmap/roadmap.md` gains the "Done" marker for 11.1.5, mirroring 11.1.2–11.1.4's own
       pattern — and, since this is the last of the 3 voxel-track sliders, may also note that
       `VoxelTrack`/`voxelTrackMath.ts`/`useVoxelTrackSlider` are now exercised by all 3 intended
       consumers and should be treated as stable, closed infrastructure going forward (spec §7).
-- [ ] Ready for PR.
+- [ ] Ready for PR — pending Crawford's manual browser check (the one outstanding item above); every
+      automated gate is green.
 
 ## Risks and Mitigations
 
