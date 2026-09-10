@@ -119,6 +119,28 @@ Because the seam must always land on a box boundary, box **count** is forced to 
 
 `AccordionContainer`'s internal rendering changed — the fifth consumer of the shared `CabinetBox` mechanism, and the first to nest one `CabinetBox` inside another's front face. The trigger's content splits into two boxes with two different relationships to `popped`, not one state-keyed box the way `Toggle`/`RadioButton` are: an **outer, permanently-popped facade** wraps the whole row (`popped` is the literal `true`, never a variable, plus `skipMountAnimation`, so `CabinetBox`'s own unmodified mount/transition logic never actually produces a tween for this instance — it gives the trigger the Oblique Cabinetry look with zero animation tied to it), sized by a new tuned constant, `CABINET_ACCORDION_TRIGGER_HEIGHT = 56`, rather than `Button`'s breakpoint-driven 32/40/48px tiles — a full-width trigger bar holding `DualLabel`'s own 2-line stack needs more room than any single-line box in the series so far. Nested inside that facade's `children`, the old plain `+`/`−` text glyph is now its own small, **genuinely state-keyed** `CabinetBox` — popped when open, flat when closed, reusing `Toggle`'s exact `CABINET_TOGGLE_BOX_SIZE = 32` constant (imported directly, not redeclared) and its no-accent-tint precedent; this is the only part of the trigger that actually animates. Two same-class `.sc-cabinet-box__front`s now exist at different nesting depths, so `AccordionContainer.css` scopes each independently — direct-child combinators for the outer (`.sc-accordion__trigger > .sc-cabinet-box > .sc-cabinet-box__front`) and a descendant selector scoped to the new `.sc-accordion__row` wrapper for the inner — rather than a single shared selector that would catch both. The old outer chrome (`.sc-accordion`'s `border`/`border-radius`/`overflow: hidden`, the trigger's own `background-color`) is removed entirely; the content panel gains a new `background-color: var(--color-surface)` rule so it still reads as a continuation of the facade's own surface. `handleValueChange`/`animateTo`/`contentRef` (the content-height GSAP timeline) are byte-for-byte unchanged — the trigger's two `CabinetBox` timelines are independent `timelineMap` entries alongside it, not a replacement. The `ControlSchema`/props contract (`{ schema: AccordionSchema; children: ReactNode; defaultOpen?: boolean }`) is unchanged — no call site needed to change. Full design rationale: `docs/specs/OBLIQUE_CABINETRY_ACCORDION_CONTAINER.md`.
 
+### `DirectionalPanel`'s Oblique Cabinetry rendering
+
+`DirectionalPanel`'s internal rendering changed for **top-level instances only** — one rendered directly by
+a drawer/`AccordionContainer`, not one nested inside another `DirectionalPanel`'s own `children` for
+sub-layout. A top-level panel now renders through the same permanently-popped, non-animating `CabinetBox`
+facade `AccordionContainer`'s own trigger uses (`popped={true}` + `skipMountAnimation`), wrapping the whole
+panel — its `DualLabel` plus the full row/column of already-individually-`CabinetBox`ed child controls — as
+one framed unit; a nested panel renders exactly as before, unframed. Which instances are top-level is
+resolved by an internal (unexported) React Context, `DirectionalPanelNestingContext`, not a per-call-site
+prop — the same call site (`AudioRigDrawer`'s `renderBlock()`) is top-level for most effect groups but
+nested inside `EQ_FILTERS_ROW_PANEL_SCHEMA`/`TIME_SPACE_COLUMN_PANEL_SCHEMA` for others, so a static flag
+couldn't express it. This is the first Cabinetry facade whose content height genuinely varies per instance
+(a one-slider row vs. a multi-row EQ block) rather than a fixed breakpoint tile or tuned constant, which
+needed one small additive change to `CabinetBox` itself: an `autoHeight` prop sizing the left-face wall to
+`100%` of the wrapper's real height via plain CSS (the same percentage-against-a-positioned-ancestor
+mechanism `.sc-cabinet-box__backing` already used) rather than a JS-measured pixel value — no new
+`ResizeObserver`. A real, accepted consequence: `orientation="auto"` panels now resolve their row/column
+threshold by measuring the facade's own front face rather than the true DOM parent directly, a fixed ~28px
+narrower reading (the facade's own padding) that `AUTO_PANEL_ROW_MIN_WIDTH`'s existing "first-pass, confirm
+visually" tolerance absorbs. The `{ schema, children }` props contract is unchanged — no call site needed to
+change. Full design rationale: `docs/specs/OBLIQUE_CABINETRY_DIRECTIONAL_PANEL.md`.
+
 ### Displayed-value precision cap
 
 `SliderLinear`, `SliderLog`, `SliderCenteredZero`, and `Stepper` all round their visible `{value}{unit}` label through `src/components/ui/controls/formatDisplayValue.ts` before rendering — at most 3 decimal places, rounded rather than truncated (`5` stays `5`, not `5.000`). This exists to hide floating-point noise (log-scale math, repeated range conversions) that would otherwise surface as e.g. `4999.999999999999Hz`. It's display-only: the value passed to `onChange`/stored in Zustand, and `SliderLinear`/`SliderLog`/`SliderCenteredZero`'s underlying `aria-valuenow`, stay full precision — only the human-readable label is capped.

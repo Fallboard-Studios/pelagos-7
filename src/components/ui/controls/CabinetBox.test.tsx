@@ -515,6 +515,32 @@ describe('CabinetBox', () => {
     });
   });
 
+  describe('autoHeight prop (Oblique Cabinetry — DirectionalPanel)', () => {
+    it("sizes the left-face wall's height to 100% (CSS) instead of a pixel value, when autoHeight is true", () => {
+      const { container } = render(
+        <CabinetBox popped={true} timelineKey="test-box" autoHeight>x</CabinetBox>,
+      );
+      const leftFace = container.querySelector('.sc-cabinet-box__left-face') as HTMLElement;
+      expect(leftFace.style.height).toBe('100%');
+    });
+
+    it("falls back to a pixel value (frontHeight ?? boxHeight) for the left-face wall's height when autoHeight is omitted — no behavior change for any existing consumer", () => {
+      const { container } = render(
+        <CabinetBox popped={true} timelineKey="test-box" boxHeight={48}>x</CabinetBox>,
+      );
+      const leftFace = container.querySelector('.sc-cabinet-box__left-face') as HTMLElement;
+      expect(leftFace.style.height).toBe('48px');
+    });
+
+    it('does not add a new ResizeObserver instance for autoHeight — sized entirely via CSS, no new measurement', () => {
+      render(<CabinetBox popped={true} timelineKey="test-box" autoHeight>x</CabinetBox>);
+      // Exactly 1: the existing front-width observer, unchanged. A second
+      // (height) observer would mean this test file's own
+      // MockResizeObserver.instances grew — it must not.
+      expect(MockResizeObserver.instances).toHaveLength(1);
+    });
+  });
+
   describe('zIndex override (roadmap 11.1.3 — VoxelTrack cross-box stacking)', () => {
     it('applies zIndex as an inline z-index on the wrapper', () => {
       const { container } = render(

@@ -64,10 +64,17 @@ describe('SignatureArrayDrawer', () => {
     const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
     expect(container.querySelectorAll('.sc-accordion')).toHaveLength(1);
     expect(container.querySelector('.sc-accordion')?.textContent).toContain('Source');
-    // Direct children only — each layer's own LfoTargetGroup now nests an inner sliders panel of
+    // Top-level panels only — each layer's own LfoTargetGroup now nests an inner sliders panel of
     // its own one level deeper (the column[sliders-panel, Lfo, driftContent] follow-up fix), so a
-    // plain descendant selector would also match those.
-    const panels = Array.from(container.querySelectorAll('.signature-array-drawer > .sc-directional-panel'));
+    // plain descendant selector would also match those. Since Oblique Cabinetry —
+    // DirectionalPanel, a top-level panel's own root sits inside its permanently-popped facade
+    // (.sc-directional-panel-facade > .sc-cabinet-box > .sc-cabinet-box__front), no longer a
+    // direct child of .signature-array-drawer itself — the fully-qualified chain through the
+    // facade is what now uniquely identifies "top-level," the same way the plain direct-child
+    // selector used to. See docs/specs/OBLIQUE_CABINETRY_DIRECTIONAL_PANEL.md §1.3.
+    const panels = Array.from(container.querySelectorAll(
+      '.signature-array-drawer > .sc-directional-panel-facade > .sc-cabinet-box > .sc-cabinet-box__front > .sc-directional-panel',
+    ));
     expect(panels).toHaveLength(4);
     // Each panel's own label is its direct-child DualLabel — not the many nested DualLabels
     // every RadioButton/slider/LFO field inside it also renders for its own humanLabel.
