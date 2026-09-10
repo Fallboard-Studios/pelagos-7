@@ -572,6 +572,68 @@ The last of the 3 sliders and the one genuine adaptation of 11.1.3's mechanism, 
 - `docs/COMPONENT_LIBRARY.md` gains the "internal rendering changed, contract didn't" note for `SliderCenteredZero`.
 - `docs/CONSOLE_THEMING.md`'s voxel-track section (added by 11.1.3) gains the zero-anchored adaptation once this item resolves it.
 
+## 11.1.5.1 Oblique Cabinetry: SliderLinear vertical box verification
+
+Inserted out of sequence, not renumbering later phases (same pattern as 10.1–10.4 and 11.2). Real vertical `SliderLinear` consumers exist today (`robotOptionsConfig.ts`'s per-layer Gain/Phase/Interval sliders, all `orientation: 'vertical'`), but vertical voxel-track box sizing/layout has never been manually verified against one — `useVoxelTrackBoxCount.ts`'s own comment ("No real vertical `SliderLinear` consumer exists yet to verify a self-observing fix against, so this stays conservative") predates those config entries and was never revisited once they landed. Depends on 11.1.3 having shipped (it has); not yet interviewed/specced — the exact scope (what's actually broken, if anything, and whether "stays conservative" should change now that a real consumer exists to test against) is left open here.
+
+### Create
+
+- Nothing new by default — this is a verification pass first. A fix only if the manual check below actually finds one.
+
+### Restructure
+
+- Likely candidates, pending findings: `useVoxelTrackBoxCount.ts`'s vertical-measurement conservatism (parent-observation vs. self-observation, per its own comment above) revisited against a real consumer; `VoxelTrack.css`'s column-reverse box ordering/gap/sizing checked in the real running app (Robot Options drawer's Gain/Phase/Interval sliders), not just in jsdom.
+
+### About
+
+- Same category of gap 11.1.5's own `flipStraddleFill` bug surfaced for the horizontal axis — invisible to the automated test suite by construction (jsdom applies no real layout), findable only by eye. Vertical's `column-reverse` (min-at-bottom) is a genuinely different DOM-to-visual mapping than horizontal's `row` (min-at-left), so nothing about the horizontal fix guarantees the vertical axis is even self-consistent, let alone correct. Same layout/WorldView/robot-visual/Sleeve exclusions as prior items.
+
+### Docs
+
+- `docs/CONSOLE_THEMING.md`'s "Voxel-track sliders" section gains a vertical-specific note if anything is found/fixed.
+- `useVoxelTrackBoxCount.ts`'s own "no real consumer yet" comment updated to reflect current config reality either way — it's stale today regardless of what this item finds.
+
+## 11.1.5.2 Oblique Cabinetry: SliderLog vertical box verification
+
+Same shape as 11.1.5.1, for `SliderLog`. Real vertical consumers: `audioRigConfig.ts`'s Low-Pass/High-Pass Filter Frequency and Resonance (Q) sliders, all `orientation: 'vertical'`. Depends on 11.1.4 having shipped (it has); not yet interviewed/specced.
+
+### Create
+
+- Nothing new by default — verification first, fix only if the manual check finds one.
+
+### Restructure
+
+- Likely candidates, pending findings: the same `useVoxelTrackBoxCount.ts` vertical-measurement question as 11.1.5.1 (shared by both sliders via `useVoxelTrackSlider`); `SliderLog`'s own `t`-space box placement (`sliderLogValueToT`) checked specifically on the vertical axis, since every one of its own tests to date exercises the math in isolation from real vertical layout.
+
+### About
+
+- Same rationale as 11.1.5.1 — this is the second of the 3 sliders sharing the same underlying vertical-fitting code path (`useVoxelTrackSlider`/`useVoxelTrackBoxCount`), so a finding here may also apply to `SliderLinear` (11.1.5.1) and vice versa; each item still gets its own real consumer checked rather than assuming one slider's result covers the others. Same layout/WorldView/robot-visual/Sleeve exclusions as prior items.
+
+### Docs
+
+- `docs/CONSOLE_THEMING.md`'s "Voxel-track sliders" section gains a vertical-specific note if anything is found/fixed, consolidated with 11.1.5.1's own note rather than duplicated.
+
+## 11.1.5.3 Oblique Cabinetry: SliderCenteredZero vertical box verification
+
+Same shape as 11.1.5.1/11.1.5.2, for `SliderCenteredZero` — and the most consequential of the three to check. Real vertical consumers: `audioRigConfig.ts`'s EQ3 Low/Mid/High and `robotOptionsConfig.ts`'s per-layer Detune, all `orientation: 'vertical'`. Depends on 11.1.5 having shipped (it has); not yet interviewed/specced.
+
+### Create
+
+- Nothing new by default — verification first, fix only if the manual check finds one.
+
+### Restructure
+
+- Likely candidates, pending findings: the shared vertical-fitting question (11.1.5.1/.2); and specifically, `flipStraddleFill`'s own CSS `order`-swap fix (11.1.5's own post-ship bugfix) has only ever been verified via jsdom attribute assertions (`data-flip` presence, the `states` array's own correctness) — never against a real vertical `column-reverse` render. The horizontal fix's own correctness was independently re-derived by hand during code review; the vertical case has not been.
+
+### About
+
+- The most consequential of the 3 vertical-verification items: `SliderCenteredZero` is both the newest voxel-track slider and the one whose most recent change (the dead-center-seam split, plus the `flipStraddleFill` bugfix) was reasoned about and tested primarily in horizontal terms. Confirming the seam still lands correctly, per-side falloff still ramps the right direction, and the flip fix still puts the filled piece on the correct (now top/bottom, not left/right) side for a real vertical EQ3/Detune slider is this item's actual point — not a formality. Same layout/WorldView/robot-visual/Sleeve exclusions as prior items.
+
+### Docs
+
+- `docs/CONSOLE_THEMING.md`'s "Zero-anchored dual-fill" section (added by 11.1.5) gains a vertical-specific note if anything is found/fixed.
+- `docs/specs/OBLIQUE_CABINETRY_SLIDER_CENTERED_ZERO.md` gains a short addendum if the `flipStraddleFill` mechanism needed any correction for the vertical axis.
+
 ## 11.1.6 Oblique Cabinetry: RadioButton
 
 Wires `RadioButton` into the cabinet-box mechanism. Radix's `ToggleGroup` renders one segment per `schema.options` entry, which puts this item closer in shape to `Toggle` (11.1.2) than to `Button`'s single momentary box or the sliders' continuous voxel-track — each segment is itself a discrete on/off state (selected vs. not), just N of them instead of one. Depends on 11.1.1 having shipped (reuses its cabinet-box primitive and face-shading) and reuses 11.1.2's state-keyed (not click-keyed) pop precedent; not yet interviewed/specced.
