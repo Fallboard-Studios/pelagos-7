@@ -124,6 +124,19 @@ describe('Header', () => {
     expect(muteSwitch.getAttribute('aria-checked')).toBe('false');
   });
 
+  it('shows the unmuted icon (🔊) on the switch face when not muted, and no visible "Mute" text', () => {
+    useAudioStore.setState({ isMuted: false });
+    render(<Header />);
+    expect(screen.getByRole('switch', { name: /mute/i }).textContent).toBe('🔊');
+    expect(screen.queryByText('Mute')).toBeNull();
+  });
+
+  it('shows the muted icon (🔇) on the switch face when muted', () => {
+    useAudioStore.setState({ isMuted: true });
+    render(<Header />);
+    expect(screen.getByRole('switch', { name: /mute/i }).textContent).toBe('🔇');
+  });
+
   it('clicking mute flips audioStore.isMuted, independent of volume', () => {
     useAudioStore.setState({ volume: 0.8, isMuted: false });
     render(<Header />);

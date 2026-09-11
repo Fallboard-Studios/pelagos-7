@@ -20,15 +20,13 @@ import './Header.css';
  *  duplicated. docs/specs/HEADER_HUB_CONSOLIDATION.md §1.4. */
 const TOUCH_TARGET_SIZE = 44;
 
-/** Corrected during implementation (Task 8): the spec's original plan
- *  omitted a schema-level humanLabel here to match Toggle's usual bare,
- *  textless-box convention — but unlike every other Toggle consumer, Mute
- *  has no adjacent text of its own elsewhere on the page explaining what it
- *  is, and Toggle never passes children through to CabinetBox, so an
- *  unlabeled Mute would render as a genuinely blank box next to 3 nav
- *  options that each show their own real text. A visible "Mute" label (via
- *  Toggle's own DualLabel) is a better outcome than a blank box, and gives
- *  the switch a real aria-label instead of falling back to schema.id. */
+/** humanLabel: 'Mute' feeds the switch's accessible name (resolveAccessibleName)
+ *  but is never visibly shown — the Toggle usage below passes the mute/
+ *  unmute icon as facade content instead, which suppresses Toggle's
+ *  external DualLabel automatically. No separate "silence 'Mute'" flag
+ *  needed; keeping humanLabel here is strictly better than dropping it
+ *  (a real aria-label instead of falling back to schema.id), since it's
+ *  never rendered as visible text either way. */
 const MUTE_SCHEMA: ToggleSchema = { id: 'headerMute', type: 'toggle', humanLabel: 'Mute' };
 
 /** Total buttons in row 3 — Mute (Toggle) + HEADER_NAV_SCHEMA's 3 options
@@ -148,7 +146,9 @@ function Header() {
           onChange={(v) => useAudioStore.getState().setMuted(v)}
           disabled={!isPoweredOn}
           boxSize={TOUCH_TARGET_SIZE}
-        />
+        >
+          {isMuted ? '🔇' : '🔊'}
+        </Toggle>
         <RadioButton
           schema={HEADER_NAV_SCHEMA}
           value={activeHubTile ?? ''}
