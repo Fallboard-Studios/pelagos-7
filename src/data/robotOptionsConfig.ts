@@ -173,6 +173,12 @@ export const FREQUENCY_PANEL_SCHEMA: DirectionalPanelSchema = {
  * above Density, so it reads as a mode switch for the rest of the accordion rather than one
  * control among many. PingControlsDrawer.tsx only renders it behind `DEV_TUNING` — same dev-only
  * gate as the Skipped Notes debug counter (App.tsx) — so it never reaches a production build.
+ *
+ * `humanLabel` feeds the toggle's accessible name (resolveAccessibleName) but is no longer shown
+ * as external label text — PingControlsDrawer.tsx now passes "Click Track" directly as the
+ * Toggle's own facade content instead, which suppresses Toggle's external DualLabel entirely,
+ * `loreLabel` included. `loreLabel: 'CALIBRATION PULSE'` is kept for continuity/documentation but
+ * no longer renders anywhere.
  */
 export const CLICK_TRACK_SCHEMA: ToggleSchema = {
   id: 'robotOptions.clickTrack',
