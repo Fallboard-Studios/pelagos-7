@@ -1,6 +1,6 @@
 import * as Slider from '@radix-ui/react-slider';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { useHeaderRowFit } from './useHeaderRowFit';
 import { Toggle } from '@/components/ui/controls/Toggle';
@@ -56,6 +56,22 @@ function Header() {
 
   const gap = useVoxelTrackGap();
   const inline = useHeaderRowFit(headerRef, ROW_3_BUTTON_COUNT, TOUCH_TARGET_SIZE, gap);
+
+  // Console.css's vertical deadzone clearance (margin-top) needs Header's
+  // real rendered height, which varies by breakpoint/content — no longer
+  // safely assumable from the old fixed --power-corner-height constant
+  // alone (docs/specs/HEADER_HUB_CONSOLIDATION.md §1.6). Written to
+  // document.documentElement rather than a local ref/context, since Console
+  // is a sibling of Header (not a descendant) — a plain inline custom
+  // property on this element's own subtree wouldn't reach it.
+  useEffect(() => {
+    if (!headerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      document.documentElement.style.setProperty('--header-height', `${entries[0].contentRect.height}px`);
+    });
+    observer.observe(headerRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   const handleVolumeChange = (values: number[]) => {
     if (!isPoweredOn) return;

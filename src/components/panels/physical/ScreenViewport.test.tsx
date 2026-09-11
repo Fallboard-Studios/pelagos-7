@@ -8,8 +8,8 @@ import ScreenViewport from './ScreenViewport';
 // components call). Stubbing them is the sane boundary here — this test is
 // about ScreenViewport's own composition logic (what it renders, and when),
 // not about re-testing TransportBar/WorldView/Console themselves.
-vi.mock('@/components/panels/screen/TransportBar', () => ({
-  default: () => <div data-testid="transport-bar-stub" />,
+vi.mock('@/components/panels/screen/Header', () => ({
+  default: () => <div data-testid="header-stub" />,
 }));
 vi.mock('@/components/panels/screen/worldView/WorldView', () => ({
   default: () => <div data-testid="world-view-stub" />,
@@ -19,16 +19,16 @@ vi.mock('@/components/panels/screen/console/Console', () => ({
 }));
 
 describe('ScreenViewport', () => {
-  it('renders TransportBar, WorldView, and Console when powered on', () => {
+  it('renders Header, WorldView, and Console when powered on', () => {
     render(<ScreenViewport isPoweredOn={true} />);
-    expect(screen.getByTestId('transport-bar-stub')).toBeTruthy();
+    expect(screen.getByTestId('header-stub')).toBeTruthy();
     expect(screen.getByTestId('world-view-stub')).toBeTruthy();
     expect(screen.getByTestId('console-stub')).toBeTruthy();
   });
 
   it('renders none of them when powered off', () => {
     render(<ScreenViewport isPoweredOn={false} />);
-    expect(screen.queryByTestId('transport-bar-stub')).toBeNull();
+    expect(screen.queryByTestId('header-stub')).toBeNull();
     expect(screen.queryByTestId('world-view-stub')).toBeNull();
     expect(screen.queryByTestId('console-stub')).toBeNull();
   });

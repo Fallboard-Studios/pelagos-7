@@ -2,20 +2,30 @@
   /* position: absolute (not a grid row) — see .screen-content's own comment
      (ScreenViewport.css) for why. inset: 0 gives it the full screen area;
      margin-top pushes just its top edge down to clear both obstacles that
-     sit in that space: the transport bar (--transport-height) and, further
-     down and to the left, the sleeve's power-switch corner
-     (--power-corner-height, :root in index.css). Using the taller of the
-     two (power-corner-height) for the whole width is a deliberate
-     simplicity trade-off — the corner only occupies the left ~190px, so
-     the rest of the width gets more clearance than it strictly needs, in
-     exchange for one clearance value instead of a width-dependent one.
+     sit in that space: Header (--header-height, a live JS-measured value —
+     Header.tsx's own ResizeObserver effect, docs/specs/
+     HEADER_HUB_CONSOLIDATION.md §1.6) and, further down and to the left,
+     the sleeve's power-switch corner (--power-corner-height, :root in
+     index.css). Using the taller of the two for the whole width is the
+     same deliberate simplicity trade-off this rule always made — the
+     corner only occupies the left ~190px, so the rest of the width gets
+     more clearance than it strictly needs, in exchange for one clearance
+     value instead of a width-dependent one. This used to be a bare
+     var(--power-corner-height): safe only because the single-row
+     TransportBar it replaced (--transport-height, 48px) always stayed
+     under the corner's own 100px. Header's 3-row layout does not reliably
+     stay under 100px, so this now takes the taller of the two real
+     obstacles instead of assuming the corner always wins. The
+     var(--header-height, var(--power-corner-height)) fallback covers the
+     one frame before Header's own ResizeObserver has fired at all — never
+     a 0/undefined margin, always at least the old safe constant.
      Applied here rather than on .console-panel__back specifically —
      .console-panel's OTHER direct child, HubNav (rendered when no tile is
      selected — ConsolePanel.tsx), has no clearance of its own otherwise,
      and needs exactly the same protection the back-button screen does. */
   position: absolute;
   inset: 0;
-  margin-top: var(--power-corner-height);
+  margin-top: max(var(--header-height, var(--power-corner-height)), var(--power-corner-height));
   /* Renders above WorldView (z-index: 0, a full-bleed backdrop behind
      everything) rather than relying on DOM-order stacking. */
   z-index: 1;

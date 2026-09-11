@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 
 vi.mock('./useHeaderRowFit', () => ({
   useHeaderRowFit: vi.fn(() => false),
@@ -22,10 +22,60 @@ function setStoreFixtures() {
   });
 }
 
+// Controllable ResizeObserver mock, mirroring useHeaderRowFit.test.ts's own
+// — useHeaderRowFit itself is mocked above (no real observer from it), so
+// this one exclusively exercises the --header-height measurement effect
+// (docs/specs/HEADER_HUB_CONSOLIDATION.md §1.6, Task 9).
+class MockResizeObserver {
+  static instances: MockResizeObserver[] = [];
+  callback: ResizeObserverCallback;
+  observedTargets: Element[] = [];
+  disconnected = false;
+
+  constructor(callback: ResizeObserverCallback) {
+    this.callback = callback;
+    MockResizeObserver.instances.push(this);
+  }
+
+  observe(target: Element) {
+    this.observedTargets.push(target);
+  }
+
+  unobserve() {}
+  disconnect() {
+    this.disconnected = true;
+  }
+
+  fire(height: number) {
+    this.callback([{ contentRect: { height } } as ResizeObserverEntry], this as unknown as ResizeObserver);
+  }
+}
+
+/** CabinetBox (Toggle's mute box + RadioButton's 3 option boxes — 4 real
+ *  instances render here) also constructs its own ResizeObserver, which
+ *  would otherwise be indistinguishable from the height-measurement
+ *  effect's own instance under the same mocked global. Find the one
+ *  observing the <header> root specifically. */
+function findHeaderHeightObserver(headerEl: Element): MockResizeObserver {
+  const found = MockResizeObserver.instances.find((o) => o.observedTargets.includes(headerEl));
+  if (!found) throw new Error('No MockResizeObserver observed the <header> root element');
+  return found;
+}
+
+let originalResizeObserver: typeof ResizeObserver;
+
 describe('Header', () => {
   beforeEach(() => {
     setStoreFixtures();
     vi.mocked(useHeaderRowFit).mockReturnValue(false);
+    MockResizeObserver.instances = [];
+    originalResizeObserver = globalThis.ResizeObserver;
+    (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = MockResizeObserver;
+  });
+
+  afterEach(() => {
+    (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = originalResizeObserver;
+    document.documentElement.style.removeProperty('--header-height');
   });
 
   it('renders exactly one volume slider bound to audioStore.volume', () => {
@@ -152,5 +202,37 @@ describe('Header', () => {
     expect(screen.queryByRole('button', { name: /restart/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /pause/i })).toBeNull();
     expect(screen.queryByText(/BPM/)).toBeNull();
+  });
+
+  // docs/specs/HEADER_HUB_CONSOLIDATION.md §1.6 (Task 9) — Console.css's
+  // vertical deadzone clearance reads --header-height off document.documentElement,
+  // since Header is a sibling of Console, not an ancestor.
+  describe('--header-height measurement (§1.6)', () => {
+    it('writes its own measured height to document.documentElement as --header-height', () => {
+      const { container } = render(<Header />);
+      const observer = findHeaderHeightObserver(container.querySelector('header')!);
+
+      act(() => observer.fire(140));
+      expect(document.documentElement.style.getPropertyValue('--header-height')).toBe('140px');
+    });
+
+    it('updates --header-height again when the header resizes, not just once on mount', () => {
+      const { container } = render(<Header />);
+      const observer = findHeaderHeightObserver(container.querySelector('header')!);
+
+      act(() => observer.fire(140));
+      expect(document.documentElement.style.getPropertyValue('--header-height')).toBe('140px');
+
+      act(() => observer.fire(96));
+      expect(document.documentElement.style.getPropertyValue('--header-height')).toBe('96px');
+    });
+
+    it('disconnects the height observer on unmount', () => {
+      const { container, unmount } = render(<Header />);
+      const observer = findHeaderHeightObserver(container.querySelector('header')!);
+      expect(observer.disconnected).toBe(false);
+      unmount();
+      expect(observer.disconnected).toBe(true);
+    });
   });
 });
