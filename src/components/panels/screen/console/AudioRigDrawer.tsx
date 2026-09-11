@@ -17,6 +17,7 @@ import {
   SPEED_AUTOMATION_PANEL_SCHEMA,
   EQ_FILTERS_ROW_PANEL_SCHEMA,
   TIME_SPACE_COLUMN_PANEL_SCHEMA,
+  OUTPUT_COLUMN_PANEL_SCHEMA,
   DECAY_MODE_SCHEMA,
   LFO_DRIFT_GROUPS,
   PING_VARIANCE_AUTOMATION_SCHEMA,
@@ -178,11 +179,13 @@ function AudioRigLfoGroup({ groupId, params, effect, updateParam, globalLfo, set
  * §1.5) — eq3, filterLPF, and filterHPF are 3 direct siblings of one shared
  * EQ_FILTERS_ROW_PANEL_SCHEMA panel (the earlier FILTERS_COLUMN_PANEL_SCHEMA
  * sub-grouping is gone, since the new layout no longer needs it), stacking
- * one-per-row on mobile/tablet and sharing one row at fixed 40/30/30 shares
- * (EQ_FILTERS_DESKTOP_SHARE, applied as an inline flexBasis override) on
- * desktop; Time & Space wraps its own blockKeys in a shared, tier-driven row
- * (TIME_SPACE_COLUMN_PANEL_SCHEMA), while Output still stacks its blockKeys
- * flat. The 'robots'
+ * one-per-row on mobile/tablet and sharing one row as equal thirds on desktop
+ * (DirectionalPanel.css's own default flex: 1 1 0 — no per-block override);
+ * Time & Space wraps its own blockKeys in a shared, tier-driven row
+ * (TIME_SPACE_COLUMN_PANEL_SCHEMA); Output wraps its own blockKeys in a
+ * fixed-column panel (OUTPUT_COLUMN_PANEL_SCHEMA) — Compressor and Limiter
+ * never share a row, but still get a real gap via a shared DirectionalPanel
+ * rather than stacking with no spacing relationship at all. The 'robots'
  * LFO_DRIFT_GROUPS entry (Robot Drift) no longer renders here — it moved to
  * SignatureArrayDrawer's own Source accordion, since it's a robot-facing
  * control even though the value it edits (globalAudio.lfoDrift.robots) is
@@ -239,7 +242,12 @@ export function AudioRigDrawer() {
               {group.blockKeys.map((key) => renderBlock(key))}
             </DirectionalPanel>
           ) : (
-            group.blockKeys.map((key) => renderBlock(key))
+            // 'output' — Compressor beside Limiter, fixed column (never shares a row, at any
+            // breakpoint), wrapped so the two blocks get a real gap between them instead of
+            // sitting flush with no spacing relationship at all.
+            <DirectionalPanel schema={OUTPUT_COLUMN_PANEL_SCHEMA}>
+              {group.blockKeys.map((key) => renderBlock(key))}
+            </DirectionalPanel>
           )}
         </AccordionContainer>
       ))}

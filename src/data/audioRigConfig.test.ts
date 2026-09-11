@@ -14,6 +14,7 @@ import {
   SPEED_AUTOMATION_PANEL_SCHEMA,
   EQ_FILTERS_ROW_PANEL_SCHEMA,
   TIME_SPACE_COLUMN_PANEL_SCHEMA,
+  OUTPUT_COLUMN_PANEL_SCHEMA,
   type AudioRigEffectKey,
 } from './audioRigConfig';
 import { DRIFT_GROUP_IDS } from '../types/lfo';
@@ -597,6 +598,26 @@ describe('TIME_SPACE_COLUMN_PANEL_SCHEMA (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT
 
   it('remains JSON-serializable', () => {
     expect(() => JSON.stringify(TIME_SPACE_COLUMN_PANEL_SCHEMA)).not.toThrow();
+  });
+});
+
+describe('OUTPUT_COLUMN_PANEL_SCHEMA (Compressor/Limiter spacing wrapper)', () => {
+  it('is a fixed column-orientation directionalPanel — Compressor and Limiter never share a row, at any breakpoint', () => {
+    expect(OUTPUT_COLUMN_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'column' });
+  });
+
+  it('is unlabeled — pure layout grouping, same convention as TIME_SPACE_COLUMN_PANEL_SCHEMA', () => {
+    expect(OUTPUT_COLUMN_PANEL_SCHEMA.loreLabel).toBeUndefined();
+    expect(OUTPUT_COLUMN_PANEL_SCHEMA.humanLabel).toBeUndefined();
+  });
+
+  it('has an id distinct from every other panel', () => {
+    expect(OUTPUT_COLUMN_PANEL_SCHEMA.id).not.toBe(TIME_SPACE_COLUMN_PANEL_SCHEMA.id);
+    expect(OUTPUT_COLUMN_PANEL_SCHEMA.id).toMatch(/^audioRig\./);
+  });
+
+  it('remains JSON-serializable', () => {
+    expect(() => JSON.stringify(OUTPUT_COLUMN_PANEL_SCHEMA)).not.toThrow();
   });
 });
 

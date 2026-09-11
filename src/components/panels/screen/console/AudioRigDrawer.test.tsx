@@ -157,7 +157,7 @@ describe('AudioRigDrawer', () => {
       }
     });
 
-    it('Time & Space wraps Delay/Reverb in one shared row panel (TIME_SPACE_COLUMN_PANEL_SCHEMA); Output still renders Compressor/Limiter flat', () => {
+    it('Time & Space wraps Delay/Reverb in one shared row panel (TIME_SPACE_COLUMN_PANEL_SCHEMA); Output wraps Compressor/Limiter in a fixed-column panel (OUTPUT_COLUMN_PANEL_SCHEMA)', () => {
       render(<AudioRigDrawer />);
 
       // Delay and Reverb share one further .sc-directional-panel ancestor above their own block
@@ -169,13 +169,19 @@ describe('AudioRigDrawer', () => {
       expect(delayOuterPanel).not.toBeNull();
       expect(delayOuterPanel).toBe(reverbOuterPanel);
       expect(delayOuterPanel?.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('row');
+      expect(delayOuterPanel?.getAttribute('data-panel-id')).toBe('audioRig.timeSpaceColumn');
 
-      // Output's Compressor/Limiter still stack flat — no extra wrapping panel.
-      for (const label of ['Compressor', 'Limiter']) {
-        const blockPanel = screen.getByText(label).closest('.sc-directional-panel')!;
-        const effectBlockDiv = blockPanel.closest('.audio-rig-drawer__effect-block')!;
-        expect(effectBlockDiv.parentElement?.closest('.sc-directional-panel'), label).toBeNull();
-      }
+      // Output's Compressor/Limiter now share one further .sc-directional-panel ancestor too —
+      // fixed column, so it stays stacked at every breakpoint (Compressor/Limiter never share a
+      // row, unlike EQ & Filters or Time & Space).
+      const compressorBlock = screen.getByText('Compressor').closest('.sc-directional-panel')!.closest('.audio-rig-drawer__effect-block')!;
+      const limiterBlock = screen.getByText('Limiter').closest('.sc-directional-panel')!.closest('.audio-rig-drawer__effect-block')!;
+      const compressorOuterPanel = compressorBlock.parentElement?.closest('.sc-directional-panel');
+      const limiterOuterPanel = limiterBlock.parentElement?.closest('.sc-directional-panel');
+      expect(compressorOuterPanel).not.toBeNull();
+      expect(compressorOuterPanel).toBe(limiterOuterPanel);
+      expect(compressorOuterPanel?.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('column');
+      expect(compressorOuterPanel?.getAttribute('data-panel-id')).toBe('audioRig.outputColumn');
     });
   });
 

@@ -366,3 +366,16 @@ export const TIME_SPACE_COLUMN_PANEL_SCHEMA: DirectionalPanelSchema = {
   type: 'directionalPanel',
   orientation: 'responsive',
 };
+
+/** Wraps Compressor beside Limiter — fixed 'column', not 'responsive': unlike EQ & Filters or
+ *  Time & Space, Compressor and Limiter never share a row at any breakpoint (confirmed — nothing
+ *  in the Output section's own layout rules calls for it). Exists so the two blocks share a
+ *  DirectionalPanel (and its gap) instead of stacking with no spacing relationship at all, the
+ *  same "directional panels as much as possible" reasoning behind every other grouping panel in
+ *  this file, rather than a bespoke wrapper div. Unlabeled, same convention as
+ *  TIME_SPACE_COLUMN_PANEL_SCHEMA. */
+export const OUTPUT_COLUMN_PANEL_SCHEMA: DirectionalPanelSchema = {
+  id: 'audioRig.outputColumn',
+  type: 'directionalPanel',
+  orientation: 'column',
+};

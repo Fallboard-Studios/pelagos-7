@@ -24,3 +24,17 @@
   padding: 6px 10px;
   border-bottom: 1px solid var(--color-border);
 }
+
+/* Extra breathing room between EQ/LPF/HPF, between Delay/Reverb, and between
+   Compressor/Limiter — DirectionalPanel.css's own shared default (8px) reads
+   too tight for these 3 sibling groupings specifically. Targeted by
+   data-panel-id (DirectionalPanel's own schema.id, exposed for exactly this
+   kind of one-instance styling, since the primitive itself takes no
+   className) rather than raising the shared 8px default, which would affect
+   every DirectionalPanel in the app, not just these three. Confirmed by
+   Crawford. */
+[data-panel-id="audioRig.eqFiltersRow"] > .sc-directional-panel__content,
+[data-panel-id="audioRig.timeSpaceColumn"] > .sc-directional-panel__content,
+[data-panel-id="audioRig.outputColumn"] > .sc-directional-panel__content {
+  gap: 0.75rem;
+}
