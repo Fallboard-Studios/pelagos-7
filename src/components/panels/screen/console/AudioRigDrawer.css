@@ -25,16 +25,14 @@
   border-bottom: 1px solid var(--color-border);
 }
 
-/* Extra breathing room between EQ/LPF/HPF, between Delay/Reverb, and between
-   Compressor/Limiter — DirectionalPanel.css's own shared default (8px) reads
-   too tight for these 3 sibling groupings specifically. Targeted by
-   data-panel-id (DirectionalPanel's own schema.id, exposed for exactly this
-   kind of one-instance styling, since the primitive itself takes no
-   className) rather than raising the shared 8px default, which would affect
-   every DirectionalPanel in the app, not just these three. Confirmed by
-   Crawford. */
-[data-panel-id="audioRig.eqFiltersRow"] > .sc-directional-panel__content,
-[data-panel-id="audioRig.timeSpaceColumn"] > .sc-directional-panel__content,
-[data-panel-id="audioRig.outputColumn"] > .sc-directional-panel__content {
-  gap: 0.75rem;
-}
+/* The gap between EQ/LPF/HPF, between Delay/Reverb, and between
+   Compressor/Limiter now lives on PanelGroup itself (PanelGroup.css's own
+   0.75rem default) — AudioRigDrawer.tsx wraps each of those 3 groupings in
+   a PanelGroup, not a shared DirectionalPanel, specifically so each block
+   keeps its own independent Cabinetry facade. A data-panel-id-targeted gap
+   here previously tried to solve the same spacing need by widening a
+   shared DirectionalPanel's internal flex gap; the CSS matched correctly
+   but the visual result was still one continuous facade with extra
+   padding inside it, not a gap between two distinct boxes — removed in
+   favor of the PanelGroup restructuring (docs/specs/
+   AUDIO_RIG_RESPONSIVE_LAYOUT.md's "Separate facades" amendment). */

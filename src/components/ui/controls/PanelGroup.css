@@ -1,0 +1,26 @@
+.sc-panel-group {
+  display: flex;
+  flex-direction: row;
+  /* Mirrors .sc-directional-panel__content's own nowrap policy (see
+     DirectionalPanel.css) — row children share one line and shrink to fit
+     rather than wrapping a solo child onto its own full-width line. */
+  flex-wrap: nowrap;
+}
+
+.sc-panel-group[data-orientation='column'] {
+  flex-direction: column;
+}
+
+.sc-panel-group>* {
+  min-width: 0;
+}
+
+/* flex-basis: 0 for row children only — same reasoning as
+   .sc-directional-panel__content[data-orientation='row']>* in
+   DirectionalPanel.css: an equal, content-independent share of the row.
+   Never applied to column orientation, for the same reason documented
+   there (it would zero out a top-level autoHeight facade's height
+   contribution instead of its width). */
+.sc-panel-group[data-orientation='row']>* {
+  flex: 1 1 0;
+}

@@ -76,6 +76,34 @@ Today: `EQ_FILTERS_ROW_PANEL_SCHEMA` (orientation `'auto'`) wraps `eq3`'s block 
 </DirectionalPanel>
 ```
 
+**Amendment, 2026-09-10 (post-ship — "Separate facades"):** After shipping, Crawford reported live in the
+browser that the gap between eq3/filterLPF/filterHPF (and, by the same shape, Delay/Reverb and
+Compressor/Limiter) didn't actually show, even after a follow-up widened `EQ_FILTERS_ROW_PANEL_SCHEMA`'s
+own internal flex gap — confirmed via DevTools that the CSS was matching correctly. Root cause: wrapping
+all 3 blocks in one shared `DirectionalPanel` makes each block's own inner `DirectionalPanel`
+(`block.panel`) *nested*, not top-level, so per `DirectionalPanel.tsx`'s own facade rule (§1 of
+`docs/specs/OBLIQUE_CABINETRY_DIRECTIONAL_PANEL.md`) none of the three blocks renders its own Cabinetry
+facade — all three paint onto the one shared outer facade instead, so any gap between them is internal
+padding on one continuous surface, not a boundary between two distinct boxes. Confirmed goal: "each
+section should look like its own separate box, with a real gap between distinct boxes."
+
+Fix: `EQ_FILTERS_ROW_PANEL_SCHEMA` (and its Time & Space / Output counterparts, §1.7/§1.8) are **removed**,
+replaced by a new shared component, `PanelGroup` (`src/components/ui/controls/PanelGroup.tsx`/`.css`) — a
+plain row/column flex wrapper with a fixed gap that does **not** provide `DirectionalPanel`'s own nesting
+context. A `DirectionalPanel` rendered as `PanelGroup`'s child therefore stays top-level, exactly as it
+would with no wrapper at all, and keeps its own independent facade:
+
+```tsx
+// AudioRigDrawer.tsx — EQ & Filters, final shape
+<PanelGroup orientation="responsive">
+  {(['eq3', 'filterLPF', 'filterHPF'] as const).map((key) => renderBlock(key))}
+</PanelGroup>
+```
+
+The row/column-per-breakpoint *behavior* this section specifies is unchanged — only the wrapper providing
+it. See `docs/tasks/AUDIO_RIG_RESPONSIVE_LAYOUT.md`'s second "Reopened" note for the full task-level
+record.
+
 ### 1.6 The 40/30/30 desktop split: an inline `flexBasis` override, not a `DirectionalPanel` API change
 
 **Amendment, 2026-09-10 (post-ship):** Crawford changed the desktop split from 40/30/30 to a straight

@@ -339,43 +339,18 @@ export const AUDIO_RIG_ACCORDION_GROUPS: { key: AudioRigAccordionGroupKey; accor
   { key: 'output', accordion: accordionSchema('output', 'TERMINAL SIGNAL CONDITIONING', 'Output'), blockKeys: ['compressor', 'limiter'] },
 ];
 
-/**
- * EQ & Filters' own internal layout (row-when-there's-room follow-up to
- * docs/tasks/DIRECTIONAL_PANEL_WIRING.md) — the accordion's content is this one row/auto panel
- * wrapping eq3's own block panel beside FILTERS_COLUMN_PANEL_SCHEMA (below, itself row-oriented —
- * LPF/HPF share a row rather than stacking), instead of the 3 blocks stacking flat. 'auto' via
- * useAutoPanelOrientation: row once there's room, column
- * otherwise (AudioRigDrawer.tsx special-cases the 'eqFilters' group to build this shape — the
- * other 2 groups still render their blockKeys as a flat stack). Unlabeled — pure layout
- * grouping, same convention as AudioRigLfoGroup's own inner panels.
- */
-export const EQ_FILTERS_ROW_PANEL_SCHEMA: DirectionalPanelSchema = {
-  id: 'audioRig.eqFiltersRow',
-  type: 'directionalPanel',
-  // 'responsive', not 'auto' — docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.5.
-  // Stacks one-per-row on mobile/tablet; on desktop, eq3/filterLPF/filterHPF share one row
-  // as equal thirds via DirectionalPanel.css's own flex: 1 1 0 default — no per-block
-  // override (a straight 40/30/30 desktop split was tried and reverted).
-  orientation: 'responsive',
-};
-
-// 'responsive', not fixed 'row' — Delay/Reverb stack on mobile/tablet, sit side by side
-// on desktop. docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.7.
-export const TIME_SPACE_COLUMN_PANEL_SCHEMA: DirectionalPanelSchema = {
-  id: 'audioRig.timeSpaceColumn',
-  type: 'directionalPanel',
-  orientation: 'responsive',
-};
-
-/** Wraps Compressor beside Limiter — fixed 'column', not 'responsive': unlike EQ & Filters or
- *  Time & Space, Compressor and Limiter never share a row at any breakpoint (confirmed — nothing
- *  in the Output section's own layout rules calls for it). Exists so the two blocks share a
- *  DirectionalPanel (and its gap) instead of stacking with no spacing relationship at all, the
- *  same "directional panels as much as possible" reasoning behind every other grouping panel in
- *  this file, rather than a bespoke wrapper div. Unlabeled, same convention as
- *  TIME_SPACE_COLUMN_PANEL_SCHEMA. */
-export const OUTPUT_COLUMN_PANEL_SCHEMA: DirectionalPanelSchema = {
-  id: 'audioRig.outputColumn',
-  type: 'directionalPanel',
-  orientation: 'column',
-};
+// EQ & Filters, Time & Space, and Output no longer share one DirectionalPanel
+// per group (EQ_FILTERS_ROW_PANEL_SCHEMA / TIME_SPACE_COLUMN_PANEL_SCHEMA /
+// OUTPUT_COLUMN_PANEL_SCHEMA, removed) — a shared DirectionalPanel nests its
+// children, so eq3/filterLPF/filterHPF (and Delay/Reverb, and Compressor/
+// Limiter) all painted onto one continuous Cabinetry facade with no visible
+// boundary between them; a flex gap inside that one shared surface read as
+// padding, not a gap between distinct boxes (Crawford, live in the browser:
+// "the gap is on .sc-directional-panel__content" despite the CSS correctly
+// matching). AudioRigDrawer.tsx now wraps each group in a plain PanelGroup
+// (orientation 'responsive' for EQ & Filters / Time & Space, 'column' for
+// Output) instead — PanelGroup provides row/column + gap layout only, no
+// Cabinetry facade of its own, so each block's own DirectionalPanel
+// (block.panel, above) stays top-level and keeps its own independent facade.
+// See docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md's "Separate facades"
+// amendment.
