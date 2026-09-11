@@ -1,0 +1,113 @@
+/* ----------------------------------------
+   Header root — 3 stacked rows by default, merging to 2 (volume+nav share a
+   row, status stays separate) once useHeaderRowFit reports enough width.
+   Horizontal deadzone clearance (padding-left: var(--sleeve-bar-width))
+   lives in ScreenViewport.css, applied to this whole element — Task 9.
+   ---------------------------------------- */
+.header {
+  position: sticky;
+  top: 8px;
+  width: 100%;
+  z-index: var(--z-header);
+  display: grid;
+  grid-template-areas:
+    "volume"
+    "status"
+    "nav";
+  grid-template-columns: 1fr;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  box-sizing: border-box;
+  background: var(--color-surface);
+  border-bottom: var(--border-width) solid var(--border-color);
+}
+
+/* Row 2 (status) is deliberately NOT part of this merge — it keeps its own
+   grid row in both layouts, per the confirmed intent. */
+.header--inline {
+  grid-template-areas:
+    "volume nav"
+    "status status";
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+
+.header__row--volume {
+  grid-area: volume;
+  display: flex;
+  align-items: center;
+}
+
+.header__row--status {
+  grid-area: status;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.header__row--nav {
+  grid-area: nav;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+/* ----------------------------------------
+   Volume slider (Radix) — ported from TransportBar.css unchanged, except
+   width: 100% (was a fixed 80px flanking a separate mute button) so it
+   stretches to fill row 1, per the confirmed intent.
+   ---------------------------------------- */
+.header__volume-slider {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: var(--touch-target-size);
+  touch-action: none;
+}
+
+.header__volume-track {
+  position: relative;
+  flex: 1;
+  height: 3px;
+  border-radius: var(--border-radius);
+  background: var(--color-border);
+}
+
+.header__volume-range {
+  position: absolute;
+  height: 100%;
+  border-radius: var(--border-radius);
+  background: var(--color-accent);
+}
+
+.header__volume-thumb {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.header__volume-thumb:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.header__volume-slider[data-disabled] .header__volume-thumb,
+.header__volume-slider[data-disabled] .header__volume-range {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ----------------------------------------
+   Row 2 — time + temperature
+   ---------------------------------------- */
+.header__time,
+.header__temp {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  letter-spacing: 0.05em;
+}
