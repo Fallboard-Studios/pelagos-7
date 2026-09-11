@@ -123,6 +123,28 @@
    that width; WorldView/Console stay full-width, untouched. Applied once to
    the whole 3-row header rather than per-row, same simplicity trade-off
    Console.css's own --header-height clearance below makes. */
-.screen-content .header {
-  padding-left: var(--sleeve-bar-width);
+.screen-content .rocker-spacer {
+  padding-left: calc(var(--sleeve-bar-width) + var(--spacing-md));
+  min-height: 164px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+}
+
+@media screen and (min-width: 430px) {
+  .screen-content .rocker-spacer {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: center;
+    min-height: 0;
+  }
+}
+
+@media screen and (min-width: 480px) {
+  .screen-content .rocker-spacer {
+    padding-left: calc(var(--sleeve-bar-width));
+  }
 }

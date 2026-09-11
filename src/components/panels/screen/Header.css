@@ -5,37 +5,66 @@
    lives in ScreenViewport.css, applied to this whole element — Task 9.
    ---------------------------------------- */
 .header {
+  --color-surface: rgba(26, 26, 26, 0.75);
   position: sticky;
   top: 8px;
   width: 100%;
   z-index: var(--z-header);
-  display: grid;
-  grid-template-areas:
-    "volume"
-    "status"
-    "nav";
-  grid-template-columns: 1fr;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-sm) var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg) var(--spacing-md);
   box-sizing: border-box;
   background: var(--color-surface);
   border-bottom: var(--border-width) solid var(--border-color);
 }
 
-/* Row 2 (status) is deliberately NOT part of this merge — it keeps its own
-   grid row in both layouts, per the confirmed intent. */
-.header--inline {
-  grid-template-areas:
-    "volume nav"
-    "status status";
-  grid-template-columns: 1fr auto;
-  align-items: center;
-}
-
+/* Row-direction flex: the Mute toggle (content-sized — see .header__mute-
+   facade below) sits first at its own natural width, the slider afterward
+   claims the rest of the row via flex-grow (below). Row-direction flex items
+   don't stretch along the main axis by default, so the toggle's width is
+   naturally left alone here — only the slider needs an explicit flex rule. */
 .header__row--volume {
   grid-area: volume;
   display: flex;
+  flex-direction: column;
   align-items: center;
+  gap: var(--spacing-sm);
+  width: 100%;
+  max-width: 140px;
+}
+
+/* SliderLinear's own self-fit assumes an externally-determined, non-content-
+sized wrapper (same reasoning audio-rig-drawer__param-row/signature-array-
+   drawer__param's column-flex stretch relies on) — flex-grow is this row's
+   own way of giving it that, now that it shares the row with Mute instead of
+   being the row's sole child. min-width: 0 lets it actually shrink below its
+   own natural content width when the row is tight, standard flex-item fix
+   for a child that would otherwise refuse to shrink past its content size. */
+.header__row--volume .sc-slider-linear {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Mute's facade — both possible strings ('Volume/Mute' unmuted, 'Volume
+   Muted' muted) stacked in the same grid cell so the box's content-sized
+   width is always driven by whichever renders wider; only the state-matching
+   span is actually visible. visibility (not display: none) keeps both in
+   the intrinsic-size calculation while excluding the hidden one from the
+   accessibility tree and paint. */
+.header__mute-facade {
+  position: relative;
+  display: grid;
+}
+
+.header__mute-facade-text {
+  grid-area: 1 / 1;
+  white-space: nowrap;
+  visibility: hidden;
+}
+
+.header__mute-facade-text[data-visible='true'] {
+  visibility: visible;
 }
 
 .header__row--status {
@@ -49,65 +78,81 @@
   grid-area: nav;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: var(--spacing-sm);
+  width: auto;
 }
 
-/* ----------------------------------------
-   Volume slider (Radix) — ported from TransportBar.css unchanged, except
-   width: 100% (was a fixed 80px flanking a separate mute button) so it
-   stretches to fill row 1, per the confirmed intent.
-   ---------------------------------------- */
-.header__volume-slider {
-  position: relative;
+
+.header__row--nav.primary {
+  display: none;
+}
+
+.header__row--status-nav {
   display: flex;
-  align-items: center;
-  width: 100%;
-  height: var(--touch-target-size);
-  touch-action: none;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--spacing-md);
+  width: auto;
 }
 
-.header__volume-track {
-  position: relative;
-  flex: 1;
-  height: 3px;
-  border-radius: var(--border-radius);
-  background: var(--color-border);
+@media screen and (min-width:430px) {
+  .header__row--nav.primary {
+    display: flex;
+  }
+
+  .header__row--nav.secondary {
+    display: none;
+  }
+
+  .header__row--status-nav {
+    justify-content: center;
+  }
+
 }
 
-.header__volume-range {
-  position: absolute;
-  height: 100%;
-  border-radius: var(--border-radius);
-  background: var(--color-accent);
+@media screen and (min-width: 480px) {
+  .header__row--volume {
+    width: 100%;
+    min-width: 300px;
+    max-width: calc(100% - 200px);
+    flex-direction: row;
+    gap: var(--spacing-lg);
+    align-items: flex-start;
+    justify-content: flex-start;
+  }
 }
 
-.header__volume-thumb {
-  display: block;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--color-text-primary);
-  cursor: pointer;
+@media screen and (min-width: 880px) {
+  .header__row--volume {
+    max-width: calc(100% - 420px);
+  }
 }
 
-.header__volume-thumb:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
-.header__volume-slider[data-disabled] .header__volume-thumb,
-.header__volume-slider[data-disabled] .header__volume-range {
-  opacity: 0.35;
-  cursor: not-allowed;
+@media screen and (min-width: 1220px) {
+  .header__row--volume {
+    max-width: 640px;
+  }
 }
 
 /* ----------------------------------------
    Row 2 — time + temperature
    ---------------------------------------- */
-.header__time,
-.header__temp {
+.header .header__row--status {
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
   letter-spacing: 0.05em;
+  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: center;
+  width: auto;
+}
+
+.header .header__status__row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
 }

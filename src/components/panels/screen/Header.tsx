@@ -1,15 +1,17 @@
-import * as Slider from '@radix-ui/react-slider';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useEffect, useRef } from 'react';
 
 import { useHeaderRowFit } from './useHeaderRowFit';
+import { useAttenuationStyleStore, selectCurrentAttenuationStyle } from '@/stores/attenuationStyleStore';
+import { useLocaleStore } from '@/stores/localeStore';
 import { Toggle } from '@/components/ui/controls/Toggle';
 import { RadioButton } from '@/components/ui/controls/RadioButton';
+import { SliderLinear } from '@/components/ui/controls/SliderLinear';
 import { useVoxelTrackGap } from '@/components/ui/controls/useCabinetBoxHeight';
 import { HEADER_NAV_SCHEMA } from '@/data/headerNavConfig';
 import { useUIStore } from '@/stores/uiStore';
 import { useAudioStore } from '@/stores/audioStore';
-import type { ToggleSchema } from '@/types/controls';
+import type { ToggleSchema, SliderLinearSchema } from '@/types/controls';
 import type { HubTile } from '@/types/hub';
 
 import './Header.css';
@@ -21,17 +23,40 @@ import './Header.css';
 const TOUCH_TARGET_SIZE = 44;
 
 /** humanLabel: 'Mute' feeds the switch's accessible name (resolveAccessibleName)
- *  but is never visibly shown — the Toggle usage below passes the mute/
- *  unmute icon as facade content instead, which suppresses Toggle's
- *  external DualLabel automatically. No separate "silence 'Mute'" flag
- *  needed; keeping humanLabel here is strictly better than dropping it
- *  (a real aria-label instead of falling back to schema.id), since it's
- *  never rendered as visible text either way. */
+ *  but is never visibly shown as its own DualLabel row — the Toggle usage
+ *  below passes text facade content instead (which suppresses Toggle's
+ *  external DualLabel automatically), doing double duty as row 1's own
+ *  "Volume" label since the slider itself no longer carries one (see
+ *  VOLUME_SCHEMA below). Keeping humanLabel here is strictly better than
+ *  dropping it (a real aria-label instead of falling back to schema.id),
+ *  since it's never rendered as visible text either way. */
 const MUTE_SCHEMA: ToggleSchema = { id: 'headerMute', type: 'toggle', humanLabel: 'Mute' };
 
-/** Total buttons in row 3 — Mute (Toggle) + HEADER_NAV_SCHEMA's 3 options
- *  (RadioButton) — used by useHeaderRowFit's own fit threshold math. */
-const ROW_3_BUTTON_COUNT = HEADER_NAV_SCHEMA.options.length + 1;
+/** Row 1's volume slider, the shared Cabinetry SliderLinear (same primitive
+ *  the robot detail page's own Volume control uses, see
+ *  AudioSettingSection.tsx/VOLUME_SCHEMA) instead of a bare Radix slider.
+ *  0-100 display range, 1% steps — audioStore.volume itself is 0..1, so
+ *  Header converts pct/100 on write and volume*100 on read, same
+ *  display-vs-storage split VOLUME_SCHEMA's own doc-comment describes.
+ *  No humanLabel/loreLabel — the Mute toggle sitting beside it (below) is
+ *  what visibly reads "Volume" now, so a second DualLabel row here would be
+ *  redundant. Accepts the same id-fallback aria-label trade-off already
+ *  flagged for MUTE_SCHEMA/HEADER_NAV_SCHEMA (docs/specs/HEADER_HUB_CONSOLIDATION.md
+ *  §7 item #2) rather than reintroducing a visible label just for a11y. */
+const VOLUME_SCHEMA: SliderLinearSchema = {
+  id: 'headerVolume',
+  min: 0,
+  max: 100,
+  step: 1,
+  unit: '%',
+  orientation: 'horizontal',
+  type: 'sliderLinear',
+};
+
+/** Buttons in row 3 — HEADER_NAV_SCHEMA's 3 options only now that Mute has
+ *  moved into row 1 alongside the volume slider — used by useHeaderRowFit's
+ *  own fit threshold math. */
+const NAV_BUTTON_COUNT = HEADER_NAV_SCHEMA.options.length;
 
 /**
  * The 3-row header docked to the top of ScreenViewport (roadmap-adjacent,
@@ -53,7 +78,7 @@ function Header() {
   const volume = useAudioStore((s) => s.volume);
 
   const gap = useVoxelTrackGap();
-  const inline = useHeaderRowFit(headerRef, ROW_3_BUTTON_COUNT, TOUCH_TARGET_SIZE, gap);
+  const inline = useHeaderRowFit(headerRef, NAV_BUTTON_COUNT, TOUCH_TARGET_SIZE, gap);
 
   // Console.css's vertical deadzone clearance (margin-top) needs Header's
   // real rendered height, which varies by breakpoint/content — no longer
@@ -71,9 +96,9 @@ function Header() {
     return () => observer.disconnect();
   }, []);
 
-  const handleVolumeChange = (values: number[]) => {
+  const handleVolumeChange = (pct: number) => {
     if (!isPoweredOn) return;
-    useAudioStore.getState().setVolume(values[0]);
+    useAudioStore.getState().setVolume(pct / 100);
   };
 
   // A genuine selection of a different tile — never fires for a re-click of
@@ -108,47 +133,72 @@ function Header() {
   const localMinute = Math.floor((_localTime % 1) * 60);
   const hh = String(Math.max(0, Math.min(23, localHour))).padStart(2, '0');
   const mm = String(Math.max(0, Math.min(59, localMinute))).padStart(2, '0');
+  const currentAttenuationStyle = useAttenuationStyleStore(selectCurrentAttenuationStyle);
+  const displayAttenuationStyleName = currentAttenuationStyle && currentAttenuationStyle?.name && currentAttenuationStyle.name.length < 15 ? currentAttenuationStyle.name : currentAttenuationStyle?.name ? currentAttenuationStyle.name.slice(0, 12) + '...' : "CORRUPT NAME";
+  const currentLocaleId = currentAttenuationStyle?.currentLocaleId;
+  const currentLocale = useLocaleStore((s) => (currentLocaleId ? s.locales[currentLocaleId] : undefined));
 
   return (
     <header ref={headerRef} className={`header${inline ? ' header--inline' : ''}`}>
-      <div className="header__row header__row--volume">
-        <Slider.Root
-          className="header__volume-slider"
-          min={0}
-          max={1}
-          step={0.01}
-          value={[volume]}
-          onValueChange={handleVolumeChange}
-          disabled={!isPoweredOn}
-        >
-          <Slider.Track className="header__volume-track">
-            <Slider.Range className="header__volume-range" />
-          </Slider.Track>
-          <Slider.Thumb className="header__volume-thumb" aria-label="Volume" />
-        </Slider.Root>
+      <div className="rocker-spacer">
+        <div className="header__row header__row--volume">
+          <Toggle
+            schema={MUTE_SCHEMA}
+            value={isMuted}
+            onChange={(v) => useAudioStore.getState().setMuted(v)}
+            disabled={!isPoweredOn}
+          >
+            {/* Both possible strings render stacked in the same grid cell
+             (Header.css) — the box's content-sized width always reflects
+             whichever is wider, so it never resizes as isMuted flips; only
+             the one matching the current state stays visible. */}
+            <span className="header__mute-facade">
+              <span className="header__mute-facade-text" data-visible={!isMuted ? 'true' : undefined}>Volume/Mute</span>
+              <span className="header__mute-facade-text" data-visible={isMuted ? 'true' : undefined}>Volume Muted</span>
+            </span>
+          </Toggle>
+          <SliderLinear
+            schema={VOLUME_SCHEMA}
+            value={volume * 100}
+            onChange={handleVolumeChange}
+            disabled={!isPoweredOn}
+          />
+        </div>
+        <div className="header__row--status-nav">
+          <div className="header__row header__row--status">
+            <div className="header__status__row">
+              <span className="header__attenuation-style">
+                <VisuallyHidden>Attenuation style: </VisuallyHidden>
+                {displayAttenuationStyleName}
+              </span>
+              <span className="header__coordinates">
+                <VisuallyHidden>Coordinates: </VisuallyHidden>
+                @ {currentLocale?.coordinates?.x ?? 'CORRUPT X'}, {currentLocale?.coordinates?.y ?? 'CORRUPT Y'}
+              </span>
+            </div>
+            <div className="header__status__row">
+              <span className="header__time">
+                <VisuallyHidden>Local time: </VisuallyHidden>
+                {hh}:{mm}
+              </span>
+              <span className="header__temp">
+                <VisuallyHidden>Temperature: </VisuallyHidden>
+                {activeLocaleTemperature !== null ? `${activeLocaleTemperature}°C` : 'CORRUPT TEMPERATURE'}
+              </span>
+            </div>
+          </div>
+          <div className="header__row header__row--nav primary">
+            <RadioButton
+              schema={HEADER_NAV_SCHEMA}
+              value={activeHubTile ?? ''}
+              onChange={handleNavChange}
+              onDeselect={handleNavDeselect}
+              boxSize={TOUCH_TARGET_SIZE}
+            />
+          </div>
+        </div>
       </div>
-
-      <div className="header__row header__row--status">
-        <span className="header__time">
-          <VisuallyHidden>Local time: </VisuallyHidden>
-          {hh}:{mm}
-        </span>
-        <span className="header__temp">
-          <VisuallyHidden>Temperature: </VisuallyHidden>
-          {activeLocaleTemperature !== null ? `${activeLocaleTemperature}°C` : '—'}
-        </span>
-      </div>
-
-      <div className="header__row header__row--nav">
-        <Toggle
-          schema={MUTE_SCHEMA}
-          value={isMuted}
-          onChange={(v) => useAudioStore.getState().setMuted(v)}
-          disabled={!isPoweredOn}
-          boxSize={TOUCH_TARGET_SIZE}
-        >
-          {isMuted ? '🔇' : '🔊'}
-        </Toggle>
+      <div className="header__row header__row--nav secondary">
         <RadioButton
           schema={HEADER_NAV_SCHEMA}
           value={activeHubTile ?? ''}

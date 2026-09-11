@@ -78,12 +78,12 @@ describe('Header', () => {
     document.documentElement.style.removeProperty('--header-height');
   });
 
-  it('renders exactly one volume slider bound to audioStore.volume', () => {
+  it('renders exactly one volume slider bound to audioStore.volume (as the shared Cabinetry SliderLinear, displayed 0-100%)', () => {
     render(<Header />);
     const slider = screen.getByRole('slider', { name: /volume/i });
-    expect(slider.getAttribute('aria-valuenow')).toBe('0.6');
+    expect(slider.getAttribute('aria-valuenow')).toBe('60');
     expect(slider.getAttribute('aria-valuemin')).toBe('0');
-    expect(slider.getAttribute('aria-valuemax')).toBe('1');
+    expect(slider.getAttribute('aria-valuemax')).toBe('100');
   });
 
   it('stepping the volume slider with the keyboard calls setVolume, observable as a real store update', () => {
@@ -124,17 +124,27 @@ describe('Header', () => {
     expect(muteSwitch.getAttribute('aria-checked')).toBe('false');
   });
 
-  it('shows the unmuted icon (🔊) on the switch face when not muted, and no visible "Mute" text', () => {
+  it('marks "Volume/Mute" as the visible facade text when not muted (both strings stay in the DOM — see the test below — only data-visible flips), and no separate "Mute" text', () => {
     useAudioStore.setState({ isMuted: false });
     render(<Header />);
-    expect(screen.getByRole('switch', { name: /mute/i }).textContent).toBe('🔊');
+    expect(screen.getByText('Volume/Mute').getAttribute('data-visible')).toBe('true');
+    expect(screen.getByText('Volume Muted').getAttribute('data-visible')).toBeNull();
     expect(screen.queryByText('Mute')).toBeNull();
   });
 
-  it('shows the muted icon (🔇) on the switch face when muted', () => {
+  it('marks "Volume Muted" as the visible facade text when muted', () => {
     useAudioStore.setState({ isMuted: true });
     render(<Header />);
-    expect(screen.getByRole('switch', { name: /mute/i }).textContent).toBe('🔇');
+    expect(screen.getByText('Volume Muted').getAttribute('data-visible')).toBe('true');
+    expect(screen.getByText('Volume/Mute').getAttribute('data-visible')).toBeNull();
+  });
+
+  it('keeps both facade strings in the DOM regardless of mute state, so the box never resizes when toggled — only the state-matching one is visible', () => {
+    useAudioStore.setState({ isMuted: false });
+    const { container } = render(<Header />);
+    const spans = container.querySelectorAll('.header__mute-facade-text');
+    expect(spans).toHaveLength(2);
+    expect(Array.from(spans).map((el) => el.textContent)).toEqual(['Volume/Mute', 'Volume Muted']);
   });
 
   it('clicking mute flips audioStore.isMuted, independent of volume', () => {

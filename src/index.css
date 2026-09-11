@@ -60,6 +60,7 @@
   --touch-target-size: 44px;
   --spacing-sm: 8px;
   --spacing-md: 12px;
+  --spacing-lg: 16px;
   --transport-separator-height: 24px;
 
   /* SliderLinear/SliderLog/SliderCenteredZero's default vertical track height
