@@ -143,6 +143,14 @@ describe('AudioSettingSection', () => {
       expect(settingsColumn.contains(screen.getByRole('slider', { name: 'Rate' }))).toBe(false);
     });
 
+    it("the Volume row is not a flex container — 'audio-setting-section__row' adds display:flex, which shrinks a lone flex item (the slider) to its own content width instead of the row's full width, breaking useVoxelTrackBoxCount's self-observation (same pattern audio-rig-drawer__param-row / sc-lfo-target-group__row already avoid elsewhere by carrying no display rule at all)", () => {
+      render(
+        <AudioSettingSection value={makeValue()} onAudioModeChange={() => {}} onVolumeChange={() => {}} onVolumeLfoChange={() => {}} />
+      );
+      const volumeRow = screen.getByRole('slider', { name: /volume/i }).closest('.sc-lfo-target-group__row')!;
+      expect(volumeRow.classList.contains('audio-setting-section__row')).toBe(false);
+    });
+
     it('renders data-orientation="column" on the outer row panel when the mobile tier matches — everything stacks in one column', () => {
       stubMatchMedia({ mobile: true, tablet: true });
       render(

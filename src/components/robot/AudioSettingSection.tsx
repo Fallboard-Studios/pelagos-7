@@ -69,8 +69,16 @@ export function AudioSettingSection({ value, onAudioModeChange, onVolumeChange, 
               disabled={disabled}
             />
           </div>
+          {/* No 'audio-setting-section__row' here, deliberately — that class is display:flex,
+              which shrinks a lone flex item (the slider) to its own content width instead of the
+              row's full width, breaking useVoxelTrackBoxCount's self-observation (the hook
+              assumes its own wrapper is "externally determined," i.e. a plain block box). Matches
+              audio-rig-drawer__param-row / signature-array-drawer__param elsewhere in the app,
+              both of which carry no display rule at all for the exact same reason. Found live by
+              Crawford: the slider's own box-count-fitting was locking onto its DualLabel's natural
+              text width instead of the row's real available width. */}
           <div
-            className={withActiveClass('audio-setting-section__row sc-lfo-target-group__row', isTargeted('volume'))}
+            className={withActiveClass('sc-lfo-target-group__row', isTargeted('volume'))}
             onClick={() => select('volume')}
             onFocus={() => select('volume')}
           >
