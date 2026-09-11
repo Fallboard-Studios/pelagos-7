@@ -42,9 +42,11 @@ describe('ConsolePanel', () => {
     useUIStore.getState().selectRobot(null);
   });
 
-  it('renders the HubNav grid when activeHubTile is null', () => {
-    render(<ConsolePanel />);
-    expect(screen.getByRole('region', { name: 'Hub Navigation' })).toBeTruthy();
+  it('renders nothing when activeHubTile is null — navigation now lives in Header, not a tile-grid inside the console (docs/specs/HEADER_HUB_CONSOLIDATION.md §1.7)', () => {
+    const { container } = render(<ConsolePanel />);
+    expect(container.firstChild).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Hub Navigation' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
   });
 
   it('renders RobotsTab (the list) when robots is active and no robot is selected', () => {

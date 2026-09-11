@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import { HubNav } from './HubNav';
 import { RobotsTab } from './RobotsTab';
 import { RobotOptionsTab } from './RobotOptionsTab';
 import { AudioRigDrawer } from './AudioRigDrawer';
@@ -32,12 +31,12 @@ export function ConsolePanel() {
   const setActiveHubTile = useUIStore((s) => s.setActiveHubTile);
   const selectRobot = useUIStore((s) => s.selectRobot);
 
+  // Navigation moved into Header's always-visible row 3 (docs/specs/
+  // HEADER_HUB_CONSOLIDATION.md §1.7) — no tile grid to render here anymore.
+  // A genuinely empty return, not a wrapper div with nothing in it, so
+  // WorldView's robots show through unobstructed.
   if (activeHubTile === null) {
-    return (
-      <div className="console-panel" role="region" aria-label="Console Panel">
-        <HubNav />
-      </div>
-    );
+    return null;
   }
 
   // Within the robots tile, a selected robot's editor backs out to the list
