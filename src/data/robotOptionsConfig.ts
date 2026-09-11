@@ -80,26 +80,10 @@ export const VOLUME_SCHEMA: SliderLinearSchema = {
 export const VOLUME_LFO_TARGET: RobotLfoTargetId = 'volume';
 
 /**
- * DirectionalPanel wiring (docs/tasks/DIRECTIONAL_PANEL_WIRING.md) — wraps AudioSettingSection's
- * existing content (Audio Setting radio + Volume's shared LfoTargetGroup) at both Robot Effects
- * call sites, sitting above the Melody/Envelope/Source accordions rather than inside one. First
- * new panel/accordion in this file with no prior AccordionSchema to inherit copy from — invented
- * lore, same "confirm during manual check" treatment as LFO_DRIFT_GROUPS' own labels
- * (audioRigConfig.ts).
- */
-export const ROBOT_OUTPUT_PANEL_SCHEMA: DirectionalPanelSchema = {
-  id: 'robotOptions.output',
-  type: 'directionalPanel',
-  loreLabel: 'PROBE TRANSDUCER STAGE',
-  humanLabel: 'Output',
-  orientation: 'column',
-};
-
-/**
- * docs/specs/ROBOT_OPTIONS_RESPONSIVE_LAYOUT.md §1.2 — replaces ROBOT_OUTPUT_PANEL_SCHEMA above
- * (removed once AudioSettingSection.tsx switches over, Task 2): Volume gets a real accordion it
- * didn't have before. `id` is deliberately not 'robotOptions.volume' — that's VOLUME_SCHEMA's own
- * id already, and this needs to be distinct.
+ * docs/specs/ROBOT_OPTIONS_RESPONSIVE_LAYOUT.md §1.2 — replaces the old, accordion-less
+ * ROBOT_OUTPUT_PANEL_SCHEMA (removed same task once AudioSettingSection.tsx switched over):
+ * Volume gets a real accordion it didn't have before. `id` is deliberately not
+ * 'robotOptions.volume' — that's VOLUME_SCHEMA's own id already, and this needs to be distinct.
  */
 export const VOLUME_ACCORDION_SCHEMA: AccordionSchema = {
   id: 'robotOptions.volumeAccordion',

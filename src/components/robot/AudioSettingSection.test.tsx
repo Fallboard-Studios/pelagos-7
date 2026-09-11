@@ -12,6 +12,22 @@ import type { Robot } from '@/types/Robot';
 
 const DEFAULT_VOLUME_LFO: LfoValue = { shape: 'sine', rate: 0, depth: 20 };
 
+/** Stubs window.matchMedia so the mobile/tablet viewport tiers can be controlled — same shape
+ *  as AudioRigDrawer.test.tsx's own stubMatchMedia, since the Volume row's 'responsive'
+ *  orientation resolves through the same useResponsivePanelOrientation/useCabinetTier tiers. */
+function stubMatchMedia(state: { mobile: boolean; tablet: boolean }) {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    configurable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: query.includes('640px') ? state.mobile : state.tablet,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    })),
+  });
+}
+
 function makeValue(overrides: Partial<{ audioMode: NonNullable<Robot['audioMode']>; masterVolume: number; volumeLfo: LfoValue }> = {}) {
   return {
     audioMode: 'none' as NonNullable<Robot['audioMode']>,
@@ -74,11 +90,13 @@ describe('AudioSettingSection', () => {
   });
 
   describe('shared LFO display (LFO_CONSOLIDATED_DISPLAY — replaces the old nested "Modulation" accordion)', () => {
-    it('renders Volume as a bare slider followed by its shared LFO display, no AccordionContainer wrapping it', () => {
+    it('renders Volume as a bare slider followed by its shared LFO display, inside exactly one Volume accordion (docs/specs/ROBOT_OPTIONS_RESPONSIVE_LAYOUT.md §1.2)', () => {
       const { container } = render(
         <AudioSettingSection value={makeValue()} onAudioModeChange={() => {}} onVolumeChange={() => {}} onVolumeLfoChange={() => {}} />
       );
-      expect(container.querySelectorAll('.sc-accordion')).toHaveLength(0);
+      const accordions = container.querySelectorAll('.sc-accordion');
+      expect(accordions).toHaveLength(1);
+      expect(accordions[0].querySelector('.sc-dual-label__human')?.textContent).toBe('Volume');
       // Rate + Depth from the shared Lfo display — no separate active toggle rendered.
       expect(screen.getAllByRole('slider', { name: 'Rate' })).toHaveLength(1);
       expect(screen.getAllByRole('slider', { name: 'Depth' })).toHaveLength(1);
@@ -111,30 +129,60 @@ describe('AudioSettingSection', () => {
     });
   });
 
-  describe('DirectionalPanel wrapper (docs/tasks/DIRECTIONAL_PANEL_WIRING.md Task 4)', () => {
-    it('renders its own DirectionalPanel wrapper around the existing content, column orientation', () => {
-      const { container } = render(
-        <AudioSettingSection value={makeValue()} onAudioModeChange={() => {}} onVolumeChange={() => {}} onVolumeLfoChange={() => {}} />
-      );
-      const panel = container.querySelector('.sc-directional-panel');
-      expect(panel).not.toBeNull();
-      expect(panel!.querySelector('.sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('column');
-    });
-
-    it('the panel carries the Output label (ROBOT_OUTPUT_PANEL_SCHEMA.humanLabel)', () => {
+  describe('Volume accordion + 2-column desktop split (docs/specs/ROBOT_OPTIONS_RESPONSIVE_LAYOUT.md §1.2)', () => {
+    it('the Audio Setting radio and Volume slider both render inside the settings-column panel, and the Lfo display is a sibling of that panel', () => {
       render(
         <AudioSettingSection value={makeValue()} onAudioModeChange={() => {}} onVolumeChange={() => {}} onVolumeLfoChange={() => {}} />
       );
-      expect(screen.getByText('Output')).toBeTruthy();
+      // The settings-column panel (Audio Setting + Volume) is the innermost .sc-directional-panel
+      // containing the radio.
+      const settingsColumn = screen.getByRole('radio', { name: 'Solo' }).closest('.sc-directional-panel')!;
+      expect(settingsColumn.contains(screen.getByRole('slider', { name: /volume/i }))).toBe(true);
+      // The Lfo display (Rate/Depth) is NOT inside that same settings-column panel — it's a
+      // sibling in the outer VOLUME_ROW_PANEL_SCHEMA row, not nested under the radio/slider pair.
+      expect(settingsColumn.contains(screen.getByRole('slider', { name: 'Rate' }))).toBe(false);
     });
 
-    it('the Audio Setting radio and Volume slider both render inside the panel', () => {
-      const { container } = render(
+    it('renders data-orientation="column" on the outer row panel when the mobile tier matches — everything stacks in one column', () => {
+      stubMatchMedia({ mobile: true, tablet: true });
+      render(
         <AudioSettingSection value={makeValue()} onAudioModeChange={() => {}} onVolumeChange={() => {}} onVolumeLfoChange={() => {}} />
       );
-      const panel = container.querySelector('.sc-directional-panel')!;
-      expect(panel.contains(screen.getByRole('radio', { name: 'Solo' }))).toBe(true);
-      expect(panel.contains(screen.getByRole('slider', { name: /volume/i }))).toBe(true);
+      const outerRowContent = screen.getByRole('radio', { name: 'Solo' })
+        .closest('.sc-directional-panel')! // settings-column panel
+        .parentElement!; // VOLUME_ROW_PANEL_SCHEMA's own .sc-directional-panel__content
+      expect(outerRowContent.getAttribute('data-orientation')).toBe('column');
+    });
+
+    it('renders data-orientation="row" on the outer row panel when neither tier matches (desktop) — settings column beside the Lfo display', () => {
+      stubMatchMedia({ mobile: false, tablet: false });
+      render(
+        <AudioSettingSection value={makeValue()} onAudioModeChange={() => {}} onVolumeChange={() => {}} onVolumeLfoChange={() => {}} />
+      );
+      const settingsColumn = screen.getByRole('radio', { name: 'Solo' }).closest('.sc-directional-panel')!;
+      const outerRowContent = settingsColumn.parentElement!;
+      expect(outerRowContent.getAttribute('data-orientation')).toBe('row');
+      // The Lfo display sits beside the settings column as a direct sibling of that same content div.
+      const lfoDisplay = screen.getByRole('slider', { name: 'Rate' }).closest('.sc-lfo-target-group__display')!;
+      expect(lfoDisplay.parentElement).toBe(outerRowContent);
+    });
+
+    it('the settings-column panel is always column-oriented, regardless of tier', () => {
+      stubMatchMedia({ mobile: false, tablet: false });
+      render(
+        <AudioSettingSection value={makeValue()} onAudioModeChange={() => {}} onVolumeChange={() => {}} onVolumeLfoChange={() => {}} />
+      );
+      const settingsColumn = screen.getByRole('radio', { name: 'Solo' }).closest('.sc-directional-panel')!;
+      expect(settingsColumn.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('column');
+    });
+
+    it('the Volume row carries the shared sc-lfo-target-group__row class and is targeted by default — the same targeting wiring AudioRigLfoGroup uses, even with only one field to target', () => {
+      render(
+        <AudioSettingSection value={makeValue()} onAudioModeChange={() => {}} onVolumeChange={() => {}} onVolumeLfoChange={() => {}} />
+      );
+      const volumeRow = screen.getByRole('slider', { name: /volume/i }).closest('.sc-lfo-target-group__row')!;
+      expect(volumeRow).not.toBeNull();
+      expect(volumeRow.classList.contains('isActive')).toBe(true);
     });
   });
 

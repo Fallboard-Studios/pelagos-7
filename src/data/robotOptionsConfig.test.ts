@@ -16,7 +16,6 @@ import {
   SUSTAIN_SCHEMA,
   RELEASE_SCHEMA,
   SIGNATURE_ARRAY_CONFIG,
-  ROBOT_OUTPUT_PANEL_SCHEMA,
   VOLUME_ACCORDION_SCHEMA,
   VOLUME_ROW_PANEL_SCHEMA,
   VOLUME_SETTINGS_COLUMN_PANEL_SCHEMA,
@@ -269,25 +268,16 @@ describe('slider orientation classification (docs/specs/VERTICAL_SLIDERS.md §1.
 // (docs/tasks/DIRECTIONAL_PANEL_WIRING.md Task 3)
 // ========================================
 
-describe('ROBOT_OUTPUT_PANEL_SCHEMA (Task 3)', () => {
-  it('is a column-orientation directionalPanel with humanLabel Output, id robotOptions.output', () => {
-    expect(ROBOT_OUTPUT_PANEL_SCHEMA).toMatchObject({
-      id: 'robotOptions.output',
-      type: 'directionalPanel',
-      orientation: 'column',
-      humanLabel: 'Output',
-    });
-  });
-
-  it('has a non-empty invented loreLabel', () => {
-    expect(ROBOT_OUTPUT_PANEL_SCHEMA.loreLabel).toBeTruthy();
+describe('ROBOT_OUTPUT_PANEL_SCHEMA no longer exists (Task 2 cleanup)', () => {
+  it('is not exported by the module — fully superseded by VOLUME_ACCORDION_SCHEMA + the 2 new panels', () => {
+    expect((robotOptionsConfigModule as Record<string, unknown>).ROBOT_OUTPUT_PANEL_SCHEMA).toBeUndefined();
   });
 });
 
 describe('VOLUME_ACCORDION_SCHEMA / VOLUME_ROW_PANEL_SCHEMA / VOLUME_SETTINGS_COLUMN_PANEL_SCHEMA (docs/specs/ROBOT_OPTIONS_RESPONSIVE_LAYOUT.md §1.2)', () => {
   it('VOLUME_ACCORDION_SCHEMA is an accordion labeled Volume / Probe Acoustic Amplitude', () => {
     // Source types invented lore strings in ALL-CAPS throughout this file (e.g.
-    // ROBOT_OUTPUT_PANEL_SCHEMA's 'PROBE TRANSDUCER STAGE') — DualLabel.css applies
+    // MELODY_ACCORDION_SCHEMA's 'MELODIC SUBSYSTEM') — DualLabel.css applies
     // text-transform: uppercase regardless, so this is a source-style convention, not a
     // behavior difference from the title-case phrasing Crawford used when describing it.
     expect(VOLUME_ACCORDION_SCHEMA).toMatchObject({
@@ -317,10 +307,6 @@ describe('VOLUME_ACCORDION_SCHEMA / VOLUME_ROW_PANEL_SCHEMA / VOLUME_SETTINGS_CO
     const ids = [VOLUME_ACCORDION_SCHEMA.id, VOLUME_ROW_PANEL_SCHEMA.id, VOLUME_SETTINGS_COLUMN_PANEL_SCHEMA.id];
     ids.forEach((id) => expect(id).toMatch(/^robotOptions\./));
     expect(new Set(ids).size).toBe(3);
-  });
-
-  it("ROBOT_OUTPUT_PANEL_SCHEMA still exists, untouched — nothing removed this task", () => {
-    expect(ROBOT_OUTPUT_PANEL_SCHEMA).toBeDefined();
   });
 
   it('all 3 remain JSON-serializable', () => {
