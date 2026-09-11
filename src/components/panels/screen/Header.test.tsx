@@ -62,6 +62,19 @@ function findHeaderHeightObserver(headerEl: Element): MockResizeObserver {
   return found;
 }
 
+/** Header now renders the nav RadioButton group twice — .header__row--nav.primary
+ *  (shown ≥430px, inside .header__row--status-nav) and .secondary (shown
+ *  below that), both bound to the exact same schema/store fields, swapped
+ *  via a CSS media query rather than reflowed as one DOM instance ("big
+ *  header restyle" commit, 4f025af). jsdom never evaluates that media query
+ *  (no real layout), so both instances are always present/queryable here —
+ *  picking the first match of a given option name is arbitrary but
+ *  equivalent to picking the other, since clicking either fires the exact
+ *  same onChange/onDeselect handler against the exact same store. */
+function getNavRadio(name: string): HTMLElement {
+  return screen.getAllByRole('radio', { name })[0];
+}
+
 let originalResizeObserver: typeof ResizeObserver;
 
 describe('Header', () => {
@@ -115,7 +128,7 @@ describe('Header', () => {
     useUIStore.setState({ activeLocaleTemperature: null });
     render(<Header />);
     expect(screen.queryByText(/°C/)).toBeNull();
-    expect(screen.getByText('—')).toBeTruthy();
+    expect(screen.getByText('CORRUPT TEMPERATURE')).toBeTruthy();
   });
 
   it('renders mute as a switch reflecting audioStore.isMuted', () => {
@@ -161,23 +174,23 @@ describe('Header', () => {
     expect((screen.getByRole('switch', { name: /mute/i }) as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it('renders exactly one nav group with 3 options', () => {
+  it('renders 3 nav options, once per responsive nav group (.primary + .secondary)', () => {
     render(<Header />);
-    expect(screen.getByRole('radio', { name: 'Robots' })).toBeTruthy();
-    expect(screen.getByRole('radio', { name: 'Audio Rig' })).toBeTruthy();
-    expect(screen.getByRole('radio', { name: 'Sector Settings' })).toBeTruthy();
+    expect(screen.getAllByRole('radio', { name: 'Robots' })).toHaveLength(2);
+    expect(screen.getAllByRole('radio', { name: 'Audio Rig' })).toHaveLength(2);
+    expect(screen.getAllByRole('radio', { name: 'Sector Settings' })).toHaveLength(2);
   });
 
   it('selecting a nav option calls setActiveHubTile', () => {
     render(<Header />);
-    fireEvent.click(screen.getByRole('radio', { name: 'Audio Rig' }));
+    fireEvent.click(getNavRadio('Audio Rig'));
     expect(useUIStore.getState().activeHubTile).toBe('audioRig');
   });
 
   it('re-selecting the active nav option clears activeHubTile back to null (deselect-to-empty, via RadioButton\'s onDeselect)', () => {
     useUIStore.setState({ activeHubTile: 'settings' });
     render(<Header />);
-    fireEvent.click(screen.getByRole('radio', { name: 'Sector Settings' }));
+    fireEvent.click(getNavRadio('Sector Settings'));
     expect(useUIStore.getState().activeHubTile).toBeNull();
   });
 
@@ -188,7 +201,7 @@ describe('Header', () => {
     // onDeselect (not onChange) — handleNavDeselect must still recognize the
     // robots+selectedRobotId case and drop to the list, not blank
     // activeHubTile to null.
-    fireEvent.click(screen.getByRole('radio', { name: 'Robots' }));
+    fireEvent.click(getNavRadio('Robots'));
     expect(useUIStore.getState().selectedRobotId).toBeNull();
     expect(useUIStore.getState().activeHubTile).toBe('robots');
   });
@@ -196,14 +209,14 @@ describe('Header', () => {
   it('re-selecting Robots while selectedRobotId is already null blanks all the way out, same as any other tile', () => {
     useUIStore.setState({ activeHubTile: 'robots', selectedRobotId: null });
     render(<Header />);
-    fireEvent.click(screen.getByRole('radio', { name: 'Robots' }));
+    fireEvent.click(getNavRadio('Robots'));
     expect(useUIStore.getState().activeHubTile).toBeNull();
   });
 
   it('selecting a non-robots tile does not touch selectedRobotId', () => {
     useUIStore.setState({ activeHubTile: null, selectedRobotId: 'robot-3' });
     render(<Header />);
-    fireEvent.click(screen.getByRole('radio', { name: 'Audio Rig' }));
+    fireEvent.click(getNavRadio('Audio Rig'));
     expect(useUIStore.getState().selectedRobotId).toBe('robot-3');
   });
 
