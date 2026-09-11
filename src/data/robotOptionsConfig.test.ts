@@ -97,10 +97,14 @@ describe('robotOptionsConfig', () => {
     expect(NOTE_VARIANCE_SCHEMA.max).toBe(NOTE_VARIANCE_MAX);
   });
 
-  it('Audio Setting has all 4 options, including Off — not the grid prose\'s stale 3', () => {
+  it('Audio Setting has all 4 options, including \'none\' — not the grid prose\'s stale 3', () => {
     expect(AUDIO_SETTING_SCHEMA.options.map((o) => o.value).sort()).toEqual(
       ['highlight', 'mute', 'none', 'solo'].sort()
     );
+  });
+
+  it("Audio Setting's 'none' option is labeled 'Auto', not 'Off' (docs/specs/ROBOT_OPTIONS_RESPONSIVE_LAYOUT.md §1.3)", () => {
+    expect(AUDIO_SETTING_SCHEMA.options.find((o) => o.value === 'none')?.label).toBe('Auto');
   });
 
   it('Click Track is a toggle, labeled "Click Track"', () => {

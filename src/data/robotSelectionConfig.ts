@@ -52,7 +52,7 @@ export const DOCKING_STATE_LABELS: Record<DockingState, ValueLabel> = {
 type AudioMode = NonNullable<Robot['audioMode']>;
 
 export const AUDIO_MODE_LABELS: Record<AudioMode, ValueLabel> = {
-  none: { loreLabel: 'OFFLINE', humanLabel: 'Off' },
+  none: { loreLabel: 'OFFLINE', humanLabel: 'Auto' },
   mute: { loreLabel: 'SILENCED', humanLabel: 'Mute' },
   solo: { loreLabel: 'ISOLATED', humanLabel: 'Solo' },
   highlight: { loreLabel: 'PRIORITIZED', humanLabel: 'Highlight' },

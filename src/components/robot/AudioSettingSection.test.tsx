@@ -49,7 +49,7 @@ describe('AudioSettingSection', () => {
       />
     );
 
-    ['Off', 'Mute', 'Solo', 'Highlight'].forEach((label) => {
+    ['Auto', 'Mute', 'Solo', 'Highlight'].forEach((label) => {
       expect(screen.getByRole('radio', { name: label })).toBeTruthy();
     });
 

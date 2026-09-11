@@ -48,7 +48,7 @@ export const AUDIO_SETTING_SCHEMA: RadioButtonSchema = {
   loreLabel: 'PROBE DIAGNOSTICS',
   humanLabel: 'Audio Setting',
   options: [
-    { value: 'none', label: 'Off' },
+    { value: 'none', label: 'Auto' },
     { value: 'mute', label: 'Mute' },
     { value: 'solo', label: 'Solo' },
     { value: 'highlight', label: 'Highlight' },
