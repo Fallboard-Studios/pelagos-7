@@ -288,14 +288,17 @@ export const ENVELOPE_ACCORDION_SCHEMA: AccordionSchema = {
  * DirectionalPanel wiring (docs/tasks/DIRECTIONAL_PANEL_WIRING.md) — supersedes the old flat
  * "Ping Contour" AccordionSchema (removed, Task 9). Keeps that schema's exact loreLabel/
  * humanLabel verbatim — the whole "Ping Contour" accordion becomes one panel nested inside the
- * new Envelope accordion, not relabeled.
+ * new Envelope accordion, not relabeled. Fixed 'column' (was 'row') as of
+ * docs/specs/ROBOT_OPTIONS_RESPONSIVE_LAYOUT.md §1.4 — wraps 2 responsive sub-rows
+ * (Attack+Decay, Sustain+Release — inline in PingContourDrawer.tsx, matching Compressor's own
+ * topRow/bottomRow precedent in audioRigConfig.ts) instead of holding all 4 sliders directly.
  */
 export const PING_CONTOUR_PANEL_SCHEMA: DirectionalPanelSchema = {
   id: 'robotOptions.pingContour',
   type: 'directionalPanel',
   loreLabel: 'PING CONTOUR',
   humanLabel: 'Ping Contour',
-  orientation: 'row',
+  orientation: 'column',
 };
 
 export const ATTACK_SCHEMA: SliderLogSchema = {

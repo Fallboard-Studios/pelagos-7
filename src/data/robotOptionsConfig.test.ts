@@ -374,9 +374,9 @@ describe('RHYTHM_PANEL_SCHEMA (docs/specs/ROBOT_OPTIONS_RESPONSIVE_LAYOUT.md §1
 });
 
 describe('PING_CONTOUR_PANEL_SCHEMA (DirectionalPanel wiring, Tasks 3+9)', () => {
-  it('is a row-orientation directionalPanel', () => {
+  it('is a column-orientation directionalPanel — wraps 2 responsive sub-rows instead of 4 sliders directly (docs/specs/ROBOT_OPTIONS_RESPONSIVE_LAYOUT.md §1.4)', () => {
     expect(PING_CONTOUR_PANEL_SCHEMA.type).toBe('directionalPanel');
-    expect(PING_CONTOUR_PANEL_SCHEMA.orientation).toBe('row');
+    expect(PING_CONTOUR_PANEL_SCHEMA.orientation).toBe('column');
   });
 
   it('has loreLabel/humanLabel byte-identical to the old PING_CONTOUR_ACCORDION_SCHEMA\'s text — verbatim preservation across the type swap', () => {
