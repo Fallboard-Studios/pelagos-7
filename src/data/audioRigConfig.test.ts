@@ -12,8 +12,6 @@ import {
   AUDIO_RIG_ACCORDION_GROUPS,
   TRANSPORT_COMPOSITION_ACCORDION_SCHEMA,
   SPEED_AUTOMATION_PANEL_SCHEMA,
-  EQ_FILTERS_ROW_PANEL_SCHEMA,
-  TIME_SPACE_COLUMN_PANEL_SCHEMA,
   type AudioRigEffectKey,
 } from './audioRigConfig';
 import { DRIFT_GROUP_IDS } from '../types/lfo';
@@ -590,31 +588,11 @@ describe('SPEED_AUTOMATION_PANEL_SCHEMA (Task 1)', () => {
   });
 });
 
-describe('TIME_SPACE_COLUMN_PANEL_SCHEMA (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.7)', () => {
-  it('is a responsive-orientation directionalPanel — Delay/Reverb stack on mobile/tablet, sit side by side on desktop', () => {
-    expect(TIME_SPACE_COLUMN_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'responsive' });
-  });
-
-  it('remains JSON-serializable', () => {
-    expect(() => JSON.stringify(TIME_SPACE_COLUMN_PANEL_SCHEMA)).not.toThrow();
-  });
-});
-
-describe('EQ_FILTERS_ROW_PANEL_SCHEMA (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.5 — flattened, FILTERS_COLUMN_PANEL_SCHEMA removed)', () => {
-  it('is a responsive-orientation directionalPanel, unlabeled — stacks on mobile/tablet, one shared row on desktop', () => {
-    expect(EQ_FILTERS_ROW_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'responsive' });
-    expect(EQ_FILTERS_ROW_PANEL_SCHEMA.loreLabel).toBeUndefined();
-    expect(EQ_FILTERS_ROW_PANEL_SCHEMA.humanLabel).toBeUndefined();
-    expect(EQ_FILTERS_ROW_PANEL_SCHEMA.id).toMatch(/^audioRig\./);
-  });
-
-  it('does not collide with any AUDIO_RIG_CONFIG block\'s own panel id', () => {
-    const blockPanelIds = AUDIO_RIG_CONFIG.map((b) => b.panel.id);
-    expect(blockPanelIds).not.toContain(EQ_FILTERS_ROW_PANEL_SCHEMA.id);
-  });
-
-  it('remains JSON-serializable', () => {
-    expect(() => JSON.stringify(EQ_FILTERS_ROW_PANEL_SCHEMA)).not.toThrow();
-  });
-});
+// EQ_FILTERS_ROW_PANEL_SCHEMA / TIME_SPACE_COLUMN_PANEL_SCHEMA /
+// OUTPUT_COLUMN_PANEL_SCHEMA were removed — those 3 groupings are no longer
+// DirectionalPanelSchema objects at all; AudioRigDrawer.tsx wraps them in a
+// plain PanelGroup (orientation prop, no schema/id/facade) instead, so each
+// block keeps its own independent Cabinetry facade. See PanelGroup.test.tsx
+// for that component's own coverage, and AudioRigDrawer.test.tsx for the
+// "each block gets its own facade" structural assertions.
 

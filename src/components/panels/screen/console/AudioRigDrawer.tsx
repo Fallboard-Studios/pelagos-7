@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { useAudioStore } from '@/stores/audioStore';
 import { AccordionContainer } from '@/components/ui/controls/AccordionContainer';
 import { DirectionalPanel } from '@/components/ui/controls/DirectionalPanel';
+import { PanelGroup } from '@/components/ui/controls/PanelGroup';
 import { RadioButton } from '@/components/ui/controls/RadioButton';
 import { SliderLinear } from '@/components/ui/controls/SliderLinear';
 import { SliderLog } from '@/components/ui/controls/SliderLog';
@@ -15,8 +16,6 @@ import {
   AUDIO_RIG_ACCORDION_GROUPS,
   TRANSPORT_COMPOSITION_ACCORDION_SCHEMA,
   SPEED_AUTOMATION_PANEL_SCHEMA,
-  EQ_FILTERS_ROW_PANEL_SCHEMA,
-  TIME_SPACE_COLUMN_PANEL_SCHEMA,
   DECAY_MODE_SCHEMA,
   LFO_DRIFT_GROUPS,
   PING_VARIANCE_AUTOMATION_SCHEMA,
@@ -176,17 +175,24 @@ function AudioRigLfoGroup({ groupId, params, effect, updateParam, globalLfo, set
  * (by AUDIO_RIG_ACCORDION_GROUPS' own `key` field, not its raw accordion id)
  * into a flattened row/column layout (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md
  * §1.5) — eq3, filterLPF, and filterHPF are 3 direct siblings of one shared
- * EQ_FILTERS_ROW_PANEL_SCHEMA panel (the earlier FILTERS_COLUMN_PANEL_SCHEMA
- * sub-grouping is gone, since the new layout no longer needs it), stacking
- * one-per-row on mobile/tablet and sharing one row at fixed 40/30/30 shares
- * (EQ_FILTERS_DESKTOP_SHARE, applied as an inline flexBasis override) on
- * desktop; Time & Space wraps its own blockKeys in a shared, tier-driven row
- * (TIME_SPACE_COLUMN_PANEL_SCHEMA), while Output still stacks its blockKeys
- * flat. The 'robots'
- * LFO_DRIFT_GROUPS entry (Robot Drift) no longer renders here — it moved to
- * SignatureArrayDrawer's own Source accordion, since it's a robot-facing
- * control even though the value it edits (globalAudio.lfoDrift.robots) is
- * still global, not per-robot.
+ * PanelGroup (orientation="responsive"), stacking one-per-row on
+ * mobile/tablet and sharing one row as equal thirds on desktop
+ * (PanelGroup.css's own default flex: 1 1 0 — no per-block override); Time &
+ * Space wraps its own blockKeys in the same kind of tier-driven PanelGroup;
+ * Output wraps its own blockKeys in a fixed-column PanelGroup — Compressor
+ * and Limiter never share a row, but still get a real gap between them.
+ * Each group's PanelGroup is a plain flex wrapper, not a DirectionalPanel —
+ * it claims no Cabinetry facade of its own, so every block's own
+ * DirectionalPanel (block.panel) inside renderBlock() stays top-level and
+ * keeps its own independent facade: a real visible box per block, with a
+ * real gap between boxes, not one shared surface with extra internal
+ * padding (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md's "Separate facades"
+ * amendment — a shared DirectionalPanel here was tried first and reverted;
+ * Crawford confirmed live in the browser that its gap didn't read as a
+ * visible boundary). The 'robots' LFO_DRIFT_GROUPS entry (Robot Drift) no
+ * longer renders here — it moved to SignatureArrayDrawer's own Source
+ * accordion, since it's a robot-facing control even though the value it
+ * edits (globalAudio.lfoDrift.robots) is still global, not per-robot.
  */
 export function AudioRigDrawer() {
   const globalAudio = useAudioStore((s) => s.globalAudio);
@@ -225,21 +231,26 @@ export function AudioRigDrawer() {
         <AccordionContainer key={group.accordion.id} schema={group.accordion}>
           {group.key === 'eqFilters' ? (
             // Flattened (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.5) — eq3, filterLPF, and
-            // filterHPF are 3 direct siblings of one shared panel, no intermediate grouping
-            // panel. Stacks one-per-row on mobile/tablet; on desktop they share one row as equal
-            // thirds via DirectionalPanel.css's own default flex: 1 1 0 — no per-block override
-            // needed (a straight 40/30/30 desktop split was tried and reverted; equal shares are
-            // exactly what the shared equal-share contract already gives every other row for
-            // free).
-            <DirectionalPanel schema={EQ_FILTERS_ROW_PANEL_SCHEMA}>
+            // filterHPF are 3 direct siblings of one PanelGroup, no intermediate grouping panel
+            // and no shared facade (each keeps its own — see the "Separate facades" amendment).
+            // Stacks one-per-row on mobile/tablet; on desktop they share one row as equal thirds
+            // via PanelGroup.css's own default flex: 1 1 0 — no per-block override needed (a
+            // straight 40/30/30 desktop split was tried and reverted; equal shares are exactly
+            // what the shared equal-share contract already gives every other row for free).
+            <PanelGroup orientation="responsive">
               {(['eq3', 'filterLPF', 'filterHPF'] as const).map((key) => renderBlock(key))}
-            </DirectionalPanel>
+            </PanelGroup>
           ) : group.key === 'timeSpace' ? (
-            <DirectionalPanel schema={TIME_SPACE_COLUMN_PANEL_SCHEMA}>
+            <PanelGroup orientation="responsive">
               {group.blockKeys.map((key) => renderBlock(key))}
-            </DirectionalPanel>
+            </PanelGroup>
           ) : (
-            group.blockKeys.map((key) => renderBlock(key))
+            // 'output' — Compressor beside Limiter, fixed column (never shares a row, at any
+            // breakpoint), wrapped so the two blocks get a real gap between them instead of
+            // sitting flush with no spacing relationship at all.
+            <PanelGroup orientation="column">
+              {group.blockKeys.map((key) => renderBlock(key))}
+            </PanelGroup>
           )}
         </AccordionContainer>
       ))}

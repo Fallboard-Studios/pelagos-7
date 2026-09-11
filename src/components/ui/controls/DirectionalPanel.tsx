@@ -12,6 +12,14 @@ interface DirectionalPanelProps {
   children: ReactNode;
 }
 
+// `data-panel-id`, not `id` — schema ids commonly contain dots
+// (e.g. 'audioRig.eqFiltersRow'), which are safe as an attribute VALUE but
+// would need escaping as a literal HTML `id`/CSS `#id` selector. Lets a
+// consumer target one specific panel instance via a plain CSS attribute
+// selector (`[data-panel-id="..."]`) without this component ever accepting
+// a className/style prop — it deliberately has none, per its own
+// `{ schema, children }`-only contract.
+
 // Internal only — not exported. Defaults to false ("not yet inside a
 // DirectionalPanel"); every instance re-provides `true` to its own children
 // regardless of whether it renders its own facade, so a panel nested several
@@ -60,7 +68,7 @@ export function DirectionalPanel({ schema, children }: DirectionalPanelProps) {
   const isNested = useContext(DirectionalPanelNestingContext);
 
   const panel = (
-    <div className="sc-directional-panel" ref={ref}>
+    <div className="sc-directional-panel" data-panel-id={schema.id} ref={ref}>
       <DualLabel loreLabel={schema.loreLabel} humanLabel={schema.humanLabel} />
       <div className="sc-directional-panel__content" data-orientation={orientation}>
         {children}

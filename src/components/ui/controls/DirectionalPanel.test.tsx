@@ -86,6 +86,16 @@ describe('DirectionalPanel', () => {
     expect(screen.getByText('Low')).toBeTruthy();
   });
 
+  it('exposes its schema id as a data-panel-id attribute, so a consumer can target one specific instance via CSS without a className prop this component deliberately never accepts', () => {
+    const schema: DirectionalPanelSchema = { id: 'audioRig.eqFiltersRow', type: 'directionalPanel' };
+    const { container } = render(
+      <DirectionalPanel schema={schema}>
+        <span>Low</span>
+      </DirectionalPanel>,
+    );
+    expect(container.querySelector('.sc-directional-panel')?.getAttribute('data-panel-id')).toBe('audioRig.eqFiltersRow');
+  });
+
   it('renders neither label when loreLabel/humanLabel are both absent', () => {
     const schema: DirectionalPanelSchema = { id: 'eq3Panel', type: 'directionalPanel' };
     const { container } = render(

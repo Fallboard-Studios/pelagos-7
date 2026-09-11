@@ -96,24 +96,37 @@ describe('AudioRigDrawer', () => {
   });
 
   describe('EQ & Filters internal layout (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.5/§1.6 — flattened, no intermediate grouping panel)', () => {
-    it('eq3, filterLPF, and filterHPF are direct siblings of one shared panel, in that order — no intermediate wrapper between them', () => {
+    it('eq3, filterLPF, and filterHPF are direct siblings of one shared PanelGroup, in that order — no intermediate wrapper between them', () => {
       render(<AudioRigDrawer />);
       const eqEffectBlock = screen.getByText('3-Band EQ').closest('.audio-rig-drawer__effect-block')!;
       const lpfEffectBlock = screen.getByText('Low-Pass Filter').closest('.audio-rig-drawer__effect-block')!;
       const hpfEffectBlock = screen.getByText('High-Pass Filter').closest('.audio-rig-drawer__effect-block')!;
 
-      const eqParentPanel = eqEffectBlock.parentElement!;
-      const lpfParentPanel = lpfEffectBlock.parentElement!;
-      const hpfParentPanel = hpfEffectBlock.parentElement!;
-      // All 3 effect-blocks share the exact same parent — the flattened
-      // EQ_FILTERS_ROW_PANEL_SCHEMA content div — not 2 different levels of nesting.
-      expect(eqParentPanel).toBe(lpfParentPanel);
-      expect(lpfParentPanel).toBe(hpfParentPanel);
-      expect(eqParentPanel.classList.contains('sc-directional-panel__content')).toBe(true);
+      const eqParentGroup = eqEffectBlock.parentElement!;
+      const lpfParentGroup = lpfEffectBlock.parentElement!;
+      const hpfParentGroup = hpfEffectBlock.parentElement!;
+      // All 3 effect-blocks share the exact same parent — one shared PanelGroup, not a
+      // DirectionalPanel (no shared Cabinetry facade — see the "own facade per block" test below).
+      expect(eqParentGroup).toBe(lpfParentGroup);
+      expect(lpfParentGroup).toBe(hpfParentGroup);
+      expect(eqParentGroup.classList.contains('sc-panel-group')).toBe(true);
 
       // DOM order: eq3, then filterLPF, then filterHPF.
       expect(eqEffectBlock.compareDocumentPosition(lpfEffectBlock) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(lpfEffectBlock.compareDocumentPosition(hpfEffectBlock) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it('eq3, filterLPF, and filterHPF each keep their own independent Cabinetry facade — not one shared facade (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md\'s "Separate facades" amendment)', () => {
+      render(<AudioRigDrawer />);
+      const eqFacade = screen.getByText('3-Band EQ').closest('.sc-directional-panel-facade')!;
+      const lpfFacade = screen.getByText('Low-Pass Filter').closest('.sc-directional-panel-facade')!;
+      const hpfFacade = screen.getByText('High-Pass Filter').closest('.sc-directional-panel-facade')!;
+      expect(eqFacade).not.toBeNull();
+      expect(lpfFacade).not.toBeNull();
+      expect(hpfFacade).not.toBeNull();
+      expect(eqFacade).not.toBe(lpfFacade);
+      expect(lpfFacade).not.toBe(hpfFacade);
+      expect(eqFacade).not.toBe(hpfFacade);
     });
 
     it('stacks one-per-row (column) on mobile/tablet', () => {
@@ -157,25 +170,45 @@ describe('AudioRigDrawer', () => {
       }
     });
 
-    it('Time & Space wraps Delay/Reverb in one shared row panel (TIME_SPACE_COLUMN_PANEL_SCHEMA); Output still renders Compressor/Limiter flat', () => {
+    it('Time & Space wraps Delay/Reverb in one shared responsive PanelGroup; Output wraps Compressor/Limiter in a fixed-column PanelGroup — neither is a DirectionalPanel, so neither claims a shared facade', () => {
       render(<AudioRigDrawer />);
 
-      // Delay and Reverb share one further .sc-directional-panel ancestor above their own block
-      // panel — same shape as filterLPF/filterHPF's outer row wrapper above.
+      // Delay and Reverb share one further .sc-panel-group ancestor above their own block panel —
+      // same shape as eq3/filterLPF/filterHPF's outer PanelGroup above.
       const delayBlock = screen.getByText('Delay').closest('.sc-directional-panel')!.closest('.audio-rig-drawer__effect-block')!;
       const reverbBlock = screen.getByText('Reverb').closest('.sc-directional-panel')!.closest('.audio-rig-drawer__effect-block')!;
-      const delayOuterPanel = delayBlock.parentElement?.closest('.sc-directional-panel');
-      const reverbOuterPanel = reverbBlock.parentElement?.closest('.sc-directional-panel');
-      expect(delayOuterPanel).not.toBeNull();
-      expect(delayOuterPanel).toBe(reverbOuterPanel);
-      expect(delayOuterPanel?.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('row');
+      const delayOuterGroup = delayBlock.parentElement;
+      const reverbOuterGroup = reverbBlock.parentElement;
+      expect(delayOuterGroup).not.toBeNull();
+      expect(delayOuterGroup).toBe(reverbOuterGroup);
+      expect(delayOuterGroup?.classList.contains('sc-panel-group')).toBe(true);
+      expect(delayOuterGroup?.getAttribute('data-orientation')).toBe('row');
+      // No shared facade — no .sc-directional-panel-facade wraps the PanelGroup itself, and each
+      // block keeps its own.
+      expect(delayOuterGroup?.closest('.sc-directional-panel-facade')).toBeNull();
+      const delayFacade = screen.getByText('Delay').closest('.sc-directional-panel-facade')!;
+      const reverbFacade = screen.getByText('Reverb').closest('.sc-directional-panel-facade')!;
+      expect(delayFacade).not.toBeNull();
+      expect(reverbFacade).not.toBeNull();
+      expect(delayFacade).not.toBe(reverbFacade);
 
-      // Output's Compressor/Limiter still stack flat — no extra wrapping panel.
-      for (const label of ['Compressor', 'Limiter']) {
-        const blockPanel = screen.getByText(label).closest('.sc-directional-panel')!;
-        const effectBlockDiv = blockPanel.closest('.audio-rig-drawer__effect-block')!;
-        expect(effectBlockDiv.parentElement?.closest('.sc-directional-panel'), label).toBeNull();
-      }
+      // Output's Compressor/Limiter now share one further .sc-panel-group ancestor too — fixed
+      // column, so it stays stacked at every breakpoint (Compressor/Limiter never share a row,
+      // unlike EQ & Filters or Time & Space) — and, same as above, keep independent facades.
+      const compressorBlock = screen.getByText('Compressor').closest('.sc-directional-panel')!.closest('.audio-rig-drawer__effect-block')!;
+      const limiterBlock = screen.getByText('Limiter').closest('.sc-directional-panel')!.closest('.audio-rig-drawer__effect-block')!;
+      const compressorOuterGroup = compressorBlock.parentElement;
+      const limiterOuterGroup = limiterBlock.parentElement;
+      expect(compressorOuterGroup).not.toBeNull();
+      expect(compressorOuterGroup).toBe(limiterOuterGroup);
+      expect(compressorOuterGroup?.classList.contains('sc-panel-group')).toBe(true);
+      expect(compressorOuterGroup?.getAttribute('data-orientation')).toBe('column');
+      expect(compressorOuterGroup?.closest('.sc-directional-panel-facade')).toBeNull();
+      const compressorFacade = screen.getByText('Compressor').closest('.sc-directional-panel-facade')!;
+      const limiterFacade = screen.getByText('Limiter').closest('.sc-directional-panel-facade')!;
+      expect(compressorFacade).not.toBeNull();
+      expect(limiterFacade).not.toBeNull();
+      expect(compressorFacade).not.toBe(limiterFacade);
     });
   });
 
