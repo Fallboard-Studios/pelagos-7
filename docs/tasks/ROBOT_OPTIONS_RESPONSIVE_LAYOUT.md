@@ -51,7 +51,7 @@ Tasks 3-6 have no dependency on Task 1/2 or each other — they can be done firs
 
 ### Phase 1: Volume accordion
 
-- [ ] **Task 1: `robotOptionsConfig.ts` — Volume accordion additive groundwork**
+- [x] **Task 1: `robotOptionsConfig.ts` — Volume accordion additive groundwork**
 
   **Description:** Per spec §1.2/§4.1: add `VOLUME_ACCORDION_SCHEMA: AccordionSchema` (`id: 'robotOptions.volumeAccordion'`, `humanLabel: 'Volume'`, `loreLabel: 'Probe Acoustic Amplitude'`), `VOLUME_ROW_PANEL_SCHEMA: DirectionalPanelSchema` (`id: 'robotOptions.volumeRow'`, `orientation: 'responsive'`, unlabeled), and `VOLUME_SETTINGS_COLUMN_PANEL_SCHEMA: DirectionalPanelSchema` (`id: 'robotOptions.volumeSettingsColumn'`, `orientation: 'column'`, unlabeled). `ROBOT_OUTPUT_PANEL_SCHEMA` stays exactly as it is, still exported, still the only thing `AudioSettingSection.tsx` reads — nothing consumes the 3 new exports yet.
 
@@ -70,7 +70,7 @@ Tasks 3-6 have no dependency on Task 1/2 or each other — they can be done firs
 
   **Estimated scope:** S (2 files, 3 new consts)
 
-- [ ] **Task 2: `AudioSettingSection.tsx` — accordion + 2-column split; remove `ROBOT_OUTPUT_PANEL_SCHEMA`**
+- [x] **Task 2: `AudioSettingSection.tsx` — accordion + 2-column split; remove `ROBOT_OUTPUT_PANEL_SCHEMA`**
 
   **Description:** Per spec §1.2/§4.2: replace the current `<DirectionalPanel schema={ROBOT_OUTPUT_PANEL_SCHEMA}>` + `<LfoTargetGroup>` structure with `<AccordionContainer schema={VOLUME_ACCORDION_SCHEMA}>` wrapping `<DirectionalPanel schema={VOLUME_ROW_PANEL_SCHEMA}>`, which wraps `<DirectionalPanel schema={VOLUME_SETTINGS_COLUMN_PANEL_SCHEMA}>` (Audio Setting radio + the Volume row) beside a plain `<div>` holding the shared `Lfo` display. Call `useLfoTargetGroup({ groupId: 'robotOptions.volume', fields: [...] })` directly (the hook, not the `<LfoTargetGroup>` component) to get `{ selected, transitioning, select, isTargeted, displayValue, displayLabel }`, matching `AudioRigLfoGroup`'s own pattern exactly. The Volume row gets `className={withActiveClass('audio-setting-section__row sc-lfo-target-group__row', isTargeted('volume'))}` with `onClick`/`onFocus` calling `select('volume')`, mirroring `AudioRigLfoGroup`'s per-field row wiring. Remove `ROBOT_OUTPUT_PANEL_SCHEMA` from `robotOptionsConfig.ts` and its test now that nothing consumes it.
 
@@ -96,15 +96,15 @@ Tasks 3-6 have no dependency on Task 1/2 or each other — they can be done firs
   **Estimated scope:** M (4-5 files — the component rewrite is the substantial part; the config cleanup riding along is a small deletion)
 
 ### Checkpoint: Volume complete
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] Manual check of the Volume accordion at mobile/tablet/desktop widths.
-- [ ] Review with human before proceeding.
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [x] Manual check of the Volume accordion at mobile/tablet/desktop widths.
+- [x] Review with human before proceeding.
 
 ---
 
 ### Phase 2: Independent config changes (parallelizable in intent, sequential in execution — see Architecture Decisions)
 
-- [ ] **Task 3: `AUDIO_SETTING_SCHEMA` — "Off" → "Auto"**
+- [x] **Task 3: `AUDIO_SETTING_SCHEMA` — "Off" → "Auto"**
 
   **Description:** Per spec §1.3/§4.1: change the `{ value: 'none', label: 'Off' }` options-array entry to `{ value: 'none', label: 'Auto' }`. No other entry changes; the stored value (`'none'`) is unchanged.
 
@@ -122,7 +122,7 @@ Tasks 3-6 have no dependency on Task 1/2 or each other — they can be done firs
 
   **Estimated scope:** XS (3 files, one literal string change)
 
-- [ ] **Task 4: `robotOptionsConfig.ts` — slider orientation fixes**
+- [x] **Task 4: `robotOptionsConfig.ts` — slider orientation fixes**
 
   **Description:** Per spec §1.6/§4.1: change `DENSITY_SCHEMA`, `MOTIF_LENGTH_SCHEMA`, `PITCH_REPEAT_SCHEMA`, `OCTAVE_RANGE_MIN_SCHEMA`, `OCTAVE_RANGE_MAX_SCHEMA`, `NOTE_VARIANCE_SCHEMA`, `ATTACK_SCHEMA`, `DECAY_SCHEMA`, `SUSTAIN_SCHEMA`, `RELEASE_SCHEMA` from `orientation: 'auto'` to `orientation: 'horizontal'`, each in place. `VOLUME_SCHEMA` (already `'horizontal'`) and Signature Array's layer schemas (already `'vertical'`) are untouched.
 
@@ -140,7 +140,7 @@ Tasks 3-6 have no dependency on Task 1/2 or each other — they can be done firs
 
   **Estimated scope:** S (2 files, 10 literal value edits)
 
-- [ ] **Task 5: `robotOptionsConfig.ts` — Melody panels → `'responsive'`**
+- [x] **Task 5: `robotOptionsConfig.ts` — Melody panels → `'responsive'`**
 
   **Description:** Per spec §1.4/§4.1: change `RHYTHM_PANEL_SCHEMA.orientation` and `FREQUENCY_PANEL_SCHEMA.orientation` from `'row'` to `'responsive'`. Both consts are already rendered by `PingControlsDrawer.tsx` via existing `<DirectionalPanel schema={...}>` calls — no consumer-code change needed; the behavior change is live the moment the value flips (the `'responsive'` mechanism itself needs no work — it already exists and is proven by `AUDIO_RIG_RESPONSIVE_LAYOUT.md`).
 
@@ -161,7 +161,7 @@ Tasks 3-6 have no dependency on Task 1/2 or each other — they can be done firs
 
   **Estimated scope:** S (2 files, 2 literal value changes + new test coverage for a previously-untested schema)
 
-- [ ] **Task 6: Envelope — `PING_CONTOUR_PANEL_SCHEMA` → column + 2 `'responsive'` sub-rows**
+- [x] **Task 6: Envelope — `PING_CONTOUR_PANEL_SCHEMA` → column + 2 `'responsive'` sub-rows**
 
   **Description:** Per spec §1.4/§4.1/§4.3: change `PING_CONTOUR_PANEL_SCHEMA.orientation` from `'row'` to `'column'` (`loreLabel`/`humanLabel` unchanged). In `PingContourDrawer.tsx`, replace the flat 4-slider row with 2 nested `DirectionalPanel`s — `{ id: 'robotOptions.pingContour.topRow', type: 'directionalPanel', orientation: 'responsive' }` wrapping Attack+Decay, and `{ id: 'robotOptions.pingContour.bottomRow', type: 'directionalPanel', orientation: 'responsive' }` wrapping Sustain+Release — both inline object literals at their call sites, matching `AudioRigDrawer.tsx`'s own Compressor `topRow`/`bottomRow` style (not new `robotOptionsConfig.ts` exports).
 
@@ -183,9 +183,9 @@ Tasks 3-6 have no dependency on Task 1/2 or each other — they can be done firs
   **Estimated scope:** M (4 files — one schema value change plus a real JSX restructure)
 
 ### Checkpoint: Melody/Envelope/labels complete
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] Manual check of Melody and Envelope's row-groups, and the "Auto" label, at mobile/tablet/desktop widths.
-- [ ] Review with human before proceeding.
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [x] Manual check of Melody and Envelope's row-groups, and the "Auto" label, at mobile/tablet/desktop widths.
+- [x] Review with human before proceeding.
 
 ---
 
@@ -244,7 +244,7 @@ Tasks 3-6 have no dependency on Task 1/2 or each other — they can be done firs
 
 ### Phase 4: Docs
 
-- [ ] **Task 9: Documentation sync**
+- [x] **Task 9: Documentation sync**
 
   **Description:** Per spec §6: add a short amendment note to `docs/specs/VERTICAL_SLIDERS.md`'s classification table, next to the `robotOptionsConfig.ts` rows (Density/Motif Length/Pitch Repeat/Octave Range/Note Variance, Attack/Decay/Sustain/Release — all listed `'auto'`), pointing at this spec — same treatment `AUDIO_RIG_RESPONSIVE_LAYOUT.md` already gave the `audioRigConfig.ts` rows in that same table. No change expected to `docs/COMPONENT_LIBRARY.md` (the `'responsive'` literal is already documented generically).
 
