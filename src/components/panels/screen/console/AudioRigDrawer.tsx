@@ -9,7 +9,6 @@ import { SliderCenteredZero } from '@/components/ui/controls/SliderCenteredZero'
 import { Stepper } from '@/components/ui/controls/Stepper';
 import { Lfo } from '@/components/ui/controls/Lfo';
 import { useLfoTargetGroup } from '@/components/ui/controls/useLfoTargetGroup';
-import { useCabinetTier } from '@/components/ui/controls/useCabinetBoxHeight';
 import { withActiveClass } from '@/components/ui/controls/activeClass';
 import {
   AUDIO_RIG_CONFIG,
@@ -17,7 +16,6 @@ import {
   TRANSPORT_COMPOSITION_ACCORDION_SCHEMA,
   SPEED_AUTOMATION_PANEL_SCHEMA,
   EQ_FILTERS_ROW_PANEL_SCHEMA,
-  EQ_FILTERS_DESKTOP_SHARE,
   TIME_SPACE_COLUMN_PANEL_SCHEMA,
   DECAY_MODE_SCHEMA,
   LFO_DRIFT_GROUPS,
@@ -201,9 +199,6 @@ export function AudioRigDrawer() {
   const setPingVarianceAutomation = useAudioStore((s) => s.setPingVarianceAutomation);
   const bpm = useAudioStore((s) => s.bpm);
   const setBPM = useAudioStore((s) => s.setBPM);
-  // Drives the EQ & Filters desktop-only flexBasis share (§1.6) — no other renderBlock()
-  // call site reads this.
-  const tier = useCabinetTier();
 
   return (
     <div className="audio-rig-drawer">
@@ -231,12 +226,13 @@ export function AudioRigDrawer() {
           {group.key === 'eqFilters' ? (
             // Flattened (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.5) — eq3, filterLPF, and
             // filterHPF are 3 direct siblings of one shared panel, no intermediate grouping
-            // panel. Stacks one-per-row on mobile/tablet; on desktop they share one row at the
-            // fixed EQ_FILTERS_DESKTOP_SHARE percentages (§1.6), applied as an inline flexBasis
-            // override on each block's own wrapper div — the one place this phase reaches past
-            // DirectionalPanel's own equal-share schema contract.
+            // panel. Stacks one-per-row on mobile/tablet; on desktop they share one row as equal
+            // thirds via DirectionalPanel.css's own default flex: 1 1 0 — no per-block override
+            // needed (a straight 40/30/30 desktop split was tried and reverted; equal shares are
+            // exactly what the shared equal-share contract already gives every other row for
+            // free).
             <DirectionalPanel schema={EQ_FILTERS_ROW_PANEL_SCHEMA}>
-              {(['eq3', 'filterLPF', 'filterHPF'] as const).map((key) => renderBlock(key, EQ_FILTERS_DESKTOP_SHARE[key]))}
+              {(['eq3', 'filterLPF', 'filterHPF'] as const).map((key) => renderBlock(key))}
             </DirectionalPanel>
           ) : group.key === 'timeSpace' ? (
             <DirectionalPanel schema={TIME_SPACE_COLUMN_PANEL_SCHEMA}>
@@ -252,16 +248,9 @@ export function AudioRigDrawer() {
 
   /** Every effect block's own body (AudioRigLfoGroup-or-plain-params-map, plus the
    *  compressor-only Decay Mode radio) — shared by every AUDIO_RIG_ACCORDION_GROUPS entry's
-   *  flat stack and EQ & Filters' own flattened row/column layout above. `desktopSharePercent`
-   *  (only ever passed by the EQ & Filters call site above) applies an inline flexBasis
-   *  override to this block's own wrapper div, but only at the desktop tier — every other
-   *  call site's single-argument call leaves it undefined, falling back to
-   *  DirectionalPanel.css's own equal-share `flex: 1 1 0` default. */
-  function renderBlock(key: AudioRigEffectKey, desktopSharePercent?: number) {
+   *  flat stack and EQ & Filters' own flattened row/column layout above. */
+  function renderBlock(key: AudioRigEffectKey) {
     const block = AUDIO_RIG_CONFIG.find((b) => b.key === key)!;
-    const style = desktopSharePercent !== undefined && tier === 'desktop'
-      ? { flexBasis: `${desktopSharePercent}%` }
-      : undefined;
     // Every param field on every effect is a number (GLOBAL_CHAIN_GRID.md has
     // no string/boolean params) — this cast is read-only and narrow, matching
     // audioStore.ts's own GLOBAL_SETTER cast for the same "dynamic key against
@@ -275,7 +264,7 @@ export function AudioRigDrawer() {
     }
 
     return (
-      <div className="audio-rig-drawer__effect-block" key={block.key} style={style}>
+      <div className="audio-rig-drawer__effect-block" key={block.key}>
         <DirectionalPanel schema={block.panel}>
           {lfoFields.length > 0 ? (
             <AudioRigLfoGroup

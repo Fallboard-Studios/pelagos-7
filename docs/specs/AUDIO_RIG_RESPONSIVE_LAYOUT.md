@@ -78,6 +78,14 @@ Today: `EQ_FILTERS_ROW_PANEL_SCHEMA` (orientation `'auto'`) wraps `eq3`'s block 
 
 ### 1.6 The 40/30/30 desktop split: an inline `flexBasis` override, not a `DirectionalPanel` API change
 
+**Amendment, 2026-09-10 (post-ship):** Crawford changed the desktop split from 40/30/30 to a straight
+equal-thirds split immediately after this shipped. Since equal shares are exactly what
+`DirectionalPanel.css`'s own default already gives every row child for free, the entire mechanism this
+section describes — `EQ_FILTERS_DESKTOP_SHARE`, `renderBlock()`'s `desktopSharePercent` parameter, the
+`useCabinetTier()` call in `AudioRigDrawer.tsx`, and the inline `flexBasis` style — was removed rather than
+retuned to `33`/`33`/`33`. The rest of this section is left as a record of the mechanism that existed
+between those two states, not a description of the current code.
+
 `.sc-directional-panel__content > *` already gives every row child `flex: 1 1 0` (equal shares, content-independent — `DirectionalPanel.css`'s own documented fix for the voxel-track `ResizeObserver` feedback loop, §4.2). A percentage-basis inline style on a specific child overrides only that child's `flex-basis` component of that shorthand (inline style always wins over an external-stylesheet longhand it targets); `flex-grow`/`flex-shrink: 1` from the CSS rule are unaffected but become moot once three children's bases already sum to exactly 100% of the row, since desktop is the only tier this applies in (the row exists at all) so there is zero leftover space for a still-active `flex-grow: 1` to distribute:
 
 ```typescript

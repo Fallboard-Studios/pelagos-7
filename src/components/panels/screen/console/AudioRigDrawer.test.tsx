@@ -130,15 +130,13 @@ describe('AudioRigDrawer', () => {
       expect(content.getAttribute('data-orientation')).toBe('row');
     });
 
-    it('applies the 40/30/30 flexBasis desktop share to each effect-block wrapper', () => {
+    it('applies no flexBasis override to eq3/filterLPF/filterHPF on desktop — equal thirds via DirectionalPanel.css\'s own flex: 1 1 0 default', () => {
       stubMatchMedia({ mobile: false, tablet: false });
       render(<AudioRigDrawer />);
-      const eqEffectBlock = screen.getByText('3-Band EQ').closest('.audio-rig-drawer__effect-block') as HTMLElement;
-      const lpfEffectBlock = screen.getByText('Low-Pass Filter').closest('.audio-rig-drawer__effect-block') as HTMLElement;
-      const hpfEffectBlock = screen.getByText('High-Pass Filter').closest('.audio-rig-drawer__effect-block') as HTMLElement;
-      expect(eqEffectBlock.style.flexBasis).toBe('40%');
-      expect(lpfEffectBlock.style.flexBasis).toBe('30%');
-      expect(hpfEffectBlock.style.flexBasis).toBe('30%');
+      for (const label of ['3-Band EQ', 'Low-Pass Filter', 'High-Pass Filter']) {
+        const effectBlock = screen.getByText(label).closest('.audio-rig-drawer__effect-block') as HTMLElement;
+        expect(effectBlock.style.flexBasis, label).toBe('');
+      }
     });
 
     it('applies no flexBasis override on mobile/tablet', () => {

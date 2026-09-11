@@ -182,6 +182,8 @@ Tasks 3 and 4 are fully independent of the whole `'responsive'`-mechanism chain 
 
 - [x] **Task 6: `audioRigConfig.ts` — EQ & Filters additive groundwork**
 
+  **Amendment, 2026-09-10 (post-ship):** `EQ_FILTERS_DESKTOP_SHARE` and every `flexBasis`/`desktopSharePercent`/`useCabinetTier()` mechanism this task and Task 7 introduced was removed in a follow-up commit — Crawford changed the desktop split to a straight equal-thirds share, which `DirectionalPanel.css`'s own default `flex: 1 1 0` already provides with no per-block override. Left below as a record of the task as originally executed.
+
   **Description:** Per spec §1.5/§1.6/§4.2: change `EQ_FILTERS_ROW_PANEL_SCHEMA.orientation` from `'auto'` to `'responsive'`. Add `EQ_FILTERS_DESKTOP_SHARE: Record<'eq3' | 'filterLPF' | 'filterHPF', number>` (`{ eq3: 40, filterLPF: 30, filterHPF: 30 }`), adjacent to `EQ_FILTERS_ROW_PANEL_SCHEMA`. `FILTERS_COLUMN_PANEL_SCHEMA` and `AudioRigDrawer.tsx`'s nested JSX are both untouched this task — still the old 2-level nesting, still building and rendering exactly as before, just with `EQ_FILTERS_ROW_PANEL_SCHEMA` now flowing through `'responsive'` instead of `'auto'` (a behavior change on its own — the outer EQ-vs-Filters split now uses the fixed tier instead of a per-instance width measurement — but the *nesting shape* doesn't change until Task 7).
 
   **Acceptance criteria:**

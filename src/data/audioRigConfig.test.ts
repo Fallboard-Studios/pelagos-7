@@ -13,7 +13,6 @@ import {
   TRANSPORT_COMPOSITION_ACCORDION_SCHEMA,
   SPEED_AUTOMATION_PANEL_SCHEMA,
   EQ_FILTERS_ROW_PANEL_SCHEMA,
-  EQ_FILTERS_DESKTOP_SHARE,
   TIME_SPACE_COLUMN_PANEL_SCHEMA,
   type AudioRigEffectKey,
 } from './audioRigConfig';
@@ -619,14 +618,3 @@ describe('EQ_FILTERS_ROW_PANEL_SCHEMA (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md
   });
 });
 
-describe('EQ_FILTERS_DESKTOP_SHARE (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.6)', () => {
-  it('gives eq3 40% and filterLPF/filterHPF 30% each, summing to 100', () => {
-    expect(EQ_FILTERS_DESKTOP_SHARE).toEqual({ eq3: 40, filterLPF: 30, filterHPF: 30 });
-    const total = Object.values(EQ_FILTERS_DESKTOP_SHARE).reduce((sum, n) => sum + n, 0);
-    expect(total).toBe(100);
-  });
-
-  it('remains JSON-serializable', () => {
-    expect(() => JSON.stringify(EQ_FILTERS_DESKTOP_SHARE)).not.toThrow();
-  });
-});

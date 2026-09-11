@@ -6,6 +6,11 @@ orientation misconfiguration, both fixed same session) exposed how fragile the A
 was across viewport widths. This item goes further than a bugfix — it replaces `'auto'`-resolved
 orientation (both panel and slider) throughout the Audio Rig with explicit, viewport-tier-driven values.
 
+**Amendment, 2026-09-10 (post-ship):** the EQ & Filters desktop split named below (EQ 40% / LPF 30% /
+HPF 30%) was corrected to a straight equal-thirds split immediately after shipping — see the spec's own
+§1.6 amendment for the mechanism change this enabled (the custom `flexBasis` override was removed
+entirely, since equal shares are exactly `DirectionalPanel.css`'s own default).
+
 ## Outcome
 
 Every panel/slider orientation decision in `AudioRigDrawer.tsx` and `audioRigConfig.ts` becomes either a
