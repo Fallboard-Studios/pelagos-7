@@ -116,4 +116,26 @@ describe('Toggle', () => {
     const { container } = render(<Toggle schema={schema} value={false} onChange={() => {}} />);
     expect(container.querySelector('.sc-toggle__thumb')).toBeNull();
   });
+
+  it('passes an explicit boxSize straight through as CabinetBox\'s boxHeight, overriding the fixed 32px default (docs/specs/HEADER_HUB_CONSOLIDATION.md §1.4)', () => {
+    render(<Toggle schema={schema} value={false} onChange={() => {}} boxSize={44} />);
+    expect(screen.getByTestId('cabinet-box').getAttribute('data-box-height')).toBe('44');
+  });
+
+  it('omitting boxSize still passes the fixed 32px default — every existing consumer is unaffected (regression guard)', () => {
+    render(<Toggle schema={schema} value={false} onChange={() => {}} />);
+    expect(screen.getByTestId('cabinet-box').getAttribute('data-box-height')).toBe('32');
+  });
+
+  it('also updates the --cabinet-toggle-box-size custom property (Toggle.css\'s own front-face size override) to match boxSize, not just CabinetBox\'s boxHeight prop', () => {
+    render(<Toggle schema={schema} value={false} onChange={() => {}} boxSize={44} />);
+    const switchRoot = screen.getByRole('switch');
+    expect(switchRoot.style.getPropertyValue('--cabinet-toggle-box-size')).toBe('44px');
+  });
+
+  it('--cabinet-toggle-box-size still defaults to 32px when boxSize is omitted', () => {
+    render(<Toggle schema={schema} value={false} onChange={() => {}} />);
+    const switchRoot = screen.getByRole('switch');
+    expect(switchRoot.style.getPropertyValue('--cabinet-toggle-box-size')).toBe('32px');
+  });
 });
