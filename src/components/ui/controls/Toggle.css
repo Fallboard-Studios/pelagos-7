@@ -31,11 +31,18 @@
 }
 
 /* Overrides CabinetBox's own content-driven front-face sizing to the fixed
-   32×32px size Toggle.tsx computes into --cabinet-toggle-box-size — scoped
-   to .sc-toggle__root specifically so Button's own content-sized front face
-   (CabinetBox.css's own .sc-cabinet-box__front rule) is untouched. See
+   32×32px (or overridden boxSize) square Toggle.tsx computes into
+   --cabinet-toggle-box-size — scoped to the --bare modifier class Toggle.tsx
+   applies only when it has no facade content (children), so a
+   content-bearing instance (Header's Mute icon, PingControlsDrawer's Click
+   Track text) falls through to CabinetBox.css's own natural content-sized
+   front face instead — the same rule Button's own box already uses ("as
+   wide as it needs to be" rather than a forced square). An explicit boxSize
+   still keeps the --bare class even with children (Header's Mute needs an
+   exact 44px regardless of its icon) — Toggle.tsx's own contentSized check
+   is what decides this, not this rule. See
    docs/specs/OBLIQUE_CABINETRY_TOGGLE.md §1.2. */
-.sc-toggle__root .sc-cabinet-box__front {
+.sc-toggle__root--bare .sc-cabinet-box__front {
   width: var(--cabinet-toggle-box-size);
   height: var(--cabinet-toggle-box-size);
   padding: 0;
