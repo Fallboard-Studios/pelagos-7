@@ -1,13 +1,11 @@
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useEffect, useRef } from 'react';
 
-import { useHeaderRowFit } from './useHeaderRowFit';
 import { useAttenuationStyleStore, selectCurrentAttenuationStyle } from '@/stores/attenuationStyleStore';
 import { useLocaleStore } from '@/stores/localeStore';
 import { Toggle } from '@/components/ui/controls/Toggle';
 import { RadioButton } from '@/components/ui/controls/RadioButton';
 import { SliderLinear } from '@/components/ui/controls/SliderLinear';
-import { useVoxelTrackGap } from '@/components/ui/controls/useCabinetBoxHeight';
 import { HEADER_NAV_SCHEMA } from '@/data/headerNavConfig';
 import { useUIStore } from '@/stores/uiStore';
 import { useAudioStore } from '@/stores/audioStore';
@@ -17,9 +15,9 @@ import type { HubTile } from '@/types/hub';
 import './Header.css';
 
 /** No JS-side constant for --touch-target-size (index.css) existed before
- *  this feature — both Toggle's boxSize and useHeaderRowFit's own threshold
- *  math need the same literal 44px, so it's defined once here rather than
- *  duplicated. docs/specs/HEADER_HUB_CONSOLIDATION.md §1.4. */
+ *  this feature — the nav RadioButton's boxSize needs the same literal
+ *  44px, so it's defined once here rather than duplicated.
+ *  docs/specs/HEADER_HUB_CONSOLIDATION.md §1.4. */
 const TOUCH_TARGET_SIZE = 44;
 
 /** humanLabel: 'Mute' feeds the switch's accessible name (resolveAccessibleName)
@@ -53,18 +51,14 @@ const VOLUME_SCHEMA: SliderLinearSchema = {
   type: 'sliderLinear',
 };
 
-/** Buttons in row 3 — HEADER_NAV_SCHEMA's 3 options only now that Mute has
- *  moved into row 1 alongside the volume slider — used by useHeaderRowFit's
- *  own fit threshold math. */
-const NAV_BUTTON_COUNT = HEADER_NAV_SCHEMA.options.length;
-
 /**
- * The 3-row header docked to the top of ScreenViewport (roadmap-adjacent,
+ * The header docked to the top of ScreenViewport (roadmap-adjacent,
  * docs/specs/HEADER_HUB_CONSOLIDATION.md), replacing TransportBar (Task 9
- * retires that file) and absorbing HubNav's tile-grid navigation into an
- * always-visible row 3. Row 1 (volume) and row 3 (buttons) merge into one
- * inline row on wide viewports (useHeaderRowFit); row 2 (time+temp) never
- * participates in that merge, per the confirmed intent.
+ * retired that file) and absorbing HubNav's tile-grid navigation into an
+ * always-visible nav group. Responsive layout is now a fixed set of
+ * hand-authored breakpoints in Header.css (430/480/880/1220px) rather than
+ * the original spec's ResizeObserver-driven row merge — see
+ * docs/tasks/HEADER_HUB_CONSOLIDATION.md's "Post-implementation follow-up".
  */
 function Header() {
   const headerRef = useRef<HTMLElement>(null);
@@ -76,9 +70,6 @@ function Header() {
 
   const isMuted = useAudioStore((s) => s.isMuted);
   const volume = useAudioStore((s) => s.volume);
-
-  const gap = useVoxelTrackGap();
-  const inline = useHeaderRowFit(headerRef, NAV_BUTTON_COUNT, TOUCH_TARGET_SIZE, gap);
 
   // Console.css's vertical deadzone clearance (margin-top) needs Header's
   // real rendered height, which varies by breakpoint/content — no longer
@@ -139,7 +130,7 @@ function Header() {
   const currentLocale = useLocaleStore((s) => (currentLocaleId ? s.locales[currentLocaleId] : undefined));
 
   return (
-    <header ref={headerRef} className={`header${inline ? ' header--inline' : ''}`}>
+    <header ref={headerRef} className="header">
       <div className="rocker-spacer">
         <div className="header__row header__row--volume">
           <Toggle

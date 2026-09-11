@@ -1,13 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 
-vi.mock('./useHeaderRowFit', () => ({
-  useHeaderRowFit: vi.fn(() => false),
-  MIN_VOLUME_RESERVE_PX: 80,
-}));
-
 import Header from './Header';
-import { useHeaderRowFit } from './useHeaderRowFit';
 import { useUIStore } from '@/stores/uiStore';
 import { useAudioStore } from '@/stores/audioStore';
 
@@ -22,10 +16,8 @@ function setStoreFixtures() {
   });
 }
 
-// Controllable ResizeObserver mock, mirroring useHeaderRowFit.test.ts's own
-// — useHeaderRowFit itself is mocked above (no real observer from it), so
-// this one exclusively exercises the --header-height measurement effect
-// (docs/specs/HEADER_HUB_CONSOLIDATION.md §1.6, Task 9).
+// Controllable ResizeObserver mock — exercises the --header-height
+// measurement effect (docs/specs/HEADER_HUB_CONSOLIDATION.md §1.6, Task 9).
 class MockResizeObserver {
   static instances: MockResizeObserver[] = [];
   callback: ResizeObserverCallback;
@@ -80,7 +72,6 @@ let originalResizeObserver: typeof ResizeObserver;
 describe('Header', () => {
   beforeEach(() => {
     setStoreFixtures();
-    vi.mocked(useHeaderRowFit).mockReturnValue(false);
     MockResizeObserver.instances = [];
     originalResizeObserver = globalThis.ResizeObserver;
     (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = MockResizeObserver;
@@ -220,20 +211,7 @@ describe('Header', () => {
     expect(useUIStore.getState().selectedRobotId).toBe('robot-3');
   });
 
-  it('applies the header--inline class when useHeaderRowFit returns true', () => {
-    vi.mocked(useHeaderRowFit).mockReturnValue(true);
-    const { container } = render(<Header />);
-    expect(container.querySelector('.header.header--inline')).toBeTruthy();
-  });
-
-  it('omits the header--inline class when useHeaderRowFit returns false', () => {
-    vi.mocked(useHeaderRowFit).mockReturnValue(false);
-    const { container } = render(<Header />);
-    expect(container.querySelector('.header--inline')).toBeNull();
-    expect(container.querySelector('.header')).toBeTruthy();
-  });
-
-  it('renders no restart, pause/play, Attenuation Style, coordinates, or BPM readouts — all removed per docs/specs/HEADER_HUB_CONSOLIDATION.md §1.8', () => {
+  it('renders no restart, pause/play, or BPM readouts', () => {
     render(<Header />);
     expect(screen.queryByRole('button', { name: /restart/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /pause/i })).toBeNull();

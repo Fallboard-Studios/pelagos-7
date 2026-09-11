@@ -1,8 +1,13 @@
 /* ----------------------------------------
-   Header root — 3 stacked rows by default, merging to 2 (volume+nav share a
-   row, status stays separate) once useHeaderRowFit reports enough width.
+   Header root — responsive layout is a fixed set of hand-authored
+   breakpoints below (430/480/880/1220px), not a live ResizeObserver-driven
+   row merge (the original spec's useHeaderRowFit approach — removed as dead
+   code once this restyle superseded it; see
+   docs/tasks/HEADER_HUB_CONSOLIDATION.md's "Post-implementation follow-up").
    Horizontal deadzone clearance (padding-left: var(--sleeve-bar-width))
-   lives in ScreenViewport.css, applied to this whole element — Task 9.
+   lives on .rocker-spacer in ScreenViewport.css, not here — Task 9's
+   original "applied once to the whole header" placement moved once the
+   secondary nav row was added outside that wrapper.
    ---------------------------------------- */
 .header {
   --color-surface: rgba(26, 26, 26, 0.75);
