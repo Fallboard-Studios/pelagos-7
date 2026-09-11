@@ -16,6 +16,49 @@ import { getStatusLightColor } from '@/utils/statusLightColors';
 import './PowerRockerSwitch.css';
 
 // ========================================
+// GEOMETRY — single source of truth for the
+// rocker's 8 SVG faces, rest vs. pressed.
+// ========================================
+
+/** One rocker face's rest/pressed point sets. Previously each face's geometry
+ *  was hand-copied 3x (initial gsap.set, animateRockerPress's press target,
+ *  returnRocker's hardcoded FROM) — collapsed here into one table all three
+ *  call sites read from, which also removes the drift that had crept into
+ *  the loose copies (the power-glyph's pressed scaleY was 0.76 in one copy,
+ *  0.74 in another — see POWER_SVG_PRESSED below; both describe the same
+ *  "pressed" state and must agree). */
+interface RockerFace {
+  className: string;
+  rest: string;
+  pressed: string;
+}
+
+const ROCKER_FACES: RockerFace[] = [
+  { className: 'rocker-top-edge', rest: '0,5   100,5   94,15  6,15', pressed: '0,5   100,5   100,5  0,5' },
+  { className: 'rocker-top', rest: '6,15  94,15   97,44  3,44', pressed: '3,5   97,5    97,44  3,44' },
+  { className: 'rocker-top-left', rest: '0,5   6,15    3,44   0,44', pressed: '0,5   3,5     3,44   0,44' },
+  { className: 'rocker-top-right', rest: '94,15 100,5   100,44 97,44', pressed: '97,5  100,5   100,44 97,44' },
+  { className: 'rocker-bottom-edge', rest: '0,85  100,85  100,85 0,85', pressed: '0,85  100,85  94,75  6,75' },
+  { className: 'rocker-bottom', rest: '3,44  97,44   97,85  3,85', pressed: '3,44  97,44   94,75  6,75' },
+  { className: 'rocker-bottom-left', rest: '0,44  3,44    3,85   0,85', pressed: '0,44  3,44    6,75   0,85' },
+  { className: 'rocker-bottom-right', rest: '97,44 100,44  100,85 97,85', pressed: '97,44 100,44  100,85 94,75' },
+];
+
+/** The power-glyph nested SVG's own rest/pressed attr pair — same rest-vs-
+ *  pressed shape as ROCKER_FACES, kept separate since it's one element with
+ *  a different attr set (y + scaleY, not points). */
+const POWER_SVG_REST = { y: 54, scaleY: 1 };
+const POWER_SVG_PRESSED = { y: 50, scaleY: 0.76 };
+
+/** Indicator-light colors for the 3 fixed states — statusLightColors.ts
+ *  resolves a static per-name/alpha value from colorTheme.json, so these
+ *  never change across the component's lifetime. Computed once at module
+ *  load rather than re-derived (2 HSL formats each) on every render. */
+const LIGHT_ON = getStatusLightColor('green', 0.7);
+const LIGHT_OFF = getStatusLightColor('red', 0.55);
+const LIGHT_TRANSITIONING = getStatusLightColor('amber', 0.5);
+
+// ========================================
 // COMPONENT
 // ========================================
 
@@ -24,6 +67,11 @@ export function PowerRockerSwitch() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const rockerRef = useRef<SVGSVGElement>(null);
+  // Cache of each rocker face's own DOM node, populated once on mount by the
+  // useGSAP effect below — animateRockerPress/returnRocker read from this
+  // instead of re-running gsap.utils.selector (and its querySelector call
+  // per face) on every press/return cycle.
+  const elsRef = useRef<Record<string, Element>>({});
   const dialogContainer = getScreenViewportDomNode();
 
   // Set initial SVG attribute state via GSAP so it fully owns these attrs —
@@ -31,15 +79,14 @@ export function PowerRockerSwitch() {
   useGSAP(() => {
     if (!rockerRef.current) return;
     const sel = gsap.utils.selector(rockerRef.current);
-    gsap.set(sel('.rocker-top-edge'), { attr: { points: '0,5   100,5   94,15  6,15' } });
-    gsap.set(sel('.rocker-top'), { attr: { points: '6,15  94,15   97,44  3,44' } });
-    gsap.set(sel('.rocker-top-left'), { attr: { points: '0,5   6,15    3,44   0,44' } });
-    gsap.set(sel('.rocker-top-right'), { attr: { points: '94,15 100,5   100,44 97,44' } });
-    gsap.set(sel('.rocker-bottom-edge'), { attr: { points: '0,85  100,85  100,85 0,85' } });
-    gsap.set(sel('.rocker-bottom'), { attr: { points: '3,44  97,44   97,85  3,85' } });
-    gsap.set(sel('.rocker-bottom-left'), { attr: { points: '0,44  3,44    3,85   0,85' } });
-    gsap.set(sel('.rocker-bottom-right'), { attr: { points: '97,44 100,44  100,85 97,85' } });
-    gsap.set(sel('.rocker-power-svg'), { attr: { y: 54 }, scaleY: 1 });
+    for (const face of ROCKER_FACES) {
+      const el = sel(`.${face.className}`)[0] as Element;
+      elsRef.current[face.className] = el;
+      gsap.set(el, { attr: { points: face.rest } });
+    }
+    const powerSvgEl = sel('.rocker-power-svg')[0] as Element;
+    elsRef.current['rocker-power-svg'] = powerSvgEl;
+    gsap.set(powerSvgEl, { attr: { y: POWER_SVG_REST.y }, scaleY: POWER_SVG_REST.scaleY });
   }, { scope: rockerRef, dependencies: [] });
 
   // Kill rocker timeline on unmount to prevent leaks
@@ -61,22 +108,16 @@ export function PowerRockerSwitch() {
     if (!rockerRef.current) return;
     killTimeline('power-rocker-return');
     killTimeline('power-rocker');
-    const sel = gsap.utils.selector(rockerRef.current);
     const tl = gsap.timeline();
     const THUNK = 0.06;
     const HOLD = 0.12;
 
-    tl
-      // ── Thunk: top slams flush ─────────────────────────────────────────────
-      .to(sel('.rocker-top-edge'), { attr: { points: '0,5   100,5   100,5  0,5' }, duration: THUNK, ease: 'power4.in' })
-      .to(sel('.rocker-top'), { attr: { points: '3,5   97,5    97,44  3,44' }, duration: THUNK, ease: 'power4.in' }, '<')
-      .to(sel('.rocker-top-left'), { attr: { points: '0,5   3,5     3,44   0,44' }, duration: THUNK, ease: 'power4.in' }, '<')
-      .to(sel('.rocker-top-right'), { attr: { points: '97,5  100,5   100,44 97,44' }, duration: THUNK, ease: 'power4.in' }, '<')
-      .to(sel('.rocker-bottom-edge'), { attr: { points: '0,85  100,85  94,75  6,75' }, duration: THUNK, ease: 'power4.in' }, '<')
-      .to(sel('.rocker-bottom'), { attr: { points: '3,44  97,44   94,75  6,75' }, duration: THUNK, ease: 'power4.in' }, '<')
-      .to(sel('.rocker-bottom-left'), { attr: { points: '0,44  3,44    6,75   0,85' }, duration: THUNK, ease: 'power4.in' }, '<')
-      .to(sel('.rocker-bottom-right'), { attr: { points: '97,44 100,44  100,85 94,75' }, duration: THUNK, ease: 'power4.in' }, '<')
-      .to(sel('.rocker-power-svg'), { attr: { y: 50 }, scaleY: 0.76, transformOrigin: '50% 50%', duration: THUNK, ease: 'power4.in' }, '<')
+    // ── Thunk: all 8 faces + the power glyph slam to their pressed geometry
+    //    together (every tween start-synced via '<' to the first). ──────────
+    ROCKER_FACES.forEach((face, i) => {
+      tl.to(elsRef.current[face.className], { attr: { points: face.pressed }, duration: THUNK, ease: 'power4.in' }, ...(i === 0 ? [] : ['<'] as const));
+    });
+    tl.to(elsRef.current['rocker-power-svg'], { attr: { y: POWER_SVG_PRESSED.y }, scaleY: POWER_SVG_PRESSED.scaleY, transformOrigin: '50% 50%', duration: THUNK, ease: 'power4.in' }, '<')
       // ── Hold (button stays depressed until dialog resolves) ────────────────
       .to({}, { duration: HOLD });
     setTimeline('power-rocker', tl);
@@ -86,42 +127,23 @@ export function PowerRockerSwitch() {
     if (!rockerRef.current) return;
     killTimeline('power-rocker');
     killTimeline('power-rocker-return');
-    const sel = gsap.utils.selector(rockerRef.current);
     const tl = gsap.timeline();
     const MOTOR = 1.0;
 
-    // Use fromTo with hardcoded pressed-state FROM values so this tween is
-    // immune to React reconciliation writing resting-state JSX attrs back to
-    // the DOM mid-animation (which would cause GSAP to read resting as FROM
-    // and produce an instant snap).
-    tl
-      .fromTo(sel('.rocker-top-edge'),
-        { attr: { points: '0,5   100,5   100,5  0,5' } },
-        { attr: { points: '0,5   100,5   94,15  6,15' }, duration: MOTOR, ease: 'none' })
-      .fromTo(sel('.rocker-top'),
-        { attr: { points: '3,5   97,5    97,44  3,44' } },
-        { attr: { points: '6,15  94,15   97,44  3,44' }, duration: MOTOR, ease: 'none' }, '<')
-      .fromTo(sel('.rocker-top-left'),
-        { attr: { points: '0,5   3,5     3,44   0,44' } },
-        { attr: { points: '0,5   6,15    3,44   0,44' }, duration: MOTOR, ease: 'none' }, '<')
-      .fromTo(sel('.rocker-top-right'),
-        { attr: { points: '97,5  100,5   100,44 97,44' } },
-        { attr: { points: '94,15 100,5   100,44 97,44' }, duration: MOTOR, ease: 'none' }, '<')
-      .fromTo(sel('.rocker-bottom-edge'),
-        { attr: { points: '0,85  100,85  94,75  6,75' } },
-        { attr: { points: '0,85  100,85  100,85 0,85' }, duration: MOTOR, ease: 'none' }, '<')
-      .fromTo(sel('.rocker-bottom'),
-        { attr: { points: '3,44  97,44   94,75  6,75' } },
-        { attr: { points: '3,44  97,44   97,85  3,85' }, duration: MOTOR, ease: 'none' }, '<')
-      .fromTo(sel('.rocker-bottom-left'),
-        { attr: { points: '0,44  3,44    6,75   0,85' } },
-        { attr: { points: '0,44  3,44    3,85   0,85' }, duration: MOTOR, ease: 'none' }, '<')
-      .fromTo(sel('.rocker-bottom-right'),
-        { attr: { points: '97,44 100,44  100,85 94,75' } },
-        { attr: { points: '97,44 100,44  100,85 97,85' }, duration: MOTOR, ease: 'none' }, '<')
-      .fromTo(sel('.rocker-power-svg'),
-        { attr: { y: 50 }, scaleY: 0.74 },
-        { attr: { y: 54 }, scaleY: 1, transformOrigin: '50% 50%', duration: MOTOR, ease: 'none' }, '<')
+    // Use fromTo with hardcoded pressed-state FROM values (ROCKER_FACES'
+    // own `pressed` points — the same table animateRockerPress reads from)
+    // so this tween is immune to React reconciliation writing resting-state
+    // JSX attrs back to the DOM mid-animation (which would cause GSAP to
+    // read resting as FROM and produce an instant snap).
+    ROCKER_FACES.forEach((face, i) => {
+      tl.fromTo(elsRef.current[face.className],
+        { attr: { points: face.pressed } },
+        { attr: { points: face.rest }, duration: MOTOR, ease: 'none' },
+        ...(i === 0 ? [] : ['<'] as const));
+    });
+    tl.fromTo(elsRef.current['rocker-power-svg'],
+      { attr: { y: POWER_SVG_PRESSED.y }, scaleY: POWER_SVG_PRESSED.scaleY },
+      { attr: { y: POWER_SVG_REST.y }, scaleY: POWER_SVG_REST.scaleY, transformOrigin: '50% 50%', duration: MOTOR, ease: 'none' }, '<')
       .call(() => setIsTransitioning(false));
     setTimeline('power-rocker-return', tl);
   }
@@ -198,10 +220,8 @@ export function PowerRockerSwitch() {
   // this replaces (`[data-transitioning="true"]` came after the power-state rules). Glow alpha
   // and box-shadow geometry (below) preserve the original hand-tuned per-state values — "on" is
   // deliberately the brightest/biggest glow, not just a different hue from "off"/"transitioning".
-  const lightColor = isTransitioning
-    ? getStatusLightColor('amber', 0.5)
-    : getStatusLightColor(isPoweredOn ? 'green' : 'red', isPoweredOn ? 0.7 : 0.55);
-  const lightGlowSpread = isTransitioning ? '6px 2px' : isPoweredOn ? '8px 3px' : '6px 2px';
+  const lightColor = isTransitioning ? LIGHT_TRANSITIONING : isPoweredOn ? LIGHT_ON : LIGHT_OFF;
+  const lightGlowSpread = isPoweredOn && !isTransitioning ? '8px 3px' : '6px 2px';
 
   return (
     <>
