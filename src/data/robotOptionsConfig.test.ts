@@ -240,20 +240,15 @@ describe('slider orientation classification (docs/specs/VERTICAL_SLIDERS.md §1.
     expect(VOLUME_SCHEMA.orientation).toBe('horizontal');
   });
 
-  it('Ping Controls (Density, Motif Length, Pitch Repeat, Octave Range Min/Max, Note Variance) is auto', () => {
-    // Motif Length, Octave Range Min/Max, and Note Variance were Steppers when this
-    // classification was first written (docs/specs/VERTICAL_SLIDERS.md predates the
-    // Stepper->Slider conversion) — converted to sliders by the separate
-    // STEPPER_TO_SLIDER work, merged in afterward. Same Ping Controls section, same
-    // "everything auto" classification, now that they're real sliders to classify.
+  it('Ping Controls (Density, Motif Length, Pitch Repeat, Octave Range Min/Max, Note Variance) is horizontal (docs/specs/ROBOT_OPTIONS_RESPONSIVE_LAYOUT.md §1.6)', () => {
     [DENSITY_SCHEMA, MOTIF_LENGTH_SCHEMA, PITCH_REPEAT_SCHEMA, OCTAVE_RANGE_MIN_SCHEMA, OCTAVE_RANGE_MAX_SCHEMA, NOTE_VARIANCE_SCHEMA].forEach((schema) => {
-      expect(schema.orientation, schema.id).toBe('auto');
+      expect(schema.orientation, schema.id).toBe('horizontal');
     });
   });
 
-  it('Ping Contour (Attack/Decay/Sustain/Release) is auto', () => {
+  it('Ping Contour (Attack/Decay/Sustain/Release) is horizontal (docs/specs/ROBOT_OPTIONS_RESPONSIVE_LAYOUT.md §1.6)', () => {
     [ATTACK_SCHEMA, DECAY_SCHEMA, SUSTAIN_SCHEMA, RELEASE_SCHEMA].forEach((schema) => {
-      expect(schema.orientation).toBe('auto');
+      expect(schema.orientation).toBe('horizontal');
     });
   });
 

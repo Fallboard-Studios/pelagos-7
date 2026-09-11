@@ -191,7 +191,7 @@ export const DENSITY_SCHEMA: SliderLinearSchema = {
   min: RHYTHMIC_DENSITY_MIN,
   max: RHYTHMIC_DENSITY_MAX,
   unit: '%',
-  orientation: 'auto',
+  orientation: 'horizontal',
 };
 
 export const MOTIF_LENGTH_SCHEMA: SliderLinearSchema = {
@@ -202,7 +202,7 @@ export const MOTIF_LENGTH_SCHEMA: SliderLinearSchema = {
   min: RHYTHMIC_MOTIF_LENGTH_MIN,
   max: RHYTHMIC_MOTIF_LENGTH_MAX,
   step: 1,
-  orientation: 'auto',
+  orientation: 'horizontal',
 };
 
 /**
@@ -221,7 +221,7 @@ export const PITCH_REPEAT_SCHEMA: SliderLinearSchema = {
   min: PITCH_REPEAT_MIN,
   max: PITCH_REPEAT_MAX,
   unit: '%',
-  orientation: 'auto',
+  orientation: 'horizontal',
 };
 
 export const OCTAVE_RANGE_MIN_SCHEMA: SliderLinearSchema = {
@@ -232,7 +232,7 @@ export const OCTAVE_RANGE_MIN_SCHEMA: SliderLinearSchema = {
   min: OCTAVE_RANGE_MIN,
   max: OCTAVE_RANGE_MAX,
   step: 1,
-  orientation: 'auto',
+  orientation: 'horizontal',
 };
 
 export const OCTAVE_RANGE_MAX_SCHEMA: SliderLinearSchema = {
@@ -243,7 +243,7 @@ export const OCTAVE_RANGE_MAX_SCHEMA: SliderLinearSchema = {
   min: OCTAVE_RANGE_MIN,
   max: OCTAVE_RANGE_MAX,
   step: 1,
-  orientation: 'auto',
+  orientation: 'horizontal',
 };
 
 export const NOTE_VARIANCE_SCHEMA: SliderLinearSchema = {
@@ -254,7 +254,7 @@ export const NOTE_VARIANCE_SCHEMA: SliderLinearSchema = {
   min: NOTE_VARIANCE_MIN,
   max: NOTE_VARIANCE_MAX,
   step: 1,
-  orientation: 'auto',
+  orientation: 'horizontal',
 };
 
 /** Plain one-click Button — no confirmation dialog, confirmed during /interview-me for
@@ -303,7 +303,7 @@ export const ATTACK_SCHEMA: SliderLogSchema = {
   min: 0,
   max: 10,
   unit: 's',
-  orientation: 'auto',
+  orientation: 'horizontal',
 };
 
 export const DECAY_SCHEMA: SliderLogSchema = {
@@ -314,7 +314,7 @@ export const DECAY_SCHEMA: SliderLogSchema = {
   min: 0,
   max: 10,
   unit: 's',
-  orientation: 'auto',
+  orientation: 'horizontal',
 };
 
 /**
@@ -330,7 +330,7 @@ export const SUSTAIN_SCHEMA: SliderLinearSchema = {
   min: 0,
   max: 100,
   unit: '%',
-  orientation: 'auto',
+  orientation: 'horizontal',
 };
 
 export const RELEASE_SCHEMA: SliderLogSchema = {
@@ -341,7 +341,7 @@ export const RELEASE_SCHEMA: SliderLogSchema = {
   min: 0,
   max: 10,
   unit: 's',
-  orientation: 'auto',
+  orientation: 'horizontal',
 };
 
 // ========================================
