@@ -144,21 +144,24 @@ export const PHRASING_PANEL_SCHEMA: DirectionalPanelSchema = {
   orientation: 'column',
 };
 
+// 'responsive', not fixed 'row' — Density/Motif Length/Pitch Repeat each get their own row on
+// mobile/tablet, share one row on desktop. docs/specs/ROBOT_OPTIONS_RESPONSIVE_LAYOUT.md §1.4.
 export const RHYTHM_PANEL_SCHEMA: DirectionalPanelSchema = {
   id: 'robotOptions.rhythm',
   type: 'directionalPanel',
   loreLabel: 'RHYTHMIC PHRASING MATRIX',
   humanLabel: 'Rhythm',
-  orientation: 'row',
+  orientation: 'responsive',
 };
 
-/** Octave Min, Octave Max, Note Variance — the other half of the old Ping Controls accordion. */
+/** Octave Min, Octave Max, Note Variance — the other half of the old Ping Controls accordion.
+ *  'responsive', not fixed 'row' — same treatment as RHYTHM_PANEL_SCHEMA above. */
 export const FREQUENCY_PANEL_SCHEMA: DirectionalPanelSchema = {
   id: 'robotOptions.frequency',
   type: 'directionalPanel',
   loreLabel: 'PITCH FREQUENCY MATRIX',
   humanLabel: 'Frequency',
-  orientation: 'row',
+  orientation: 'responsive',
 };
 
 /**

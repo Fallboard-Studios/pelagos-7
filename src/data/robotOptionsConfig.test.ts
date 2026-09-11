@@ -23,6 +23,7 @@ import {
   ENVELOPE_ACCORDION_SCHEMA,
   SOURCE_ACCORDION_SCHEMA,
   PHRASING_PANEL_SCHEMA,
+  RHYTHM_PANEL_SCHEMA,
   FREQUENCY_PANEL_SCHEMA,
   PING_CONTOUR_PANEL_SCHEMA,
 } from './robotOptionsConfig';
@@ -342,7 +343,7 @@ describe('MELODY_ACCORDION_SCHEMA / ENVELOPE_ACCORDION_SCHEMA / SOURCE_ACCORDION
 describe('PHRASING_PANEL_SCHEMA / FREQUENCY_PANEL_SCHEMA (Task 3)', () => {
   it('carry the confirmed humanLabels and directionalPanel type — new labels, not derived from the old flat "Ping Controls" accordion', () => {
     expect(PHRASING_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'column', humanLabel: 'Phrasing' });
-    expect(FREQUENCY_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'row', humanLabel: 'Frequency' });
+    expect(FREQUENCY_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'responsive', humanLabel: 'Frequency' });
   });
 
   it('neither reuses "Ping Controls" as its own label text', () => {
@@ -354,6 +355,21 @@ describe('PHRASING_PANEL_SCHEMA / FREQUENCY_PANEL_SCHEMA (Task 3)', () => {
     expect(PHRASING_PANEL_SCHEMA.loreLabel).toBeTruthy();
     expect(FREQUENCY_PANEL_SCHEMA.loreLabel).toBeTruthy();
     expect(PHRASING_PANEL_SCHEMA.id).not.toBe(FREQUENCY_PANEL_SCHEMA.id);
+  });
+});
+
+describe('RHYTHM_PANEL_SCHEMA (docs/specs/ROBOT_OPTIONS_RESPONSIVE_LAYOUT.md §1.4 — no prior test coverage existed for this schema)', () => {
+  it('is a responsive-orientation directionalPanel with humanLabel Rhythm', () => {
+    expect(RHYTHM_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'responsive', humanLabel: 'Rhythm' });
+  });
+
+  it('has a non-empty loreLabel and an id distinct from PHRASING_PANEL_SCHEMA\'s (its own outer wrapper)', () => {
+    expect(RHYTHM_PANEL_SCHEMA.loreLabel).toBeTruthy();
+    expect(RHYTHM_PANEL_SCHEMA.id).not.toBe(PHRASING_PANEL_SCHEMA.id);
+  });
+
+  it('remains JSON-serializable', () => {
+    expect(() => JSON.stringify(RHYTHM_PANEL_SCHEMA)).not.toThrow();
   });
 });
 
