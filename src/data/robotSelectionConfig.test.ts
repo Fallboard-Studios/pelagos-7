@@ -70,6 +70,10 @@ describe('robotSelectionConfig', () => {
         expect(AUDIO_MODE_LABELS[mode].humanLabel).toBeTruthy();
       }
     });
+
+    it("labels 'none' as 'Auto', not 'Off' — matches AUDIO_SETTING_SCHEMA's own relabel (docs/specs/ROBOT_OPTIONS_RESPONSIVE_LAYOUT.md §1.3), so the Robot Selection card list reads consistently with Robot Options' own Audio Setting control", () => {
+      expect(AUDIO_MODE_LABELS.none.humanLabel).toBe('Auto');
+    });
   });
 
   describe('AUDIO_STATUS_COLOR_MAP', () => {

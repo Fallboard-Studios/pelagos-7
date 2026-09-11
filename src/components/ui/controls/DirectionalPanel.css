@@ -26,26 +26,47 @@
 }
 
 .sc-directional-panel__content>* {
-  /* flex-basis: 0 (not the old `auto`) — every row child gets an EQUAL
-     share of the row, computed purely from the flex-grow ratio, with zero
-     dependency on the child's own content size. `auto` looks similar but
-     isn't: it starts each item at its own content size, then grows only
-     the *leftover* space — for a child whose own content size depends on
-     how much space it thinks it has (SliderLinear's voxel-track box-count
-     fitting, roadmap Phase 11.1.3, via ResizeObserver), that's a real
-     feedback loop, not just a shrink problem min-width alone can fix:
-     bigger measured width -> more boxes render -> bigger content size ->
-     bigger flex-basis next layout -> bigger measured width. flex-basis: 0
-     removes content from the space-distribution calculation entirely, so
-     every row child's width is stable and content-independent. */
-  flex: 1 1 0;
   /* A flex item's default min-width is `auto`, which resolves to its
      content's min-content size when the item's own overflow is visible —
-     still worth keeping at 0 alongside the flex-basis fix above, so a
-     child's content is never a lower bound on this item's width either
-     (e.g. it can shrink to the 3-box overflow floor and scroll, rather
-     than forcing this item wider to fit an unshrunk box row). */
+     kept at 0 unconditionally (both orientations) so a child's content is
+     never a lower bound on this item's width either (e.g. it can shrink to
+     the 3-box overflow floor and scroll, rather than forcing this item
+     wider to fit an unshrunk box row). Harmless for 'column' orientation
+     too — it only affects the item's cross-axis (width) there. */
   min-width: 0;
+}
+
+/* flex-basis: 0 (not the old `auto`) — every ROW child gets an EQUAL share
+   of the row, computed purely from the flex-grow ratio, with zero
+   dependency on the child's own content size. `auto` looks similar but
+   isn't: it starts each item at its own content size, then grows only the
+   *leftover* space — for a child whose own content size depends on how
+   much space it thinks it has (SliderLinear's voxel-track box-count
+   fitting, roadmap Phase 11.1.3, via ResizeObserver), that's a real
+   feedback loop, not just a shrink problem min-width alone can fix: bigger
+   measured width -> more boxes render -> bigger content size -> bigger
+   flex-basis next layout -> bigger measured width. flex-basis: 0 removes
+   content from the space-distribution calculation entirely, so every row
+   child's width is stable and content-independent.
+   Scoped to [data-orientation='row'] specifically — bugfix,
+   docs/specs/ROBOT_OPTIONS_RESPONSIVE_LAYOUT.md Task 8. Applying the same
+   flex-basis: 0 unconditionally to COLUMN orientation targets that axis's
+   main axis instead (height, not width): in a top-level, autoHeight
+   Cabinetry facade (height itself 'auto'/content-sized), a flex-basis-0
+   child contributes 0 to that auto-height computation, collapsing the
+   whole column to zero height instead of sizing to its real content —
+   found live by Crawford (Robot Drift's 2 sliders rendering with correct
+   values/widths in the DOM but zero visible height). Column orientation
+   never had the row's own feedback-loop problem in the first place
+   (voxel-track sliders needing this fix are horizontal, i.e. row-shaped;
+   a vertical slider's own box-fitting already avoids self-observation by
+   measuring its parent instead, per useVoxelTrackBoxCount's own vertical
+   branch) — so column children simply keep flexbox's own default
+   (flex: 0 1 auto), sizing to their real content height, which is what
+   every column panel actually wants (stack at natural size, don't
+   force-equalize heights). */
+.sc-directional-panel__content[data-orientation='row']>* {
+  flex: 1 1 0;
 }
 
 .sc-directional-panel__content[data-orientation='column'] {

@@ -48,7 +48,7 @@ export const AUDIO_SETTING_SCHEMA: RadioButtonSchema = {
   loreLabel: 'PROBE DIAGNOSTICS',
   humanLabel: 'Audio Setting',
   options: [
-    { value: 'none', label: 'Off' },
+    { value: 'none', label: 'Auto' },
     { value: 'mute', label: 'Mute' },
     { value: 'solo', label: 'Solo' },
     { value: 'highlight', label: 'Highlight' },
@@ -80,18 +80,38 @@ export const VOLUME_SCHEMA: SliderLinearSchema = {
 export const VOLUME_LFO_TARGET: RobotLfoTargetId = 'volume';
 
 /**
- * DirectionalPanel wiring (docs/tasks/DIRECTIONAL_PANEL_WIRING.md) — wraps AudioSettingSection's
- * existing content (Audio Setting radio + Volume's shared LfoTargetGroup) at both Robot Effects
- * call sites, sitting above the Melody/Envelope/Source accordions rather than inside one. First
- * new panel/accordion in this file with no prior AccordionSchema to inherit copy from — invented
- * lore, same "confirm during manual check" treatment as LFO_DRIFT_GROUPS' own labels
- * (audioRigConfig.ts).
+ * docs/specs/ROBOT_OPTIONS_RESPONSIVE_LAYOUT.md §1.2 — replaces the old, accordion-less
+ * ROBOT_OUTPUT_PANEL_SCHEMA (removed same task once AudioSettingSection.tsx switched over):
+ * Volume gets a real accordion it didn't have before. `id` is deliberately not
+ * 'robotOptions.volume' — that's VOLUME_SCHEMA's own id already, and this needs to be distinct.
  */
-export const ROBOT_OUTPUT_PANEL_SCHEMA: DirectionalPanelSchema = {
-  id: 'robotOptions.output',
+export const VOLUME_ACCORDION_SCHEMA: AccordionSchema = {
+  id: 'robotOptions.volumeAccordion',
+  type: 'accordion',
+  loreLabel: 'PROBE ACOUSTIC AMPLITUDE',
+  humanLabel: 'Volume',
+};
+
+/**
+ * Wraps VOLUME_SETTINGS_COLUMN_PANEL_SCHEMA (below) beside the Volume LFO display — 'responsive'
+ * so mobile/tablet stacks everything into one column (Audio Setting, Volume, LFO, in that order)
+ * and desktop splits into 2 side-by-side columns. Unlabeled — pure layout, top-level inside
+ * VOLUME_ACCORDION_SCHEMA (gets its own Cabinetry facade, same as every other top-level panel).
+ */
+export const VOLUME_ROW_PANEL_SCHEMA: DirectionalPanelSchema = {
+  id: 'robotOptions.volumeRow',
   type: 'directionalPanel',
-  loreLabel: 'PROBE TRANSDUCER STAGE',
-  humanLabel: 'Output',
+  orientation: 'responsive',
+};
+
+/**
+ * Audio Setting + Volume, always stacked — the left column of VOLUME_ROW_PANEL_SCHEMA's desktop
+ * row (and, on mobile/tablet, simply the first 2 items in that panel's single stacked column).
+ * Fixed 'column' regardless of tier — unlike VOLUME_ROW_PANEL_SCHEMA, this one never becomes a row.
+ */
+export const VOLUME_SETTINGS_COLUMN_PANEL_SCHEMA: DirectionalPanelSchema = {
+  id: 'robotOptions.volumeSettingsColumn',
+  type: 'directionalPanel',
   orientation: 'column',
 };
 
@@ -124,21 +144,24 @@ export const PHRASING_PANEL_SCHEMA: DirectionalPanelSchema = {
   orientation: 'column',
 };
 
+// 'responsive', not fixed 'row' — Density/Motif Length/Pitch Repeat each get their own row on
+// mobile/tablet, share one row on desktop. docs/specs/ROBOT_OPTIONS_RESPONSIVE_LAYOUT.md §1.4.
 export const RHYTHM_PANEL_SCHEMA: DirectionalPanelSchema = {
   id: 'robotOptions.rhythm',
   type: 'directionalPanel',
   loreLabel: 'RHYTHMIC PHRASING MATRIX',
   humanLabel: 'Rhythm',
-  orientation: 'row',
+  orientation: 'responsive',
 };
 
-/** Octave Min, Octave Max, Note Variance — the other half of the old Ping Controls accordion. */
+/** Octave Min, Octave Max, Note Variance — the other half of the old Ping Controls accordion.
+ *  'responsive', not fixed 'row' — same treatment as RHYTHM_PANEL_SCHEMA above. */
 export const FREQUENCY_PANEL_SCHEMA: DirectionalPanelSchema = {
   id: 'robotOptions.frequency',
   type: 'directionalPanel',
   loreLabel: 'PITCH FREQUENCY MATRIX',
   humanLabel: 'Frequency',
-  orientation: 'row',
+  orientation: 'responsive',
 };
 
 /**
@@ -171,7 +194,7 @@ export const DENSITY_SCHEMA: SliderLinearSchema = {
   min: RHYTHMIC_DENSITY_MIN,
   max: RHYTHMIC_DENSITY_MAX,
   unit: '%',
-  orientation: 'auto',
+  orientation: 'horizontal',
 };
 
 export const MOTIF_LENGTH_SCHEMA: SliderLinearSchema = {
@@ -182,7 +205,7 @@ export const MOTIF_LENGTH_SCHEMA: SliderLinearSchema = {
   min: RHYTHMIC_MOTIF_LENGTH_MIN,
   max: RHYTHMIC_MOTIF_LENGTH_MAX,
   step: 1,
-  orientation: 'auto',
+  orientation: 'horizontal',
 };
 
 /**
@@ -201,7 +224,7 @@ export const PITCH_REPEAT_SCHEMA: SliderLinearSchema = {
   min: PITCH_REPEAT_MIN,
   max: PITCH_REPEAT_MAX,
   unit: '%',
-  orientation: 'auto',
+  orientation: 'horizontal',
 };
 
 export const OCTAVE_RANGE_MIN_SCHEMA: SliderLinearSchema = {
@@ -212,7 +235,7 @@ export const OCTAVE_RANGE_MIN_SCHEMA: SliderLinearSchema = {
   min: OCTAVE_RANGE_MIN,
   max: OCTAVE_RANGE_MAX,
   step: 1,
-  orientation: 'auto',
+  orientation: 'horizontal',
 };
 
 export const OCTAVE_RANGE_MAX_SCHEMA: SliderLinearSchema = {
@@ -223,7 +246,7 @@ export const OCTAVE_RANGE_MAX_SCHEMA: SliderLinearSchema = {
   min: OCTAVE_RANGE_MIN,
   max: OCTAVE_RANGE_MAX,
   step: 1,
-  orientation: 'auto',
+  orientation: 'horizontal',
 };
 
 export const NOTE_VARIANCE_SCHEMA: SliderLinearSchema = {
@@ -234,7 +257,7 @@ export const NOTE_VARIANCE_SCHEMA: SliderLinearSchema = {
   min: NOTE_VARIANCE_MIN,
   max: NOTE_VARIANCE_MAX,
   step: 1,
-  orientation: 'auto',
+  orientation: 'horizontal',
 };
 
 /** Plain one-click Button — no confirmation dialog, confirmed during /interview-me for
@@ -265,14 +288,17 @@ export const ENVELOPE_ACCORDION_SCHEMA: AccordionSchema = {
  * DirectionalPanel wiring (docs/tasks/DIRECTIONAL_PANEL_WIRING.md) — supersedes the old flat
  * "Ping Contour" AccordionSchema (removed, Task 9). Keeps that schema's exact loreLabel/
  * humanLabel verbatim — the whole "Ping Contour" accordion becomes one panel nested inside the
- * new Envelope accordion, not relabeled.
+ * new Envelope accordion, not relabeled. Fixed 'column' (was 'row') as of
+ * docs/specs/ROBOT_OPTIONS_RESPONSIVE_LAYOUT.md §1.4 — wraps 2 responsive sub-rows
+ * (Attack+Decay, Sustain+Release — inline in PingContourDrawer.tsx, matching Compressor's own
+ * topRow/bottomRow precedent in audioRigConfig.ts) instead of holding all 4 sliders directly.
  */
 export const PING_CONTOUR_PANEL_SCHEMA: DirectionalPanelSchema = {
   id: 'robotOptions.pingContour',
   type: 'directionalPanel',
   loreLabel: 'PING CONTOUR',
   humanLabel: 'Ping Contour',
-  orientation: 'row',
+  orientation: 'column',
 };
 
 export const ATTACK_SCHEMA: SliderLogSchema = {
@@ -283,7 +309,7 @@ export const ATTACK_SCHEMA: SliderLogSchema = {
   min: 0,
   max: 10,
   unit: 's',
-  orientation: 'auto',
+  orientation: 'horizontal',
 };
 
 export const DECAY_SCHEMA: SliderLogSchema = {
@@ -294,7 +320,7 @@ export const DECAY_SCHEMA: SliderLogSchema = {
   min: 0,
   max: 10,
   unit: 's',
-  orientation: 'auto',
+  orientation: 'horizontal',
 };
 
 /**
@@ -310,7 +336,7 @@ export const SUSTAIN_SCHEMA: SliderLinearSchema = {
   min: 0,
   max: 100,
   unit: '%',
-  orientation: 'auto',
+  orientation: 'horizontal',
 };
 
 export const RELEASE_SCHEMA: SliderLogSchema = {
@@ -321,7 +347,7 @@ export const RELEASE_SCHEMA: SliderLogSchema = {
   min: 0,
   max: 10,
   unit: 's',
-  orientation: 'auto',
+  orientation: 'horizontal',
 };
 
 // ========================================

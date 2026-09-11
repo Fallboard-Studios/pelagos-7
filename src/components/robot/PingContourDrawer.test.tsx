@@ -6,6 +6,21 @@ import type { ADSREnvelope } from '@/types/Robot';
 
 const adsr: ADSREnvelope = { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 };
 
+/** Stubs window.matchMedia so the mobile/tablet viewport tiers can be controlled — same shape
+ *  as AudioRigDrawer.test.tsx's own stubMatchMedia. */
+function stubMatchMedia(state: { mobile: boolean; tablet: boolean }) {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    configurable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: query.includes('640px') ? state.mobile : state.tablet,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    })),
+  });
+}
+
 describe('PingContourDrawer', () => {
   it('reads Attack/Decay/Release from the value directly', () => {
     // SliderLog's Radix root operates on the internal t in [0,1] (see sliderLogMath.ts) —
@@ -57,6 +72,37 @@ describe('PingContourDrawer', () => {
     expect(pingContourPanel).not.toBeNull();
     expect(pingContourPanel!.closest('.sc-accordion')?.textContent).toContain('Envelope');
     expect(pingContourPanel!.contains(screen.getByRole('slider', { name: /attack/i }))).toBe(true);
+  });
+
+  describe('Attack+Decay / Sustain+Release pairing (docs/specs/ROBOT_OPTIONS_RESPONSIVE_LAYOUT.md §1.4 — "two across" on desktop)', () => {
+    it('Attack and Decay share a row, and Sustain and Release share a row, on desktop', () => {
+      stubMatchMedia({ mobile: false, tablet: false });
+      render(<PingContourDrawer value={adsr} onChange={() => {}} />);
+      const attackRow = screen.getByRole('slider', { name: /attack/i }).closest('.sc-directional-panel')!;
+      const decayRow = screen.getByRole('slider', { name: /decay/i }).closest('.sc-directional-panel')!;
+      const sustainRow = screen.getByRole('slider', { name: /sustain/i }).closest('.sc-directional-panel')!;
+      const releaseRow = screen.getByRole('slider', { name: /release/i }).closest('.sc-directional-panel')!;
+      expect(attackRow).toBe(decayRow);
+      expect(sustainRow).toBe(releaseRow);
+      expect(attackRow).not.toBe(sustainRow);
+      expect(attackRow.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('row');
+      expect(sustainRow.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('row');
+    });
+
+    it('Attack, Decay, Sustain, and Release each get their own row on mobile/tablet', () => {
+      stubMatchMedia({ mobile: true, tablet: true });
+      render(<PingContourDrawer value={adsr} onChange={() => {}} />);
+      const attackRow = screen.getByRole('slider', { name: /attack/i }).closest('.sc-directional-panel')!;
+      const decayRow = screen.getByRole('slider', { name: /decay/i }).closest('.sc-directional-panel')!;
+      expect(attackRow).toBe(decayRow); // still the same shared sub-row panel...
+      expect(attackRow.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('column'); // ...just column-oriented now
+    });
+
+    it('preserves ADSR order: Attack, Decay, Sustain, Release', () => {
+      render(<PingContourDrawer value={adsr} onChange={() => {}} />);
+      const sliders = screen.getAllByRole('slider');
+      expect(sliders.map((s) => s.getAttribute('aria-label'))).toEqual(['Attack', 'Decay', 'Sustain', 'Release']);
+    });
   });
 
   it('disables every internal control when disabled is true', () => {

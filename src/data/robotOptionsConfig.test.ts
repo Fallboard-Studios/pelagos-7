@@ -16,11 +16,14 @@ import {
   SUSTAIN_SCHEMA,
   RELEASE_SCHEMA,
   SIGNATURE_ARRAY_CONFIG,
-  ROBOT_OUTPUT_PANEL_SCHEMA,
+  VOLUME_ACCORDION_SCHEMA,
+  VOLUME_ROW_PANEL_SCHEMA,
+  VOLUME_SETTINGS_COLUMN_PANEL_SCHEMA,
   MELODY_ACCORDION_SCHEMA,
   ENVELOPE_ACCORDION_SCHEMA,
   SOURCE_ACCORDION_SCHEMA,
   PHRASING_PANEL_SCHEMA,
+  RHYTHM_PANEL_SCHEMA,
   FREQUENCY_PANEL_SCHEMA,
   PING_CONTOUR_PANEL_SCHEMA,
 } from './robotOptionsConfig';
@@ -95,10 +98,14 @@ describe('robotOptionsConfig', () => {
     expect(NOTE_VARIANCE_SCHEMA.max).toBe(NOTE_VARIANCE_MAX);
   });
 
-  it('Audio Setting has all 4 options, including Off — not the grid prose\'s stale 3', () => {
+  it('Audio Setting has all 4 options, including \'none\' — not the grid prose\'s stale 3', () => {
     expect(AUDIO_SETTING_SCHEMA.options.map((o) => o.value).sort()).toEqual(
       ['highlight', 'mute', 'none', 'solo'].sort()
     );
+  });
+
+  it("Audio Setting's 'none' option is labeled 'Auto', not 'Off' (docs/specs/ROBOT_OPTIONS_RESPONSIVE_LAYOUT.md §1.3)", () => {
+    expect(AUDIO_SETTING_SCHEMA.options.find((o) => o.value === 'none')?.label).toBe('Auto');
   });
 
   it('Click Track is a toggle, labeled "Click Track"', () => {
@@ -234,20 +241,15 @@ describe('slider orientation classification (docs/specs/VERTICAL_SLIDERS.md §1.
     expect(VOLUME_SCHEMA.orientation).toBe('horizontal');
   });
 
-  it('Ping Controls (Density, Motif Length, Pitch Repeat, Octave Range Min/Max, Note Variance) is auto', () => {
-    // Motif Length, Octave Range Min/Max, and Note Variance were Steppers when this
-    // classification was first written (docs/specs/VERTICAL_SLIDERS.md predates the
-    // Stepper->Slider conversion) — converted to sliders by the separate
-    // STEPPER_TO_SLIDER work, merged in afterward. Same Ping Controls section, same
-    // "everything auto" classification, now that they're real sliders to classify.
+  it('Ping Controls (Density, Motif Length, Pitch Repeat, Octave Range Min/Max, Note Variance) is horizontal (docs/specs/ROBOT_OPTIONS_RESPONSIVE_LAYOUT.md §1.6)', () => {
     [DENSITY_SCHEMA, MOTIF_LENGTH_SCHEMA, PITCH_REPEAT_SCHEMA, OCTAVE_RANGE_MIN_SCHEMA, OCTAVE_RANGE_MAX_SCHEMA, NOTE_VARIANCE_SCHEMA].forEach((schema) => {
-      expect(schema.orientation, schema.id).toBe('auto');
+      expect(schema.orientation, schema.id).toBe('horizontal');
     });
   });
 
-  it('Ping Contour (Attack/Decay/Sustain/Release) is auto', () => {
+  it('Ping Contour (Attack/Decay/Sustain/Release) is horizontal (docs/specs/ROBOT_OPTIONS_RESPONSIVE_LAYOUT.md §1.6)', () => {
     [ATTACK_SCHEMA, DECAY_SCHEMA, SUSTAIN_SCHEMA, RELEASE_SCHEMA].forEach((schema) => {
-      expect(schema.orientation).toBe('auto');
+      expect(schema.orientation).toBe('horizontal');
     });
   });
 
@@ -266,18 +268,51 @@ describe('slider orientation classification (docs/specs/VERTICAL_SLIDERS.md §1.
 // (docs/tasks/DIRECTIONAL_PANEL_WIRING.md Task 3)
 // ========================================
 
-describe('ROBOT_OUTPUT_PANEL_SCHEMA (Task 3)', () => {
-  it('is a column-orientation directionalPanel with humanLabel Output, id robotOptions.output', () => {
-    expect(ROBOT_OUTPUT_PANEL_SCHEMA).toMatchObject({
-      id: 'robotOptions.output',
-      type: 'directionalPanel',
-      orientation: 'column',
-      humanLabel: 'Output',
+describe('ROBOT_OUTPUT_PANEL_SCHEMA no longer exists (Task 2 cleanup)', () => {
+  it('is not exported by the module — fully superseded by VOLUME_ACCORDION_SCHEMA + the 2 new panels', () => {
+    expect((robotOptionsConfigModule as Record<string, unknown>).ROBOT_OUTPUT_PANEL_SCHEMA).toBeUndefined();
+  });
+});
+
+describe('VOLUME_ACCORDION_SCHEMA / VOLUME_ROW_PANEL_SCHEMA / VOLUME_SETTINGS_COLUMN_PANEL_SCHEMA (docs/specs/ROBOT_OPTIONS_RESPONSIVE_LAYOUT.md §1.2)', () => {
+  it('VOLUME_ACCORDION_SCHEMA is an accordion labeled Volume / Probe Acoustic Amplitude', () => {
+    // Source types invented lore strings in ALL-CAPS throughout this file (e.g.
+    // MELODY_ACCORDION_SCHEMA's 'MELODIC SUBSYSTEM') — DualLabel.css applies
+    // text-transform: uppercase regardless, so this is a source-style convention, not a
+    // behavior difference from the title-case phrasing Crawford used when describing it.
+    expect(VOLUME_ACCORDION_SCHEMA).toMatchObject({
+      type: 'accordion',
+      humanLabel: 'Volume',
+      loreLabel: 'PROBE ACOUSTIC AMPLITUDE',
     });
   });
 
-  it('has a non-empty invented loreLabel', () => {
-    expect(ROBOT_OUTPUT_PANEL_SCHEMA.loreLabel).toBeTruthy();
+  it("VOLUME_ACCORDION_SCHEMA's id does not collide with VOLUME_SCHEMA's own id", () => {
+    expect(VOLUME_ACCORDION_SCHEMA.id).not.toBe(VOLUME_SCHEMA.id);
+  });
+
+  it('VOLUME_ROW_PANEL_SCHEMA is a responsive-orientation directionalPanel, unlabeled', () => {
+    expect(VOLUME_ROW_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'responsive' });
+    expect(VOLUME_ROW_PANEL_SCHEMA.loreLabel).toBeUndefined();
+    expect(VOLUME_ROW_PANEL_SCHEMA.humanLabel).toBeUndefined();
+  });
+
+  it('VOLUME_SETTINGS_COLUMN_PANEL_SCHEMA is a column-orientation directionalPanel, unlabeled', () => {
+    expect(VOLUME_SETTINGS_COLUMN_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'column' });
+    expect(VOLUME_SETTINGS_COLUMN_PANEL_SCHEMA.loreLabel).toBeUndefined();
+    expect(VOLUME_SETTINGS_COLUMN_PANEL_SCHEMA.humanLabel).toBeUndefined();
+  });
+
+  it('all 3 new ids are unique and in the robotOptions.* namespace', () => {
+    const ids = [VOLUME_ACCORDION_SCHEMA.id, VOLUME_ROW_PANEL_SCHEMA.id, VOLUME_SETTINGS_COLUMN_PANEL_SCHEMA.id];
+    ids.forEach((id) => expect(id).toMatch(/^robotOptions\./));
+    expect(new Set(ids).size).toBe(3);
+  });
+
+  it('all 3 remain JSON-serializable', () => {
+    expect(() => JSON.stringify(VOLUME_ACCORDION_SCHEMA)).not.toThrow();
+    expect(() => JSON.stringify(VOLUME_ROW_PANEL_SCHEMA)).not.toThrow();
+    expect(() => JSON.stringify(VOLUME_SETTINGS_COLUMN_PANEL_SCHEMA)).not.toThrow();
   });
 });
 
@@ -308,7 +343,7 @@ describe('MELODY_ACCORDION_SCHEMA / ENVELOPE_ACCORDION_SCHEMA / SOURCE_ACCORDION
 describe('PHRASING_PANEL_SCHEMA / FREQUENCY_PANEL_SCHEMA (Task 3)', () => {
   it('carry the confirmed humanLabels and directionalPanel type — new labels, not derived from the old flat "Ping Controls" accordion', () => {
     expect(PHRASING_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'column', humanLabel: 'Phrasing' });
-    expect(FREQUENCY_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'row', humanLabel: 'Frequency' });
+    expect(FREQUENCY_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'responsive', humanLabel: 'Frequency' });
   });
 
   it('neither reuses "Ping Controls" as its own label text', () => {
@@ -323,10 +358,25 @@ describe('PHRASING_PANEL_SCHEMA / FREQUENCY_PANEL_SCHEMA (Task 3)', () => {
   });
 });
 
+describe('RHYTHM_PANEL_SCHEMA (docs/specs/ROBOT_OPTIONS_RESPONSIVE_LAYOUT.md §1.4 — no prior test coverage existed for this schema)', () => {
+  it('is a responsive-orientation directionalPanel with humanLabel Rhythm', () => {
+    expect(RHYTHM_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'responsive', humanLabel: 'Rhythm' });
+  });
+
+  it('has a non-empty loreLabel and an id distinct from PHRASING_PANEL_SCHEMA\'s (its own outer wrapper)', () => {
+    expect(RHYTHM_PANEL_SCHEMA.loreLabel).toBeTruthy();
+    expect(RHYTHM_PANEL_SCHEMA.id).not.toBe(PHRASING_PANEL_SCHEMA.id);
+  });
+
+  it('remains JSON-serializable', () => {
+    expect(() => JSON.stringify(RHYTHM_PANEL_SCHEMA)).not.toThrow();
+  });
+});
+
 describe('PING_CONTOUR_PANEL_SCHEMA (DirectionalPanel wiring, Tasks 3+9)', () => {
-  it('is a row-orientation directionalPanel', () => {
+  it('is a column-orientation directionalPanel — wraps 2 responsive sub-rows instead of 4 sliders directly (docs/specs/ROBOT_OPTIONS_RESPONSIVE_LAYOUT.md §1.4)', () => {
     expect(PING_CONTOUR_PANEL_SCHEMA.type).toBe('directionalPanel');
-    expect(PING_CONTOUR_PANEL_SCHEMA.orientation).toBe('row');
+    expect(PING_CONTOUR_PANEL_SCHEMA.orientation).toBe('column');
   });
 
   it('has loreLabel/humanLabel byte-identical to the old PING_CONTOUR_ACCORDION_SCHEMA\'s text — verbatim preservation across the type swap', () => {
