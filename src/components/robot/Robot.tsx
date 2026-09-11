@@ -71,8 +71,10 @@ export function Robot({ robot }: RobotProps) {
 
   // Roadmap Phase 8: clicking a robot in the world view also opens the Robots hub tile, but only
   // from the main hub grid (activeHubTile === null) — once any tile is already open, the user is
-  // already where they meant to go, so the active tile is left alone. Console.css's
-  // console--grid class is what lets this click physically reach here in the first place.
+  // already where they meant to go, so the active tile is left alone. Console.tsx renders nothing
+  // at all in that state (docs/specs/HEADER_HUB_CONSOLIDATION.md §1.7) — with no .console element
+  // present to block anything, this click reaches WorldView for free, no pointer-events
+  // special-casing needed the way the old console--grid mechanism once provided.
   const handleClick = () => {
     selectRobot(robot.id);
     if (activeHubTile === null) setActiveHubTile('robots');
