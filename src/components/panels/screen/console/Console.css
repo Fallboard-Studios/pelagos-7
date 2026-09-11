@@ -1,42 +1,37 @@
 .console {
-  /* position: absolute (not a grid row) — see .screen-content's own comment
+   /* position: absolute (not a grid row) — see .screen-content's own comment
      (ScreenViewport.css) for why. inset: 0 gives it the full screen area;
      margin-top pushes just its top edge down to clear both obstacles that
-     sit in that space: the transport bar (--transport-height) and, further
-     down and to the left, the sleeve's power-switch corner
-     (--power-corner-height, :root in index.css). Using the taller of the
-     two (power-corner-height) for the whole width is a deliberate
-     simplicity trade-off — the corner only occupies the left ~190px, so
-     the rest of the width gets more clearance than it strictly needs, in
-     exchange for one clearance value instead of a width-dependent one.
-     Applied here rather than on .console-panel__back specifically —
-     .console-panel's OTHER direct child, HubNav (rendered when no tile is
-     selected — ConsolePanel.tsx), has no clearance of its own otherwise,
-     and needs exactly the same protection the back-button screen does. */
-  position: absolute;
-  inset: 0;
-  margin-top: var(--power-corner-height);
-  /* Renders above WorldView (z-index: 0, a full-bleed backdrop behind
+     sit in that space: Header (--header-height, a live JS-measured value —
+     Header.tsx's own ResizeObserver effect, docs/specs/
+     HEADER_HUB_CONSOLIDATION.md §1.6) and, further down and to the left,
+     the sleeve's power-switch corner (--power-corner-height, :root in
+     index.css). Using the taller of the two for the whole width is the
+     same deliberate simplicity trade-off this rule always made — the
+     corner only occupies the left ~190px, so the rest of the width gets
+     more clearance than it strictly needs, in exchange for one clearance
+     value instead of a width-dependent one. This used to be a bare
+     var(--power-corner-height): safe only because the single-row
+     TransportBar it replaced (--transport-height, 48px) always stayed
+     under the corner's own 100px. Header's 3-row layout does not reliably
+     stay under 100px, so this now takes the taller of the two real
+     obstacles instead of assuming the corner always wins. The
+     var(--header-height, var(--power-corner-height)) fallback covers the
+     one frame before Header's own ResizeObserver has fired at all — never
+     a 0/undefined margin, always at least the old safe constant.
+     Applied here rather than on .console-panel__back specifically — this
+     whole element (and everything inside it) only ever renders once a tile
+     is active (Console.tsx returns null otherwise), so there's a single
+     screen shape to protect, not a separate grid-state case to also cover. */
+   position: absolute;
+   inset: 0;
+   /* Renders above WorldView (z-index: 0, a full-bleed backdrop behind
      everything) rather than relying on DOM-order stacking. */
-  z-index: 1;
-  /* border: yellow 1px solid; */
-  /* Every descendant surface (accordion triggers, buttons, effect blocks,
+   z-index: 1;
+   /* border: yellow 1px solid; */
+   /* Every descendant surface (accordion triggers, buttons, effect blocks,
      text inputs, ...) paints its background from var(--color-surface) —
      overriding it here cascades a "glass" translucency through all of them
      at once, letting the robot world read through the hub's own chrome. */
-  --color-surface: rgba(26, 26, 26, 0.75);
-}
-
-/* Hub grid state only (ConsolePanel renders bare HubNav here, nothing else) — lets clicks in
-   the empty space around/between HubNav's tiles pass through to WorldView's robots underneath,
-   re-enabling pointer-events only on the tiles themselves. Same pattern already used elsewhere
-   for decorative full-bleed layers (SleeveContainer.css, App.css, .rocker-panel). Once any tile
-   is open, .console reverts to normal (pointer-events: auto, unset here) — full click capture,
-   unchanged from before. */
-.console--grid {
-  pointer-events: none;
-}
-
-.console--grid .sc-button {
-  pointer-events: auto;
+   --color-surface: rgba(26, 26, 26, 0.75);
 }

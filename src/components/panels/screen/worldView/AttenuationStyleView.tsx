@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import LocaleView from './LocaleView';
 import { computeLocaleHour } from '@/constants/time';
+import { computeLocaleTemperature } from '@/utils/localeTemperature';
 
 import { useAttenuationStyleStore } from '@/stores/attenuationStyleStore';
 import { useLocaleStore } from '@/stores/localeStore';
@@ -31,6 +32,14 @@ function AttenuationStyleView({ attenuationStyleId }: AttenuationStyleViewProps)
       // local time, computed directly from its own dayStartTimestamp. One
       // computation, two consumers (local state below, uiStore here).
       useUIStore.getState().setActiveLocaleLocalTime(hour);
+      // Same tick, same hour, same locale object — temperature is purely
+      // decorative (docs/specs/HEADER_HUB_CONSOLIDATION.md §1.3) and drifts
+      // continuously because it samples at this live hour rather than a
+      // fixed offset, so it rides the same 1s cadence as local time instead
+      // of a separate timer.
+      useUIStore.getState().setActiveLocaleTemperature(
+        computeLocaleTemperature(localeId, locale.coordinates.x, locale.coordinates.y, hour),
+      );
     };
 
     tick();

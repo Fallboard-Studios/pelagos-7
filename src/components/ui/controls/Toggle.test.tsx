@@ -2,13 +2,15 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
 vi.mock('./CabinetBox', () => ({
-  CabinetBox: (props: { popped: boolean; boxHeight?: number; timelineKey: string }) => (
+  CabinetBox: (props: { popped: boolean; boxHeight?: number; timelineKey: string; children?: React.ReactNode }) => (
     <div
       data-testid="cabinet-box"
       data-popped={String(props.popped)}
       data-box-height={props.boxHeight}
       data-timeline-key={props.timelineKey}
-    />
+    >
+      {props.children}
+    </div>
   ),
 }));
 
@@ -115,5 +117,78 @@ describe('Toggle', () => {
   it('renders no separate thumb element — CabinetBox is the switch\'s only visual child', () => {
     const { container } = render(<Toggle schema={schema} value={false} onChange={() => {}} />);
     expect(container.querySelector('.sc-toggle__thumb')).toBeNull();
+  });
+
+  it('passes an explicit boxSize straight through as CabinetBox\'s boxHeight, overriding the fixed 32px default (docs/specs/HEADER_HUB_CONSOLIDATION.md §1.4)', () => {
+    render(<Toggle schema={schema} value={false} onChange={() => {}} boxSize={44} />);
+    expect(screen.getByTestId('cabinet-box').getAttribute('data-box-height')).toBe('44');
+  });
+
+  it('omitting boxSize still passes the fixed 32px default — every existing consumer is unaffected (regression guard)', () => {
+    render(<Toggle schema={schema} value={false} onChange={() => {}} />);
+    expect(screen.getByTestId('cabinet-box').getAttribute('data-box-height')).toBe('32');
+  });
+
+  it('also updates the --cabinet-toggle-box-size custom property (Toggle.css\'s own front-face size override) to match boxSize, not just CabinetBox\'s boxHeight prop', () => {
+    render(<Toggle schema={schema} value={false} onChange={() => {}} boxSize={44} />);
+    const switchRoot = screen.getByRole('switch');
+    expect(switchRoot.style.getPropertyValue('--cabinet-toggle-box-size')).toBe('44px');
+  });
+
+  it('--cabinet-toggle-box-size still defaults to 32px when boxSize is omitted', () => {
+    render(<Toggle schema={schema} value={false} onChange={() => {}} />);
+    const switchRoot = screen.getByRole('switch');
+    expect(switchRoot.style.getPropertyValue('--cabinet-toggle-box-size')).toBe('32px');
+  });
+
+  // Facade content — an icon or short text rendered on CabinetBox's own front face, replacing
+  // the bare/textless box every other consumer still gets. docs: Toggle facade-content addition.
+  describe('facade content (children)', () => {
+    it('renders children as CabinetBox\'s own facade content', () => {
+      render(<Toggle schema={schema} value={false} onChange={() => {}}>🔊</Toggle>);
+      expect(screen.getByTestId('cabinet-box').textContent).toBe('🔊');
+    });
+
+    it('renders no facade content when children is omitted (regression guard)', () => {
+      render(<Toggle schema={schema} value={false} onChange={() => {}} />);
+      expect(screen.getByTestId('cabinet-box').textContent).toBe('');
+    });
+
+    it('suppresses the external DualLabel when children is provided, even though the schema carries lore/human labels', () => {
+      render(<Toggle schema={schema} value={false} onChange={() => {}}>🔊</Toggle>);
+      expect(screen.queryByText('LAYER ACTIVE')).toBeNull();
+      expect(screen.queryByText('Layer Active')).toBeNull();
+    });
+
+    it('still renders the external DualLabel when children is omitted (unchanged default behavior)', () => {
+      render(<Toggle schema={schema} value={false} onChange={() => {}} />);
+      expect(screen.getByText('LAYER ACTIVE')).toBeTruthy();
+      expect(screen.getByText('Layer Active')).toBeTruthy();
+    });
+
+    it('the accessible name still resolves from schema.humanLabel even though DualLabel is visually suppressed', () => {
+      render(<Toggle schema={schema} value={false} onChange={() => {}}>🔊</Toggle>);
+      expect(screen.getByRole('switch', { name: 'Layer Active' })).toBeTruthy();
+    });
+
+    it('content-sizes the box (no boxHeight passed to CabinetBox) when children is provided without an explicit boxSize', () => {
+      render(<Toggle schema={schema} value={false} onChange={() => {}}>🔊</Toggle>);
+      expect(screen.getByTestId('cabinet-box').getAttribute('data-box-height')).toBeNull();
+    });
+
+    it('an explicit boxSize still forces a fixed square even when children is provided (Header\'s Mute needs an exact 44px for its row-fit math)', () => {
+      render(<Toggle schema={schema} value={false} onChange={() => {}} boxSize={44}>🔊</Toggle>);
+      expect(screen.getByTestId('cabinet-box').getAttribute('data-box-height')).toBe('44');
+    });
+
+    it('omits the sc-toggle__root--bare modifier class when children is provided — lets CabinetBox.css\'s own natural content-sized front face apply, same as Button\'s box', () => {
+      render(<Toggle schema={schema} value={false} onChange={() => {}}>🔊</Toggle>);
+      expect(screen.getByRole('switch').classList.contains('sc-toggle__root--bare')).toBe(false);
+    });
+
+    it('keeps the sc-toggle__root--bare modifier class when children is omitted (regression guard — every existing consumer keeps its fixed-square sizing)', () => {
+      render(<Toggle schema={schema} value={false} onChange={() => {}} />);
+      expect(screen.getByRole('switch').classList.contains('sc-toggle__root--bare')).toBe(true);
+    });
   });
 });

@@ -86,7 +86,7 @@ export interface AudioStore {
   /** Global-chain LFO settings, one entry per GlobalLfoTargetId — seeded per Attenuation Style, see regenerateGlobalLfoFromSeed. */
   globalLfo: Record<GlobalLfoTargetId, LfoSettings>;
   isMuted: boolean;
-  /** Live master-volume slider position, [0, 1] — TransportBar's volume slider's single source
+  /** Live master-volume slider position, [0, 1] — Header's volume slider's single source
    *  of truth. Default 1 (100%), never persisted across sessions. The engine's actual live gain
    *  is `isMuted ? 0 : volumePositionToGain(volume)` — see setVolume/setMuted below.
    *  docs/specs/GLOBAL_VOLUME_CONTROL.md §1.3. */
@@ -121,7 +121,7 @@ export interface AudioStore {
   /** Sets isMuted and pushes the resulting gain to AudioEngine — 0 when muted,
    *  volumePositionToGain(volume) (the live slider position) when not. Owns its own
    *  AudioEngine call, matching every other audioStore setter's shape (setBPM, etc.) —
-   *  TransportBar.tsx no longer calls AudioEngine directly for mute.
+   *  Header.tsx doesn't call AudioEngine directly for mute either.
    *  docs/specs/GLOBAL_VOLUME_CONTROL.md §1.3, §1.5. */
   setMuted: (muted: boolean) => void;
   /** Sets the master-volume slider position and pushes the tapered gain to AudioEngine.

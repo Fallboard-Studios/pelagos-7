@@ -112,7 +112,9 @@ export function PingControlsDrawer({
           {/* Dev-only, same gate as the Skipped Notes debug counter (App.tsx) — a testing aid,
               not something a production build's audience should see or be able to reach. */}
           {DEV_TUNING && (
-            <Toggle schema={CLICK_TRACK_SCHEMA} value={value.clickTrackActive} onChange={onClickTrackActiveChange} disabled={disabled} />
+            <Toggle schema={CLICK_TRACK_SCHEMA} value={value.clickTrackActive} onChange={onClickTrackActiveChange} disabled={disabled}>
+              Click Track
+            </Toggle>
           )}
           <DirectionalPanel schema={RHYTHM_PANEL_SCHEMA}>
             <SliderLinear schema={DENSITY_SCHEMA} value={value.rhythmicDensity} onChange={onDensityChange} disabled={generationDisabled} />

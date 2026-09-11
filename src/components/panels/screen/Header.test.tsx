@@ -1,0 +1,252 @@
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, act } from '@testing-library/react';
+
+import Header from './Header';
+import { useUIStore } from '@/stores/uiStore';
+import { useAudioStore } from '@/stores/audioStore';
+
+function setStoreFixtures() {
+  useAudioStore.setState({ isMuted: false, volume: 0.6 });
+  useUIStore.setState({
+    isPoweredOn: true,
+    activeLocaleLocalTime: 14.5, // 14:30
+    activeLocaleTemperature: -45,
+    activeHubTile: null,
+    selectedRobotId: null,
+  });
+}
+
+// Controllable ResizeObserver mock — exercises the --header-height
+// measurement effect (docs/specs/HEADER_HUB_CONSOLIDATION.md §1.6, Task 9).
+class MockResizeObserver {
+  static instances: MockResizeObserver[] = [];
+  callback: ResizeObserverCallback;
+  observedTargets: Element[] = [];
+  disconnected = false;
+
+  constructor(callback: ResizeObserverCallback) {
+    this.callback = callback;
+    MockResizeObserver.instances.push(this);
+  }
+
+  observe(target: Element) {
+    this.observedTargets.push(target);
+  }
+
+  unobserve() {}
+  disconnect() {
+    this.disconnected = true;
+  }
+
+  fire(height: number) {
+    this.callback([{ contentRect: { height } } as ResizeObserverEntry], this as unknown as ResizeObserver);
+  }
+}
+
+/** CabinetBox (Toggle's mute box + RadioButton's 3 option boxes — 4 real
+ *  instances render here) also constructs its own ResizeObserver, which
+ *  would otherwise be indistinguishable from the height-measurement
+ *  effect's own instance under the same mocked global. Find the one
+ *  observing the <header> root specifically. */
+function findHeaderHeightObserver(headerEl: Element): MockResizeObserver {
+  const found = MockResizeObserver.instances.find((o) => o.observedTargets.includes(headerEl));
+  if (!found) throw new Error('No MockResizeObserver observed the <header> root element');
+  return found;
+}
+
+/** Header now renders the nav RadioButton group twice — .header__row--nav.primary
+ *  (shown ≥430px, inside .header__row--status-nav) and .secondary (shown
+ *  below that), both bound to the exact same schema/store fields, swapped
+ *  via a CSS media query rather than reflowed as one DOM instance ("big
+ *  header restyle" commit, 4f025af). jsdom never evaluates that media query
+ *  (no real layout), so both instances are always present/queryable here —
+ *  picking the first match of a given option name is arbitrary but
+ *  equivalent to picking the other, since clicking either fires the exact
+ *  same onChange/onDeselect handler against the exact same store. */
+function getNavRadio(name: string): HTMLElement {
+  return screen.getAllByRole('radio', { name })[0];
+}
+
+let originalResizeObserver: typeof ResizeObserver;
+
+describe('Header', () => {
+  beforeEach(() => {
+    setStoreFixtures();
+    MockResizeObserver.instances = [];
+    originalResizeObserver = globalThis.ResizeObserver;
+    (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = MockResizeObserver;
+  });
+
+  afterEach(() => {
+    (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = originalResizeObserver;
+    document.documentElement.style.removeProperty('--header-height');
+  });
+
+  it('renders exactly one volume slider bound to audioStore.volume (as the shared Cabinetry SliderLinear, displayed 0-100%)', () => {
+    render(<Header />);
+    const slider = screen.getByRole('slider', { name: /volume/i });
+    expect(slider.getAttribute('aria-valuenow')).toBe('60');
+    expect(slider.getAttribute('aria-valuemin')).toBe('0');
+    expect(slider.getAttribute('aria-valuemax')).toBe('100');
+  });
+
+  it('stepping the volume slider with the keyboard calls setVolume, observable as a real store update', () => {
+    render(<Header />);
+    const slider = screen.getByRole('slider', { name: /volume/i });
+    slider.focus();
+    fireEvent.keyDown(slider, { key: 'ArrowRight' });
+    expect(useAudioStore.getState().volume).toBeGreaterThan(0.6);
+  });
+
+  it('disables the volume slider when powered off', () => {
+    useUIStore.setState({ isPoweredOn: false });
+    render(<Header />);
+    const slider = screen.getByRole('slider', { name: /volume/i });
+    expect(slider.getAttribute('data-disabled')).toBe('');
+  });
+
+  it('renders the local time as HH:MM', () => {
+    render(<Header />);
+    expect(screen.getByText(/14:30/)).toBeTruthy();
+  });
+
+  it('renders temperature as an integer °C reading', () => {
+    render(<Header />);
+    expect(screen.getByText(/-45°C/)).toBeTruthy();
+  });
+
+  it('falls back to a placeholder when temperature has not been set yet (null)', () => {
+    useUIStore.setState({ activeLocaleTemperature: null });
+    render(<Header />);
+    expect(screen.queryByText(/°C/)).toBeNull();
+    expect(screen.getByText('CORRUPT TEMPERATURE')).toBeTruthy();
+  });
+
+  it('renders mute as a switch reflecting audioStore.isMuted', () => {
+    render(<Header />);
+    const muteSwitch = screen.getByRole('switch', { name: /mute/i });
+    expect(muteSwitch.getAttribute('aria-checked')).toBe('false');
+  });
+
+  it('marks "Volume/Mute" as the visible facade text when not muted (both strings stay in the DOM — see the test below — only data-visible flips), and no separate "Mute" text', () => {
+    useAudioStore.setState({ isMuted: false });
+    render(<Header />);
+    expect(screen.getByText('Volume/Mute').getAttribute('data-visible')).toBe('true');
+    expect(screen.getByText('Volume Muted').getAttribute('data-visible')).toBeNull();
+    expect(screen.queryByText('Mute')).toBeNull();
+  });
+
+  it('marks "Volume Muted" as the visible facade text when muted', () => {
+    useAudioStore.setState({ isMuted: true });
+    render(<Header />);
+    expect(screen.getByText('Volume Muted').getAttribute('data-visible')).toBe('true');
+    expect(screen.getByText('Volume/Mute').getAttribute('data-visible')).toBeNull();
+  });
+
+  it('keeps both facade strings in the DOM regardless of mute state, so the box never resizes when toggled — only the state-matching one is visible', () => {
+    useAudioStore.setState({ isMuted: false });
+    const { container } = render(<Header />);
+    const spans = container.querySelectorAll('.header__mute-facade-text');
+    expect(spans).toHaveLength(2);
+    expect(Array.from(spans).map((el) => el.textContent)).toEqual(['Volume/Mute', 'Volume Muted']);
+  });
+
+  it('clicking mute flips audioStore.isMuted, independent of volume', () => {
+    useAudioStore.setState({ volume: 0.8, isMuted: false });
+    render(<Header />);
+    fireEvent.click(screen.getByRole('switch', { name: /mute/i }));
+    expect(useAudioStore.getState().isMuted).toBe(true);
+    expect(useAudioStore.getState().volume).toBe(0.8);
+  });
+
+  it('disables the mute switch when powered off', () => {
+    useUIStore.setState({ isPoweredOn: false });
+    render(<Header />);
+    expect((screen.getByRole('switch', { name: /mute/i }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('renders 3 nav options, once per responsive nav group (.primary + .secondary)', () => {
+    render(<Header />);
+    expect(screen.getAllByRole('radio', { name: 'Robots' })).toHaveLength(2);
+    expect(screen.getAllByRole('radio', { name: 'Audio Rig' })).toHaveLength(2);
+    expect(screen.getAllByRole('radio', { name: 'Sector Settings' })).toHaveLength(2);
+  });
+
+  it('selecting a nav option calls setActiveHubTile', () => {
+    render(<Header />);
+    fireEvent.click(getNavRadio('Audio Rig'));
+    expect(useUIStore.getState().activeHubTile).toBe('audioRig');
+  });
+
+  it('re-selecting the active nav option clears activeHubTile back to null (deselect-to-empty, via RadioButton\'s onDeselect)', () => {
+    useUIStore.setState({ activeHubTile: 'settings' });
+    render(<Header />);
+    fireEvent.click(getNavRadio('Sector Settings'));
+    expect(useUIStore.getState().activeHubTile).toBeNull();
+  });
+
+  it('re-selecting Robots while selectedRobotId is set drops to the list instead of blanking all the way out', () => {
+    useUIStore.setState({ activeHubTile: 'robots', selectedRobotId: 'robot-3' });
+    render(<Header />);
+    // Clicking the already-active 'Robots' option fires RadioButton's
+    // onDeselect (not onChange) — handleNavDeselect must still recognize the
+    // robots+selectedRobotId case and drop to the list, not blank
+    // activeHubTile to null.
+    fireEvent.click(getNavRadio('Robots'));
+    expect(useUIStore.getState().selectedRobotId).toBeNull();
+    expect(useUIStore.getState().activeHubTile).toBe('robots');
+  });
+
+  it('re-selecting Robots while selectedRobotId is already null blanks all the way out, same as any other tile', () => {
+    useUIStore.setState({ activeHubTile: 'robots', selectedRobotId: null });
+    render(<Header />);
+    fireEvent.click(getNavRadio('Robots'));
+    expect(useUIStore.getState().activeHubTile).toBeNull();
+  });
+
+  it('selecting a non-robots tile does not touch selectedRobotId', () => {
+    useUIStore.setState({ activeHubTile: null, selectedRobotId: 'robot-3' });
+    render(<Header />);
+    fireEvent.click(getNavRadio('Audio Rig'));
+    expect(useUIStore.getState().selectedRobotId).toBe('robot-3');
+  });
+
+  it('renders no restart, pause/play, or BPM readouts', () => {
+    render(<Header />);
+    expect(screen.queryByRole('button', { name: /restart/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /pause/i })).toBeNull();
+    expect(screen.queryByText(/BPM/)).toBeNull();
+  });
+
+  // docs/specs/HEADER_HUB_CONSOLIDATION.md §1.6 (Task 9) — Console.css's
+  // vertical deadzone clearance reads --header-height off document.documentElement,
+  // since Header is a sibling of Console, not an ancestor.
+  describe('--header-height measurement (§1.6)', () => {
+    it('writes its own measured height to document.documentElement as --header-height', () => {
+      const { container } = render(<Header />);
+      const observer = findHeaderHeightObserver(container.querySelector('header')!);
+
+      act(() => observer.fire(140));
+      expect(document.documentElement.style.getPropertyValue('--header-height')).toBe('140px');
+    });
+
+    it('updates --header-height again when the header resizes, not just once on mount', () => {
+      const { container } = render(<Header />);
+      const observer = findHeaderHeightObserver(container.querySelector('header')!);
+
+      act(() => observer.fire(140));
+      expect(document.documentElement.style.getPropertyValue('--header-height')).toBe('140px');
+
+      act(() => observer.fire(96));
+      expect(document.documentElement.style.getPropertyValue('--header-height')).toBe('96px');
+    });
+
+    it('disconnects the height observer on unmount', () => {
+      const { container, unmount } = render(<Header />);
+      const observer = findHeaderHeightObserver(container.querySelector('header')!);
+      expect(observer.disconnected).toBe(false);
+      unmount();
+      expect(observer.disconnected).toBe(true);
+    });
+  });
+});

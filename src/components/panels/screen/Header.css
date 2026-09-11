@@ -1,0 +1,194 @@
+/* ----------------------------------------
+   Header root — responsive layout is a fixed set of hand-authored
+   breakpoints below (430/480/880/1220px), not a live ResizeObserver-driven
+   row merge (the original spec's useHeaderRowFit approach — removed as dead
+   code once this restyle superseded it; see
+   docs/tasks/HEADER_HUB_CONSOLIDATION.md's "Post-implementation follow-up").
+   Horizontal deadzone clearance (padding-left: var(--sleeve-bar-width))
+   lives on .rocker-spacer in ScreenViewport.css, not here — Task 9's
+   original "applied once to the whole header" placement moved once the
+   secondary nav row was added outside that wrapper.
+   ---------------------------------------- */
+.header {
+  --color-surface: rgba(26, 26, 26, 0.75);
+  position: sticky;
+  top: 8px;
+  width: 100%;
+  z-index: var(--z-header);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg) var(--spacing-md);
+  box-sizing: border-box;
+  background: var(--color-surface);
+  border-bottom: var(--border-width) solid var(--border-color);
+}
+
+/* Row-direction flex: the Mute toggle (content-sized — see .header__mute-
+   facade below) sits first at its own natural width, the slider afterward
+   claims the rest of the row via flex-grow (below). Row-direction flex items
+   don't stretch along the main axis by default, so the toggle's width is
+   naturally left alone here — only the slider needs an explicit flex rule. */
+.header__row--volume {
+  grid-area: volume;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-sm);
+  width: 100%;
+  max-width: 140px;
+}
+
+/* SliderLinear's own self-fit assumes an externally-determined, non-content-
+sized wrapper (same reasoning audio-rig-drawer__param-row/signature-array-
+   drawer__param's column-flex stretch relies on) — flex-grow is this row's
+   own way of giving it that, now that it shares the row with Mute instead of
+   being the row's sole child. min-width: 0 lets it actually shrink below its
+   own natural content width when the row is tight, standard flex-item fix
+   for a child that would otherwise refuse to shrink past its content size.
+
+   align-self: stretch is the part actually fixing the "doesn't shrink to 3
+   boxes on a fast resize down to ~320px" bug: below 480px .header__row--volume
+   is column-direction with align-items: center (above), and align-items only
+   stretches a flex item's CROSS axis — which in a column container is WIDTH.
+   Un-stretched, this wrapper's width falls back to its own fit-content size,
+   which is a direct function of however many boxes SliderLinear last
+   rendered — exactly the "measuring my own consequence" circularity
+   useVoxelTrackBoxCount.ts's own doc comment says the horizontal
+   self-observation case must never be under (it explicitly assumes "a plain
+   block box [that] fills whatever its containing block gives it, regardless
+   of its own children's size"). A slow drag masks this because every
+   intermediate frame's ResizeObserver callback nudges the box count down by
+   roughly one step at a time, each new (still content-derived, but now
+   slightly smaller) width narrowly staying ahead of the shrinking viewport;
+   a single fast resize/snap skips straight to the final width with no
+   intermediate frames to ratchet down through, so the wrapper is left
+   holding its old, much-too-wide fit-content size and never re-measures
+   smaller. Restored to the default (align-self: auto) at ≥480px below, where
+   the row becomes flex-direction: row and flex-grow/shrink (not align-items)
+   already correctly governs this same axis without the fix's help. */
+.header__row--volume .sc-slider-linear {
+  flex: 1 1 auto;
+  min-width: 0;
+  align-self: stretch;
+}
+
+/* Mute's facade — both possible strings ('Volume/Mute' unmuted, 'Volume
+   Muted' muted) stacked in the same grid cell so the box's content-sized
+   width is always driven by whichever renders wider; only the state-matching
+   span is actually visible. visibility (not display: none) keeps both in
+   the intrinsic-size calculation while excluding the hidden one from the
+   accessibility tree and paint. */
+.header__mute-facade {
+  position: relative;
+  display: grid;
+}
+
+.header__mute-facade-text {
+  grid-area: 1 / 1;
+  white-space: nowrap;
+  visibility: hidden;
+}
+
+.header__mute-facade-text[data-visible='true'] {
+  visibility: visible;
+}
+
+.header__row--status {
+  grid-area: status;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.header__row--nav {
+  grid-area: nav;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  width: auto;
+}
+
+
+.header__row--nav.primary {
+  display: none;
+}
+
+.header__row--status-nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--spacing-md);
+  width: auto;
+}
+
+@media screen and (min-width:430px) {
+  .header__row--nav.primary {
+    display: flex;
+  }
+
+  .header__row--nav.secondary {
+    display: none;
+  }
+
+  .header__row--status-nav {
+    justify-content: center;
+  }
+
+}
+
+@media screen and (min-width: 480px) {
+  .header__row--volume {
+    width: 100%;
+    min-width: 300px;
+    max-width: calc(100% - 200px);
+    flex-direction: row;
+    gap: var(--spacing-lg);
+    align-items: flex-start;
+    justify-content: flex-start;
+  }
+
+  /* Reverts the base rule's align-self: stretch fix above — irrelevant at
+     this breakpoint (flex-grow/shrink on the main axis, width, already
+     governs sizing correctly in row-direction) and left inheriting the
+     container's own align-items: flex-start again, unchanged from before
+     that fix existed. */
+  .header__row--volume .sc-slider-linear {
+    align-self: auto;
+  }
+}
+
+@media screen and (min-width: 880px) {
+  .header__row--volume {
+    max-width: calc(100% - 420px);
+  }
+}
+
+@media screen and (min-width: 1220px) {
+  .header__row--volume {
+    max-width: 640px;
+  }
+}
+
+/* ----------------------------------------
+   Row 2 — time + temperature
+   ---------------------------------------- */
+.header .header__row--status {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  letter-spacing: 0.05em;
+  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: center;
+  width: auto;
+}
+
+.header .header__status__row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}

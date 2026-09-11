@@ -327,6 +327,23 @@ describe('PingControlsDrawer', () => {
     expect(screen.getByRole('switch', { name: /Click Track/i })).toBeTruthy();
   });
 
+  it('shows "Click Track" as the toggle\'s own facade content, not external label text', () => {
+    render(
+      <PingControlsDrawer
+        value={makeValue()}
+        onDensityChange={() => {}}
+        onMotifLengthChange={() => {}}
+        onOctaveMinChange={() => {}}
+        onOctaveMaxChange={() => {}}
+        onNoteVarianceChange={() => {}}
+        onClickTrackActiveChange={() => {}}
+        onPitchRepeatChange={() => {}}
+      />
+    );
+
+    expect(screen.getByRole('switch', { name: /Click Track/i }).textContent).toBe('Click Track');
+  });
+
   it('omits the Click Track toggle entirely when DEV_TUNING is false — never reachable in a production build', () => {
     mockDevTuning = false;
     render(

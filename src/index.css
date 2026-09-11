@@ -22,8 +22,8 @@
      everywhere else), not two independently-chosen numbers. Lives at :root
      (not scoped to .sleeve-container) because ScreenViewport.css (Task 8)
      is a sibling under .tablet, not a descendant, and needs the same values. */
-  --power-switch-width: 150px;
-  --power-switch-height: 60px;
+  --power-switch-width: 70px;
+  --power-switch-height: 140px;
   --power-corner-margin: 20px;
   --power-corner-width: calc(var(--power-switch-width) + (var(--power-corner-margin) * 2));
   --power-corner-height: calc(var(--power-switch-height) + (var(--power-corner-margin) * 2));
@@ -34,7 +34,7 @@
      Named separately from --power-corner-width so ScreenViewport.css's
      TransportBar exclusion (the whole "shared area with the power switch",
      at any height) and SleeveContainer.css's own width share one source. */
-  --sleeve-bar-width: 200px;
+  --sleeve-bar-width: 110px;
 
   /* Color tokens (fallbacks; prefer assets/color-theme.json mapping elsewhere).
      "Ballast" — hand-picked static console palette (cold graphite + depth-gauge
@@ -60,6 +60,7 @@
   --touch-target-size: 44px;
   --spacing-sm: 8px;
   --spacing-md: 12px;
+  --spacing-lg: 16px;
   --transport-separator-height: 24px;
 
   /* SliderLinear/SliderLog/SliderCenteredZero's default vertical track height

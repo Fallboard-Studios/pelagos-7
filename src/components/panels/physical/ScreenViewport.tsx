@@ -1,4 +1,4 @@
-import TransportBar from '@/components/panels/screen/TransportBar';
+import Header from '@/components/panels/screen/Header';
 import WorldView from '@/components/panels/screen/worldView/WorldView';
 import Console from '@/components/panels/screen/console/Console';
 import { SCREEN_VIEWPORT_ID } from '@/utils/helpers';
@@ -18,7 +18,7 @@ function ScreenViewport({ isPoweredOn }: ScreenViewportProps) {
       </svg>
 
       <div className="screen-content">
-        {isPoweredOn && <TransportBar />}
+        {isPoweredOn && <Header />}
         {isPoweredOn && <WorldView />}
         {isPoweredOn && <Console />}
       </div>

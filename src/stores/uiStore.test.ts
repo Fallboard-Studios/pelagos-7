@@ -24,6 +24,37 @@ describe('uiStore — activeHubTile', () => {
   });
 });
 
+describe('uiStore — activeLocaleTemperature (docs/specs/HEADER_HUB_CONSOLIDATION.md)', () => {
+  beforeEach(() => {
+    useUIStore.setState(INITIAL_STATE, true);
+  });
+
+  it('defaults to null — no temperature reading before the first tick', () => {
+    expect(useUIStore.getState().activeLocaleTemperature).toBeNull();
+  });
+
+  it('setActiveLocaleTemperature sets the value', () => {
+    useUIStore.getState().setActiveLocaleTemperature(-45);
+    expect(useUIStore.getState().activeLocaleTemperature).toBe(-45);
+  });
+
+  it('setActiveLocaleTemperature(null) clears it back to no reading', () => {
+    useUIStore.getState().setActiveLocaleTemperature(-45);
+    useUIStore.getState().setActiveLocaleTemperature(null);
+    expect(useUIStore.getState().activeLocaleTemperature).toBeNull();
+  });
+
+  it('setting temperature never touches activeLocaleLocalTime, or vice versa — independent fields', () => {
+    useUIStore.getState().setActiveLocaleLocalTime(9.5);
+    useUIStore.getState().setActiveLocaleTemperature(-45);
+    expect(useUIStore.getState().activeLocaleLocalTime).toBe(9.5);
+    expect(useUIStore.getState().activeLocaleTemperature).toBe(-45);
+
+    useUIStore.getState().setActiveLocaleTemperature(-90);
+    expect(useUIStore.getState().activeLocaleLocalTime).toBe(9.5);
+  });
+});
+
 describe('uiStore — selectedCompanyId (Roadmap Phase 10)', () => {
   beforeEach(() => {
     useUIStore.setState(INITIAL_STATE, true);

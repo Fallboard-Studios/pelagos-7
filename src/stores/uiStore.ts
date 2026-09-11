@@ -15,6 +15,11 @@ export interface UIStore {
   isPoweredOn: boolean;
   isFullscreen: boolean;
   activeLocaleLocalTime: number | null;
+  /** Live decorative temperature (°C) for the active locale — Header's row 2
+   *  readout. Purely cosmetic, never read by any other system. Same shape/
+   *  placement/no-persistence convention as activeLocaleLocalTime.
+   *  docs/specs/HEADER_HUB_CONSOLIDATION.md §1.3. */
+  activeLocaleTemperature: number | null;
   selectedRobotId: string | null;
   /** The company (Roadmap Phase 10) currently selected in the Robots tab's CompanyManager —
    *  null is "None", the default. Independent of selectedRobotId: selecting one never touches
@@ -41,6 +46,7 @@ export interface UIStore {
   selectCompany: (id: string | null) => void;
   selectAllRobots: () => void;
   setActiveHubTile: (tile: HubTile | null) => void;
+  setActiveLocaleTemperature: (t: number | null) => void;
 }
 
 // ========================================
@@ -54,6 +60,7 @@ export const useUIStore = create<UIStore>((set) => ({
   isFullscreen: false,
   isPoweredOn: false,
   activeLocaleLocalTime: null,
+  activeLocaleTemperature: null,
   selectedRobotId: null,
   selectedCompanyId: null,
   allRobotsSelected: false,
@@ -70,6 +77,7 @@ export const useUIStore = create<UIStore>((set) => ({
   selectCompany: (id) => set({ selectedCompanyId: id, allRobotsSelected: false }),
   selectAllRobots: () => set({ allRobotsSelected: true, selectedCompanyId: null }),
   setActiveHubTile: (tile) => set({ activeHubTile: tile }),
+  setActiveLocaleTemperature: (t) => set({ activeLocaleTemperature: t }),
 }));
 
 // ========================================
