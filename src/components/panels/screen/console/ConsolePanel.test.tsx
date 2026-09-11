@@ -49,15 +49,15 @@ describe('ConsolePanel', () => {
     expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
   });
 
-  it('renders RobotsTab (the list) when robots is active and no robot is selected', () => {
+  it('renders RobotsTab (the list) when robots is active and no robot is selected, with no Back button — Header\'s nav already gets back to the blank hub from here', () => {
     useUIStore.getState().setActiveHubTile('robots');
     useUIStore.getState().selectRobot(null);
     render(<ConsolePanel />);
     expect(screen.getByTestId('robots-list-stub')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Back' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
   });
 
-  it('renders RobotOptionsTab when robots is active and a robot is selected', () => {
+  it('renders RobotOptionsTab (the robot detail view) with a Back button when robots is active and a robot is selected — the one nesting level Header\'s nav has no direct equivalent for', () => {
     useUIStore.getState().setActiveHubTile('robots');
     useUIStore.getState().selectRobot('r1');
     render(<ConsolePanel />);
@@ -65,16 +65,18 @@ describe('ConsolePanel', () => {
     expect(screen.getByRole('button', { name: 'Back' })).toBeTruthy();
   });
 
-  it('renders AudioRigDrawer when audioRig is active', () => {
+  it('renders AudioRigDrawer when audioRig is active, with no Back button', () => {
     useUIStore.getState().setActiveHubTile('audioRig');
     render(<ConsolePanel />);
     expect(screen.getByTestId('audio-rig-drawer-stub')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
   });
 
-  it('renders SectorSettingsDrawer when settings is active', () => {
+  it('renders SectorSettingsDrawer when settings is active, with no Back button', () => {
     useUIStore.getState().setActiveHubTile('settings');
     render(<ConsolePanel />);
     expect(screen.getByTestId('sector-settings-drawer-stub')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
   });
 
   it('back from a selected robot\'s editor clears selectedRobotId but stays on the robots tile', () => {
@@ -85,22 +87,5 @@ describe('ConsolePanel', () => {
 
     expect(useUIStore.getState().selectedRobotId).toBeNull();
     expect(useUIStore.getState().activeHubTile).toBe('robots');
-  });
-
-  it('back from the robots list (no robot selected) returns to the grid', () => {
-    useUIStore.getState().setActiveHubTile('robots');
-    useUIStore.getState().selectRobot(null);
-    render(<ConsolePanel />);
-    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
-
-    expect(useUIStore.getState().activeHubTile).toBeNull();
-  });
-
-  it('back from another tile (audioRig) returns to the grid', () => {
-    useUIStore.getState().setActiveHubTile('audioRig');
-    render(<ConsolePanel />);
-    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
-
-    expect(useUIStore.getState().activeHubTile).toBeNull();
   });
 });
