@@ -144,13 +144,33 @@ describe('RadioButton', () => {
     expect(boxFor('SAWTOOTH')?.getAttribute('data-popped')).toBe('false');
   });
 
-  it('passes a distinct timelineKey per option, derived from schema.id and the option\'s own value', () => {
+  it('passes a distinct timelineKey per option, derived from schema.id, the option\'s own value, and this instance\'s own useId()', () => {
     render(<RadioButton schema={schema} value="sine" onChange={() => {}} />);
     const boxFor = (name: string) =>
       screen.getByRole('radio', { name }).querySelector('[data-testid="cabinet-box"]');
 
-    expect(boxFor('TRIANGLE')?.getAttribute('data-timeline-key')).toBe('cabinet-radio-lfoShape-triangle');
-    expect(boxFor('SQUARE')?.getAttribute('data-timeline-key')).toBe('cabinet-radio-lfoShape-square');
+    const triangleKey = boxFor('TRIANGLE')?.getAttribute('data-timeline-key');
+    const squareKey = boxFor('SQUARE')?.getAttribute('data-timeline-key');
+    expect(triangleKey).toMatch(/^cabinet-radio-lfoShape-.+-triangle$/);
+    expect(squareKey).toMatch(/^cabinet-radio-lfoShape-.+-square$/);
+    // Same instance's own id segment on both options, options themselves distinct.
+    expect(triangleKey?.replace('-triangle', '')).toBe(squareKey?.replace('-square', ''));
+  });
+
+  it('bugfix: two simultaneously-mounted RadioButtons rendering the same schema get non-colliding timelineKeys — Header\'s duplicated nav group (.primary/.secondary) was stomping each other\'s shared timelineMap entry, killing one instance\'s in-flight pop/flatten animation from the other\'s own effect', () => {
+    render(
+      <>
+        <RadioButton schema={schema} value="sine" onChange={() => {}} />
+        <RadioButton schema={schema} value="sine" onChange={() => {}} />
+      </>,
+    );
+    const boxesFor = (name: string) =>
+      screen.getAllByRole('radio', { name }).map((el) => el.querySelector('[data-testid="cabinet-box"]'));
+
+    const [firstKey, secondKey] = boxesFor('TRIANGLE').map((box) => box?.getAttribute('data-timeline-key'));
+    expect(firstKey).toBeTruthy();
+    expect(secondKey).toBeTruthy();
+    expect(firstKey).not.toBe(secondKey);
   });
 
   it('renders the option\'s label as CabinetBox\'s own children, not directly inside the toggle item', () => {
@@ -198,6 +218,22 @@ describe('RadioButton', () => {
     expect(boxFor('TRIANGLE')?.getAttribute('data-popped')).toBe('true');
     expect(boxFor('SQUARE')?.getAttribute('data-popped')).toBe('false');
     expect(boxFor('SAWTOOTH')?.getAttribute('data-popped')).toBe('false');
+  });
+
+  it('clears a stale hover when value changes without an intervening mouseLeave — bugfix, Header nav switching between tiles', () => {
+    // Simulates the real-world sequence a mouseleave sometimes fails to fire
+    // for (see RadioButton.tsx's own bugfix comment): TRIANGLE gets hovered
+    // (and popped) but never a real mouseLeave; the group's value then
+    // changes to SQUARE by some other means (a click's onChange, or an
+    // external/programmatic change) with no mouseLeave in between.
+    const { rerender } = render(<RadioButton schema={schema} value="sine" onChange={() => {}} />);
+    fireEvent.mouseEnter(screen.getByRole('radio', { name: 'TRIANGLE' }));
+    expect(screen.getByRole('radio', { name: 'TRIANGLE' }).querySelector('[data-testid="cabinet-box"]')?.getAttribute('data-popped')).toBe('true');
+
+    rerender(<RadioButton schema={schema} value="square" onChange={() => {}} />);
+
+    expect(screen.getByRole('radio', { name: 'TRIANGLE' }).querySelector('[data-testid="cabinet-box"]')?.getAttribute('data-popped')).toBe('false');
+    expect(screen.getByRole('radio', { name: 'SQUARE' }).querySelector('[data-testid="cabinet-box"]')?.getAttribute('data-popped')).toBe('true');
   });
 
   it('never pops on hover while disabled, matching Button\'s own disabled-blocks-hover rule', () => {

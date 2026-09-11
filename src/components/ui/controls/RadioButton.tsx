@@ -1,5 +1,5 @@
 import * as ToggleGroup from '@radix-ui/react-toggle-group';
-import { useState, type CSSProperties } from 'react';
+import { useId, useState, type CSSProperties } from 'react';
 
 import { CabinetBox } from './CabinetBox';
 import { DualLabel } from './DualLabel';
@@ -51,6 +51,20 @@ interface RadioButtonProps {
  *  §1 for the full derivation, including why this is the first consumer with
  *  more than one CabinetBox per control.
  *
+ *  `timelineKey` (below) includes `useId()`, not just `schema.id` +
+ *  `option.value` — `timelineMap` is a shared, module-level `Map`, so two
+ *  simultaneously-mounted `RadioButton`s rendering the *same* schema object
+ *  (Header's nav group, rendered twice — `.primary`/`.secondary`, swapped by
+ *  CSS breakpoint but both actually mounted at once) would otherwise compute
+ *  identical keys and stomp each other's `setTimeline`/`killTimeline` calls,
+ *  killing one instance's in-flight pop/flatten tween mid-animation from the
+ *  other's own effect re-run — found live as walls freezing mid-transition
+ *  after a tile switch, only resolving on the next real hover (which snaps
+ *  to the stale `prevPoppedRef` value CabinetBox already committed to,
+ *  visibly "un-popping" before animating back in). `useId()` guarantees
+ *  every mounted instance gets its own namespace regardless of how many
+ *  share a schema.
+ *
  *  Each option also pops on mouseEnter/mouseLeave, matching Button's own
  *  hover-pop feedback (Button.tsx) — added after 11.1.6 shipped, reversing
  *  that phase's original "no hover/partial-pop on unselected options"
@@ -59,14 +73,42 @@ interface RadioButtonProps {
  *  a disabled group never pops on hover, mirroring Button's own
  *  `!disabled && ...` guard. Hover only ever *adds* pop on top of the
  *  selected-state pop — it never un-pops the selected option on
- *  mouseLeave. */
+ *  mouseLeave.
+ *
+ *  Bugfix: `hoveredValue` also resets to `null` whenever `value` changes
+ *  (below, the React-docs-endorsed "adjust state during render" pattern —
+ *  https://react.dev/learn/you-might-not-need-an-effect — not a `useEffect`,
+ *  which `react-hooks/set-state-in-effect` correctly flags as an extra,
+ *  avoidable render pass for a plain prop-driven reset like this one) —
+ *  found live in Header's nav group, where switching between tiles left the
+ *  *previously* active option visibly popped (walls extruded, no accent
+ *  tint since it was no longer selected) until it was hovered for real
+ *  again. The option's own front face translates on pop (CabinetBox's GSAP
+ *  offset), so clicking it — mouse held stationary — can move that
+ *  translated hit-region out from under the cursor without the browser ever
+ *  re-running hit-testing (that only happens on real subsequent pointer
+ *  input), so no `mouseleave` fires to clear the stale hover. Resetting on
+ *  every selection change sidesteps that class of missed-event entirely,
+ *  rather than chasing the exact pointer-event sequence that drops it. */
 export function RadioButton({ schema, value, onChange, disabled, onDeselect, boxSize }: RadioButtonProps) {
   // Reuses the same breakpoint-tier gap VoxelTrack (11.1.3) uses between its
   // own boxes — not renamed to something RadioButton-neutral; see
   // docs/specs/OBLIQUE_CABINETRY_RADIO_BUTTON.md §1.5 for why.
   const gap = useVoxelTrackGap();
   const rowTokens = { '--cabinet-radio-gap': `${gap}px` } as CSSProperties;
+  const instanceId = useId();
   const [hoveredValue, setHoveredValue] = useState<string | null>(null);
+
+  // See the bugfix note above — clears a stale hover left behind by a
+  // selection change that didn't route through a real mouseleave on the
+  // previously-hovered option. Adjusts state during render (React's own
+  // recommended pattern for "reset when a prop changes") rather than a
+  // useEffect, which would commit the stale-hover frame to the DOM first.
+  const [prevValue, setPrevValue] = useState(value);
+  if (value !== prevValue) {
+    setPrevValue(value);
+    setHoveredValue(null);
+  }
 
   return (
     <div className="sc-radio-button">
@@ -91,7 +133,7 @@ export function RadioButton({ schema, value, onChange, disabled, onDeselect, box
           >
             <CabinetBox
               popped={option.value === value || (!disabled && option.value === hoveredValue)}
-              timelineKey={`cabinet-radio-${schema.id}-${option.value}`}
+              timelineKey={`cabinet-radio-${schema.id}-${instanceId}-${option.value}`}
               {...(boxSize !== undefined ? { boxHeight: boxSize, frontWidth: boxSize, frontHeight: boxSize } : {})}
             >
               {option.label}
