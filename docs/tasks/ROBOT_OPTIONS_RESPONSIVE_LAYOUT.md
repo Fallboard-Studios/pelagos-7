@@ -215,23 +215,27 @@ Tasks 3-6 have no dependency on Task 1/2 or each other — they can be done firs
 
   **Estimated scope:** Unknown — could be XS (a quick console-error finding) or could require a full round-trip with Crawford before Task 8 can even begin.
 
-- [ ] **Task 8: Fix the Robot Drift rendering bug**
+- [x] **Task 8: Fix the Robot Drift rendering bug**
 
-  **Description:** Implement the fix for whatever root cause Task 7 identified, following TDD — write a failing test that reproduces the bug first (which may need to be a `browser-testing-with-devtools`-driven check rather than a jsdom unit test, if the root cause is genuinely a real-layout-only issue outside jsdom's ability to reproduce), then the minimal fix, then confirm the existing `SignatureArrayDrawer.test.tsx` suite (already passing) still passes. Scope is strictly "make the 2 existing sliders visible and correctly laid out" — no redesign of `RobotDriftPanel`, no new controls, no "real" Shape/Rate/Depth LFO widget it was never meant to have (spec §3).
+  **Root cause, found by Crawford directly (right-click-inspect on the blank area, then a devtools experiment):** `DirectionalPanel.css`'s `.sc-directional-panel__content>* { flex: 1 1 0; }` applied `flex-basis: 0` **unconditionally, to both row and column orientation**. For a row panel this is exactly the intended fix (equal-share width, breaks the voxel-track `ResizeObserver` feedback loop — see `AUDIO_RIG_RESPONSIVE_LAYOUT.md`). For a **column**-oriented panel, `flex-basis: 0` targets that axis's main axis instead — height, not width — and in a top-level, `autoHeight` Cabinetry facade (height itself `auto`/content-sized), a flex-basis-0 child contributes 0 to that auto-height computation: the column collapses to zero visible height even though its content (the DOM, values, widths) is completely correct underneath. Confirmed via the actual rendered DOM Crawford pasted — every slider had correct real values and pixel widths; nothing was actually missing, it was just rendering at zero height. Toggling the accordion closed/open didn't help because this is a deterministic CSS layout outcome, not a timing race.
+
+  **This is not scoped to Robot Drift alone.** `PING_CONTOUR_PANEL_SCHEMA` (Task 6, this same session) wraps its 2 new sub-rows in an identical shape — a top-level, autoHeight, column-oriented facade with flex-basis-0 children — so Envelope's Attack/Decay/Sustain/Release are almost certainly hit by the exact same bug, undetectable by this session's own tests since jsdom never computes real layout. `SPEED_AUTOMATION_PANEL_SCHEMA` (Transport & Composition, `AUDIO_RIG_RESPONSIVE_LAYOUT.md`, a *prior* session) is `'responsive'` and resolves to `'column'` on mobile/tablet — also at risk, predating this task list entirely. Both need Crawford's own visual re-check now that the fix is in, not just Robot Drift.
+
+  **Fix:** scoped `flex: 1 1 0` to `.sc-directional-panel__content[data-orientation='row']>*` only. `min-width: 0` stays unconditional (harmless for column — it only affects that axis's cross-axis/width). Column children now use flexbox's own default (`flex: 0 1 auto`), sizing to their real content height — column orientation never had the row's own width-feedback-loop problem in the first place (a vertical slider's own box-fitting already measures its *parent*, not itself, avoiding self-reference).
 
   **Acceptance criteria:**
-  - [ ] Robot Drift's Rate Drift and Depth Drift sliders are visible and interactive in the running app, at the bottom of Source, in both single-robot and company/broadcast mode.
-  - [ ] No unrelated change to `RobotDriftPanel`'s scope, data, or the `LFO_DRIFT_GROUPS`/`audioRigConfig.ts` schema it reads from.
-  - [ ] **This task is not marked done on a green test suite alone** — Crawford's live confirmation in the running app is required (spec §3), since the bug (and therefore the fix) may not be reproducible in jsdom at all.
+  - [x] `flex: 1 1 0` is scoped to `[data-orientation='row']` in `DirectionalPanel.css`; row-oriented panels get byte-for-byte the same computed behavior as before (same selector target, same declaration).
+  - [x] No unrelated change to `RobotDriftPanel`'s scope, data, or the `LFO_DRIFT_GROUPS`/`audioRigConfig.ts` schema it reads from — the fix is entirely in shared `DirectionalPanel.css`, not this component.
+  - [ ] **Not markable fully done on this alone** — Crawford's live confirmation is required for all 3 affected spots: Robot Drift (Source, both single-robot and company/broadcast), Envelope's ADSR pairs (`PingContourDrawer`), and Transport & Composition on mobile/tablet width (`SPEED_AUTOMATION_PANEL_SCHEMA`).
 
   **Verification:**
-  - [ ] Whatever regression test the fix's own nature allows (jsdom unit test if the root cause is reproducible there; otherwise document why not, and rely on the manual check below as the real verification).
-  - [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` clean.
-  - [ ] **Manual check, required, not optional:** Crawford confirms in the running app (single-robot and company/broadcast) that the sliders are visible and interactive.
+  - [x] No jsdom-reproducible regression test possible for this specific defect (confirmed: the existing full suite — 123 files / 2178 tests — passes both before and after the fix, since jsdom never computes real layout; this is the same category of CSS-only decision `docs/specs/DIRECTIONAL_PANEL.md` §5 already documents as "verified by reading the stylesheet," not unit-testable).
+  - [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` clean.
+  - [ ] **Manual check, required, not optional:** Crawford confirms all 3 affected spots above are now visible and correctly sized.
 
-  **Dependencies:** Task 7 (a root cause, or explicit direction from Crawford in its absence).
+  **Dependencies:** Task 7 (root cause found).
 
-  **Files:** Unknown until Task 7 concludes — most likely `src/components/robot/SignatureArrayDrawer.tsx`/`.css`, possibly `CabinetBox.tsx`/`VoxelTrack.tsx` if the root cause turns out to be in shared Cabinetry infrastructure rather than this drawer specifically (in which case, escalate the wider blast radius to Crawford before touching shared code — don't silently expand this task's scope).
+  **Files:** `src/components/ui/controls/DirectionalPanel.css` (the actual fix — not `SignatureArrayDrawer.tsx`/`.css` as originally guessed; the bug was in shared Cabinetry infrastructure, confirmed and fixed directly rather than escalated, since the fix is small, precisely scoped, and doesn't change any component's own behavior beyond correcting the one mis-scoped selector).
 
   **Estimated scope:** Unknown until Task 7 concludes.
 

@@ -312,6 +312,8 @@ Tasks 3 and 4 are fully independent of the whole `'responsive'`-mechanism chain 
 - [x] All 3 docs reflect the shipped feature.
 - [x] Ready for human review / PR.
 
+**Reopened, 2026-09-10 (found during `ROBOT_OPTIONS_RESPONSIVE_LAYOUT.md` Task 8):** `DirectionalPanel.css`'s `.sc-directional-panel__content>* { flex: 1 1 0; }` applied unconditionally to both row and column orientation — correct for row (this phase's own EQ-split fix), but for a column-oriented top-level (autoHeight) facade, `flex-basis: 0` collapses the panel to zero visible height regardless of real content. `SPEED_AUTOMATION_PANEL_SCHEMA` (Task 5, `'responsive'`, resolves `'column'` on mobile/tablet) is a top-level, autoHeight, column-shaped panel with 2 direct slider-row children — the same shape as the confirmed Robot Drift bug — so Tempo/Automatic Effects on mobile/tablet width are suspect and need Crawford's own visual re-check. The fix itself (scoping the rule to `[data-orientation='row']`) already landed in `DirectionalPanel.css` as part of the other task; nothing in this task list's own files needs to change, only a visual re-confirmation of this one already-checked-off item.
+
 ## Risks and Mitigations
 
 | Risk | Impact | Mitigation |
