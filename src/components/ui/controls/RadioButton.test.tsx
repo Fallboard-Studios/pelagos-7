@@ -8,8 +8,22 @@ import { render, screen, fireEvent } from '@testing-library/react';
 // data-state/data-disabled all live on ToggleGroup.Item itself), so the mock
 // is safe for the whole file rather than needing a separate unmocked block.
 vi.mock('./CabinetBox', () => ({
-  CabinetBox: ({ popped, timelineKey, children }: { popped: boolean; timelineKey: string; children?: React.ReactNode }) => (
-    <div data-testid="cabinet-box" data-popped={popped} data-timeline-key={timelineKey}>{children}</div>
+  CabinetBox: ({ popped, timelineKey, boxHeight, frontWidth, frontHeight, children }: {
+    popped: boolean;
+    timelineKey: string;
+    boxHeight?: number;
+    frontWidth?: number;
+    frontHeight?: number;
+    children?: React.ReactNode;
+  }) => (
+    <div
+      data-testid="cabinet-box"
+      data-popped={popped}
+      data-timeline-key={timelineKey}
+      data-box-height={boxHeight}
+      data-front-width={frontWidth}
+      data-front-height={frontHeight}
+    >{children}</div>
   ),
 }));
 
@@ -159,5 +173,29 @@ describe('RadioButton', () => {
     const item = screen.getByRole('radio', { name: 'TRIANGLE' });
     fireEvent.mouseEnter(item);
     expect(item.querySelector('[data-testid="cabinet-box"]')?.getAttribute('data-popped')).toBe('false');
+  });
+
+  // docs/specs/HEADER_HUB_CONSOLIDATION.md §1.4 — literal square box size,
+  // overriding the responsive useCabinetBoxHeight() tier every other
+  // consumer relies on by omitting these props entirely.
+  it('passes boxSize as boxHeight/frontWidth/frontHeight on every option\'s CabinetBox when provided', () => {
+    render(<RadioButton schema={schema} value="sine" onChange={() => {}} boxSize={44} />);
+    const boxFor = (name: string) =>
+      screen.getByRole('radio', { name }).querySelector('[data-testid="cabinet-box"]');
+
+    for (const name of ['TRIANGLE', 'SINE', 'SQUARE', 'SAWTOOTH']) {
+      const box = boxFor(name);
+      expect(box?.getAttribute('data-box-height')).toBe('44');
+      expect(box?.getAttribute('data-front-width')).toBe('44');
+      expect(box?.getAttribute('data-front-height')).toBe('44');
+    }
+  });
+
+  it('omitting boxSize passes none of boxHeight/frontWidth/frontHeight — every existing consumer\'s responsive-tier behavior is unaffected (regression guard)', () => {
+    render(<RadioButton schema={schema} value="sine" onChange={() => {}} />);
+    const box = screen.getByRole('radio', { name: 'SINE' }).querySelector('[data-testid="cabinet-box"]');
+    expect(box?.getAttribute('data-box-height')).toBeNull();
+    expect(box?.getAttribute('data-front-width')).toBeNull();
+    expect(box?.getAttribute('data-front-height')).toBeNull();
   });
 });

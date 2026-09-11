@@ -13,6 +13,13 @@ interface RadioButtonProps {
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
+  /** Optional fixed square size for every option's CabinetBox, overriding
+   *  the responsive useCabinetBoxHeight() tier RadioButton otherwise
+   *  inherits by omitting boxHeight/frontWidth/frontHeight entirely. Every
+   *  existing consumer (Audio Setting, Decay Mode, per-layer Type,
+   *  CompanyButtonRow, ...) omits this and is unaffected.
+   *  docs/specs/HEADER_HUB_CONSOLIDATION.md §1.4. */
+  boxSize?: number;
 }
 
 /** Single-select control wrapping @radix-ui/react-toggle-group (type="single")
@@ -45,7 +52,7 @@ interface RadioButtonProps {
  *  `!disabled && ...` guard. Hover only ever *adds* pop on top of the
  *  selected-state pop — it never un-pops the selected option on
  *  mouseLeave. */
-export function RadioButton({ schema, value, onChange, disabled }: RadioButtonProps) {
+export function RadioButton({ schema, value, onChange, disabled, boxSize }: RadioButtonProps) {
   // Reuses the same breakpoint-tier gap VoxelTrack (11.1.3) uses between its
   // own boxes — not renamed to something RadioButton-neutral; see
   // docs/specs/OBLIQUE_CABINETRY_RADIO_BUTTON.md §1.5 for why.
@@ -77,6 +84,7 @@ export function RadioButton({ schema, value, onChange, disabled }: RadioButtonPr
             <CabinetBox
               popped={option.value === value || (!disabled && option.value === hoveredValue)}
               timelineKey={`cabinet-radio-${schema.id}-${option.value}`}
+              {...(boxSize !== undefined ? { boxHeight: boxSize, frontWidth: boxSize, frontHeight: boxSize } : {})}
             >
               {option.label}
             </CabinetBox>
