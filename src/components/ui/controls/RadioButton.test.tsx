@@ -71,6 +71,38 @@ describe('RadioButton', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  // docs/specs/HEADER_HUB_CONSOLIDATION.md §1.4 (correction found during
+  // Header's own implementation, Task 8) — every existing consumer relies on
+  // the deselect-to-empty event being silently swallowed (the test above),
+  // so it can't just start forwarding '' to onChange without risking a
+  // behavior change for Audio Setting/Decay Mode/LFO Shape/CompanyButtonRow.
+  // onDeselect is a separate, optional, additive hook specifically for the
+  // event onChange already swallows.
+  it('calls onDeselect (not onChange) on a deselect-to-empty event, when provided', () => {
+    const onChange = vi.fn();
+    const onDeselect = vi.fn();
+    render(<RadioButton schema={schema} value="sine" onChange={onChange} onDeselect={onDeselect} />);
+    fireEvent.click(screen.getByRole('radio', { name: 'SINE' }));
+    expect(onDeselect).toHaveBeenCalledTimes(1);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('does not call onDeselect on a genuine selection of a different option', () => {
+    const onDeselect = vi.fn();
+    render(<RadioButton schema={schema} value="sine" onChange={() => {}} onDeselect={onDeselect} />);
+    fireEvent.click(screen.getByRole('radio', { name: 'SQUARE' }));
+    expect(onDeselect).not.toHaveBeenCalled();
+  });
+
+  it('omitting onDeselect does not throw on a deselect-to-empty event — every existing consumer omits it', () => {
+    const onChange = vi.fn();
+    expect(() => {
+      render(<RadioButton schema={schema} value="sine" onChange={onChange} />);
+      fireEvent.click(screen.getByRole('radio', { name: 'SINE' }));
+    }).not.toThrow();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it('falls back to schema.id for the group\'s accessible name when neither label is present, never leaving it unlabeled', () => {
     const bareSchema: RadioButtonSchema = { id: 'lfoShape', type: 'radio', options: schema.options };
     render(<RadioButton schema={bareSchema} value="sine" onChange={() => {}} />);

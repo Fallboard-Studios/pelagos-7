@@ -13,6 +13,14 @@ interface RadioButtonProps {
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
+  /** Optional — called on a deselect-to-empty event (Radix's single-mode
+   *  ToggleGroup emitting '' when the active item is clicked again), the
+   *  event onChange itself never sees (guarded below, unchanged). Every
+   *  existing consumer omits this and keeps today's swallow-and-ignore
+   *  behavior; Header's nav group (docs/specs/HEADER_HUB_CONSOLIDATION.md
+   *  §1.4) is the first to need it, to tell "re-click the active option"
+   *  apart from "no interaction at all". */
+  onDeselect?: () => void;
   /** Optional fixed square size for every option's CabinetBox, overriding
    *  the responsive useCabinetBoxHeight() tier RadioButton otherwise
    *  inherits by omitting boxHeight/frontWidth/frontHeight entirely. Every
@@ -52,7 +60,7 @@ interface RadioButtonProps {
  *  `!disabled && ...` guard. Hover only ever *adds* pop on top of the
  *  selected-state pop — it never un-pops the selected option on
  *  mouseLeave. */
-export function RadioButton({ schema, value, onChange, disabled, boxSize }: RadioButtonProps) {
+export function RadioButton({ schema, value, onChange, disabled, onDeselect, boxSize }: RadioButtonProps) {
   // Reuses the same breakpoint-tier gap VoxelTrack (11.1.3) uses between its
   // own boxes — not renamed to something RadioButton-neutral; see
   // docs/specs/OBLIQUE_CABINETRY_RADIO_BUTTON.md §1.5 for why.
@@ -68,7 +76,7 @@ export function RadioButton({ schema, value, onChange, disabled, boxSize }: Radi
         className="sc-radio-button__root"
         style={rowTokens}
         value={value}
-        onValueChange={(next) => { if (next) onChange(next); }}
+        onValueChange={(next) => { if (next) onChange(next); else onDeselect?.(); }}
         aria-label={resolveAccessibleName(schema)}
         disabled={disabled}
       >
