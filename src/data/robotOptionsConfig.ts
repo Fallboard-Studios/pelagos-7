@@ -95,6 +95,42 @@ export const ROBOT_OUTPUT_PANEL_SCHEMA: DirectionalPanelSchema = {
   orientation: 'column',
 };
 
+/**
+ * docs/specs/ROBOT_OPTIONS_RESPONSIVE_LAYOUT.md §1.2 — replaces ROBOT_OUTPUT_PANEL_SCHEMA above
+ * (removed once AudioSettingSection.tsx switches over, Task 2): Volume gets a real accordion it
+ * didn't have before. `id` is deliberately not 'robotOptions.volume' — that's VOLUME_SCHEMA's own
+ * id already, and this needs to be distinct.
+ */
+export const VOLUME_ACCORDION_SCHEMA: AccordionSchema = {
+  id: 'robotOptions.volumeAccordion',
+  type: 'accordion',
+  loreLabel: 'PROBE ACOUSTIC AMPLITUDE',
+  humanLabel: 'Volume',
+};
+
+/**
+ * Wraps VOLUME_SETTINGS_COLUMN_PANEL_SCHEMA (below) beside the Volume LFO display — 'responsive'
+ * so mobile/tablet stacks everything into one column (Audio Setting, Volume, LFO, in that order)
+ * and desktop splits into 2 side-by-side columns. Unlabeled — pure layout, top-level inside
+ * VOLUME_ACCORDION_SCHEMA (gets its own Cabinetry facade, same as every other top-level panel).
+ */
+export const VOLUME_ROW_PANEL_SCHEMA: DirectionalPanelSchema = {
+  id: 'robotOptions.volumeRow',
+  type: 'directionalPanel',
+  orientation: 'responsive',
+};
+
+/**
+ * Audio Setting + Volume, always stacked — the left column of VOLUME_ROW_PANEL_SCHEMA's desktop
+ * row (and, on mobile/tablet, simply the first 2 items in that panel's single stacked column).
+ * Fixed 'column' regardless of tier — unlike VOLUME_ROW_PANEL_SCHEMA, this one never becomes a row.
+ */
+export const VOLUME_SETTINGS_COLUMN_PANEL_SCHEMA: DirectionalPanelSchema = {
+  id: 'robotOptions.volumeSettingsColumn',
+  type: 'directionalPanel',
+  orientation: 'column',
+};
+
 // ========================================
 // PING CONTROLS
 // ========================================

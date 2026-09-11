@@ -17,6 +17,9 @@ import {
   RELEASE_SCHEMA,
   SIGNATURE_ARRAY_CONFIG,
   ROBOT_OUTPUT_PANEL_SCHEMA,
+  VOLUME_ACCORDION_SCHEMA,
+  VOLUME_ROW_PANEL_SCHEMA,
+  VOLUME_SETTINGS_COLUMN_PANEL_SCHEMA,
   MELODY_ACCORDION_SCHEMA,
   ENVELOPE_ACCORDION_SCHEMA,
   SOURCE_ACCORDION_SCHEMA,
@@ -278,6 +281,52 @@ describe('ROBOT_OUTPUT_PANEL_SCHEMA (Task 3)', () => {
 
   it('has a non-empty invented loreLabel', () => {
     expect(ROBOT_OUTPUT_PANEL_SCHEMA.loreLabel).toBeTruthy();
+  });
+});
+
+describe('VOLUME_ACCORDION_SCHEMA / VOLUME_ROW_PANEL_SCHEMA / VOLUME_SETTINGS_COLUMN_PANEL_SCHEMA (docs/specs/ROBOT_OPTIONS_RESPONSIVE_LAYOUT.md §1.2)', () => {
+  it('VOLUME_ACCORDION_SCHEMA is an accordion labeled Volume / Probe Acoustic Amplitude', () => {
+    // Source types invented lore strings in ALL-CAPS throughout this file (e.g.
+    // ROBOT_OUTPUT_PANEL_SCHEMA's 'PROBE TRANSDUCER STAGE') — DualLabel.css applies
+    // text-transform: uppercase regardless, so this is a source-style convention, not a
+    // behavior difference from the title-case phrasing Crawford used when describing it.
+    expect(VOLUME_ACCORDION_SCHEMA).toMatchObject({
+      type: 'accordion',
+      humanLabel: 'Volume',
+      loreLabel: 'PROBE ACOUSTIC AMPLITUDE',
+    });
+  });
+
+  it("VOLUME_ACCORDION_SCHEMA's id does not collide with VOLUME_SCHEMA's own id", () => {
+    expect(VOLUME_ACCORDION_SCHEMA.id).not.toBe(VOLUME_SCHEMA.id);
+  });
+
+  it('VOLUME_ROW_PANEL_SCHEMA is a responsive-orientation directionalPanel, unlabeled', () => {
+    expect(VOLUME_ROW_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'responsive' });
+    expect(VOLUME_ROW_PANEL_SCHEMA.loreLabel).toBeUndefined();
+    expect(VOLUME_ROW_PANEL_SCHEMA.humanLabel).toBeUndefined();
+  });
+
+  it('VOLUME_SETTINGS_COLUMN_PANEL_SCHEMA is a column-orientation directionalPanel, unlabeled', () => {
+    expect(VOLUME_SETTINGS_COLUMN_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'column' });
+    expect(VOLUME_SETTINGS_COLUMN_PANEL_SCHEMA.loreLabel).toBeUndefined();
+    expect(VOLUME_SETTINGS_COLUMN_PANEL_SCHEMA.humanLabel).toBeUndefined();
+  });
+
+  it('all 3 new ids are unique and in the robotOptions.* namespace', () => {
+    const ids = [VOLUME_ACCORDION_SCHEMA.id, VOLUME_ROW_PANEL_SCHEMA.id, VOLUME_SETTINGS_COLUMN_PANEL_SCHEMA.id];
+    ids.forEach((id) => expect(id).toMatch(/^robotOptions\./));
+    expect(new Set(ids).size).toBe(3);
+  });
+
+  it("ROBOT_OUTPUT_PANEL_SCHEMA still exists, untouched — nothing removed this task", () => {
+    expect(ROBOT_OUTPUT_PANEL_SCHEMA).toBeDefined();
+  });
+
+  it('all 3 remain JSON-serializable', () => {
+    expect(() => JSON.stringify(VOLUME_ACCORDION_SCHEMA)).not.toThrow();
+    expect(() => JSON.stringify(VOLUME_ROW_PANEL_SCHEMA)).not.toThrow();
+    expect(() => JSON.stringify(VOLUME_SETTINGS_COLUMN_PANEL_SCHEMA)).not.toThrow();
   });
 });
 
