@@ -94,12 +94,12 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
     params: [
       {
         field: 'frequency',
-        schema: { id: 'filterLPF.frequency', type: 'sliderLog', loreLabel: 'CUTOFF FREQUENCY', humanLabel: 'Frequency', min: 20, max: 20000, unit: 'Hz', orientation: 'auto' },
+        schema: { id: 'filterLPF.frequency', type: 'sliderLog', loreLabel: 'CUTOFF FREQUENCY', humanLabel: 'Frequency', min: 20, max: 20000, unit: 'Hz', orientation: 'vertical' },
         lfoTarget: 'lpf.frequency',
       },
       {
         field: 'Q',
-        schema: { id: 'filterLPF.Q', type: 'sliderLog', loreLabel: 'BOUNDARY RESONANCE', humanLabel: 'Resonance', min: 0.1, max: 20, orientation: 'auto' },
+        schema: { id: 'filterLPF.Q', type: 'sliderLog', loreLabel: 'BOUNDARY RESONANCE', humanLabel: 'Resonance', min: 0.1, max: 20, orientation: 'vertical' },
         lfoTarget: 'lpf.Q',
       },
     ],
@@ -110,12 +110,12 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
     params: [
       {
         field: 'frequency',
-        schema: { id: 'filterHPF.frequency', type: 'sliderLog', loreLabel: 'CUTOFF FREQUENCY', humanLabel: 'Frequency', min: 20, max: 20000, unit: 'Hz', orientation: 'auto' },
+        schema: { id: 'filterHPF.frequency', type: 'sliderLog', loreLabel: 'CUTOFF FREQUENCY', humanLabel: 'Frequency', min: 20, max: 20000, unit: 'Hz', orientation: 'vertical' },
         lfoTarget: 'hpf.frequency',
       },
       {
         field: 'Q',
-        schema: { id: 'filterHPF.Q', type: 'sliderLog', loreLabel: 'BOUNDARY RESONANCE', humanLabel: 'Resonance', min: 0.1, max: 20, orientation: 'auto' },
+        schema: { id: 'filterHPF.Q', type: 'sliderLog', loreLabel: 'BOUNDARY RESONANCE', humanLabel: 'Resonance', min: 0.1, max: 20, orientation: 'vertical' },
         lfoTarget: 'hpf.Q',
       },
     ],
@@ -147,11 +147,11 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
     key: 'compressor',
     panel: panelSchema('compressor', 'DYNAMIC RANGE CONDENSER', 'Compressor', 'column'),
     params: [
-      { field: 'threshold', schema: { id: 'compressor.threshold', type: 'sliderLinear', loreLabel: 'ATTENUATION THRESHOLD', humanLabel: 'Threshold', min: -60, max: 0, unit: 'dB', orientation: 'auto' } },
-      { field: 'ratio', schema: { id: 'compressor.ratio', type: 'sliderLinear', loreLabel: 'COMPRESSION RATIO', humanLabel: 'Ratio', min: 1, max: 20, step: 1, orientation: 'auto' } },
-      { field: 'attack', schema: { id: 'compressor.attack', type: 'sliderLog', loreLabel: 'COMPRESSION RATE', humanLabel: 'Attack', min: 0.001, max: 1, unit: 's', orientation: 'auto' } },
-      { field: 'release', schema: { id: 'compressor.release', type: 'sliderLog', loreLabel: 'RAREFACTION RATE', humanLabel: 'Release', min: 0.01, max: 1, unit: 's', orientation: 'auto' } },
-      { field: 'knee', schema: { id: 'compressor.knee', type: 'sliderLinear', loreLabel: 'CURVATURE DAMPING', humanLabel: 'Knee', min: 0, max: 40, unit: 'dB', orientation: 'auto' } },
+      { field: 'threshold', schema: { id: 'compressor.threshold', type: 'sliderLinear', loreLabel: 'ATTENUATION THRESHOLD', humanLabel: 'Threshold', min: -60, max: 0, unit: 'dB', orientation: 'horizontal' } },
+      { field: 'ratio', schema: { id: 'compressor.ratio', type: 'sliderLinear', loreLabel: 'COMPRESSION RATIO', humanLabel: 'Ratio', min: 1, max: 20, step: 1, orientation: 'horizontal' } },
+      { field: 'attack', schema: { id: 'compressor.attack', type: 'sliderLog', loreLabel: 'COMPRESSION RATE', humanLabel: 'Attack', min: 0.001, max: 1, unit: 's', orientation: 'horizontal' } },
+      { field: 'release', schema: { id: 'compressor.release', type: 'sliderLog', loreLabel: 'RAREFACTION RATE', humanLabel: 'Release', min: 0.01, max: 1, unit: 's', orientation: 'horizontal' } },
+      { field: 'knee', schema: { id: 'compressor.knee', type: 'sliderLinear', loreLabel: 'CURVATURE DAMPING', humanLabel: 'Knee', min: 0, max: 40, unit: 'dB', orientation: 'horizontal' } },
     ],
   },
   {
@@ -160,7 +160,7 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
     params: [
       // No lfoTarget/lfoAccordion — Limiter never gets an LFO (spec: not a
       // GlobalLfoTargetId member, consistent with Compressor/Reverb having none).
-      { field: 'threshold', schema: { id: 'limiter.threshold', type: 'sliderLinear', loreLabel: 'OUTPUT CEILING', humanLabel: 'Threshold', min: -20, max: 0, unit: 'dB', orientation: 'auto' } },
+      { field: 'threshold', schema: { id: 'limiter.threshold', type: 'sliderLinear', loreLabel: 'OUTPUT CEILING', humanLabel: 'Threshold', min: -20, max: 0, unit: 'dB', orientation: 'horizontal' } },
     ],
   },
 ];
@@ -224,7 +224,7 @@ function driftGroupSchema(group: DriftGroupId, loreLabel: string, humanLabel: st
       min: -100,
       max: 100,
       unit: '%',
-      orientation: 'auto',
+      orientation: 'horizontal',
     },
     depthSchema: {
       id: `audioRig.lfoDrift.${group}.depthDrift`,
@@ -234,7 +234,7 @@ function driftGroupSchema(group: DriftGroupId, loreLabel: string, humanLabel: st
       min: -100,
       max: 100,
       unit: '%',
-      orientation: 'auto',
+      orientation: 'horizontal',
     },
   };
 }
@@ -320,7 +320,9 @@ export const SPEED_AUTOMATION_PANEL_SCHEMA: DirectionalPanelSchema = {
   type: 'directionalPanel',
   loreLabel: 'CHRONOMETRIC CONTROL ARRAY',
   humanLabel: 'Speed & Automation',
-  orientation: 'row',
+  // 'responsive', not fixed 'row' — 2 stacked rows (Tempo, Automatic Effects) on
+  // mobile/tablet, 1 shared row on desktop. docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.9.
+  orientation: 'responsive',
 };
 
 /**
@@ -350,21 +352,17 @@ export const AUDIO_RIG_ACCORDION_GROUPS: { key: AudioRigAccordionGroupKey; accor
 export const EQ_FILTERS_ROW_PANEL_SCHEMA: DirectionalPanelSchema = {
   id: 'audioRig.eqFiltersRow',
   type: 'directionalPanel',
-  orientation: 'auto',
+  // 'responsive', not 'auto' — docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.5.
+  // Stacks one-per-row on mobile/tablet; on desktop, eq3/filterLPF/filterHPF share one row
+  // as equal thirds via DirectionalPanel.css's own flex: 1 1 0 default — no per-block
+  // override (a straight 40/30/30 desktop split was tried and reverted).
+  orientation: 'responsive',
 };
 
-/** Low-Pass Filter beside High-Pass Filter, sitting beside 3-Band EQ inside
- *  EQ_FILTERS_ROW_PANEL_SCHEMA above. Unlabeled, same convention. Orientation was 'column'
- *  (stacked) when this was first added and named; deliberately flipped to 'row' since — name
- *  kept as-is rather than a rename-plus-call-site-churn for what's still pure layout grouping. */
-export const FILTERS_COLUMN_PANEL_SCHEMA: DirectionalPanelSchema = {
-  id: 'audioRig.filtersColumn',
-  type: 'directionalPanel',
-  orientation: 'row',
-};
-
+// 'responsive', not fixed 'row' — Delay/Reverb stack on mobile/tablet, sit side by side
+// on desktop. docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.7.
 export const TIME_SPACE_COLUMN_PANEL_SCHEMA: DirectionalPanelSchema = {
   id: 'audioRig.timeSpaceColumn',
   type: 'directionalPanel',
-  orientation: 'row',
+  orientation: 'responsive',
 };

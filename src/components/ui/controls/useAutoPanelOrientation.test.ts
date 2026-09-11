@@ -143,8 +143,8 @@ describe('useAutoPanelOrientation', () => {
   it("switching from 'auto' to a fixed orientation on re-render disconnects the observer and resolves to the fixed value", () => {
     const ref = makeRef(document.createElement('div'));
     const { result, rerender } = renderHook(
-      ({ orientation }: { orientation: PanelOrientation }) => useAutoPanelOrientation(ref, orientation),
-      { initialProps: { orientation: 'auto' as PanelOrientation } },
+      ({ orientation }: { orientation: Exclude<PanelOrientation, 'responsive'> }) => useAutoPanelOrientation(ref, orientation),
+      { initialProps: { orientation: 'auto' as Exclude<PanelOrientation, 'responsive'> } },
     );
     const observer = MockResizeObserver.instances[0];
     expect(observer.disconnected).toBe(false);

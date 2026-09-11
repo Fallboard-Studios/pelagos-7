@@ -13,7 +13,7 @@ import {
   TRANSPORT_COMPOSITION_ACCORDION_SCHEMA,
   SPEED_AUTOMATION_PANEL_SCHEMA,
   EQ_FILTERS_ROW_PANEL_SCHEMA,
-  FILTERS_COLUMN_PANEL_SCHEMA,
+  TIME_SPACE_COLUMN_PANEL_SCHEMA,
   type AudioRigEffectKey,
 } from './audioRigConfig';
 import { DRIFT_GROUP_IDS } from '../types/lfo';
@@ -393,10 +393,10 @@ describe('slider orientation classification (docs/specs/VERTICAL_SLIDERS.md §1.
     }
   });
 
-  it('Low-Pass/High-Pass Filter (Frequency/Resonance) is auto', () => {
+  it('Low-Pass/High-Pass Filter (Frequency/Resonance) is vertical (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.3 — reverses the earlier auto classification)', () => {
     for (const key of ['filterLPF', 'filterHPF'] as const) {
       for (const field of ['frequency', 'Q']) {
-        expect(orientationOf(findParam(key, field).schema), `${key}.${field}`).toBe('auto');
+        expect(orientationOf(findParam(key, field).schema), `${key}.${field}`).toBe('vertical');
       }
     }
   });
@@ -413,25 +413,20 @@ describe('slider orientation classification (docs/specs/VERTICAL_SLIDERS.md §1.
     }
   });
 
-  it('Compressor (Threshold/Ratio/Attack/Release/Knee) is auto', () => {
-    // Ratio was a Stepper when this classification was first written
-    // (docs/specs/VERTICAL_SLIDERS.md predates the Stepper->Slider conversion) —
-    // converted to a slider by the separate STEPPER_TO_SLIDER work
-    // (audioRigConfig.ts Task 8), merged in afterward. Same Compressor block, same
-    // "everything auto" classification, now that it's a real slider to classify.
+  it('Compressor (Threshold/Ratio/Attack/Release/Knee) is horizontal (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.3)', () => {
     for (const field of ['threshold', 'ratio', 'attack', 'release', 'knee']) {
-      expect(orientationOf(findParam('compressor', field).schema), field).toBe('auto');
+      expect(orientationOf(findParam('compressor', field).schema), field).toBe('horizontal');
     }
   });
 
-  it('Limiter (Threshold) is auto', () => {
-    expect(orientationOf(findParam('limiter', 'threshold').schema)).toBe('auto');
+  it('Limiter (Threshold) is horizontal (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.3)', () => {
+    expect(orientationOf(findParam('limiter', 'threshold').schema)).toBe('horizontal');
   });
 
-  it('all 4 LFO_DRIFT_GROUPS (Rate Drift/Depth Drift), including "robots", are auto', () => {
+  it('all 4 LFO_DRIFT_GROUPS (Rate Drift/Depth Drift), including "robots", are horizontal (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.3)', () => {
     for (const group of LFO_DRIFT_GROUPS) {
-      expect(group.rateSchema.orientation, `${group.group}.rateDrift`).toBe('auto');
-      expect(group.depthSchema.orientation, `${group.group}.depthDrift`).toBe('auto');
+      expect(group.rateSchema.orientation, `${group.group}.rateDrift`).toBe('horizontal');
+      expect(group.depthSchema.orientation, `${group.group}.depthDrift`).toBe('horizontal');
     }
   });
 
@@ -569,10 +564,10 @@ describe('TRANSPORT_COMPOSITION_ACCORDION_SCHEMA (Task 1)', () => {
 });
 
 describe('SPEED_AUTOMATION_PANEL_SCHEMA (Task 1)', () => {
-  it('is a row-orientation directionalPanel with humanLabel Speed & Automation', () => {
+  it('is a responsive-orientation directionalPanel with humanLabel Speed & Automation (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.9 — 2 rows on mobile/tablet, 1 row on desktop)', () => {
     expect(SPEED_AUTOMATION_PANEL_SCHEMA).toMatchObject({
       type: 'directionalPanel',
-      orientation: 'row',
+      orientation: 'responsive',
       humanLabel: 'Speed & Automation',
     });
   });
@@ -595,33 +590,31 @@ describe('SPEED_AUTOMATION_PANEL_SCHEMA (Task 1)', () => {
   });
 });
 
-describe('EQ_FILTERS_ROW_PANEL_SCHEMA / FILTERS_COLUMN_PANEL_SCHEMA (EQ & Filters row-when-there\'s-room follow-up)', () => {
-  it('EQ_FILTERS_ROW_PANEL_SCHEMA is an auto-orientation directionalPanel, unlabeled', () => {
-    expect(EQ_FILTERS_ROW_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'auto' });
+describe('TIME_SPACE_COLUMN_PANEL_SCHEMA (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.7)', () => {
+  it('is a responsive-orientation directionalPanel — Delay/Reverb stack on mobile/tablet, sit side by side on desktop', () => {
+    expect(TIME_SPACE_COLUMN_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'responsive' });
+  });
+
+  it('remains JSON-serializable', () => {
+    expect(() => JSON.stringify(TIME_SPACE_COLUMN_PANEL_SCHEMA)).not.toThrow();
+  });
+});
+
+describe('EQ_FILTERS_ROW_PANEL_SCHEMA (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.5 — flattened, FILTERS_COLUMN_PANEL_SCHEMA removed)', () => {
+  it('is a responsive-orientation directionalPanel, unlabeled — stacks on mobile/tablet, one shared row on desktop', () => {
+    expect(EQ_FILTERS_ROW_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'responsive' });
     expect(EQ_FILTERS_ROW_PANEL_SCHEMA.loreLabel).toBeUndefined();
     expect(EQ_FILTERS_ROW_PANEL_SCHEMA.humanLabel).toBeUndefined();
     expect(EQ_FILTERS_ROW_PANEL_SCHEMA.id).toMatch(/^audioRig\./);
   });
 
-  it('FILTERS_COLUMN_PANEL_SCHEMA is a row-orientation directionalPanel, unlabeled — LPF/HPF share a row, not a stacked column, despite the name', () => {
-    expect(FILTERS_COLUMN_PANEL_SCHEMA).toMatchObject({ type: 'directionalPanel', orientation: 'row' });
-    expect(FILTERS_COLUMN_PANEL_SCHEMA.loreLabel).toBeUndefined();
-    expect(FILTERS_COLUMN_PANEL_SCHEMA.humanLabel).toBeUndefined();
-    expect(FILTERS_COLUMN_PANEL_SCHEMA.id).toMatch(/^audioRig\./);
-  });
-
-  it('the two schemas have distinct, unique ids', () => {
-    expect(EQ_FILTERS_ROW_PANEL_SCHEMA.id).not.toBe(FILTERS_COLUMN_PANEL_SCHEMA.id);
-  });
-
-  it('neither id collides with any AUDIO_RIG_CONFIG block\'s own panel id', () => {
+  it('does not collide with any AUDIO_RIG_CONFIG block\'s own panel id', () => {
     const blockPanelIds = AUDIO_RIG_CONFIG.map((b) => b.panel.id);
     expect(blockPanelIds).not.toContain(EQ_FILTERS_ROW_PANEL_SCHEMA.id);
-    expect(blockPanelIds).not.toContain(FILTERS_COLUMN_PANEL_SCHEMA.id);
   });
 
-  it('remain JSON-serializable', () => {
+  it('remains JSON-serializable', () => {
     expect(() => JSON.stringify(EQ_FILTERS_ROW_PANEL_SCHEMA)).not.toThrow();
-    expect(() => JSON.stringify(FILTERS_COLUMN_PANEL_SCHEMA)).not.toThrow();
   });
 });
+

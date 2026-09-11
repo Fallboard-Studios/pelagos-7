@@ -34,6 +34,24 @@ import { DEFAULT_GLOBAL_AUDIO_SETTINGS } from '@/types/globalAudio';
 import { DEFAULT_LFO_SETTINGS } from '@/data/lfoConfig';
 import { GLOBAL_LFO_TARGET_IDS, type GlobalLfoTargetId } from '@/types/lfo';
 
+/** Stubs window.matchMedia so the mobile (max-width: 640px) and tablet (max-width: 1024px)
+ *  tier queries can be controlled — same shape as useCabinetBoxHeight.test.ts's own
+ *  stubMatchMedia. Neither query matching (the default, unstubbed jsdom behavior) resolves
+ *  to the desktop tier, which is why every pre-existing 'row'-orientation assertion in this
+ *  file already passes without a stub. */
+function stubMatchMedia(state: { mobile: boolean; tablet: boolean }) {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    configurable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: query.includes('640px') ? state.mobile : state.tablet,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    })),
+  });
+}
+
 function resetAudioStore() {
   const globalLfo = {} as Record<GlobalLfoTargetId, ReturnType<typeof buildLfoValue>>;
   for (const target of GLOBAL_LFO_TARGET_IDS) globalLfo[target] = buildLfoValue(target);
@@ -77,29 +95,66 @@ describe('AudioRigDrawer', () => {
     }
   });
 
-  describe('EQ & Filters internal layout (row-when-there\'s-room follow-up)', () => {
-    it('3-Band EQ sits beside a shared row wrapping Low-Pass Filter and High-Pass Filter, both inside one shared outer panel', () => {
+  describe('EQ & Filters internal layout (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.5/§1.6 — flattened, no intermediate grouping panel)', () => {
+    it('eq3, filterLPF, and filterHPF are direct siblings of one shared panel, in that order — no intermediate wrapper between them', () => {
       render(<AudioRigDrawer />);
       const eqEffectBlock = screen.getByText('3-Band EQ').closest('.audio-rig-drawer__effect-block')!;
       const lpfEffectBlock = screen.getByText('Low-Pass Filter').closest('.audio-rig-drawer__effect-block')!;
       const hpfEffectBlock = screen.getByText('High-Pass Filter').closest('.audio-rig-drawer__effect-block')!;
 
-      // LPF and HPF share one DirectionalPanel (FILTERS_COLUMN_PANEL_SCHEMA — row-oriented
-      // despite the name, confirmed intentional), in that order.
-      const lpfRowPanel = lpfEffectBlock.closest('.sc-directional-panel')!;
-      const hpfRowPanel = hpfEffectBlock.closest('.sc-directional-panel')!;
-      expect(lpfRowPanel).toBe(hpfRowPanel);
-      expect(lpfRowPanel.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('row');
+      const eqParentPanel = eqEffectBlock.parentElement!;
+      const lpfParentPanel = lpfEffectBlock.parentElement!;
+      const hpfParentPanel = hpfEffectBlock.parentElement!;
+      // All 3 effect-blocks share the exact same parent — the flattened
+      // EQ_FILTERS_ROW_PANEL_SCHEMA content div — not 2 different levels of nesting.
+      expect(eqParentPanel).toBe(lpfParentPanel);
+      expect(lpfParentPanel).toBe(hpfParentPanel);
+      expect(eqParentPanel.classList.contains('sc-directional-panel__content')).toBe(true);
+
+      // DOM order: eq3, then filterLPF, then filterHPF.
+      expect(eqEffectBlock.compareDocumentPosition(lpfEffectBlock) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(lpfEffectBlock.compareDocumentPosition(hpfEffectBlock) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
 
-      // That LPF/HPF row and eq3's own effect-block are both direct children of one more outer
-      // wrapping panel (EQ_FILTERS_ROW_PANEL_SCHEMA) — not stacked flat in the accordion.
-      const outerPanel = lpfRowPanel.parentElement!.closest('.sc-directional-panel')!;
-      expect(outerPanel.contains(eqEffectBlock)).toBe(true);
-      expect(outerPanel).not.toBe(lpfRowPanel);
+    it('stacks one-per-row (column) on mobile/tablet', () => {
+      stubMatchMedia({ mobile: true, tablet: true });
+      render(<AudioRigDrawer />);
+      const content = screen.getByText('3-Band EQ').closest('.audio-rig-drawer__effect-block')!.parentElement!;
+      expect(content.getAttribute('data-orientation')).toBe('column');
+    });
 
-      // eq3 renders before the LPF/HPF row, matching the requested layout.
-      expect(eqEffectBlock.compareDocumentPosition(lpfRowPanel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    it('shares one row (data-orientation="row") on desktop', () => {
+      stubMatchMedia({ mobile: false, tablet: false });
+      render(<AudioRigDrawer />);
+      const content = screen.getByText('3-Band EQ').closest('.audio-rig-drawer__effect-block')!.parentElement!;
+      expect(content.getAttribute('data-orientation')).toBe('row');
+    });
+
+    it('applies no flexBasis override to eq3/filterLPF/filterHPF on desktop — equal thirds via DirectionalPanel.css\'s own flex: 1 1 0 default', () => {
+      stubMatchMedia({ mobile: false, tablet: false });
+      render(<AudioRigDrawer />);
+      for (const label of ['3-Band EQ', 'Low-Pass Filter', 'High-Pass Filter']) {
+        const effectBlock = screen.getByText(label).closest('.audio-rig-drawer__effect-block') as HTMLElement;
+        expect(effectBlock.style.flexBasis, label).toBe('');
+      }
+    });
+
+    it('applies no flexBasis override on mobile/tablet', () => {
+      stubMatchMedia({ mobile: true, tablet: true });
+      render(<AudioRigDrawer />);
+      for (const label of ['3-Band EQ', 'Low-Pass Filter', 'High-Pass Filter']) {
+        const effectBlock = screen.getByText(label).closest('.audio-rig-drawer__effect-block') as HTMLElement;
+        expect(effectBlock.style.flexBasis, label).toBe('');
+      }
+    });
+
+    it('applies no flexBasis override to any other block (Delay, Reverb, Compressor, Limiter)', () => {
+      stubMatchMedia({ mobile: false, tablet: false });
+      render(<AudioRigDrawer />);
+      for (const label of ['Delay', 'Reverb', 'Compressor', 'Limiter']) {
+        const effectBlock = screen.getByText(label).closest('.audio-rig-drawer__effect-block') as HTMLElement;
+        expect(effectBlock.style.flexBasis, label).toBe('');
+      }
     });
 
     it('Time & Space wraps Delay/Reverb in one shared row panel (TIME_SPACE_COLUMN_PANEL_SCHEMA); Output still renders Compressor/Limiter flat', () => {
@@ -124,6 +179,26 @@ describe('AudioRigDrawer', () => {
     });
   });
 
+  describe('Delay/Reverb param rows (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.7 — every slider own row, at every breakpoint, no paired topRow)', () => {
+    it('Delay renders Time, Feedback, and Mix as 3 direct param-rows inside its own block panel — no nested row wrapper', () => {
+      render(<AudioRigDrawer />);
+      const delayBlockContent = screen.getByText('Delay').closest('.sc-directional-panel')!
+        .querySelector(':scope > .sc-directional-panel__content')!;
+      const directRows = delayBlockContent.querySelectorAll(':scope > .audio-rig-drawer__param-row');
+      expect(directRows).toHaveLength(3);
+      expect(delayBlockContent.querySelector(':scope > .sc-directional-panel')).toBeNull();
+    });
+
+    it('Reverb renders Decay, Pre-Delay, and Mix as 3 direct param-rows inside its own block panel — no nested row wrapper', () => {
+      render(<AudioRigDrawer />);
+      const reverbBlockContent = screen.getByText('Reverb').closest('.sc-directional-panel')!
+        .querySelector(':scope > .sc-directional-panel__content')!;
+      const directRows = reverbBlockContent.querySelectorAll(':scope > .audio-rig-drawer__param-row');
+      expect(directRows).toHaveLength(3);
+      expect(reverbBlockContent.querySelector(':scope > .sc-directional-panel')).toBeNull();
+    });
+  });
+
   it('Delay/Reverb/Compressor/Limiter (no LFO group) render as column-orientation blocks', () => {
     render(<AudioRigDrawer />);
     for (const label of ['Delay', 'Reverb', 'Compressor', 'Limiter']) {
@@ -132,7 +207,7 @@ describe('AudioRigDrawer', () => {
     }
   });
 
-  it("3-Band EQ's own sliders render in a row-orientation panel — the outer LFO group panel and every other group's sliders panel are column (docs/tasks/DIRECTIONAL_PANEL_WIRING.md follow-up: column[sliders-panel, Lfo, driftContent])", () => {
+  it("3-Band EQ's, Low-Pass's, and High-Pass's own sliders all render in a row-orientation panel — every other group's sliders panel stays column (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.4: filterLPF/filterHPF's Frequency/Resonance reverted to 'vertical', so AudioRigLfoGroup's existing 'row if any param is vertical' heuristic now resolves 'row' for them too, same as eq3)", () => {
     render(<AudioRigDrawer />);
     const eqSlidersPanel = screen.getByRole('slider', { name: 'Low' }).closest('.sc-directional-panel') as HTMLElement;
     expect(eqSlidersPanel.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('row');
@@ -140,8 +215,8 @@ describe('AudioRigDrawer', () => {
     const [lpfSlidersPanel, hpfSlidersPanel] = screen.getAllByRole('slider', { name: 'Frequency' }).map(
       (el) => el.closest('.sc-directional-panel') as HTMLElement,
     );
-    expect(lpfSlidersPanel.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('column');
-    expect(hpfSlidersPanel.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('column');
+    expect(lpfSlidersPanel.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('row');
+    expect(hpfSlidersPanel.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('row');
 
     // The outer group panel that wraps [sliders-panel, Lfo, driftContent] is always column,
     // regardless of the sliders panel's own orientation — otherwise the shared Lfo display and
@@ -329,6 +404,40 @@ describe('AudioRigDrawer', () => {
     it('renders no dampening slider — dead, removed', () => {
       render(<AudioRigDrawer />);
       expect(screen.queryByRole('slider', { name: 'Dampening' })).toBeNull();
+    });
+  });
+
+  describe('Compressor sub-rows (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.8)', () => {
+    it('Threshold+Ratio and Attack+Release pairs stack (column) on mobile/tablet', () => {
+      stubMatchMedia({ mobile: true, tablet: true });
+      render(<AudioRigDrawer />);
+      const thresholdRow = screen.getAllByRole('slider', { name: 'Threshold' })[0].closest('.sc-directional-panel')!;
+      const attackRow = screen.getByRole('slider', { name: 'Attack' }).closest('.sc-directional-panel')!;
+      expect(thresholdRow.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('column');
+      expect(attackRow.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('column');
+    });
+
+    it('Threshold+Ratio and Attack+Release pairs share a row (row) on desktop', () => {
+      stubMatchMedia({ mobile: false, tablet: false });
+      render(<AudioRigDrawer />);
+      const thresholdRow = screen.getAllByRole('slider', { name: 'Threshold' })[0].closest('.sc-directional-panel')!;
+      const attackRow = screen.getByRole('slider', { name: 'Attack' }).closest('.sc-directional-panel')!;
+      expect(thresholdRow.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('row');
+      expect(attackRow.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('row');
+    });
+
+    it('Knee and the Decay Mode radio each render as their own direct param-row — no shared wrapper between them', () => {
+      render(<AudioRigDrawer />);
+      const kneeRow = screen.getByRole('slider', { name: 'Knee' }).closest('.audio-rig-drawer__param-row')!;
+      const decayModeRow = screen.getByRole('radio', { name: 'Natural Decay' }).closest('.audio-rig-drawer__param-row')!;
+      expect(kneeRow).not.toBe(decayModeRow);
+      // Both are direct children of the Compressor block's own panel content — no
+      // intermediate DirectionalPanel wraps them together.
+      const compressorContent = screen.getAllByRole('slider', { name: 'Threshold' })[0]
+        .closest('.audio-rig-drawer__effect-block')!
+        .querySelector('.sc-directional-panel > .sc-directional-panel__content')!;
+      expect(kneeRow.parentElement).toBe(compressorContent);
+      expect(decayModeRow.parentElement).toBe(compressorContent);
     });
   });
 

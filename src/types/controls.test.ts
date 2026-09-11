@@ -106,9 +106,9 @@ describe('SliderOrientation', () => {
 });
 
 describe('PanelOrientation', () => {
-  it('accepts row, column, and auto as literal values', () => {
-    const values: PanelOrientation[] = ['row', 'column', 'auto'];
-    expect(values).toHaveLength(3);
+  it('accepts row, column, auto, and responsive as literal values', () => {
+    const values: PanelOrientation[] = ['row', 'column', 'auto', 'responsive'];
+    expect(values).toHaveLength(4);
   });
 
   it('is optional on DirectionalPanelSchema — omitting it still type-checks', () => {

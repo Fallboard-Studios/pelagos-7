@@ -112,8 +112,14 @@ export interface LfoSchema extends ControlSchemaBase {
  *  time via useAutoPanelOrientation, measuring the panel's own parent element
  *  and going 'row' once it's wide enough, 'column' otherwise — the panel-level
  *  counterpart to SliderOrientation's own 'auto' (docs/tasks/
- *  DIRECTIONAL_PANEL_WIRING.md follow-up fix). */
-export type PanelOrientation = 'row' | 'column' | 'auto';
+ *  DIRECTIONAL_PANEL_WIRING.md follow-up fix). 'responsive' resolves via
+ *  useResponsivePanelOrientation instead: the same fixed mobile/tablet/desktop
+ *  viewport tier CabinetBox sizing already uses, never a per-parent
+ *  measurement — every 'responsive' panel resolves identically ('column' on
+ *  mobile/tablet, 'row' on desktop), unlike 'auto', which can resolve
+ *  differently per instance depending on how much room that instance's own
+ *  parent has (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.2). */
+export type PanelOrientation = 'row' | 'column' | 'auto' | 'responsive';
 
 /** Pure layout container — groups already-rendered controls into a row or
  *  column flex box. No value/onChange: docs/specs/DIRECTIONAL_PANEL.md. */
