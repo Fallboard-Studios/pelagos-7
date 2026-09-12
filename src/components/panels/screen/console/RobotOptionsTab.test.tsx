@@ -11,16 +11,26 @@ import { render, screen, fireEvent } from '@testing-library/react';
 vi.mock('@/components/robot/RobotDisplaySection', () => ({
   RobotDisplaySection: () => <div data-testid="robot-display-section-stub" />,
 }));
+// Roadmap Phase 14 (Task 12) — every mock below also reads `props.style`'s two custom
+// properties onto data-* attributes, so this file's own trait/robot-color tests can assert on
+// what RobotOptionsTab actually passed down without needing the real drawer/AccordionContainer
+// to mount (this file's whole point is isolating RobotOptionsTab's own wiring).
+function styleAttrs(style?: { [key: string]: string }) {
+  return { 'data-style-a': style?.['--color-accent-a'], 'data-style-b': style?.['--color-accent-b'] };
+}
+
 vi.mock('@/components/robot/AudioSettingSection', () => ({
   AudioSettingSection: (props: {
     value: { audioMode: string; masterVolume: number };
     onAudioModeChange: (mode: string) => void;
     onVolumeChange: (pct: number) => void;
+    style?: { [key: string]: string };
   }) => (
     <div
       data-testid="audio-setting-section-stub"
       data-audio-mode={props.value.audioMode}
       data-master-volume={props.value.masterVolume}
+      {...styleAttrs(props.style)}
     >
       <button onClick={() => props.onAudioModeChange('solo')}>probe-audio-mode</button>
       <button onClick={() => props.onVolumeChange(55)}>probe-volume</button>
@@ -36,6 +46,7 @@ vi.mock('@/components/robot/PingControlsDrawer', () => ({
     onPitchRepeatChange: (v: number) => void;
     onResetMelody?: () => void;
     onClickTrackActiveChange: (v: boolean) => void;
+    style?: { [key: string]: string };
   }) => (
     <div
       data-testid="ping-controls-drawer-stub"
@@ -44,6 +55,7 @@ vi.mock('@/components/robot/PingControlsDrawer', () => ({
       data-note-variance={props.value.noteVariance}
       data-pitch-repeat={props.value.pitchRepeat}
       data-click-track-active={String(props.value.clickTrackActive)}
+      {...styleAttrs(props.style)}
     >
       <button onClick={() => props.onDensityChange(77)}>probe-density</button>
       <button onClick={() => props.onMotifLengthChange(6)}>probe-motif-length</button>
@@ -55,15 +67,15 @@ vi.mock('@/components/robot/PingControlsDrawer', () => ({
   ),
 }));
 vi.mock('@/components/robot/PingContourDrawer', () => ({
-  PingContourDrawer: (props: { value: { attack: number }; onChange: (next: unknown) => void }) => (
-    <div data-testid="ping-contour-drawer-stub" data-attack={props.value.attack}>
+  PingContourDrawer: (props: { value: { attack: number }; onChange: (next: unknown) => void; style?: { [key: string]: string } }) => (
+    <div data-testid="ping-contour-drawer-stub" data-attack={props.value.attack} {...styleAttrs(props.style)}>
       <button onClick={() => props.onChange({ attack: 0.9, decay: 0.1, sustain: 0.5, release: 0.2 })}>probe-adsr</button>
     </div>
   ),
 }));
 vi.mock('@/components/robot/SignatureArrayDrawer', () => ({
-  SignatureArrayDrawer: (props: { value: { layers: unknown[] }; onContinuousChange: (v: unknown) => void }) => (
-    <div data-testid="signature-array-drawer-stub" data-layer-count={props.value.layers.length}>
+  SignatureArrayDrawer: (props: { value: { layers: unknown[] }; onContinuousChange: (v: unknown) => void; style?: { [key: string]: string } }) => (
+    <div data-testid="signature-array-drawer-stub" data-layer-count={props.value.layers.length} {...styleAttrs(props.style)}>
       <button onClick={() => props.onContinuousChange([{ type: 'sine', gain: 1, detune: 0, phase: 0 }])}>probe-layers</button>
     </div>
   ),
@@ -77,11 +89,13 @@ import * as robotOptionsActions from '@/systems/robotOptionsActions';
 import * as regenerateMelodyModule from '@/engine/regenerateMelody';
 import type { Robot } from '@/types/Robot';
 import type { Locale } from '@/types/locale';
+import { ACCENT_COLORS } from '@/constants/accentColors';
 
 function makeRobot(id = 'r1', overrides: Partial<Robot> = {}): Robot {
   return {
     id,
     name: 'Test Robot',
+    identityColor: '#428d95',
     state: 'idle',
     position: { x: 0, y: 0 },
     destination: null,
@@ -346,5 +360,86 @@ describe('RobotOptionsTab', () => {
     fireEvent.click(screen.getByText('probe-layers'));
 
     expect(applySpy).toHaveBeenCalledWith(robot, localeId, [{ type: 'sine', gain: 1, detune: 0, phase: 0 }]);
+  });
+
+  // Roadmap Phase 14 (docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.5, Task 12) — the robot-options
+  // root carries the robot's own identity color; each of the 4 drawers gets its own trait color.
+  describe('trait/robot color scoping', () => {
+    it('scopes the robot-options root to the selected robot\'s own identityColor', () => {
+      const robot = makeRobot('r1', { identityColor: '#68cb97' });
+      useLocaleStore.getState().addRobot(localeId, robot);
+      useUIStore.getState().selectRobot(robot.id);
+      const { container } = render(<RobotOptionsTab />);
+
+      const root = container.querySelector('.robot-options') as HTMLElement;
+      expect(root.style.getPropertyValue('--color-accent-a')).toBe('#68cb97');
+      expect(root.style.getPropertyValue('--color-accent-b')).toBe('#68cb97');
+    });
+
+    it('gives AudioSettingSection the Output trait\'s style (red/orange)', () => {
+      const robot = makeRobot();
+      useLocaleStore.getState().addRobot(localeId, robot);
+      useUIStore.getState().selectRobot(robot.id);
+      render(<RobotOptionsTab />);
+
+      const stub = screen.getByTestId('audio-setting-section-stub');
+      expect(stub.getAttribute('data-style-a')).toBe(ACCENT_COLORS.red);
+      expect(stub.getAttribute('data-style-b')).toBe(ACCENT_COLORS.orange);
+    });
+
+    it('gives PingControlsDrawer the Composition trait\'s style (green/lime)', () => {
+      const robot = makeRobot();
+      useLocaleStore.getState().addRobot(localeId, robot);
+      useUIStore.getState().selectRobot(robot.id);
+      render(<RobotOptionsTab />);
+
+      const stub = screen.getByTestId('ping-controls-drawer-stub');
+      expect(stub.getAttribute('data-style-a')).toBe(ACCENT_COLORS.green);
+      expect(stub.getAttribute('data-style-b')).toBe(ACCENT_COLORS.lime);
+    });
+
+    it('gives PingContourDrawer the Time/Space trait\'s style (blue/plum)', () => {
+      const robot = makeRobot();
+      useLocaleStore.getState().addRobot(localeId, robot);
+      useUIStore.getState().selectRobot(robot.id);
+      render(<RobotOptionsTab />);
+
+      const stub = screen.getByTestId('ping-contour-drawer-stub');
+      expect(stub.getAttribute('data-style-a')).toBe(ACCENT_COLORS.blue);
+      expect(stub.getAttribute('data-style-b')).toBe(ACCENT_COLORS.plum);
+    });
+
+    it('gives SignatureArrayDrawer the Spectral trait\'s style (cyan/teal)', () => {
+      const robot = makeRobot();
+      useLocaleStore.getState().addRobot(localeId, robot);
+      useUIStore.getState().selectRobot(robot.id);
+      render(<RobotOptionsTab />);
+
+      const stub = screen.getByTestId('signature-array-drawer-stub');
+      expect(stub.getAttribute('data-style-a')).toBe(ACCENT_COLORS.cyan);
+      expect(stub.getAttribute('data-style-b')).toBe(ACCENT_COLORS.teal);
+    });
+
+    it('gives two different robots two different root colors, while both get the same 4 trait colors on their drawers', () => {
+      const robotA = makeRobot('r1', { identityColor: ACCENT_COLORS.red });
+      useLocaleStore.getState().addRobot(localeId, robotA);
+      useUIStore.getState().selectRobot(robotA.id);
+      const { container: containerA, unmount } = render(<RobotOptionsTab />);
+      const rootA = containerA.querySelector('.robot-options') as HTMLElement;
+      expect(rootA.style.getPropertyValue('--color-accent-a')).toBe(ACCENT_COLORS.red);
+      const traitStyleA = screen.getByTestId('signature-array-drawer-stub').getAttribute('data-style-a');
+      unmount();
+
+      const robotB = makeRobot('r2', { identityColor: ACCENT_COLORS.purple });
+      useLocaleStore.getState().addRobot(localeId, robotB);
+      useUIStore.getState().selectRobot(robotB.id);
+      const { container: containerB } = render(<RobotOptionsTab />);
+      const rootB = containerB.querySelector('.robot-options') as HTMLElement;
+      expect(rootB.style.getPropertyValue('--color-accent-a')).toBe(ACCENT_COLORS.purple);
+      const traitStyleB = screen.getByTestId('signature-array-drawer-stub').getAttribute('data-style-a');
+
+      expect(rootA.style.getPropertyValue('--color-accent-a')).not.toBe(rootB.style.getPropertyValue('--color-accent-a'));
+      expect(traitStyleA).toBe(traitStyleB);
+    });
   });
 });
