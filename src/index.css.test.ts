@@ -120,18 +120,18 @@ describe('index.css type-scale tokens', () => {
 describe(':root color-accent-a/-b mechanism (Task 4)', () => {
   const rootBody = getCssRuleBody(cssSource, ':root');
 
-  it('defines --color-accent-a/-b with the Header trait pair as the ambient default', () => {
+  it('defines --color-accent-a/-b with the Header trait pair (emerald/indigo) as the ambient default', () => {
     expect(rootBody).not.toBeNull();
-    expect(rootBody).toContain('--color-accent-a: #fff;');
-    expect(rootBody).toContain('--color-accent-b: #211e1b;');
+    expect(rootBody).toContain('--color-accent-a: #4fc27a;');
+    expect(rootBody).toContain('--color-accent-b: #5a5c9e;');
   });
 
   it('defines --color-accent as a color-mix() of literal colors, not a literal hex', () => {
-    expect(rootBody).toContain('--color-accent: color-mix(in srgb, #fff 50%, #211e1b 50%);');
+    expect(rootBody).toContain('--color-accent: color-mix(in srgb, #4fc27a 50%, #5a5c9e 50%);');
   });
 
   it('defines --color-accent-gradient as a linear-gradient() of literal colors', () => {
-    expect(rootBody).toContain('--color-accent-gradient: linear-gradient(135deg, #fff, #211e1b);');
+    expect(rootBody).toContain('--color-accent-gradient: linear-gradient(135deg, #4fc27a, #5a5c9e);');
   });
 
   // Bug fix, found live via browser DevTools — jsdom never resolves real CSS cascade, so this was

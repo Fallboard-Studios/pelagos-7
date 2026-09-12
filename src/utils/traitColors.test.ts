@@ -15,7 +15,7 @@ describe('TRAIT_COLORS', () => {
     expect(TRAIT_COLORS.composition).toEqual([ACCENT_COLORS.green, ACCENT_COLORS.lime]);
     expect(TRAIT_COLORS.company).toEqual([ACCENT_COLORS.purple, ACCENT_COLORS.pink]);
     expect(TRAIT_COLORS.seed).toEqual([ACCENT_COLORS.tangerine, ACCENT_COLORS.yellow]);
-    expect(TRAIT_COLORS.header).toEqual([ACCENT_COLORS.white, ACCENT_COLORS.darkGray]);
+    expect(TRAIT_COLORS.header).toEqual([ACCENT_COLORS.emerald, ACCENT_COLORS.indigo]);
   });
 
   it('every pair is 2 distinct colors, never a trait paired with itself', () => {

@@ -84,10 +84,10 @@
   --color-bg: #12161a;
   --color-surface: #1a2027;
   --color-border: rgba(140, 190, 210, 0.14);
-  --color-accent-a: #fff;
-  --color-accent-b: #211e1b;
-  --color-accent: color-mix(in srgb, #fff 50%, #211e1b 50%);
-  --color-accent-gradient: linear-gradient(135deg, #fff, #211e1b);
+  --color-accent-a: #4fc27a;
+  --color-accent-b: #5a5c9e;
+  --color-accent: color-mix(in srgb, #4fc27a 50%, #5a5c9e 50%);
+  --color-accent-gradient: linear-gradient(135deg, #4fc27a, #5a5c9e);
   --color-text-primary: rgba(255, 255, 255, 0.87);
   --color-text-muted: rgba(255, 255, 255, 0.6);
 

@@ -19,7 +19,7 @@ export const TRAIT_COLORS: Record<Trait, [string, string]> = {
   composition: [ACCENT_COLORS.green, ACCENT_COLORS.lime],
   company: [ACCENT_COLORS.purple, ACCENT_COLORS.pink],
   seed: [ACCENT_COLORS.tangerine, ACCENT_COLORS.yellow],
-  header: [ACCENT_COLORS.white, ACCENT_COLORS.darkGray],
+  header: [ACCENT_COLORS.emerald, ACCENT_COLORS.indigo],
 };
 
 /**
