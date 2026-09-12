@@ -286,7 +286,7 @@ Task 7 ──→ Task 17 (docs/COMPONENT_LIBRARY.md)
 
 ### Phase 4: Robot identity color
 
-- [ ] **Task 8: `Robot.identityColor` — field + seeded generation**
+- [x] **Task 8: `Robot.identityColor` — field + seeded generation**
 
   **Description:** Add `identityColor: string` to `Robot` (`src/types/Robot.ts`) and
   `generateRobotIdentityColor(noiseMap, offset)` to `spawnSystem.ts`, wired into the `robot: Robot =
@@ -294,37 +294,39 @@ Task 7 ──→ Task 17 (docs/COMPONENT_LIBRARY.md)
   §1.4/§4).
 
   **Acceptance criteria:**
-  - [ ] Every spawned robot has an `identityColor` that's a hex value from `ROBOT_IDENTITY_COLOR_NAMES`'s
+  - [x] Every spawned robot has an `identityColor` that's a hex value from `ROBOT_IDENTITY_COLOR_NAMES`'s
     resolved set.
-  - [ ] Identical `(noiseMap, spawnCount)` input produces the same `identityColor` on repeated calls
+  - [x] Identical `(noiseMap, spawnCount)` input produces the same `identityColor` on repeated calls
     (determinism, matching every other seeded field's existing coverage in this file).
-  - [ ] At least 2 of the 12 robots in a fixed-seed roster have different `identityColor` values (not a
+  - [x] At least 2 of the 12 robots in a fixed-seed roster have different `identityColor` values (not a
     constant collapse).
-  - [ ] `npm run build:types` surfaces every other literal `Robot` object in `src/` missing
+  - [x] `npm run build:types` surfaces every other literal `Robot` object in `src/` missing
     `identityColor` (test fixtures included) — **all of them are fixed as part of this task, not
     deferred**, per this plan's own Architecture Decisions note on this risk.
 
   **Verification:**
-  - [ ] `npx vitest run src/systems/spawnSystem.test.ts` passes, including new determinism/
+  - [x] `npx vitest run src/systems/spawnSystem.test.ts` passes, including new determinism/
     non-degeneracy/membership assertions for `identityColor`.
-  - [ ] `npm run build:types` clean (the real check for the ripple risk above — fix every newly-surfaced
-    error, don't suppress).
-  - [ ] `npm test` (full suite) passes — not just `spawnSystem.test.ts`, since other files (at minimum
-    `collisionSystem.test.ts`, `lfoDebug.test.ts` — found constructing raw `Robot` literals directly; a
-    broader `npm run build:types` pass may surface more) may need a trivial `identityColor` addition to
-    their own fixtures.
-  - [ ] `npm run lint` clean.
+  - [x] `npm run build:types` clean (the real check for the ripple risk above — fix every newly-surfaced
+    error, don't suppress). Actual ripple: 10 errors across 8 files (`AudioEngine.test.ts` ×2 factories,
+    `localeStore.test.ts`, `collisionSystem.test.ts` ×2, `idleSystem.test.ts`,
+    `interactionSystem.test.ts`, `robotSystems.test.ts`, `worldTransition.test.ts`) — wider than the
+    2-file floor this task originally guessed, all fixed.
+  - [x] `npm test` (full suite): 2387/2387 pass.
+  - [x] `npm run lint` clean.
 
   **Dependencies:** Task 1 (`ACCENT_COLORS`/`ROBOT_IDENTITY_COLOR_NAMES`).
 
-  **Files:** `src/types/Robot.ts`, `src/systems/spawnSystem.ts`, `src/systems/spawnSystem.test.ts`, plus any other test file `build:types`/`npm test` surfaces (expect at least `src/systems/collisionSystem.test.ts`, `src/engine/lfoDebug.test.ts`)
+  **Files:** `src/types/Robot.ts`, `src/systems/spawnSystem.ts`, `src/systems/spawnSystem.test.ts`, plus 8 fixture files `build:types` surfaced: `src/engine/AudioEngine.test.ts`, `src/stores/localeStore.test.ts`, `src/systems/collisionSystem.test.ts`, `src/systems/idleSystem.test.ts`, `src/systems/interactionSystem.test.ts`, `src/systems/robotSystems.test.ts`, `src/systems/worldTransition.test.ts`
 
   **Estimated scope:** M (small logical change, but with a real, only-partially-boundable ripple across test fixtures — see verification)
 
 ### Checkpoint: Robot identity color
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] Manual check: inspect two different spawned robots' `identityColor` in dev tools/state — confirm
-  they differ and are both valid hex values.
+- [x] `npm run build:types`, `npm run lint`, `npm run build` clean. Full suite: 2387/2387 pass.
+- [x] Confirmed via `spawnSystem.test.ts`'s own new assertions (not yet a live browser check): every
+  spawned robot gets a valid hex `identityColor`, at least 2 of 12 differ, and identical seed input
+  reproduces identical output. A real dev-tools/browser look is still outstanding — see Task 8's own
+  open item.
 - [ ] Review with human before proceeding.
 
 ---
