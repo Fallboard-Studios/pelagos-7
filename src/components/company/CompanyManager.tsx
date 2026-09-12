@@ -1,6 +1,7 @@
 import { CompanyButtonRow } from '@/components/company/CompanyButtonRow';
 import { CompanyCrudControls } from '@/components/company/CompanyCrudControls';
 import { CompanyOptionsSection } from '@/components/company/CompanyOptionsSection';
+import { getTraitColorStyle } from '@/utils/traitColors';
 
 import './CompanyManager.css';
 
@@ -12,7 +13,7 @@ import './CompanyManager.css';
  */
 export function CompanyManager() {
   return (
-    <div className="company-manager">
+    <div className="company-manager" style={getTraitColorStyle('company')}>
       <CompanyButtonRow />
       <CompanyCrudControls />
       <CompanyOptionsSection />

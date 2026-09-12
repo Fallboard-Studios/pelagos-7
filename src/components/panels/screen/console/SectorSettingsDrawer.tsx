@@ -15,6 +15,7 @@ import {
   ATTENUATION_STYLE_PRESETS,
   COORDINATE_PRESETS,
 } from '@/data/sectorSettingsConfig';
+import { getTraitColorStyle } from '@/utils/traitColors';
 import type { ButtonSchema } from '@/types/controls';
 import './SectorSettingsDrawer.css';
 
@@ -69,7 +70,7 @@ export function SectorSettingsDrawer() {
   }
 
   return (
-    <div className="sector-settings-drawer">
+    <div className="sector-settings-drawer" style={getTraitColorStyle('seed')}>
       <div className="sector-settings-drawer__status">
         <DualLabel loreLabel={STATUS_HEADER_SCHEMA.loreLabel} humanLabel={STATUS_HEADER_SCHEMA.humanLabel} />
         <div className="sector-settings-drawer__status-line">

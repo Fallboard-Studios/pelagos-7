@@ -103,4 +103,13 @@ describe('SectorSettingsDrawer', () => {
     render(<SectorSettingsDrawer />);
     expect(screen.queryByRole('switch', { name: 'Enable automatic effects' })).toBeNull();
   });
+
+  // Roadmap Phase 14 (docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.5, Task 14) — the Seed trait's
+  // own colors (tangerine/yellow) on the drawer's own root.
+  it("scopes its root to the Seed trait's colors (tangerine/yellow)", () => {
+    const { container } = render(<SectorSettingsDrawer />);
+    const root = container.querySelector('.sector-settings-drawer') as HTMLElement;
+    expect(root.style.getPropertyValue('--color-accent-a')).toBe('#e2b149');
+    expect(root.style.getPropertyValue('--color-accent-b')).toBe('#e9e377');
+  });
 });
