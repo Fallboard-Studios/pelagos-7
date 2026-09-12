@@ -54,10 +54,20 @@ describe('index.css type-scale tokens', () => {
     expect(cssSource).not.toMatch(/\n\s*font-weight:\s*400;/);
   });
 
-  it('keeps the old --font-size-sm/md/lg tokens for now (removed only in Task 10, after every consumer migrates)', () => {
-    expect(cssSource).toContain('--font-size-sm: 12px;');
-    expect(cssSource).toContain('--font-size-md: 16px;');
-    expect(cssSource).toContain('--font-size-lg: 20px;');
+  it('removes the old --font-size-sm/md/lg tokens (TYPE_SCALE.md Task 10 — every consumer has migrated)', () => {
+    // Not a plain .not.toContain() on the value alone (e.g. "12px") — that
+    // would also incidentally match an unrelated future 12px value
+    // elsewhere in the file. Match the exact old declaration lines.
+    expect(cssSource).not.toContain('--font-size-sm: 12px;');
+    expect(cssSource).not.toContain('--font-size-md: 16px;');
+    expect(cssSource).not.toContain('--font-size-lg: 20px;');
+    // Belt-and-suspenders: the custom property NAMES themselves must not
+    // appear anywhere in the file at all, not just those exact declarations
+    // (guards against, say, a leftover reference via var(--font-size-sm)
+    // that this rewrite forgot to also remove).
+    expect(cssSource).not.toContain('--font-size-sm');
+    expect(cssSource).not.toContain('--font-size-md');
+    expect(cssSource).not.toContain('--font-size-lg');
   });
 
   it('removes the dead Vite-scaffold h1 font-size rule (zero real <h1> consumers)', () => {

@@ -12,13 +12,6 @@
   --font-controls: 'Titillium Web', 'Rajdhani', system-ui, Avenir, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Segoe UI Mono", monospace;
 
-  /* Old 3-token scale — kept alongside the new tokens below until every
-     consumer has migrated (docs/tasks/TYPE_SCALE.md Phase 2/4); removed in
-     Task 10 once a repo-wide grep confirms zero remaining references. */
-  --font-size-sm: 12px;
-  --font-size-md: 16px;
-  --font-size-lg: 20px;
-
   /* New semantic type scale (docs/specs/TYPE_SCALE.md §1.2). --font-size-body
      and the 3 --font-size-heading-* tokens have no real consumer yet — same
      "defined, ready, unused" status Stepper/StepperWithToggle already have
