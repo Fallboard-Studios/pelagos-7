@@ -126,11 +126,27 @@ body {
   height: 100vh;
 }
 
-/* The old h1 rule (a 3.2em display size) and the base button {...} rule
-   (unused Vite-scaffold leftovers — no real <h1> or bare <button> exists in
-   the app) were removed here (docs/specs/TYPE_SCALE.md Task 2). button:hover
-   /:focus and the light-scheme media query's own button rule below are left
-   as-is — out of this task's scope, since they carry no font-size/family. */
+/* The old h1 rule (a 3.2em display size) was removed here (docs/specs/
+   TYPE_SCALE.md Task 2) — zero real <h1> consumers. The base button {...}
+   rule was ALSO removed there, incorrectly assumed dead in the same way —
+   real bare <button> elements DO exist throughout the app (RadioButton's own
+   option buttons, AccordionContainer's trigger, Toggle's switch, Stepper's
+   +/- buttons, PowerRockerSwitch's confirm dialog), and that rule's
+   `font-family: inherit;` line was the only thing letting any of them pick
+   up the page's set font at all — browsers' UA stylesheets give button/
+   input/select/textarea their own NON-inheriting default font otherwise.
+   Restored below as a generic `inherit` reset (found live: "I see Arial on
+   buttons" — a real regression, not a hypothetical one) rather than
+   reinstating the old rule's other, genuinely-unused cosmetic properties
+   (border-radius/padding/background-color/transition), which every real
+   consumer already overrides via its own higher-specificity class rule.
+   button:hover/:focus and the light-scheme media query's own button rule
+   below are unaffected — they carry no font-size/family. */
+button, input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+}
 
 button:hover {
   border-color: #646cff;

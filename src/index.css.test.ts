@@ -4,6 +4,8 @@ import { dirname, resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { getCssRuleBody } from './testUtils/cssRuleBody';
+
 // TYPE_SCALE.md Task 2 — index.css's new type-scale tokens. Vitest's default
 // config treats CSS imports as a no-op (no `css: true` in vitest.config.ts),
 // so no existing component test ever exercises real computed styles; these
@@ -82,5 +84,31 @@ describe('index.css type-scale tokens', () => {
     expect(cssSource).toContain('button:hover {');
     expect(cssSource).toContain('button:focus,');
     expect(cssSource).toContain('@media (prefers-color-scheme: light)');
+  });
+
+  it('restores font inheritance for native form controls (regression, found live: "I see Arial on buttons")', () => {
+    // Task 2 deleted the whole old `button {...}` rule as "dead Vite
+    // boilerplate," including its `font-family: inherit;` line — but
+    // browsers' UA stylesheets give button/input/select/textarea their own
+    // NON-inheriting default font, so that line was the only thing letting
+    // real native buttons throughout the app (RadioButton's own option
+    // buttons, AccordionContainer's trigger, Toggle's switch, Stepper's
+    // +/- buttons, PowerRockerSwitch's confirm dialog) pick up the page's
+    // set font at all. Without it, every one of those falls back to the
+    // browser's own default UI font (Arial, on Windows Chrome) instead of
+    // Rajdhani/Titillium Web — a real, user-reported regression, not a
+    // hypothetical one. Restored as a standard, generic reset (inherit,
+    // not a hardcoded family/size/weight) so each control's own ancestor
+    // rule (e.g. .sc-radio-button's font-family: var(--font-controls))
+    // correctly reaches its own native <button>/<input> descendants.
+    const body = getCssRuleBody(cssSource, 'button, input, select, textarea');
+    expect(body).not.toBeNull();
+    expect(body).toContain('font-family: inherit;');
+    expect(body).toContain('font-size: inherit;');
+    expect(body).toContain('font-weight: inherit;');
+  });
+
+  it('no longer claims "no real bare <button> exists in the app" (Task 2\'s own comment was wrong)', () => {
+    expect(cssSource).not.toContain('no real <h1> or bare <button> exists in');
   });
 });
