@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
@@ -239,5 +240,38 @@ describe('AudioSettingSection', () => {
 
     expect(onAudioModeChange).not.toHaveBeenCalled();
     expect(onVolumeChange).not.toHaveBeenCalled();
+  });
+
+  // Roadmap Phase 14 (docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.5, Task 11) — an optional
+  // `style` prop forwarded to this section's own AccordionContainer, for trait-color scoping
+  // (getTraitColorStyle('output'), applied at the RobotOptionsTab call site in Task 12).
+  describe('style prop', () => {
+    it('forwards a caller-supplied style to the section\'s own AccordionContainer root', () => {
+      const { container } = render(
+        <AudioSettingSection
+          value={makeValue()}
+          onAudioModeChange={() => {}}
+          onVolumeChange={() => {}}
+          onVolumeLfoChange={() => {}}
+          style={{ '--color-accent-a': '#cd5e57', '--color-accent-b': '#da7e1b' } as CSSProperties}
+        />,
+      );
+      const root = container.querySelector('.sc-accordion') as HTMLElement;
+      expect(root.style.getPropertyValue('--color-accent-a')).toBe('#cd5e57');
+      expect(root.style.getPropertyValue('--color-accent-b')).toBe('#da7e1b');
+    });
+
+    it('renders with no inline style when the prop is omitted — existing consumers unaffected', () => {
+      const { container } = render(
+        <AudioSettingSection
+          value={makeValue()}
+          onAudioModeChange={() => {}}
+          onVolumeChange={() => {}}
+          onVolumeLfoChange={() => {}}
+        />,
+      );
+      const root = container.querySelector('.sc-accordion') as HTMLElement;
+      expect(root.getAttribute('style')).toBeNull();
+    });
   });
 });

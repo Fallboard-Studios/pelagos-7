@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { RadioButton } from '@/components/ui/controls/RadioButton';
 import { SliderLinear } from '@/components/ui/controls/SliderLinear';
 import { SliderCenteredZero } from '@/components/ui/controls/SliderCenteredZero';
@@ -73,6 +74,12 @@ interface SignatureArrayDrawerProps {
   onStructuralChange: (layers: OscillatorLayer[]) => void;
   onLfoChange: (target: RobotLfoTargetId, value: LfoValue) => void;
   disabled?: boolean;
+  /** Optional inline style forwarded to this drawer's own AccordionContainer — trait-color
+   *  scoping (getTraitColorStyle('spectral'), Roadmap Phase 14), applied at the
+   *  RobotOptionsTab/CompanyOptionsSection call sites. Robot Drift's own controls, rendered
+   *  inside this same accordion, inherit it via ordinary CSS cascade with no wiring of their
+   *  own. See docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.5/§1.6. */
+  style?: CSSProperties;
 }
 
 function paramValue(layer: OscillatorLayer, field: SignatureArrayParamSchema['field']): number {
@@ -110,11 +117,11 @@ function paramValue(layer: OscillatorLayer, field: SignatureArrayParamSchema['fi
  * (docs/specs/LFO_CONSOLIDATED_DISPLAY.md). Type stays rendered inline, outside the group — it
  * has no LFO of its own.
  */
-export function SignatureArrayDrawer({ value, onContinuousChange, onStructuralChange, onLfoChange, disabled }: SignatureArrayDrawerProps) {
+export function SignatureArrayDrawer({ value, onContinuousChange, onStructuralChange, onLfoChange, disabled, style }: SignatureArrayDrawerProps) {
   const layers = value.layers ?? [];
 
   return (
-    <AccordionContainer schema={SOURCE_ACCORDION_SCHEMA}>
+    <AccordionContainer schema={SOURCE_ACCORDION_SCHEMA} style={style}>
       <div className="signature-array-drawer">
 
         {SIGNATURE_ARRAY_CONFIG.map((block, idx) => {
