@@ -1,8 +1,8 @@
 # Session Storage & Persistence
 
-**Status: design doc for [Roadmap Phase 12](roadmap/roadmap.md) — not yet implemented.** Nothing in this file describes current app behavior; there is no localStorage or persistence code anywhere in `src/` today. Update this banner and fold this content into an implementation-sourced version once `storageEngine.ts`/`stateResolver.ts`/`urlSerializer.ts` land.
+**Status: design doc for [Roadmap Phase 18](todo/roadmap.md) — not yet implemented.** Nothing in this file describes current app behavior; there is no localStorage or persistence code anywhere in `src/` today. Update this banner and fold this content into an implementation-sourced version once `storageEngine.ts`/`stateResolver.ts`/`urlSerializer.ts` land.
 
-**Related docs:** [PROCEDURAL_GENERATION.md](PROCEDURAL_GENERATION.md) (the seed determinism this design depends on) · [ANIMATION_SYSTEM.md](ANIMATION_SYSTEM.md) (timelineMap, for FirmwareResetModal's flash) · [COMPANIES.md](COMPANIES.md) (the Company shape this persists, including the spawn-generated-vs-user-created id split) · [roadmap/roadmap.md](roadmap/roadmap.md) Phase 6 (deterministic robot IDs), Phase 9 (Robot Options, the source of overrides), Phase 10 (Companies), Phase 12 (this phase)
+**Related docs:** [PROCEDURAL_GENERATION.md](PROCEDURAL_GENERATION.md) (the seed determinism this design depends on) · [ANIMATION_SYSTEM.md](ANIMATION_SYSTEM.md) (timelineMap, for FirmwareResetModal's flash) · [COMPANIES.md](COMPANIES.md) (the Company shape this persists, including the spawn-generated-vs-user-created id split) · [todo/roadmap.md](todo/roadmap.md) Phase 6 (deterministic robot IDs), Phase 9 (Robot Options, the source of overrides), Phase 10 (Companies), Phase 18 (this phase, renumbered 2026-09-11 — was Phase 12)
 
 ## What Gets Persisted
 
