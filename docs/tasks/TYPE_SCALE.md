@@ -228,20 +228,22 @@ Tasks 4, 5, and 6 have no dependency on each other (all depend only on Tasks 1-3
 
 ### Phase 4: Remaining consumers
 
-- [ ] **Task 8: Migrate standalone-`DualLabel` host files**
+- [x] **Task 8: Migrate standalone-`DualLabel` host files** — done
 
   **Description:** In `RobotSelectionCard.tsx`/`.css`, `RobotDisplaySection.tsx`/`.css`, and `SectorSettingsDrawer.tsx`/`.css`, identify the exact element wrapping each standalone `<DualLabel>` usage (spec §1.5 flags `SectorSettingsDrawer.tsx:74`'s wrapper as needing confirmation during Implement) and add `font-family: var(--font-controls); font-weight: var(--font-weight-control);` to that selector — no `container-type` (spec §1.4's explicit scope decision). Also migrate each file's own other one-off literal in the same pass: `RobotSelectionCard.css`'s `.__value` (`var(--font-size-sm)` → `var(--font-size-label)`), `RobotDisplaySection.css`'s `.__value` (tokenize its existing `font-weight: 600` to `var(--font-weight-medium)`, and add the family/weight addition to `.__row`), `SectorSettingsDrawer.css`'s `.__status-line` (`0.95em` → `var(--font-size-label)`).
 
+  **Found while implementing — `RobotSelectionCard.tsx` renders its DualLabel rows through TWO different wrapper classes, not one** (`.robot-selection-card__row` for the name row, `.robot-selection-card__field` for job/battery/docking/audio) — shipped on the shared root (`.robot-selection-card`) instead of either wrapper individually, covering both via inheritance. `RobotDisplaySection.css` follows the same root-level pattern for consistency, even though it only needed one wrapper class. `SectorSettingsDrawer.css` stays scoped to `.sector-settings-drawer__status` as originally planned (the drawer also renders `TextInput`/`Button` with their own already-correct fonts, so a drawer-root rule would be a bigger blast radius than needed).
+
   **Acceptance criteria:**
-  - [ ] All 3 standalone-`DualLabel` wrapper selectors carry `font-family: var(--font-controls)` and `font-weight: var(--font-weight-control)`.
-  - [ ] `RobotSelectionCard.css`'s `.__value`, `SectorSettingsDrawer.css`'s `.__status-line` no longer reference `var(--font-size-sm)`/`0.95em`.
-  - [ ] `RobotDisplaySection.css`'s `.__value` weight is now `var(--font-weight-medium)`, same computed value (600).
-  - [ ] No `container-type`/`container-name` added anywhere in this task.
+  - [x] All 3 standalone-`DualLabel` host files carry `font-family: var(--font-controls)` and `font-weight: var(--font-weight-control)` on the selector that actually covers their DualLabel usage (root for 2 of the 3, per the deviation above; `.sector-settings-drawer__status` for the third, as planned).
+  - [x] `RobotSelectionCard.css`'s `.__value`, `SectorSettingsDrawer.css`'s `.__status-line` no longer reference `var(--font-size-sm)`/`0.95em`.
+  - [x] `RobotDisplaySection.css`'s `.__value` weight is now `var(--font-weight-medium)`, same computed value (600).
+  - [x] No `container-type`/`container-name` added anywhere in this task.
 
   **Verification:**
-  - [ ] `npm test -- RobotSelectionCard RobotDisplaySection SectorSettingsDrawer` passes unmodified.
-  - [ ] `npm run build:types` / `npm run lint` clean.
-  - [ ] Manual: DevTools computed-style check confirming all 3 standalone `DualLabel` rows (Robot Name/Job/Battery/Docked/Audio in the selection card and display section, the sector-settings status header) render in Titillium Web.
+  - [x] `npx vitest run RobotSelectionCard RobotDisplaySection SectorSettingsDrawer` passes unmodified (47 tests).
+  - [x] `npm run build:types` / `npm run lint` / `npm run build` clean.
+  - [x] New `standaloneDualLabelHosts.test.ts` (RED before the change, GREEN after — 9 tests) covers all 3 files, including a regression guard that the drawer's rule landed on `.sector-settings-drawer__status`, not the drawer root. DevTools real-browser confirmation not performed this session (no tooling available) — same honest gap as every prior phase.
 
   **Dependencies:** Task 7 (comes after the label-bump precedent is settled, per this plan's parallelization note — no direct code dependency).
 
@@ -249,19 +251,21 @@ Tasks 4, 5, and 6 have no dependency on each other (all depend only on Tasks 1-3
 
   **Estimated scope:** S (3 files, one small investigation step)
 
-- [ ] **Task 9: Migrate remaining one-off-literal files**
+- [x] **Task 9: Migrate remaining one-off-literal files** — done
 
   **Description:** Swap the remaining old-token/literal references to the new tokens — no new mechanism, pure value swaps. `PowerRockerSwitch.css`: 3 references (`var(--font-size-md)` on the dialog title, `var(--font-size-sm)` ×2 on description/button) — pick `var(--font-size-label)` vs `var(--font-size-label-lore)` per line by visual judgment (spec §7 item 2 — these are on `--font-mono` text, family untouched). `Header.css` and `SleeveContainer.css`: 1 `var(--font-size-sm)` reference each → `var(--font-size-label)` (also `--font-mono` text, family untouched). `SkippedNotesCounter.css`: 1 `var(--font-size-sm)` reference → `var(--font-size-label)` (`--font-mono` text). `ConsolePanel.css`: `.console-panel__stub`'s `14px` → `var(--font-size-label)` — first confirm in `ConsolePanel.tsx` whether `.console-panel__stub` still has a live render path (spec §7 item 5); migrate the literal regardless of the answer.
 
+  **Correction found while implementing:** this task's own description said all 3 `PowerRockerSwitch.css` lines were "on `--font-mono` text" — only `.power-confirm__title` actually is. `.power-confirm__description`/`.power-confirm__btn` have no `font-family` override at all (inherit `--font-sans`). No font-family was added to either — pure size-token migration regardless of family, matching this task's actual scope. `.console-panel__stub` confirmed dead: zero `.tsx` consumers anywhere in the app.
+
   **Acceptance criteria:**
-  - [ ] No `var(--font-size-sm)`/`var(--font-size-md)`/`14px` reference remains in any of the 5 files.
-  - [ ] `--font-mono` stays the `font-family` on every line touched here — only the size token reference changes.
-  - [ ] `.console-panel__stub`'s live-vs-dead status is noted in the PR/commit description either way.
+  - [x] No `var(--font-size-sm)`/`var(--font-size-md)`/`14px` reference remains in any of the 5 files.
+  - [x] `--font-mono` stays the `font-family` on every line touched here that already had it — only the size token reference changes; the 2 lines that never had a `font-family` still don't.
+  - [x] `.console-panel__stub`'s live-vs-dead status is noted (confirmed dead via grep, recorded in the commit and in a code comment).
 
   **Verification:**
-  - [ ] `npm test -- PowerRockerSwitch Header SleeveContainer SkippedNotesCounter ConsolePanel` passes unmodified.
-  - [ ] `npm run build:types` / `npm run lint` clean.
-  - [ ] Manual: trigger the power-off confirm dialog, check the header status row, the sleeve logo, and (dev mode) the skipped-notes counter — confirm all still render in `--font-mono` at a reasonable size, no regression.
+  - [x] `npx vitest run PowerRockerSwitch Header SleeveContainer SkippedNotesCounter ConsolePanel` passes unmodified (47 tests).
+  - [x] `npm run build:types` / `npm run lint` / `npm run build` clean.
+  - [x] New `remainingOneOffLiterals.test.ts` (RED before the change, GREEN after — 7 tests) covers all 5 files, including the description/button "no font-family" regression guard. Real-browser confirmation not performed this session (no tooling available).
 
   **Dependencies:** Task 7 (parallelizable with Task 8 — see Dependency Graph).
 
@@ -270,9 +274,9 @@ Tasks 4, 5, and 6 have no dependency on each other (all depend only on Tasks 1-3
   **Estimated scope:** M (5 files, mechanical swaps)
 
 ### Checkpoint: All consumers migrated
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] Repo-wide grep for `--font-size-sm`, `--font-size-md`, `--font-size-lg`, and the literals `0.7rem`, `0.85rem`, `0.95em`, `14px` (font-size context) returns zero remaining hits outside `index.css`'s own now-unused token definitions.
-- [ ] Full manual check list from spec §5 run once, end to end.
+- [x] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npx vitest run` (full suite): 2343/2343 pass.
+- [x] Repo-wide grep for `--font-size-sm`, `--font-size-md`, `--font-size-lg` returns zero remaining hits outside `index.css`'s own now-unused token definitions and test files' own assertion strings. Repo-wide grep for `0.7rem`, `0.85rem`, `0.95em` returns zero hits anywhere; every remaining `14px` hit is an unrelated padding/dimension value (`CabinetBox.css`, `DirectionalPanel.css`, the 3 sliders' thumb size, `TextInput.css`'s facade padding), not a font-size.
+- [ ] Full manual check list from spec §5 run once, end to end — not performed this session (no browser tooling available), the running honest gap across every phase.
 - [ ] Review with human before proceeding.
 
 ---
