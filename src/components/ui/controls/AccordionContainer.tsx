@@ -15,6 +15,14 @@ interface AccordionContainerProps {
   schema: AccordionSchema;
   children: ReactNode;
   defaultOpen?: boolean;
+  /** Optional inline style applied to the outer Accordion.Root — this phase's only consumer is
+   *  trait-color scoping (getTraitColorStyle/getRobotColorStyle, src/utils/traitColors.ts,
+   *  Roadmap Phase 14), but the prop itself is generic, matching CabinetBox's own precedent of
+   *  small, purpose-documented optional additions rather than a theming-specific prop name. Every
+   *  descendant CabinetBox inside this section inherits whatever custom properties this style sets
+   *  via ordinary CSS cascade — no other wiring needed. See
+   *  docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.5.1. */
+  style?: CSSProperties;
 }
 
 /** Row-natural facade height for the trigger's outer, permanently-popped
@@ -51,7 +59,7 @@ const cabinetTokens = {
  * nest one CabinetBox inside another's front face; see §1.1/§1.4 for why
  * that's safe and how the two fronts stay independently styleable.
  */
-export function AccordionContainer({ schema, children, defaultOpen = false }: AccordionContainerProps) {
+export function AccordionContainer({ schema, children, defaultOpen = false, style }: AccordionContainerProps) {
   const [open, setOpen] = useState(defaultOpen);
   const contentRef = useRef<HTMLDivElement>(null);
   const contentInnerRef = useRef<HTMLDivElement>(null);
@@ -143,6 +151,7 @@ export function AccordionContainer({ schema, children, defaultOpen = false }: Ac
       className={withActiveClass('sc-accordion', open)}
       value={open ? schema.id : ''}
       onValueChange={handleValueChange}
+      style={style}
     >
       <Accordion.Item value={schema.id} className="sc-accordion__item">
         <Accordion.Header className="sc-accordion__header">
