@@ -32,6 +32,9 @@ const LEAF_CONTROLS = [
   { file: 'Stepper.css', selector: '.sc-stepper' },
   { file: 'StepperWithToggle.css', selector: '.sc-stepper-toggle' },
   { file: 'Lfo.css', selector: '.sc-lfo' },
+  { file: 'SliderLinear.css', selector: '.sc-slider-linear' },
+  { file: 'SliderLog.css', selector: '.sc-slider-log' },
+  { file: 'SliderCenteredZero.css', selector: '.sc-slider-centered-zero' },
 ];
 
 describe.each(LEAF_CONTROLS)('$file root selector ($selector)', ({ file, selector }) => {
