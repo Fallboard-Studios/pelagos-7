@@ -2,6 +2,8 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  font-family: var(--font-controls);
+  font-weight: var(--font-weight-control);
 }
 
 /* Vertical fader: inline so several can sit side by side in a row without a
@@ -18,10 +20,20 @@
    engages only for the 4-box overflow floor (voxelTrackMath.ts's own
    VOXEL_TRACK_MIN_BOX_COUNT_EVEN). Mirrors SliderLinear.css's/SliderLog.css's
    own precedent — scoped to the existing data-orientation attribute, no new
-   wrapper element. */
+   wrapper element.
+   container-type/container-name live here, not on the bare
+   .sc-slider-centered-zero selector above (docs/specs/TYPE_SCALE.md
+   incident, found in a real browser post-Task-6 — see SliderLinear.css's own
+   copy of this comment for the full explanation): the vertical variant below
+   is a shrink-to-fit inline-flex box that CSS size containment would
+   collapse to zero width; this horizontal variant stays block-level (safe to
+   containerize). Vertical sliders lose the compact-fallback mechanism until
+   a real fix is designed. */
 .sc-slider-centered-zero[data-orientation='horizontal'] {
   overflow-x: auto;
   overflow-y: visible;
+  container-type: inline-size;
+  container-name: sc-control;
 }
 
 .sc-slider-centered-zero[data-orientation='vertical'] {
@@ -100,6 +112,12 @@
 }
 
 .sc-slider-centered-zero__value {
-  font-size: 0.75rem;
+  font-size: var(--font-size-label);
   color: var(--color-text-muted);
+}
+
+@container sc-control (max-width: 120px) {
+  .sc-slider-centered-zero__value {
+    font-size: var(--font-size-label-compact);
+  }
 }

@@ -212,13 +212,19 @@
 
 .power-confirm__title {
   font-family: var(--font-mono);
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-label);
   color: var(--color-text-primary);
   margin: 0;
 }
 
+/* --font-size-label-lore, not --font-size-label (the title's own token,
+   above) — preserves this dialog's existing size hierarchy (title reads
+   bigger than the description/buttons below it, matching the old
+   --font-size-md/--font-size-sm split). No font-family here, before or
+   after — this rule has never had one, unlike the title; it inherits the
+   document default (--font-sans/Rajdhani). */
 .power-confirm__description {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-label-lore);
   color: var(--color-text-muted);
   margin: 0;
 }
@@ -238,7 +244,9 @@
   border-radius: var(--border-radius);
   background: transparent;
   color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
+  /* --font-size-label-lore, matching .power-confirm__description above —
+     same reasoning, same "smaller than the title" role. */
+  font-size: var(--font-size-label-lore);
   cursor: pointer;
   transition: background-color 0.15s ease;
 }

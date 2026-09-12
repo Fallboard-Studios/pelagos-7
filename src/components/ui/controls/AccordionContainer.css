@@ -67,8 +67,23 @@
 }
 
 .sc-accordion__indicator {
-  font-weight: 600;
+  font-weight: var(--font-weight-medium);
   line-height: 1;
+}
+
+/* Direct fix for the "accordion labels read too small" complaint
+   (docs/specs/TYPE_SCALE.md §1.6) — scoped to .sc-accordion__row
+   specifically (not a bare .sc-dual-label__human rule) so a nested
+   control's own DualLabel, rendered somewhere inside this section's
+   children, is never caught. Stays --font-sans (Rajdhani, inherited from
+   :root) — this file never establishes the sc-control size container and
+   never moves to --font-controls, since it's chrome, not a leaf control
+   (§1.5). Only the human label is bumped; the lore caption stays at its
+   normal small-caption size, preserving the existing size contrast between
+   the two. */
+.sc-accordion__row .sc-dual-label__human {
+  font-size: var(--font-size-heading-sm);
+  font-weight: var(--font-weight-medium);
 }
 
 /* overflow-y here is closed-state-only baseline. The open state's

@@ -176,7 +176,7 @@ sized wrapper (same reasoning audio-rig-drawer__param-row/signature-array-
    ---------------------------------------- */
 .header .header__row--status {
   font-family: var(--font-mono);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-label);
   color: var(--color-text-primary);
   letter-spacing: 0.05em;
   flex-direction: column;

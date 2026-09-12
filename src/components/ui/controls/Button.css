@@ -4,6 +4,18 @@
    remains. */
 .sc-button {
   display: inline-flex;
+  font-family: var(--font-controls);
+  font-weight: var(--font-weight-control);
+  /* This selector deliberately does NOT establish the shared sc-control
+     size-query container (docs/specs/TYPE_SCALE.md incident, discovered in
+     a real browser post-Task-6): this element is ALWAYS inline-flex + width:
+     fit-content, sized by shrink-to-fit — CSS size containment collapses any
+     element to zero width when its own size normally comes from its content
+     rather than an explicit/contextual width (confirmed via the relevant
+     MDN docs on this CSS feature). Semantically this is also the right
+     call, not just a workaround: a button that always grows to fit its own
+     label can never be "cramped" the way a fixed-width slider track can, so
+     there's no compact-fallback scenario to solve here in the first place. */
   /* Never larger than its own content — a flex/grid parent's default
      stretch behavior (e.g. HubNav.css's grid tiles, `justify-items: stretch`
      by default) would otherwise size the actual hit-testable <button> to

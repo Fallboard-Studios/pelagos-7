@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@fontsource/rajdhani": "^5.3.0",
+    "@fontsource/titillium-web": "^5.3.0",
     "@gsap/react": "^2.1.2",
     "@radix-ui/react-accordion": "^1.2.20",
     "@radix-ui/react-alert-dialog": "^1.1.15",

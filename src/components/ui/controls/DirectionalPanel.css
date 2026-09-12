@@ -4,6 +4,22 @@
   gap: 4px;
 }
 
+/* Direct fix for the "panel labels read too small" complaint (docs/specs/
+   TYPE_SCALE.md §1.6) — a direct-child combinator, not a descendant
+   selector, so a DualLabel nested arbitrarily deep inside
+   .sc-directional-panel__content (a control composed inside this panel's own
+   children) is never caught; only this panel's own group label, which
+   DirectionalPanel.tsx always renders as .sc-directional-panel's own direct
+   child, is targeted. Stays --font-sans (Rajdhani, inherited from :root) —
+   this file never establishes the sc-control size container and never moves
+   to --font-controls, since it's chrome, not a leaf control (§1.5). Only the
+   human label is bumped; the lore caption stays at its normal small-caption
+   size. */
+.sc-directional-panel>.sc-dual-label__human {
+  font-size: var(--font-size-heading-sm);
+  font-weight: var(--font-weight-medium);
+}
+
 .sc-directional-panel__content {
   display: flex;
   flex-direction: row;

@@ -8,6 +8,16 @@
   background: var(--color-surface);
   cursor: pointer;
   list-style: none;
+  /* Applied at the root, not on .__row/.__field individually (docs/specs/
+     TYPE_SCALE.md §1.5) — this card renders its standalone DualLabel rows
+     through TWO different wrapper classes (.robot-selection-card__row for
+     Robot Name, .robot-selection-card__field for Job/Battery/Docked/Audio),
+     so a rule here covers both via inheritance instead of duplicating the
+     same 2 declarations twice. No size-container declarations here — out of
+     scope for standalone DualLabel usage (§1.4). RadioButton's own explicit
+     font-family still wins by cascade regardless. */
+  font-family: var(--font-controls);
+  font-weight: var(--font-weight-control);
 }
 
 .robot-selection-card:focus-visible {
@@ -59,7 +69,7 @@
 
 .robot-selection-card__value {
   color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-label);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

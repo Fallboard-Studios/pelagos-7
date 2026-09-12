@@ -3,22 +3,34 @@ import { createRoot } from 'react-dom/client'
 
 import App from './App.tsx'
 // Self-hosted (npm @fontsource/rajdhani, not a Google Fonts CDN link) — no
-// external network request at runtime. All 5 weights (300-700); index.css's
-// --font-sans token is the only consumer, applied as the app's default
-// typeface, replacing the prior system-ui stack. latin/latin-ext subsets
-// only (not the plain weight-only files, which also bundle Devanagari
-// glyphs the app never uses — latin-ext still covers accented Latin
-// characters at a fraction of Devanagari's per-weight size).
-import '@fontsource/rajdhani/latin-300.css'
-import '@fontsource/rajdhani/latin-ext-300.css'
-import '@fontsource/rajdhani/latin-400.css'
-import '@fontsource/rajdhani/latin-ext-400.css'
+// external network request at runtime. Weights 500-700 only (docs/specs/
+// TYPE_SCALE.md §1.3) — 300/400 are dropped app-wide; --font-weight-regular
+// (500) is the new document-wide floor. index.css's --font-sans token is the
+// only consumer, applied as the chrome/structural default (large titles,
+// AccordionContainer/DirectionalPanel, page shell), replacing the prior
+// system-ui stack. latin/latin-ext subsets only (not the plain weight-only
+// files, which also bundle Devanagari glyphs the app never uses — latin-ext
+// still covers accented Latin characters at a fraction of Devanagari's
+// per-weight size).
 import '@fontsource/rajdhani/latin-500.css'
 import '@fontsource/rajdhani/latin-ext-500.css'
 import '@fontsource/rajdhani/latin-600.css'
 import '@fontsource/rajdhani/latin-ext-600.css'
 import '@fontsource/rajdhani/latin-700.css'
 import '@fontsource/rajdhani/latin-ext-700.css'
+// Self-hosted (npm @fontsource/titillium-web), same latin/latin-ext-only
+// rationale as Rajdhani above. Weights 400/600/700 — Titillium Web has no
+// 500; its 400 is kept as-is (not bumped) since it's a substantially
+// heavier-set, more legible-at-small-sizes regular than Rajdhani's own 400
+// (docs/specs/TYPE_SCALE.md §1.3). index.css's --font-controls token is the
+// only consumer, applied to the 11 leaf ControlSchema primitives (sliders,
+// toggle, text input, etc.) and the two smaller heading tiers.
+import '@fontsource/titillium-web/latin-400.css'
+import '@fontsource/titillium-web/latin-ext-400.css'
+import '@fontsource/titillium-web/latin-600.css'
+import '@fontsource/titillium-web/latin-ext-600.css'
+import '@fontsource/titillium-web/latin-700.css'
+import '@fontsource/titillium-web/latin-ext-700.css'
 import './index.css'
 import { setGlobalAttenuationStyleSeedOverride } from './utils/seedUtils'
 

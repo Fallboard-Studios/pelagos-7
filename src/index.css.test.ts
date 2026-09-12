@@ -1,0 +1,114 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+
+import { describe, expect, it } from 'vitest';
+
+import { getCssRuleBody } from './testUtils/cssRuleBody';
+
+// TYPE_SCALE.md Task 2 — index.css's new type-scale tokens. Vitest's default
+// config treats CSS imports as a no-op (no `css: true` in vitest.config.ts),
+// so no existing component test ever exercises real computed styles; these
+// are text-contract assertions against the real source file instead, the
+// same class of test main.fonts.test.ts already uses for main.tsx.
+
+const cssSource = readFileSync(
+  resolve(dirname(fileURLToPath(import.meta.url)), 'index.css'),
+  'utf-8',
+);
+
+describe('index.css type-scale tokens', () => {
+  it('defines --font-controls falling back to Rajdhani then the system stack', () => {
+    expect(cssSource).toContain(
+      "--font-controls: 'Titillium Web', 'Rajdhani', system-ui, Avenir, Helvetica, Arial, sans-serif;",
+    );
+  });
+
+  it('defines all 7 semantic font-size tokens with the spec-mandated rem values', () => {
+    const expectedSizeTokens = [
+      '--font-size-label-compact: 0.6875rem;',
+      '--font-size-label-lore: 0.75rem;',
+      '--font-size-label: 0.9375rem;',
+      '--font-size-body: 1rem;',
+      '--font-size-heading-sm: 1.125rem;',
+      '--font-size-heading-md: 1.375rem;',
+      '--font-size-heading-lg: 1.75rem;',
+    ];
+    for (const token of expectedSizeTokens) {
+      expect(cssSource).toContain(token);
+    }
+  });
+
+  it('defines all 4 font-weight tokens with the spec-mandated numeric values', () => {
+    const expectedWeightTokens = [
+      '--font-weight-control: 400;',
+      '--font-weight-regular: 500;',
+      '--font-weight-medium: 600;',
+      '--font-weight-bold: 700;',
+    ];
+    for (const token of expectedWeightTokens) {
+      expect(cssSource).toContain(token);
+    }
+  });
+
+  it(":root's document-wide font-weight reads var(--font-weight-regular), not a bare 400", () => {
+    expect(cssSource).toContain('font-weight: var(--font-weight-regular);');
+    expect(cssSource).not.toMatch(/\n\s*font-weight:\s*400;/);
+  });
+
+  it('removes the old --font-size-sm/md/lg tokens (TYPE_SCALE.md Task 10 — every consumer has migrated)', () => {
+    // Not a plain .not.toContain() on the value alone (e.g. "12px") — that
+    // would also incidentally match an unrelated future 12px value
+    // elsewhere in the file. Match the exact old declaration lines.
+    expect(cssSource).not.toContain('--font-size-sm: 12px;');
+    expect(cssSource).not.toContain('--font-size-md: 16px;');
+    expect(cssSource).not.toContain('--font-size-lg: 20px;');
+    // Belt-and-suspenders: the custom property NAMES themselves must not
+    // appear anywhere in the file at all, not just those exact declarations
+    // (guards against, say, a leftover reference via var(--font-size-sm)
+    // that this rewrite forgot to also remove).
+    expect(cssSource).not.toContain('--font-size-sm');
+    expect(cssSource).not.toContain('--font-size-md');
+    expect(cssSource).not.toContain('--font-size-lg');
+  });
+
+  it('removes the dead Vite-scaffold h1 font-size rule (zero real <h1> consumers)', () => {
+    expect(cssSource).not.toContain('font-size: 3.2em;');
+  });
+
+  it('removes the dead Vite-scaffold bare button rule (zero real bare <button> consumers)', () => {
+    expect(cssSource).not.toContain('padding: 0.6em 1.2em;');
+  });
+
+  it('leaves button:hover/:focus and the light-scheme media query untouched (out of this task\'s scope)', () => {
+    expect(cssSource).toContain('button:hover {');
+    expect(cssSource).toContain('button:focus,');
+    expect(cssSource).toContain('@media (prefers-color-scheme: light)');
+  });
+
+  it('restores font inheritance for native form controls (regression, found live: "I see Arial on buttons")', () => {
+    // Task 2 deleted the whole old `button {...}` rule as "dead Vite
+    // boilerplate," including its `font-family: inherit;` line — but
+    // browsers' UA stylesheets give button/input/select/textarea their own
+    // NON-inheriting default font, so that line was the only thing letting
+    // real native buttons throughout the app (RadioButton's own option
+    // buttons, AccordionContainer's trigger, Toggle's switch, Stepper's
+    // +/- buttons, PowerRockerSwitch's confirm dialog) pick up the page's
+    // set font at all. Without it, every one of those falls back to the
+    // browser's own default UI font (Arial, on Windows Chrome) instead of
+    // Rajdhani/Titillium Web — a real, user-reported regression, not a
+    // hypothetical one. Restored as a standard, generic reset (inherit,
+    // not a hardcoded family/size/weight) so each control's own ancestor
+    // rule (e.g. .sc-radio-button's font-family: var(--font-controls))
+    // correctly reaches its own native <button>/<input> descendants.
+    const body = getCssRuleBody(cssSource, 'button, input, select, textarea');
+    expect(body).not.toBeNull();
+    expect(body).toContain('font-family: inherit;');
+    expect(body).toContain('font-size: inherit;');
+    expect(body).toContain('font-weight: inherit;');
+  });
+
+  it('no longer claims "no real bare <button> exists in the app" (Task 2\'s own comment was wrong)', () => {
+    expect(cssSource).not.toContain('no real <h1> or bare <button> exists in');
+  });
+});

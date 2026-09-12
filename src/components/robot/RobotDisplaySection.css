@@ -3,6 +3,15 @@
   flex-direction: column;
   gap: 0.75rem;
   padding: 0.75rem 0;
+  /* Applied at the root (docs/specs/TYPE_SCALE.md §1.5) — every standalone
+     DualLabel row here shares one wrapper class (.robot-display-section__row),
+     so this could target that instead, but the root keeps the same
+     one-rule-covers-everything shape as RobotSelectionCard.css's own version
+     of this fix. No size-container declarations here — out of scope for
+     standalone DualLabel usage (§1.4). RadioButton's own explicit
+     font-family still wins by cascade regardless. */
+  font-family: var(--font-controls);
+  font-weight: var(--font-weight-control);
 }
 
 .robot-display-section__avatar {
@@ -20,5 +29,5 @@
 
 .robot-display-section__value {
   color: var(--color-text-primary);
-  font-weight: 600;
+  font-weight: var(--font-weight-medium);
 }

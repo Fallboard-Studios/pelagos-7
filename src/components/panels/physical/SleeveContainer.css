@@ -83,7 +83,7 @@
   z-index: 1;
 
   font-family: var(--font-mono);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-label);
   color: var(--color-text-muted);
   opacity: 0.9;
   text-transform: uppercase;
