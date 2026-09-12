@@ -13,6 +13,7 @@ function makeRobot(overrides: Partial<Robot> = {}): Robot {
   return {
     id: 'r1',
     name: 'Unit One',
+    identityColor: '#428d95',
     state: 'idle',
     position: { x: 0, y: 0 },
     destination: null,
@@ -185,6 +186,30 @@ describe('RobotSelectionCard', () => {
       fireEvent.click(screen.getByText('Unit One'));
 
       expect(useUIStore.getState().selectedRobotId).toBe('r1');
+    });
+  });
+
+  // Roadmap Phase 14 (docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.5, Task 13) — the card's own
+  // root carries the robot's seeded identity color.
+  describe('robot color scoping', () => {
+    it("scopes the card root to the robot's own identityColor", () => {
+      const { container } = render(<RobotSelectionCard robot={makeRobot({ identityColor: '#68cb97' })} />);
+      const root = container.querySelector('.robot-selection-card') as HTMLElement;
+      expect(root.style.getPropertyValue('--color-accent-a')).toBe('#68cb97');
+      expect(root.style.getPropertyValue('--color-accent-b')).toBe('#68cb97');
+    });
+
+    it('gives two different robots two different card colors', () => {
+      const { container: containerA, unmount } = render(<RobotSelectionCard robot={makeRobot({ id: 'r1', identityColor: '#cd5e57' })} />);
+      const colorA = (containerA.querySelector('.robot-selection-card') as HTMLElement).style.getPropertyValue('--color-accent-a');
+      unmount();
+
+      const { container: containerB } = render(<RobotSelectionCard robot={makeRobot({ id: 'r2', identityColor: '#7a5484' })} />);
+      const colorB = (containerB.querySelector('.robot-selection-card') as HTMLElement).style.getPropertyValue('--color-accent-a');
+
+      expect(colorA).toBe('#cd5e57');
+      expect(colorB).toBe('#7a5484');
+      expect(colorA).not.toBe(colorB);
     });
   });
 });

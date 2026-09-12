@@ -13,6 +13,7 @@ import {
   DOCKING_STATE_LABELS,
 } from '@/data/robotSelectionConfig';
 import { FREELANCE_VALUE, buildCompanyAssignmentSchema } from '@/data/companyConfig';
+import { getRobotColorStyle } from '@/utils/traitColors';
 import type { Robot } from '@/types/Robot';
 import './RobotSelectionCard.css';
 
@@ -71,6 +72,7 @@ export function RobotSelectionCard({ robot }: RobotSelectionCardProps) {
       aria-label={displayName}
       onClick={handleActivate}
       onKeyDown={handleKeyDown}
+      style={getRobotColorStyle(robot.identityColor)}
     >
       <svg className="robot-selection-card__avatar" viewBox="-80 -80 160 160" aria-hidden="true">
         <RobotBody robot={robot} ignoreDaylight />
