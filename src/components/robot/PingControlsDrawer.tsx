@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { SliderLinear } from '@/components/ui/controls/SliderLinear';
 import { Toggle } from '@/components/ui/controls/Toggle';
 import { Button } from '@/components/ui/controls/Button';
@@ -65,6 +66,11 @@ interface PingControlsDrawerProps {
    *  caller opts it out. */
   onResetMelody?: () => void;
   disabled?: boolean;
+  /** Optional inline style forwarded to this drawer's own AccordionContainer — trait-color
+   *  scoping (getTraitColorStyle('composition'), Roadmap Phase 14), applied at the
+   *  RobotOptionsTab/CompanyOptionsSection call sites. See
+   *  docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.5. */
+  style?: CSSProperties;
 }
 
 /**
@@ -91,6 +97,7 @@ export function PingControlsDrawer({
   onResetMelody,
   onClickTrackActiveChange,
   disabled,
+  style,
 }: PingControlsDrawerProps) {
   const [octMin, octMax] = value.octaveRange;
   // While the click track is playing, the rest of this accordion's controls would silently
@@ -106,7 +113,7 @@ export function PingControlsDrawer({
   const pitchRepeatDisabled = generationDisabled || value.rhythmicMotifLength === 0;
 
   return (
-    <AccordionContainer schema={MELODY_ACCORDION_SCHEMA}>
+    <AccordionContainer schema={MELODY_ACCORDION_SCHEMA} style={style}>
       <div className="ping-controls-drawer">
         <DirectionalPanel schema={PHRASING_PANEL_SCHEMA}>
           {/* Dev-only, same gate as the Skipped Notes debug counter (App.tsx) — a testing aid,
