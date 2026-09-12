@@ -515,20 +515,20 @@ trait colors — Task 9's own manual-check box above can be considered satisfied
 
 ### Phase 7: Wiring — remaining regions (parallelizable with each other)
 
-- [ ] **Task 13: `RobotSelectionCard.tsx` — robot-color root**
+- [x] **Task 13: `RobotSelectionCard.tsx` — robot-color root**
 
   **Description:** Add `style={getRobotColorStyle(robot.identityColor)}` to the existing `<li
   className="robot-selection-card">` root (spec §1.5/§4).
 
   **Acceptance criteria:**
-  - [ ] Each rendered card carries its own robot's `identityColor` in both `--color-accent-a`/`-b`.
+  - [x] Each rendered card carries its own robot's `identityColor` in both `--color-accent-a`/`-b`.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/selection/RobotSelectionCard.test.tsx` passes, with a new
-    assertion on the root's style.
-  - [ ] `npm run build:types`, `npm run lint` clean.
-  - [ ] Manual check: the Robots list shows 12 cards, each with a visually distinct border/glow color
-    matching its detail page's own header color (Task 12).
+  - [x] `npx vitest run src/components/selection/RobotSelectionCard.test.tsx` passes (22/22), with 2
+    new tests (single-robot style, two-robots-differ).
+  - [x] `npm run build:types`, `npm run lint` clean.
+  - [ ] Manual check (not yet done — needs a browser): the Robots list shows 12 cards, each with a
+    visually distinct border/glow color matching its detail page's own header color (Task 12).
 
   **Dependencies:** Task 3, Task 4, Task 8.
 
@@ -536,21 +536,22 @@ trait colors — Task 9's own manual-check box above can be considered satisfied
 
   **Estimated scope:** XS (1 file, 1 style prop)
 
-- [ ] **Task 14: `CompanyManager.tsx` + `SectorSettingsDrawer.tsx` — trait-color roots**
+- [x] **Task 14: `CompanyManager.tsx` + `SectorSettingsDrawer.tsx` — trait-color roots**
 
   **Description:** Add `style={getTraitColorStyle('company')}` to `CompanyManager`'s existing `<div
   className="company-manager">` root, and `style={getTraitColorStyle('seed')}` to
   `SectorSettingsDrawer`'s existing `<div className="sector-settings-drawer">` root (spec §1.5/§4).
 
   **Acceptance criteria:**
-  - [ ] `CompanyManager`'s root carries `company`'s colors.
-  - [ ] `SectorSettingsDrawer`'s root carries `seed`'s colors.
+  - [x] `CompanyManager`'s root carries `company`'s colors.
+  - [x] `SectorSettingsDrawer`'s root carries `seed`'s colors.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/company/CompanyManager.test.tsx src/components/panels/screen/console/SectorSettingsDrawer.test.tsx` passes, each with a new root-style assertion.
-  - [ ] `npm run build:types`, `npm run lint` clean.
-  - [ ] Manual check: the Robots tile's Company Manager section and the Sector Settings tile each render
-    in their own distinct color, different from each other and from any Audio Rig trait.
+  - [x] `npx vitest run src/components/company/CompanyManager.test.tsx src/components/panels/screen/console/SectorSettingsDrawer.test.tsx` passes (13/13), each with a new root-style assertion.
+  - [x] `npm run build:types`, `npm run lint` clean.
+  - [ ] Manual check (not yet done — needs a browser): the Robots tile's Company Manager section and
+    the Sector Settings tile each render in their own distinct color, different from each other and
+    from any Audio Rig trait.
 
   **Dependencies:** Task 3.
 
@@ -558,23 +559,23 @@ trait colors — Task 9's own manual-check box above can be considered satisfied
 
   **Estimated scope:** S (2 unrelated files, identical one-line addition each)
 
-- [ ] **Task 15: `Header.tsx` — trait-color root**
+- [x] **Task 15: `Header.tsx` — trait-color root**
 
   **Description:** Add `style={getTraitColorStyle('header')}` to the existing `<header
   className="header">` root (spec §1.5/§4).
 
   **Acceptance criteria:**
-  - [ ] The header root carries `header`'s colors explicitly (even though, per spec §1.2, this equals
-    `index.css`'s own ambient default today — applied so the two can diverge later with no further code
-    change here).
+  - [x] The header root carries `header`'s colors explicitly (even though, per spec §1.2, this equals
+    `index.css`'s own ambient default today — still true after the emerald/indigo repaint, since both
+    were updated together — applied so the two can diverge later with no further code change here).
 
   **Verification:**
-  - [ ] `npx vitest run src/components/panels/screen/Header.test.tsx` passes, with a new root-style
-    assertion.
-  - [ ] `npm run build:types`, `npm run lint` clean.
-  - [ ] Manual check (spec §7 open item #2): confirm Header's rendering looks intentional — the "same as
-    ambient default" look should read as "this is the Header's own theme," not "Header forgot to get
-    themed." Flag to Crawford if it reads ambiguous.
+  - [x] `npx vitest run src/components/panels/screen/Header.test.tsx` passes (23/23), with a new
+    root-style assertion.
+  - [x] `npm run build:types`, `npm run lint` clean.
+  - [ ] Manual check (spec §7 open item #2, not yet done — needs a browser): confirm Header's
+    rendering looks intentional — the "same as ambient default" look should read as "this is the
+    Header's own theme," not "Header forgot to get themed." Flag to Crawford if it reads ambiguous.
 
   **Dependencies:** Task 3, Task 4.
 
@@ -583,12 +584,15 @@ trait colors — Task 9's own manual-check box above can be considered satisfied
   **Estimated scope:** XS (1 file, 1 style prop)
 
 ### Checkpoint: Feature complete
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] Full manual walkthrough (spec §5): all 7 regions (Spectral, Time/Space, Output, Composition,
-  Company, Seed, Header) render in visually distinct colors; every one of the 12 robots shows a distinct
-  identity color on both its card and detail header; reassigning one trait's pair in `traitColors.ts`
-  (a throwaway local edit, reverted after) changes only that trait's regions — the "simple swap" success
-  criterion, verified directly rather than only asserted in a unit test.
+- [x] `npm run build:types`, `npm run lint`, `npm run build` clean. Full suite: 2418/2418 pass.
+- [ ] Full manual walkthrough (spec §5, not yet done — needs a browser): all 7 regions (Spectral,
+  Time/Space, Output, Composition, Company, Seed, Header) render in visually distinct colors; every
+  one of the 12 robots shows a distinct identity color on both its card and detail header;
+  reassigning one trait's pair in `traitColors.ts` (a throwaway local edit, reverted after) changes
+  only that trait's regions — the "simple swap" success criterion, verified directly rather than only
+  asserted in a unit test. Given Task 9's own manual check already surfaced a real bug once (the
+  nested-`var()` issue, fixed in commit `ccc6931`), this walkthrough is worth doing for real, not
+  assuming green tests mean a correct render.
 - [ ] Review with human before proceeding.
 
 ---
