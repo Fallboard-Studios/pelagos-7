@@ -1,7 +1,7 @@
 # Intent: Robot Options (Roadmap Phase 9)
 
 Confirmed via `/interview-me` on `main`, 2026-08-26. Covers
-[Roadmap Phase 9](../roadmap/roadmap.md#9-robot-options) — rebuilding the hand-built robot editor
+[Roadmap Phase 9](../todo/roadmap.md#9-robot-options) — rebuilding the hand-built robot editor
 (`RobotMetaTab`/`RobotAudioTab`/`RobotOscillatorsTab`) into four schema-driven drawers on the
 Phase 1 primitive library, correcting scope-creep that had drifted into the roadmap's Phase 9
 prose relative to [docs/reference/ROBOT_DATA_GRID.md](../reference/ROBOT_DATA_GRID.md).

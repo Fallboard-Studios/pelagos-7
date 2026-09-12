@@ -1,7 +1,7 @@
 # Intent: Oblique Cabinetry — SliderLinear (Voxel-Track Foundation) (Roadmap Phase 11.1.3)
 
 Confirmed via `/interview-me`, 2026-09-08. Scopes the third item of the
-[11.1.1–11.1.9 Oblique Cabinetry series](../roadmap/roadmap.md#1113-oblique-cabinetry-sliderlinear-voxel-track-foundation),
+[11.1.1–11.1.9 Oblique Cabinetry series](../todo/roadmap.md#1113-oblique-cabinetry-sliderlinear-voxel-track-foundation),
 wiring `SliderLinear` into the shared cabinet-box mechanism
 [11.1.1](oblique-cabinetry-foundation.md) built, and building the shared voxel-track
 rendering `SliderLog` (11.1.4) and `SliderCenteredZero` (11.1.5) will reuse unchanged.
@@ -65,7 +65,7 @@ vs. `SliderLog`'s epsilon-floor curve or `SliderCenteredZero`'s zero-anchored fi
   in three places (11.1.1's About, this item's own original About, and 11.1.6's About) — once
   a slider self-fits its own box count to whatever space a drawer's ordinary CSS gives it,
   there's no separate future phase left to decide "how many boxes fit in a given row."
-  `docs/roadmap/roadmap.md` is updated in the same pass as this intent doc to remove that
+  `docs/todo/roadmap.md` is updated in the same pass as this intent doc to remove that
   stale deferral.
 - `SliderLinear` (`src/components/ui/controls/`) keeps its existing
   `{ schema; value; onChange; disabled?; verticalHeight? }` contract — no call site needs to
@@ -106,7 +106,7 @@ vs. `SliderLog`'s epsilon-floor curve or `SliderCenteredZero`'s zero-anchored fi
 
 ## Forward Note
 
-`docs/roadmap/roadmap.md`'s 11.1.3 section, plus the stale "later, unnumbered layout-rebuild
+`docs/todo/roadmap.md`'s 11.1.3 section, plus the stale "later, unnumbered layout-rebuild
 phase" references in 11.1.1's and 11.1.6's About sections, are updated in the same pass as
 this intent doc to match. `SliderLog` (11.1.4) and `SliderCenteredZero` (11.1.5) inherit the
 live-refitting box-count mechanism for free once this item ships — neither needs its own

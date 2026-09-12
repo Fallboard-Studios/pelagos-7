@@ -2,7 +2,7 @@
 
 Confirmed via `/interview-me` on `review/audio-engine-break-up`, 2026-08-21. This is the
 "why" behind Phase 2's scope in
-[docs/roadmap/roadmap.md](../roadmap/roadmap.md#2-layout) — read that first for the
+[docs/todo/roadmap.md](../todo/roadmap.md#2-layout) — read that first for the
 roadmap's own framing; this doc resolves the decisions its prose left open (and corrects
 two lines that don't match the current codebase — the roadmap was partially drafted by
 Gemini without repo access).

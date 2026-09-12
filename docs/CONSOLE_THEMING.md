@@ -10,7 +10,7 @@ which still describe the seed-driven design in detail, aren't mistaken for curre
 **Related docs:** [PROCEDURAL_GENERATION.md](PROCEDURAL_GENERATION.md) (the noise-map registry this
 design built on) · [ROBOT_DESIGN.md](ROBOT_DESIGN.md) (the bounded-HSL, no-static-palette precedent
 this design followed, then deliberately diverged from) · [UI_SHELL.md](UI_SHELL.md) (Sleeve/Glass
-split, `ScreenViewport` boundary) · [roadmap/roadmap.md](roadmap/roadmap.md) Phase 11 (this phase,
+split, `ScreenViewport` boundary) · [todo/roadmap.md](todo/roadmap.md) Phase 11 (this phase,
 now marked cut) · Phase 11.1 (Oblique Cabinetry UI — its face-shading was scoped to consume this
 phase's *seed-driven* tokens; that premise no longer holds, see the note there)
 
@@ -99,7 +99,7 @@ rediscovered from scratch. A few directions that weren't tried and might resolve
 
 ## Oblique Cabinetry (Phase 11.1.1 — Foundation & Button)
 
-The Oblique Cabinetry system (roadmap [11.1.1](roadmap/roadmap.md#1111-oblique-cabinetry-foundation--button))
+The Oblique Cabinetry system (roadmap [11.1.1](todo/roadmap.md#1111-oblique-cabinetry-foundation--button))
 gives interactive primitives a 2.5D "physical switch" identity — flat at rest, extruding toward the
 viewer when active. Its face-shading consumes this doc's **current, static** "Ballast" tokens
 (`--color-accent`/`--color-surface`, `src/index.css`) directly — not the seed-driven tokens the

@@ -2,7 +2,7 @@
 
 Confirmed via `/interview-me` on `review/layout`, 2026-08-22. This is the "why" and the
 resolved decisions behind Phase 3's scope in
-[docs/roadmap/roadmap.md](../roadmap/roadmap.md#3-hub) — read that first for the roadmap's
+[docs/todo/roadmap.md](../todo/roadmap.md#3-hub) — read that first for the roadmap's
 own framing; this doc resolves the decisions its prose left open, informed by a
 `/context-engineering` prep pass against the current repo state.
 

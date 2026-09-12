@@ -9,7 +9,7 @@
 
 Source of intent: [docs/intent/company-assignment-radio.md](../intent/company-assignment-radio.md)
 (confirmed via `/interview-me`, 2026-09-10). Not derived from an existing roadmap draft — this phase
-doesn't exist in `docs/roadmap/roadmap.md` yet; it's inserted by this spec as `10.5`, the same
+doesn't exist in `docs/todo/roadmap.md` yet; it's inserted by this spec as `10.5`, the same
 out-of-sequence pattern `10.1`–`10.4` already used. Prior art this spec follows directly:
 `buildCompanyButtonRowSchema`/`NONE_VALUE` (`src/data/companyConfig.ts`) — the sibling company-list
 `RadioButtonSchema` builder already shipped for `CompanyButtonRow`, reused here as the direct structural
@@ -143,7 +143,7 @@ docs/
 ├── COMPANIES.md           # MODIFIED — "Company Membership" section: Select/dropdown language →
 │                           #   RadioButton, the "14th primitive" callout dropped, the stopPropagation
 │                           #   paragraph reworded per §1.3, FREELANCE_VALUE description reworded (§6)
-└── roadmap/roadmap.md     # MODIFIED — new `## 10.5` section added after `10.4`; `## 11.1.8` marked
+└── todo/roadmap.md     # MODIFIED — new `## 10.5` section added after `10.4`; `## 11.1.8` marked
                             #   Cut (Select no longer exists to wire in); small text updates to
                             #   `11.1.9`'s and `11.2`'s own prose, which both still actively described
                             #   Select as in-scope future work (§6)
@@ -165,7 +165,7 @@ docs/
   `## 10` section — historical record of what Phase 10 actually shipped and decided at the time (including
   adding `Select` as the 14th primitive), left as-is per this codebase's own established precedent (e.g.
   `10.4`'s own Docs section: "this roadmap's own `## 10.1` section stay[s] untouched — historical record of
-  what was decided at the time, including 10.1's own now-reversed... call"). `docs/roadmap/roadmap.md`'s
+  what was decided at the time, including 10.1's own now-reversed... call"). `docs/todo/roadmap.md`'s
   `## 10` Docs checklist item recording "`CLAUDE.md`'s reference bullet text… updated to 14" is not
   rewritten either — it accurately records what happened *then*; it doesn't need to anticipate this phase's
   later reversal.
@@ -818,7 +818,7 @@ the `variants` array removed; both count assertions `15` → `14`:
   files + their tests (the actual UI swap); (4) `Select.tsx`/`.css`/`.test.tsx` deletion; (5) docs
   (`COMPONENT_LIBRARY.md`, `COMPANIES.md`, `roadmap.md`) last.
 
-### Roadmap edits (`docs/roadmap/roadmap.md`)
+### Roadmap edits (`docs/todo/roadmap.md`)
 
 **New section, inserted immediately after `## 10.4` and before `## 11. Console Theming — Cut`:**
 

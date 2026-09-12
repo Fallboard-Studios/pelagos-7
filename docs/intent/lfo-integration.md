@@ -1,7 +1,7 @@
 # Intent: LFO Integration (Roadmap Phase 0)
 
 Confirmed via `/interview-me` on `feature/LFO`, 2026-08-20. This is the "why" behind
-Phase 0's scope in [docs/roadmap/roadmap.md](../roadmap/roadmap.md#0-lfo-integration) —
+Phase 0's scope in [docs/todo/roadmap.md](../todo/roadmap.md#0-lfo-integration) —
 read that first for the file-level deliverables; this doc resolves the decisions its
 prose left open.
 

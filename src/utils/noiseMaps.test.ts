@@ -12,7 +12,7 @@ import { setGlobalAttenuationStyleSeedOverride } from './seedUtils';
 // ========================================
 
 /** The roadmap's own documented worst-case coordinates under the OLD
- *  Attenuation-Style-sampled derivation, per docs/roadmap/roadmap.md § 5's Known Issue. */
+ *  Attenuation-Style-sampled derivation, per docs/todo/roadmap.md § 5's Known Issue. */
 const HISTORICALLY_BAD_COORDS: Array<{ x: number; y: number }> = [
   { x: 0, y: 0 },
   { x: 0.5, y: 0.5 },

@@ -1,6 +1,6 @@
 # Intent: LFO Modulation Engine (Stacked LFO Drift)
 
-Confirmed via `/interview-me`. Source of prior (superseded) scope: an external plan draft, reviewed and found to contain several hallucinated file paths and an over-broad per-target UI design — see the review preceding this interview. Roadmap section: [docs/roadmap/roadmap.md § 10.2](../roadmap/roadmap.md#102-lfo-modulation-engine-stacked-lfo-drift).
+Confirmed via `/interview-me`. Source of prior (superseded) scope: an external plan draft, reviewed and found to contain several hallucinated file paths and an over-broad per-target UI design — see the review preceding this interview. Roadmap section: [docs/todo/roadmap.md § 10.2](../todo/roadmap.md#102-lfo-modulation-engine-stacked-lfo-drift).
 
 ## Outcome
 

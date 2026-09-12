@@ -1,7 +1,7 @@
 # Intent: Attenuation Style Internal Rename (Roadmap Phase 10.4)
 
 Confirmed via direct conversation on `feature/stacked-lfo`, 2026-08-29 (not `/interview-me` — the
-human raised this as a direct follow-up while reviewing [Phase 10.1](../roadmap/roadmap.md#101-attenuation-style-single-planet-reskin)'s
+human raised this as a direct follow-up while reviewing [Phase 10.1](../todo/roadmap.md#101-attenuation-style-single-planet-reskin)'s
 shipped work). Reverses [docs/specs/ATTENUATION_STYLE.md](../specs/ATTENUATION_STYLE.md) §1.3/§3's
 explicit "no internal renames" constraint — that constraint is left untouched as an accurate record
 of what was decided *then*; this phase is the follow-up that decides differently *now*.
@@ -44,7 +44,7 @@ of work" (§1.3 of its own spec). This is that later unit of work — raised dir
 - `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all pass with zero references to
   any pre-rename identifier remaining anywhere in `src/`.
 - `docs/CONSOLE_THEMING.md`, `docs/SESSION_STORAGE.md`, and the Phase 11/12 sections of
-  `docs/roadmap/roadmap.md` read "AS seed"/"Attenuation Style seed," resolving 10.1's own Forward
+  `docs/todo/roadmap.md` read "AS seed"/"Attenuation Style seed," resolving 10.1's own Forward
   Note rather than leaving it for those phases' own eventual implementation.
 - `window.__GLOBAL_PLANET_SEED__` is renamed to `window.__GLOBAL_ATTENUATION_STYLE_SEED__`
   end-to-end (the debug override mechanism, not the unrelated `?seed=` URL param name, which doesn't
@@ -67,7 +67,7 @@ of work" (§1.3 of its own spec). This is that later unit of work — raised dir
 - **Historical docs stay untouched**, preserving the record of what was actually decided at the time:
   `docs/specs/ATTENUATION_STYLE.md`, `docs/tasks/ATTENUATION_STYLE.md`,
   `docs/intent/attenuation-style.md`, `docs/specs/SECTOR_SETTINGS.md`,
-  `docs/specs/LOCALE_SEED_DECOUPLING.md`, and `docs/roadmap/roadmap.md`'s own `## 10.1` section. These
+  `docs/specs/LOCALE_SEED_DECOUPLING.md`, and `docs/todo/roadmap.md`'s own `## 10.1` section. These
   keep saying "Planet"/`usePlanetStore`/etc. where that's what the code was actually called when the
   decision was made — including 10.1's own now-reversed "internal identifiers are not renamed" line.
   A reader of those docs needs to see what was true then, not have it silently rewritten to match now.

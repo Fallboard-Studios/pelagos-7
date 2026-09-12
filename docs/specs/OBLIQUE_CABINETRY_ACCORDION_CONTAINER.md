@@ -9,7 +9,7 @@
 
 Source of intent: [docs/intent/oblique-cabinetry-accordion-container.md](../intent/oblique-cabinetry-accordion-container.md)
 (confirmed via `/interview-me`, 2026-09-10). Source of scope:
-[docs/roadmap/roadmap.md § 11.1.7](../roadmap/roadmap.md#1117-oblique-cabinetry-accordioncontainer) —
+[docs/todo/roadmap.md § 11.1.7](../todo/roadmap.md#1117-oblique-cabinetry-accordioncontainer) —
 **superseded by the intent doc's own framing**, not implemented as originally drafted; see §7. Prior art
 this spec follows directly: `CabinetBox.tsx`/`.css`, `cabinetGeometry.ts`, `cabinetAnimation.ts`,
 `useCabinetBoxHeight.ts` (all reused unmodified — no new prop, no new export);
@@ -656,7 +656,7 @@ No risks carried forward from 11.1.1/11.1.2/11.1.6 apply here in a new way — t
 `cabinetGeometry.ts`/`cabinetAnimation.ts`/`useCabinetBoxHeight.ts`/`CabinetBox.tsx`'s core mechanism
 entirely unmodified, so none of those items' own now-resolved risks reopen here.
 
-**Note on the roadmap draft:** `docs/roadmap/roadmap.md § 11.1.7`'s own prose (written before this item's
+**Note on the roadmap draft:** `docs/todo/roadmap.md § 11.1.7`'s own prose (written before this item's
 interview) describes a single state-keyed box generalizing 11.1.2/11.1.6's precedent directly — this spec,
 following the confirmed intent doc, supersedes that framing rather than implementing it. The roadmap file
 itself is left unedited by this phase (matching every prior item's own practice of not rewriting the

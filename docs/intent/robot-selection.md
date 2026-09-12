@@ -5,10 +5,10 @@
 > routing as it stood at the time, on `feature/robot-selection`. Phase 9 has since shipped;
 > `RobotEditorTab.tsx` was renamed to `RobotOptionsTab.tsx`, and robot selection now routes there
 > instead. Left otherwise unedited as a historical planning record — see
-> [docs/roadmap/roadmap.md §§ 8-9](../roadmap/roadmap.md) for what actually shipped.
+> [docs/todo/roadmap.md §§ 8-9](../todo/roadmap.md) for what actually shipped.
 
 Confirmed via `/interview-me` on `feature/robot-selection`, 2026-08-26. Covers
-[Roadmap Phase 8](../roadmap/roadmap.md#8-robot-selection) — replacing `RobotsTab`'s bare
+[Roadmap Phase 8](../todo/roadmap.md#8-robot-selection) — replacing `RobotsTab`'s bare
 button-list with a real card-based Robot Selection hub tile, plus the day/night-invariant avatar
 restructure and world-view click-through the roadmap's About section calls for.
 

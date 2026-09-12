@@ -460,7 +460,7 @@ other and with Tasks 1–4.
   - [x] `docs/UI_SHELL.md`'s "Still planned (not yet built)" bullet about Phase 8's real card UI
     is folded into "Current implementation status" as shipped; a note is added about the
     `Console.css` pointer-events fix enabling world-view→hub-tile navigation
-  - [x] `docs/roadmap/roadmap.md` § 8's bullets marked resolved, mirroring the strikethrough +
+  - [x] `docs/todo/roadmap.md` § 8's bullets marked resolved, mirroring the strikethrough +
     pointer pattern used for prior phases, pointing at `docs/specs/ROBOT_SELECTION.md`
 
   **Verification:**
@@ -471,7 +471,7 @@ other and with Tasks 1–4.
   **Dependencies:** Tasks 1–11.
 
   **Files:** `docs/reference/ROBOT_DATA_GRID.md`, `docs/ROBOT_DESIGN.md`, `docs/UI_SHELL.md`,
-  `docs/roadmap/roadmap.md`
+  `docs/todo/roadmap.md`
 
   **Estimated scope:** S (4 files, text-only)
 

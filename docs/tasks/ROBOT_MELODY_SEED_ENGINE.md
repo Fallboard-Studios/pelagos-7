@@ -265,14 +265,14 @@ Tasks 3–4 (engine) and Task 5 (store) are parallel-safe with each other once T
 
 ### Phase 6: Docs
 
-- [x] **Task 10: `docs/MELODY_SYSTEM.md`, `docs/PROCEDURAL_GENERATION.md`, `docs/roadmap/roadmap.md` — document shipped behavior**
+- [x] **Task 10: `docs/MELODY_SYSTEM.md`, `docs/PROCEDURAL_GENERATION.md`, `docs/todo/roadmap.md` — document shipped behavior**
 
   **Description:** Update all three per the roadmap's own Docs bullets, once everything above is implemented and verified — these describe shipped behavior, not planned behavior.
 
   **Acceptance criteria:**
   - [x] `docs/MELODY_SYSTEM.md` fully updated: Density as 0–100% fill rate (was 4–12 onset count), Motif Length as a 1–8 on/off-toggled value (was a plain 1–16 slider), Note Variance as a 1–8 on/off-toggled value (was a 0–8 magnitude), and `RHYTHMIC_MOTIF_LENGTH_MAX`'s old-vs-new values (16 → 8) stated explicitly
   - [x] `docs/PROCEDURAL_GENERATION.md`'s existing "Planned change" callout on the Locale map bullet is resolved (already actually resolved by `LOCALE_SEED_DECOUPLING.md`; this task only updates the doc text)
-  - [x] `docs/roadmap/roadmap.md` §6's remaining bullets (robot ID determinism, measure-length references, density/motif/variance restructuring, localeStore clamp update) are marked resolved, mirroring the strikethrough+pointer pattern already used for the first (pulled-forward) bullet, pointing at `docs/specs/ROBOT_MELODY_SEED_ENGINE.md`
+  - [x] `docs/todo/roadmap.md` §6's remaining bullets (robot ID determinism, measure-length references, density/motif/variance restructuring, localeStore clamp update) are marked resolved, mirroring the strikethrough+pointer pattern already used for the first (pulled-forward) bullet, pointing at `docs/specs/ROBOT_MELODY_SEED_ENGINE.md`
 
   **Verification:**
   - [x] Manual proofread: no remaining references to the old 4–12/1–16/0–8 ranges anywhere in these three docs, each rewritten claim spot-checked against the actually-shipped code, not reconstructed from this plan
@@ -280,7 +280,7 @@ Tasks 3–4 (engine) and Task 5 (store) are parallel-safe with each other once T
 
   **Dependencies:** Tasks 1–9.
 
-  **Files:** `docs/MELODY_SYSTEM.md`, `docs/PROCEDURAL_GENERATION.md`, `docs/roadmap/roadmap.md`
+  **Files:** `docs/MELODY_SYSTEM.md`, `docs/PROCEDURAL_GENERATION.md`, `docs/todo/roadmap.md`
 
   **Estimated scope:** S (3 files, text-only)
 

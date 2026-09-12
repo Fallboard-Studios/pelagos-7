@@ -1,10 +1,10 @@
 # Intent: Company Assignment — Replace `Select` with `RadioButton`
 
 Confirmed via `/interview-me` on 2026-09-10. Reverses part of
-[Phase 10](../roadmap/roadmap.md#10-companies)'s own design: the robot→company assignment dropdown
+[Phase 10](../todo/roadmap.md#10-companies)'s own design: the robot→company assignment dropdown
 (`Select`, Phase 10's 14th Design System primitive) is replaced with a `RadioButton` row at both of its
 call sites. `Select` becomes fully unused once this ships and is removed outright, along with the
-not-yet-started [11.1.8](../roadmap/roadmap.md#1118-oblique-cabinetry-select) item that would have wired
+not-yet-started [11.1.8](../todo/roadmap.md#1118-oblique-cabinetry-select) item that would have wired
 it into [Oblique Cabinetry](oblique-cabinetry-foundation.md).
 
 ## Outcome
@@ -33,7 +33,7 @@ it into [Oblique Cabinetry](oblique-cabinetry-foundation.md).
   down from 14), and any now-dead `RadixSelect` import. The Design System reverts to **13** primitives —
   `CLAUDE.md`'s reference bullet and `docs/COMPONENT_LIBRARY.md` both updated back from "14th primitive."
 - Roadmap `11.1.8 Oblique Cabinetry: Select` is marked **cut**, with a reason, the same way
-  [Console Theming](../roadmap/roadmap.md#11-console-theming---cut) (Phase 11, cut) was recorded — not
+  [Console Theming](../todo/roadmap.md#11-console-theming---cut) (Phase 11, cut) was recorded — not
   silently deleted from the doc. This pass itself gets its own roadmap entry (inserted out of sequence
   under Phase 10, mirroring how 10.1–10.4 were themselves inserted after Phase 10 shipped) — exact numbering
   left to the spec pass.

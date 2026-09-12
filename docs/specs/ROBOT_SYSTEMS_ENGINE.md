@@ -8,7 +8,7 @@
 > - Dev server: `npm run dev`
 
 Source of intent: [docs/intent/robot-systems-engine.md](../intent/robot-systems-engine.md)
-(confirmed via `/interview-me`). Source of scope: [docs/roadmap/roadmap.md § 7](../roadmap/roadmap.md#7-robot-systems-engine).
+(confirmed via `/interview-me`). Source of scope: [docs/todo/roadmap.md § 7](../todo/roadmap.md#7-robot-systems-engine).
 Prior art / current architecture: [docs/BEAT_CLOCK.md](../BEAT_CLOCK.md),
 [docs/MELODY_SYSTEM.md](../MELODY_SYSTEM.md), [docs/reference/ROBOT_DATA_GRID.md](../reference/ROBOT_DATA_GRID.md),
 [docs/UI_SHELL.md](../UI_SHELL.md).
@@ -197,7 +197,7 @@ docs/
 │                                        #   point folded in per roadmap § 7 Docs; "+ New Robot"
 │                                        #   reference in § Console Navigation updated to reflect
 │                                        #   its removal
-└── roadmap/roadmap.md                  # MODIFIED — § 7's bullets marked resolved
+└── todo/roadmap.md                  # MODIFIED — § 7's bullets marked resolved
 CLAUDE.md                               # MODIFIED — docs/ROBOT_LIFECYCLE.md added to the
                                          #   reference doc list
 ```

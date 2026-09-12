@@ -1,7 +1,7 @@
 # Intent: Oblique Cabinetry — SliderLog (Roadmap Phase 11.1.4)
 
 Confirmed via `/interview-me`, 2026-09-09. Scopes the fourth item of the
-[11.1.1–11.1.9 Oblique Cabinetry series](../roadmap/roadmap.md#1114-oblique-cabinetry-sliderlog),
+[11.1.1–11.1.9 Oblique Cabinetry series](../todo/roadmap.md#1114-oblique-cabinetry-sliderlog),
 wiring `SliderLog` into the shared voxel-track system
 [11.1.3](oblique-cabinetry-slider-linear.md) built for `SliderLinear`.
 

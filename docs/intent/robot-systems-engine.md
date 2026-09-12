@@ -1,7 +1,7 @@
 # Intent: Robot Systems Engine (Roadmap Phase 7)
 
 Confirmed via `/interview-me` on `main`, 2026-08-26. Covers
-[Roadmap Phase 7](../roadmap/roadmap.md#7-robot-systems-engine) — building the pure Battery,
+[Roadmap Phase 7](../todo/roadmap.md#7-robot-systems-engine) — building the pure Battery,
 Docking, and Job domain models and state machines, and retiring the dynamic spawn/despawn/
 persistence machinery they replace.
 

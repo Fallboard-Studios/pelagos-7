@@ -1,7 +1,7 @@
 # Intent: Oblique Cabinetry — AccordionContainer (Roadmap Phase 11.1.7)
 
 Confirmed via `/interview-me`, 2026-09-10. Scopes
-[11.1.7](../roadmap/roadmap.md#1117-oblique-cabinetry-accordioncontainer), wiring `AccordionContainer`'s
+[11.1.7](../todo/roadmap.md#1117-oblique-cabinetry-accordioncontainer), wiring `AccordionContainer`'s
 trigger into the shared cabinet-box mechanism [11.1.1](oblique-cabinetry-foundation.md) built. Diverges
 from the roadmap draft's original one-box/state-keyed-pop framing (11.1.2's/[11.1.6](oblique-cabinetry-radio-button.md)'s
 precedent) — surfaced and corrected during the interview, see Outcome below.

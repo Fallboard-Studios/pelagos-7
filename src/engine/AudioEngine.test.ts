@@ -714,7 +714,7 @@ describe('AudioEngine - audioMode enforcement (solo/mute/highlight)', () => {
     // rather than depending on the active locale's seeded noise map landing in
     // its "no variance" branch — that incidental coupling is exactly what
     // broke when the default locale's noise-map coordinates were fixed off
-    // their (0, 0) dead zone (docs/roadmap/roadmap.md § 5 "Known Issue").
+    // their (0, 0) dead zone (docs/todo/roadmap.md § 5 "Known Issue").
     const targetNote = 'G5';
     AudioEngine.scheduleNote({ robotId: 'r-nh', note: targetNote, duration: '4n', time: 0, velocity: 0.8 });
 

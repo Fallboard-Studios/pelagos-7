@@ -523,7 +523,7 @@ Task 13 (docs) waits on everything, since it documents shipped behavior.
   **Deviation from plan (opportunistic 4th file):** `docs/reference/GLOBAL_CHAIN_GRID.md` — not
   named in the plan or spec — also documented Compressor Ratio as `STEPPER`. Same class of fix as
   ROBOT_DATA_GRID.md's Density row (a reference table directly describing a schema this phase
-  changed); fixed alongside for the same reason. `docs/roadmap/roadmap.md` has several older
+  changed); fixed alongside for the same reason. `docs/todo/roadmap.md` has several older
   "Stepper"/"done" mentions of the same shipped fields (e.g. "Octave Range Min/Max ship as two
   independent Steppers") that are now equally stale — noticed but not touched, since it's a large
   historical narrative document mixing point-in-time decision records with forward roadmap items,

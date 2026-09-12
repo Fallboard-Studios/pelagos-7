@@ -1,7 +1,7 @@
 # Intent: Oblique Cabinetry — Foundation & Button (Roadmap Phase 11.1.1)
 
 Confirmed via `/interview-me` on `docs/cabinets-rework`, 2026-09-07. Scopes the first item of the
-[11.1.1–11.1.5 Oblique Cabinetry series](../roadmap/roadmap.md#1111-oblique-cabinetry-foundation--button),
+[11.1.1–11.1.5 Oblique Cabinetry series](../todo/roadmap.md#1111-oblique-cabinetry-foundation--button),
 itself split out of the original single "Oblique Cabinetry UI" roadmap item (too much surface area for
 one phase — all 7 Design System primitives plus the voxel-track slider system at once) into one item
 per component. This is the foundation item: the shared cabinet-box mechanism, proved out on `Button`
@@ -85,7 +85,7 @@ mid-`Toggle`-or-slider that the shared geometry doesn't actually generalize.
 
 ## Forward Note
 
-`docs/roadmap/roadmap.md`'s 11.1.1 section already carries this scope as its Create/Restructure/About
+`docs/todo/roadmap.md`'s 11.1.1 section already carries this scope as its Create/Restructure/About
 content (confirmed accurate against this intent during the interview, not rewritten by it). The
 breakpoint system introduced here (mobile/tablet/desktop CSS tiers) is new to the codebase — nothing
 else in `src/` uses viewport-width media queries today — and is exposed as reusable tokens so 11.1.2

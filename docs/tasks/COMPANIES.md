@@ -884,7 +884,7 @@ their own listed dependencies land.
   - [ ] `docs/UI_SHELL.md`: Robots tile description updated to mention the company row/panel
   - [ ] `CLAUDE.md`: "The 13 stateless UI primitives" → "14"; `docs/COMPANIES.md`'s reference bullet
     drops its "not yet implemented" clause
-  - [ ] `docs/roadmap/roadmap.md` § 10's bullets marked resolved, linking to
+  - [ ] `docs/todo/roadmap.md` § 10's bullets marked resolved, linking to
     `docs/specs/COMPANIES.md`
 
   **Verification:**
@@ -896,7 +896,7 @@ their own listed dependencies land.
   **Dependencies:** Tasks 1–24.
 
   **Files:** `docs/COMPONENT_LIBRARY.md`, `docs/COMPANIES.md`, `docs/UI_SHELL.md`, `CLAUDE.md`,
-  `docs/roadmap/roadmap.md`
+  `docs/todo/roadmap.md`
 
   **Estimated scope:** S (5 files, text-only)
 

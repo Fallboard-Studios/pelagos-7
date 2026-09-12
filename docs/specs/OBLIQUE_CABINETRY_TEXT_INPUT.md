@@ -9,7 +9,7 @@
 
 Source of intent: [docs/intent/oblique-cabinetry-text-input.md](../intent/oblique-cabinetry-text-input.md)
 (confirmed via `/interview-me`, 2026-09-10). Source of scope:
-[docs/roadmap/roadmap.md § 11.1.9](../roadmap/roadmap.md#1119-oblique-cabinetry-textinput--coordsinput) —
+[docs/todo/roadmap.md § 11.1.9](../todo/roadmap.md#1119-oblique-cabinetry-textinput--coordsinput) —
 the roadmap section itself was already corrected to match the confirmed intent before this spec was written
 (same-session direct edit, not a superseded draft this spec needs to reconcile). Prior art this spec follows
 directly: [DirectionalPanel](OBLIQUE_CABINETRY_DIRECTIONAL_PANEL.md)'s permanently-popped/non-animating
@@ -487,7 +487,7 @@ export function TextInput({ schema, value, onChange, numeric, disabled }: TextIn
   rendering changed (wrapped in a permanently-popped, `autoHeight` `CabinetBox` facade) while its
   `ControlSchema`/props contract stayed byte-for-byte identical. Should explicitly state `CoordsInput` needed
   no code change of its own — its own row can point at `TextInput`'s note rather than duplicating it.
-* **`docs/roadmap/roadmap.md`**: no further edit — `§ 11.1.9` was already brought in line with the confirmed
+* **`docs/todo/roadmap.md`**: no further edit — `§ 11.1.9` was already brought in line with the confirmed
   intent in the same session this spec was written (see this spec's own header). Not re-edited here, per
   every prior item's own practice of not re-touching the roadmap once its relevant section already reflects
   reality.

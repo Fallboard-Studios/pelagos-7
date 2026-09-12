@@ -2,7 +2,7 @@
 
 Source of truth: [`src/types/Company.ts`](../src/types/Company.ts), [`src/stores/localeStore.ts`](../src/stores/localeStore.ts), [`src/systems/companyOptions.ts`](../src/systems/companyOptions.ts), [`src/systems/robotOptionsActions.ts`](../src/systems/robotOptionsActions.ts), [`src/components/company/`](../src/components/company/).
 
-**Related docs:** [ROBOT_LIFECYCLE.md](ROBOT_LIFECYCLE.md) (the fixed 12-robot roster and per-robot state this groups) · [PROCEDURAL_GENERATION.md](PROCEDURAL_GENERATION.md) (the seed determinism company spawn-time generation follows) · [COMPONENT_LIBRARY.md](COMPONENT_LIBRARY.md) (the `RadioButton` primitive company reassignment uses — the `Select` primitive this phase originally added was removed by Roadmap 10.5) · [SESSION_STORAGE.md](SESSION_STORAGE.md) (Phase 12 — will persist Companies the same way it persists Robot Options overrides) · [roadmap/roadmap.md](roadmap/roadmap.md) § 10 (Companies), § 8 (Robot Selection, the list view this extends), § 9 (Robot Options, the drawers this reuses)
+**Related docs:** [ROBOT_LIFECYCLE.md](ROBOT_LIFECYCLE.md) (the fixed 12-robot roster and per-robot state this groups) · [PROCEDURAL_GENERATION.md](PROCEDURAL_GENERATION.md) (the seed determinism company spawn-time generation follows) · [COMPONENT_LIBRARY.md](COMPONENT_LIBRARY.md) (the `RadioButton` primitive company reassignment uses — the `Select` primitive this phase originally added was removed by Roadmap 10.5) · [SESSION_STORAGE.md](SESSION_STORAGE.md) (Phase 12 — will persist Companies the same way it persists Robot Options overrides) · [todo/roadmap.md](todo/roadmap.md) § 10 (Companies), § 8 (Robot Selection, the list view this extends), § 9 (Robot Options, the drawers this reuses)
 
 ## What a Company Is
 

@@ -8,7 +8,7 @@
 > - Dev server: `npm run dev`
 
 Source of intent: [docs/intent/phase-3-hub.md](../intent/phase-3-hub.md) (confirmed via
-`/interview-me`). Source of scope: [docs/roadmap/roadmap.md § 3](../roadmap/roadmap.md#3-hub).
+`/interview-me`). Source of scope: [docs/todo/roadmap.md § 3](../todo/roadmap.md#3-hub).
 
 ---
 

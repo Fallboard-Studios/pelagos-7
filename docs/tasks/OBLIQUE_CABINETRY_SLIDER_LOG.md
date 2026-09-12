@@ -192,7 +192,7 @@ Checkpoint: Complete
 - [x] All acceptance criteria across all 5 tasks are met.
 - [x] `docs/COMPONENT_LIBRARY.md` and `docs/CONSOLE_THEMING.md` both reflect the shipped feature.
 - [x] Manual check (Task 3) completed against the real running app — performed by Crawford, passed visual review.
-- [x] `docs/roadmap/roadmap.md` gains the "Done" marker for 11.1.4, mirroring 11.1.2/11.1.3's own pattern.
+- [x] `docs/todo/roadmap.md` gains the "Done" marker for 11.1.4, mirroring 11.1.2/11.1.3's own pattern.
 - [x] Ready for PR.
 
 ## Risks and Mitigations

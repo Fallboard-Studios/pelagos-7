@@ -1,6 +1,6 @@
 # Intent: Multi-Group LFO Drift
 
-Confirmed via `/interview-me`. Follow-up to the already-shipped [docs/specs/LFO_DRIFT.md](../specs/LFO_DRIFT.md) (roadmap [10.2](../roadmap/roadmap.md#102-lfo-modulation-engine-stacked-lfo-drift)), which scoped "Stacked LFO Drift" down to one shared pool of 8 secondary oscillators and one global Rate Drift/Depth Drift pair for v1. This phase builds the actual "stacked" part that name always implied: multiple independent drift layers, not one uniform one.
+Confirmed via `/interview-me`. Follow-up to the already-shipped [docs/specs/LFO_DRIFT.md](../specs/LFO_DRIFT.md) (roadmap [10.2](../todo/roadmap.md#102-lfo-modulation-engine-stacked-lfo-drift)), which scoped "Stacked LFO Drift" down to one shared pool of 8 secondary oscillators and one global Rate Drift/Depth Drift pair for v1. This phase builds the actual "stacked" part that name always implied: multiple independent drift layers, not one uniform one.
 
 ## Outcome
 

@@ -341,7 +341,7 @@ Task 9 ─────────────┴──→ Task 14 (AUDIO_SYSTEM
 
 ### Phase 6: Docs
 
-- [x] **Task 13: `docs/roadmap/roadmap.md` — Phase 4 doc-fix** — done
+- [x] **Task 13: `docs/todo/roadmap.md` — Phase 4 doc-fix** — done
 
   **Description:** Rewrite Phase 4's "About" paragraph: remove the stale "leaving clean parameter IDs ready for Web Audio setter bindings in subsequent phases" framing (that Web Audio side already existed before this phase started) and add a sentence covering the net-new global LFO seeding this phase added, per spec §7.1.
 
@@ -355,7 +355,7 @@ Task 9 ─────────────┴──→ Task 14 (AUDIO_SYSTEM
 
   **Dependencies:** Task 12 (describes the finished phase).
 
-  **Files:** `docs/roadmap/roadmap.md`
+  **Files:** `docs/todo/roadmap.md`
 
   **Estimated scope:** XS (docs only)
 

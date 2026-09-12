@@ -433,7 +433,7 @@ Checkpoint: Complete
 - [x] `docs/COMPONENT_LIBRARY.md` and `docs/CONSOLE_THEMING.md` both reflect the shipped feature.
 - [ ] Manual check (Task 4) completed against the real running app — **Outstanding**, same
       no-browser-automation-tool gap recorded honestly above; flagged for Crawford.
-- [x] `docs/roadmap/roadmap.md` gains the "Done" marker for 11.1.5, mirroring 11.1.2–11.1.4's own
+- [x] `docs/todo/roadmap.md` gains the "Done" marker for 11.1.5, mirroring 11.1.2–11.1.4's own
       pattern — and, since this is the last of the 3 voxel-track sliders, may also note that
       `VoxelTrack`/`voxelTrackMath.ts`/`useVoxelTrackSlider` are now exercised by all 3 intended
       consumers and should be treated as stable, closed infrastructure going forward (spec §7).

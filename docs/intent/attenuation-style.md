@@ -1,7 +1,7 @@
 # Intent: Attenuation Style (Roadmap Phase 10.1)
 
 Confirmed via `/interview-me` on `feature/companies`, 2026-08-28. Covers
-[Roadmap Phase 10.1](../roadmap/roadmap.md#101-attenuation-style-single-planet-reskin) — replacing
+[Roadmap Phase 10.1](../todo/roadmap.md#101-attenuation-style-single-planet-reskin) — replacing
 planet-switching with a single, permanent world whose "Attenuation Style" (AS) is what the operator
 retunes instead.
 
