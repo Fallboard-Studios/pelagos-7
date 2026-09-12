@@ -255,21 +255,22 @@ Task 7 ──→ Task 17 (docs/COMPONENT_LIBRARY.md)
 
 ### Phase 3: `AccordionContainer` prop (parallelizable with Phases 1-2)
 
-- [ ] **Task 7: `AccordionContainer.tsx` — new optional `style` prop**
+- [x] **Task 7: `AccordionContainer.tsx` — new optional `style` prop**
 
   **Description:** Add `style?: CSSProperties` to `AccordionContainerProps`, forwarded to
   `Accordion.Root` (spec §1.5.1/§4).
 
   **Acceptance criteria:**
-  - [ ] Passing `style={{ '--foo': 'bar' }}` to `AccordionContainer` results in that custom property
+  - [x] Passing `style={{ '--foo': 'bar' }}` to `AccordionContainer` results in that custom property
     being present on the rendered `Accordion.Root` element.
-  - [ ] Omitting `style` produces byte-for-byte the same rendered output as before this task (every
+  - [x] Omitting `style` produces byte-for-byte the same rendered output as before this task (every
     existing `AccordionContainer` consumer is unaffected).
 
   **Verification:**
-  - [ ] `npx vitest run src/components/ui/controls/AccordionContainer.test.tsx` passes, with a new test
-    for the `style` prop added and every existing test passing unmodified.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/components/ui/controls/AccordionContainer.test.tsx` passes (24/24), with 3
+    new tests for the `style` prop added (single property, both properties together, and the
+    omitted-prop guard) and every existing test passing unmodified.
+  - [x] `npm run build:types`, `npm run lint` clean. Full suite (`npx vitest run`): 2383/2383 pass.
 
   **Dependencies:** None.
 
@@ -278,7 +279,7 @@ Task 7 ──→ Task 17 (docs/COMPONENT_LIBRARY.md)
   **Estimated scope:** XS (1 optional prop, forwarded)
 
 ### Checkpoint: `AccordionContainer` prop
-- [ ] `npm run build:types`, `npm run lint`, `npm test` clean.
+- [x] `npm run build:types`, `npm run lint` clean. Full suite: 2383/2383 pass. `npm run build` clean.
 - [ ] Review with human before proceeding (can happen in parallel with Checkpoints 1-2).
 
 ---
