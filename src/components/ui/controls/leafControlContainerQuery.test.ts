@@ -28,6 +28,10 @@ const LEAF_CONTROLS = [
   { file: 'CoordsInput.css', selector: '.sc-coords-input' },
   { file: 'TextInput.css', selector: '.sc-text-input' },
   { file: 'Toggle.css', selector: '.sc-toggle' },
+  { file: 'RadioButton.css', selector: '.sc-radio-button' },
+  { file: 'Stepper.css', selector: '.sc-stepper' },
+  { file: 'StepperWithToggle.css', selector: '.sc-stepper-toggle' },
+  { file: 'Lfo.css', selector: '.sc-lfo' },
 ];
 
 describe.each(LEAF_CONTROLS)('$file root selector ($selector)', ({ file, selector }) => {
