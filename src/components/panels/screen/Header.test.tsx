@@ -249,4 +249,13 @@ describe('Header', () => {
       expect(observer.disconnected).toBe(true);
     });
   });
+
+  // Roadmap Phase 14 (docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.5, Task 15) — the Header
+  // trait's own colors (emerald/indigo) on the header root.
+  it("scopes its root to the Header trait's colors (emerald/indigo)", () => {
+    const { container } = render(<Header />);
+    const root = container.querySelector('header') as HTMLElement;
+    expect(root.style.getPropertyValue('--color-accent-a')).toBe('#4fc27a');
+    expect(root.style.getPropertyValue('--color-accent-b')).toBe('#5a5c9e');
+  });
 });

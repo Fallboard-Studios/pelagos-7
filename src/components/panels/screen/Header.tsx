@@ -9,6 +9,7 @@ import { SliderLinear } from '@/components/ui/controls/SliderLinear';
 import { HEADER_NAV_SCHEMA } from '@/data/headerNavConfig';
 import { useUIStore } from '@/stores/uiStore';
 import { useAudioStore } from '@/stores/audioStore';
+import { getTraitColorStyle } from '@/utils/traitColors';
 import type { ToggleSchema, SliderLinearSchema } from '@/types/controls';
 import type { HubTile } from '@/types/hub';
 
@@ -139,7 +140,7 @@ function Header() {
   const currentLocale = useLocaleStore((s) => (currentLocaleId ? s.locales[currentLocaleId] : undefined));
 
   return (
-    <header ref={headerRef} className="header">
+    <header ref={headerRef} className="header" style={getTraitColorStyle('header')}>
       <div className="rocker-spacer">
         <div className="header__row header__row--volume">
           <Toggle
