@@ -1,7 +1,14 @@
 import { describe, it, vi, beforeEach, expect } from 'vitest';
 import { render, fireEvent } from '@testing-library/react';
 
-vi.mock('@/systems/powerController', () => ({ powerController: { start: vi.fn(), shutdown: vi.fn().mockResolvedValue(undefined) } }));
+vi.mock('@/systems/powerController', () => ({
+  powerController: {
+    start: vi.fn(),
+    shutdown: vi.fn().mockResolvedValue(undefined),
+    powerOnSequence: vi.fn().mockResolvedValue(undefined),
+    shutdownWithAnimation: vi.fn().mockResolvedValue(undefined),
+  },
+}));
 vi.mock('@/animation/timelineMap', () => ({ setTimeline: vi.fn(), killTimeline: vi.fn() }));
 
 // `let`, not `const` — a couple of new tests need isPoweredOn: true, which a static mock
@@ -35,11 +42,11 @@ describe('PowerRockerSwitch', () => {
     mockIsPoweredOn = false;
   });
 
-  it('clicking when off starts powerController.start and registers sequence', async () => {
+  it('clicking when off starts powerController.powerOnSequence and registers sequence', async () => {
     const { getByRole } = render(<PowerRockerSwitch />);
     const btn = getByRole('button', { name: /Power on/i });
     await fireEvent.click(btn);
-    expect(powerController.start).toHaveBeenCalled();
+    expect(powerController.powerOnSequence).toHaveBeenCalled();
     expect(setTimeline).toHaveBeenCalled();
   });
 

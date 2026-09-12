@@ -7,7 +7,6 @@ import { stopCollisionDetection } from './collisionSystem';
 import { useUIStore } from '../stores/uiStore';
 import { useLocaleStore } from '../stores/localeStore';
 import { getActiveLocaleId } from '../utils/localeHelpers';
-import { playTabletPowerOff, playTabletPowerOn } from './powerAnimations';
 import { swallow } from '../utils/helpers';
 import { DEV_TUNING } from '../constants';
 
@@ -44,34 +43,22 @@ export const powerController = {
   },
 
   /**
-   * Orchestrated shutdown that stops systems and runs the tablet power-off UI animation.
+   * Orchestrated shutdown that stops systems and flips power state. Identical
+   * to shutdown() except it never touches locale actors — kept distinct for
+   * callers (e.g. PowerRockerSwitch's confirm flow) that already handle their
+   * own UI feedback (the rocker return animation) around the call.
    */
   async shutdownWithAnimation() {
-
     stopRobotLifecycle(); // see shutdown()'s comment on why this must precede killAll()
     stopCollisionDetection();
     AudioEngine.killAll();
     useUIStore.getState().setPowerOff();
-
-    // Play the dimming sequence. If the animation throws in edge-cases
-    // we only log it in dev tuning mode via `swallow` so shutdown still completes.
-    try {
-      playTabletPowerOff();
-    } catch (e) {
-      if (DEV_TUNING) swallow(e, 'powerController.playTabletPowerOff');
-    }
-    return;
   },
 
   // High-level power-on sequence that mounts UI in caller when appropriate.
   async powerOnSequence() {
     await this.start();
     useUIStore.getState().setPowerOn();
-    try {
-      playTabletPowerOn();
-    } catch (e) {
-      if (DEV_TUNING) swallow(e, 'powerController.playTabletPowerOn');
-    }
   }
 };
 

@@ -46,4 +46,20 @@ describe('powerController', () => {
     expect(useLocaleStore.getState().setLocaleData).toHaveBeenCalled();
     expect(useUIStore.getState().setPowerOff).toHaveBeenCalled();
   });
+
+  it('powerOnSequence starts systems then flips power state on', async () => {
+    await powerController.powerOnSequence();
+    expect(AudioEngine.start).toHaveBeenCalled();
+    expect(reRegisterAllRobotsAudio).toHaveBeenCalled();
+    expect(useUIStore.getState().setPowerOn).toHaveBeenCalled();
+  });
+
+  it('shutdownWithAnimation halts systems and flips power state off, without touching locale actors', async () => {
+    await powerController.shutdownWithAnimation();
+    expect(stopRobotLifecycle).toHaveBeenCalled();
+    expect(stopCollisionDetection).toHaveBeenCalled();
+    expect(AudioEngine.killAll).toHaveBeenCalled();
+    expect(useUIStore.getState().setPowerOff).toHaveBeenCalled();
+    expect(useLocaleStore.getState().setLocaleData).not.toHaveBeenCalled();
+  });
 });

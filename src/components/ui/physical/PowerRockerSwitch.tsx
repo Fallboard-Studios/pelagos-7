@@ -94,8 +94,6 @@ export function PowerRockerSwitch() {
     return () => {
       killTimeline('power-rocker');
       killTimeline('power-rocker-return');
-      killTimeline('tablet-power-on');
-      killTimeline('tablet-power-off');
     };
   }, []);
 
@@ -152,28 +150,9 @@ export function PowerRockerSwitch() {
   // Power On
   // ----------------------------------------
   async function handlePowerOn() {
-    // Centralized power startup — powerController handles audio/system init
-    await powerController.start();
-
-    // Defer mount to next paint frame so the GSAP return animation can paint
-    requestAnimationFrame(() => {
-      useUIStore.getState().setPowerOn();
-
-      // GSAP wake-up timeline: brighten transport display area
-      killTimeline('tablet-power-on');
-      const tl = gsap.timeline();
-      tl.fromTo(
-        '.transport-bar__displays',
-        { opacity: 0 },
-        { opacity: 1, duration: 0.4, ease: 'power2.out' }
-      ).fromTo(
-        '.transport-bar__btn',
-        { opacity: 0 },
-        { opacity: 1, duration: 0.3, ease: 'power1.out', stagger: 0.05, clearProps: 'opacity' },
-        '-=0.2'
-      );
-      setTimeline('tablet-power-on', tl);
-    });
+    // Centralized power startup — powerController handles audio/system init,
+    // then flips isPoweredOn (which mounts Header/WorldView/Console).
+    await powerController.powerOnSequence();
   }
 
   // ----------------------------------------
