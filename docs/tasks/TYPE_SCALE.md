@@ -192,27 +192,26 @@ Tasks 4, 5, and 6 have no dependency on each other (all depend only on Tasks 1-3
 - [x] All 11 leaf controls (§1.5's list) carry `font-family: var(--font-controls)` on their own root selector, verified by content (`getCssRuleBody` against the real CSS files).
 - [x] Compact container-query fallback verified by content for `DualLabel` and the 3 sliders' own `__value` readout — correct as far as content review could tell, but content review is exactly what missed the containment-collapse bug below, so "verified by content" alone should not be read as "verified."
 - [x] **Real-browser confirmation happened — via the user's own screenshot, not this session's tooling** (still none available) — and it found a real bug (`Button` and vertical sliders collapsed to zero width), now fixed and documented above. The "no layout/position shift" check for the *surviving* mechanism (horizontal sliders' compact fallback, the 7 unconditional controls) still has not been performed in a real browser and remains worth doing before merging.
-- [ ] Review with human before proceeding.
+- [x] Review with human before proceeding. (Approved by proceeding directly to Phase 3.)
 
 ---
 
 ### Phase 3: Fix the named complaint
 
-- [ ] **Task 7: Bump `AccordionContainer`/`DirectionalPanel` label size and weight**
+- [x] **Task 7: Bump `AccordionContainer`/`DirectionalPanel` label size and weight** — done
 
-  **Description:** Add the new `.sc-accordion__row .sc-dual-label__human` rule to `AccordionContainer.css` and `.sc-directional-panel > .sc-dual-label__human` to `DirectionalPanel.css` (both set `font-size: var(--font-size-heading-sm); font-weight: var(--font-weight-medium);`, spec §1.6). Tokenize `AccordionContainer.css:70`'s `.sc-accordion__indicator { font-weight: 600; }` to `var(--font-weight-medium)` (same value).
+  **Description:** Add the new `.sc-accordion__row .sc-dual-label__human` rule to `AccordionContainer.css` and `.sc-directional-panel > .sc-dual-label__human` to `DirectionalPanel.css` (both set `font-size: var(--font-size-heading-sm); font-weight: var(--font-weight-medium);`, spec §1.6). Tokenize `AccordionContainer.css:70`'s `.sc-accordion__indicator { font-weight: 600; }` to `var(--font-weight-medium)` (same value). (Shipped using the no-space `>` combinator style, matching `DirectionalPanel.css`'s own existing convention — not the spaced `>` this task's own description used.)
 
   **Acceptance criteria:**
-  - [ ] Both new selectors exist, scoped exactly as specified (descendant selector for accordion, direct-child combinator for the panel) so a nested control's own `DualLabel` is never caught.
-  - [ ] `.sc-dual-label__lore` is untouched by either new rule — only `__human` is targeted.
-  - [ ] `.sc-accordion__indicator`'s weight is now `var(--font-weight-medium)`, same computed value (600) as before.
-  - [ ] Neither file gains `container-type`/`container-name` (out of scope per spec §1.4).
+  - [x] Both new selectors exist, scoped exactly as specified (descendant selector for accordion, direct-child combinator for the panel) so a nested control's own `DualLabel` is never caught.
+  - [x] `.sc-dual-label__lore` is untouched by either new rule — only `__human` is targeted.
+  - [x] `.sc-accordion__indicator`'s weight is now `var(--font-weight-medium)`, same computed value (600) as before.
+  - [x] Neither file gains `container-type`/`container-name` (out of scope per spec §1.4).
 
   **Verification:**
-  - [ ] `npm test -- AccordionContainer DirectionalPanel` passes unmodified (spec §5: verify no test asserts the literal `600` in a way that would need updating — it shouldn't, since the computed value is unchanged).
-  - [ ] `npm run build:types` / `npm run lint` clean.
-  - [ ] Manual: open a drawer with both an accordion and a directional panel, confirm both labels are visibly bigger and heavier than before, and still render in Rajdhani (DevTools computed `font-family`, not just by eye — Rajdhani/Titillium Web look similar at a glance per spec §5.1).
-  - [ ] Manual: confirm a `SliderLinear` (or any leaf control) rendered *inside* an open accordion still shows its own Titillium Web label at the normal (non-bumped) size — the scoped selector must not leak into nested content.
+  - [x] `npx vitest run AccordionContainer DirectionalPanel` passes unmodified (confirmed no test asserts the literal `600`).
+  - [x] `npm run build:types` / `npm run lint` / `npm run build` clean.
+  - [x] New `accordionPanelLabelBump.test.ts` (RED before the change, GREEN after — 9 tests) covers both files' scoping precisely — including the "not a bare, leak-prone rule" check, which exposed and drove a real fix to the shared `getCssRuleBody` test helper (see the separate commit before this task's own). Full suite: 2327/2327. The DevTools real-browser checks (visibly bigger/heavier, still Rajdhani, no leakage into nested content) remain not performed this session — no browser tooling available — same honest gap as every prior phase's manual-check items.
 
   **Dependencies:** Task 3 (needs `DualLabel.css`'s migrated `__human` selector to exist as the override target).
 
@@ -221,8 +220,8 @@ Tasks 4, 5, and 6 have no dependency on each other (all depend only on Tasks 1-3
   **Estimated scope:** S (2 files)
 
 ### Checkpoint: Label-size complaint fixed
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] Accordion and directional-panel labels confirmed bigger/heavier, still Rajdhani, no leakage into nested controls.
+- [x] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npx vitest run` (full suite): 2327/2327 pass.
+- [ ] Real-browser visual confirmation — accordion and directional-panel labels bigger/heavier, still Rajdhani, no leakage into nested controls. Not performed this session (no browser tooling available), flagged not silently skipped.
 - [ ] Review with human before proceeding.
 
 ---
