@@ -29,6 +29,12 @@ import type { Trait } from '@/types/traits';
 import type { LfoValue, PanelOrientation } from '@/types/controls';
 import type { GlobalAudioSettings } from '@/types/globalAudio';
 import type { GlobalLfoTargetId } from '@/types/lfo';
+import './AudioRigDrawer.css';
+// AudioRigLfoGroup below reuses LfoTargetGroup's own sc-lfo-target-group__row/__display
+// classes (styled in LfoTargetGroup.css) instead of LfoTargetGroup itself (see the Rules-of-
+// Hooks note on AudioRigLfoGroup) — importing the stylesheet directly here, rather than relying
+// on SignatureArrayDrawer/AudioSettingSection to have pulled it in elsewhere in the bundle.
+import '@/components/ui/controls/LfoTargetGroup.css';
 
 /**
  * Trait for each of the 3 AUDIO_RIG_ACCORDION_GROUPS entries (Roadmap Phase 14, docs/specs/
@@ -42,12 +48,6 @@ const AUDIO_RIG_GROUP_TRAIT: Record<AudioRigAccordionGroupKey, Trait> = {
   timeSpace: 'timeSpace',
   output: 'output',
 };
-import './AudioRigDrawer.css';
-// AudioRigLfoGroup below reuses LfoTargetGroup's own sc-lfo-target-group__row/__display
-// classes (styled in LfoTargetGroup.css) instead of LfoTargetGroup itself (see the Rules-of-
-// Hooks note on AudioRigLfoGroup) — importing the stylesheet directly here, rather than relying
-// on SignatureArrayDrawer/AudioSettingSection to have pulled it in elsewhere in the bundle.
-import '@/components/ui/controls/LfoTargetGroup.css';
 
 /** Dispatches a param's ControlSchema to its matching primitive. Covers only
  *  the 4 variants GLOBAL_CHAIN_GRID.md's UI column actually uses for this

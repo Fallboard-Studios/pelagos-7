@@ -129,8 +129,11 @@ function generateRobotName(noiseMap: NoiseFunction2D, offset: number): string {
  * keys — black/white/darkGray are deliberately excluded there, not filtered here).
  */
 function generateRobotIdentityColor(noiseMap: NoiseFunction2D, offset: number): string {
-  const name = ROBOT_IDENTITY_COLOR_NAMES[Math.floor(getSeededVal(noiseMap, 'robot.identityColor', offset, 0, ROBOT_IDENTITY_COLOR_NAMES.length))];
-  return ACCENT_COLORS[name];
+  // Clamped (matching OCTAVE_REGISTERS/WAVEFORMS' own indexing below, not generateRobotName's
+  // unclamped one) since the failure mode of an out-of-range index here is a visibly broken
+  // undefined CSS custom property, not just a missing name syllable.
+  const index = Math.min(ROBOT_IDENTITY_COLOR_NAMES.length - 1, Math.floor(getSeededVal(noiseMap, 'robot.identityColor', offset, 0, ROBOT_IDENTITY_COLOR_NAMES.length)));
+  return ACCENT_COLORS[ROBOT_IDENTITY_COLOR_NAMES[index]];
 }
 
 // Org-flavored noun list for company names (Roadmap Phase 10) — distinct from robot NOUNS above,
