@@ -375,7 +375,54 @@ Task 7 ──→ Task 17 (docs/COMPONENT_LIBRARY.md)
 
 ### Checkpoint: Audio Rig wiring
 - [x] `npm run build:types`, `npm run lint`, `npm run build` clean. Full suite: 2394/2394 pass.
+- [x] **Manual check performed — and it found a real bug.** Crawford loaded the app: every Audio Rig
+  accordion/slider still rendered the white/dark-gray ambient default instead of its trait color.
+  Root-caused live via browser DevTools (Crawford's own read: "we're declaring the new colors out of
+  order somewhere, it's not reading that when it does the calc for the gradient" — correct diagnosis).
+  See the standalone fix below, landed before Phase 6 starts.
 - [ ] Review with human before proceeding.
+
+---
+
+### Fix: `--color-accent`/`--color-accent-gradient` must be literal, not nested `var()`
+
+Not one of the 17 planned tasks — a bug found during Task 9's own manual check, fixed immediately
+rather than carried forward into Phase 6 on top of a broken foundation. Commit `ccc6931`.
+
+**What was wrong:** `--color-accent-a`/`-b` (set inline per trait/robot) genuinely do cascade to an
+overridden subtree — confirmed in DevTools' own "Inherited from" breakdown. But `--color-accent`/
+`--color-accent-gradient`, each declared ONCE at `:root` as `color-mix(in srgb, var(--color-accent-a)
+...)`/`linear-gradient(135deg, var(--color-accent-a), ...)`, do **not** re-substitute those nested
+`var()` references using a descendant's overridden values — they stay pinned to whatever `-a`/`-b`
+resolved to wherever the outer property was first read (in practice, `:root`'s own ambient default).
+This is a real CSS custom-property indirection limitation, not the naive "var() always resolves lazily
+at point of use" model the original design assumed. `jsdom` (this project's test environment) never
+resolves real CSS cascade, so every existing test — which only asserted `-a`/`-b`'s own values — passed
+throughout Tasks 3, 4, and 9 while the live-rendered app was visibly wrong.
+
+**The fix:** `traitColors.ts`'s `getTraitColorStyle`/`getRobotColorStyle` now compute all 4 properties
+directly via one shared `buildAccentStyle(a, b)` helper, baking the 2 literal colors straight into the
+`color-mix()`/`linear-gradient()` strings — no second layer of custom-property indirection left.
+`index.css`'s `:root` block does the same for its own ambient-default values. No change needed to
+`CabinetBox.css`/`Button.css`/`RadioButton.css`/`voxelTrackMath.ts` (Tasks 5/6) or to any wiring call
+site (Task 9) — they all just read `var(--color-accent)`/`var(--color-accent-gradient)`, which now
+resolve correctly wherever they're consumed, with no code of their own to change.
+
+**Tests strengthened, not just fixed:** `traitColors.test.ts`, `index.css.test.ts`, and
+`AudioRigDrawer.test.tsx` now assert the full 4-property literal-valued output (not just `-a`/`-b`) and
+explicitly guard against a `var()`-nested regression, so this exact bug class can't silently recur —
+the gap was real (jsdom can't catch it), and the fix is to assert everything jsdom *can* check (the
+literal string values) as tightly as possible, not to pretend the gap doesn't exist.
+
+**Docs updated:** `docs/specs/COLOR_SCHEME_TRAIT_THEMING.md` §1.2 rewritten to describe the correct
+mechanism and record why the original design didn't work, so a future reader (or a future trait/robot-
+color consumer) doesn't rediscover this from scratch.
+
+**Verification:** `npm run build:types`, `npm run lint` clean. Full suite: 2397/2397 pass. `npm run
+build` clean — the emitted CSS was inspected directly (`dist/assets/*.css`) and confirmed to contain
+`linear-gradient(135deg, #fff, #211e1b)` with literal hex values, not `var(--color-accent-a)`.
+**Not yet re-verified in a live browser** — Crawford's next manual check (when Phase 6 or later lands)
+should confirm the Audio Rig now actually renders its trait colors, closing the loop this fix opened.
 
 ---
 
