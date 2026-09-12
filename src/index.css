@@ -63,24 +63,31 @@
   /* Color tokens. --color-bg/--color-surface/--color-border/text tokens are the
      hand-picked static "Ballast" base (cold graphite), unchanged since the
      seed-driven system that was tried and cut (see docs/CONSOLE_THEMING.md).
-     --color-accent-a/-b are the new trait-scoped pair (Roadmap Phase 14, see
+     --color-accent-a/-b/--color-accent/--color-accent-gradient are the new
+     trait-scoped set (Roadmap Phase 14, see
      docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.2) — the values below are the
      Header trait's own pair, doubling as the app-wide ambient default for any
-     region no trait has scoped. A descendant element overriding just these 2
-     custom properties (src/utils/traitColors.ts's getTraitColorStyle/
-     getRobotColorStyle) re-resolves --color-accent/--color-accent-gradient for
-     that whole subtree via ordinary CSS cascade — no other file needs to
-     change. --color-accent stays a single solid color (a color-mix() midpoint)
-     for the many consumers that require one (color-mix() itself, drop-shadow(),
-     border-color, outline-color); --color-accent-gradient is the literal 2-tone
-     gradient for the few flat-rectangle fills that can use one. */
+     region no trait has scoped. A descendant element overriding all 4
+     properties (src/utils/traitColors.ts's getTraitColorStyle/
+     getRobotColorStyle) re-scopes every consumer for that whole subtree via
+     ordinary CSS cascade — no other file needs to change. --color-accent and
+     --color-accent-gradient are deliberately written with LITERAL colors
+     here, never `var(--color-accent-a)`/`var(--color-accent-b)` nested
+     inside them — bug found live via DevTools: a custom property whose own
+     value nests var() references to --color-accent-a/-b does not
+     re-substitute using a descendant's overridden values, even though -a/-b
+     themselves do cascade correctly on their own. --color-accent stays a
+     single solid color (a color-mix() midpoint) for the many consumers that
+     require one (color-mix() itself, drop-shadow(), border-color,
+     outline-color); --color-accent-gradient is the literal 2-tone gradient
+     for the few flat-rectangle fills that can use one. */
   --color-bg: #12161a;
   --color-surface: #1a2027;
   --color-border: rgba(140, 190, 210, 0.14);
   --color-accent-a: #fff;
   --color-accent-b: #211e1b;
-  --color-accent: color-mix(in srgb, var(--color-accent-a) 50%, var(--color-accent-b) 50%);
-  --color-accent-gradient: linear-gradient(135deg, var(--color-accent-a), var(--color-accent-b));
+  --color-accent: color-mix(in srgb, #fff 50%, #211e1b 50%);
+  --color-accent-gradient: linear-gradient(135deg, #fff, #211e1b);
   --color-text-primary: rgba(255, 255, 255, 0.87);
   --color-text-muted: rgba(255, 255, 255, 0.6);
 

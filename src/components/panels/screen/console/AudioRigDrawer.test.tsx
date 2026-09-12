@@ -714,6 +714,24 @@ describe('AudioRigDrawer', () => {
       expect(el.style.getPropertyValue('--color-accent-b')).toBe(ACCENT_COLORS.teal);
     });
 
+    // Regression test — found live via browser DevTools: --color-accent/--color-accent-gradient
+    // must be literal-valued, computed alongside -a/-b (traitColors.ts's buildAccentStyle), never
+    // a nested var() reference to them. A nested-var() version passes every -a/-b assertion above
+    // (the base properties genuinely do cascade) while still rendering the WRONG gradient, which is
+    // exactly why this needs its own explicit check, not just "-a/-b are correct."
+    it('also sets --color-accent/--color-accent-gradient as literal values on the accordion — never a var()-reference to --color-accent-a/-b', () => {
+      render(<AudioRigDrawer />);
+      const el = accordionByLabel('EQ & Filters');
+      expect(el.style.getPropertyValue('--color-accent')).toBe(
+        `color-mix(in srgb, ${ACCENT_COLORS.cyan} 50%, ${ACCENT_COLORS.teal} 50%)`,
+      );
+      expect(el.style.getPropertyValue('--color-accent-gradient')).toBe(
+        `linear-gradient(135deg, ${ACCENT_COLORS.cyan}, ${ACCENT_COLORS.teal})`,
+      );
+      expect(el.style.getPropertyValue('--color-accent')).not.toContain('var(');
+      expect(el.style.getPropertyValue('--color-accent-gradient')).not.toContain('var(');
+    });
+
     it('scopes Time & Space to the Time/Space trait (blue/plum)', () => {
       render(<AudioRigDrawer />);
       const el = accordionByLabel('Time & Space');

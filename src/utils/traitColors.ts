@@ -23,23 +23,45 @@ export const TRAIT_COLORS: Record<Trait, [string, string]> = {
 };
 
 /**
- * Inline-style object a component spreads onto whichever DOM element should root that trait's
- * color scope — every descendant CabinetBox/outline/fill inherits --color-accent-a/-b via plain
- * CSS cascade (src/index.css derives --color-accent/--color-accent-gradient from these two), no
- * other wiring needed. Cast to CSSProperties the same way CabinetBox.tsx's own cabinetTokens/
- * AccordionContainer.tsx's cabinetTokens already do for custom properties.
+ * Builds all 4 accent custom properties from 2 literal colors. Bug fix, found live via browser
+ * DevTools (jsdom never resolves real CSS cascade/color-mix(), so this was invisible to every test
+ * in this file until it was rewritten): --color-accent/--color-accent-gradient must NEVER be
+ * expressed as a nested var()-derivation of --color-accent-a/-b (e.g.
+ * `linear-gradient(var(--color-accent-a), var(--color-accent-b))`, declared once at :root). That
+ * pattern does not correctly re-substitute using a descendant's own overridden -a/-b — confirmed
+ * directly in DevTools: -a/-b themselves cascade correctly to an overridden subtree, but a
+ * DIFFERENT custom property whose specified value nests var() references to them stays pinned to
+ * whatever they resolved to wherever that outer property was first read, not the local override.
+ * The fix computes --color-accent/--color-accent-gradient with the 2 literal colors baked directly
+ * into the color-mix()/linear-gradient() calls, right here — no second layer of custom-property
+ * indirection left for a browser to get wrong. See docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.2's
+ * amendment.
  */
-export function getTraitColorStyle(trait: Trait): CSSProperties {
-  const [a, b] = TRAIT_COLORS[trait];
-  return { '--color-accent-a': a, '--color-accent-b': b } as CSSProperties;
+function buildAccentStyle(a: string, b: string): CSSProperties {
+  return {
+    '--color-accent-a': a,
+    '--color-accent-b': b,
+    '--color-accent': `color-mix(in srgb, ${a} 50%, ${b} 50%)`,
+    '--color-accent-gradient': `linear-gradient(135deg, ${a}, ${b})`,
+  } as CSSProperties;
 }
 
 /**
- * A robot's own identity color reuses the identical 2-property mechanism with both slots set to
- * the same value — color-mix()-ing a color with itself returns itself, and a 2-stop gradient of
- * identical stops renders as a solid fill, so every existing consumer (outline, backing, front-face
- * gradient) already does the right thing with no special-casing.
+ * Inline-style object a component spreads onto whichever DOM element should root that trait's
+ * color scope — every descendant CabinetBox/outline/fill inherits all 4 accent properties via
+ * plain CSS cascade, no other wiring needed.
+ */
+export function getTraitColorStyle(trait: Trait): CSSProperties {
+  const [a, b] = TRAIT_COLORS[trait];
+  return buildAccentStyle(a, b);
+}
+
+/**
+ * A robot's own identity color reuses the identical mechanism with both slots set to the same
+ * value — color-mix()-ing a color with itself returns itself, and a 2-stop gradient of identical
+ * stops renders as a solid fill, so every existing consumer (outline, backing, front-face gradient)
+ * already does the right thing with no special-casing.
  */
 export function getRobotColorStyle(identityColor: string): CSSProperties {
-  return { '--color-accent-a': identityColor, '--color-accent-b': identityColor } as CSSProperties;
+  return buildAccentStyle(identityColor, identityColor);
 }

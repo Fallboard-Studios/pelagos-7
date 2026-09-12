@@ -126,16 +126,21 @@ describe(':root color-accent-a/-b mechanism (Task 4)', () => {
     expect(rootBody).toContain('--color-accent-b: #211e1b;');
   });
 
-  it('derives --color-accent as a color-mix() of the two, not a literal hex', () => {
-    expect(rootBody).toContain(
-      '--color-accent: color-mix(in srgb, var(--color-accent-a) 50%, var(--color-accent-b) 50%);',
-    );
+  it('defines --color-accent as a color-mix() of literal colors, not a literal hex', () => {
+    expect(rootBody).toContain('--color-accent: color-mix(in srgb, #fff 50%, #211e1b 50%);');
   });
 
-  it('derives --color-accent-gradient as a linear-gradient() of the two', () => {
-    expect(rootBody).toContain(
-      '--color-accent-gradient: linear-gradient(135deg, var(--color-accent-a), var(--color-accent-b));',
-    );
+  it('defines --color-accent-gradient as a linear-gradient() of literal colors', () => {
+    expect(rootBody).toContain('--color-accent-gradient: linear-gradient(135deg, #fff, #211e1b);');
+  });
+
+  // Bug fix, found live via browser DevTools — jsdom never resolves real CSS cascade, so this was
+  // invisible until checked against a real browser. See traitColors.ts's own comment for the full
+  // explanation: a custom property whose specified value nests var() references to OTHER custom
+  // properties does not correctly re-substitute using a descendant's overridden values.
+  it('never nests var(--color-accent-a)/var(--color-accent-b) inside --color-accent or --color-accent-gradient\'s own value', () => {
+    expect(rootBody).not.toContain('color-mix(in srgb, var(--color-accent-a)');
+    expect(rootBody).not.toContain('linear-gradient(135deg, var(--color-accent-a)');
   });
 
   it('removes the old literal --color-accent hex value entirely', () => {
