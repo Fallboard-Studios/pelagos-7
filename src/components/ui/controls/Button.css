@@ -50,5 +50,5 @@
    §1.3) — both stay on the --color-surface default. Confirmed, 2026-09-09:
    "any front facade with text on it," not every front facade. */
 .sc-button .sc-cabinet-box__front {
-  background-color: var(--color-accent);
+  background: var(--color-accent-gradient);
 }
