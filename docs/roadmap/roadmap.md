@@ -864,3 +864,29 @@ This phase replaces the (currently nonexistent) session/storage handling with an
 ### Docs
 
 - docs/SESSION_STORAGE.md created as a design doc for this phase — update its "not yet implemented" banner once storageEngine/stateResolver/urlSerializer actually ship. Already added to CLAUDE.md's reference doc list.
+
+## 13. Power-On Animation: Fix Dead Selectors, Reuse powerController
+
+Found during `/code-review-and-quality` on the Header & Hub Consolidation work (2026-09-12). Not yet built.
+
+### Restructure
+
+- `PowerRockerSwitch.tsx`'s `handlePowerOn()` hand-rolls its own inline GSAP wake-up timeline instead of calling the existing `powerController.powerOnSequence()` (already does `start()` → `setPowerOn()` → `playTabletPowerOn()`, with `DEV_TUNING`-gated error-swallowing `handlePowerOn` lacks entirely). Fold the two together: call `powerController.powerOnSequence()`, wrapped in the same `requestAnimationFrame` deferral `handlePowerOn` uses today (confirm whether that deferral is still load-bearing for the GSAP return animation, or whether `powerOnSequence()` can absorb it directly) — dropping the inline timeline, the redundant `killTimeline('tablet-power-on')` call (`playTabletPowerOn()` already kills that same key), and the direct `gsap`/`setTimeline`/`killTimeline` usage this eliminates from `PowerRockerSwitch.tsx`'s power-on path.
+- Both the inline copy and `powerAnimations.ts`'s own `playTabletPowerOn`/`playTabletPowerOff` target `.transport-bar__displays`/`.transport-bar__btn` — deleted along with `TransportBar` in the Header & Hub Consolidation work. Silently a no-op ever since (GSAP selecting nothing just does nothing). Decide what this should animate now: retarget at real `Header` elements if a power-on brighten effect is still wanted (`Header` currently mounts fresh via `{isPoweredOn && <Header />}` in `ScreenViewport.tsx`, not a fade-in — retargeting may need `Header` itself to render at low opacity and tween up, not just a selector swap), or remove the dead animation entirely if the mount itself already reads as "waking up."
+
+### About
+
+Two findings from the same review sharing one root cause — an unmaintained inline duplicate of `powerController`'s own sequencing. Fixing the reuse violation (one call site instead of two) makes fixing the dead-selector bug a one-file change instead of two.
+
+## 14. Header Nav: Single-Instance Responsive RadioButton
+
+Found during `/code-review-and-quality` on the Header & Hub Consolidation work (2026-09-12). Depends on 13 only in numbering, not in implementation — independent. Not yet built.
+
+### Restructure
+
+- `Header.tsx` currently renders the nav `RadioButton` group twice — `.primary` (inside `.header__row--status-nav`, shown ≥430px) and `.secondary` (its own row, shown below that) — both fully mounted at all times, CSS `display: none` hiding whichever doesn't apply for the current breakpoint. This duplication was the root cause of a real bug (fixed via `useId()` in `RadioButton.tsx`, `bug/header-radio-fix`): two simultaneously-mounted instances of the identical `HEADER_NAV_SCHEMA` collided in the shared, module-level `timelineMap`, one instance's GSAP tween killing the other's mid-animation. `useId()` stops the collision but doesn't remove the duplication itself — every render still carries two full `CabinetBox` trees (6 backing/wall/front DOM nodes, 6 `ResizeObserver`s, 6 sets of mouse listeners) for a control only ever visually needed once.
+- Restructure so a single `RadioButton` instance can occupy either visual position depending on breakpoint — e.g. reshape the surrounding layout so both target positions are named areas of one shared CSS Grid the single instance moves between, rather than duplicating the component tree. `.rocker-spacer` (holding `.primary`) and the top-level `.secondary` row sit at different DOM nesting depths today, not siblings in one grid — scope that restructuring before starting.
+
+### About
+
+Not a correctness bug on its own — today's `useId()` fix already makes the duplication safe. A standing architecture/performance cost worth removing rather than living with indefinitely, and a precedent worth not repeating the next time a control needs to reposition responsively.

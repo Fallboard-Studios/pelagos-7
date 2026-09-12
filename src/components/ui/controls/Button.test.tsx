@@ -2,8 +2,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
 vi.mock('./CabinetBox', () => ({
-  CabinetBox: ({ popped, children }: { popped: boolean; children: React.ReactNode }) => (
-    <div data-testid="cabinet-box" data-popped={popped}>{children}</div>
+  CabinetBox: ({ popped, timelineKey, children }: { popped: boolean; timelineKey: string; children: React.ReactNode }) => (
+    <div data-testid="cabinet-box" data-popped={popped} data-timeline-key={timelineKey}>{children}</div>
   ),
 }));
 
@@ -36,6 +36,22 @@ describe('Button', () => {
     const schema: ButtonSchema = { id: 'resetMelody', type: 'button', loreLabel: 'CALIBRATE PING' };
     render(<Button schema={schema} onClick={() => {}} />);
     expect(screen.getByRole('button', { name: 'CALIBRATE PING' })).toBeTruthy();
+  });
+
+  it('bugfix: two simultaneously-mounted Buttons rendering the same schema get non-colliding timelineKeys (same class of bug fixed in RadioButton/Toggle)', () => {
+    const schema: ButtonSchema = { id: 'resetMelody', type: 'button', humanLabel: 'Reset Melody' };
+    const { container } = render(
+      <>
+        <Button schema={schema} onClick={() => {}} />
+        <Button schema={schema} onClick={() => {}} />
+      </>,
+    );
+    const [firstKey, secondKey] = Array.from(container.querySelectorAll('[data-testid="cabinet-box"]')).map(
+      (el) => el.getAttribute('data-timeline-key'),
+    );
+    expect(firstKey).toBeTruthy();
+    expect(secondKey).toBeTruthy();
+    expect(firstKey).not.toBe(secondKey);
   });
 
   it('falls back to schema.id for the accessible name when neither label is present, never leaving it unlabeled', () => {

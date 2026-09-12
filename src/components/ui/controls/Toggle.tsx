@@ -1,5 +1,5 @@
 import * as Switch from '@radix-ui/react-switch';
-import type { CSSProperties, ReactNode } from 'react';
+import { useId, type CSSProperties, type ReactNode } from 'react';
 
 import { CabinetBox } from './CabinetBox';
 import { DualLabel } from './DualLabel';
@@ -58,12 +58,22 @@ export const CABINET_TOGGLE_BOX_SIZE = 32;
  * The root also carries a plain `isActive` class (alongside Radix's own
  * `data-state` on the switch itself) so a consumer can write
  * `.sc-toggle.isActive { ... }` instead of a `:has()` attribute selector.
+ *
+ * `timelineKey` includes `useId()`, not just `schema.id` — `timelineMap` is a
+ * shared, module-level `Map`, so two simultaneously-mounted `Toggle`s
+ * rendering the same schema object would otherwise compute identical keys
+ * and stomp each other's `setTimeline`/`killTimeline` calls (the exact bug
+ * found live in `RadioButton`'s own timelineKey, fixed the same way — see
+ * that file's own comment). Not yet exercised by any real `Toggle` consumer,
+ * but the vulnerability is identical, so the fix is applied preemptively
+ * rather than waiting for a live collision.
  */
 export function Toggle({ schema, value, onChange, disabled, boxSize, children }: ToggleProps) {
   // An explicit boxSize always forces the fixed-square path, even with
   // facade content (Header's Mute needs an exact 44px regardless of its
   // icon). Only "children with no boxSize" gets natural content-sizing.
   const contentSized = children !== undefined && boxSize === undefined;
+  const instanceId = useId();
 
   // Recomputed per-instance (was a module-level constant) so an overridden
   // boxSize reaches Toggle.css's own front-face size override, not just
@@ -90,7 +100,7 @@ export function Toggle({ schema, value, onChange, disabled, boxSize, children }:
         <CabinetBox
           popped={value}
           {...(contentSized ? {} : { boxHeight: boxSize ?? CABINET_TOGGLE_BOX_SIZE })}
-          timelineKey={`cabinet-toggle-${schema.id}`}
+          timelineKey={`cabinet-toggle-${schema.id}-${instanceId}`}
         >
           {children}
         </CabinetBox>
