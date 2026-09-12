@@ -429,18 +429,18 @@ trait colors — Task 9's own manual-check box above can be considered satisfied
 
 ### Phase 6: Wiring — Robot Options
 
-- [ ] **Task 10: `PingControlsDrawer.tsx` + `PingContourDrawer.tsx` — `style` prop**
+- [x] **Task 10: `PingControlsDrawer.tsx` + `PingContourDrawer.tsx` — `style` prop**
 
   **Description:** Add an optional `style?: CSSProperties` prop to both components, forwarded to their
   own `<AccordionContainer schema={...} style={style}>` (spec §1.5/§4).
 
   **Acceptance criteria:**
-  - [ ] Both components accept `style` and forward it unchanged to their `AccordionContainer`.
-  - [ ] Omitting `style` at either call site produces the same rendered output as before this task.
+  - [x] Both components accept `style` and forward it unchanged to their `AccordionContainer`.
+  - [x] Omitting `style` at either call site produces the same rendered output as before this task.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/robot/PingControlsDrawer.test.tsx src/components/robot/PingContourDrawer.test.tsx` passes, each with a new `style`-forwarding test.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/components/robot/PingControlsDrawer.test.tsx src/components/robot/PingContourDrawer.test.tsx` passes (34/34), each with 2 new `style`-forwarding tests.
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** Task 7.
 
@@ -448,18 +448,18 @@ trait colors — Task 9's own manual-check box above can be considered satisfied
 
   **Estimated scope:** S (2 components, identical one-line addition each)
 
-- [ ] **Task 11: `SignatureArrayDrawer.tsx` + `AudioSettingSection.tsx` — `style` prop**
+- [x] **Task 11: `SignatureArrayDrawer.tsx` + `AudioSettingSection.tsx` — `style` prop**
 
   **Description:** Same change as Task 10, applied to these 2 components.
 
   **Acceptance criteria:**
-  - [ ] Both components accept `style` and forward it unchanged to their `AccordionContainer`.
-  - [ ] Omitting `style` at either call site produces the same rendered output as before this task.
-  - [ ] `SignatureArrayDrawer`'s own `ROBOTS_DRIFT_GROUP` content (rendered inside its `AccordionContainer`) is unaffected by this change beyond inheriting whatever `style` its parent now passes.
+  - [x] Both components accept `style` and forward it unchanged to their `AccordionContainer`.
+  - [x] Omitting `style` at either call site produces the same rendered output as before this task.
+  - [x] `SignatureArrayDrawer`'s own `ROBOTS_DRIFT_GROUP` content (rendered inside its `AccordionContainer`) is unaffected by this change beyond inheriting whatever `style` its parent now passes — verified with a DOM-containment test (Rate Drift slider is a descendant of the styled root).
 
   **Verification:**
-  - [ ] `npx vitest run src/components/robot/SignatureArrayDrawer.test.tsx src/components/robot/AudioSettingSection.test.tsx` passes, each with a new `style`-forwarding test.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/components/robot/SignatureArrayDrawer.test.tsx src/components/robot/AudioSettingSection.test.tsx` passes (43/43), with 3 new tests on `SignatureArrayDrawer` and 2 on `AudioSettingSection`.
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** Task 7.
 
@@ -467,7 +467,7 @@ trait colors — Task 9's own manual-check box above can be considered satisfied
 
   **Estimated scope:** S (2 components, identical one-line addition each)
 
-- [ ] **Task 12: `RobotOptionsTab.tsx` — robot-color root + trait styles passed down**
+- [x] **Task 12: `RobotOptionsTab.tsx` — robot-color root + trait styles passed down**
 
   **Description:** Add `style={getRobotColorStyle(robot.identityColor)}` to the existing
   `<div className="robot-options">` root; pass `style={getTraitColorStyle('output' |
@@ -475,19 +475,20 @@ trait colors — Task 9's own manual-check box above can be considered satisfied
   `PingContourDrawer`/`SignatureArrayDrawer` respectively (spec §1.5/§4).
 
   **Acceptance criteria:**
-  - [ ] The `robot-options` root carries the current robot's own `identityColor` in both
+  - [x] The `robot-options` root carries the current robot's own `identityColor` in both
     `--color-accent-a`/`-b`.
-  - [ ] Each of the 4 drawer components receives its own trait's `style`, matching spec §1.5's table.
-  - [ ] `RobotDisplaySection`'s own rendered chrome (not itself a drawer) visibly inherits the robot's
+  - [x] Each of the 4 drawer components receives its own trait's `style`, matching spec §1.5's table.
+  - [x] `RobotDisplaySection`'s own rendered chrome (not itself a drawer) visibly inherits the robot's
     color, not any trait's — no direct change needed to `RobotDisplaySection.tsx` itself.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/panels/screen/console/RobotOptionsTab.test.tsx` passes, with new
-    assertions on the root's style and each drawer's received `style` prop.
-  - [ ] `npm run build:types`, `npm run lint` clean.
-  - [ ] Manual check: open a robot's Options screen — its Name/Job/Battery/Docking header area and card
-    render in that robot's own flat color; its 4 drawers each render in their own distinct trait color,
-    not the robot's.
+  - [x] `npx vitest run src/components/panels/screen/console/RobotOptionsTab.test.tsx` passes (26/26),
+    with 6 new tests on the root's style, each drawer's received `style` prop, and 2 different robots
+    getting 2 different root colors while sharing the same 4 trait colors.
+  - [x] `npm run build:types`, `npm run lint` clean.
+  - [ ] Manual check (not yet done — needs a browser): open a robot's Options screen — its Name/Job/
+    Battery/Docking header area and card render in that robot's own flat color; its 4 drawers each
+    render in their own distinct trait color, not the robot's.
 
   **Dependencies:** Task 3, Task 8, Task 10, Task 11.
 
@@ -496,9 +497,9 @@ trait colors — Task 9's own manual-check box above can be considered satisfied
   **Estimated scope:** S (1 file, 5 style props total — 1 root + 4 children)
 
 ### Checkpoint: Robot Options wiring
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] Manual check (spec §5): two different robots' Options screens show two different header colors
-  while both show the same 4 trait colors in their drawers.
+- [x] `npm run build:types`, `npm run lint`, `npm run build` clean. Full suite: 2412/2412 pass.
+- [ ] Manual check (spec §5, not yet done — needs a browser): two different robots' Options screens
+  show two different header colors while both show the same 4 trait colors in their drawers.
 - [ ] Review with human before proceeding.
 
 ---
