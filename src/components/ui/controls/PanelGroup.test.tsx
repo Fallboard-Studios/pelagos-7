@@ -109,13 +109,13 @@ describe('PanelGroup', () => {
     expect(container.firstElementChild?.getAttribute('data-orientation')).toBe('row');
   });
 
-  it("gives itself a bigger gap than DirectionalPanel's own 8px default — the whole point of this component is visible breathing room between independently-faceted panels", () => {
+  it('carries the sc-panel-group class — PanelGroup.css\'s own rule gives it a bigger gap than DirectionalPanel\'s 8px default (not an inline style, since the value never varies; not assertable here, jsdom applies no external stylesheet)', () => {
     const { container } = render(
       <PanelGroup orientation="column">
         <span>Low</span>
       </PanelGroup>,
     );
-    expect((container.firstElementChild as HTMLElement)?.style.gap).toBe('0.75rem');
+    expect(container.firstElementChild?.classList.contains('sc-panel-group')).toBe(true);
   });
 
   it('does NOT provide its own DirectionalPanelNestingContext value — a DirectionalPanel child stays top-level (own facade), unlike nesting inside another DirectionalPanel', () => {
