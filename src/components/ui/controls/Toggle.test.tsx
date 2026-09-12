@@ -104,9 +104,24 @@ describe('Toggle', () => {
     expect(screen.getByTestId('cabinet-box').getAttribute('data-box-height')).toBe('32');
   });
 
-  it('passes a schema-scoped timelineKey distinct from Button\'s own cabinet-button- prefix', () => {
+  it('passes a schema-scoped timelineKey distinct from Button\'s own cabinet-button- prefix, plus a per-instance useId() segment', () => {
     render(<Toggle schema={schema} value={false} onChange={() => {}} />);
-    expect(screen.getByTestId('cabinet-box').getAttribute('data-timeline-key')).toBe('cabinet-toggle-layerActive');
+    expect(screen.getByTestId('cabinet-box').getAttribute('data-timeline-key')).toMatch(/^cabinet-toggle-layerActive-.+$/);
+  });
+
+  it('bugfix: two simultaneously-mounted Toggles rendering the same schema get non-colliding timelineKeys', () => {
+    const { container } = render(
+      <>
+        <Toggle schema={schema} value={false} onChange={() => {}} />
+        <Toggle schema={schema} value={false} onChange={() => {}} />
+      </>,
+    );
+    const [firstKey, secondKey] = Array.from(container.querySelectorAll('[data-testid="cabinet-box"]')).map(
+      (el) => el.getAttribute('data-timeline-key'),
+    );
+    expect(firstKey).toBeTruthy();
+    expect(secondKey).toBeTruthy();
+    expect(firstKey).not.toBe(secondKey);
   });
 
   it('keeps CabinetBox popped="true" reflecting a checked value even when disabled', () => {

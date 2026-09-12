@@ -51,6 +51,15 @@ const VOLUME_SCHEMA: SliderLinearSchema = {
   type: 'sliderLinear',
 };
 
+/** Row 2's Attenuation Style readout — truncated past 15 chars so a long
+ *  name doesn't blow out the row's width, falling back to a placeholder
+ *  when the style/name itself isn't available yet. Extracted out of an
+ *  inline nested ternary (code review, 2026-09-12) for readability. */
+function formatAttenuationStyleName(name: string | undefined): string {
+  if (!name) return 'CORRUPT NAME';
+  return name.length < 15 ? name : `${name.slice(0, 12)}...`;
+}
+
 /**
  * The header docked to the top of ScreenViewport (roadmap-adjacent,
  * docs/specs/HEADER_HUB_CONSOLIDATION.md), replacing TransportBar (Task 9
@@ -125,7 +134,7 @@ function Header() {
   const hh = String(Math.max(0, Math.min(23, localHour))).padStart(2, '0');
   const mm = String(Math.max(0, Math.min(59, localMinute))).padStart(2, '0');
   const currentAttenuationStyle = useAttenuationStyleStore(selectCurrentAttenuationStyle);
-  const displayAttenuationStyleName = currentAttenuationStyle && currentAttenuationStyle?.name && currentAttenuationStyle.name.length < 15 ? currentAttenuationStyle.name : currentAttenuationStyle?.name ? currentAttenuationStyle.name.slice(0, 12) + '...' : "CORRUPT NAME";
+  const displayAttenuationStyleName = formatAttenuationStyleName(currentAttenuationStyle?.name);
   const currentLocaleId = currentAttenuationStyle?.currentLocaleId;
   const currentLocale = useLocaleStore((s) => (currentLocaleId ? s.locales[currentLocaleId] : undefined));
 
