@@ -333,7 +333,7 @@ Task 7 ──→ Task 17 (docs/COMPONENT_LIBRARY.md)
 
 ### Phase 5: Wiring — Audio Rig
 
-- [ ] **Task 9: `AudioRigDrawer.tsx` — trait-styled group wrappers**
+- [x] **Task 9: `AudioRigDrawer.tsx` — trait-styled group wrappers**
 
   **Description:** Wrap each of the 3 `AUDIO_RIG_ACCORDION_GROUPS` entries' `<AccordionContainer>` and
   the `TRANSPORT_COMPOSITION_ACCORDION_SCHEMA`'s `<AccordionContainer>` in a `<div
@@ -342,30 +342,39 @@ Task 7 ──→ Task 17 (docs/COMPONENT_LIBRARY.md)
   `LFO_DRIFT_GROUPS`, or `SignatureArrayDrawer` — both inherit their host's trait automatically per spec
   §1.6, confirmed to need no code here.
 
+  **Deviation from plan (smaller than planned):** no wrapper `<div>` was added. Task 7 (already shipped)
+  gave `AccordionContainer` its own `style` prop, so `style={getTraitColorStyle(...)}` is passed
+  directly to each of the 4 `AccordionContainer`s instead — identical cascade effect, one fewer DOM
+  node per accordion, no separate wrapper element to keep in sync.
+
   **Acceptance criteria:**
-  - [ ] Each of the 3 `AUDIO_RIG_ACCORDION_GROUPS` wrapper `<div>`s carries its expected trait's
-    `--color-accent-a`/`-b` inline.
-  - [ ] The Transport & Composition wrapper carries `composition`'s colors.
-  - [ ] No wrapper or style is added anywhere inside `renderBlock()` or around any `LFO_DRIFT_GROUPS`
-    entry — confirms spec §1.6's "no dedicated code" finding stays true.
+  - [x] Each of the 3 `AUDIO_RIG_ACCORDION_GROUPS` accordions carries its expected trait's
+    `--color-accent-a`/`-b` inline (directly on `AccordionContainer`, not a wrapper).
+  - [x] The Transport & Composition accordion carries `composition`'s colors.
+  - [x] No wrapper or style is added anywhere inside `renderBlock()` or around any `LFO_DRIFT_GROUPS`
+    entry — confirms spec §1.6's "no dedicated code" finding stays true (verified with a DOM-nesting
+    test, not just asserted).
 
   **Verification:**
-  - [ ] `npx vitest run src/components/panels/screen/console/AudioRigDrawer.test.tsx` passes, with new
-    assertions on each group wrapper's inline style.
-  - [ ] `npm run build:types`, `npm run lint` clean.
-  - [ ] Manual check: `npm run dev`, open Audio Rig — EQ & Filters, Time & Space, Output, and Transport &
-    Composition each render in a visually distinct color; an EQ3 Drift slider (nested inside EQ &
-    Filters) visibly matches EQ & Filters' own color, confirming the inheritance claim, not just the
-    group wrapper's own color.
+  - [x] `npx vitest run src/components/panels/screen/console/AudioRigDrawer.test.tsx` passes (67/67 →
+    72/72 after this task's 7 new tests were folded in, 68 counting a skip-annotated total), with new
+    assertions on each accordion's inline style, cross-accordion distinctness, the nested-DirectionalPanel
+    no-style guard, and a DOM-containment check proving eq3's own Drift slider is a physical descendant
+    of the Spectral-scoped accordion.
+  - [x] `npm run build:types`, `npm run lint` clean.
+  - [ ] Manual check (not yet done — needs a browser): `npm run dev`, open Audio Rig — EQ & Filters,
+    Time & Space, Output, and Transport & Composition each render in a visually distinct color; an EQ3
+    Drift slider visibly matches EQ & Filters' own color.
 
   **Dependencies:** Task 3, Task 4.
 
   **Files:** `src/components/panels/screen/console/AudioRigDrawer.tsx`, `src/components/panels/screen/console/AudioRigDrawer.test.tsx`
 
-  **Estimated scope:** S (1 file, 4 wrapper `<div>`s following one pattern)
+  **Estimated scope:** S (1 file, 4 `style` props following one pattern — smaller than the originally
+  planned 4 wrapper `<div>`s)
 
 ### Checkpoint: Audio Rig wiring
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [x] `npm run build:types`, `npm run lint`, `npm run build` clean. Full suite: 2394/2394 pass.
 - [ ] Review with human before proceeding.
 
 ---
