@@ -17,6 +17,7 @@ import { RobotState, DockingState } from '../types/Robot';
 
 const makeRobot = (id: string): Robot => ({
   id,
+  identityColor: '#428d95',
   state: RobotState.Idle,
   direction: 'right',
   position: { x: 0, y: 0 },

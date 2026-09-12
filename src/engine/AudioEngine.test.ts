@@ -897,6 +897,7 @@ describe('AudioEngine - Motif Group Accent', () => {
   function makeRobot(id: string, rhythmicMotifLength: { active: boolean; value: number }) {
     return {
       id,
+      identityColor: '#428d95',
       rhythmicMotifLength,
       audioAttributes: { adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.2 }, waveform: 'sine' as const, filterFreq: 100 },
       masterVolume: 0.8,
@@ -1036,6 +1037,7 @@ describe('AudioEngine.registerRobotMelody — Click Track override', () => {
   function makeRobot(id: string, overrides: { clickTrackActive?: boolean; octaveRange?: [number, number] } = {}) {
     return {
       id,
+      identityColor: '#428d95',
       clickTrackActive: overrides.clickTrackActive ?? false,
       audioAttributes: { adsr: { attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.2 }, waveform: 'sine' as const, filterFreq: 100 },
       masterVolume: 0.8,

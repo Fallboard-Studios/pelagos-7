@@ -16,6 +16,7 @@ import {
   MAX_ROBOTS, INITIAL_ACTIVE_ROBOTS_MIN, INITIAL_ACTIVE_ROBOTS_MAX,
   INITIAL_COMPANIES_MIN, INITIAL_COMPANIES_MAX, COMPANY_SIZE_MIN, COMPANY_SIZE_MAX,
 } from '../constants';
+import { ACCENT_COLORS, ROBOT_IDENTITY_COLOR_NAMES } from '../constants/accentColors';
 
 /** General-purpose mock: returns a pseudo-random value in [-1, 1]. */
 const mockNoiseMap: NoiseFunction2D = () => Math.random() * 2 - 1;
@@ -618,6 +619,54 @@ describe('spawnSystem', () => {
       const dockingRun2 = (store2.useLocaleStore.getState().getLocaleById(attenuationStyle2.DEFAULT_LOCALE_ID)?.robots ?? []).map((r) => r.docking);
 
       expect(dockingRun2).toEqual(dockingRun1);
+    });
+
+    // Roadmap Phase 14 (docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.4) — each robot's own seeded
+    // UI-chrome identity color, generated the same way generateRobotName already is.
+    it('gives every robot an identityColor from ROBOT_IDENTITY_COLOR_NAMES\' resolved hex set', () => {
+      spawnInitialRoster(DEFAULT_LOCALE_ID);
+      const robots = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.robots ?? [];
+      const validColors = ROBOT_IDENTITY_COLOR_NAMES.map((name) => ACCENT_COLORS[name]);
+      robots.forEach((r) => {
+        expect(validColors).toContain(r.identityColor);
+      });
+    });
+
+    it('never assigns black, white, or darkGray as a robot\'s identityColor', () => {
+      spawnInitialRoster(DEFAULT_LOCALE_ID);
+      const robots = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.robots ?? [];
+      robots.forEach((r) => {
+        expect(r.identityColor).not.toBe(ACCENT_COLORS.black);
+        expect(r.identityColor).not.toBe(ACCENT_COLORS.white);
+        expect(r.identityColor).not.toBe(ACCENT_COLORS.darkGray);
+      });
+    });
+
+    it('does not collapse every robot to the same identityColor', () => {
+      spawnInitialRoster(DEFAULT_LOCALE_ID);
+      const robots = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.robots ?? [];
+      const distinctColors = new Set(robots.map((r) => r.identityColor));
+      expect(distinctColors.size).toBeGreaterThan(1);
+    });
+
+    it('is deterministic — spawning against the same coordinates reproduces the same identityColor per robot', async () => {
+      vi.resetModules();
+      const run1 = await import('./spawnSystem');
+      const store1 = await import('../stores/localeStore');
+      const attenuationStyle1 = await import('../stores/attenuationStyleStore');
+      store1.useLocaleStore.setState({ locales: { [attenuationStyle1.DEFAULT_LOCALE_ID]: store1.DEFAULT_LOCALE } });
+      run1.spawnInitialRoster(attenuationStyle1.DEFAULT_LOCALE_ID);
+      const colorsRun1 = (store1.useLocaleStore.getState().getLocaleById(attenuationStyle1.DEFAULT_LOCALE_ID)?.robots ?? []).map((r) => r.identityColor);
+
+      vi.resetModules();
+      const run2 = await import('./spawnSystem');
+      const store2 = await import('../stores/localeStore');
+      const attenuationStyle2 = await import('../stores/attenuationStyleStore');
+      store2.useLocaleStore.setState({ locales: { [attenuationStyle2.DEFAULT_LOCALE_ID]: store2.DEFAULT_LOCALE } });
+      run2.spawnInitialRoster(attenuationStyle2.DEFAULT_LOCALE_ID);
+      const colorsRun2 = (store2.useLocaleStore.getState().getLocaleById(attenuationStyle2.DEFAULT_LOCALE_ID)?.robots ?? []).map((r) => r.identityColor);
+
+      expect(colorsRun2).toEqual(colorsRun1);
     });
   });
 

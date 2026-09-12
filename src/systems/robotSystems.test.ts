@@ -62,6 +62,7 @@ function makeRobot(overrides: Partial<Robot> = {}): Robot {
   return {
     id: overrides.id ?? 'robot-1',
     name: 'Test Robot',
+    identityColor: '#428d95',
     state: 'idle',
     position: { x: 100, y: 100 },
     destination: null,
