@@ -117,10 +117,10 @@ Requested by Crawford (`docs/todo/temp.md`), 2026-09-11. Medium priority. Today'
 `ATTENUATION_STYLE_PRESETS` (`sectorSettingsConfig.ts`) is what Crawford means by
 "favorites" — same concept, different name; not a new feature so much as a reframing
 plus a data refresh. Crawford has been separately keeping his own list of good
-Attenuation Style + coordinate combinations; once Session Storage's (roadmap Phase 18)
+Attenuation Style + coordinate combinations; once Session Storage's (roadmap Phase 19)
 saving/sharing lands, he wants to update the in-app preset list with current, shareable
 links, alongside reorganizing how AS/coordinates/presets are laid out in the Sector
-Settings panel. Depends on Session Storage (Phase 18) for the "shareable link" half.
+Settings panel. Depends on Session Storage (Phase 19) for the "shareable link" half.
 
 ### 8. Audio: Groove Feature
 

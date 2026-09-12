@@ -829,20 +829,6 @@ layout/WorldView/robot-visual/Sleeve exclusions as every prior item.
   once this item ships, describing the static per-instance facade (no pop-trigger rule to document, since
   there isn't one) and explicitly noting `CoordsInput` needed no code change of its own.
 
-## 11.2 Cabinetry Verification: Accessibility & Performance
-
-Follow-up to the 11.1.1–11.1.9 series, inserted the same way (out of sequence, not renumbering later phases), same as 10.1–10.4. Not a new feature — a dedicated verification pass once every Cabinetry item has actually shipped, before treating it as launch-ready.
-
-### About
-
-Cabinetry's design (each 11.1.x item's own Restructure section) keeps each primitive's real Radix element in charge of all interaction and hands accessibility semantics off to Radix "for free," rather than rebuilding hit-testing/focus/ARIA from scratch — but that's an architectural intent, not a verified outcome, and this is a change touching every interactive primitive in the app at once. This phase is the check: a real keyboard-only walkthrough of every drawer (Robot Options, Audio Rig, Sector Settings, Company Manager), confirming the focus ring stays visible against a fully popped-out cabinet box (not obscured by the front face's z-index), confirming tab order wasn't disturbed by the SVG overlay's own DOM position, confirming `prefers-reduced-motion` actually cancels every cabinet timeline (pop, wall-polygon morph, and the voxel dual-fill transition alike) rather than just the ones the primitive spec called out first-hand, and a screen-reader pass over the slider voxel tracks specifically (the visual dual-fill/extrusion state carries real information — current value, how close to min/max — that must still be available to `aria-valuenow`/`aria-valuetext` via the underlying Radix `Slider`, not just implied visually). Extended by 11.1.6–11.1.9's own additions to the same check: `RadioButton`'s multi-box row (focus/selection state legible across every segment, not just the first), `AccordionContainer`'s trigger-only box (confirming the trigger's own focus ring and the coexisting content-height timeline both still behave correctly alongside the new pop timeline) — `Select`'s own equivalent check no longer applies, since 11.1.8 was cut (10.5) before it was ever built — and whatever pop-trigger `TextInput`/`CoordsInput` lands on (confirming it doesn't fight native text selection or caret visibility, the same class of bug already found once for `Toggle`, `docs/specs/OBLIQUE_CABINETRY_TOGGLE.md`).
-
-Bundled with the same pass rather than split into a separate item: a performance check across the primitive-heaviest screens (Audio Rig's seven effect blocks plus the Drift accordion, Robot Options' Signature Array with its per-layer LFO groups) now that every rendered slider/button/toggle carries its own GSAP timeline on top of whatever LFO-target-group/AccordionContainer timelines already existed — confirming that stacking hasn't reintroduced the kind of load 10.2's own spec flagged as a real constraint at "70-100+ primaries in a typical session," now compounded by a visual layer on every one of them.
-
-### Docs
-
-- docs/CONSOLE_THEMING.md gets a short "Verified" appendix once this phase completes, rather than a separate doc — recording what was checked and any fixes made, so the Cabinetry rules and their verification live in one place.
-
 ## 12. Font Sizes: App-Wide Type Scale
 
 Requested by Crawford (`docs/todo/temp.md`), 2026-09-11. High priority. Today's entire type scale is 3 raw tokens — `--font-size-sm: 12px`, `--font-size-md: 16px`, `--font-size-lg: 20px` (`src/index.css:9-11`) — applied ad hoc across components with no documented scale or usage rules. This phase establishes a real type-scale system (more steps, semantic naming/usage guidance, applied consistently app-wide), not just adjusting the existing 3 tokens. Not yet interviewed/specced. Possibly related to 13 below — Crawford suspects label font sizing is the (unconfirmed) root cause of that bug, hence the ordering: land this first and check whether it resolves 13 before scoping a separate fix.
@@ -867,7 +853,23 @@ Requested by Crawford (`docs/todo/temp.md`), 2026-09-11. High priority. `Company
 
 Requested by Crawford (`docs/todo/temp.md`), 2026-09-11. High priority. `RobotDisplaySection.tsx` — the avatar/meta-data card at the top of the Robot Options screen. Same color-scheme dependency as 15/16. Not yet interviewed/specced.
 
-## 18. Session Storage
+## 18. Cabinetry Verification: Accessibility & Performance
+
+Originally inserted as `11.2` immediately after the Oblique Cabinetry series (11.1.1–11.1.9) — the same "insert out of sequence, don't renumber later phases" pattern as 10.1–10.4. Moved here and renumbered (2026-09-11, Crawford's call): 12 (Font Sizes), 14 (Color Scheme), and 15–17 (the three screen redesigns) above all touch fonts, colors, and layout in ways this verification pass needs to check too, not just the original 11.1.x Cabinetry series — running it before those land would mean redoing it once they ship anyway. Session Storage (19) comes after this instead, so persistence work starts against a UI that's already been through its accessibility/performance pass, not one about to change under it.
+
+### About
+
+Cabinetry's design (each 11.1.x item's own Restructure section) keeps each primitive's real Radix element in charge of all interaction and hands accessibility semantics off to Radix "for free," rather than rebuilding hit-testing/focus/ARIA from scratch — but that's an architectural intent, not a verified outcome, and this is a change touching every interactive primitive in the app at once. This phase is the check: a real keyboard-only walkthrough of every drawer (Robot Options, Audio Rig, Sector Settings, Company Manager), confirming the focus ring stays visible against a fully popped-out cabinet box (not obscured by the front face's z-index), confirming tab order wasn't disturbed by the SVG overlay's own DOM position, confirming `prefers-reduced-motion` actually cancels every cabinet timeline (pop, wall-polygon morph, and the voxel dual-fill transition alike) rather than just the ones the primitive spec called out first-hand, and a screen-reader pass over the slider voxel tracks specifically (the visual dual-fill/extrusion state carries real information — current value, how close to min/max — that must still be available to `aria-valuenow`/`aria-valuetext` via the underlying Radix `Slider`, not just implied visually). Extended by 11.1.6–11.1.9's own additions to the same check: `RadioButton`'s multi-box row (focus/selection state legible across every segment, not just the first), `AccordionContainer`'s trigger-only box (confirming the trigger's own focus ring and the coexisting content-height timeline both still behave correctly alongside the new pop timeline) — `Select`'s own equivalent check no longer applies, since 11.1.8 was cut (10.5) before it was ever built — and whatever pop-trigger `TextInput`/`CoordsInput` lands on (confirming it doesn't fight native text selection or caret visibility, the same class of bug already found once for `Toggle`, `docs/specs/OBLIQUE_CABINETRY_TOGGLE.md`).
+
+Bundled with the same pass rather than split into a separate item: a performance check across the primitive-heaviest screens (Audio Rig's seven effect blocks plus the Drift accordion, Robot Options' Signature Array with its per-layer LFO groups) now that every rendered slider/button/toggle carries its own GSAP timeline on top of whatever LFO-target-group/AccordionContainer timelines already existed — confirming that stacking hasn't reintroduced the kind of load 10.2's own spec flagged as a real constraint at "70-100+ primaries in a typical session," now compounded by a visual layer on every one of them.
+
+Extended scope from the move (2026-09-11): also confirms Phase 12's new type scale didn't reintroduce label/overflow issues anywhere else the way 13 found, and that Phase 14's new color scheme still clears every contrast check this phase establishes — the redesigns in 15–17 reuse Cabinetry primitives, so a real pass here covers their accessibility too rather than needing a fourth verification round.
+
+### Docs
+
+- docs/CONSOLE_THEMING.md gets a short "Verified" appendix once this phase completes, rather than a separate doc — recording what was checked and any fixes made, so the Cabinetry rules and their verification live in one place. By this point it should also reflect Phase 14's color scheme, superseding the static "Ballast" palette section as needed.
+
+## 19. Session Storage
 
 ### Create
 

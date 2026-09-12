@@ -64,7 +64,7 @@ Reference docs
 - `docs/PROCEDURAL_GENERATION.md`: Seeded/deterministic world generation — noise-map registry, `getSeededVal`, and dataId conventions.
 - `docs/ROBOT_LIFECYCLE.md`: Battery/Docking/Job state machines — the fixed 12-robot roster, battery drain/recharge, the Docking transition hold, pitch drift, and job affinity scoring.
 - `docs/COMPANIES.md`: Company grouping — the `Company`/`CompanyOptionsSnapshot` shape, seeded spawn-time generation, and the broadcast-not-link bulk-edit semantics. Roadmap Phase 10.
-- `docs/SESSION_STORAGE.md`: App-wide persistence design — save/load hierarchy, URL state compression, and the robot-override diff model. Design doc for roadmap Phase 18 — not yet implemented.
+- `docs/SESSION_STORAGE.md`: App-wide persistence design — save/load hierarchy, URL state compression, and the robot-override diff model. Design doc for roadmap Phase 19 — not yet implemented.
 - `docs/CONSOLE_THEMING.md`: Seed-driven console chrome theming — built, wired up, evaluated, then cut (roadmap Phase 11 marked cut). Records why (a structural tension between WCAG-safety-for-every-seed and visual variety, not a bug) and what replaced it (a hand-picked static palette in `src/index.css`).
 
 Quick checklist for PRs
