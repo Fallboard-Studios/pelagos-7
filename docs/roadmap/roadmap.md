@@ -867,7 +867,9 @@ This phase replaces the (currently nonexistent) session/storage handling with an
 
 ## 13. Power-On Animation: Fix Dead Selectors, Reuse powerController
 
-Found during `/code-review-and-quality` on the Header & Hub Consolidation work (2026-09-12). Not yet built.
+Found during `/code-review-and-quality` on the Header & Hub Consolidation work (2026-09-12).
+
+**Done** — confirmed shipped on `main` (PR #454, 2026-09-11). `PowerRockerSwitch.tsx`'s `handlePowerOn()` now calls `powerController.powerOnSequence()` directly instead of hand-rolling its own timeline — the `requestAnimationFrame` deferral wasn't load-bearing for anything once the dead animation below is gone, so it was dropped too. `powerAnimations.ts` (`playTabletPowerOn`/`playTabletPowerOff`, targeting the long-deleted `.transport-bar__displays`/`.transport-bar__btn` selectors) was deleted outright rather than retargeted at `Header` — confirmed with Crawford rather than assumed. Added test coverage for `powerController.powerOnSequence()`/`shutdownWithAnimation()`, which had none before.
 
 ### Restructure
 
@@ -877,16 +879,3 @@ Found during `/code-review-and-quality` on the Header & Hub Consolidation work (
 ### About
 
 Two findings from the same review sharing one root cause — an unmaintained inline duplicate of `powerController`'s own sequencing. Fixing the reuse violation (one call site instead of two) makes fixing the dead-selector bug a one-file change instead of two.
-
-## 14. Header Nav: Single-Instance Responsive RadioButton
-
-Found during `/code-review-and-quality` on the Header & Hub Consolidation work (2026-09-12). Depends on 13 only in numbering, not in implementation — independent. Not yet built.
-
-### Restructure
-
-- `Header.tsx` currently renders the nav `RadioButton` group twice — `.primary` (inside `.header__row--status-nav`, shown ≥430px) and `.secondary` (its own row, shown below that) — both fully mounted at all times, CSS `display: none` hiding whichever doesn't apply for the current breakpoint. This duplication was the root cause of a real bug (fixed via `useId()` in `RadioButton.tsx`, `bug/header-radio-fix`): two simultaneously-mounted instances of the identical `HEADER_NAV_SCHEMA` collided in the shared, module-level `timelineMap`, one instance's GSAP tween killing the other's mid-animation. `useId()` stops the collision but doesn't remove the duplication itself — every render still carries two full `CabinetBox` trees (6 backing/wall/front DOM nodes, 6 `ResizeObserver`s, 6 sets of mouse listeners) for a control only ever visually needed once.
-- Restructure so a single `RadioButton` instance can occupy either visual position depending on breakpoint — e.g. reshape the surrounding layout so both target positions are named areas of one shared CSS Grid the single instance moves between, rather than duplicating the component tree. `.rocker-spacer` (holding `.primary`) and the top-level `.secondary` row sit at different DOM nesting depths today, not siblings in one grid — scope that restructuring before starting.
-
-### About
-
-Not a correctness bug on its own — today's `useId()` fix already makes the duplication safe. A standing architecture/performance cost worth removing rather than living with indefinitely, and a precedent worth not repeating the next time a control needs to reposition responsively.
