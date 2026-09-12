@@ -60,15 +60,27 @@
      at any height) and SleeveContainer.css's own width share one source. */
   --sleeve-bar-width: 110px;
 
-  /* Color tokens (fallbacks; prefer assets/color-theme.json mapping elsewhere).
-     "Ballast" — hand-picked static console palette (cold graphite + depth-gauge
-     cyan), replacing the seed-driven system that was tried and cut (see
-     docs/CONSOLE_THEMING.md). Chosen from a set of candidates, not derived —
-     changing this later is just editing these 4 values, nothing else to migrate. */
+  /* Color tokens. --color-bg/--color-surface/--color-border/text tokens are the
+     hand-picked static "Ballast" base (cold graphite), unchanged since the
+     seed-driven system that was tried and cut (see docs/CONSOLE_THEMING.md).
+     --color-accent-a/-b are the new trait-scoped pair (Roadmap Phase 14, see
+     docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.2) — the values below are the
+     Header trait's own pair, doubling as the app-wide ambient default for any
+     region no trait has scoped. A descendant element overriding just these 2
+     custom properties (src/utils/traitColors.ts's getTraitColorStyle/
+     getRobotColorStyle) re-resolves --color-accent/--color-accent-gradient for
+     that whole subtree via ordinary CSS cascade — no other file needs to
+     change. --color-accent stays a single solid color (a color-mix() midpoint)
+     for the many consumers that require one (color-mix() itself, drop-shadow(),
+     border-color, outline-color); --color-accent-gradient is the literal 2-tone
+     gradient for the few flat-rectangle fills that can use one. */
   --color-bg: #12161a;
   --color-surface: #1a2027;
   --color-border: rgba(140, 190, 210, 0.14);
-  --color-accent: #5fc9dc;
+  --color-accent-a: #fff;
+  --color-accent-b: #211e1b;
+  --color-accent: color-mix(in srgb, var(--color-accent-a) 50%, var(--color-accent-b) 50%);
+  --color-accent-gradient: linear-gradient(135deg, var(--color-accent-a), var(--color-accent-b));
   --color-text-primary: rgba(255, 255, 255, 0.87);
   --color-text-muted: rgba(255, 255, 255, 0.6);
 

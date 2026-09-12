@@ -112,3 +112,45 @@ describe('index.css type-scale tokens', () => {
     expect(cssSource).not.toContain('no real <h1> or bare <button> exists in');
   });
 });
+
+// Roadmap Phase 14 (docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.2) — the trait-theming CSS
+// mechanism. Same text-contract-against-the-real-source approach as the type-scale tests above,
+// for the same reason (no `css: true` in vitest.config.ts, so no computed color-mix()/gradient
+// value is ever actually resolved in jsdom).
+describe(':root color-accent-a/-b mechanism (Task 4)', () => {
+  const rootBody = getCssRuleBody(cssSource, ':root');
+
+  it('defines --color-accent-a/-b with the Header trait pair as the ambient default', () => {
+    expect(rootBody).not.toBeNull();
+    expect(rootBody).toContain('--color-accent-a: #fff;');
+    expect(rootBody).toContain('--color-accent-b: #211e1b;');
+  });
+
+  it('derives --color-accent as a color-mix() of the two, not a literal hex', () => {
+    expect(rootBody).toContain(
+      '--color-accent: color-mix(in srgb, var(--color-accent-a) 50%, var(--color-accent-b) 50%);',
+    );
+  });
+
+  it('derives --color-accent-gradient as a linear-gradient() of the two', () => {
+    expect(rootBody).toContain(
+      '--color-accent-gradient: linear-gradient(135deg, var(--color-accent-a), var(--color-accent-b));',
+    );
+  });
+
+  it('removes the old literal --color-accent hex value entirely', () => {
+    expect(cssSource).not.toContain('--color-accent: #5fc9dc;');
+  });
+
+  it('leaves --color-bg/--color-surface/--color-border/text tokens byte-for-byte unchanged', () => {
+    expect(rootBody).toContain('--color-bg: #12161a;');
+    expect(rootBody).toContain('--color-surface: #1a2027;');
+    expect(rootBody).toContain('--color-border: rgba(140, 190, 210, 0.14);');
+    expect(rootBody).toContain('--color-text-primary: rgba(255, 255, 255, 0.87);');
+    expect(rootBody).toContain('--color-text-muted: rgba(255, 255, 255, 0.6);');
+  });
+
+  it('removes the stale assets/color-theme.json comment reference (predates this phase, unrelated)', () => {
+    expect(cssSource).not.toContain('assets/color-theme.json');
+  });
+});
