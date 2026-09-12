@@ -5,13 +5,26 @@
 }
 
 .sc-dual-label__lore {
-  font-size: 0.7rem;
+  font-size: var(--font-size-label-lore);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--color-text-muted);
 }
 
 .sc-dual-label__human {
-  font-size: 0.85rem;
+  font-size: var(--font-size-label);
   color: var(--color-text-primary);
+}
+
+/* Compact fallback for a cramped container (e.g. a narrow slider's own box
+   row at its overflow floor) — fires when the nearest sc-control container
+   ancestor (set on each of the 11 leaf controls' own root, docs/specs/
+   TYPE_SCALE.md §1.4) is too narrow for the default label sizes above.
+   AccordionContainer/DirectionalPanel never establish an sc-control
+   container, so this never fires for their own DualLabel usage. */
+@container sc-control (max-width: 120px) {
+  .sc-dual-label__lore,
+  .sc-dual-label__human {
+    font-size: var(--font-size-label-compact);
+  }
 }
