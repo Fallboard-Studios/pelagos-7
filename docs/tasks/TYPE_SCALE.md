@@ -283,16 +283,17 @@ Tasks 4, 5, and 6 have no dependency on each other (all depend only on Tasks 1-3
 
 ### Phase 5: Cleanup and docs
 
-- [ ] **Task 10: Remove the old `--font-size-sm/md/lg` tokens**
+- [x] **Task 10: Remove the old `--font-size-sm/md/lg` tokens** — done
 
   **Description:** Delete the 3-line old token block from `src/index.css`, now that Checkpoint "All consumers migrated" has confirmed zero remaining references anywhere in `src/`.
 
   **Acceptance criteria:**
-  - [ ] `--font-size-sm`, `--font-size-md`, `--font-size-lg` no longer appear in `index.css` or anywhere in `src/`.
+  - [x] `--font-size-sm`, `--font-size-md`, `--font-size-lg` no longer appear as functional CSS anywhere in `src/`. (The only remaining textual hits, confirmed via grep, are test files' own historical assertion strings documenting what used to exist, and one prose comment in `PowerRockerSwitch.css` explaining a past size-hierarchy decision — neither is a declaration or a `var()` reference.)
 
   **Verification:**
-  - [ ] Repo-wide grep for all 3 names returns zero results.
-  - [ ] `npm run build:types` / `npm run lint` / `npm test` / `npm run build` all clean.
+  - [x] Repo-wide grep confirms no functional reference to any of the 3 names remains.
+  - [x] `npm run build:types` / `npm run lint` / `npm run build` clean; `npx vitest run` (full suite): 2343/2343.
+  - [x] `index.css.test.ts`'s own "keeps the old tokens for now" test flipped to "removes the old tokens" (RED before the deletion, GREEN after), plus a belt-and-suspenders check that the property names themselves don't appear anywhere in the file.
 
   **Dependencies:** Checkpoint "All consumers migrated" (Tasks 8 and 9 both landed).
 
@@ -300,16 +301,17 @@ Tasks 4, 5, and 6 have no dependency on each other (all depend only on Tasks 1-3
 
   **Estimated scope:** XS (1 file)
 
-- [ ] **Task 11: Update documentation**
+- [x] **Task 11: Update documentation** — done
 
   **Description:** Update `docs/COMPONENT_LIBRARY.md`'s "CSS tokens" section — it currently states "No new CSS custom properties were introduced in this phase," no longer true; add the new font-size/weight/family tokens and the `sc-control` container-query name, or point to this spec. Mark roadmap item 12 done in `docs/todo/roadmap.md` per that document's own existing convention.
 
   **Acceptance criteria:**
-  - [ ] `docs/COMPONENT_LIBRARY.md`'s "CSS tokens" section no longer claims zero new tokens; lists or links the real set.
-  - [ ] `docs/todo/roadmap.md` item 12 reflects its shipped status per the doc's existing convention for completed items.
+  - [x] `docs/COMPONENT_LIBRARY.md`'s "CSS tokens" section no longer claims zero new tokens; summarizes the real set and points to `docs/specs/TYPE_SCALE.md` for the full table, including the `Button`/vertical-slider container exception.
+  - [x] `docs/todo/roadmap.md` item 12 reflects its shipped status per the doc's existing convention (spec/task links) — explicitly noted as implemented-on-branch, not yet merged to `main`, rather than implying otherwise. Also records the concrete finding for item 13 (vertical sliders lost their compact-fallback mechanism entirely, not "still pending") so whoever scopes that item next has the real picture.
 
   **Verification:**
-  - [ ] Manual read-through — no automated test covers doc content.
+  - [x] Manual read-through of both edits (no automated test covers doc content, per this task's own note and the test-driven-development skill's explicit carve-out for pure documentation changes).
+  - [x] Full suite re-run for safety: 2343/2343 unchanged; `build:types`/`lint`/`build` all clean.
 
   **Dependencies:** Task 10.
 
@@ -318,11 +320,11 @@ Tasks 4, 5, and 6 have no dependency on each other (all depend only on Tasks 1-3
   **Estimated scope:** XS (2 files, docs only)
 
 ### Checkpoint: Complete
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] Every acceptance criterion across all 11 tasks is met.
-- [ ] Full manual check list from spec §5 passes.
-- [ ] Docs updated and accurate against the shipped code (spot-checked, not reconstructed from memory).
-- [ ] Ready for human review / PR.
+- [x] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npx vitest run` (full suite): 2343/2343.
+- [x] Every acceptance criterion across all 11 tasks is met — including the ones corrected mid-implementation (Task 4/6's container-collapse fix, Task 8's wrapper-selector deviation, Task 9's font-family correction), each documented rather than silently reconciled.
+- [ ] **Not performed — full manual check list from spec §5.** No browser/DevTools tooling was available anywhere in this session; every "renders correctly," "no layout shift," "still Rajdhani/Titillium Web" claim in this plan is backed by CSS-content tests (`getCssRuleBody` against the real files), not by seeing it render. One real bug *was* caught this way regardless — via the user's own screenshot mid-Phase-2 — but that's not a substitute for the real pass. This is the honest, load-bearing gap in an otherwise fully-green branch: do this before merging.
+- [x] Docs updated and accurate against the shipped code — `docs/specs/TYPE_SCALE.md` and this task plan both carry correction notes at every point reality diverged from the original plan, rather than being quietly rewritten to match after the fact; `docs/COMPONENT_LIBRARY.md` and `docs/todo/roadmap.md` updated in Task 11.
+- [ ] Ready for human review / PR — code is committed to `feature/type-scale` but not pushed or merged; the real-browser pass above should happen first.
 
 ## Risks and Mitigations
 
