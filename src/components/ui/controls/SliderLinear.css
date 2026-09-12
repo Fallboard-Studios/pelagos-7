@@ -4,8 +4,6 @@
   gap: 4px;
   font-family: var(--font-controls);
   font-weight: var(--font-weight-control);
-  container-type: inline-size;
-  container-name: sc-control;
 }
 
 /* Vertical fader: inline so several can sit side by side in a row without a
@@ -23,10 +21,24 @@
    ever engages for the 3-box overflow floor (voxelTrackMath.ts's
    VOXEL_TRACK_MIN_BOX_COUNT). No separate wrapper element — see
    docs/specs/OBLIQUE_CABINETRY_SLIDER_LINEAR.md §1.11 for why one was
-   deliberately avoided. */
+   deliberately avoided.
+   container-type/container-name live here, not on the bare .sc-slider-linear
+   selector above (docs/specs/TYPE_SCALE.md incident, found in a real browser
+   post-Task-6): the [data-orientation='vertical'] override below switches
+   display to inline-flex, a shrink-to-fit box — CSS size containment
+   collapses such a box to zero width when it has no explicit/contextual
+   size (confirmed via MDN's container-type docs). This horizontal variant
+   stays block-level display: flex (from the base rule), which gets a
+   contextual width from its parent regardless of content, so it's the only
+   variant safe to containerize. Vertical sliders lose the compact-fallback
+   mechanism until a real fix (a wrapper-element split, most likely) is
+   designed — flagged, not silently dropped; see the spec's Risks/Open
+   Questions. */
 .sc-slider-linear[data-orientation='horizontal'] {
   overflow-x: auto;
   overflow-y: visible;
+  container-type: inline-size;
+  container-name: sc-control;
 }
 
 .sc-slider-linear[data-orientation='vertical'] {

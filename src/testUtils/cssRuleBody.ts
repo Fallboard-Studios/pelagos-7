@@ -21,6 +21,11 @@
  * braces still returns its full, un-truncated content.
  */
 export function getCssRuleBody(cssSource: string, selector: string): string | null {
+  // Normalize line endings up front — this repo's checked-out CSS files are
+  // CRLF on Windows, and every caller would otherwise need to remember to
+  // strip \r themselves before comparing an extracted body against a plain
+  // \n-based expected string.
+  cssSource = cssSource.replace(/\r\n/g, '\n');
   let searchFrom = 0;
 
   while (searchFrom <= cssSource.length) {
