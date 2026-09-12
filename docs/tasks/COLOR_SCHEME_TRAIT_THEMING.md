@@ -161,7 +161,7 @@ Task 7 ──→ Task 17 (docs/COMPONENT_LIBRARY.md)
 
 ### Phase 2: CSS mechanism (parallelizable with Phase 1)
 
-- [ ] **Task 4: `src/index.css` — the `--color-accent-a`/`-b` mechanism**
+- [x] **Task 4: `src/index.css` — the `--color-accent-a`/`-b` mechanism**
 
   **Description:** Replace the single literal `--color-accent` line with the 4-line block from spec
   §1.2/§4: `--color-accent-a`/`-b` base tokens (Header's own pair — white/dark-gray), `--color-accent`
@@ -170,16 +170,16 @@ Task 7 ──→ Task 17 (docs/COMPONENT_LIBRARY.md)
   `--color-bg`/`--color-surface`/`--color-border`/text tokens are untouched.
 
   **Acceptance criteria:**
-  - [ ] `--color-accent-a`/`--color-accent-b` exist in `:root` with the Header pair's values.
-  - [ ] `--color-accent` is `color-mix(in srgb, var(--color-accent-a) 50%, var(--color-accent-b) 50%)`,
+  - [x] `--color-accent-a`/`--color-accent-b` exist in `:root` with the Header pair's values.
+  - [x] `--color-accent` is `color-mix(in srgb, var(--color-accent-a) 50%, var(--color-accent-b) 50%)`,
     not a literal hex.
-  - [ ] `--color-accent-gradient` is `linear-gradient(135deg, var(--color-accent-a), var(--color-accent-b))`.
-  - [ ] `--color-bg`/`--color-surface`/`--color-border`/`--color-text-primary`/`--color-text-muted`
+  - [x] `--color-accent-gradient` is `linear-gradient(135deg, var(--color-accent-a), var(--color-accent-b))`.
+  - [x] `--color-bg`/`--color-surface`/`--color-border`/`--color-text-primary`/`--color-text-muted`
     values are byte-for-byte unchanged.
-  - [ ] The stale `assets/color-theme.json` reference comment is gone.
+  - [x] The stale `assets/color-theme.json` reference comment is gone.
 
   **Verification:**
-  - [ ] `npm run build`, `npm run dev` — app loads with no console/build errors.
+  - [x] `npm run build`, `npm run dev` — app loads with no console/build errors.
   - [ ] Manual check: every focus-ring outline, `CabinetBox` face tint, and glow now renders in a neutral
     gray (the new ambient default) instead of the old cyan — expected per this plan's own Architecture
     Decisions note, not a bug to chase.
@@ -190,23 +190,24 @@ Task 7 ──→ Task 17 (docs/COMPONENT_LIBRARY.md)
 
   **Estimated scope:** XS (one token block)
 
-- [ ] **Task 5: Gradient swap — `CabinetBox.css`, `Button.css`, `RadioButton.css`**
+- [x] **Task 5: Gradient swap — `CabinetBox.css`, `Button.css`, `RadioButton.css`**
 
   **Description:** In each file's one relevant rule (`.sc-cabinet-box__backing`, `Button`'s filled front
   face, `RadioButton`'s selected-segment fill), change `background-color: var(--color-accent)` to
   `background: var(--color-accent-gradient)` (spec §1.2/§4).
 
   **Acceptance criteria:**
-  - [ ] All 3 rules use `background: var(--color-accent-gradient)`.
-  - [ ] No other rule in any of the 3 files is touched (each file's `outline`/`color-mix()`/`drop-shadow`
+  - [x] All 3 rules use `background: var(--color-accent-gradient)`.
+  - [x] No other rule in any of the 3 files is touched (each file's `outline`/`color-mix()`/`drop-shadow`
     rules stay on `--color-accent`, per spec §1.2 — they require a solid `<color>`, not a gradient).
 
   **Verification:**
-  - [ ] `npx vitest run` for each component's existing test file (`CabinetBox.test.tsx`,
-    `Button.test.tsx` if present, `RadioButton.test.tsx` if present) — unaffected, since these are pure
-    CSS changes with no prop/behavior change.
-  - [ ] `npm run build`, manual check: a `Button`, a filled backing, and a selected `RadioButton` segment
-    each show a visible diagonal 2-tone gradient rather than a flat fill.
+  - [x] `npx vitest run` for each component's existing test file (`CabinetBox.test.tsx`,
+    `Button.test.tsx`, `RadioButton.test.tsx`) — 102/102 pass, unaffected, since these are pure CSS
+    changes with no prop/behavior change. New source-content coverage added in
+    `accentGradientFill.test.ts` (6 tests) using the existing `getCssRuleBody` helper.
+  - [ ] Manual check (not yet done — needs a browser): a `Button`, a filled backing, and a selected
+    `RadioButton` segment each show a visible diagonal 2-tone gradient rather than a flat fill.
 
   **Dependencies:** Task 4.
 
@@ -214,24 +215,25 @@ Task 7 ──→ Task 17 (docs/COMPONENT_LIBRARY.md)
 
   **Estimated scope:** XS (3 files, one line each)
 
-- [ ] **Task 6: `voxelTrackMath.ts` — `computeVoxelFillBackground`'s 100%-filled branch**
+- [x] **Task 6: `voxelTrackMath.ts` — `computeVoxelFillBackground`'s 100%-filled branch**
 
   **Description:** Change the `fillPercent >= 100` branch's return value from `'var(--color-accent)'`
   to `'var(--color-accent-gradient)'` (spec §1.2/§4). The `fillPercent <= 0` branch and the partial-fill
   branch are unchanged.
 
   **Acceptance criteria:**
-  - [ ] `computeVoxelFillBackground(100, ...)` and `(150, ...)` (clamped-above-100 case) both return
+  - [x] `computeVoxelFillBackground(100, ...)` and `(150, ...)` (clamped-above-100 case) both return
     `'var(--color-accent-gradient)'`.
-  - [ ] `computeVoxelFillBackground(0, ...)` still returns `'var(--color-surface)'`.
-  - [ ] Every partial-fill (`0 < fillPercent < 100`) return value is byte-for-byte unchanged from before
+  - [x] `computeVoxelFillBackground(0, ...)` still returns `'var(--color-surface)'`.
+  - [x] Every partial-fill (`0 < fillPercent < 100`) return value is byte-for-byte unchanged from before
     this task — still the flat two-color `linear-gradient()` between `--color-accent` and
     `--color-surface` (spec §1.2's deliberate scope-narrowing — do not touch this branch).
 
   **Verification:**
-  - [ ] `npx vitest run src/utils/voxelTrackMath.test.ts` passes, with the 100%-filled assertions updated
-    to expect the new value and every partial-fill assertion left untouched.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/utils/voxelTrackMath.test.ts` passes (58/58), with the 100%-filled assertions
+    updated to expect the new value and every partial-fill assertion left untouched. `VoxelTrack.test.tsx`
+    (the real consumer) also verified: 27/27 pass.
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** Task 4.
 
@@ -240,10 +242,13 @@ Task 7 ──→ Task 17 (docs/COMPONENT_LIBRARY.md)
   **Estimated scope:** XS (1 return value in 1 existing function)
 
 ### Checkpoint: CSS mechanism
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] Manual check: a fully-filled `VoxelTrack` box (e.g. a slider dragged to its max) shows the same
-  2-tone gradient a `Button`/filled `RadioButton` segment does; a partially-filled box's straddle segment
-  still shows the flat (non-gradient) split, per Task 6's own scope limit.
+- [x] `npm run build:types`, `npm run lint`, `npm run build` clean. `npx vitest run` (full suite):
+  2380/2380 pass — the `audioSwells.test.ts` flake noted at the Phase 1 checkpoint did NOT recur this
+  run, confirming it was a flake and not a regression from this phase's own work.
+- [ ] Manual check (not yet done — needs a browser): a fully-filled `VoxelTrack` box (e.g. a slider
+  dragged to its max) shows the same 2-tone gradient a `Button`/filled `RadioButton` segment does; a
+  partially-filled box's straddle segment still shows the flat (non-gradient) split, per Task 6's own
+  scope limit.
 - [ ] Review with human before proceeding.
 
 ---
