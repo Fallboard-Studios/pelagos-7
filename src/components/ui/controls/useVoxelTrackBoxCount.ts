@@ -22,21 +22,34 @@ import { computeFittedBoxCount } from '@/utils/voxelTrackMath';
  *   result of the very decision being measured) — it just reads whatever
  *   width the browser already, correctly, externally decided, however deep
  *   or complex the ancestor layout chain is.
- * - **Vertical** still observes `ref`'s *parent*. `.sc-slider-linear` is
- *   `display: inline-flex` there, which DOES shrink-wrap its height to
- *   content by default — self-observing height would be genuinely
- *   circular. Real vertical consumers now exist (`robotOptionsConfig.ts`'s
- *   per-layer Gain/Phase/Interval/Detune, `audioRigConfig.ts`'s EQ3 and
- *   Filter Frequency/Resonance) and were checked against this parent-
- *   observation approach live in the running app (roadmap 11.1.5.1-.3) —
- *   confirmed to already read correctly as shipped, so this conservative
- *   choice stands as the deliberate design, not a placeholder pending a
- *   real consumer to test against.
+ * - **Vertical** would observe `ref`'s *parent* if it ever reached live
+ *   measurement at all — `.sc-slider-linear` is `display: inline-flex`
+ *   there, which DOES shrink-wrap its height to content by default, so
+ *   self-observing height would be genuinely circular. In practice this
+ *   branch is unreachable for every real vertical consumer today
+ *   (`robotOptionsConfig.ts`'s per-layer Gain/Phase/Interval/Detune,
+ *   `audioRigConfig.ts`'s EQ3 and Filter Frequency/Resonance): each one now
+ *   declares its own schema-level `verticalHeight` (roadmap 13's fix,
+ *   forwarded by `AudioRigDrawer.tsx`'s `renderParamControl` and
+ *   `SignatureArrayDrawer.tsx`'s `renderField`), so `explicitAvailableLength`
+ *   is always defined for the vertical axis in production and the
+ *   `ResizeObserver` below never runs for it. An earlier version of this
+ *   comment claimed the opposite — that live parent-measurement was shipped
+ *   and confirmed correct against these same consumers — which was wrong:
+ *   the actual shipped behavior was a *fixed* budget
+ *   (`VOXEL_TRACK_DEFAULT_VERTICAL_HEIGHT`) applied uniformly regardless of
+ *   how much real room a given panel had, which is what roadmap 13's bug
+ *   report ("some, not all, vertical sliders overflow their bounds") turned
+ *   out to be. This branch is kept only as a fallback for a hypothetical
+ *   future caller that both omits `verticalHeight` and sits in a genuinely
+ *   non-auto-height parent — exercised today only by this hook's own unit
+ *   tests, not by the running app.
  *
  * `explicitAvailableLength`, when provided, skips live measurement entirely
  * and fits against that fixed number instead — SliderLinear's own
- * verticalHeight prop, on a vertical slider, becomes a fitting BUDGET rather
- * than a literal applied length this way (§1.7).
+ * verticalHeight prop (in turn sourced from the schema field of the same
+ * name, for every real vertical consumer), on a vertical slider, becomes a
+ * fitting BUDGET rather than a literal applied length this way (§1.7).
  *
  * `reserve`, when provided, is subtracted from the available length (live-
  * measured or explicit) before fitting — real trailing slack for the last

@@ -35,8 +35,15 @@
   container-name: sc-control;
 }
 
+/* overflow-y: hidden, not auto — roadmap 13 ("Vertical Slider Label
+   Overflow"), found live specifically on this component's own Filter
+   Frequency/Resonance sliders (a 1px scrollHeight/clientHeight sub-pixel
+   rounding artifact, not a real too-tall-for-its-container problem — every
+   ancestor above measured identical to a non-overflowing EQ3 slider). See
+   SliderLinear.css's own copy of this rule for the full explanation; applies
+   here unchanged. */
 .sc-slider-log[data-orientation='vertical'] {
-  overflow-y: auto;
+  overflow-y: hidden;
   overflow-x: visible;
 }
 

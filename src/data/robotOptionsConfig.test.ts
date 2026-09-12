@@ -263,6 +263,23 @@ describe('slider orientation classification (docs/specs/VERTICAL_SLIDERS.md §1.
   });
 });
 
+describe('vertical slider verticalHeight budget (roadmap 13 — "Vertical Slider Label Overflow")', () => {
+  // Regression guard: every real vertical slider used to fall through to the same *implicit*
+  // VOXEL_TRACK_DEFAULT_VERTICAL_HEIGHT default regardless of how much room its own panel
+  // actually had, which is what let some (not all) vertical sliders overflow their panel and
+  // show a native scrollbar (found live, roadmap 13) while others happened to fit by luck. Every
+  // vertical schema below must now declare its own explicit verticalHeight, so the budget is
+  // visibly tunable per-panel instead of a silent, one-size-fits-all fallback.
+  it('Signature Array (Gain/Detune/Phase/Interval) declares an explicit verticalHeight on every layer', () => {
+    SIGNATURE_ARRAY_CONFIG.forEach((block) => {
+      for (const field of ['gain', 'detune', 'phase', 'pulseWidth']) {
+        const param = block.params.find((p) => p.field === field)!;
+        expect((param.schema as { verticalHeight?: number }).verticalHeight, `${block.key}.${field}`).toBe(256);
+      }
+    });
+  });
+});
+
 // ========================================
 // DirectionalPanel wiring — additive schema work
 // (docs/tasks/DIRECTIONAL_PANEL_WIRING.md Task 3)

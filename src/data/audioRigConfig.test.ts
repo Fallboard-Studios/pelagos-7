@@ -434,6 +434,34 @@ describe('slider orientation classification (docs/specs/VERTICAL_SLIDERS.md §1.
   });
 });
 
+// param.schema is typed as ControlSchema — verticalHeight only exists on the 3 slider variants,
+// same narrowing reasoning orientationOf() above already uses.
+function verticalHeightOf(schema: ControlSchema): number | undefined {
+  return (schema as { verticalHeight?: number }).verticalHeight;
+}
+
+describe('vertical slider verticalHeight budget (roadmap 13 — "Vertical Slider Label Overflow")', () => {
+  // Regression guard: every real vertical slider used to fall through to the same *implicit*
+  // VOXEL_TRACK_DEFAULT_VERTICAL_HEIGHT default regardless of how much room its own panel
+  // actually had, which is what let some (not all) vertical sliders overflow their panel and
+  // show a native scrollbar (found live, roadmap 13) while others happened to fit by luck.
+  // Every vertical schema below must now declare its own explicit verticalHeight, so the budget
+  // is visibly tunable per-panel instead of a silent, one-size-fits-all fallback.
+  it('3-Band EQ (Low/Mid/High) declares an explicit verticalHeight', () => {
+    for (const field of ['low', 'mid', 'high']) {
+      expect(verticalHeightOf(findParam('eq3', field).schema), field).toBe(256);
+    }
+  });
+
+  it('Low-Pass/High-Pass Filter (Frequency/Resonance) declares an explicit verticalHeight', () => {
+    for (const key of ['filterLPF', 'filterHPF'] as const) {
+      for (const field of ['frequency', 'Q']) {
+        expect(verticalHeightOf(findParam(key, field).schema), `${key}.${field}`).toBe(256);
+      }
+    }
+  });
+});
+
 // ========================================
 // DirectionalPanel wiring — additive schema work
 // (docs/tasks/DIRECTIONAL_PANEL_WIRING.md Task 1)

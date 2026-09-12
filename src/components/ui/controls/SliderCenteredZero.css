@@ -36,8 +36,14 @@
   container-name: sc-control;
 }
 
+/* overflow-y: hidden, not auto — roadmap 13 ("Vertical Slider Label
+   Overflow"), found live on this family's sibling components (SliderLog's
+   Filter Frequency/Resonance): a 1px scrollHeight/clientHeight sub-pixel
+   rounding artifact, not a real too-tall-for-its-container problem. See
+   SliderLinear.css's own copy of this rule for the full explanation; applies
+   here unchanged. */
 .sc-slider-centered-zero[data-orientation='vertical'] {
-  overflow-y: auto;
+  overflow-y: hidden;
   overflow-x: visible;
 }
 

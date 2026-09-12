@@ -432,7 +432,7 @@ function makeLayerBlock(
         schema: {
           id: `robotOptions.${key}.gain`, type: 'sliderLinear',
           loreLabel: `${loreLabel} SATURATION`, humanLabel: `${humanLabel} Gain`,
-          min: 0, max: 2, step: 0.01, orientation: 'vertical',
+          min: 0, max: 2, step: 0.01, orientation: 'vertical', verticalHeight: 256,
         } satisfies SliderLinearSchema,
         lfoTarget: gainTarget,
       },
@@ -441,7 +441,7 @@ function makeLayerBlock(
         schema: {
           id: `robotOptions.${key}.detune`, type: 'sliderCenteredZero',
           loreLabel: `${loreLabel} DRIFT`, humanLabel: `${humanLabel} Detune`,
-          min: -50, max: 50, unit: 'cents', orientation: 'vertical',
+          min: -50, max: 50, unit: 'cents', orientation: 'vertical', verticalHeight: 256,
         } satisfies SliderCenteredZeroSchema,
         lfoTarget: detuneTarget,
       },
@@ -450,7 +450,7 @@ function makeLayerBlock(
         schema: {
           id: `robotOptions.${key}.phase`, type: 'sliderLinear',
           loreLabel: `${loreLabel} ALIGNMENT`, humanLabel: `${humanLabel} Phase`,
-          min: 0, max: 360, orientation: 'vertical',
+          min: 0, max: 360, orientation: 'vertical', verticalHeight: 256,
         } satisfies SliderLinearSchema,
         lfoTarget: phaseTarget,
       },
@@ -459,7 +459,7 @@ function makeLayerBlock(
         schema: {
           id: `robotOptions.${key}.pulseWidth`, type: 'sliderLinear',
           loreLabel: `${loreLabel} PULSE WIDTH`, humanLabel: `${humanLabel} Interval`,
-          min: 0, max: 1, step: 0.01, orientation: 'vertical',
+          min: 0, max: 1, step: 0.01, orientation: 'vertical', verticalHeight: 256,
         } satisfies SliderLinearSchema,
         lfoTarget: pulseWidthTarget,
       },

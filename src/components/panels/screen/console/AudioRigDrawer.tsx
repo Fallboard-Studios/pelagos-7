@@ -39,11 +39,11 @@ import '@/components/ui/controls/LfoTargetGroup.css';
 function renderParamControl(param: AudioRigParamSchema, value: number, onChange: (v: number) => void) {
   switch (param.schema.type) {
     case 'sliderLinear':
-      return <SliderLinear schema={param.schema} value={value} onChange={onChange} />;
+      return <SliderLinear schema={param.schema} value={value} onChange={onChange} verticalHeight={param.schema.verticalHeight} />;
     case 'sliderLog':
-      return <SliderLog schema={param.schema} value={value} onChange={onChange} />;
+      return <SliderLog schema={param.schema} value={value} onChange={onChange} verticalHeight={param.schema.verticalHeight} />;
     case 'sliderCenteredZero':
-      return <SliderCenteredZero schema={param.schema} value={value} onChange={onChange} />;
+      return <SliderCenteredZero schema={param.schema} value={value} onChange={onChange} verticalHeight={param.schema.verticalHeight} />;
     case 'stepper':
       return <Stepper schema={param.schema} value={value} onChange={onChange} />;
     default:

@@ -45,7 +45,22 @@ export interface StepperWithToggleSchema extends ControlSchemaBase {
  */
 export type SliderOrientation = 'horizontal' | 'vertical' | 'auto';
 
-export interface SliderLinearSchema extends ControlSchemaBase {
+/**
+ * On a `'vertical'` (or auto-resolved-to-vertical) slider, the box-fitting
+ * BUDGET its component forwards to `useVoxelTrackSlider` — never a live
+ * measurement of the real container (roadmap 13: that was tried and reverted,
+ * see `useVoxelTrackBoxCount.ts`'s own comment). Omitted, it falls back to
+ * `VOXEL_TRACK_DEFAULT_VERTICAL_HEIGHT` (256px) — the same value every real
+ * schema below sets explicitly today, so it's tunable per-schema without
+ * touching the slider components themselves once a given panel's real
+ * available height turns out to need something smaller. Meaningless for a
+ * schema that only ever renders horizontal.
+ */
+export interface SliderVerticalHeightProp {
+  verticalHeight?: number;
+}
+
+export interface SliderLinearSchema extends ControlSchemaBase, SliderVerticalHeightProp {
   type: 'sliderLinear';
   min: number;
   max: number;
@@ -54,7 +69,7 @@ export interface SliderLinearSchema extends ControlSchemaBase {
   orientation: SliderOrientation;
 }
 
-export interface SliderLogSchema extends ControlSchemaBase {
+export interface SliderLogSchema extends ControlSchemaBase, SliderVerticalHeightProp {
   type: 'sliderLog';
   min: number;
   max: number;
@@ -62,7 +77,7 @@ export interface SliderLogSchema extends ControlSchemaBase {
   orientation: SliderOrientation;
 }
 
-export interface SliderCenteredZeroSchema extends ControlSchemaBase {
+export interface SliderCenteredZeroSchema extends ControlSchemaBase, SliderVerticalHeightProp {
   type: 'sliderCenteredZero';
   min: number; // negative bound, e.g. -50
   max: number; // positive bound, e.g. +50
