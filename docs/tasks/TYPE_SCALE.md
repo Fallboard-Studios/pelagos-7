@@ -76,17 +76,19 @@ Tasks 4, 5, and 6 have no dependency on each other (all depend only on Tasks 1-3
 
   **Description:** Add `--font-controls`, the 7 `--font-size-*` tokens, and the 4 `--font-weight-*` tokens (spec §1.2/§4's canonical block) to `:root`. Change `:root`'s existing `font-weight: 400;` line to `font-weight: var(--font-weight-regular);`. Delete the 2 leftover unused Vite-scaffold rules (`h1 { font-size: 3.2em; ... }` and the bare `button { ... }` rule, `index.css:105-119`) — confirmed zero real consumers. **Do not remove `--font-size-sm/md/lg` yet** — 8 files still read them until Phases 2 and 4 land (Task 10 removes them).
 
-  **Acceptance criteria:**
+  **Acceptance criteria (one corrected after the fact — see the bug note below):**
   - [x] `:root` contains all 12 new custom properties from spec §1.2/§4, with the exact values given there.
   - [x] `:root`'s base `font-weight` reads `var(--font-weight-regular)`.
   - [x] The old `--font-size-sm: 12px; --font-size-md: 16px; --font-size-lg: 20px;` block is still present, unchanged.
-  - [x] The old h1 (3.2em) and bare `button { ... }` rules are gone from `index.css`; `button:hover`/`:focus`/the light-scheme media query's own button rule are confirmed still present (out of scope, left untouched).
+  - [x] The old h1 (3.2em) and bare `button { ... }` rules are gone from `index.css`; `button:hover`/`:focus`/the light-scheme media query's own button rule are confirmed still present (out of scope, left untouched). **This acceptance criterion's own "confirmed zero real consumers" premise for the `button {...}` rule was wrong** — see the bug note below.
 
   **Verification:**
   - [x] `npm run build:types` clean.
   - [x] `npm run lint` clean.
   - [x] `npm run build` succeeds — production CSS bundles with no errors.
   - [x] New test `src/index.css.test.ts` (RED before the change, GREEN after — 8 tests) covers every token, the `:root` weight change, the old-tokens-kept guarantee, and the two dead-rule removals directly.
+
+  **Bug found and fixed (unplanned, reported by the user after the whole branch was otherwise complete):** "I see Arial on buttons." The `button {...}` rule this task deleted wasn't fully dead — its `font-family: inherit;` line was the only thing letting real native `<button>` elements throughout the app (`RadioButton`'s option buttons, `AccordionContainer`'s trigger, `Toggle`'s switch, `Stepper`'s +/- buttons, `PowerRockerSwitch`'s confirm dialog) inherit the page's set font at all — browsers' UA stylesheets give form controls their own non-inheriting default otherwise. Fixed via TDD (2 new tests, RED then GREEN) by restoring a generic `button, input, select, textarea { font-family/font-size/font-weight: inherit; }` reset — not the old rule's other, genuinely-dead cosmetic properties. Full suite: 2345/2345; `build:types`/`lint`/`build` all clean. Documented in `docs/specs/TYPE_SCALE.md` §1.2/§7 item 8.
 
   **Dependencies:** None.
 
