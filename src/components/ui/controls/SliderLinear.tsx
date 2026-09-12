@@ -19,7 +19,12 @@ interface SliderLinearProps {
   /** On a vertical slider, the box-count-fitting BUDGET (not a literal
    *  applied length — see docs/specs/OBLIQUE_CABINETRY_SLIDER_LINEAR.md
    *  §1.7) box count fits within, instead of a live ResizeObserver
-   *  measurement of the parent. Omit to fit live against the parent. */
+   *  measurement of the parent. Omit to fit against the fixed
+   *  VOXEL_TRACK_DEFAULT_VERTICAL_HEIGHT budget instead — never a live
+   *  parent measurement (roadmap 13: that path is circular for this
+   *  element's own shrink-wrapped parent and is no longer reachable in
+   *  production). Every real vertical consumer now passes this explicitly,
+   *  sourced from its own schema's `verticalHeight` field. */
   verticalHeight?: number;
 }
 

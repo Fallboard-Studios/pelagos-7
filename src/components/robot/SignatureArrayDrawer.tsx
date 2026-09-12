@@ -165,9 +165,21 @@ export function SignatureArrayDrawer({ value, onContinuousChange, onStructuralCh
                     return (
                       <div className="signature-array-drawer__param">
                         {field === 'detune' ? (
-                          <SliderCenteredZero schema={param.schema as SliderCenteredZeroSchema} value={paramVal} onChange={onChange} disabled={disabled} />
+                          <SliderCenteredZero
+                            schema={param.schema as SliderCenteredZeroSchema}
+                            value={paramVal}
+                            onChange={onChange}
+                            disabled={disabled}
+                            verticalHeight={(param.schema as SliderCenteredZeroSchema).verticalHeight}
+                          />
                         ) : (
-                          <SliderLinear schema={param.schema as SliderLinearSchema} value={paramVal} onChange={onChange} disabled={disabled} />
+                          <SliderLinear
+                            schema={param.schema as SliderLinearSchema}
+                            value={paramVal}
+                            onChange={onChange}
+                            disabled={disabled}
+                            verticalHeight={(param.schema as SliderLinearSchema).verticalHeight}
+                          />
                         )}
                       </div>
                     );

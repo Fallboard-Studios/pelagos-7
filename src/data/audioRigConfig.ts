@@ -73,17 +73,17 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
     params: [
       {
         field: 'low',
-        schema: { id: 'eq3.low', type: 'sliderCenteredZero', loreLabel: 'SUB-BAND', humanLabel: 'Low', min: -12, max: 12, unit: 'dB', orientation: 'vertical' },
+        schema: { id: 'eq3.low', type: 'sliderCenteredZero', loreLabel: 'SUB-BAND', humanLabel: 'Low', min: -12, max: 12, unit: 'dB', orientation: 'vertical', verticalHeight: 256 },
         lfoTarget: 'eq3.low',
       },
       {
         field: 'mid',
-        schema: { id: 'eq3.mid', type: 'sliderCenteredZero', loreLabel: 'MEDIAL-BAND', humanLabel: 'Mid', min: -12, max: 12, unit: 'dB', orientation: 'vertical' },
+        schema: { id: 'eq3.mid', type: 'sliderCenteredZero', loreLabel: 'MEDIAL-BAND', humanLabel: 'Mid', min: -12, max: 12, unit: 'dB', orientation: 'vertical', verticalHeight: 256 },
         lfoTarget: 'eq3.mid',
       },
       {
         field: 'high',
-        schema: { id: 'eq3.high', type: 'sliderCenteredZero', loreLabel: 'APICAL-BAND', humanLabel: 'High', min: -12, max: 12, unit: 'dB', orientation: 'vertical' },
+        schema: { id: 'eq3.high', type: 'sliderCenteredZero', loreLabel: 'APICAL-BAND', humanLabel: 'High', min: -12, max: 12, unit: 'dB', orientation: 'vertical', verticalHeight: 256 },
         lfoTarget: 'eq3.high',
       },
     ],
@@ -94,12 +94,12 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
     params: [
       {
         field: 'frequency',
-        schema: { id: 'filterLPF.frequency', type: 'sliderLog', loreLabel: 'CUTOFF FREQUENCY', humanLabel: 'Frequency', min: 20, max: 20000, unit: 'Hz', orientation: 'vertical' },
+        schema: { id: 'filterLPF.frequency', type: 'sliderLog', loreLabel: 'CUTOFF FREQUENCY', humanLabel: 'Frequency', min: 20, max: 20000, unit: 'Hz', orientation: 'vertical', verticalHeight: 256 },
         lfoTarget: 'lpf.frequency',
       },
       {
         field: 'Q',
-        schema: { id: 'filterLPF.Q', type: 'sliderLog', loreLabel: 'BOUNDARY RESONANCE', humanLabel: 'Resonance', min: 0.1, max: 20, orientation: 'vertical' },
+        schema: { id: 'filterLPF.Q', type: 'sliderLog', loreLabel: 'BOUNDARY RESONANCE', humanLabel: 'Resonance', min: 0.1, max: 20, orientation: 'vertical', verticalHeight: 256 },
         lfoTarget: 'lpf.Q',
       },
     ],
@@ -110,12 +110,12 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
     params: [
       {
         field: 'frequency',
-        schema: { id: 'filterHPF.frequency', type: 'sliderLog', loreLabel: 'CUTOFF FREQUENCY', humanLabel: 'Frequency', min: 20, max: 20000, unit: 'Hz', orientation: 'vertical' },
+        schema: { id: 'filterHPF.frequency', type: 'sliderLog', loreLabel: 'CUTOFF FREQUENCY', humanLabel: 'Frequency', min: 20, max: 20000, unit: 'Hz', orientation: 'vertical', verticalHeight: 256 },
         lfoTarget: 'hpf.frequency',
       },
       {
         field: 'Q',
-        schema: { id: 'filterHPF.Q', type: 'sliderLog', loreLabel: 'BOUNDARY RESONANCE', humanLabel: 'Resonance', min: 0.1, max: 20, orientation: 'vertical' },
+        schema: { id: 'filterHPF.Q', type: 'sliderLog', loreLabel: 'BOUNDARY RESONANCE', humanLabel: 'Resonance', min: 0.1, max: 20, orientation: 'vertical', verticalHeight: 256 },
         lfoTarget: 'hpf.Q',
       },
     ],

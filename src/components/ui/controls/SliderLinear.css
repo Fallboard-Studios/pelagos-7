@@ -17,8 +17,8 @@
 }
 
 /* Only the box row (Slider.Root) is ever wider/taller than its container —
-   the label/value are always narrower in practice, so this scrollbar only
-   ever engages for the 3-box overflow floor (voxelTrackMath.ts's
+   the label/value are always narrower in practice, so overflow here was only
+   ever meant to engage for the 3-box overflow floor (voxelTrackMath.ts's
    VOXEL_TRACK_MIN_BOX_COUNT). No separate wrapper element — see
    docs/specs/OBLIQUE_CABINETRY_SLIDER_LINEAR.md §1.11 for why one was
    deliberately avoided.
@@ -41,8 +41,24 @@
   container-name: sc-control;
 }
 
+/* overflow-y: hidden, not auto (roadmap 13 — "Vertical Slider Label
+   Overflow", found live). auto's own scrollbar was meant only for the rare
+   3-box overflow floor above, but a native scrollbar renders its full arrow-
+   button-and-track chrome the instant scrollHeight exceeds clientHeight by
+   even 1px — and it turns out ordinary sub-pixel layout rounding (verified
+   live: SliderLog's Filter Frequency/Resonance sliders measured
+   scrollHeight 1px taller than clientHeight at their own wrapper, purely
+   from summed fractional child heights, with EVERY ancestor above reading
+   identical between an overflowing Filter slider and a non-overflowing EQ3
+   one) trips that same threshold with nothing genuinely too big to show.
+   This element is aria-hidden="true" (VoxelTrack.tsx) — a decorative
+   overlay, never meant to be manually scrolled by a real user regardless of
+   which case triggers it — so hidden is strictly more correct than auto
+   here: it still silently clips the rare genuine 3-box-floor overflow (no
+   visual regression, nothing to scroll to anyway on an aria-hidden element)
+   while never exposing scrollbar chrome for either case. */
 .sc-slider-linear[data-orientation='vertical'] {
-  overflow-y: auto;
+  overflow-y: hidden;
   overflow-x: visible;
 }
 

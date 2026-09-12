@@ -75,12 +75,13 @@
    values/widths in the DOM but zero visible height). Column orientation
    never had the row's own feedback-loop problem in the first place
    (voxel-track sliders needing this fix are horizontal, i.e. row-shaped;
-   a vertical slider's own box-fitting already avoids self-observation by
-   measuring its parent instead, per useVoxelTrackBoxCount's own vertical
-   branch) — so column children simply keep flexbox's own default
-   (flex: 0 1 auto), sizing to their real content height, which is what
-   every column panel actually wants (stack at natural size, don't
-   force-equalize heights). */
+   a vertical slider's own box-fitting avoids self-observation a different
+   way — it fits against a fixed, schema-declared verticalHeight budget
+   rather than measuring anything live, roadmap 13 — so it never depends on
+   this column's own auto height in the first place) — so column children
+   simply keep flexbox's own default (flex: 0 1 auto), sizing to their real
+   content height, which is what every column panel actually wants (stack at
+   natural size, don't force-equalize heights). */
 .sc-directional-panel__content[data-orientation='row']>* {
   flex: 1 1 0;
 }
