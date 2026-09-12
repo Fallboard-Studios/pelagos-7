@@ -157,6 +157,15 @@ Task 7 ──→ Task 17 (docs/COMPONENT_LIBRARY.md)
 - [x] No visible app change yet — these 3 files aren't imported by any rendering code until Phase 2+.
 - [ ] Review with human before proceeding.
 
+**Amendment, post-Phase-6 (Crawford's own request, commit `d076f9a`):** 2 more colors, `emerald`
+(`#4fc27a`) and `indigo` (`#5a5c9e`), were added to `ACCENT_COLORS` to fill the 2 biggest hue-wheel
+gaps in the original 13 — `ACCENT_COLORS` is now 18 keys, `ROBOT_IDENTITY_COLOR_NAMES` is now 15
+(both counts above, from when Tasks 1/4 originally shipped, are stale). The Header trait's pair
+(Task 3/`traitColors.ts`) changed from `white`/`darkGray` to `emerald`/`indigo`; `index.css`'s
+ambient-default values (Task 4) changed to match, since they're Header's own pair per that file's
+own comment. `white`/`darkGray` remain in `ACCENT_COLORS` but are now fully unused, like `black`
+already was. See `docs/specs/COLOR_SCHEME_TRAIT_THEMING.md` §1.3's own amendment note.
+
 ---
 
 ### Phase 2: CSS mechanism (parallelizable with Phase 1)

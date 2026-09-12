@@ -54,10 +54,10 @@ indirection:
 
 ```css
 /* src/index.css — replaces the single literal --color-accent line */
---color-accent-a: #fff;      /* Header trait's own pair, reused as the ambient app-wide default */
---color-accent-b: #211e1b;
---color-accent: color-mix(in srgb, #fff 50%, #211e1b 50%);
---color-accent-gradient: linear-gradient(135deg, #fff, #211e1b);
+--color-accent-a: #4fc27a;   /* Header trait's own pair (emerald/indigo), reused as the ambient
+--color-accent-b: #5a5c9e;      app-wide default — amended post-implementation, see §1.3 */
+--color-accent: color-mix(in srgb, #4fc27a 50%, #5a5c9e 50%);
+--color-accent-gradient: linear-gradient(135deg, #4fc27a, #5a5c9e);
 ```
 
 Overriding a subtree means overriding **all 4** properties together, computed from the same 2 colors
@@ -110,6 +110,15 @@ unchanged — flagged explicitly in §7, not silently decided.
 
 ### 1.3 The 7 traits
 
+**Amended post-implementation (Crawford's own request, 2026-09-12):** 2 more accent colors,
+`emerald` (`#4fc27a`) and `indigo` (`#5a5c9e`), were added to `ACCENT_COLORS` to fill the 2 biggest
+hue-wheel gaps in the original 13 (computed via HSL, not eyeballed: `lime`→`green` is a ~51° gap,
+`blue`→`plum` a ~50° gap, the single largest on the wheel — each new color matches its neighboring
+cluster's saturation/lightness band rather than popping out as more vivid). Both were added to
+`ROBOT_IDENTITY_COLOR_NAMES` (15 entries now), and the Header trait's pair below changed from
+`white`/`darkGray` to `emerald`/`indigo` — `white`/`darkGray` remain in `ACCENT_COLORS` (still part
+of the design reference) but are now fully unused, the same status `black` already had.
+
 ```typescript
 // src/types/traits.ts (new)
 export type Trait = 'spectral' | 'timeSpace' | 'output' | 'composition' | 'company' | 'seed' | 'header';
@@ -134,7 +143,7 @@ export const TRAIT_COLORS: Record<Trait, [string, string]> = {
   composition: [ACCENT_COLORS.green, ACCENT_COLORS.lime],
   company: [ACCENT_COLORS.purple, ACCENT_COLORS.pink],
   seed: [ACCENT_COLORS.tangerine, ACCENT_COLORS.yellow],
-  header: [ACCENT_COLORS.white, ACCENT_COLORS.darkGray],
+  header: [ACCENT_COLORS.emerald, ACCENT_COLORS.indigo],
 };
 
 /** Builds all 4 accent custom properties from 2 literal colors, with color-mix()/linear-gradient()
