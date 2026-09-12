@@ -9,12 +9,17 @@
  * wrong one of two same-file rules — this walks the source looking for a
  * real rule boundary instead: a match is only accepted when the text
  * immediately following `selector` is whitespace, a comma (more selectors in
- * a shared list), or the opening brace itself. A pseudo-class suffix
- * (':focus-visible'), a chained class ('.isActive'), an attribute selector
- * ('[data-x]'), a longer identifier ('-facade'), or a combinator into a
- * descendant/child selector ('.sc-button .sc-cabinet-box__front') are all
- * rejected as "not actually this selector's own rule" and the search moves
- * on to the next occurrence, if any.
+ * a shared list), or the opening brace itself, AND the text immediately
+ * preceding it (skipping whitespace and comment blocks) is either nothing
+ * (start of the source), a previous rule's closing '}', or a comma. A
+ * pseudo-class suffix (':focus-visible'), a chained class ('.isActive'), an
+ * attribute selector ('[data-x]'), a longer identifier ('-facade'), or a
+ * combinator into/from a descendant/child selector in EITHER direction
+ * ('.sc-button .sc-cabinet-box__front' when searching for '.sc-button', or
+ * '.sc-accordion__row .sc-dual-label__human' when searching for
+ * '.sc-dual-label__human' — found via a real bug, TYPE_SCALE.md Task 7) are
+ * all rejected as "not actually this selector's own rule," and the search
+ * moves on to the next occurrence, if any.
  *
  * The body itself is extracted by brace-counting rather than a first-'}'
  * match, so an at-rule (@container) containing its own nested selector's
@@ -38,6 +43,12 @@ export function getCssRuleBody(cssSource: string, selector: string): string | nu
     const nextChar = cssSource[afterSelector];
     if (nextChar !== undefined && !/[\s,{]/.test(nextChar)) {
       continue; // selector is only a substring of a longer token here
+    }
+
+    const beforeIndex = skipWhitespaceAndCommentsBackward(cssSource, matchIndex - 1);
+    const prevChar = beforeIndex >= 0 ? cssSource[beforeIndex] : undefined;
+    if (prevChar !== undefined && prevChar !== '{' && prevChar !== '}' && prevChar !== ',') {
+      continue; // selector is only the later part of a combinator selector here
     }
 
     let i = afterSelector;
@@ -68,4 +79,26 @@ export function getCssRuleBody(cssSource: string, selector: string): string | nu
   }
 
   return null;
+}
+
+/**
+ * Walks backward from `fromIndex`, skipping any run of whitespace and any
+ * `/* ... *\/` comment blocks (this codebase's own leading-comment style
+ * routinely precedes a selector), and returns the index of the nearest real,
+ * non-whitespace, non-comment character — or -1 if none exists before the
+ * start of the source.
+ */
+function skipWhitespaceAndCommentsBackward(cssSource: string, fromIndex: number): number {
+  let i = fromIndex;
+  for (;;) {
+    while (i >= 0 && /\s/.test(cssSource[i])) i--;
+    if (i >= 1 && cssSource[i] === '/' && cssSource[i - 1] === '*') {
+      const commentStart = cssSource.lastIndexOf('/*', i - 2);
+      if (commentStart === -1) break; // malformed comment — stop here defensively
+      i = commentStart - 1;
+      continue;
+    }
+    break;
+  }
+  return i;
 }

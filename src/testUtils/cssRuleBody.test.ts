@@ -67,4 +67,43 @@ describe('getCssRuleBody', () => {
     const css = `.sc-dual-label__lore,\n.sc-dual-label__human {\n  font-size: 1rem;\n}\n`;
     expect(getCssRuleBody(css, '.sc-dual-label__human')).toBe('font-size: 1rem;');
   });
+
+  it('does not match a selector that is only the LATER part of a descendant-combinator selector (found via a real bug, TYPE_SCALE.md Task 7)', () => {
+    // Searching for '.sc-dual-label__human' alone must not match inside
+    // '.sc-accordion__row .sc-dual-label__human' — the forward-boundary
+    // check alone can't catch this, since a space legitimately precedes
+    // both a real standalone selector (comma-list continuation) and a
+    // descendant-combinator target; only checking what precedes the space
+    // (a comma/brace vs. another selector token) can tell them apart.
+    const css = '.sc-accordion__row .sc-dual-label__human {\n  font-size: 1rem;\n}\n';
+    expect(getCssRuleBody(css, '.sc-dual-label__human')).toBeNull();
+  });
+
+  it('does not match a selector that is the LATER part of a child-combinator selector, no-space style', () => {
+    const css = '.sc-directional-panel>.sc-dual-label__human {\n  font-size: 1rem;\n}\n';
+    expect(getCssRuleBody(css, '.sc-dual-label__human')).toBeNull();
+  });
+
+  it('still finds a real standalone rule even when preceded by a comment block (this codebase\'s own leading-comment style)', () => {
+    const css = [
+      '/* Some explanatory comment',
+      '   spanning multiple lines. */',
+      '.sc-button {',
+      '  display: inline-flex;',
+      '}',
+      '',
+    ].join('\n');
+    expect(getCssRuleBody(css, '.sc-button')).toBe('display: inline-flex;');
+  });
+
+  it('still rejects a descendant-combinator target even when the whole rule is preceded by a comment block', () => {
+    const css = [
+      '/* comment */',
+      '.sc-accordion__row .sc-dual-label__human {',
+      '  font-size: 1rem;',
+      '}',
+      '',
+    ].join('\n');
+    expect(getCssRuleBody(css, '.sc-dual-label__human')).toBeNull();
+  });
 });
