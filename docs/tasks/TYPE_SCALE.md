@@ -128,14 +128,15 @@ Tasks 4, 5, and 6 have no dependency on each other (all depend only on Tasks 1-3
 
   **Description:** Add `font-family: var(--font-controls); font-weight: var(--font-weight-control); container-type: inline-size; container-name: sc-control;` to each file's own root selector (`.sc-button`, `.sc-coords-input`, `.sc-text-input`, `.sc-toggle`) — pure additions, no existing font rule to replace in any of the four (spec §2 confirms via grep).
 
-  **Acceptance criteria:**
-  - [x] All 4 root selectors carry all 4 new declarations.
-  - [x] No other rule in any of the 4 files changes.
+  **Acceptance criteria (corrected — see the bug-fix note below):**
+  - [x] All 4 root selectors carry `font-family`/`font-weight`.
+  - [x] ~~All 4 root selectors carry all 4 new declarations~~ — **`Button` does NOT carry `container-type`/`container-name`.** Found in a real browser after this task shipped: `.sc-button` is always `inline-flex; width: fit-content` (shrink-to-fit by design), which CSS size containment collapses to zero width. Fixed in a follow-up commit — see the "Bug found and fixed" note after Task 6 below. `CoordsInput`/`TextInput`/`Toggle` are unaffected (all block-level `display: flex`) and keep all 4 declarations as originally planned.
+  - [x] No other rule in any of the 4 files changes (beyond the follow-up fix's comment additions).
 
   **Verification:**
   - [x] `npx vitest run Button CoordsInput TextInput Toggle` passes unmodified.
   - [x] `npm run build:types` / `npm run lint` clean.
-  - [x] New parameterized `leafControlContainerQuery.test.ts` (RED before the change, GREEN after) covers all 4 root selectors' exact declaration bodies via `getCssRuleBody` — the DevTools computed-style check remains a good real-browser sanity pass when this branch is next opened, but wasn't available in this session.
+  - [x] New parameterized `leafControlContainerQuery.test.ts` (RED before the change, GREEN after) covers all 4 root selectors' exact declaration bodies via `getCssRuleBody` — the DevTools computed-style check remains a good real-browser sanity pass, and this is exactly the check that would have caught the Button regression sooner; it was the user's own screenshot that surfaced it instead.
 
   **Dependencies:** Task 3.
 
@@ -166,16 +167,17 @@ Tasks 4, 5, and 6 have no dependency on each other (all depend only on Tasks 1-3
 
   **Description:** Add the same 4-declaration root addition to `.sc-slider-linear`, `.sc-slider-log`, `.sc-slider-centered-zero`. Additionally, in each file, replace the `__value` selector's literal (`0.75rem` in all 3, confirmed) with `var(--font-size-label)`, and add a `@container sc-control (max-width: 120px)` rule dropping that same `__value` selector to `var(--font-size-label-compact)` (spec §1.4/§4).
 
-  **Acceptance criteria:**
-  - [x] All 3 root selectors carry all 4 new declarations.
+  **Acceptance criteria (corrected — see the bug-fix note below):**
+  - [x] All 3 root selectors carry `font-family`/`font-weight`.
+  - [x] ~~All 3 root selectors carry all 4 new declarations~~ — **`container-type`/`container-name` moved to each file's `[data-orientation='horizontal']` selector, not the bare root.** Found in a real browser after this task shipped.
   - [x] No literal `0.75rem` remains in any of the 3 files.
-  - [x] Each file has its own `@container sc-control` rule targeting its own `__value` class.
+  - [x] Each file has its own `@container sc-control` rule targeting its own `__value` class (unaffected by the fix below — this rule was already correct; it just only ever fires for horizontal orientation now).
 
   **Verification:**
   - [x] `npx vitest run SliderLinear SliderLog SliderCenteredZero` passes unmodified.
   - [x] `npm run build:types` / `npm run lint` / `npm run build` clean.
   - [x] `leafControlContainerQuery.test.ts` extended to all 11 leaf controls; new `SliderValueContainerQuery.test.ts` (RED before the change, GREEN after — 9 tests) covers the `__value`-specific migration and its own compact-fallback rule per slider.
-  - [ ] **Not performed — flagged, not silently skipped:** the real-browser manual checks (narrowing a drawer to observe the compact fallback actually fire at a real 3-box overflow floor; confirming zero pixel-level layout shift from `container-type: inline-size`). No browser/DevTools tooling was available in this session. The CSS itself is verified correct by content (right selector, right token, right breakpoint) via automated tests, but that is not the same guarantee as seeing it render — this is the first thing to check when this branch is next opened in a real browser, and is exactly spec §5.3/§7 item 3's own flagged risk (the `120px` breakpoint is an unconfirmed engineering default).
+  - [x] **Real-browser check performed — by the user, not this session.** The user reported (screenshot): "the vertical sliders are completely missing." This is precisely the gap flagged below as not performed this session — confirms it was a real bug, not a hypothetical risk.
 
   **Dependencies:** Task 3.
 
@@ -183,11 +185,13 @@ Tasks 4, 5, and 6 have no dependency on each other (all depend only on Tasks 1-3
 
   **Estimated scope:** S (3 files, two changes each)
 
+**Bug found and fixed (unplanned, between Task 6 and Phase 3):** `container-type: inline-size` applies CSS size containment, which collapses an element to zero width when its own size normally comes from shrink-to-fit content sizing rather than an explicit/contextual width (confirmed via MDN). Two places hit this: `.sc-button` is *always* `inline-flex; width: fit-content` by design (Task 4) — every Button in the app was invisible; the sliders' `[data-orientation='vertical']` variant deliberately overrides to `inline-flex` (Task 6) — this is what the user's screenshot showed. Fixed via TDD (RED test added to `leafControlContainerQuery.test.ts` first, confirmed failing against the buggy CSS, then fixed): `Button` no longer establishes `sc-control` at all (it always fits its own content, so there's no compact-fallback scenario to solve for it); the 3 sliders establish `sc-control` only on their `[data-orientation='horizontal']` selector (merged into that selector's existing `overflow-x/y` rule). **Vertical sliders now have no compact-fallback mechanism** — a real, open gap, not silently dropped; flagged in `docs/specs/TYPE_SCALE.md` §1.4/§7 as the most likely thing for item 13 (Vertical Slider Label Overflow) to solve properly, since a real fix needs a markup change (a wrapper-element split) this phase's original "no JSX change" scope didn't anticipate. Full suite after the fix: 2314/2314 pass; `build:types`/`lint`/`build` all clean. Commit: "Fix: vertical/always-content-sized controls collapsed to zero width."
+
 ### Checkpoint: Leaf controls migrated
-- [x] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npx vitest run` (full suite): 2304/2304 pass (both previously-observed flaky tests — `factoryPlacementSystem.test.ts`, `worldTransition.test.ts` — passed clean this run).
-- [x] All 11 leaf controls (§1.5's list) carry `font-family: var(--font-controls)` on their own root selector, verified by content (`getCssRuleBody` against the real CSS files) rather than a rendered DevTools computed-style check — no browser tooling available this session.
-- [x] Compact container-query fallback verified by content for `DualLabel` (all 11 controls' shared label rendering) and the 3 sliders' own `__value` readout — the exact `@container sc-control (max-width: 120px)` rule, targeting the exact selector, dropping to the exact compact token.
-- [ ] **Not performed — real-browser confirmation of the above two items, and the "no layout/position shift" check.** This is the honest gap in this checkpoint: automated content tests prove the CSS is textually correct, not that it renders correctly. Flagged, not silently waved through — do this pass before merging.
+- [x] `npm run build:types`, `npm run lint`, `npm run build` all clean; `npx vitest run` (full suite): 2314/2314 pass after the bug fix above (2304/2304 before it, both previously-observed flaky tests passing clean).
+- [x] All 11 leaf controls (§1.5's list) carry `font-family: var(--font-controls)` on their own root selector, verified by content (`getCssRuleBody` against the real CSS files).
+- [x] Compact container-query fallback verified by content for `DualLabel` and the 3 sliders' own `__value` readout — correct as far as content review could tell, but content review is exactly what missed the containment-collapse bug below, so "verified by content" alone should not be read as "verified."
+- [x] **Real-browser confirmation happened — via the user's own screenshot, not this session's tooling** (still none available) — and it found a real bug (`Button` and vertical sliders collapsed to zero width), now fixed and documented above. The "no layout/position shift" check for the *surviving* mechanism (horizontal sliders' compact fallback, the 7 unconditional controls) still has not been performed in a real browser and remains worth doing before merging.
 - [ ] Review with human before proceeding.
 
 ---
