@@ -4,6 +4,10 @@
    remains. */
 .sc-button {
   display: inline-flex;
+  font-family: var(--font-controls);
+  font-weight: var(--font-weight-control);
+  container-type: inline-size;
+  container-name: sc-control;
   /* Never larger than its own content — a flex/grid parent's default
      stretch behavior (e.g. HubNav.css's grid tiles, `justify-items: stretch`
      by default) would otherwise size the actual hit-testable <button> to
