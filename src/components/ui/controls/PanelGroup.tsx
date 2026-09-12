@@ -31,13 +31,17 @@ interface PanelGroupProps {
  * hook DirectionalPanel itself uses for its own 'responsive' schema
  * orientation, so a PanelGroup and its sibling DirectionalPanels stay in
  * lockstep at every breakpoint.
+ *
+ * The actual gap value (0.75rem, bigger than DirectionalPanel's own 4px/8px)
+ * lives in PanelGroup.css's own `.sc-panel-group` rule, not an inline style
+ * here — it's a flat constant, not something this component computes.
  */
 export function PanelGroup({ orientation, children }: PanelGroupProps) {
   const responsiveResolved = useResponsivePanelOrientation();
   const resolved = orientation === 'responsive' ? responsiveResolved : orientation;
 
   return (
-    <div className="sc-panel-group" data-orientation={resolved} style={{ gap: '0.75rem' }}>
+    <div className="sc-panel-group" data-orientation={resolved}>
       {children}
     </div>
   );

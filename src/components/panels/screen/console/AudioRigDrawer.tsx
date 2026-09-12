@@ -69,12 +69,22 @@ function findParam(params: AudioRigParamSchema[], field: string): AudioRigParamS
   return params.find((p) => p.field === field)!;
 }
 
+/** AudioRigParamSchema narrowed to the lfoTarget-bearing case — AudioRigLfoGroupProps.params
+ *  (below) is typed to exactly this, not the general AudioRigParamSchema, since renderBlock's
+ *  own lfoFields filter (below) already guarantees every entry has one. Carrying that guarantee
+ *  in the type itself removes the `.lfoTarget!` non-null assertions AudioRigLfoGroup would
+ *  otherwise need internally — code review, 2026-09-12. */
+interface LfoTargetedParamSchema extends AudioRigParamSchema {
+  lfoTarget: GlobalLfoTargetId;
+}
+
 interface AudioRigLfoGroupProps {
   /** Becomes the timelineMap key (`lfo-target-group-${groupId}`) — 'audioRig.eq3' etc. */
   groupId: string;
-  /** Every entry's own lfoTarget must be set — the caller only ever passes a block's
-   *  lfoTarget-flagged params (eq3/filterLPF/filterHPF today, per audioRigConfig.ts). */
-  params: AudioRigParamSchema[];
+  /** The caller only ever passes a block's lfoTarget-flagged params (eq3/filterLPF/filterHPF
+   *  today, per audioRigConfig.ts) — LfoTargetedParamSchema[] makes that a type guarantee, not
+   *  just a doc comment. */
+  params: LfoTargetedParamSchema[];
   effect: Record<string, number>;
   updateParam: (field: string, value: number) => void;
   globalLfo: Record<GlobalLfoTargetId, LfoValue>;
@@ -105,9 +115,13 @@ interface AudioRigLfoGroupProps {
  * block.panel's own orientation, which is why that orientation no longer needs to change.
  */
 function AudioRigLfoGroup({ groupId, params, effect, updateParam, globalLfo, setGlobalLfo, driftContent }: AudioRigLfoGroupProps) {
-  const fields = params.map((p) => ({ field: p.field, label: p.schema.humanLabel ?? p.field, lfoValue: globalLfo[p.lfoTarget!] }));
+  const fields = params.map((p) => ({ field: p.field, label: p.schema.humanLabel ?? p.field, lfoValue: globalLfo[p.lfoTarget] }));
   const { selected, transitioning, select, isTargeted, displayValue, displayLabel } = useLfoTargetGroup({ groupId, fields });
-  const selectedTarget = params.find((p) => p.field === selected)!.lfoTarget!;
+  // Non-null assertion is safe: `selected` only ever holds one of `fields`' own field names
+  // (useLfoTargetGroup's own contract — it starts at fields[0].field and only ever moves to
+  // another value from that same set), and `fields` is mapped 1:1 from `params` above — same
+  // "guaranteed to be found" reasoning findParam() documents for its own call sites.
+  const selectedTarget = params.find((p) => p.field === selected)!.lfoTarget;
 
   // "Taken from slider children" (docs/tasks/DIRECTIONAL_PANEL_WIRING.md follow-up fix): any
   // vertical-oriented slider in the group renders its own row (eq3's Low/Mid/High today, per
@@ -267,7 +281,9 @@ export function AudioRigDrawer() {
     // audioStore.ts's own GLOBAL_SETTER cast for the same "dynamic key against
     // a closed-but-varying settings shape" situation.
     const effect = globalAudio[block.key] as unknown as Record<string, number>;
-    const lfoFields = block.params.filter((p) => p.lfoTarget);
+    // Type predicate, not a plain truthy filter — proves lfoTarget is present to the type
+    // system itself, so AudioRigLfoGroup's own params: LfoTargetedParamSchema[] needs no cast.
+    const lfoFields = block.params.filter((p): p is LfoTargetedParamSchema => p.lfoTarget !== undefined);
     const driftGroup = LFO_DRIFT_GROUPS.find((g) => g.group === block.key); // undefined for non-LFO blocks
 
     function updateParam(field: string, value: number) {

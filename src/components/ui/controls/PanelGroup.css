@@ -5,6 +5,13 @@
      DirectionalPanel.css) — row children share one line and shrink to fit
      rather than wrapping a solo child onto its own full-width line. */
   flex-wrap: nowrap;
+  /* Bigger than DirectionalPanel.css's own 4px/8px gaps, deliberately —
+     the whole point of PanelGroup is visible breathing room between
+     independently-faceted panels (see PanelGroup.tsx's own doc comment).
+     A plain CSS rule, not an inline style: unlike --cabinet-radio-gap
+     (JS-computed per breakpoint tier), this value never varies, so there's
+     nothing for JS to own here. */
+  gap: 0.75rem;
 }
 
 .sc-panel-group[data-orientation='column'] {
