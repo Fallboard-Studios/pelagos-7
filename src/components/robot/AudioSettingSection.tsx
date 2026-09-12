@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { RadioButton } from '@/components/ui/controls/RadioButton';
 import { SliderLinear } from '@/components/ui/controls/SliderLinear';
 import { Lfo } from '@/components/ui/controls/Lfo';
@@ -32,6 +33,12 @@ interface AudioSettingSectionProps {
   onVolumeChange: (pct: number) => void;
   onVolumeLfoChange: (value: LfoValue) => void;
   disabled?: boolean;
+  /** Optional inline style forwarded to this section's own AccordionContainer — trait-color
+   *  scoping (getTraitColorStyle('output'), Roadmap Phase 14), applied identically at both the
+   *  RobotOptionsTab and CompanyOptionsSection call sites — this section always renders in
+   *  Output, whether it's editing one robot or a company's bulk baseline. See
+   *  docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.5. */
+  style?: CSSProperties;
 }
 
 /**
@@ -51,14 +58,14 @@ interface AudioSettingSectionProps {
  * field to target ('volume'), so `selected`/`isTargeted` are effectively constant, but the same
  * click/focus-to-select wiring is kept for consistency with every other LFO-tied control group.
  */
-export function AudioSettingSection({ value, onAudioModeChange, onVolumeChange, onVolumeLfoChange, disabled }: AudioSettingSectionProps) {
+export function AudioSettingSection({ value, onAudioModeChange, onVolumeChange, onVolumeLfoChange, disabled, style }: AudioSettingSectionProps) {
   const { transitioning, select, isTargeted, displayValue, displayLabel } = useLfoTargetGroup({
     groupId: 'robotOptions.volume',
     fields: [{ field: 'volume', label: VOLUME_SCHEMA.humanLabel!, lfoValue: value.volumeLfo }],
   });
 
   return (
-    <AccordionContainer schema={VOLUME_ACCORDION_SCHEMA}>
+    <AccordionContainer schema={VOLUME_ACCORDION_SCHEMA} style={style}>
       <DirectionalPanel schema={VOLUME_ROW_PANEL_SCHEMA}>
         <DirectionalPanel schema={VOLUME_SETTINGS_COLUMN_PANEL_SCHEMA}>
           <div className="audio-setting-section__row">

@@ -212,7 +212,11 @@ export function computeVoxelTrackTrailingReserve(axis: 'horizontal' | 'vertical'
  * default front face already use — no new CSS custom property. See spec §1.9.
  */
 export function computeVoxelFillBackground(fillPercent: number, axis: 'horizontal' | 'vertical'): string {
-  if (fillPercent >= 100) return 'var(--color-accent)';
+  // A fully-filled box renders the literal 2-tone gradient (Roadmap Phase 14, docs/specs/
+  // COLOR_SCHEME_TRAIT_THEMING.md §1.2) — one of the few flat-rectangle fills that can. The
+  // partial-fill hard-stop split below stays on the flat --color-accent midpoint, deliberately
+  // NOT nesting a gradient inside a gradient (same doc, §1.2's scope-narrowing).
+  if (fillPercent >= 100) return 'var(--color-accent-gradient)';
   if (fillPercent <= 0) return 'var(--color-surface)';
   const direction = axis === 'vertical' ? 'to top' : 'to right'; // box 0 = min = bottom/left = the filled side
   return `linear-gradient(${direction}, var(--color-accent) 0%, var(--color-accent) ${fillPercent}%, var(--color-surface) ${fillPercent}%, var(--color-surface) 100%)`;

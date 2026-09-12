@@ -48,5 +48,5 @@
    color swap this rule replaces. See
    docs/specs/OBLIQUE_CABINETRY_RADIO_BUTTON.md §1.4. */
 .sc-radio-button__item[data-state='on'] .sc-cabinet-box__front {
-  background-color: var(--color-accent);
+  background: var(--color-accent-gradient);
 }

@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
@@ -425,5 +426,39 @@ describe('PingControlsDrawer', () => {
     expect(screen.getByRole('slider', { name: /octave range min/i }).getAttribute('data-disabled')).toBe('');
     expect((screen.getByRole('switch', { name: /Click Track/i }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByRole('slider', { name: /pitch repeat/i }).getAttribute('data-disabled')).toBe('');
+  });
+
+  // Roadmap Phase 14 (docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.5, Task 10) — an optional
+  // `style` prop forwarded to this drawer's own AccordionContainer, for trait-color scoping
+  // (getTraitColorStyle('composition'), applied at the RobotOptionsTab call site in Task 12).
+  describe('style prop', () => {
+    function renderDrawer(style?: CSSProperties) {
+      return render(
+        <PingControlsDrawer
+          value={makeValue()}
+          onDensityChange={() => {}}
+          onMotifLengthChange={() => {}}
+          onOctaveMinChange={() => {}}
+          onOctaveMaxChange={() => {}}
+          onNoteVarianceChange={() => {}}
+          onClickTrackActiveChange={() => {}}
+          onPitchRepeatChange={() => {}}
+          style={style}
+        />,
+      );
+    }
+
+    it('forwards a caller-supplied style to the drawer\'s own AccordionContainer root', () => {
+      const { container } = renderDrawer({ '--color-accent-a': '#68cb97', '--color-accent-b': '#a9e583' } as CSSProperties);
+      const root = container.querySelector('.sc-accordion') as HTMLElement;
+      expect(root.style.getPropertyValue('--color-accent-a')).toBe('#68cb97');
+      expect(root.style.getPropertyValue('--color-accent-b')).toBe('#a9e583');
+    });
+
+    it('renders with no inline style when the prop is omitted — existing consumers unaffected', () => {
+      const { container } = renderDrawer(undefined);
+      const root = container.querySelector('.sc-accordion') as HTMLElement;
+      expect(root.getAttribute('style')).toBeNull();
+    });
   });
 });

@@ -5,6 +5,7 @@ import { dirname, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { getCssRuleBody } from './testUtils/cssRuleBody';
+import { ACCENT_COLORS } from './constants/accentColors';
 
 // TYPE_SCALE.md Task 2 — index.css's new type-scale tokens. Vitest's default
 // config treats CSS imports as a no-op (no `css: true` in vitest.config.ts),
@@ -110,5 +111,61 @@ describe('index.css type-scale tokens', () => {
 
   it('no longer claims "no real bare <button> exists in the app" (Task 2\'s own comment was wrong)', () => {
     expect(cssSource).not.toContain('no real <h1> or bare <button> exists in');
+  });
+});
+
+// Roadmap Phase 14 (docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.2) — the trait-theming CSS
+// mechanism. Same text-contract-against-the-real-source approach as the type-scale tests above,
+// for the same reason (no `css: true` in vitest.config.ts, so no computed color-mix()/gradient
+// value is ever actually resolved in jsdom).
+describe(':root color-accent-a/-b mechanism (Task 4)', () => {
+  const rootBody = getCssRuleBody(cssSource, ':root');
+  // Derived from ACCENT_COLORS (src/constants/accentColors.ts) rather than re-hardcoded here —
+  // index.css's own values are the Header trait's pair (traitColors.ts's single source of truth),
+  // and a CSS file can't itself `import` that constant. Building the expectation from the same
+  // constant these values are supposed to match means a future repaint of ACCENT_COLORS.teal/
+  // .green that forgets to update index.css's literal fallback fails this test, instead of the
+  // test silently keeping its own stale, independently-typed copy of the old value forever (the
+  // "simple swap" success criterion in docs/intent/color-scheme-trait-theming.md is what this
+  // guards — a repaint should be a small, localized edit that visibly breaks if a spot is missed).
+  const { teal, green } = ACCENT_COLORS;
+
+  it('defines --color-accent-a/-b with the Header trait pair (teal/green) as the ambient default', () => {
+    expect(rootBody).not.toBeNull();
+    expect(rootBody).toContain(`--color-accent-a: ${teal};`);
+    expect(rootBody).toContain(`--color-accent-b: ${green};`);
+  });
+
+  it('defines --color-accent as a color-mix() of literal colors, not a literal hex', () => {
+    expect(rootBody).toContain(`--color-accent: color-mix(in srgb, ${teal} 50%, ${green} 50%);`);
+  });
+
+  it('defines --color-accent-gradient as a linear-gradient() of literal colors', () => {
+    expect(rootBody).toContain(`--color-accent-gradient: linear-gradient(135deg, ${teal}, ${green});`);
+  });
+
+  // Bug fix, found live via browser DevTools — jsdom never resolves real CSS cascade, so this was
+  // invisible until checked against a real browser. See traitColors.ts's own comment for the full
+  // explanation: a custom property whose specified value nests var() references to OTHER custom
+  // properties does not correctly re-substitute using a descendant's overridden values.
+  it('never nests var(--color-accent-a)/var(--color-accent-b) inside --color-accent or --color-accent-gradient\'s own value', () => {
+    expect(rootBody).not.toContain('color-mix(in srgb, var(--color-accent-a)');
+    expect(rootBody).not.toContain('linear-gradient(135deg, var(--color-accent-a)');
+  });
+
+  it('removes the old literal --color-accent hex value entirely', () => {
+    expect(cssSource).not.toContain('--color-accent: #5fc9dc;');
+  });
+
+  it('leaves --color-bg/--color-surface/--color-border/text tokens byte-for-byte unchanged', () => {
+    expect(rootBody).toContain('--color-bg: #12161a;');
+    expect(rootBody).toContain('--color-surface: #1a2027;');
+    expect(rootBody).toContain('--color-border: rgba(140, 190, 210, 0.14);');
+    expect(rootBody).toContain('--color-text-primary: rgba(255, 255, 255, 0.87);');
+    expect(rootBody).toContain('--color-text-muted: rgba(255, 255, 255, 0.6);');
+  });
+
+  it('removes the stale assets/color-theme.json comment reference (predates this phase, unrelated)', () => {
+    expect(cssSource).not.toContain('assets/color-theme.json');
   });
 });

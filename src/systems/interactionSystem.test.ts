@@ -71,6 +71,7 @@ vi.mock('./idleSystem', () => ({
 
 const createTestRobot = (id: string, state = RobotState.Idle): Robot => ({
   id,
+  identityColor: '#428d95',
   state,
   position: { x: 0, y: 0 },
   destination: null,

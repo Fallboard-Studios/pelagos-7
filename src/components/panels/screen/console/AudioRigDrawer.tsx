@@ -22,7 +22,10 @@ import {
   BPM_SCHEMA,
   type AudioRigParamSchema,
   type AudioRigEffectKey,
+  type AudioRigAccordionGroupKey,
 } from '@/data/audioRigConfig';
+import { getTraitColorStyle } from '@/utils/traitColors';
+import type { Trait } from '@/types/traits';
 import type { LfoValue, PanelOrientation } from '@/types/controls';
 import type { GlobalAudioSettings } from '@/types/globalAudio';
 import type { GlobalLfoTargetId } from '@/types/lfo';
@@ -32,6 +35,19 @@ import './AudioRigDrawer.css';
 // Hooks note on AudioRigLfoGroup) — importing the stylesheet directly here, rather than relying
 // on SignatureArrayDrawer/AudioSettingSection to have pulled it in elsewhere in the bundle.
 import '@/components/ui/controls/LfoTargetGroup.css';
+
+/**
+ * Trait for each of the 3 AUDIO_RIG_ACCORDION_GROUPS entries (Roadmap Phase 14, docs/specs/
+ * COLOR_SCHEME_TRAIT_THEMING.md §1.5/§1.6) — applied directly to each group's own
+ * AccordionContainer via its style prop (Task 7), not a wrapper element. Every nested
+ * DirectionalPanel/param (including each effect's own per-target and Drift LFO controls)
+ * inherits the color via ordinary CSS cascade with no code of its own.
+ */
+const AUDIO_RIG_GROUP_TRAIT: Record<AudioRigAccordionGroupKey, Trait> = {
+  eqFilters: 'spectral',
+  timeSpace: 'timeSpace',
+  output: 'output',
+};
 
 /** Dispatches a param's ControlSchema to its matching primitive. Covers only
  *  the 4 variants GLOBAL_CHAIN_GRID.md's UI column actually uses for this
@@ -222,7 +238,7 @@ export function AudioRigDrawer() {
 
   return (
     <div className="audio-rig-drawer">
-      <AccordionContainer schema={TRANSPORT_COMPOSITION_ACCORDION_SCHEMA}>
+      <AccordionContainer schema={TRANSPORT_COMPOSITION_ACCORDION_SCHEMA} style={getTraitColorStyle('composition')}>
         <DirectionalPanel schema={SPEED_AUTOMATION_PANEL_SCHEMA}>
           <div className="audio-rig-drawer__param-row">
             <SliderLinear
@@ -242,7 +258,7 @@ export function AudioRigDrawer() {
       </AccordionContainer>
 
       {AUDIO_RIG_ACCORDION_GROUPS.map((group) => (
-        <AccordionContainer key={group.accordion.id} schema={group.accordion}>
+        <AccordionContainer key={group.accordion.id} schema={group.accordion} style={getTraitColorStyle(AUDIO_RIG_GROUP_TRAIT[group.key])}>
           {group.key === 'eqFilters' ? (
             // Flattened (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.5) — eq3, filterLPF, and
             // filterHPF are 3 direct siblings of one PanelGroup, no intermediate grouping panel

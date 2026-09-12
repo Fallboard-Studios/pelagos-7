@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within, waitFor, act } from '@testing-library/react';
 
@@ -338,5 +339,43 @@ describe('SignatureArrayDrawer', () => {
     expect(within(baseline).getByRole('radio', { name: 'GRADIENT' }).getAttribute('data-disabled')).toBe('');
     expect(within(baseline).getByRole('slider', { name: /gain/i }).getAttribute('data-disabled')).toBe('');
     expect(within(layerSection(container, 'layer1')).getByRole('slider', { name: 'Coaxial Gain' }).getAttribute('data-disabled')).toBe('');
+  });
+
+  // Roadmap Phase 14 (docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.5, Task 11) — an optional
+  // `style` prop forwarded to this drawer's own AccordionContainer, for trait-color scoping
+  // (getTraitColorStyle('spectral'), applied at the RobotOptionsTab call site in Task 12). Also
+  // proves Robot Drift (rendered inside this same accordion) inherits it via cascade, per spec §1.6.
+  describe('style prop', () => {
+    it('forwards a caller-supplied style to the drawer\'s own AccordionContainer root', () => {
+      const { container } = render(
+        <SignatureArrayDrawer
+          value={makeValue()}
+          {...noop}
+          style={{ '--color-accent-a': '#428d95', '--color-accent-b': '#41ad9f' } as CSSProperties}
+        />,
+      );
+      const root = container.querySelector('.sc-accordion') as HTMLElement;
+      expect(root.style.getPropertyValue('--color-accent-a')).toBe('#428d95');
+      expect(root.style.getPropertyValue('--color-accent-b')).toBe('#41ad9f');
+    });
+
+    it('renders with no inline style when the prop is omitted — existing consumers unaffected', () => {
+      const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
+      const root = container.querySelector('.sc-accordion') as HTMLElement;
+      expect(root.getAttribute('style')).toBeNull();
+    });
+
+    it("Robot Drift's own sliders are a physical DOM descendant of the styled accordion root — inherits via cascade, no separate wiring", () => {
+      const { container } = render(
+        <SignatureArrayDrawer
+          value={makeValue()}
+          {...noop}
+          style={{ '--color-accent-a': '#428d95', '--color-accent-b': '#41ad9f' } as CSSProperties}
+        />,
+      );
+      const root = container.querySelector('.sc-accordion') as HTMLElement;
+      const driftSlider = within(root).getAllByRole('slider', { name: 'Rate Drift' })[0];
+      expect(root.contains(driftSlider)).toBe(true);
+    });
   });
 });

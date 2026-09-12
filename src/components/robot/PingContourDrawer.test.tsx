@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
@@ -117,5 +118,29 @@ describe('PingContourDrawer', () => {
     render(<PingContourDrawer value={adsr} onChange={onChange} disabled />);
     fireEvent.keyDown(screen.getByRole('slider', { name: /attack/i }), { key: 'ArrowRight' });
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  // Roadmap Phase 14 (docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.5, Task 10) — an optional
+  // `style` prop forwarded to this drawer's own AccordionContainer, for trait-color scoping
+  // (getTraitColorStyle('timeSpace'), applied at the RobotOptionsTab call site in Task 12).
+  describe('style prop', () => {
+    it('forwards a caller-supplied style to the drawer\'s own AccordionContainer root', () => {
+      const { container } = render(
+        <PingContourDrawer
+          value={adsr}
+          onChange={() => {}}
+          style={{ '--color-accent-a': '#4f6d7a', '--color-accent-b': '#65617f' } as CSSProperties}
+        />,
+      );
+      const root = container.querySelector('.sc-accordion') as HTMLElement;
+      expect(root.style.getPropertyValue('--color-accent-a')).toBe('#4f6d7a');
+      expect(root.style.getPropertyValue('--color-accent-b')).toBe('#65617f');
+    });
+
+    it('renders with no inline style when the prop is omitted — existing consumers unaffected', () => {
+      const { container } = render(<PingContourDrawer value={adsr} onChange={() => {}} />);
+      const root = container.querySelector('.sc-accordion') as HTMLElement;
+      expect(root.getAttribute('style')).toBeNull();
+    });
   });
 });

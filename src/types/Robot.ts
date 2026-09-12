@@ -109,6 +109,13 @@ export interface Robot {
   id: string;
   /** Human-readable display name (generated at spawn) */
   name?: string;
+  /**
+   * Deterministic per-robot identity color (one of ACCENT_COLORS' 13 hues, seeded at spawn) — UI
+   * chrome only (RobotSelectionCard/RobotDisplaySection), never the SVG body's own ADSR/waveform-
+   * derived HSL fill (docs/ROBOT_DESIGN.md, unaffected). See
+   * docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.4.
+   */
+  identityColor: string;
   state: RobotState;
   position: Vec2;
   destination: Vec2 | null;

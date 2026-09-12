@@ -51,6 +51,7 @@ describe('CollisionSystem', () => {
   describe('canInteract', () => {
     const baseRobot: Robot = {
       id: 'test-robot',
+      identityColor: '#428d95',
       state: RobotState.Idle,
       position: { x: 0, y: 0 },
       destination: null,
@@ -170,6 +171,7 @@ describe('CollisionSystem', () => {
   describe('Multi-robot collision scenarios', () => {
     const baseRobot: Robot = {
       id: 'test-robot',
+      identityColor: '#428d95',
       state: RobotState.Idle,
       position: { x: 0, y: 0 },
       destination: null,

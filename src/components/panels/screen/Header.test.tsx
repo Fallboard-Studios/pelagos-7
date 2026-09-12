@@ -4,6 +4,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import Header from './Header';
 import { useUIStore } from '@/stores/uiStore';
 import { useAudioStore } from '@/stores/audioStore';
+import { ACCENT_COLORS } from '@/constants/accentColors';
 
 function setStoreFixtures() {
   useAudioStore.setState({ isMuted: false, volume: 0.6 });
@@ -248,5 +249,15 @@ describe('Header', () => {
       unmount();
       expect(observer.disconnected).toBe(true);
     });
+  });
+
+  // Roadmap Phase 14 (docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.5, Task 15) — the Header
+  // trait's own colors (teal/green, rebalanced from emerald/indigo — see traitColors.ts's own
+  // comment) on the header root.
+  it("scopes its root to the Header trait's colors (teal/green)", () => {
+    const { container } = render(<Header />);
+    const root = container.querySelector('header') as HTMLElement;
+    expect(root.style.getPropertyValue('--color-accent-a')).toBe(ACCENT_COLORS.teal);
+    expect(root.style.getPropertyValue('--color-accent-b')).toBe(ACCENT_COLORS.green);
   });
 });

@@ -60,15 +60,38 @@
      at any height) and SleeveContainer.css's own width share one source. */
   --sleeve-bar-width: 110px;
 
-  /* Color tokens (fallbacks; prefer assets/color-theme.json mapping elsewhere).
-     "Ballast" — hand-picked static console palette (cold graphite + depth-gauge
-     cyan), replacing the seed-driven system that was tried and cut (see
-     docs/CONSOLE_THEMING.md). Chosen from a set of candidates, not derived —
-     changing this later is just editing these 4 values, nothing else to migrate. */
+  /* Color tokens. --color-bg/--color-surface/--color-border/text tokens are the
+     hand-picked static "Ballast" base (cold graphite), unchanged since the
+     seed-driven system that was tried and cut (see docs/CONSOLE_THEMING.md).
+     --color-accent-a/-b/--color-accent/--color-accent-gradient are the new
+     trait-scoped set (Roadmap Phase 14, see
+     docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.2) — the values below are the
+     Header trait's own pair, doubling as the app-wide ambient default for any
+     region no trait has scoped. A descendant element overriding all 4
+     properties (src/utils/traitColors.ts's getTraitColorStyle/
+     getRobotColorStyle) re-scopes every consumer for that whole subtree via
+     ordinary CSS cascade — no other file needs to change. --color-accent and
+     --color-accent-gradient are deliberately written with LITERAL colors
+     here, never `var(--color-accent-a)`/`var(--color-accent-b)` nested
+     inside them — bug found live via DevTools: a custom property whose own
+     value nests var() references to --color-accent-a/-b does not
+     re-substitute using a descendant's overridden values, even though -a/-b
+     themselves do cascade correctly on their own. --color-accent stays a
+     single solid color (a color-mix() midpoint) for the many consumers that
+     require one (color-mix() itself, drop-shadow(), border-color,
+     outline-color); --color-accent-gradient is the literal 2-tone gradient
+     for the few flat-rectangle fills that can use one. Header's pair is
+     teal/green (rebalanced from emerald/indigo — those 2 sat 96° apart on
+     the hue wheel, breaking the ≤60° analogous-hue rule every other pair
+     follows; see src/utils/traitColors.ts's own comment for the full
+     rebalance). */
   --color-bg: #12161a;
   --color-surface: #1a2027;
   --color-border: rgba(140, 190, 210, 0.14);
-  --color-accent: #5fc9dc;
+  --color-accent-a: #41ad9f;
+  --color-accent-b: #68cb97;
+  --color-accent: color-mix(in srgb, #41ad9f 50%, #68cb97 50%);
+  --color-accent-gradient: linear-gradient(135deg, #41ad9f, #68cb97);
   --color-text-primary: rgba(255, 255, 255, 0.87);
   --color-text-muted: rgba(255, 255, 255, 0.6);
 

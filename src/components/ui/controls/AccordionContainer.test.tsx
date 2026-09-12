@@ -49,6 +49,7 @@ vi.mock('./CabinetBox', () => ({
   ),
 }));
 
+import type { CSSProperties } from 'react';
 import { AccordionContainer, CABINET_ACCORDION_TRIGGER_HEIGHT } from './AccordionContainer';
 import { CABINET_TOGGLE_BOX_SIZE } from './Toggle';
 import { getAccordionDuration, ACCORDION_DURATION } from './accordionAnimation';
@@ -272,6 +273,42 @@ describe('AccordionContainer', () => {
       );
       expect(fadeStepIndex).toBeGreaterThanOrEqual(0);
       expect(heightStepIndex).toBeGreaterThan(fadeStepIndex);
+    });
+  });
+
+  // Roadmap Phase 14 (docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.5.1) — an optional `style` prop
+  // for trait-color scoping (getTraitColorStyle/getRobotColorStyle, src/utils/traitColors.ts).
+  // Applied to the outer Accordion.Root (.sc-accordion) so every descendant CabinetBox inside this
+  // section inherits the custom properties via ordinary CSS cascade.
+  describe('style prop', () => {
+    it('applies a caller-supplied style to the outer Accordion.Root element', () => {
+      const { container } = render(
+        <AccordionContainer schema={schema} style={{ '--color-accent-a': '#428d95' } as CSSProperties}>
+          Content
+        </AccordionContainer>,
+      );
+      const root = container.querySelector('.sc-accordion') as HTMLElement;
+      expect(root.style.getPropertyValue('--color-accent-a')).toBe('#428d95');
+    });
+
+    it('applies both custom properties a real trait-color style object carries', () => {
+      const { container } = render(
+        <AccordionContainer
+          schema={schema}
+          style={{ '--color-accent-a': '#428d95', '--color-accent-b': '#41ad9f' } as CSSProperties}
+        >
+          Content
+        </AccordionContainer>,
+      );
+      const root = container.querySelector('.sc-accordion') as HTMLElement;
+      expect(root.style.getPropertyValue('--color-accent-a')).toBe('#428d95');
+      expect(root.style.getPropertyValue('--color-accent-b')).toBe('#41ad9f');
+    });
+
+    it('renders with no inline style at all when the prop is omitted — every existing consumer is unaffected', () => {
+      const { container } = render(<AccordionContainer schema={schema}>Content</AccordionContainer>);
+      const root = container.querySelector('.sc-accordion') as HTMLElement;
+      expect(root.getAttribute('style')).toBeNull();
     });
   });
 });

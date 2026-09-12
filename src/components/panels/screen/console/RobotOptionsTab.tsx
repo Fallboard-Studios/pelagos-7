@@ -16,6 +16,7 @@ import {
   applyAudioMode, applyVolume, applyVolumeLfo,
 } from '@/systems/robotOptionsActions';
 import type { LfoValue } from '@/types/controls';
+import { getRobotColorStyle, getTraitColorStyle } from '@/utils/traitColors';
 
 import './RobotOptionsTab.css';
 
@@ -85,13 +86,14 @@ export function RobotOptionsTab() {
   };
 
   return (
-    <div className="robot-options">
+    <div className="robot-options" style={getRobotColorStyle(robot.identityColor)}>
       <RobotDisplaySection robot={robot} />
       <AudioSettingSection
         value={audioSettingValue}
         onAudioModeChange={(mode) => applyAudioMode(robot, localeId, mode)}
         onVolumeChange={(pct) => applyVolume(robot, localeId, pct)}
         onVolumeLfoChange={(value) => applyVolumeLfo(robot, localeId, value)}
+        style={getTraitColorStyle('output')}
       />
       <PingControlsDrawer
         value={pingControlsValue}
@@ -103,16 +105,19 @@ export function RobotOptionsTab() {
         onNoteVarianceChange={(v) => applyNoteVariance(robot, localeId, v)}
         onResetMelody={() => regenerateMelody(robot, localeId)}
         onClickTrackActiveChange={(v) => applyClickTrackActive(robot, localeId, v)}
+        style={getTraitColorStyle('composition')}
       />
       <PingContourDrawer
         value={robot.audioAttributes.adsr}
         onChange={(adsr) => applyAdsr(robot, localeId, adsr)}
+        style={getTraitColorStyle('timeSpace')}
       />
       <SignatureArrayDrawer
         value={signatureArrayValue}
         onContinuousChange={(layers) => applyLayersContinuous(robot, localeId, layers)}
         onStructuralChange={(layers) => applyLayersStructural(robot, localeId, layers)}
         onLfoChange={(target, value) => applyLayerLfo(robot, localeId, target, value)}
+        style={getTraitColorStyle('spectral')}
       />
     </div>
   );

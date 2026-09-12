@@ -25,6 +25,7 @@ import useLocaleStore from '../stores/localeStore';
 import { initRobotIdleCounter } from './idleSystem';
 import { getLocaleNoiseMap } from '../utils/noiseMaps';
 import { getSeededVal } from '../utils/getSeededVal';
+import { ACCENT_COLORS, ROBOT_IDENTITY_COLOR_NAMES } from '../constants/accentColors';
 import type { RobotLfoTargetId, LfoSettings } from '../types/lfo';
 import { ROBOT_LFO_TARGET_IDS, LFO_SHAPES, LFO_RATE_MIN, LFO_RATE_MAX, LFO_DEPTH_MIN, LFO_DEPTH_MAX } from '../types/lfo';
 
@@ -118,6 +119,21 @@ function generateRobotName(noiseMap: NoiseFunction2D, offset: number): string {
   const a = ADJECTIVES[Math.floor(getSeededVal(noiseMap, 'robot.name.adj', offset, 0, ADJECTIVES.length))];
   const n = NOUNS[Math.floor(getSeededVal(noiseMap, 'robot.name.noun', offset, 0, NOUNS.length))];
   return `${a} ${n}`;
+}
+
+/**
+ * Deterministic per-robot identity color (Roadmap Phase 14, docs/specs/
+ * COLOR_SCHEME_TRAIT_THEMING.md §1.4) — UI chrome only (RobotSelectionCard/RobotDisplaySection),
+ * never the SVG body's own ADSR/waveform-derived HSL fill. Same generation mechanism as
+ * generateRobotName above: one getSeededVal draw against ROBOT_IDENTITY_COLOR_NAMES (the 13 hue
+ * keys — black/white/darkGray are deliberately excluded there, not filtered here).
+ */
+function generateRobotIdentityColor(noiseMap: NoiseFunction2D, offset: number): string {
+  // Clamped (matching OCTAVE_REGISTERS/WAVEFORMS' own indexing below, not generateRobotName's
+  // unclamped one) since the failure mode of an out-of-range index here is a visibly broken
+  // undefined CSS custom property, not just a missing name syllable.
+  const index = Math.min(ROBOT_IDENTITY_COLOR_NAMES.length - 1, Math.floor(getSeededVal(noiseMap, 'robot.identityColor', offset, 0, ROBOT_IDENTITY_COLOR_NAMES.length)));
+  return ACCENT_COLORS[ROBOT_IDENTITY_COLOR_NAMES[index]];
 }
 
 // Org-flavored noun list for company names (Roadmap Phase 10) — distinct from robot NOUNS above,
@@ -439,6 +455,9 @@ export function spawnRobot(localeId: string, options?: { docking?: DockingState;
   const robot: Robot = {
     id: noiseMap ? generateRobotId(noiseMap, spawnCount) : generateRobotId((_x: number, _y: number) => 0 as number, spawnCount),
     name: noiseMap ? generateRobotName(noiseMap, spawnCount) : generateRobotName((_x: number, _y: number) => 0 as number, spawnCount),
+    identityColor: noiseMap
+      ? generateRobotIdentityColor(noiseMap, spawnCount)
+      : generateRobotIdentityColor((_x: number, _y: number) => 0 as number, spawnCount),
     state: RobotState.Idle,
     position,
     destination: null,

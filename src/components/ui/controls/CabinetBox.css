@@ -35,7 +35,8 @@
    static footprint peeking out from behind the walls' own translucent,
    offset popped facade (.sc-cabinet-box__walls' opacity fade below) — the
    front face stays fully opaque throughout, so only the walls actually
-   reveal the backing. Accent-tinted (--color-accent at 40% opacity), not
+   reveal the backing. Accent-gradient-tinted (--color-accent-gradient, Roadmap
+   Phase 14, at 40% opacity), not
    the surface token, so it reads as the box's own material showing
    through rather than a neutral gap. */
 .sc-cabinet-box__backing {
@@ -44,7 +45,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: var(--color-accent);
+  background: var(--color-accent-gradient);
   opacity: .4;
   pointer-events: none;
   z-index: -1;

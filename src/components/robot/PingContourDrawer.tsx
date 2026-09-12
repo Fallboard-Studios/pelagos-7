@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { SliderLog } from '@/components/ui/controls/SliderLog';
 import { SliderLinear } from '@/components/ui/controls/SliderLinear';
 import { AccordionContainer } from '@/components/ui/controls/AccordionContainer';
@@ -18,6 +19,12 @@ interface PingContourDrawerProps {
   value: ADSREnvelope;
   onChange: (next: ADSREnvelope) => void;
   disabled?: boolean;
+  /** Optional inline style forwarded to this drawer's own AccordionContainer — trait-color
+   *  scoping (getTraitColorStyle('timeSpace'), Roadmap Phase 14), applied identically at both
+   *  the RobotOptionsTab and CompanyOptionsSection call sites — this drawer always renders in
+   *  Time/Space, whether it's editing one robot or a company's bulk baseline. See
+   *  docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.5. */
+  style?: CSSProperties;
 }
 
 /**
@@ -29,7 +36,7 @@ interface PingContourDrawerProps {
  * AudioEngine.updateVoiceEnvelope (never reReserveVoice, so there's no audio dropout).
  * `PingContourDrawerProps` is unchanged — neither call site needed any edit for this restructure.
  */
-export function PingContourDrawer({ value: adsr, onChange, disabled }: PingContourDrawerProps) {
+export function PingContourDrawer({ value: adsr, onChange, disabled, style }: PingContourDrawerProps) {
   const handleAttackChange = (v: number) => onChange({ ...adsr, attack: v });
   const handleDecayChange = (v: number) => onChange({ ...adsr, decay: v });
   const handleReleaseChange = (v: number) => onChange({ ...adsr, release: v });
@@ -38,7 +45,7 @@ export function PingContourDrawer({ value: adsr, onChange, disabled }: PingConto
   const handleSustainChange = (pct: number) => onChange({ ...adsr, sustain: pct / 100 });
 
   return (
-    <AccordionContainer schema={ENVELOPE_ACCORDION_SCHEMA}>
+    <AccordionContainer schema={ENVELOPE_ACCORDION_SCHEMA} style={style}>
       <DirectionalPanel schema={PING_CONTOUR_PANEL_SCHEMA}>
         <DirectionalPanel schema={{ id: 'robotOptions.pingContour.topRow', type: 'directionalPanel', orientation: 'responsive' }}>
           <SliderLog schema={ATTACK_SCHEMA} value={adsr.attack} onChange={handleAttackChange} disabled={disabled} />

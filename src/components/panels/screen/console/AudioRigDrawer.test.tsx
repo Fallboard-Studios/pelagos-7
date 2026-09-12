@@ -30,6 +30,7 @@ vi.mock('../../../../engine/lfoEngine', () => ({
 
 import { AudioRigDrawer } from './AudioRigDrawer';
 import { useAudioStore } from '@/stores/audioStore';
+import { ACCENT_COLORS } from '@/constants/accentColors';
 import { DEFAULT_GLOBAL_AUDIO_SETTINGS } from '@/types/globalAudio';
 import { DEFAULT_LFO_SETTINGS } from '@/data/lfoConfig';
 import { GLOBAL_LFO_TARGET_IDS, type GlobalLfoTargetId } from '@/types/lfo';
@@ -695,6 +696,83 @@ describe('AudioRigDrawer', () => {
       expect(tempoRow).toBeTruthy();
       expect(pingRow).toBeTruthy();
       expect(tempoRow).not.toBe(pingRow);
+    });
+  });
+
+  // Roadmap Phase 14 (docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.5, Task 9) — each of the 4
+  // top-level accordions is scoped to its own trait via getTraitColorStyle, applied directly to
+  // AccordionContainer's own style prop (Task 7) — no extra wrapper element.
+  describe('trait color scoping', () => {
+    function accordionByLabel(label: string) {
+      return screen.getByText(label).closest('.sc-accordion') as HTMLElement;
+    }
+
+    it('scopes EQ & Filters to the Spectral trait (cyan/indigo)', () => {
+      render(<AudioRigDrawer />);
+      const el = accordionByLabel('EQ & Filters');
+      expect(el.style.getPropertyValue('--color-accent-a')).toBe(ACCENT_COLORS.cyan);
+      expect(el.style.getPropertyValue('--color-accent-b')).toBe(ACCENT_COLORS.indigo);
+    });
+
+    // Regression test — found live via browser DevTools: --color-accent/--color-accent-gradient
+    // must be literal-valued, computed alongside -a/-b (traitColors.ts's buildAccentStyle), never
+    // a nested var() reference to them. A nested-var() version passes every -a/-b assertion above
+    // (the base properties genuinely do cascade) while still rendering the WRONG gradient, which is
+    // exactly why this needs its own explicit check, not just "-a/-b are correct."
+    it('also sets --color-accent/--color-accent-gradient as literal values on the accordion — never a var()-reference to --color-accent-a/-b', () => {
+      render(<AudioRigDrawer />);
+      const el = accordionByLabel('EQ & Filters');
+      expect(el.style.getPropertyValue('--color-accent')).toBe(
+        `color-mix(in srgb, ${ACCENT_COLORS.cyan} 50%, ${ACCENT_COLORS.indigo} 50%)`,
+      );
+      expect(el.style.getPropertyValue('--color-accent-gradient')).toBe(
+        `linear-gradient(135deg, ${ACCENT_COLORS.cyan}, ${ACCENT_COLORS.indigo})`,
+      );
+      expect(el.style.getPropertyValue('--color-accent')).not.toContain('var(');
+      expect(el.style.getPropertyValue('--color-accent-gradient')).not.toContain('var(');
+    });
+
+    it('scopes Time & Space to the Time/Space trait (blue/plum)', () => {
+      render(<AudioRigDrawer />);
+      const el = accordionByLabel('Time & Space');
+      expect(el.style.getPropertyValue('--color-accent-a')).toBe(ACCENT_COLORS.blue);
+      expect(el.style.getPropertyValue('--color-accent-b')).toBe(ACCENT_COLORS.plum);
+    });
+
+    it('scopes Output to the Output trait (red/orange)', () => {
+      render(<AudioRigDrawer />);
+      const el = accordionByLabel('Output');
+      expect(el.style.getPropertyValue('--color-accent-a')).toBe(ACCENT_COLORS.red);
+      expect(el.style.getPropertyValue('--color-accent-b')).toBe(ACCENT_COLORS.orange);
+    });
+
+    it('scopes Transport & Composition to the Composition trait (emerald/lime)', () => {
+      render(<AudioRigDrawer />);
+      const el = accordionByLabel('Transport & Composition');
+      expect(el.style.getPropertyValue('--color-accent-a')).toBe(ACCENT_COLORS.emerald);
+      expect(el.style.getPropertyValue('--color-accent-b')).toBe(ACCENT_COLORS.lime);
+    });
+
+    it('gives all 4 top-level accordions distinct trait colors from one another', () => {
+      render(<AudioRigDrawer />);
+      const pairs = ['EQ & Filters', 'Time & Space', 'Output', 'Transport & Composition'].map((label) => {
+        const el = accordionByLabel(label);
+        return `${el.style.getPropertyValue('--color-accent-a')}/${el.style.getPropertyValue('--color-accent-b')}`;
+      });
+      expect(new Set(pairs).size).toBe(4);
+    });
+
+    it('does not add any inline style to a nested per-effect DirectionalPanel — the color reaches it purely via cascade from its parent accordion', () => {
+      render(<AudioRigDrawer />);
+      const panel = screen.getByText('3-Band EQ').closest('.sc-directional-panel') as HTMLElement;
+      expect(panel.getAttribute('style')).toBeNull();
+    });
+
+    it("eq3's own Drift sliders are a physical DOM descendant of the Spectral-scoped EQ & Filters accordion — no separate wrapper or style between them (spec §1.6's 'no dedicated code' claim)", () => {
+      render(<AudioRigDrawer />);
+      const eqAccordion = accordionByLabel('EQ & Filters');
+      const eq3RateSlider = within(eqAccordion).getAllByRole('slider', { name: 'Rate Drift' })[0];
+      expect(eqAccordion.contains(eq3RateSlider)).toBe(true);
     });
   });
 });
