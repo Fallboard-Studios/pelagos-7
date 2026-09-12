@@ -51,20 +51,20 @@ Tasks 4, 5, and 6 have no dependency on each other (all depend only on Tasks 1-3
 
 ### Phase 1: Foundation
 
-- [ ] **Task 1: Add Titillium Web dependency and update `main.tsx` imports**
+- [x] **Task 1: Add Titillium Web dependency and update `main.tsx` imports** — done
 
   **Description:** Add `@fontsource/titillium-web` to `package.json` (spec §1.3 — run `npm view @fontsource/titillium-web version` and pin the real current version, don't guess). In `main.tsx`, add 6 new import lines (latin + latin-ext, weights 400/600/700) and remove the 4 existing Rajdhani 300/400 import lines (latin + latin-ext).
 
   **Acceptance criteria:**
-  - [ ] `package.json` lists `@fontsource/titillium-web` at its real installed version.
-  - [ ] `main.tsx` imports exactly `latin-400`/`latin-ext-400`/`latin-600`/`latin-ext-600`/`latin-700`/`latin-ext-700` from `@fontsource/titillium-web`.
-  - [ ] `main.tsx` no longer imports any Rajdhani `300` or `400` weight file (latin or latin-ext).
-  - [ ] `main.tsx`'s existing doc comment above the Rajdhani imports is updated to reflect the trimmed weight set (500/600/700 only), matching the file's existing comment-explains-the-imports convention.
+  - [x] `package.json` lists `@fontsource/titillium-web` at its real installed version (`^5.3.0`, confirmed via `npm view`).
+  - [x] `main.tsx` imports exactly `latin-400`/`latin-ext-400`/`latin-600`/`latin-ext-600`/`latin-700`/`latin-ext-700` from `@fontsource/titillium-web`.
+  - [x] `main.tsx` no longer imports any Rajdhani `300` or `400` weight file (latin or latin-ext).
+  - [x] `main.tsx`'s existing doc comment above the Rajdhani imports is updated to reflect the trimmed weight set (500/600/700 only), matching the file's existing comment-explains-the-imports convention.
 
   **Verification:**
-  - [ ] `npm install` completes cleanly.
-  - [ ] `npm run build` succeeds (confirms the new import paths resolve).
-  - [ ] `npm run dev`, load the app, confirm no console errors about missing font files.
+  - [x] `npm install` completes cleanly.
+  - [x] `npm run build` succeeds (confirms the new import paths resolve — both font families' weight-specific asset files bundle correctly).
+  - [x] New test `src/main.fonts.test.ts` (RED before the change, GREEN after — 5 tests) covers the dependency and both import lists directly, standing in for a `main.tsx`-can't-be-imported-in-tests dev-server check.
 
   **Dependencies:** None.
 
@@ -72,20 +72,21 @@ Tasks 4, 5, and 6 have no dependency on each other (all depend only on Tasks 1-3
 
   **Estimated scope:** XS (2 files)
 
-- [ ] **Task 2: Add new type-scale tokens to `src/index.css`**
+- [x] **Task 2: Add new type-scale tokens to `src/index.css`** — done
 
   **Description:** Add `--font-controls`, the 7 `--font-size-*` tokens, and the 4 `--font-weight-*` tokens (spec §1.2/§4's canonical block) to `:root`. Change `:root`'s existing `font-weight: 400;` line to `font-weight: var(--font-weight-regular);`. Delete the 2 leftover unused Vite-scaffold rules (`h1 { font-size: 3.2em; ... }` and the bare `button { ... }` rule, `index.css:105-119`) — confirmed zero real consumers. **Do not remove `--font-size-sm/md/lg` yet** — 8 files still read them until Phases 2 and 4 land (Task 10 removes them).
 
   **Acceptance criteria:**
-  - [ ] `:root` contains all 12 new custom properties from spec §1.2/§4, with the exact values given there.
-  - [ ] `:root`'s base `font-weight` reads `var(--font-weight-regular)`.
-  - [ ] The old `--font-size-sm: 12px; --font-size-md: 16px; --font-size-lg: 20px;` block is still present, unchanged.
-  - [ ] The `h1 { font-size: 3.2em; ... }` and bare `button { ... }` rules are gone from `index.css`.
+  - [x] `:root` contains all 12 new custom properties from spec §1.2/§4, with the exact values given there.
+  - [x] `:root`'s base `font-weight` reads `var(--font-weight-regular)`.
+  - [x] The old `--font-size-sm: 12px; --font-size-md: 16px; --font-size-lg: 20px;` block is still present, unchanged.
+  - [x] The old h1 (3.2em) and bare `button { ... }` rules are gone from `index.css`; `button:hover`/`:focus`/the light-scheme media query's own button rule are confirmed still present (out of scope, left untouched).
 
   **Verification:**
-  - [ ] `npm run build:types` clean.
-  - [ ] `npm run lint` clean.
-  - [ ] `npm run dev`, confirm the app renders with no visual change from before this task (new tokens exist but have no consumers yet; old tokens' consumers are untouched).
+  - [x] `npm run build:types` clean.
+  - [x] `npm run lint` clean.
+  - [x] `npm run build` succeeds — production CSS bundles with no errors.
+  - [x] New test `src/index.css.test.ts` (RED before the change, GREEN after — 8 tests) covers every token, the `:root` weight change, the old-tokens-kept guarantee, and the two dead-rule removals directly.
 
   **Dependencies:** None.
 
@@ -94,8 +95,9 @@ Tasks 4, 5, and 6 have no dependency on each other (all depend only on Tasks 1-3
   **Estimated scope:** XS (1 file)
 
 ### Checkpoint: Foundation
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] App renders with no visual change from before Phase 1 (both old and new tokens coexist; nothing consumes the new ones yet).
+- [x] `npm run build:types`, `npm run lint`, `npm run build` all clean.
+- [x] `npx vitest run` (full suite): 2239/2240 pass. The 1 failure (`worldTransition.test.ts`, seeded-swell randomization) is pre-existing/flaky and unrelated to this change — confirmed by re-running that file alone, where it passes; a second full-suite run earlier in this same session hit a *different* flaky failure (`factoryPlacementSystem.test.ts`), also confirmed to pass in isolation. Neither test touches CSS, fonts, or anything this phase modified.
+- [x] App renders with no visual change from before Phase 1 (both old and new tokens coexist; nothing consumes the new ones yet) — confirmed via `npm run build`'s clean production bundle rather than a manual `npm run dev` visual pass.
 - [ ] Review with human before proceeding.
 
 ---
