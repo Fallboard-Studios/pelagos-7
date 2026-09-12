@@ -362,9 +362,10 @@ Task 7 ──→ Task 17 (docs/COMPONENT_LIBRARY.md)
     no-style guard, and a DOM-containment check proving eq3's own Drift slider is a physical descendant
     of the Spectral-scoped accordion.
   - [x] `npm run build:types`, `npm run lint` clean.
-  - [ ] Manual check (not yet done — needs a browser): `npm run dev`, open Audio Rig — EQ & Filters,
-    Time & Space, Output, and Transport & Composition each render in a visually distinct color; an EQ3
-    Drift slider visibly matches EQ & Filters' own color.
+  - [x] Manual check: confirmed live in the browser (Crawford) — the Audio Rig's accordions render
+    their actual trait colors. This first attempt surfaced the nested-`var()` bug fixed immediately
+    after (see "Fix" entry following the checkpoint below); this checkbox reflects the state after
+    that fix landed, not the original (broken) manual check.
 
   **Dependencies:** Task 3, Task 4.
 
@@ -421,8 +422,8 @@ color consumer) doesn't rediscover this from scratch.
 **Verification:** `npm run build:types`, `npm run lint` clean. Full suite: 2397/2397 pass. `npm run
 build` clean — the emitted CSS was inspected directly (`dist/assets/*.css`) and confirmed to contain
 `linear-gradient(135deg, #fff, #211e1b)` with literal hex values, not `var(--color-accent-a)`.
-**Not yet re-verified in a live browser** — Crawford's next manual check (when Phase 6 or later lands)
-should confirm the Audio Rig now actually renders its trait colors, closing the loop this fix opened.
+**Confirmed live in the browser (Crawford):** the Audio Rig's 4 accordions now render their actual
+trait colors — Task 9's own manual-check box above can be considered satisfied by this.
 
 ---
 
