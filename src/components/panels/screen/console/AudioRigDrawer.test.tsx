@@ -707,11 +707,11 @@ describe('AudioRigDrawer', () => {
       return screen.getByText(label).closest('.sc-accordion') as HTMLElement;
     }
 
-    it('scopes EQ & Filters to the Spectral trait (cyan/teal)', () => {
+    it('scopes EQ & Filters to the Spectral trait (cyan/indigo)', () => {
       render(<AudioRigDrawer />);
       const el = accordionByLabel('EQ & Filters');
       expect(el.style.getPropertyValue('--color-accent-a')).toBe(ACCENT_COLORS.cyan);
-      expect(el.style.getPropertyValue('--color-accent-b')).toBe(ACCENT_COLORS.teal);
+      expect(el.style.getPropertyValue('--color-accent-b')).toBe(ACCENT_COLORS.indigo);
     });
 
     // Regression test — found live via browser DevTools: --color-accent/--color-accent-gradient
@@ -723,10 +723,10 @@ describe('AudioRigDrawer', () => {
       render(<AudioRigDrawer />);
       const el = accordionByLabel('EQ & Filters');
       expect(el.style.getPropertyValue('--color-accent')).toBe(
-        `color-mix(in srgb, ${ACCENT_COLORS.cyan} 50%, ${ACCENT_COLORS.teal} 50%)`,
+        `color-mix(in srgb, ${ACCENT_COLORS.cyan} 50%, ${ACCENT_COLORS.indigo} 50%)`,
       );
       expect(el.style.getPropertyValue('--color-accent-gradient')).toBe(
-        `linear-gradient(135deg, ${ACCENT_COLORS.cyan}, ${ACCENT_COLORS.teal})`,
+        `linear-gradient(135deg, ${ACCENT_COLORS.cyan}, ${ACCENT_COLORS.indigo})`,
       );
       expect(el.style.getPropertyValue('--color-accent')).not.toContain('var(');
       expect(el.style.getPropertyValue('--color-accent-gradient')).not.toContain('var(');
@@ -746,10 +746,10 @@ describe('AudioRigDrawer', () => {
       expect(el.style.getPropertyValue('--color-accent-b')).toBe(ACCENT_COLORS.orange);
     });
 
-    it('scopes Transport & Composition to the Composition trait (green/lime)', () => {
+    it('scopes Transport & Composition to the Composition trait (emerald/lime)', () => {
       render(<AudioRigDrawer />);
       const el = accordionByLabel('Transport & Composition');
-      expect(el.style.getPropertyValue('--color-accent-a')).toBe(ACCENT_COLORS.green);
+      expect(el.style.getPropertyValue('--color-accent-a')).toBe(ACCENT_COLORS.emerald);
       expect(el.style.getPropertyValue('--color-accent-b')).toBe(ACCENT_COLORS.lime);
     });
 

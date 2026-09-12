@@ -75,10 +75,11 @@ interface SignatureArrayDrawerProps {
   onLfoChange: (target: RobotLfoTargetId, value: LfoValue) => void;
   disabled?: boolean;
   /** Optional inline style forwarded to this drawer's own AccordionContainer — trait-color
-   *  scoping (getTraitColorStyle('spectral'), Roadmap Phase 14), applied at the
-   *  RobotOptionsTab/CompanyOptionsSection call sites. Robot Drift's own controls, rendered
-   *  inside this same accordion, inherit it via ordinary CSS cascade with no wiring of their
-   *  own. See docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.5/§1.6. */
+   *  scoping (getTraitColorStyle('spectral'), Roadmap Phase 14), applied identically at both the
+   *  RobotOptionsTab and CompanyOptionsSection call sites — this drawer always renders in
+   *  Spectral, whether it's editing one robot or a company's bulk baseline. Robot Drift's own
+   *  controls, rendered inside this same accordion, inherit it via ordinary CSS cascade with no
+   *  wiring of their own. See docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.5/§1.6. */
   style?: CSSProperties;
 }
 

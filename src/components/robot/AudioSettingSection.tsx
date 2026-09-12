@@ -34,8 +34,9 @@ interface AudioSettingSectionProps {
   onVolumeLfoChange: (value: LfoValue) => void;
   disabled?: boolean;
   /** Optional inline style forwarded to this section's own AccordionContainer — trait-color
-   *  scoping (getTraitColorStyle('output'), Roadmap Phase 14), applied at the
-   *  RobotOptionsTab/CompanyOptionsSection call sites. See
+   *  scoping (getTraitColorStyle('output'), Roadmap Phase 14), applied identically at both the
+   *  RobotOptionsTab and CompanyOptionsSection call sites — this section always renders in
+   *  Output, whether it's editing one robot or a company's bulk baseline. See
    *  docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.5. */
   style?: CSSProperties;
 }

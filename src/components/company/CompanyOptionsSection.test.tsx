@@ -12,6 +12,14 @@ import { render, screen, fireEvent } from '@testing-library/react';
 // (wrong function, wrong argument, wrong per-member count) still surface here even though the
 // real section JSX never mounts.
 //
+// Roadmap Phase 14 — every mock below also reads `props.style`'s two custom properties onto
+// data-* attributes, the same styleAttrs helper RobotOptionsTab.test.tsx uses, so this file's own
+// trait-color tests can assert on what CompanyOptionsSection actually passed down without needing
+// the real drawer/AccordionContainer to mount.
+function styleAttrs(style?: { [key: string]: string }) {
+  return { 'data-style-a': style?.['--color-accent-a'], 'data-style-b': style?.['--color-accent-b'] };
+}
+
 // Every probe button below builds its onChange payload the same way the real drawer components
 // do — spreading the received `props.value` (CompanyOptionsSection's shared `resolved` baseline)
 // and touching only one field — e.g. real Lfo.tsx's `onChange({ ...value, rate })`,
@@ -27,12 +35,14 @@ vi.mock('@/components/robot/AudioSettingSection', () => ({
     onVolumeChange: (pct: number) => void;
     onVolumeLfoChange: (value: unknown) => void;
     disabled?: boolean;
+    style?: { [key: string]: string };
   }) => (
     <div
       data-testid="audio-setting-section-stub"
       data-audio-mode={props.value.audioMode}
       data-volume={props.value.masterVolume}
       data-disabled={props.disabled ? '' : undefined}
+      {...styleAttrs(props.style)}
     >
       <button onClick={() => props.onAudioModeChange('solo')}>probe-audio-mode</button>
       <button onClick={() => props.onVolumeChange(77)}>probe-volume</button>
@@ -56,6 +66,7 @@ vi.mock('@/components/robot/PingControlsDrawer', () => ({
     onClickTrackActiveChange: (v: boolean) => void;
     onResetMelody?: () => void;
     disabled?: boolean;
+    style?: { [key: string]: string };
   }) => (
     <div
       data-testid="ping-controls-drawer-stub"
@@ -65,6 +76,7 @@ vi.mock('@/components/robot/PingControlsDrawer', () => ({
       data-pitch-repeat={props.value.pitchRepeat}
       data-click-track-active={String(props.value.clickTrackActive)}
       data-disabled={props.disabled ? '' : undefined}
+      {...styleAttrs(props.style)}
     >
       <button onClick={() => props.onDensityChange(77)}>probe-density</button>
       {/* Plain-number pattern, matching onDensityChange/onPitchRepeatChange — no {active, value} */}
@@ -84,11 +96,13 @@ vi.mock('@/components/robot/PingContourDrawer', () => ({
     value: { attack: number; decay: number; sustain: number; release: number };
     onChange: (next: unknown) => void;
     disabled?: boolean;
+    style?: { [key: string]: string };
   }) => (
     <div
       data-testid="ping-contour-drawer-stub"
       data-attack={props.value.attack}
       data-disabled={props.disabled ? '' : undefined}
+      {...styleAttrs(props.style)}
     >
       <button onClick={() => props.onChange({ ...props.value, attack: 0.9 })}>probe-adsr</button>
     </div>
@@ -104,11 +118,13 @@ vi.mock('@/components/robot/SignatureArrayDrawer', () => ({
     onStructuralChange: (v: unknown) => void;
     onLfoChange: (target: string, value: unknown) => void;
     disabled?: boolean;
+    style?: { [key: string]: string };
   }) => (
     <div
       data-testid="signature-array-drawer-stub"
       data-layer-count={props.value.layers.length}
       data-disabled={props.disabled ? '' : undefined}
+      {...styleAttrs(props.style)}
     >
       <button
         onClick={() => props.onContinuousChange(props.value.layers.map((l, i) => (i === 1 ? { ...l, gain: 0.4 } : l)))}
@@ -137,6 +153,7 @@ import { useLocaleStore } from '@/stores/localeStore';
 import { useUIStore } from '@/stores/uiStore';
 import { getActiveLocaleId } from '@/utils/localeHelpers';
 import * as robotOptionsActions from '@/systems/robotOptionsActions';
+import { ACCENT_COLORS } from '@/constants/accentColors';
 import type { Robot } from '@/types/Robot';
 import type { Locale } from '@/types/locale';
 
@@ -187,6 +204,39 @@ describe('CompanyOptionsSection', () => {
     expect(screen.getByTestId('ping-controls-drawer-stub').getAttribute('data-disabled')).toBe('');
     expect(screen.getByTestId('ping-contour-drawer-stub').getAttribute('data-disabled')).toBe('');
     expect(screen.getByTestId('signature-array-drawer-stub').getAttribute('data-disabled')).toBe('');
+  });
+
+  // Roadmap Phase 14 (docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.5): each of the 4 reused
+  // drawers gets the identical trait style RobotOptionsTab passes it, so the Robots tile's
+  // company bulk-edit panel matches the individual robot detail page exactly, control for
+  // control — not CompanyManager's own Company purple/pink, which stays scoped to
+  // CompanyManager's own button row/CRUD chrome (CompanyManager.tsx's own root style).
+  it('gives AudioSettingSection the Output trait\'s style (red/orange), matching RobotOptionsTab', () => {
+    render(<CompanyOptionsSection />);
+    const stub = screen.getByTestId('audio-setting-section-stub');
+    expect(stub.getAttribute('data-style-a')).toBe(ACCENT_COLORS.red);
+    expect(stub.getAttribute('data-style-b')).toBe(ACCENT_COLORS.orange);
+  });
+
+  it('gives PingControlsDrawer the Composition trait\'s style (emerald/lime), matching RobotOptionsTab', () => {
+    render(<CompanyOptionsSection />);
+    const stub = screen.getByTestId('ping-controls-drawer-stub');
+    expect(stub.getAttribute('data-style-a')).toBe(ACCENT_COLORS.emerald);
+    expect(stub.getAttribute('data-style-b')).toBe(ACCENT_COLORS.lime);
+  });
+
+  it('gives PingContourDrawer the Time/Space trait\'s style (blue/plum), matching RobotOptionsTab', () => {
+    render(<CompanyOptionsSection />);
+    const stub = screen.getByTestId('ping-contour-drawer-stub');
+    expect(stub.getAttribute('data-style-a')).toBe(ACCENT_COLORS.blue);
+    expect(stub.getAttribute('data-style-b')).toBe(ACCENT_COLORS.plum);
+  });
+
+  it('gives SignatureArrayDrawer the Spectral trait\'s style (cyan/indigo), matching RobotOptionsTab', () => {
+    render(<CompanyOptionsSection />);
+    const stub = screen.getByTestId('signature-array-drawer-stub');
+    expect(stub.getAttribute('data-style-a')).toBe(ACCENT_COLORS.cyan);
+    expect(stub.getAttribute('data-style-b')).toBe(ACCENT_COLORS.indigo);
   });
 
   it('renders every section disabled when the selected company has zero members', () => {

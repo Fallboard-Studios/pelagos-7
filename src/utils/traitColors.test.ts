@@ -9,13 +9,13 @@ describe('TRAIT_COLORS', () => {
   });
 
   it('matches the confirmed pairs exactly', () => {
-    expect(TRAIT_COLORS.spectral).toEqual([ACCENT_COLORS.cyan, ACCENT_COLORS.teal]);
+    expect(TRAIT_COLORS.spectral).toEqual([ACCENT_COLORS.cyan, ACCENT_COLORS.indigo]);
     expect(TRAIT_COLORS.timeSpace).toEqual([ACCENT_COLORS.blue, ACCENT_COLORS.plum]);
     expect(TRAIT_COLORS.output).toEqual([ACCENT_COLORS.red, ACCENT_COLORS.orange]);
-    expect(TRAIT_COLORS.composition).toEqual([ACCENT_COLORS.green, ACCENT_COLORS.lime]);
+    expect(TRAIT_COLORS.composition).toEqual([ACCENT_COLORS.emerald, ACCENT_COLORS.lime]);
     expect(TRAIT_COLORS.company).toEqual([ACCENT_COLORS.purple, ACCENT_COLORS.pink]);
     expect(TRAIT_COLORS.seed).toEqual([ACCENT_COLORS.tangerine, ACCENT_COLORS.yellow]);
-    expect(TRAIT_COLORS.header).toEqual([ACCENT_COLORS.emerald, ACCENT_COLORS.indigo]);
+    expect(TRAIT_COLORS.header).toEqual([ACCENT_COLORS.teal, ACCENT_COLORS.green]);
   });
 
   it('every pair is 2 distinct colors, never a trait paired with itself', () => {

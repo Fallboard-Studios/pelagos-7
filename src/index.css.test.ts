@@ -5,6 +5,7 @@ import { dirname, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { getCssRuleBody } from './testUtils/cssRuleBody';
+import { ACCENT_COLORS } from './constants/accentColors';
 
 // TYPE_SCALE.md Task 2 — index.css's new type-scale tokens. Vitest's default
 // config treats CSS imports as a no-op (no `css: true` in vitest.config.ts),
@@ -119,19 +120,28 @@ describe('index.css type-scale tokens', () => {
 // value is ever actually resolved in jsdom).
 describe(':root color-accent-a/-b mechanism (Task 4)', () => {
   const rootBody = getCssRuleBody(cssSource, ':root');
+  // Derived from ACCENT_COLORS (src/constants/accentColors.ts) rather than re-hardcoded here —
+  // index.css's own values are the Header trait's pair (traitColors.ts's single source of truth),
+  // and a CSS file can't itself `import` that constant. Building the expectation from the same
+  // constant these values are supposed to match means a future repaint of ACCENT_COLORS.teal/
+  // .green that forgets to update index.css's literal fallback fails this test, instead of the
+  // test silently keeping its own stale, independently-typed copy of the old value forever (the
+  // "simple swap" success criterion in docs/intent/color-scheme-trait-theming.md is what this
+  // guards — a repaint should be a small, localized edit that visibly breaks if a spot is missed).
+  const { teal, green } = ACCENT_COLORS;
 
-  it('defines --color-accent-a/-b with the Header trait pair (emerald/indigo) as the ambient default', () => {
+  it('defines --color-accent-a/-b with the Header trait pair (teal/green) as the ambient default', () => {
     expect(rootBody).not.toBeNull();
-    expect(rootBody).toContain('--color-accent-a: #4fc27a;');
-    expect(rootBody).toContain('--color-accent-b: #5a5c9e;');
+    expect(rootBody).toContain(`--color-accent-a: ${teal};`);
+    expect(rootBody).toContain(`--color-accent-b: ${green};`);
   });
 
   it('defines --color-accent as a color-mix() of literal colors, not a literal hex', () => {
-    expect(rootBody).toContain('--color-accent: color-mix(in srgb, #4fc27a 50%, #5a5c9e 50%);');
+    expect(rootBody).toContain(`--color-accent: color-mix(in srgb, ${teal} 50%, ${green} 50%);`);
   });
 
   it('defines --color-accent-gradient as a linear-gradient() of literal colors', () => {
-    expect(rootBody).toContain('--color-accent-gradient: linear-gradient(135deg, #4fc27a, #5a5c9e);');
+    expect(rootBody).toContain(`--color-accent-gradient: linear-gradient(135deg, ${teal}, ${green});`);
   });
 
   // Bug fix, found live via browser DevTools — jsdom never resolves real CSS cascade, so this was

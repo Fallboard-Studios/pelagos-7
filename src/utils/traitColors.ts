@@ -11,16 +11,32 @@ import type { Trait } from '@/types/traits';
  * kept here too so it isn't a value declared in two places, just referenced from one call site.
  * ACCENT_COLORS.beige is deliberately unused by any pair — reserved for later, not an oversight
  * (see docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.3).
+ *
+ * Rebalanced (2026-09-12, Crawford's own request) when emerald/indigo were added: Header's
+ * original pairing of the two new hues sat 96° apart on the hue wheel — the only pair in the
+ * palette breaking the ≤60° analogous-hue rule every other pair follows, and it looked it.
+ * Splitting them into 2 different pairs instead of retuning strict hue-sorted neighbors (which
+ * would have produced 2 pairs tighter than 14°, e.g. plum+indigo at 10°) took some hand-rebalancing:
+ * Spectral gives up teal for indigo (cyan+indigo, 52°) and Composition gives up green for emerald
+ * (emerald+lime, 46°); Header inherits both leftovers as its own new pair (teal+green, 24°).
+ * Time/Space, Output, Company, and Seed are untouched. See docs/intent/
+ * color-scheme-trait-theming.md's own amendment note for the full hue-wheel reasoning.
  */
 export const TRAIT_COLORS: Record<Trait, [string, string]> = {
-  spectral: [ACCENT_COLORS.cyan, ACCENT_COLORS.teal],
+  spectral: [ACCENT_COLORS.cyan, ACCENT_COLORS.indigo],
   timeSpace: [ACCENT_COLORS.blue, ACCENT_COLORS.plum],
   output: [ACCENT_COLORS.red, ACCENT_COLORS.orange],
-  composition: [ACCENT_COLORS.green, ACCENT_COLORS.lime],
+  composition: [ACCENT_COLORS.emerald, ACCENT_COLORS.lime],
   company: [ACCENT_COLORS.purple, ACCENT_COLORS.pink],
   seed: [ACCENT_COLORS.tangerine, ACCENT_COLORS.yellow],
-  header: [ACCENT_COLORS.emerald, ACCENT_COLORS.indigo],
+  header: [ACCENT_COLORS.teal, ACCENT_COLORS.green],
 };
+
+/** The 4 custom properties buildAccentStyle below always sets, typed explicitly (rather than a
+ *  blanket `as CSSProperties` cast) so a typo'd property name fails to compile instead of
+ *  silently producing a dead custom property. */
+type AccentCSSProperties = CSSProperties &
+  Record<'--color-accent-a' | '--color-accent-b' | '--color-accent' | '--color-accent-gradient', string>;
 
 /**
  * Builds all 4 accent custom properties from 2 literal colors. Bug fix, found live via browser
@@ -37,13 +53,13 @@ export const TRAIT_COLORS: Record<Trait, [string, string]> = {
  * indirection left for a browser to get wrong. See docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.2's
  * amendment.
  */
-function buildAccentStyle(a: string, b: string): CSSProperties {
+function buildAccentStyle(a: string, b: string): AccentCSSProperties {
   return {
     '--color-accent-a': a,
     '--color-accent-b': b,
     '--color-accent': `color-mix(in srgb, ${a} 50%, ${b} 50%)`,
     '--color-accent-gradient': `linear-gradient(135deg, ${a}, ${b})`,
-  } as CSSProperties;
+  };
 }
 
 /**

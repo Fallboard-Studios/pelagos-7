@@ -14,6 +14,7 @@ import {
 import { DEFAULT_LFO_SETTINGS } from '@/data/lfoConfig';
 import { VOLUME_LFO_TARGET } from '@/data/robotOptionsConfig';
 import { LFO_RATE_MIN, LFO_DEPTH_MIN } from '@/types/lfo';
+import { getTraitColorStyle } from '@/utils/traitColors';
 import type { ADSREnvelope } from '@/types/Robot';
 import type { CompanyOptionsSnapshot } from '@/types/Company';
 
@@ -49,6 +50,12 @@ const DISABLED_SIGNATURE_ARRAY: SignatureArrayValue = {
 /**
  * "Company mode" call site for AudioSettingSection/PingControlsDrawer/PingContourDrawer/
  * SignatureArrayDrawer (Roadmap Phase 10) — the counterpart to RobotOptionsTab's "robot mode."
+ * Each of the 4 gets the identical trait style RobotOptionsTab passes it (output/composition/
+ * timeSpace/spectral, Roadmap Phase 14) — a Volume/Melody/Envelope/Source accordion always
+ * renders in its own domain trait regardless of whether it's editing one robot or a company's
+ * bulk baseline, matching the robot detail page rather than CompanyManager's own Company purple/
+ * pink (which stays reserved for CompanyManager's own chrome — the button row and CRUD controls
+ * — see CompanyManager.tsx's own root style).
  * With no company selected, or a selected company with zero members (nothing to derive a
  * baseline from, nothing to broadcast to), every section renders disabled with a placeholder
  * value. With a non-empty company selected, each section's value comes from
@@ -120,6 +127,7 @@ export function CompanyOptionsSection() {
       <AudioSettingSection
         value={resolved ?? DISABLED_AUDIO_SETTING}
         disabled={!active}
+        style={getTraitColorStyle('output')}
         onAudioModeChange={(mode) => {
           members.forEach((m) => applyAudioMode(m, localeId, mode));
           patchSnapshot({ audioMode: mode });
@@ -141,6 +149,7 @@ export function CompanyOptionsSection() {
       <PingControlsDrawer
         value={pingControlsValue}
         disabled={!active}
+        style={getTraitColorStyle('composition')}
         onDensityChange={(v) => {
           members.forEach((m) => applyDensity(m, localeId, v));
           patchSnapshot({ rhythmicDensity: v });
@@ -180,6 +189,7 @@ export function CompanyOptionsSection() {
       <PingContourDrawer
         value={resolved?.adsr ?? DISABLED_ADSR}
         disabled={!active}
+        style={getTraitColorStyle('timeSpace')}
         onChange={(adsr) => {
           const patch = resolved ? diffCompoundField(resolved.adsr, adsr) : adsr;
           members.forEach((m) => {
@@ -193,6 +203,7 @@ export function CompanyOptionsSection() {
       <SignatureArrayDrawer
         value={resolved ? { layers: resolved.layers, lfoSettings: resolved.lfoSettings } : DISABLED_SIGNATURE_ARRAY}
         disabled={!active}
+        style={getTraitColorStyle('spectral')}
         onContinuousChange={(layers) => {
           const diff = resolved ? diffLayerField(resolved.layers, layers) : null;
           members.forEach((m) => {

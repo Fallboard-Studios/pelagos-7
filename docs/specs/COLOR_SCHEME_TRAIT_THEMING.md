@@ -54,10 +54,10 @@ indirection:
 
 ```css
 /* src/index.css — replaces the single literal --color-accent line */
---color-accent-a: #4fc27a;   /* Header trait's own pair (emerald/indigo), reused as the ambient
---color-accent-b: #5a5c9e;      app-wide default — amended post-implementation, see §1.3 */
---color-accent: color-mix(in srgb, #4fc27a 50%, #5a5c9e 50%);
---color-accent-gradient: linear-gradient(135deg, #4fc27a, #5a5c9e);
+--color-accent-a: #41ad9f;   /* Header trait's own pair (teal/green), reused as the ambient
+--color-accent-b: #68cb97;      app-wide default — amended post-implementation twice, see §1.3 */
+--color-accent: color-mix(in srgb, #41ad9f 50%, #68cb97 50%);
+--color-accent-gradient: linear-gradient(135deg, #41ad9f, #68cb97);
 ```
 
 Overriding a subtree means overriding **all 4** properties together, computed from the same 2 colors
@@ -119,6 +119,17 @@ cluster's saturation/lightness band rather than popping out as more vivid). Both
 `white`/`darkGray` to `emerald`/`indigo` — `white`/`darkGray` remain in `ACCENT_COLORS` (still part
 of the design reference) but are now fully unused, the same status `black` already had.
 
+**Amended again, same day (Crawford's own request):** pairing emerald with indigo put Header's own
+2 colors 96° apart on the hue wheel — the only pair in the whole palette breaking the ≤60°
+analogous-hue rule every other pair follows, and it read like it (an unrelated-feeling combination,
+not a clean split of complements either). Rather than retune emerald/indigo to their strict
+hue-sorted neighbors (which produces 2 *different* pairs tighter than 14° — plum+indigo at 10°,
+blue+cyan at 12°, both worse than the problem being fixed), the fix hand-rebalances 3 pairs at
+once: Spectral trades teal for indigo (`cyan`+`indigo`, 52°), Composition trades green for emerald
+(`emerald`+`lime`, 46°), and Header inherits both leftovers — teal and green — as a brand-new pair
+(24°) that never existed before. Time/Space, Output, Company, and Seed are untouched. The table
+below (and `TRAIT_COLORS` itself) reflect this final state, not the emerald/indigo pairing above.
+
 ```typescript
 // src/types/traits.ts (new)
 export type Trait = 'spectral' | 'timeSpace' | 'output' | 'composition' | 'company' | 'seed' | 'header';
@@ -137,13 +148,13 @@ import type { CSSProperties } from 'react';
  *  pair doubles as src/index.css's app-wide ambient default (see that file's own :root block) —
  *  kept here too so it isn't a value declared in two places, just referenced from one call site. */
 export const TRAIT_COLORS: Record<Trait, [string, string]> = {
-  spectral: [ACCENT_COLORS.cyan, ACCENT_COLORS.teal],
+  spectral: [ACCENT_COLORS.cyan, ACCENT_COLORS.indigo],
   timeSpace: [ACCENT_COLORS.blue, ACCENT_COLORS.plum],
   output: [ACCENT_COLORS.red, ACCENT_COLORS.orange],
-  composition: [ACCENT_COLORS.green, ACCENT_COLORS.lime],
+  composition: [ACCENT_COLORS.emerald, ACCENT_COLORS.lime],
   company: [ACCENT_COLORS.purple, ACCENT_COLORS.pink],
   seed: [ACCENT_COLORS.tangerine, ACCENT_COLORS.yellow],
-  header: [ACCENT_COLORS.emerald, ACCENT_COLORS.indigo],
+  header: [ACCENT_COLORS.teal, ACCENT_COLORS.green],
 };
 
 /** Builds all 4 accent custom properties from 2 literal colors, with color-mix()/linear-gradient()
@@ -238,7 +249,8 @@ is introduced where an existing root already serves.
 | Robot Options: `SignatureArrayDrawer` | Spectral | Same |
 | Robot Options: everything else (`RobotDisplaySection`'s Name/Job/Battery/Docking chrome) | Robot's own `identityColor` | `style` added to `RobotOptionsTab.tsx`'s existing `<div className="robot-options">` root — the 4 trait-scoped children above override it locally for free via cascade |
 | `RobotSelectionCard` (list view) | Robot's own `identityColor` | `style` added to its existing `<li className="robot-selection-card">` root |
-| `CompanyManager` | Company | `style` added to its existing `<div className="company-manager">` root |
+| `CompanyManager`'s own button row + CRUD chrome | Company | `style` added to its existing `<div className="company-manager">` root |
+| `CompanyOptionsSection`'s `AudioSettingSection`/`PingControlsDrawer`/`PingContourDrawer`/`SignatureArrayDrawer` | Output/Composition/Time-Space/Spectral respectively — **not** Company | **Amendment (Crawford's own request, post-ship):** identical `style` passed at each of these 4 call sites as at their `RobotOptionsTab` call sites, so the Robots tile's company bulk-edit panel matches the robot detail page control-for-control. Overrides `CompanyManager`'s own Company-trait root locally via the same style-prop cascade the robot-color root above already relies on. |
 | `SectorSettingsDrawer` | Seed | `style` added to its existing `<div className="sector-settings-drawer">` root |
 | `Header` | Header | `style` added to its existing `<header className="header">` root — in practice a no-op today, since Header's pair equals `index.css`'s own ambient default (§1.2), but applied explicitly so the two can diverge later without this call site needing a second look |
 

@@ -166,6 +166,33 @@ ambient-default values (Task 4) changed to match, since they're Header's own pai
 own comment. `white`/`darkGray` remain in `ACCENT_COLORS` but are now fully unused, like `black`
 already was. See `docs/specs/COLOR_SCHEME_TRAIT_THEMING.md` §1.3's own amendment note.
 
+**Amendment, same day (Crawford's own request):** the emerald/indigo pairing above put Header's own
+2 colors 96° apart — the only pair in the whole palette breaking the ≤60° analogous-hue rule every
+other pair follows, and Crawford's own read was that it looked it ("I don't think indigo and
+emerald work well together"). A strict hue-sorted resort of all 15 hues (walking the wheel and
+taking adjacent pairs) was considered and rejected — it fixes Header but produces 2 *different*
+pairs tighter than 14° (plum+indigo ~10°, blue+cyan ~12°), worse than the problem it solves.
+Instead, 3 pairs were hand-rebalanced together:
+
+| Trait | Before | After | Gap |
+|---|---|---|---|
+| Spectral | Cyan / Teal | Cyan / **Indigo** | 52° |
+| Composition | Green / Lime | **Emerald** / Lime | 46° |
+| Header | Emerald / Indigo | **Teal / Green** | 24° |
+
+Time/Space, Output, Company, and Seed are untouched. Updated in `traitColors.ts` (`TRAIT_COLORS`)
+and `index.css` (Header's pair doubles as the ambient default, per that file's own comment) —
+`ACCENT_COLORS`/`ROBOT_IDENTITY_COLOR_NAMES` themselves are unaffected (no color added or removed,
+only which trait each is assigned to). A visual proof-of-concept (all 7 pairs rendered as their
+real `linear-gradient(135deg, …)` swatches) was reviewed and approved before implementing. Every
+test asserting a specific trait's colors (`traitColors.test.ts`, `index.css.test.ts`,
+`Header.test.tsx`, `AudioRigDrawer.test.tsx`, `RobotOptionsTab.test.tsx`,
+`CompanyOptionsSection.test.tsx`) was updated to match. `npm run build:types`, `npm run lint`
+clean; full suite 2422/2422 pass; `npm run build` clean — the emitted CSS was inspected directly
+and confirmed to contain `linear-gradient(135deg, #41ad9f, #68cb97)` (Header's new ambient
+default), literal hex values as the §1.2 fix requires. See `docs/specs/COLOR_SCHEME_TRAIT_THEMING.md`
+§1.3's own second amendment note and `docs/intent/color-scheme-trait-theming.md`'s own amendment.
+
 ---
 
 ### Phase 2: CSS mechanism (parallelizable with Phase 1)
@@ -558,6 +585,24 @@ trait colors — Task 9's own manual-check box above can be considered satisfied
   **Files:** `src/components/company/CompanyManager.tsx`, `src/components/company/CompanyManager.test.tsx`, `src/components/panels/screen/console/SectorSettingsDrawer.tsx`, `src/components/panels/screen/console/SectorSettingsDrawer.test.tsx`
 
   **Estimated scope:** S (2 unrelated files, identical one-line addition each)
+
+  **Amendment, post-Phase-7 (Crawford's own request):** `CompanyManager`'s Company trait was never
+  meant to reach `CompanyOptionsSection`'s own 4 reused accordions
+  (`AudioSettingSection`/`PingControlsDrawer`/`PingContourDrawer`/`SignatureArrayDrawer`) — that
+  case was simply never addressed by the original spec/task pass, which only covered
+  `CompanyManager`'s own root. Crawford's own instruction: the Robots tile's company bulk-edit
+  panel should match the individual robot detail page control-for-control. Each of the 4 now gets
+  `style={getTraitColorStyle(...)}` at its `CompanyOptionsSection` call site too, identical to its
+  `RobotOptionsTab` call site (output/composition/timeSpace/spectral) — `CompanyManager`'s own
+  Company trait now scopes only its own button row/CRUD chrome, overridden locally by the 4
+  accordions via the same style-prop cascade Task 12's robot-color root already established. See
+  `docs/intent/color-scheme-trait-theming.md`'s own amendment note. Verified via 4 new
+  `CompanyOptionsSection.test.tsx` assertions (one per drawer, checking its received style against
+  `ACCENT_COLORS`) replacing this task's earlier "passes no style" guard, which encoded the
+  opposite (and, it turned out, undocumented-by-anyone) assumption. `npm run build:types`,
+  `npm run lint` clean; full suite 2422/2422 pass (the pre-existing `audioSwells.test.ts` flake
+  noted at the Phase 1 checkpoint is intermittent independent of this change — confirmed by
+  running it in isolation, alternating pass/fail across repeated runs); `npm run build` clean.
 
 - [x] **Task 15: `Header.tsx` — trait-color root**
 

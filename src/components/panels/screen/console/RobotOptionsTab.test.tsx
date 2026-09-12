@@ -387,14 +387,14 @@ describe('RobotOptionsTab', () => {
       expect(stub.getAttribute('data-style-b')).toBe(ACCENT_COLORS.orange);
     });
 
-    it('gives PingControlsDrawer the Composition trait\'s style (green/lime)', () => {
+    it('gives PingControlsDrawer the Composition trait\'s style (emerald/lime)', () => {
       const robot = makeRobot();
       useLocaleStore.getState().addRobot(localeId, robot);
       useUIStore.getState().selectRobot(robot.id);
       render(<RobotOptionsTab />);
 
       const stub = screen.getByTestId('ping-controls-drawer-stub');
-      expect(stub.getAttribute('data-style-a')).toBe(ACCENT_COLORS.green);
+      expect(stub.getAttribute('data-style-a')).toBe(ACCENT_COLORS.emerald);
       expect(stub.getAttribute('data-style-b')).toBe(ACCENT_COLORS.lime);
     });
 
@@ -409,7 +409,7 @@ describe('RobotOptionsTab', () => {
       expect(stub.getAttribute('data-style-b')).toBe(ACCENT_COLORS.plum);
     });
 
-    it('gives SignatureArrayDrawer the Spectral trait\'s style (cyan/teal)', () => {
+    it('gives SignatureArrayDrawer the Spectral trait\'s style (cyan/indigo)', () => {
       const robot = makeRobot();
       useLocaleStore.getState().addRobot(localeId, robot);
       useUIStore.getState().selectRobot(robot.id);
@@ -417,7 +417,7 @@ describe('RobotOptionsTab', () => {
 
       const stub = screen.getByTestId('signature-array-drawer-stub');
       expect(stub.getAttribute('data-style-a')).toBe(ACCENT_COLORS.cyan);
-      expect(stub.getAttribute('data-style-b')).toBe(ACCENT_COLORS.teal);
+      expect(stub.getAttribute('data-style-b')).toBe(ACCENT_COLORS.indigo);
     });
 
     it('gives two different robots two different root colors, while both get the same 4 trait colors on their drawers', () => {
