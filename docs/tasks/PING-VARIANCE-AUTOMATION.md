@@ -1,6 +1,6 @@
 # Implementation Plan: Ping Variance Automation
 
-Source spec: [docs/specs/PING-VARIANCE-AUTOMATION.md](../specs/PING-VARIANCE-AUTOMATION.md). Source intent: [docs/intent/ping-variance-automation.md](../intent/ping-variance-automation.md). Not yet slotted into [docs/roadmap/roadmap.md](../roadmap/roadmap.md) — same "not decided here" status the source spec inherited from [docs/specs/AUDIO_SWELLS.md](../specs/AUDIO_SWELLS.md) §7 item 4.
+Source spec: [docs/specs/PING-VARIANCE-AUTOMATION.md](../specs/PING-VARIANCE-AUTOMATION.md). Source intent: [docs/intent/ping-variance-automation.md](../intent/ping-variance-automation.md). Not yet slotted into [docs/todo/roadmap.md](../todo/roadmap.md) — same "not decided here" status the source spec inherited from [docs/specs/AUDIO_SWELLS.md](../specs/AUDIO_SWELLS.md) §7 item 4.
 
 ## Overview
 

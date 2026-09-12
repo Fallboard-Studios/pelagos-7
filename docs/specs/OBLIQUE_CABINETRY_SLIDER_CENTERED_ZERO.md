@@ -9,7 +9,7 @@
 
 Source of intent: [docs/intent/oblique-cabinetry-slider-centered-zero.md](../intent/oblique-cabinetry-slider-centered-zero.md)
 (confirmed via `/interview-me`, 2026-09-09). Source of scope:
-[docs/roadmap/roadmap.md § 11.1.5](../roadmap/roadmap.md#1115-oblique-cabinetry-slidercenteredzero) —
+[docs/todo/roadmap.md § 11.1.5](../todo/roadmap.md#1115-oblique-cabinetry-slidercenteredzero) —
 the last of the 3 voxel-track sliders (11.1.3–11.1.5), and the one the roadmap itself flagged as
 unlikely to be a straightforward wiring pass. Prior art this spec reuses directly, unmodified
 except where §1.3 below documents a small, additive extension: `VoxelTrack.tsx`,
@@ -337,7 +337,7 @@ docs/
 ├── CONSOLE_THEMING.md       # MODIFIED — "Voxel-track sliders" section gains the zero-anchored
 │                            #   dead-center-seam/per-side-falloff rules; its closing "SliderLog
 │                            #   shipped, SliderCenteredZero pending" line is updated
-└── roadmap/roadmap.md       # MODIFIED (at Task-list time, not this spec) — gains the "Done"
+└── todo/roadmap.md       # MODIFIED (at Task-list time, not this spec) — gains the "Done"
                               #   marker for 11.1.5 once implementation lands
 ```
 
@@ -955,7 +955,7 @@ locks down the *opposite*, now-confirmed behavior for the same asymmetric fixtur
   adaptation (dead-center seam, per-side falloff) and its own closing "SliderLog shipped,
   SliderCenteredZero pending" line is updated to reflect this item having shipped — the last of the
   3 sliders, so that line can note all 3 are now complete.
-* **`docs/roadmap/roadmap.md`:** gains the "Done" marker for 11.1.5 at implementation time (this
+* **`docs/todo/roadmap.md`:** gains the "Done" marker for 11.1.5 at implementation time (this
   spec doesn't add it — mirrors how 11.1.3/11.1.4's own specs didn't either, only their
   task-completion passes did).
 * **Git Handling:** Human operator handles all branch creation, staging, commits, and merges

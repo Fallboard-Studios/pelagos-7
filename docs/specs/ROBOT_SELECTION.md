@@ -6,7 +6,7 @@
 > `RobotEditorTab.tsx` was renamed to `RobotOptionsTab.tsx`, and robot selection now routes there
 > instead. Also, `AudioStatusBadge`'s `role="img"` in § 4's code sample shipped as `role="status"`
 > — a later code-review "Consider" finding, not an error in this spec. Left otherwise unedited as a
-> historical planning record — see [docs/roadmap/roadmap.md §§ 8-9](../roadmap/roadmap.md) for what
+> historical planning record — see [docs/todo/roadmap.md §§ 8-9](../todo/roadmap.md) for what
 > actually shipped.
 
 > **Execution Commands**
@@ -17,7 +17,7 @@
 > - Dev server: `npm run dev`
 
 Source of intent: [docs/intent/robot-selection.md](../intent/robot-selection.md) (confirmed via
-`/interview-me`). Source of scope: [docs/roadmap/roadmap.md § 8](../roadmap/roadmap.md#8-robot-selection).
+`/interview-me`). Source of scope: [docs/todo/roadmap.md § 8](../todo/roadmap.md#8-robot-selection).
 Prior art / current architecture: [docs/UI_SHELL.md](../UI_SHELL.md),
 [docs/ROBOT_DESIGN.md](../ROBOT_DESIGN.md), [docs/ROBOT_LIFECYCLE.md](../ROBOT_LIFECYCLE.md),
 [docs/COMPONENT_LIBRARY.md](../COMPONENT_LIBRARY.md),
@@ -170,7 +170,7 @@ docs/
 ├── UI_SHELL.md                            # MODIFIED — the "still planned" Robot Selection bullet
 │                                          #   (§ "Still planned (not yet built)") becomes real;
 │                                          #   notes the Console.css pointer-events fix
-└── roadmap/roadmap.md                     # MODIFIED — § 8's bullets marked resolved
+└── todo/roadmap.md                     # MODIFIED — § 8's bullets marked resolved
 ```
 
 **Confirmed NOT touched:** `src/systems/robotSystems.ts`/`ROBOT_LIFECYCLE.md` (this phase only

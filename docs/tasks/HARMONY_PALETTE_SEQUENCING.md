@@ -2,7 +2,7 @@
 
 Source spec: [docs/specs/HARMONY_PALETTE_SEQUENCING.md](../specs/HARMONY_PALETTE_SEQUENCING.md). Source
 intent: [docs/intent/harmony-palette-sequencing.md](../intent/harmony-palette-sequencing.md). Not yet
-slotted into [docs/roadmap/roadmap.md](../roadmap/roadmap.md).
+slotted into [docs/todo/roadmap.md](../todo/roadmap.md).
 
 ## Overview
 

@@ -7,7 +7,7 @@
 > - Unit tests: `npm test`
 > - Dev server: `npm run dev`
 
-Source of intent: [docs/intent/locale-seed-decoupling.md](../intent/locale-seed-decoupling.md) (confirmed via `/interview-me`). Source of scope: [docs/roadmap/roadmap.md § 5's "Known Issue"](../roadmap/roadmap.md#5-sector-settings) (the coordinate dead-zone bug) and [§ 6's first Restructure bullet](../roadmap/roadmap.md#6-robot-melody--seed-engine) (the planet-agnostic seeding rule, generalized here from "robot spawn attributes" to everything locale-derived). Prior art / current architecture: [docs/PROCEDURAL_GENERATION.md](../PROCEDURAL_GENERATION.md). This spec deliberately does **not** cover Phase 6's melody rhythm-engine overhaul or robot ID determinism — those stay in Phase 6's original slot. This is a prerequisite for [Sector Settings](../intent/sector-settings.md) (Roadmap Phase 5); Sector Settings' own spec is written separately, after this one lands.
+Source of intent: [docs/intent/locale-seed-decoupling.md](../intent/locale-seed-decoupling.md) (confirmed via `/interview-me`). Source of scope: [docs/todo/roadmap.md § 5's "Known Issue"](../todo/roadmap.md#5-sector-settings) (the coordinate dead-zone bug) and [§ 6's first Restructure bullet](../todo/roadmap.md#6-robot-melody--seed-engine) (the planet-agnostic seeding rule, generalized here from "robot spawn attributes" to everything locale-derived). Prior art / current architecture: [docs/PROCEDURAL_GENERATION.md](../PROCEDURAL_GENERATION.md). This spec deliberately does **not** cover Phase 6's melody rhythm-engine overhaul or robot ID determinism — those stay in Phase 6's original slot. This is a prerequisite for [Sector Settings](../intent/sector-settings.md) (Roadmap Phase 5); Sector Settings' own spec is written separately, after this one lands.
 
 ---
 
@@ -58,7 +58,7 @@ docs/
 │                                     #   still real for planet-level generation — planetInitialHour,
 │                                     #   generateGlobalAudioSettings/generateGlobalLfoSettings — but no longer
 │                                     #   feeds locale generation at all)
-└── roadmap/roadmap.md               # MODIFIED — § 5's Known Issue gets a resolution pointer to this doc; § 6's
+└── todo/roadmap.md               # MODIFIED — § 5's Known Issue gets a resolution pointer to this doc; § 6's
                                       #   first Restructure bullet is marked as pulled forward and resolved here
                                       #   (exact wording left to Plan phase, see § 7.1)
 ```

@@ -3,7 +3,7 @@
 Confirmed via `/interview-me` on `main`, 2026-08-25. Discovered as a hard prerequisite while
 interviewing [Sector Settings' intent](sector-settings.md) (Roadmap Phase 5): Sector Settings'
 retransmit action can't deliver what it promises on today's architecture. This doc is deliberately
-narrower than [Roadmap Phase 6](../roadmap/roadmap.md#6-robot-melody--seed-engine) — it carves out
+narrower than [Roadmap Phase 6](../todo/roadmap.md#6-robot-melody--seed-engine) — it carves out
 only the seeding-architecture slice ("update robot spawning rules so attributes come from
 planet-agnostic lat/long coords seed," generalized to *all* locale-derived content, not just robot
 spawn attributes). Phase 6's melody rhythm-engine overhaul (density-as-%, motif length range

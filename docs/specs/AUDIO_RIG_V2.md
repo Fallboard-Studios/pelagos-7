@@ -63,7 +63,7 @@ src/components/panels/screen/console/
 docs/
 ├── AUDIO_SYSTEM.md                  # MODIFIED — Signal Graph section (new chain order, both topologies), AudioEngine API listing (setGlobalLimiter, dropped setGlobalChorus, updated setEffectBypass union), LFO Modulation section (8 targets not 9; remove the now-moot chorus.delayTime divergence note), Seeding section (enabled behavior rewritten)
 ├── reference/GLOBAL_CHAIN_GRID.md   # MODIFIED — remove Chorus rows and the reverb.dampening row; add Limiter row(s); note the new default chain order and the two named topologies
-├── roadmap/roadmap.md               # MODIFIED — Phase 4 "About" text needs another pass (same kind of fix as V1's own Task 13, now stale again re: effect list/count and chain behavior)
+├── todo/roadmap.md               # MODIFIED — Phase 4 "About" text needs another pass (same kind of fix as V1's own Task 13, now stale again re: effect list/count and chain behavior)
 └── SESSION_STORAGE.md               # MODIFIED — one-line effect list in the "what's persisted" bullet (Chorus -> Limiter), low-priority
 ```
 

@@ -1,6 +1,6 @@
 # Intent: Roadmap Phase 1 — Architecture & Components
 
-Confirmed via `interview-me` on 2026-08-20, against `docs/roadmap/roadmap.md` item 1.
+Confirmed via `interview-me` on 2026-08-20, against `docs/todo/roadmap.md` item 1.
 
 ## Outcome
 

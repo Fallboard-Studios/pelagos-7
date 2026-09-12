@@ -1,7 +1,7 @@
 # Intent: Oblique Cabinetry — TextInput / CoordsInput
 
 Confirmed via `/interview-me`, 2026-09-10. Scopes
-[11.1.9](../roadmap/roadmap.md#1119-oblique-cabinetry-textinput--coordsinput), wiring `TextInput` into the
+[11.1.9](../todo/roadmap.md#1119-oblique-cabinetry-textinput--coordsinput), wiring `TextInput` into the
 shared cabinet-box mechanism [11.1.1](oblique-cabinetry-foundation.md) built. Settles the question the
 roadmap draft's own 11.1.9 section left open ("the actual pop-trigger mechanism is left open here") — raised
 directly by Crawford, reusing [DirectionalPanel](oblique-cabinetry-directional-panel.md)'s facade *boundary*

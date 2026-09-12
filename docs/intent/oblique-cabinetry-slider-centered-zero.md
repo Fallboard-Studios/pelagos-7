@@ -1,7 +1,7 @@
 # Intent: Oblique Cabinetry — SliderCenteredZero (Roadmap Phase 11.1.5)
 
 Confirmed via `/interview-me`, 2026-09-09. Scopes the fifth item of the
-[11.1.1–11.1.9 Oblique Cabinetry series](../roadmap/roadmap.md#1115-oblique-cabinetry-slidercenteredzero),
+[11.1.1–11.1.9 Oblique Cabinetry series](../todo/roadmap.md#1115-oblique-cabinetry-slidercenteredzero),
 wiring `SliderCenteredZero` into the shared voxel-track system
 [11.1.3](oblique-cabinetry-slider-linear.md) built and
 [11.1.4](oblique-cabinetry-slider-log.md) generalized to a second consumer. Unlike 11.1.4, this is

@@ -1,7 +1,7 @@
 # Intent: Robot Melody & Seed Engine (Roadmap Phase 6)
 
 Confirmed via `/interview-me` on `main`, 2026-08-25. Covers the remaining slice of
-[Roadmap Phase 6](../roadmap/roadmap.md#6-robot-melody--seed-engine) after its first
+[Roadmap Phase 6](../todo/roadmap.md#6-robot-melody--seed-engine) after its first
 Restructure bullet (planet-agnostic lat/long seeding) was pulled forward and resolved by
 [locale-seed-decoupling.md](locale-seed-decoupling.md) /
 [docs/specs/LOCALE_SEED_DECOUPLING.md](../specs/LOCALE_SEED_DECOUPLING.md). This doc covers what's

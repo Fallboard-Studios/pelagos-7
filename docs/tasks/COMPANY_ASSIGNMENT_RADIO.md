@@ -39,7 +39,7 @@ removing `SelectSchema` from `controls.ts` are each other's precondition), and o
   and `RobotDisplaySection.tsx` are `Select`'s only two real call sites (confirmed by spec §2's repo-wide
   search); deleting `Select` before they stop importing it would break the build mid-plan.
 - **Docs are one task, last** — `docs/COMPONENT_LIBRARY.md`, `docs/COMPANIES.md`, and
-  `docs/roadmap/roadmap.md` all describe the *shipped* end state (primitive count, which control renders the
+  `docs/todo/roadmap.md` all describe the *shipped* end state (primitive count, which control renders the
   company row, the roadmap's own record of what happened), so they can only be written accurately once every
   code task has landed. All three are independent of each other and can be done in any order within the task.
 - **No task touches `CLAUDE.md`** — spec §1.5 confirms its existing "14 stateless UI primitives" text is
@@ -326,7 +326,7 @@ Task 1 (companyConfig.ts/.test.ts — rename to buildCompanyAssignmentSchema, Ra
 
 ### Phase 4: Docs
 
-- [x] **Task 5: `docs/COMPONENT_LIBRARY.md`, `docs/COMPANIES.md`, `docs/roadmap/roadmap.md`**
+- [x] **Task 5: `docs/COMPONENT_LIBRARY.md`, `docs/COMPANIES.md`, `docs/todo/roadmap.md`**
 
   **Description:** Per spec §6, three independent doc updates describing the now-shipped state:
   - `docs/COMPONENT_LIBRARY.md`: "All 15 live in…" → "All 14 live in…"; the `CONTROL_SCHEMA_TYPES` paragraph
@@ -337,7 +337,7 @@ Task 1 (companyConfig.ts/.test.ts — rename to buildCompanyAssignmentSchema, Ra
     rejects an empty string" sentence, and the `stopPropagation`/portal paragraph all reworded per the
     spec's exact text (RadioButton instead of Select, no portal-specific reasoning, pointer to
     `docs/specs/COMPANY_ASSIGNMENT_RADIO.md` where relevant).
-  - `docs/roadmap/roadmap.md`: new `## 10.5 Company Assignment: Select → RadioButton` section inserted after
+  - `docs/todo/roadmap.md`: new `## 10.5 Company Assignment: Select → RadioButton` section inserted after
     `## 10.4` and before `## 11`; `## 11.1.8`'s heading and opening paragraph replaced with a Cut notice
     (original content preserved below a `<details>` fold, mirroring `## 11`'s own established cut-record
     format); `## 11.1.9`'s "About" section and `## 11.2`'s "About" section each get the one-sentence
@@ -358,7 +358,7 @@ Task 1 (companyConfig.ts/.test.ts — rename to buildCompanyAssignmentSchema, Ra
     overstatement of the spec's actual wording, corrected here). (One extra fix beyond the spec's own list:
     the doc's own "Related docs" header line at the top also referenced `Select` in the present tense —
     updated to point at `RadioButton` with the same historical note.)
-  - [x] `docs/roadmap/roadmap.md` has a new `## 10.5` section (Create/Restructure/About/Docs-style, matching
+  - [x] `docs/todo/roadmap.md` has a new `## 10.5` section (Create/Restructure/About/Docs-style, matching
     spec §6's given markdown) between `## 10.4` and `## 11`.
   - [x] `## 11.1.8`'s heading reads `## 11.1.8 Oblique Cabinetry: Select — Cut`; its opening paragraph states
     it was cut before any implementation began (not reverted for a bug), links to `10.5`; its original
@@ -389,7 +389,7 @@ Task 1 (companyConfig.ts/.test.ts — rename to buildCompanyAssignmentSchema, Ra
 
   **Dependencies:** Task 4.
 
-  **Files:** `docs/COMPONENT_LIBRARY.md`, `docs/COMPANIES.md`, `docs/roadmap/roadmap.md`
+  **Files:** `docs/COMPONENT_LIBRARY.md`, `docs/COMPANIES.md`, `docs/todo/roadmap.md`
 
   **Estimated scope:** M (3 files, docs only)
 
@@ -405,7 +405,7 @@ Task 1 (companyConfig.ts/.test.ts — rename to buildCompanyAssignmentSchema, Ra
   as a separate pre-existing issue but out of scope for this task to chase down.
 - [x] All acceptance criteria across all 5 tasks are met, including Checkpoint A's manual check (confirmed
   by Crawford directly).
-- [x] `docs/COMPONENT_LIBRARY.md`, `docs/COMPANIES.md`, `docs/roadmap/roadmap.md` reflect the shipped
+- [x] `docs/COMPONENT_LIBRARY.md`, `docs/COMPANIES.md`, `docs/todo/roadmap.md` reflect the shipped
   feature; `CLAUDE.md` is untouched throughout (confirmed at Tasks 4 and 5, `git diff CLAUDE.md` empty both
   times).
 - [ ] Not yet reviewed with Crawford — not ready for PR until Task 5's docs and this final checkpoint are

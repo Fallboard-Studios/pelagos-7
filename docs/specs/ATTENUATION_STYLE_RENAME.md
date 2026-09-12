@@ -9,7 +9,7 @@
 
 Source of intent: [docs/intent/attenuation-style-rename.md](../intent/attenuation-style-rename.md)
 (confirmed via direct conversation, 2026-08-29). Source of scope:
-[docs/roadmap/roadmap.md § 10.4](../roadmap/roadmap.md#104-attenuation-style-internal-rename)
+[docs/todo/roadmap.md § 10.4](../todo/roadmap.md#104-attenuation-style-internal-rename)
 (inserted out of sequence, deliberately not renumbering later phases). Reverses
 [docs/specs/ATTENUATION_STYLE.md](ATTENUATION_STYLE.md) §1.3/§3's explicit "no internal renames"
 constraint — that spec is left untouched as the historical record of what was decided then; this

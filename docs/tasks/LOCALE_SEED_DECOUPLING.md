@@ -173,7 +173,7 @@ Tasks 2, 3, 4, 5 have no edges between them — they touch four disjoint files a
 
   **Estimated scope:** XS (docs only)
 
-- [ ] **Task 7: `docs/roadmap/roadmap.md` — Phase 5 Known Issue + Phase 6 Restructure bullet**
+- [ ] **Task 7: `docs/todo/roadmap.md` — Phase 5 Known Issue + Phase 6 Restructure bullet**
 
   **Description:** Apply the exact wording resolved in this plan's Architecture Decisions (§7.1) — append the resolution line to Phase 5's Known Issue, and strike through + annotate Phase 6's first Restructure bullet.
 
@@ -187,7 +187,7 @@ Tasks 2, 3, 4, 5 have no edges between them — they touch four disjoint files a
 
   **Dependencies:** Task 1 through Task 5 (describes the whole phase as complete).
 
-  **Files:** `docs/roadmap/roadmap.md`
+  **Files:** `docs/todo/roadmap.md`
 
   **Estimated scope:** XS (docs only)
 

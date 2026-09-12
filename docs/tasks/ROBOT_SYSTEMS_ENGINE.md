@@ -708,7 +708,7 @@ land.
 
 ### Phase 7: Docs
 
-- [x] **Task 19: `docs/ROBOT_LIFECYCLE.md`, `docs/UI_SHELL.md`, `CLAUDE.md`, `docs/roadmap/roadmap.md`**
+- [x] **Task 19: `docs/ROBOT_LIFECYCLE.md`, `docs/UI_SHELL.md`, `CLAUDE.md`, `docs/todo/roadmap.md`**
 
   **Description:** Document shipped behavior, per the roadmap's own Docs bullets and spec §7.5 —
   written against the final API, not the plan.
@@ -720,7 +720,7 @@ land.
   - [x] `CLAUDE.md`'s reference doc list gains `docs/ROBOT_LIFECYCLE.md`
   - [x] `docs/UI_SHELL.md`'s `robotOptions` "Planned Replacement" point folded in; its "+ New
     Robot" reference in § Console Navigation updated to reflect the removal
-  - [x] `docs/roadmap/roadmap.md` § 7's bullets marked resolved, mirroring the strikethrough+
+  - [x] `docs/todo/roadmap.md` § 7's bullets marked resolved, mirroring the strikethrough+
     pointer pattern used for prior phases, pointing at `docs/specs/ROBOT_SYSTEMS_ENGINE.md`
 
   **Verification:**
@@ -731,7 +731,7 @@ land.
   **Dependencies:** Tasks 1–18.
 
   **Files:** `docs/ROBOT_LIFECYCLE.md` (new), `docs/UI_SHELL.md`, `CLAUDE.md`,
-  `docs/roadmap/roadmap.md`
+  `docs/todo/roadmap.md`
 
   **Estimated scope:** S (4 files, text-only)
 

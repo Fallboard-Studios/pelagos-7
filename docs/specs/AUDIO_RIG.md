@@ -7,7 +7,7 @@
 > - Unit tests: `npm test`
 > - Dev server: `npm run dev`
 
-Source of intent: [docs/intent/audio-rig.md](../intent/audio-rig.md) (confirmed via `/interview-me`). Source of scope: [docs/roadmap/roadmap.md § 4](../roadmap/roadmap.md#4-audio-rig) (note: its "About" text is stale — see § 7.1). Source of target data: [docs/reference/GLOBAL_CHAIN_GRID.md](../reference/GLOBAL_CHAIN_GRID.md) (the authoritative field-by-field source for every schema entry below). Prior art this phase builds directly on: [docs/COMPONENT_LIBRARY.md](../COMPONENT_LIBRARY.md) (Phase 1's 13 primitives), [docs/AUDIO_SYSTEM.md](../AUDIO_SYSTEM.md) (the already-built `AudioEngine`/`lfoEngine` surface, from Phase 0).
+Source of intent: [docs/intent/audio-rig.md](../intent/audio-rig.md) (confirmed via `/interview-me`). Source of scope: [docs/todo/roadmap.md § 4](../todo/roadmap.md#4-audio-rig) (note: its "About" text is stale — see § 7.1). Source of target data: [docs/reference/GLOBAL_CHAIN_GRID.md](../reference/GLOBAL_CHAIN_GRID.md) (the authoritative field-by-field source for every schema entry below). Prior art this phase builds directly on: [docs/COMPONENT_LIBRARY.md](../COMPONENT_LIBRARY.md) (Phase 1's 13 primitives), [docs/AUDIO_SYSTEM.md](../AUDIO_SYSTEM.md) (the already-built `AudioEngine`/`lfoEngine` surface, from Phase 0).
 
 ---
 
@@ -49,7 +49,7 @@ src/
     └── ConsolePanel.test.tsx          # MODIFIED — replace the "renders the carried-forward stub content for audioRig" assertion
 
 docs/
-├── roadmap/roadmap.md                 # MODIFIED — Phase 4 "About" text doc-fix (see § 7.1)
+├── todo/roadmap.md                 # MODIFIED — Phase 4 "About" text doc-fix (see § 7.1)
 └── AUDIO_SYSTEM.md                    # MODIFIED — LFO Modulation § Seeding: global-chain LfoSettings are no longer unseeded: correct "not seed-generated... out of scope" line
 ```
 

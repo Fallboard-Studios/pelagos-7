@@ -7,7 +7,7 @@
 > - Unit tests: `npm test`
 > - Dev server: `npm run dev`
 
-Source of intent: [docs/intent/phase-2-layout.md](../intent/phase-2-layout.md) (confirmed via `/interview-me`). Source of scope: [docs/roadmap/roadmap.md § 2](../roadmap/roadmap.md#2-layout).
+Source of intent: [docs/intent/phase-2-layout.md](../intent/phase-2-layout.md) (confirmed via `/interview-me`). Source of scope: [docs/todo/roadmap.md § 2](../todo/roadmap.md#2-layout).
 
 ---
 

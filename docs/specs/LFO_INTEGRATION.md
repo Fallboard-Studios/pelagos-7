@@ -7,7 +7,7 @@
 > - Unit tests: `npm test`
 > - Dev server: `npm run dev`
 
-Source of intent: [docs/intent/lfo-integration.md](../intent/lfo-integration.md) (confirmed via `/interview-me`). Source of scope: [docs/roadmap/roadmap.md § 0](../roadmap/roadmap.md#0-lfo-integration). Source of target data: [docs/reference/ROBOT_DATA_GRID.md](../reference/ROBOT_DATA_GRID.md), [docs/reference/GLOBAL_CHAIN_GRID.md](../reference/GLOBAL_CHAIN_GRID.md).
+Source of intent: [docs/intent/lfo-integration.md](../intent/lfo-integration.md) (confirmed via `/interview-me`). Source of scope: [docs/todo/roadmap.md § 0](../todo/roadmap.md#0-lfo-integration). Source of target data: [docs/reference/ROBOT_DATA_GRID.md](../reference/ROBOT_DATA_GRID.md), [docs/reference/GLOBAL_CHAIN_GRID.md](../reference/GLOBAL_CHAIN_GRID.md).
 
 ---
 

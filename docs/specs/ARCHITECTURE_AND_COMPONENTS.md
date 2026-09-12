@@ -7,7 +7,7 @@
 > - Unit tests: `npm test`
 > - Dev server: `npm run dev`
 
-Source of intent: [docs/intent/architecture-and-components.md](../intent/architecture-and-components.md) (confirmed via `/interview-me`). Source of scope: [docs/roadmap/roadmap.md § 1](../roadmap/roadmap.md#1-architecture--components). Source of target field data: [docs/reference/ROBOT_DATA_GRID.md](../reference/ROBOT_DATA_GRID.md) (component-to-field mapping, bounds, lore/human label pairs — the authoritative source for every schema variant below). Downstream consumers whose language this spec borrows: roadmap Phase 5's About (TextInput/CoordsInput/Button/DualLabel usage in Sector Settings) and Phase 9's Create list (robotOptionsConfig.ts drawers).
+Source of intent: [docs/intent/architecture-and-components.md](../intent/architecture-and-components.md) (confirmed via `/interview-me`). Source of scope: [docs/todo/roadmap.md § 1](../todo/roadmap.md#1-architecture--components). Source of target field data: [docs/reference/ROBOT_DATA_GRID.md](../reference/ROBOT_DATA_GRID.md) (component-to-field mapping, bounds, lore/human label pairs — the authoritative source for every schema variant below). Downstream consumers whose language this spec borrows: roadmap Phase 5's About (TextInput/CoordsInput/Button/DualLabel usage in Sector Settings) and Phase 9's Create list (robotOptionsConfig.ts drawers).
 
 ---
 

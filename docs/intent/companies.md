@@ -1,7 +1,7 @@
 # Intent: Companies (Roadmap Phase 10)
 
 Confirmed via `/interview-me` on `main`, 2026-08-27. Covers
-[Roadmap Phase 10](../roadmap/roadmap.md#10-companies) — introducing Companies, seeded named
+[Roadmap Phase 10](../todo/roadmap.md#10-companies) — introducing Companies, seeded named
 groups of robots that let every Robot Options field be edited across many robots at once, refining
 the initial roadmap draft's spawn-generation range and reseed behavior.
 

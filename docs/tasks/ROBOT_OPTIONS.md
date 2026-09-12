@@ -586,7 +586,7 @@ Task 6 and the Foundation checkpoint both land.
   - [ ] `docs/UI_SHELL.md`'s "Planned Replacement" section deleted entirely (Phases 3/7/8/9 have
     all now shipped); "Current implementation status" updated to describe the shipped Robot
     Options screen (`RobotOptionsTab` → `RobotDisplaySection` + 3 drawers)
-  - [ ] `docs/roadmap/roadmap.md` § 9's bullets marked resolved, mirroring the pointer pattern used
+  - [ ] `docs/todo/roadmap.md` § 9's bullets marked resolved, mirroring the pointer pattern used
     for prior phases, linking to `docs/specs/ROBOT_OPTIONS.md`
 
   **Verification:**
@@ -598,7 +598,7 @@ Task 6 and the Foundation checkpoint both land.
   **Dependencies:** Tasks 1–12.
 
   **Files:** `docs/reference/ROBOT_DATA_GRID.md`, `docs/ROBOT_DESIGN.md`, `docs/AUDIO_SYSTEM.md`,
-  `docs/UI_SHELL.md`, `docs/roadmap/roadmap.md`
+  `docs/UI_SHELL.md`, `docs/todo/roadmap.md`
 
   **Estimated scope:** S (5 files, text-only)
 

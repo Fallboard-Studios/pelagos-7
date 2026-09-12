@@ -1,7 +1,7 @@
 # Intent: Oblique Cabinetry — Toggle (Roadmap Phase 11.1.2)
 
 Confirmed via `/interview-me`, 2026-09-07. Scopes the second item of the
-[11.1.1–11.1.5 Oblique Cabinetry series](../roadmap/roadmap.md#1112-oblique-cabinetry-toggle),
+[11.1.1–11.1.5 Oblique Cabinetry series](../todo/roadmap.md#1112-oblique-cabinetry-toggle),
 wiring `Toggle` into the shared cabinet-box mechanism
 [11.1.1](oblique-cabinetry-foundation.md) built on `Button`.
 
@@ -82,7 +82,7 @@ state source and a bare (contentless) box is the actual test this item runs; the
 
 ## Forward Note
 
-`docs/roadmap/roadmap.md`'s 11.1.2 section already carries this scope as its Create/Restructure/
+`docs/todo/roadmap.md`'s 11.1.2 section already carries this scope as its Create/Restructure/
 About content, confirmed accurate against this intent during the interview. With this item
 shipped, 11.1.3 (`SliderLinear`) starts the genuinely different voxel-track rendering shape — the
 last two single-box consumers (Button, Toggle) will be done.

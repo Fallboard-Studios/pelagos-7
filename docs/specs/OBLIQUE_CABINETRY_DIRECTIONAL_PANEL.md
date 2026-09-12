@@ -9,7 +9,7 @@
 
 Source of intent: [docs/intent/oblique-cabinetry-directional-panel.md](../intent/oblique-cabinetry-directional-panel.md)
 (confirmed via `/interview-me`, 2026-09-10). Not a numbered roadmap item — `DirectionalPanel` was
-explicitly out of scope for the original 11.1.x series (`docs/roadmap/roadmap.md § 11.1.9`: "`DualLabel`/
+explicitly out of scope for the original 11.1.x series (`docs/todo/roadmap.md § 11.1.9`: "`DualLabel`/
 `DirectionalPanel` are pure layout/display... never in scope"); raised directly by Crawford after
 AccordionContainer (11.1.7) shipped. Prior art this spec follows directly:
 [AccordionContainer](OBLIQUE_CABINETRY_ACCORDION_CONTAINER.md)'s permanently-popped/non-animating facade

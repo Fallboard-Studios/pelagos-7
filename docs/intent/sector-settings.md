@@ -1,7 +1,7 @@
 # Intent: Sector Settings (Roadmap Phase 5)
 
 Confirmed via `/interview-me` on `main`, 2026-08-25. This is the "why" behind Phase 5's scope in
-[docs/roadmap/roadmap.md](../roadmap/roadmap.md#5-sector-settings) — read that first for the
+[docs/todo/roadmap.md](../todo/roadmap.md#5-sector-settings) — read that first for the
 file-level deliverables; this doc resolves the decisions its prose left open. **Depends on
 [Locale Seed Decoupling](locale-seed-decoupling.md)** landing first — this feature's core
 guarantee (see Success, below) isn't achievable on today's planet-coupled locale noise map.

@@ -1,6 +1,6 @@
 # Implementation Plan: BPM Control
 
-Source spec: [docs/specs/BPM_CONTROL.md](../specs/BPM_CONTROL.md). Source intent: [docs/intent/bpm-control.md](../intent/bpm-control.md). Not yet slotted into [docs/roadmap/roadmap.md](../roadmap/roadmap.md) — same "not decided here" status the source spec inherited from `PING-VARIANCE-AUTOMATION.md`'s own task plan.
+Source spec: [docs/specs/BPM_CONTROL.md](../specs/BPM_CONTROL.md). Source intent: [docs/intent/bpm-control.md](../intent/bpm-control.md). Not yet slotted into [docs/todo/roadmap.md](../todo/roadmap.md) — same "not decided here" status the source spec inherited from `PING-VARIANCE-AUTOMATION.md`'s own task plan.
 
 ## Overview
 

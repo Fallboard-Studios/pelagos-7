@@ -8,7 +8,7 @@
 > - Dev server: `npm run dev`
 
 Source of intent: [docs/intent/robot-options.md](../intent/robot-options.md) (confirmed via
-`/interview-me`). Source of scope: [docs/roadmap/roadmap.md § 9](../roadmap/roadmap.md#9-robot-options).
+`/interview-me`). Source of scope: [docs/todo/roadmap.md § 9](../todo/roadmap.md#9-robot-options).
 Prior art / current architecture: [docs/UI_SHELL.md](../UI_SHELL.md),
 [docs/COMPONENT_LIBRARY.md](../COMPONENT_LIBRARY.md), [docs/ROBOT_LIFECYCLE.md](../ROBOT_LIFECYCLE.md),
 [docs/ROBOT_DESIGN.md](../ROBOT_DESIGN.md), [docs/AUDIO_SYSTEM.md](../AUDIO_SYSTEM.md),
@@ -269,7 +269,7 @@ docs/
 ├── UI_SHELL.md                            # MODIFIED — per roadmap's existing Docs bullet: delete
 │                                          #   the "Planned Replacement" section entirely (Phases
 │                                          #   3/7/8/9 all shipped after this lands)
-└── roadmap/roadmap.md                     # MODIFIED — § 9's bullets marked resolved
+└── todo/roadmap.md                     # MODIFIED — § 9's bullets marked resolved
 ```
 
 **Confirmed NOT touched:** `ConsolePanel.tsx`'s own routing *logic* — its

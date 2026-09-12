@@ -8,7 +8,7 @@
 > - Dev server: `npm run dev`
 
 Source of intent: [docs/intent/robot-melody-seed-engine.md](../intent/robot-melody-seed-engine.md)
-(confirmed via `/interview-me`). Source of scope: [docs/roadmap/roadmap.md § 6](../roadmap/roadmap.md#6-robot-melody--seed-engine),
+(confirmed via `/interview-me`). Source of scope: [docs/todo/roadmap.md § 6](../todo/roadmap.md#6-robot-melody--seed-engine),
 minus its first Restructure bullet (planet-agnostic lat/long seeding), already pulled forward and
 resolved by [docs/specs/LOCALE_SEED_DECOUPLING.md](LOCALE_SEED_DECOUPLING.md). Prior art / current
 architecture: [docs/MELODY_SYSTEM.md](../MELODY_SYSTEM.md), [docs/PROCEDURAL_GENERATION.md](../PROCEDURAL_GENERATION.md),
@@ -128,7 +128,7 @@ docs/
 │                                      #   the Locale map bullet (already actually resolved by
 │                                      #   LOCALE_SEED_DECOUPLING.md; this phase just updates the doc
 │                                      #   text, no code dependency)
-└── roadmap/roadmap.md                # MODIFIED — §6's remaining bullets marked resolved, mirroring
+└── todo/roadmap.md                # MODIFIED — §6's remaining bullets marked resolved, mirroring
                                        #   the strikethrough+pointer pattern already used for the
                                        #   first (pulled-forward) bullet
 ```

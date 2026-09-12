@@ -8,7 +8,7 @@
 > - Dev server: `npm run dev`
 
 Source of intent: [docs/intent/companies.md](../intent/companies.md) (confirmed via
-`/interview-me`). Source of scope: [docs/roadmap/roadmap.md § 10](../roadmap/roadmap.md#10-companies).
+`/interview-me`). Source of scope: [docs/todo/roadmap.md § 10](../todo/roadmap.md#10-companies).
 Design doc: [docs/COMPANIES.md](../COMPANIES.md). Prior art / current architecture:
 [docs/COMPONENT_LIBRARY.md](../COMPONENT_LIBRARY.md), [docs/UI_SHELL.md](../UI_SHELL.md),
 [docs/PROCEDURAL_GENERATION.md](../PROCEDURAL_GENERATION.md),
@@ -267,7 +267,7 @@ docs/
 ├── CLAUDE.md                              # MODIFIED — reference bullet text "The 13 stateless UI
 │                                          #   primitives" → "14"; `docs/COMPANIES.md`'s bullet
 │                                          #   drops its "not yet implemented" clause
-└── roadmap/roadmap.md                     # MODIFIED — § 10's bullets marked resolved
+└── todo/roadmap.md                     # MODIFIED — § 10's bullets marked resolved
 ```
 
 **Confirmed NOT touched:** `AccordionContainer`/`SliderLinear`/`SliderLog`/`SliderCenteredZero`/

@@ -1,6 +1,6 @@
 # Implementation Plan: Oblique Cabinetry — SliderLinear (Voxel-Track Foundation) (Roadmap Phase 11.1.3)
 
-Source spec: [docs/specs/OBLIQUE_CABINETRY_SLIDER_LINEAR.md](../specs/OBLIQUE_CABINETRY_SLIDER_LINEAR.md). Source intent: [docs/intent/oblique-cabinetry-slider-linear.md](../intent/oblique-cabinetry-slider-linear.md). Pure presentation change — no `AudioEngine`/`BeatClock` change, no new Zustand field, no `SliderLinearSchema`/`ControlSchema` change (box count is derived, never schema-authored). The roadmap's own stale "box-height-scaled" wording (spec §1.12) was already corrected directly in `docs/roadmap/roadmap.md` in the same session that produced this spec — **not a task in this plan**, already done.
+Source spec: [docs/specs/OBLIQUE_CABINETRY_SLIDER_LINEAR.md](../specs/OBLIQUE_CABINETRY_SLIDER_LINEAR.md). Source intent: [docs/intent/oblique-cabinetry-slider-linear.md](../intent/oblique-cabinetry-slider-linear.md). Pure presentation change — no `AudioEngine`/`BeatClock` change, no new Zustand field, no `SliderLinearSchema`/`ControlSchema` change (box count is derived, never schema-authored). The roadmap's own stale "box-height-scaled" wording (spec §1.12) was already corrected directly in `docs/todo/roadmap.md` in the same session that produced this spec — **not a task in this plan**, already done.
 
 ## Overview
 
@@ -280,7 +280,7 @@ Resolved during Plan (not left open):
 - ~~Does `CabinetBox`'s widening need its own task/phase, or can it fold into `VoxelTrack`?~~ **Resolved: separate task (3)**, mirroring every prior Cabinetry item's "component before consumer" split — sharper here since it modifies an *already-shipped* primitive two other consumers depend on.
 - ~~Can Tasks 1–3 run in parallel?~~ **Resolved: yes** — confirmed zero cross-imports between `cabinetBreakpoints.ts`/`useCabinetBoxHeight.ts`, `voxelTrackMath.ts`, and `CabinetBox.tsx`'s widening.
 - ~~Do the two docs tasks need to wait for both Task 5 and Task 6?~~ **Resolved: no** — `docs/CONSOLE_THEMING.md` (Task 7) only needs Task 5; `docs/COMPONENT_LIBRARY.md` (Task 8) needs Task 6. Same split `OBLIQUE_CABINETRY_FOUNDATION.md`'s own Tasks 7/8 already used.
-- ~~Is the roadmap's stale "box-height-scaled" wording a task in this plan?~~ **Resolved: no** — already corrected directly in `docs/roadmap/roadmap.md` in the session that produced the spec, before this task breakdown was written.
+- ~~Is the roadmap's stale "box-height-scaled" wording a task in this plan?~~ **Resolved: no** — already corrected directly in `docs/todo/roadmap.md` in the session that produced the spec, before this task breakdown was written.
 
 Carried forward from spec §7, not blocking this plan:
 

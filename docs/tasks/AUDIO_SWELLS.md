@@ -1,6 +1,6 @@
 # Implementation Plan: Seeded Audio Swells
 
-Source spec: [docs/specs/AUDIO_SWELLS.md](../specs/AUDIO_SWELLS.md). Source intent: [docs/intent/audio-swells.md](../intent/audio-swells.md). Not yet slotted into [docs/roadmap/roadmap.md](../roadmap/roadmap.md) — this plan proposes an out-of-sequence entry (e.g. `## 10.5`, following the `10.1`–`10.4` precedent, matching [docs/tasks/LFO_DRIFT_GROUPS.md](LFO_DRIFT_GROUPS.md)'s own `10.3`), not decided here (spec §7 item 4).
+Source spec: [docs/specs/AUDIO_SWELLS.md](../specs/AUDIO_SWELLS.md). Source intent: [docs/intent/audio-swells.md](../intent/audio-swells.md). Not yet slotted into [docs/todo/roadmap.md](../todo/roadmap.md) — this plan proposes an out-of-sequence entry (e.g. `## 10.5`, following the `10.1`–`10.4` precedent, matching [docs/tasks/LFO_DRIFT_GROUPS.md](LFO_DRIFT_GROUPS.md)'s own `10.3`), not decided here (spec §7 item 4).
 
 ## Overview
 
@@ -253,5 +253,5 @@ Carried forward from spec §7, not blocking this plan:
 1. **Ramp interpolation curve (linear vs. eased)** — Task 3 implements linear; confirm via a manual audible pass if an eased curve is wanted instead.
 2. **`SWELL_TRIGGER_CHANCE`/`SWELL_COMPANY_CHANCE`'s exact values** — both placeholders; tune during the Phase 5 manual/audible checkpoint.
 3. **Mid-swell interaction with a live manual slider edit, and with a layer/effect toggling off mid-swell for a company member specifically** — not designed around in this plan; a race between the next `BeatClock` tick and a human's own edit.
-4. **Roadmap placement** — this feature needs a home in `docs/roadmap/roadmap.md` (proposed `## 10.5`) before or during merge; not decided here.
+4. **Roadmap placement** — this feature needs a home in `docs/todo/roadmap.md` (proposed `## 10.5`) before or during merge; not decided here.
 5. **Company selection draw mechanics** (which `getSeededVal` dataId/offset indexes into `Locale.companies`, single-company-locale behavior) — Task 5 should settle the exact draw during implementation, following this feature's existing `dataId`/`offset` convention (spec §1.4); not fully specified in the spec itself.

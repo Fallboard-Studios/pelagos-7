@@ -1,7 +1,7 @@
 # Intent: Audio Rig (Roadmap Phase 4)
 
 Confirmed via `/interview-me` on `main`, 2026-08-22. This is the "why" behind Phase 4's
-scope in [docs/roadmap/roadmap.md](../roadmap/roadmap.md#4-audio-rig) — read that first
+scope in [docs/todo/roadmap.md](../todo/roadmap.md#4-audio-rig) — read that first
 for the file-level deliverables; this doc resolves the decisions its prose left open,
 and corrects one place where that prose is now stale (see Why now).
 

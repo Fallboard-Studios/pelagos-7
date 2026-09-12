@@ -38,7 +38,7 @@ Task 9, Task 10 ──→ Task 11 (AudioRigDrawer.tsx)
                           │
                           ├──→ Task 12 (docs/AUDIO_SYSTEM.md)
                           ├──→ Task 13 (docs/reference/GLOBAL_CHAIN_GRID.md)
-                          └──→ Task 14 (docs/roadmap.md + docs/SESSION_STORAGE.md)
+                          └──→ Task 14 (docs/todo/roadmap.md + docs/SESSION_STORAGE.md)
 ```
 
 ## Task List
@@ -389,7 +389,7 @@ Task 9, Task 10 ──→ Task 11 (AudioRigDrawer.tsx)
 
   **Estimated scope:** S
 
-- [x] **Task 14: `docs/roadmap/roadmap.md` + `docs/SESSION_STORAGE.md` — remaining living-reference touch-ups**
+- [x] **Task 14: `docs/todo/roadmap.md` + `docs/SESSION_STORAGE.md` — remaining living-reference touch-ups**
 
   **Description:** `roadmap.md`'s Phase 4 "About" text (already rewritten once, by V1's own Task 13) needs another pass — its effect list/count and any behavior description are stale again post-V2. `SESSION_STORAGE.md`'s one-line "what's persisted" bullet lists `Chorus` among the global effects — swap it for `Limiter` (or the current 7-effect list generally), a one-line fix, low priority but bundled here since it's the same class of trivial drift.
 
@@ -402,7 +402,7 @@ Task 9, Task 10 ──→ Task 11 (AudioRigDrawer.tsx)
 
   **Dependencies:** Task 11.
 
-  **Files:** `docs/roadmap/roadmap.md`, `docs/SESSION_STORAGE.md`
+  **Files:** `docs/todo/roadmap.md`, `docs/SESSION_STORAGE.md`
 
   **Estimated scope:** XS
 

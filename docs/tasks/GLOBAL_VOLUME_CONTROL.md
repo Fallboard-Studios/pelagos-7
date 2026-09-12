@@ -1,6 +1,6 @@
 # Implementation Plan: Global Volume Control
 
-Source spec: [docs/specs/GLOBAL_VOLUME_CONTROL.md](../specs/GLOBAL_VOLUME_CONTROL.md). Source intent: [docs/intent/global-volume-control.md](../intent/global-volume-control.md). Not yet slotted into [docs/roadmap/roadmap.md](../roadmap/roadmap.md).
+Source spec: [docs/specs/GLOBAL_VOLUME_CONTROL.md](../specs/GLOBAL_VOLUME_CONTROL.md). Source intent: [docs/intent/global-volume-control.md](../intent/global-volume-control.md). Not yet slotted into [docs/todo/roadmap.md](../todo/roadmap.md).
 
 ## Overview
 

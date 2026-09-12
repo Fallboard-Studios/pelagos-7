@@ -1,7 +1,7 @@
 # Intent: Oblique Cabinetry — RadioButton (Roadmap Phase 11.1.6)
 
 Confirmed via `/interview-me`, 2026-09-10. Scopes
-[11.1.6](../roadmap/roadmap.md#1116-oblique-cabinetry-radiobutton), wiring `RadioButton` into the
+[11.1.6](../todo/roadmap.md#1116-oblique-cabinetry-radiobutton), wiring `RadioButton` into the
 shared cabinet-box mechanism [11.1.1](oblique-cabinetry-foundation.md) built, reusing
 [11.1.2](oblique-cabinetry-toggle.md)'s state-keyed (not momentary-click) pop precedent — but
 generalized from one box to N.
