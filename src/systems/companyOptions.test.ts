@@ -35,7 +35,7 @@ function makeRobot(overrides: Partial<Robot> = {}): Robot {
 }
 
 function makeCompany(overrides: Partial<Company> = {}): Company {
-  return { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'], ...overrides };
+  return { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1'], ...overrides };
 }
 
 describe('resolveCompanyOptions', () => {

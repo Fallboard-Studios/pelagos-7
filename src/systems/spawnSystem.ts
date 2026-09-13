@@ -160,6 +160,21 @@ function generateCompanyId(noiseMap: NoiseFunction2D, index: number): string {
 }
 
 /**
+ * Deterministic per-company identity color (docs/specs/COMPANY_SECTION_ENHANCEMENTS.md §1.2) —
+ * mirrors generateRobotIdentityColor exactly (same clamped-index-into-ROBOT_IDENTITY_COLOR_NAMES
+ * shape), with its own dataId ('company.identityColor') so it draws from a distinct row of the
+ * noise map rather than sharing the robot one's seeded stream. Not reused outside this file, so
+ * stays private like generateCompanyId. No collision-avoidance against sibling companies
+ * generated in the same locale pass — see spec §7 item 2 (accepted, low-risk given
+ * INITIAL_COMPANIES_MIN/MAX's small counts); user-created companies get collision-avoidance via
+ * CompanyCrudControls.tsx's own pickRandomCompanyColor instead.
+ */
+function generateCompanyIdentityColor(noiseMap: NoiseFunction2D, offset: number): string {
+  const index = Math.min(ROBOT_IDENTITY_COLOR_NAMES.length - 1, Math.floor(getSeededVal(noiseMap, 'company.identityColor', offset, 0, ROBOT_IDENTITY_COLOR_NAMES.length)));
+  return ACCENT_COLORS[ROBOT_IDENTITY_COLOR_NAMES[index]];
+}
+
+/**
  * Deterministic, human-legible robot ID — reuses the existing locale noise-map
  * seeding mechanism (same as every other spawn-time attribute) rather than
  * crypto.randomUUID(). Uniqueness is structural, not actively checked: `spawnCount`
@@ -595,6 +610,7 @@ export function spawnInitialCompanies(localeId: string): void {
     const company: Company = {
       id: noiseMap ? generateCompanyId(noiseMap, c) : `company-${localeId}-${c}`,
       name: noiseMap ? generateCompanyName(noiseMap, c) : `Company ${c}`,
+      color: noiseMap ? generateCompanyIdentityColor(noiseMap, c) : ACCENT_COLORS[ROBOT_IDENTITY_COLOR_NAMES[0]],
       robotIds: memberIds,
     };
     useLocaleStore.getState().addCompany(localeId, company);

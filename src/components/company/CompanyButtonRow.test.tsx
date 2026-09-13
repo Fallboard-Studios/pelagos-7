@@ -17,8 +17,8 @@ describe('CompanyButtonRow', () => {
   });
 
   it('renders one button per company plus "None"', () => {
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: [] });
-    useLocaleStore.getState().addCompany(localeId, { id: 'c2', name: 'Null Syndicate', robotIds: [] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c2', name: 'Null Syndicate', color: '#4f6d7a', robotIds: [] });
 
     render(<CompanyButtonRow />);
 
@@ -33,13 +33,13 @@ describe('CompanyButtonRow', () => {
   });
 
   it('defaults to "None" selected', () => {
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: [] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
     render(<CompanyButtonRow />);
     expect(screen.getByRole('radio', { name: 'None' }).getAttribute('aria-checked')).toBe('true');
   });
 
   it('reflects the currently selected company as checked', () => {
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: [] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
     useUIStore.getState().selectCompany('c1');
 
     render(<CompanyButtonRow />);
@@ -49,7 +49,7 @@ describe('CompanyButtonRow', () => {
   });
 
   it('clicking a company button calls selectCompany with that company\'s id', () => {
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: [] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
     render(<CompanyButtonRow />);
 
     fireEvent.click(screen.getByRole('radio', { name: 'Iron Consortium' }));
@@ -58,7 +58,7 @@ describe('CompanyButtonRow', () => {
   });
 
   it('clicking "None" calls selectCompany with null', () => {
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: [] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
     useUIStore.getState().selectCompany('c1');
     render(<CompanyButtonRow />);
 
@@ -68,7 +68,7 @@ describe('CompanyButtonRow', () => {
   });
 
   it('renders an "All" button alongside "None" and every company', () => {
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: [] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
     render(<CompanyButtonRow />);
     expect(screen.getByRole('radio', { name: 'All' })).toBeTruthy();
     expect(screen.getByRole('radio', { name: 'None' })).toBeTruthy();
@@ -84,7 +84,7 @@ describe('CompanyButtonRow', () => {
   });
 
   it('shows "All" as checked when allRobotsSelected is true, and every other button unchecked', () => {
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: [] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
     useUIStore.getState().selectAllRobots();
 
     render(<CompanyButtonRow />);
@@ -95,7 +95,7 @@ describe('CompanyButtonRow', () => {
   });
 
   it('clicking a company after "All" was selected deselects "All" (mutually exclusive)', () => {
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: [] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
     useUIStore.getState().selectAllRobots();
     render(<CompanyButtonRow />);
 
@@ -123,9 +123,9 @@ describe('CompanyButtonRow', () => {
     // Exactly MAX_COMPANIES total (the real CRUD ceiling — CompanyCrudControls.tsx's
     // own atCap check), one of them a deliberately long generated-style name.
     for (let i = 0; i < MAX_COMPANIES - 1; i++) {
-      useLocaleStore.getState().addCompany(localeId, { id: `c${i}`, name: `Company ${i}`, robotIds: [] });
+      useLocaleStore.getState().addCompany(localeId, { id: `c${i}`, name: `Company ${i}`, color: '#4f6d7a', robotIds: [] });
     }
-    useLocaleStore.getState().addCompany(localeId, { id: 'long', name: 'Static Bloom Vanguard', robotIds: [] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'long', name: 'Static Bloom Vanguard', color: '#4f6d7a', robotIds: [] });
 
     render(<CompanyButtonRow />);
 

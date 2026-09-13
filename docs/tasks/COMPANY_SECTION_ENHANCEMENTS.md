@@ -42,21 +42,23 @@ Tasks 1–7 ──→ Task 8 (docs/COMPONENT_LIBRARY.md)
 
 ### Phase 1: Foundation
 
-- [ ] **Task 1: `Company.color` — the type + seeded spawn-time generation**
+- [x] **Task 1: `Company.color` — the type + seeded spawn-time generation**
 
   **Description:** Add `color: string` (required) to `Company` (spec §1.2). Add `generateCompanyIdentityColor(noiseMap, offset)` to `src/systems/spawnSystem.ts`, mirroring `generateRobotIdentityColor` exactly (same clamped-index-into-`ROBOT_IDENTITY_COLOR_NAMES` shape) but with its own dataId (`'company.identityColor'`) so it doesn't share `generateRobotIdentityColor`'s seeded stream. Wire it into the existing company-spawn loop (`spawnSystem.ts:595-600`), seeded off the company's own loop index `c`, matching `company.size`/`company.member`'s own per-`c` seeding.
 
   **Acceptance criteria:**
-  - [ ] `Company` requires `color: string`; `CompanyOptionsSnapshot` is untouched.
-  - [ ] `generateCompanyIdentityColor` uses `getSeededVal` with dataId `'company.identityColor'` — never `Math.random()`.
-  - [ ] Given the same seed/noiseMap and the same company index `c`, `generateCompanyIdentityColor` returns the same color every call (reproducible).
-  - [ ] The returned value is always a member of `ACCENT_COLORS`' own value set (via `ROBOT_IDENTITY_COLOR_NAMES`).
-  - [ ] Every company built by the spawn loop has a `color` set via `generateCompanyIdentityColor`, following the same `noiseMap ? f(noiseMap, …) : f(fallbackFn, …)` shape `id`/`name` already use in that same object literal.
+  - [x] `Company` requires `color: string`; `CompanyOptionsSnapshot` is untouched.
+  - [x] `generateCompanyIdentityColor` uses `getSeededVal` with dataId `'company.identityColor'` — never `Math.random()`.
+  - [x] Given the same seed/noiseMap and the same company index `c`, `generateCompanyIdentityColor` returns the same color every call (reproducible).
+  - [x] The returned value is always a member of `ACCENT_COLORS`' own value set (via `ROBOT_IDENTITY_COLOR_NAMES`).
+  - [x] Every company built by the spawn loop has a `color` set via `generateCompanyIdentityColor`.
+
+  > **Discovered during implementation:** the spec's own pseudocode for the no-noiseMap fallback branch (`generateCompanyIdentityColor((_x,_y)=>0, c)`, mirroring `generateRobotIdentityColor`'s fallback shape) doesn't match this loop's *actual* existing convention — `id`/`name` in this same object literal fall back to a plain non-random literal (`` `company-${localeId}-${c}` ``, `` `Company ${c}` ``) when there's no real locale, not a dummy-noiseMap call. `color` follows suit: `ACCENT_COLORS[ROBOT_IDENTITY_COLOR_NAMES[0]]` in the no-noiseMap branch, matching its object-literal siblings rather than the spec's guess.
 
   **Verification:**
-  - [ ] `npx vitest run src/systems/spawnSystem.test.ts` passes, including new coverage for `generateCompanyIdentityColor`'s value-set membership and determinism.
-  - [ ] `npm run build:types` — expected to surface every fixture in Task 2's file list as newly failing; this is expected and resolved by Task 2, not by this task.
-  - [ ] `npm run lint` clean.
+  - [x] `npx vitest run src/systems/spawnSystem.test.ts` passes, including new coverage for `generateCompanyIdentityColor`'s value-set membership and determinism.
+  - [x] `npm run build:types` — surfaced fixture breakage as expected; resolved by Task 2 below.
+  - [x] `npm run lint` clean.
 
   **Dependencies:** None.
 
@@ -64,24 +66,27 @@ Tasks 1–7 ──→ Task 8 (docs/COMPONENT_LIBRARY.md)
 
   **Estimated scope:** S (2 source files + their tests, one new function + one call-site wire-up)
 
-- [ ] **Task 2: Fix existing `Company` test fixtures for the new required field**
+- [x] **Task 2: Fix existing `Company` test fixtures for the new required field**
 
   **Description:** Add a `color` value (any valid hex, e.g. reuse an `ACCENT_COLORS` entry) to every hand-built `Company` object literal across the codebase that Task 1's required field breaks. Purely mechanical — no logic changes, no new assertions beyond the one noted below.
 
+  > **Discovered during implementation:** the actual `npm run build:types` failure list, checked directly rather than trusted from the spec's grep-based prediction, differs from this task's original file list in both directions — `AttenuationStyleView.test.tsx`, `factoryPlacementSystem.test.ts`, and `FactoryBubbleStream.test.tsx` turned out **not** to construct real `Company` literals (no error), while `src/systems/companyOptions.test.ts` (a `makeCompany` factory, missed by the original grep) and, more significantly, **`src/components/company/CompanyCrudControls.tsx` itself — production code, not a test fixture** — did. `CompanyCrudControls.tsx`'s own `handleCreate` needed a `color` value to compile, but its *real* generator (`pickRandomCompanyColor`) is Task 4's own scoped, separately-tested work — so this task adds a clearly-labeled placeholder literal there (`'#4f6d7a'`, with a comment naming Task 4 as its replacement) purely to restore compilation, rather than pulling Task 4's untested logic forward. The corrected file list below reflects what was actually touched, not the original prediction.
+
   **Acceptance criteria:**
-  - [ ] `npm run build:types` is clean with zero remaining "missing property `color`" errors.
-  - [ ] Every `Company` literal in the files listed below has a `color` value.
-  - [ ] `Company.test.ts` additionally gains one assertion that `color` is required at the type level (e.g. a `// @ts-expect-error` case constructing a `Company` without it) — check this file's own existing pattern for testing other required fields before adding a new one.
+  - [x] `npm run build:types` is clean with zero remaining "missing property `color`" errors.
+  - [x] Every `Company` literal in the files listed below has a `color` value.
+  - [x] `Company.test.ts` additionally gains one assertion that `color` is required at the type level (a `// @ts-expect-error` case, matching `localeStore.test.ts`'s own existing pattern for testing a required-shape rejection).
 
   **Verification:**
-  - [ ] `npm run build:types` clean.
-  - [ ] `npx vitest run` (full suite) — no fixture update in this task changes any test's actual assertions or outcomes, only the literals' shape, so every test that passed before must still pass.
+  - [x] `npm run build:types` clean.
+  - [x] `npx vitest run` (full suite) — 140/140 files, 2478/2478 tests; no fixture update in this task changed any test's actual assertions or outcomes, only the literals' shape.
+  - [x] `npm run lint` clean.
 
   **Dependencies:** Task 1 (the field must exist to fix references to it).
 
-  **Files:** `src/types/Company.test.ts`, `src/components/selection/RobotSelectionCard.test.tsx`, `src/components/robot/RobotDisplaySection.test.tsx`, `src/components/company/CompanyOptionsSection.test.tsx`, `src/stores/localeStore.test.ts`, `src/components/panels/screen/worldView/AttenuationStyleView.test.tsx`, `src/components/company/CompanyButtonRow.test.tsx`, `src/systems/factoryPlacementSystem.test.ts`, `src/systems/audioSwells.test.ts`, `src/components/actors/FactoryBubbleStream.test.tsx`
+  **Files (corrected — see discovered-coupling note above):** `src/types/Company.test.ts`, `src/components/selection/RobotSelectionCard.test.tsx`, `src/components/robot/RobotDisplaySection.test.tsx`, `src/components/company/CompanyOptionsSection.test.tsx`, `src/components/company/CompanyButtonRow.test.tsx`, `src/components/company/CompanyCrudControls.test.tsx`, `src/components/company/CompanyCrudControls.tsx` (placeholder only — see note), `src/data/companyConfig.test.ts`, `src/stores/localeStore.test.ts`, `src/systems/audioSwells.test.ts`, `src/systems/companyOptions.test.ts`
 
-  **Estimated scope:** L (10 files — deliberately over this plan's usual ceiling; see Architecture Decisions above for why it isn't split further)
+  **Estimated scope:** L (11 files — deliberately over this plan's usual ceiling; see Architecture Decisions above for why it isn't split further)
 
 - [ ] **Task 3: `RadioButtonSchema` + `RadioButton.tsx` — optional per-option color**
 

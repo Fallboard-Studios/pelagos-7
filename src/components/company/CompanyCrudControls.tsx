@@ -57,7 +57,10 @@ export function CompanyCrudControls() {
   const hasSelectedCompany = Boolean(selectedCompany);
 
   const handleCreate = () => {
-    const company: Company = { id: crypto.randomUUID(), name: createNameDraft.trim(), robotIds: [] };
+    // Placeholder — Company Section Enhancements Task 2 (docs/tasks/COMPANY_SECTION_ENHANCEMENTS.md)
+    // makes `color` required before its own real generator (pickRandomCompanyColor, Task 4) lands.
+    // Replaced by a real Math.random()-fed, collision-avoided pick in the very next task.
+    const company: Company = { id: crypto.randomUUID(), name: createNameDraft.trim(), color: '#4f6d7a', robotIds: [] };
     useLocaleStore.getState().addCompany(localeId, company);
     setCreateNameDraft(suggestCompanyName());
   };

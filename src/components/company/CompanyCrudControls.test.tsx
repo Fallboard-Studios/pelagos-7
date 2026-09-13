@@ -42,21 +42,21 @@ describe('CompanyCrudControls', () => {
 
   it('Create is disabled once the locale already has MAX_COMPANIES companies', () => {
     for (let i = 0; i < MAX_COMPANIES; i++) {
-      useLocaleStore.getState().addCompany(localeId, { id: `c${i}`, name: `Company ${i}`, robotIds: [] });
+      useLocaleStore.getState().addCompany(localeId, { id: `c${i}`, name: `Company ${i}`, color: '#4f6d7a', robotIds: [] });
     }
     render(<CompanyCrudControls />);
     expect((screen.getByRole('button', { name: 'Create' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('Create is enabled below the MAX_COMPANIES cap', () => {
-    useLocaleStore.getState().addCompany(localeId, { id: 'c0', name: 'Company 0', robotIds: [] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c0', name: 'Company 0', color: '#4f6d7a', robotIds: [] });
     render(<CompanyCrudControls />);
     expect((screen.getByRole('button', { name: 'Create' }) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('the Create name input is also disabled once the locale already has MAX_COMPANIES companies', () => {
     for (let i = 0; i < MAX_COMPANIES; i++) {
-      useLocaleStore.getState().addCompany(localeId, { id: `c${i}`, name: `Company ${i}`, robotIds: [] });
+      useLocaleStore.getState().addCompany(localeId, { id: `c${i}`, name: `Company ${i}`, color: '#4f6d7a', robotIds: [] });
     }
     render(<CompanyCrudControls />);
     expect((screen.getByRole('textbox', { name: /new company name/i }) as HTMLInputElement).disabled).toBe(true);
@@ -99,7 +99,7 @@ describe('CompanyCrudControls', () => {
   });
 
   it('Rename input is enabled and shows the selected company\'s name', () => {
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: [] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
     useUIStore.getState().selectCompany('c1');
     render(<CompanyCrudControls />);
 
@@ -109,7 +109,7 @@ describe('CompanyCrudControls', () => {
   });
 
   it('editing the Rename input calls updateCompany with the new name', () => {
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: [] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
     useUIStore.getState().selectCompany('c1');
     const updateSpy = vi.spyOn(useLocaleStore.getState(), 'updateCompany');
     render(<CompanyCrudControls />);
@@ -125,7 +125,7 @@ describe('CompanyCrudControls', () => {
   });
 
   it('Delete is enabled when a company is selected', () => {
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: [] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
     useUIStore.getState().selectCompany('c1');
     render(<CompanyCrudControls />);
     expect((screen.getByRole('button', { name: 'Delete' }) as HTMLButtonElement).disabled).toBe(false);
@@ -146,7 +146,7 @@ describe('CompanyCrudControls', () => {
   });
 
   it('clicking Delete calls removeCompany then selectCompany(null), in that order', () => {
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: [] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
     useUIStore.getState().selectCompany('c1');
     const calls: string[] = [];
     vi.spyOn(useLocaleStore.getState(), 'removeCompany').mockImplementation(() => { calls.push('removeCompany'); });
@@ -159,7 +159,7 @@ describe('CompanyCrudControls', () => {
   });
 
   it('clicking Delete calls removeCompany with the currently selected company\'s id', () => {
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: [] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
     useUIStore.getState().selectCompany('c1');
     const removeSpy = vi.spyOn(useLocaleStore.getState(), 'removeCompany').mockImplementation(() => {});
     render(<CompanyCrudControls />);

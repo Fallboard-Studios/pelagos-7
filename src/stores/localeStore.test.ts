@@ -38,6 +38,7 @@ const makeRobot = (id: string): Robot => ({
 const makeCompany = (id: string, robotIds: string[] = []): Company => ({
   id,
   name: `Company ${id}`,
+  color: '#4f6d7a',
   robotIds,
 });
 

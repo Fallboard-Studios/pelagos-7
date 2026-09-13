@@ -38,8 +38,8 @@ describe('companyConfig', () => {
   describe('buildCompanyAssignmentSchema', () => {
     it('starts with the Freelance option, followed by one entry per company', () => {
       const companies: Company[] = [
-        { id: 'c1', name: 'Iron Consortium', robotIds: [] },
-        { id: 'c2', name: 'Null Syndicate', robotIds: [] },
+        { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] },
+        { id: 'c2', name: 'Null Syndicate', color: '#65617f', robotIds: [] },
       ];
 
       const schema = buildCompanyAssignmentSchema(companies);
@@ -72,8 +72,8 @@ describe('companyConfig', () => {
   describe('buildCompanyButtonRowSchema', () => {
     it('starts with None then All, followed by one entry per company', () => {
       const companies: Company[] = [
-        { id: 'c1', name: 'Iron Consortium', robotIds: [] },
-        { id: 'c2', name: 'Null Syndicate', robotIds: [] },
+        { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] },
+        { id: 'c2', name: 'Null Syndicate', color: '#65617f', robotIds: [] },
       ];
 
       const schema = buildCompanyButtonRowSchema(companies);

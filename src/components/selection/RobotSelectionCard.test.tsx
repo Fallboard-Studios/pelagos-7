@@ -223,7 +223,7 @@ describe('RobotSelectionCard', () => {
     });
 
     it("shows the assigned company's option selected when the robot belongs to one", () => {
-      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1'] });
       render(<RobotSelectionCard robot={makeRobot({ id: 'r1', companyId: 'c1' })} />);
 
       expect(screen.getByRole('radio', { name: 'Iron Consortium' }).getAttribute('aria-checked')).toBe('true');
@@ -231,7 +231,7 @@ describe('RobotSelectionCard', () => {
     });
 
     it("selecting a company calls assignRobotToCompany with that company's id", () => {
-      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: [] });
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
       const assignSpy = vi.spyOn(useLocaleStore.getState(), 'assignRobotToCompany');
       render(<RobotSelectionCard robot={makeRobot({ id: 'r1', companyId: undefined })} />);
 
@@ -241,7 +241,7 @@ describe('RobotSelectionCard', () => {
     });
 
     it('selecting "Freelance" calls assignRobotToCompany with null', () => {
-      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1'] });
       const assignSpy = vi.spyOn(useLocaleStore.getState(), 'assignRobotToCompany');
       render(<RobotSelectionCard robot={makeRobot({ id: 'r1', companyId: 'c1' })} />);
 
@@ -253,7 +253,7 @@ describe('RobotSelectionCard', () => {
     // Replaces the old pair of "trigger" + "portaled option" double-fire tests — RadioButton has
     // no separate trigger/portal step, so there's exactly one interaction to guard.
     it('clicking a company radio option does not also select the robot (no nested-interactive double-fire)', () => {
-      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: [] });
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
       render(<RobotSelectionCard robot={makeRobot({ id: 'r1' })} />);
 
       fireEvent.click(screen.getByRole('radio', { name: 'Iron Consortium' }));
