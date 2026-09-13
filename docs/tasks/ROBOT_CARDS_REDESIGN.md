@@ -32,21 +32,21 @@ Task 2, Task 3, Task 4 ──→ Task 5 (docs/reference/ROBOT_DATA_GRID.md)
 
 ### Phase 1: Foundation
 
-- [ ] **Task 1: `isRobotAudible` — the shared audibility predicate**
+- [x] **Task 1: `isRobotAudible` — the shared audibility predicate**
 
   **Description:** Add `src/utils/robotAudibility.ts`, exporting `isRobotAudible(audioMode: Robot['audioMode'], localeRobots: Robot[]): boolean` (spec §1.2): `false` when `audioMode === 'mute'`; `false` when any entry in `localeRobots` has `audioMode === 'solo'` and this `audioMode` isn't `'solo'`; `true` otherwise. Pure function, no store/engine imports — mirrors `AudioEngine.ts`'s existing `triggerWithCap` mute/solo check exactly (spec §1.2), just taking the already-resolved `audioMode` value instead of doing its own lookup.
 
   **Acceptance criteria:**
-  - [ ] Returns `false` when `audioMode` is `'mute'`, regardless of `localeRobots`' contents (including empty).
-  - [ ] Returns `true` when `audioMode` is `'none'`, `undefined`, or `'highlight'` and no entry in `localeRobots` has `audioMode === 'solo'`.
-  - [ ] Returns `false` when some entry in `localeRobots` has `audioMode === 'solo'` and this `audioMode` is anything other than `'solo'`.
-  - [ ] Returns `true` when `audioMode` is `'solo'`, even if it's the only `'solo'` entry present in `localeRobots`.
-  - [ ] Returns `true` for an empty `localeRobots` array, unless `audioMode` is itself `'mute'`.
-  - [ ] The file imports nothing from `@/engine/*` or `@/stores/*` — a pure function over its two arguments only.
+  - [x] Returns `false` when `audioMode` is `'mute'`, regardless of `localeRobots`' contents (including empty).
+  - [x] Returns `true` when `audioMode` is `'none'`, `undefined`, or `'highlight'` and no entry in `localeRobots` has `audioMode === 'solo'`.
+  - [x] Returns `false` when some entry in `localeRobots` has `audioMode === 'solo'` and this `audioMode` is anything other than `'solo'`.
+  - [x] Returns `true` when `audioMode` is `'solo'`, even if it's the only `'solo'` entry present in `localeRobots`.
+  - [x] Returns `true` for an empty `localeRobots` array, unless `audioMode` is itself `'mute'`.
+  - [x] The file imports nothing from `@/engine/*` or `@/stores/*` — a pure function over its two arguments only.
 
   **Verification:**
-  - [ ] `npx vitest run src/utils/robotAudibility.test.ts` passes, covering every acceptance criterion above.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/utils/robotAudibility.test.ts` passes, covering every acceptance criterion above.
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** None.
 
@@ -55,8 +55,8 @@ Task 2, Task 3, Task 4 ──→ Task 5 (docs/reference/ROBOT_DATA_GRID.md)
   **Estimated scope:** XS (one pure function, no consumers yet)
 
 ### Checkpoint: Foundation predicate
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] `isRobotAudible` has no consumers yet and no dead-code lint warnings (it's exported, so this should already be clean).
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [x] `isRobotAudible` has no consumers yet and no dead-code lint warnings (it's exported, so this should already be clean).
 - [ ] Review with human before proceeding.
 
 ---
