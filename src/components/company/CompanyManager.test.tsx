@@ -27,11 +27,12 @@ describe('CompanyManager', () => {
   });
 
   // Roadmap Phase 14 (docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.5, Task 14) — the Company
-  // trait's own colors (purple/pink) on the manager's own root.
-  it("scopes its root to the Company trait's colors (purple/pink)", () => {
+  // trait's own colors (blue/plum, since the 2026-09-12 rebalance swapped Company and Time/Space's
+  // pairs so the 4 audio-page traits stop clustering in the blue family) on the manager's own root.
+  it("scopes its root to the Company trait's colors (blue/plum)", () => {
     const { container } = render(<CompanyManager />);
     const root = container.querySelector('.company-manager') as HTMLElement;
-    expect(root.style.getPropertyValue('--color-accent-a')).toBe('#7a5484');
-    expect(root.style.getPropertyValue('--color-accent-b')).toBe('#ae5378');
+    expect(root.style.getPropertyValue('--color-accent-a')).toBe('#4f6d7a');
+    expect(root.style.getPropertyValue('--color-accent-b')).toBe('#65617f');
   });
 });

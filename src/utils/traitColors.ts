@@ -21,14 +21,32 @@ import type { Trait } from '@/types/traits';
  * (emerald+lime, 46°); Header inherits both leftovers as its own new pair (teal+green, 24°).
  * Time/Space, Output, Company, and Seed are untouched. See docs/intent/
  * color-scheme-trait-theming.md's own amendment note for the full hue-wheel reasoning.
+ *
+ * Rebalanced again (2026-09-12, Crawford's own request), for two separate reasons:
+ *
+ * 1. Seed's own tangerine+yellow pair turned out too intense once actually seen in the app — both
+ *    sat 70%+/light 60%+, only 16° apart, with nothing tempering either one. Two new, calmer hues
+ *    replace it: rosewood/dustyRose (sat 32-35%, 10° apart) — freeing tangerine and yellow, unused
+ *    by any pair for now. A second new hue, burntOrange (sat 65, light 36), brackets the existing
+ *    orange (sat 78 — the single most saturated hue in the palette) from below; paired directly
+ *    with it, replacing red as Output's own second color — freeing red as well.
+ * 2. Output, Composition, Spectral, and Time/Space are the only 4 traits Audio Rig and Robot
+ *    Options ever show together, and 2 of the 4 (Spectral's cyan/indigo, Time/Space's own former
+ *    blue/plum) sat in the same blue family — the app read one-note on exactly the pages seen most.
+ *    Time/Space and Company swap their (otherwise unrelated) pairs: Time/Space takes Company's old
+ *    purple+pink (48° apart, a clean break from Spectral's blue), Company takes Time/Space's old
+ *    blue+plum. No new hue needed for this half of the rebalance — the 4 audio-page traits now read
+ *    as 4 distinct families (orange, green, blue, purple/magenta) instead of 3 of 4 clustering.
+ *
+ * Composition, Spectral, and Header are untouched by this pass.
  */
 export const TRAIT_COLORS: Record<Trait, [string, string]> = {
   spectral: [ACCENT_COLORS.cyan, ACCENT_COLORS.indigo],
-  timeSpace: [ACCENT_COLORS.blue, ACCENT_COLORS.plum],
-  output: [ACCENT_COLORS.red, ACCENT_COLORS.orange],
+  timeSpace: [ACCENT_COLORS.purple, ACCENT_COLORS.pink],
+  output: [ACCENT_COLORS.burntOrange, ACCENT_COLORS.orange],
   composition: [ACCENT_COLORS.emerald, ACCENT_COLORS.lime],
-  company: [ACCENT_COLORS.purple, ACCENT_COLORS.pink],
-  seed: [ACCENT_COLORS.tangerine, ACCENT_COLORS.yellow],
+  company: [ACCENT_COLORS.blue, ACCENT_COLORS.plum],
+  seed: [ACCENT_COLORS.rosewood, ACCENT_COLORS.dustyRose],
   header: [ACCENT_COLORS.teal, ACCENT_COLORS.green],
 };
 
@@ -70,6 +88,88 @@ function buildAccentStyle(a: string, b: string): AccentCSSProperties {
 export function getTraitColorStyle(trait: Trait): CSSProperties {
   const [a, b] = TRAIT_COLORS[trait];
   return buildAccentStyle(a, b);
+}
+
+function srgbChannelToLinear(c: number): number {
+  const s = c / 255;
+  return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+}
+
+/** WCAG relative luminance of a `#rrggbb` hex color, in [0, 1] — used below to find the darker of
+ *  a trait's own two tones without hand-picking one per trait. */
+export function relativeLuminance(hex: string): number {
+  const clean = hex.replace('#', '');
+  const r = parseInt(clean.slice(0, 2), 16);
+  const g = parseInt(clean.slice(2, 4), 16);
+  const b = parseInt(clean.slice(4, 6), 16);
+  return 0.2126 * srgbChannelToLinear(r) + 0.7152 * srgbChannelToLinear(g) + 0.0722 * srgbChannelToLinear(b);
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const clean = hex.replace('#', '');
+  return [parseInt(clean.slice(0, 2), 16), parseInt(clean.slice(2, 4), 16), parseInt(clean.slice(4, 6), 16)];
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  const toHex = (v: number) => Math.round(v).toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0;
+  let s = 0;
+  const l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: h = (b - r) / d + 2; break;
+      default: h = (r - g) / d + 4; break;
+    }
+    h *= 60;
+  }
+  return [h, s, l];
+}
+
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  const k = (n: number) => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n: number) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return [255 * f(0), 255 * f(8), 255 * f(4)];
+}
+
+/** Reduces a `#rrggbb` hex color's HSL saturation by `reduction` (0-1 — 0.5 halves it), hue and
+ *  lightness unchanged. Used by getDisabledTraitColorStyle to mute a trait's own 2 tones rather
+ *  than replace them with a flat neutral. */
+export function desaturateHex(hex: string, reduction: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  const [h, s, l] = rgbToHsl(r, g, b);
+  const [nr, ng, nb] = hslToRgb(h, s * (1 - reduction), l);
+  return rgbToHex(nr, ng, nb);
+}
+
+/**
+ * The trait's own 2 tones, desaturated rather than replaced — used in place of getTraitColorStyle
+ * wherever a section is functionally disabled (2026-09-13, Crawford's own request):
+ * CompanyOptionsSection's 4 accordions render with full trait color even with no company/robots
+ * selected and every control inside showing a placeholder value, reading as "live" when nothing in
+ * the section is actually editable. First tried white + the trait's darker tone; Crawford preferred
+ * keeping both of the trait's own tones, muted, over introducing white as a third color. The
+ * lighter tone's saturation drops by 80%, the darker tone's by 60% — an initial 50%/25% cut read
+ * as not different enough from the active state; this pass keeps the darker tone's own cut smaller
+ * than the lighter tone's (rather than equal) since it's already less saturated on average and an
+ * equal cut there read as losing the trait's identity entirely. Which tone is "lighter"/"darker" is
+ * resolved by WCAG relative luminance, not hue-picked — Spectral's darker tone is indigo, not
+ * cyan, despite cyan's lower raw HSL lightness.
+ */
+export function getDisabledTraitColorStyle(trait: Trait): CSSProperties {
+  const [a, b] = TRAIT_COLORS[trait];
+  const [lighter, darker] = relativeLuminance(a) >= relativeLuminance(b) ? [a, b] : [b, a];
+  return buildAccentStyle(desaturateHex(lighter, 0.8), desaturateHex(darker, 0.6));
 }
 
 /**

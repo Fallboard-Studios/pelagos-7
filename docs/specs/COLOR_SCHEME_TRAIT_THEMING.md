@@ -130,6 +130,25 @@ once: Spectral trades teal for indigo (`cyan`+`indigo`, 52°), Composition trade
 (24°) that never existed before. Time/Space, Output, Company, and Seed are untouched. The table
 below (and `TRAIT_COLORS` itself) reflect this final state, not the emerald/indigo pairing above.
 
+**Amended again (2026-09-12, Crawford's own request), for two separate reasons — see
+`traitColors.ts`'s own updated header comment for the full derivation:**
+
+1. Seed's own tangerine+yellow pairing read too intense once actually seen live — both sat 70%+/
+   light 60%+, only 16° apart, nothing tempering either one. Three new hues were added to
+   `ACCENT_COLORS`: `rosewood`/`dustyRose` (sat 32-35%, replacing tangerine/yellow as Seed's pair)
+   and `burntOrange` (sat 65, light 36 — a second, deeper orange), paired directly with the
+   existing `orange`, replacing `red` as Output's own second color. `tangerine`, `yellow`, and
+   `red` are now unused by any trait pair (still valid `ACCENT_COLORS`/robot-identity values).
+2. Output, Composition, Spectral, and Time/Space are the only 4 traits Audio Rig and Robot Options
+   ever show together, and 2 of the 4 (Spectral's cyan/indigo, Time/Space's own former blue/plum)
+   sat in the same blue family. Time/Space and Company swap their pairs — no new hue needed for
+   this half — so the 4 audio-page traits now read as 4 distinct families (orange, green, blue,
+   purple/magenta) instead of 3 of 4 clustering.
+
+Composition, Spectral, and Header are untouched by this pass. The table below still reflects the
+pairing from the previous amendment, not this one — see `traitColors.ts` for the current, correct
+assignment.
+
 ```typescript
 // src/types/traits.ts (new)
 export type Trait = 'spectral' | 'timeSpace' | 'output' | 'composition' | 'company' | 'seed' | 'header';

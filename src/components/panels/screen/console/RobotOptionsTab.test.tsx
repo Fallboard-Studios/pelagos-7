@@ -376,14 +376,14 @@ describe('RobotOptionsTab', () => {
       expect(root.style.getPropertyValue('--color-accent-b')).toBe('#68cb97');
     });
 
-    it('gives AudioSettingSection the Output trait\'s style (red/orange)', () => {
+    it('gives AudioSettingSection the Output trait\'s style (burnt orange/orange)', () => {
       const robot = makeRobot();
       useLocaleStore.getState().addRobot(localeId, robot);
       useUIStore.getState().selectRobot(robot.id);
       render(<RobotOptionsTab />);
 
       const stub = screen.getByTestId('audio-setting-section-stub');
-      expect(stub.getAttribute('data-style-a')).toBe(ACCENT_COLORS.red);
+      expect(stub.getAttribute('data-style-a')).toBe(ACCENT_COLORS.burntOrange);
       expect(stub.getAttribute('data-style-b')).toBe(ACCENT_COLORS.orange);
     });
 
@@ -398,15 +398,15 @@ describe('RobotOptionsTab', () => {
       expect(stub.getAttribute('data-style-b')).toBe(ACCENT_COLORS.lime);
     });
 
-    it('gives PingContourDrawer the Time/Space trait\'s style (blue/plum)', () => {
+    it('gives PingContourDrawer the Time/Space trait\'s style (purple/pink)', () => {
       const robot = makeRobot();
       useLocaleStore.getState().addRobot(localeId, robot);
       useUIStore.getState().selectRobot(robot.id);
       render(<RobotOptionsTab />);
 
       const stub = screen.getByTestId('ping-contour-drawer-stub');
-      expect(stub.getAttribute('data-style-a')).toBe(ACCENT_COLORS.blue);
-      expect(stub.getAttribute('data-style-b')).toBe(ACCENT_COLORS.plum);
+      expect(stub.getAttribute('data-style-a')).toBe(ACCENT_COLORS.purple);
+      expect(stub.getAttribute('data-style-b')).toBe(ACCENT_COLORS.pink);
     });
 
     it('gives SignatureArrayDrawer the Spectral trait\'s style (cyan/indigo)', () => {
