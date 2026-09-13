@@ -1,7 +1,7 @@
 // ========================================
 // IMPORTS
 // ========================================
-import type { RadioButtonSchema, ButtonSchema, TextInputSchema, DualLabelSchema } from '../types/controls';
+import type { RadioButtonSchema, ButtonSchema, TextInputSchema, DualLabelSchema, AccordionSchema } from '../types/controls';
 import type { Company } from '../types/Company';
 
 // ========================================
@@ -108,4 +108,14 @@ export const DELETE_COMPANY_SCHEMA: ButtonSchema = {
   type: 'button',
   loreLabel: 'DECOMMISSION UNIT',
   humanLabel: 'Delete',
+};
+
+/** Wraps CompanyCrudControls (docs/specs/COMPANY_SECTION_ENHANCEMENTS.md §1.1) — collapsed by
+ *  default, manual toggle only, no auto-open on company selection. CompanyButtonRow stays outside
+ *  it, always visible above. */
+export const COMPANY_CRUD_ACCORDION_SCHEMA: AccordionSchema = {
+  id: 'company.crud',
+  type: 'accordion',
+  loreLabel: 'UNIT COMMISSIONING',
+  humanLabel: 'Manage Companies',
 };

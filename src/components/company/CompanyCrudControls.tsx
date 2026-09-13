@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { TextInput } from '@/components/ui/controls/TextInput';
 import { Button } from '@/components/ui/controls/Button';
+import { AccordionContainer } from '@/components/ui/controls/AccordionContainer';
 import { useLocaleStore } from '@/stores/localeStore';
 import { useUIStore } from '@/stores/uiStore';
 import { getActiveLocaleId } from '@/utils/localeHelpers';
 import { generateCompanyName } from '@/systems/spawnSystem';
-import { COMPANY_NAME_INPUT_SCHEMA, CREATE_COMPANY_SCHEMA, DELETE_COMPANY_SCHEMA } from '@/data/companyConfig';
+import { COMPANY_NAME_INPUT_SCHEMA, CREATE_COMPANY_SCHEMA, DELETE_COMPANY_SCHEMA, COMPANY_CRUD_ACCORDION_SCHEMA } from '@/data/companyConfig';
 import { MAX_COMPANIES } from '@/constants';
 import { ACCENT_COLORS, ROBOT_IDENTITY_COLOR_NAMES } from '@/constants/accentColors';
 import type { Company } from '@/types/Company';
@@ -54,6 +55,10 @@ function pickRandomCompanyColor(existingColors: string[]): string {
  * in this app, a user-created company's id has no seed to derive from (the user's choice to
  * create it isn't reproducible world generation) — crypto.randomUUID() is the right tool here,
  * not a violation of the app's seeded-generation rule.
+ *
+ * Wrapped in its own AccordionContainer (docs/specs/COMPANY_SECTION_ENHANCEMENTS.md §1.1),
+ * collapsed by default, manual toggle only — no auto-open on company selection. CompanyButtonRow
+ * stays outside it, rendered by CompanyManager above, always visible.
  */
 export function CompanyCrudControls() {
   const localeId = getActiveLocaleId();
@@ -94,21 +99,23 @@ export function CompanyCrudControls() {
   };
 
   return (
-    <div className="company-crud-controls">
-      <div className="company-crud-controls__create">
-        <TextInput schema={CREATE_NAME_SCHEMA} value={createNameDraft} onChange={setCreateNameDraft} disabled={atCap} />
-        <Button schema={CREATE_COMPANY_SCHEMA} onClick={handleCreate} disabled={atCap || nameIsBlank} />
+    <AccordionContainer schema={COMPANY_CRUD_ACCORDION_SCHEMA}>
+      <div className="company-crud-controls">
+        <div className="company-crud-controls__create">
+          <TextInput schema={CREATE_NAME_SCHEMA} value={createNameDraft} onChange={setCreateNameDraft} disabled={atCap} />
+          <Button schema={CREATE_COMPANY_SCHEMA} onClick={handleCreate} disabled={atCap || nameIsBlank} />
+        </div>
+
+        <TextInput
+          schema={RENAME_NAME_SCHEMA}
+          value={selectedCompany?.name ?? ''}
+          onChange={handleRename}
+          disabled={!hasSelectedCompany}
+        />
+
+        <Button schema={DELETE_COMPANY_SCHEMA} onClick={handleDelete} disabled={!hasSelectedCompany} />
       </div>
-
-      <TextInput
-        schema={RENAME_NAME_SCHEMA}
-        value={selectedCompany?.name ?? ''}
-        onChange={handleRename}
-        disabled={!hasSelectedCompany}
-      />
-
-      <Button schema={DELETE_COMPANY_SCHEMA} onClick={handleDelete} disabled={!hasSelectedCompany} />
-    </div>
+    </AccordionContainer>
   );
 }
 

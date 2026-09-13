@@ -9,11 +9,12 @@ import {
   CREATE_COMPANY_SCHEMA,
   COMPANY_NAME_INPUT_SCHEMA,
   DELETE_COMPANY_SCHEMA,
+  COMPANY_CRUD_ACCORDION_SCHEMA,
 } from './companyConfig';
 import { CONTROL_SCHEMA_TYPES } from '@/types/controls';
 import type { Company } from '@/types/Company';
 
-const ALL_SCHEMAS = [CREATE_COMPANY_SCHEMA, COMPANY_NAME_INPUT_SCHEMA, DELETE_COMPANY_SCHEMA];
+const ALL_SCHEMAS = [CREATE_COMPANY_SCHEMA, COMPANY_NAME_INPUT_SCHEMA, DELETE_COMPANY_SCHEMA, COMPANY_CRUD_ACCORDION_SCHEMA];
 
 describe('companyConfig', () => {
   it('every schema type is one of the 14 closed-set ControlSchema variants', () => {
@@ -122,6 +123,14 @@ describe('companyConfig', () => {
       expect(ALL_VALUE.length).toBeGreaterThan(0);
       expect(ALL_VALUE).not.toBe(NONE_VALUE);
       expect(ALL_VALUE).not.toBe(FREELANCE_VALUE);
+    });
+  });
+
+  describe('COMPANY_CRUD_ACCORDION_SCHEMA', () => {
+    it('is an accordion schema with non-empty loreLabel/humanLabel', () => {
+      expect(COMPANY_CRUD_ACCORDION_SCHEMA.type).toBe('accordion');
+      expect(COMPANY_CRUD_ACCORDION_SCHEMA.loreLabel).toBeTruthy();
+      expect(COMPANY_CRUD_ACCORDION_SCHEMA.humanLabel).toBeTruthy();
     });
   });
 });

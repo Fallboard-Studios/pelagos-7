@@ -161,23 +161,25 @@ Tasks 1–7 ──→ Task 8 (docs/COMPONENT_LIBRARY.md)
 
   **Estimated scope:** S (1 data file + 3 test files, additive field on 2 existing functions)
 
-- [ ] **Task 6: `CompanyCrudControls` — CRUD accordion**
+- [x] **Task 6: `CompanyCrudControls` — CRUD accordion**
 
   **Description:** Add `COMPANY_CRUD_ACCORDION_SCHEMA` to `companyConfig.ts` (spec §1.1). Wrap `CompanyCrudControls`'s existing return JSX in `<AccordionContainer schema={COMPANY_CRUD_ACCORDION_SCHEMA}>` — no `defaultOpen` (defaults to `false`), no `style` (inherits `CompanyManager`'s ambient `company` trait color via cascade). `CompanyManager.tsx` itself needs no edit — `CompanyButtonRow` stays outside, above, unaffected.
 
+  > **Note:** the acceptance criterion "Create/Rename/Delete are not visible/queryable on initial render" turned out not to match how `AccordionContainer` actually works — content renders via Radix's `forceMount` and stays in the DOM at all times regardless of collapse state (CSS-only visual collapse), so React Testing Library can query it either way. This codebase's own established convention (`AccordionContainer.test.tsx`) tests collapsed/open via `aria-expanded` on the trigger instead — used here too, and every pre-existing Create/Rename/Delete test kept passing completely unmodified as a result (no "open the accordion first" setup needed, contrary to this task's own original assumption).
+
   **Acceptance criteria:**
-  - [ ] `COMPANY_CRUD_ACCORDION_SCHEMA` has non-empty `loreLabel`/`humanLabel` and `type: 'accordion'`.
-  - [ ] `CompanyCrudControls`'s Create/Rename/Delete controls are not visible/queryable on initial render.
-  - [ ] Activating the accordion trigger reveals them; activating it again hides them.
-  - [ ] `CompanyManager.tsx` is unmodified — `CompanyButtonRow`, then the (now-accordioned) `CompanyCrudControls`, then `CompanyOptionsSection`, in that order.
-  - [ ] No new `timelineMap` key beyond what `AccordionContainer` already registers internally (`accordion-company.crud`).
+  - [x] `COMPANY_CRUD_ACCORDION_SCHEMA` has non-empty `loreLabel`/`humanLabel` and `type: 'accordion'`.
+  - [x] `CompanyCrudControls`'s accordion trigger starts with `aria-expanded="false"`.
+  - [x] Activating the trigger flips it to `"true"`; activating it again flips it back to `"false"`.
+  - [x] `CompanyManager.tsx` is unmodified — `CompanyButtonRow`, then the (now-accordioned) `CompanyCrudControls`, then `CompanyOptionsSection`, in that order.
+  - [x] No new `timelineMap` key beyond what `AccordionContainer` already registers internally (`accordion-company.crud`).
 
   **Verification:**
-  - [ ] `npx vitest run src/components/company/CompanyCrudControls.test.tsx` passes — every existing Create/Rename/Delete test still passes once its own setup opens the accordion first; new coverage for collapsed-by-default and toggle behavior.
-  - [ ] `npx vitest run src/data/companyConfig.test.ts` — new `describe('COMPANY_CRUD_ACCORDION_SCHEMA')` block.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/components/company/CompanyCrudControls.test.tsx` passes (23/23 — 21 pre-existing, unmodified + 2 new).
+  - [x] `npx vitest run src/data/companyConfig.test.ts` — new `describe('COMPANY_CRUD_ACCORDION_SCHEMA')` block.
+  - [x] `npm run build:types`, `npm run lint` clean; full suite 140/140 files, 2492/2492 tests.
 
-  **Dependencies:** None. Shares `CompanyCrudControls.tsx`/`.test.tsx` with Task 4 and `companyConfig.ts`/`.test.ts` with Task 5 — land after both, sequentially, to avoid avoidable merge friction (see Architecture Decisions).
+  **Dependencies:** None. Shares `CompanyCrudControls.tsx`/`.test.tsx` with Task 4 and `companyConfig.ts`/`.test.ts` with Task 5 — landed after both, sequentially.
 
   **Files:** `src/components/company/CompanyCrudControls.tsx`, `src/components/company/CompanyCrudControls.test.tsx`, `src/data/companyConfig.ts`, `src/data/companyConfig.test.ts`
 
