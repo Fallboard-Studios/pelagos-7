@@ -88,20 +88,20 @@ Tasks 1–7 ──→ Task 8 (docs/COMPONENT_LIBRARY.md)
 
   **Estimated scope:** L (11 files — deliberately over this plan's usual ceiling; see Architecture Decisions above for why it isn't split further)
 
-- [ ] **Task 3: `RadioButtonSchema` + `RadioButton.tsx` — optional per-option color**
+- [x] **Task 3: `RadioButtonSchema` + `RadioButton.tsx` — optional per-option color**
 
   **Description:** Add optional `color?: string` to `RadioButtonSchema.options[]` (spec §1.3). In `RadioButton.tsx`, apply `getRobotColorStyle(option.color)` as an inline `style` on each option's `ToggleGroup.Item` when `color` is set, `undefined` otherwise. No new CSS — existing `CabinetBox.css`/`RadioButton.css` rules already read the ambient custom properties this scopes per-item.
 
   **Acceptance criteria:**
-  - [ ] `RadioButtonSchema.options[].color` is optional; every other field on the option type is unchanged.
-  - [ ] An option with `color` set renders that color's value in its own scoped `--color-accent-a`/`-b`/`--color-accent`/`--color-accent-gradient` custom properties (via `getRobotColorStyle`), visible on its `ToggleGroup.Item`'s inline style.
-  - [ ] An option with no `color` renders with no inline `style` at all on its `ToggleGroup.Item` — byte-for-byte the same DOM as today.
-  - [ ] No new rule is added to `RadioButton.css` or `CabinetBox.css`.
-  - [ ] Every existing `RadioButton` consumer (Audio Setting, Decay Mode, per-layer Type, Header's nav group, …) renders identically to before this change.
+  - [x] `RadioButtonSchema.options[].color` is optional; every other field on the option type is unchanged.
+  - [x] An option with `color` set renders that color's value in its own scoped `--color-accent-a`/`-b`/`--color-accent`/`--color-accent-gradient` custom properties (via `getRobotColorStyle`), visible on its `ToggleGroup.Item`'s inline style.
+  - [x] An option with no `color` renders with no inline `style` at all on its `ToggleGroup.Item` — byte-for-byte the same DOM as today.
+  - [x] No new rule is added to `RadioButton.css` or `CabinetBox.css`.
+  - [x] Every existing `RadioButton` consumer (Audio Setting, Decay Mode, per-layer Type, Header's nav group, …) renders identically to before this change.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/ui/controls/RadioButton.test.tsx` passes (28/28 existing style, plus new coverage for the per-option `color` prop and the "no color → no inline style" case).
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/components/ui/controls/RadioButton.test.tsx` passes (27/27 — 23 pre-existing + 4 new).
+  - [x] `npm run build:types`, `npm run lint` clean; full suite 140/140 files, 2482/2482 tests.
 
   **Dependencies:** None.
 
@@ -110,9 +110,9 @@ Tasks 1–7 ──→ Task 8 (docs/COMPONENT_LIBRARY.md)
   **Estimated scope:** S (1 type file + 1 component + its test, one new prop wired through)
 
 ### Checkpoint: Foundation
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] `Company.color` has no real consumer yet beyond spawn generation and the fixed fixtures — no dead-code lint warnings expected (it's a required field, referenced everywhere `Company` already is).
-- [ ] `RadioButtonSchema.color`/`RadioButton.tsx`'s new rendering path has no real consumer populating it yet — every existing schema still omits it.
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [x] `Company.color` has no real consumer yet beyond spawn generation and the fixed fixtures (plus `CompanyCrudControls.tsx`'s Task-2 placeholder, superseded by Task 4) — no dead-code lint warnings.
+- [x] `RadioButtonSchema.color`/`RadioButton.tsx`'s new rendering path has no real consumer populating it yet — every existing schema still omits it.
 - [ ] Review with human before proceeding.
 
 ---

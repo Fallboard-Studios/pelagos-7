@@ -6,6 +6,7 @@ import { DualLabel } from './DualLabel';
 import { resolveAccessibleName } from './accessibleName';
 import { useVoxelTrackGap } from './useCabinetBoxHeight';
 import { CABINET_REST_POP } from '@/utils/cabinetGeometry';
+import { getRobotColorStyle } from '@/utils/traitColors';
 import type { RadioButtonSchema } from '@/types/controls';
 import './RadioButton.css';
 
@@ -93,7 +94,14 @@ interface RadioButtonProps {
  *  re-running hit-testing (that only happens on real subsequent pointer
  *  input), so no `mouseleave` fires to clear the stale hover. Resetting on
  *  every selection change sidesteps that class of missed-event entirely,
- *  rather than chasing the exact pointer-event sequence that drops it. */
+ *  rather than chasing the exact pointer-event sequence that drops it.
+ *
+ *  Optional per-option `color` (docs/specs/COMPANY_SECTION_ENHANCEMENTS.md §1.3) scopes
+ *  getRobotColorStyle's 4 accent custom properties to that one option's own ToggleGroup.Item —
+ *  no new CSS needed, since CabinetBox.css's rest-state hint and RadioButton.css's
+ *  [data-state='on'] front-face tint both already read those properties ambiently. An option
+ *  that omits `color` renders with no inline style at all, identical to every consumer that
+ *  predates this (Audio Setting, Decay Mode, per-layer Type, Header's nav group, …). */
 export function RadioButton({ schema, value, onChange, disabled, onDeselect, boxSize }: RadioButtonProps) {
   // Reuses the same breakpoint-tier gap VoxelTrack (11.1.3) uses between its
   // own boxes — not renamed to something RadioButton-neutral; see
@@ -132,6 +140,7 @@ export function RadioButton({ schema, value, onChange, disabled, onDeselect, box
             className="sc-radio-button__item"
             value={option.value}
             aria-label={option.label}
+            style={option.color ? getRobotColorStyle(option.color) : undefined}
             onMouseEnter={() => setHoveredValue(option.value)}
             onMouseLeave={() => setHoveredValue((current) => (current === option.value ? null : current))}
           >

@@ -266,4 +266,50 @@ describe('RadioButton', () => {
     expect(box?.getAttribute('data-front-width')).toBeNull();
     expect(box?.getAttribute('data-front-height')).toBeNull();
   });
+
+  // docs/specs/COMPANY_SECTION_ENHANCEMENTS.md §1.3 — per-option color, consumed by
+  // CompanyButtonRow and RobotSelectionCard's company-assignment RadioButton. Scopes
+  // getRobotColorStyle's 4 custom properties to just that option's own ToggleGroup.Item, letting
+  // CabinetBox.css/RadioButton.css's existing ambient-accent rules do the rest — no new CSS.
+  describe('per-option color', () => {
+    const coloredSchema: RadioButtonSchema = {
+      id: 'company.buttonRow',
+      type: 'radio',
+      humanLabel: 'Companies',
+      options: [
+        { value: 'none', label: 'None' },
+        { value: 'c1', label: 'Iron Consortium', color: '#4f6d7a' },
+        { value: 'c2', label: 'Null Syndicate', color: '#65617f' },
+      ],
+    };
+
+    it('scopes an option\'s own color to its own ToggleGroup.Item via the 4 accent custom properties', () => {
+      render(<RadioButton schema={coloredSchema} value="c1" onChange={() => {}} />);
+      const item = screen.getByRole('radio', { name: 'Iron Consortium' });
+      expect(item.style.getPropertyValue('--color-accent-a')).toBe('#4f6d7a');
+      expect(item.style.getPropertyValue('--color-accent-b')).toBe('#4f6d7a');
+      expect(item.style.getPropertyValue('--color-accent-gradient')).toContain('#4f6d7a');
+    });
+
+    it('gives two differently-colored options two independently-scoped colors', () => {
+      render(<RadioButton schema={coloredSchema} value="c1" onChange={() => {}} />);
+      const c1 = screen.getByRole('radio', { name: 'Iron Consortium' });
+      const c2 = screen.getByRole('radio', { name: 'Null Syndicate' });
+      expect(c1.style.getPropertyValue('--color-accent-a')).toBe('#4f6d7a');
+      expect(c2.style.getPropertyValue('--color-accent-a')).toBe('#65617f');
+    });
+
+    it('an option with no color gets no inline style at all — byte-for-byte today\'s behavior (regression guard)', () => {
+      render(<RadioButton schema={coloredSchema} value="c1" onChange={() => {}} />);
+      const none = screen.getByRole('radio', { name: 'None' });
+      expect(none.getAttribute('style')).toBeNull();
+    });
+
+    it('a schema where no option sets color renders with no inline style on any option (regression guard)', () => {
+      render(<RadioButton schema={schema} value="sine" onChange={() => {}} />);
+      schema.options.forEach((option) => {
+        expect(screen.getByRole('radio', { name: option.label }).getAttribute('style')).toBeNull();
+      });
+    });
+  });
 });

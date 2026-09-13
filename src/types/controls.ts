@@ -87,7 +87,12 @@ export interface SliderCenteredZeroSchema extends ControlSchemaBase, SliderVerti
 
 export interface RadioButtonSchema extends ControlSchemaBase {
   type: 'radio';
-  options: { value: string; label: string }[];
+  /** color is optional and additive (docs/specs/COMPANY_SECTION_ENHANCEMENTS.md §1.3) — an
+   *  option that sets it gets that hex scoped to its own CabinetBox via getRobotColorStyle
+   *  (rest-state hint + a stronger tint when selected, through the same ambient-CSS-custom-
+   *  property mechanism every other trait/identity color already uses); an option that omits it
+   *  keeps today's ambient-accent fallback exactly as before. */
+  options: { value: string; label: string; color?: string }[];
 }
 
 export interface ToggleSchema extends ControlSchemaBase {
