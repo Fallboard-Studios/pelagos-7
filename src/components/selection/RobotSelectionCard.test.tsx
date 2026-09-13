@@ -5,7 +5,7 @@ import { RobotSelectionCard } from './RobotSelectionCard';
 import { useUIStore } from '@/stores/uiStore';
 import { useLocaleStore } from '@/stores/localeStore';
 import { getActiveLocaleId } from '@/utils/localeHelpers';
-import { JOB_TYPE_LABELS, UNASSIGNED_JOB_LABEL, DOCKING_STATE_LABELS, AUDIO_MODE_LABELS } from '@/data/robotSelectionConfig';
+import { JOB_TYPE_LABELS, UNASSIGNED_JOB_LABEL, DOCKING_STATE_LABELS, AUDIBILITY_LABELS } from '@/data/robotSelectionConfig';
 import type { Robot } from '@/types/Robot';
 import type { Locale } from '@/types/locale';
 
@@ -66,21 +66,67 @@ describe('RobotSelectionCard', () => {
     expect(screen.getByText('72%')).toBeTruthy();
   });
 
-  it('renders the docking state human label', () => {
-    render(<RobotSelectionCard robot={makeRobot({ docking: 'docked' })} />);
-    expect(screen.getByText(DOCKING_STATE_LABELS.docked.humanLabel)).toBeTruthy();
+  it('renders the docking state as part of the combined "Docking · Status" line, not standalone', () => {
+    render(<RobotSelectionCard robot={makeRobot({ docking: 'docked', audioMode: 'none' })} />);
+    expect(screen.getByText(`${DOCKING_STATE_LABELS.docked.humanLabel} · ${AUDIBILITY_LABELS.emitting.humanLabel}`)).toBeTruthy();
   });
 
-  it('renders an AudioStatusBadge reflecting audioMode, defaulting to Off/none when unset', () => {
-    render(<RobotSelectionCard robot={makeRobot({ audioMode: undefined })} />);
-    const label = AUDIO_MODE_LABELS.none;
-    expect(screen.getByRole('status', { name: new RegExp(`${label.humanLabel}.*${label.loreLabel}`) })).toBeTruthy();
+  it('renders Battery as the read-only SliderLinear (Roadmap 15.1) — role="status", not role="slider" — with its label kept', () => {
+    const { container } = render(<RobotSelectionCard robot={makeRobot({ batteryLevel: 72.4 })} />);
+    const readout = container.querySelector('[data-readonly="true"]');
+    expect(readout).not.toBeNull();
+    expect(readout!.getAttribute('role')).toBe('status');
+    expect(readout!.textContent).toContain('72%');
+    expect(readout!.textContent).toContain('Battery Data');
+    expect(screen.queryByRole('slider')).toBeNull();
   });
 
-  it('renders an AudioStatusBadge reflecting an explicit audioMode', () => {
-    render(<RobotSelectionCard robot={makeRobot({ audioMode: 'solo' })} />);
-    const label = AUDIO_MODE_LABELS.solo;
-    expect(screen.getByRole('status', { name: new RegExp(`${label.humanLabel}.*${label.loreLabel}`) })).toBeTruthy();
+  it('renders no AudioStatusBadge dot anywhere in the card — replaced by the combined status line', () => {
+    const { container } = render(<RobotSelectionCard robot={makeRobot()} />);
+    expect(container.querySelector('.audio-status-badge')).toBeNull();
+  });
+
+  it('renders Name/Job/Docking·Status as bare text — no DualLabel lore/human caption anywhere in the top region', () => {
+    render(<RobotSelectionCard robot={makeRobot()} />);
+    expect(screen.queryByText('ROBOT IDENTIFIER')).toBeNull();
+    expect(screen.queryByText('ASSIGNED PROTOCOL')).toBeNull();
+    expect(screen.queryByText('DOCKING STATE')).toBeNull();
+  });
+
+  describe('audibility status ("Docking · Status" line, true audibility per isRobotAudible)', () => {
+    const localeId = getActiveLocaleId();
+
+    afterEach(() => {
+      useLocaleStore.getState().setLocaleData(localeId, { robots: [], companies: [] } as unknown as Partial<Locale>);
+    });
+
+    it('reads "<Docking> · Emitting" for an audible robot (audioMode none, nobody soloed)', () => {
+      render(<RobotSelectionCard robot={makeRobot({ docking: 'active', audioMode: 'none' })} />);
+      expect(screen.getByText(`Active · ${AUDIBILITY_LABELS.emitting.humanLabel}`)).toBeTruthy();
+    });
+
+    it('reads "<Docking> · Disabled" for this robot\'s own audioMode mute', () => {
+      render(<RobotSelectionCard robot={makeRobot({ docking: 'active', audioMode: 'mute' })} />);
+      expect(screen.getByText(`Active · ${AUDIBILITY_LABELS.disabled.humanLabel}`)).toBeTruthy();
+    });
+
+    it('reads Disabled when ANOTHER robot in the same locale is soloed, even though this one\'s own audioMode is none', () => {
+      const robot = makeRobot({ id: 'r1', audioMode: 'none' });
+      const soloRobot = makeRobot({ id: 'r2', audioMode: 'solo' });
+      useLocaleStore.getState().addRobot(localeId, robot);
+      useLocaleStore.getState().addRobot(localeId, soloRobot);
+
+      render(<RobotSelectionCard robot={robot} />);
+      expect(screen.getByText(`Active · ${AUDIBILITY_LABELS.disabled.humanLabel}`)).toBeTruthy();
+    });
+
+    it('reads Emitting for the soloed robot itself', () => {
+      const soloRobot = makeRobot({ id: 'r2', audioMode: 'solo' });
+      useLocaleStore.getState().addRobot(localeId, soloRobot);
+
+      render(<RobotSelectionCard robot={soloRobot} />);
+      expect(screen.getByText(`Active · ${AUDIBILITY_LABELS.emitting.humanLabel}`)).toBeTruthy();
+    });
   });
 
   it('clicking the card selects the robot', () => {
@@ -106,6 +152,17 @@ describe('RobotSelectionCard', () => {
     const card = screen.getByRole('button');
     expect(card.tagName).not.toBe('BUTTON');
     expect(card.getAttribute('tabindex')).toBe('0');
+  });
+
+  it('moves the activation contract off the outer <li> and onto a nested top-region wrapper (Roadmap 15.2)', () => {
+    const { container } = render(<RobotSelectionCard robot={makeRobot()} />);
+    const li = container.querySelector('li.robot-selection-card')!;
+    expect(li.getAttribute('role')).toBeNull();
+    expect(li.getAttribute('tabindex')).toBeNull();
+
+    const top = screen.getByRole('button');
+    expect(li.contains(top)).toBe(true);
+    expect(top).not.toBe(li);
   });
 
   it('renders an avatar whose color is unaffected by activeLocaleLocalTime (ignoreDaylight passed through)', () => {

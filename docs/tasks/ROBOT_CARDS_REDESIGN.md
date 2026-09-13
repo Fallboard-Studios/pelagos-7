@@ -82,20 +82,22 @@ Task 2, Task 3, Task 4 ──→ Task 5 (docs/reference/ROBOT_DATA_GRID.md)
 
   **Estimated scope:** XS (one call-site swap in one existing function)
 
-- [ ] **Task 3: `robotSelectionConfig.ts` — `AUDIBILITY_LABELS`, drop dead `.battery`/`.audio`**
+- [x] **Task 3: `robotSelectionConfig.ts` — `AUDIBILITY_LABELS`, drop dead `.battery`/`.audio`**
+
+  > **Discovered during implementation:** removing `.battery`/`.audio` here breaks `npm run build:types` until Task 4 rewrites `RobotSelectionCard.tsx` (its only remaining referrer) — the two tasks are not independently shippable the way this plan's Architecture Decisions assumed. Implemented and committed together in one commit rather than two, to avoid an intermediate non-compiling commit in history; checkboxes below are still tracked per-task since each task's own acceptance criteria were independently verified before the combined commit.
 
   **Description:** Add `AUDIBILITY_LABELS: Record<'emitting' | 'disabled', ValueLabel>` (spec §1.3: `emitting`/`disabled` keys, `loreLabel`/`humanLabel` pairs, draft values `'ACOUSTIC EMISSION ACTIVE'`/`'Emitting'` and `'ACOUSTIC EMISSION SUPPRESSED'`/`'Disabled'`). Remove `ROBOT_SELECTION_ROW_SCHEMAS.battery` and `.audio` (spec §1.5 item 1 — confirmed dead once Task 4 ships, since `RobotDisplaySection` already moved off `.battery` in Roadmap 15.1 and never used `.audio`). `.name`/`.job`/`.docking` are untouched — `RobotDisplaySection` still consumes them.
 
   **Acceptance criteria:**
-  - [ ] `AUDIBILITY_LABELS.emitting`/`.disabled` both have non-empty `loreLabel`/`humanLabel`.
-  - [ ] `ROBOT_SELECTION_ROW_SCHEMAS` no longer has `.battery` or `.audio` keys.
-  - [ ] `ROBOT_SELECTION_ROW_SCHEMAS.name`/`.job`/`.docking` are unchanged.
-  - [ ] No remaining reference to `ROBOT_SELECTION_ROW_SCHEMAS.battery` or `.audio` anywhere in `src/` (grep confirms only `RobotSelectionCard.tsx`, itself rewritten in Task 4, ever referenced `.battery`; `.audio` had no consumer at all).
+  - [x] `AUDIBILITY_LABELS.emitting`/`.disabled` both have non-empty `loreLabel`/`humanLabel`.
+  - [x] `ROBOT_SELECTION_ROW_SCHEMAS` no longer has `.battery` or `.audio` keys.
+  - [x] `ROBOT_SELECTION_ROW_SCHEMAS.name`/`.job`/`.docking` are unchanged.
+  - [x] No remaining reference to `ROBOT_SELECTION_ROW_SCHEMAS.battery` or `.audio` anywhere in `src/` (grep confirms only `RobotSelectionCard.tsx`, itself rewritten in Task 4, ever referenced `.battery`; `.audio` had no consumer at all).
 
   **Verification:**
-  - [ ] `npx vitest run src/data/robotSelectionConfig.test.ts` passes — existing `ROBOT_SELECTION_ROW_SCHEMAS` shape assertion drops `.battery`/`.audio`; new `describe('AUDIBILITY_LABELS')` block covers both keys.
-  - [ ] `npm run build:types` clean — surfaces any stale reference to the removed keys before Task 4 lands.
-  - [ ] `npm run lint` clean.
+  - [x] `npx vitest run src/data/robotSelectionConfig.test.ts` passes — existing `ROBOT_SELECTION_ROW_SCHEMAS` shape assertion drops `.battery`/`.audio`; new `describe('AUDIBILITY_LABELS')` block covers both keys.
+  - [x] `npm run build:types` clean — verified once Task 4 also landed (see the discovered-coupling note above; `.battery`/`.audio` removal alone does not compile until then).
+  - [x] `npm run lint` clean.
 
   **Dependencies:** None (independent of Task 1/2 — pure data-file change).
 
@@ -112,36 +114,39 @@ Task 2, Task 3, Task 4 ──→ Task 5 (docs/reference/ROBOT_DATA_GRID.md)
 
 ### Phase 3: The card itself
 
-- [ ] **Task 4: `RobotSelectionCard` — two-region restructure**
+- [x] **Task 4: `RobotSelectionCard` — two-region restructure**
+
+  > **Discovered during implementation:** two downstream test files, outside this plan's original §2 file list, asserted on the old card DOM shape and needed updating alongside this task — `src/components/panels/screen/console/RobotsTab.test.tsx` (an integration test rendering real `RobotSelectionCard`s, checking for a standalone `"Active"` text node and a `role="status"` audio badge, both gone) and `src/components/robot/standaloneDualLabelHosts.test.ts` (a TYPE_SCALE.md regression guard asserting `.robot-selection-card__value`'s font-size token — that class no longer exists, replaced by `.__name`/`.__job`/`.__status-line`). Both retargeted to the new structure, not deleted.
 
   **Description:** Rewrite `RobotSelectionCard.tsx` and `RobotSelectionCard.css` per spec §4: the outer `<li className="robot-selection-card">` keeps only `getRobotColorStyle` and its border/background/padding (no `role`/`tabIndex`/handlers/`cursor`). A new `.robot-selection-card__top` `<div>` takes over the activation contract (`role="button"`, `tabIndex`, `onClick`/`onKeyDown` → `selectRobot`, `aria-label`), containing `.robot-selection-card__meta-row` (avatar + a `.robot-selection-card__meta-text` column of three bare `<span>`s — `__name` styled larger/heavier via `--font-size-heading-sm`/`--font-weight-medium`, `__job`, and `__status-line` joining `dockingLabel.humanLabel` and the audibility-derived `statusLabel.humanLabel` with " · ") followed by the read-only `SliderLinear` Battery row (`BATTERY_READOUT_SCHEMA`, `readOnly`, label kept). A new `.robot-selection-card__bottom` `<div>`, no handlers, holds the company `RadioButton`. `stopBubble` and every `DualLabel`/`AudioStatusBadge` usage in this file are deleted.
 
   **Acceptance criteria:**
-  - [ ] `screen.getByRole('button')` resolves to `.robot-selection-card__top`, not the outer `<li>`; the `<li>` itself carries no `role`, `tabIndex`, or click/keydown handlers.
-  - [ ] Clicking or keyboard-activating (`Enter`/`Space`) anywhere inside `.robot-selection-card__top` — avatar, any text line, or the battery slider — calls `selectRobot` with this robot's id.
-  - [ ] Clicking the company `RadioButton` never calls `selectRobot`, and the implementation contains no `stopBubble` function or its call sites — the sibling-region structure alone accounts for the isolation.
-  - [ ] Name, Job, and the combined "Docking · Status" line render as bare text (no `DualLabel`, no lore/human caption) — `screen.queryByText(/ROBOT IDENTIFIER|ASSIGNED PROTOCOL|DOCKING STATE/)` all resolve to nothing in this card.
-  - [ ] The "Docking · Status" line reads e.g. `"Active · Emitting"` for an audible robot and `"Active · Disabled"` for a muted one, using `isRobotAudible(robot.audioMode, localeRobots)` (Task 1) against every robot in the current locale, not just this robot's own `audioMode` — a robot with `audioMode: 'none'` flips from "Emitting" to "Disabled" once another robot in the same locale becomes `'solo'`.
-  - [ ] Battery renders via the read-only `SliderLinear` (`role="status"`, `data-readonly="true"`, formatted `{Math.round(robot.batteryLevel)}%`) with its label still visible ("Battery Data") — no `role="slider"` anywhere in the card.
-  - [ ] No `AudioStatusBadge` (or any other `role="status"` dot) renders anywhere in this card.
-  - [ ] `.robot-selection-card__meta-grid`, `__field`, `__value`, `__row`, `__row--name`, `__row--company` no longer exist in `RobotSelectionCard.css`.
+  - [x] `screen.getByRole('button')` resolves to `.robot-selection-card__top`, not the outer `<li>`; the `<li>` itself carries no `role`, `tabIndex`, or click/keydown handlers.
+  - [x] Clicking or keyboard-activating (`Enter`/`Space`) anywhere inside `.robot-selection-card__top` — avatar, any text line, or the battery slider — calls `selectRobot` with this robot's id.
+  - [x] Clicking the company `RadioButton` never calls `selectRobot`, and the implementation contains no `stopBubble` function or its call sites — the sibling-region structure alone accounts for the isolation.
+  - [x] Name, Job, and the combined "Docking · Status" line render as bare text (no `DualLabel`, no lore/human caption) — `screen.queryByText(/ROBOT IDENTIFIER|ASSIGNED PROTOCOL|DOCKING STATE/)` all resolve to nothing in this card.
+  - [x] The "Docking · Status" line reads e.g. `"Active · Emitting"` for an audible robot and `"Active · Disabled"` for a muted one, using `isRobotAudible(robot.audioMode, localeRobots)` (Task 1) against every robot in the current locale, not just this robot's own `audioMode` — a robot with `audioMode: 'none'` flips from "Emitting" to "Disabled" once another robot in the same locale becomes `'solo'`.
+  - [x] Battery renders via the read-only `SliderLinear` (`role="status"`, `data-readonly="true"`, formatted `{Math.round(robot.batteryLevel)}%`) with its label still visible ("Battery Data") — no `role="slider"` anywhere in the card.
+  - [x] No `AudioStatusBadge` (or any other `role="status"` dot) renders anywhere in this card.
+  - [x] `.robot-selection-card__meta-grid`, `__field`, `__value`, `__row`, `__row--name`, `__row--company` no longer exist in `RobotSelectionCard.css`.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/selection/RobotSelectionCard.test.tsx` passes — every existing test re-targeted to the new structure where needed (button role, value classes), plus new coverage for the combined status line (both audible and locale-wide-solo-silenced cases), the battery slider, and the absence of `AudioStatusBadge`.
-  - [ ] `npm run build:types` clean — surfaces any leftover reference to `DualLabel`, `AudioStatusBadge`, `ROBOT_SELECTION_ROW_SCHEMAS`, or `stopBubble` in this file.
-  - [ ] `npm run lint` clean.
+  - [x] `npx vitest run src/components/selection/RobotSelectionCard.test.tsx` passes (28/28) — every existing test re-targeted to the new structure where needed (button role, value classes), plus new coverage for the combined status line (both audible and locale-wide-solo-silenced cases), the battery slider, and the absence of `AudioStatusBadge`.
+  - [x] `npm run build:types` clean — surfaces any leftover reference to `DualLabel`, `AudioStatusBadge`, `ROBOT_SELECTION_ROW_SCHEMAS`, or `stopBubble` in this file.
+  - [x] `npm run lint` clean.
+  - [x] Full suite: `npx vitest run` — 140/140 files, 2473/2473 tests, including the two retargeted downstream files noted above. `npm run build` clean.
   - [ ] Manual check: `npm run dev`, open the Robots tile — confirm each card shows avatar + bolder Name + Job + "Docking · Status", then the labeled battery slider, then the company picker. Click across the top region (avatar/text/slider) and confirm selection; click a company option and confirm it doesn't select. Set one robot to Solo via Robot Options and confirm every *other* card flips to "Disabled" while the soloed one stays "Emitting."
 
   **Dependencies:** Task 1 (`isRobotAudible`), Task 3 (`AUDIBILITY_LABELS`, and `BATTERY_READOUT_SCHEMA` already shipped in Roadmap 15.1).
 
-  **Files:** `src/components/selection/RobotSelectionCard.tsx`, `src/components/selection/RobotSelectionCard.css`, `src/components/selection/RobotSelectionCard.test.tsx`
+  **Files:** `src/components/selection/RobotSelectionCard.tsx`, `src/components/selection/RobotSelectionCard.css`, `src/components/selection/RobotSelectionCard.test.tsx`; plus, discovered during implementation: `src/components/panels/screen/console/RobotsTab.test.tsx`, `src/components/robot/standaloneDualLabelHosts.test.ts`
 
   **Estimated scope:** M (3 files, the full vertical slice of the redesign itself)
 
 ### Checkpoint: Card shipped
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] Manual pass (Task 4's own manual check) confirms the redesigned card end-to-end, including the locale-wide Solo → Disabled behavior.
-- [ ] No remaining reference anywhere in `src/` to `.robot-selection-card__meta-grid`/`__field`/`__value`/`__row--name`/`__row--company`, `stopBubble` (this file's own), or `ROBOT_SELECTION_ROW_SCHEMAS.battery`/`.audio` (grep to confirm).
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [ ] Manual pass (Task 4's own manual check) confirms the redesigned card end-to-end, including the locale-wide Solo → Disabled behavior — not yet run.
+- [x] No remaining reference anywhere in `src/` to `.robot-selection-card__meta-grid`/`__field`/`__value`/`__row--name`/`__row--company`, `stopBubble` (this file's own), or `ROBOT_SELECTION_ROW_SCHEMAS.battery`/`.audio` (grep-confirmed).
 - [ ] Review with human before proceeding.
 
 ---

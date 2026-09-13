@@ -18,18 +18,20 @@ import type { StatusLightState } from '@/utils/statusLightColors';
 export const ROBOT_SELECTION_ROW_SCHEMAS = {
   name: { id: 'robotSelection.name', type: 'dualLabel', loreLabel: 'ROBOT IDENTIFIER', humanLabel: 'Robot Name' },
   job: { id: 'robotSelection.job', type: 'dualLabel', loreLabel: 'ASSIGNED PROTOCOL', humanLabel: 'Job Data' },
-  battery: { id: 'robotSelection.battery', type: 'dualLabel', loreLabel: 'POWER CELL STATUS', humanLabel: 'Battery Data' },
   docking: { id: 'robotSelection.docking', type: 'dualLabel', loreLabel: 'DOCKING STATE', humanLabel: 'Docked Status' },
-  audio: { id: 'robotSelection.audio', type: 'dualLabel', loreLabel: 'PROBE DIAGNOSTICS', humanLabel: 'Audio Setting' },
+  // .battery and .audio removed (Roadmap 15.2, docs/specs/ROBOT_CARDS_REDESIGN.md §1.5 item 1) —
+  // genuinely dead once RobotSelectionCard stopped referencing them: Battery moved to
+  // BATTERY_READOUT_SCHEMA (Roadmap 15.1) via RobotDisplaySection first, then RobotSelectionCard
+  // itself; Audio Setting's card-level dot (AudioStatusBadge) was replaced by the combined
+  // Docking/Status text (AUDIBILITY_LABELS, below), which never used a DualLabel row of its own.
 } satisfies Record<string, DualLabelSchema>;
 
 /**
- * Battery Data, rendered as a read-only SliderLinear (Roadmap 15.1) instead of the
- * ROBOT_SELECTION_ROW_SCHEMAS.battery DualLabel + plain-text-percent pair — RobotDisplaySection's own
- * consumer as of this schema's addition. Same lore/human labels as ROBOT_SELECTION_ROW_SCHEMAS.battery
- * (SliderLinear composes its own internal DualLabel from them, so the external one is dropped for this
- * row, not duplicated). RobotSelectionCard still uses ROBOT_SELECTION_ROW_SCHEMAS.battery's plain-text
- * form — untouched by this addition.
+ * Battery Data, rendered as a read-only SliderLinear — first added for RobotDisplaySection
+ * (Roadmap 15.1), then adopted by RobotSelectionCard too (Roadmap 15.2), replacing that card's own
+ * former DualLabel + plain-text-percent pair (the now-removed ROBOT_SELECTION_ROW_SCHEMAS.battery).
+ * Same lore/human labels that entry used to carry — SliderLinear composes its own internal
+ * DualLabel from them, so no external one is needed for this row in either consumer.
  */
 export const BATTERY_READOUT_SCHEMA: SliderLinearSchema = {
   id: 'robotSelection.batteryReadout',
@@ -83,4 +85,16 @@ export const AUDIO_STATUS_COLOR_MAP: Record<AudioMode, StatusLightState> = {
   mute: 'red',
   solo: 'green',
   highlight: 'amber',
+};
+
+/**
+ * Roadmap 15.2 (docs/specs/ROBOT_CARDS_REDESIGN.md §1.3) — Status, half of RobotSelectionCard's
+ * combined "Docking · Status" line. Reflects true audibility (isRobotAudible, src/utils/
+ * robotAudibility.ts), not just this robot's own audioMode. Same loreLabel/humanLabel shape as
+ * every other value-label map in this file for consistency, even though only humanLabel is ever
+ * rendered — best-guess drafts, pending review (see docs/reference/ROBOT_DATA_GRID.md).
+ */
+export const AUDIBILITY_LABELS: Record<'emitting' | 'disabled', ValueLabel> = {
+  emitting: { loreLabel: 'ACOUSTIC EMISSION ACTIVE', humanLabel: 'Emitting' },
+  disabled: { loreLabel: 'ACOUSTIC EMISSION SUPPRESSED', humanLabel: 'Disabled' },
 };

@@ -7,6 +7,7 @@ import {
   DOCKING_STATE_LABELS,
   AUDIO_MODE_LABELS,
   AUDIO_STATUS_COLOR_MAP,
+  AUDIBILITY_LABELS,
 } from './robotSelectionConfig';
 import { JobType, DockingState } from '@/types/Robot';
 
@@ -17,12 +18,18 @@ const AUDIO_MODES = ['none', 'mute', 'solo', 'highlight'] as const;
 
 describe('robotSelectionConfig', () => {
   describe('ROBOT_SELECTION_ROW_SCHEMAS', () => {
-    it('matches ROBOT_DATA_GRID.md\'s exact lore/human pairs for the five card rows', () => {
+    it('matches ROBOT_DATA_GRID.md\'s exact lore/human pairs for its three remaining card rows', () => {
       expect(ROBOT_SELECTION_ROW_SCHEMAS.name).toMatchObject({ loreLabel: 'ROBOT IDENTIFIER', humanLabel: 'Robot Name' });
       expect(ROBOT_SELECTION_ROW_SCHEMAS.job).toMatchObject({ loreLabel: 'ASSIGNED PROTOCOL', humanLabel: 'Job Data' });
-      expect(ROBOT_SELECTION_ROW_SCHEMAS.battery).toMatchObject({ loreLabel: 'POWER CELL STATUS', humanLabel: 'Battery Data' });
       expect(ROBOT_SELECTION_ROW_SCHEMAS.docking).toMatchObject({ loreLabel: 'DOCKING STATE', humanLabel: 'Docked Status' });
-      expect(ROBOT_SELECTION_ROW_SCHEMAS.audio).toMatchObject({ loreLabel: 'PROBE DIAGNOSTICS', humanLabel: 'Audio Setting' });
+    });
+
+    // Roadmap 15.2 (docs/specs/ROBOT_CARDS_REDESIGN.md §1.5 item 1): .battery moved to
+    // BATTERY_READOUT_SCHEMA (Roadmap 15.1) and .audio had no consumer at all — both dropped
+    // as genuinely dead once RobotSelectionCard stopped referencing them.
+    it('no longer has .battery or .audio entries', () => {
+      expect((ROBOT_SELECTION_ROW_SCHEMAS as Record<string, unknown>).battery).toBeUndefined();
+      expect((ROBOT_SELECTION_ROW_SCHEMAS as Record<string, unknown>).audio).toBeUndefined();
     });
 
     it('every row schema is a dualLabel-typed ControlSchema with a unique id', () => {
@@ -32,6 +39,20 @@ describe('robotSelectionConfig', () => {
         expect(row.id).toBeTruthy();
       }
       expect(new Set(rows.map((r) => r.id)).size).toBe(rows.length);
+    });
+  });
+
+  describe('AUDIBILITY_LABELS', () => {
+    it('covers both emitting and disabled with a loreLabel and humanLabel', () => {
+      expect(AUDIBILITY_LABELS.emitting.loreLabel).toBeTruthy();
+      expect(AUDIBILITY_LABELS.emitting.humanLabel).toBeTruthy();
+      expect(AUDIBILITY_LABELS.disabled.loreLabel).toBeTruthy();
+      expect(AUDIBILITY_LABELS.disabled.humanLabel).toBeTruthy();
+    });
+
+    it("labels read 'Emitting'/'Disabled', per the confirmed intent", () => {
+      expect(AUDIBILITY_LABELS.emitting.humanLabel).toBe('Emitting');
+      expect(AUDIBILITY_LABELS.disabled.humanLabel).toBe('Disabled');
     });
   });
 
