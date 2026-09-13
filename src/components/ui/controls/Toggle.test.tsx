@@ -94,9 +94,9 @@ describe('Toggle', () => {
     expect(screen.getByTestId('cabinet-box').getAttribute('data-popped')).toBe('true');
   });
 
-  it('renders through CabinetBox with popped="false" when value is false', () => {
+  it('renders through CabinetBox at CABINET_REST_POP\'s shallow protrusion (not fully flat) when value is false', () => {
     render(<Toggle schema={schema} value={false} onChange={() => {}} />);
-    expect(screen.getByTestId('cabinet-box').getAttribute('data-popped')).toBe('false');
+    expect(screen.getByTestId('cabinet-box').getAttribute('data-popped')).toBe('0.5');
   });
 
   it('passes a fixed 32px boxHeight to CabinetBox, regardless of viewport', () => {

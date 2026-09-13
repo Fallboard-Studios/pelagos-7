@@ -46,9 +46,13 @@
    text; this is a Button-only override, not a base CabinetBox change).
    Scoped to .sc-button specifically so it does NOT reach VoxelTrack's
    textless boxes (SliderLinear et al. — their .sc-voxel-track__fill divs
-   carry no text) or Toggle's bare box (docs/specs/OBLIQUE_CABINETRY_TOGGLE.md
-   §1.3) — both stay on the --color-surface default. Confirmed, 2026-09-09:
-   "any front facade with text on it," not every front facade. */
+   carry no text), which stay on the --color-surface default always.
+   Confirmed, 2026-09-09: "any front facade with text on it," not every
+   front facade. Toggle's own bare box (docs/specs/OBLIQUE_CABINETRY_TOGGLE.md
+   §1.3) used to stay on --color-surface unconditionally too, matching this
+   rule's original reasoning — Toggle.css now gives it this identical
+   gradient fill, but only once checked (Crawford's own request,
+   2026-09-13), not unconditionally like Button's always-live surface. */
 .sc-button .sc-cabinet-box__front {
   background: var(--color-accent-gradient);
 }

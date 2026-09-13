@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { TRAIT_COLORS, getTraitColorStyle, getRobotColorStyle } from './traitColors';
+import { TRAIT_COLORS, getTraitColorStyle, getRobotColorStyle, getDisabledTraitColorStyle, relativeLuminance, desaturateHex } from './traitColors';
 import { ACCENT_COLORS } from '@/constants/accentColors';
 import { TRAIT_IDS } from '@/types/traits';
 
@@ -10,11 +10,11 @@ describe('TRAIT_COLORS', () => {
 
   it('matches the confirmed pairs exactly', () => {
     expect(TRAIT_COLORS.spectral).toEqual([ACCENT_COLORS.cyan, ACCENT_COLORS.indigo]);
-    expect(TRAIT_COLORS.timeSpace).toEqual([ACCENT_COLORS.blue, ACCENT_COLORS.plum]);
-    expect(TRAIT_COLORS.output).toEqual([ACCENT_COLORS.red, ACCENT_COLORS.orange]);
+    expect(TRAIT_COLORS.timeSpace).toEqual([ACCENT_COLORS.purple, ACCENT_COLORS.pink]);
+    expect(TRAIT_COLORS.output).toEqual([ACCENT_COLORS.burntOrange, ACCENT_COLORS.orange]);
     expect(TRAIT_COLORS.composition).toEqual([ACCENT_COLORS.emerald, ACCENT_COLORS.lime]);
-    expect(TRAIT_COLORS.company).toEqual([ACCENT_COLORS.purple, ACCENT_COLORS.pink]);
-    expect(TRAIT_COLORS.seed).toEqual([ACCENT_COLORS.tangerine, ACCENT_COLORS.yellow]);
+    expect(TRAIT_COLORS.company).toEqual([ACCENT_COLORS.blue, ACCENT_COLORS.plum]);
+    expect(TRAIT_COLORS.seed).toEqual([ACCENT_COLORS.rosewood, ACCENT_COLORS.dustyRose]);
     expect(TRAIT_COLORS.header).toEqual([ACCENT_COLORS.teal, ACCENT_COLORS.green]);
   });
 
@@ -46,10 +46,10 @@ describe('TRAIT_COLORS', () => {
 describe('getTraitColorStyle', () => {
   it('returns all 4 accent properties, matching the trait\'s own pair', () => {
     expect(getTraitColorStyle('output')).toEqual({
-      '--color-accent-a': ACCENT_COLORS.red,
+      '--color-accent-a': ACCENT_COLORS.burntOrange,
       '--color-accent-b': ACCENT_COLORS.orange,
-      '--color-accent': `color-mix(in srgb, ${ACCENT_COLORS.red} 50%, ${ACCENT_COLORS.orange} 50%)`,
-      '--color-accent-gradient': `linear-gradient(135deg, ${ACCENT_COLORS.red}, ${ACCENT_COLORS.orange})`,
+      '--color-accent': `color-mix(in srgb, ${ACCENT_COLORS.burntOrange} 50%, ${ACCENT_COLORS.orange} 50%)`,
+      '--color-accent-gradient': `linear-gradient(135deg, ${ACCENT_COLORS.burntOrange}, ${ACCENT_COLORS.orange})`,
     });
   });
 
@@ -68,6 +68,78 @@ describe('getTraitColorStyle', () => {
   it('never leaves a var() reference inside --color-accent or --color-accent-gradient\'s own value — both must be fully literal', () => {
     for (const trait of TRAIT_IDS) {
       const style = getTraitColorStyle(trait) as Record<string, string>;
+      expect(style['--color-accent']).not.toContain('var(');
+      expect(style['--color-accent-gradient']).not.toContain('var(');
+    }
+  });
+});
+
+describe('relativeLuminance', () => {
+  it('white is more luminant than black', () => {
+    expect(relativeLuminance('#ffffff')).toBeGreaterThan(relativeLuminance('#000000'));
+  });
+
+  it('a color is exactly as luminant as itself', () => {
+    expect(relativeLuminance(ACCENT_COLORS.cyan)).toBe(relativeLuminance(ACCENT_COLORS.cyan));
+  });
+
+  it('indigo is darker than cyan, even though cyan has the lower raw HSL lightness — WCAG luminance weights green heavily, and cyan\'s green channel outweighs its lower lightness (found while building getDisabledTraitColorStyle)', () => {
+    expect(relativeLuminance(ACCENT_COLORS.indigo)).toBeLessThan(relativeLuminance(ACCENT_COLORS.cyan));
+  });
+});
+
+describe('desaturateHex', () => {
+  it('cuts saturation by the given fraction, hue and lightness unchanged (reduction 0.8 — getDisabledTraitColorStyle\'s own lighter-tone cut)', () => {
+    // Hand-computed via the same HSL round-trip this function implements —
+    // ACCENT_COLORS.orange (#da7e1b) at 0.8 reduction.
+    expect(desaturateHex(ACCENT_COLORS.orange, 0.8)).toBe('#8e7b67');
+  });
+
+  it('a smaller reduction (0.6) desaturates less than a larger one (0.8), for the same input', () => {
+    const smaller = desaturateHex(ACCENT_COLORS.orange, 0.6);
+    const larger = desaturateHex(ACCENT_COLORS.orange, 0.8);
+    expect(smaller).not.toBe(larger);
+    // Both move toward gray from the same starting hue — neither should equal the original.
+    expect(smaller).not.toBe(ACCENT_COLORS.orange);
+    expect(larger).not.toBe(ACCENT_COLORS.orange);
+  });
+
+  it('a reduction of 0 returns the color unchanged', () => {
+    expect(desaturateHex(ACCENT_COLORS.orange, 0)).toBe(ACCENT_COLORS.orange);
+  });
+});
+
+describe('getDisabledTraitColorStyle', () => {
+  it('desaturates the lighter of the trait\'s own two tones by 80% and the darker by 60% — never introduces a 3rd color', () => {
+    for (const trait of TRAIT_IDS) {
+      const [a, b] = TRAIT_COLORS[trait];
+      const [lighter, darker] = relativeLuminance(a) >= relativeLuminance(b) ? [a, b] : [b, a];
+      const expectedA = desaturateHex(lighter, 0.8);
+      const expectedB = desaturateHex(darker, 0.6);
+      expect(getDisabledTraitColorStyle(trait)).toEqual({
+        '--color-accent-a': expectedA,
+        '--color-accent-b': expectedB,
+        '--color-accent': `color-mix(in srgb, ${expectedA} 50%, ${expectedB} 50%)`,
+        '--color-accent-gradient': `linear-gradient(135deg, ${expectedA}, ${expectedB})`,
+      });
+    }
+  });
+
+  it("desaturates orange (Output's lighter tone), not burntOrange, into slot -a", () => {
+    const style = getDisabledTraitColorStyle('output') as Record<string, string>;
+    expect(style['--color-accent-a']).toBe(desaturateHex(ACCENT_COLORS.orange, 0.8));
+    expect(style['--color-accent-b']).toBe(desaturateHex(ACCENT_COLORS.burntOrange, 0.6));
+  });
+
+  it("puts cyan (not indigo) in the lighter slot for Spectral — the non-obvious WCAG-luminance case (indigo is darker despite cyan's lower raw HSL lightness)", () => {
+    const style = getDisabledTraitColorStyle('spectral') as Record<string, string>;
+    expect(style['--color-accent-a']).toBe(desaturateHex(ACCENT_COLORS.cyan, 0.8));
+    expect(style['--color-accent-b']).toBe(desaturateHex(ACCENT_COLORS.indigo, 0.6));
+  });
+
+  it('never leaves a var() reference inside --color-accent or --color-accent-gradient — both fully literal, same as getTraitColorStyle', () => {
+    for (const trait of TRAIT_IDS) {
+      const style = getDisabledTraitColorStyle(trait) as Record<string, string>;
       expect(style['--color-accent']).not.toContain('var(');
       expect(style['--color-accent-gradient']).not.toContain('var(');
     }

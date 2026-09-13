@@ -732,17 +732,17 @@ describe('AudioRigDrawer', () => {
       expect(el.style.getPropertyValue('--color-accent-gradient')).not.toContain('var(');
     });
 
-    it('scopes Time & Space to the Time/Space trait (blue/plum)', () => {
+    it('scopes Time & Space to the Time/Space trait (purple/pink)', () => {
       render(<AudioRigDrawer />);
       const el = accordionByLabel('Time & Space');
-      expect(el.style.getPropertyValue('--color-accent-a')).toBe(ACCENT_COLORS.blue);
-      expect(el.style.getPropertyValue('--color-accent-b')).toBe(ACCENT_COLORS.plum);
+      expect(el.style.getPropertyValue('--color-accent-a')).toBe(ACCENT_COLORS.purple);
+      expect(el.style.getPropertyValue('--color-accent-b')).toBe(ACCENT_COLORS.pink);
     });
 
-    it('scopes Output to the Output trait (red/orange)', () => {
+    it('scopes Output to the Output trait (burnt orange/orange)', () => {
       render(<AudioRigDrawer />);
       const el = accordionByLabel('Output');
-      expect(el.style.getPropertyValue('--color-accent-a')).toBe(ACCENT_COLORS.red);
+      expect(el.style.getPropertyValue('--color-accent-a')).toBe(ACCENT_COLORS.burntOrange);
       expect(el.style.getPropertyValue('--color-accent-b')).toBe(ACCENT_COLORS.orange);
     });
 

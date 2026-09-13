@@ -25,6 +25,15 @@ export const ACCENT_COLORS = {
    *  own pair (traitColors.ts), replacing white/darkGray there. */
   emerald: '#4fc27a',
   indigo: '#5a5c9e',
+  /** Added later still (Crawford's own request) — a calmer warm family to replace tangerine/
+   *  yellow's own Seed pairing, which turned out too intense (both sat 70%+, light 60%+, only
+   *  16° apart on the wheel — nothing tempers either one). rosewood/dustyRose sit at sat 32-35%,
+   *  10° apart. burntOrange is a second, deeper orange (sat 65, light 36) bracketing the existing
+   *  orange (sat 78, light 48) from below — paired with it directly, replacing red as Output's
+   *  own second color. See docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.3's amendment. */
+  rosewood: '#914652',
+  dustyRose: '#b67288',
+  burntOrange: '#974820',
   black: '#120a03',
   white: '#fff',
   darkGray: '#211e1b',
@@ -42,5 +51,5 @@ export type AccentColorName = keyof typeof ACCENT_COLORS;
 export const ROBOT_IDENTITY_COLOR_NAMES: AccentColorName[] = [
   'orange', 'red', 'pink', 'purple', 'plum', 'blue', 'cyan',
   'teal', 'green', 'lime', 'yellow', 'tangerine', 'beige',
-  'emerald', 'indigo',
+  'emerald', 'indigo', 'rosewood', 'dustyRose', 'burntOrange',
 ];

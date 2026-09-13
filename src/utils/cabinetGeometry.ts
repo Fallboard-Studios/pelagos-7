@@ -57,6 +57,22 @@ export const VOXEL_TRACK_POP_DISTANCE = 8;
 export const VOXEL_TRACK_POP_DISTANCE_MIN_RATIO = 0.125;
 
 /**
+ * Resting-state pop fraction for Button/RadioButton/Toggle's own "inactive"
+ * items (Crawford's own request, 2026-09-13 — replaces an earlier
+ * gradient-border-on-the-front-face attempt he didn't like). 0.5 of
+ * CABINET_POP_DISTANCE's own default (2px) is exactly 1px: a shallow,
+ * permanent protrusion that gives every inactive item a visible hint of its
+ * trait/robot color (the walls' own glow/backing peek-through already renders
+ * correctly at any fractional t — see VOXEL_TRACK_POP_DISTANCE_MIN_RATIO
+ * above for the identical technique already shipped for VoxelTrack's own
+ * lowest box) instead of a dedicated border rule. Only the previously-flat
+ * (t=0) resting value changes — the fully hovered/selected/checked ceiling
+ * stays at 1 (the original, unchanged 2px), so "popping further" still reads
+ * as the same size jump it always has.
+ */
+export const CABINET_REST_POP = 0.5;
+
+/**
  * Fixed skew angles (degrees) for the top/left wall divs, derived directly
  * from the 2:1 oblique projection vector — independent of t or popDistance,
  * set exactly once per CabinetBox instance (via gsap.set(), on mount) and

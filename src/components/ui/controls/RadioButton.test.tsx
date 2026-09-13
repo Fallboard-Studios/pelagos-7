@@ -131,7 +131,7 @@ describe('RadioButton', () => {
 
   // Roadmap 11.1.6 — one CabinetBox per option, popped only for the
   // currently-selected one. See docs/specs/OBLIQUE_CABINETRY_RADIO_BUTTON.md §1.1.
-  it('renders one CabinetBox per option, popped only for the option matching value', () => {
+  it('renders one CabinetBox per option, fully popped only for the option matching value, resting at CABINET_REST_POP for every other', () => {
     render(<RadioButton schema={schema} value="sine" onChange={() => {}} />);
     expect(screen.getAllByTestId('cabinet-box')).toHaveLength(4);
 
@@ -139,9 +139,9 @@ describe('RadioButton', () => {
       screen.getByRole('radio', { name }).querySelector('[data-testid="cabinet-box"]');
 
     expect(boxFor('SINE')?.getAttribute('data-popped')).toBe('true');
-    expect(boxFor('TRIANGLE')?.getAttribute('data-popped')).toBe('false');
-    expect(boxFor('SQUARE')?.getAttribute('data-popped')).toBe('false');
-    expect(boxFor('SAWTOOTH')?.getAttribute('data-popped')).toBe('false');
+    expect(boxFor('TRIANGLE')?.getAttribute('data-popped')).toBe('0.5');
+    expect(boxFor('SQUARE')?.getAttribute('data-popped')).toBe('0.5');
+    expect(boxFor('SAWTOOTH')?.getAttribute('data-popped')).toBe('0.5');
   });
 
   it('passes a distinct timelineKey per option, derived from schema.id, the option\'s own value, and this instance\'s own useId()', () => {
@@ -187,16 +187,16 @@ describe('RadioButton', () => {
 
   // Hover-pop, matching Button's own hover behavior — reverses 11.1.6's original
   // "no hover/partial-pop on unselected options" exclusion (docs/specs/OBLIQUE_CABINETRY_RADIO_BUTTON.md §3).
-  it('pops an unselected option on mouseEnter and flattens again on mouseLeave', () => {
+  it('pops an unselected option fully on mouseEnter and rests it again at CABINET_REST_POP on mouseLeave', () => {
     render(<RadioButton schema={schema} value="sine" onChange={() => {}} />);
     const item = screen.getByRole('radio', { name: 'TRIANGLE' });
     const box = () => item.querySelector('[data-testid="cabinet-box"]');
 
-    expect(box()?.getAttribute('data-popped')).toBe('false');
+    expect(box()?.getAttribute('data-popped')).toBe('0.5');
     fireEvent.mouseEnter(item);
     expect(box()?.getAttribute('data-popped')).toBe('true');
     fireEvent.mouseLeave(item);
-    expect(box()?.getAttribute('data-popped')).toBe('false');
+    expect(box()?.getAttribute('data-popped')).toBe('0.5');
   });
 
   it('the selected option stays popped through a hover+unhover — hover only adds pop, never removes the selected state\'s own pop', () => {
@@ -216,8 +216,8 @@ describe('RadioButton', () => {
     const boxFor = (name: string) =>
       screen.getByRole('radio', { name }).querySelector('[data-testid="cabinet-box"]');
     expect(boxFor('TRIANGLE')?.getAttribute('data-popped')).toBe('true');
-    expect(boxFor('SQUARE')?.getAttribute('data-popped')).toBe('false');
-    expect(boxFor('SAWTOOTH')?.getAttribute('data-popped')).toBe('false');
+    expect(boxFor('SQUARE')?.getAttribute('data-popped')).toBe('0.5');
+    expect(boxFor('SAWTOOTH')?.getAttribute('data-popped')).toBe('0.5');
   });
 
   it('clears a stale hover when value changes without an intervening mouseLeave — bugfix, Header nav switching between tiles', () => {
@@ -232,15 +232,15 @@ describe('RadioButton', () => {
 
     rerender(<RadioButton schema={schema} value="square" onChange={() => {}} />);
 
-    expect(screen.getByRole('radio', { name: 'TRIANGLE' }).querySelector('[data-testid="cabinet-box"]')?.getAttribute('data-popped')).toBe('false');
+    expect(screen.getByRole('radio', { name: 'TRIANGLE' }).querySelector('[data-testid="cabinet-box"]')?.getAttribute('data-popped')).toBe('0.5');
     expect(screen.getByRole('radio', { name: 'SQUARE' }).querySelector('[data-testid="cabinet-box"]')?.getAttribute('data-popped')).toBe('true');
   });
 
-  it('never pops on hover while disabled, matching Button\'s own disabled-blocks-hover rule', () => {
+  it('never pops beyond CABINET_REST_POP on hover while disabled, matching Button\'s own disabled-blocks-hover rule', () => {
     render(<RadioButton schema={schema} value="sine" onChange={() => {}} disabled />);
     const item = screen.getByRole('radio', { name: 'TRIANGLE' });
     fireEvent.mouseEnter(item);
-    expect(item.querySelector('[data-testid="cabinet-box"]')?.getAttribute('data-popped')).toBe('false');
+    expect(item.querySelector('[data-testid="cabinet-box"]')?.getAttribute('data-popped')).toBe('0.5');
   });
 
   // docs/specs/HEADER_HUB_CONSOLIDATION.md §1.4 — literal square box size,

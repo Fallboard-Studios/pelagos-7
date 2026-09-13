@@ -5,6 +5,7 @@ import { CabinetBox } from './CabinetBox';
 import { DualLabel } from './DualLabel';
 import { resolveAccessibleName } from './accessibleName';
 import { useVoxelTrackGap } from './useCabinetBoxHeight';
+import { CABINET_REST_POP } from '@/utils/cabinetGeometry';
 import type { RadioButtonSchema } from '@/types/controls';
 import './RadioButton.css';
 
@@ -41,7 +42,10 @@ interface RadioButtonProps {
  *  `disabled` flag.
  *
  *  Renders through CabinetBox (roadmap Phase 11.1.6) — one box per option,
- *  popped for the option matching `value`, flat for every other. Reuses
+ *  popped for the option matching `value`, resting at CABINET_REST_POP's
+ *  shallow 1px protrusion for every other (Crawford's own request,
+ *  2026-09-13 — a hint of the option's own accent color before it's ever
+ *  selected/hovered, in place of a dedicated border rule). Reuses
  *  Toggle's (11.1.2) value-keyed pop precedent generalized to N boxes, and
  *  Button's (11.1.1) content-sized/breakpoint-scaled box sizing — never
  *  Toggle's own fixed-32px/textless shape. Only the selected option's front
@@ -132,7 +136,9 @@ export function RadioButton({ schema, value, onChange, disabled, onDeselect, box
             onMouseLeave={() => setHoveredValue((current) => (current === option.value ? null : current))}
           >
             <CabinetBox
-              popped={option.value === value || (!disabled && option.value === hoveredValue)}
+              popped={
+                option.value === value || (!disabled && option.value === hoveredValue) ? true : CABINET_REST_POP
+              }
               timelineKey={`cabinet-radio-${schema.id}-${instanceId}-${option.value}`}
               {...(boxSize !== undefined ? { boxHeight: boxSize, frontWidth: boxSize, frontHeight: boxSize } : {})}
             >

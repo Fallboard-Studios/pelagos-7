@@ -4,10 +4,12 @@
     --pink: #ae5378;
     --purple: #7a5484;
     --plum: #65617f;
+    --indigo: #5a5c9e;
     --blue: #4f6d7a;
     --cyan: #428d95;
     --teal: #41ad9f;
     --green: #68cb97;
+    --emerald: #4fc27a;
     --lime: #a9e583;
     --yellow: #e9e377;
     --tangerine: #e2b149;
@@ -15,8 +17,12 @@
 
     /* Added later to fill the 2 biggest hue-wheel gaps in the 13 hues above (lime→green,
        blue→plum) — see docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.3's amendment. */
-    --emerald: #4fc27a;
-    --indigo: #5a5c9e;
+
+    /* Added later still — a calmer warm family to replace tangerine/yellow's own too-intense
+       Seed pairing (both sat 70%+, light 60%+), plus a second, deeper orange. */
+    --rosewood: #914652;
+    --dusty-rose: #b67288;
+    --burnt-orange: #974820;
 
     --black: #120a03;
     --white: #fff;

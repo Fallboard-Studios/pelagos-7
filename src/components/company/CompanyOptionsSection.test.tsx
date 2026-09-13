@@ -154,6 +154,7 @@ import { useUIStore } from '@/stores/uiStore';
 import { getActiveLocaleId } from '@/utils/localeHelpers';
 import * as robotOptionsActions from '@/systems/robotOptionsActions';
 import { ACCENT_COLORS } from '@/constants/accentColors';
+import { desaturateHex } from '@/utils/traitColors';
 import type { Robot } from '@/types/Robot';
 import type { Locale } from '@/types/locale';
 
@@ -207,36 +208,100 @@ describe('CompanyOptionsSection', () => {
   });
 
   // Roadmap Phase 14 (docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.5): each of the 4 reused
-  // drawers gets the identical trait style RobotOptionsTab passes it, so the Robots tile's
-  // company bulk-edit panel matches the individual robot detail page exactly, control for
-  // control — not CompanyManager's own Company purple/pink, which stays scoped to
-  // CompanyManager's own button row/CRUD chrome (CompanyManager.tsx's own root style).
-  it('gives AudioSettingSection the Output trait\'s style (red/orange), matching RobotOptionsTab', () => {
+  // drawers gets the identical trait style RobotOptionsTab passes it once active (a non-empty
+  // company selected), so the Robots tile's company bulk-edit panel matches the individual robot
+  // detail page exactly, control for control — not CompanyManager's own Company blue/plum, which
+  // stays scoped to CompanyManager's own button row/CRUD chrome (CompanyManager.tsx's own root
+  // style). Each test selects a real non-empty company first — with none selected, the section is
+  // disabled and gets getDisabledTraitColorStyle instead (see the describe block below).
+  function selectActiveCompany() {
+    useLocaleStore.getState().addRobot(localeId, makeRobot({ id: 'r1', companyId: 'c1' }));
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
+    useUIStore.getState().selectCompany('c1');
+  }
+
+  it('gives AudioSettingSection the Output trait\'s style (burnt orange/orange), matching RobotOptionsTab', () => {
+    selectActiveCompany();
     render(<CompanyOptionsSection />);
     const stub = screen.getByTestId('audio-setting-section-stub');
-    expect(stub.getAttribute('data-style-a')).toBe(ACCENT_COLORS.red);
+    expect(stub.getAttribute('data-style-a')).toBe(ACCENT_COLORS.burntOrange);
     expect(stub.getAttribute('data-style-b')).toBe(ACCENT_COLORS.orange);
   });
 
   it('gives PingControlsDrawer the Composition trait\'s style (emerald/lime), matching RobotOptionsTab', () => {
+    selectActiveCompany();
     render(<CompanyOptionsSection />);
     const stub = screen.getByTestId('ping-controls-drawer-stub');
     expect(stub.getAttribute('data-style-a')).toBe(ACCENT_COLORS.emerald);
     expect(stub.getAttribute('data-style-b')).toBe(ACCENT_COLORS.lime);
   });
 
-  it('gives PingContourDrawer the Time/Space trait\'s style (blue/plum), matching RobotOptionsTab', () => {
+  it('gives PingContourDrawer the Time/Space trait\'s style (purple/pink), matching RobotOptionsTab', () => {
+    selectActiveCompany();
     render(<CompanyOptionsSection />);
     const stub = screen.getByTestId('ping-contour-drawer-stub');
-    expect(stub.getAttribute('data-style-a')).toBe(ACCENT_COLORS.blue);
-    expect(stub.getAttribute('data-style-b')).toBe(ACCENT_COLORS.plum);
+    expect(stub.getAttribute('data-style-a')).toBe(ACCENT_COLORS.purple);
+    expect(stub.getAttribute('data-style-b')).toBe(ACCENT_COLORS.pink);
   });
 
   it('gives SignatureArrayDrawer the Spectral trait\'s style (cyan/indigo), matching RobotOptionsTab', () => {
+    selectActiveCompany();
     render(<CompanyOptionsSection />);
     const stub = screen.getByTestId('signature-array-drawer-stub');
     expect(stub.getAttribute('data-style-a')).toBe(ACCENT_COLORS.cyan);
     expect(stub.getAttribute('data-style-b')).toBe(ACCENT_COLORS.indigo);
+  });
+
+  // 2026-09-13, Crawford's own request: a disabled section (no company/robots selected, or a
+  // selected company with zero members) reads as full-color even though every control inside
+  // shows a placeholder value — visually "live" for content that can't actually be edited. Each
+  // disabled accordion now gets white + the trait's own darker tone (getDisabledTraitColorStyle)
+  // instead, computed by WCAG relative luminance rather than hand-picked per trait.
+  describe('disabled sections desaturate the trait\'s own 2 tones (lighter -80%, darker -60%) instead of full trait color', () => {
+    it('gives AudioSettingSection Output\'s own tones, desaturated, when no company is selected', () => {
+      render(<CompanyOptionsSection />);
+      const stub = screen.getByTestId('audio-setting-section-stub');
+      expect(stub.getAttribute('data-style-a')).toBe(desaturateHex(ACCENT_COLORS.orange, 0.8));
+      expect(stub.getAttribute('data-style-b')).toBe(desaturateHex(ACCENT_COLORS.burntOrange, 0.6));
+    });
+
+    it('gives PingControlsDrawer Composition\'s own tones, desaturated, when no company is selected', () => {
+      render(<CompanyOptionsSection />);
+      const stub = screen.getByTestId('ping-controls-drawer-stub');
+      expect(stub.getAttribute('data-style-a')).toBe(desaturateHex(ACCENT_COLORS.lime, 0.8));
+      expect(stub.getAttribute('data-style-b')).toBe(desaturateHex(ACCENT_COLORS.emerald, 0.6));
+    });
+
+    it('gives PingContourDrawer Time/Space\'s own tones, desaturated, when no company is selected', () => {
+      render(<CompanyOptionsSection />);
+      const stub = screen.getByTestId('ping-contour-drawer-stub');
+      expect(stub.getAttribute('data-style-a')).toBe(desaturateHex(ACCENT_COLORS.pink, 0.8));
+      expect(stub.getAttribute('data-style-b')).toBe(desaturateHex(ACCENT_COLORS.purple, 0.6));
+    });
+
+    it('gives SignatureArrayDrawer Spectral\'s own tones, desaturated, when no company is selected — cyan lighter, indigo darker (by WCAG luminance, not cyan\'s lower raw HSL lightness)', () => {
+      render(<CompanyOptionsSection />);
+      const stub = screen.getByTestId('signature-array-drawer-stub');
+      expect(stub.getAttribute('data-style-a')).toBe(desaturateHex(ACCENT_COLORS.cyan, 0.8));
+      expect(stub.getAttribute('data-style-b')).toBe(desaturateHex(ACCENT_COLORS.indigo, 0.6));
+    });
+
+    it('switches back to full trait color once a non-empty company is selected', () => {
+      selectActiveCompany();
+      render(<CompanyOptionsSection />);
+      const stub = screen.getByTestId('audio-setting-section-stub');
+      expect(stub.getAttribute('data-style-a')).toBe(ACCENT_COLORS.burntOrange);
+      expect(stub.getAttribute('data-style-b')).toBe(ACCENT_COLORS.orange);
+    });
+
+    it('stays on the disabled (desaturated) style when a company is selected but has zero members', () => {
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: [] });
+      useUIStore.getState().selectCompany('c1');
+      render(<CompanyOptionsSection />);
+      const stub = screen.getByTestId('audio-setting-section-stub');
+      expect(stub.getAttribute('data-style-a')).toBe(desaturateHex(ACCENT_COLORS.orange, 0.8));
+      expect(stub.getAttribute('data-style-b')).toBe(desaturateHex(ACCENT_COLORS.burntOrange, 0.6));
+    });
   });
 
   it('renders every section disabled when the selected company has zero members', () => {

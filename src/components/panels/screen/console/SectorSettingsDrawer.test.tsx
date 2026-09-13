@@ -105,11 +105,12 @@ describe('SectorSettingsDrawer', () => {
   });
 
   // Roadmap Phase 14 (docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.5, Task 14) — the Seed trait's
-  // own colors (tangerine/yellow) on the drawer's own root.
-  it("scopes its root to the Seed trait's colors (tangerine/yellow)", () => {
+  // own colors (rosewood/dustyRose, since the 2026-09-12 rebalance replaced the too-intense
+  // tangerine/yellow pairing) on the drawer's own root.
+  it("scopes its root to the Seed trait's colors (rosewood/dustyRose)", () => {
     const { container } = render(<SectorSettingsDrawer />);
     const root = container.querySelector('.sector-settings-drawer') as HTMLElement;
-    expect(root.style.getPropertyValue('--color-accent-a')).toBe('#e2b149');
-    expect(root.style.getPropertyValue('--color-accent-b')).toBe('#e9e377');
+    expect(root.style.getPropertyValue('--color-accent-a')).toBe('#914652');
+    expect(root.style.getPropertyValue('--color-accent-b')).toBe('#b67288');
   });
 });

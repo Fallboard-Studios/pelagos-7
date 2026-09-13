@@ -3,6 +3,7 @@ import { useId, useState } from 'react';
 import { CabinetBox } from './CabinetBox';
 import { DualLabel } from './DualLabel';
 import { resolveAccessibleName } from './accessibleName';
+import { CABINET_REST_POP } from '@/utils/cabinetGeometry';
 import type { ButtonSchema } from '@/types/controls';
 import './Button.css';
 
@@ -14,11 +15,15 @@ interface ButtonProps {
 
 /**
  * Schema-driven button — renders through CabinetBox (roadmap Phase 11.1.1).
- * `popped` combines hover, focus, and press (pointerdown/pointerup, not
+ * `engaged` combines hover, focus, and press (pointerdown/pointerup, not
  * `click` — click fires only on release, which would leave touch users with
  * no feedback until the tap is already over) into one boolean; a disabled
- * button never pops regardless of these events. No distinct click bounce or
- * partial-pop state — see docs/specs/OBLIQUE_CABINETRY_FOUNDATION.md §1.5.
+ * button is never engaged regardless of these events. Resting (not engaged)
+ * pops to CABINET_REST_POP — a shallow, permanent 1px protrusion giving the
+ * box a hint of its accent color even before interaction (Crawford's own
+ * request, 2026-09-13) — engaged pops the rest of the way to the original,
+ * unchanged full pop. No distinct click bounce or intermediate engaged state
+ * — see docs/specs/OBLIQUE_CABINETRY_FOUNDATION.md §1.5.
  *
  * `timelineKey` includes `useId()`, not just `schema.id` — `timelineMap` is a
  * shared, module-level `Map`, so two simultaneously-mounted `Button`s
@@ -35,7 +40,8 @@ export function Button({ schema, onClick, disabled }: ButtonProps) {
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
   const [pressed, setPressed] = useState(false);
-  const popped = !disabled && (hovered || focused || pressed);
+  const engaged = !disabled && (hovered || focused || pressed);
+  const popped = engaged ? true : CABINET_REST_POP;
 
   return (
     <button
