@@ -153,7 +153,7 @@ Task 2, Task 3, Task 4 ──→ Task 5 (docs/reference/ROBOT_DATA_GRID.md)
 
 ### Phase 4: Docs
 
-- [ ] **Task 5: `docs/reference/ROBOT_DATA_GRID.md` — Emitting/Disabled draft rows**
+- [x] **Task 5: `docs/reference/ROBOT_DATA_GRID.md` — Emitting/Disabled draft rows**
 
   **Description:** Append two rows to the existing "Draft — pending review" table (spec §6), matching the format of the Job Data/Docked Status/Audio Setting value rows already there:
 
@@ -163,12 +163,12 @@ Task 2, Task 3, Task 4 ──→ Task 5 (docs/reference/ROBOT_DATA_GRID.md)
   | Disabled | ACOUSTIC EMISSION SUPPRESSED | `AUDIBILITY_LABELS.disabled` | Card Status value |
 
   **Acceptance criteria:**
-  - [ ] Both rows appended to the existing draft table, same column shape as its neighbors.
-  - [ ] Values match `AUDIBILITY_LABELS`'s actual shipped `loreLabel`/`humanLabel` strings exactly (spot-check against Task 3's final code).
+  - [x] Both rows appended to the existing draft table, same column shape as its neighbors.
+  - [x] Values match `AUDIBILITY_LABELS`'s actual shipped `loreLabel`/`humanLabel` strings exactly (spot-checked against Task 3's final code).
 
   **Verification:**
-  - [ ] Manual review — spot-checked against the shipped `robotSelectionConfig.ts`.
-  - [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean (docs-only change, no behavioral impact expected).
+  - [x] Manual review — spot-checked against the shipped `robotSelectionConfig.ts`.
+  - [x] `npm run build:types`, `npm run lint` clean (docs-only change, no behavioral impact — `npm test`/`npm run build` already verified clean against the same unchanged source at the prior checkpoint).
 
   **Dependencies:** Task 3 (documents its final values), Task 4 (documents the shipped consumer).
 
@@ -177,9 +177,9 @@ Task 2, Task 3, Task 4 ──→ Task 5 (docs/reference/ROBOT_DATA_GRID.md)
   **Estimated scope:** XS (docs only)
 
 ### Checkpoint: Complete
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] All acceptance criteria across all 5 tasks are met.
-- [ ] `docs/reference/ROBOT_DATA_GRID.md` reflects the shipped labels.
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [x] All acceptance criteria across all 5 tasks are met, except the one still-open manual browser check noted under Task 4.
+- [x] `docs/reference/ROBOT_DATA_GRID.md` reflects the shipped labels.
 - [ ] Ready for human review / PR.
 
 ## Risks and Mitigations
