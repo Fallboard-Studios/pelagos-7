@@ -22,7 +22,9 @@ export const FREELANCE_VALUE = '__freelance__';
  * not a static export. Used for the robot-to-company assignment RadioButton in both
  * RobotSelectionCard and RobotDisplaySection. Named/typed for a Select (buildCompanySelectSchema,
  * SelectSchema) through Roadmap Phase 10; renamed and retyped to RadioButtonSchema by 10.5 when
- * Select was removed entirely — see docs/specs/COMPANY_ASSIGNMENT_RADIO.md.
+ * Select was removed entirely — see docs/specs/COMPANY_ASSIGNMENT_RADIO.md. Each company option
+ * now also carries that company's own `color` (docs/specs/COMPANY_SECTION_ENHANCEMENTS.md §1.3);
+ * Freelance omits it, keeping RadioButton's ambient-accent fallback.
  */
 export function buildCompanyAssignmentSchema(companies: Company[]): RadioButtonSchema {
   return {
@@ -31,8 +33,9 @@ export function buildCompanyAssignmentSchema(companies: Company[]): RadioButtonS
     loreLabel: 'UNIT AFFILIATION',
     humanLabel: 'Company',
     options: [
+      // No color — ambient fallback (the robot card's own identityColor, cascaded from its <li>).
       { value: FREELANCE_VALUE, label: 'Freelance' },
-      ...companies.map((c) => ({ value: c.id, label: c.name })),
+      ...companies.map((c) => ({ value: c.id, label: c.name, color: c.color })),
     ],
   };
 }
@@ -57,7 +60,9 @@ export const ALL_VALUE = '__all__';
  *  active among many, click to select," which RadioButton already implements (including the
  *  active-state styling), rather than reinventing that with a list of independent Buttons.
  *  None and All come first (in that order) so the two "no single company" meta-options aren't
- *  separated by the (possibly long, user-generated) per-company list. */
+ *  separated by the (possibly long, user-generated) per-company list. Each company option also
+ *  carries that company's own `color` (docs/specs/COMPANY_SECTION_ENHANCEMENTS.md §1.3); None/All
+ *  omit it, keeping RadioButton's ambient-accent fallback (CompanyManager's own 'company' trait). */
 export function buildCompanyButtonRowSchema(companies: Company[]): RadioButtonSchema {
   return {
     id: 'company.buttonRow',
@@ -65,9 +70,10 @@ export function buildCompanyButtonRowSchema(companies: Company[]): RadioButtonSc
     loreLabel: 'UNIT ROSTER',
     humanLabel: 'Companies',
     options: [
+      // No color on either meta-option — ambient fallback (CompanyManager's own 'company' trait).
       { value: NONE_VALUE, label: 'None' },
       { value: ALL_VALUE, label: 'All' },
-      ...companies.map((c) => ({ value: c.id, label: c.name })),
+      ...companies.map((c) => ({ value: c.id, label: c.name, color: c.color })),
     ],
   };
 }

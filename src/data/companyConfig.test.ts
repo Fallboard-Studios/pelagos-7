@@ -46,8 +46,8 @@ describe('companyConfig', () => {
 
       expect(schema.type).toBe('radio');
       expect(schema.options[0]).toEqual({ value: FREELANCE_VALUE, label: 'Freelance' });
-      expect(schema.options[1]).toEqual({ value: 'c1', label: 'Iron Consortium' });
-      expect(schema.options[2]).toEqual({ value: 'c2', label: 'Null Syndicate' });
+      expect(schema.options[1]).toEqual({ value: 'c1', label: 'Iron Consortium', color: '#4f6d7a' });
+      expect(schema.options[2]).toEqual({ value: 'c2', label: 'Null Syndicate', color: '#65617f' });
       expect(schema.options).toHaveLength(3);
     });
 
@@ -58,6 +58,15 @@ describe('companyConfig', () => {
 
     it('is namespaced under "company." like every other schema in this file', () => {
       expect(buildCompanyAssignmentSchema([]).id.startsWith('company.')).toBe(true);
+    });
+
+    // docs/specs/COMPANY_SECTION_ENHANCEMENTS.md §1.3 — per-company color, populated once
+    // Company.color exists; Freelance keeps today's ambient fallback (no color key at all).
+    it('the Freelance option carries no color — ambient fallback, unlike every real company option', () => {
+      const companies: Company[] = [{ id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] }];
+      const schema = buildCompanyAssignmentSchema(companies);
+      expect(schema.options[0]).not.toHaveProperty('color');
+      expect(schema.options[1]).toHaveProperty('color', '#4f6d7a');
     });
   });
 
@@ -81,8 +90,8 @@ describe('companyConfig', () => {
       expect(schema.type).toBe('radio');
       expect(schema.options[0]).toEqual({ value: NONE_VALUE, label: 'None' });
       expect(schema.options[1]).toEqual({ value: ALL_VALUE, label: 'All' });
-      expect(schema.options[2]).toEqual({ value: 'c1', label: 'Iron Consortium' });
-      expect(schema.options[3]).toEqual({ value: 'c2', label: 'Null Syndicate' });
+      expect(schema.options[2]).toEqual({ value: 'c1', label: 'Iron Consortium', color: '#4f6d7a' });
+      expect(schema.options[3]).toEqual({ value: 'c2', label: 'Null Syndicate', color: '#65617f' });
       expect(schema.options).toHaveLength(4);
     });
 
@@ -92,6 +101,14 @@ describe('companyConfig', () => {
         { value: NONE_VALUE, label: 'None' },
         { value: ALL_VALUE, label: 'All' },
       ]);
+    });
+
+    it('None and All carry no color — ambient fallback, unlike every real company option', () => {
+      const companies: Company[] = [{ id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] }];
+      const schema = buildCompanyButtonRowSchema(companies);
+      expect(schema.options[0]).not.toHaveProperty('color');
+      expect(schema.options[1]).not.toHaveProperty('color');
+      expect(schema.options[2]).toHaveProperty('color', '#4f6d7a');
     });
 
     it('is namespaced under "company." like every other schema in this file', () => {

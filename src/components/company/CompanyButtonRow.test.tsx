@@ -27,6 +27,19 @@ describe('CompanyButtonRow', () => {
     expect(screen.getByRole('radio', { name: 'Null Syndicate' })).toBeTruthy();
   });
 
+  // docs/specs/COMPANY_SECTION_ENHANCEMENTS.md §1.3 — each company button carries its own color;
+  // None/All keep the ambient fallback (CompanyManager's own 'company' trait).
+  it('shows each company\'s own color on its button, and no color on None', () => {
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c2', name: 'Null Syndicate', color: '#65617f', robotIds: [] });
+
+    render(<CompanyButtonRow />);
+
+    expect(screen.getByRole('radio', { name: 'Iron Consortium' }).style.getPropertyValue('--color-accent-a')).toBe('#4f6d7a');
+    expect(screen.getByRole('radio', { name: 'Null Syndicate' }).style.getPropertyValue('--color-accent-a')).toBe('#65617f');
+    expect(screen.getByRole('radio', { name: 'None' }).getAttribute('style')).toBeNull();
+  });
+
   it('renders just "None" when there are no companies', () => {
     render(<CompanyButtonRow />);
     expect(screen.getByRole('radio', { name: 'None' })).toBeTruthy();

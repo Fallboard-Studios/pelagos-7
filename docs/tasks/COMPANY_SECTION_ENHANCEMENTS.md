@@ -141,19 +141,19 @@ Tasks 1–7 ──→ Task 8 (docs/COMPONENT_LIBRARY.md)
 
   **Estimated scope:** S (1 component + its test, one new helper + one call-site wire-up)
 
-- [ ] **Task 5: `companyConfig.ts` — `color` on both schema builders**
+- [x] **Task 5: `companyConfig.ts` — `color` on both schema builders**
 
   **Description:** `buildCompanyAssignmentSchema` and `buildCompanyButtonRowSchema` each add `color: c.color` to every real-company option they build; the non-company sentinel options (`Freelance`, `None`, `All`) omit `color` entirely, keeping today's ambient fallback (spec §1.3).
 
   **Acceptance criteria:**
-  - [ ] `buildCompanyAssignmentSchema(companies)`: every company option carries `color: company.color`; the `Freelance` option has no `color` key.
-  - [ ] `buildCompanyButtonRowSchema(companies)`: every company option carries `color: company.color`; `None`/`All` have no `color` key.
-  - [ ] No change to either function's own call sites (`RobotSelectionCard.tsx`, `RobotDisplaySection.tsx`, `CompanyButtonRow.tsx`) — `color` flows through automatically once both this task and Task 1/3 are in place.
+  - [x] `buildCompanyAssignmentSchema(companies)`: every company option carries `color: company.color`; the `Freelance` option has no `color` key.
+  - [x] `buildCompanyButtonRowSchema(companies)`: every company option carries `color: company.color`; `None`/`All` have no `color` key.
+  - [x] No change to either function's own call sites (`RobotSelectionCard.tsx`, `RobotDisplaySection.tsx`, `CompanyButtonRow.tsx`) — `color` flows through automatically.
 
   **Verification:**
-  - [ ] `npx vitest run src/data/companyConfig.test.ts` passes, with new assertions for `color` presence/absence on both builders.
-  - [ ] New assertion in `RobotSelectionCard.test.tsx` and `CompanyButtonRow.test.tsx` that the rendered company options carry each company's own `color`.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/data/companyConfig.test.ts` passes (13/13 — 9 pre-existing + 2 modified + 2 new).
+  - [x] New assertion in `RobotSelectionCard.test.tsx` and `CompanyButtonRow.test.tsx` confirming the rendered company options carry each company's own `color` (via inline `--color-accent-a`), and Freelance/None carry none.
+  - [x] `npm run build:types`, `npm run lint` clean; full suite 140/140 files, 2489/2489 tests.
 
   **Dependencies:** Task 1 (`Company.color` must exist to read), Task 3 (`RadioButtonSchema.color` must exist to assign into).
 

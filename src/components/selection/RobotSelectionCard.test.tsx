@@ -230,6 +230,16 @@ describe('RobotSelectionCard', () => {
       expect(screen.getByRole('radio', { name: 'Freelance' }).getAttribute('aria-checked')).toBe('false');
     });
 
+    // docs/specs/COMPANY_SECTION_ENHANCEMENTS.md §1.3 — each company option carries its own
+    // color; Freelance keeps the ambient fallback (the robot's own identityColor via the <li>).
+    it("shows the company's own color on its option, and no color on Freelance", () => {
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
+      render(<RobotSelectionCard robot={makeRobot({ id: 'r1', companyId: undefined })} />);
+
+      expect(screen.getByRole('radio', { name: 'Iron Consortium' }).style.getPropertyValue('--color-accent-a')).toBe('#4f6d7a');
+      expect(screen.getByRole('radio', { name: 'Freelance' }).getAttribute('style')).toBeNull();
+    });
+
     it("selecting a company calls assignRobotToCompany with that company's id", () => {
       useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
       const assignSpy = vi.spyOn(useLocaleStore.getState(), 'assignRobotToCompany');
