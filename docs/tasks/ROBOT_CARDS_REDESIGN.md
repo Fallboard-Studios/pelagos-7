@@ -63,18 +63,18 @@ Task 2, Task 3, Task 4 ──→ Task 5 (docs/reference/ROBOT_DATA_GRID.md)
 
 ### Phase 2: Consumers of the predicate (parallelizable — neither reads the other's file)
 
-- [ ] **Task 2: `AudioEngine.ts` — `triggerWithCap` calls `isRobotAudible`**
+- [x] **Task 2: `AudioEngine.ts` — `triggerWithCap` calls `isRobotAudible`**
 
   **Description:** In `src/engine/AudioEngine.ts`'s `triggerWithCap`, replace the inline mute/solo check (the two `if` statements between `getActiveLocaleRobots()` and the `// Highlight attenuation...` comment, spec §1.2) with a single call: `if (!isRobotAudible(robotFromStore?.audioMode, localeRobots)) { return false; }`. The `// Highlight attenuation is handled in scheduleNote...` comment and everything in `scheduleNote` are untouched — this task touches only the mute/solo gate, not velocity attenuation.
 
   **Acceptance criteria:**
-  - [ ] `triggerWithCap` calls `isRobotAudible` instead of re-deriving the mute/solo rule inline.
-  - [ ] No observable behavior change: a muted robot's notes are still suppressed; a non-solo robot is still suppressed whenever any robot is soloed; an unfound `robotFromStore` (empty `localeRobots` guard) behaves identically to before.
-  - [ ] The `scheduleNote` highlight-attenuation branch is untouched, byte-for-byte.
+  - [x] `triggerWithCap` calls `isRobotAudible` instead of re-deriving the mute/solo rule inline.
+  - [x] No observable behavior change: a muted robot's notes are still suppressed; a non-solo robot is still suppressed whenever any robot is soloed; an unfound `robotFromStore` (empty `localeRobots` guard) behaves identically to before.
+  - [x] The `scheduleNote` highlight-attenuation branch is untouched, byte-for-byte.
 
   **Verification:**
-  - [ ] `npx vitest run src/engine/AudioEngine.test.ts` passes **with zero test-file edits** — this is the acceptance proof, not a formality: if any existing assertion needs changing to pass, the refactor changed behavior and is wrong.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/engine/AudioEngine.test.ts` passes **with zero test-file edits** — this is the acceptance proof, not a formality: if any existing assertion needs changing to pass, the refactor changed behavior and is wrong. (101/101 passed, unmodified.)
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** Task 1.
 
