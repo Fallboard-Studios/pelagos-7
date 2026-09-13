@@ -1,6 +1,16 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 
+// Exposes VoxelTrack's own timelineKeyPrefix prop as a data attribute — real GSAP/CabinetBox
+// internals aren't relevant here, only whether two simultaneously-rendered cards' battery
+// sliders get distinct timelineMap keys (src/animation/timelineMap.ts is a single module-global
+// Map; VoxelTrack.tsx's own doc comment requires this prefix be "unique per-slider-instance").
+vi.mock('@/components/ui/controls/VoxelTrack', () => ({
+  VoxelTrack: ({ timelineKeyPrefix }: { timelineKeyPrefix: string }) => (
+    <div data-testid="voxel-track" data-timeline-key-prefix={timelineKeyPrefix} />
+  ),
+}));
+
 import { RobotSelectionCard } from './RobotSelectionCard';
 import { useUIStore } from '@/stores/uiStore';
 import { useLocaleStore } from '@/stores/localeStore';
@@ -79,6 +89,20 @@ describe('RobotSelectionCard', () => {
     expect(readout!.textContent).toContain('72%');
     expect(readout!.textContent).toContain('Battery Data');
     expect(screen.queryByRole('slider')).toBeNull();
+  });
+
+  it('gives each card its own unique VoxelTrack timeline-key prefix for the battery slider — no cross-robot GSAP timeline collisions (found in code review)', () => {
+    const { container } = render(
+      <ul>
+        <RobotSelectionCard robot={makeRobot({ id: 'r1' })} />
+        <RobotSelectionCard robot={makeRobot({ id: 'r2' })} />
+      </ul>,
+    );
+    const prefixes = Array.from(container.querySelectorAll('[data-testid="voxel-track"]')).map(
+      (el) => el.getAttribute('data-timeline-key-prefix'),
+    );
+    expect(prefixes).toHaveLength(2);
+    expect(new Set(prefixes).size).toBe(2);
   });
 
   it('renders no AudioStatusBadge dot anywhere in the card — replaced by the combined status line', () => {

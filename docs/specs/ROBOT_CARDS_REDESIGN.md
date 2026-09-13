@@ -9,6 +9,8 @@
 
 Source of intent: [docs/intent/robot-cards-redesign.md](../intent/robot-cards-redesign.md) (confirmed via `/interview-me`, 2026-09-13). Covers [Roadmap Phase 15.2](../todo/roadmap.md#152-redesign-robot-cards). Related prior art: [docs/specs/SLIDER_LINEAR_READ_ONLY.md](SLIDER_LINEAR_READ_ONLY.md) (the read-only `SliderLinear` this phase's Battery row reuses, already shipped and already consumed by `RobotDisplaySection`) and [docs/specs/COLOR_SCHEME_TRAIT_THEMING.md](COLOR_SCHEME_TRAIT_THEMING.md) (the trait-color root this phase's card keeps). Touches presentation plus one small, pure-logic extraction (the shared audibility predicate) — no `AudioEngine` scheduling behavior change, no new Zustand field, no schema/type change.
 
+> **Correction (found via `/code-review-and-quality`, after implementation):** §4's `RobotSelectionCard.tsx` code sample below passes `BATTERY_READOUT_SCHEMA` — a single shared, static object — directly to `SliderLinear` for every robot's card. That's wrong for this consumer specifically: `SliderLinear` derives `VoxelTrack`'s GSAP `timelineKeyPrefix` from `schema.id`, and `timelineMap` is one module-global `Map`, so every simultaneously-rendered card (the roster is always 12) collided on identical timeline keys, each mount/update killing a sibling robot's still-live pop-in animation. The shipped code derives a per-robot id instead (`` `${BATTERY_READOUT_SCHEMA.id}.${robot.id}` ``) before passing the schema down. Left unedited below as a record of what was actually specified — see `docs/tasks/ROBOT_CARDS_REDESIGN.md`'s Risks table for the full writeup.
+
 ---
 
 ## 1. Overview & Claude Explanation

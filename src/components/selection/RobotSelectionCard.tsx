@@ -45,6 +45,14 @@ export function RobotSelectionCard({ robot }: RobotSelectionCardProps) {
   const statusLabel = isRobotAudible(robot.audioMode, localeRobots)
     ? AUDIBILITY_LABELS.emitting
     : AUDIBILITY_LABELS.disabled;
+  // BATTERY_READOUT_SCHEMA is one shared, static object (robotSelectionConfig.ts) — reused as-is
+  // by RobotDisplaySection, where only one robot is ever shown at a time. Here, every robot in the
+  // list renders its own SliderLinear from it simultaneously, so `id` must be made unique per
+  // instance: SliderLinear derives VoxelTrack's GSAP timelineKeyPrefix directly from `schema.id`,
+  // and timelineMap (src/animation/timelineMap.ts) is a single module-global Map — an unmodified
+  // shared id here meant every card's battery slider fought over the identical timeline keys,
+  // each mount/update killing a sibling robot's still-live pop animation (found in code review).
+  const batteryReadoutSchema = { ...BATTERY_READOUT_SCHEMA, id: `${BATTERY_READOUT_SCHEMA.id}.${robot.id}` };
 
   function handleActivate() {
     selectRobot(robot.id);
@@ -86,7 +94,7 @@ export function RobotSelectionCard({ robot }: RobotSelectionCardProps) {
         </div>
 
         <SliderLinear
-          schema={BATTERY_READOUT_SCHEMA}
+          schema={batteryReadoutSchema}
           value={Math.round(robot.batteryLevel)}
           onChange={() => {}}
           readOnly
