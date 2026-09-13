@@ -66,18 +66,18 @@ Task 1 (SliderLinear.tsx/.css/.test.tsx — the readOnly prop + branch)
 
 ### Phase 2: Docs
 
-- [ ] **Task 2: `docs/COMPONENT_LIBRARY.md` — document the `readOnly` prop**
+- [x] **Task 2: `docs/COMPONENT_LIBRARY.md` — document the `readOnly` prop**
 
   **Description:** Update `SliderLinear`'s prop-table row (currently `{ schema: SliderLinearSchema; value: number; onChange: (value: number) => void; disabled?: boolean; verticalHeight?: number }`) to include `readOnly?: boolean`. Add a short subsection directly after "`SliderLinear`'s Oblique Cabinetry rendering (Roadmap Phase 11.1.3)" — e.g. "`SliderLinear`'s `readOnly` mode (Roadmap Phase 15.1)" — stating that `readOnly` renders `role="status"` with no Radix widget, no thumb, and a visually identical `VoxelTrack` fill: a live readout, not a disabled slider. Point at `docs/specs/SLIDER_LINEAR_READ_ONLY.md` for the full reasoning (spec §1.2, §1.4).
 
   **Acceptance criteria:**
-  - [ ] `SliderLinear`'s prop-table row lists `readOnly?: boolean`.
-  - [ ] The new subsection states the `role="status"`/no-widget-semantics behavior and links to the spec.
-  - [ ] No claim in the new section is contradicted by Task 1's actual shipped code (spot-check against the final `SliderLinear.tsx`).
+  - [x] `SliderLinear`'s prop-table row lists `readOnly?: boolean`.
+  - [x] The new subsection states the `role="status"`/no-widget-semantics behavior and links to the spec.
+  - [x] No claim in the new section is contradicted by Task 1's actual shipped code (spot-check against the final `SliderLinear.tsx`).
 
   **Verification:**
-  - [ ] Manual review — every documented detail spot-checked directly against the shipped `SliderLinear.tsx`.
-  - [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean (docs-only change, no behavioral impact expected).
+  - [x] Manual review — every documented detail spot-checked directly against the shipped `SliderLinear.tsx`.
+  - [x] `npm run build:types`, `npm run lint` clean (`npm test`/`npm run build` already verified clean at Task 1's checkpoint against the same, unchanged source — docs-only change, no behavioral impact).
 
   **Dependencies:** Task 1.
 
@@ -86,9 +86,9 @@ Task 1 (SliderLinear.tsx/.css/.test.tsx — the readOnly prop + branch)
   **Estimated scope:** XS (docs only)
 
 ### Checkpoint: Complete
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] Both tasks' acceptance criteria met.
-- [ ] `docs/COMPONENT_LIBRARY.md` reflects the shipped prop.
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [x] Both tasks' acceptance criteria met.
+- [x] `docs/COMPONENT_LIBRARY.md` reflects the shipped prop.
 - [ ] Ready for human review / PR.
 
 ## Risks and Mitigations
