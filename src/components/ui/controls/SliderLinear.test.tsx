@@ -286,4 +286,110 @@ describe('SliderLinear', () => {
       expect(root?.style.height).toBe(`${expectedLength}px`);
     });
   });
+
+  describe('readOnly', () => {
+    it('renders role="status" and data-readonly="true" on the outer wrapper', () => {
+      const { container } = render(<SliderLinear schema={schema} value={2} onChange={() => {}} readOnly />);
+      const wrapper = container.querySelector('.sc-slider-linear');
+      expect(wrapper?.getAttribute('role')).toBe('status');
+      expect(wrapper?.getAttribute('data-readonly')).toBe('true');
+    });
+
+    it('renders no role="slider" element at all — no Radix Slider.Root/Track/Thumb leaks into this branch', () => {
+      render(<SliderLinear schema={schema} value={2} onChange={() => {}} readOnly />);
+      expect(screen.queryByRole('slider')).toBeNull();
+    });
+
+    it('shows {value}{unit} as visible text, same as the interactive branch', () => {
+      render(<SliderLinear schema={schema} value={2} onChange={() => {}} readOnly />);
+      expect(screen.getByText('2Hz')).toBeTruthy();
+    });
+
+    it('still shows the bare value when schema.unit is absent, same as the interactive branch', () => {
+      const noUnitSchema: SliderLinearSchema = { id: 'x', type: 'sliderLinear', min: 0, max: 1, orientation: 'horizontal' };
+      render(<SliderLinear schema={noUnitSchema} value={0.5} onChange={() => {}} readOnly />);
+      expect(screen.getByText('0.5')).toBeTruthy();
+    });
+
+    it('renders its own schema labels via DualLabel, same as the interactive branch', () => {
+      render(<SliderLinear schema={schema} value={2} onChange={() => {}} readOnly />);
+      expect(screen.getByText('Oscillation Rate')).toBeTruthy();
+    });
+
+    it('renders VoxelTrack with states matching computeVoxelBoxStates for the currently-fitted box count — identical fill logic to the interactive branch', () => {
+      const valueSchema: SliderLinearSchema = { ...schema, min: 0, max: 100 };
+      render(<SliderLinear schema={valueSchema} value={37} onChange={() => {}} readOnly />);
+      const observer = MockResizeObserver.instances[0];
+      act(() => observer.fire(240, 0));
+
+      const voxelTrack = screen.getByTestId('voxel-track');
+      const reserve = computeVoxelTrackTrailingReserve('horizontal');
+      const boxCount = computeFittedBoxCount(240 - reserve, BOX_SIZE, GAP);
+      const expectedStates = computeVoxelBoxStates(37, 0, 100, boxCount);
+      expect(JSON.parse(voxelTrack.getAttribute('data-states')!)).toEqual(expectedStates);
+      expect(voxelTrack.getAttribute('data-box-size')).toBe(String(BOX_SIZE));
+      expect(voxelTrack.getAttribute('data-gap')).toBe(String(GAP));
+    });
+
+    it('onChange is never called — nothing in this branch can fire it', () => {
+      const onChange = vi.fn();
+      render(<SliderLinear schema={schema} value={2} onChange={onChange} readOnly />);
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    describe('orientation parity with the interactive branch', () => {
+      it("'vertical': the outer wrapper and root both carry data-orientation=\"vertical\"", () => {
+        const verticalSchema: SliderLinearSchema = { ...schema, orientation: 'vertical' };
+        const { container } = render(<SliderLinear schema={verticalSchema} value={2} onChange={() => {}} readOnly />);
+        const wrapper = container.querySelector('.sc-slider-linear');
+        const root = container.querySelector('.sc-slider-linear__root');
+        expect(wrapper?.getAttribute('data-orientation')).toBe('vertical');
+        expect(root?.getAttribute('data-orientation')).toBe('vertical');
+      });
+
+      it("'horizontal' (default): the outer wrapper carries data-orientation=\"horizontal\"", () => {
+        const { container } = render(<SliderLinear schema={schema} value={2} onChange={() => {}} readOnly />);
+        const wrapper = container.querySelector('.sc-slider-linear');
+        expect(wrapper?.getAttribute('data-orientation')).toBe('horizontal');
+      });
+
+      it("'vertical': renders the value readout before the track in DOM order, same ordering rule as the interactive branch", () => {
+        const verticalSchema: SliderLinearSchema = { ...schema, orientation: 'vertical' };
+        const { container } = render(<SliderLinear schema={verticalSchema} value={2} onChange={() => {}} readOnly />);
+        const wrapper = container.querySelector('.sc-slider-linear')!;
+        const children = Array.from(wrapper.children);
+        const valueIndex = children.findIndex((c) => c.classList.contains('sc-slider-linear__value'));
+        const rootIndex = children.findIndex((c) => c.classList.contains('sc-slider-linear__root'));
+        expect(valueIndex).toBeGreaterThanOrEqual(0);
+        expect(rootIndex).toBeGreaterThanOrEqual(0);
+        expect(valueIndex).toBeLessThan(rootIndex);
+      });
+
+      it("'horizontal' (default): renders the value readout after the track, same ordering rule as the interactive branch", () => {
+        const { container } = render(<SliderLinear schema={schema} value={2} onChange={() => {}} readOnly />);
+        const wrapper = container.querySelector('.sc-slider-linear')!;
+        const children = Array.from(wrapper.children);
+        const valueIndex = children.findIndex((c) => c.classList.contains('sc-slider-linear__value'));
+        const rootIndex = children.findIndex((c) => c.classList.contains('sc-slider-linear__root'));
+        expect(rootIndex).toBeLessThan(valueIndex);
+      });
+
+      it("'auto': resolves to horizontal-looking output before any ResizeObserver measurement fires, same as the interactive branch", () => {
+        const autoSchema: SliderLinearSchema = { ...schema, orientation: 'auto' };
+        const { container } = render(<SliderLinear schema={autoSchema} value={2} onChange={() => {}} readOnly />);
+        const root = container.querySelector('.sc-slider-linear__root');
+        expect(root?.getAttribute('data-orientation')).toBe('horizontal');
+      });
+    });
+
+    it('disabled has no effect when readOnly is also true — output is identical to readOnly alone', () => {
+      const { container } = render(
+        <SliderLinear schema={schema} value={2} onChange={() => {}} readOnly disabled />,
+      );
+      expect(screen.queryByRole('slider')).toBeNull();
+      expect(container.querySelector('[data-disabled]')).toBeNull();
+      const wrapper = container.querySelector('.sc-slider-linear');
+      expect(wrapper?.getAttribute('data-readonly')).toBe('true');
+    });
+  });
 });

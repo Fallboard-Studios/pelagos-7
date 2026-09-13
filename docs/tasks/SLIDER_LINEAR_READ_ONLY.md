@@ -27,7 +27,7 @@ Task 1 (SliderLinear.tsx/.css/.test.tsx — the readOnly prop + branch)
 
 ### Phase 1: Implementation
 
-- [ ] **Task 1: `readOnly` prop + non-interactive render branch**
+- [x] **Task 1: `readOnly` prop + non-interactive render branch**
 
   **Description:** In `src/components/ui/controls/SliderLinear.tsx`, add `readOnly?: boolean` to `SliderLinearProps`. The shared setup (`wrapperRef`, resolved `orientation`, `useVoxelTrackSlider`'s `boxSize`/`gap`/`boxCount`/`rootStyle`, `computeVoxelBoxStates`, the `valueLabel` element) stays exactly as today and feeds both branches unchanged (spec §1.3) — none of it is Radix-specific. When `readOnly` is `true`, return the plain `<div role="status" data-readonly="true">` tree from spec §4 (the same `DualLabel` + orientation-ordered value label + a plain root/track `<div>` pair wrapping `VoxelTrack`, `data-orientation` set manually) instead of the existing `Slider.Root`/`Track`/`Range`/`Thumb` markup; `readOnly` takes precedence over `disabled` (spec §1.5 — when both are passed, the read-only branch renders regardless). Add the one new CSS rule to `SliderLinear.css`:
   ```css
@@ -38,18 +38,18 @@ Task 1 (SliderLinear.tsx/.css/.test.tsx — the readOnly prop + branch)
   Extend `SliderLinear.test.tsx` with the new `describe('readOnly')` block from spec §5, alongside every existing test left untouched.
 
   **Acceptance criteria:**
-  - [ ] `SliderLinearProps` includes `readOnly?: boolean`; every existing call site (none pass it today) is unaffected — omitted/`false` renders byte-for-byte identical output to before this task.
-  - [ ] `readOnly={true}` renders `role="status"` and `data-readonly="true"` on the outer wrapper, and renders **no** element with `role="slider"` anywhere (confirms no Radix `Slider.Root`/`Track`/`Thumb` leaks into this branch).
-  - [ ] The read-only branch shows the same `DualLabel` (lore/human) row and the same formatted `{value}{unit}` text as the interactive branch (including the "no unit" bare-value case), in the same orientation-dependent DOM order (value-before-track when vertical, value-after-track when horizontal) the interactive branch's own tests already assert.
-  - [ ] The read-only branch renders `VoxelTrack` with `states` computed via the identical `computeVoxelBoxStates(value, schema.min, schema.max, boxCount)` call the interactive branch uses — same colors, same fill, no desaturation or other visual divergence.
-  - [ ] All three orientations (`horizontal`/`vertical`/`auto`) resolve and size identically between the two branches for the same schema/props (same `rootStyle`/`data-orientation` values).
-  - [ ] `onChange` is never invoked anywhere in the read-only branch (nothing in that branch's markup can fire it).
-  - [ ] Passing both `disabled={true}` and `readOnly={true}` produces output identical to `readOnly={true}` alone — no `data-disabled` attribute, no `role="slider"`.
+  - [x] `SliderLinearProps` includes `readOnly?: boolean`; every existing call site (none pass it today) is unaffected — omitted/`false` renders byte-for-byte identical output to before this task.
+  - [x] `readOnly={true}` renders `role="status"` and `data-readonly="true"` on the outer wrapper, and renders **no** element with `role="slider"` anywhere (confirms no Radix `Slider.Root`/`Track`/`Thumb` leaks into this branch).
+  - [x] The read-only branch shows the same `DualLabel` (lore/human) row and the same formatted `{value}{unit}` text as the interactive branch (including the "no unit" bare-value case), in the same orientation-dependent DOM order (value-before-track when vertical, value-after-track when horizontal) the interactive branch's own tests already assert.
+  - [x] The read-only branch renders `VoxelTrack` with `states` computed via the identical `computeVoxelBoxStates(value, schema.min, schema.max, boxCount)` call the interactive branch uses — same colors, same fill, no desaturation or other visual divergence.
+  - [x] All three orientations (`horizontal`/`vertical`/`auto`) resolve and size identically between the two branches for the same schema/props (same `rootStyle`/`data-orientation` values).
+  - [x] `onChange` is never invoked anywhere in the read-only branch (nothing in that branch's markup can fire it).
+  - [x] Passing both `disabled={true}` and `readOnly={true}` produces output identical to `readOnly={true}` alone — no `data-disabled` attribute, no `role="slider"`.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/ui/controls/SliderLinear.test.tsx` passes — every pre-existing test unmodified and still green, plus the new `readOnly` block covering every criterion above.
-  - [ ] `npm run build:types` clean.
-  - [ ] `npm run lint` clean.
+  - [x] `npx vitest run src/components/ui/controls/SliderLinear.test.tsx` passes — every pre-existing test unmodified and still green, plus the new `readOnly` block covering every criterion above.
+  - [x] `npm run build:types` clean.
+  - [x] `npm run lint` clean.
 
   **Dependencies:** None.
 
@@ -58,8 +58,8 @@ Task 1 (SliderLinear.tsx/.css/.test.tsx — the readOnly prop + branch)
   **Estimated scope:** S (one component, its own colocated styles/tests, no consumers to update yet)
 
 ### Checkpoint: Implementation complete
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] Every pre-existing `SliderLinear.test.tsx` assertion still passes unmodified (proves zero regression to the interactive branch).
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [x] Every pre-existing `SliderLinear.test.tsx` assertion still passes unmodified (proves zero regression to the interactive branch).
 - [ ] Review with human before proceeding.
 
 ---
