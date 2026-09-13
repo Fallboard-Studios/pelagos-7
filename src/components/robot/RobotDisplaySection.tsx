@@ -1,10 +1,12 @@
 import { RobotBody } from '@/components/robot/RobotBody';
 import { DualLabel } from '@/components/ui/controls/DualLabel';
 import { RadioButton } from '@/components/ui/controls/RadioButton';
+import { SliderLinear } from '@/components/ui/controls/SliderLinear';
 import { useLocaleStore } from '@/stores/localeStore';
 import { getActiveLocaleId } from '@/utils/localeHelpers';
 import {
   ROBOT_SELECTION_ROW_SCHEMAS,
+  BATTERY_READOUT_SCHEMA,
   JOB_TYPE_LABELS,
   UNASSIGNED_JOB_LABEL,
   DOCKING_STATE_LABELS,
@@ -23,9 +25,13 @@ interface RobotDisplaySectionProps {
  * docs/specs/ROBOT_OPTIONS.md §1). The avatar and Name/Job/Battery/Docking rows all reuse the
  * exact display pattern Phase 8's RobotSelectionCard already established — same sunlight/time-
  * agnostic RobotBody rendering (ignoreDaylight, so the portrait reads consistently regardless of
- * the active locale's time of day), same read-only DualLabel rows, no job reassignment, no
- * docking-state override (both stay fully system-driven), plus the company picker (a RadioButton
- * as of Roadmap 10.5; a Select through Phase 10). Audio Setting and Volume were rendered here via
+ * the active locale's time of day), no job reassignment, no docking-state override (both stay
+ * fully system-driven), plus the company picker (a RadioButton as of Roadmap 10.5; a Select
+ * through Phase 10). Name/Job/Docking stay read-only DualLabel rows; Battery instead renders
+ * through a read-only SliderLinear (Roadmap 15.1, BATTERY_READOUT_SCHEMA) rather than a plain
+ * DualLabel + text-percent pair — same visual/fill language the interactive sliders elsewhere in
+ * the app use, still fully non-interactive (role="status", no Slider.Root/Thumb — see
+ * docs/specs/SLIDER_LINEAR_READ_ONLY.md). Audio Setting and Volume were rendered here via
  * AudioSettingSection through Roadmap Phase 10, then extracted out to
  * RobotOptionsTab/CompanyOptionsSection as their own top-level Output panel
  * (docs/tasks/DIRECTIONAL_PANEL_WIRING.md Task 5) — this component is now pure read-only meta-
@@ -55,10 +61,7 @@ export function RobotDisplaySection({ robot }: RobotDisplaySectionProps) {
         <DualLabel {...ROBOT_SELECTION_ROW_SCHEMAS.job} />
         <span className="robot-display-section__value">{jobLabel.humanLabel}</span>
       </div>
-      <div className="robot-display-section__row">
-        <DualLabel {...ROBOT_SELECTION_ROW_SCHEMAS.battery} />
-        <span className="robot-display-section__value">{Math.round(robot.batteryLevel)}%</span>
-      </div>
+      <SliderLinear schema={BATTERY_READOUT_SCHEMA} value={Math.round(robot.batteryLevel)} onChange={() => {}} readOnly />
       <div className="robot-display-section__row">
         <DualLabel {...ROBOT_SELECTION_ROW_SCHEMAS.docking} />
         <span className="robot-display-section__value">{DOCKING_STATE_LABELS[robot.docking].humanLabel}</span>
