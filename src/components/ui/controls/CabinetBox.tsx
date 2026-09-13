@@ -14,11 +14,14 @@ import './CabinetBox.css';
 
 interface CabinetBoxProps {
   /** Whether/how far the box should be popped. `true`/`1` is fully popped,
-   *  `false`/`0` is flat — Button and Toggle pass a boolean (no intermediate
-   *  state, per 11.1.1 §3/11.1.2). VoxelTrack (roadmap 11.1.3) is the first
-   *  consumer needing a genuine fractional value, for extrusion-falloff's
-   *  per-box step-down. Normalized to a 0-1 number immediately on entry —
-   *  everything downstream uses that normalized value only. See
+   *  `false`/`0` is flat. VoxelTrack (roadmap 11.1.3) was the first consumer
+   *  needing a genuine fractional value, for extrusion-falloff's per-box
+   *  step-down; Button/RadioButton/Toggle (Crawford's own request,
+   *  2026-09-13) now also pass a fraction (CABINET_REST_POP,
+   *  cabinetGeometry.ts) at rest — a shallow, permanent 1px protrusion
+   *  instead of true flatness, hinting at the box's own accent color before
+   *  it's ever interacted with. Normalized to a 0-1 number immediately on
+   *  entry — everything downstream uses that normalized value only. See
    *  docs/specs/OBLIQUE_CABINETRY_SLIDER_LINEAR.md §1.1. */
   popped: boolean | number;
   /** Unique timelineMap key for this instance, e.g. `cabinet-button-${schema.id}`

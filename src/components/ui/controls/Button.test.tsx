@@ -76,68 +76,68 @@ describe('Button', () => {
     expect(onClick).not.toHaveBeenCalled();
   });
 
-  it('renders through CabinetBox, flat (not popped) at rest', () => {
+  it('renders through CabinetBox at CABINET_REST_POP\'s shallow protrusion (not fully flat) at rest', () => {
     const schema: ButtonSchema = { id: 'resetMelody', type: 'button', humanLabel: 'Reset Melody' };
     render(<Button schema={schema} onClick={() => {}} />);
-    expect(screen.getByTestId('cabinet-box').getAttribute('data-popped')).toBe('false');
+    expect(screen.getByTestId('cabinet-box').getAttribute('data-popped')).toBe('0.5');
   });
 
-  it('pops on mouseEnter and flattens again on mouseLeave', () => {
+  it('pops fully on mouseEnter and rests again at CABINET_REST_POP on mouseLeave', () => {
     const schema: ButtonSchema = { id: 'resetMelody', type: 'button', humanLabel: 'Reset Melody' };
     render(<Button schema={schema} onClick={() => {}} />);
     const button = screen.getByRole('button');
     fireEvent.mouseEnter(button);
     expect(screen.getByTestId('cabinet-box').getAttribute('data-popped')).toBe('true');
     fireEvent.mouseLeave(button);
-    expect(screen.getByTestId('cabinet-box').getAttribute('data-popped')).toBe('false');
+    expect(screen.getByTestId('cabinet-box').getAttribute('data-popped')).toBe('0.5');
   });
 
-  it('pops on focus and flattens again on blur, independently of hover', () => {
+  it('pops fully on focus and rests again at CABINET_REST_POP on blur, independently of hover', () => {
     const schema: ButtonSchema = { id: 'resetMelody', type: 'button', humanLabel: 'Reset Melody' };
     render(<Button schema={schema} onClick={() => {}} />);
     const button = screen.getByRole('button');
     fireEvent.focus(button);
     expect(screen.getByTestId('cabinet-box').getAttribute('data-popped')).toBe('true');
     fireEvent.blur(button);
-    expect(screen.getByTestId('cabinet-box').getAttribute('data-popped')).toBe('false');
+    expect(screen.getByTestId('cabinet-box').getAttribute('data-popped')).toBe('0.5');
   });
 
-  it('pops on pointerDown and flattens again on pointerUp, independently of hover/focus', () => {
+  it('pops fully on pointerDown and rests again at CABINET_REST_POP on pointerUp, independently of hover/focus', () => {
     const schema: ButtonSchema = { id: 'resetMelody', type: 'button', humanLabel: 'Reset Melody' };
     render(<Button schema={schema} onClick={() => {}} />);
     const button = screen.getByRole('button');
     fireEvent.pointerDown(button);
     expect(screen.getByTestId('cabinet-box').getAttribute('data-popped')).toBe('true');
     fireEvent.pointerUp(button);
-    expect(screen.getByTestId('cabinet-box').getAttribute('data-popped')).toBe('false');
+    expect(screen.getByTestId('cabinet-box').getAttribute('data-popped')).toBe('0.5');
   });
 
-  it('flattens on pointerCancel and pointerLeave the same way pointerUp does', () => {
+  it('rests again at CABINET_REST_POP on pointerCancel and pointerLeave the same way pointerUp does', () => {
     const schema: ButtonSchema = { id: 'resetMelody', type: 'button', humanLabel: 'Reset Melody' };
     render(<Button schema={schema} onClick={() => {}} />);
     const button = screen.getByRole('button');
 
     fireEvent.pointerDown(button);
     fireEvent.pointerCancel(button);
-    expect(screen.getByTestId('cabinet-box').getAttribute('data-popped')).toBe('false');
+    expect(screen.getByTestId('cabinet-box').getAttribute('data-popped')).toBe('0.5');
 
     fireEvent.pointerDown(button);
     fireEvent.pointerLeave(button);
-    expect(screen.getByTestId('cabinet-box').getAttribute('data-popped')).toBe('false');
+    expect(screen.getByTestId('cabinet-box').getAttribute('data-popped')).toBe('0.5');
   });
 
-  it('never pops while disabled, regardless of hover, focus, or pointer events', () => {
+  it('never pops beyond CABINET_REST_POP while disabled, regardless of hover, focus, or pointer events', () => {
     const schema: ButtonSchema = { id: 'resetMelody', type: 'button', humanLabel: 'Reset Melody' };
     render(<Button schema={schema} onClick={() => {}} disabled />);
     const button = screen.getByRole('button');
 
     fireEvent.mouseEnter(button);
-    expect(screen.getByTestId('cabinet-box').getAttribute('data-popped')).toBe('false');
+    expect(screen.getByTestId('cabinet-box').getAttribute('data-popped')).toBe('0.5');
 
     fireEvent.focus(button);
-    expect(screen.getByTestId('cabinet-box').getAttribute('data-popped')).toBe('false');
+    expect(screen.getByTestId('cabinet-box').getAttribute('data-popped')).toBe('0.5');
 
     fireEvent.pointerDown(button);
-    expect(screen.getByTestId('cabinet-box').getAttribute('data-popped')).toBe('false');
+    expect(screen.getByTestId('cabinet-box').getAttribute('data-popped')).toBe('0.5');
   });
 });

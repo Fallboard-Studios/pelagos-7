@@ -51,3 +51,13 @@
   height: var(--cabinet-toggle-box-size);
   padding: 0;
 }
+
+/* Once activated, the switch's front face gets the same accent-gradient fill
+   as Button's own always-live surface (Crawford's own request, 2026-09-13) —
+   identical rule to RadioButton.css's own `[data-state='on']` treatment
+   below, just keyed off Radix Switch's own 'checked'/'unchecked' state names
+   instead of ToggleGroup's 'on'/'off'. Off stays on CabinetBox.css's own
+   --color-surface default, same as an unselected RadioButton option. */
+.sc-toggle__root[data-state='checked'] .sc-cabinet-box__front {
+  background: var(--color-accent-gradient);
+}

@@ -61,3 +61,26 @@ describe("RadioButton.css .sc-radio-button__item[data-state='on'] .sc-cabinet-bo
     expect(cssSource).toContain('outline: 2px solid var(--color-accent);');
   });
 });
+
+describe("Toggle.css .sc-toggle__root[data-state='checked'] .sc-cabinet-box__front", () => {
+  const cssSource = readFileSync(resolve(controlsDir, 'Toggle.css'), 'utf-8');
+
+  // Crawford's own request, 2026-09-13 — once activated, the switch gets
+  // the same accent-gradient facade Button's own always-live surface uses,
+  // identical mechanism to RadioButton's own [data-state='on'] rule above,
+  // just keyed off Radix Switch's 'checked'/'unchecked' state names.
+  it('fills with the 2-tone gradient, not a solid background-color', () => {
+    const body = getCssRuleBody(cssSource, ".sc-toggle__root[data-state='checked'] .sc-cabinet-box__front");
+    expect(body).not.toBeNull();
+    expect(body).toContain('background: var(--color-accent-gradient);');
+    expect(body).not.toContain('background-color: var(--color-accent);');
+  });
+
+  it('leaves the unchecked state on CabinetBox.css\'s own --color-surface default (no rule overriding it here)', () => {
+    expect(cssSource).not.toMatch(/\[data-state=['"]unchecked['"]\][^{]*\.sc-cabinet-box__front/);
+  });
+
+  it('leaves the focus-visible outline on the solid --color-accent (a gradient is invalid there)', () => {
+    expect(cssSource).toContain('outline: 2px solid var(--color-accent);');
+  });
+});
