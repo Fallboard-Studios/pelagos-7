@@ -22,7 +22,20 @@ import { getCssRuleBody } from '@/testUtils/cssRuleBody';
 // missed), this targets the shared ROOT .robot-selection-card instead, which
 // covers both via inheritance — RadioButton's own explicit font-family
 // (Toggle/RadioButton/etc. all set their own) still wins by cascade
-// regardless. RobotDisplaySection.tsx only has one wrapper class
+// regardless.
+//
+// Roadmap 15.2 update (docs/specs/ROBOT_CARDS_REDESIGN.md): RobotSelectionCard
+// dropped every standalone <DualLabel> row entirely (Name/Job/Docking now
+// render as bare text with no lore/human caption), so the single
+// .robot-selection-card__value class this suite used to check no longer
+// exists — replaced by three leaf classes with genuinely different sizing
+// (.__name at --font-size-heading-sm, the new visual-hierarchy "title" per
+// the confirmed intent; .__job/.__status-line at --font-size-label, same
+// token the old .__value used). The root-level font-family/font-weight
+// assertions above are unaffected — .robot-selection-card itself, and the
+// DualLabel this suite's own root-inheritance rationale describes, are still
+// real (the company RadioButton's own internally-composed DualLabel).
+// RobotDisplaySection.tsx only has one wrapper class
 // (.robot-display-section__row, used consistently), but this targets its
 // root (.robot-display-section) too, for the same "one rule, not
 // per-row-class-coupled" consistency — not because it was strictly required
@@ -52,11 +65,20 @@ describe('RobotSelectionCard.css standalone DualLabel host', () => {
     expect(cssSource).not.toContain('container-name');
   });
 
-  it('migrates .__value off the old --font-size-sm token onto --font-size-label', () => {
-    const body = getCssRuleBody(cssSource, '.robot-selection-card__value');
+  it('has no leftover reference to the removed --font-size-sm token anywhere in the file', () => {
+    expect(cssSource).not.toContain('var(--font-size-sm)');
+  });
+
+  it('.__job/.__status-line use --font-size-label, same token the old (now-removed) .__value used', () => {
+    const body = getCssRuleBody(cssSource, '.robot-selection-card__job');
     expect(body).not.toBeNull();
     expect(body).toContain('font-size: var(--font-size-label);');
-    expect(body).not.toContain('var(--font-size-sm)');
+  });
+
+  it('.__name uses --font-size-heading-sm — the visual-hierarchy "title" treatment, not --font-size-label', () => {
+    const body = getCssRuleBody(cssSource, '.robot-selection-card__name');
+    expect(body).not.toBeNull();
+    expect(body).toContain('font-size: var(--font-size-heading-sm);');
   });
 });
 

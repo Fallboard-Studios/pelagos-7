@@ -69,3 +69,5 @@ please review/edit both here and in that file together.
 | Mute | SILENCED | `audioMode: 'mute'` | Audio Setting value — red status dot |
 | Solo | ISOLATED | `audioMode: 'solo'` | Audio Setting value — green status dot |
 | Highlight | PRIORITIZED | `audioMode: 'highlight'` | Audio Setting value — amber status dot |
+| Emitting | ACOUSTIC EMISSION ACTIVE | `AUDIBILITY_LABELS.emitting` | Card Status value (Roadmap 15.2) — true audibility (not muted, and not excluded by another robot's Solo), not just this robot's own audioMode |
+| Disabled | ACOUSTIC EMISSION SUPPRESSED | `AUDIBILITY_LABELS.disabled` | Card Status value (Roadmap 15.2) |

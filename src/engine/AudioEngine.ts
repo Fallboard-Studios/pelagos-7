@@ -20,6 +20,7 @@ import { getRef } from '../utils/refs';
 import { precomputeDataX } from '../utils/getSeededVal';
 import { tryGetLocaleNoiseMap } from '../utils/noiseMaps';
 import { devLog, devWarn } from '../utils/helpers';
+import { isRobotAudible } from '../utils/robotAudibility';
 import { calculatePanFromPosition } from './audioEngine/panning';
 import { volumePositionToGain } from './audioEngine/volumeTaper';
 import { getToneCtor, type MinimalToneNode, type ModulationTarget } from './audioEngine/toneHelpers';
@@ -312,11 +313,7 @@ export function triggerWithCap(params: NoteParams): boolean {
     const localeRobots = getActiveLocaleRobots();
     if (localeRobots.length > 0) {
       const robotFromStore = localeRobots.find((r) => r.id === robotId);
-      if (robotFromStore?.audioMode === 'mute') {
-        return false;
-      }
-      const anySoloInStore = localeRobots.some((r) => r.audioMode === 'solo');
-      if (anySoloInStore && robotFromStore?.audioMode !== 'solo') {
+      if (!isRobotAudible(robotFromStore?.audioMode, localeRobots)) {
         return false;
       }
       // Highlight attenuation is handled in scheduleNote; skip here to avoid double-attenuation.

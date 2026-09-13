@@ -67,7 +67,7 @@ describe('RobotsTab', () => {
     expect(screen.getByRole('button', { name: 'blank-1' })).toBeTruthy();
   });
 
-  it("renders each robot's job, battery, docking, and audio status", () => {
+  it("renders each robot's job, battery, docking, and audibility status (Roadmap 15.2 redesign)", () => {
     resetStores();
     useLocaleStore.getState().addRobot(localeId, {
       ...makeRobot('r1', 'Unit One'),
@@ -82,12 +82,12 @@ describe('RobotsTab', () => {
     // Scoped to the robot's own card — 'Active' alone is ambiguous once CompanyManager mounts
     // (Lfo.tsx's own nested Active toggle renders the same text, always mounted via Radix's
     // Accordion forceMount regardless of open/closed state; see RobotDisplaySection.test.tsx's
-    // identical note).
+    // identical note). Docking and Status now render as one combined line, not two standalone
+    // texts — 'highlight' still counts as audible (isRobotAudible), so it reads "Emitting".
     const card = screen.getByRole('button', { name: 'Unit One' });
     expect(within(card).getByText('Acoustic Survey')).toBeTruthy();
     expect(within(card).getByText('63%')).toBeTruthy();
-    expect(within(card).getByText('Active')).toBeTruthy();
-    expect(within(card).getByRole('status', { name: /Highlight/ })).toBeTruthy();
+    expect(within(card).getByText('Active · Emitting')).toBeTruthy();
   });
 
   it('clicking a robot card selects it', () => {
