@@ -185,32 +185,34 @@ Tasks 1–7 ──→ Task 8 (docs/COMPONENT_LIBRARY.md)
 
   **Estimated scope:** S (2 source files + their tests, one new schema + one wrapping change)
 
-- [ ] **Task 7: `RobotsTab` — selection-driven sort**
+- [x] **Task 7: `RobotsTab` — selection-driven sort**
 
-  **Description:** Add `sortRobotsByCompanyFocus(robots, companyId)` as a named export in `RobotsTab.tsx` (spec §1.4) — a stable two-block partition, returning `robots` unchanged when `companyId` is `null`. Call it with `useUIStore((s) => s.selectedCompanyId)` before rendering the list.
+  **Description:** Add `sortRobotsByCompanyFocus(robots, companyId)` (spec §1.4) — a stable two-block partition, returning `robots` unchanged when `companyId` is `null`. Call it with `useUIStore((s) => s.selectedCompanyId)` before rendering the list.
+
+  > **Discovered during implementation:** the spec/plan's original design exported `sortRobotsByCompanyFocus` directly from `RobotsTab.tsx` (the "single-consumer, keep it local" reasoning in Architecture Decisions). `npm run lint` immediately flagged this — exporting a bare function alongside a component trips `react-refresh/only-export-components`, and this codebase runs lint at zero warnings. Moved to a new `src/utils/robotListSort.ts` instead, with its own colocated `robotListSort.test.ts` for the pure-function unit tests; `RobotsTab.test.tsx` keeps only the rendered/integration coverage. Not the `isRobotAudible`-style "two consumers" reason Architecture Decisions anticipated — a lint-driven one instead, but the same outcome (small standalone module).
 
   **Acceptance criteria:**
-  - [ ] `sortRobotsByCompanyFocus(robots, null)` returns the input in original order.
-  - [ ] `sortRobotsByCompanyFocus(robots, companyId)` returns every robot not in `companyId` first (original relative order preserved), that company's members last (original relative order preserved).
-  - [ ] A `companyId` matching zero robots returns the input unchanged (empty members block).
-  - [ ] `RobotsTab` renders `sortedRobots`, not the raw store `robots` array; `useLocaleStore`'s own `robots` array is never mutated or reordered in the store.
-  - [ ] The sort reads only `selectedCompanyId` (not `allRobotsSelected`) — relying on `uiStore.ts`'s own mutual-exclusivity invariant (spec §1.5 item 1).
+  - [x] `sortRobotsByCompanyFocus(robots, null)` returns the input in original order.
+  - [x] `sortRobotsByCompanyFocus(robots, companyId)` returns every robot not in `companyId` first (original relative order preserved), that company's members last (original relative order preserved).
+  - [x] A `companyId` matching zero robots returns the input unchanged (empty members block).
+  - [x] `RobotsTab` renders `sortedRobots`, not the raw store `robots` array; `useLocaleStore`'s own `robots` array is never mutated or reordered in the store.
+  - [x] The sort reads only `selectedCompanyId` (not `allRobotsSelected`) — relying on `uiStore.ts`'s own mutual-exclusivity invariant (spec §1.5 item 1).
 
   **Verification:**
-  - [ ] `npx vitest run src/components/panels/screen/console/RobotsTab.test.tsx` passes, with new coverage: a 4+-robot fixture across 2+ companies plus at least one Freelance robot, asserting DOM order changes correctly on `selectedCompanyId` change and reverts on `null`/`selectAllRobots()`.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/utils/robotListSort.test.ts` (new, 3/3) and `npx vitest run src/components/panels/screen/console/RobotsTab.test.tsx` (13/13 — a 4-robot fixture across 1 company plus 2 Freelance robots, asserting DOM order on no-selection/selected/`selectAllRobots()`).
+  - [x] `npm run build:types`, `npm run lint` clean (zero warnings); full suite 141/141 files, 2498/2498 tests; `npm run build` clean.
 
   **Dependencies:** None.
 
-  **Files:** `src/components/panels/screen/console/RobotsTab.tsx`, `src/components/panels/screen/console/RobotsTab.test.tsx`
+  **Files:** `src/utils/robotListSort.ts` (new), `src/utils/robotListSort.test.ts` (new), `src/components/panels/screen/console/RobotsTab.tsx`, `src/components/panels/screen/console/RobotsTab.test.tsx`
 
-  **Estimated scope:** S (1 component + its test, one pure function + one call-site wire-up)
+  **Estimated scope:** S (2 new files + 1 component + its test, one pure function + one call-site wire-up)
 
 ### Checkpoint: Consumers wired
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] Every company-representing `RadioButton` option (robot card's company picker, `CompanyButtonRow`'s own buttons) renders with its company's own color.
-- [ ] `CompanyCrudControls` is collapsed by default and toggles independently of company selection.
-- [ ] `RobotsTab`'s list reorders correctly on company selection and reverts on `None`/`All`.
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [x] Every company-representing `RadioButton` option (robot card's company picker, `CompanyButtonRow`'s own buttons) renders with its company's own color.
+- [x] `CompanyCrudControls` is collapsed by default and toggles independently of company selection.
+- [x] `RobotsTab`'s list reorders correctly on company selection and reverts on `None`/`All`.
 - [ ] Manual check (not automated): `npm run dev`, open the Robots tile — visually confirm all of the above end-to-end, plus that creating several new companies never produces two with visibly the same color. Not yet run.
 - [ ] Review with human before proceeding.
 
