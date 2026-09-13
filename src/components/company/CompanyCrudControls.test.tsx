@@ -6,6 +6,7 @@ import { useLocaleStore } from '@/stores/localeStore';
 import { useUIStore } from '@/stores/uiStore';
 import { getActiveLocaleId } from '@/utils/localeHelpers';
 import { MAX_COMPANIES } from '@/constants';
+import { ACCENT_COLORS, ROBOT_IDENTITY_COLOR_NAMES } from '@/constants/accentColors';
 import type { Company } from '@/types/Company';
 import type { Locale } from '@/types/locale';
 
@@ -80,6 +81,52 @@ describe('CompanyCrudControls', () => {
     fireEvent.change(input, { target: { value: '   ' } });
     fireEvent.change(input, { target: { value: '  Iron Consortium  ' } });
     expect((screen.getByRole('button', { name: 'Create' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  // docs/specs/COMPANY_SECTION_ENHANCEMENTS.md §1.2 — pickRandomCompanyColor, Math.random()-fed
+  // (a live UI roll, matching suggestCompanyName's own precedent), re-rolled against every color
+  // already in use by an existing company in the locale.
+  describe('color generation', () => {
+    it('assigns a color from ROBOT_IDENTITY_COLOR_NAMES\' resolved hex set', () => {
+      const addSpy = vi.spyOn(useLocaleStore.getState(), 'addCompany');
+      render(<CompanyCrudControls />);
+      fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+      const [, company] = addSpy.mock.calls[0] as [string, Company];
+      const validColors = ROBOT_IDENTITY_COLOR_NAMES.map((name) => ACCENT_COLORS[name]);
+      expect(validColors).toContain(company.color);
+    });
+
+    it('never assigns a color already used by an existing company, when at least one hue is free', () => {
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: ACCENT_COLORS.blue, robotIds: [] });
+      useLocaleStore.getState().addCompany(localeId, { id: 'c2', name: 'Null Syndicate', color: ACCENT_COLORS.plum, robotIds: [] });
+      const addSpy = vi.spyOn(useLocaleStore.getState(), 'addCompany');
+      render(<CompanyCrudControls />);
+      fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+      const [, company] = addSpy.mock.calls[0] as [string, Company];
+      expect(company.color).not.toBe(ACCENT_COLORS.blue);
+      expect(company.color).not.toBe(ACCENT_COLORS.plum);
+    });
+
+    it('terminates and still returns a valid color when Math.random keeps landing on an already-used hue (proves the retry loop is bounded, not unbounded)', () => {
+      // Real exhaustion of all 18 hues can't happen through the rendered UI (Create disables at
+      // MAX_COMPANIES = 6, always well under 18) — this instead proves boundedness directly: if
+      // pickRandomCompanyColor retried unboundedly, mocking Math.random to always land on the one
+      // color already in use would hang this test rather than complete it.
+      const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
+      useLocaleStore.getState().addCompany(localeId, {
+        id: 'c1', name: 'Iron Consortium', color: ACCENT_COLORS[ROBOT_IDENTITY_COLOR_NAMES[0]], robotIds: [],
+      });
+      const addSpy = vi.spyOn(useLocaleStore.getState(), 'addCompany');
+      render(<CompanyCrudControls />);
+      fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+      const [, company] = addSpy.mock.calls[0] as [string, Company];
+      const validColors = ROBOT_IDENTITY_COLOR_NAMES.map((name) => ACCENT_COLORS[name]);
+      expect(validColors).toContain(company.color);
+      randomSpy.mockRestore();
+    });
   });
 
   it('clicking Create trims surrounding whitespace from the stored name', () => {

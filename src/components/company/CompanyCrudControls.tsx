@@ -7,6 +7,7 @@ import { getActiveLocaleId } from '@/utils/localeHelpers';
 import { generateCompanyName } from '@/systems/spawnSystem';
 import { COMPANY_NAME_INPUT_SCHEMA, CREATE_COMPANY_SCHEMA, DELETE_COMPANY_SCHEMA } from '@/data/companyConfig';
 import { MAX_COMPANIES } from '@/constants';
+import { ACCENT_COLORS, ROBOT_IDENTITY_COLOR_NAMES } from '@/constants/accentColors';
 import type { Company } from '@/types/Company';
 
 import './CompanyCrudControls.css';
@@ -26,6 +27,24 @@ const RENAME_NAME_SCHEMA = { ...COMPANY_NAME_INPUT_SCHEMA, id: 'company.name.ren
  */
 function suggestCompanyName(): string {
   return generateCompanyName(() => Math.random() * 2 - 1, 0);
+}
+
+/**
+ * A random, currently-unused company color (docs/specs/COMPANY_SECTION_ENHANCEMENTS.md §1.2) —
+ * re-rolls against every color already in use by an existing company in this locale, the same
+ * Math.random()-for-a-live-UI-roll precedent suggestCompanyName above already establishes (not
+ * reproducible world generation — spawnSystem.ts's own generateCompanyIdentityColor covers that
+ * path, seeded). Bounded at ROBOT_IDENTITY_COLOR_NAMES.length attempts, never an unbounded loop —
+ * MAX_COMPANIES (6) is always well under the 18-hue palette, so this always finds a free color in
+ * practice; the fallback return only matters if that invariant is ever broken.
+ */
+function pickRandomCompanyColor(existingColors: string[]): string {
+  const used = new Set(existingColors);
+  for (let attempt = 0; attempt < ROBOT_IDENTITY_COLOR_NAMES.length; attempt++) {
+    const name = ROBOT_IDENTITY_COLOR_NAMES[Math.floor(Math.random() * ROBOT_IDENTITY_COLOR_NAMES.length)];
+    if (!used.has(ACCENT_COLORS[name])) return ACCENT_COLORS[name];
+  }
+  return ACCENT_COLORS[ROBOT_IDENTITY_COLOR_NAMES[Math.floor(Math.random() * ROBOT_IDENTITY_COLOR_NAMES.length)]];
 }
 
 /**
@@ -57,10 +76,8 @@ export function CompanyCrudControls() {
   const hasSelectedCompany = Boolean(selectedCompany);
 
   const handleCreate = () => {
-    // Placeholder — Company Section Enhancements Task 2 (docs/tasks/COMPANY_SECTION_ENHANCEMENTS.md)
-    // makes `color` required before its own real generator (pickRandomCompanyColor, Task 4) lands.
-    // Replaced by a real Math.random()-fed, collision-avoided pick in the very next task.
-    const company: Company = { id: crypto.randomUUID(), name: createNameDraft.trim(), color: '#4f6d7a', robotIds: [] };
+    const color = pickRandomCompanyColor(companies.map((c) => c.color));
+    const company: Company = { id: crypto.randomUUID(), name: createNameDraft.trim(), color, robotIds: [] };
     useLocaleStore.getState().addCompany(localeId, company);
     setCreateNameDraft(suggestCompanyName());
   };

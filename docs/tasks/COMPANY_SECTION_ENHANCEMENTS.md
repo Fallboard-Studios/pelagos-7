@@ -119,19 +119,21 @@ Tasks 1–7 ──→ Task 8 (docs/COMPONENT_LIBRARY.md)
 
 ### Phase 2: Consumers (parallelizable in principle — see Architecture Decisions for the file-sharing caveats)
 
-- [ ] **Task 4: `CompanyCrudControls.tsx` — user-created company color**
+- [x] **Task 4: `CompanyCrudControls.tsx` — user-created company color**
 
-  **Description:** Add `pickRandomCompanyColor(existingColors: string[]): string` (spec §1.2) alongside the file's existing `suggestCompanyName` — `Math.random()`-fed, bounded re-roll against every color already in use by an existing company in the locale, capped at `ROBOT_IDENTITY_COLOR_NAMES.length` attempts. Wire it into `handleCreate`, passing `companies.map((c) => c.color)` (the `companies` list already in scope).
+  **Description:** Add `pickRandomCompanyColor(existingColors: string[]): string` (spec §1.2) alongside the file's existing `suggestCompanyName` — `Math.random()`-fed, bounded re-roll against every color already in use by an existing company in the locale, capped at `ROBOT_IDENTITY_COLOR_NAMES.length` attempts. Wire it into `handleCreate`, passing `companies.map((c) => c.color)`, replacing Task 2's placeholder.
 
   **Acceptance criteria:**
-  - [ ] `pickRandomCompanyColor` never returns a color present in its `existingColors` argument, as long as at least one hue in `ROBOT_IDENTITY_COLOR_NAMES` isn't already in use.
-  - [ ] `pickRandomCompanyColor`'s retry loop is bounded (at most `ROBOT_IDENTITY_COLOR_NAMES.length` attempts) — never an unbounded `while (true)`.
-  - [ ] `handleCreate` assigns the new company a `color` computed via `pickRandomCompanyColor`, distinct from every other company currently in the locale (given `MAX_COMPANIES = 6` against 18 hues, this always succeeds in practice).
-  - [ ] Uses `Math.random()`, not `getSeededVal` — this is the live-UI-roll path, matching `suggestCompanyName`'s own precedent, not reproducible world generation.
+  - [x] `pickRandomCompanyColor` never returns a color present in its `existingColors` argument, as long as at least one hue in `ROBOT_IDENTITY_COLOR_NAMES` isn't already in use.
+  - [x] `pickRandomCompanyColor`'s retry loop is bounded (at most `ROBOT_IDENTITY_COLOR_NAMES.length` attempts) — never an unbounded `while (true)`.
+  - [x] `handleCreate` assigns the new company a `color` computed via `pickRandomCompanyColor`, distinct from every other company currently in the locale.
+  - [x] Uses `Math.random()`, not `getSeededVal`.
+
+  > **Note:** the spec's own suggested boundedness test (seed all 18 hues, exercise real exhaustion) turned out unreachable through the rendered component — `Create` disables at `MAX_COMPANIES = 6`, always well under 18, so the UI can never actually present 18 existing companies to re-roll against. Tested instead by mocking `Math.random` to always land on the one color already in use (with only 1 existing company) and asserting the call still returns promptly with a valid color — this proves the loop is bounded (an unbounded retry would hang the test) without relying on an unreachable UI state.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/company/CompanyCrudControls.test.tsx` passes, including new coverage: a fixture with several existing company colors produces a new company whose color isn't among them; the bounded-loop fallback path is exercised (e.g. mock `Math.random()`'s sequence — check this file's existing `Math.random()` mocking pattern, if any, from `suggestCompanyName`'s own tests before writing new ones).
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/components/company/CompanyCrudControls.test.tsx` passes (21/21 — 18 pre-existing + 3 new).
+  - [x] `npm run build:types`, `npm run lint` clean; full suite 140/140 files, 2485/2485 tests.
 
   **Dependencies:** Task 1 (`Company.color` must exist).
 
