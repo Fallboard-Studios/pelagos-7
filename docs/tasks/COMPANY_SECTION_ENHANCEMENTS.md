@@ -220,17 +220,17 @@ Tasks 1–7 ──→ Task 8 (docs/COMPONENT_LIBRARY.md)
 
 ### Phase 3: Docs
 
-- [ ] **Task 8: `docs/COMPONENT_LIBRARY.md` — document `RadioButton`'s per-option `color`**
+- [x] **Task 8: `docs/COMPONENT_LIBRARY.md` — document `RadioButton`'s per-option `color`**
 
   **Description:** Add a line to `RadioButton`'s existing contract entry documenting the new optional per-option `color` field: what it does (rest-state hint + stronger selected-state tint, via the same ambient-CSS-custom-property mechanism every other trait/identity color in the app already uses) and that it's additive/backward-compatible.
 
   **Acceptance criteria:**
-  - [ ] `RadioButton`'s entry in `docs/COMPONENT_LIBRARY.md` mentions the optional `color` field and its visual effect.
-  - [ ] No other primitive's entry in that doc is touched.
+  - [x] `RadioButton`'s entry in `docs/COMPONENT_LIBRARY.md` mentions the optional `color` field and its visual effect.
+  - [x] No other primitive's entry in that doc is touched.
 
   **Verification:**
-  - [ ] Manual review — spot-checked against the shipped `RadioButton.tsx`/`companyConfig.ts`.
-  - [ ] `npm run build:types`, `npm run lint` clean (docs-only change).
+  - [x] Manual review — spot-checked against the shipped `RadioButton.tsx`/`companyConfig.ts`.
+  - [x] `npm run build:types`, `npm run lint` clean (docs-only change).
 
   **Dependencies:** Tasks 1–7 (documents the final shipped shape).
 
@@ -239,9 +239,10 @@ Tasks 1–7 ──→ Task 8 (docs/COMPONENT_LIBRARY.md)
   **Estimated scope:** XS (docs only)
 
 ### Checkpoint: Complete
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] All acceptance criteria across all 8 tasks are met.
-- [ ] `docs/COMPONENT_LIBRARY.md` reflects the shipped `RadioButton` contract.
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [x] All acceptance criteria across all 8 tasks are met.
+- [x] `docs/COMPONENT_LIBRARY.md` reflects the shipped `RadioButton` contract.
+- [ ] Manual browser check (Phase 2 checkpoint's own item) not yet run.
 - [ ] Ready for human review / PR.
 
 ## Risks and Mitigations
