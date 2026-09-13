@@ -68,18 +68,46 @@ describe('RobotDisplaySection', () => {
     expect(midnightFill).toBe(noonFill);
   });
 
-  it('renders Name/Job/Battery/Docking as plain text with no input/button role attached', () => {
+  it('renders Name/Job/Docking as plain text with no input/button role attached', () => {
     const robot = makeRobot();
     useLocaleStore.getState().addRobot(localeId, robot);
     const { container } = render(<RobotDisplaySection robot={robot} />);
 
-    // Scoped to the component's own read-only value spans.
+    // Scoped to the component's own read-only value spans — Battery is no
+    // longer one of these (see the dedicated read-only-slider test below).
     const values = Array.from(container.querySelectorAll('.robot-display-section__value')).map((el) => el.textContent);
-    expect(values).toEqual(['Test Robot', 'Acoustic Survey', '82%', 'Active']);
+    expect(values).toEqual(['Test Robot', 'Acoustic Survey', 'Active']);
 
     container.querySelectorAll('.robot-display-section__value').forEach((el) => {
       expect(el.closest('button, input, [role="button"], [role="radio"], [role="switch"]')).toBeNull();
     });
+  });
+
+  it('renders Battery as a read-only SliderLinear readout (Roadmap 15.1), not a plain value span', () => {
+    const robot = makeRobot({ batteryLevel: 82 });
+    useLocaleStore.getState().addRobot(localeId, robot);
+    const { container } = render(<RobotDisplaySection robot={robot} />);
+
+    // role="status", not role="slider" — SliderLinear.readOnly's own contract
+    // (docs/specs/SLIDER_LINEAR_READ_ONLY.md).
+    const readout = container.querySelector('[data-readonly="true"]');
+    expect(readout).not.toBeNull();
+    expect(readout!.getAttribute('role')).toBe('status');
+    expect(readout!.textContent).toContain('82%');
+    expect(screen.queryByRole('slider')).toBeNull();
+
+    // No plain '.robot-display-section__value' span duplicates it.
+    const values = Array.from(container.querySelectorAll('.robot-display-section__value')).map((el) => el.textContent);
+    expect(values).not.toContain('82%');
+  });
+
+  it('rounds a fractional battery level to the nearest whole percent, same as before this change', () => {
+    const robot = makeRobot({ batteryLevel: 81.6 });
+    useLocaleStore.getState().addRobot(localeId, robot);
+    const { container } = render(<RobotDisplaySection robot={robot} />);
+
+    const readout = container.querySelector('[data-readonly="true"]');
+    expect(readout!.textContent).toContain('82%');
   });
 
   it('shows "Unassigned" when the robot has no job', () => {

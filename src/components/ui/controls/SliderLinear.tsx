@@ -26,6 +26,17 @@ interface SliderLinearProps {
    *  production). Every real vertical consumer now passes this explicitly,
    *  sourced from its own schema's `verticalHeight` field. */
   verticalHeight?: number;
+  /**
+   * Roadmap 15.1: renders as a live, non-interactive value readout instead
+   * of an interactive slider — role="status", no Slider.Root/Track/Thumb,
+   * no drag/keyboard interaction, not a tab stop. Visually identical
+   * VoxelTrack fill/colors to the interactive rendering (never desaturated
+   * the way a functionally-disabled section is elsewhere in this app).
+   * `onChange` is still required but is never called in this mode. Takes
+   * precedence over `disabled` if both are somehow passed — see
+   * docs/specs/SLIDER_LINEAR_READ_ONLY.md §1.5.
+   */
+  readOnly?: boolean;
 }
 
 /**
@@ -34,8 +45,10 @@ interface SliderLinearProps {
  * the traditional track+handle, self-fitting its own box count live to
  * whatever space its container gives it. All 3 SliderOrientation values.
  * See docs/specs/OBLIQUE_CABINETRY_SLIDER_LINEAR.md for the full derivation.
+ * `readOnly` (roadmap 15.1) renders a second, non-interactive branch below —
+ * see docs/specs/SLIDER_LINEAR_READ_ONLY.md for the full derivation.
  */
-export function SliderLinear({ schema, value, onChange, disabled, verticalHeight }: SliderLinearProps) {
+export function SliderLinear({ schema, value, onChange, disabled, verticalHeight, readOnly }: SliderLinearProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const orientation = useAutoSliderOrientation(wrapperRef, schema.orientation);
   const isVertical = orientation === 'vertical';
@@ -45,6 +58,27 @@ export function SliderLinear({ schema, value, onChange, disabled, verticalHeight
   const valueLabel = (
     <span className="sc-slider-linear__value">{formatDisplayValue(value)}{schema.unit}</span>
   );
+
+  if (readOnly) {
+    return (
+      <div ref={wrapperRef} className="sc-slider-linear" data-orientation={orientation} data-readonly="true" role="status">
+        <DualLabel loreLabel={schema.loreLabel} humanLabel={schema.humanLabel} />
+        {isVertical && valueLabel}
+        <div className="sc-slider-linear__root" data-orientation={orientation} style={rootStyle}>
+          <div className="sc-slider-linear__track" data-orientation={orientation}>
+            <VoxelTrack
+              states={states}
+              boxSize={boxSize}
+              gap={gap}
+              axis={orientation}
+              timelineKeyPrefix={`cabinet-voxel-${schema.id}`}
+            />
+          </div>
+        </div>
+        {!isVertical && valueLabel}
+      </div>
+    );
+  }
 
   return (
     <div ref={wrapperRef} className="sc-slider-linear" data-orientation={orientation}>

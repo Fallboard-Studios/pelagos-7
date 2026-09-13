@@ -7,7 +7,7 @@
  * category-level pairs, not per-value ones — appended to ROBOT_DATA_GRID.md as drafts pending
  * review (see docs/tasks/ROBOT_SELECTION.md Task 12).
  */
-import type { DualLabelSchema } from '@/types/controls';
+import type { DualLabelSchema, SliderLinearSchema } from '@/types/controls';
 import type { JobType, DockingState, Robot } from '@/types/Robot';
 import type { StatusLightState } from '@/utils/statusLightColors';
 
@@ -22,6 +22,25 @@ export const ROBOT_SELECTION_ROW_SCHEMAS = {
   docking: { id: 'robotSelection.docking', type: 'dualLabel', loreLabel: 'DOCKING STATE', humanLabel: 'Docked Status' },
   audio: { id: 'robotSelection.audio', type: 'dualLabel', loreLabel: 'PROBE DIAGNOSTICS', humanLabel: 'Audio Setting' },
 } satisfies Record<string, DualLabelSchema>;
+
+/**
+ * Battery Data, rendered as a read-only SliderLinear (Roadmap 15.1) instead of the
+ * ROBOT_SELECTION_ROW_SCHEMAS.battery DualLabel + plain-text-percent pair — RobotDisplaySection's own
+ * consumer as of this schema's addition. Same lore/human labels as ROBOT_SELECTION_ROW_SCHEMAS.battery
+ * (SliderLinear composes its own internal DualLabel from them, so the external one is dropped for this
+ * row, not duplicated). RobotSelectionCard still uses ROBOT_SELECTION_ROW_SCHEMAS.battery's plain-text
+ * form — untouched by this addition.
+ */
+export const BATTERY_READOUT_SCHEMA: SliderLinearSchema = {
+  id: 'robotSelection.batteryReadout',
+  type: 'sliderLinear',
+  loreLabel: 'POWER CELL STATUS',
+  humanLabel: 'Battery Data',
+  min: 0,
+  max: 100,
+  unit: '%',
+  orientation: 'horizontal',
+};
 
 // ========================================
 // VALUE LABELS (draft — pending review, see ROBOT_DATA_GRID.md)

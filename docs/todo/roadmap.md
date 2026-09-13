@@ -843,21 +843,33 @@ Requested by Crawford (`docs/todo/temp.md`), 2026-09-11. High priority — a rea
 
 Requested by Crawford (`docs/todo/temp.md`), 2026-09-11. High priority — "can't ship with what we've got." Crawford has a custom color scheme to bring over, replacing the current hand-picked static "Ballast" palette (`src/index.css`); colors stay static, not seed-driven, consistent with `docs/CONSOLE_THEMING.md`'s decision to cut seed-driven theming over its unresolved WCAG-safety-vs-visual-variety tension. Beyond the base palette swap, also exploring trait-based theming for Audio Rig controls — grouping parameters by shared trait rather than one flat palette, e.g. time-based params (Reverb, Delay, ADSR) sharing one color family, output params (Compressor, Limiter, Volumes) sharing another. Still being worked out; not yet interviewed/specced.
 
-## 15. Redesign: Robot Cards
+## 15.1 Component: SliderLinear Read-Only Mode
 
-Requested by Crawford (`docs/todo/temp.md`), 2026-09-11. High priority. `RobotSelectionCard.tsx`, rendered in `RobotsTab.tsx`'s list — a visual/UX redesign of the existing shipped design. Depends conceptually on 14 (Color Scheme) landing first so the redesign works from the real palette instead of being redone. Not yet interviewed/specced.
+Split out of the original item 15 (Redesign: Robot Cards, requested by Crawford via `docs/todo/temp.md`, 2026-09-11) into 15.1–15.3 on 2026-09-13, once Crawford's written notes for that redesign made clear both the robot-card and robot-detail redesigns want to display Battery/Power as a read-only `SliderLinear` rather than bespoke markup — a primitive-level prerequisite for 15.3 below, with no dependency of its own. High priority.
+
+Adds an optional `readOnly` prop to `SliderLinear` (`src/components/ui/controls/SliderLinear.tsx`): when set, the slider shows the bound value (via the existing `VoxelTrack` fill) but accepts no pointer/keyboard interaction. Not yet interviewed/specced — open questions for that pass: whether this reuses Radix `Slider`'s own `disabled` wiring under the hood or is a distinct code path, and what ARIA treatment is correct (`aria-readonly` reads more accurately than `aria-disabled` for "an accurate live value you can't edit," but `disabled` is the only non-interactive state the primitive has today). `docs/COMPONENT_LIBRARY.md`'s `SliderLinear` contract entry needs updating once this ships.
+
+## 15.2 Redesign: Robot Cards
+
+The list-card half of the original item 15 (requested by Crawford, `docs/todo/temp.md`, 2026-09-11); scope refined 2026-09-13 from Crawford's own written notes. `RobotSelectionCard.tsx`, rendered in `RobotsTab.tsx`'s list — a visual/UX redesign of the existing shipped design. Depends conceptually on 14 (Color Scheme) landing first so the redesign works from the real palette instead of being redone.
+
+Per Crawford's notes: the card splits into a linked top half (activates `selectRobot`, same as today) and an unlinked bottom half holding only the company-assignment `RadioButton`. The top half is one meta-data row broken into two columns — the day/night-invariant avatar on the left, and on the right, three unlabeled rows (no `DualLabel` lore/human pair, just the raw value): Robot Name, Job, and a combined Docking/Status line, where Status reads "Emitting" or "Disabled." The existing standalone Battery-% row and `AudioStatusBadge` dot are both dropped from this card entirely (Battery moves to the redesigned detail card, 15.3; a battery-driven avatar dim already exists independently via `computeBatteryDimOpacity` and is unaffected).
+
+"Emitting"/"Disabled" is true audibility, not just this robot's own `audioMode` — confirmed with Crawford 2026-09-13: a robot reads "Disabled" when its own `audioMode` is `mute`, OR when any other robot in the same locale is `solo` and this one isn't. That mute/solo predicate exists today only inlined in `AudioEngine.ts`'s `triggerWithCap` (lines ~312-323) — this phase must extract it into one shared, exported function both the engine and this new UI status call, rather than re-deriving the same rule a second time (same class of issue as the open `docs/DUPLICATE_VALUE_AUDIT.md` items). Not yet interviewed/specced.
 
 ## 16. Redesign: Company CRUD Area
 
-Requested by Crawford (`docs/todo/temp.md`), 2026-09-11. High priority. `CompanyManager.tsx` (Phase 10) — visual/UX redesign of the existing company create/rename/delete + bulk-edit panel. Same color-scheme dependency as 15. Not yet interviewed/specced.
+Requested by Crawford (`docs/todo/temp.md`), 2026-09-11. High priority. `CompanyManager.tsx` (Phase 10) — visual/UX redesign of the existing company create/rename/delete + bulk-edit panel. Same color-scheme dependency as 15.1–15.3. Not yet interviewed/specced.
 
-## 17. Redesign: Robot Detail Top Card
+## 15.3 Redesign: Robot Detail Top Card
 
-Requested by Crawford (`docs/todo/temp.md`), 2026-09-11. High priority. `RobotDisplaySection.tsx` — the avatar/meta-data card at the top of the Robot Options screen. Same color-scheme dependency as 15/16. Not yet interviewed/specced.
+The detail-page half of the original item 15 (requested by Crawford, `docs/todo/temp.md`, 2026-09-11; was numbered 17 before the 2026-09-13 split) — scope refined 2026-09-13 from Crawford's own written notes. `RobotDisplaySection.tsx` — the avatar/meta-data card at the top of the Robot Options screen. Same color-scheme dependency as 15.2/16, plus depends on 15.1 (the new `SliderLinear` `readOnly` mode) for its Power readout.
+
+Per Crawford's notes: a circular layout around the central, day/night-invariant avatar SVG — Name at top-left, Job at top-right, Docking status at bottom-left, and the same "Emitting"/"Disabled" Status (15.2's shared audibility predicate) at bottom-right, all unlabeled values as in 15.2. Beneath the circle, the new read-only `SliderLinear` (15.1) displays Battery level labeled "Power." Beneath that, the company-assignment `RadioButton` as its own section labeled "Company." Not yet interviewed/specced.
 
 ## 18. Cabinetry Verification: Accessibility & Performance
 
-Originally inserted as `11.2` immediately after the Oblique Cabinetry series (11.1.1–11.1.9) — the same "insert out of sequence, don't renumber later phases" pattern as 10.1–10.4. Moved here and renumbered (2026-09-11, Crawford's call): 12 (Font Sizes), 14 (Color Scheme), and 15–17 (the three screen redesigns) above all touch fonts, colors, and layout in ways this verification pass needs to check too, not just the original 11.1.x Cabinetry series — running it before those land would mean redoing it once they ship anyway. Session Storage (19) comes after this instead, so persistence work starts against a UI that's already been through its accessibility/performance pass, not one about to change under it.
+Originally inserted as `11.2` immediately after the Oblique Cabinetry series (11.1.1–11.1.9) — the same "insert out of sequence, don't renumber later phases" pattern as 10.1–10.4. Moved here and renumbered (2026-09-11, Crawford's call): 12 (Font Sizes), 14 (Color Scheme), and 15.2/15.3/16 (the three screen redesigns — 15.1 is a primitive change, not a screen, but its new `readOnly` slider state falls under this same verification pass) above all touch fonts, colors, and layout in ways this verification pass needs to check too, not just the original 11.1.x Cabinetry series — running it before those land would mean redoing it once they ship anyway. Session Storage (19) comes after this instead, so persistence work starts against a UI that's already been through its accessibility/performance pass, not one about to change under it.
 
 ### About
 
@@ -865,7 +877,7 @@ Cabinetry's design (each 11.1.x item's own Restructure section) keeps each primi
 
 Bundled with the same pass rather than split into a separate item: a performance check across the primitive-heaviest screens (Audio Rig's seven effect blocks plus the Drift accordion, Robot Options' Signature Array with its per-layer LFO groups) now that every rendered slider/button/toggle carries its own GSAP timeline on top of whatever LFO-target-group/AccordionContainer timelines already existed — confirming that stacking hasn't reintroduced the kind of load 10.2's own spec flagged as a real constraint at "70-100+ primaries in a typical session," now compounded by a visual layer on every one of them.
 
-Extended scope from the move (2026-09-11): also confirms Phase 12's new type scale didn't reintroduce label/overflow issues anywhere else the way 13 found, and that Phase 14's new color scheme still clears every contrast check this phase establishes — the redesigns in 15–17 reuse Cabinetry primitives, so a real pass here covers their accessibility too rather than needing a fourth verification round.
+Extended scope from the move (2026-09-11): also confirms Phase 12's new type scale didn't reintroduce label/overflow issues anywhere else the way 13 found, and that Phase 14's new color scheme still clears every contrast check this phase establishes — the redesigns in 15.2, 15.3, and 16 reuse Cabinetry primitives (including 15.1's new read-only slider state), so a real pass here covers their accessibility too rather than needing a fourth verification round.
 
 ### Docs
 

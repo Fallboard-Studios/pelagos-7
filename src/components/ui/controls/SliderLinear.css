@@ -159,6 +159,15 @@
   color: var(--color-text-muted);
 }
 
+/* Roadmap 15.1 — the readOnly branch renders plain divs, not an interactive
+   Radix widget; this is the only rule that differs from the interactive
+   rendering (docs/specs/SLIDER_LINEAR_READ_ONLY.md §4). Every other rule in
+   this file already applies unchanged via the shared data-orientation
+   attribute, set manually in the readOnly branch to match. */
+.sc-slider-linear[data-readonly='true'] {
+  cursor: default;
+}
+
 @container sc-control (max-width: 120px) {
   .sc-slider-linear__value {
     font-size: var(--font-size-label-compact);
