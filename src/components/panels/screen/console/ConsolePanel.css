@@ -28,6 +28,18 @@
      does; that failure mode is specific to flex/grid track sizing.) */
   min-height: 0;
   overflow-y: auto;
+  /* Bugfix: reserves the vertical scrollbar's own gutter width unconditionally, whether or not a
+     scrollbar is actually showing right now. Without this, RobotsTab's desktop-tier filter panel
+     (RobotFilterPanel.css) narrows .robots-tab__list's own available width just enough that its
+     auto-fill grid (minmax(300px, 1fr)) sits right at a column-count boundary — showing the
+     scrollbar here reclaims/loses ~15-17px of width, which can flip that grid between one column
+     count and the next, changing its total height enough to cross this element's own overflow
+     threshold, toggling the scrollbar again: an infinite show/hide flicker (reported live,
+     desktop only — the filter panel's width is exactly what made this grid narrow enough to be
+     sensitive to a scrollbar-width's worth of change; the single-column pre-filter-panel layout
+     never was). scrollbar-gutter: stable breaks the loop at its root cause — the available
+     content width no longer depends on whether a scrollbar is currently rendered at all. */
+  scrollbar-gutter: stable;
   padding: 265px 8px 8px;
 }
 
