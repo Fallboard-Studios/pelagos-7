@@ -250,3 +250,41 @@ replaces the top-level object and re-renders the whole drawer tree.
 **Fix shape:** not yet determined — profile first. If real, likely fix is per-effect
 selector hooks used directly inside each child panel instead of hoisted to the container
 and prop-drilled.
+
+### 19. IdleSystem: console.warn Fires on the Ordinary Case, Not an Error
+
+Found while checking item 17's console output live (2026-09-14) — Crawford flagged the
+console as overwhelming on load; this is one concrete, fixable source. Low risk, high
+noise reduction.
+
+`Robot.tsx:66` calls `handleRobotIdle()` unconditionally on every robot's mount (with
+`isReturning: true`, to land its first on-screen destination in the bottom half — see the
+comment above that call). `idleSystem.ts:117` only proceeds past its guard when that robot
+is already `Idle`+`Active`; anything else — including `docked`, the state most robots
+actually spawn in — hits `console.warn('[IdleSystem] Robot ... not found or not
+Idle/Active ...')` and returns early. Since most robots spawn docked, this warns on the
+*ordinary, expected* path for 10 of 12 robots on every locale load, and again on every
+state transition. React's dev-mode component-stack-on-warn feature turns each one into a
+large internals dump, dominating the console on load and during normal play.
+
+Not a functional bug — the guard's early return is correct — purely a log-level/hygiene
+problem: an expected, common precondition-not-met is logged as a warning.
+
+**Fix shape:** drop the log entirely, or narrow it to only the case that's actually
+unexpected (`!robot` — robot missing from the store) rather than every non-Idle/Active
+state.
+
+### 20. SVG: Invalid Empty `y` Attribute at Load
+
+Found in the same console check as item 19 (2026-09-14). Confirmed real, not yet traced to
+a source.
+
+Browser-logged twice on every load: `Error: <svg> attribute y: Unexpected end of attribute.
+Expected length, "".` — something renders an SVG element with `y=""` (empty string) where a
+number/length is expected. Likely in robot or actor SVG rendering, given when it fires
+(right after `[AudioEngine] Started`, alongside initial robot/actor spawn), but not yet
+isolated to a specific component or call site.
+
+**Fix shape:** not yet determined — needs tracing (search for `y=` bindings in
+robot/actor/factory SVG components fed by a value that can be `''`/`undefined`/`NaN`
+before its source data is ready).
