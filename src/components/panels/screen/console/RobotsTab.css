@@ -40,3 +40,15 @@
      "wherever you're scrolled, stay there"), not something to compensate for. */
   overflow-anchor: none;
 }
+
+/* Replaces .robots-tab__list (as RobotFilterPanel's own sibling in .robots-tab__body) when a
+   selected company has zero members — same flex:1/min-width:0 share-of-the-row reasoning as the
+   list itself, so the panel's own position is unaffected by which of the two currently renders. */
+.robots-tab__empty {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--color-text-muted);
+}

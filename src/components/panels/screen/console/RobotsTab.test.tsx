@@ -156,6 +156,42 @@ describe('RobotsTab', () => {
       const { container } = render(<RobotsTab />);
       expect(robotNamesInOrder(container)).toEqual(['Alpha', 'Beta', 'Gamma', 'Delta']);
     });
+
+    // Requested follow-up: a company filter with zero members would otherwise just render an
+    // empty .robots-tab__list with no explanation.
+    it('shows an empty-state message naming the company when it has no assigned robots', () => {
+      resetStores();
+      useLocaleStore.getState().setLocaleData(localeId, { robots: [], companies: [] } as unknown as Partial<Locale>);
+      useLocaleStore.getState().addRobot(localeId, makeRobot('r1', 'Alpha') as unknown as Robot);
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
+      useUIStore.getState().selectCompany('c1');
+
+      render(<RobotsTab />);
+
+      expect(screen.getByText('Iron Consortium currently has no assigned robots')).toBeTruthy();
+    });
+
+    it('does not show the empty-state message when the selected company has members', () => {
+      resetStores();
+      useLocaleStore.getState().setLocaleData(localeId, { robots: [], companies: [] } as unknown as Partial<Locale>);
+      seedRobotsAndCompany();
+      useUIStore.getState().selectCompany('c1');
+
+      render(<RobotsTab />);
+
+      expect(screen.queryByText(/currently has no assigned robots/)).toBeNull();
+    });
+
+    it('does not show the empty-state message when All/Reset is selected, even with an empty roster', () => {
+      resetStores();
+      useLocaleStore.getState().setLocaleData(localeId, { robots: [], companies: [] } as unknown as Partial<Locale>);
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
+      // Nothing selected (Reset) — no company name to attach the message to.
+
+      render(<RobotsTab />);
+
+      expect(screen.queryByText(/currently has no assigned robots/)).toBeNull();
+    });
   });
 
   // Roadmap: Robot Selection Filter Panel — CompanyManager no longer renders as a direct
