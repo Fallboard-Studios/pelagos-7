@@ -313,7 +313,11 @@ export function triggerWithCap(params: NoteParams): boolean {
     const localeRobots = getActiveLocaleRobots();
     if (localeRobots.length > 0) {
       const robotFromStore = localeRobots.find((r) => r.id === robotId);
-      if (!isRobotAudible(robotFromStore?.audioMode, localeRobots)) {
+      // anySolo, not the array — isRobotAudible.ts's own signature was narrowed to just what it
+      // actually reads (bugfix, found live via RobotSelectionCard's own re-render storm); this
+      // call site isn't React-rendered so it wasn't part of that bug, but keeps the same contract.
+      const anySolo = localeRobots.some((r) => r.audioMode === 'solo');
+      if (!isRobotAudible(robotFromStore?.audioMode, anySolo)) {
         return false;
       }
       // Highlight attenuation is handled in scheduleNote; skip here to avoid double-attenuation.

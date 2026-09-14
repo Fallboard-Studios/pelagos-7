@@ -1,4 +1,4 @@
-import type { KeyboardEvent } from 'react';
+import { memo, type KeyboardEvent } from 'react';
 import { RobotBody } from '@/components/robot/RobotBody';
 import { RadioButton } from '@/components/ui/controls/RadioButton';
 import { SliderLinear } from '@/components/ui/controls/SliderLinear';
@@ -32,17 +32,32 @@ interface RobotSelectionCardProps {
  * `RadioButton`. Because the company section is a sibling of the clickable region rather than a
  * descendant of it, there's no nested-interactive-element bubbling concern left to guard against
  * — no `stopBubble` (see docs/specs/ROBOT_CARDS_REDESIGN.md §1.1 for the full before/after).
+ *
+ * Wrapped in memo() (bugfix, found live — see isRobotAudible.ts's own comment on the `anySolo`
+ * change this pairs with): `updateRobot` (localeStore.ts) hands back a new object only for the
+ * one robot actually written, preserving every other robot's own reference in the new `robots`
+ * array — so a card whose OWN robot object is untouched now correctly skips re-rendering when a
+ * SIBLING robot's audio attributes change (audioSwells.ts's 16n ticks included), instead of the
+ * whole 12-card list re-rendering in lockstep on every such write. Only effective paired with the
+ * `anySolo` boolean-selector fix above — memo() alone can't stop a re-render this component's own
+ * (previously array-typed) hook subscription was causing regardless of props.
  */
-export function RobotSelectionCard({ robot }: RobotSelectionCardProps) {
+export const RobotSelectionCard = memo(function RobotSelectionCard({ robot }: RobotSelectionCardProps) {
   const selectRobot = useUIStore((s) => s.selectRobot);
   const localeId = getActiveLocaleId();
   const companies = useLocaleStore((s) => s.locales[localeId]?.companies ?? []);
-  const localeRobots = useLocaleStore((s) => s.locales[localeId]?.robots ?? []);
+  // A boolean, not the full robots array (bugfix, found live — see isRobotAudible's own comment):
+  // this is the only thing isRobotAudible ever needed out of the locale's robot list. Selecting
+  // just this primitive means Zustand's default equality bails out when it hasn't actually
+  // flipped, instead of re-rendering every card on every robot-attribute write anywhere in the
+  // locale (audioSwells.ts's 16n modulation ticks included, ~8-9x/sec) the way subscribing to the
+  // whole array did.
+  const anySolo = useLocaleStore((s) => (s.locales[localeId]?.robots ?? []).some((r) => r.audioMode === 'solo'));
   const companyAssignmentSchema = buildCompanyAssignmentSchema(companies);
   const displayName = robot.name || robot.id;
   const jobLabel = robot.job ? JOB_TYPE_LABELS[robot.job.type] : UNASSIGNED_JOB_LABEL;
   const dockingLabel = DOCKING_STATE_LABELS[robot.docking];
-  const statusLabel = isRobotAudible(robot.audioMode, localeRobots)
+  const statusLabel = isRobotAudible(robot.audioMode, anySolo)
     ? AUDIBILITY_LABELS.emitting
     : AUDIBILITY_LABELS.disabled;
   // BATTERY_READOUT_SCHEMA is one shared, static object (robotSelectionConfig.ts) — reused as-is
@@ -110,6 +125,6 @@ export function RobotSelectionCard({ robot }: RobotSelectionCardProps) {
       </div>
     </li>
   );
-}
+});
 
 export default RobotSelectionCard;
