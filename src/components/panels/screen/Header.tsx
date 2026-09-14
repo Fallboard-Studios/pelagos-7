@@ -137,7 +137,15 @@ function Header() {
   const currentAttenuationStyle = useAttenuationStyleStore(selectCurrentAttenuationStyle);
   const displayAttenuationStyleName = formatAttenuationStyleName(currentAttenuationStyle?.name);
   const currentLocaleId = currentAttenuationStyle?.currentLocaleId;
-  const currentLocale = useLocaleStore((s) => (currentLocaleId ? s.locales[currentLocaleId] : undefined));
+  // .coordinates specifically, not the whole locale object (bugfix, found live — same class as
+  // SectorSettingsDrawer.tsx's own fix): coordinates is the only field this component ever reads
+  // off the locale, but selecting the whole object meant a fresh reference — and a re-render here,
+  // on Header, which is always mounted — on every unrelated robot write anywhere in the locale
+  // (audioSwells.ts's 16n ticks included), since updateRobot (localeStore.ts) rebuilds the locale
+  // object every time it changes `robots`. .coordinates itself keeps its own reference across
+  // those writes (updateRobot only ever spreads it through, untouched), so narrowing to it
+  // directly lets Header skip re-rendering for all of that ambient churn.
+  const coordinates = useLocaleStore((s) => (currentLocaleId ? s.locales[currentLocaleId]?.coordinates : undefined));
 
   return (
     <header ref={headerRef} className="header" style={getTraitColorStyle('header')}>
@@ -174,7 +182,7 @@ function Header() {
               </span>
               <span className="header__coordinates">
                 <VisuallyHidden>Coordinates: </VisuallyHidden>
-                @ {currentLocale?.coordinates?.x ?? 'CORRUPT X'}, {currentLocale?.coordinates?.y ?? 'CORRUPT Y'}
+                @ {coordinates?.x ?? 'CORRUPT X'}, {coordinates?.y ?? 'CORRUPT Y'}
               </span>
             </div>
             <div className="header__status__row">
