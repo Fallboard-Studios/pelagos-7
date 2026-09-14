@@ -120,6 +120,18 @@ export function CompanyCrudControls() {
     ...CREATE_COMPANY_SCHEMA,
     humanLabel: nameIsBlank ? CREATE_COMPANY_SCHEMA.humanLabel : `${CREATE_COMPANY_SCHEMA.humanLabel} ${createNameDraft}`,
   };
+  // Same pattern as createSchema above (docs/tasks/COMPANY_CRUD_BUTTON_PREVIEW.md Task 3).
+  // renameIsBlank already coincides with "nothing selected," since the draft is forced to '' on
+  // deselect — no separate hasSelectedCompany branch needed in the condition itself.
+  // selectedCompany?.name ?? '' in the true branch is defensive typing only (TypeScript can't
+  // otherwise prove selectedCompany is defined whenever !renameIsBlank, even though it always is
+  // by construction) — not a reachable '' case in practice.
+  const renameSchema = {
+    ...RENAME_COMPANY_SCHEMA,
+    humanLabel: renameIsBlank
+      ? RENAME_COMPANY_SCHEMA.humanLabel
+      : `${RENAME_COMPANY_SCHEMA.humanLabel} ${selectedCompany?.name ?? ''} > ${renameDraft}`,
+  };
 
   const handleCreate = () => {
     const color = pickRandomCompanyColor(companies.map((c) => c.color));
@@ -159,7 +171,7 @@ export function CompanyCrudControls() {
             disabled={!hasSelectedCompany}
           />
           <Button
-            schema={RENAME_COMPANY_SCHEMA}
+            schema={renameSchema}
             onClick={handleRenameSubmit}
             disabled={!hasSelectedCompany || renameIsBlank || renameUnchanged}
           />

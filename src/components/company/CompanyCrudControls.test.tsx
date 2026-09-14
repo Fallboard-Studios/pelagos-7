@@ -198,12 +198,63 @@ describe('CompanyCrudControls', () => {
     expect(renameInput.value.split(' ')).toHaveLength(2);
   });
 
+  // docs/tasks/COMPANY_CRUD_BUTTON_PREVIEW.md Task 3 — the Rename button's own label previews
+  // "{current name} > {draft}", so both the visible text and the accessible name change together.
+  describe('Rename button label', () => {
+    it('is exactly "Rename" when no company is selected', () => {
+      render(<CompanyCrudControls />);
+      expect(screen.getByRole('button', { name: 'Rename' })).toBeTruthy();
+    });
+
+    it('is exactly "Rename" when the draft is edited back to blank', () => {
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
+      useUIStore.getState().selectCompany('c1');
+      render(<CompanyCrudControls />);
+
+      fireEvent.change(screen.getByRole('textbox', { name: /rename company/i }), { target: { value: '   ' } });
+
+      expect(screen.getByRole('button', { name: 'Rename' })).toBeTruthy();
+    });
+
+    it('is "Rename {current name} > {draft}" once a company is selected (the auto-suggested draft, with no typing needed)', () => {
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
+      useUIStore.getState().selectCompany('c1');
+      render(<CompanyCrudControls />);
+
+      const draft = (screen.getByRole('textbox', { name: /rename company/i }) as HTMLInputElement).value;
+      expect(screen.getByRole('button', { name: `Rename Iron Consortium > ${draft}` })).toBeTruthy();
+    });
+
+    it('updates live as the draft is typed, with no click required', () => {
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
+      useUIStore.getState().selectCompany('c1');
+      render(<CompanyCrudControls />);
+
+      fireEvent.change(screen.getByRole('textbox', { name: /rename company/i }), { target: { value: 'Null Wisp' } });
+
+      expect(screen.getByRole('button', { name: 'Rename Iron Consortium > Null Wisp' })).toBeTruthy();
+    });
+
+    it('reads "Rename {just-committed name} > {new suggestion}" immediately after a successful submit — the "always two different names" property holds on the very next render', () => {
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
+      useUIStore.getState().selectCompany('c1');
+      render(<CompanyCrudControls />);
+
+      fireEvent.change(screen.getByRole('textbox', { name: /rename company/i }), { target: { value: 'Null Wisp' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Rename Iron Consortium > Null Wisp' }));
+
+      const newDraft = (screen.getByRole('textbox', { name: /rename company/i }) as HTMLInputElement).value;
+      expect(newDraft).not.toBe('Null Wisp');
+      expect(screen.getByRole('button', { name: `Rename Null Wisp > ${newDraft}` })).toBeTruthy();
+    });
+  });
+
   // Rename is staged, like Create — editing alone no longer calls updateCompany; a separate
   // Submit button (matching Create's own Create button) does, and only when clicked.
   describe('Rename Submit button', () => {
     it('is disabled when no company is selected', () => {
       render(<CompanyCrudControls />);
-      expect((screen.getByRole('button', { name: 'Rename' }) as HTMLButtonElement).disabled).toBe(true);
+      expect((screen.getByRole('button', { name: /^rename\b/i }) as HTMLButtonElement).disabled).toBe(true);
     });
 
     // docs/tasks/COMPANY_CRUD_BUTTON_PREVIEW.md Task 1 — the draft now auto-suggests a fresh name
@@ -213,7 +264,7 @@ describe('CompanyCrudControls', () => {
       useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
       useUIStore.getState().selectCompany('c1');
       render(<CompanyCrudControls />);
-      expect((screen.getByRole('button', { name: 'Rename' }) as HTMLButtonElement).disabled).toBe(false);
+      expect((screen.getByRole('button', { name: /^rename\b/i }) as HTMLButtonElement).disabled).toBe(false);
     });
 
     it('stays disabled in the rare case the auto-suggested draft coincidentally matches the current name (the existing renameUnchanged guard)', () => {
@@ -230,7 +281,7 @@ describe('CompanyCrudControls', () => {
 
       const renameInput = screen.getByRole('textbox', { name: /rename company/i }) as HTMLInputElement;
       expect(renameInput.value).toBe(coincidentalName);
-      expect((screen.getByRole('button', { name: 'Rename' }) as HTMLButtonElement).disabled).toBe(true);
+      expect((screen.getByRole('button', { name: /^rename\b/i }) as HTMLButtonElement).disabled).toBe(true);
       randomSpy.mockRestore();
     });
 
@@ -241,7 +292,7 @@ describe('CompanyCrudControls', () => {
 
       fireEvent.change(screen.getByRole('textbox', { name: /rename company/i }), { target: { value: 'Renamed' } });
 
-      expect((screen.getByRole('button', { name: 'Rename' }) as HTMLButtonElement).disabled).toBe(false);
+      expect((screen.getByRole('button', { name: /^rename\b/i }) as HTMLButtonElement).disabled).toBe(false);
     });
 
     it('is disabled again when the draft is edited back to blank', () => {
@@ -251,7 +302,7 @@ describe('CompanyCrudControls', () => {
 
       fireEvent.change(screen.getByRole('textbox', { name: /rename company/i }), { target: { value: '   ' } });
 
-      expect((screen.getByRole('button', { name: 'Rename' }) as HTMLButtonElement).disabled).toBe(true);
+      expect((screen.getByRole('button', { name: /^rename\b/i }) as HTMLButtonElement).disabled).toBe(true);
     });
 
     it('editing the Rename input does NOT call updateCompany on its own — only clicking Rename does', () => {
@@ -263,7 +314,7 @@ describe('CompanyCrudControls', () => {
       fireEvent.change(screen.getByRole('textbox', { name: /rename company/i }), { target: { value: 'Renamed' } });
       expect(updateSpy).not.toHaveBeenCalled();
 
-      fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
+      fireEvent.click(screen.getByRole('button', { name: /^rename\b/i }));
       expect(updateSpy).toHaveBeenCalledWith(localeId, 'c1', { name: 'Renamed' });
     });
 
@@ -274,7 +325,7 @@ describe('CompanyCrudControls', () => {
       render(<CompanyCrudControls />);
 
       fireEvent.change(screen.getByRole('textbox', { name: /rename company/i }), { target: { value: '  Renamed  ' } });
-      fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
+      fireEvent.click(screen.getByRole('button', { name: /^rename\b/i }));
 
       expect(updateSpy).toHaveBeenCalledWith(localeId, 'c1', { name: 'Renamed' });
     });
@@ -304,7 +355,7 @@ describe('CompanyCrudControls', () => {
       render(<CompanyCrudControls />);
 
       fireEvent.change(screen.getByRole('textbox', { name: /rename company/i }), { target: { value: 'Renamed' } });
-      fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
+      fireEvent.click(screen.getByRole('button', { name: /^rename\b/i }));
 
       const postSubmitDraft = (screen.getByRole('textbox', { name: /rename company/i }) as HTMLInputElement).value;
       expect(postSubmitDraft).not.toBe('Renamed');
