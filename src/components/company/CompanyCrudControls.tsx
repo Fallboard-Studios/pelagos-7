@@ -109,6 +109,18 @@ export function CompanyCrudControls() {
   const renameIsBlank = renameDraft.trim().length === 0;
   const renameUnchanged = hasSelectedCompany && renameDraft.trim() === selectedCompany?.name;
 
+  // Previews what clicking Create will do (docs/tasks/COMPANY_CRUD_BUTTON_PREVIEW.md Task 2) — the
+  // raw, as-typed draft, not trimmed (matches nameIsBlank's own trim-only-for-the-blank-check
+  // convention: what's displayed once non-blank is "as typed"). A per-render clone, not a mutation
+  // of the shared CREATE_COMPANY_SCHEMA constant — same pattern CREATE_NAME_SCHEMA/RENAME_NAME_SCHEMA
+  // already use above, just computed per-render here since it depends on component state.
+  // Button.tsx's own resolveAccessibleName/DualLabel both read schema.humanLabel directly, so this
+  // one field drives both the accessible name and the visible text with no other change needed.
+  const createSchema = {
+    ...CREATE_COMPANY_SCHEMA,
+    humanLabel: nameIsBlank ? CREATE_COMPANY_SCHEMA.humanLabel : `${CREATE_COMPANY_SCHEMA.humanLabel} ${createNameDraft}`,
+  };
+
   const handleCreate = () => {
     const color = pickRandomCompanyColor(companies.map((c) => c.color));
     const company: Company = { id: crypto.randomUUID(), name: createNameDraft.trim(), color, robotIds: [] };
@@ -136,7 +148,7 @@ export function CompanyCrudControls() {
       <div className="company-crud-controls">
         <div className="company-crud-controls__create">
           <TextInput schema={CREATE_NAME_SCHEMA} value={createNameDraft} onChange={setCreateNameDraft} disabled={atCap} />
-          <Button schema={CREATE_COMPANY_SCHEMA} onClick={handleCreate} disabled={atCap || nameIsBlank} />
+          <Button schema={createSchema} onClick={handleCreate} disabled={atCap || nameIsBlank} />
         </div>
 
         <div className="company-crud-controls__rename">

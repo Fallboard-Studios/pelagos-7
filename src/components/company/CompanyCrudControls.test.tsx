@@ -31,7 +31,7 @@ describe('CompanyCrudControls', () => {
 
     const input = screen.getByRole('textbox', { name: /new company name/i }) as HTMLInputElement;
     fireEvent.change(input, { target: { value: 'Custom Name' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+    fireEvent.click(screen.getByRole('button', { name: /^create\b/i }));
 
     expect(addSpy).toHaveBeenCalledTimes(1);
     const [calledLocaleId, company] = addSpy.mock.calls[0] as [string, Company];
@@ -47,13 +47,13 @@ describe('CompanyCrudControls', () => {
       useLocaleStore.getState().addCompany(localeId, { id: `c${i}`, name: `Company ${i}`, color: '#4f6d7a', robotIds: [] });
     }
     render(<CompanyCrudControls />);
-    expect((screen.getByRole('button', { name: 'Create' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: /^create\b/i }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('Create is enabled below the MAX_COMPANIES cap', () => {
     useLocaleStore.getState().addCompany(localeId, { id: 'c0', name: 'Company 0', color: '#4f6d7a', robotIds: [] });
     render(<CompanyCrudControls />);
-    expect((screen.getByRole('button', { name: 'Create' }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole('button', { name: /^create\b/i }) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('the Create name input is also disabled once the locale already has MAX_COMPANIES companies', () => {
@@ -67,13 +67,13 @@ describe('CompanyCrudControls', () => {
   it('Create is disabled when the name draft is blank', () => {
     render(<CompanyCrudControls />);
     fireEvent.change(screen.getByRole('textbox', { name: /new company name/i }), { target: { value: '' } });
-    expect((screen.getByRole('button', { name: 'Create' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: /^create\b/i }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('Create is disabled when the name draft is whitespace-only', () => {
     render(<CompanyCrudControls />);
     fireEvent.change(screen.getByRole('textbox', { name: /new company name/i }), { target: { value: '   ' } });
-    expect((screen.getByRole('button', { name: 'Create' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: /^create\b/i }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('Create is enabled again once real (non-whitespace) text is entered', () => {
@@ -81,7 +81,7 @@ describe('CompanyCrudControls', () => {
     const input = screen.getByRole('textbox', { name: /new company name/i });
     fireEvent.change(input, { target: { value: '   ' } });
     fireEvent.change(input, { target: { value: '  Iron Consortium  ' } });
-    expect((screen.getByRole('button', { name: 'Create' }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole('button', { name: /^create\b/i }) as HTMLButtonElement).disabled).toBe(false);
   });
 
   // docs/specs/COMPANY_SECTION_ENHANCEMENTS.md §1.2 — pickRandomCompanyColor, Math.random()-fed
@@ -91,7 +91,7 @@ describe('CompanyCrudControls', () => {
     it('assigns a color from ROBOT_IDENTITY_COLOR_NAMES\' resolved hex set', () => {
       const addSpy = vi.spyOn(useLocaleStore.getState(), 'addCompany');
       render(<CompanyCrudControls />);
-      fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+      fireEvent.click(screen.getByRole('button', { name: /^create\b/i }));
 
       const [, company] = addSpy.mock.calls[0] as [string, Company];
       const validColors = ROBOT_IDENTITY_COLOR_NAMES.map((name) => ACCENT_COLORS[name]);
@@ -103,7 +103,7 @@ describe('CompanyCrudControls', () => {
       useLocaleStore.getState().addCompany(localeId, { id: 'c2', name: 'Null Syndicate', color: ACCENT_COLORS.plum, robotIds: [] });
       const addSpy = vi.spyOn(useLocaleStore.getState(), 'addCompany');
       render(<CompanyCrudControls />);
-      fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+      fireEvent.click(screen.getByRole('button', { name: /^create\b/i }));
 
       const [, company] = addSpy.mock.calls[0] as [string, Company];
       expect(company.color).not.toBe(ACCENT_COLORS.blue);
@@ -121,7 +121,7 @@ describe('CompanyCrudControls', () => {
       });
       const addSpy = vi.spyOn(useLocaleStore.getState(), 'addCompany');
       render(<CompanyCrudControls />);
-      fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+      fireEvent.click(screen.getByRole('button', { name: /^create\b/i }));
 
       const [, company] = addSpy.mock.calls[0] as [string, Company];
       const validColors = ROBOT_IDENTITY_COLOR_NAMES.map((name) => ACCENT_COLORS[name]);
@@ -135,10 +135,47 @@ describe('CompanyCrudControls', () => {
     render(<CompanyCrudControls />);
 
     fireEvent.change(screen.getByRole('textbox', { name: /new company name/i }), { target: { value: '  Iron Consortium  ' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+    fireEvent.click(screen.getByRole('button', { name: /^create\b/i }));
 
     const [, company] = addSpy.mock.calls[0] as [string, Company];
     expect(company.name).toBe('Iron Consortium');
+  });
+
+  // docs/tasks/COMPANY_CRUD_BUTTON_PREVIEW.md Task 2 — the Create button's own label previews the
+  // draft, so both the visible text and the accessible name change together.
+  describe('Create button label', () => {
+    it('is exactly "Create" when the draft is blank', () => {
+      render(<CompanyCrudControls />);
+      fireEvent.change(screen.getByRole('textbox', { name: /new company name/i }), { target: { value: '' } });
+
+      expect(screen.getByRole('button', { name: 'Create' })).toBeTruthy();
+    });
+
+    it('is exactly "Create" when the draft is whitespace-only', () => {
+      render(<CompanyCrudControls />);
+      fireEvent.change(screen.getByRole('textbox', { name: /new company name/i }), { target: { value: '   ' } });
+
+      expect(screen.getByRole('button', { name: 'Create' })).toBeTruthy();
+    });
+
+    it('is "Create {draft}" — the raw, as-typed draft — when non-blank', () => {
+      render(<CompanyCrudControls />);
+      fireEvent.change(screen.getByRole('textbox', { name: /new company name/i }), { target: { value: 'Glass Crew' } });
+
+      expect(screen.getByRole('button', { name: 'Create Glass Crew' })).toBeTruthy();
+    });
+
+    it('updates live as the draft is typed, with no click required', () => {
+      render(<CompanyCrudControls />);
+      const input = screen.getByRole('textbox', { name: /new company name/i });
+
+      fireEvent.change(input, { target: { value: 'Glass Crew' } });
+      expect(screen.getByRole('button', { name: 'Create Glass Crew' })).toBeTruthy();
+
+      fireEvent.change(input, { target: { value: 'Null Syndicate' } });
+      expect(screen.getByRole('button', { name: 'Create Null Syndicate' })).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'Create Glass Crew' })).toBeNull();
+    });
   });
 
   it('Rename input is disabled when no company is selected', () => {
