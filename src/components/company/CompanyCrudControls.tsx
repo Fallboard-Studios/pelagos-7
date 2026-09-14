@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { TextInput } from '@/components/ui/controls/TextInput';
 import { Button } from '@/components/ui/controls/Button';
-import { AccordionContainer } from '@/components/ui/controls/AccordionContainer';
 import { useLocaleStore } from '@/stores/localeStore';
 import { useUIStore } from '@/stores/uiStore';
 import { getActiveLocaleId } from '@/utils/localeHelpers';
 import { generateCompanyName } from '@/systems/spawnSystem';
-import { COMPANY_NAME_INPUT_SCHEMA, CREATE_COMPANY_SCHEMA, RENAME_COMPANY_SCHEMA, DELETE_COMPANY_SCHEMA, COMPANY_CRUD_ACCORDION_SCHEMA } from '@/data/companyConfig';
+import { COMPANY_NAME_INPUT_SCHEMA, CREATE_COMPANY_SCHEMA, RENAME_COMPANY_SCHEMA, DELETE_COMPANY_SCHEMA } from '@/data/companyConfig';
 import { MAX_COMPANIES } from '@/constants';
 import { ACCENT_COLORS, ROBOT_IDENTITY_COLOR_NAMES } from '@/constants/accentColors';
 import type { Company } from '@/types/Company';
@@ -59,9 +58,10 @@ function pickRandomCompanyColor(existingColors: string[]): string {
  * crypto.randomUUID() is the right tool here, not a violation of the app's seeded-generation
  * rule.
  *
- * Wrapped in its own AccordionContainer (docs/specs/COMPANY_SECTION_ENHANCEMENTS.md §1.1),
- * collapsed by default, manual toggle only — no auto-open on company selection. CompanyButtonRow
- * stays outside it, rendered by CompanyManager above, always visible.
+ * Was wrapped in its own AccordionContainer, collapsed by default (docs/specs/
+ * COMPANY_SECTION_ENHANCEMENTS.md §1.1); that wrap was removed (Roadmap: Robot Selection Filter
+ * Panel) — Create/Rename/Delete now render directly, always visible, no toggle. CompanyButtonRow
+ * stays outside this component regardless, rendered by CompanyManager above.
  */
 export function CompanyCrudControls() {
   const localeId = getActiveLocaleId();
@@ -161,30 +161,28 @@ export function CompanyCrudControls() {
   };
 
   return (
-    <AccordionContainer schema={COMPANY_CRUD_ACCORDION_SCHEMA}>
-      <div className="company-crud-controls">
-        <div className="company-crud-controls__create">
-          <TextInput schema={CREATE_NAME_SCHEMA} value={createNameDraft} onChange={setCreateNameDraft} disabled={atCap} />
-          <Button schema={createSchema} onClick={handleCreate} disabled={atCap || nameIsBlank} />
-        </div>
-
-        <div className="company-crud-controls__rename">
-          <TextInput
-            schema={RENAME_NAME_SCHEMA}
-            value={renameDraft}
-            onChange={setRenameDraft}
-            disabled={!hasSelectedCompany}
-          />
-          <Button
-            schema={renameSchema}
-            onClick={handleRenameSubmit}
-            disabled={!hasSelectedCompany || renameIsBlank || renameUnchanged}
-          />
-        </div>
-
-        <Button schema={deleteSchema} onClick={handleDelete} disabled={!hasSelectedCompany} />
+    <div className="company-crud-controls">
+      <div className="company-crud-controls__create">
+        <TextInput schema={CREATE_NAME_SCHEMA} value={createNameDraft} onChange={setCreateNameDraft} disabled={atCap} />
+        <Button schema={createSchema} onClick={handleCreate} disabled={atCap || nameIsBlank} />
       </div>
-    </AccordionContainer>
+
+      <div className="company-crud-controls__rename">
+        <TextInput
+          schema={RENAME_NAME_SCHEMA}
+          value={renameDraft}
+          onChange={setRenameDraft}
+          disabled={!hasSelectedCompany}
+        />
+        <Button
+          schema={renameSchema}
+          onClick={handleRenameSubmit}
+          disabled={!hasSelectedCompany || renameIsBlank || renameUnchanged}
+        />
+      </div>
+
+      <Button schema={deleteSchema} onClick={handleDelete} disabled={!hasSelectedCompany} />
+    </div>
   );
 }
 

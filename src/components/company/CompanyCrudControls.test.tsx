@@ -456,24 +456,13 @@ describe('CompanyCrudControls', () => {
     expect(calls).toEqual(['removeCompany', 'selectCompany']);
   });
 
-  // docs/specs/COMPANY_SECTION_ENHANCEMENTS.md §1.1 — CRUD controls wrap in an AccordionContainer,
-  // collapsed by default, manual toggle only. aria-expanded is this codebase's own established
-  // way of testing collapsed/open state (AccordionContainer.test.tsx) — content itself stays in
-  // the DOM (forceMount) regardless of collapse state, so it's still queryable either way.
-  describe('CRUD accordion', () => {
-    it('starts collapsed (aria-expanded="false" on its own trigger)', () => {
-      render(<CompanyCrudControls />);
-      expect(screen.getByRole('button', { name: /manage companies/i }).getAttribute('aria-expanded')).toBe('false');
-    });
-
-    it('expands when its trigger is clicked, and collapses again on a second click', () => {
-      render(<CompanyCrudControls />);
-      const trigger = screen.getByRole('button', { name: /manage companies/i });
-      fireEvent.click(trigger);
-      expect(trigger.getAttribute('aria-expanded')).toBe('true');
-      fireEvent.click(trigger);
-      expect(trigger.getAttribute('aria-expanded')).toBe('false');
-    });
+  // Roadmap: Robot Selection Filter Panel — the AccordionContainer wrap (docs/specs/
+  // COMPANY_SECTION_ENHANCEMENTS.md §1.1) is removed; Create/Rename/Delete render directly, no
+  // longer collapsed behind a "Manage Companies" toggle.
+  it('renders with no accordion wrapper — no collapse/expand trigger, no aria-expanded anywhere', () => {
+    render(<CompanyCrudControls />);
+    expect(screen.queryByRole('button', { name: /manage companies/i })).toBeNull();
+    expect(document.querySelector('[aria-expanded]')).toBeNull();
   });
 
   it('clicking Delete calls removeCompany with the currently selected company\'s id', () => {

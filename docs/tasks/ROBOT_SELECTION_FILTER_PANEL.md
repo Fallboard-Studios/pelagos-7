@@ -131,7 +131,7 @@ Task 6 (wire RobotFilterPanel into RobotsTab) — depends on Task 4 (CompanyMana
 
   **Estimated scope:** S (one renamed util + its test, a two-line change in `RobotsTab.tsx`)
 
-- [ ] **Task 3: Drop `CompanyCrudControls`' accordion wrap**
+- [x] **Task 3: Drop `CompanyCrudControls`' accordion wrap**
 
   **Description:** Remove the `<AccordionContainer schema={COMPANY_CRUD_ACCORDION_SCHEMA}>` wrapper from
   `CompanyCrudControls.tsx` — its children (`.company-crud-controls` and everything inside) render
@@ -139,20 +139,20 @@ Task 6 (wire RobotFilterPanel into RobotsTab) — depends on Task 4 (CompanyMana
   consumer). Spec §1.4.
 
   **Acceptance criteria:**
-  - [ ] `CompanyCrudControls` renders its `.company-crud-controls` div with no `AccordionContainer`/Radix
+  - [x] `CompanyCrudControls` renders its `.company-crud-controls` div with no `AccordionContainer`/Radix
         Accordion markup anywhere in its output — no trigger, no `aria-expanded`, no collapse/expand
         behavior.
-  - [ ] `COMPANY_CRUD_ACCORDION_SCHEMA` is removed from `companyConfig.ts` and has no remaining importer
+  - [x] `COMPANY_CRUD_ACCORDION_SCHEMA` is removed from `companyConfig.ts` and has no remaining importer
         (verify via a repo-wide search, not just `CompanyCrudControls.tsx`).
-  - [ ] The `describe('CRUD accordion', …)` block in `CompanyCrudControls.test.tsx` (2 tests: starts
+  - [x] The `describe('CRUD accordion', …)` block in `CompanyCrudControls.test.tsx` (2 tests: starts
         collapsed, expands/collapses on click) is deleted.
-  - [ ] Every other existing test in `CompanyCrudControls.test.tsx` still passes unmodified — none of them
+  - [x] Every other existing test in `CompanyCrudControls.test.tsx` still passes unmodified — none of them
         depend on the accordion wrapper.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/company/CompanyCrudControls.test.tsx src/data/companyConfig.test.ts`
+  - [x] `npx vitest run src/components/company/CompanyCrudControls.test.tsx src/data/companyConfig.test.ts`
         passes.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** None.
 
