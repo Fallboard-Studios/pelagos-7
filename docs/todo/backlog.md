@@ -168,3 +168,85 @@ specified). Not yet scoped.
 Requested by Crawford (`docs/todo/temp.md`), 2026-09-11. Low priority — deprioritized
 behind launch. Likely a grab-bag of minor polish (idle bobs, blinking lights, and similar
 small touches) rather than a single feature; exact list not yet defined.
+
+### 14. Header: Selects Whole Locale Object for Coordinates Only
+
+Found via a manual re-render-bug sweep on `perf/rerender-cleanup` (2026-09-14), searching
+the codebase for the same two anti-patterns that branch's own commits already fixed
+elsewhere: whole-object/array Zustand selectors, and unrounded `ResizeObserver`
+measurements feeding state. High confidence, high impact.
+
+`Header.tsx:140` — `useLocaleStore((s) => (currentLocaleId ? s.locales[currentLocaleId] :
+undefined))` — selects the entire locale object, but the only read (`Header.tsx:177`) is
+`currentLocale?.coordinates?.x/.y`. This is the exact bug already fixed in
+`SectorSettingsDrawer` (`ef10d99`, same branch, same store) — missed here. `Header` is
+always mounted, so it re-renders on every mutation to the current locale: every robot
+battery/job/docking update, every measure tick, everything.
+
+**Fix shape:** select `coordinates` directly, same pattern as the `SectorSettingsDrawer`
+fix — `useLocaleStore((s) => (currentLocaleId ? s.locales[currentLocaleId]?.coordinates :
+undefined))`.
+
+### 15. LocaleView: Selects Whole Locale Object for an Existence Check
+
+Found in the same sweep as item 14 (2026-09-14). High confidence.
+
+`LocaleView.tsx:15` — `const locale = useLocaleStore((s) => s.locales[localeId]); if
+(!locale) return null;` — `locale` is never read again; `OceanScene` re-derives its own
+`localeId`/robots/actors independently rather than receiving them from `LocaleView`.
+Selecting the whole object means this component re-renders on every locale mutation just
+to answer "does it still exist."
+
+**Fix shape:** `const localeExists = useLocaleStore((s) => localeId in s.locales); if
+(!localeExists) return null;`.
+
+### 16. useVoxelTrackBoxCount: Unrounded ResizeObserver Measurement
+
+Found in the same sweep as item 14 (2026-09-14). High confidence, wide blast radius —
+this hook backs the voxel-track box-count fitting for sliders app-wide (`SliderLinear`,
+`SliderLog`, etc.).
+
+`useVoxelTrackBoxCount.ts:76-79` — `const { width, height } = entries[0].contentRect; ...
+setMeasuredLength((prev) => (prev === next ? prev : next));` compares a raw sub-pixel
+float for equality. Same shape as the pre-fix `CabinetBox` bug (`528c77b`/`9fbcb7d`): real
+browser sub-pixel layout rounding can report a fractionally different measurement across
+consecutive observations of the same rendered size, so the bail-out never catches and
+`setMeasuredLength` fires (and `computeFittedBoxCount` recomputes) on every jitter with no
+real resize.
+
+**Fix shape:** `Math.round()` the measurement before the compare, same as `528c77b`/
+`9fbcb7d`.
+
+### 17. Header: Unconditional Unrounded ResizeObserver Write to CSS Var
+
+Found in the same sweep as item 14 (2026-09-14). Medium confidence — real bug, but impact
+depends on what layout actually reads `--header-height` in a hot path; wants a quick check
+before treating it as worth fixing.
+
+`Header.tsx:93-96` — `const observer = new ResizeObserver((entries) => {
+document.documentElement.style.setProperty('--header-height',
+`${entries[0].contentRect.height}px`); });` — same unrounded-measurement family as items
+14/16, different mechanism: writes straight to a global CSS custom property on every
+observation, with no equality bail-out at all (not even an unrounded one). Doesn't cause a
+React re-render, but forces a style recalc on every sub-pixel jitter for anything that
+reads `--header-height` (e.g. sticky offsets).
+
+**Fix shape:** round before the `setProperty` call, and skip the write entirely when the
+rounded value hasn't changed (track the last-written value in a ref).
+
+### 18. AudioRigDrawer: Whole-Object globalAudio/globalLfo Selects
+
+Found in the same sweep as item 14 (2026-09-14). Lower confidence — needs a Profiler
+recording of a slider drag before treating this as a bug rather than accepted
+architecture (the container may need most of these slices anyway, and children may
+already be memoized).
+
+`AudioRigDrawer.tsx:228-229` — `const globalAudio = useAudioStore((s) => s.globalAudio);
+const globalLfo = useAudioStore((s) => s.globalLfo);` — whole-object selects at the
+container level for the entire Audio Rig. Dragging any single slider anywhere in the rig
+(compressor, EQ, either filter, delay, reverb, limiter, or any of the 7 LFO targets)
+replaces the top-level object and re-renders the whole drawer tree.
+
+**Fix shape:** not yet determined — profile first. If real, likely fix is per-effect
+selector hooks used directly inside each child panel instead of hoisted to the container
+and prop-drilled.
