@@ -56,6 +56,15 @@ export function TextInput({ schema, value, onChange, numeric, disabled }: TextIn
             inputMode={numeric ? 'decimal' : undefined}
             step={numeric ? 'any' : undefined}
             className="sc-text-input__el"
+            /* Bugfix, found live via a Chrome console warning on CompanyCrudControls's
+               Create field: a form field with neither id nor name is a real Chrome
+               best-practices flag (autofill/accessibility). schema.id is already the
+               uniqueness boundary every TextInput consumer relies on (see
+               CompanyCrudControls.tsx's own CREATE_NAME_SCHEMA/RENAME_NAME_SCHEMA
+               comment, and CoordsInput's `${schema.id}.x`/`.y`) — reused here rather
+               than inventing a second id scheme. */
+            id={schema.id}
+            name={schema.id}
             aria-label={resolveAccessibleName(schema)}
             placeholder={schema.placeholder}
             maxLength={schema.maxLength}
