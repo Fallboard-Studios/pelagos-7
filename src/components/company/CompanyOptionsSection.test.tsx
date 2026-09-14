@@ -216,7 +216,7 @@ describe('CompanyOptionsSection', () => {
   // disabled and gets getDisabledTraitColorStyle instead (see the describe block below).
   function selectActiveCompany() {
     useLocaleStore.getState().addRobot(localeId, makeRobot({ id: 'r1', companyId: 'c1' }));
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1'] });
     useUIStore.getState().selectCompany('c1');
   }
 
@@ -295,7 +295,7 @@ describe('CompanyOptionsSection', () => {
     });
 
     it('stays on the disabled (desaturated) style when a company is selected but has zero members', () => {
-      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: [] });
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
       useUIStore.getState().selectCompany('c1');
       render(<CompanyOptionsSection />);
       const stub = screen.getByTestId('audio-setting-section-stub');
@@ -305,7 +305,7 @@ describe('CompanyOptionsSection', () => {
   });
 
   it('renders every section disabled when the selected company has zero members', () => {
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: [] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
     useUIStore.getState().selectCompany('c1');
 
     render(<CompanyOptionsSection />);
@@ -320,7 +320,7 @@ describe('CompanyOptionsSection', () => {
       noteVariance: { active: true, value: 2 },
     });
     useLocaleStore.getState().addRobot(localeId, robot);
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1'] });
     useUIStore.getState().selectCompany('c1');
 
     render(<CompanyOptionsSection />);
@@ -349,7 +349,7 @@ describe('CompanyOptionsSection', () => {
     const r2 = makeRobot({ id: 'r2', companyId: 'c1' });
     useLocaleStore.getState().addRobot(localeId, r1);
     useLocaleStore.getState().addRobot(localeId, r2);
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1', 'r2'] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1', 'r2'] });
     useUIStore.getState().selectCompany('c1');
     const applyVolumeSpy = vi.spyOn(robotOptionsActions, 'applyVolume').mockImplementation(() => {});
 
@@ -363,7 +363,7 @@ describe('CompanyOptionsSection', () => {
   it('editing one field patches only that field into company.lastEditedOptions', () => {
     const robot = makeRobot({ id: 'r1', companyId: 'c1', masterVolume: 0.6 });
     useLocaleStore.getState().addRobot(localeId, robot);
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1'] });
     useUIStore.getState().selectCompany('c1');
     vi.spyOn(robotOptionsActions, 'applyVolume').mockImplementation(() => {});
     const updateCompanySpy = vi.spyOn(useLocaleStore.getState(), 'updateCompany');
@@ -381,7 +381,7 @@ describe('CompanyOptionsSection', () => {
     const r2 = makeRobot({ id: 'r2', companyId: 'c1' });
     useLocaleStore.getState().addRobot(localeId, r1);
     useLocaleStore.getState().addRobot(localeId, r2);
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1', 'r2'] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1', 'r2'] });
     useUIStore.getState().selectCompany('c1');
     const applyClickTrackSpy = vi.spyOn(robotOptionsActions, 'applyClickTrackActive').mockImplementation(() => {});
 
@@ -398,7 +398,7 @@ describe('CompanyOptionsSection', () => {
   it('editing Click Track patches clickTrackActive into company.lastEditedOptions', () => {
     const robot = makeRobot({ id: 'r1', companyId: 'c1' });
     useLocaleStore.getState().addRobot(localeId, robot);
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1'] });
     useUIStore.getState().selectCompany('c1');
     vi.spyOn(robotOptionsActions, 'applyClickTrackActive').mockImplementation(() => {});
     const updateCompanySpy = vi.spyOn(useLocaleStore.getState(), 'updateCompany');
@@ -415,7 +415,7 @@ describe('CompanyOptionsSection', () => {
     const r2 = makeRobot({ id: 'r2', companyId: 'c1' });
     useLocaleStore.getState().addRobot(localeId, r1);
     useLocaleStore.getState().addRobot(localeId, r2);
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1', 'r2'] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1', 'r2'] });
     useUIStore.getState().selectCompany('c1');
     const applyPitchRepeatSpy = vi.spyOn(robotOptionsActions, 'applyPitchRepeat').mockImplementation(() => {});
 
@@ -432,7 +432,7 @@ describe('CompanyOptionsSection', () => {
   it('editing Pitch Repeat patches only pitchRepeat into company.lastEditedOptions (plain-number pattern, not diffCompoundField)', () => {
     const robot = makeRobot({ id: 'r1', companyId: 'c1' });
     useLocaleStore.getState().addRobot(localeId, robot);
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1'] });
     useUIStore.getState().selectCompany('c1');
     vi.spyOn(robotOptionsActions, 'applyPitchRepeat').mockImplementation(() => {});
     const updateCompanySpy = vi.spyOn(useLocaleStore.getState(), 'updateCompany');
@@ -449,7 +449,7 @@ describe('CompanyOptionsSection', () => {
     const r2 = makeRobot({ id: 'r2', companyId: 'c1' });
     useLocaleStore.getState().addRobot(localeId, r1);
     useLocaleStore.getState().addRobot(localeId, r2);
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1', 'r2'] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1', 'r2'] });
     useUIStore.getState().selectCompany('c1');
     const applyMotifLengthSpy = vi.spyOn(robotOptionsActions, 'applyMotifLength').mockImplementation(() => {});
 
@@ -466,7 +466,7 @@ describe('CompanyOptionsSection', () => {
   it('editing Motif Length patches { active, value } (reconstructed) into company.lastEditedOptions', () => {
     const robot = makeRobot({ id: 'r1', companyId: 'c1' });
     useLocaleStore.getState().addRobot(localeId, robot);
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1'] });
     useUIStore.getState().selectCompany('c1');
     vi.spyOn(robotOptionsActions, 'applyMotifLength').mockImplementation(() => {});
     const updateCompanySpy = vi.spyOn(useLocaleStore.getState(), 'updateCompany');
@@ -481,7 +481,7 @@ describe('CompanyOptionsSection', () => {
   it('editing Motif Length across the 0 boundary patches both active and value together, not just one', () => {
     const robot = makeRobot({ id: 'r1', companyId: 'c1' });
     useLocaleStore.getState().addRobot(localeId, robot);
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1'] });
     useUIStore.getState().selectCompany('c1');
     const applyMotifLengthSpy = vi.spyOn(robotOptionsActions, 'applyMotifLength').mockImplementation(() => {});
     const updateCompanySpy = vi.spyOn(useLocaleStore.getState(), 'updateCompany');
@@ -499,7 +499,7 @@ describe('CompanyOptionsSection', () => {
     const r2 = makeRobot({ id: 'r2', companyId: 'c1' });
     useLocaleStore.getState().addRobot(localeId, r1);
     useLocaleStore.getState().addRobot(localeId, r2);
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1', 'r2'] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1', 'r2'] });
     useUIStore.getState().selectCompany('c1');
     const applyNoteVarianceSpy = vi.spyOn(robotOptionsActions, 'applyNoteVariance').mockImplementation(() => {});
 
@@ -516,7 +516,7 @@ describe('CompanyOptionsSection', () => {
   it('editing Note Variance patches { active, value } (reconstructed) into company.lastEditedOptions', () => {
     const robot = makeRobot({ id: 'r1', companyId: 'c1' });
     useLocaleStore.getState().addRobot(localeId, robot);
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1'] });
     useUIStore.getState().selectCompany('c1');
     vi.spyOn(robotOptionsActions, 'applyNoteVariance').mockImplementation(() => {});
     const updateCompanySpy = vi.spyOn(useLocaleStore.getState(), 'updateCompany');
@@ -531,7 +531,7 @@ describe('CompanyOptionsSection', () => {
   it('editing Note Variance across the 0 boundary patches both active and value together, not just one', () => {
     const robot = makeRobot({ id: 'r1', companyId: 'c1' });
     useLocaleStore.getState().addRobot(localeId, robot);
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1'] });
     useUIStore.getState().selectCompany('c1');
     const applyNoteVarianceSpy = vi.spyOn(robotOptionsActions, 'applyNoteVariance').mockImplementation(() => {});
     const updateCompanySpy = vi.spyOn(useLocaleStore.getState(), 'updateCompany');
@@ -547,7 +547,7 @@ describe('CompanyOptionsSection', () => {
   it('omits Reset Melody entirely in company mode', () => {
     const robot = makeRobot({ id: 'r1', companyId: 'c1' });
     useLocaleStore.getState().addRobot(localeId, robot);
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1'] });
     useUIStore.getState().selectCompany('c1');
 
     render(<CompanyOptionsSection />);
@@ -560,8 +560,8 @@ describe('CompanyOptionsSection', () => {
     const r2 = makeRobot({ id: 'r2', companyId: 'c2', masterVolume: 0.5 });
     useLocaleStore.getState().addRobot(localeId, r1);
     useLocaleStore.getState().addRobot(localeId, r2);
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
-    useLocaleStore.getState().addCompany(localeId, { id: 'c2', name: 'Null Syndicate', robotIds: ['r2'] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1'] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c2', name: 'Null Syndicate', color: '#4f6d7a', robotIds: ['r2'] });
     vi.spyOn(robotOptionsActions, 'applyVolume').mockImplementation(() => {});
 
     // Select c1, edit its Volume (the probe button always fires with a fixed 77%).
@@ -589,7 +589,7 @@ describe('CompanyOptionsSection', () => {
   it('editing an individual member robot directly does not change the company\'s lastEditedOptions', () => {
     const robot = makeRobot({ id: 'r1', companyId: 'c1', masterVolume: 0.5 });
     useLocaleStore.getState().addRobot(localeId, robot);
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1'] });
 
     robotOptionsActions.applyVolume(robot, localeId, 77);
 
@@ -599,7 +599,7 @@ describe('CompanyOptionsSection', () => {
   it('a Signature Array edit calls applyLayersContinuous once per member, and Ping Contour a separate applyAdsr call', () => {
     const r1 = makeRobot({ id: 'r1', companyId: 'c1' });
     useLocaleStore.getState().addRobot(localeId, r1);
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1'] });
     useUIStore.getState().selectCompany('c1');
     const continuousSpy = vi.spyOn(robotOptionsActions, 'applyLayersContinuous').mockImplementation(() => {});
     const adsrSpy = vi.spyOn(robotOptionsActions, 'applyAdsr').mockImplementation(() => {});
@@ -615,7 +615,7 @@ describe('CompanyOptionsSection', () => {
   it('a structural Signature Array edit (Type/Active) calls applyLayersStructural, not applyLayersContinuous', () => {
     const r1 = makeRobot({ id: 'r1', companyId: 'c1' });
     useLocaleStore.getState().addRobot(localeId, r1);
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1'] });
     useUIStore.getState().selectCompany('c1');
     const structuralSpy = vi.spyOn(robotOptionsActions, 'applyLayersStructural').mockImplementation(() => {});
     const continuousSpy = vi.spyOn(robotOptionsActions, 'applyLayersContinuous').mockImplementation(() => {});
@@ -630,7 +630,7 @@ describe('CompanyOptionsSection', () => {
   it('a per-layer LFO edit calls applyLayerLfo with the right target', () => {
     const r1 = makeRobot({ id: 'r1', companyId: 'c1' });
     useLocaleStore.getState().addRobot(localeId, r1);
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1'] });
     useUIStore.getState().selectCompany('c1');
     const lfoSpy = vi.spyOn(robotOptionsActions, 'applyLayerLfo').mockImplementation(() => {});
 
@@ -660,7 +660,7 @@ describe('CompanyOptionsSection', () => {
       });
       useLocaleStore.getState().addRobot(localeId, r1);
       useLocaleStore.getState().addRobot(localeId, r2);
-      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1', 'r2'] });
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1', 'r2'] });
       useUIStore.getState().selectCompany('c1');
       const adsrSpy = vi.spyOn(robotOptionsActions, 'applyAdsr').mockImplementation(() => {});
 
@@ -700,7 +700,7 @@ describe('CompanyOptionsSection', () => {
       });
       useLocaleStore.getState().addRobot(localeId, r1);
       useLocaleStore.getState().addRobot(localeId, r2);
-      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1', 'r2'] });
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1', 'r2'] });
       useUIStore.getState().selectCompany('c1');
       const continuousSpy = vi.spyOn(robotOptionsActions, 'applyLayersContinuous').mockImplementation(() => {});
 
@@ -721,7 +721,7 @@ describe('CompanyOptionsSection', () => {
       const r2 = makeRobot({ id: 'r2', companyId: 'c1', lfoSettings: { volume: { shape: 'square', rate: 0.5, depth: 60 } } as Robot['lfoSettings'] });
       useLocaleStore.getState().addRobot(localeId, r1);
       useLocaleStore.getState().addRobot(localeId, r2);
-      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1', 'r2'] });
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1', 'r2'] });
       useUIStore.getState().selectCompany('c1');
       const volumeLfoSpy = vi.spyOn(robotOptionsActions, 'applyVolumeLfo').mockImplementation(() => {});
 
@@ -747,7 +747,7 @@ describe('CompanyOptionsSection', () => {
       const r2 = makeRobot({ id: 'r2', companyId: undefined }); // Freelance
       useLocaleStore.getState().addRobot(localeId, r1);
       useLocaleStore.getState().addRobot(localeId, r2);
-      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1'] });
       useUIStore.getState().selectAllRobots();
 
       render(<CompanyOptionsSection />);
@@ -764,8 +764,8 @@ describe('CompanyOptionsSection', () => {
       useLocaleStore.getState().addRobot(localeId, r1);
       useLocaleStore.getState().addRobot(localeId, r2);
       useLocaleStore.getState().addRobot(localeId, r3);
-      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
-      useLocaleStore.getState().addCompany(localeId, { id: 'c2', name: 'Null Syndicate', robotIds: ['r2'] });
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1'] });
+      useLocaleStore.getState().addCompany(localeId, { id: 'c2', name: 'Null Syndicate', color: '#4f6d7a', robotIds: ['r2'] });
       useUIStore.getState().selectAllRobots();
       const applyVolumeSpy = vi.spyOn(robotOptionsActions, 'applyVolume').mockImplementation(() => {});
 
@@ -779,7 +779,7 @@ describe('CompanyOptionsSection', () => {
     it('editing one field while All is selected patches locale.allRobotsLastEditedOptions, not any company\'s lastEditedOptions', () => {
       const r1 = makeRobot({ id: 'r1', companyId: 'c1', masterVolume: 0.6 });
       useLocaleStore.getState().addRobot(localeId, r1);
-      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1'] });
       useUIStore.getState().selectAllRobots();
       vi.spyOn(robotOptionsActions, 'applyVolume').mockImplementation(() => {});
       const updateCompanySpy = vi.spyOn(useLocaleStore.getState(), 'updateCompany');
@@ -796,7 +796,7 @@ describe('CompanyOptionsSection', () => {
     it('All\'s last-edited value is independent of any company\'s — switching between them shows each one\'s own snapshot', () => {
       const r1 = makeRobot({ id: 'r1', companyId: 'c1', masterVolume: 0.5 });
       useLocaleStore.getState().addRobot(localeId, r1);
-      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: ['r1'] });
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1'] });
       vi.spyOn(robotOptionsActions, 'applyVolume').mockImplementation(() => {});
 
       // Edit while "All" is selected (probe fires a fixed 77%).

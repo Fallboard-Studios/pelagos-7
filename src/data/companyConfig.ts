@@ -3,6 +3,7 @@
 // ========================================
 import type { RadioButtonSchema, ButtonSchema, TextInputSchema, DualLabelSchema } from '../types/controls';
 import type { Company } from '../types/Company';
+import { ACCENT_COLORS } from '../constants/accentColors';
 
 // ========================================
 // COMPANY ASSIGNMENT (RadioButton)
@@ -22,7 +23,9 @@ export const FREELANCE_VALUE = '__freelance__';
  * not a static export. Used for the robot-to-company assignment RadioButton in both
  * RobotSelectionCard and RobotDisplaySection. Named/typed for a Select (buildCompanySelectSchema,
  * SelectSchema) through Roadmap Phase 10; renamed and retyped to RadioButtonSchema by 10.5 when
- * Select was removed entirely — see docs/specs/COMPANY_ASSIGNMENT_RADIO.md.
+ * Select was removed entirely — see docs/specs/COMPANY_ASSIGNMENT_RADIO.md. Each company option
+ * now also carries that company's own `color` (docs/specs/COMPANY_SECTION_ENHANCEMENTS.md §1.3);
+ * Freelance omits it, keeping RadioButton's ambient-accent fallback.
  */
 export function buildCompanyAssignmentSchema(companies: Company[]): RadioButtonSchema {
   return {
@@ -31,8 +34,9 @@ export function buildCompanyAssignmentSchema(companies: Company[]): RadioButtonS
     loreLabel: 'UNIT AFFILIATION',
     humanLabel: 'Company',
     options: [
+      // No color — ambient fallback (the robot card's own identityColor, cascaded from its <li>).
       { value: FREELANCE_VALUE, label: 'Freelance' },
-      ...companies.map((c) => ({ value: c.id, label: c.name })),
+      ...companies.map((c) => ({ value: c.id, label: c.name, color: c.color })),
     ],
   };
 }
@@ -56,8 +60,16 @@ export const ALL_VALUE = '__all__';
 /** CompanyButtonRow reuses the RadioButton primitive — a company button row is exactly "one
  *  active among many, click to select," which RadioButton already implements (including the
  *  active-state styling), rather than reinventing that with a list of independent Buttons.
- *  None and All come first (in that order) so the two "no single company" meta-options aren't
- *  separated by the (possibly long, user-generated) per-company list. */
+ *
+ *  Order is All, then the per-company list, then Reset last (Roadmap: Robot Selection Filter
+ *  Panel) — the two "no single company" meta-options deliberately sandwich the (possibly long,
+ *  user-generated) company list rather than both preceding it. All shows every robot including
+ *  freelancers and keeps bulk-edit armed for the whole roster (CompanyOptionsSection's own
+ *  `allRobotsSelected` branch, unchanged); Reset (this schema's own NONE_VALUE sentinel, renamed
+ *  from "None") shows every robot with bulk-edit disabled. Each gets its own fixed accent color —
+ *  green for All, red for Reset — same as every company option's own `color`
+ *  (docs/specs/COMPANY_SECTION_ENHANCEMENTS.md §1.3); unlike that history, there is no longer an
+ *  "ambient fallback, no color" option anywhere in this row. */
 export function buildCompanyButtonRowSchema(companies: Company[]): RadioButtonSchema {
   return {
     id: 'company.buttonRow',
@@ -65,9 +77,9 @@ export function buildCompanyButtonRowSchema(companies: Company[]): RadioButtonSc
     loreLabel: 'UNIT ROSTER',
     humanLabel: 'Companies',
     options: [
-      { value: NONE_VALUE, label: 'None' },
-      { value: ALL_VALUE, label: 'All' },
-      ...companies.map((c) => ({ value: c.id, label: c.name })),
+      { value: ALL_VALUE, label: 'All', color: ACCENT_COLORS.green },
+      ...companies.map((c) => ({ value: c.id, label: c.name, color: c.color })),
+      { value: NONE_VALUE, label: 'Reset', color: ACCENT_COLORS.red },
     ],
   };
 }
@@ -79,8 +91,9 @@ export const COMPANY_SELECTION_HEADER_SCHEMA: DualLabelSchema = {
   humanLabel: 'Companies',
 };
 
-/** Shared by both Create (a staging value, not yet committed) and Rename (bound live to the
- *  selected company's name) — same schema, different data binding at the component layer. */
+/** Shared by both Create and Rename — both are locally-staged draft values, not committed to the
+ *  store until their own button is clicked (Rename's own Submit button, added alongside Create's
+ *  Commission button, matching request — was bound live to the selected company's name before). */
 export const COMPANY_NAME_INPUT_SCHEMA: TextInputSchema = {
   id: 'company.name',
   type: 'textInput',
@@ -95,6 +108,13 @@ export const CREATE_COMPANY_SCHEMA: ButtonSchema = {
   type: 'button',
   loreLabel: 'COMMISSION UNIT',
   humanLabel: 'Create',
+};
+
+export const RENAME_COMPANY_SCHEMA: ButtonSchema = {
+  id: 'company.rename',
+  type: 'button',
+  loreLabel: 'REDESIGNATE UNIT',
+  humanLabel: 'Rename',
 };
 
 export const DELETE_COMPANY_SCHEMA: ButtonSchema = {

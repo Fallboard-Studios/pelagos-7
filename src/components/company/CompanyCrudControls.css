@@ -4,8 +4,17 @@
   gap: 0.5rem;
 }
 
-.company-crud-controls__create {
+/* Shared by Create's and Rename's own group (each a name field with its own submit button
+   stacked beneath it, same shape) — one rule for both rather than two near-duplicates.
+   Roadmap: Robot Selection Filter Panel — was a side-by-side row (field + button, aligned to the
+   button's own baseline); Crawford asked for the button to sit beneath its own text input
+   instead, inside the filter panel's CRUD section. flex-direction: column's default
+   align-items: stretch is what gives the field its full width now (see below) — no
+   flex:1/min-width:0 hack needed the way the old row layout required (that fix's own reasoning
+   no longer applies once the cross axis is width, not height). */
+.company-crud-controls__create,
+.company-crud-controls__rename {
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
   gap: 0.5rem;
 }

@@ -186,7 +186,16 @@ export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, 
       // contentRect.width only when borderBoxSize genuinely isn't
       // available (e.g. an older environment/mock).
       const borderBoxWidth = entry.borderBoxSize?.[0]?.inlineSize;
-      setWidth(borderBoxWidth ?? entry.contentRect.width);
+      // Rounded to a whole pixel — real browser sub-pixel layout rounding can report a
+      // fractionally different border-box width across consecutive observations of the exact same
+      // rendered size (no real resize happened). Without rounding, that jitter changes `width`
+      // state on every callback, reruns the geometry effect below (width is in its dependency
+      // array) and rewrites the top-face wall's own inline style every time — a self-sustaining
+      // ResizeObserver retrigger loop with nothing to ever stop it. Rounding makes two
+      // sub-pixel-different measurements of the same real size resolve to an identical number, so
+      // React's own `Object.is` bail-out on an unchanged state value stops the loop at its source.
+      // Found live: a CabinetBox-heavy panel's own scrollbar continuously flickering, even idle.
+      setWidth(Math.round(borderBoxWidth ?? entry.contentRect.width));
     });
     observer.observe(el, { box: 'border-box' });
     return () => observer.disconnect();

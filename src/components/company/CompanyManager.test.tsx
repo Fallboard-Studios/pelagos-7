@@ -4,26 +4,25 @@ import { render, screen } from '@testing-library/react';
 import { CompanyManager } from './CompanyManager';
 
 describe('CompanyManager', () => {
-  it('renders the company button row, CRUD controls, and options section, in that order', () => {
+  it('renders the company button row and CRUD controls, in that order', () => {
     const { container } = render(<CompanyManager />);
 
     const buttonRow = container.querySelector('.company-button-row');
     const crudControls = container.querySelector('.company-crud-controls');
-    const optionsSection = container.querySelector('.company-options-section');
 
     expect(buttonRow).toBeTruthy();
     expect(crudControls).toBeTruthy();
-    expect(optionsSection).toBeTruthy();
+    // Roadmap: Robot Selection Filter Panel — CompanyOptionsSection no longer renders here; it
+    // moved to be RobotsTab's own direct child (RobotsTab.test.tsx covers its new position).
+    expect(container.querySelector('.company-options-section')).toBeNull();
 
-    // DOCUMENT_POSITION_FOLLOWING: buttonRow comes before crudControls, which comes before
-    // optionsSection, in document order.
+    // DOCUMENT_POSITION_FOLLOWING: buttonRow comes before crudControls, in document order.
     expect(buttonRow!.compareDocumentPosition(crudControls!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(crudControls!.compareDocumentPosition(optionsSection!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('renders the "None" company button by default (no company selected)', () => {
+  it('renders the "Reset" company button by default (no company selected)', () => {
     render(<CompanyManager />);
-    expect(screen.getByRole('radio', { name: 'None' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Reset' })).toBeTruthy();
   });
 
   // Roadmap Phase 14 (docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.5, Task 14) — the Company

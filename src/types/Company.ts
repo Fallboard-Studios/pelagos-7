@@ -31,6 +31,12 @@ export interface CompanyOptionsSnapshot {
 export interface Company {
   id: string;
   name: string;
+  /** Seeded UI-chrome identity color (docs/specs/COMPANY_SECTION_ENHANCEMENTS.md §1.2) — a single
+   *  hex, same shape as Robot.identityColor, not a TRAIT_COLORS-style [a, b] pair. Set at creation
+   *  time by every real construction path (spawnSystem.ts's seeded generateCompanyIdentityColor,
+   *  CompanyCrudControls.tsx's Math.random()-fed pickRandomCompanyColor) — required, not optional,
+   *  since neither path ever omits it. */
+  color: string;
   robotIds: string[];
   lastEditedOptions?: CompanyOptionsSnapshot;
 }

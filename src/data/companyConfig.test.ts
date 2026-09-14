@@ -7,13 +7,15 @@ import {
   ALL_VALUE,
   buildCompanyButtonRowSchema,
   CREATE_COMPANY_SCHEMA,
+  RENAME_COMPANY_SCHEMA,
   COMPANY_NAME_INPUT_SCHEMA,
   DELETE_COMPANY_SCHEMA,
 } from './companyConfig';
 import { CONTROL_SCHEMA_TYPES } from '@/types/controls';
+import { ACCENT_COLORS } from '@/constants/accentColors';
 import type { Company } from '@/types/Company';
 
-const ALL_SCHEMAS = [CREATE_COMPANY_SCHEMA, COMPANY_NAME_INPUT_SCHEMA, DELETE_COMPANY_SCHEMA];
+const ALL_SCHEMAS = [CREATE_COMPANY_SCHEMA, RENAME_COMPANY_SCHEMA, COMPANY_NAME_INPUT_SCHEMA, DELETE_COMPANY_SCHEMA];
 
 describe('companyConfig', () => {
   it('every schema type is one of the 14 closed-set ControlSchema variants', () => {
@@ -38,16 +40,16 @@ describe('companyConfig', () => {
   describe('buildCompanyAssignmentSchema', () => {
     it('starts with the Freelance option, followed by one entry per company', () => {
       const companies: Company[] = [
-        { id: 'c1', name: 'Iron Consortium', robotIds: [] },
-        { id: 'c2', name: 'Null Syndicate', robotIds: [] },
+        { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] },
+        { id: 'c2', name: 'Null Syndicate', color: '#65617f', robotIds: [] },
       ];
 
       const schema = buildCompanyAssignmentSchema(companies);
 
       expect(schema.type).toBe('radio');
       expect(schema.options[0]).toEqual({ value: FREELANCE_VALUE, label: 'Freelance' });
-      expect(schema.options[1]).toEqual({ value: 'c1', label: 'Iron Consortium' });
-      expect(schema.options[2]).toEqual({ value: 'c2', label: 'Null Syndicate' });
+      expect(schema.options[1]).toEqual({ value: 'c1', label: 'Iron Consortium', color: '#4f6d7a' });
+      expect(schema.options[2]).toEqual({ value: 'c2', label: 'Null Syndicate', color: '#65617f' });
       expect(schema.options).toHaveLength(3);
     });
 
@@ -58,6 +60,15 @@ describe('companyConfig', () => {
 
     it('is namespaced under "company." like every other schema in this file', () => {
       expect(buildCompanyAssignmentSchema([]).id.startsWith('company.')).toBe(true);
+    });
+
+    // docs/specs/COMPANY_SECTION_ENHANCEMENTS.md §1.3 — per-company color, populated once
+    // Company.color exists; Freelance keeps today's ambient fallback (no color key at all).
+    it('the Freelance option carries no color — ambient fallback, unlike every real company option', () => {
+      const companies: Company[] = [{ id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] }];
+      const schema = buildCompanyAssignmentSchema(companies);
+      expect(schema.options[0]).not.toHaveProperty('color');
+      expect(schema.options[1]).toHaveProperty('color', '#4f6d7a');
     });
   });
 
@@ -70,28 +81,39 @@ describe('companyConfig', () => {
   });
 
   describe('buildCompanyButtonRowSchema', () => {
-    it('starts with None then All, followed by one entry per company', () => {
+    it('starts with All, then one entry per company, then Reset last', () => {
       const companies: Company[] = [
-        { id: 'c1', name: 'Iron Consortium', robotIds: [] },
-        { id: 'c2', name: 'Null Syndicate', robotIds: [] },
+        { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] },
+        { id: 'c2', name: 'Null Syndicate', color: '#65617f', robotIds: [] },
       ];
 
       const schema = buildCompanyButtonRowSchema(companies);
 
       expect(schema.type).toBe('radio');
-      expect(schema.options[0]).toEqual({ value: NONE_VALUE, label: 'None' });
-      expect(schema.options[1]).toEqual({ value: ALL_VALUE, label: 'All' });
-      expect(schema.options[2]).toEqual({ value: 'c1', label: 'Iron Consortium' });
-      expect(schema.options[3]).toEqual({ value: 'c2', label: 'Null Syndicate' });
+      expect(schema.options[0]).toEqual({ value: ALL_VALUE, label: 'All', color: ACCENT_COLORS.green });
+      expect(schema.options[1]).toEqual({ value: 'c1', label: 'Iron Consortium', color: '#4f6d7a' });
+      expect(schema.options[2]).toEqual({ value: 'c2', label: 'Null Syndicate', color: '#65617f' });
+      expect(schema.options[3]).toEqual({ value: NONE_VALUE, label: 'Reset', color: ACCENT_COLORS.red });
       expect(schema.options).toHaveLength(4);
     });
 
-    it('returns just None and All when there are no companies yet', () => {
+    it('returns just All and Reset when there are no companies yet', () => {
       const schema = buildCompanyButtonRowSchema([]);
       expect(schema.options).toEqual([
-        { value: NONE_VALUE, label: 'None' },
-        { value: ALL_VALUE, label: 'All' },
+        { value: ALL_VALUE, label: 'All', color: ACCENT_COLORS.green },
+        { value: NONE_VALUE, label: 'Reset', color: ACCENT_COLORS.red },
       ]);
+    });
+
+    // Roadmap: Robot Selection Filter Panel — every option in this row now carries a color
+    // (All=green, Reset=red, each company its own); there is no longer an "ambient fallback, no
+    // color" case here at all, unlike buildCompanyAssignmentSchema's Freelance option above.
+    it('All is green, Reset is red, and each company keeps its own color', () => {
+      const companies: Company[] = [{ id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] }];
+      const schema = buildCompanyButtonRowSchema(companies);
+      expect(schema.options[0]).toHaveProperty('color', ACCENT_COLORS.green);
+      expect(schema.options[1]).toHaveProperty('color', '#4f6d7a');
+      expect(schema.options[2]).toHaveProperty('color', ACCENT_COLORS.red);
     });
 
     it('is namespaced under "company." like every other schema in this file', () => {

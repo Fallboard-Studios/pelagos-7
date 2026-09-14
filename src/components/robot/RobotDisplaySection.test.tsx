@@ -152,7 +152,7 @@ describe('RobotDisplaySection', () => {
 
     it("shows the assigned company's option selected when the robot belongs to one", () => {
       const robot = makeRobot({ companyId: 'c1' });
-      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: [robot.id] });
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [robot.id] });
       useLocaleStore.getState().addRobot(localeId, robot);
       render(<RobotDisplaySection robot={robot} />);
 
@@ -161,7 +161,7 @@ describe('RobotDisplaySection', () => {
 
     it("selecting a company calls assignRobotToCompany with that company's id", () => {
       const robot = makeRobot({ companyId: undefined });
-      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: [] });
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
       useLocaleStore.getState().addRobot(localeId, robot);
       const assignSpy = vi.spyOn(useLocaleStore.getState(), 'assignRobotToCompany');
       render(<RobotDisplaySection robot={robot} />);
@@ -173,7 +173,7 @@ describe('RobotDisplaySection', () => {
 
     it('selecting "Freelance" calls assignRobotToCompany with null', () => {
       const robot = makeRobot({ companyId: 'c1' });
-      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', robotIds: [robot.id] });
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [robot.id] });
       useLocaleStore.getState().addRobot(localeId, robot);
       const assignSpy = vi.spyOn(useLocaleStore.getState(), 'assignRobotToCompany');
       render(<RobotDisplaySection robot={robot} />);

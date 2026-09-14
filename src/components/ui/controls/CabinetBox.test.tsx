@@ -287,6 +287,34 @@ describe('CabinetBox', () => {
       expect(topFace.style.width).toBe('100px');
     });
 
+    // Bugfix, reported live: a CabinetBox-heavy panel's own scrollbar continuously flickering,
+    // even idle, no interaction. Root cause — a self-sustaining ResizeObserver retrigger loop:
+    // the measured border-box width can jitter by a sub-pixel amount between consecutive
+    // observations (real browser sub-pixel layout rounding, not a real size change), which
+    // updates `width` state, which reruns the geometry effect (width is in its dependency array)
+    // and rewrites the top-face wall's own `width` inline style — a genuine, if tiny, DOM mutation
+    // every time, with nothing to ever stop it recurring. Rounding the measured width to a whole
+    // pixel before setState makes two sub-pixel-different measurements of the same real size
+    // resolve to an identical number, so React's own `Object.is` bail-out on an unchanged state
+    // value stops the loop at its source — no rerun, no repeated DOM write.
+    it('rounds the measured width so sub-pixel jitter across consecutive measurements is a no-op — breaks the self-sustaining ResizeObserver retrigger loop', () => {
+      const { container } = render(<CabinetBox popped={true} timelineKey="test-box">x</CabinetBox>);
+      const observer = MockResizeObserver.instances[0];
+      act(() => observer.fire(235.6, 48)); // initial measurement — a real transition, animates
+      setMock.mockClear();
+      (setTimeline as ReturnType<typeof vi.fn>).mockClear();
+
+      const topFace = container.querySelector('.sc-cabinet-box__top-face') as HTMLElement;
+      const widthAfterFirstMeasurement = topFace.style.width;
+
+      // Sub-pixel-different measurement that rounds to the identical integer (236) — must be a
+      // genuine no-op: no new gsap.set() calls, no style change.
+      act(() => observer.fire(236.4, 48));
+
+      expect(setMock).not.toHaveBeenCalled();
+      expect(topFace.style.width).toBe(widthAfterFirstMeasurement);
+    });
+
     it("sizes the left-face div's width to 2×resolvedPopDistance and height to boxHeight, when no frontHeight override is given — independent of the measured front-face width", () => {
       const { container } = render(<CabinetBox popped={true} timelineKey="test-box">x</CabinetBox>);
       const observer = MockResizeObserver.instances[0];

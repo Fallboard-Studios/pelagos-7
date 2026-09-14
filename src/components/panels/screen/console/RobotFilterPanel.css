@@ -1,0 +1,39 @@
+.robot-filter-panel {
+  overflow-y: auto;
+}
+
+/* Mobile + tablet: off-canvas overlay. transform is owned by the GSAP timeline at runtime
+   (RobotFilterPanel.tsx); this is the closed-state resting value for the very first paint, before
+   any JS has run — the same "CSS owns the closed-state baseline, GSAP owns the transition" split
+   AccordionContainer.css documents for its own height/opacity. */
+.robot-filter-panel:not([data-tier='desktop']) {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: min(85vw, 320px);
+  transform: translateX(-100%);
+  z-index: var(--z-overlay);
+  background: var(--color-surface);
+  padding: 12px;
+}
+
+/* Desktop: plain sidebar, in flow, never transformed. */
+.robot-filter-panel[data-tier='desktop'] {
+  position: static;
+  width: 260px;
+  flex-shrink: 0;
+}
+
+.robot-filter-panel__toggle {
+  position: sticky;
+  top: 8px;
+  left: 8px;
+  z-index: var(--z-overlay);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .robot-filter-panel {
+    transition: none;
+  }
+}

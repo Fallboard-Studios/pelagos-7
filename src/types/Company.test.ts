@@ -51,17 +51,24 @@ describe('CompanyOptionsSnapshot', () => {
 });
 
 describe('Company', () => {
-  it('requires id, name, and robotIds; lastEditedOptions is optional', () => {
-    const fresh: Company = { id: 'company-0-abc', name: 'Iron Consortium', robotIds: [] };
+  it('requires id, name, color, and robotIds; lastEditedOptions is optional', () => {
+    const fresh: Company = { id: 'company-0-abc', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] };
     expect(fresh.lastEditedOptions).toBeUndefined();
 
     const edited: Company = {
       id: 'company-1-def',
       name: 'Null Syndicate',
+      color: '#65617f',
       robotIds: ['robot-0-xyz', 'robot-1-uvw'],
       lastEditedOptions: { masterVolume: 0.9 },
     };
     expect(edited.robotIds).toEqual(['robot-0-xyz', 'robot-1-uvw']);
     expect(edited.lastEditedOptions?.masterVolume).toBe(0.9);
+  });
+
+  it('rejects a Company literal missing color at the type level — required, not optional', () => {
+    // @ts-expect-error — color is required (docs/specs/COMPANY_SECTION_ENHANCEMENTS.md §1.2)
+    const withoutColor: Company = { id: 'company-2-ghi', name: 'Rust Cartel', robotIds: [] };
+    expect(withoutColor.id).toBe('company-2-ghi');
   });
 });

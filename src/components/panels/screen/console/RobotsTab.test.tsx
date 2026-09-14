@@ -36,6 +36,7 @@ describe('RobotsTab', () => {
   function resetStores() {
     useLocaleStore.getState().setLocaleData(localeId, { robots: [] } as unknown as Partial<Locale>);
     useUIStore.getState().selectRobot(null);
+    useUIStore.getState().selectCompany(null);
   }
 
   it('lists every robot in the active locale as a card, by name', () => {
@@ -109,16 +110,131 @@ describe('RobotsTab', () => {
     expect(screen.queryByRole('button', { name: '+ New Robot' })).toBeNull();
   });
 
-  it('renders CompanyManager beneath the robot card list (Roadmap Phase 10)', () => {
+  // Roadmap: Robot Selection Filter Panel — selecting a specific company now filters the list
+  // (hides non-members) instead of just reordering it. filterRobotsByCompanyFocus's own
+  // pure-function unit tests live in src/utils/robotListFilter.test.ts; these cover the rendered
+  // integration only.
+  describe('company-selection-driven filter (rendered)', () => {
+    function robotNamesInOrder(container: HTMLElement): (string | null)[] {
+      return Array.from(container.querySelectorAll('.robot-selection-card__name')).map((el) => el.textContent);
+    }
+
+    function seedRobotsAndCompany() {
+      useLocaleStore.getState().addRobot(localeId, { ...makeRobot('r1', 'Alpha'), companyId: 'c1' } as unknown as Robot);
+      useLocaleStore.getState().addRobot(localeId, makeRobot('r2', 'Beta') as unknown as Robot);
+      useLocaleStore.getState().addRobot(localeId, { ...makeRobot('r3', 'Gamma'), companyId: 'c1' } as unknown as Robot);
+      useLocaleStore.getState().addRobot(localeId, makeRobot('r4', 'Delta') as unknown as Robot);
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1', 'r3'] });
+    }
+
+    it('renders every robot, in original roster order, with no company selected', () => {
+      resetStores();
+      useLocaleStore.getState().setLocaleData(localeId, { robots: [], companies: [] } as unknown as Partial<Locale>);
+      seedRobotsAndCompany();
+
+      const { container } = render(<RobotsTab />);
+      expect(robotNamesInOrder(container)).toEqual(['Alpha', 'Beta', 'Gamma', 'Delta']);
+    });
+
+    it('shows only the selected company\'s members, hiding everyone else', () => {
+      resetStores();
+      useLocaleStore.getState().setLocaleData(localeId, { robots: [], companies: [] } as unknown as Partial<Locale>);
+      seedRobotsAndCompany();
+      useUIStore.getState().selectCompany('c1');
+
+      const { container } = render(<RobotsTab />);
+      expect(robotNamesInOrder(container)).toEqual(['Alpha', 'Gamma']);
+    });
+
+    it('reverts to showing every robot once selectAllRobots() is called', () => {
+      resetStores();
+      useLocaleStore.getState().setLocaleData(localeId, { robots: [], companies: [] } as unknown as Partial<Locale>);
+      seedRobotsAndCompany();
+      useUIStore.getState().selectCompany('c1');
+      useUIStore.getState().selectAllRobots();
+
+      const { container } = render(<RobotsTab />);
+      expect(robotNamesInOrder(container)).toEqual(['Alpha', 'Beta', 'Gamma', 'Delta']);
+    });
+
+    // Requested follow-up: a company filter with zero members would otherwise just render an
+    // empty .robots-tab__list with no explanation.
+    it('shows an empty-state message naming the company when it has no assigned robots', () => {
+      resetStores();
+      useLocaleStore.getState().setLocaleData(localeId, { robots: [], companies: [] } as unknown as Partial<Locale>);
+      useLocaleStore.getState().addRobot(localeId, makeRobot('r1', 'Alpha') as unknown as Robot);
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
+      useUIStore.getState().selectCompany('c1');
+
+      render(<RobotsTab />);
+
+      expect(screen.getByText('Iron Consortium currently has no assigned robots')).toBeTruthy();
+    });
+
+    it('does not show the empty-state message when the selected company has members', () => {
+      resetStores();
+      useLocaleStore.getState().setLocaleData(localeId, { robots: [], companies: [] } as unknown as Partial<Locale>);
+      seedRobotsAndCompany();
+      useUIStore.getState().selectCompany('c1');
+
+      render(<RobotsTab />);
+
+      expect(screen.queryByText(/currently has no assigned robots/)).toBeNull();
+    });
+
+    it('does not show the empty-state message when All/Reset is selected, even with an empty roster', () => {
+      resetStores();
+      useLocaleStore.getState().setLocaleData(localeId, { robots: [], companies: [] } as unknown as Partial<Locale>);
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
+      // Nothing selected (Reset) — no company name to attach the message to.
+
+      render(<RobotsTab />);
+
+      expect(screen.queryByText(/currently has no assigned robots/)).toBeNull();
+    });
+  });
+
+  // Roadmap: Robot Selection Filter Panel — CompanyManager no longer renders as a direct
+  // descendant of .robots-tab, beneath the list; it's nested inside the new RobotFilterPanel,
+  // which itself renders alongside (before) the list inside a shared .robots-tab__body row.
+  it('renders RobotFilterPanel (containing CompanyManager) before the robot card list, inside .robots-tab__body', () => {
     resetStores();
     useLocaleStore.getState().addRobot(localeId, makeRobot('r1', 'Unit One') as unknown as Robot);
 
     const { container } = render(<RobotsTab />);
 
+    const body = container.querySelector('.robots-tab__body');
+    const panel = container.querySelector('.robot-filter-panel');
     const list = container.querySelector('.robots-tab__list');
     const manager = container.querySelector('.company-manager');
+    expect(body).toBeTruthy();
+    expect(panel).toBeTruthy();
     expect(list).toBeTruthy();
     expect(manager).toBeTruthy();
-    expect(list!.compareDocumentPosition(manager!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    // Both the panel and the list live inside .robots-tab__body, panel first.
+    expect(body!.contains(panel!)).toBe(true);
+    expect(body!.contains(list!)).toBe(true);
+    expect(panel!.compareDocumentPosition(list!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // CompanyManager is nested inside the panel, not a direct sibling of the list anymore.
+    expect(panel!.contains(manager!)).toBe(true);
+  });
+
+  // Roadmap: Robot Selection Filter Panel — CompanyOptionsSection moved out of CompanyManager to
+  // be RobotsTab's own direct child, in the same relative position CompanyManager used to render
+  // it (beneath the robot card list, following CompanyManager itself).
+  it('renders CompanyOptionsSection directly, following CompanyManager', () => {
+    resetStores();
+    useLocaleStore.getState().addRobot(localeId, makeRobot('r1', 'Unit One') as unknown as Robot);
+
+    const { container } = render(<RobotsTab />);
+
+    const manager = container.querySelector('.company-manager');
+    const optionsSection = container.querySelector('.company-options-section');
+    expect(manager).toBeTruthy();
+    expect(optionsSection).toBeTruthy();
+    expect(manager!.compareDocumentPosition(optionsSection!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // Direct child of .robots-tab, not nested inside .company-manager anymore.
+    expect(container.querySelector('.company-manager .company-options-section')).toBeNull();
   });
 });

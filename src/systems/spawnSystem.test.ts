@@ -725,6 +725,52 @@ describe('spawnSystem', () => {
       });
     });
 
+    // Roadmap: Company Section Enhancements (docs/specs/COMPANY_SECTION_ENHANCEMENTS.md §1.2) —
+    // each company's own seeded identity color, generated the same way generateRobotIdentityColor
+    // already is (mirrors the identityColor test block above).
+    it('gives every company a color from ROBOT_IDENTITY_COLOR_NAMES\' resolved hex set', () => {
+      spawnInitialRoster(DEFAULT_LOCALE_ID);
+      spawnInitialCompanies(DEFAULT_LOCALE_ID);
+      const companies = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.companies ?? [];
+      const validColors = ROBOT_IDENTITY_COLOR_NAMES.map((name) => ACCENT_COLORS[name]);
+      companies.forEach((c) => {
+        expect(validColors).toContain(c.color);
+      });
+    });
+
+    it('never assigns black, white, or darkGray as a company\'s color', () => {
+      spawnInitialRoster(DEFAULT_LOCALE_ID);
+      spawnInitialCompanies(DEFAULT_LOCALE_ID);
+      const companies = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.companies ?? [];
+      companies.forEach((c) => {
+        expect(c.color).not.toBe(ACCENT_COLORS.black);
+        expect(c.color).not.toBe(ACCENT_COLORS.white);
+        expect(c.color).not.toBe(ACCENT_COLORS.darkGray);
+      });
+    });
+
+    it('is deterministic — spawning against the same coordinates reproduces the same color per company', async () => {
+      vi.resetModules();
+      const run1 = await import('./spawnSystem');
+      const store1 = await import('../stores/localeStore');
+      const attenuationStyle1 = await import('../stores/attenuationStyleStore');
+      store1.useLocaleStore.setState({ locales: { [attenuationStyle1.DEFAULT_LOCALE_ID]: store1.DEFAULT_LOCALE } });
+      run1.spawnInitialRoster(attenuationStyle1.DEFAULT_LOCALE_ID);
+      run1.spawnInitialCompanies(attenuationStyle1.DEFAULT_LOCALE_ID);
+      const colorsRun1 = (store1.useLocaleStore.getState().getLocaleById(attenuationStyle1.DEFAULT_LOCALE_ID)?.companies ?? []).map((c) => c.color);
+
+      vi.resetModules();
+      const run2 = await import('./spawnSystem');
+      const store2 = await import('../stores/localeStore');
+      const attenuationStyle2 = await import('../stores/attenuationStyleStore');
+      store2.useLocaleStore.setState({ locales: { [attenuationStyle2.DEFAULT_LOCALE_ID]: store2.DEFAULT_LOCALE } });
+      run2.spawnInitialRoster(attenuationStyle2.DEFAULT_LOCALE_ID);
+      run2.spawnInitialCompanies(attenuationStyle2.DEFAULT_LOCALE_ID);
+      const colorsRun2 = (store2.useLocaleStore.getState().getLocaleById(attenuationStyle2.DEFAULT_LOCALE_ID)?.companies ?? []).map((c) => c.color);
+
+      expect(colorsRun2).toEqual(colorsRun1);
+    });
+
     it('leaves every unclaimed robot Freelance (companyId undefined)', () => {
       spawnInitialRoster(DEFAULT_LOCALE_ID);
       spawnInitialCompanies(DEFAULT_LOCALE_ID);
