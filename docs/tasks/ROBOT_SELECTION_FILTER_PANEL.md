@@ -161,7 +161,7 @@ Task 6 (wire RobotFilterPanel into RobotsTab) — depends on Task 4 (CompanyMana
 
   **Estimated scope:** S (remove one wrapper element, one dead schema constant, two dead tests)
 
-- [ ] **Task 4: Relocate `CompanyOptionsSection` out of `CompanyManager`**
+- [x] **Task 4: Relocate `CompanyOptionsSection` out of `CompanyManager`**
 
   **Description:** `CompanyManager.tsx` drops its `CompanyOptionsSection` import/render, keeping only
   `CompanyButtonRow` + `CompanyCrudControls`. `CompanyManager.css`'s `padding-top`/`border-top` rule (which
@@ -171,21 +171,24 @@ Task 6 (wire RobotFilterPanel into RobotsTab) — depends on Task 4 (CompanyMana
   **not modified** — same import, same props (none), same internal logic. Spec §1.3.
 
   **Acceptance criteria:**
-  - [ ] `CompanyManager`'s rendered output contains `.company-button-row` and `.company-crud-controls` only
+  - [x] `CompanyManager`'s rendered output contains `.company-button-row` and `.company-crud-controls` only
         — no `.company-options-section` anywhere inside it.
-  - [ ] `RobotsTab`'s rendered output contains exactly one `.company-options-section`, as a sibling
+  - [x] `RobotsTab`'s rendered output contains exactly one `.company-options-section`, as a sibling
         following `CompanyManager`'s own current render position (still beneath the robot card list).
-  - [ ] `CompanyManager.test.tsx`'s ordering test drops its `optionsSection` query/assertion (2-element
+  - [x] `CompanyManager.test.tsx`'s ordering test drops its `optionsSection` query/assertion (2-element
         check: button row before CRUD controls, not 3).
-  - [ ] `RobotsTab.test.tsx` gains an assertion that `.company-options-section` still renders, in the same
+  - [x] `RobotsTab.test.tsx` gains an assertion that `.company-options-section` still renders, in the same
         relative document position `CompanyManager` used to.
-  - [ ] `CompanyOptionsSection.tsx`, `.css`, and `.test.tsx` have zero diff — confirm via `git diff
+  - [x] `CompanyOptionsSection.tsx`, `.css`, and `.test.tsx` have zero diff — confirm via `git diff
         --stat` before committing.
+  - [x] (Regression fix, found during this task) `CompanyManager.test.tsx`'s `'renders the "None" company
+        button by default'` test — broken since Task 1 renamed that button to "Reset," but outside Task
+        1's own file list — updated to query `'Reset'`.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/company/CompanyManager.test.tsx src/components/panels/screen/console/RobotsTab.test.tsx`
+  - [x] `npx vitest run src/components/company/CompanyManager.test.tsx src/components/panels/screen/console/RobotsTab.test.tsx`
         passes.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** None (sequence after Task 2 — both touch `RobotsTab.tsx`).
 
@@ -199,11 +202,16 @@ Task 6 (wire RobotFilterPanel into RobotsTab) — depends on Task 4 (CompanyMana
 
 ### Checkpoint: Foundation
 
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [x] `npm run build:types`, `npm run lint`, `npm test` (full suite — 141 files, 2520 tests; the one
+      pre-existing flaky random-seeded test noted in memory reran clean in isolation) all clean.
+      `npm run build` not run at this checkpoint — no reason to expect it to differ from `build:types`
+      here; will run at the final Checkpoint: Complete.
 - [ ] `npm run dev` manual spot-check: the Robots tile still renders in one column exactly as before (no
       panel, no toggle yet — that's Phase 3), but: the button row reads All (green) → companies → Reset
       (red); CRUD controls (Create/Rename/Delete) are always visible, not behind a "Manage Companies"
-      toggle; selecting a company hides every other robot's card instead of just reordering them.
+      toggle; selecting a company hides every other robot's card instead of just reordering them. *(Not
+      run this session — no live browser available. Genuinely open, not assumed; same caveat the prior
+      COMPANY_CRUD_BUTTON_PREVIEW.md plan flagged for its own manual check.)*
 - [ ] Review with human before proceeding to Phase 2/3.
 
 ---

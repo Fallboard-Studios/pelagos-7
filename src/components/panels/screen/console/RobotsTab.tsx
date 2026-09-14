@@ -1,5 +1,6 @@
 import { RobotSelectionCard } from '@/components/selection/RobotSelectionCard';
 import { CompanyManager } from '@/components/company/CompanyManager';
+import { CompanyOptionsSection } from '@/components/company/CompanyOptionsSection';
 import { getActiveLocaleId } from '@/utils/localeHelpers';
 import { useLocaleStore } from '@/stores/localeStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -13,7 +14,9 @@ import './RobotsTab.css';
  * which ConsolePanel uses to switch to RobotOptionsTab within the same tile. Read-only — the
  * roster is fixed at 12, created once at locale load (Roadmap Phase 7); there is no manual spawn
  * action. CompanyManager (Roadmap Phase 10) renders beneath the card list — the company button
- * row, CRUD, and bulk-edit panel.
+ * row and CRUD controls. CompanyOptionsSection (the bulk-edit accordions) renders directly here
+ * too, as CompanyManager's own sibling rather than its child (Roadmap: Robot Selection Filter
+ * Panel) — "too large to hold" alongside the button row/CRUD once those move into a filter panel.
  *
  * Roadmap: Robot Selection Filter Panel — selecting a specific company in CompanyButtonRow
  * (below) filters the list above via filterRobotsByCompanyFocus, hiding every robot not in that
@@ -34,6 +37,7 @@ export function RobotsTab() {
         ))}
       </ul>
       <CompanyManager />
+      <CompanyOptionsSection />
     </div>
   );
 }

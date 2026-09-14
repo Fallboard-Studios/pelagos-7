@@ -170,4 +170,22 @@ describe('RobotsTab', () => {
     expect(manager).toBeTruthy();
     expect(list!.compareDocumentPosition(manager!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
+
+  // Roadmap: Robot Selection Filter Panel — CompanyOptionsSection moved out of CompanyManager to
+  // be RobotsTab's own direct child, in the same relative position CompanyManager used to render
+  // it (beneath the robot card list, following CompanyManager itself).
+  it('renders CompanyOptionsSection directly, following CompanyManager', () => {
+    resetStores();
+    useLocaleStore.getState().addRobot(localeId, makeRobot('r1', 'Unit One') as unknown as Robot);
+
+    const { container } = render(<RobotsTab />);
+
+    const manager = container.querySelector('.company-manager');
+    const optionsSection = container.querySelector('.company-options-section');
+    expect(manager).toBeTruthy();
+    expect(optionsSection).toBeTruthy();
+    expect(manager!.compareDocumentPosition(optionsSection!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // Direct child of .robots-tab, not nested inside .company-manager anymore.
+    expect(container.querySelector('.company-manager .company-options-section')).toBeNull();
+  });
 });
