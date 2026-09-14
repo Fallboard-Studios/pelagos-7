@@ -3,6 +3,7 @@
 // ========================================
 import type { RadioButtonSchema, ButtonSchema, TextInputSchema, DualLabelSchema, AccordionSchema } from '../types/controls';
 import type { Company } from '../types/Company';
+import { ACCENT_COLORS } from '../constants/accentColors';
 
 // ========================================
 // COMPANY ASSIGNMENT (RadioButton)
@@ -59,10 +60,16 @@ export const ALL_VALUE = '__all__';
 /** CompanyButtonRow reuses the RadioButton primitive — a company button row is exactly "one
  *  active among many, click to select," which RadioButton already implements (including the
  *  active-state styling), rather than reinventing that with a list of independent Buttons.
- *  None and All come first (in that order) so the two "no single company" meta-options aren't
- *  separated by the (possibly long, user-generated) per-company list. Each company option also
- *  carries that company's own `color` (docs/specs/COMPANY_SECTION_ENHANCEMENTS.md §1.3); None/All
- *  omit it, keeping RadioButton's ambient-accent fallback (CompanyManager's own 'company' trait). */
+ *
+ *  Order is All, then the per-company list, then Reset last (Roadmap: Robot Selection Filter
+ *  Panel) — the two "no single company" meta-options deliberately sandwich the (possibly long,
+ *  user-generated) company list rather than both preceding it. All shows every robot including
+ *  freelancers and keeps bulk-edit armed for the whole roster (CompanyOptionsSection's own
+ *  `allRobotsSelected` branch, unchanged); Reset (this schema's own NONE_VALUE sentinel, renamed
+ *  from "None") shows every robot with bulk-edit disabled. Each gets its own fixed accent color —
+ *  green for All, red for Reset — same as every company option's own `color`
+ *  (docs/specs/COMPANY_SECTION_ENHANCEMENTS.md §1.3); unlike that history, there is no longer an
+ *  "ambient fallback, no color" option anywhere in this row. */
 export function buildCompanyButtonRowSchema(companies: Company[]): RadioButtonSchema {
   return {
     id: 'company.buttonRow',
@@ -70,10 +77,9 @@ export function buildCompanyButtonRowSchema(companies: Company[]): RadioButtonSc
     loreLabel: 'UNIT ROSTER',
     humanLabel: 'Companies',
     options: [
-      // No color on either meta-option — ambient fallback (CompanyManager's own 'company' trait).
-      { value: NONE_VALUE, label: 'None' },
-      { value: ALL_VALUE, label: 'All' },
+      { value: ALL_VALUE, label: 'All', color: ACCENT_COLORS.green },
       ...companies.map((c) => ({ value: c.id, label: c.name, color: c.color })),
+      { value: NONE_VALUE, label: 'Reset', color: ACCENT_COLORS.red },
     ],
   };
 }
