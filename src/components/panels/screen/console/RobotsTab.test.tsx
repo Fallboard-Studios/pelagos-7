@@ -110,11 +110,11 @@ describe('RobotsTab', () => {
     expect(screen.queryByRole('button', { name: '+ New Robot' })).toBeNull();
   });
 
-  // docs/specs/COMPANY_SECTION_ENHANCEMENTS.md §1.4 — stable two-block partition, applied only
-  // when CompanyButtonRow has a specific company selected. sortRobotsByCompanyFocus's own
-  // pure-function unit tests live in src/utils/robotListSort.test.ts; these cover the rendered
+  // Roadmap: Robot Selection Filter Panel — selecting a specific company now filters the list
+  // (hides non-members) instead of just reordering it. filterRobotsByCompanyFocus's own
+  // pure-function unit tests live in src/utils/robotListFilter.test.ts; these cover the rendered
   // integration only.
-  describe('company-selection-driven sort (rendered)', () => {
+  describe('company-selection-driven filter (rendered)', () => {
     function robotNamesInOrder(container: HTMLElement): (string | null)[] {
       return Array.from(container.querySelectorAll('.robot-selection-card__name')).map((el) => el.textContent);
     }
@@ -127,7 +127,7 @@ describe('RobotsTab', () => {
       useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1', 'r3'] });
     }
 
-    it('renders in original roster order with no company selected', () => {
+    it('renders every robot, in original roster order, with no company selected', () => {
       resetStores();
       useLocaleStore.getState().setLocaleData(localeId, { robots: [], companies: [] } as unknown as Partial<Locale>);
       seedRobotsAndCompany();
@@ -136,17 +136,17 @@ describe('RobotsTab', () => {
       expect(robotNamesInOrder(container)).toEqual(['Alpha', 'Beta', 'Gamma', 'Delta']);
     });
 
-    it('sinks the selected company\'s members to the bottom, preserving relative order within both blocks', () => {
+    it('shows only the selected company\'s members, hiding everyone else', () => {
       resetStores();
       useLocaleStore.getState().setLocaleData(localeId, { robots: [], companies: [] } as unknown as Partial<Locale>);
       seedRobotsAndCompany();
       useUIStore.getState().selectCompany('c1');
 
       const { container } = render(<RobotsTab />);
-      expect(robotNamesInOrder(container)).toEqual(['Beta', 'Delta', 'Alpha', 'Gamma']);
+      expect(robotNamesInOrder(container)).toEqual(['Alpha', 'Gamma']);
     });
 
-    it('reverts to original roster order once selectAllRobots() is called', () => {
+    it('reverts to showing every robot once selectAllRobots() is called', () => {
       resetStores();
       useLocaleStore.getState().setLocaleData(localeId, { robots: [], companies: [] } as unknown as Partial<Locale>);
       seedRobotsAndCompany();

@@ -97,7 +97,7 @@ Task 6 (wire RobotFilterPanel into RobotsTab) — depends on Task 4 (CompanyMana
 
   **Estimated scope:** S (schema builder + two test files, no component logic change)
 
-- [ ] **Task 2: Filter, not sort — rename the util, wire it into `RobotsTab`**
+- [x] **Task 2: Filter, not sort — rename the util, wire it into `RobotsTab`**
 
   **Description:** Rename `src/utils/robotListSort.ts` → `robotListFilter.ts` (test file alongside),
   renaming `sortRobotsByCompanyFocus` → `filterRobotsByCompanyFocus` and rewriting its body from a
@@ -106,20 +106,20 @@ Task 6 (wire RobotFilterPanel into RobotsTab) — depends on Task 4 (CompanyMana
   `RobotsTab.tsx` in this task; `CompanyManager` still renders exactly where it does today. Spec §1.2.
 
   **Acceptance criteria:**
-  - [ ] `filterRobotsByCompanyFocus(robots, null)` returns the input array unchanged (reference-equal is
+  - [x] `filterRobotsByCompanyFocus(robots, null)` returns the input array unchanged (reference-equal is
         fine, not required).
-  - [ ] `filterRobotsByCompanyFocus(robots, 'c1')` returns only the robots whose `companyId === 'c1'`, in
+  - [x] `filterRobotsByCompanyFocus(robots, 'c1')` returns only the robots whose `companyId === 'c1'`, in
         their original relative order — not the old 2-block reordered array.
-  - [ ] `filterRobotsByCompanyFocus(robots, 'no-such-company')` returns `[]`.
-  - [ ] `RobotsTab.tsx` renders only the filtered robots inside `.robots-tab__list`; selecting a company
+  - [x] `filterRobotsByCompanyFocus(robots, 'no-such-company')` returns `[]`.
+  - [x] `RobotsTab.tsx` renders only the filtered robots inside `.robots-tab__list`; selecting a company
         (via the existing `CompanyManager`, unmoved) hides every non-member card; selecting `All` or
         `Reset`/`None` shows every card.
-  - [ ] Old `robotListSort.ts`/`robotListSort.test.ts` no longer exist (renamed, not duplicated).
+  - [x] Old `robotListSort.ts`/`robotListSort.test.ts` no longer exist (renamed, not duplicated).
 
   **Verification:**
-  - [ ] `npx vitest run src/utils/robotListFilter.test.ts src/components/panels/screen/console/RobotsTab.test.tsx`
+  - [x] `npx vitest run src/utils/robotListFilter.test.ts src/components/panels/screen/console/RobotsTab.test.tsx`
         passes.
-  - [ ] `npm run build:types`, `npm run lint` clean (confirms no stale import of the old file path
+  - [x] `npm run build:types`, `npm run lint` clean (confirms no stale import of the old file path
         anywhere).
 
   **Dependencies:** None.
