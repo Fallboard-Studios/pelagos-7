@@ -75,7 +75,15 @@ export function useVoxelTrackBoxCount(
     if (!target) return;
     const observer = new ResizeObserver((entries) => {
       const { width, height } = entries[0].contentRect;
-      const next = axis === 'vertical' ? height : width;
+      // Rounded to a whole pixel — same bugfix as CabinetBox.tsx's own ResizeObserver handler:
+      // real browser sub-pixel layout rounding can report a fractionally different measurement
+      // across consecutive observations of the exact same rendered size (no real resize
+      // happened). Without rounding, that jitter fails the prev === next bail-out below on every
+      // callback, re-running this hook's consumers (any voxel-track slider) for no visible
+      // reason. Rounding first means two measurements that differ only by sub-pixel noise
+      // produce the same integer, so the bail-out actually catches — a real resize still updates
+      // normally.
+      const next = Math.round(axis === 'vertical' ? height : width);
       setMeasuredLength((prev) => (prev === next ? prev : next));
     });
     observer.observe(target);
