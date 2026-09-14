@@ -158,17 +158,30 @@ describe('RobotsTab', () => {
     });
   });
 
-  it('renders CompanyManager beneath the robot card list (Roadmap Phase 10)', () => {
+  // Roadmap: Robot Selection Filter Panel — CompanyManager no longer renders as a direct
+  // descendant of .robots-tab, beneath the list; it's nested inside the new RobotFilterPanel,
+  // which itself renders alongside (before) the list inside a shared .robots-tab__body row.
+  it('renders RobotFilterPanel (containing CompanyManager) before the robot card list, inside .robots-tab__body', () => {
     resetStores();
     useLocaleStore.getState().addRobot(localeId, makeRobot('r1', 'Unit One') as unknown as Robot);
 
     const { container } = render(<RobotsTab />);
 
+    const body = container.querySelector('.robots-tab__body');
+    const panel = container.querySelector('.robot-filter-panel');
     const list = container.querySelector('.robots-tab__list');
     const manager = container.querySelector('.company-manager');
+    expect(body).toBeTruthy();
+    expect(panel).toBeTruthy();
     expect(list).toBeTruthy();
     expect(manager).toBeTruthy();
-    expect(list!.compareDocumentPosition(manager!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    // Both the panel and the list live inside .robots-tab__body, panel first.
+    expect(body!.contains(panel!)).toBe(true);
+    expect(body!.contains(list!)).toBe(true);
+    expect(panel!.compareDocumentPosition(list!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // CompanyManager is nested inside the panel, not a direct sibling of the list anymore.
+    expect(panel!.contains(manager!)).toBe(true);
   });
 
   // Roadmap: Robot Selection Filter Panel — CompanyOptionsSection moved out of CompanyManager to
