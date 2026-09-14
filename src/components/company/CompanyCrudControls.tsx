@@ -132,6 +132,11 @@ export function CompanyCrudControls() {
       ? RENAME_COMPANY_SCHEMA.humanLabel
       : `${RENAME_COMPANY_SCHEMA.humanLabel} ${selectedCompany?.name ?? ''} > ${renameDraft}`,
   };
+  // Same pattern once more (docs/tasks/COMPANY_CRUD_BUTTON_PREVIEW.md Task 4).
+  const deleteSchema = {
+    ...DELETE_COMPANY_SCHEMA,
+    humanLabel: selectedCompany ? `${DELETE_COMPANY_SCHEMA.humanLabel} ${selectedCompany.name}` : DELETE_COMPANY_SCHEMA.humanLabel,
+  };
 
   const handleCreate = () => {
     const color = pickRandomCompanyColor(companies.map((c) => c.color));
@@ -177,7 +182,7 @@ export function CompanyCrudControls() {
           />
         </div>
 
-        <Button schema={DELETE_COMPANY_SCHEMA} onClick={handleDelete} disabled={!hasSelectedCompany} />
+        <Button schema={deleteSchema} onClick={handleDelete} disabled={!hasSelectedCompany} />
       </div>
     </AccordionContainer>
   );

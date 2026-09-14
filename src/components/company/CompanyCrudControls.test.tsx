@@ -378,14 +378,14 @@ describe('CompanyCrudControls', () => {
 
   it('Delete is disabled when no company is selected', () => {
     render(<CompanyCrudControls />);
-    expect((screen.getByRole('button', { name: 'Delete' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: /^delete\b/i }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('Delete is enabled when a company is selected', () => {
     useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
     useUIStore.getState().selectCompany('c1');
     render(<CompanyCrudControls />);
-    expect((screen.getByRole('button', { name: 'Delete' }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole('button', { name: /^delete\b/i }) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('Delete stays disabled when selectedCompanyId points at a company that no longer exists (e.g. after a reseed regenerated companies with fresh ids)', () => {
@@ -393,7 +393,48 @@ describe('CompanyCrudControls', () => {
     // isn't reset by a locale reseed, so this is a real reachable state, not a hypothetical one.
     useUIStore.getState().selectCompany('stale-id-from-before-reseed');
     render(<CompanyCrudControls />);
-    expect((screen.getByRole('button', { name: 'Delete' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: /^delete\b/i }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  // docs/tasks/COMPANY_CRUD_BUTTON_PREVIEW.md Task 4 — the Delete button's own label previews
+  // which company it'll remove, so both the visible text and the accessible name change together.
+  describe('Delete button label', () => {
+    it('is exactly "Delete" when no company is selected', () => {
+      render(<CompanyCrudControls />);
+      expect(screen.getByRole('button', { name: 'Delete' })).toBeTruthy();
+    });
+
+    it('is "Delete {selected company\'s name}" when a company is selected', () => {
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
+      useUIStore.getState().selectCompany('c1');
+      render(<CompanyCrudControls />);
+
+      expect(screen.getByRole('button', { name: 'Delete Iron Consortium' })).toBeTruthy();
+    });
+
+    it('updates to the newly-selected company\'s own name when the selection changes — no stale name left over', () => {
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
+      useLocaleStore.getState().addCompany(localeId, { id: 'c2', name: 'Null Syndicate', color: '#7a4f6d', robotIds: [] });
+      useUIStore.getState().selectCompany('c1');
+      render(<CompanyCrudControls />);
+      expect(screen.getByRole('button', { name: 'Delete Iron Consortium' })).toBeTruthy();
+
+      act(() => { useUIStore.getState().selectCompany('c2'); });
+
+      expect(screen.getByRole('button', { name: 'Delete Null Syndicate' })).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'Delete Iron Consortium' })).toBeNull();
+    });
+
+    it('reverts to exactly "Delete" once the selection is cleared', () => {
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
+      useUIStore.getState().selectCompany('c1');
+      render(<CompanyCrudControls />);
+      expect(screen.getByRole('button', { name: 'Delete Iron Consortium' })).toBeTruthy();
+
+      act(() => { useUIStore.getState().selectCompany(null); });
+
+      expect(screen.getByRole('button', { name: 'Delete' })).toBeTruthy();
+    });
   });
 
   it('Rename input stays disabled when selectedCompanyId points at a company that no longer exists', () => {
@@ -410,7 +451,7 @@ describe('CompanyCrudControls', () => {
     vi.spyOn(useUIStore.getState(), 'selectCompany').mockImplementation(() => { calls.push('selectCompany'); });
     render(<CompanyCrudControls />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    fireEvent.click(screen.getByRole('button', { name: /^delete\b/i }));
 
     expect(calls).toEqual(['removeCompany', 'selectCompany']);
   });
@@ -441,7 +482,7 @@ describe('CompanyCrudControls', () => {
     const removeSpy = vi.spyOn(useLocaleStore.getState(), 'removeCompany').mockImplementation(() => {});
     render(<CompanyCrudControls />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    fireEvent.click(screen.getByRole('button', { name: /^delete\b/i }));
 
     expect(removeSpy).toHaveBeenCalledWith(localeId, 'c1');
   });
