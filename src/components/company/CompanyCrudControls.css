@@ -4,7 +4,10 @@
   gap: 0.5rem;
 }
 
-.company-crud-controls__create {
+/* Shared by Create's and Rename's own row (each a name field + its own submit button, same
+   shape) — one rule for both rather than two near-duplicates. */
+.company-crud-controls__create,
+.company-crud-controls__rename {
   display: flex;
   align-items: flex-end;
   gap: 0.5rem;
@@ -20,8 +23,10 @@
    side-by-side text inputs: flex: 1 gives it a definite share of the row; min-width: 0 overrides
    flex's own min-width: auto floor (content's intrinsic size) so it can actually shrink into
    that share instead of overflowing/refusing to. The sibling Button is unaffected — it stays
-   width: fit-content (Button.css) and needs neither rule. */
-.company-crud-controls__create > .sc-text-input-facade {
+   width: fit-content (Button.css) and needs neither rule. Applies equally to Rename's own row
+   (added alongside its own Submit button) — same shape, same fix. */
+.company-crud-controls__create > .sc-text-input-facade,
+.company-crud-controls__rename > .sc-text-input-facade {
   flex: 1;
   min-width: 0;
 }

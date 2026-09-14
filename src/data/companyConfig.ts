@@ -85,8 +85,9 @@ export const COMPANY_SELECTION_HEADER_SCHEMA: DualLabelSchema = {
   humanLabel: 'Companies',
 };
 
-/** Shared by both Create (a staging value, not yet committed) and Rename (bound live to the
- *  selected company's name) — same schema, different data binding at the component layer. */
+/** Shared by both Create and Rename — both are locally-staged draft values, not committed to the
+ *  store until their own button is clicked (Rename's own Submit button, added alongside Create's
+ *  Commission button, matching request — was bound live to the selected company's name before). */
 export const COMPANY_NAME_INPUT_SCHEMA: TextInputSchema = {
   id: 'company.name',
   type: 'textInput',
@@ -101,6 +102,13 @@ export const CREATE_COMPANY_SCHEMA: ButtonSchema = {
   type: 'button',
   loreLabel: 'COMMISSION UNIT',
   humanLabel: 'Create',
+};
+
+export const RENAME_COMPANY_SCHEMA: ButtonSchema = {
+  id: 'company.rename',
+  type: 'button',
+  loreLabel: 'REDESIGNATE UNIT',
+  humanLabel: 'Rename',
 };
 
 export const DELETE_COMPANY_SCHEMA: ButtonSchema = {

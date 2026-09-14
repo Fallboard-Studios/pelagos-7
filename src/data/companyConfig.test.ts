@@ -7,6 +7,7 @@ import {
   ALL_VALUE,
   buildCompanyButtonRowSchema,
   CREATE_COMPANY_SCHEMA,
+  RENAME_COMPANY_SCHEMA,
   COMPANY_NAME_INPUT_SCHEMA,
   DELETE_COMPANY_SCHEMA,
   COMPANY_CRUD_ACCORDION_SCHEMA,
@@ -14,7 +15,7 @@ import {
 import { CONTROL_SCHEMA_TYPES } from '@/types/controls';
 import type { Company } from '@/types/Company';
 
-const ALL_SCHEMAS = [CREATE_COMPANY_SCHEMA, COMPANY_NAME_INPUT_SCHEMA, DELETE_COMPANY_SCHEMA, COMPANY_CRUD_ACCORDION_SCHEMA];
+const ALL_SCHEMAS = [CREATE_COMPANY_SCHEMA, RENAME_COMPANY_SCHEMA, COMPANY_NAME_INPUT_SCHEMA, DELETE_COMPANY_SCHEMA, COMPANY_CRUD_ACCORDION_SCHEMA];
 
 describe('companyConfig', () => {
   it('every schema type is one of the 14 closed-set ControlSchema variants', () => {
