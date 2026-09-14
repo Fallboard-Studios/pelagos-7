@@ -4,29 +4,17 @@
   gap: 0.5rem;
 }
 
-/* Shared by Create's and Rename's own row (each a name field + its own submit button, same
-   shape) — one rule for both rather than two near-duplicates. */
+/* Shared by Create's and Rename's own group (each a name field with its own submit button
+   stacked beneath it, same shape) — one rule for both rather than two near-duplicates.
+   Roadmap: Robot Selection Filter Panel — was a side-by-side row (field + button, aligned to the
+   button's own baseline); Crawford asked for the button to sit beneath its own text input
+   instead, inside the filter panel's CRUD section. flex-direction: column's default
+   align-items: stretch is what gives the field its full width now (see below) — no
+   flex:1/min-width:0 hack needed the way the old row layout required (that fix's own reasoning
+   no longer applies once the cross axis is width, not height). */
 .company-crud-controls__create,
 .company-crud-controls__rename {
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
   gap: 0.5rem;
-}
-
-/* Bugfix: the name field collapsed to ~0 width (reported live — no visible input, though it
-   stayed focusable/typeable) and its CabinetBox's ResizeObserver never settled, showing as
-   constant flashing in DevTools. Same CSS size-containment collapse Button.css's own comment
-   documents: TextInput's width:100% chain bottoms out at .sc-text-input's `container-type:
-   inline-size` (containment), which contributes nothing to a shrink-to-fit flex item's own
-   intrinsic size — so in this row (no stretch, unlike a column flex container's default) the
-   facade had nothing to size itself against. Same fix CoordsInput.css already uses for its own
-   side-by-side text inputs: flex: 1 gives it a definite share of the row; min-width: 0 overrides
-   flex's own min-width: auto floor (content's intrinsic size) so it can actually shrink into
-   that share instead of overflowing/refusing to. The sibling Button is unaffected — it stays
-   width: fit-content (Button.css) and needs neither rule. Applies equally to Rename's own row
-   (added alongside its own Submit button) — same shape, same fix. */
-.company-crud-controls__create > .sc-text-input-facade,
-.company-crud-controls__rename > .sc-text-input-facade {
-  flex: 1;
-  min-width: 0;
 }
