@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 
 import { CompanyCrudControls } from './CompanyCrudControls';
 import { useLocaleStore } from '@/stores/localeStore';
@@ -7,6 +7,7 @@ import { useUIStore } from '@/stores/uiStore';
 import { getActiveLocaleId } from '@/utils/localeHelpers';
 import { MAX_COMPANIES } from '@/constants';
 import { ACCENT_COLORS, ROBOT_IDENTITY_COLOR_NAMES } from '@/constants/accentColors';
+import { ADJECTIVES, COMPANY_NOUNS } from '@/systems/spawnSystem';
 import type { Company } from '@/types/Company';
 import type { Locale } from '@/types/locale';
 
@@ -145,25 +146,146 @@ describe('CompanyCrudControls', () => {
     expect((screen.getByRole('textbox', { name: /rename company/i }) as HTMLInputElement).disabled).toBe(true);
   });
 
-  it('Rename input is enabled and shows the selected company\'s name', () => {
+  // docs/tasks/COMPANY_CRUD_BUTTON_PREVIEW.md Task 1 — the draft auto-suggests a fresh name
+  // (suggestCompanyName's own generator) rather than pre-filling the selected company's current
+  // name, so the Rename button can always preview two different names without the user typing
+  // anything first.
+  it('Rename input is enabled and pre-filled with a generated suggestion — never the selected company\'s own current name', () => {
     useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
     useUIStore.getState().selectCompany('c1');
     render(<CompanyCrudControls />);
 
     const renameInput = screen.getByRole('textbox', { name: /rename company/i }) as HTMLInputElement;
     expect(renameInput.disabled).toBe(false);
-    expect(renameInput.value).toBe('Iron Consortium');
+    expect(renameInput.value).not.toBe('Iron Consortium');
+    expect(renameInput.value.split(' ')).toHaveLength(2);
   });
 
-  it('editing the Rename input calls updateCompany with the new name', () => {
-    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
-    useUIStore.getState().selectCompany('c1');
-    const updateSpy = vi.spyOn(useLocaleStore.getState(), 'updateCompany');
-    render(<CompanyCrudControls />);
+  // Rename is staged, like Create — editing alone no longer calls updateCompany; a separate
+  // Submit button (matching Create's own Create button) does, and only when clicked.
+  describe('Rename Submit button', () => {
+    it('is disabled when no company is selected', () => {
+      render(<CompanyCrudControls />);
+      expect((screen.getByRole('button', { name: 'Rename' }) as HTMLButtonElement).disabled).toBe(true);
+    });
 
-    fireEvent.change(screen.getByRole('textbox', { name: /rename company/i }), { target: { value: 'Renamed' } });
+    // docs/tasks/COMPANY_CRUD_BUTTON_PREVIEW.md Task 1 — the draft now auto-suggests a fresh name
+    // on selection (see the input-level test above), so Submit is normally enabled immediately,
+    // not disabled — the opposite of this suite's pre-Task-1 behavior.
+    it('is (normally) enabled immediately after selecting a company — the auto-suggested draft differs from the current name', () => {
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
+      useUIStore.getState().selectCompany('c1');
+      render(<CompanyCrudControls />);
+      expect((screen.getByRole('button', { name: 'Rename' }) as HTMLButtonElement).disabled).toBe(false);
+    });
 
-    expect(updateSpy).toHaveBeenCalledWith(localeId, 'c1', { name: 'Renamed' });
+    it('stays disabled in the rare case the auto-suggested draft coincidentally matches the current name (the existing renameUnchanged guard)', () => {
+      // Math.random mocked to 0 forces suggestCompanyName's own getSeededVal-driven word picks to
+      // index 0 of both ADJECTIVES and COMPANY_NOUNS every time (getSeededVal maps a constant -1
+      // noise value to its own `min`) — so the "coincidence" is reproducible rather than relying on
+      // real chance, proving the guard still holds now that it's a rare path instead of the default
+      // one.
+      const coincidentalName = `${ADJECTIVES[0]} ${COMPANY_NOUNS[0]}`;
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: coincidentalName, color: '#4f6d7a', robotIds: [] });
+      useUIStore.getState().selectCompany('c1');
+      const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
+      render(<CompanyCrudControls />);
+
+      const renameInput = screen.getByRole('textbox', { name: /rename company/i }) as HTMLInputElement;
+      expect(renameInput.value).toBe(coincidentalName);
+      expect((screen.getByRole('button', { name: 'Rename' }) as HTMLButtonElement).disabled).toBe(true);
+      randomSpy.mockRestore();
+    });
+
+    it('becomes enabled once the draft is edited to something new', () => {
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
+      useUIStore.getState().selectCompany('c1');
+      render(<CompanyCrudControls />);
+
+      fireEvent.change(screen.getByRole('textbox', { name: /rename company/i }), { target: { value: 'Renamed' } });
+
+      expect((screen.getByRole('button', { name: 'Rename' }) as HTMLButtonElement).disabled).toBe(false);
+    });
+
+    it('is disabled again when the draft is edited back to blank', () => {
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
+      useUIStore.getState().selectCompany('c1');
+      render(<CompanyCrudControls />);
+
+      fireEvent.change(screen.getByRole('textbox', { name: /rename company/i }), { target: { value: '   ' } });
+
+      expect((screen.getByRole('button', { name: 'Rename' }) as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    it('editing the Rename input does NOT call updateCompany on its own — only clicking Rename does', () => {
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
+      useUIStore.getState().selectCompany('c1');
+      const updateSpy = vi.spyOn(useLocaleStore.getState(), 'updateCompany');
+      render(<CompanyCrudControls />);
+
+      fireEvent.change(screen.getByRole('textbox', { name: /rename company/i }), { target: { value: 'Renamed' } });
+      expect(updateSpy).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
+      expect(updateSpy).toHaveBeenCalledWith(localeId, 'c1', { name: 'Renamed' });
+    });
+
+    it('trims surrounding whitespace from the submitted name', () => {
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
+      useUIStore.getState().selectCompany('c1');
+      const updateSpy = vi.spyOn(useLocaleStore.getState(), 'updateCompany');
+      render(<CompanyCrudControls />);
+
+      fireEvent.change(screen.getByRole('textbox', { name: /rename company/i }), { target: { value: '  Renamed  ' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
+
+      expect(updateSpy).toHaveBeenCalledWith(localeId, 'c1', { name: 'Renamed' });
+    });
+
+    it('switching the selected company resets the draft to a fresh generated suggestion, discarding an unsubmitted edit and never showing either company\'s own name', () => {
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
+      useLocaleStore.getState().addCompany(localeId, { id: 'c2', name: 'Null Syndicate', color: '#7a4f6d', robotIds: [] });
+      useUIStore.getState().selectCompany('c1');
+      render(<CompanyCrudControls />);
+
+      fireEvent.change(screen.getByRole('textbox', { name: /rename company/i }), { target: { value: 'Unsubmitted Edit' } });
+      act(() => { useUIStore.getState().selectCompany('c2'); });
+
+      const newDraft = (screen.getByRole('textbox', { name: /rename company/i }) as HTMLInputElement).value;
+      expect(newDraft).not.toBe('Unsubmitted Edit');
+      expect(newDraft).not.toBe('Iron Consortium');
+      expect(newDraft).not.toBe('Null Syndicate');
+      expect(newDraft.split(' ')).toHaveLength(2);
+    });
+
+    // docs/tasks/COMPANY_CRUD_BUTTON_PREVIEW.md Task 1 — mirrors handleCreate's own reroll after a
+    // successful create, so the "always two different names" property holds continuously rather
+    // than only right after selecting a company.
+    it('rerolls the draft to a new generated suggestion immediately after a successful submit', () => {
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
+      useUIStore.getState().selectCompany('c1');
+      render(<CompanyCrudControls />);
+
+      fireEvent.change(screen.getByRole('textbox', { name: /rename company/i }), { target: { value: 'Renamed' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
+
+      const postSubmitDraft = (screen.getByRole('textbox', { name: /rename company/i }) as HTMLInputElement).value;
+      expect(postSubmitDraft).not.toBe('Renamed');
+      expect(postSubmitDraft.split(' ')).toHaveLength(2);
+    });
+
+    it('does NOT reset an in-progress draft when an unrelated field of the same selected company changes elsewhere', () => {
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
+      useUIStore.getState().selectCompany('c1');
+      render(<CompanyCrudControls />);
+
+      fireEvent.change(screen.getByRole('textbox', { name: /rename company/i }), { target: { value: 'Unsubmitted Edit' } });
+      // A robot getting (re)assigned into/out of this same company — same selectedCompanyId,
+      // but a brand-new Company object reference — must not clobber the draft above.
+      act(() => { useLocaleStore.getState().updateCompany(localeId, 'c1', { color: '#123456' }); });
+
+      expect((screen.getByRole('textbox', { name: /rename company/i }) as HTMLInputElement).value).toBe('Unsubmitted Edit');
+    });
   });
 
   it('Delete is disabled when no company is selected', () => {
