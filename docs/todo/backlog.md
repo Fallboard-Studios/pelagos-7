@@ -540,11 +540,12 @@ Profiler check, same as items 21/23/24's own remaining live-verification steps.
 
 ### 26. Oblique Cabinetry Primitives: No Memo Boundary Anywhere — Whole Panels Re-render Together
 
-**Status:** code fix landed on `refactor/factory-timing` (2026-09-15, Tasks 1-12 of
+**Status:** ☑ fixed — code landed on `refactor/factory-timing` (2026-09-15, Tasks 1-12 of
 [docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md](../tasks/OBLIQUE_CABINETRY_MEMOIZATION.md) — full
-spec at [docs/specs/OBLIQUE_CABINETRY_MEMOIZATION.md](../specs/OBLIQUE_CABINETRY_MEMOIZATION.md)).
-**Not yet marked fixed** — needs a live browser with React DevTools Profiler (Crawford, or a
-future session with one) to confirm, same as items 21/23-25's own deferred manual checks. An automated end-to-end
+spec at [docs/specs/OBLIQUE_CABINETRY_MEMOIZATION.md](../specs/OBLIQUE_CABINETRY_MEMOIZATION.md)),
+**live-verified round 2, 2026-09-15** (Crawford, React DevTools Profiler) — the 3 LFO-bearing
+blocks (3-Band EQ / Low-Pass Filter / High-Pass Filter) confirmed no longer cascade during an
+Audio Swell, after `bba6767`/`9ed46fe` (below). An automated end-to-end
 regression test (`AudioRigDrawer.test.tsx`'s "re-render cascade regression" describe block)
 confirms the originally-reported mechanism is fixed: a `setGlobalAudio` update to one field no
 longer re-executes a sibling field's own control. Implementation also found and fixed a real gap
@@ -565,7 +566,7 @@ first: `Lfo.tsx` itself constructed its own 3 internal schemas and onChange clos
 render too, so once Lfo's own memo bailed correctly at the group level, dragging one of its own
 3 fields (Shape/Rate/Depth) still re-rendered the other two unnecessarily — fixed the same way,
 plus stable per-field `onChange` handlers. Both fixes have their own automated regression tests;
-**still not yet re-live-verified** after this round.
+**re-live-verified in round 2** (Crawford, 2026-09-15) — the 3 LFO-bearing blocks confirmed clean.
 
 Found live-verifying item 25 (Crawford, React DevTools Profiler, 2026-09-15): during an
 automatic Audio Swell, the entire affected `AudioRigEffectPanel` re-renders together — every
@@ -596,3 +597,246 @@ SectorSettingsDrawer, header nav's `RadioButton` duplication — backlog item 1 
 Contour, Signature Array, Company management) likely have the identical unstabilized-callback
 pattern and would need the same treatment in their own follow-up passes before they'd see any
 benefit from the primitives being memoized.
+
+### 27. Robot Options: Whole Panel Re-renders on Any Single Field Edit
+
+Found live (Crawford, 2026-09-15): the Robot Options screen's accordions ("even when no
+company is selected" — ruling out the separate company-broadcast path, `CompanyOptionsSection`,
+as the trigger) re-render frequently during ordinary single-robot editing. Confirmed via code:
+this is item 26's own predicted follow-up (`docs/specs/OBLIQUE_CABINETRY_MEMOIZATION.md` §1.4/
+§7.5) — the identical unstabilized-inline-object/closure pattern that spec fixed for
+`AudioRigDrawer.tsx`, just not yet applied to `RobotOptionsTab.tsx` and the 5 section components
+it renders.
+
+**Root cause:** `RobotOptionsTab.tsx` (`src/components/panels/screen/console/RobotOptionsTab.tsx:67-121`)
+rebuilds `audioSettingValue`/`pingControlsValue`/`signatureArrayValue` as fresh object literals,
+every `onXChange` as a fresh arrow closure, and every `style` prop (`getTraitColorStyle(...)`/
+`getRobotColorStyle(...)`) as a fresh `CSSProperties` object, on every render. None of its 5
+direct children — `RobotDisplaySection`, `AudioSettingSection`, `PingControlsDrawer`,
+`PingContourDrawer`, `SignatureArrayDrawer` — are `React.memo`-wrapped, so any single field edit
+(→ `localeStore` update → `robot` selector returns a new object → `RobotOptionsTab` re-renders)
+cascades into all 5 re-executing regardless of which one the user actually touched. Each then
+hands a new `style`/`children` ref into its own already-memoized `AccordionContainer` (item 26),
+defeating that memo too. `AudioSettingSection.tsx:97` additionally builds its `Lfo` schema prop
+inline every render (`{ id: 'robotOptions.volume.lfo', type: 'lfo', humanLabel: displayLabel }`)
+— the exact same instability item 26's round-1 live-verification found and fixed in
+`AudioRigLfoGroup`/`Lfo.tsx` itself, reproduced at this call site. `PingContourDrawer.tsx:50,54`
+builds 2 `DirectionalPanel` schema objects inline too, though these don't depend on any prop/
+state and can simply be hoisted to module scope. `RobotDisplaySection.tsx:44,46` rebuilds
+`companyAssignmentSchema` (from `companies`) and `handleCompanyChange` fresh every render as well.
+
+**Fix shape:** same playbook as item 26 — `React.memo` the 5 section components, `useMemo` the 3
+value objects and the `Lfo`/`DirectionalPanel` inline schemas, `useCallback` every `onXChange`
+passed down. Note: `RobotDisplaySection` is the one exception — it's not actually one of "the
+accordions" (its own docstring: not an `AccordionContainer`, the always-visible header block),
+and its sole prop is the *entire* `robot` object rather than a narrowed value, so `React.memo`
+alone can't stop it re-rendering on every edit (its prop is, by construction, always the same new
+reference that triggered `RobotOptionsTab`'s own re-render in the first place) — memoized anyway
+for consistency/no-regression, but the real fix (the other 4 sections' cascade) doesn't depend on
+it. `CompanyOptionsSection.tsx` (the company-broadcast call site for the same 4 schema-driven
+drawers) has the identical unstabilized pattern but wasn't the one reported here (no company
+selected) — flagged as an identical-pattern follow-up, not fixed in this pass, same "prove it on
+the one measured case first" scoping item 21→22 and item 26 itself already used.
+
+**Status:** code fix landed on `refactor/factory-timing` (2026-09-15, Tasks 1-6 of
+[docs/tasks/ROBOT_OPTIONS_TAB_MEMOIZATION.md](../tasks/ROBOT_OPTIONS_TAB_MEMOIZATION.md) — full
+spec at [docs/specs/ROBOT_OPTIONS_TAB_MEMOIZATION.md](../specs/ROBOT_OPTIONS_TAB_MEMOIZATION.md)).
+**Not yet marked fixed** — needs a live browser with React DevTools Profiler (Crawford, or a
+future session with one) to confirm, same as every other item in this session's own chain. Full
+suite (144 files / 2668 tests), `build:types`, `lint`, and production build all clean.
+
+A real bug surfaced mid-implementation, not anticipated by the spec: the planned
+`useCallback([robot, localeId])` dependency array for every `applyXxx`-calling handler was wrong
+— `robot` is a new reference on *every* edit regardless of which field changed, so keying every
+handler on it made all of them unstable on every edit, defeating every section's own memo
+regardless of which field the user actually touched. Caught by the plan's own cascade test going
+RED for the wrong reason (a Density-only edit still re-rendered `AudioSettingSection`). Fixed the
+same way `Lfo.tsx` stabilizes its own per-field handlers (item 26 round 1): a ref holds the
+current `robot`, and every handler reads it at call time instead of closing over `robot` directly.
+See the task file's own Task 6 entry for the full story.
+
+`RobotDisplaySection` (the always-visible header, not one of "the accordions") is memoized for
+consistency but — per its own prop contract (the entire `robot` object, not a narrowed value) —
+does not and cannot stop re-rendering on every edit without a deeper prop-shape change; flagged,
+not attempted, same "prove it on the measured case first" reasoning as `CompanyOptionsSection.tsx`
+above.
+
+**Update, same day:** live-checked `CompanyOptionsSection.tsx` (React DevTools "highlight
+updates") and found it still cascading heavily — worse than `RobotOptionsTab` was, since this
+component subscribes to the *whole locale's* `robots` array, which gets a new reference on any
+robot edit anywhere in the locale, not just an edit to a member of the selected company. Applied
+the identical treatment: `members`/`resolved`/each section's own narrowly-derived value object are
+now `useMemo`'d, and every handler reads `members`/`resolved`/`company`/`allRobotsSelected`/
+`allRobotsLastEditedOptions` from a ref (same "stable callback, fresh values read at call time"
+pattern as `RobotOptionsTab.tsx`) rather than closing over them directly.
+
+Two more real bugs surfaced mid-implementation:
+1. **The whole-`resolved`-object problem, one level removed.** `resolved` bundles every field into
+   one shared snapshot, and was originally handed to all 4 sections more or less as-is — so even
+   once stabilized as a single object, any field edit on the company's first member still
+   invalidated all 4 sections together, the identical bug `RobotOptionsTab` had for `robot` itself.
+   Fixed by deriving each section its own narrowly-`useMemo`'d value (mirroring `RobotOptionsTab`'s
+   own 3-way split), each keyed only on the specific `resolved` sub-fields it actually uses.
+2. **`resolveCompanyOptions` (`systems/companyOptions.ts`) itself returned fresh fallback objects
+   on every call** — `{ ...DEFAULT_LFO_SETTINGS[VOLUME_LFO_TARGET] }` for an unset `volumeLfo`,
+   `[]` for unset `layers`, `{}` for unset `lfoSettings` — each a brand-new reference every call
+   even when nothing about the source robot changed, defeating the per-section memoization above
+   regardless. Fixed by returning shared stable references instead (module-level
+   `EMPTY_LAYERS`/`EMPTY_LFO_SETTINGS` constants, and `DEFAULT_LFO_SETTINGS[...]` directly rather
+   than a spread copy) — safe since nothing downstream mutates a `CompanyOptionsSnapshot` field in
+   place (every consumer spreads: `{ ...value, field }`).
+
+Also hit `react-hooks/preserve-manual-memoization` (this repo's React Compiler lint rule): a
+`useMemo` callback that reads `resolved.field` directly makes the compiler infer the *whole*
+`resolved` object as the dependency, rejecting a manually-narrower array as a mismatch. Fixed by
+destructuring each needed field to its own local *before* the `useMemo` call, so the callback body
+never references `resolved` itself — the compiler's own inference then lines up with the narrower
+array. New end-to-end cascade tests added to `CompanyOptionsSection.test.tsx` (RED confirmed first
+via `git stash` on both changed files): editing a non-member robot leaves all 4 sections
+un-re-rendered; editing one field on the actual first member re-renders only that field's own
+section.
+
+Full suite (144 files/2670 tests), `build:types`, `lint`, `build` all clean. Not yet marked ☑
+fixed — same live-profiler gate as the rest of this item.
+
+**Second update, same day — Robot Selection hub tile:** live-checked (screenshot: "RobotsTab
+x438", "RobotFilterPanel x256", "CompanyOptionsSection x256", every descendant lit up) and found
+`RobotFilterPanel.tsx` — rendered by `RobotsTab` with zero props — was missing the exact memo
+boundary `CompanyManager.tsx` (its own sibling, rendered one level deeper) already carries; its own
+doc comment names the mechanism precisely: `RobotsTab` re-renders on every audio-swell tick
+(~8-9x/sec, `audioSwells.ts`'s `tickAudioSwells` → `applyAdsr`/etc. → `updateRobot`, a new `robots`
+array reference every time), and without a memo boundary a zero-prop child re-renders in lockstep
+regardless. Fixed identically: `React.memo`, no other change needed (empty props can never
+differ). `CompanyOptionsSection` itself got the same wrap for consistency, with an honest limit
+documented in its own doc comment: the memo wrap stops `RobotsTab`'s churn from forcing it to
+re-render, but can't stop its OWN `robots`-array subscription (needed to compute `members`) from
+re-executing its body on every tick regardless — fully eliminating that would need a deeper store
+restructuring (per-robot selectors instead of one whole-locale array), out of scope here.
+`RobotSelectionCard` (each card in the grid) was already correctly `React.memo`-wrapped with a
+boolean `anySolo` selector from an earlier documented bugfix — confirmed via direct read, nothing
+to do there. `RobotsTab` itself needs its own necessary re-render whenever the robots array
+changes (it maps the roster into cards) — not fixable without the same deeper restructuring.
+
+Full suite (144 files/2672 tests — one `audioSwells.test.ts` flake on the combined run, confirmed
+clean 65/65 in isolation, the same known random-seeded flake pattern item 26 Task 12 already
+recorded), `build:types`, `lint`, `build` all clean.
+
+**Third update, same day — the deeper architectural fix, Crawford-requested:** live-verified with
+React DevTools "highlight updates" that even after the memo wraps above, an *idle* robot's card
+(battery/job/docking/company all static) still re-rendered every time. Traced (see
+`docs/COMPANIES.md`-adjacent code, `src/systems/robotSystems.ts`'s `tickRobotLifecycle`,
+`src/stores/localeStore.ts:200`'s `updateRobot`): the lifecycle tick itself only touches the one
+robot whose battery is actually draining/recharging that tick (not a blanket rebuild) — but
+`updateRobot`'s `existing.robots.map(...)` always allocates a **new top-level array** regardless,
+and `RobotsTab.tsx` subscribed to that whole array with default equality, so it — and everything
+composed beneath it — re-rendered on *any* robot's tick anywhere in the locale, not just the one
+actually shown re-rendering.
+
+**Fix: `RobotSelectionCard` now looks up its own robot by id** (`useLocaleStore` `.find()`,
+returning the same reference unless THAT robot specifically changed) instead of receiving the
+whole `Robot` object as a prop from `RobotsTab`'s own `.map()`. `RobotsTab.tsx` itself now
+subscribes to a narrow `{ id, companyId }` roster via a custom-equality wrapping selector
+(`useRobotRoster`, same ref-caching technique zustand's own `useShallow` uses internally, since
+Zustand v5's store hook has no second `equalityFn` parameter — that was a v4 API) — it only
+re-renders when a robot is actually added/removed/reassigned, never on a battery/audio/job/docking
+tick. `filterRobotsByCompanyFocus` (`utils/robotListFilter.ts`) was generalized to accept this
+narrower shape instead of full `Robot[]`. New regression tests confirm (RED via `git stash` first):
+`RobotsTab` does not re-execute when an untouched robot's field changes elsewhere in the locale,
+but does when a robot is reassigned to a different company.
+
+Full suite (144 files/2674 tests, clean — no flake this run), `build:types`, `lint`, `build` all
+clean.
+
+**Fourth update, same day — the world-view robots ("swimming in the water"), Crawford-prompted:**
+same question extended one layer further — the individual robot actors in `OceanScene` (the
+ocean-themed world scene, not the UI selection cards), asking whether they needed the identical
+treatment. Investigated first rather than assuming: confirmed robot movement itself is **fully
+GSAP/ref-driven** (`src/animation/swimAnimation.ts`'s `createSwimTimeline` animates a DOM ref
+directly via `getRef`, never touching React/Zustand per frame — `Robot.tsx`'s own mount-only
+`useLayoutEffect`, `[robot.id]`/now `[robotId]` deps, confirms this), so none of the reported
+re-render volume was legitimate animation — it was the identical whole-array-reference bug,
+confirmed present: `OceanScene.tsx` subscribed to the whole `robots` array directly, and `Robot`
+(the per-robot world component) took the entire `Robot` object as a prop with no memo boundary.
+
+**Fix:** `Robot.tsx` now looks up its own robot by id via `useLocaleStore` (mirroring
+`RobotSelectionCard`'s own fix) and is `React.memo`-wrapped. `OceanScene.tsx` now subscribes to
+just an array of robot ids via `useShallow` (`zustand/react/shallow` — already this codebase's own
+established idiom for exactly "compare an array of primitives by value," used in
+`AudioRigDrawer.tsx`) rather than the whole array — simpler than `RobotsTab`'s own custom-equality
+wrapper since the world view never filters robots by company, so no `companyId` needs to travel
+with the roster here. New regression tests (RED via `git stash` first, using an unmemoized
+`vi.fn()` `Robot` mock as the render-count marker, same technique as `RobotOptionsTab.test.tsx`):
+`OceanScene` does not re-render its robot layer when an untouched robot's field changes, but does
+when a robot is added.
+
+Full suite (144 files/2676 tests, clean), `build:types`, `lint`, `build` all clean.
+
+**Fifth update, same day — per-field cascade WITHIN an accordion, Crawford-prompted:** asked to
+check every accordion for a DIFFERENT bug: "when one ADSR item changes on a robot, everything in
+the accordion rerenders." Confirmed and audited all 4 shared drawer components plus their shared
+`LfoTargetGroup` primitive — this is a *different* mechanism from every fix above (which stopped
+whole-*component* cascades between accordions); this one is INSIDE a single already-memoized
+accordion, where the component's own internal handlers were rebuilt fresh every render, defeating
+its own children's memo even though the component itself correctly bailed or re-rendered as a
+whole.
+
+- **`PingContourDrawer.tsx`** — confirmed: `handleAttackChange`/`handleDecayChange`/
+  `handleSustainChange`/`handleReleaseChange` were built fresh, unmemoized, every render, so
+  editing Attack rebuilt Decay/Sustain/Release's own `onChange` too, cascading all 4 sliders
+  together. Fixed with the same ref-cached-value + `useCallback` pattern as `RobotOptionsTab.tsx`.
+- **`AudioSettingSection.tsx`** — same class, one instance: the Audio Setting `RadioButton`'s
+  `onChange={(v) => onAudioModeChange(v as Robot['audioMode'])}` was a fresh closure every render,
+  so editing Volume also re-rendered the radio. Fixed with `useCallback`.
+- **`PingControlsDrawer.tsx`** — audited, confirmed already clean (every `onChange` passes
+  straight through, matching its own Task 2 doc claim).
+- **`SignatureArrayDrawer.tsx`** — the biggest instance: `handleTypeChange`/`handleParamChange`/
+  the `fields` array/`renderField` callback were all built fresh inside the parent's own `.map()`
+  over `SIGNATURE_ARRAY_CONFIG`, so editing one layer's Gain cascaded into all 3 layers' worth of
+  controls. **This also invalidates item 26/27's own earlier reasoning for this file** ("the outer
+  memo boundary already handles it" — docs/tasks/ROBOT_OPTIONS_TAB_MEMOIZATION.md Task 4's own
+  note): correct that the component-level re-render frequency was fine, but wrong that it made the
+  internal per-layer cascade harmless — it doesn't. Fixed by extracting a new `React.memo`-wrapped
+  `SignatureArrayLayer` sub-component per layer, with the parent building 3 shared, stable,
+  `idx`-keyed handlers via the same ref-cached pattern. **Known, documented limitation left in
+  place:** `lfoSettings` is one flat object shared by all 3 layers (`applyLayerLfo` always
+  rebuilds the whole record), so an LFO-settings edit (not a plain Gain/Detune/Phase drag) still
+  cascades across all 3 layers — narrowing that would need its own follow-up, out of scope here.
+- **`LfoTargetGroup.tsx`** (the shared LFO-display primitive `SignatureArrayDrawer` composes) —
+  was not `React.memo`-wrapped at all, and had the same 2-inline-schema instability item 26/27
+  already fixed elsewhere (its own `sliders` `DirectionalPanel` schema and its own `Lfo` schema).
+  Without this, `SignatureArrayDrawer`'s own per-layer fix would have had no effect — even a
+  perfectly stable caller couldn't make an unmemoized child bail. Fixed: `React.memo` + both
+  schemas `useMemo`'d + the `Lfo` `onChange` stabilized via `useCallback`. Confirmed via a repo
+  search that this component (the wrapper, not the `useLfoTargetGroup` hook) has exactly one
+  consumer (`SignatureArrayDrawer`), so this fix is fully scoped.
+
+New regression tests added to all 5 touched files (RED confirmed via `git stash` first, using the
+established `resolveAccessibleName`-filtered-by-`schema.id` marker technique). Full suite (144
+files/2680 tests, clean), `build:types`, `lint`, `build` all clean.
+
+**Sixth update, same day — checked the 2 remaining areas Crawford named (Robot Selection page,
+Audio Rig), rather than assume the audit above was exhaustive:**
+
+- **Robot Selection page (`RobotsTab.tsx`/`RobotFilterPanel.tsx`/`CompanyManager.tsx`/
+  `CompanyButtonRow.tsx`/`CompanyCrudControls.tsx`/`RobotSelectionCard.tsx`):** confirmed **not
+  applicable** — none of these use `AccordionContainer` at all (grepped every file; the only hits
+  are doc comments, including `CompanyCrudControls.tsx` explicitly recording that its own
+  accordion wrap was *removed* in an earlier phase). This whole area is flat, non-accordion UI —
+  the "accordion re-renders all siblings" bug class doesn't apply here by construction. Not
+  force-fit; genuinely nothing to fix.
+- **`AudioRigDrawer.tsx` (item 26's own original fix target) — every block re-audited against
+  today's sharper understanding of this bug class:** Transport & Composition, the Compressor's own
+  5 direct `paramRow` calls, Decay Mode's `RadioButton`, the Drift sliders, and EQ3/LPF/HPF via
+  `AudioRigLfoGroup` — all confirmed clean; every `onChange` already routes through the stabilized
+  `fieldOnChange` map or its own `useCallback`, every schema is a config import or already
+  `useMemo`'d. **One (harmless) inconsistency found and fixed for consistency:** the Compressor
+  block's 2 `DirectionalPanel` schemas (`audioRig.compressor.topRow`/`bottomRow`) were still inline
+  object literals, unlike every other schema in this file — not a functional bug (confirmed:
+  `DirectionalPanel`'s own memo already only pays off when `children` is also stable, which it
+  isn't here regardless — same documented conditional-benefit case from item 26 §1.3), just the
+  one remaining spot not matching the file's own established "schema is always a stable reference"
+  convention. Hoisted to module-level constants, matching `PingContourDrawer.tsx`'s own identical
+  earlier fix.
+
+Full suite (144 files/2680 tests, unchanged — a pure hygiene fix, no new tests needed since it's
+not a functional regression), `build:types`, `lint`, `build` all clean.
