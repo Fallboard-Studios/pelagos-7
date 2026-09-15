@@ -316,14 +316,15 @@ before its source data is ready).
 
 ### 21. Factory: Every Instance Re-renders Once/Sec for Day/Night Lighting
 
-**Status:** ☑ code fix landed on `refactor/factory-timing` (2026-09-14, Tasks 1-4 of
+**Status:** ☑ fixed — code landed on `refactor/factory-timing` (2026-09-14, Tasks 1-4 of
 [docs/tasks/FACTORY_LIGHTING_RERENDER.md](../tasks/FACTORY_LIGHTING_RERENDER.md) — full spec
-at [docs/specs/FACTORY_LIGHTING_RERENDER.md](../specs/FACTORY_LIGHTING_RERENDER.md)). **Not yet
-marked fixed** — the live re-profiling this item's own fix shape called for ("re-profiling
-with the same DevTools Ranked-view technique that found this to confirm the fix actually
-lands," below) needs a real browser with the React DevTools extension, which isn't available
-in-session; genuinely open until Crawford (or a future session with a live browser) runs it
-and reports back, matching the "not run this session" caveats elsewhere in this backlog.
+at [docs/specs/FACTORY_LIGHTING_RERENDER.md](../specs/FACTORY_LIGHTING_RERENDER.md)),
+**live-verified 2026-09-15** (Crawford, React DevTools Profiler, Ranked view). The specific bug
+— wasted JS recomputation of geometry/greebles on every tick — is confirmed gone. The live
+check also surfaced two *further* costs this item's own fix couldn't have touched, each found
+and fixed in the same pass: item 23 (`BubbleStream` unmemoized) and item 24 (unrounded
+lighting floats defeating React's own DOM-write diffing) — see those entries for what the
+Profiler actually showed and how each was run down.
 
 Found while live-verifying item 18 (2026-09-14, Crawford + React DevTools Profiler,
 Ranked view) — confirmed via two profiler samples exactly ~1s apart, both showing the
@@ -457,6 +458,49 @@ change) — this was purely the surrounding React render/reconciliation cost.
 React.memo(XxxInner)` pattern `Factory.tsx` and the Robot shape components already use. No
 custom comparator needed — every prop is a primitive, so the default shallow compare is
 already correct. `BubbleStream.test.tsx`'s `'exports a React component'` assertion updated
-(`typeof` a memoized component is `'object'`, not `'function'`); a new test added asserting
-(via `React.Profiler`) that the component does not re-commit when a parent re-renders with
-identical prop values.
+(`typeof` a memoized component is `'object'`, not `'function'`); a real render-based
+re-render-count test wasn't viable (`BubbleStream`'s GSAP effect calls `tl.add()`, which the
+global `gsap` test mock doesn't implement — confirmed directly), so verified structurally
+instead (`$$typeof === Symbol.for('react.memo')`, no custom comparator). **Live-verified
+2026-09-15** (Crawford, React DevTools Profiler, Ranked view): clicking `BubbleStreamInner`
+reports *"Did not render on the client during this profiling session"* across a full
+28-commit recording — the fix is confirmed working in the real app, not just structurally.
+
+### 24. Unrounded Lighting Floats Defeat React's Own DOM-Write Diffing
+
+**Status:** ☑ fixed — same session as items 21-23 (2026-09-15).
+
+Found live-verifying items 21-23's fixes (Crawford, React DevTools Profiler, Ranked view,
+2026-09-15) — even with all of 21-23 landed, `FactoryInner (Memo)` entries still cost
+**5-9ms each** (~30 instances visible), the same order of magnitude as the original ~150ms/tick
+baseline item 21 itself recorded. Crawford correctly pushed back on the initial read of this
+("that's just inherent DOM-mutation cost") — a direct empirical check (rendering real
+`Factory` instances through repeated lighting ticks, timed) confirmed the *relative* cost
+scaled with window count as expected, but that didn't explain why even a genuinely cheap
+paint step would force a real DOM write on literally every tick.
+
+Root cause, found by re-reading `applyColorShift` (`colorUtils.ts`) and the window-`opacity`
+line in `facadeGreebles.tsx`'s `paintWindowItems` (added in item 21's Task 3): neither rounded
+its output. `eastLMultiplier`/`westLMultiplier`/`nightDepth` are continuous, never-repeating
+floats sampled every tick from a sine-based day/night curve — `l = base.l * lMultiplier` (and
+the window `opacity` product) produced a genuinely *different* number on every single tick,
+even when the real visual change was imperceptible. React's reconciler skips a DOM write for
+an attribute only when `Object.is(prevValue, nextValue)` is true — a plain value check, not
+something `React.memo` governs — so an unrounded float defeats that check on every tick,
+forcing a real `fill`/`opacity` write to the actual DOM every second across every lit element
+in the scene, regardless of how cheap the *computation* feeding it had become. Items 21-23
+eliminated wasted JS computation; this is a distinct cost — wasted DOM mutation — that only
+existed because the two never-equal values were never given a chance to compare equal.
+
+**Fix:** round before building the output — `Math.round(base.l * lMultiplier)` (whole-percent
+lightness, `colorUtils.ts`) and `Math.round(opacityBase * multiplier * 100) / 100`
+(2-decimal opacity, `facadeGreebles.tsx`) — 100 distinct levels each, visually indistinguishable
+from full float precision. Same fix shape this codebase has used before for an unrelated
+instance of the identical problem (`CabinetBox`'s `ResizeObserver` measurement rounding,
+`528c77b`/`9fbcb7d`, per project memory). Confirmed every existing `applyColorShift` test
+already used values that happened to round to whole numbers (no regression), added tests
+proving two lighting values differing by a sub-perceptible amount now produce the *identical*
+string/number, and an end-to-end `Factory` test confirming body fill is unchanged across a
+realistic one-real-second tick delta even at dawn — the steepest part of the sine curve, the
+worst case for this fix to hold. Full suite: 143 files / 2584 tests, `build:types`, `lint`,
+and production build all clean.

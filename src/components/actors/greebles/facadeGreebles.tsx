@@ -241,7 +241,13 @@ function paintWindowItems(items: WindowLayoutItem[], ctx: GreebleRendererContext
         const isLit = nightDepth > 0 && litRng() < nightDepth;
         // Lit windows use the night-depth multiplier; unlit windows use the face lightness
         // multiplier — same split as before, just applied to a precomputed opacityBase.
-        const opacity = item.opacityBase * (isLit ? nightDepth : lMult);
+        // Rounded to 2 decimal places (100 distinct levels, visually indistinguishable from
+        // full float precision) — nightDepth/lMult are continuous, never-repeating floats
+        // sampled every tick, so an unrounded product would produce a genuinely different
+        // number on every render, forcing a real DOM write every tick even when the visual
+        // change is imperceptible. Same fix shape as applyColorShift's lightness rounding
+        // (colorUtils.ts).
+        const opacity = Math.round(item.opacityBase * (isLit ? nightDepth : lMult) * 100) / 100;
         return (
           <rect
             key={`${item.r}-${item.c}`}

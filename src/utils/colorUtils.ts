@@ -95,8 +95,13 @@ export function applyColorShift(
 
   const s = clamp(base.s + shift.satShift, 0, 100);
 
-  // Apply lightness multiplier (e.g., 0.8 for darkening, 1.2 for brightening)
-  const l = base.l * lMultiplier;
+  // Apply lightness multiplier (e.g., 0.8 for darkening, 1.2 for brightening).
+  // Rounded to a whole number — `lMultiplier` is a continuous, never-repeating float when
+  // driven by a sine-based day/night cycle (Factory.tsx, rooftopGreebles.tsx), so an
+  // unrounded product would produce a genuinely different string on every call, forcing a
+  // real DOM write on every tick even when the visual change is imperceptible. Whole-percent
+  // granularity (100 distinct levels) is visually indistinguishable from full float precision.
+  const l = Math.round(base.l * lMultiplier);
 
   return hslToString({ h, s, l });
 }

@@ -198,6 +198,34 @@ describe('computeWindowGridLayout / paintWindowGrid', () => {
   });
 });
 
+describe('paintWindowGrid — opacity rounding', () => {
+  // Found live-verifying items 21-23's fixes (2026-09-15): nightDepth/lMultiplier are
+  // continuous, never-repeating floats sampled every tick from a sine-based day/night curve.
+  // Without rounding, `opacity` produced a genuinely different number on every render, forcing
+  // a real DOM write on every tick even when the visual change was imperceptible — real,
+  // measured cost the JS-computation fixes in items 21-23 couldn't touch, because the values
+  // were never actually equal to begin with. Same fix shape as applyColorShift's lightness
+  // rounding (colorUtils.ts).
+  it('rounds opacity to 2 decimal places, not the raw floating-point product', () => {
+    const layout = computeWindowGridLayout({ ...zoneBaseCtx, seed: 1 }, 'squareWindows', 0.4);
+    const el = paintWindowGrid(layout, { ...zoneBaseCtx, seed: 1, nightDepth: 0, lMultiplier: 0.812345678 }) as EL;
+    const opacities = (React.Children.toArray(el.props.children) as EL[]).map((c) => c.props.opacity as number);
+    expect(opacities.length).toBeGreaterThan(0);
+    for (const o of opacities) {
+      expect(o).toBe(Math.round(o * 100) / 100);
+    }
+  });
+
+  it('two lMultiplier values differing by a tiny (sub-tick) amount produce identical opacity', () => {
+    const layout = computeWindowGridLayout({ ...zoneBaseCtx, seed: 1 }, 'squareWindows', 0.4);
+    const tickA = paintWindowGrid(layout, { ...zoneBaseCtx, seed: 1, nightDepth: 0, lMultiplier: 0.80001 }) as EL;
+    const tickB = paintWindowGrid(layout, { ...zoneBaseCtx, seed: 1, nightDepth: 0, lMultiplier: 0.80003 }) as EL;
+    const opacitiesA = (React.Children.toArray(tickA.props.children) as EL[]).map((c) => c.props.opacity);
+    const opacitiesB = (React.Children.toArray(tickB.props.children) as EL[]).map((c) => c.props.opacity);
+    expect(opacitiesA).toEqual(opacitiesB);
+  });
+});
+
 describe('FACADE_LAYOUT_PAINT registry shape', () => {
   it('contains exactly squareWindows, wideWindows, tallWindows — every other FacadeGreeble is absent', () => {
     expect(Object.keys(FACADE_LAYOUT_PAINT).sort()).toEqual(['squareWindows', 'tallWindows', 'wideWindows']);

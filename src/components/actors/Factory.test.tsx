@@ -170,6 +170,25 @@ describe('Factory — body fill tracks the day/night lighting cycle', () => {
 
     expect(nightFills).not.toEqual(dayFills);
   });
+
+  // Found live-verifying items 21-23's fixes (2026-09-15, Crawford + React DevTools Profiler):
+  // FactoryInner still cost 5-9ms/tick in the real browser even with items 21-23's JS-computation
+  // fixes landed, because eastFill/westFill (via applyColorShift) were unrounded floats — a
+  // genuinely different string every single tick, forcing a real DOM write every second even
+  // when the visual change was imperceptible. Fixed by rounding lightness to a whole number
+  // (colorUtils.ts). A full in-game day cycle is ~6 real minutes (Crawford, backlog item 21's
+  // own Decision note) — one real second is ~0.067 hours of localTime, the delta used below.
+  it('body fill is unchanged across a realistic one-second tick, even at dawn (the steepest part of the day/night curve)', () => {
+    const actor = makeActor({}, idsByVariant.Monolith);
+    setLocalTime(6); // dawn — steepest slope of the sine-based lighting curve
+    const { container } = render(<Factory actor={actor} />);
+    const before = getBodyFills(container);
+
+    setLocalTime(6 + 24 / 360); // +1 real second at the ~6-minute-per-day-cycle rate
+    const after = getBodyFills(container);
+
+    expect(after).toEqual(before);
+  });
 });
 
 describe('Factory — static-only greebles stay visually identical across a lighting tick', () => {
