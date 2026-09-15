@@ -1,3 +1,4 @@
+import { memo, useCallback, useMemo } from 'react';
 import { RobotBody } from '@/components/robot/RobotBody';
 import { DualLabel } from '@/components/ui/controls/DualLabel';
 import { RadioButton } from '@/components/ui/controls/RadioButton';
@@ -37,15 +38,15 @@ interface RobotDisplaySectionProps {
  * (docs/tasks/DIRECTIONAL_PANEL_WIRING.md Task 5) — this component is now pure read-only meta-
  * data display plus the company RadioButton, nothing editable beyond that.
  */
-export function RobotDisplaySection({ robot }: RobotDisplaySectionProps) {
+function RobotDisplaySectionInner({ robot }: RobotDisplaySectionProps) {
   const localeId = getActiveLocaleId();
   const jobLabel = robot.job ? JOB_TYPE_LABELS[robot.job.type] : UNASSIGNED_JOB_LABEL;
   const companies = useLocaleStore((s) => s.locales[localeId]?.companies ?? []);
-  const companyAssignmentSchema = buildCompanyAssignmentSchema(companies);
+  const companyAssignmentSchema = useMemo(() => buildCompanyAssignmentSchema(companies), [companies]);
 
-  const handleCompanyChange = (value: string) => {
+  const handleCompanyChange = useCallback((value: string) => {
     useLocaleStore.getState().assignRobotToCompany(localeId, robot.id, value === FREELANCE_VALUE ? null : value);
-  };
+  }, [localeId, robot.id]);
 
   return (
     <div className="robot-display-section">
@@ -77,5 +78,13 @@ export function RobotDisplaySection({ robot }: RobotDisplaySectionProps) {
     </div>
   );
 }
+
+// React.memo (docs/tasks/ROBOT_OPTIONS_TAB_MEMOIZATION.md Task 5) — safe and correctly bails when
+// given the identical `robot` reference, but does NOT stop this component re-rendering on every
+// real robot edit in practice: `robot` is this component's sole prop, and RobotOptionsTab only
+// ever re-renders because that same `robot` reference just changed (see spec §1.2.3). Memoized
+// anyway (no regression) and the 2 internal instabilities above are still fixed on their own
+// hygiene merits.
+export const RobotDisplaySection = memo(RobotDisplaySectionInner);
 
 export default RobotDisplaySection;

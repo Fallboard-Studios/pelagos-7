@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { RobotDisplaySection } from '@/components/robot/RobotDisplaySection';
 import { AudioSettingSection, type AudioSettingValue } from '@/components/robot/AudioSettingSection';
 import { PingControlsDrawer, type PingControlsValue } from '@/components/robot/PingControlsDrawer';
@@ -16,9 +17,18 @@ import {
   applyAudioMode, applyVolume, applyVolumeLfo,
 } from '@/systems/robotOptionsActions';
 import type { LfoValue } from '@/types/controls';
+import type { Robot, ADSREnvelope } from '@/types/Robot';
 import { getRobotColorStyle, getTraitColorStyle } from '@/utils/traitColors';
 
 import './RobotOptionsTab.css';
+
+// Module-level (docs/tasks/ROBOT_OPTIONS_TAB_MEMOIZATION.md Task 6) — 'output'/'composition'/
+// 'timeSpace'/'spectral' are literal constants, not derived from any prop/state, so these never
+// need to be recomputed per-render or per-instance.
+const OUTPUT_STYLE = getTraitColorStyle('output');
+const COMPOSITION_STYLE = getTraitColorStyle('composition');
+const TIME_SPACE_STYLE = getTraitColorStyle('timeSpace');
+const SPECTRAL_STYLE = getTraitColorStyle('spectral');
 
 /**
  * Robot Options screen (Roadmap Phase 9) — reached by selecting a robot from the Robot Selection
@@ -64,60 +74,123 @@ export function RobotOptionsTab() {
     return <div className="robot-options-empty">Robot not found</div>;
   }
 
-  const audioSettingValue: AudioSettingValue = {
+  return <RobotOptionsPanel robot={robot} localeId={localeId} />;
+}
+
+interface RobotOptionsPanelProps {
+  robot: Robot;
+  localeId: string;
+}
+
+/**
+ * Split out from RobotOptionsTab (docs/tasks/ROBOT_OPTIONS_TAB_MEMOIZATION.md Task 6) so every
+ * useMemo/useCallback below can be called unconditionally against a guaranteed-defined `robot` —
+ * RobotOptionsTab's own early returns (no robot selected / not found) happen before this ever
+ * mounts, so there's no `robot`-possibly-undefined case to guard against here. Re-renders on
+ * every robot field edit just like RobotOptionsTab itself did (its own `robot` prop is, by
+ * construction, always a new reference whenever anything about the robot changes) — the point of
+ * the memoization below isn't to stop THIS component's own body from re-executing, but to keep
+ * the 3 derived value objects and every onChange handed to the 4 accordion-wrapped sections
+ * referentially stable across an edit to an *unrelated* field, so those already-`React.memo`'d
+ * sections (AudioSettingSection/PingControlsDrawer/PingContourDrawer/SignatureArrayDrawer) can
+ * actually bail.
+ *
+ * Every `applyXxx(robot, localeId, ...)` handler needs the CURRENT robot at call time, but can't
+ * simply close over `robot` directly and depend on it in `useCallback` — `robot` is a new
+ * reference on every edit, including edits to fields a given handler has nothing to do with, so
+ * `useCallback([robot, localeId])` would make literally every handler unstable on every edit,
+ * defeating every section's own memo regardless of which field actually changed (found live
+ * while writing this task's own cascade test — AudioSettingSection kept re-rendering on a
+ * Density-only edit for exactly this reason). Fixed the same way `Lfo.tsx` stabilizes its own
+ * per-field handlers (item 26 round 1): a ref holds the latest `robot`, updated in an effect (not
+ * mutated during render — react-hooks/refs), and every handler reads `latestRobot.current`
+ * instead of closing over `robot`, keyed only on `[robot.id, localeId]` — stable for the life of
+ * this component instance.
+ */
+function RobotOptionsPanel({ robot, localeId }: RobotOptionsPanelProps) {
+  const latestRobot = useRef(robot);
+  useEffect(() => {
+    latestRobot.current = robot;
+  });
+
+  const robotColorStyle = useMemo(() => getRobotColorStyle(robot.identityColor), [robot.identityColor]);
+
+  const audioSettingValue: AudioSettingValue = useMemo(() => ({
     audioMode: robot.audioMode ?? 'none',
     masterVolume: robot.masterVolume,
     volumeLfo: robot.lfoSettings?.[VOLUME_LFO_TARGET] as LfoValue
       ?? { ...DEFAULT_LFO_SETTINGS[VOLUME_LFO_TARGET] },
-  };
+  }), [robot.audioMode, robot.masterVolume, robot.lfoSettings]);
 
-  const pingControlsValue: PingControlsValue = {
+  const pingControlsValue: PingControlsValue = useMemo(() => ({
     rhythmicDensity: robot.rhythmicDensity ?? 50,
     rhythmicMotifLength: robot.rhythmicMotifLength?.value ?? DEFAULT_RHYTHMIC_MOTIF_LENGTH.value,
     noteVariance: robot.noteVariance?.value ?? DEFAULT_NOTE_VARIANCE.value,
     pitchRepeat: robot.pitchRepeat ?? 0,
     octaveRange: robot.octaveRange,
     clickTrackActive: robot.clickTrackActive ?? false,
-  };
+  }), [
+    robot.rhythmicDensity, robot.rhythmicMotifLength, robot.noteVariance, robot.pitchRepeat,
+    robot.octaveRange, robot.clickTrackActive,
+  ]);
 
-  const signatureArrayValue: SignatureArrayValue = {
+  const signatureArrayValue: SignatureArrayValue = useMemo(() => ({
     layers: robot.audioAttributes.layers ?? [],
     lfoSettings: robot.lfoSettings,
-  };
+  }), [robot.audioAttributes.layers, robot.lfoSettings]);
+
+  const handleAudioModeChange = useCallback((mode: Robot['audioMode']) => applyAudioMode(latestRobot.current, localeId, mode), [localeId]);
+  const handleVolumeChange = useCallback((pct: number) => applyVolume(latestRobot.current, localeId, pct), [localeId]);
+  const handleVolumeLfoChange = useCallback((value: LfoValue) => applyVolumeLfo(latestRobot.current, localeId, value), [localeId]);
+
+  const handleDensityChange = useCallback((v: number) => applyDensity(latestRobot.current, localeId, v), [localeId]);
+  const handleMotifLengthChange = useCallback((v: number) => applyMotifLength(latestRobot.current, localeId, v), [localeId]);
+  const handlePitchRepeatChange = useCallback((v: number) => applyPitchRepeat(latestRobot.current, localeId, v), [localeId]);
+  const handleOctaveMinChange = useCallback((v: number) => applyOctaveMin(latestRobot.current, localeId, v), [localeId]);
+  const handleOctaveMaxChange = useCallback((v: number) => applyOctaveMax(latestRobot.current, localeId, v), [localeId]);
+  const handleNoteVarianceChange = useCallback((v: number) => applyNoteVariance(latestRobot.current, localeId, v), [localeId]);
+  const handleResetMelody = useCallback(() => regenerateMelody(latestRobot.current, localeId), [localeId]);
+  const handleClickTrackActiveChange = useCallback((v: boolean) => applyClickTrackActive(latestRobot.current, localeId, v), [localeId]);
+
+  const handleAdsrChange = useCallback((adsr: ADSREnvelope) => applyAdsr(latestRobot.current, localeId, adsr), [localeId]);
+
+  const handleLayersContinuousChange = useCallback((layers: SignatureArrayValue['layers']) => applyLayersContinuous(latestRobot.current, localeId, layers), [localeId]);
+  const handleLayersStructuralChange = useCallback((layers: SignatureArrayValue['layers']) => applyLayersStructural(latestRobot.current, localeId, layers), [localeId]);
+  const handleLayerLfoChange = useCallback((target: Parameters<typeof applyLayerLfo>[2], value: LfoValue) => applyLayerLfo(latestRobot.current, localeId, target, value), [localeId]);
 
   return (
-    <div className="robot-options" style={getRobotColorStyle(robot.identityColor)}>
+    <div className="robot-options" style={robotColorStyle}>
       <RobotDisplaySection robot={robot} />
       <AudioSettingSection
         value={audioSettingValue}
-        onAudioModeChange={(mode) => applyAudioMode(robot, localeId, mode)}
-        onVolumeChange={(pct) => applyVolume(robot, localeId, pct)}
-        onVolumeLfoChange={(value) => applyVolumeLfo(robot, localeId, value)}
-        style={getTraitColorStyle('output')}
+        onAudioModeChange={handleAudioModeChange}
+        onVolumeChange={handleVolumeChange}
+        onVolumeLfoChange={handleVolumeLfoChange}
+        style={OUTPUT_STYLE}
       />
       <PingControlsDrawer
         value={pingControlsValue}
-        onDensityChange={(v) => applyDensity(robot, localeId, v)}
-        onMotifLengthChange={(v) => applyMotifLength(robot, localeId, v)}
-        onPitchRepeatChange={(v) => applyPitchRepeat(robot, localeId, v)}
-        onOctaveMinChange={(v) => applyOctaveMin(robot, localeId, v)}
-        onOctaveMaxChange={(v) => applyOctaveMax(robot, localeId, v)}
-        onNoteVarianceChange={(v) => applyNoteVariance(robot, localeId, v)}
-        onResetMelody={() => regenerateMelody(robot, localeId)}
-        onClickTrackActiveChange={(v) => applyClickTrackActive(robot, localeId, v)}
-        style={getTraitColorStyle('composition')}
+        onDensityChange={handleDensityChange}
+        onMotifLengthChange={handleMotifLengthChange}
+        onPitchRepeatChange={handlePitchRepeatChange}
+        onOctaveMinChange={handleOctaveMinChange}
+        onOctaveMaxChange={handleOctaveMaxChange}
+        onNoteVarianceChange={handleNoteVarianceChange}
+        onResetMelody={handleResetMelody}
+        onClickTrackActiveChange={handleClickTrackActiveChange}
+        style={COMPOSITION_STYLE}
       />
       <PingContourDrawer
         value={robot.audioAttributes.adsr}
-        onChange={(adsr) => applyAdsr(robot, localeId, adsr)}
-        style={getTraitColorStyle('timeSpace')}
+        onChange={handleAdsrChange}
+        style={TIME_SPACE_STYLE}
       />
       <SignatureArrayDrawer
         value={signatureArrayValue}
-        onContinuousChange={(layers) => applyLayersContinuous(robot, localeId, layers)}
-        onStructuralChange={(layers) => applyLayersStructural(robot, localeId, layers)}
-        onLfoChange={(target, value) => applyLayerLfo(robot, localeId, target, value)}
-        style={getTraitColorStyle('spectral')}
+        onContinuousChange={handleLayersContinuousChange}
+        onStructuralChange={handleLayersStructuralChange}
+        onLfoChange={handleLayerLfoChange}
+        style={SPECTRAL_STYLE}
       />
     </div>
   );

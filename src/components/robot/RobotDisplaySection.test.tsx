@@ -1,5 +1,27 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import type { ComponentProps } from 'react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
+
+// Captures every `schema` prop the real RadioButton receives, without replacing its actual
+// rendering — RadioButton is itself already React.memo-wrapped, so it can't be spied on via
+// vi.fn the way a plain function export can (same reasoning as AudioSettingSection.test.tsx's own
+// Lfo-schema capture for Task 1). The wrapper itself is a plain (non-memoized) function, so it
+// also doubles as a reliable "did RobotDisplaySection's own render body execute" counter — it
+// always runs whenever that body constructs a <RadioButton> element, regardless of whether the
+// real memoized RadioButton underneath then bails on its own (unlike a marker delegated to a
+// hook/utility call *inside* an already-memoized child, which can't tell the two apart — tried
+// that first with resolveAccessibleName and found the battery SliderLinear's readOnly branch
+// never calls it at all, and RadioButton's own call is exactly the thing this memoization can
+// legitimately suppress).
+const capturedCompanyAssignmentSchemas = vi.hoisted(() => [] as unknown[]);
+vi.mock('@/components/ui/controls/RadioButton', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/components/ui/controls/RadioButton')>();
+  function RadioButtonSchemaCapture(props: ComponentProps<typeof actual.RadioButton>) {
+    capturedCompanyAssignmentSchemas.push(props.schema);
+    return <actual.RadioButton {...props} />;
+  }
+  return { ...actual, RadioButton: RadioButtonSchemaCapture };
+});
 
 import { RobotDisplaySection } from './RobotDisplaySection';
 import { useLocaleStore } from '@/stores/localeStore';
@@ -181,6 +203,64 @@ describe('RobotDisplaySection', () => {
       fireEvent.click(screen.getByRole('radio', { name: 'Freelance' }));
 
       expect(assignSpy).toHaveBeenCalledWith(localeId, robot.id, null);
+    });
+  });
+
+  describe('React.memo (docs/tasks/ROBOT_OPTIONS_TAB_MEMOIZATION.md Task 5)', () => {
+    it('is a React.memo-wrapped component', () => {
+      expect((RobotDisplaySection as unknown as { $$typeof: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
+    });
+
+    it('does not re-execute its render body on a re-render with the exact same robot reference', () => {
+      const robot = makeRobot();
+      useLocaleStore.getState().addRobot(localeId, robot);
+      capturedCompanyAssignmentSchemas.length = 0;
+      const { rerender } = render(<RobotDisplaySection robot={robot} />);
+      const callsAfterMount = capturedCompanyAssignmentSchemas.length;
+
+      rerender(<RobotDisplaySection robot={robot} />);
+      rerender(<RobotDisplaySection robot={robot} />);
+
+      expect(capturedCompanyAssignmentSchemas.length).toBe(callsAfterMount);
+    });
+
+    it('documents a known limitation: DOES re-execute given a new robot object reference, even with identical field values — its sole prop is the whole robot object, not a narrowed value (spec §1.2.3)', () => {
+      const robot = makeRobot();
+      useLocaleStore.getState().addRobot(localeId, robot);
+      capturedCompanyAssignmentSchemas.length = 0;
+      const { rerender } = render(<RobotDisplaySection robot={robot} />);
+      const callsAfterMount = capturedCompanyAssignmentSchemas.length;
+
+      rerender(<RobotDisplaySection robot={{ ...robot }} />);
+
+      expect(capturedCompanyAssignmentSchemas.length).toBeGreaterThan(callsAfterMount);
+    });
+
+    it('keeps companyAssignmentSchema the same reference across a re-render (even with a new robot reference) as long as companies has not changed', () => {
+      const robot = makeRobot({ companyId: undefined });
+      useLocaleStore.getState().addRobot(localeId, robot);
+      capturedCompanyAssignmentSchemas.length = 0;
+      const { rerender } = render(<RobotDisplaySection robot={robot} />);
+
+      rerender(<RobotDisplaySection robot={{ ...robot }} />);
+
+      expect(capturedCompanyAssignmentSchemas.length).toBeGreaterThanOrEqual(2);
+      expect(capturedCompanyAssignmentSchemas[1]).toBe(capturedCompanyAssignmentSchemas[0]);
+    });
+
+    it('gives companyAssignmentSchema a new reference once companies actually changes', () => {
+      const robot = makeRobot({ companyId: undefined });
+      useLocaleStore.getState().addRobot(localeId, robot);
+      capturedCompanyAssignmentSchemas.length = 0;
+      const { rerender } = render(<RobotDisplaySection robot={robot} />);
+
+      act(() => {
+        useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
+      });
+      rerender(<RobotDisplaySection robot={{ ...robot }} />);
+
+      expect(capturedCompanyAssignmentSchemas.length).toBeGreaterThanOrEqual(2);
+      expect(capturedCompanyAssignmentSchemas[1]).not.toBe(capturedCompanyAssignmentSchemas[0]);
     });
   });
 });
