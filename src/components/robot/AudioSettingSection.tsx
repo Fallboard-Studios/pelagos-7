@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 import { RadioButton } from '@/components/ui/controls/RadioButton';
 import { SliderLinear } from '@/components/ui/controls/SliderLinear';
 import { Lfo } from '@/components/ui/controls/Lfo';
@@ -14,7 +15,7 @@ import {
   VOLUME_SETTINGS_COLUMN_PANEL_SCHEMA,
 } from '@/data/robotOptionsConfig';
 import type { Robot } from '@/types/Robot';
-import type { LfoValue } from '@/types/controls';
+import type { LfoSchema, LfoValue } from '@/types/controls';
 
 import './AudioSettingSection.css';
 
@@ -58,11 +59,29 @@ interface AudioSettingSectionProps {
  * field to target ('volume'), so `selected`/`isTargeted` are effectively constant, but the same
  * click/focus-to-select wiring is kept for consistency with every other LFO-tied control group.
  */
-export function AudioSettingSection({ value, onAudioModeChange, onVolumeChange, onVolumeLfoChange, disabled, style }: AudioSettingSectionProps) {
+function AudioSettingSectionInner({ value, onAudioModeChange, onVolumeChange, onVolumeLfoChange, disabled, style }: AudioSettingSectionProps) {
   const { transitioning, select, isTargeted, displayValue, displayLabel } = useLfoTargetGroup({
     groupId: 'robotOptions.volume',
     fields: [{ field: 'volume', label: VOLUME_SCHEMA.humanLabel!, lfoValue: value.volumeLfo }],
   });
+
+  // Memoized (docs/tasks/ROBOT_OPTIONS_TAB_MEMOIZATION.md Task 1) — this used to be constructed
+  // fresh, inline, on every render, unlike every other primitive's schema in this codebase, which
+  // is always a stable reference. Keyed on displayLabel alone, matching Lfo.tsx's own
+  // schema.id-keying precedent for its 3 internal schemas — 'id'/'type' are literal constants.
+  const lfoSchema: LfoSchema = useMemo(
+    () => ({ id: 'robotOptions.volume.lfo', type: 'lfo', humanLabel: displayLabel }),
+    [displayLabel],
+  );
+
+  // Bugfix, found live (docs/todo/backlog.md #27 follow-up, 2026-09-15): this used to be a fresh
+  // inline closure built every render — so editing Volume (or VolumeLfo) changed `value`'s own
+  // reference, re-executing this component, which then handed the already-memoized RadioButton a
+  // new `onChange` regardless of whether audioMode itself changed, defeating its memo.
+  const handleAudioModeChange = useCallback(
+    (v: string) => onAudioModeChange(v as Robot['audioMode']),
+    [onAudioModeChange],
+  );
 
   return (
     <AccordionContainer schema={VOLUME_ACCORDION_SCHEMA} style={style}>
@@ -72,7 +91,7 @@ export function AudioSettingSection({ value, onAudioModeChange, onVolumeChange, 
             <RadioButton
               schema={AUDIO_SETTING_SCHEMA}
               value={value.audioMode}
-              onChange={(v) => onAudioModeChange(v as Robot['audioMode'])}
+              onChange={handleAudioModeChange}
               disabled={disabled}
             />
           </div>
@@ -94,9 +113,9 @@ export function AudioSettingSection({ value, onAudioModeChange, onVolumeChange, 
         </DirectionalPanel>
         <div className={withActiveClass('sc-lfo-target-group__display', transitioning)}>
           <Lfo
-            schema={{ id: 'robotOptions.volume.lfo', type: 'lfo', humanLabel: displayLabel }}
+            schema={lfoSchema}
             value={displayValue}
-            onChange={(v) => onVolumeLfoChange(v)}
+            onChange={onVolumeLfoChange}
             disabled={disabled || transitioning}
           />
         </div>
@@ -104,5 +123,8 @@ export function AudioSettingSection({ value, onAudioModeChange, onVolumeChange, 
     </AccordionContainer>
   );
 }
+
+// React.memo (docs/tasks/ROBOT_OPTIONS_TAB_MEMOIZATION.md Task 1)
+export const AudioSettingSection = memo(AudioSettingSectionInner);
 
 export default AudioSettingSection;

@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import { memo } from 'react';
 import { SliderLinear } from '@/components/ui/controls/SliderLinear';
 import { Toggle } from '@/components/ui/controls/Toggle';
 import { Button } from '@/components/ui/controls/Button';
@@ -87,7 +88,7 @@ interface PingControlsDrawerProps {
  * before docs/specs/STEPPER_TO_SLIDER.md, same "too slow to click through" reasoning Density's
  * own SliderLinear conversion established first.
  */
-export function PingControlsDrawer({
+function PingControlsDrawerInner({
   value,
   onDensityChange,
   onMotifLengthChange,
@@ -145,5 +146,10 @@ export function PingControlsDrawer({
     </AccordionContainer>
   );
 }
+
+// React.memo (docs/tasks/ROBOT_OPTIONS_TAB_MEMOIZATION.md Task 2) — every prop is either a
+// stable module-level schema constant or a plain value/callback the caller (RobotOptionsTab/
+// CompanyOptionsSection) hands over; no instability internal to this file.
+export const PingControlsDrawer = memo(PingControlsDrawerInner);
 
 export default PingControlsDrawer;

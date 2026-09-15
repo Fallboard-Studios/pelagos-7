@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ComponentProps } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
@@ -7,7 +7,35 @@ import { render, screen, fireEvent } from '@testing-library/react';
 // unmount cleanup calls killTimeline on an already-registered entry.
 vi.mock('@/animation/timelineMap', () => ({ setTimeline: vi.fn(), killTimeline: vi.fn() }));
 
+// Captures every `schema` prop the real Lfo component receives, without replacing its actual
+// rendering (Lfo is itself already React.memo-wrapped, so it can't be spied on via vi.fn the way
+// a plain function export can — Button.test.tsx's own resolveAccessibleName pattern doesn't apply
+// here) — docs/tasks/ROBOT_OPTIONS_TAB_MEMOIZATION.md Task 1's own schema-stability regression
+// test needs this to prove the inline schema object this task fixes is genuinely stable across
+// renders with the same displayLabel.
+const capturedLfoSchemas = vi.hoisted(() => [] as unknown[]);
+vi.mock('@/components/ui/controls/Lfo', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/components/ui/controls/Lfo')>();
+  function LfoSchemaCapture(props: ComponentProps<typeof actual.Lfo>) {
+    capturedLfoSchemas.push(props.schema);
+    return <actual.Lfo {...props} />;
+  }
+  return { ...actual, Lfo: LfoSchemaCapture };
+});
+
+// Spied (real cross-module call, wrapped so it still delegates to the actual implementation) so
+// a per-field cascade regression test (docs/todo/backlog.md #27 follow-up, 2026-09-15) can tell
+// which specific control's render body actually re-executed — resolveAccessibleName is called
+// unconditionally by RadioButton/SliderLinear, and receives the schema, so calls can be filtered
+// by schema.id to attribute them to a specific field.
+vi.mock('@/components/ui/controls/accessibleName', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/components/ui/controls/accessibleName')>();
+  return { ...actual, resolveAccessibleName: vi.fn(actual.resolveAccessibleName) };
+});
+
 import { AudioSettingSection } from './AudioSettingSection';
+import { resolveAccessibleName } from '@/components/ui/controls/accessibleName';
+import { AUDIO_SETTING_SCHEMA } from '@/data/robotOptionsConfig';
 import type { LfoValue } from '@/types/controls';
 import type { Robot } from '@/types/Robot';
 
@@ -272,6 +300,47 @@ describe('AudioSettingSection', () => {
       );
       const root = container.querySelector('.sc-accordion') as HTMLElement;
       expect(root.getAttribute('style')).toBeNull();
+    });
+  });
+
+  describe('React.memo (docs/tasks/ROBOT_OPTIONS_TAB_MEMOIZATION.md Task 1)', () => {
+    it('is a React.memo-wrapped component', () => {
+      expect((AudioSettingSection as unknown as { $$typeof: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
+    });
+
+    it('passes Lfo the same schema object reference across re-renders with the same displayLabel', () => {
+      capturedLfoSchemas.length = 0;
+      const { rerender } = render(
+        <AudioSettingSection value={makeValue()} onAudioModeChange={() => {}} onVolumeChange={() => {}} onVolumeLfoChange={() => {}} />
+      );
+      rerender(
+        <AudioSettingSection value={makeValue({ masterVolume: 0.55 })} onAudioModeChange={() => {}} onVolumeChange={() => {}} onVolumeLfoChange={() => {}} />
+      );
+
+      expect(capturedLfoSchemas.length).toBeGreaterThanOrEqual(2);
+      expect(capturedLfoSchemas[1]).toBe(capturedLfoSchemas[0]);
+    });
+  });
+
+  describe('per-field cascade regression (docs/todo/backlog.md #27 follow-up, 2026-09-15)', () => {
+    // Found live: editing Volume re-rendered the Audio Setting RadioButton too. Root cause —
+    // `onChange={(v) => onAudioModeChange(v as Robot['audioMode'])}` was a fresh inline closure
+    // built every render, so whenever `value` changed (any field), the already-memoized
+    // RadioButton got a new `onChange` reference regardless of whether audioMode itself changed.
+    it('changing Volume does not re-render the Audio Setting radio', () => {
+      const onAudioModeChange = vi.fn();
+      const { rerender } = render(
+        <AudioSettingSection value={makeValue({ masterVolume: 0.42 })} onAudioModeChange={onAudioModeChange} onVolumeChange={() => {}} onVolumeLfoChange={() => {}} />
+      );
+      (resolveAccessibleName as ReturnType<typeof vi.fn>).mockClear();
+
+      rerender(
+        <AudioSettingSection value={makeValue({ masterVolume: 0.55 })} onAudioModeChange={onAudioModeChange} onVolumeChange={() => {}} onVolumeLfoChange={() => {}} />
+      );
+
+      const radioCalls = (resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls
+        .filter(([schema]) => schema.id === AUDIO_SETTING_SCHEMA.id).length;
+      expect(radioCalls).toBe(0);
     });
   });
 });

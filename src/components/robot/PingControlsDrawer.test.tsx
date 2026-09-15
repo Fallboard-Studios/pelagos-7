@@ -461,4 +461,20 @@ describe('PingControlsDrawer', () => {
       expect(root.getAttribute('style')).toBeNull();
     });
   });
+
+  describe('React.memo (docs/tasks/ROBOT_OPTIONS_TAB_MEMOIZATION.md Task 2)', () => {
+    // No internal instability in this component (unlike AudioSettingSection/PingContourDrawer/
+    // RobotDisplaySection) — every schema is already a module-level constant and every onChange
+    // passes straight through, unwrapped. That also means a delegated render-count marker (e.g.
+    // resolveAccessibleName, called inside the already-memoized SliderLinear/Toggle/Button this
+    // drawer composes) can't distinguish "this drawer bailed" from "its children independently
+    // bailed on their own stable props" — tried this first and confirmed it passes identically
+    // with or without the React.memo wrap below, so it's not a real regression guard. The
+    // meaningful end-to-end proof that this drawer's own memo matters lives in
+    // RobotOptionsTab.test.tsx's cascade test (Task 6), where the caller's own prop stability is
+    // what's actually varied. This structural check is what's provable in isolation.
+    it('is a React.memo-wrapped component', () => {
+      expect((PingControlsDrawer as unknown as { $$typeof: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
+    });
+  });
 });
