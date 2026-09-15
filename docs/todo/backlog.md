@@ -246,8 +246,13 @@ responsive breakpoint crossing) — not verified either way for those, only idle
 
 ### 18. AudioRigDrawer: Whole-Object globalAudio/globalLfo Selects
 
-**Status:** confirmed live (2026-09-14, Crawford, React DevTools "highlight updates") —
-worse than originally scoped. High confidence, high impact.
+**Status:** ☑ fixed — committed on `perf/rerender-cleanup` (`39b97d1`), not yet merged to
+`main`. Live re-verification with the same React DevTools "highlight updates" check that
+found this (drawer open, idle) not yet done — worth confirming the churn is actually gone
+before closing this out for good.
+
+Confirmed live (2026-09-14, Crawford, React DevTools "highlight updates") — worse than
+originally scoped. High confidence, high impact.
 
 `AudioRigDrawer.tsx:228-229` — `const globalAudio = useAudioStore((s) => s.globalAudio);
 const globalLfo = useAudioStore((s) => s.globalLfo);` — whole-object selects at the
