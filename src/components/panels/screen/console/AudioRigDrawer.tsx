@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useCallback, useMemo, type ReactNode } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useAudioStore } from '@/stores/audioStore';
 import { AccordionContainer } from '@/components/ui/controls/AccordionContainer';
@@ -27,7 +27,7 @@ import {
 } from '@/data/audioRigConfig';
 import { getTraitColorStyle } from '@/utils/traitColors';
 import type { Trait } from '@/types/traits';
-import type { PanelOrientation } from '@/types/controls';
+import type { LfoValue, PanelOrientation } from '@/types/controls';
 import type { GlobalAudioSettings } from '@/types/globalAudio';
 import type { GlobalLfoTargetId } from '@/types/lfo';
 import './AudioRigDrawer.css';
@@ -69,11 +69,16 @@ function renderParamControl(param: AudioRigParamSchema, value: number, onChange:
 }
 
 /** Wraps one param's control in the shared `.audio-rig-drawer__param-row` div — the plain,
- *  non-LFO rendering shape every block's params without an lfoTarget use (see AudioRigEffectPanel). */
-function paramRow(param: AudioRigParamSchema, effect: Record<string, number>, updateParam: (field: string, value: number) => void) {
+ *  non-LFO rendering shape every block's params without an lfoTarget use (see AudioRigEffectPanel).
+ *  Takes the field's own resolved `onChange` directly (AudioRigEffectPanel's `fieldOnChange` map)
+ *  rather than building `(v) => updateParam(param.field, v)` inline here — that inline arrow was a
+ *  fresh function every render, which defeated every memoized primitive's own React.memo bail-out
+ *  regardless of how many of them got memoized (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md
+ *  Task 12). */
+function paramRow(param: AudioRigParamSchema, effect: Record<string, number>, onChange: (v: number) => void) {
   return (
     <div className="audio-rig-drawer__param-row" key={param.field}>
-      {renderParamControl(param, effect[param.field], (v) => updateParam(param.field, v))}
+      {renderParamControl(param, effect[param.field], onChange)}
     </div>
   );
 }
@@ -103,7 +108,10 @@ interface AudioRigLfoGroupProps {
    *  just a doc comment. */
   params: LfoTargetedParamSchema[];
   effect: Record<string, number>;
-  updateParam: (field: string, value: number) => void;
+  /** One pre-bound, stable onChange per field, keyed by field name — AudioRigEffectPanel's own
+   *  `fieldOnChange` map (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 12), not a raw
+   *  `updateParam` this component would otherwise have to bind inline per param itself. */
+  fieldOnChange: Record<string, (v: number) => void>;
   /** eq3/filterLPF/filterHPF's own Rate/Depth Drift sliders, rendered directly beneath the
    *  shared display — the only groups with a per-group drift control today. */
   driftContent?: ReactNode;
@@ -129,7 +137,7 @@ interface AudioRigLfoGroupProps {
  * component's own wrapper renders as one flex item inside block.panel's content regardless of
  * block.panel's own orientation, which is why that orientation no longer needs to change.
  */
-function AudioRigLfoGroup({ groupId, params, effect, updateParam, driftContent }: AudioRigLfoGroupProps) {
+function AudioRigLfoGroup({ groupId, params, effect, fieldOnChange, driftContent }: AudioRigLfoGroupProps) {
   // Only this group's own lfoTarget values, not the whole globalLfo object (bugfix, found via
   // a manual re-render sweep, backlog item 18 — same class as AudioRigEffectPanel's own fix
   // below): useShallow bails the re-render when none of THESE targets' values actually
@@ -154,6 +162,15 @@ function AudioRigLfoGroup({ groupId, params, effect, updateParam, driftContent }
     (p) => 'orientation' in p.schema && p.schema.orientation === 'vertical',
   ) ? 'row' : 'column';
 
+  // Stabilized (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 12) — Lfo is now React.memo'd
+  // (Task 10); an inline `(v) => setGlobalLfo(selectedTarget, v)` here would have been a fresh
+  // function every render, defeating that memo regardless. Lfo's own onChange takes the full
+  // LfoValue object (not a single number), unlike every other param control in this file.
+  const handleLfoChange = useCallback(
+    (v: LfoValue) => setGlobalLfo(selectedTarget, v),
+    [selectedTarget, setGlobalLfo],
+  );
+
   return (
     <DirectionalPanel schema={{ id: `${groupId}.group`, type: 'directionalPanel', orientation: 'column' }}>
       <DirectionalPanel schema={{ id: `${groupId}.sliders`, type: 'directionalPanel', orientation: slidersOrientation }}>
@@ -164,7 +181,7 @@ function AudioRigLfoGroup({ groupId, params, effect, updateParam, driftContent }
             onClick={() => select(param.field)}
             onFocus={() => select(param.field)}
           >
-            {renderParamControl(param, effect[param.field], (v) => updateParam(param.field, v))}
+            {renderParamControl(param, effect[param.field], fieldOnChange[param.field])}
           </div>
         ))}
       </DirectionalPanel>
@@ -172,7 +189,7 @@ function AudioRigLfoGroup({ groupId, params, effect, updateParam, driftContent }
         <Lfo
           schema={{ id: `${groupId}.lfo`, type: 'lfo', humanLabel: displayLabel }}
           value={displayValue}
-          onChange={(v) => setGlobalLfo(selectedTarget, v)}
+          onChange={handleLfoChange}
           disabled={transitioning}
         />
       </div>
@@ -237,6 +254,15 @@ export function AudioRigDrawer() {
   const bpm = useAudioStore((s) => s.bpm);
   const setBPM = useAudioStore((s) => s.setBPM);
 
+  // Stabilized (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 12) — SliderLinear is now
+  // React.memo'd (Task 6); an inline `(v) => setPingVarianceAutomation(v / 100)` here would have
+  // been a fresh function every render, defeating that memo regardless. setBPM needs no
+  // equivalent wrap — it's already a stable Zustand store action, passed directly below.
+  const handlePingVarianceChange = useCallback(
+    (v: number) => setPingVarianceAutomation(v / 100),
+    [setPingVarianceAutomation],
+  );
+
   return (
     <div className="audio-rig-drawer">
       <AccordionContainer schema={TRANSPORT_COMPOSITION_ACCORDION_SCHEMA} style={getTraitColorStyle('composition')}>
@@ -252,7 +278,7 @@ export function AudioRigDrawer() {
             <SliderLinear
               schema={PING_VARIANCE_AUTOMATION_SCHEMA}
               value={pingVarianceAutomation * 100}
-              onChange={(v) => setPingVarianceAutomation(v / 100)}
+              onChange={handlePingVarianceChange}
             />
           </div>
         </DirectionalPanel>
@@ -328,9 +354,47 @@ function AudioRigEffectPanel({ effectKey }: AudioRigEffectPanelProps) {
   const compressorBeforeDelay = useAudioStore((s) => (effectKey === 'compressor' ? s.globalAudio.compressorBeforeDelay : undefined));
   const setCompressorBeforeDelay = useAudioStore((s) => s.setCompressorBeforeDelay);
 
-  function updateParam(field: string, value: number) {
+  // Stabilized (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 12) — this used to be a plain
+  // function, rebuilt fresh every render; every one of the ~9 call shapes below built its own
+  // `(v) => updateParam(field, v)` inline from it, each a fresh function every render, which
+  // defeated every memoized primitive's own React.memo bail-out (Tasks 1-11) regardless of how
+  // many of them got memoized — the originally-reported bug (docs/todo/backlog.md #26): an
+  // Audio Swell tick re-rendering the whole panel instead of just the swelling field.
+  const updateParam = useCallback((field: string, value: number) => {
     setGlobalAudio(effectKey, { [field]: value } as Partial<GlobalAudioSettings[AudioRigEffectKey]>);
-  }
+  }, [effectKey, setGlobalAudio]);
+  // One pre-bound, stable onChange per field, keyed by field name. block.params is a stable
+  // module-level reference (a slice of AUDIO_RIG_CONFIG, built once at import time — never
+  // reconstructed), and updateParam is now stable per effectKey (above), so this whole map is
+  // referentially stable across any re-render that doesn't change effectKey — which is every
+  // re-render of a mounted AudioRigEffectPanel instance in practice. Chosen over a `useCallback`
+  // at each of this file's ~9 distinct call shapes (paramRow's loop, the compressor special
+  // case's 5 direct calls, AudioRigLfoGroup's own params.map, driftContent's 2 sliders, the Decay
+  // Mode radio) since block.params' field set is already a stable, closed list per effect.
+  const fieldOnChange = useMemo(() => {
+    const map: Record<string, (v: number) => void> = {};
+    for (const p of block.params) {
+      map[p.field] = (v: number) => updateParam(p.field, v);
+    }
+    return map;
+  }, [block.params, updateParam]);
+
+  // Stabilized alongside fieldOnChange above — driftGroup is a stable reference across renders
+  // of the same effectKey (LFO_DRIFT_GROUPS is a stable module-level array; .find() over it
+  // returns the same object reference each time effectKey doesn't change), so these are safe
+  // useCallback dependencies. Guarded rather than asserted non-null: the callback identity is
+  // created unconditionally (Rules of Hooks), even though it's only ever wired into rendered
+  // JSX when driftGroup is truthy (below).
+  const handleRateDriftChange = useCallback((v: number) => {
+    if (driftGroup) setGlobalLfoDrift(driftGroup.group, { rateDrift: v / 100 });
+  }, [driftGroup, setGlobalLfoDrift]);
+  const handleDepthDriftChange = useCallback((v: number) => {
+    if (driftGroup) setGlobalLfoDrift(driftGroup.group, { depthDrift: v / 100 });
+  }, [driftGroup, setGlobalLfoDrift]);
+  const handleDecayModeChange = useCallback(
+    (v: string) => setCompressorBeforeDelay(v === 'controlled'),
+    [setCompressorBeforeDelay],
+  );
 
   return (
     <div className="audio-rig-drawer__effect-block" key={block.key}>
@@ -340,21 +404,21 @@ function AudioRigEffectPanel({ effectKey }: AudioRigEffectPanelProps) {
             groupId={`audioRig.${block.key}`}
             params={lfoFields}
             effect={effect}
-            updateParam={updateParam}
+            fieldOnChange={fieldOnChange}
             driftContent={driftGroup && drift && (
               <>
                 <div className="audio-rig-drawer__param-row">
                   <SliderCenteredZero
                     schema={driftGroup.rateSchema}
                     value={drift.rateDrift * 100}
-                    onChange={(v) => setGlobalLfoDrift(driftGroup.group, { rateDrift: v / 100 })}
+                    onChange={handleRateDriftChange}
                   />
                 </div>
                 <div className="audio-rig-drawer__param-row">
                   <SliderCenteredZero
                     schema={driftGroup.depthSchema}
                     value={drift.depthDrift * 100}
-                    onChange={(v) => setGlobalLfoDrift(driftGroup.group, { depthDrift: v / 100 })}
+                    onChange={handleDepthDriftChange}
                   />
                 </div>
               </>
@@ -370,24 +434,24 @@ function AudioRigEffectPanel({ effectKey }: AudioRigEffectPanelProps) {
           // ('audioRig.compressor.bottomRow' used to be shared by 2 different panels).
           <>
             <DirectionalPanel schema={{ id: 'audioRig.compressor.topRow', type: 'directionalPanel', orientation: 'responsive' }}>
-              {paramRow(findParam(block.params, 'threshold'), effect, updateParam)}
-              {paramRow(findParam(block.params, 'ratio'), effect, updateParam)}
+              {paramRow(findParam(block.params, 'threshold'), effect, fieldOnChange.threshold)}
+              {paramRow(findParam(block.params, 'ratio'), effect, fieldOnChange.ratio)}
             </DirectionalPanel>
             <DirectionalPanel schema={{ id: 'audioRig.compressor.bottomRow', type: 'directionalPanel', orientation: 'responsive' }}>
-              {paramRow(findParam(block.params, 'attack'), effect, updateParam)}
-              {paramRow(findParam(block.params, 'release'), effect, updateParam)}
+              {paramRow(findParam(block.params, 'attack'), effect, fieldOnChange.attack)}
+              {paramRow(findParam(block.params, 'release'), effect, fieldOnChange.release)}
             </DirectionalPanel>
-            {paramRow(findParam(block.params, 'knee'), effect, updateParam)}
+            {paramRow(findParam(block.params, 'knee'), effect, fieldOnChange.knee)}
             <div className="audio-rig-drawer__param-row">
               <RadioButton
                 schema={DECAY_MODE_SCHEMA}
                 value={compressorBeforeDelay ? 'controlled' : 'natural'}
-                onChange={(v) => setCompressorBeforeDelay(v === 'controlled')}
+                onChange={handleDecayModeChange}
               />
             </div>
           </>
         ) : (
-          block.params.map((param) => paramRow(param, effect, updateParam))
+          block.params.map((param) => paramRow(param, effect, fieldOnChange[param.field]))
         )}
       </DirectionalPanel>
     </div>

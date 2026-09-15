@@ -13,6 +13,19 @@ import { render, screen, within, fireEvent, waitFor, act } from '@testing-librar
 // Matches AccordionContainer.test.tsx's own convention for exactly this reason.
 vi.mock('@/animation/timelineMap', () => ({ setTimeline: vi.fn(), killTimeline: vi.fn() }));
 
+// Spied (real cross-module call, wrapped so it still delegates to the actual
+// implementation) so the end-to-end cascade regression test (docs/tasks/
+// OBLIQUE_CABINETRY_MEMOIZATION.md Task 12 — the test this whole plan exists
+// for) can tell whether a SPECIFIC sibling control's own render body
+// re-executed. resolveAccessibleName(schema) is called unconditionally in
+// every slider/radio's own render body, with that control's own `schema`
+// object as its argument — filtering the spy's calls by `schema.id` isolates
+// one specific control's own re-render count from the whole panel's.
+vi.mock('@/components/ui/controls/accessibleName', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/components/ui/controls/accessibleName')>();
+  return { ...actual, resolveAccessibleName: vi.fn(actual.resolveAccessibleName) };
+});
+
 vi.mock('../../../../engine/lfoEngine', () => ({
   lfoEngine: {
     getLfoSettings: vi.fn(),
@@ -29,6 +42,7 @@ vi.mock('../../../../engine/lfoEngine', () => ({
 }));
 
 import { AudioRigDrawer } from './AudioRigDrawer';
+import { resolveAccessibleName } from '@/components/ui/controls/accessibleName';
 import { useAudioStore } from '@/stores/audioStore';
 import { ACCENT_COLORS } from '@/constants/accentColors';
 import { DEFAULT_GLOBAL_AUDIO_SETTINGS } from '@/types/globalAudio';
@@ -773,6 +787,56 @@ describe('AudioRigDrawer', () => {
       const eqAccordion = accordionByLabel('EQ & Filters');
       const eq3RateSlider = within(eqAccordion).getAllByRole('slider', { name: 'Rate Drift' })[0];
       expect(eqAccordion.contains(eq3RateSlider)).toBe(true);
+    });
+  });
+
+  describe('re-render cascade regression (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 12 — the end-to-end test this whole plan exists for)', () => {
+    function callsFor(schemaId: string): number {
+      return (resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.filter(
+        ([schema]) => schema.id === schemaId,
+      ).length;
+    }
+
+    it("a setGlobalAudio update to ONE field (Delay's delayTime, simulating an audio-swell tick) does not re-execute a SIBLING field's own control (Delay's Mix/wet) — only the changed field's own control re-renders", () => {
+      render(<AudioRigDrawer />);
+      const delayTimeCallsBefore = callsFor('delay.delayTime');
+      const delayWetCallsBefore = callsFor('delay.wet');
+      expect(delayTimeCallsBefore).toBeGreaterThan(0);
+      expect(delayWetCallsBefore).toBeGreaterThan(0);
+
+      act(() => {
+        useAudioStore.getState().setGlobalAudio('delay', { delayTime: 0.6 });
+      });
+
+      expect(callsFor('delay.delayTime')).toBeGreaterThan(delayTimeCallsBefore);
+      expect(callsFor('delay.wet')).toBe(delayWetCallsBefore);
+    });
+
+    it('the same holds for the compressor\'s hand-composed block (Threshold changes, Knee\'s own control does not re-render)', () => {
+      render(<AudioRigDrawer />);
+      const thresholdCallsBefore = callsFor('compressor.threshold');
+      const kneeCallsBefore = callsFor('compressor.knee');
+      expect(thresholdCallsBefore).toBeGreaterThan(0);
+      expect(kneeCallsBefore).toBeGreaterThan(0);
+
+      act(() => {
+        useAudioStore.getState().setGlobalAudio('compressor', { threshold: -30 });
+      });
+
+      expect(callsFor('compressor.threshold')).toBeGreaterThan(thresholdCallsBefore);
+      expect(callsFor('compressor.knee')).toBe(kneeCallsBefore);
+    });
+
+    it('a setGlobalAudio update to one effect does not re-render an UNRELATED effect\'s own controls (Delay changes, Reverb\'s Mix does not re-render) — item 18\'s own per-effect selector scoping, still correct here', () => {
+      render(<AudioRigDrawer />);
+      const reverbWetCallsBefore = callsFor('reverb.wet');
+      expect(reverbWetCallsBefore).toBeGreaterThan(0);
+
+      act(() => {
+        useAudioStore.getState().setGlobalAudio('delay', { delayTime: 0.6 });
+      });
+
+      expect(callsFor('reverb.wet')).toBe(reverbWetCallsBefore);
     });
   });
 });

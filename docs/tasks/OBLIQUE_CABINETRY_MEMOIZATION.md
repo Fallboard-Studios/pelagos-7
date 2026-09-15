@@ -97,6 +97,17 @@ Task 13 (manual profiler re-verification + docs close-out) — depends on Task 1
 
 - [x] **Task 1: `SliderLinear.tsx` — memoize the `computeVoxelBoxStates` call site**
 
+  **⚠ Amended during Task 12 (2026-09-15):** this task as originally written and completed only
+  added the `useMemo` below — it never wrapped `SliderLinear` itself in `React.memo`, even though
+  the spec's own §2 target file structure said "`React.memo` + `useMemo(computeVoxelBoxStates)`"
+  for this file. The gap went undetected through Task 5's own end-to-end cascade test (that test's
+  marker only observes whether `VoxelTrack`/`CabinetBox` re-execute, which doesn't require
+  `SliderLinear` itself to bail — `VoxelTrack`'s own memo only cares about the *props it receives*,
+  not who calls it) and was only caught by Task 12's own deeper end-to-end test, which measures
+  `resolveAccessibleName` — called inside `SliderLinear`'s own render body, on `Slider.Thumb`'s
+  aria-label. Fixed as part of Task 12; see that task's own entry for the full story and the
+  `SliderLinearInner`/`React.memo` split + new render-count test pair added to close this gap.
+
   **Description:** Wrap the existing `const states = computeVoxelBoxStates(value, schema.min,
   schema.max, boxCount);` (line 56) in `useMemo`, deps `[value, schema.min, schema.max,
   boxCount]`. `voxelTrackMath.ts` itself is untouched — the fix is memoizing the call site, not
@@ -132,6 +143,10 @@ Task 13 (manual profiler re-verification + docs close-out) — depends on Task 1
 
 - [x] **Task 2: `SliderLog.tsx` — memoize the `computeVoxelBoxStates` call site**
 
+  **⚠ Amended during Task 12 (2026-09-15):** same gap and fix as Task 1's own amendment note —
+  `SliderLog` itself was never wrapped in `React.memo`, only its internal `states` `useMemo` was
+  added. Fixed as part of Task 12.
+
   **Description:** Same shape as Task 1, adapted for this file's own t-space call:
   `computeVoxelBoxStates(t, 0, 1, boxCount)` (line 45), where `t = sliderLogValueToT(value,
   schema.min, schema.max)` is itself recomputed every render. `useMemo` deps: `[t, boxCount]`
@@ -157,6 +172,10 @@ Task 13 (manual profiler re-verification + docs close-out) — depends on Task 1
 
 - [x] **Task 3: `SliderCenteredZero.tsx` — memoize the `computeVoxelBoxStatesCenteredZero` call
   site**
+
+  **⚠ Amended during Task 12 (2026-09-15):** same gap and fix as Tasks 1-2's own amendment note —
+  `SliderCenteredZero` itself was never wrapped in `React.memo`, only its internal `states`
+  `useMemo` was added. Fixed as part of Task 12.
 
   **Description:** Same shape, wrapping `computeVoxelBoxStatesCenteredZero(value, schema.min,
   schema.max, boxCount)` (line 44) in `useMemo`, deps `[value, schema.min, schema.max, boxCount]`.
@@ -425,14 +444,27 @@ exports, though they compose `CabinetBox`/`DualLabel` internally, already memoiz
 - [x] The primitive-library half of the fix is complete and safe regardless of any caller's own
       readiness (§1.4) — every existing drawer (`RobotOptionsTab`, `SectorSettingsDrawer`, etc.)
       still passes its own unmodified tests, importing these now-memoized components.
-- [ ] Review with human before Task 12 — the one task that actually changes `AudioRigDrawer.tsx`'s
-      observable behavior.
+- [x] Review with human before Task 12 — the one task that actually changes `AudioRigDrawer.tsx`'s
+      observable behavior. Confirmed directly with Crawford before starting.
 
 ---
 
 ### Phase 4: Integration — the Actual Fix
 
-- [ ] **Task 12: `AudioRigDrawer.tsx` — callback stabilization**
+- [x] **Task 12: `AudioRigDrawer.tsx` — callback stabilization**
+
+  **Real-world correction found while implementing this task:** the end-to-end cascade regression
+  test (below) went RED→GREEN once for the callback restructure, but a sibling field still got one
+  extra re-render (`resolveAccessibleName` call) after the fix. Debugging (a temporary render
+  counter + reference-identity log inside `AudioRigEffectPanel`, removed before commit) confirmed
+  `fieldOnChange`/`updateParam` WERE stable across the re-render — the real cause was upstream:
+  **Tasks 1-3 (`SliderLinear`/`SliderLog`/`SliderCenteredZero`) had only added the internal
+  `states` `useMemo`, never actually wrapped the component itself in `React.memo`** — a gap in the
+  original task breakdown, not caught because those tasks' own render-count tests only exercised
+  the `computeVoxelBoxStates` call count, never asked whether the *component* itself bailed. Fixed
+  as part of this task (same `XxxInner`/`React.memo` split every other primitive already got, plus
+  a `resolveAccessibleName`-based render-count test pair per slider, matching Task 6's own
+  pattern) — see the 3 sliders' own file entries below.
 
   **Description:** Per the resolved mechanical shape (Architecture Decisions above):
   1. In `AudioRigEffectPanel`, wrap `updateParam` in `useCallback`, deps `[effectKey,
@@ -462,48 +494,61 @@ exports, though they compose `CabinetBox`/`DualLabel` internally, already memoiz
      action — no change needed).
 
   **Acceptance criteria:**
-  - [ ] Every prop passed into a now-`React.memo`'d primitive from this file
+  - [x] Every prop passed into a now-`React.memo`'d primitive from this file
         (`SliderLinear`/`SliderLog`/`SliderCenteredZero`/`Stepper`/`RadioButton`/`Lfo`) is
         referentially stable across an `AudioRigEffectPanel` re-render triggered by an unrelated
         field's value changing.
-  - [ ] **The end-to-end cascade regression test this whole spec exists for:** render
-        `AudioRigEffectPanel` (reusing `AudioRigDrawer.test.tsx`'s existing render setup) for a
-        block with 2+ params; change ONE field's value via a simulated `setGlobalAudio` call
-        (mirroring an audio-swell tick); assert a render-count spy/marker on a **sibling** field's
-        own slider (one that did NOT receive the changed field) shows NO re-execution. Confirmed
-        red against pre-Task-12 code first (with Tasks 1-11 already landed) — this is the test
-        that actually proves the originally-reported bug (§1.1) is fixed, not just that
-        individual primitives are memo-wrapped in isolation.
-  - [ ] Every existing `AudioRigDrawer.test.tsx` assertion passes unmodified — all interactive
-        behavior (dragging a slider, the Decay Mode radio, LFO target selection) is unchanged.
-  - [ ] `fieldOnChange` (and any other `useMemo`/`useCallback` added here) is confirmed stable
-        across renders that don't change `effectKey`/`block.params` — not just "present," via a
-        reference-identity assertion, not merely "the test happens to pass."
+  - [x] **The end-to-end cascade regression test this whole spec exists for:** added to
+        `AudioRigDrawer.test.tsx` — renders the real `AudioRigDrawer`, changes ONE field's value
+        via a simulated `setGlobalAudio` call (mirroring an audio-swell tick: `delay.delayTime`,
+        and separately the compressor's hand-composed `threshold`), and asserts a **sibling**
+        field's own `resolveAccessibleName` call count (filtered by `schema.id`, since every
+        control in the panel shares the one spy) stays flat while the changed field's own count
+        increases. A third test confirms cross-effect isolation (item 18's own pre-existing fix)
+        still holds. Confirmed red first against pre-Task-12 code (both same-block tests failed);
+        confirmed the *fully* green state only after also finding and fixing the Tasks 1-3
+        `React.memo` gap above — the naive callback-only fix reduced but did not eliminate the
+        cascade (a real, measured partial fix, not assumed complete from a passing subset of
+        tests).
+  - [x] Every existing `AudioRigDrawer.test.tsx` assertion passes unmodified (72 tests total, 3
+        new) — all interactive behavior (dragging a slider, the Decay Mode radio, LFO target
+        selection) is unchanged.
+  - [x] `fieldOnChange`/`updateParam` confirmed stable via direct reference-identity debugging
+        (temporary, removed before commit) — not just inferred from the test passing.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/panels/screen/console/AudioRigDrawer.test.tsx` passes.
-  - [ ] `npm run build:types`, `npm run lint` clean.
-  - [ ] `npm test` full suite passes.
-  - [ ] `npm run build` succeeds.
+  - [x] `npx vitest run src/components/panels/screen/console/AudioRigDrawer.test.tsx` passes (72
+        tests).
+  - [x] `npm run build:types`, `npm run lint` clean.
+  - [x] `npm test` full suite passes (144 files / 2652 tests, run twice to confirm no flake; one
+        run each time logged an unrelated vitest-worker RPC timeout ("Timeout calling
+        onTaskUpdate") as an *unhandled error*, not a test failure — infra/system-load noise from
+        the long run, not a regression from this change).
+  - [x] `npm run build` succeeds.
 
   **Dependencies:** Tasks 1-11 (every primitive this file renders must already be `React.memo`'d
   for this task's own stabilization to have any observable effect — per Architecture Decisions,
-  this is the ONE task where that matters).
+  this is the ONE task where that matters). Turned out to also depend on **fixing** Tasks 1-3
+  properly (see the correction note above) — a dependency the original plan assumed was already
+  satisfied but wasn't.
 
   **Files:** `src/components/panels/screen/console/AudioRigDrawer.tsx`,
-  `src/components/panels/screen/console/AudioRigDrawer.test.tsx`
+  `src/components/panels/screen/console/AudioRigDrawer.test.tsx`, plus the Tasks 1-3 correction:
+  `SliderLinear.tsx`/`.test.tsx`, `SliderLog.tsx`/`.test.tsx`, `SliderCenteredZero.tsx`/`.test.tsx`
 
   **Estimated scope:** L by file count (1-2 files) but the highest-risk, most intricate diff in
   this plan — touches 3 components' worth of callback plumbing in one file. Budget a full focused
   session, not a quick edit; same posture as item 21's own Task 4 note ("this is the task the
-  entire plan exists to protect"). Consider splitting into two commits (the `updateParam`/
-  `fieldOnChange`/`paramRow` restructure, then the remaining individual `useCallback` wraps) if it
-  grows unwieldy as a single diff — not required, but flagged here as a valid split if needed.
+  entire plan exists to protect") — turned out to be accurate: the task also surfaced and required
+  fixing a real gap in 3 already-committed earlier tasks.
 
 ### Checkpoint: Integration Complete
 
-- [ ] `npm run build:types`, `npm run lint`, `npm test` (full suite), `npm run build` all clean.
-- [ ] The Task 12 end-to-end cascade regression test is green and was confirmed red first.
+- [x] `npm run build:types`, `npm run lint`, `npm test` (full suite, 144 files / 2652 tests),
+      `npm run build` all clean.
+- [x] The Task 12 end-to-end cascade regression test is green and was confirmed red first — twice,
+      once for the callback restructure alone (partial fix) and again after finding the deeper
+      Tasks 1-3 gap.
 
 ---
 
