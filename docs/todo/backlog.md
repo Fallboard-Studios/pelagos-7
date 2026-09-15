@@ -246,20 +246,28 @@ responsive breakpoint crossing) — not verified either way for those, only idle
 
 ### 18. AudioRigDrawer: Whole-Object globalAudio/globalLfo Selects
 
-Found in the same sweep as item 14 (2026-09-14). Lower confidence — needs a Profiler
-recording of a slider drag before treating this as a bug rather than accepted
-architecture (the container may need most of these slices anyway, and children may
-already be memoized).
+**Status:** confirmed live (2026-09-14, Crawford, React DevTools "highlight updates") —
+worse than originally scoped. High confidence, high impact.
 
 `AudioRigDrawer.tsx:228-229` — `const globalAudio = useAudioStore((s) => s.globalAudio);
 const globalLfo = useAudioStore((s) => s.globalLfo);` — whole-object selects at the
-container level for the entire Audio Rig. Dragging any single slider anywhere in the rig
-(compressor, EQ, either filter, delay, reverb, limiter, or any of the 7 LFO targets)
-replaces the top-level object and re-renders the whole drawer tree.
+container level for the entire Audio Rig. Originally scoped as "re-renders the whole
+drawer on a slider drag"; the live check showed it's actually continuous — with the drawer
+open and completely idle (no interaction at all), every panel (Transport & Composition,
+EQ & Filters, Time & Space, Output) and every `CabinetBox`/slider under them lights up
+repeatedly. Root cause: several background processes tick `globalAudio`/`globalLfo` on
+their own even with nothing touched — `audioSwells.ts`'s 16n modulation ticks, LFO drift,
+ping variance automation — and each one replaces the whole top-level object, which this
+whole-object selector turns into a full-subtree re-render every time, for as long as the
+drawer stays open.
 
-**Fix shape:** not yet determined — profile first. If real, likely fix is per-effect
-selector hooks used directly inside each child panel instead of hoisted to the container
-and prop-drilled.
+**Fix shape:** per-effect (and likely per-LFO-target) selector hooks used directly inside
+each child panel instead of hoisted to the container and prop-drilled — e.g. each effect
+panel calls `useAudioStore((s) => s.globalAudio.eq3)` itself rather than receiving a slice
+of a container-level `globalAudio`. Exact scope (per-effect vs. needing to go finer, to
+per-param, for effects whose own sub-object changes together frequently) not yet
+determined — a Profiler recording identifying exactly which ticking process(es) are
+driving this and at what frequency would help size the fix before starting.
 
 ### 19. IdleSystem: console.warn Fires on the Ordinary Case, Not an Error
 
