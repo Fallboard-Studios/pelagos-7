@@ -561,11 +561,29 @@ exports, though they compose `CabinetBox`/`DualLabel` internally, already memoiz
   25 did: the bug was found live via React DevTools Profiler; the fix should be confirmed the same
   way.
 
+  **Live-verification round 1 (Crawford, React DevTools "highlight updates", 2026-09-15):**
+  ran the manual check below for real and found the code fix didn't fully hold — LFO-bearing
+  blocks (`eq3`/`filterLPF`/`filterHPF`) still showed their whole subtree re-rendering on every
+  swell tick, not just the swelling field. Two follow-up fixes landed as a direct result, each
+  with its own RED→GREEN regression test:
+  - `AudioRigLfoGroup` (`AudioRigDrawer.tsx`) built its own `Lfo` schema (+2 `DirectionalPanel`
+    schemas) as a fresh inline object every render — Task 12's own cascade tests never covered
+    this path (only Delay/Compressor, neither LFO-bearing). Fixed via `useMemo`.
+  - `Lfo.tsx` itself built its own 3 internal schemas + onChange closures fresh every render too
+    — once Lfo's own memo bailed correctly at the group level, this was the remaining cause of
+    its 3 fields (Shape/Rate/Depth) re-rendering each other unnecessarily. Fixed via `useMemo` +
+    per-field `useCallback` (latest value/onChange read from a ref, updated in an effect per
+    `react-hooks/refs`, not mutated during render).
+
+  Both fixes are code-complete and unit-tested; **the live-browser re-check below still hasn't
+  run against them** — do that before treating this round as closed.
+
   **Acceptance criteria / checklist:**
   - [ ] **Genuinely deferred — needs a live browser with React DevTools, not available in this
         session:** `npm run dev`, open Audio Rig, let an Audio Swell run, Profiler Ranked/
         Flamegraph view — confirm only the actually-swelling field's own control shows real
-        render duration, not the whole panel (per spec §5's own manual check).
+        render duration, not the whole panel (per spec §5's own manual check), **including the 3
+        LFO-bearing blocks** specifically, now that round 1's 2 fixes are in.
   - [ ] Deferred alongside the above: spot-check that dragging a slider, toggling the Decay Mode
         radio, and switching an LFO target all still work exactly as before — a pure perf
         refactor, zero behavioral change expected.

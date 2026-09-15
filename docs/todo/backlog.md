@@ -553,6 +553,20 @@ gained the internal `states` `useMemo`, never the `React.memo` wrap the spec's o
 called for — caught only once Task 12's deeper end-to-end test exercised it; see that task's own
 entry in the tasks file for the full story.
 
+**Live-verification round 1** (Crawford, React DevTools "highlight updates", same day): found the
+code fix above didn't fully hold for LFO-bearing blocks (eq3/filterLPF/filterHPF) — their whole
+subtree, including the shared LFO display and its own internal Shape/Rate/Depth controls, still
+re-rendered on every swell tick for that block, not just the swelling field. Root cause:
+`AudioRigLfoGroup` (`AudioRigDrawer.tsx`) built its own `Lfo` component's `schema` prop (and 2
+`DirectionalPanel` schemas) as a fresh inline object every render — a real test-coverage gap, since
+Task 12's own cascade tests only covered Delay/Compressor, neither of which has any `lfoTarget`
+params. Fixed by memoizing all 3. A second, smaller issue found in the same pass while fixing the
+first: `Lfo.tsx` itself constructed its own 3 internal schemas and onChange closures fresh on every
+render too, so once Lfo's own memo bailed correctly at the group level, dragging one of its own
+3 fields (Shape/Rate/Depth) still re-rendered the other two unnecessarily — fixed the same way,
+plus stable per-field `onChange` handlers. Both fixes have their own automated regression tests;
+**still not yet re-live-verified** after this round.
+
 Found live-verifying item 25 (Crawford, React DevTools Profiler, 2026-09-15): during an
 automatic Audio Swell, the entire affected `AudioRigEffectPanel` re-renders together — every
 `CabinetBox`/`SliderLog`/`SliderLinear`/`RadioButton`/`Lfo`/`SliderCenteredZero` inside it,
