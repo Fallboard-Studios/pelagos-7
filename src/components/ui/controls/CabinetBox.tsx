@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { memo, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import gsap from 'gsap';
 
 import { getCabinetPopDuration, getCabinetPopEase } from './cabinetAnimation';
@@ -128,7 +128,7 @@ interface CabinetBoxProps {
  * attribute (the latter is main-thread/paint-bound and visibly lagged the
  * front face's own compositor-driven transform under load).
  */
-export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, popDistance, frontWidth, frontHeight, zIndex, skipMountAnimation, autoHeight, children }: CabinetBoxProps) {
+function CabinetBoxInner({ popped, timelineKey, boxHeight: boxHeightOverride, popDistance, frontWidth, frontHeight, zIndex, skipMountAnimation, autoHeight, children }: CabinetBoxProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const frontRef = useRef<HTMLDivElement>(null);
   // Both walls are plain <div>s (not SVG <polygon>s) — see
@@ -400,3 +400,10 @@ export function CabinetBox({ popped, timelineKey, boxHeight: boxHeightOverride, 
     </div>
   );
 }
+
+// React.memo (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 4) — every real prop here is a
+// primitive or ReactNode `children`, so the default shallow compare is correct; no custom
+// comparator. A caller that keeps constructing `children`/callbacks inline gets no benefit from
+// this alone (an implicit performance contract, not a type-level one — see
+// docs/COMPONENT_LIBRARY.md).
+export const CabinetBox = memo(CabinetBoxInner);

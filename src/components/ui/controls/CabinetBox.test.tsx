@@ -6,6 +6,18 @@ vi.mock('@/utils/cabinetGeometry', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/utils/cabinetGeometry')>();
   return { ...actual, computeCabinetFrontFaceOffset: vi.fn(actual.computeCabinetFrontFaceOffset) };
 });
+// Spied (real cross-module call, wrapped so it still delegates to the actual
+// implementation) so a render-count test (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md
+// Task 4) can tell whether CabinetBoxInner's render body actually re-executed —
+// useCabinetBoxHeight() is called unconditionally on every render (even when
+// boxHeightOverride makes its result unused, per CabinetBox.tsx's own comment),
+// so its call count is a reliable per-render marker, unlike
+// computeCabinetFrontFaceOffset above (only called from inside an effect, not
+// synchronously during render).
+vi.mock('./useCabinetBoxHeight', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./useCabinetBoxHeight')>();
+  return { ...actual, useCabinetBoxHeight: vi.fn(actual.useCabinetBoxHeight) };
+});
 
 // Local gsap mock (overriding vitest.setup.ts's global noop for this file
 // only), capturing every .fromTo() and .set() call so the --cabinet-glow/
@@ -25,6 +37,7 @@ vi.mock('gsap', () => {
 
 import { CabinetBox } from './CabinetBox';
 import { CABINET_POP_DURATION, CABINET_POP_DURATION_OUT } from './cabinetAnimation';
+import { useCabinetBoxHeight } from './useCabinetBoxHeight';
 import { setTimeline, killTimeline } from '@/animation/timelineMap';
 import {
   computeCabinetFrontFaceOffset,
@@ -898,6 +911,35 @@ describe('CabinetBox', () => {
       rerender(<CabinetBox popped={false} timelineKey="test-box">x</CabinetBox>);
 
       expect(setTimeline).toHaveBeenCalled();
+    });
+  });
+
+  describe('React.memo (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 4)', () => {
+    it('is a React.memo-wrapped component', () => {
+      expect((CabinetBox as unknown as { $$typeof: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
+    });
+
+    it('does not re-execute its render body on a re-render with identical props', () => {
+      const { rerender } = render(
+        <CabinetBox popped={false} timelineKey="test-box" boxHeight={48}>x</CabinetBox>,
+      );
+      const callsAfterMount = (useCabinetBoxHeight as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      rerender(<CabinetBox popped={false} timelineKey="test-box" boxHeight={48}>x</CabinetBox>);
+      rerender(<CabinetBox popped={false} timelineKey="test-box" boxHeight={48}>x</CabinetBox>);
+
+      expect((useCabinetBoxHeight as ReturnType<typeof vi.fn>).mock.calls.length).toBe(callsAfterMount);
+    });
+
+    it('does re-execute its render body when a real prop changes (popped)', () => {
+      const { rerender } = render(
+        <CabinetBox popped={false} timelineKey="test-box" boxHeight={48}>x</CabinetBox>,
+      );
+      const callsAfterMount = (useCabinetBoxHeight as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      rerender(<CabinetBox popped={true} timelineKey="test-box" boxHeight={48}>x</CabinetBox>);
+
+      expect((useCabinetBoxHeight as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(callsAfterMount);
     });
   });
 });
