@@ -49,10 +49,21 @@ vi.mock('./CabinetBox', () => ({
   ),
 }));
 
+// Spied (real cross-module call, wrapped so it still delegates to the actual
+// implementation) so a render-count test (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md
+// Task 10) can tell whether AccordionContainer's render body actually
+// re-executed — withActiveClass('sc-accordion', open) is called
+// unconditionally in the render body.
+vi.mock('./activeClass', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./activeClass')>();
+  return { ...actual, withActiveClass: vi.fn(actual.withActiveClass) };
+});
+
 import type { CSSProperties } from 'react';
 import { AccordionContainer, CABINET_ACCORDION_TRIGGER_HEIGHT } from './AccordionContainer';
 import { CABINET_TOGGLE_BOX_SIZE } from './Toggle';
 import { getAccordionDuration, ACCORDION_DURATION } from './accordionAnimation';
+import { withActiveClass } from './activeClass';
 import { setTimeline, killTimeline } from '@/animation/timelineMap';
 import type { AccordionSchema } from '@/types/controls';
 
@@ -309,6 +320,40 @@ describe('AccordionContainer', () => {
       const { container } = render(<AccordionContainer schema={schema}>Content</AccordionContainer>);
       const root = container.querySelector('.sc-accordion') as HTMLElement;
       expect(root.getAttribute('style')).toBeNull();
+    });
+  });
+
+  describe('React.memo (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 10)', () => {
+    it('is a React.memo-wrapped component', () => {
+      expect((AccordionContainer as unknown as { $$typeof: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
+    });
+
+    it('a bare-string children call shape does not re-execute its render body on a re-render with identical props — a string literal is already Object.is-stable, so this is the guaranteed bail-out case', () => {
+      const { rerender } = render(<AccordionContainer schema={schema}>Content</AccordionContainer>);
+      const callsAfterMount = (withActiveClass as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      rerender(<AccordionContainer schema={schema}>Content</AccordionContainer>);
+      rerender(<AccordionContainer schema={schema}>Content</AccordionContainer>);
+
+      expect((withActiveClass as ReturnType<typeof vi.fn>).mock.calls.length).toBe(callsAfterMount);
+    });
+
+    it('does re-execute its render body when a real prop changes (defaultOpen)', () => {
+      const { rerender } = render(<AccordionContainer schema={schema}>Content</AccordionContainer>);
+      const callsAfterMount = (withActiveClass as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      rerender(<AccordionContainer schema={schema} defaultOpen>Content</AccordionContainer>);
+
+      expect((withActiveClass as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(callsAfterMount);
+    });
+
+    it('the element-children call shape (an inline-constructed ReactNode, not a bare string) still re-executes on a re-render even with every other prop unchanged — the conditional-benefit case spec §1.3 describes, same caveat Toggle.test.tsx\'s own Task 7 test documents', () => {
+      const { rerender } = render(<AccordionContainer schema={schema}><span>Content</span></AccordionContainer>);
+      const callsAfterMount = (withActiveClass as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      rerender(<AccordionContainer schema={schema}><span>Content</span></AccordionContainer>);
+
+      expect((withActiveClass as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(callsAfterMount);
     });
   });
 });

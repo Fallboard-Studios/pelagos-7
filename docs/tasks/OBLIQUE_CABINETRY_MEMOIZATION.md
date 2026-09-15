@@ -375,10 +375,18 @@ exports, though they compose `CabinetBox`/`DualLabel` internally, already memoiz
   first (4 failures). `npx vitest run` passes (15 + 30 = 45 tests, 3 + 3 = 6 new). `npm run
   build:types`, `npm run lint` clean.
 
-- [ ] **Task 10: `Lfo.tsx` + `AccordionContainer.tsx`** — same shape. `AccordionContainer` takes
+- [x] **Task 10: `Lfo.tsx` + `AccordionContainer.tsx`** — same shape. `AccordionContainer` takes
   caller-supplied `children` (like `Toggle`) — same conditional-benefit note as Task 7.
 
   **Files:** `Lfo.tsx`/`.test.tsx`, `AccordionContainer.tsx`/`.test.tsx`
+
+  **Acceptance criteria:** `Lfo` marker `resolveAccessibleName` (bailed-subtree reasoning, same as
+  Tasks 8/9 — composes `RadioButton` + 2 `SliderLinear`s). `AccordionContainer` marker
+  `withActiveClass`, called unconditionally on its own root; confirmed both the bare-string
+  `children` case (bails) and an inline-element `children` case (still re-executes, conditional
+  benefit) — same distinction Task 7's `Toggle` test documents. Confirmed red first (4 failures).
+  `npx vitest run` passes (14 + 28 = 42 tests, 3 + 4 = 7 new). `npm run build:types`, `npm run
+  lint` clean.
 
 - [ ] **Task 11: `DirectionalPanel.tsx`** — solo task (the spec's own §1.3 flags it individually
   for its conditional-benefit case; confirmed via direct read of the file: every real call site

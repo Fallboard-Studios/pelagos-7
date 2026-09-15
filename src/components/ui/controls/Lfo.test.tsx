@@ -1,7 +1,22 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 
+// Spied (real cross-module call, wrapped so it still delegates to the actual
+// implementation) so a render-count test (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md
+// Task 10) can tell whether Lfo's render body actually re-executed. Lfo has
+// no hook/utility call of its own, but it unconditionally composes a
+// RadioButton and two SliderLinears (each calling resolveAccessibleName
+// internally) — if Lfo bails via memo, its body never constructs any of
+// those elements, so none of their own calls fire either — same "bailed
+// subtree root stops everything beneath it" reasoning as StepperWithToggle/
+// CoordsInput's own Task 8/9 tests.
+vi.mock('./accessibleName', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./accessibleName')>();
+  return { ...actual, resolveAccessibleName: vi.fn(actual.resolveAccessibleName) };
+});
+
 import { Lfo } from './Lfo';
+import { resolveAccessibleName } from './accessibleName';
 import { LFO_RATE_MIN, LFO_RATE_MAX, LFO_DEPTH_MIN, LFO_DEPTH_MAX } from '@/types/lfo';
 import type { LfoSchema, LfoValue } from '@/types/controls';
 
@@ -134,6 +149,33 @@ describe('Lfo', () => {
     expect(screen.getByRole('radio', { name: 'SINE' }).getAttribute('data-disabled')).toBe('');
     screen.getAllByRole('slider').forEach((slider) => {
       expect(slider.getAttribute('data-disabled')).toBe('');
+    });
+  });
+
+  describe('React.memo (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 10)', () => {
+    it('is a React.memo-wrapped component', () => {
+      expect((Lfo as unknown as { $$typeof: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
+    });
+
+    it('does not re-execute its render body (or its composed RadioButton/SliderLinears) on a re-render with identical props', () => {
+      const onChange = () => {};
+      const { rerender } = render(<Lfo schema={schema} value={value} onChange={onChange} />);
+      const callsAfterMount = (resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      rerender(<Lfo schema={schema} value={value} onChange={onChange} />);
+      rerender(<Lfo schema={schema} value={value} onChange={onChange} />);
+
+      expect((resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length).toBe(callsAfterMount);
+    });
+
+    it('does re-execute its render body when a real prop changes (value)', () => {
+      const onChange = () => {};
+      const { rerender } = render(<Lfo schema={schema} value={value} onChange={onChange} />);
+      const callsAfterMount = (resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      rerender(<Lfo schema={schema} value={{ ...value, rate: 5 }} onChange={onChange} />);
+
+      expect((resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(callsAfterMount);
     });
   });
 });

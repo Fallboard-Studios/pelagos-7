@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import { DualLabel } from './DualLabel';
 import { RadioButton } from './RadioButton';
 import { SliderLinear } from './SliderLinear';
@@ -33,7 +35,7 @@ const RATE_STEP = 0.25;
  * plain `isActive` class, now driven by `rate > 0` rather than a separate
  * flag, so a consumer can still write `.sc-lfo.isActive { ... }`.
  */
-export function Lfo({ schema, value, onChange, disabled }: LfoProps) {
+function LfoInner({ schema, value, onChange, disabled }: LfoProps) {
   const shapeSchema: RadioButtonSchema = { id: `${schema.id}.shape`, type: 'radio', humanLabel: 'Shape', options: SHAPE_OPTIONS };
   // Fixed 'horizontal', never 'auto' — docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.3:
   // every LFO slider (this Rate/Depth pair, and Rate Drift/Depth Drift alongside it)
@@ -65,3 +67,8 @@ export function Lfo({ schema, value, onChange, disabled }: LfoProps) {
     </div>
   );
 }
+
+// React.memo (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 10) — every prop is a primitive,
+// a stable schema object, or the LfoValue object (compared shallowly — a caller replacing it
+// wholesale on any real change is the expected usage, matching every other primitive here).
+export const Lfo = memo(LfoInner);

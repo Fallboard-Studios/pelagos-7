@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { memo, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import * as Accordion from '@radix-ui/react-accordion';
 import gsap from 'gsap';
 
@@ -59,7 +59,7 @@ const cabinetTokens = {
  * nest one CabinetBox inside another's front face; see §1.1/§1.4 for why
  * that's safe and how the two fronts stay independently styleable.
  */
-export function AccordionContainer({ schema, children, defaultOpen = false, style }: AccordionContainerProps) {
+function AccordionContainerInner({ schema, children, defaultOpen = false, style }: AccordionContainerProps) {
   const [open, setOpen] = useState(defaultOpen);
   const contentRef = useRef<HTMLDivElement>(null);
   const contentInnerRef = useRef<HTMLDivElement>(null);
@@ -189,3 +189,9 @@ export function AccordionContainer({ schema, children, defaultOpen = false, styl
     </Accordion.Root>
   );
 }
+
+// React.memo (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 10) — takes caller-supplied
+// `children`; a caller constructing it inline as an element (not a bare string) defeats this
+// bail-out regardless of memoization here (spec §1.3's conditional-benefit case, same shape
+// Toggle's own facade `children` documents).
+export const AccordionContainer = memo(AccordionContainerInner);
