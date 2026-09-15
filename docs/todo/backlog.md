@@ -537,3 +537,38 @@ setInterval-count guard. Full suite: 143 files / 2585 tests, `build:types`, `lin
 production build all clean. Live re-verification (does the commit visibly spread across
 multiple frames now, and does it feel less spiky) still deferred to Crawford's next live
 Profiler check, same as items 21/23/24's own remaining live-verification steps.
+
+### 26. Oblique Cabinetry Primitives: No Memo Boundary Anywhere — Whole Panels Re-render Together
+
+**Status:** spec written (2026-09-15), not yet implemented. Spec at
+[docs/specs/OBLIQUE_CABINETRY_MEMOIZATION.md](../specs/OBLIQUE_CABINETRY_MEMOIZATION.md).
+
+Found live-verifying item 25 (Crawford, React DevTools Profiler, 2026-09-15): during an
+automatic Audio Swell, the entire affected `AudioRigEffectPanel` re-renders together — every
+`CabinetBox`/`SliderLog`/`SliderLinear`/`RadioButton`/`Lfo`/`SliderCenteredZero` inside it,
+not just the one field actually swelling. Root cause: none of the 14 shared Oblique Cabinetry
+primitives (`docs/COMPONENT_LIBRARY.md`) are wrapped in `React.memo`, unlike `Factory`/
+`RobotBody`/`BubbleStream` (items 21-23). When one field's value changes, the panel that owns
+that effect's whole settings object correctly re-renders (Zustand's immutable update means the
+whole per-effect object is a new reference whenever any field inside it changes) — and because
+nothing downstream can bail out, every sibling control re-executes too, even ones whose own
+value never changed.
+
+Confirmed deeper than a simple "add `React.memo` everywhere" fix while researching the spec:
+`AudioRigDrawer.tsx` constructs every `onChange` handler as a fresh inline closure on every
+render (`(v) => updateParam(param.field, v)`) — memoizing the primitives alone would change
+nothing for this specific panel, since an unstabilized callback prop still looks "different"
+every render regardless. Also: `VoxelTrack`-based sliders (`SliderLinear`/`SliderLog`/
+`SliderCenteredZero`) call `computeVoxelBoxStates`/`computeVoxelBoxStatesCenteredZero`
+(`voxelTrackMath.ts`) directly in their render body, unmemoized — a fresh array on every call
+even when the input value hasn't changed — which would defeat memoization of `VoxelTrack`/
+`CabinetBox` on its own, since `VoxelTrack` builds each `CabinetBox`'s `children` fresh from
+that array every time it re-executes.
+
+Not yet implemented — see the spec for the full design, including which of the 14 primitives'
+memo benefit is fully self-contained vs. conditional on caller behavior (`AccordionContainer`/
+`DirectionalPanel`'s externally-supplied `children`), and which other drawers (RobotOptionsTab,
+SectorSettingsDrawer, header nav's `RadioButton` duplication — backlog item 1 — Ping Controls/
+Contour, Signature Array, Company management) likely have the identical unstabilized-callback
+pattern and would need the same treatment in their own follow-up passes before they'd see any
+benefit from the primitives being memoized.
