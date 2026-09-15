@@ -338,12 +338,40 @@ re-render caused by a *parent* passing unchanged props; it does nothing when a c
 own store subscription changes, which is what's happening here (all 36 instances change
 "at once" because they all read the same tick).
 
-**Fix shape:** not yet determined — needs design discussion, not a narrow-the-selector
-fix. Candidates: (a) isolate the lighting-dependent color computation into a small child
-component per factory, memoized separately from the rest of the factory's (expensive,
-static) geometry/greebles, so only that child re-renders per tick; (b) drive the
-color/lighting shift via a direct ref/attribute write (or a GSAP tween interpolating
-between light states) instead of a React re-render entirely, matching CLAUDE.md's general
-preference for GSAP/direct-write over React state for continuous visual changes; (c)
-reduce tick granularity if a full 1000ms cadence isn't visually necessary for a slow
-day/night shift (product call, not just a technical one).
+**Decision (2026-09-14, Crawford):** going with (a) below, not the cheaper (c) — Crawford
+confirmed a full in-game day cycle takes ~6 real minutes today (96 measures @ current BPM),
+which would make (c) (throttling the 1000ms tick — the fills already CSS-transition, so a
+slower tick would likely read as visually smooth) a cheap, low-risk, mostly-sufficient fix
+on its own. Passed over anyway: this repo runs a deliberately strict
+no-`setInterval`-for-visual-updates posture (CLAUDE.md's animation guardrails), and
+performance here is a stated top priority worth the real fix rather than a tuned timer.
+Scoped as its own follow-up PR/branch, not folded into this one — see shape below for why.
+
+Investigated before deciding (2026-09-14): lighting isn't confined to `Factory.tsx` — it's
+threaded through 21 separate usage sites across `greebles/rooftopGreebles.tsx` and
+`greebles/facadeGreebles.tsx` (752 lines combined), both today plain `(ctx) => JSX`
+functions that bake `eastLMultiplier`/`westLMultiplier`/`nightDepth`/`flickerEpoch`
+straight into whatever they return — not just the 2 body fills + belt-course fills
+`Factory.tsx` itself touches directly. There is also **no existing test file for
+`Factory.tsx`** itself (only the two greeble sub-renderers and `BubbleStream` have
+coverage) — real regression risk for a seed-deterministic, `docs/BUILDING_DESIGN.md`
+guardrail-adjacent system.
+
+**Fix shape — option (a), chosen:** isolate the lighting-dependent color computation into
+a small child component per factory (or per lit element), memoized separately from the
+rest of the factory's expensive, static geometry/greeble generation, so only that
+lighting-dependent slice re-renders per tick — not the whole `FactoryInner` tree. Given the
+blast radius (2 untested files, 21 usage sites, guardrail territory), this is planned as:
+(1) add test coverage for `Factory.tsx` itself first — none exists today, and it's the
+safety net for everything after; (2) a `spec-driven-development` pass for the actual
+component-boundary redesign (whether `rooftopGreebles.tsx`/`facadeGreebles.tsx` become real
+components or stay pure functions fed pre-computed values); (3) implement task-by-task
+against that spec, re-profiling with the same DevTools Ranked-view technique that found
+this to confirm the fix actually lands. Multi-session work, not a one-shot — own branch,
+cut from `perf/rerender-cleanup` after it merges to `main`.
+
+Options considered and passed over: (b) drive the color/lighting shift via a direct
+ref/attribute write (or a GSAP tween) instead of a React re-render entirely — similarly
+invasive to (a) (21 sites would each need imperative wiring) without option (a)'s benefit
+of a clean component boundary, so not preferred; (c) reduce tick granularity — see Decision
+above for why this was passed over despite being cheap and low-risk.
