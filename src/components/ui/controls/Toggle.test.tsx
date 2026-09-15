@@ -14,7 +14,17 @@ vi.mock('./CabinetBox', () => ({
   ),
 }));
 
+// Spied (real cross-module call, wrapped so it still delegates to the actual
+// implementation) so a render-count test (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md
+// Task 7) can tell whether Toggle's render body actually re-executed —
+// resolveAccessibleName(schema) is called unconditionally in the render body.
+vi.mock('./accessibleName', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./accessibleName')>();
+  return { ...actual, resolveAccessibleName: vi.fn(actual.resolveAccessibleName) };
+});
+
 import { Toggle } from './Toggle';
+import { resolveAccessibleName } from './accessibleName';
 import type { ToggleSchema } from '@/types/controls';
 
 const schema: ToggleSchema = { id: 'layerActive', type: 'toggle', loreLabel: 'LAYER ACTIVE', humanLabel: 'Layer Active' };
@@ -204,6 +214,43 @@ describe('Toggle', () => {
     it('keeps the sc-toggle__root--bare modifier class when children is omitted (regression guard — every existing consumer keeps its fixed-square sizing)', () => {
       render(<Toggle schema={schema} value={false} onChange={() => {}} />);
       expect(screen.getByRole('switch').classList.contains('sc-toggle__root--bare')).toBe(true);
+    });
+  });
+
+  describe('React.memo (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 7)', () => {
+    it('is a React.memo-wrapped component', () => {
+      expect((Toggle as unknown as { $$typeof: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
+    });
+
+    it('the bare (no-children) call shape does not re-execute its render body on a re-render with identical props — the guaranteed bail-out case, since no caller-supplied children exists to defeat it', () => {
+      const onChange = () => {};
+      const { rerender } = render(<Toggle schema={schema} value={false} onChange={onChange} />);
+      const callsAfterMount = (resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      rerender(<Toggle schema={schema} value={false} onChange={onChange} />);
+      rerender(<Toggle schema={schema} value={false} onChange={onChange} />);
+
+      expect((resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length).toBe(callsAfterMount);
+    });
+
+    it('does re-execute its render body when a real prop changes (value)', () => {
+      const onChange = () => {};
+      const { rerender } = render(<Toggle schema={schema} value={false} onChange={onChange} />);
+      const callsAfterMount = (resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      rerender(<Toggle schema={schema} value={true} onChange={onChange} />);
+
+      expect((resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(callsAfterMount);
+    });
+
+    it('the children-bearing call shape still re-executes on a re-render even with every other prop unchanged, when the caller constructs an element (not a bare string) inline (the conditional-benefit case spec §1.3 describes — a fresh element reference every render defeats the shallow-compare bail-out regardless of memoization here; a bare string child, by contrast, is already Object.is-stable across renders of the same literal, so it alone would not demonstrate this)', () => {
+      const onChange = () => {};
+      const { rerender } = render(<Toggle schema={schema} value={false} onChange={onChange}><span>🔊</span></Toggle>);
+      const callsAfterMount = (resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      rerender(<Toggle schema={schema} value={false} onChange={onChange}><span>🔊</span></Toggle>);
+
+      expect((resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(callsAfterMount);
     });
   });
 });

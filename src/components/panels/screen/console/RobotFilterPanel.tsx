@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 
 import { CompanyManager } from '@/components/company/CompanyManager';
@@ -41,8 +41,15 @@ const FILTER_TOGGLE_SCHEMA: ButtonSchema = { id: 'robotFilterPanel.toggle', type
  * "mount is special-cased" precedent AccordionContainer.tsx's own defaultOpen effect
  * establishes — without it, mounting with an already-selected company would otherwise fire a
  * pointless close/animate on load.
+ *
+ * Bugfix, found live (docs/todo/backlog.md #27 follow-up) — same class as CompanyManager's own
+ * documented fix: RobotsTab (this component's own parent) re-renders on every audio-swell tick
+ * (~8-9x/sec, see CompanyManager.tsx's own doc comment for the full mechanism), and this panel
+ * takes zero props, so memo() is correct and sufficient (an empty prop list can never differ) —
+ * it still re-renders normally whenever its own selectedCompanyId/allRobotsSelected/useCabinetTier
+ * subscriptions actually change.
  */
-export function RobotFilterPanel() {
+export const RobotFilterPanel = memo(function RobotFilterPanel() {
   const tier = useCabinetTier();
   const isDesktop = tier === 'desktop';
   const [open, setOpen] = useState(false);
@@ -95,6 +102,6 @@ export function RobotFilterPanel() {
       </div>
     </>
   );
-}
+});
 
 export default RobotFilterPanel;

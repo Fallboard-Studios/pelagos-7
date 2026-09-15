@@ -19,7 +19,18 @@ vi.mock('@/engine/lfoEngine', () => ({
   },
 }));
 
+// Spied (real cross-module call, wrapped so it still delegates to the actual implementation) so
+// a per-layer cascade regression test (docs/todo/backlog.md #27 follow-up, 2026-09-15) can tell
+// which layer's controls actually re-rendered — resolveAccessibleName is called unconditionally
+// by RadioButton/SliderLinear/SliderCenteredZero, and receives the schema, so calls can be
+// filtered by schema.id to attribute them to a specific layer/field.
+vi.mock('@/components/ui/controls/accessibleName', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/components/ui/controls/accessibleName')>();
+  return { ...actual, resolveAccessibleName: vi.fn(actual.resolveAccessibleName) };
+});
+
 import { SignatureArrayDrawer, type SignatureArrayValue } from './SignatureArrayDrawer';
+import { resolveAccessibleName } from '@/components/ui/controls/accessibleName';
 import { useAudioStore } from '@/stores/audioStore';
 import { DEFAULT_GLOBAL_AUDIO_SETTINGS } from '@/types/globalAudio';
 import type { OscillatorLayer } from '@/types/layeredAudio';
@@ -376,6 +387,55 @@ describe('SignatureArrayDrawer', () => {
       const root = container.querySelector('.sc-accordion') as HTMLElement;
       const driftSlider = within(root).getAllByRole('slider', { name: 'Rate Drift' })[0];
       expect(root.contains(driftSlider)).toBe(true);
+    });
+  });
+
+  describe('React.memo (docs/tasks/ROBOT_OPTIONS_TAB_MEMOIZATION.md Task 4)', () => {
+    it('is a React.memo-wrapped component', () => {
+      expect((SignatureArrayDrawer as unknown as { $$typeof: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
+    });
+  });
+
+  describe('per-layer cascade regression (docs/todo/backlog.md #27 follow-up, 2026-09-15)', () => {
+    // Found live: editing one layer's Gain re-rendered every other layer's own controls too. Root
+    // cause — every per-layer handler (handleTypeChange/handleParamChange, the `fields` array and
+    // `renderField` callback handed to LfoTargetGroup) was built fresh, unmemoized, inside the
+    // parent's own .map() — so editing ANY layer's ANY field changed `value.layers`'s own
+    // reference, re-rendering the parent, which then handed every already-memoized layer's own
+    // primitives new prop references regardless of whether THAT layer actually changed.
+    function callsFor(schemaId: string) {
+      return (resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.filter(([schema]) => schema.id === schemaId).length;
+    }
+
+    it("changing Baseline's (layer0) Gain does not re-render Coaxial's (layer1) or Harmonic's (layer2) own Type radio", () => {
+      // Stable across both renders — a caller that re-passes fresh inline closures every render
+      // (like RobotOptionsTab used to, before its own docs/todo/backlog.md #27 fix) would
+      // destabilize this component's own per-index handlers regardless of how well THIS
+      // component memoizes internally; this test is about SignatureArrayDrawer's own behavior
+      // given an already-stable caller, matching the real fixed call sites.
+      const onContinuousChange = vi.fn();
+      const onStructuralChange = vi.fn();
+      const onLfoChange = vi.fn();
+      const initialValue = makeValue();
+      const { rerender } = render(
+        <SignatureArrayDrawer value={initialValue} onContinuousChange={onContinuousChange} onStructuralChange={onStructuralChange} onLfoChange={onLfoChange} />
+      );
+      (resolveAccessibleName as ReturnType<typeof vi.fn>).mockClear();
+
+      // Preserves layer1/layer2's own object references, only replacing layer0 — the same shape
+      // applyLayersContinuous's real caller produces (robotOptionsActions.ts's own .map()), not
+      // a fresh makeLayers() call, which would allocate all-new objects for every index and
+      // falsely look like every layer changed.
+      const updatedLayers = initialValue.layers.map((l, i) => (i === 0 ? { ...l, gain: 0.5 } : l));
+      rerender(
+        <SignatureArrayDrawer value={{ ...initialValue, layers: updatedLayers }} onContinuousChange={onContinuousChange} onStructuralChange={onStructuralChange} onLfoChange={onLfoChange} />
+      );
+
+      expect(callsFor('robotOptions.layer0.gain')).toBeGreaterThan(0);
+      expect(callsFor('robotOptions.layer1.type')).toBe(0);
+      expect(callsFor('robotOptions.layer2.type')).toBe(0);
+      expect(callsFor('robotOptions.layer1.gain')).toBe(0);
+      expect(callsFor('robotOptions.layer2.gain')).toBe(0);
     });
   });
 });

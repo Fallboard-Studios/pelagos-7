@@ -26,4 +26,13 @@ describe('DualLabel', () => {
     expect(screen.getByText('CALIBRATE PING')).toBeTruthy();
     expect(screen.getByText('Reset Melody')).toBeTruthy();
   });
+
+  // docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 6 — structural check only, matching
+  // BubbleStream.test.tsx's own precedent (docs/specs/OBLIQUE_CABINETRY_MEMOIZATION.md §5): this
+  // component has no hook or cross-module utility call in its render body to spy on as a
+  // render-count marker (it's genuinely pure JSX composed from its own props), so a real
+  // render-based re-render-count test isn't practical here.
+  it('is a React.memo-wrapped component', () => {
+    expect((DualLabel as unknown as { $$typeof: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
+  });
 });

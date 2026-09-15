@@ -1,6 +1,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 
+// Spied (real cross-module call, wrapped so it still delegates to the actual
+// implementation) so a render-count test (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md
+// Task 3 correction — found via Task 12's own end-to-end debugging: this
+// component's own React.memo wrap was missed originally, only the internal
+// states useMemo was added) can tell whether SliderCenteredZero's render body
+// actually re-executed — resolveAccessibleName(schema) is called
+// unconditionally on the Slider.Thumb's aria-label.
+vi.mock('./accessibleName', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./accessibleName')>();
+  return { ...actual, resolveAccessibleName: vi.fn(actual.resolveAccessibleName) };
+});
+
 vi.mock('./VoxelTrack', () => ({
   VoxelTrack: ({
     states,
@@ -27,6 +39,7 @@ vi.mock('./VoxelTrack', () => ({
 }));
 
 import { SliderCenteredZero } from './SliderCenteredZero';
+import { resolveAccessibleName } from './accessibleName';
 import {
   computeFittedBoxCount,
   computeVoxelTrackLength,
@@ -35,6 +48,12 @@ import {
   VOXEL_TRACK_DEFAULT_VERTICAL_HEIGHT,
   VOXEL_TRACK_MIN_BOX_COUNT_EVEN,
 } from '@/utils/voxelTrackMath';
+// Separate namespace import so computeVoxelBoxStatesCenteredZero can be spied
+// on as a real cross-module call from SliderCenteredZero.tsx's own
+// perspective (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 3) — distinct
+// from the named import above, which existing tests already use directly to
+// compute expected values, unspied.
+import * as voxelTrackMath from '@/utils/voxelTrackMath';
 import type { SliderCenteredZeroSchema } from '@/types/controls';
 
 const detuneSchema: SliderCenteredZeroSchema = { id: 'detune', type: 'sliderCenteredZero', min: -50, max: 50, humanLabel: 'Detune', unit: 'ct', orientation: 'horizontal' };
@@ -289,6 +308,84 @@ describe('SliderCenteredZero component', () => {
       const { container } = render(<SliderCenteredZero schema={autoSchema} value={0} onChange={() => {}} />);
       const root = container.querySelector('.sc-slider-centered-zero__root');
       expect(root?.getAttribute('data-orientation')).toBe('horizontal');
+    });
+  });
+
+  describe('computeVoxelBoxStatesCenteredZero memoization (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 3)', () => {
+    it('does not recompute states across re-renders with unchanged value/schema.min/schema.max/boxCount', () => {
+      const spy = vi.spyOn(voxelTrackMath, 'computeVoxelBoxStatesCenteredZero');
+      const { rerender } = render(<SliderCenteredZero schema={detuneSchema} value={0} onChange={() => {}} />);
+      const callsAfterMount = spy.mock.calls.length;
+      expect(callsAfterMount).toBeGreaterThan(0);
+
+      rerender(<SliderCenteredZero schema={detuneSchema} value={0} onChange={() => {}} />);
+      rerender(<SliderCenteredZero schema={detuneSchema} value={0} onChange={() => {}} />);
+
+      expect(spy.mock.calls.length).toBe(callsAfterMount);
+    });
+
+    it('recomputes states when value changes', () => {
+      const spy = vi.spyOn(voxelTrackMath, 'computeVoxelBoxStatesCenteredZero');
+      const { rerender } = render(<SliderCenteredZero schema={detuneSchema} value={0} onChange={() => {}} />);
+      const callsAfterMount = spy.mock.calls.length;
+
+      rerender(<SliderCenteredZero schema={detuneSchema} value={25} onChange={() => {}} />);
+
+      expect(spy.mock.calls.length).toBeGreaterThan(callsAfterMount);
+    });
+
+    it('recomputes states when schema.min/schema.max change, even with value unchanged', () => {
+      const spy = vi.spyOn(voxelTrackMath, 'computeVoxelBoxStatesCenteredZero');
+      const { rerender } = render(<SliderCenteredZero schema={detuneSchema} value={0} onChange={() => {}} />);
+      const callsAfterMount = spy.mock.calls.length;
+
+      const widerSchema: SliderCenteredZeroSchema = { ...detuneSchema, max: 100 };
+      rerender(<SliderCenteredZero schema={widerSchema} value={0} onChange={() => {}} />);
+
+      expect(spy.mock.calls.length).toBeGreaterThan(callsAfterMount);
+    });
+
+    it('recomputes states when the fitted (forced-even) boxCount changes (a ResizeObserver measurement), even with value/schema unchanged', () => {
+      const spy = vi.spyOn(voxelTrackMath, 'computeVoxelBoxStatesCenteredZero');
+      render(<SliderCenteredZero schema={detuneSchema} value={0} onChange={() => {}} />);
+      const callsAfterMount = spy.mock.calls.length;
+
+      // 500px resolves to a forced-even box count of 8 — clearly different
+      // from the default (unmeasured) forced-even minimum of 4
+      // (VOXEL_TRACK_MIN_BOX_COUNT_EVEN). 288px (used elsewhere in this
+      // file) happens to resolve to the same forced-even count (4) as the
+      // default, which would make this assertion a false negative.
+      const observer = MockResizeObserver.instances[0];
+      act(() => observer.fire(500, 0));
+
+      expect(spy.mock.calls.length).toBeGreaterThan(callsAfterMount);
+    });
+  });
+
+  describe('React.memo (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 3 correction — SliderCenteredZero itself, not just its internal states useMemo)', () => {
+    it('is a React.memo-wrapped component', () => {
+      expect((SliderCenteredZero as unknown as { $$typeof: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
+    });
+
+    it('does not re-execute its render body on a re-render with identical props', () => {
+      const onChange = () => {};
+      const { rerender } = render(<SliderCenteredZero schema={detuneSchema} value={0} onChange={onChange} />);
+      const callsAfterMount = (resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      rerender(<SliderCenteredZero schema={detuneSchema} value={0} onChange={onChange} />);
+      rerender(<SliderCenteredZero schema={detuneSchema} value={0} onChange={onChange} />);
+
+      expect((resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length).toBe(callsAfterMount);
+    });
+
+    it('does re-execute its render body when a real prop changes (value)', () => {
+      const onChange = () => {};
+      const { rerender } = render(<SliderCenteredZero schema={detuneSchema} value={0} onChange={onChange} />);
+      const callsAfterMount = (resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      rerender(<SliderCenteredZero schema={detuneSchema} value={25} onChange={onChange} />);
+
+      expect((resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(callsAfterMount);
     });
   });
 });

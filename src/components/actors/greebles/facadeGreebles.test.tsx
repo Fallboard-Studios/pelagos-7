@@ -1,7 +1,19 @@
 import React from 'react';
 import type { ReactElement } from 'react';
 import { describe, it, expect } from 'vitest';
-import { deriveWindowGrid, deriveBeltCourses, renderBeltCourse, renderSquareWindows, renderPipesValvesFacade, FACADE_RENDERERS } from './facadeGreebles';
+import {
+  deriveWindowGrid,
+  deriveBeltCourses,
+  renderBeltCourse,
+  renderSquareWindows,
+  renderWideWindows,
+  renderTallWindows,
+  renderPipesValvesFacade,
+  FACADE_RENDERERS,
+  computeWindowGridLayout,
+  paintWindowGrid,
+  FACADE_LAYOUT_PAINT,
+} from './facadeGreebles';
 import type { GreebleRendererContext } from './greebleTypes';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type EL = ReactElement<any>;
@@ -131,6 +143,100 @@ describe('zone-aware renderSquareWindows', () => {
   });
 
 
+});
+
+// ========================================
+// WINDOW GRID — LAYOUT/PAINT SPLIT
+// (docs/specs/FACTORY_LIGHTING_RERENDER.md §1.4 — Task 3)
+// ========================================
+
+describe('computeWindowGridLayout / paintWindowGrid', () => {
+  it('is identical regardless of nightDepth/flickerEpoch/lMultiplier/eastLMultiplier/westLMultiplier — existence and position decided at layout time', () => {
+    const layoutA = computeWindowGridLayout(
+      { ...zoneBaseCtx, seed: 5, nightDepth: 0.9, flickerEpoch: 3, lMultiplier: 0.2 },
+      'squareWindows', 0.4,
+    );
+    const layoutB = computeWindowGridLayout(
+      { ...zoneBaseCtx, seed: 5, nightDepth: 0.1, flickerEpoch: 99, lMultiplier: 1.0 },
+      'squareWindows', 0.4,
+    );
+    expect(layoutA).toEqual(layoutB);
+  });
+
+  it('returns { split: false } with no frontCornerX, { split: true } with one', () => {
+    const unsplit = computeWindowGridLayout(zoneBaseCtx, 'squareWindows', 0.4);
+    expect(unsplit.split).toBe(false);
+
+    const split = computeWindowGridLayout({ ...zoneBaseCtx, frontCornerX: 40 }, 'squareWindows', 0.4);
+    expect(split.split).toBe(true);
+  });
+
+  it('paintWindowGrid produces a different set of lit windows for different nightDepth/flickerEpoch, given the identical layout', () => {
+    const layout = computeWindowGridLayout({ ...zoneBaseCtx, seed: 1 }, 'squareWindows', 0.4);
+    const dayEl = paintWindowGrid(layout, { ...zoneBaseCtx, seed: 1, nightDepth: 0, flickerEpoch: 0 }) as EL;
+    const nightEl = paintWindowGrid(layout, { ...zoneBaseCtx, seed: 1, nightDepth: 0.9, flickerEpoch: 7 }) as EL;
+    const dayFills = (React.Children.toArray(dayEl.props.children) as EL[]).map((c) => c.props.fill);
+    const nightFills = (React.Children.toArray(nightEl.props.children) as EL[]).map((c) => c.props.fill);
+    expect(dayFills).not.toEqual(nightFills);
+  });
+
+  it('renderSquareWindows/renderWideWindows/renderTallWindows (compatibility wrappers) equal paintWindowGrid(computeWindowGridLayout(ctx, type, threshold), ctx)', () => {
+    const testCtx = { ...zoneBaseCtx, seed: 1, frontCornerX: 40, eastLMultiplier: 0.9, westLMultiplier: 0.4, nightDepth: 0.5, flickerEpoch: 2 };
+    expect(renderSquareWindows(testCtx)).toEqual(paintWindowGrid(computeWindowGridLayout(testCtx, 'squareWindows', 0.4), testCtx));
+    expect(renderWideWindows(testCtx)).toEqual(paintWindowGrid(computeWindowGridLayout(testCtx, 'wideWindows', 0.3), testCtx));
+    expect(renderTallWindows(testCtx)).toEqual(paintWindowGrid(computeWindowGridLayout(testCtx, 'tallWindows', 0.3), testCtx));
+  });
+
+  it('the east/west split renders west content untranslated and east content inside a <g transform> — same structure as before the split', () => {
+    const testCtx = { ...zoneBaseCtx, seed: 1, frontCornerX: 40 };
+    const el = paintWindowGrid(computeWindowGridLayout(testCtx, 'squareWindows', 0.4), testCtx) as EL;
+    const children = React.Children.toArray(el.props.children) as EL[];
+    expect(children).toHaveLength(2);
+    expect(children[0].type).toBe(React.Fragment); // west, untranslated
+    expect(children[1].type).toBe('g');
+    expect(children[1].props.transform).toBe('translate(40, 0)');
+  });
+});
+
+describe('paintWindowGrid — opacity rounding', () => {
+  // Found live-verifying items 21-23's fixes (2026-09-15): nightDepth/lMultiplier are
+  // continuous, never-repeating floats sampled every tick from a sine-based day/night curve.
+  // Without rounding, `opacity` produced a genuinely different number on every render, forcing
+  // a real DOM write on every tick even when the visual change was imperceptible — real,
+  // measured cost the JS-computation fixes in items 21-23 couldn't touch, because the values
+  // were never actually equal to begin with. Same fix shape as applyColorShift's lightness
+  // rounding (colorUtils.ts).
+  it('rounds opacity to 2 decimal places, not the raw floating-point product', () => {
+    const layout = computeWindowGridLayout({ ...zoneBaseCtx, seed: 1 }, 'squareWindows', 0.4);
+    const el = paintWindowGrid(layout, { ...zoneBaseCtx, seed: 1, nightDepth: 0, lMultiplier: 0.812345678 }) as EL;
+    const opacities = (React.Children.toArray(el.props.children) as EL[]).map((c) => c.props.opacity as number);
+    expect(opacities.length).toBeGreaterThan(0);
+    for (const o of opacities) {
+      expect(o).toBe(Math.round(o * 100) / 100);
+    }
+  });
+
+  it('two lMultiplier values differing by a tiny (sub-tick) amount produce identical opacity', () => {
+    const layout = computeWindowGridLayout({ ...zoneBaseCtx, seed: 1 }, 'squareWindows', 0.4);
+    const tickA = paintWindowGrid(layout, { ...zoneBaseCtx, seed: 1, nightDepth: 0, lMultiplier: 0.80001 }) as EL;
+    const tickB = paintWindowGrid(layout, { ...zoneBaseCtx, seed: 1, nightDepth: 0, lMultiplier: 0.80003 }) as EL;
+    const opacitiesA = (React.Children.toArray(tickA.props.children) as EL[]).map((c) => c.props.opacity);
+    const opacitiesB = (React.Children.toArray(tickB.props.children) as EL[]).map((c) => c.props.opacity);
+    expect(opacitiesA).toEqual(opacitiesB);
+  });
+});
+
+describe('FACADE_LAYOUT_PAINT registry shape', () => {
+  it('contains exactly squareWindows, wideWindows, tallWindows — every other FacadeGreeble is absent', () => {
+    expect(Object.keys(FACADE_LAYOUT_PAINT).sort()).toEqual(['squareWindows', 'tallWindows', 'wideWindows']);
+  });
+
+  it('each entry\'s compute matches computeWindowGridLayout with that type\'s own threshold', () => {
+    const testCtx = { ...zoneBaseCtx, seed: 1 };
+    expect(FACADE_LAYOUT_PAINT.squareWindows!.compute(testCtx)).toEqual(computeWindowGridLayout(testCtx, 'squareWindows', 0.4));
+    expect(FACADE_LAYOUT_PAINT.wideWindows!.compute(testCtx)).toEqual(computeWindowGridLayout(testCtx, 'wideWindows', 0.3));
+    expect(FACADE_LAYOUT_PAINT.tallWindows!.compute(testCtx)).toEqual(computeWindowGridLayout(testCtx, 'tallWindows', 0.3));
+  });
 });
 
 

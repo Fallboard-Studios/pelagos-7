@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { memo, useMemo, useRef } from 'react';
 import * as Slider from '@radix-ui/react-slider';
 
 import { DualLabel } from './DualLabel';
@@ -36,13 +36,16 @@ interface SliderLogProps {
  * docs/specs/OBLIQUE_CABINETRY_SLIDER_LOG.md §1.3. sliderLogMath's actual
  * curve is unchanged.
  */
-export function SliderLog({ schema, value, onChange, disabled, verticalHeight }: SliderLogProps) {
+function SliderLogInner({ schema, value, onChange, disabled, verticalHeight }: SliderLogProps) {
   const t = sliderLogValueToT(value, schema.min, schema.max);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const orientation = useAutoSliderOrientation(wrapperRef, schema.orientation);
   const isVertical = orientation === 'vertical';
   const { boxSize, gap, boxCount, rootStyle } = useVoxelTrackSlider(wrapperRef, orientation, verticalHeight);
-  const states = computeVoxelBoxStates(t, 0, 1, boxCount);
+  // Memoized so VoxelTrack's own React.memo (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 5)
+  // can bail on an unchanged states reference — computeVoxelBoxStates is a pure function that
+  // otherwise returns a fresh array every render.
+  const states = useMemo(() => computeVoxelBoxStates(t, 0, 1, boxCount), [t, boxCount]);
 
   const valueLabel = (
     <span className="sc-slider-log__value">{formatDisplayValue(value)}{schema.unit}</span>
@@ -79,3 +82,8 @@ export function SliderLog({ schema, value, onChange, disabled, verticalHeight }:
     </div>
   );
 }
+
+// React.memo (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 2 correction) — every prop is a
+// primitive, a stable schema object, or the onChange callback a caller must keep stable to
+// benefit.
+export const SliderLog = memo(SliderLogInner);

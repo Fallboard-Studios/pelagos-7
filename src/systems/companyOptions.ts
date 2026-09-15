@@ -20,18 +20,30 @@ import type { CompanyOptionsSnapshot } from '@/types/Company';
 import type { Robot } from '@/types/Robot';
 import type { OscillatorLayer } from '@/types/layeredAudio';
 
+// Stable fallback references (docs/tasks/ROBOT_OPTIONS_TAB_MEMOIZATION.md follow-up, 2026-09-15)
+// — `resolveCompanyOptions` is called on every render of `CompanyOptionsSection` (via a `useMemo`
+// keyed on its own real inputs), so a fallback that constructs a fresh object/array literal every
+// call defeats that memoization even when the underlying robot data hasn't changed. Only `volumeLfo`
+// (previously `{ ...DEFAULT_LFO_SETTINGS[...] }`), `layers` (previously `[]`), and `lfoSettings`
+// (previously `{}`) had this — `rhythmicMotifLength`/`noteVariance` already returned their shared
+// default reference directly, unspread. Nothing downstream mutates a `CompanyOptionsSnapshot`
+// field in place (every consumer spreads: `{ ...value, field }`), so returning these shared
+// references directly, instead of defensive copies, is behavior-neutral.
+const EMPTY_LAYERS: OscillatorLayer[] = [];
+const EMPTY_LFO_SETTINGS: NonNullable<CompanyOptionsSnapshot['lfoSettings']> = {};
+
 export function resolveCompanyOptions(lastEditedOptions: CompanyOptionsSnapshot | undefined, firstMember: Robot): Required<CompanyOptionsSnapshot> {
   const fromRobot: Required<CompanyOptionsSnapshot> = {
     audioMode: firstMember.audioMode ?? 'none',
     masterVolume: firstMember.masterVolume,
-    volumeLfo: firstMember.lfoSettings?.[VOLUME_LFO_TARGET] ?? { ...DEFAULT_LFO_SETTINGS[VOLUME_LFO_TARGET] },
+    volumeLfo: firstMember.lfoSettings?.[VOLUME_LFO_TARGET] ?? DEFAULT_LFO_SETTINGS[VOLUME_LFO_TARGET],
     rhythmicDensity: firstMember.rhythmicDensity ?? DEFAULT_RHYTHMIC_DENSITY,
     rhythmicMotifLength: firstMember.rhythmicMotifLength ?? DEFAULT_RHYTHMIC_MOTIF_LENGTH,
     noteVariance: firstMember.noteVariance ?? DEFAULT_NOTE_VARIANCE,
     octaveRange: firstMember.octaveRange,
     adsr: firstMember.audioAttributes.adsr,
-    layers: firstMember.audioAttributes.layers ?? [],
-    lfoSettings: firstMember.lfoSettings ?? {},
+    layers: firstMember.audioAttributes.layers ?? EMPTY_LAYERS,
+    lfoSettings: firstMember.lfoSettings ?? EMPTY_LFO_SETTINGS,
     clickTrackActive: firstMember.clickTrackActive ?? false,
     pitchRepeat: firstMember.pitchRepeat ?? DEFAULT_PITCH_REPEAT,
   };

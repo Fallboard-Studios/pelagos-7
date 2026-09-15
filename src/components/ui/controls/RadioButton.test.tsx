@@ -27,7 +27,17 @@ vi.mock('./CabinetBox', () => ({
   ),
 }));
 
+// Spied (real cross-module call, wrapped so it still delegates to the actual
+// implementation) so a render-count test (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md
+// Task 9) can tell whether RadioButton's render body actually re-executed —
+// resolveAccessibleName(schema) is called unconditionally in the render body.
+vi.mock('./accessibleName', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./accessibleName')>();
+  return { ...actual, resolveAccessibleName: vi.fn(actual.resolveAccessibleName) };
+});
+
 import { RadioButton } from './RadioButton';
+import { resolveAccessibleName } from './accessibleName';
 import type { RadioButtonSchema } from '@/types/controls';
 
 const schema: RadioButtonSchema = {
@@ -310,6 +320,33 @@ describe('RadioButton', () => {
       schema.options.forEach((option) => {
         expect(screen.getByRole('radio', { name: option.label }).getAttribute('style')).toBeNull();
       });
+    });
+  });
+
+  describe('React.memo (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 9)', () => {
+    it('is a React.memo-wrapped component', () => {
+      expect((RadioButton as unknown as { $$typeof: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
+    });
+
+    it('does not re-execute its render body on a re-render with identical props', () => {
+      const onChange = () => {};
+      const { rerender } = render(<RadioButton schema={schema} value="sine" onChange={onChange} />);
+      const callsAfterMount = (resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      rerender(<RadioButton schema={schema} value="sine" onChange={onChange} />);
+      rerender(<RadioButton schema={schema} value="sine" onChange={onChange} />);
+
+      expect((resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length).toBe(callsAfterMount);
+    });
+
+    it('does re-execute its render body when a real prop changes (value)', () => {
+      const onChange = () => {};
+      const { rerender } = render(<RadioButton schema={schema} value="sine" onChange={onChange} />);
+      const callsAfterMount = (resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      rerender(<RadioButton schema={schema} value="triangle" onChange={onChange} />);
+
+      expect((resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(callsAfterMount);
     });
   });
 });

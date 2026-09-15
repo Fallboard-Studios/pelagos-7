@@ -1,5 +1,5 @@
 import * as Switch from '@radix-ui/react-switch';
-import { useId, type CSSProperties, type ReactNode } from 'react';
+import { memo, useId, type CSSProperties, type ReactNode } from 'react';
 
 import { CabinetBox } from './CabinetBox';
 import { DualLabel } from './DualLabel';
@@ -72,7 +72,7 @@ export const CABINET_TOGGLE_BOX_SIZE = 32;
  * but the vulnerability is identical, so the fix is applied preemptively
  * rather than waiting for a live collision.
  */
-export function Toggle({ schema, value, onChange, disabled, boxSize, children }: ToggleProps) {
+function ToggleInner({ schema, value, onChange, disabled, boxSize, children }: ToggleProps) {
   // An explicit boxSize always forces the fixed-square path, even with
   // facade content (Header's Mute needs an exact 44px regardless of its
   // icon). Only "children with no boxSize" gets natural content-sizing.
@@ -112,3 +112,9 @@ export function Toggle({ schema, value, onChange, disabled, boxSize, children }:
     </div>
   );
 }
+
+// React.memo (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 7) — the bare (no `children`) call
+// shape every existing consumer but Header's Mute uses gets a guaranteed bail-out; a caller
+// passing `children` inline (a fresh element reference every render) defeats it regardless of
+// memoization here — see docs/COMPONENT_LIBRARY.md.
+export const Toggle = memo(ToggleInner);

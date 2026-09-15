@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { memo } from 'react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 
 // AudioSettingSection/PingControlsDrawer/PingContourDrawer/SignatureArrayDrawer pull in real
 // Tone.js/AudioEngine machinery, and CompanyOptionsSection mounts all four of them at once —
@@ -20,6 +21,21 @@ function styleAttrs(style?: { [key: string]: string }) {
   return { 'data-style-a': style?.['--color-accent-a'], 'data-style-b': style?.['--color-accent-b'] };
 }
 
+// Every stub below is `React.memo`-wrapped and calls its own render-count spy unconditionally in
+// its body (docs/tasks/ROBOT_OPTIONS_TAB_MEMOIZATION.md follow-up, 2026-09-15) — the real 4
+// section components are memoized too (that plan's own Tasks 1-4), so wrapping these stand-ins
+// the same way lets the cascade regression test below prove whether CompanyOptionsSection is
+// actually handing them stable props, without paying the cost of mounting the real Tone.js/
+// GSAP-adjacent components this file was written to avoid. Each is a `vi.fn()` (a function call,
+// not a mutated outer variable) rather than a plain incremented counter —
+// `react-hooks/immutability` forbids mutating a module-level variable during render.
+const renderCounts = {
+  audioSettingSection: vi.fn(),
+  pingControlsDrawer: vi.fn(),
+  pingContourDrawer: vi.fn(),
+  signatureArrayDrawer: vi.fn(),
+};
+
 // Every probe button below builds its onChange payload the same way the real drawer components
 // do — spreading the received `props.value` (CompanyOptionsSection's shared `resolved` baseline)
 // and touching only one field — e.g. real Lfo.tsx's `onChange({ ...value, rate })`,
@@ -29,29 +45,32 @@ function styleAttrs(style?: { [key: string]: string }) {
 // diffLayerField) — it has to look like a real single-field edit for the "other members' own
 // untouched sub-fields survive" regression tests below to mean anything.
 vi.mock('@/components/robot/AudioSettingSection', () => ({
-  AudioSettingSection: (props: {
+  AudioSettingSection: memo((props: {
     value: { audioMode: string; masterVolume: number; volumeLfo: { shape: string; rate: number; depth: number } };
     onAudioModeChange: (mode: string) => void;
     onVolumeChange: (pct: number) => void;
     onVolumeLfoChange: (value: unknown) => void;
     disabled?: boolean;
     style?: { [key: string]: string };
-  }) => (
-    <div
-      data-testid="audio-setting-section-stub"
-      data-audio-mode={props.value.audioMode}
-      data-volume={props.value.masterVolume}
-      data-disabled={props.disabled ? '' : undefined}
-      {...styleAttrs(props.style)}
-    >
-      <button onClick={() => props.onAudioModeChange('solo')}>probe-audio-mode</button>
-      <button onClick={() => props.onVolumeChange(77)}>probe-volume</button>
-      <button onClick={() => props.onVolumeLfoChange({ ...props.value.volumeLfo, rate: 9 })}>probe-volume-lfo</button>
-    </div>
-  ),
+  }) => {
+    renderCounts.audioSettingSection();
+    return (
+      <div
+        data-testid="audio-setting-section-stub"
+        data-audio-mode={props.value.audioMode}
+        data-volume={props.value.masterVolume}
+        data-disabled={props.disabled ? '' : undefined}
+        {...styleAttrs(props.style)}
+      >
+        <button onClick={() => props.onAudioModeChange('solo')}>probe-audio-mode</button>
+        <button onClick={() => props.onVolumeChange(77)}>probe-volume</button>
+        <button onClick={() => props.onVolumeLfoChange({ ...props.value.volumeLfo, rate: 9 })}>probe-volume-lfo</button>
+      </div>
+    );
+  }),
 }));
 vi.mock('@/components/robot/PingControlsDrawer', () => ({
-  PingControlsDrawer: (props: {
+  PingControlsDrawer: memo((props: {
     value: {
       rhythmicDensity: number;
       rhythmicMotifLength: number;
@@ -67,49 +86,55 @@ vi.mock('@/components/robot/PingControlsDrawer', () => ({
     onResetMelody?: () => void;
     disabled?: boolean;
     style?: { [key: string]: string };
-  }) => (
-    <div
-      data-testid="ping-controls-drawer-stub"
-      data-density={props.value.rhythmicDensity}
-      data-motif-length={props.value.rhythmicMotifLength}
-      data-note-variance={props.value.noteVariance}
-      data-pitch-repeat={props.value.pitchRepeat}
-      data-click-track-active={String(props.value.clickTrackActive)}
-      data-disabled={props.disabled ? '' : undefined}
-      {...styleAttrs(props.style)}
-    >
-      <button onClick={() => props.onDensityChange(77)}>probe-density</button>
-      {/* Plain-number pattern, matching onDensityChange/onPitchRepeatChange — no {active, value} */}
-      {/* wrapping at this layer; reconstruction happens only in robotOptionsActions.ts. */}
-      <button onClick={() => props.onMotifLengthChange(12)}>probe-motif-length</button>
-      <button onClick={() => props.onMotifLengthChange(0)}>probe-motif-length-zero</button>
-      <button onClick={() => props.onNoteVarianceChange(5)}>probe-note-variance</button>
-      <button onClick={() => props.onNoteVarianceChange(0)}>probe-note-variance-zero</button>
-      <button onClick={() => props.onPitchRepeatChange(90)}>probe-pitch-repeat</button>
-      <button onClick={() => props.onClickTrackActiveChange(!props.value.clickTrackActive)}>probe-click-track</button>
-      {props.onResetMelody && <button onClick={props.onResetMelody}>probe-reset-melody</button>}
-    </div>
-  ),
+  }) => {
+    renderCounts.pingControlsDrawer();
+    return (
+      <div
+        data-testid="ping-controls-drawer-stub"
+        data-density={props.value.rhythmicDensity}
+        data-motif-length={props.value.rhythmicMotifLength}
+        data-note-variance={props.value.noteVariance}
+        data-pitch-repeat={props.value.pitchRepeat}
+        data-click-track-active={String(props.value.clickTrackActive)}
+        data-disabled={props.disabled ? '' : undefined}
+        {...styleAttrs(props.style)}
+      >
+        <button onClick={() => props.onDensityChange(77)}>probe-density</button>
+        {/* Plain-number pattern, matching onDensityChange/onPitchRepeatChange — no {active, value} */}
+        {/* wrapping at this layer; reconstruction happens only in robotOptionsActions.ts. */}
+        <button onClick={() => props.onMotifLengthChange(12)}>probe-motif-length</button>
+        <button onClick={() => props.onMotifLengthChange(0)}>probe-motif-length-zero</button>
+        <button onClick={() => props.onNoteVarianceChange(5)}>probe-note-variance</button>
+        <button onClick={() => props.onNoteVarianceChange(0)}>probe-note-variance-zero</button>
+        <button onClick={() => props.onPitchRepeatChange(90)}>probe-pitch-repeat</button>
+        <button onClick={() => props.onClickTrackActiveChange(!props.value.clickTrackActive)}>probe-click-track</button>
+        {props.onResetMelody && <button onClick={props.onResetMelody}>probe-reset-melody</button>}
+      </div>
+    );
+  }),
 }));
 vi.mock('@/components/robot/PingContourDrawer', () => ({
-  PingContourDrawer: (props: {
+  PingContourDrawer: memo((props: {
     value: { attack: number; decay: number; sustain: number; release: number };
     onChange: (next: unknown) => void;
     disabled?: boolean;
     style?: { [key: string]: string };
-  }) => (
-    <div
-      data-testid="ping-contour-drawer-stub"
-      data-attack={props.value.attack}
-      data-disabled={props.disabled ? '' : undefined}
-      {...styleAttrs(props.style)}
-    >
-      <button onClick={() => props.onChange({ ...props.value, attack: 0.9 })}>probe-adsr</button>
-    </div>
-  ),
+  }) => {
+    renderCounts.pingContourDrawer();
+    return (
+      <div
+        data-testid="ping-contour-drawer-stub"
+        data-attack={props.value.attack}
+        data-disabled={props.disabled ? '' : undefined}
+        {...styleAttrs(props.style)}
+      >
+        <button onClick={() => props.onChange({ ...props.value, attack: 0.9 })}>probe-adsr</button>
+      </div>
+    );
+  }),
 }));
 vi.mock('@/components/robot/SignatureArrayDrawer', () => ({
-  SignatureArrayDrawer: (props: {
+  SignatureArrayDrawer: memo((props: {
     value: {
       layers: { type: string; gain: number; detune: number; phase: number }[];
       lfoSettings?: Record<string, { shape: string; rate: number; depth: number }>;
@@ -119,7 +144,9 @@ vi.mock('@/components/robot/SignatureArrayDrawer', () => ({
     onLfoChange: (target: string, value: unknown) => void;
     disabled?: boolean;
     style?: { [key: string]: string };
-  }) => (
+  }) => {
+    renderCounts.signatureArrayDrawer();
+    return (
     <div
       data-testid="signature-array-drawer-stub"
       data-layer-count={props.value.layers.length}
@@ -145,7 +172,8 @@ vi.mock('@/components/robot/SignatureArrayDrawer', () => ({
         probe-layer-lfo
       </button>
     </div>
-  ),
+    );
+  }),
 }));
 
 import { CompanyOptionsSection } from './CompanyOptionsSection';
@@ -811,5 +839,87 @@ describe('CompanyOptionsSection', () => {
       render(<CompanyOptionsSection />);
       expect(screen.getByTestId('audio-setting-section-stub').getAttribute('data-volume')).toBe('0.5');
     });
+  });
+
+  describe('re-render cascade regression (docs/tasks/ROBOT_OPTIONS_TAB_MEMOIZATION.md follow-up)', () => {
+    function callCounts() {
+      return {
+        audioSettingSection: renderCounts.audioSettingSection.mock.calls.length,
+        pingControlsDrawer: renderCounts.pingControlsDrawer.mock.calls.length,
+        pingContourDrawer: renderCounts.pingContourDrawer.mock.calls.length,
+        signatureArrayDrawer: renderCounts.signatureArrayDrawer.mock.calls.length,
+      };
+    }
+
+    beforeEach(() => {
+      renderCounts.audioSettingSection.mockClear();
+      renderCounts.pingControlsDrawer.mockClear();
+      renderCounts.pingContourDrawer.mockClear();
+      renderCounts.signatureArrayDrawer.mockClear();
+    });
+
+    // The end-to-end proof this whole follow-up exists for: this component subscribes to the
+    // *whole locale's* robots array, which gets a new reference on any robot edit anywhere in the
+    // locale — editing a robot that isn't even a member of the selected company used to still
+    // re-render all 4 sections here.
+    it('editing a robot that is NOT a member of the selected company leaves all 4 sections un-re-rendered', () => {
+      const member = makeRobot({ id: 'r1', companyId: 'c1' });
+      const stranger = makeRobot({ id: 'r2', companyId: 'c2' });
+      useLocaleStore.getState().addRobot(localeId, member);
+      useLocaleStore.getState().addRobot(localeId, stranger);
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1'] });
+      useLocaleStore.getState().addCompany(localeId, { id: 'c2', name: 'Null Syndicate', color: '#4f6d7a', robotIds: ['r2'] });
+      useUIStore.getState().selectCompany('c1');
+      render(<CompanyOptionsSection />);
+
+      const countsAfterMount = callCounts();
+
+      act(() => {
+        useLocaleStore.getState().updateRobot(localeId, stranger.id, { rhythmicDensity: 91 });
+      });
+
+      expect(callCounts()).toEqual(countsAfterMount);
+    });
+
+    it('editing one field on the selected company\'s own member re-renders only that field\'s own section', () => {
+      const r1 = makeRobot({ id: 'r1', companyId: 'c1' });
+      const r2 = makeRobot({ id: 'r2', companyId: 'c1' });
+      useLocaleStore.getState().addRobot(localeId, r1);
+      useLocaleStore.getState().addRobot(localeId, r2);
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1', 'r2'] });
+      useUIStore.getState().selectCompany('c1');
+      render(<CompanyOptionsSection />);
+
+      const countsAfterMount = callCounts();
+
+      // Editing r2 (not members[0]) touches an ADSR-irrelevant field on a non-baseline member —
+      // resolved is derived from members[0] (r1) alone, so this shouldn't move anything.
+      act(() => {
+        useLocaleStore.getState().updateRobot(localeId, r2.id, { rhythmicDensity: 91 });
+      });
+      expect(callCounts()).toEqual(countsAfterMount);
+
+      // Editing r1 (members[0]) for real, on an ADSR-only field.
+      act(() => {
+        useLocaleStore.getState().updateRobot(localeId, r1.id, {
+          audioAttributes: { ...r1.audioAttributes, adsr: { attack: 0.9, decay: 0.1, sustain: 0.5, release: 0.2 } },
+        });
+      });
+
+      const countsAfterEdit = callCounts();
+      expect(countsAfterEdit.pingContourDrawer).toBeGreaterThan(countsAfterMount.pingContourDrawer);
+      expect(countsAfterEdit.audioSettingSection).toBe(countsAfterMount.audioSettingSection);
+      expect(countsAfterEdit.pingControlsDrawer).toBe(countsAfterMount.pingControlsDrawer);
+      expect(countsAfterEdit.signatureArrayDrawer).toBe(countsAfterMount.signatureArrayDrawer);
+    });
+  });
+
+  // Bugfix, found live (docs/todo/backlog.md #27 follow-up), matching CompanyManager.tsx's own
+  // documented fix — RobotsTab re-renders on every audio-swell tick, and this component takes
+  // zero props, so a memo boundary is correct and sufficient (an empty prop list can never
+  // differ), even though it can't stop this component's OWN robots-array subscription from
+  // re-executing its body (see this component's own doc comment for that known limitation).
+  it('is a React.memo-wrapped component', () => {
+    expect((CompanyOptionsSection as unknown as { $$typeof: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
   });
 });

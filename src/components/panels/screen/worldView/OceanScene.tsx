@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 
 import './OceanScene.css';
 
@@ -47,7 +48,17 @@ export function OceanScene({
 }: OceanSceneProps) {
 
   const localeId = useAttenuationStyleStore((s) => selectCurrentAttenuationStyle(s)?.currentLocaleId ?? '');
-  const robots = useLocaleStore((s) => s.locales[localeId]?.robots ?? []);
+  // Ids only, via useShallow (docs/todo/backlog.md #27 follow-up, 2026-09-15) — not the whole
+  // Robot objects. `updateRobot` (localeStore.ts) hands back a new top-level `robots` array
+  // reference on every write to ANY robot in the locale (battery ticks, audio swells, field
+  // edits), so subscribing to the raw array here forced this whole scene to re-render
+  // constantly, even though robot movement itself is fully GSAP/ref-driven and invisible to React
+  // (Robot.tsx's own mount-only effect) — none of that churn was ever actually needed. useShallow
+  // compares the mapped array element-by-element; since each element is a plain string id, that
+  // comparison is by value, so it correctly bails unless a robot was actually added/removed. Each
+  // `<Robot>` now looks up its own current data by id (Robot.tsx's own fix), decoupled entirely
+  // from this scene's own re-render cadence.
+  const robotIds = useLocaleStore(useShallow((s) => (s.locales[localeId]?.robots ?? []).map((r) => r.id)));
   const actors = useLocaleStore((s) => s.locales[localeId]?.actors ?? []);
 
   // categorize factory actors by row — memoised so robot updates don't
@@ -179,8 +190,8 @@ export function OceanScene({
 
 
         <g id="robot-layer">
-          {robots.map((robot) => (
-            <Robot key={robot.id} robot={robot} />
+          {robotIds.map((id) => (
+            <Robot key={id} robotId={id} />
           ))}
         </g>
         {/* Foreground-row factories (rendered closest to viewer) */}

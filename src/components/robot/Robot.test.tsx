@@ -14,7 +14,10 @@ vi.mock('@/systems/idleSystem', () => ({
 
 import { Robot } from './Robot';
 import { useUIStore } from '@/stores/uiStore';
+import { useLocaleStore } from '@/stores/localeStore';
+import { getActiveLocaleId } from '@/utils/localeHelpers';
 import type { Robot as RobotType } from '@/types/Robot';
+import type { Locale } from '@/types/locale';
 
 function makeRobot(overrides: Partial<RobotType> = {}): RobotType {
   return {
@@ -38,14 +41,26 @@ function makeRobot(overrides: Partial<RobotType> = {}): RobotType {
   } as RobotType;
 }
 
+const localeId = getActiveLocaleId();
+
+/** Seeds the store with the given robot and renders <Robot> by id — the component now looks its
+ *  own robot up from the store rather than receiving it as a prop (docs/todo/backlog.md #27
+ *  follow-up, 2026-09-15), so every test needs a real robot in the store first. */
+function renderRobot(overrides: Partial<RobotType> = {}) {
+  const robot = makeRobot(overrides);
+  useLocaleStore.getState().addRobot(localeId, robot);
+  return { robot, ...render(<svg><Robot robotId={robot.id} /></svg>) };
+}
+
 describe('Robot click routing (Roadmap Phase 8)', () => {
   beforeEach(() => {
     useUIStore.getState().selectRobot(null);
     useUIStore.getState().setActiveHubTile(null);
+    useLocaleStore.getState().setLocaleData(localeId, { robots: [] } as unknown as Partial<Locale>);
   });
 
   it('selects the robot and opens the robots tile when clicked from the main hub grid', () => {
-    const { container } = render(<svg><Robot robot={makeRobot({ id: 'r1' })} /></svg>);
+    const { container } = renderRobot({ id: 'r1' });
     fireEvent.click(container.querySelector('.robot') as Element);
 
     expect(useUIStore.getState().selectedRobotId).toBe('r1');
@@ -54,7 +69,7 @@ describe('Robot click routing (Roadmap Phase 8)', () => {
 
   it('selects the robot but does not change the active tile when a tile is already open', () => {
     useUIStore.getState().setActiveHubTile('audioRig');
-    const { container } = render(<svg><Robot robot={makeRobot({ id: 'r1' })} /></svg>);
+    const { container } = renderRobot({ id: 'r1' });
     fireEvent.click(container.querySelector('.robot') as Element);
 
     expect(useUIStore.getState().selectedRobotId).toBe('r1');
@@ -64,7 +79,7 @@ describe('Robot click routing (Roadmap Phase 8)', () => {
   it('does not change the active tile when the robots tile (with a different robot selected) is already open', () => {
     useUIStore.getState().setActiveHubTile('robots');
     useUIStore.getState().selectRobot('some-other-robot');
-    const { container } = render(<svg><Robot robot={makeRobot({ id: 'r1' })} /></svg>);
+    const { container } = renderRobot({ id: 'r1' });
     fireEvent.click(container.querySelector('.robot') as Element);
 
     expect(useUIStore.getState().selectedRobotId).toBe('r1');
@@ -77,31 +92,32 @@ describe('Robot company-member glow (Roadmap Phase 10)', () => {
     useUIStore.getState().selectRobot(null);
     useUIStore.getState().setActiveHubTile(null);
     useUIStore.getState().selectCompany(null);
+    useLocaleStore.getState().setLocaleData(localeId, { robots: [] } as unknown as Partial<Locale>);
   });
 
   it('applies isCompanyMember when the robot belongs to the selected company', () => {
     useUIStore.getState().selectCompany('c1');
-    const { container } = render(<svg><Robot robot={makeRobot({ id: 'r1', companyId: 'c1' })} /></svg>);
+    const { container } = renderRobot({ id: 'r1', companyId: 'c1' });
 
     expect(container.querySelector('.robot.isCompanyMember')).toBeTruthy();
   });
 
   it('does not apply isCompanyMember when the robot belongs to a different company', () => {
     useUIStore.getState().selectCompany('c1');
-    const { container } = render(<svg><Robot robot={makeRobot({ id: 'r1', companyId: 'c2' })} /></svg>);
+    const { container } = renderRobot({ id: 'r1', companyId: 'c2' });
 
     expect(container.querySelector('.robot.isCompanyMember')).toBeNull();
   });
 
   it('does not apply isCompanyMember when no company is selected, even for a robot with a companyId', () => {
-    const { container } = render(<svg><Robot robot={makeRobot({ id: 'r1', companyId: 'c1' })} /></svg>);
+    const { container } = renderRobot({ id: 'r1', companyId: 'c1' });
 
     expect(container.querySelector('.robot.isCompanyMember')).toBeNull();
   });
 
   it('does not apply isCompanyMember to a Freelance robot even when some company is selected', () => {
     useUIStore.getState().selectCompany('c1');
-    const { container } = render(<svg><Robot robot={makeRobot({ id: 'r1', companyId: undefined })} /></svg>);
+    const { container } = renderRobot({ id: 'r1', companyId: undefined });
 
     expect(container.querySelector('.robot.isCompanyMember')).toBeNull();
   });
@@ -109,7 +125,7 @@ describe('Robot company-member glow (Roadmap Phase 10)', () => {
   it('leaves isSelected (selectedRobotId-driven) completely unaffected by company selection', () => {
     useUIStore.getState().selectRobot('r1');
     useUIStore.getState().selectCompany('c1');
-    const { container } = render(<svg><Robot robot={makeRobot({ id: 'r1', companyId: 'c2' })} /></svg>);
+    const { container } = renderRobot({ id: 'r1', companyId: 'c2' });
 
     const el = container.querySelector('.robot')!;
     expect(el.classList.contains('selected')).toBe(true);
@@ -119,7 +135,7 @@ describe('Robot company-member glow (Roadmap Phase 10)', () => {
   it('applies both selected and isCompanyMember together when both conditions hold', () => {
     useUIStore.getState().selectRobot('r1');
     useUIStore.getState().selectCompany('c1');
-    const { container } = render(<svg><Robot robot={makeRobot({ id: 'r1', companyId: 'c1' })} /></svg>);
+    const { container } = renderRobot({ id: 'r1', companyId: 'c1' });
 
     const el = container.querySelector('.robot')!;
     expect(el.classList.contains('selected')).toBe(true);
@@ -128,14 +144,14 @@ describe('Robot company-member glow (Roadmap Phase 10)', () => {
 
   it('applies isCompanyMember to every robot when allRobotsSelected ("All") is true, regardless of its company', () => {
     useUIStore.getState().selectAllRobots();
-    const { container } = render(<svg><Robot robot={makeRobot({ id: 'r1', companyId: 'c2' })} /></svg>);
+    const { container } = renderRobot({ id: 'r1', companyId: 'c2' });
 
     expect(container.querySelector('.robot.isCompanyMember')).toBeTruthy();
   });
 
   it('applies isCompanyMember to a Freelance robot (no companyId) too when "All" is selected', () => {
     useUIStore.getState().selectAllRobots();
-    const { container } = render(<svg><Robot robot={makeRobot({ id: 'r1', companyId: undefined })} /></svg>);
+    const { container } = renderRobot({ id: 'r1', companyId: undefined });
 
     expect(container.querySelector('.robot.isCompanyMember')).toBeTruthy();
   });

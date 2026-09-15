@@ -43,46 +43,58 @@ function makeRobot(overrides: Partial<Robot> = {}): Robot {
   } as Robot;
 }
 
+const localeId = getActiveLocaleId();
+
+/** Seeds the store with the given robot (overrides layered onto makeRobot's defaults) and renders
+ *  RobotSelectionCard by id — the component now looks its own robot up from the store rather than
+ *  receiving it as a prop (docs/todo/backlog.md #27 follow-up, 2026-09-15), so every test needs a
+ *  real robot in the store first. Returns the render result plus the seeded robot for convenience. */
+function renderCard(overrides: Partial<Robot> = {}) {
+  const robot = makeRobot(overrides);
+  useLocaleStore.getState().addRobot(localeId, robot);
+  return { robot, ...render(<RobotSelectionCard robotId={robot.id} />) };
+}
+
 describe('RobotSelectionCard', () => {
   afterEach(() => {
     cleanup();
     useUIStore.getState().selectRobot(null);
     useUIStore.getState().setActiveLocaleLocalTime(null);
+    useLocaleStore.getState().setLocaleData(localeId, { robots: [], companies: [] } as unknown as Partial<Locale>);
   });
 
   it("renders the robot's name", () => {
-    render(<RobotSelectionCard robot={makeRobot({ name: 'Unit One' })} />);
+    renderCard({ name: 'Unit One' });
     expect(screen.getByText('Unit One')).toBeTruthy();
   });
 
   it('falls back to the robot id when it has no name', () => {
-    render(<RobotSelectionCard robot={makeRobot({ name: undefined, id: 'unnamed-1' })} />);
+    renderCard({ name: undefined, id: 'unnamed-1' });
     expect(screen.getByText('unnamed-1')).toBeTruthy();
   });
 
   it("renders the assigned job's human label when job is set", () => {
-    const robot = makeRobot({ job: { type: 'acousticSurvey', assignedAtMeasure: 1 } });
-    render(<RobotSelectionCard robot={robot} />);
+    renderCard({ job: { type: 'acousticSurvey', assignedAtMeasure: 1 } });
     expect(screen.getByText(JOB_TYPE_LABELS.acousticSurvey.humanLabel)).toBeTruthy();
   });
 
   it('renders "Unassigned" when the robot has no job', () => {
-    render(<RobotSelectionCard robot={makeRobot({ job: undefined })} />);
+    renderCard({ job: undefined });
     expect(screen.getByText(UNASSIGNED_JOB_LABEL.humanLabel)).toBeTruthy();
   });
 
   it('renders battery level rounded to the nearest whole percent', () => {
-    render(<RobotSelectionCard robot={makeRobot({ batteryLevel: 72.4 })} />);
+    renderCard({ batteryLevel: 72.4 });
     expect(screen.getByText('72%')).toBeTruthy();
   });
 
   it('renders the docking state as part of the combined "Docking · Status" line, not standalone', () => {
-    render(<RobotSelectionCard robot={makeRobot({ docking: 'docked', audioMode: 'none' })} />);
+    renderCard({ docking: 'docked', audioMode: 'none' });
     expect(screen.getByText(`${DOCKING_STATE_LABELS.docked.humanLabel} · ${AUDIBILITY_LABELS.emitting.humanLabel}`)).toBeTruthy();
   });
 
   it('renders Battery as the read-only SliderLinear (Roadmap 15.1) — role="status", not role="slider" — with its label kept', () => {
-    const { container } = render(<RobotSelectionCard robot={makeRobot({ batteryLevel: 72.4 })} />);
+    const { container } = renderCard({ batteryLevel: 72.4 });
     const readout = container.querySelector('[data-readonly="true"]');
     expect(readout).not.toBeNull();
     expect(readout!.getAttribute('role')).toBe('status');
@@ -92,10 +104,14 @@ describe('RobotSelectionCard', () => {
   });
 
   it('gives each card its own unique VoxelTrack timeline-key prefix for the battery slider — no cross-robot GSAP timeline collisions (found in code review)', () => {
+    const r1 = makeRobot({ id: 'r1' });
+    const r2 = makeRobot({ id: 'r2' });
+    useLocaleStore.getState().addRobot(localeId, r1);
+    useLocaleStore.getState().addRobot(localeId, r2);
     const { container } = render(
       <ul>
-        <RobotSelectionCard robot={makeRobot({ id: 'r1' })} />
-        <RobotSelectionCard robot={makeRobot({ id: 'r2' })} />
+        <RobotSelectionCard robotId="r1" />
+        <RobotSelectionCard robotId="r2" />
       </ul>,
     );
     const prefixes = Array.from(container.querySelectorAll('[data-testid="voxel-track"]')).map(
@@ -106,31 +122,25 @@ describe('RobotSelectionCard', () => {
   });
 
   it('renders no AudioStatusBadge dot anywhere in the card — replaced by the combined status line', () => {
-    const { container } = render(<RobotSelectionCard robot={makeRobot()} />);
+    const { container } = renderCard();
     expect(container.querySelector('.audio-status-badge')).toBeNull();
   });
 
   it('renders Name/Job/Docking·Status as bare text — no DualLabel lore/human caption anywhere in the top region', () => {
-    render(<RobotSelectionCard robot={makeRobot()} />);
+    renderCard();
     expect(screen.queryByText('ROBOT IDENTIFIER')).toBeNull();
     expect(screen.queryByText('ASSIGNED PROTOCOL')).toBeNull();
     expect(screen.queryByText('DOCKING STATE')).toBeNull();
   });
 
   describe('audibility status ("Docking · Status" line, true audibility per isRobotAudible)', () => {
-    const localeId = getActiveLocaleId();
-
-    afterEach(() => {
-      useLocaleStore.getState().setLocaleData(localeId, { robots: [], companies: [] } as unknown as Partial<Locale>);
-    });
-
     it('reads "<Docking> · Emitting" for an audible robot (audioMode none, nobody soloed)', () => {
-      render(<RobotSelectionCard robot={makeRobot({ docking: 'active', audioMode: 'none' })} />);
+      renderCard({ docking: 'active', audioMode: 'none' });
       expect(screen.getByText(`Active · ${AUDIBILITY_LABELS.emitting.humanLabel}`)).toBeTruthy();
     });
 
     it('reads "<Docking> · Disabled" for this robot\'s own audioMode mute', () => {
-      render(<RobotSelectionCard robot={makeRobot({ docking: 'active', audioMode: 'mute' })} />);
+      renderCard({ docking: 'active', audioMode: 'mute' });
       expect(screen.getByText(`Active · ${AUDIBILITY_LABELS.disabled.humanLabel}`)).toBeTruthy();
     });
 
@@ -140,7 +150,7 @@ describe('RobotSelectionCard', () => {
       useLocaleStore.getState().addRobot(localeId, robot);
       useLocaleStore.getState().addRobot(localeId, soloRobot);
 
-      render(<RobotSelectionCard robot={robot} />);
+      render(<RobotSelectionCard robotId="r1" />);
       expect(screen.getByText(`Active · ${AUDIBILITY_LABELS.disabled.humanLabel}`)).toBeTruthy();
     });
 
@@ -148,38 +158,38 @@ describe('RobotSelectionCard', () => {
       const soloRobot = makeRobot({ id: 'r2', audioMode: 'solo' });
       useLocaleStore.getState().addRobot(localeId, soloRobot);
 
-      render(<RobotSelectionCard robot={soloRobot} />);
+      render(<RobotSelectionCard robotId="r2" />);
       expect(screen.getByText(`Active · ${AUDIBILITY_LABELS.emitting.humanLabel}`)).toBeTruthy();
     });
   });
 
   it('clicking the card selects the robot', () => {
-    render(<RobotSelectionCard robot={makeRobot({ id: 'r1' })} />);
+    renderCard({ id: 'r1' });
     fireEvent.click(screen.getByRole('button'));
     expect(useUIStore.getState().selectedRobotId).toBe('r1');
   });
 
   it('pressing Enter on the card selects the robot', () => {
-    render(<RobotSelectionCard robot={makeRobot({ id: 'r1' })} />);
+    renderCard({ id: 'r1' });
     fireEvent.keyDown(screen.getByRole('button'), { key: 'Enter' });
     expect(useUIStore.getState().selectedRobotId).toBe('r1');
   });
 
   it('pressing Space on the card selects the robot', () => {
-    render(<RobotSelectionCard robot={makeRobot({ id: 'r1' })} />);
+    renderCard({ id: 'r1' });
     fireEvent.keyDown(screen.getByRole('button'), { key: ' ' });
     expect(useUIStore.getState().selectedRobotId).toBe('r1');
   });
 
   it('is not the Button primitive — it is a plain focusable role="button" element', () => {
-    render(<RobotSelectionCard robot={makeRobot()} />);
+    renderCard();
     const card = screen.getByRole('button');
     expect(card.tagName).not.toBe('BUTTON');
     expect(card.getAttribute('tabindex')).toBe('0');
   });
 
   it('moves the activation contract off the outer <li> and onto a nested top-region wrapper (Roadmap 15.2)', () => {
-    const { container } = render(<RobotSelectionCard robot={makeRobot()} />);
+    const { container } = renderCard();
     const li = container.querySelector('li.robot-selection-card')!;
     expect(li.getAttribute('role')).toBeNull();
     expect(li.getAttribute('tabindex')).toBeNull();
@@ -191,14 +201,15 @@ describe('RobotSelectionCard', () => {
 
   it('renders an avatar whose color is unaffected by activeLocaleLocalTime (ignoreDaylight passed through)', () => {
     const robot = makeRobot();
+    useLocaleStore.getState().addRobot(localeId, robot);
 
     useUIStore.getState().setActiveLocaleLocalTime(12);
-    const { container: noon, unmount } = render(<RobotSelectionCard robot={robot} />);
+    const { container: noon, unmount } = render(<RobotSelectionCard robotId={robot.id} />);
     const noonFill = noon.querySelector('path')?.getAttribute('fill');
     unmount();
 
     useUIStore.getState().setActiveLocaleLocalTime(0);
-    const { container: midnight } = render(<RobotSelectionCard robot={robot} />);
+    const { container: midnight } = render(<RobotSelectionCard robotId={robot.id} />);
     const midnightFill = midnight.querySelector('path')?.getAttribute('fill');
 
     expect(noonFill).not.toBeNull();
@@ -206,25 +217,19 @@ describe('RobotSelectionCard', () => {
   });
 
   it("has an accessible name matching the robot's name", () => {
-    render(<RobotSelectionCard robot={makeRobot({ name: 'Unit One' })} />);
+    renderCard({ name: 'Unit One' });
     expect(screen.getByRole('button', { name: 'Unit One' })).toBeTruthy();
   });
 
   describe('company assignment (Roadmap Phase 10, converted to RadioButton by 10.5)', () => {
-    const localeId = getActiveLocaleId();
-
-    afterEach(() => {
-      useLocaleStore.getState().setLocaleData(localeId, { robots: [], companies: [] } as unknown as Partial<Locale>);
-    });
-
     it('defaults to "Freelance" selected for an unassigned robot', () => {
-      render(<RobotSelectionCard robot={makeRobot({ companyId: undefined })} />);
+      renderCard({ companyId: undefined });
       expect(screen.getByRole('radio', { name: 'Freelance' }).getAttribute('aria-checked')).toBe('true');
     });
 
     it("shows the assigned company's option selected when the robot belongs to one", () => {
       useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1'] });
-      render(<RobotSelectionCard robot={makeRobot({ id: 'r1', companyId: 'c1' })} />);
+      renderCard({ id: 'r1', companyId: 'c1' });
 
       expect(screen.getByRole('radio', { name: 'Iron Consortium' }).getAttribute('aria-checked')).toBe('true');
       expect(screen.getByRole('radio', { name: 'Freelance' }).getAttribute('aria-checked')).toBe('false');
@@ -234,7 +239,7 @@ describe('RobotSelectionCard', () => {
     // color; Freelance keeps the ambient fallback (the robot's own identityColor via the <li>).
     it("shows the company's own color on its option, and no color on Freelance", () => {
       useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
-      render(<RobotSelectionCard robot={makeRobot({ id: 'r1', companyId: undefined })} />);
+      renderCard({ id: 'r1', companyId: undefined });
 
       expect(screen.getByRole('radio', { name: 'Iron Consortium' }).style.getPropertyValue('--color-accent-a')).toBe('#4f6d7a');
       expect(screen.getByRole('radio', { name: 'Freelance' }).getAttribute('style')).toBeNull();
@@ -243,7 +248,7 @@ describe('RobotSelectionCard', () => {
     it("selecting a company calls assignRobotToCompany with that company's id", () => {
       useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
       const assignSpy = vi.spyOn(useLocaleStore.getState(), 'assignRobotToCompany');
-      render(<RobotSelectionCard robot={makeRobot({ id: 'r1', companyId: undefined })} />);
+      renderCard({ id: 'r1', companyId: undefined });
 
       fireEvent.click(screen.getByRole('radio', { name: 'Iron Consortium' }));
 
@@ -253,7 +258,7 @@ describe('RobotSelectionCard', () => {
     it('selecting "Freelance" calls assignRobotToCompany with null', () => {
       useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: ['r1'] });
       const assignSpy = vi.spyOn(useLocaleStore.getState(), 'assignRobotToCompany');
-      render(<RobotSelectionCard robot={makeRobot({ id: 'r1', companyId: 'c1' })} />);
+      renderCard({ id: 'r1', companyId: 'c1' });
 
       fireEvent.click(screen.getByRole('radio', { name: 'Freelance' }));
 
@@ -264,7 +269,7 @@ describe('RobotSelectionCard', () => {
     // no separate trigger/portal step, so there's exactly one interaction to guard.
     it('clicking a company radio option does not also select the robot (no nested-interactive double-fire)', () => {
       useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
-      render(<RobotSelectionCard robot={makeRobot({ id: 'r1' })} />);
+      renderCard({ id: 'r1' });
 
       fireEvent.click(screen.getByRole('radio', { name: 'Iron Consortium' }));
 
@@ -272,7 +277,7 @@ describe('RobotSelectionCard', () => {
     });
 
     it('clicking elsewhere on the card still selects the robot as before', () => {
-      render(<RobotSelectionCard robot={makeRobot({ id: 'r1', name: 'Unit One' })} />);
+      renderCard({ id: 'r1', name: 'Unit One' });
 
       fireEvent.click(screen.getByText('Unit One'));
 
@@ -284,18 +289,18 @@ describe('RobotSelectionCard', () => {
   // root carries the robot's seeded identity color.
   describe('robot color scoping', () => {
     it("scopes the card root to the robot's own identityColor", () => {
-      const { container } = render(<RobotSelectionCard robot={makeRobot({ identityColor: '#68cb97' })} />);
+      const { container } = renderCard({ identityColor: '#68cb97' });
       const root = container.querySelector('.robot-selection-card') as HTMLElement;
       expect(root.style.getPropertyValue('--color-accent-a')).toBe('#68cb97');
       expect(root.style.getPropertyValue('--color-accent-b')).toBe('#68cb97');
     });
 
     it('gives two different robots two different card colors', () => {
-      const { container: containerA, unmount } = render(<RobotSelectionCard robot={makeRobot({ id: 'r1', identityColor: '#cd5e57' })} />);
+      const { container: containerA, unmount } = renderCard({ id: 'r1', identityColor: '#cd5e57' });
       const colorA = (containerA.querySelector('.robot-selection-card') as HTMLElement).style.getPropertyValue('--color-accent-a');
       unmount();
 
-      const { container: containerB } = render(<RobotSelectionCard robot={makeRobot({ id: 'r2', identityColor: '#7a5484' })} />);
+      const { container: containerB } = renderCard({ id: 'r2', identityColor: '#7a5484' });
       const colorB = (containerB.querySelector('.robot-selection-card') as HTMLElement).style.getPropertyValue('--color-accent-a');
 
       expect(colorA).toBe('#cd5e57');

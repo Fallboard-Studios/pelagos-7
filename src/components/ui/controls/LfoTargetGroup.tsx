@@ -1,9 +1,9 @@
-import type { ReactNode } from 'react';
+import { memo, useCallback, useMemo, type ReactNode } from 'react';
 import { Lfo } from './Lfo';
 import { DirectionalPanel } from './DirectionalPanel';
 import { withActiveClass } from './activeClass';
 import { useLfoTargetGroup, type LfoTargetGroupField } from './useLfoTargetGroup';
-import type { LfoValue, PanelOrientation } from '@/types/controls';
+import type { DirectionalPanelSchema, LfoSchema, LfoValue, PanelOrientation } from '@/types/controls';
 import './LfoTargetGroup.css';
 
 export type { LfoTargetGroupField } from './useLfoTargetGroup';
@@ -43,7 +43,7 @@ export interface LfoTargetGroupProps<F extends string = string> {
  * squeezed into a row-oriented sliders group. Not schema-driven like the 14 ControlSchema
  * primitives — it composes caller-rendered sliders + one `Lfo`.
  */
-export function LfoTargetGroup<F extends string = string>({
+function LfoTargetGroupInner<F extends string = string>({
   groupId,
   fields,
   onLfoChange,
@@ -57,9 +57,25 @@ export function LfoTargetGroup<F extends string = string>({
     fields,
   });
 
+  // Memoized (docs/todo/backlog.md #27 follow-up, 2026-09-15) — these 2 used to be constructed
+  // fresh, inline, on every render, unlike every other primitive's schema in this codebase, which
+  // is always a stable reference. Without this, SignatureArrayDrawer's own memoized-per-layer fix
+  // would have no effect: even a caller that hands this component perfectly stable `fields`/
+  // `onLfoChange`/`renderField` still couldn't let it bail, since it would keep rebuilding these
+  // 2 schemas — and the child `Lfo`'s own `onChange` below — every render regardless.
+  const slidersPanelSchema: DirectionalPanelSchema = useMemo(
+    () => ({ id: `${groupId}.sliders`, type: 'directionalPanel', orientation: sliderPanelOrientation }),
+    [groupId, sliderPanelOrientation],
+  );
+  const lfoSchema: LfoSchema = useMemo(
+    () => ({ id: `${groupId}.lfo`, type: 'lfo', humanLabel: displayLabel }),
+    [groupId, displayLabel],
+  );
+  const handleLfoChange = useCallback((v: LfoValue) => onLfoChange(selected, v), [selected, onLfoChange]);
+
   return (
     <div className="sc-lfo-target-group">
-      <DirectionalPanel schema={{ id: `${groupId}.sliders`, type: 'directionalPanel', orientation: sliderPanelOrientation }}>
+      <DirectionalPanel schema={slidersPanelSchema}>
         {fields.map((f) => (
           <div
             key={f.field}
@@ -73,9 +89,9 @@ export function LfoTargetGroup<F extends string = string>({
       </DirectionalPanel>
       <div className={withActiveClass('sc-lfo-target-group__display', transitioning)}>
         <Lfo
-          schema={{ id: `${groupId}.lfo`, type: 'lfo', humanLabel: displayLabel }}
+          schema={lfoSchema}
           value={displayValue}
-          onChange={(v) => onLfoChange(selected, v)}
+          onChange={handleLfoChange}
           disabled={disabled || transitioning}
         />
       </div>
@@ -83,5 +99,11 @@ export function LfoTargetGroup<F extends string = string>({
     </div>
   );
 }
+
+// React.memo (docs/todo/backlog.md #27 follow-up, 2026-09-15) — a generic function component
+// can't be passed directly to `memo()` without losing its type parameter, so the exported name
+// is cast back to the same generic call signature; the underlying runtime behavior (and every
+// existing prop) is unchanged.
+export const LfoTargetGroup = memo(LfoTargetGroupInner) as typeof LfoTargetGroupInner;
 
 export default LfoTargetGroup;

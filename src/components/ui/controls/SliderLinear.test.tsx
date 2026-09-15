@@ -1,6 +1,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 
+// Spied (real cross-module call, wrapped so it still delegates to the actual
+// implementation) so a render-count test (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md
+// Task 1 correction — found via Task 12's own end-to-end debugging: this
+// component's own React.memo wrap was missed originally, only the internal
+// states useMemo was added) can tell whether SliderLinear's render body
+// actually re-executed — resolveAccessibleName(schema) is called
+// unconditionally on the Slider.Thumb's aria-label.
+vi.mock('./accessibleName', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./accessibleName')>();
+  return { ...actual, resolveAccessibleName: vi.fn(actual.resolveAccessibleName) };
+});
+
 vi.mock('./VoxelTrack', () => ({
   VoxelTrack: ({
     states,
@@ -27,6 +39,7 @@ vi.mock('./VoxelTrack', () => ({
 }));
 
 import { SliderLinear } from './SliderLinear';
+import { resolveAccessibleName } from './accessibleName';
 import {
   computeFittedBoxCount,
   computeVoxelTrackLength,
@@ -34,6 +47,12 @@ import {
   computeVoxelTrackTrailingReserve,
   VOXEL_TRACK_DEFAULT_VERTICAL_HEIGHT,
 } from '@/utils/voxelTrackMath';
+// Separate namespace import so computeVoxelBoxStates can be spied on as a real
+// cross-module call from SliderLinear.tsx's own perspective (docs/tasks/
+// OBLIQUE_CABINETRY_MEMOIZATION.md Task 1) — distinct from the named import
+// above, which existing tests already use directly to compute expected
+// values, unspied.
+import * as voxelTrackMath from '@/utils/voxelTrackMath';
 import type { SliderLinearSchema } from '@/types/controls';
 
 const schema: SliderLinearSchema = { id: 'lfoRate', type: 'sliderLinear', min: 0.1, max: 10, humanLabel: 'Oscillation Rate', unit: 'Hz', orientation: 'horizontal' };
@@ -390,6 +409,83 @@ describe('SliderLinear', () => {
       expect(container.querySelector('[data-disabled]')).toBeNull();
       const wrapper = container.querySelector('.sc-slider-linear');
       expect(wrapper?.getAttribute('data-readonly')).toBe('true');
+    });
+  });
+
+  describe('computeVoxelBoxStates memoization (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 1)', () => {
+    it('does not recompute states across re-renders with unchanged value/schema.min/schema.max/boxCount', () => {
+      const spy = vi.spyOn(voxelTrackMath, 'computeVoxelBoxStates');
+      const { rerender } = render(<SliderLinear schema={schema} value={2} onChange={() => {}} />);
+      const callsAfterMount = spy.mock.calls.length;
+      expect(callsAfterMount).toBeGreaterThan(0);
+
+      rerender(<SliderLinear schema={schema} value={2} onChange={() => {}} />);
+      rerender(<SliderLinear schema={schema} value={2} onChange={() => {}} />);
+
+      expect(spy.mock.calls.length).toBe(callsAfterMount);
+    });
+
+    it('recomputes states when value changes', () => {
+      const spy = vi.spyOn(voxelTrackMath, 'computeVoxelBoxStates');
+      const { rerender } = render(<SliderLinear schema={schema} value={2} onChange={() => {}} />);
+      const callsAfterMount = spy.mock.calls.length;
+
+      rerender(<SliderLinear schema={schema} value={5} onChange={() => {}} />);
+
+      expect(spy.mock.calls.length).toBeGreaterThan(callsAfterMount);
+    });
+
+    it('recomputes states when schema.min/schema.max change, even with value/boxCount unchanged', () => {
+      const spy = vi.spyOn(voxelTrackMath, 'computeVoxelBoxStates');
+      const { rerender } = render(<SliderLinear schema={schema} value={2} onChange={() => {}} />);
+      const callsAfterMount = spy.mock.calls.length;
+
+      const widerSchema: SliderLinearSchema = { ...schema, max: 20 };
+      rerender(<SliderLinear schema={widerSchema} value={2} onChange={() => {}} />);
+
+      expect(spy.mock.calls.length).toBeGreaterThan(callsAfterMount);
+    });
+
+    it('recomputes states when the fitted boxCount changes (a ResizeObserver measurement), even with value/schema unchanged', () => {
+      const spy = vi.spyOn(voxelTrackMath, 'computeVoxelBoxStates');
+      render(<SliderLinear schema={schema} value={2} onChange={() => {}} />);
+      const callsAfterMount = spy.mock.calls.length;
+
+      // 500px is wide enough to fit more than the default (unmeasured) 3-box
+      // minimum — 240px (used elsewhere in this file) happens to still fit
+      // only 3 boxes after the trailing-reserve subtraction, which would make
+      // this assertion a false negative.
+      const observer = MockResizeObserver.instances[0];
+      act(() => observer.fire(500, 0));
+
+      expect(spy.mock.calls.length).toBeGreaterThan(callsAfterMount);
+    });
+  });
+
+  describe('React.memo (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 1 correction — SliderLinear itself, not just its internal states useMemo)', () => {
+    it('is a React.memo-wrapped component', () => {
+      expect((SliderLinear as unknown as { $$typeof: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
+    });
+
+    it('does not re-execute its render body on a re-render with identical props', () => {
+      const onChange = () => {};
+      const { rerender } = render(<SliderLinear schema={schema} value={2} onChange={onChange} />);
+      const callsAfterMount = (resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      rerender(<SliderLinear schema={schema} value={2} onChange={onChange} />);
+      rerender(<SliderLinear schema={schema} value={2} onChange={onChange} />);
+
+      expect((resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length).toBe(callsAfterMount);
+    });
+
+    it('does re-execute its render body when a real prop changes (value)', () => {
+      const onChange = () => {};
+      const { rerender } = render(<SliderLinear schema={schema} value={2} onChange={onChange} />);
+      const callsAfterMount = (resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      rerender(<SliderLinear schema={schema} value={5} onChange={onChange} />);
+
+      expect((resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(callsAfterMount);
     });
   });
 });

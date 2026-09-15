@@ -11,7 +11,18 @@ vi.mock('./CabinetBox', () => ({
   ),
 }));
 
+// Spied (real cross-module call, wrapped so it still delegates to the actual
+// implementation) so render-count tests (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md
+// Task 11) can tell whether DirectionalPanel's render body actually
+// re-executed — useResponsivePanelOrientation() is called unconditionally on
+// every render (per this component's own "both hooks always called" comment).
+vi.mock('./useResponsivePanelOrientation', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./useResponsivePanelOrientation')>();
+  return { ...actual, useResponsivePanelOrientation: vi.fn(actual.useResponsivePanelOrientation) };
+});
+
 import { DirectionalPanel } from './DirectionalPanel';
+import { useResponsivePanelOrientation } from './useResponsivePanelOrientation';
 import type { DirectionalPanelSchema } from '@/types/controls';
 
 /** Controllable ResizeObserver mock — same shape as useAutoPanelOrientation.test.ts's own,
@@ -343,6 +354,45 @@ describe('DirectionalPanel', () => {
       const boxes = container.querySelectorAll('[data-testid="cabinet-box"]');
       expect(boxes).toHaveLength(1);
       expect(boxes[0].getAttribute('data-timeline-key')).toBe('cabinet-directional-panel-facade-a');
+    });
+  });
+
+  describe('React.memo (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 11 — the conditional-benefit case, spec §1.3)', () => {
+    const schema: DirectionalPanelSchema = { id: 'eq3Panel', type: 'directionalPanel' };
+
+    it('is a React.memo-wrapped component', () => {
+      expect((DirectionalPanel as unknown as { $$typeof: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
+    });
+
+    it('does not re-execute its render body on a re-render with a STABLE children reference (hoisted outside the render, not reconstructed each time)', () => {
+      const stableChildren = <span>Low</span>;
+      const { rerender } = render(<DirectionalPanel schema={schema}>{stableChildren}</DirectionalPanel>);
+      const callsAfterMount = (useResponsivePanelOrientation as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      rerender(<DirectionalPanel schema={schema}>{stableChildren}</DirectionalPanel>);
+      rerender(<DirectionalPanel schema={schema}>{stableChildren}</DirectionalPanel>);
+
+      expect((useResponsivePanelOrientation as ReturnType<typeof vi.fn>).mock.calls.length).toBe(callsAfterMount);
+    });
+
+    it('DOES re-execute its render body when children is a freshly-constructed (but deep-equal) element every render — the realistic, overwhelmingly common case today (every real call site, e.g. AudioRigDrawer.tsx, constructs children inline), proving this memo alone is not a guaranteed win the way the self-contained leaf primitives are', () => {
+      const { rerender } = render(<DirectionalPanel schema={schema}><span>Low</span></DirectionalPanel>);
+      const callsAfterMount = (useResponsivePanelOrientation as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      rerender(<DirectionalPanel schema={schema}><span>Low</span></DirectionalPanel>);
+
+      expect((useResponsivePanelOrientation as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(callsAfterMount);
+    });
+
+    it('does re-execute its render body when a real prop changes (schema), even with a stable children reference', () => {
+      const stableChildren = <span>Low</span>;
+      const { rerender } = render(<DirectionalPanel schema={schema}>{stableChildren}</DirectionalPanel>);
+      const callsAfterMount = (useResponsivePanelOrientation as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      const changedSchema: DirectionalPanelSchema = { ...schema, orientation: 'column' };
+      rerender(<DirectionalPanel schema={changedSchema}>{stableChildren}</DirectionalPanel>);
+
+      expect((useResponsivePanelOrientation as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(callsAfterMount);
     });
   });
 });

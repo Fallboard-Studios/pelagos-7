@@ -2,7 +2,19 @@ import type { CSSProperties } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
+// Spied (real cross-module call, wrapped so it still delegates to the actual implementation) so
+// a per-field cascade regression test (docs/todo/backlog.md #27 follow-up, 2026-09-15) can tell
+// which specific slider's render body actually re-executed — resolveAccessibleName is called
+// unconditionally by SliderLog/SliderLinear, and receives the schema, so calls can be filtered by
+// schema.id to attribute them to a specific field.
+vi.mock('@/components/ui/controls/accessibleName', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/components/ui/controls/accessibleName')>();
+  return { ...actual, resolveAccessibleName: vi.fn(actual.resolveAccessibleName) };
+});
+
 import { PingContourDrawer } from './PingContourDrawer';
+import { resolveAccessibleName } from '@/components/ui/controls/accessibleName';
+import { ATTACK_SCHEMA, DECAY_SCHEMA, SUSTAIN_SCHEMA, RELEASE_SCHEMA } from '@/data/robotOptionsConfig';
 import type { ADSREnvelope } from '@/types/Robot';
 
 const adsr: ADSREnvelope = { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 };
@@ -141,6 +153,44 @@ describe('PingContourDrawer', () => {
       const { container } = render(<PingContourDrawer value={adsr} onChange={() => {}} />);
       const root = container.querySelector('.sc-accordion') as HTMLElement;
       expect(root.getAttribute('style')).toBeNull();
+    });
+  });
+
+  describe('React.memo (docs/tasks/ROBOT_OPTIONS_TAB_MEMOIZATION.md Task 3)', () => {
+    // Same reasoning as PingControlsDrawer.test.tsx's own memo describe block — a delegated
+    // render-count marker can't cleanly discriminate this drawer's own bail from its already-
+    // memoized children's independent one, and the 2 inline DirectionalPanel schemas this task
+    // also hoists to module scope have no observable path to a measurable win today either (their
+    // own `children` are freshly constructed by this drawer on every real re-render regardless,
+    // which is exactly the "conditional benefit" DirectionalPanel/AccordionContainer's own
+    // memoization was documented to have in docs/specs/OBLIQUE_CABINETRY_MEMOIZATION.md §1.3) —
+    // so the structural check is what's provable in isolation here.
+    it('is a React.memo-wrapped component', () => {
+      expect((PingContourDrawer as unknown as { $$typeof: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
+    });
+  });
+
+  describe('per-field cascade regression (docs/todo/backlog.md #27 follow-up, 2026-09-15)', () => {
+    // Found live: editing one ADSR field re-rendered all 4 sliders together. Root cause —
+    // handleAttackChange/handleDecayChange/handleSustainChange/handleReleaseChange were built
+    // fresh, unmemoized, on every render, so whenever `value` changed (any field), all 4 already-
+    // memoized sliders got a new `onChange` reference regardless of whether their OWN value
+    // changed, defeating their own memo.
+    function callsFor(schemaId: string) {
+      return (resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.filter(([schema]) => schema.id === schemaId).length;
+    }
+
+    it('changing Attack re-renders only Attack\'s own slider, not Decay/Sustain/Release', () => {
+      const onChange = vi.fn();
+      const { rerender } = render(<PingContourDrawer value={adsr} onChange={onChange} />);
+      (resolveAccessibleName as ReturnType<typeof vi.fn>).mockClear();
+
+      rerender(<PingContourDrawer value={{ ...adsr, attack: 0.9 }} onChange={onChange} />);
+
+      expect(callsFor(ATTACK_SCHEMA.id)).toBeGreaterThan(0);
+      expect(callsFor(DECAY_SCHEMA.id)).toBe(0);
+      expect(callsFor(SUSTAIN_SCHEMA.id)).toBe(0);
+      expect(callsFor(RELEASE_SCHEMA.id)).toBe(0);
     });
   });
 });

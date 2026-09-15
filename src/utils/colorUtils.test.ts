@@ -143,6 +143,28 @@ describe('colorUtils', () => {
       const result = applyColorShift(base, shift, 1.0);
       expect(result).toBe('hsl(10, 50%, 50%)');
     });
+
+    // Found live-verifying items 21-23's fixes (2026-09-15): eastLMultiplier/westLMultiplier
+    // are continuous, never-repeating floats sampled from a sine curve every tick. Without
+    // rounding, `l = base.l * lMultiplier` produces a genuinely different string on every
+    // single call, forcing React to write the `fill` attribute to the real DOM every tick even
+    // when the visual difference is imperceptible — real, measured cost in the React DevTools
+    // Profiler (5-9ms/factory) that items 21-23's JS-computation fixes couldn't touch, because
+    // the values were never actually equal to begin with.
+    it('rounds lightness to a whole number — not the raw floating-point product', () => {
+      const result = applyColorShift(baseColor, noShift, 0.8234567);
+      expect(result).toBe('hsl(180, 50%, 41%)'); // 50 * 0.8234567 = 41.172835 -> 41
+    });
+
+    it('two lMultiplier values differing by less than 0.5% of lightness produce the identical string', () => {
+      // This is the actual mechanism the fix relies on: React's own prop diffing skips a DOM
+      // write when Object.is(prevValue, nextValue) is true — a plain string/number equality
+      // check, not something React.memo governs. Rounding is what makes that check succeed
+      // across two ticks whose real-world lighting barely moved.
+      const tickA = applyColorShift(baseColor, noShift, 0.80001);
+      const tickB = applyColorShift(baseColor, noShift, 0.80003);
+      expect(tickA).toBe(tickB);
+    });
   });
 
 });

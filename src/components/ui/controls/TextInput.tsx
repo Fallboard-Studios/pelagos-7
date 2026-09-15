@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import { CabinetBox } from './CabinetBox';
 import { DualLabel } from './DualLabel';
 import { resolveAccessibleName } from './accessibleName';
@@ -40,7 +42,7 @@ interface TextInputProps {
  * unaffected — no new interaction, no hover/focus/disabled-reactive pop;
  * the box is purely decorative.
  */
-export function TextInput({ schema, value, onChange, numeric, disabled }: TextInputProps) {
+function TextInputInner({ schema, value, onChange, numeric, disabled }: TextInputProps) {
   return (
     <div className="sc-text-input-facade">
       <CabinetBox
@@ -77,3 +79,7 @@ export function TextInput({ schema, value, onChange, numeric, disabled }: TextIn
     </div>
   );
 }
+
+// React.memo (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 7) — every prop is a primitive
+// or stable schema object; the default shallow compare is correct.
+export const TextInput = memo(TextInputInner);

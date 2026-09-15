@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import { RadioButton } from '@/components/ui/controls/RadioButton';
 import { SliderLinear } from '@/components/ui/controls/SliderLinear';
 import { SliderCenteredZero } from '@/components/ui/controls/SliderCenteredZero';
@@ -9,6 +10,7 @@ import { DEFAULT_LFO_SETTINGS } from '@/data/lfoConfig';
 import {
   SOURCE_ACCORDION_SCHEMA,
   SIGNATURE_ARRAY_CONFIG,
+  type SignatureArrayLayerBlock,
   type SignatureArrayParamSchema,
 } from '@/data/robotOptionsConfig';
 import { LFO_DRIFT_GROUPS } from '@/data/audioRigConfig';
@@ -93,6 +95,117 @@ function paramValue(layer: OscillatorLayer, field: SignatureArrayParamSchema['fi
   }
 }
 
+interface SignatureArrayLayerProps {
+  block: SignatureArrayLayerBlock;
+  idx: number;
+  layer: OscillatorLayer;
+  lfoSettings: SignatureArrayValue['lfoSettings'];
+  disabled?: boolean;
+  onTypeChange: (idx: number, type: WaveformType) => void;
+  onParamChange: (idx: number, field: SignatureArrayParamSchema['field'], value: number) => void;
+  onLfoFieldChange: (idx: number, target: RobotLfoTargetId, value: LfoValue) => void;
+}
+
+/**
+ * One layer's own Type radio + shared LfoTargetGroup (Gain/Detune/Phase/Interval), extracted out
+ * of `SignatureArrayDrawerInner`'s own `.map()` and `React.memo`-wrapped (docs/todo/backlog.md
+ * #27 follow-up, 2026-09-15) — found live: editing one layer's Gain re-rendered every other
+ * layer's own controls too. Root cause: every per-layer handler (`handleTypeChange`,
+ * `handleParamChange`, the `fields` array and `renderField` callback handed to `LfoTargetGroup`)
+ * was built fresh, unmemoized, inside the parent's own `.map()` — so whenever `value.layers`
+ * changed reference (any layer, any field), ALL 3 layers' worth of already-memoized primitives
+ * (RadioButton, SliderLinear/SliderCenteredZero via LfoTargetGroup) got new prop references
+ * regardless of whether their own specific layer actually changed.
+ *
+ * `layer` stays a stable reference across an edit to a DIFFERENT layer (`applyLayersContinuous`/
+ * `applyLayersStructural` — robotOptionsActions.ts — only ever replace the touched index in the
+ * `layers` array, `.map()` preserves the rest), so this component correctly bails for any layer
+ * that wasn't itself just edited. `onTypeChange`/`onParamChange`/`onLfoFieldChange` are shared,
+ * stable callbacks from the parent (keyed by `idx`, not rebuilt per layer).
+ *
+ * Known limitation, not fully solved here: `lfoSettings` is one flat object shared by all 3
+ * layers (`applyLayerLfo` always rebuilds the whole `Robot.lfoSettings` record — see that
+ * function's own doc), so editing one layer's LFO settings still gives every layer's own
+ * `SignatureArrayLayer` instance a new `lfoSettings` reference, causing all 3 to re-render
+ * together for that specific edit — continuous param edits (Gain/Detune/Phase, the far more
+ * common interaction) are correctly isolated per layer regardless. Narrowing `lfoSettings` to a
+ * genuinely per-layer stable slice would need its own follow-up (each layer's own LFO target set
+ * is statically fixed per `SIGNATURE_ARRAY_CONFIG`, so it's possible, just out of scope here).
+ */
+function SignatureArrayLayerInner({ block, idx, layer, lfoSettings, disabled, onTypeChange, onParamChange, onLfoFieldChange }: SignatureArrayLayerProps) {
+  const handleTypeChange = useCallback((v: string) => onTypeChange(idx, v as WaveformType), [idx, onTypeChange]);
+
+  // 'pulse' only — Tone.js's OmniOscillator.width getter returns undefined for every other type
+  // (including 'square'), so showing Interval there was an editable control with no audible effect.
+  const showPulseWidth = layer.type === 'pulse';
+  const typeParam = block.params.find((p) => p.field === 'type')!;
+  const lfoParams = useMemo(
+    () => block.params.filter((p) => p.field !== 'type' && (p.field !== 'pulseWidth' || showPulseWidth)),
+    [block, showPulseWidth],
+  );
+
+  const fields = useMemo(() => lfoParams.map((p) => ({
+    field: p.field,
+    label: (p.schema as SliderLinearSchema | SliderCenteredZeroSchema).humanLabel ?? p.field,
+    lfoValue: lfoSettings?.[p.lfoTarget!] ?? DEFAULT_LFO_SETTINGS[p.lfoTarget!],
+  })), [lfoParams, lfoSettings]);
+
+  const handleLfoChange = useCallback(
+    (field: string, v: LfoValue) => onLfoFieldChange(idx, lfoParams.find((p) => p.field === field)!.lfoTarget!, v),
+    [idx, lfoParams, onLfoFieldChange],
+  );
+
+  const renderField = useCallback((field: string) => {
+    const param = lfoParams.find((p) => p.field === field)!;
+    const paramVal = paramValue(layer, field as SignatureArrayParamSchema['field']);
+    const handleChange = (v: number) => onParamChange(idx, field as SignatureArrayParamSchema['field'], v);
+    return (
+      <div className="signature-array-drawer__param">
+        {field === 'detune' ? (
+          <SliderCenteredZero
+            schema={param.schema as SliderCenteredZeroSchema}
+            value={paramVal}
+            onChange={handleChange}
+            disabled={disabled}
+            verticalHeight={(param.schema as SliderCenteredZeroSchema).verticalHeight}
+          />
+        ) : (
+          <SliderLinear
+            schema={param.schema as SliderLinearSchema}
+            value={paramVal}
+            onChange={handleChange}
+            disabled={disabled}
+            verticalHeight={(param.schema as SliderLinearSchema).verticalHeight}
+          />
+        )}
+      </div>
+    );
+  }, [lfoParams, layer, idx, onParamChange, disabled]);
+
+  return (
+    <DirectionalPanel schema={block.panel}>
+      <div className="signature-array-drawer__layer" data-layer-key={block.key}>
+        <RadioButton
+          schema={typeParam.schema as RadioButtonSchema}
+          value={layer.type}
+          onChange={handleTypeChange}
+          disabled={disabled}
+        />
+        <LfoTargetGroup
+          groupId={`robotOptions.${block.key}`}
+          sliderPanelOrientation="row"
+          fields={fields}
+          onLfoChange={handleLfoChange}
+          disabled={disabled}
+          renderField={renderField}
+        />
+      </div>
+    </DirectionalPanel>
+  );
+}
+
+const SignatureArrayLayer = memo(SignatureArrayLayerInner);
+
 /**
  * One Source AccordionContainer wrapping 3 DirectionalPanels, one per fixed layer slot (Baseline/
  * Coaxial/Harmonic), plus the Robot Drift panel — docs/tasks/DIRECTIONAL_PANEL_WIRING.md Task 8,
@@ -116,86 +229,58 @@ function paramValue(layer: OscillatorLayer, field: SignatureArrayParamSchema['fi
  * Each layer's LFO-tied params (Gain/Detune/Phase/Interval) render through one LfoTargetGroup —
  * a shared LFO display per layer, replacing the old per-param nested "Modulation" accordion
  * (docs/specs/LFO_CONSOLIDATED_DISPLAY.md). Type stays rendered inline, outside the group — it
- * has no LFO of its own.
+ * has no LFO of its own. Each layer's own rendering now lives in `SignatureArrayLayer` above,
+ * `React.memo`-wrapped so an edit to one layer doesn't cascade into its 2 siblings (docs/todo/
+ * backlog.md #27 follow-up) — this component's own job is just deriving `layers` and building the
+ * 3 shared, stable per-index handlers every layer instance calls into.
  */
-export function SignatureArrayDrawer({ value, onContinuousChange, onStructuralChange, onLfoChange, disabled, style }: SignatureArrayDrawerProps) {
+function SignatureArrayDrawerInner({ value, onContinuousChange, onStructuralChange, onLfoChange, disabled, style }: SignatureArrayDrawerProps) {
   const layers = value.layers ?? [];
+
+  // Ref-cached "latest layers" (docs/todo/backlog.md #27 follow-up, 2026-09-15) — the 3 handlers
+  // below need the CURRENT layers array to correctly preserve the other 2 layers' own values when
+  // rebuilding it, but must not themselves destabilize whenever `layers` changes (i.e. on every
+  // edit to ANY layer) — the same "stable callback, fresh value read at call time" ref pattern
+  // `RobotOptionsTab.tsx`/`PingContourDrawer.tsx`/`Lfo.tsx` already use. Because they're stable
+  // regardless of which layer last changed, one shared triple of handlers serves all 3 layers,
+  // keyed by `idx` at the call site rather than rebuilt per layer.
+  const latestLayers = useRef(layers);
+  useEffect(() => {
+    latestLayers.current = layers;
+  });
+
+  const handleTypeChange = useCallback((idx: number, type: WaveformType) => {
+    const current = latestLayers.current;
+    onStructuralChange(current.map((l, i) => (i === idx ? { ...l, type } : l)));
+  }, [onStructuralChange]);
+
+  const handleParamChange = useCallback((idx: number, field: SignatureArrayParamSchema['field'], v: number) => {
+    const current = latestLayers.current;
+    onContinuousChange(current.map((l, i) => (i === idx ? { ...l, [field]: v } : l)));
+  }, [onContinuousChange]);
+
+  const handleLfoFieldChange = useCallback((_idx: number, target: RobotLfoTargetId, v: LfoValue) => {
+    onLfoChange(target, v);
+  }, [onLfoChange]);
 
   return (
     <AccordionContainer schema={SOURCE_ACCORDION_SCHEMA} style={style}>
       <div className="signature-array-drawer">
-
         {SIGNATURE_ARRAY_CONFIG.map((block, idx) => {
           const layer = layers[idx];
           if (!layer) return null;
-
-          const withUpdatedLayer = (updated: OscillatorLayer) =>
-            layers.map((l, i) => (i === idx ? updated : l));
-
-          const handleTypeChange = (v: string) =>
-            onStructuralChange(withUpdatedLayer({ ...layer, type: v as WaveformType }));
-
-          const handleParamChange = (field: SignatureArrayParamSchema['field']) => (v: number) => {
-            const updated: OscillatorLayer = { ...layer, [field]: v };
-            onContinuousChange(withUpdatedLayer(updated));
-          };
-
-          // 'pulse' only — Tone.js's OmniOscillator.width getter returns undefined for every
-          // other type (including 'square'), so showing Interval there was an editable control
-          // with no audible effect.
-          const showPulseWidth = layer.type === 'pulse';
-          const typeParam = block.params.find((p) => p.field === 'type')!;
-          const lfoParams = block.params.filter((p) => p.field !== 'type' && (p.field !== 'pulseWidth' || showPulseWidth));
-
           return (
-            <DirectionalPanel schema={block.panel} key={block.key}>
-              <div className="signature-array-drawer__layer" data-layer-key={block.key}>
-                <RadioButton
-                  schema={typeParam.schema as RadioButtonSchema}
-                  value={layer.type}
-                  onChange={handleTypeChange}
-                  disabled={disabled}
-                />
-                <LfoTargetGroup
-                  groupId={`robotOptions.${block.key}`}
-                  sliderPanelOrientation="row"
-                  fields={lfoParams.map((p) => ({
-                    field: p.field,
-                    label: (p.schema as SliderLinearSchema | SliderCenteredZeroSchema).humanLabel ?? p.field,
-                    lfoValue: value.lfoSettings?.[p.lfoTarget!] ?? { ...DEFAULT_LFO_SETTINGS[p.lfoTarget!] },
-                  }))}
-                  onLfoChange={(field, v) => onLfoChange(lfoParams.find((p) => p.field === field)!.lfoTarget!, v)}
-                  disabled={disabled}
-                  renderField={(field) => {
-                    const param = lfoParams.find((p) => p.field === field)!;
-                    const paramVal = paramValue(layer, field);
-                    const onChange = handleParamChange(field);
-                    return (
-                      <div className="signature-array-drawer__param">
-                        {field === 'detune' ? (
-                          <SliderCenteredZero
-                            schema={param.schema as SliderCenteredZeroSchema}
-                            value={paramVal}
-                            onChange={onChange}
-                            disabled={disabled}
-                            verticalHeight={(param.schema as SliderCenteredZeroSchema).verticalHeight}
-                          />
-                        ) : (
-                          <SliderLinear
-                            schema={param.schema as SliderLinearSchema}
-                            value={paramVal}
-                            onChange={onChange}
-                            disabled={disabled}
-                            verticalHeight={(param.schema as SliderLinearSchema).verticalHeight}
-                          />
-                        )}
-                      </div>
-                    );
-                  }}
-                />
-
-              </div>
-            </DirectionalPanel>
+            <SignatureArrayLayer
+              key={block.key}
+              block={block}
+              idx={idx}
+              layer={layer}
+              lfoSettings={value.lfoSettings}
+              disabled={disabled}
+              onTypeChange={handleTypeChange}
+              onParamChange={handleParamChange}
+              onLfoFieldChange={handleLfoFieldChange}
+            />
           );
         })}
         <RobotDriftPanel />
@@ -203,5 +288,10 @@ export function SignatureArrayDrawer({ value, onContinuousChange, onStructuralCh
     </AccordionContainer>
   );
 }
+
+// React.memo (docs/tasks/ROBOT_OPTIONS_TAB_MEMOIZATION.md Task 4) — RobotDriftPanel is unaffected:
+// it re-renders independently via its own useAudioStore subscription regardless of this memo, and
+// isn't even reached when this component bails (its own JSX is never constructed then).
+export const SignatureArrayDrawer = memo(SignatureArrayDrawerInner);
 
 export default SignatureArrayDrawer;

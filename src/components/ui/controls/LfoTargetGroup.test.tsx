@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, act } from '@testing-library/react';
 
@@ -36,6 +37,20 @@ vi.mock('gsap', () => ({
 }));
 
 vi.mock('@/animation/timelineMap', () => ({ setTimeline: vi.fn(), killTimeline: vi.fn() }));
+
+// Captures every `schema` prop the real Lfo component receives, without replacing its actual
+// rendering — Lfo is itself already React.memo-wrapped, so it can't be spied on via vi.fn the way
+// a plain function export can (same reasoning as AudioSettingSection.test.tsx's own Lfo-schema
+// capture for docs/tasks/ROBOT_OPTIONS_TAB_MEMOIZATION.md Task 1).
+const capturedLfoSchemas = vi.hoisted(() => [] as unknown[]);
+vi.mock('@/components/ui/controls/Lfo', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./Lfo')>();
+  function LfoSchemaCapture(props: ComponentProps<typeof actual.Lfo>) {
+    capturedLfoSchemas.push(props.schema);
+    return <actual.Lfo {...props} />;
+  }
+  return { ...actual, Lfo: LfoSchemaCapture };
+});
 
 import { LfoTargetGroup } from './LfoTargetGroup';
 import { useLfoTargetGroup, type LfoTargetGroupField } from './useLfoTargetGroup';
@@ -76,7 +91,9 @@ describe('LfoTargetGroup', () => {
   it('is a thin wrapper around the useLfoTargetGroup hook, both importable independently', () => {
     // Task 3 (AudioRigDrawer) calls useLfoTargetGroup directly, from its own module, against
     // its own pre-rendered rows — one source of truth for the state machine, two consumers.
-    expect(typeof LfoTargetGroup).toBe('function');
+    // LfoTargetGroup is React.memo-wrapped (docs/todo/backlog.md #27 follow-up) — an object at
+    // runtime, not a plain function — so this checks importability via $$typeof instead.
+    expect((LfoTargetGroup as unknown as { $$typeof: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
     expect(typeof useLfoTargetGroup).toBe('function');
   });
 
@@ -243,5 +260,20 @@ describe('LfoTargetGroup', () => {
       <LfoTargetGroup groupId="audioRig.eq3" fields={FIELDS} onLfoChange={() => {}} renderField={renderField} disabled />,
     );
     expect(screen.getAllByRole('slider')[0].getAttribute('data-disabled')).toBe('');
+  });
+
+  describe('memoization (docs/todo/backlog.md #27 follow-up, 2026-09-15)', () => {
+    it('passes Lfo the same schema object reference across re-renders with the same groupId/displayLabel', () => {
+      capturedLfoSchemas.length = 0;
+      const { rerender } = render(
+        <LfoTargetGroup groupId="audioRig.eq3" fields={FIELDS} onLfoChange={() => {}} renderField={renderField} />,
+      );
+      rerender(
+        <LfoTargetGroup groupId="audioRig.eq3" fields={FIELDS} onLfoChange={() => {}} renderField={renderField} disabled />,
+      );
+
+      expect(capturedLfoSchemas.length).toBeGreaterThanOrEqual(2);
+      expect(capturedLfoSchemas[1]).toBe(capturedLfoSchemas[0]);
+    });
   });
 });

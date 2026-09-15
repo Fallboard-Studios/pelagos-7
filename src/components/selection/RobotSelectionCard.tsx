@@ -15,11 +15,10 @@ import {
 } from '@/data/robotSelectionConfig';
 import { FREELANCE_VALUE, buildCompanyAssignmentSchema } from '@/data/companyConfig';
 import { getRobotColorStyle } from '@/utils/traitColors';
-import type { Robot } from '@/types/Robot';
 import './RobotSelectionCard.css';
 
 interface RobotSelectionCardProps {
-  robot: Robot;
+  robotId: string;
 }
 
 /**
@@ -41,10 +40,24 @@ interface RobotSelectionCardProps {
  * whole 12-card list re-rendering in lockstep on every such write. Only effective paired with the
  * `anySolo` boolean-selector fix above — memo() alone can't stop a re-render this component's own
  * (previously array-typed) hook subscription was causing regardless of props.
+ *
+ * Takes `robotId`, not the whole `Robot` object (docs/todo/backlog.md #27 follow-up, 2026-09-15)
+ * — looks its own robot up directly via `useLocaleStore` (`.find()` returns the existing array
+ * element, same reference across renders unless THIS robot specifically changed). Before this,
+ * `RobotsTab` handed each card its `Robot` object directly from a `.map()` over the whole locale's
+ * `robots` array — correct per-card memo behavior once RobotsTab itself re-rendered, but
+ * RobotsTab's own re-render was gated by the WHOLE array's reference, which changes on *any*
+ * robot's own update anywhere in the locale (battery ticks, audio swells, field edits), forcing
+ * RobotsTab (and everything statically composed beneath it) to re-execute constantly even though
+ * most individual cards then correctly bailed. Looking up by id here instead means this card's own
+ * data no longer depends on RobotsTab's own re-render cadence at all — paired with RobotsTab.tsx's
+ * own narrower `{ id, companyId }` roster selector, which now only changes when a robot is
+ * actually added/removed/reassigned, not on every field tick.
  */
-export const RobotSelectionCard = memo(function RobotSelectionCard({ robot }: RobotSelectionCardProps) {
+export const RobotSelectionCard = memo(function RobotSelectionCard({ robotId }: RobotSelectionCardProps) {
   const selectRobot = useUIStore((s) => s.selectRobot);
   const localeId = getActiveLocaleId();
+  const robot = useLocaleStore((s) => s.locales[localeId]?.robots?.find((r) => r.id === robotId));
   const companies = useLocaleStore((s) => s.locales[localeId]?.companies ?? []);
   // A boolean, not the full robots array (bugfix, found live — see isRobotAudible's own comment):
   // this is the only thing isRobotAudible ever needed out of the locale's robot list. Selecting
@@ -53,6 +66,11 @@ export const RobotSelectionCard = memo(function RobotSelectionCard({ robot }: Ro
   // locale (audioSwells.ts's 16n modulation ticks included, ~8-9x/sec) the way subscribing to the
   // whole array did.
   const anySolo = useLocaleStore((s) => (s.locales[localeId]?.robots ?? []).some((r) => r.audioMode === 'solo'));
+
+  // Defensive only — RobotsTab only ever renders a robotId that exists in the locale's roster
+  // (fixed at 12, created once at locale load, never removed).
+  if (!robot) return null;
+
   const companyAssignmentSchema = buildCompanyAssignmentSchema(companies);
   const displayName = robot.name || robot.id;
   const jobLabel = robot.job ? JOB_TYPE_LABELS[robot.job.type] : UNASSIGNED_JOB_LABEL;
@@ -69,20 +87,23 @@ export const RobotSelectionCard = memo(function RobotSelectionCard({ robot }: Ro
   // each mount/update killing a sibling robot's still-live pop animation (found in code review).
   const batteryReadoutSchema = { ...BATTERY_READOUT_SCHEMA, id: `${BATTERY_READOUT_SCHEMA.id}.${robot.id}` };
 
-  function handleActivate() {
+  // Arrow function expressions, not function declarations — TypeScript's control-flow narrowing
+  // from `if (!robot) return null` above doesn't extend into hoisted function declarations (they
+  // could, in principle, be called before that check runs), only into const-bound closures.
+  const handleActivate = () => {
     selectRobot(robot.id);
-  }
+  };
 
-  function handleKeyDown(event: KeyboardEvent) {
+  const handleKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       handleActivate();
     }
-  }
+  };
 
-  function handleCompanyChange(value: string) {
+  const handleCompanyChange = (value: string) => {
     useLocaleStore.getState().assignRobotToCompany(localeId, robot.id, value === FREELANCE_VALUE ? null : value);
-  }
+  };
 
   return (
     <li className="robot-selection-card" style={getRobotColorStyle(robot.identityColor)}>
