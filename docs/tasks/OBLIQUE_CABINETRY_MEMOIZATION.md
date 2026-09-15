@@ -130,7 +130,7 @@ Task 13 (manual profiler re-verification + docs close-out) — depends on Task 1
 
   **Estimated scope:** S (one call site, one new test block)
 
-- [ ] **Task 2: `SliderLog.tsx` — memoize the `computeVoxelBoxStates` call site**
+- [x] **Task 2: `SliderLog.tsx` — memoize the `computeVoxelBoxStates` call site**
 
   **Description:** Same shape as Task 1, adapted for this file's own t-space call:
   `computeVoxelBoxStates(t, 0, 1, boxCount)` (line 45), where `t = sliderLogValueToT(value,
@@ -140,11 +140,13 @@ Task 13 (manual profiler re-verification + docs close-out) — depends on Task 1
   **Acceptance criteria:** Same shape as Task 1's, adapted to this file's `t`/`boxCount` inputs —
   spy call count flat across re-renders with unchanged `value`/`schema.min`/`schema.max`/
   `boxCount` (which resolve to unchanged `t`), increments when `value` changes.
+  - [x] Confirmed red first (3 calls across mount + 2 unchanged re-renders).
 
   **Verification:**
-  - [ ] `npx vitest run src/components/ui/controls/SliderLog.test.tsx` passes.
-  - [ ] `npm run build:types`, `npm run lint` clean.
-  - [ ] `npm test` full suite passes.
+  - [x] `npx vitest run src/components/ui/controls/SliderLog.test.tsx` passes (31 tests — 27
+        pre-existing, 4 new).
+  - [x] `npm run build:types`, `npm run lint` clean.
+  - [x] `npm test` full suite passes.
 
   **Dependencies:** None (parallelizable with Task 1, Task 3).
 
@@ -153,7 +155,7 @@ Task 13 (manual profiler re-verification + docs close-out) — depends on Task 1
 
   **Estimated scope:** S
 
-- [ ] **Task 3: `SliderCenteredZero.tsx` — memoize the `computeVoxelBoxStatesCenteredZero` call
+- [x] **Task 3: `SliderCenteredZero.tsx` — memoize the `computeVoxelBoxStatesCenteredZero` call
   site**
 
   **Description:** Same shape, wrapping `computeVoxelBoxStatesCenteredZero(value, schema.min,
@@ -161,11 +163,18 @@ Task 13 (manual profiler re-verification + docs close-out) — depends on Task 1
 
   **Acceptance criteria:** Same shape as Tasks 1-2's, spying on
   `computeVoxelBoxStatesCenteredZero` instead.
+  - [x] Confirmed red first (3 calls across mount + 2 unchanged re-renders). Note: the
+        boxCount-change regression test needed a 500px fire (not 288px, used elsewhere in the
+        existing file) — 288px happens to resolve to the same forced-even count (4) as the
+        default unmeasured state, which would have been a false negative.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/ui/controls/SliderCenteredZero.test.tsx` passes.
-  - [ ] `npm run build:types`, `npm run lint` clean.
-  - [ ] `npm test` full suite passes.
+  - [x] `npx vitest run src/components/ui/controls/SliderCenteredZero.test.tsx` passes (29 tests
+        — 25 pre-existing, 4 new).
+  - [x] `npm run build:types`, `npm run lint` clean.
+  - [x] `npm test` full suite passes (one unrelated flake in `audioSwells.test.ts` on the
+        combined run — confirmed clean, 65/65, in isolation; known random-seeded flake pattern,
+        not caused by this task).
 
   **Dependencies:** None (parallelizable with Task 1, Task 2).
 
@@ -176,8 +185,8 @@ Task 13 (manual profiler re-verification + docs close-out) — depends on Task 1
 
 ### Checkpoint: Layer 1 Complete
 
-- [ ] `npm run build:types`, `npm run lint`, `npm test` (full suite) clean.
-- [ ] All 3 sliders' `states`/`voxelTrackMath.ts` call counts confirmed flat across unchanged-prop
+- [x] `npm run build:types`, `npm run lint`, `npm test` (full suite) clean.
+- [x] All 3 sliders' `states`/`voxelTrackMath.ts` call counts confirmed flat across unchanged-prop
       re-renders — the referential stability `VoxelTrack`'s own memo (Task 5) depends on now
       exists.
 

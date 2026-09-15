@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import * as Slider from '@radix-ui/react-slider';
 
 import { DualLabel } from './DualLabel';
@@ -41,7 +41,13 @@ export function SliderCenteredZero({ schema, value, onChange, disabled, vertical
   const { boxSize, gap, boxCount, rootStyle } = useVoxelTrackSlider(wrapperRef, orientation, verticalHeight, {
     forceEven: true,
   });
-  const states = computeVoxelBoxStatesCenteredZero(value, schema.min, schema.max, boxCount);
+  // Memoized so VoxelTrack's own React.memo (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 5)
+  // can bail on an unchanged states reference — computeVoxelBoxStatesCenteredZero is a pure
+  // function that otherwise returns a fresh array every render.
+  const states = useMemo(
+    () => computeVoxelBoxStatesCenteredZero(value, schema.min, schema.max, boxCount),
+    [value, schema.min, schema.max, boxCount],
+  );
 
   const valueLabel = (
     <span className="sc-slider-centered-zero__value">{formatDisplayValue(value)}{schema.unit}</span>
