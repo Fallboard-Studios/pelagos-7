@@ -171,6 +171,9 @@ small touches) rather than a single feature; exact list not yet defined.
 
 ### 14. Header: Selects Whole Locale Object for Coordinates Only
 
+**Status:** ☑ fixed — committed on `perf/rerender-cleanup` (`10ad07f`), not yet merged to
+`main`.
+
 Found via a manual re-render-bug sweep on `perf/rerender-cleanup` (2026-09-14), searching
 the codebase for the same two anti-patterns that branch's own commits already fixed
 elsewhere: whole-object/array Zustand selectors, and unrounded `ResizeObserver`
@@ -189,6 +192,9 @@ undefined))`.
 
 ### 15. LocaleView: Selects Whole Locale Object for an Existence Check
 
+**Status:** ☑ fixed — committed on `perf/rerender-cleanup` (`b810b7a`), not yet merged to
+`main`.
+
 Found in the same sweep as item 14 (2026-09-14). High confidence.
 
 `LocaleView.tsx:15` — `const locale = useLocaleStore((s) => s.locales[localeId]); if
@@ -201,6 +207,9 @@ to answer "does it still exist."
 (!localeExists) return null;`.
 
 ### 16. useVoxelTrackBoxCount: Unrounded ResizeObserver Measurement
+
+**Status:** ☑ fixed — committed on `perf/rerender-cleanup` (`6a83cb2`), not yet merged to
+`main`.
 
 Found in the same sweep as item 14 (2026-09-14). High confidence, wide blast radius —
 this hook backs the voxel-track box-count fitting for sliders app-wide (`SliderLinear`,
