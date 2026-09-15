@@ -27,7 +27,7 @@ import {
 } from '@/data/audioRigConfig';
 import { getTraitColorStyle } from '@/utils/traitColors';
 import type { Trait } from '@/types/traits';
-import type { LfoValue, PanelOrientation } from '@/types/controls';
+import type { DirectionalPanelSchema, LfoValue, PanelOrientation } from '@/types/controls';
 import type { GlobalAudioSettings } from '@/types/globalAudio';
 import type { GlobalLfoTargetId } from '@/types/lfo';
 import './AudioRigDrawer.css';
@@ -44,6 +44,13 @@ import '@/components/ui/controls/LfoTargetGroup.css';
  * DirectionalPanel/param (including each effect's own per-target and Drift LFO controls)
  * inherits the color via ordinary CSS cascade with no code of its own.
  */
+// Hoisted to module scope (docs/todo/backlog.md #27 follow-up, 2026-09-15) — these 2 don't depend
+// on any prop/state, so a plain module-level constant is the correct, minimal fix, matching this
+// file's own established "schema is always a stable reference" convention (every other schema
+// here is a config import or `useMemo`) — the only 2 inline schema literals left in this file.
+const COMPRESSOR_TOP_ROW_SCHEMA: DirectionalPanelSchema = { id: 'audioRig.compressor.topRow', type: 'directionalPanel', orientation: 'responsive' };
+const COMPRESSOR_BOTTOM_ROW_SCHEMA: DirectionalPanelSchema = { id: 'audioRig.compressor.bottomRow', type: 'directionalPanel', orientation: 'responsive' };
+
 const AUDIO_RIG_GROUP_TRAIT: Record<AudioRigAccordionGroupKey, Trait> = {
   eqFilters: 'spectral',
   timeSpace: 'timeSpace',
@@ -457,11 +464,11 @@ function AudioRigEffectPanel({ effectKey }: AudioRigEffectPanelProps) {
           // params already get (Task 8). This also resolves a pre-existing duplicate id
           // ('audioRig.compressor.bottomRow' used to be shared by 2 different panels).
           <>
-            <DirectionalPanel schema={{ id: 'audioRig.compressor.topRow', type: 'directionalPanel', orientation: 'responsive' }}>
+            <DirectionalPanel schema={COMPRESSOR_TOP_ROW_SCHEMA}>
               {paramRow(findParam(block.params, 'threshold'), effect, fieldOnChange.threshold)}
               {paramRow(findParam(block.params, 'ratio'), effect, fieldOnChange.ratio)}
             </DirectionalPanel>
-            <DirectionalPanel schema={{ id: 'audioRig.compressor.bottomRow', type: 'directionalPanel', orientation: 'responsive' }}>
+            <DirectionalPanel schema={COMPRESSOR_BOTTOM_ROW_SCHEMA}>
               {paramRow(findParam(block.params, 'attack'), effect, fieldOnChange.attack)}
               {paramRow(findParam(block.params, 'release'), effect, fieldOnChange.release)}
             </DirectionalPanel>
