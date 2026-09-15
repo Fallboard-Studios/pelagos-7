@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { memo, useMemo, useRef } from 'react';
 import * as Slider from '@radix-ui/react-slider';
 
 import { DualLabel } from './DualLabel';
@@ -34,7 +34,7 @@ interface SliderCenteredZeroProps {
  * derivation. Unlike SliderLog, there's no t-curve here — Slider.Root keeps
  * using the schema's literal min/max/value, exactly as before this item.
  */
-export function SliderCenteredZero({ schema, value, onChange, disabled, verticalHeight }: SliderCenteredZeroProps) {
+function SliderCenteredZeroInner({ schema, value, onChange, disabled, verticalHeight }: SliderCenteredZeroProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const orientation = useAutoSliderOrientation(wrapperRef, schema.orientation);
   const isVertical = orientation === 'vertical';
@@ -84,3 +84,8 @@ export function SliderCenteredZero({ schema, value, onChange, disabled, vertical
     </div>
   );
 }
+
+// React.memo (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 3 correction) — every prop is a
+// primitive, a stable schema object, or the onChange callback a caller must keep stable to
+// benefit.
+export const SliderCenteredZero = memo(SliderCenteredZeroInner);

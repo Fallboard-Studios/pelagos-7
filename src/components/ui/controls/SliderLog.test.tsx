@@ -1,6 +1,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 
+// Spied (real cross-module call, wrapped so it still delegates to the actual
+// implementation) so a render-count test (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md
+// Task 2 correction — found via Task 12's own end-to-end debugging: this
+// component's own React.memo wrap was missed originally, only the internal
+// states useMemo was added) can tell whether SliderLog's render body
+// actually re-executed — resolveAccessibleName(schema) is called
+// unconditionally on the Slider.Thumb's aria-label.
+vi.mock('./accessibleName', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./accessibleName')>();
+  return { ...actual, resolveAccessibleName: vi.fn(actual.resolveAccessibleName) };
+});
+
 vi.mock('./VoxelTrack', () => ({
   VoxelTrack: ({
     states,
@@ -27,6 +39,7 @@ vi.mock('./VoxelTrack', () => ({
 }));
 
 import { SliderLog } from './SliderLog';
+import { resolveAccessibleName } from './accessibleName';
 import { LOG_EPSILON, sliderLogTToValue, sliderLogValueToT } from './sliderLogMath';
 import {
   computeFittedBoxCount,
@@ -358,6 +371,33 @@ describe('SliderLog component', () => {
       act(() => observer.fire(500, 0));
 
       expect(spy.mock.calls.length).toBeGreaterThan(callsAfterMount);
+    });
+  });
+
+  describe('React.memo (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 2 correction — SliderLog itself, not just its internal states useMemo)', () => {
+    it('is a React.memo-wrapped component', () => {
+      expect((SliderLog as unknown as { $$typeof: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
+    });
+
+    it('does not re-execute its render body on a re-render with identical props', () => {
+      const onChange = () => {};
+      const { rerender } = render(<SliderLog schema={schema} value={2} onChange={onChange} />);
+      const callsAfterMount = (resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      rerender(<SliderLog schema={schema} value={2} onChange={onChange} />);
+      rerender(<SliderLog schema={schema} value={2} onChange={onChange} />);
+
+      expect((resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length).toBe(callsAfterMount);
+    });
+
+    it('does re-execute its render body when a real prop changes (value)', () => {
+      const onChange = () => {};
+      const { rerender } = render(<SliderLog schema={schema} value={2} onChange={onChange} />);
+      const callsAfterMount = (resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      rerender(<SliderLog schema={schema} value={5} onChange={onChange} />);
+
+      expect((resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(callsAfterMount);
     });
   });
 });

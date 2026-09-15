@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { memo, useMemo, useRef } from 'react';
 import * as Slider from '@radix-ui/react-slider';
 
 import { DualLabel } from './DualLabel';
@@ -48,7 +48,7 @@ interface SliderLinearProps {
  * `readOnly` (roadmap 15.1) renders a second, non-interactive branch below —
  * see docs/specs/SLIDER_LINEAR_READ_ONLY.md for the full derivation.
  */
-export function SliderLinear({ schema, value, onChange, disabled, verticalHeight, readOnly }: SliderLinearProps) {
+function SliderLinearInner({ schema, value, onChange, disabled, verticalHeight, readOnly }: SliderLinearProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const orientation = useAutoSliderOrientation(wrapperRef, schema.orientation);
   const isVertical = orientation === 'vertical';
@@ -117,3 +117,9 @@ export function SliderLinear({ schema, value, onChange, disabled, verticalHeight
     </div>
   );
 }
+
+// React.memo (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 1 correction) — every prop is a
+// primitive, a stable schema object, or the onChange callback a caller must keep stable to
+// benefit (an implicit performance contract, not a type-level one — see
+// docs/COMPONENT_LIBRARY.md).
+export const SliderLinear = memo(SliderLinearInner);
