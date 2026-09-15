@@ -13,10 +13,13 @@ import './RobotFilterPanel.css';
 const TIMELINE_KEY = 'robot-filter-panel';
 const SLIDE_DURATION = 0.25;
 
-// Plain schema constant, no domain config file — this is console-screen chrome (the panel's own
-// open/close toggle), the same pattern ConsolePanel.tsx's own BACK_SCHEMA already uses, not a
-// companyConfig.ts-owned schema.
-const FILTER_TOGGLE_SCHEMA: ButtonSchema = { id: 'robotFilterPanel.toggle', type: 'button', humanLabel: 'Filters' };
+// Plain schema constants, no domain config file — this is console-screen chrome (the panel's own
+// open/close controls), the same pattern ConsolePanel.tsx's own BACK_SCHEMA already uses, not
+// companyConfig.ts-owned schemas. humanLabel drives both the visible DualLabel text and the
+// accessible name (resolveAccessibleName) — the state-changing label across these two distinct
+// buttons is the only signal of open/closed state (Button.tsx has no aria-expanded passthrough).
+const FILTER_TOGGLE_SCHEMA: ButtonSchema = { id: 'robotFilterPanel.toggle', type: 'button', humanLabel: 'Show Filters' };
+const FILTER_CLOSE_SCHEMA: ButtonSchema = { id: 'robotFilterPanel.close', type: 'button', humanLabel: 'Hide Filters' };
 
 /**
  * Responsive shell for the company filter panel (Roadmap: Robot Selection Filter Panel) — wraps
@@ -113,6 +116,11 @@ export const RobotFilterPanel = memo(function RobotFilterPanel() {
         </div>
       )}
       <div ref={panelRef} className={withActiveClass('robot-filter-panel', open)} data-tier={tier}>
+        {!isDesktop && open && (
+          <div className="robot-filter-panel__close">
+            <Button schema={FILTER_CLOSE_SCHEMA} onClick={handleToggle} />
+          </div>
+        )}
         <CompanyManager />
       </div>
     </>

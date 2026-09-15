@@ -32,6 +32,12 @@
   z-index: var(--z-overlay);
 }
 
+/* Spacing only — a normal-flow first child of the open panel, no sticky/absolute positioning of
+   its own needed. */
+.robot-filter-panel__close {
+  margin-bottom: 8px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .robot-filter-panel {
     transition: none;

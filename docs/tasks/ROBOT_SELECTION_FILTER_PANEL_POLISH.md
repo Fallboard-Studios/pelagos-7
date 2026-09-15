@@ -50,7 +50,7 @@ Task 4 (spawn-time color collision fix)           — independent, parallelizabl
 
 ### Phase 1: `RobotFilterPanel` fixes
 
-- [ ] **Task 1: Fix the mobile/tablet slide-in animation bug**
+- [x] **Task 1: Fix the mobile/tablet slide-in animation bug**
 
   **Description:** `animateTo()`'s GSAP `xPercent` tween never syncs with the CSS stylesheet's
   `transform: translateX(-100%)` closed-state baseline, so (per the spec's diagnosis) it composes on top of a
@@ -63,25 +63,27 @@ Task 4 (spawn-time color collision fix)           — independent, parallelizabl
 
   **Acceptance criteria:**
   - [ ] Live repro confirms (or corrects) the spec's diagnosis before any code changes — note the actual finding
-        in the task's own commit message or a spec addendum if it differs from §1.1.
-  - [ ] On mount, at mobile/tablet tier, `gsap.set(panelRef.current, { xPercent: -100 })` is called (verify via a
-        local `vi.mock('gsap', ...)` override in `RobotFilterPanel.test.tsx` — following `CabinetBox.test.tsx`'s
-        own "local gsap mock overriding `vitest.setup.ts`'s global noop for this file" precedent, since the
-        global mock's `set` is a plain no-op, not a `vi.fn()` — rather than asserting real computed style, which
-        jsdom's lack of layout makes unreliable for a percentage-based transform).
-  - [ ] At desktop tier, `gsap.set` is not called (the effect's own `isDesktop` guard, mirroring `animateTo`'s
+        in the task's own commit message or a spec addendum if it differs from §1.1. *(Not run this session — no
+        live browser/DevTools MCP available. The fix below proceeded on the spec's code-level diagnosis, which
+        was re-derived and confirmed against GSAP's own documented `getComputedStyle`-based transform parsing
+        before implementing — genuinely open, not assumed away.)*
+  - [x] On mount, at mobile/tablet tier, `gsap.set(panelRef.current, { xPercent: -100 })` is called (verified via
+        a local `vi.mock('gsap', ...)` override in `RobotFilterPanel.test.tsx`, following `CabinetBox.test.tsx`'s
+        own precedent — the global mock's `set` is a plain no-op, not a `vi.fn()`).
+  - [x] At desktop tier, `gsap.set` is not called (the effect's own `isDesktop` guard, mirroring `animateTo`'s
         existing one).
   - [ ] Manual verification in a real browser: tapping "Filters" at mobile width now slides the panel **fully**
-        into view (not just barely visible); tapping again fully hides it. This is the one acceptance condition
-        no unit test can prove — flagged, not skipped.
-  - [ ] Every existing `RobotFilterPanel.test.tsx` test still passes (opening/closing via `isActive` class,
+        into view (not just barely visible); tapping again fully hides it. *(Not run this session — no live
+        browser available. Genuinely open, not assumed.)*
+  - [x] Every existing `RobotFilterPanel.test.tsx` test still passes (opening/closing via `isActive` class,
         auto-close behavior, `setTimeline`/`killTimeline` calls) — the fix adds a mount-time `gsap.set()`, it
         doesn't change `animateTo`'s own tween calls.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/panels/screen/console/RobotFilterPanel.test.tsx` passes.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/components/panels/screen/console/RobotFilterPanel.test.tsx` passes (19 tests).
+  - [x] `npm run build:types`, `npm run lint` clean.
   - [ ] Manual check per the acceptance criteria above (`npm run dev`, real browser, mobile-width emulation).
+        *(Not run this session — no live browser available.)*
 
   **Dependencies:** None.
 
@@ -90,7 +92,7 @@ Task 4 (spawn-time color collision fix)           — independent, parallelizabl
 
   **Estimated scope:** S (one `useEffect` addition + a local test-file gsap mock override)
 
-- [ ] **Task 2: Close button + "Show Filters"/"Hide Filters" labels**
+- [x] **Task 2: Close button + "Show Filters"/"Hide Filters" labels**
 
   **Description:** Split today's single `FILTER_TOGGLE_SCHEMA` (`humanLabel: 'Filters'`) into two schema
   constants: `FILTER_TOGGLE_SCHEMA` (`humanLabel: 'Show Filters'`, unchanged position/behavior, stays mounted and
@@ -100,21 +102,22 @@ Task 4 (spawn-time color collision fix)           — independent, parallelizabl
   sticky/absolute positioning needed, it's a normal-flow first child). Spec §1.2.
 
   **Acceptance criteria:**
-  - [ ] At mobile/tablet tier, before opening: `screen.queryByRole('button', { name: /hide filters/i })` is
+  - [x] At mobile/tablet tier, before opening: `screen.queryByRole('button', { name: /hide filters/i })` is
         `null`; `screen.getByRole('button', { name: /show filters/i })` exists.
-  - [ ] After clicking the toggle: a `{ name: /hide filters/i }` button now renders, at the top of the panel
+  - [x] After clicking the toggle: a `{ name: /hide filters/i }` button now renders, at the top of the panel
         (before `CompanyManager`'s own content in document order); the toggle (`{ name: /show filters/i }`) is
         still present, unchanged, in the DOM throughout.
-  - [ ] Clicking the new close button closes the panel (`isActive` class removed) — identical effect to clicking
+  - [x] Clicking the new close button closes the panel (`isActive` class removed) — identical effect to clicking
         the toggle again.
-  - [ ] At desktop tier, neither `{ name: /show filters/i }` nor `{ name: /hide filters/i }` renders (extends the
+  - [x] At desktop tier, neither `{ name: /show filters/i }` nor `{ name: /hide filters/i }` renders (extends the
         existing "renders no toggle button" desktop test).
-  - [ ] Every pre-existing test whose query is `{ name: /filters/i }` still matches (case-insensitive substring
-        against both new labels) — confirm rather than assume.
+  - [x] Every pre-existing test whose query is `{ name: /filters/i }` still matches (case-insensitive substring
+        against both new labels) — confirmed, all pre-existing tests pass unmodified.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/panels/screen/console/RobotFilterPanel.test.tsx` passes.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/components/panels/screen/console/RobotFilterPanel.test.tsx` passes (24 tests).
+  - [x] `npm run build:types`, `npm run lint` clean.
+  - [x] `npm test` (full suite, 144 files / 2689 tests) clean.
 
   **Dependencies:** Task 1 (shares `RobotFilterPanel.tsx`; sequenced to avoid stacking unrelated diffs in one
   file at once).

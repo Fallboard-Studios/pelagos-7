@@ -212,6 +212,53 @@ describe('RobotFilterPanel', () => {
     });
   });
 
+  describe('close button + Show/Hide Filters labels (§1.2)', () => {
+    it('renders "Show Filters" as the toggle\'s accessible name, before opening, at mobile/tablet tier', () => {
+      stubMatchMedia({ mobile: true, tablet: true });
+      render(<RobotFilterPanel />);
+      expect(screen.getByRole('button', { name: /^show filters$/i })).toBeTruthy();
+      expect(screen.queryByRole('button', { name: /^hide filters$/i })).toBeNull();
+    });
+
+    it('renders no "Hide Filters" close button at desktop tier, even conceptually "open"', () => {
+      render(<RobotFilterPanel />); // desktop by default (beforeEach)
+      expect(screen.queryByRole('button', { name: /^hide filters$/i })).toBeNull();
+      expect(screen.queryByRole('button', { name: /^show filters$/i })).toBeNull();
+    });
+
+    it('renders a "Hide Filters" close button, before CompanyManager in document order, once opened', () => {
+      stubMatchMedia({ mobile: true, tablet: true });
+      const { container } = render(<RobotFilterPanel />);
+      fireEvent.click(screen.getByRole('button', { name: /^show filters$/i }));
+
+      const close = screen.getByRole('button', { name: /^hide filters$/i });
+      expect(close).toBeTruthy();
+      const panel = container.querySelector('.robot-filter-panel');
+      const companyManager = screen.getByTestId('company-manager-mock');
+      // Node.compareDocumentPosition: DOCUMENT_POSITION_FOLLOWING (4) means `companyManager`
+      // comes after `close` in document order.
+      expect(panel?.contains(close)).toBe(true);
+      expect(close.compareDocumentPosition(companyManager) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it('the "Show Filters" toggle stays mounted and present while the panel is open', () => {
+      stubMatchMedia({ mobile: true, tablet: true });
+      render(<RobotFilterPanel />);
+      fireEvent.click(screen.getByRole('button', { name: /^show filters$/i }));
+      expect(screen.getByRole('button', { name: /^show filters$/i })).toBeTruthy();
+    });
+
+    it('clicking "Hide Filters" closes the panel, same as clicking the toggle again', () => {
+      stubMatchMedia({ mobile: true, tablet: true });
+      const { container } = render(<RobotFilterPanel />);
+      fireEvent.click(screen.getByRole('button', { name: /^show filters$/i })); // open
+      expect(container.querySelector('.robot-filter-panel')?.classList.contains('isActive')).toBe(true);
+
+      fireEvent.click(screen.getByRole('button', { name: /^hide filters$/i }));
+      expect(container.querySelector('.robot-filter-panel')?.classList.contains('isActive')).toBe(false);
+    });
+  });
+
   it('kills its GSAP timeline on unmount', async () => {
     const { killTimeline } = await import('@/animation/timelineMap');
     stubMatchMedia({ mobile: true, tablet: true });
