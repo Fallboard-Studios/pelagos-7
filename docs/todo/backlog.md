@@ -375,3 +375,29 @@ ref/attribute write (or a GSAP tween) instead of a React re-render entirely — 
 invasive to (a) (21 sites would each need imperative wiring) without option (a)'s benefit
 of a clean component boundary, so not preferred; (c) reduce tick granularity — see Decision
 above for why this was passed over despite being cheap and low-risk.
+
+### 22. RobotBody: Every Robot Re-renders Once/Sec for Day/Night Lighting
+
+Found while writing the spec for item 21's fix (`docs/specs/FACTORY_LIGHTING_RERENDER.md`,
+2026-09-14) — same `activeLocaleLocalTime` tick, same bug class as item 21, different
+component. Not yet scoped as its own fix; not addressed by item 21's spec.
+
+`RobotBody.tsx:52-55` derives `lightnessMultiplier` from `useUIStore((s) =>
+s.activeLocaleLocalTime ?? 12)`. The component's own `visual` `useMemo`
+(`RobotBody.tsx:61-118`) depends on `[robot.audioAttributes, robot.octaveRange,
+lightnessMultiplier]` — folding the once/sec lighting tick into the same memo as the
+audio-derived shape data means every tick recomputes the *entire* robot visual (shape
+selection via `selectRobotShape`, greeble count/size/persistence/placement-bias, ADSR/
+register-driven shape params, colors) for all 12 robots in the roster, not just the part
+that actually needs to change (color lightness). Same root cause as item 21 — a
+lighting-driven value forcing a full re-render/recompute of otherwise-static-per-spawn
+work — just in the robot-visual pipeline instead of the factory one.
+
+**Fix shape:** not yet determined — likely the same family of fix as item 21 (isolate the
+lighting-dependent step from the expensive, audio-derived-and-otherwise-static
+computation), most plausibly by splitting `visual`'s color step out of the same `useMemo`
+as the shape/greeble computation and keying it independently on `lightnessMultiplier`
+alone. Not assumed identical to item 21's layout/paint split, though — `RobotBody`'s split
+is between "audio-derived shape" and "lighting-derived color," not "geometry" vs. "paint"
+within a seeded procedural-placement loop the way Factory's greebles are. Needs its own
+investigation/spec pass before implementing.
