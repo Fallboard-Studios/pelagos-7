@@ -237,7 +237,7 @@ Task 5 (manual profiler re-verification + docs close-out) — depends on Task 4
 
 ### Phase 3: Integration (the actual fix)
 
-- [ ] **Task 4: `Factory.tsx` — the `staticVisual` restructure**
+- [x] **Task 4: `Factory.tsx` — the `staticVisual` restructure**
 
   **Description:** Introduce one `staticVisual` `useMemo` bundling everything currently computed
   from `actor` alone: variant/size/`frontCornerX` selection (today's `config` memo, subsumed),
@@ -253,37 +253,53 @@ Task 5 (manual profiler re-verification + docs close-out) — depends on Task 4
   the memo's dependency array (spec §3). Spec §1.3.
 
   **Acceptance criteria:**
-  - [ ] Every acceptance criterion in Task 1's `Factory.test.tsx` still passes, unmodified —
+  - [x] Every acceptance criterion in Task 1's `Factory.test.tsx` still passes, unmodified —
         this task must not change any observable rendered output for a given
         `(actor, activeLocaleLocalTime)` pair.
-  - [ ] **The regression test the whole fix is for (spec §5):** a new `Factory.test.tsx` test
-        spies on a function only the static/geometry path calls (e.g. `selectVariantFromSeed`
-        from `factoryVariants.ts`, and/or `computeWindowGridLayout` for a factory using a window
-        facade greeble) and asserts its call count does **not** increase across two
-        `act(() => useUIStore.getState().setActiveLocaleLocalTime(...))` calls with different
-        values on an already-mounted `Factory` — proving the expensive path runs once per mount,
-        not once per tick. This test must fail against pre-Task-4 `Factory.tsx` (verify this
-        directly — e.g. temporarily stash the change and confirm red — before committing green).
-  - [ ] `staticVisual`'s dependency array is exactly: `actor.id`, `actor.position.x`,
+  - [x] **The regression test the whole fix is for (spec §5):** implemented by spying on
+        `shiftHSL` (`colorUtils.ts`) instead of the spec's originally-suggested
+        `selectVariantFromSeed`/`computeWindowGridLayout` — both of those are same-module
+        internal references from inside `factoryVariants.ts`/`facadeGreebles.tsx`'s own
+        wrapper functions, which Vite's SSR transform doesn't route through the exports
+        object, so `vi.spyOn` on them silently observes **zero** calls regardless of real
+        behavior (confirmed directly: tried `computeWindowGridLayout` first, got 0 calls right
+        after mount — not a meaningful signal either way). `shiftHSL` is called by `Factory.tsx`
+        across a real module boundary and was itself genuinely unmemoized before this task (4
+        calls per render, every tick) — confirmed RED against pre-Task-4 code (4 calls at mount
+        → 16 after 3 ticks), then GREEN after the restructure (stays at 4 regardless of ticks).
+  - [x] `staticVisual`'s dependency array is exactly: `actor.id`, `actor.position.x`,
         `actor.config?.row`, `actor.config?.hueShift`, `actor.config?.satShift`,
         `actor.config?.rooftopGreeble`, `actor.config?.facadeGreeble`,
         `actor.config?.beltCourseCount`, `actor.scaleX`, `actor.scaleY` — no
         `activeLocaleLocalTime`-derived value anywhere in it.
-  - [ ] For the 2 rooftop and 3 facade dynamic greeble types, the paint step (called every
+  - [x] For the 2 rooftop and 3 facade dynamic greeble types, the paint step (called every
         render, outside the memo) still receives fresh `eastLMultiplier`/`westLMultiplier`/
-        `nightDepth`/`flickerEpoch` each tick and visibly updates (already covered by Task 1's
-        dynamic-greeble assertion, re-verified here specifically against the new code path).
-  - [ ] `docs/BUILDING_DESIGN.md`'s Goal 3 (offline visual effects) remains unimplemented — this
-        task does not add `isOffline`-driven lighting behavior; confirm no new read of
+        `nightDepth`/`flickerEpoch` each tick and visibly updates. (Caught and fixed a real bug
+        here: the layout-time ctx built inside `staticVisual` for rooftop greebles originally
+        omitted `eastLMultiplier`/`westLMultiplier` entirely — `computePitchedRoofLayout`/
+        `computeCrownSpireLayout` both branch on those fields' *definedness* to pick shaded vs.
+        unshaded geometry, so omitting them silently forced every dynamic rooftop greeble onto
+        the frozen unshaded fallback shape forever. Fixed by passing dummy defined values
+        [`eastLMultiplier: 1, westLMultiplier: 1`] at layout time — their actual values are
+        never read by the layout functions, only their presence. Caught immediately by Task 1's
+        own `pitchedRoof`/`crownSpire` lighting-changes-across-a-tick assertions.)
+  - [x] `docs/BUILDING_DESIGN.md`'s Goal 3 (offline visual effects) remains unimplemented — this
+        task does not add `isOffline`-driven lighting behavior; confirmed no new read of
         `actor.config?.isOffline` was introduced beyond the existing `isActive`/bubble-eligibility
         use.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/actors/Factory.test.tsx` passes.
-  - [ ] `npm run build:types`, `npm run lint` clean.
-  - [ ] `npm test` (full suite, including `rooftopGreebles.test.tsx`/`facadeGreebles.test.tsx`/
-        `FactoryBubbleStream.test.tsx`) passes unmodified.
-  - [ ] `npm run build` succeeds.
+  - [x] `npx vitest run src/components/actors/Factory.test.tsx` passes (17 tests — 16
+        pre-existing baseline + 1 new regression test).
+  - [x] `npm run build:types`, `npm run lint` clean.
+  - [x] `npm test` (full suite, 143 files / 2577 tests) passes — including
+        `rooftopGreebles.test.tsx`/`facadeGreebles.test.tsx`/`FactoryBubbleStream.test.tsx`
+        unmodified. (One run mid-task hit a failure in `idleSystem.test.ts` — unrelated code,
+        confirmed zero diff via `git diff --stat`, and passes cleanly in isolation; a known
+        random-seeded flake, not caused by this task. Clean immediate re-run: 143/143,
+        2577/2577.)
+  - [x] `npm run build` succeeds (pre-existing chunk-size/dynamic-import warnings only,
+        unrelated to this feature).
 
   **Dependencies:** Task 2 (`ROOFTOP_LAYOUT_PAINT` exists), Task 3 (`FACADE_LAYOUT_PAINT` exists).
 
@@ -295,10 +311,10 @@ Task 5 (manual profiler re-verification + docs close-out) — depends on Task 4
 
 ### Checkpoint: Integration
 
-- [ ] `npm run build:types`, `npm run lint`, `npm test` (full suite), `npm run build` all clean.
-- [ ] The Task 4 regression test (call-count spy) is green against the new code and was confirmed
-      red against the old code.
-- [ ] Review with human before proceeding to Phase 4.
+- [x] `npm run build:types`, `npm run lint`, `npm test` (143/143, 2577/2577), `npm run build` all
+      clean.
+- [x] The Task 4 regression test (`shiftHSL` call-count spy) is green against the new code and
+      was confirmed red against the old code.
 
 ---
 

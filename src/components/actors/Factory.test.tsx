@@ -13,6 +13,7 @@ vi.mock('./BubbleStream', () => ({
 import { Factory } from './Factory';
 import { selectVariantFromSeed } from './factoryVariants';
 import type { FactoryVariant } from './factoryVariants';
+import * as colorUtils from '../../utils/colorUtils';
 import { useAttenuationStyleStore } from '../../stores/attenuationStyleStore';
 import { useLocaleStore } from '../../stores/localeStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -275,5 +276,40 @@ describe('Factory — regression guard (documents pre-fix behavior; tightened by
     // 4 distinct local times around the sine-based lighting curve should produce at least 2
     // distinct body-fill pairs — proves the render is actually live, not stuck on a cached value.
     expect(seen.size).toBeGreaterThan(1);
+  });
+});
+
+describe('Factory — Task 4: staticVisual isolates geometry from the lighting tick', () => {
+  // The regression test the whole fix (docs/specs/FACTORY_LIGHTING_RERENDER.md) is for.
+  // Must fail against pre-Task-4 Factory.tsx (confirmed directly before implementing) and
+  // pass once staticVisual exists.
+  //
+  // Spies on `shiftHSL` (colorUtils.ts) rather than a same-module greeble function: Factory.tsx
+  // imports shiftHSL across a real module boundary, so vi.spyOn's replacement is actually what
+  // Factory.tsx calls. A function greebles/*.tsx calls internally (e.g.
+  // computeWindowGridLayout, called by renderWindowGrid in the *same* file) is a same-module
+  // reference that Vite's SSR transform doesn't route through the exports object — spying on
+  // it from outside silently observes zero calls regardless of the real behavior (confirmed
+  // directly: an earlier version of this test spying on computeWindowGridLayout that way
+  // reported 0 calls even right after mount, before any tick — not a meaningful RED).
+  //
+  // shiftHSL itself is a real, currently-unmemoized piece of the bug: Factory.tsx calls it 4x
+  // (body/accent/greeble/illuminated) directly in the render body today, on every tick, even
+  // though its inputs (the variant's base colors + the actor's fixed hueShift/satShift) never
+  // change after spawn. Task 4 moves it inside staticVisual.
+  it('does not recompute shiftHSL on every activeLocaleLocalTime tick — only on mount', () => {
+    const shiftSpy = vi.spyOn(colorUtils, 'shiftHSL');
+    const actor = makeActor({}, idsByVariant.Stacks);
+    setLocalTime(12);
+    render(<Factory actor={actor} />);
+    const callsAfterMount = shiftSpy.mock.calls.length;
+    expect(callsAfterMount).toBeGreaterThan(0);
+
+    setLocalTime(0);
+    setLocalTime(18);
+    setLocalTime(6);
+
+    expect(shiftSpy.mock.calls.length).toBe(callsAfterMount);
+    shiftSpy.mockRestore();
   });
 });
