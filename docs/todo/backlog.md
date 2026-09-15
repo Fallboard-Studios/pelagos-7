@@ -504,3 +504,36 @@ string/number, and an end-to-end `Factory` test confirming body fill is unchange
 realistic one-real-second tick delta even at dawn — the steepest part of the sine curve, the
 worst case for this fix to hold. Full suite: 143 files / 2584 tests, `build:types`, `lint`,
 and production build all clean.
+
+### 25. Once/Sec Lighting Tick Updates Every Subscriber in One Synchronized Commit
+
+**Status:** ☑ fixed — same session as items 21/23/24 (2026-09-15).
+
+Found via a question Crawford asked live-verifying item 24's fix (React DevTools Profiler,
+Ranked view, 2026-09-15): every `FactoryInner`/`RobotBody` instance subscribed to
+`activeLocaleLocalTime` still visibly fires "in lockstep" every tick — all ~36+ of them in one
+React commit. Confirmed this is real, measurable cost, not just a visual artifact: a direct
+timed probe (rendering ~36 `Factory` instances sharing one `activeLocaleLocalTime` update,
+post item 24's rounding fix) measured **~43ms for a single shared tick in jsdom** — real
+browser cost would be higher. This is expected React behavior, not a bug — every subscriber
+to the same store value re-renders in the same batched commit by design, which is exactly
+what prevents visual tearing (half the buildings lit, half still dark, in the same frame). But
+"correct" and "cheap" are different things: with nothing left inside that commit that's
+*wasted* work (items 21/23/24), the remaining cost is just the sheer number of subscribers
+updating together, all at once, blocking the main thread for one synchronous stretch.
+
+**Fix:** wrapped `AttenuationStyleView.tsx`'s tick — both `setActiveLocaleLocalTime` and
+`setActiveLocaleTemperature` — in `React.startTransition`. Doesn't reduce the total work;
+marks it low-priority so React can interrupt it for anything more urgent, or spread it across
+multiple frames via React 18+'s concurrent scheduler, instead of blocking synchronously.
+Doesn't affect the underlying store values (`useUIStore.getState()...` still updates
+synchronously as always, unrelated to React's fiber scheduling) — confirmed via all 5
+pre-existing `AttenuationStyleView.test.tsx` tests passing unmodified (they read store state
+directly, not rendered DOM). React scheduling priority isn't directly observable in a
+synchronous jsdom test (Testing Library's `act()` flushes transitions before returning either
+way), so the new test is a source-scan regression guard confirming both store updates stay
+inside the `startTransition` call, matching this file's own existing pattern for its
+setInterval-count guard. Full suite: 143 files / 2585 tests, `build:types`, `lint`, and
+production build all clean. Live re-verification (does the commit visibly spread across
+multiple frames now, and does it feel less spiky) still deferred to Crawford's next live
+Profiler check, same as items 21/23/24's own remaining live-verification steps.
