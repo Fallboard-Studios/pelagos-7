@@ -1,13 +1,13 @@
 // ========================================
 // IMPORTS
 // ========================================
-import { useRef, useLayoutEffect } from 'react';
+import { memo, useRef, useLayoutEffect } from 'react';
 import gsap from 'gsap';
 
-import type { Robot as RobotType } from '../../types/Robot';
 import { RobotBody } from './RobotBody';
 import { setRef, deleteRef } from '../../utils/refs';
 import { useUIStore } from '../../stores/uiStore';
+import { useLocaleStore } from '../../stores/localeStore';
 import { useAttenuationStyleStore, selectCurrentAttenuationStyle } from '../../stores/attenuationStyleStore';
 import { handleRobotIdle } from '../../systems/idleSystem';
 
@@ -15,7 +15,7 @@ import { handleRobotIdle } from '../../systems/idleSystem';
 // TYPES
 // ========================================
 interface RobotProps {
-  robot: RobotType;
+  robotId: string;
 }
 
 // ========================================
@@ -29,8 +29,19 @@ interface RobotProps {
  * GSAP is the single source of truth for all transforms (position, scaleX,
  * rotation) on this element. React re-renders must never overwrite GSAP's
  * SVG transform attribute, otherwise scaleX resets cause instant flips.
+ *
+ * Takes `robotId`, not the whole `Robot` object (docs/todo/backlog.md #27 follow-up, 2026-09-15)
+ * — looks its own robot up directly via `useLocaleStore` (`.find()` returns the existing array
+ * element, same reference across renders unless THIS robot specifically changed), the same fix
+ * already applied to RobotSelectionCard. Before this, OceanScene handed every `<Robot>` its
+ * `Robot` object directly from a `.map()` over the whole locale's `robots` array; `updateRobot`
+ * (localeStore.ts) hands back a new top-level `robots` array reference on *every* write to *any*
+ * robot in the locale (battery ticks, audio swells, field edits), so OceanScene's own re-render —
+ * and by extension every `<Robot>` beneath it, none of which were memoized — fired constantly,
+ * even though robot movement itself is fully GSAP/ref-driven and invisible to React (see the
+ * mount-only effect below) and so was never actually the source of that churn.
  */
-export function Robot({ robot }: RobotProps) {
+export const Robot = memo(function Robot({ robotId }: RobotProps) {
   const ref = useRef<SVGGElement>(null);
   const selectedRobotId = useUIStore((s) => s.selectedRobotId);
   const selectRobot = useUIStore((s) => s.selectRobot);
@@ -39,20 +50,23 @@ export function Robot({ robot }: RobotProps) {
   const selectedCompanyId = useUIStore((s) => s.selectedCompanyId);
   const allRobotsSelected = useUIStore((s) => s.allRobotsSelected);
   const localeId = useAttenuationStyleStore((s) => selectCurrentAttenuationStyle(s)?.currentLocaleId ?? '');
-  const isSelected = selectedRobotId === robot.id;
+  const robot = useLocaleStore((s) => s.locales[localeId]?.robots?.find((r) => r.id === robotId));
+  const isSelected = selectedRobotId === robotId;
   // Roadmap Phase 10 — independent of isSelected; reuses the same .robot.selected glow (see
   // OceanScene.css) rather than a second visual language for "highlighted." allRobotsSelected
   // (the button row's "All" option) applies this to every robot unconditionally, including a
   // Freelance robot with no companyId — mutually exclusive with selectedCompanyId at the
   // uiStore level, so only one of the two conditions is ever actually true.
-  const isCompanyMember = allRobotsSelected || (selectedCompanyId !== null && robot.companyId === selectedCompanyId);
+  const isCompanyMember = allRobotsSelected || (selectedCompanyId !== null && robot?.companyId === selectedCompanyId);
 
   // useLayoutEffect fires before paint, preventing a single frame at (0,0).
-  // Intentionally run this effect only on mount so GSAP owns transforms
-
+  // Intentionally run this effect only on mount so GSAP owns transforms.
+  // Depends on `robotId` (the prop, always defined), not `robot.id` — `robot` itself can be
+  // transiently undefined (see the defensive `if (!robot)` below), and hooks must run
+  // unconditionally regardless.
   useLayoutEffect(() => {
-    if (ref.current) {
-      setRef(`robot-${robot.id}`, ref.current);
+    if (ref.current && robot) {
+      setRef(`robot-${robotId}`, ref.current);
       gsap.set(ref.current, {
         x: robot.position.x,
         y: robot.position.y,
@@ -63,11 +77,15 @@ export function Robot({ robot }: RobotProps) {
       // spot (see spawnSystem.ts's generateSpawnPosition), so its first
       // on-screen destination stays in the bottom half, same as a dock-cycle
       // return (robotSystems.ts's landOnActive).
-      handleRobotIdle(localeId, robot.id, { isReturning: true });
+      handleRobotIdle(localeId, robotId, { isReturning: true });
     }
-    return () => deleteRef(`robot-${robot.id}`);
+    return () => deleteRef(`robot-${robotId}`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [robot.id]);
+  }, [robotId]);
+
+  // Defensive only — OceanScene only ever renders a robotId that exists in the locale's roster
+  // (fixed at 12, created once at locale load, never removed).
+  if (!robot) return null;
 
   // Roadmap Phase 8: clicking a robot in the world view also opens the Robots hub tile, but only
   // from the main hub grid (activeHubTile === null) — once any tile is already open, the user is
@@ -94,4 +112,4 @@ export function Robot({ robot }: RobotProps) {
       <RobotBody robot={robot} />
     </g>
   );
-}
+});
