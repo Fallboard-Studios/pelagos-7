@@ -1,5 +1,17 @@
+/* Roadmap: Robot Selection Filter Panel Polish §1.3 — sticky and content-height on every tier
+   (replaces mobile/tablet's old top:0/bottom:0 full-height overlay and desktop's old
+   position:static), stacked in .robots-tab__body's own grid cell (1, 1) — see RobotsTab.css.
+   align-self: start keeps this a content-height box rather than stretching to the grid row's
+   height (the row's own height is driven by .robots-tab__list, its grid sibling). top: 8px
+   matches .robot-filter-panel__toggle's own existing sticky offset below, positioning both just
+   under .console-panel__content's own reserved space for the sticky transport header above it. */
 .robot-filter-panel {
   overflow-y: auto;
+  grid-column: 1;
+  grid-row: 1;
+  align-self: start;
+  position: sticky;
+  top: 8px;
 }
 
 /* Mobile + tablet: off-canvas overlay. transform is owned by the GSAP timeline at runtime
@@ -7,10 +19,7 @@
    any JS has run — the same "CSS owns the closed-state baseline, GSAP owns the transition" split
    AccordionContainer.css documents for its own height/opacity. */
 .robot-filter-panel:not([data-tier='desktop']) {
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
+  left: 8px;
   width: min(85vw, 320px);
   transform: translateX(-100%);
   z-index: var(--z-overlay);
@@ -18,11 +27,10 @@
   padding: 12px;
 }
 
-/* Desktop: plain sidebar, in flow, never transformed. */
+/* Desktop: real sidebar column (RobotsTab.css widens .robots-tab__body's grid to fit it), never
+   transformed. */
 .robot-filter-panel[data-tier='desktop'] {
-  position: static;
   width: 260px;
-  flex-shrink: 0;
 }
 
 .robot-filter-panel__toggle {

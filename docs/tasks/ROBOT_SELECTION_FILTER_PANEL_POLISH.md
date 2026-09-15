@@ -140,7 +140,7 @@ Task 4 (spawn-time color collision fix)           — independent, parallelizabl
 
 ### Phase 2: Layout
 
-- [ ] **Task 3: Sticky, content-height panel — all tiers**
+- [x] **Task 3: Sticky, content-height panel — all tiers**
 
   **Description:** Rewrite `.robots-tab__body` from a flex row to a CSS Grid (`.robots-tab__list`/
   `.robots-tab__empty` and `.robot-filter-panel` stack in the same cell by default; a `:has(> .robot-filter-panel
@@ -153,26 +153,35 @@ Task 4 (spawn-time color collision fix)           — independent, parallelizabl
 
   **Acceptance criteria:**
   - [ ] At every tier, the panel's rendered height matches its own content (`CompanyManager`'s button row + CRUD
-        controls) — never stretched to the robot list's height or the screen's full height.
+        controls) — never stretched to the robot list's height or the screen's full height. *(CSS-only claim —
+        jsdom does not compute Grid/sticky layout, so this cannot be unit-tested; `align-self: start` +
+        `position: sticky` is the mechanism, left for the manual check below.)*
   - [ ] At desktop tier: the panel stays on screen (sticky) while `.robots-tab__list` scrolls past it inside
         `.console-panel__content`; the list still never overlaps the panel at a narrow desktop width with many
         robot cards (carrying forward the original spec's own constraint, now enforced via the grid's
-        `260px 1fr` column split instead of flex `min-width: 0`).
+        `260px 1fr` column split instead of flex `min-width: 0`). *(Same jsdom limitation — left for manual
+        check.)*
   - [ ] At mobile/tablet tier: the open panel stays on screen (sticky) while the list scrolls past it, still
         overlaid above the list (`z-index`), still costing the list zero layout width whether open or closed.
-  - [ ] `.robots-tab__body`'s grid-column split is driven entirely by `RobotFilterPanel`'s existing `data-tier`
-        attribute via `:has()` — no new prop threaded through `RobotsTab.tsx`, no `RobotsTab.tsx` diff at all.
-  - [ ] Every existing `RobotsTab.test.tsx` test (card listing/order, filtering, company-options-section
+        *(Same jsdom limitation — left for manual check.)*
+  - [x] `.robots-tab__body`'s grid-column split is driven entirely by `RobotFilterPanel`'s existing `data-tier`
+        attribute via `:has()` — no new prop threaded through `RobotsTab.tsx`; confirmed zero diff to that file.
+  - [x] Every existing `RobotsTab.test.tsx` test (card listing/order, filtering, company-options-section
         position) still passes unmodified — this task changes CSS/layout mechanism only, not DOM structure or
-        document order.
+        document order. No new unit tests written for this task: it's a pure CSS layout-mechanism change with no
+        jsdom-observable behavior (no logic changed, nothing to assert against in a DOM/RTL test) — verified via
+        the existing suite as a before/after regression check instead of new RED/GREEN tests.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/panels/screen/console/RobotsTab.test.tsx src/components/panels/screen/console/RobotFilterPanel.test.tsx`
-        passes.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/components/panels/screen/console/RobotsTab.test.tsx src/components/panels/screen/console/RobotFilterPanel.test.tsx`
+        passes (40 tests) — run both before and after the CSS change as a regression check (no new tests
+        possible for this task, see above).
+  - [x] `npm run build:types`, `npm run lint` clean.
+  - [x] `npm test` (full suite, 144 files / 2689 tests), `npm run build` both clean.
   - [ ] Manual check (`npm run dev`, real browser): resize through mobile/tablet/desktop widths; confirm sticky
         behavior and content-height sizing at each; confirm no desktop overlap at a narrow desktop width with a
-        full 12-robot roster.
+        full 12-robot roster. *(Not run this session — no live browser available. Genuinely open, not assumed —
+        this is the one place this task's actual visual behavior gets proven.)*
 
   **Dependencies:** Task 2 (shares `RobotFilterPanel.css`; sequenced so the close button's minimal CSS lands
   before this task's structural rewrite touches the same file).
