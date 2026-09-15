@@ -388,7 +388,7 @@ exports, though they compose `CabinetBox`/`DualLabel` internally, already memoiz
   `npx vitest run` passes (14 + 28 = 42 tests, 3 + 4 = 7 new). `npm run build:types`, `npm run
   lint` clean.
 
-- [ ] **Task 11: `DirectionalPanel.tsx`** — solo task (the spec's own §1.3 flags it individually
+- [x] **Task 11: `DirectionalPanel.tsx`** — solo task (the spec's own §1.3 flags it individually
   for its conditional-benefit case; confirmed via direct read of the file: every real call site
   in this codebase constructs its `children` inline — e.g. `AudioRigDrawer.tsx`'s own
   `<DirectionalPanel schema={...}>{...inline JSX...}</DirectionalPanel>` — so `React.memo` here
@@ -402,6 +402,11 @@ exports, though they compose `CabinetBox`/`DualLabel` internally, already memoiz
   deep-equal `children` still re-executes) alongside one proving a **stable** `children` reference
   (e.g. hoisted to a variable outside the render) DOES bail — documents the real, conditional
   nature of this primitive's benefit rather than silently asserting a guarantee that doesn't hold.
+  - [x] Marker: `useResponsivePanelOrientation`, called unconditionally. Confirmed red first (2
+        failures: `$$typeof` and the stable-children flat-count test).
+
+  **Verification:** `npx vitest run src/components/ui/controls/DirectionalPanel.test.tsx` passes
+  (25 tests, 4 new). `npm run build:types`, `npm run lint` clean.
 
   **Files:** `DirectionalPanel.tsx`, `DirectionalPanel.test.tsx`
 
@@ -409,12 +414,15 @@ exports, though they compose `CabinetBox`/`DualLabel` internally, already memoiz
 
 ### Checkpoint: Primitive Library Complete
 
-- [ ] `npm run build:types`, `npm run lint`, `npm test` (full suite) clean.
-- [ ] All 16 files (`CabinetBox`, `VoxelTrack`, + the 14 documented primitives) are
+- [x] `npm run build:types`, `npm run lint`, `npm test` (full suite, 144 files / 2640 tests) clean.
+      `npm run build` also confirmed clean.
+- [x] All 16 files (`CabinetBox`, `VoxelTrack`, + the 14 documented primitives) are
       `React.memo`-wrapped, confirmed via `grep -rL "React.memo\|= memo(" src/components/ui/controls
-      --include="*.tsx" | grep -v test` returning zero non-test files (mirrors the spec's own
-      original confirmation grep, inverted).
-- [ ] The primitive-library half of the fix is complete and safe regardless of any caller's own
+      --include="*.tsx" | grep -v test` — returned only `LfoTargetGroup.tsx`/`PanelGroup.tsx`, both
+      explicitly out of this spec's scope (not among the 16 target files — `PanelGroup` is a plain
+      flex wrapper per `AudioRigDrawer.tsx`'s own comment, `LfoTargetGroup` a different, hook-based
+      component).
+- [x] The primitive-library half of the fix is complete and safe regardless of any caller's own
       readiness (§1.4) — every existing drawer (`RobotOptionsTab`, `SectorSettingsDrawer`, etc.)
       still passes its own unmodified tests, importing these now-memoized components.
 - [ ] Review with human before Task 12 — the one task that actually changes `AudioRigDrawer.tsx`'s

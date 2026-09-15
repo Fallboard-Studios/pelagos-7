@@ -1,4 +1,4 @@
-import { createContext, useContext, useRef, type ReactNode } from 'react';
+import { createContext, memo, useContext, useRef, type ReactNode } from 'react';
 
 import { CabinetBox } from './CabinetBox';
 import { DualLabel } from './DualLabel';
@@ -59,7 +59,7 @@ const DirectionalPanelNestingContext = createContext(false);
  * derivation, including why this needed one small additive change to
  * CabinetBox itself (autoHeight, §1.1).
  */
-export function DirectionalPanel({ schema, children }: DirectionalPanelProps) {
+function DirectionalPanelInner({ schema, children }: DirectionalPanelProps) {
   const ref = useRef<HTMLDivElement>(null);
   const autoInput = schema.orientation === 'responsive' ? 'row' : (schema.orientation ?? 'row');
   const autoResolved = useAutoPanelOrientation(ref, autoInput);
@@ -95,3 +95,12 @@ export function DirectionalPanel({ schema, children }: DirectionalPanelProps) {
     </DirectionalPanelNestingContext.Provider>
   );
 }
+
+// React.memo (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 11) — takes caller-supplied
+// `children`; every real call site in this codebase constructs it inline (e.g.
+// AudioRigDrawer.tsx's own <DirectionalPanel schema={...}>{...inline JSX...}</DirectionalPanel>),
+// so this memo is correct to add (never harmful) but does not itself produce a measurable win
+// until/unless a caller's own children construction becomes referentially stable — the
+// conditional-benefit case spec §1.3 describes, same shape Toggle/AccordionContainer's own
+// facade `children` already document.
+export const DirectionalPanel = memo(DirectionalPanelInner);
