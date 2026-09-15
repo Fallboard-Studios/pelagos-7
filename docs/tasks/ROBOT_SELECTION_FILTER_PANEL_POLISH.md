@@ -251,18 +251,25 @@ Task 4 (spawn-time color collision fix)           — independent, parallelizabl
 
 ### Checkpoint: Complete
 
-- [ ] `npm run build:types`, `npm run lint`, `npm test` (full suite), `npm run build` all clean.
-- [ ] All acceptance criteria across all 4 tasks are met.
-- [ ] Manual check (not automated), `npm run dev`:
+- [x] `npm run build:types`, `npm run lint` clean. `npm test` (full suite): 144 files / 2694 tests passing.
+      `npm run build` succeeds (pre-existing chunk-size warning only, unrelated). Re-verified after Task 4;
+      the one flaky random-seeded test seen mid-session (`factoryPlacementSystem.test.ts`, unrelated to any file
+      touched here) reran clean in isolation and did not recur.
+- [x] All acceptance criteria across all 4 tasks are met, except the manual-verification items below (genuinely
+      open, not assumed).
+- [ ] Manual check (not automated), `npm run dev`: *(Not run this session — no live browser/DevTools MCP
+      available in this environment. Every item below is genuinely open.)*
   - [ ] Mobile/tablet: "Show Filters" slides the panel fully into view; "Hide Filters" and re-tapping "Show
         Filters" both close it; panel is content-height and stays on screen (sticky) while the list scrolls.
   - [ ] Desktop: panel stays on screen while the list scrolls past it; still never overlaps the list at a narrow
         desktop width with a full roster.
   - [ ] `prefers-reduced-motion` (OS or devtools emulation) still makes the panel snap instead of sliding.
   - [ ] Reseeding a planet a few times never produces two same-colored company buttons in one locale.
-- [ ] `docs/specs/COMPANY_SECTION_ENHANCEMENTS.md` §7 item 2 updated to reflect the reversed decision (per spec
-      §6 and this plan's Risks table) — a documentation follow-up, not gating this checklist's completion.
-- [ ] Ready for human review / commit.
+- [x] `docs/specs/COMPANY_SECTION_ENHANCEMENTS.md` §7 item 2 (and its §3 constraint line) updated to reflect the
+      reversed decision, committed alongside Task 4 (0ccb190).
+- [ ] Ready for human review / commit. *(Each task committed individually as it landed on
+      `feature/company-fixes-part-2` — docs f3e2cee, Task 1 27a0025, Task 2 c949050, Task 3 b90738d, Task 4
+      0ccb190. Human review of the branch as a whole, and the manual browser checks above, are the open items.)*
 
 ## Risks and Mitigations
 
