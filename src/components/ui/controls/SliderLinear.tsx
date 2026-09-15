@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import * as Slider from '@radix-ui/react-slider';
 
 import { DualLabel } from './DualLabel';
@@ -53,7 +53,13 @@ export function SliderLinear({ schema, value, onChange, disabled, verticalHeight
   const orientation = useAutoSliderOrientation(wrapperRef, schema.orientation);
   const isVertical = orientation === 'vertical';
   const { boxSize, gap, boxCount, rootStyle } = useVoxelTrackSlider(wrapperRef, orientation, verticalHeight);
-  const states = computeVoxelBoxStates(value, schema.min, schema.max, boxCount);
+  // Memoized so VoxelTrack's own React.memo (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 5)
+  // can bail on an unchanged states reference — computeVoxelBoxStates is a pure function that
+  // otherwise returns a fresh array every render.
+  const states = useMemo(
+    () => computeVoxelBoxStates(value, schema.min, schema.max, boxCount),
+    [value, schema.min, schema.max, boxCount],
+  );
 
   const valueLabel = (
     <span className="sc-slider-linear__value">{formatDisplayValue(value)}{schema.unit}</span>
