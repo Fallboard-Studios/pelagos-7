@@ -359,7 +359,7 @@ exports, though they compose `CabinetBox`/`DualLabel` internally, already memoiz
   **Verification:** `npx vitest run` passes (11 + 12 = 23 tests, 3 + 3 = 6 new). `npm run
   build:types`, `npm run lint` clean.
 
-- [ ] **Task 9: `CoordsInput.tsx` + `RadioButton.tsx`** — same shape. `RadioButton` renders one
+- [x] **Task 9: `CoordsInput.tsx` + `RadioButton.tsx`** — same shape. `RadioButton` renders one
   `CabinetBox` per option (spec §1.3) — its own memo benefit still depends on `CabinetBox` (Task
   4) and on `RadioButton` itself not rebuilding fresh `children` per option on every render, which
   this task's own memoization doesn't change (each option's `children` is still built fresh
@@ -368,6 +368,12 @@ exports, though they compose `CabinetBox`/`DualLabel` internally, already memoiz
   per-option construction when it does run.
 
   **Files:** `CoordsInput.tsx`/`.test.tsx`, `RadioButton.tsx`/`.test.tsx`
+
+  **Acceptance criteria:** `$$typeof`/render-count pair for both, marker `resolveAccessibleName`
+  for both — `CoordsInput` composes 2 `TextInput`s the same "bailed subtree root stops everything
+  beneath it" way `StepperWithToggle`/Task 8 does; `RadioButton` calls it directly. Confirmed red
+  first (4 failures). `npx vitest run` passes (15 + 30 = 45 tests, 3 + 3 = 6 new). `npm run
+  build:types`, `npm run lint` clean.
 
 - [ ] **Task 10: `Lfo.tsx` + `AccordionContainer.tsx`** — same shape. `AccordionContainer` takes
   caller-supplied `children` (like `Toggle`) — same conditional-benefit note as Task 7.

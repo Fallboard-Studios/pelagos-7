@@ -1,5 +1,5 @@
 import * as ToggleGroup from '@radix-ui/react-toggle-group';
-import { useId, useState, type CSSProperties } from 'react';
+import { memo, useId, useState, type CSSProperties } from 'react';
 
 import { CabinetBox } from './CabinetBox';
 import { DualLabel } from './DualLabel';
@@ -102,7 +102,7 @@ interface RadioButtonProps {
  *  [data-state='on'] front-face tint both already read those properties ambiently. An option
  *  that omits `color` renders with no inline style at all, identical to every consumer that
  *  predates this (Audio Setting, Decay Mode, per-layer Type, Header's nav group, …). */
-export function RadioButton({ schema, value, onChange, disabled, onDeselect, boxSize }: RadioButtonProps) {
+function RadioButtonInner({ schema, value, onChange, disabled, onDeselect, boxSize }: RadioButtonProps) {
   // Reuses the same breakpoint-tier gap VoxelTrack (11.1.3) uses between its
   // own boxes — not renamed to something RadioButton-neutral; see
   // docs/specs/OBLIQUE_CABINETRY_RADIO_BUTTON.md §1.5 for why.
@@ -159,3 +159,9 @@ export function RadioButton({ schema, value, onChange, disabled, onDeselect, box
     </div>
   );
 }
+
+// React.memo (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 9) — every prop is a primitive,
+// a callback, or a stable schema object (schema.options included — a static config array, per
+// every real consumer). `onDeselect` is optional and, when a caller passes it inline, defeats
+// this memo the same way any unstabilized callback does elsewhere (docs/COMPONENT_LIBRARY.md).
+export const RadioButton = memo(RadioButtonInner);

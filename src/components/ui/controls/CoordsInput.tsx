@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import { DualLabel } from './DualLabel';
 import { TextInput } from './TextInput';
 import type { CoordsInputSchema, TextInputSchema } from '@/types/controls';
@@ -20,7 +22,7 @@ interface CoordsInputProps {
  * rounded to the nearest integer before onChange fires. A non-numeric entry
  * does not call onChange.
  */
-export function CoordsInput({ schema, value, onChange }: CoordsInputProps) {
+function CoordsInputInner({ schema, value, onChange }: CoordsInputProps) {
   const xSchema: TextInputSchema = { id: `${schema.id}.x`, type: 'textInput', humanLabel: 'X' };
   const ySchema: TextInputSchema = { id: `${schema.id}.y`, type: 'textInput', humanLabel: 'Y' };
 
@@ -53,3 +55,8 @@ export function CoordsInput({ schema, value, onChange }: CoordsInputProps) {
     </div>
   );
 }
+
+// React.memo (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 9) — every prop is a primitive,
+// a stable schema object, or the CoordsValue object (compared shallowly — a caller replacing it
+// wholesale on any real change is the expected usage).
+export const CoordsInput = memo(CoordsInputInner);

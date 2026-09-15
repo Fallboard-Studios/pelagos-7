@@ -1,7 +1,22 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
+// Spied (real cross-module call, wrapped so it still delegates to the actual
+// implementation) so a render-count test (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md
+// Task 9) can tell whether CoordsInput's render body actually re-executed.
+// CoordsInput has no hook/utility call of its own, but it unconditionally
+// composes two TextInputs (each calling resolveAccessibleName internally) —
+// if CoordsInput bails via memo, its body never constructs either child
+// element, so neither of their own calls fire either — same "bailed subtree
+// root stops everything beneath it" reasoning as StepperWithToggle.test.tsx's
+// own Task 8 test.
+vi.mock('./accessibleName', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./accessibleName')>();
+  return { ...actual, resolveAccessibleName: vi.fn(actual.resolveAccessibleName) };
+});
+
 import { CoordsInput } from './CoordsInput';
+import { resolveAccessibleName } from './accessibleName';
 import type { CoordsInputSchema } from '@/types/controls';
 
 const schema: CoordsInputSchema = { id: 'sectorCoords', type: 'coordsInput', humanLabel: 'Sector Coordinates' };
@@ -95,5 +110,33 @@ describe('CoordsInput', () => {
   it('renders two independent CabinetBox facades, one per field — not one shared facade', () => {
     const { container } = render(<CoordsInput schema={schema} value={{ x: 0, y: 0 }} onChange={() => {}} />);
     expect(container.querySelectorAll('.sc-text-input-facade')).toHaveLength(2);
+  });
+
+  describe('React.memo (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 9)', () => {
+    it('is a React.memo-wrapped component', () => {
+      expect((CoordsInput as unknown as { $$typeof: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
+    });
+
+    it('does not re-execute its render body (or its composed TextInputs) on a re-render with identical props', () => {
+      const onChange = () => {};
+      const value = { x: 0, y: 0 };
+      const { rerender } = render(<CoordsInput schema={schema} value={value} onChange={onChange} />);
+      const callsAfterMount = (resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      rerender(<CoordsInput schema={schema} value={value} onChange={onChange} />);
+      rerender(<CoordsInput schema={schema} value={value} onChange={onChange} />);
+
+      expect((resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length).toBe(callsAfterMount);
+    });
+
+    it('does re-execute its render body when a real prop changes (value)', () => {
+      const onChange = () => {};
+      const { rerender } = render(<CoordsInput schema={schema} value={{ x: 0, y: 0 }} onChange={onChange} />);
+      const callsAfterMount = (resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      rerender(<CoordsInput schema={schema} value={{ x: 5, y: 0 }} onChange={onChange} />);
+
+      expect((resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(callsAfterMount);
+    });
   });
 });
