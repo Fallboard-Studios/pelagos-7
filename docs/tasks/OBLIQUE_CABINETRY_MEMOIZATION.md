@@ -554,7 +554,8 @@ exports, though they compose `CabinetBox`/`DualLabel` internally, already memoiz
 
 ### Phase 5: Verification & Close-out
 
-- [ ] **Task 13: Manual profiler re-verification + documentation close-out**
+- [x] **Task 13: Manual profiler re-verification + documentation close-out** (doc-only items
+  done; live-profiler items genuinely deferred — see below)
 
   **Description:** No further production code changes. Closes the loop the same way items 21/23-
   25 did: the bug was found live via React DevTools Profiler; the fix should be confirmed the same
@@ -568,16 +569,22 @@ exports, though they compose `CabinetBox`/`DualLabel` internally, already memoiz
   - [ ] Deferred alongside the above: spot-check that dragging a slider, toggling the Decay Mode
         radio, and switching an LFO target all still work exactly as before — a pure perf
         refactor, zero behavioral change expected.
-  - [ ] `docs/COMPONENT_LIBRARY.md` update (spec §6): a short note that all 14 primitives (+
-        `DualLabel`, + `VoxelTrack`) are `React.memo`-wrapped, and that consumers should pass a
-        stable `onChange` (`useCallback`, or a memoized per-field map as `AudioRigDrawer.tsx` now
-        does) to actually benefit — an implicit performance contract, not a type-level one.
-  - [ ] `docs/todo/backlog.md` item 26: status line added noting the code fix landed, linking this
-        task file and the spec — **not** marked fixed until the live profiler check above actually
-        runs, matching this backlog's own "found → fixed → live-verified" pattern.
+  - [x] `docs/COMPONENT_LIBRARY.md` update (spec §6): added a new "`React.memo` boundary" section
+        (before the Primitives table) — all 16 files (14 primitives + `DualLabel` + `VoxelTrack`,
+        `CabinetBox` too) are `React.memo`-wrapped; consumers must pass a stable `onChange`
+        (`useCallback`, or a memoized per-field map as `AudioRigDrawer.tsx` now does) to actually
+        benefit; `AccordionContainer`/`DirectionalPanel`/`Toggle`'s own conditional-benefit
+        `children` case documented explicitly, not silently asserted as a guarantee; names the
+        other drawers still needing the same follow-up treatment.
+  - [x] `docs/todo/backlog.md` item 26: status line added noting the code fix landed, linking this
+        task file and the spec, and documenting the Tasks 1-3 correction — **not** marked fixed
+        until the live profiler check above actually runs, matching this backlog's own
+        "found → fixed → live-verified" pattern (confirmed against item 21's own exact phrasing
+        before writing this, since a first draft of this line mistakenly used the ☑ checkmark
+        item 21 only earns once live-verified).
 
   **Verification:**
-  - [ ] `npm run lint`, `npm run build:types` re-run clean after the doc edits.
+  - [x] `npm run lint`, `npm run build:types` re-run clean after the doc edits.
 
   **Dependencies:** Task 12.
 
@@ -588,13 +595,15 @@ exports, though they compose `CabinetBox`/`DualLabel` internally, already memoiz
 
 ### Checkpoint: Complete
 
-- [ ] Tasks 1-12's acceptance criteria met; Task 13's doc-only items done, live-profiler items
+- [x] Tasks 1-12's acceptance criteria met; Task 13's doc-only items done, live-profiler items
       deferred.
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [x] `npm run build:types`, `npm run lint`, `npm test` (144 files / 2652 tests), `npm run build`
+      all clean.
 - [ ] Live profiler check recorded and confirms only the swelling field re-renders — open, needs a
       live browser (Crawford, or a future session with one).
 - [ ] `docs/todo/backlog.md` item 26 marked fixed — blocked on the live profiler check.
-- [ ] Ready for human review / PR.
+- [x] Ready for human review / PR — code and docs are ready; the live-verification step above is
+      the one remaining gate before calling this fully closed, same posture as item 21's plan.
 
 ## Risks and Mitigations
 

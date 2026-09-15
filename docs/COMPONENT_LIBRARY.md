@@ -39,6 +39,38 @@ Because `loreLabel`/`humanLabel` are both optional (`ControlSchemaBase`, exporte
 .sc-accordion.isActive { }
 ```
 
+## `React.memo` boundary (Roadmap Phase 11.1's own follow-up, `docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md`)
+
+All 16 files under `src/components/ui/controls/` that render Oblique Cabinetry facades — the 14
+primitives below, plus `DualLabel` and `VoxelTrack` (the shared `CabinetBox` row renderer
+`SliderLinear`/`SliderLog`/`SliderCenteredZero` all build on) — are `React.memo`-wrapped, following
+the `XxxInner`/`export const Xxx = React.memo(XxxInner)` split `Factory.tsx`/`BubbleStream.tsx`
+already use elsewhere in this codebase. `CabinetBox` itself is memoized too.
+
+**This is an implicit performance contract, not a type-level one.** A caller that keeps
+constructing an `onChange`/`onClick`/other callback prop as a fresh inline arrow function on every
+render gets zero benefit from the memoized primitive underneath it — not a bug, just an unrealized
+opportunity. `AudioRigDrawer.tsx` is the confirmed reference implementation: its own
+`AudioRigEffectPanel` builds a `fieldOnChange` map (one stable, `useMemo`-cached, pre-bound
+`onChange` per param field, keyed by field name) instead of constructing a fresh arrow per field
+per render — see that file's own comments, or `docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md` Task
+12 for the full derivation. Every other drawer composing these primitives (`RobotOptionsTab`,
+`SectorSettingsDrawer`, `PingControlsDrawer`, `PingContourDrawer`, `SignatureArrayDrawer`,
+`AudioSettingSection`, `CompanyManager`/`CompanyButtonRow`, `Header.tsx`'s nav `RadioButton`) likely
+carries the identical unstabilized-inline-closure pattern `AudioRigDrawer.tsx` had — each needs the
+same treatment in its own follow-up pass before it benefits from this memo boundary.
+
+Two components' own memo benefit is conditional on the caller for a second reason, independent of
+callback stability: `AccordionContainer`/`DirectionalPanel`/`Toggle` (when given facade `children`)
+take caller-supplied `children`. A caller constructing that `children` inline — the overwhelmingly
+common case today, e.g. every real `<DirectionalPanel schema={...}>{...}</DirectionalPanel>` call
+site — hands down a fresh element reference every render regardless of memoization here, since a
+JSX element is always a new object. Still correct to memoize (never harmful, and a real win for the
+cases where a caller's own children construction happens to be referentially stable), but not a
+guaranteed win the way the fully self-contained leaf primitives (`Button`, `Toggle` without
+`children`, `TextInput`, `Stepper`, `StepperWithToggle`, `CoordsInput`, `RadioButton`,
+`SliderLinear`, `SliderLog`, `SliderCenteredZero`, `Lfo`) are.
+
 ## Primitives
 
 All 14 live in `src/components/ui/controls/`. Naming: PascalCase files, CSS class prefix `sc-` (schema control) to avoid collisions with the existing `rat-`/`rocker-` prefixes.

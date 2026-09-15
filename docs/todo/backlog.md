@@ -540,8 +540,18 @@ Profiler check, same as items 21/23/24's own remaining live-verification steps.
 
 ### 26. Oblique Cabinetry Primitives: No Memo Boundary Anywhere — Whole Panels Re-render Together
 
-**Status:** spec written (2026-09-15), not yet implemented. Spec at
-[docs/specs/OBLIQUE_CABINETRY_MEMOIZATION.md](../specs/OBLIQUE_CABINETRY_MEMOIZATION.md).
+**Status:** code fix landed on `refactor/factory-timing` (2026-09-15, Tasks 1-12 of
+[docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md](../tasks/OBLIQUE_CABINETRY_MEMOIZATION.md) — full
+spec at [docs/specs/OBLIQUE_CABINETRY_MEMOIZATION.md](../specs/OBLIQUE_CABINETRY_MEMOIZATION.md)).
+**Not yet marked fixed** — needs a live browser with React DevTools Profiler (Crawford, or a
+future session with one) to confirm, same as items 21/23-25's own deferred manual checks. An automated end-to-end
+regression test (`AudioRigDrawer.test.tsx`'s "re-render cascade regression" describe block)
+confirms the originally-reported mechanism is fixed: a `setGlobalAudio` update to one field no
+longer re-executes a sibling field's own control. Implementation also found and fixed a real gap
+in Tasks 1-3 as originally landed — `SliderLinear`/`SliderLog`/`SliderCenteredZero` had only
+gained the internal `states` `useMemo`, never the `React.memo` wrap the spec's own file list also
+called for — caught only once Task 12's deeper end-to-end test exercised it; see that task's own
+entry in the tasks file for the full story.
 
 Found live-verifying item 25 (Crawford, React DevTools Profiler, 2026-09-15): during an
 automatic Audio Swell, the entire affected `AudioRigEffectPanel` re-renders together — every
