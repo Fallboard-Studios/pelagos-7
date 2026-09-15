@@ -3,6 +3,37 @@ import { render, screen, fireEvent, act, cleanup } from '@testing-library/react'
 
 vi.mock('@/animation/timelineMap', () => ({ setTimeline: vi.fn(), killTimeline: vi.fn() }));
 
+// Local gsap mock, overriding vitest.setup.ts's global noop for this file — same precedent
+// CabinetBox.test.tsx already establishes: the global mock's own top-level `set` is a plain
+// no-op (not a vi.fn()), so it can't be asserted against directly. Mirrors the global mock's full
+// shape (this tree also renders Button -> CabinetBox, which calls gsap.timeline().fromTo() on its
+// own mount) so every other component's own gsap usage keeps working unmodified — only the
+// top-level `set` is swapped for a spy.
+const gsapSetMock = vi.fn();
+vi.mock('gsap', () => {
+  const noop = () => {
+    const obj = {
+      set: () => obj,
+      to: () => obj,
+      fromTo: () => obj,
+      call: () => obj,
+      eventCallback: () => obj,
+      kill: () => {},
+    };
+    return obj;
+  };
+  return {
+    default: {
+      timeline: () => noop(),
+      set: (...args: unknown[]) => gsapSetMock(...args),
+      to: () => {},
+      fromTo: () => {},
+      delayedCall: () => ({ kill: () => {} }),
+      utils: { selector: () => () => [] },
+    },
+  };
+});
+
 // Lightweight stand-in for CompanyManager (the real thing renders a whole RadioButton row plus
 // TextInputs — irrelevant to this panel's own responsive-shell logic; same "mock a real, heavy
 // child" precedent AccordionContainer.test.tsx uses for CabinetBox).
@@ -59,6 +90,39 @@ describe('RobotFilterPanel', () => {
     it("carries data-tier='desktop' on its own root", () => {
       const { container } = render(<RobotFilterPanel />);
       expect(container.querySelector('.robot-filter-panel')?.getAttribute('data-tier')).toBe('desktop');
+    });
+
+    it('does not sync gsap transform state on mount — desktop never transforms', () => {
+      render(<RobotFilterPanel />);
+      expect(gsapSetMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('slide-in bug fix — mount-time gsap transform sync (§1.1)', () => {
+    it('syncs gsap\'s own xPercent state to the CSS closed-state baseline on mount, at mobile tier', () => {
+      stubMatchMedia({ mobile: true, tablet: true });
+      const { container } = render(<RobotFilterPanel />);
+      const panel = container.querySelector('.robot-filter-panel');
+      expect(gsapSetMock).toHaveBeenCalledWith(panel, { xPercent: -100 });
+    });
+
+    it('syncs gsap\'s own xPercent state to the CSS closed-state baseline on mount, at tablet tier', () => {
+      stubMatchMedia({ mobile: false, tablet: true });
+      const { container } = render(<RobotFilterPanel />);
+      const panel = container.querySelector('.robot-filter-panel');
+      expect(gsapSetMock).toHaveBeenCalledWith(panel, { xPercent: -100 });
+    });
+
+    it('syncs exactly once on mount, not on every render', () => {
+      stubMatchMedia({ mobile: true, tablet: true });
+      const { rerender } = render(<RobotFilterPanel />);
+      rerender(<RobotFilterPanel />);
+      // Filtered to xPercent calls specifically — gsapSetMock also observes Button's own
+      // CabinetBox skew-sync gsap.set() calls (a real, unrelated, mount-only gsap.set() consumer
+      // rendered in this same tree), which would otherwise make a raw call-count assertion here
+      // brittle against changes to CabinetBox's own gsap usage.
+      const xPercentCalls = gsapSetMock.mock.calls.filter(([, vars]) => vars && 'xPercent' in (vars as object));
+      expect(xPercentCalls).toHaveLength(1);
     });
   });
 
@@ -144,6 +208,53 @@ describe('RobotFilterPanel', () => {
       const { container } = render(<RobotFilterPanel />);
       // Never opened.
       act(() => { useUIStore.getState().selectCompany('c1'); });
+      expect(container.querySelector('.robot-filter-panel')?.classList.contains('isActive')).toBe(false);
+    });
+  });
+
+  describe('close button + Show/Hide Filters labels (§1.2)', () => {
+    it('renders "Show Filters" as the toggle\'s accessible name, before opening, at mobile/tablet tier', () => {
+      stubMatchMedia({ mobile: true, tablet: true });
+      render(<RobotFilterPanel />);
+      expect(screen.getByRole('button', { name: /^show filters$/i })).toBeTruthy();
+      expect(screen.queryByRole('button', { name: /^hide filters$/i })).toBeNull();
+    });
+
+    it('renders no "Hide Filters" close button at desktop tier, even conceptually "open"', () => {
+      render(<RobotFilterPanel />); // desktop by default (beforeEach)
+      expect(screen.queryByRole('button', { name: /^hide filters$/i })).toBeNull();
+      expect(screen.queryByRole('button', { name: /^show filters$/i })).toBeNull();
+    });
+
+    it('renders a "Hide Filters" close button, before CompanyManager in document order, once opened', () => {
+      stubMatchMedia({ mobile: true, tablet: true });
+      const { container } = render(<RobotFilterPanel />);
+      fireEvent.click(screen.getByRole('button', { name: /^show filters$/i }));
+
+      const close = screen.getByRole('button', { name: /^hide filters$/i });
+      expect(close).toBeTruthy();
+      const panel = container.querySelector('.robot-filter-panel');
+      const companyManager = screen.getByTestId('company-manager-mock');
+      // Node.compareDocumentPosition: DOCUMENT_POSITION_FOLLOWING (4) means `companyManager`
+      // comes after `close` in document order.
+      expect(panel?.contains(close)).toBe(true);
+      expect(close.compareDocumentPosition(companyManager) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it('the "Show Filters" toggle stays mounted and present while the panel is open', () => {
+      stubMatchMedia({ mobile: true, tablet: true });
+      render(<RobotFilterPanel />);
+      fireEvent.click(screen.getByRole('button', { name: /^show filters$/i }));
+      expect(screen.getByRole('button', { name: /^show filters$/i })).toBeTruthy();
+    });
+
+    it('clicking "Hide Filters" closes the panel, same as clicking the toggle again', () => {
+      stubMatchMedia({ mobile: true, tablet: true });
+      const { container } = render(<RobotFilterPanel />);
+      fireEvent.click(screen.getByRole('button', { name: /^show filters$/i })); // open
+      expect(container.querySelector('.robot-filter-panel')?.classList.contains('isActive')).toBe(true);
+
+      fireEvent.click(screen.getByRole('button', { name: /^hide filters$/i }));
       expect(container.querySelector('.robot-filter-panel')?.classList.contains('isActive')).toBe(false);
     });
   });

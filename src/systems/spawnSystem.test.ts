@@ -6,7 +6,7 @@ import alea from 'alea';
 import { createNoise2D, type NoiseFunction2D } from 'simplex-noise';
 import type { Robot } from '../types/Robot';
 
-import { generateSpawnPosition, generateAudioAttributes, generateRobotLfoSettings, spawnRobot, spawnInitialRoster, spawnInitialCompanies, generateCompanyName, ADJECTIVES, COMPANY_NOUNS } from './spawnSystem';
+import { generateSpawnPosition, generateAudioAttributes, generateRobotLfoSettings, spawnRobot, spawnInitialRoster, spawnInitialCompanies, generateCompanyName, generateCompanyIdentityColor, ADJECTIVES, COMPANY_NOUNS } from './spawnSystem';
 import { useLocaleStore, DEFAULT_LOCALE } from '../stores/localeStore';
 import { DEFAULT_LOCALE_ID } from '../stores/attenuationStyleStore';
 import { AudioEngine } from '../engine/AudioEngine';
@@ -17,6 +17,7 @@ import {
   INITIAL_COMPANIES_MIN, INITIAL_COMPANIES_MAX, COMPANY_SIZE_MIN, COMPANY_SIZE_MAX,
 } from '../constants';
 import { ACCENT_COLORS, ROBOT_IDENTITY_COLOR_NAMES } from '../constants/accentColors';
+import { getSeededVal } from '../utils/getSeededVal';
 
 /** General-purpose mock: returns a pseudo-random value in [-1, 1]. */
 const mockNoiseMap: NoiseFunction2D = () => Math.random() * 2 - 1;
@@ -828,6 +829,64 @@ describe('spawnSystem', () => {
       const companiesRun2 = store2.useLocaleStore.getState().getLocaleById(attenuationStyle2.DEFAULT_LOCALE_ID)?.companies ?? [];
 
       expect(companiesRun2).toEqual(companiesRun1);
+    });
+
+    // Roadmap: Robot Selection Filter Panel Polish §1.4 — reverses the "accepted, low-risk"
+    // decision docs/specs/COMPANY_SECTION_ENHANCEMENTS.md §7 item 2 previously made: two companies
+    // spawned in the same locale must never share a color, closing the same gap
+    // pickRandomCompanyColor (CompanyCrudControls.tsx, manual creation) already closed.
+    it('never assigns two companies in the same locale the same color, across a sample of locales', () => {
+      for (let i = 0; i < 15; i++) {
+        const localeId = `color-collision-sample-${i}`;
+        useLocaleStore.setState((state) => ({
+          locales: { ...state.locales, [localeId]: { ...DEFAULT_LOCALE, id: localeId, coordinates: { x: i * 11 + 3, y: i * 5 + 2 }, robots: [], companies: [] } },
+        }));
+        spawnInitialRoster(localeId);
+        spawnInitialCompanies(localeId);
+        const companies = useLocaleStore.getState().getLocaleById(localeId)?.companies ?? [];
+        const colors = companies.map((c) => c.color);
+        expect(new Set(colors).size).toBe(colors.length);
+      }
+    });
+  });
+
+  describe('generateCompanyIdentityColor', () => {
+    const noiseMap = createNoise2D(alea('color-collision-fix-test-seed'));
+
+    it('matches a plain getSeededVal draw when usedColors is empty — unchanged for a non-colliding seed', () => {
+      const expected = ACCENT_COLORS[
+        ROBOT_IDENTITY_COLOR_NAMES[
+          Math.min(
+            ROBOT_IDENTITY_COLOR_NAMES.length - 1,
+            Math.floor(getSeededVal(noiseMap, 'company.identityColor', 0, 0, ROBOT_IDENTITY_COLOR_NAMES.length)),
+          )
+        ]
+      ];
+      expect(generateCompanyIdentityColor(noiseMap, 0, [])).toBe(expected);
+    });
+
+    it('is deterministic — identical arguments (including usedColors) produce identical output', () => {
+      const first = generateCompanyIdentityColor(noiseMap, 2, [ACCENT_COLORS.red]);
+      const second = generateCompanyIdentityColor(noiseMap, 2, [ACCENT_COLORS.red]);
+      expect(second).toBe(first);
+    });
+
+    it('retries to a different color when the attempt-0 draw is already in usedColors', () => {
+      const attempt0Color = generateCompanyIdentityColor(noiseMap, 0, []);
+      const retried = generateCompanyIdentityColor(noiseMap, 0, [attempt0Color]);
+      expect(retried).not.toBe(attempt0Color);
+      expect(ROBOT_IDENTITY_COLOR_NAMES.map((name) => ACCENT_COLORS[name])).toContain(retried);
+    });
+
+    // Bounded retries (18 attempts, matching pickRandomCompanyColor's own bound), not an
+    // exhaustive search — same non-guarantee pickRandomCompanyColor already has (a probabilistic
+    // draw can revisit an already-tried color within its own attempt budget). Never triggered in
+    // practice (INITIAL_COMPANIES_MAX is 3, far under the 18-color palette); this only proves the
+    // loop terminates and still returns a valid palette color rather than throwing or hanging.
+    it('terminates and returns a valid palette color even when the bound is exhausted (all colors excluded)', () => {
+      const everyColor = ROBOT_IDENTITY_COLOR_NAMES.map((name) => ACCENT_COLORS[name]);
+      const result = generateCompanyIdentityColor(noiseMap, 0, everyColor);
+      expect(everyColor).toContain(result);
     });
   });
 });
