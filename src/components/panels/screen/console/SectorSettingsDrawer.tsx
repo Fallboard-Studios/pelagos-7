@@ -36,10 +36,18 @@ function presetSchema(idSuffix: string, humanLabel: string): ButtonSchema {
 export function SectorSettingsDrawer() {
   const currentAttenuationStyle = useAttenuationStyleStore(selectCurrentAttenuationStyle);
   const currentLocaleId = currentAttenuationStyle?.currentLocaleId;
-  const currentLocale = useLocaleStore((s) => (currentLocaleId ? s.locales[currentLocaleId] : undefined));
+  // .coordinates specifically, not the whole locale object (bugfix, found live — same class as
+  // isRobotAudible.ts's own fix): coordinates is the only field this component ever reads off the
+  // locale, but selecting the whole object meant a fresh reference — and a re-render here — on
+  // every unrelated robot write anywhere in the locale (audioSwells.ts's 16n ticks included),
+  // since updateRobot (localeStore.ts) rebuilds the locale object every time it changes `robots`.
+  // .coordinates itself keeps its own reference across those writes (updateRobot only ever spreads
+  // it through, untouched), so narrowing to it directly lets this component skip re-rendering for
+  // all of that ambient churn and re-render only when coordinates actually change.
+  const coordinates = useLocaleStore((s) => (currentLocaleId ? s.locales[currentLocaleId]?.coordinates : undefined));
 
   const [attenuationStyleNameDraft, setAttenuationStyleNameDraft] = useState(currentAttenuationStyle?.name ?? '');
-  const [coordsDraft, setCoordsDraft] = useState(currentLocale?.coordinates ?? { x: 0, y: 0 });
+  const [coordsDraft, setCoordsDraft] = useState(coordinates ?? { x: 0, y: 0 });
 
   // Reset the drafts when the store's "current" values actually change (e.g.
   // right after a retransmit resolves) — done during render, comparing
@@ -52,10 +60,10 @@ export function SectorSettingsDrawer() {
     setAttenuationStyleNameDraft(currentAttenuationStyle?.name ?? '');
   }
 
-  const [lastSeenCoords, setLastSeenCoords] = useState(currentLocale?.coordinates);
-  if (currentLocale && currentLocale.coordinates !== lastSeenCoords) {
-    setLastSeenCoords(currentLocale.coordinates);
-    setCoordsDraft(currentLocale.coordinates);
+  const [lastSeenCoords, setLastSeenCoords] = useState(coordinates);
+  if (coordinates && coordinates !== lastSeenCoords) {
+    setLastSeenCoords(coordinates);
+    setCoordsDraft(coordinates);
   }
 
   function handleRetransmit() {
@@ -63,7 +71,7 @@ export function SectorSettingsDrawer() {
     if (attenuationStyleNameDraft !== (currentAttenuationStyle?.name ?? '')) {
       input.attenuationStyleName = attenuationStyleNameDraft;
     }
-    if (currentLocale && (coordsDraft.x !== currentLocale.coordinates.x || coordsDraft.y !== currentLocale.coordinates.y)) {
+    if (coordinates && (coordsDraft.x !== coordinates.x || coordsDraft.y !== coordinates.y)) {
       input.coordinates = coordsDraft;
     }
     retransmitWorld(input);
@@ -74,7 +82,7 @@ export function SectorSettingsDrawer() {
       <div className="sector-settings-drawer__status">
         <DualLabel loreLabel={STATUS_HEADER_SCHEMA.loreLabel} humanLabel={STATUS_HEADER_SCHEMA.humanLabel} />
         <div className="sector-settings-drawer__status-line">
-          {currentAttenuationStyle?.name ?? '—'} · ({currentLocale?.coordinates.x ?? '—'}, {currentLocale?.coordinates.y ?? '—'})
+          {currentAttenuationStyle?.name ?? '—'} · ({coordinates?.x ?? '—'}, {coordinates?.y ?? '—'})
         </div>
       </div>
 

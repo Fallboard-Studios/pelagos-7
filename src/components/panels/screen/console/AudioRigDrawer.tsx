@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useAudioStore } from '@/stores/audioStore';
 import { AccordionContainer } from '@/components/ui/controls/AccordionContainer';
 import { DirectionalPanel } from '@/components/ui/controls/DirectionalPanel';
@@ -26,7 +27,7 @@ import {
 } from '@/data/audioRigConfig';
 import { getTraitColorStyle } from '@/utils/traitColors';
 import type { Trait } from '@/types/traits';
-import type { LfoValue, PanelOrientation } from '@/types/controls';
+import type { PanelOrientation } from '@/types/controls';
 import type { GlobalAudioSettings } from '@/types/globalAudio';
 import type { GlobalLfoTargetId } from '@/types/lfo';
 import './AudioRigDrawer.css';
@@ -68,7 +69,7 @@ function renderParamControl(param: AudioRigParamSchema, value: number, onChange:
 }
 
 /** Wraps one param's control in the shared `.audio-rig-drawer__param-row` div — the plain,
- *  non-LFO rendering shape every block's params without an lfoTarget use (see renderBlock()). */
+ *  non-LFO rendering shape every block's params without an lfoTarget use (see AudioRigEffectPanel). */
 function paramRow(param: AudioRigParamSchema, effect: Record<string, number>, updateParam: (field: string, value: number) => void) {
   return (
     <div className="audio-rig-drawer__param-row" key={param.field}>
@@ -77,7 +78,7 @@ function paramRow(param: AudioRigParamSchema, effect: Record<string, number>, up
   );
 }
 
-/** Looks up one param by its field name — used by renderBlock()'s hand-composed delay/reverb
+/** Looks up one param by its field name — used by AudioRigEffectPanel's hand-composed delay/reverb
  *  layouts below to pull a specific control out of block.params by name, rather than mapping the
  *  array in bulk. Non-null assertion is safe: both call sites name fields that AUDIO_RIG_CONFIG's
  *  own delay/reverb blocks are guaranteed to carry (audioRigConfig.test.ts guards the field list). */
@@ -86,7 +87,7 @@ function findParam(params: AudioRigParamSchema[], field: string): AudioRigParamS
 }
 
 /** AudioRigParamSchema narrowed to the lfoTarget-bearing case — AudioRigLfoGroupProps.params
- *  (below) is typed to exactly this, not the general AudioRigParamSchema, since renderBlock's
+ *  (below) is typed to exactly this, not the general AudioRigParamSchema, since AudioRigEffectPanel's
  *  own lfoFields filter (below) already guarantees every entry has one. Carrying that guarantee
  *  in the type itself removes the `.lfoTarget!` non-null assertions AudioRigLfoGroup would
  *  otherwise need internally — code review, 2026-09-12. */
@@ -103,8 +104,6 @@ interface AudioRigLfoGroupProps {
   params: LfoTargetedParamSchema[];
   effect: Record<string, number>;
   updateParam: (field: string, value: number) => void;
-  globalLfo: Record<GlobalLfoTargetId, LfoValue>;
-  setGlobalLfo: (target: GlobalLfoTargetId, value: LfoValue) => void;
   /** eq3/filterLPF/filterHPF's own Rate/Depth Drift sliders, rendered directly beneath the
    *  shared display — the only groups with a per-group drift control today. */
   driftContent?: ReactNode;
@@ -130,8 +129,16 @@ interface AudioRigLfoGroupProps {
  * component's own wrapper renders as one flex item inside block.panel's content regardless of
  * block.panel's own orientation, which is why that orientation no longer needs to change.
  */
-function AudioRigLfoGroup({ groupId, params, effect, updateParam, globalLfo, setGlobalLfo, driftContent }: AudioRigLfoGroupProps) {
-  const fields = params.map((p) => ({ field: p.field, label: p.schema.humanLabel ?? p.field, lfoValue: globalLfo[p.lfoTarget] }));
+function AudioRigLfoGroup({ groupId, params, effect, updateParam, driftContent }: AudioRigLfoGroupProps) {
+  // Only this group's own lfoTarget values, not the whole globalLfo object (bugfix, found via
+  // a manual re-render sweep, backlog item 18 — same class as AudioRigEffectPanel's own fix
+  // below): useShallow bails the re-render when none of THESE targets' values actually
+  // changed, instead of re-rendering on every globalLfo write anywhere, every other
+  // LFO-bearing block's own targets included.
+  const lfoTargets = params.map((p) => p.lfoTarget);
+  const lfoValues = useAudioStore(useShallow((s) => lfoTargets.map((t) => s.globalLfo[t])));
+  const setGlobalLfo = useAudioStore((s) => s.setGlobalLfo);
+  const fields = params.map((p, i) => ({ field: p.field, label: p.schema.humanLabel ?? p.field, lfoValue: lfoValues[i] }));
   const { selected, transitioning, select, isTargeted, displayValue, displayLabel } = useLfoTargetGroup({ groupId, fields });
   // Non-null assertion is safe: `selected` only ever holds one of `fields`' own field names
   // (useLfoTargetGroup's own contract — it starts at fields[0].field and only ever moves to
@@ -193,7 +200,7 @@ function AudioRigLfoGroup({ groupId, params, effect, updateParam, globalLfo, set
  * Structure: Transport & Composition (Speed & Automation panel — Tempo +
  * Automatic Effects) as its own top-level accordion, then
  * AUDIO_RIG_ACCORDION_GROUPS' 3 accordions (EQ & Filters, Time & Space,
- * Output), each wrapping its blockKeys' blocks via the shared renderBlock()
+ * Output), each wrapping its blockKeys' blocks via the shared AudioRigEffectPanel component
  * helper — its wrapper changed from its own AccordionContainer to a
  * DirectionalPanel nested inside its group's shared accordion. Delay and
  * Reverb no longer hand-compose a paired topRow (docs/specs/
@@ -213,7 +220,7 @@ function AudioRigLfoGroup({ groupId, params, effect, updateParam, globalLfo, set
  * and Limiter never share a row, but still get a real gap between them.
  * Each group's PanelGroup is a plain flex wrapper, not a DirectionalPanel —
  * it claims no Cabinetry facade of its own, so every block's own
- * DirectionalPanel (block.panel) inside renderBlock() stays top-level and
+ * DirectionalPanel (block.panel) inside AudioRigEffectPanel stays top-level and
  * keeps its own independent facade: a real visible box per block, with a
  * real gap between boxes, not one shared surface with extra internal
  * padding (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md's "Separate facades"
@@ -225,12 +232,6 @@ function AudioRigLfoGroup({ groupId, params, effect, updateParam, globalLfo, set
  * edits (globalAudio.lfoDrift.robots) is still global, not per-robot.
  */
 export function AudioRigDrawer() {
-  const globalAudio = useAudioStore((s) => s.globalAudio);
-  const globalLfo = useAudioStore((s) => s.globalLfo);
-  const setGlobalAudio = useAudioStore((s) => s.setGlobalAudio);
-  const setGlobalLfo = useAudioStore((s) => s.setGlobalLfo);
-  const setCompressorBeforeDelay = useAudioStore((s) => s.setCompressorBeforeDelay);
-  const setGlobalLfoDrift = useAudioStore((s) => s.setGlobalLfoDrift);
   const pingVarianceAutomation = useAudioStore((s) => s.pingVarianceAutomation);
   const setPingVarianceAutomation = useAudioStore((s) => s.setPingVarianceAutomation);
   const bpm = useAudioStore((s) => s.bpm);
@@ -268,107 +269,129 @@ export function AudioRigDrawer() {
             // straight 40/30/30 desktop split was tried and reverted; equal shares are exactly
             // what the shared equal-share contract already gives every other row for free).
             <PanelGroup orientation="responsive">
-              {(['eq3', 'filterLPF', 'filterHPF'] as const).map((key) => renderBlock(key))}
+              {(['eq3', 'filterLPF', 'filterHPF'] as const).map((key) => <AudioRigEffectPanel key={key} effectKey={key} />)}
             </PanelGroup>
           ) : group.key === 'timeSpace' ? (
             <PanelGroup orientation="responsive">
-              {group.blockKeys.map((key) => renderBlock(key))}
+              {group.blockKeys.map((key) => <AudioRigEffectPanel key={key} effectKey={key} />)}
             </PanelGroup>
           ) : (
             // 'output' — Compressor beside Limiter, fixed column (never shares a row, at any
             // breakpoint), wrapped so the two blocks get a real gap between them instead of
             // sitting flush with no spacing relationship at all.
             <PanelGroup orientation="column">
-              {group.blockKeys.map((key) => renderBlock(key))}
+              {group.blockKeys.map((key) => <AudioRigEffectPanel key={key} effectKey={key} />)}
             </PanelGroup>
           )}
         </AccordionContainer>
       ))}
     </div>
   );
+}
 
-  /** Every effect block's own body (AudioRigLfoGroup-or-plain-params-map, plus the
-   *  compressor-only Decay Mode radio) — shared by every AUDIO_RIG_ACCORDION_GROUPS entry's
-   *  flat stack and EQ & Filters' own flattened row/column layout above. */
-  function renderBlock(key: AudioRigEffectKey) {
-    const block = AUDIO_RIG_CONFIG.find((b) => b.key === key)!;
-    // Every param field on every effect is a number (GLOBAL_CHAIN_GRID.md has
-    // no string/boolean params) — this cast is read-only and narrow, matching
-    // audioStore.ts's own GLOBAL_SETTER cast for the same "dynamic key against
-    // a closed-but-varying settings shape" situation.
-    const effect = globalAudio[block.key] as unknown as Record<string, number>;
-    // Type predicate, not a plain truthy filter — proves lfoTarget is present to the type
-    // system itself, so AudioRigLfoGroup's own params: LfoTargetedParamSchema[] needs no cast.
-    const lfoFields = block.params.filter((p): p is LfoTargetedParamSchema => p.lfoTarget !== undefined);
-    const driftGroup = LFO_DRIFT_GROUPS.find((g) => g.group === block.key); // undefined for non-LFO blocks
+interface AudioRigEffectPanelProps {
+  effectKey: AudioRigEffectKey;
+}
 
-    function updateParam(field: string, value: number) {
-      setGlobalAudio(block.key as AudioRigEffectKey, { [field]: value } as Partial<GlobalAudioSettings[AudioRigEffectKey]>);
-    }
+/**
+ * One effect block's own body (AudioRigLfoGroup-or-plain-params-map, plus the compressor-only
+ * Decay Mode radio) — shared by every AUDIO_RIG_ACCORDION_GROUPS entry's flat stack and EQ &
+ * Filters' own flattened row/column layout in AudioRigDrawer above.
+ *
+ * A real component (not a plain function called from AudioRigDrawer's own render, which is what
+ * this was before) so it can subscribe to only ITS OWN slice of globalAudio, via its own
+ * `effectKey`-scoped selector (bugfix, found via a manual re-render sweep, backlog item 18):
+ * audioSwells.ts's own 16n tick (~8-9x/sec) writes to exactly one effect key at a time via
+ * setGlobalAudio, and setGlobalAudio's own spread-one-key implementation (audioStore.ts)
+ * already preserves every sibling effect's own object reference untouched — so subscribing to
+ * the WHOLE globalAudio object (the old AudioRigDrawer-level select every panel used to share)
+ * re-rendered all 7 panels on every tick, live or idle, regardless of which single effect the
+ * active swell was actually targeting. Each panel now re-renders only when its own effect's
+ * settings actually change. compressorBeforeDelay/lfoDrift are selected the same way — read
+ * unconditionally every render (same call site regardless of effectKey, never skipped) so the
+ * hook call itself never branches, only the selector's own returned value does.
+ */
+function AudioRigEffectPanel({ effectKey }: AudioRigEffectPanelProps) {
+  const block = AUDIO_RIG_CONFIG.find((b) => b.key === effectKey)!;
+  // Every param field on every effect is a number (GLOBAL_CHAIN_GRID.md has
+  // no string/boolean params) — this cast is read-only and narrow, matching
+  // audioStore.ts's own GLOBAL_SETTER cast for the same "dynamic key against
+  // a closed-but-varying settings shape" situation.
+  const effect = useAudioStore((s) => s.globalAudio[effectKey]) as unknown as Record<string, number>;
+  const setGlobalAudio = useAudioStore((s) => s.setGlobalAudio);
+  // Type predicate, not a plain truthy filter — proves lfoTarget is present to the type
+  // system itself, so AudioRigLfoGroup's own params: LfoTargetedParamSchema[] needs no cast.
+  const lfoFields = block.params.filter((p): p is LfoTargetedParamSchema => p.lfoTarget !== undefined);
+  const driftGroup = LFO_DRIFT_GROUPS.find((g) => g.group === effectKey); // undefined for non-LFO blocks
+  const drift = useAudioStore((s) => (driftGroup ? s.globalAudio.lfoDrift[driftGroup.group] : undefined));
+  const setGlobalLfoDrift = useAudioStore((s) => s.setGlobalLfoDrift);
+  const compressorBeforeDelay = useAudioStore((s) => (effectKey === 'compressor' ? s.globalAudio.compressorBeforeDelay : undefined));
+  const setCompressorBeforeDelay = useAudioStore((s) => s.setCompressorBeforeDelay);
 
-    return (
-      <div className="audio-rig-drawer__effect-block" key={block.key}>
-        <DirectionalPanel schema={block.panel}>
-          {lfoFields.length > 0 ? (
-            <AudioRigLfoGroup
-              groupId={`audioRig.${block.key}`}
-              params={lfoFields}
-              effect={effect}
-              updateParam={updateParam}
-              globalLfo={globalLfo}
-              setGlobalLfo={setGlobalLfo}
-              driftContent={driftGroup && (
-                <>
-                  <div className="audio-rig-drawer__param-row">
-                    <SliderCenteredZero
-                      schema={driftGroup.rateSchema}
-                      value={globalAudio.lfoDrift[driftGroup.group].rateDrift * 100}
-                      onChange={(v) => setGlobalLfoDrift(driftGroup.group, { rateDrift: v / 100 })}
-                    />
-                  </div>
-                  <div className="audio-rig-drawer__param-row">
-                    <SliderCenteredZero
-                      schema={driftGroup.depthSchema}
-                      value={globalAudio.lfoDrift[driftGroup.group].depthDrift * 100}
-                      onChange={(v) => setGlobalLfoDrift(driftGroup.group, { depthDrift: v / 100 })}
-                    />
-                  </div>
-                </>
-              )}
-            />
-          ) : block.key === 'compressor' ? (
-            // Threshold+Ratio and Attack+Release are the only 2 "existing paired sub-rows" the
-            // intent doc names as staying paired on desktop — 'responsive' stacks them on
-            // mobile/tablet. Knee and the Decay Mode radio are NOT one of those named pairs, so
-            // they de-nest entirely (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.8), each its
-            // own direct param-row at every breakpoint — the same treatment Delay/Reverb's own
-            // params already get (Task 8). This also resolves a pre-existing duplicate id
-            // ('audioRig.compressor.bottomRow' used to be shared by 2 different panels).
-            <>
-              <DirectionalPanel schema={{ id: 'audioRig.compressor.topRow', type: 'directionalPanel', orientation: 'responsive' }}>
-                {paramRow(findParam(block.params, 'threshold'), effect, updateParam)}
-                {paramRow(findParam(block.params, 'ratio'), effect, updateParam)}
-              </DirectionalPanel>
-              <DirectionalPanel schema={{ id: 'audioRig.compressor.bottomRow', type: 'directionalPanel', orientation: 'responsive' }}>
-                {paramRow(findParam(block.params, 'attack'), effect, updateParam)}
-                {paramRow(findParam(block.params, 'release'), effect, updateParam)}
-              </DirectionalPanel>
-              {paramRow(findParam(block.params, 'knee'), effect, updateParam)}
-              <div className="audio-rig-drawer__param-row">
-                <RadioButton
-                  schema={DECAY_MODE_SCHEMA}
-                  value={globalAudio.compressorBeforeDelay ? 'controlled' : 'natural'}
-                  onChange={(v) => setCompressorBeforeDelay(v === 'controlled')}
-                />
-              </div>
-            </>
-          ) : (
-            block.params.map((param) => paramRow(param, effect, updateParam))
-          )}
-        </DirectionalPanel>
-      </div>
-    );
+  function updateParam(field: string, value: number) {
+    setGlobalAudio(effectKey, { [field]: value } as Partial<GlobalAudioSettings[AudioRigEffectKey]>);
   }
+
+  return (
+    <div className="audio-rig-drawer__effect-block" key={block.key}>
+      <DirectionalPanel schema={block.panel}>
+        {lfoFields.length > 0 ? (
+          <AudioRigLfoGroup
+            groupId={`audioRig.${block.key}`}
+            params={lfoFields}
+            effect={effect}
+            updateParam={updateParam}
+            driftContent={driftGroup && drift && (
+              <>
+                <div className="audio-rig-drawer__param-row">
+                  <SliderCenteredZero
+                    schema={driftGroup.rateSchema}
+                    value={drift.rateDrift * 100}
+                    onChange={(v) => setGlobalLfoDrift(driftGroup.group, { rateDrift: v / 100 })}
+                  />
+                </div>
+                <div className="audio-rig-drawer__param-row">
+                  <SliderCenteredZero
+                    schema={driftGroup.depthSchema}
+                    value={drift.depthDrift * 100}
+                    onChange={(v) => setGlobalLfoDrift(driftGroup.group, { depthDrift: v / 100 })}
+                  />
+                </div>
+              </>
+            )}
+          />
+        ) : block.key === 'compressor' ? (
+          // Threshold+Ratio and Attack+Release are the only 2 "existing paired sub-rows" the
+          // intent doc names as staying paired on desktop — 'responsive' stacks them on
+          // mobile/tablet. Knee and the Decay Mode radio are NOT one of those named pairs, so
+          // they de-nest entirely (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.8), each its
+          // own direct param-row at every breakpoint — the same treatment Delay/Reverb's own
+          // params already get (Task 8). This also resolves a pre-existing duplicate id
+          // ('audioRig.compressor.bottomRow' used to be shared by 2 different panels).
+          <>
+            <DirectionalPanel schema={{ id: 'audioRig.compressor.topRow', type: 'directionalPanel', orientation: 'responsive' }}>
+              {paramRow(findParam(block.params, 'threshold'), effect, updateParam)}
+              {paramRow(findParam(block.params, 'ratio'), effect, updateParam)}
+            </DirectionalPanel>
+            <DirectionalPanel schema={{ id: 'audioRig.compressor.bottomRow', type: 'directionalPanel', orientation: 'responsive' }}>
+              {paramRow(findParam(block.params, 'attack'), effect, updateParam)}
+              {paramRow(findParam(block.params, 'release'), effect, updateParam)}
+            </DirectionalPanel>
+            {paramRow(findParam(block.params, 'knee'), effect, updateParam)}
+            <div className="audio-rig-drawer__param-row">
+              <RadioButton
+                schema={DECAY_MODE_SCHEMA}
+                value={compressorBeforeDelay ? 'controlled' : 'natural'}
+                onChange={(v) => setCompressorBeforeDelay(v === 'controlled')}
+              />
+            </div>
+          </>
+        ) : (
+          block.params.map((param) => paramRow(param, effect, updateParam))
+        )}
+      </DirectionalPanel>
+    </div>
+  );
 }
 
 export default AudioRigDrawer;

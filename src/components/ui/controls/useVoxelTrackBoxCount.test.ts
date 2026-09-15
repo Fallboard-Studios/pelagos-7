@@ -197,6 +197,26 @@ describe('useVoxelTrackBoxCount', () => {
     expect(result.current).toBe(VOXEL_TRACK_MIN_BOX_COUNT);
   });
 
+  // Bugfix, found via a manual re-render-bug sweep (same class as CabinetBox.tsx's own fix,
+  // 528c77b/9fbcb7d): the measured width/height can jitter by a sub-pixel amount between
+  // consecutive observations (real browser sub-pixel layout rounding, not a real resize), which
+  // failed the prev === next bail-out below on every callback and re-ran every consumer for no
+  // visible reason. Rounding first makes two sub-pixel-different measurements of the same real
+  // size resolve to an identical integer, so the bail-out actually catches.
+  it('rounds the measured length so sub-pixel jitter across consecutive measurements is a no-op', () => {
+    const ref = makeRef(document.createElement('div'));
+    const { result } = renderHook(() => useVoxelTrackBoxCount(ref, 'horizontal', 40, 10));
+    const observer = MockResizeObserver.instances[0];
+
+    act(() => observer.fire(235.6, 0));
+    const countAfterFirstMeasurement = result.current;
+
+    // Sub-pixel-different measurement that rounds to the identical integer (236) — must be a
+    // genuine no-op.
+    act(() => observer.fire(236.4, 0));
+    expect(result.current).toBe(countAfterFirstMeasurement);
+  });
+
   it('disconnects the observer on unmount', () => {
     const ref = makeRef(document.createElement('div'));
     const { unmount } = renderHook(() => useVoxelTrackBoxCount(ref, 'horizontal', 40, 10));

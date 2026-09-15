@@ -1,7 +1,13 @@
+/* Fills its container's width by default (Crawford's own request, 2026-09-13) rather than
+   shrinking to the row's content — every consumer's options now wrap predictably against the
+   space actually available to them instead of against whatever width the group happens to
+   compute in a shrink-to-fit context, which matters most for company-assignment's own
+   user-generated, variable-length company names. */
 .sc-radio-button {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  width: 100%;
   font-family: var(--font-controls);
   font-weight: var(--font-weight-control);
   container-type: inline-size;
@@ -16,9 +22,13 @@
    "JS-owned value applied as inline style" pattern CabinetBox.tsx/Toggle.tsx
    already use for their own tokens. See
    docs/specs/OBLIQUE_CABINETRY_RADIO_BUTTON.md §1.5. */
+/* width: 100% alongside flex-wrap above — same reasoning as .sc-radio-button's own rule: the
+   row of option boxes wraps against the group's actual available width, not its own
+   shrink-to-fit content width. */
 .sc-radio-button__root {
   display: flex;
   flex-wrap: wrap;
+  width: 100%;
   gap: var(--cabinet-radio-gap, 8px);
 }
 

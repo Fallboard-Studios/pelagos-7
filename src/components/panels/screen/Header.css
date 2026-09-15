@@ -107,9 +107,8 @@ sized wrapper (same reasoning audio-rig-drawer__param-row/signature-array-
   align-items: center;
   justify-content: center;
   gap: var(--spacing-sm);
-  width: auto;
+  width: 100%;
 }
-
 
 .header__row--nav.primary {
   display: none;
@@ -123,7 +122,7 @@ sized wrapper (same reasoning audio-rig-drawer__param-row/signature-array-
   width: auto;
 }
 
-@media screen and (min-width:430px) {
+@media screen and (min-width: 430px) {
   .header__row--nav.primary {
     display: flex;
   }
@@ -135,7 +134,6 @@ sized wrapper (same reasoning audio-rig-drawer__param-row/signature-array-
   .header__row--status-nav {
     justify-content: center;
   }
-
 }
 
 @media screen and (min-width: 480px) {
