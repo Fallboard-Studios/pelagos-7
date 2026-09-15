@@ -219,20 +219,21 @@ real resize.
 
 ### 17. Header: Unconditional Unrounded ResizeObserver Write to CSS Var
 
-Found in the same sweep as item 14 (2026-09-14). Medium confidence — real bug, but impact
-depends on what layout actually reads `--header-height` in a hot path; wants a quick check
-before treating it as worth fixing.
+Found in the same sweep as item 14 (2026-09-14). **Status: checked live, does not
+reproduce — closing, not worth fixing.**
 
 `Header.tsx:93-96` — `const observer = new ResizeObserver((entries) => {
 document.documentElement.style.setProperty('--header-height',
 `${entries[0].contentRect.height}px`); });` — same unrounded-measurement family as items
 14/16, different mechanism: writes straight to a global CSS custom property on every
-observation, with no equality bail-out at all (not even an unrounded one). Doesn't cause a
-React re-render, but forces a style recalc on every sub-pixel jitter for anything that
-reads `--header-height` (e.g. sticky offsets).
-
-**Fix shape:** round before the `setProperty` call, and skip the write entirely when the
-rounded value hasn't changed (track the last-written value in a ref).
+observation, with no equality bail-out at all (not even an unrounded one). Confirmed
+`--header-height` does feed a real layout property (`margin-top` in `Console.css`), so the
+theoretical concern was sound — but a live check (temporary `console.log` in the observer
+callback, checked by Crawford 2026-09-14) showed it fires exactly once on mount and stays
+silent while idle, no repeated jitter. Whatever sub-pixel noise affects `CabinetBox`/
+`useVoxelTrackBoxCount` doesn't manifest on Header's own root element in practice. No fix
+needed unless it starts reproducing under different conditions (e.g. window resize,
+responsive breakpoint crossing) — not verified either way for those, only idle-after-load.
 
 ### 18. AudioRigDrawer: Whole-Object globalAudio/globalLfo Selects
 
