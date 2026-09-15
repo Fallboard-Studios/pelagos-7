@@ -161,17 +161,37 @@ function generateCompanyId(noiseMap: NoiseFunction2D, index: number): string {
 
 /**
  * Deterministic per-company identity color (docs/specs/COMPANY_SECTION_ENHANCEMENTS.md §1.2) —
- * mirrors generateRobotIdentityColor exactly (same clamped-index-into-ROBOT_IDENTITY_COLOR_NAMES
- * shape), with its own dataId ('company.identityColor') so it draws from a distinct row of the
- * noise map rather than sharing the robot one's seeded stream. Not reused outside this file, so
- * stays private like generateCompanyId. No collision-avoidance against sibling companies
- * generated in the same locale pass — see spec §7 item 2 (accepted, low-risk given
- * INITIAL_COMPANIES_MIN/MAX's small counts); user-created companies get collision-avoidance via
- * CompanyCrudControls.tsx's own pickRandomCompanyColor instead.
+ * mirrors generateRobotIdentityColor's own clamped-index-into-ROBOT_IDENTITY_COLOR_NAMES shape,
+ * with its own dataId ('company.identityColor') so it draws from a distinct row of the noise map
+ * rather than sharing the robot one's seeded stream. Exported (unlike generateCompanyId) only so
+ * it can be unit-tested directly — still only called from spawnInitialCompanies below.
+ *
+ * Reverses docs/specs/COMPANY_SECTION_ENHANCEMENTS.md §7 item 2's "accepted, low-risk" decision
+ * to skip collision-avoidance here (Roadmap: Robot Selection Filter Panel Polish §1.4) — retries
+ * on collision against `usedColors` (every color already assigned to an earlier company in the
+ * same spawnInitialCompanies pass), bounded at ROBOT_IDENTITY_COLOR_NAMES.length attempts, the
+ * same bound CompanyCrudControls.tsx's own pickRandomCompanyColor uses for the identical problem
+ * on the manual-creation path — but seeded instead of Math.random()-driven, to stay reproducible.
+ * Attempt 0 uses the exact same dataId/offset pair as before this fix ('company.identityColor',
+ * offset = c), so a seed that never collides produces byte-for-byte the same color it always has;
+ * only a seed that would collide now diverges, picking a different (still deterministic) color
+ * instead. Each retry gets its own dataId suffix rather than an arithmetic offset shift, so a
+ * retry can never accidentally land on another company's own base draw and reintroduce a
+ * collision by a different path.
  */
-function generateCompanyIdentityColor(noiseMap: NoiseFunction2D, offset: number): string {
-  const index = Math.min(ROBOT_IDENTITY_COLOR_NAMES.length - 1, Math.floor(getSeededVal(noiseMap, 'company.identityColor', offset, 0, ROBOT_IDENTITY_COLOR_NAMES.length)));
-  return ACCENT_COLORS[ROBOT_IDENTITY_COLOR_NAMES[index]];
+export function generateCompanyIdentityColor(noiseMap: NoiseFunction2D, offset: number, usedColors: string[]): string {
+  const used = new Set(usedColors);
+  let lastColor = ACCENT_COLORS[ROBOT_IDENTITY_COLOR_NAMES[0]];
+  for (let attempt = 0; attempt < ROBOT_IDENTITY_COLOR_NAMES.length; attempt++) {
+    const dataId = attempt === 0 ? 'company.identityColor' : `company.identityColor.retry${attempt}`;
+    const index = Math.min(ROBOT_IDENTITY_COLOR_NAMES.length - 1, Math.floor(getSeededVal(noiseMap, dataId, offset, 0, ROBOT_IDENTITY_COLOR_NAMES.length)));
+    lastColor = ACCENT_COLORS[ROBOT_IDENTITY_COLOR_NAMES[index]];
+    if (!used.has(lastColor)) return lastColor;
+  }
+  // Bound exhausted (every one of the 18 colors already in use) — cannot happen at today's
+  // INITIAL_COMPANIES_MAX (3), kept only as the same defensive last-resort
+  // pickRandomCompanyColor's own bound uses.
+  return lastColor;
 }
 
 /**
@@ -607,10 +627,13 @@ export function spawnInitialCompanies(localeId: string): void {
       pool = pool.filter((_, j) => j !== idx);
     }
 
+    // usedColors reflects every company generated earlier in this same loop — addCompany (below)
+    // runs before the next iteration reaches this line, so useLocaleStore already has them.
+    const usedColors = (useLocaleStore.getState().getLocaleById(localeId)?.companies ?? []).map((existing) => existing.color);
     const company: Company = {
       id: noiseMap ? generateCompanyId(noiseMap, c) : `company-${localeId}-${c}`,
       name: noiseMap ? generateCompanyName(noiseMap, c) : `Company ${c}`,
-      color: noiseMap ? generateCompanyIdentityColor(noiseMap, c) : ACCENT_COLORS[ROBOT_IDENTITY_COLOR_NAMES[0]],
+      color: noiseMap ? generateCompanyIdentityColor(noiseMap, c, usedColors) : ACCENT_COLORS[ROBOT_IDENTITY_COLOR_NAMES[0]],
       robotIds: memberIds,
     };
     useLocaleStore.getState().addCompany(localeId, company);

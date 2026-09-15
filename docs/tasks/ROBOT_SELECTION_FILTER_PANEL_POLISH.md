@@ -194,15 +194,16 @@ Task 4 (spawn-time color collision fix)           — independent, parallelizabl
 
 ### Checkpoint: Layout
 
-- [ ] `npm run build:types`, `npm run lint`, `npm test` all clean.
-- [ ] Manual check per Task 3's own manual-check step, all three tiers.
+- [x] `npm run build:types`, `npm run lint`, `npm test` (144 files / 2689 tests), `npm run build` all clean.
+- [ ] Manual check per Task 3's own manual-check step, all three tiers. *(Not run this session — no live
+      browser available.)*
 - [ ] Review with human before proceeding to Task 4 (or run Task 4 in parallel if not already done).
 
 ---
 
 ### Phase 3: Color collision fix (independent)
 
-- [ ] **Task 4: Close the spawn-time company color collision gap**
+- [x] **Task 4: Close the spawn-time company color collision gap**
 
   **Description:** `generateCompanyIdentityColor` (`spawnSystem.ts`) gains a third parameter, `usedColors:
   string[]`, and a bounded retry loop (mirroring `CompanyCrudControls.tsx`'s `pickRandomCompanyColor`'s shape,
@@ -217,25 +218,29 @@ Task 4 (spawn-time color collision fix)           — independent, parallelizabl
   this task lands (see this plan's own Risks table). Spec §1.4.
 
   **Acceptance criteria:**
-  - [ ] `spawnInitialCompanies` never assigns two companies in the same locale the same color, across a sample
+  - [x] `spawnInitialCompanies` never assigns two companies in the same locale the same color, across a sample
         of seeds (mirroring the existing `it('creates between ${MIN} and ${MAX} companies')` seed-sampling
-        style in `spawnSystem.test.ts`).
-  - [ ] For a seed where the pre-fix (attempt-0) draw never collides, the resulting color is byte-for-byte
+        style in `spawnSystem.test.ts`) — this test reproduced a real collision before the fix (RED: 3 companies,
+        2 distinct colors), confirming the bug, before passing after it.
+  - [x] For a seed where the pre-fix (attempt-0) draw never collides, the resulting color is byte-for-byte
         identical to what `getSeededVal(noiseMap, 'company.identityColor', c, 0, ROBOT_IDENTITY_COLOR_NAMES.length)`
         alone would have produced — proving the "unchanged when non-colliding" constraint, not just the
         absence of duplicates.
-  - [ ] Calling `generateCompanyIdentityColor` twice with identical arguments (including `usedColors`) returns
+  - [x] Calling `generateCompanyIdentityColor` twice with identical arguments (including `usedColors`) returns
         the same color both times (determinism preserved).
-  - [ ] When `usedColors` already contains the attempt-0 result for a given `noiseMap`/`offset`, the function
+  - [x] When `usedColors` already contains the attempt-0 result for a given `noiseMap`/`offset`, the function
         returns a *different* color, and that color is not in `usedColors`.
-  - [ ] `pickRandomCompanyColor` (`CompanyCrudControls.tsx`, manual-creation path) is untouched — zero diff.
-  - [ ] Existing `spawnSystem.test.ts` company-count/company-size tests are unaffected.
+  - [x] `pickRandomCompanyColor` (`CompanyCrudControls.tsx`, manual-creation path) is untouched — confirmed via
+        `git diff --stat`, zero diff.
+  - [x] Existing `spawnSystem.test.ts` company-count/company-size tests are unaffected.
 
   **Verification:**
-  - [ ] `npx vitest run src/systems/spawnSystem.test.ts` passes.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/systems/spawnSystem.test.ts` passes (68 tests).
+  - [x] `npm run build:types`, `npm run lint` clean.
+  - [x] `npm test` (full suite, 144 files / 2694 tests) clean.
   - [ ] Manual check: reseed a planet a few times (Sector Settings), spot-check a locale with 3 companies —
-        confirm no two company buttons in `CompanyButtonRow` share a color.
+        confirm no two company buttons in `CompanyButtonRow` share a color. *(Not run this session — no live
+        browser available.)*
 
   **Dependencies:** None — safe to implement independently of Tasks 1–3, in any order.
 
