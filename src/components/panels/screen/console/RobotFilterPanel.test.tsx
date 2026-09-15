@@ -155,4 +155,13 @@ describe('RobotFilterPanel', () => {
     unmount();
     expect(killTimeline).toHaveBeenCalled();
   });
+
+  // Bugfix, found live (docs/todo/backlog.md #27 follow-up) — same class as CompanyManager's own
+  // documented fix: RobotsTab re-renders on every audio-swell tick (~8-9x/sec), and this panel
+  // takes zero props, so a memo boundary is correct and sufficient (an empty prop list can never
+  // differ) — it still re-renders normally when its own selectedCompanyId/allRobotsSelected
+  // subscriptions actually change.
+  it('is a React.memo-wrapped component', () => {
+    expect((RobotFilterPanel as unknown as { $$typeof: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
+  });
 });
