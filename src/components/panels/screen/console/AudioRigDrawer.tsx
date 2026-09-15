@@ -171,9 +171,33 @@ function AudioRigLfoGroup({ groupId, params, effect, fieldOnChange, driftContent
     [selectedTarget, setGlobalLfo],
   );
 
+  // Stabilized (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 12 follow-up, found live via
+  // React DevTools "highlight updates" after the initial Task 12 fix shipped): these 3 schema
+  // objects used to be constructed fresh, inline, on every render of AudioRigLfoGroup — unlike
+  // every other primitive's schema in this codebase, which is always a stable reference. Since
+  // Lfo (React.memo'd, Task 10) only bails when EVERY prop — schema included — stays referentially
+  // equal, a fresh schema unconditionally forced the shared LFO display (and, transitively, its
+  // own internal Shape/Rate/Depth controls) to re-render on every sibling field's own value
+  // change within this group, not just when the displayed/targeted LFO value itself changed. The
+  // 2 DirectionalPanel schemas are memoized too, for the same consistency reason, even though
+  // DirectionalPanel's own memo benefit is conditional on `children` also being stable (§1.3) —
+  // still correct to do, never harmful.
+  const groupPanelSchema = useMemo(
+    () => ({ id: `${groupId}.group`, type: 'directionalPanel' as const, orientation: 'column' as const }),
+    [groupId],
+  );
+  const slidersPanelSchema = useMemo(
+    () => ({ id: `${groupId}.sliders`, type: 'directionalPanel' as const, orientation: slidersOrientation }),
+    [groupId, slidersOrientation],
+  );
+  const lfoDisplaySchema = useMemo(
+    () => ({ id: `${groupId}.lfo`, type: 'lfo' as const, humanLabel: displayLabel }),
+    [groupId, displayLabel],
+  );
+
   return (
-    <DirectionalPanel schema={{ id: `${groupId}.group`, type: 'directionalPanel', orientation: 'column' }}>
-      <DirectionalPanel schema={{ id: `${groupId}.sliders`, type: 'directionalPanel', orientation: slidersOrientation }}>
+    <DirectionalPanel schema={groupPanelSchema}>
+      <DirectionalPanel schema={slidersPanelSchema}>
         {params.map((param) => (
           <div
             key={param.field}
@@ -187,7 +211,7 @@ function AudioRigLfoGroup({ groupId, params, effect, fieldOnChange, driftContent
       </DirectionalPanel>
       <div className={withActiveClass('sc-lfo-target-group__display', transitioning)}>
         <Lfo
-          schema={{ id: `${groupId}.lfo`, type: 'lfo', humanLabel: displayLabel }}
+          schema={lfoDisplaySchema}
           value={displayValue}
           onChange={handleLfoChange}
           disabled={transitioning}

@@ -838,5 +838,42 @@ describe('AudioRigDrawer', () => {
 
       expect(callsFor('reverb.wet')).toBe(reverbWetCallsBefore);
     });
+
+    // Live-verified regression, found by Crawford via React DevTools "highlight updates" after
+    // Task 12 shipped: LFO-bearing blocks (eq3/filterLPF/filterHPF, the only AudioRigLfoGroup
+    // consumers) still showed their whole subtree — including the shared LFO display and its own
+    // internal Shape/Rate/Depth controls — re-rendering on every swell tick for that block, not
+    // just the one field actually swelling. Root cause: AudioRigLfoGroup builds its own Lfo
+    // component's `schema` prop (and its 2 DirectionalPanel schemas) as a fresh inline object
+    // literal every render — unlike every other primitive's schema in this codebase, which is
+    // always a stable, module-level (or memoized) reference. A fresh schema object defeats Lfo's
+    // own React.memo unconditionally, regardless of whether displayValue/selectedTarget actually
+    // changed. Task 12's own cascade tests never covered the AudioRigLfoGroup path (only
+    // Delay/Compressor, neither of which has any lfoTarget params) — a real test-coverage gap.
+    it("changing a NON-displayed field within an LFO-bearing block (eq3's mid, while 'low' remains the default-selected/displayed LFO target — useLfoTargetGroup starts at fields[0]) does not re-execute the shared LFO display's own internal controls", () => {
+      render(<AudioRigDrawer />);
+      const lfoRateCallsBefore = callsFor('audioRig.eq3.lfo.rate');
+      const lfoDepthCallsBefore = callsFor('audioRig.eq3.lfo.depth');
+      expect(lfoRateCallsBefore).toBeGreaterThan(0);
+      expect(lfoDepthCallsBefore).toBeGreaterThan(0);
+
+      act(() => {
+        useAudioStore.getState().setGlobalAudio('eq3', { mid: 5 });
+      });
+
+      expect(callsFor('audioRig.eq3.lfo.rate')).toBe(lfoRateCallsBefore);
+      expect(callsFor('audioRig.eq3.lfo.depth')).toBe(lfoDepthCallsBefore);
+    });
+
+    it('sanity check: the shared LFO display DOES re-render when the currently-DISPLAYED target\'s own value changes (eq3\'s Low, the default-selected field)', () => {
+      render(<AudioRigDrawer />);
+      const lfoRateCallsBefore = callsFor('audioRig.eq3.lfo.rate');
+
+      act(() => {
+        useAudioStore.getState().setGlobalLfo('eq3.low', { rate: 3, depth: 50, shape: 'sine' });
+      });
+
+      expect(callsFor('audioRig.eq3.lfo.rate')).toBeGreaterThan(lfoRateCallsBefore);
+    });
   });
 });
