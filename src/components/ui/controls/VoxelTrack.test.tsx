@@ -42,7 +42,15 @@ vi.mock('./CabinetBox', () => ({
 
 vi.mock('@/utils/voxelTrackMath', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/utils/voxelTrackMath')>();
-  return { ...actual, computeVoxelFillBackground: vi.fn(actual.computeVoxelFillBackground) };
+  return {
+    ...actual,
+    computeVoxelFillBackground: vi.fn(actual.computeVoxelFillBackground),
+    // Spied (real cross-module call) so a render-count test (docs/tasks/
+    // OBLIQUE_CABINETRY_MEMOIZATION.md Task 5) can tell whether VoxelTrackInner's
+    // render body actually re-executed — called once per state, unconditionally,
+    // inside the .map() body.
+    computeVoxelBoxZIndex: vi.fn(actual.computeVoxelBoxZIndex),
+  };
 });
 
 import { VoxelTrack } from './VoxelTrack';
@@ -389,5 +397,55 @@ describe('VoxelTrack', () => {
     const root = container.querySelector('.sc-voxel-track') as HTMLElement;
     expect(root.style.getPropertyValue('--voxel-box-size')).toBe('48px');
     expect(root.style.getPropertyValue('--voxel-gap')).toBe('12px');
+  });
+
+  describe('React.memo (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 5)', () => {
+    it('is a React.memo-wrapped component', () => {
+      expect((VoxelTrack as unknown as { $$typeof: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
+    });
+
+    it('does not re-execute its render body on a re-render with an unchanged (same-reference) states array', () => {
+      const { rerender } = render(
+        <VoxelTrack states={STATES} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
+      );
+      const callsAfterMount = (computeVoxelBoxZIndex as ReturnType<typeof vi.fn>).mock.calls.length;
+      expect(callsAfterMount).toBeGreaterThan(0);
+
+      rerender(
+        <VoxelTrack states={STATES} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
+      );
+      rerender(
+        <VoxelTrack states={STATES} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
+      );
+
+      expect((computeVoxelBoxZIndex as ReturnType<typeof vi.fn>).mock.calls.length).toBe(callsAfterMount);
+    });
+
+    it('does re-execute its render body when given a NEW (but deep-equal) states array reference — proves a bare React.memo alone is not a guaranteed bail-out; it depends on the caller (SliderLinear/SliderLog/SliderCenteredZero, Tasks 1-3) actually passing a stable reference', () => {
+      const { rerender } = render(
+        <VoxelTrack states={STATES} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
+      );
+      const callsAfterMount = (computeVoxelBoxZIndex as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      const deepEqualStates: VoxelBoxState[] = STATES.map((s) => ({ ...s }));
+      rerender(
+        <VoxelTrack states={deepEqualStates} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
+      );
+
+      expect((computeVoxelBoxZIndex as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(callsAfterMount);
+    });
+
+    it('does re-execute its render body when a real prop changes (axis)', () => {
+      const { rerender } = render(
+        <VoxelTrack states={STATES} boxSize={40} gap={10} axis="horizontal" timelineKeyPrefix="cabinet-voxel-test" />,
+      );
+      const callsAfterMount = (computeVoxelBoxZIndex as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      rerender(
+        <VoxelTrack states={STATES} boxSize={40} gap={10} axis="vertical" timelineKeyPrefix="cabinet-voxel-test" />,
+      );
+
+      expect((computeVoxelBoxZIndex as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(callsAfterMount);
+    });
   });
 });

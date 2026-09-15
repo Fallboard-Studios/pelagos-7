@@ -194,7 +194,7 @@ Task 13 (manual profiler re-verification + docs close-out) — depends on Task 1
 
 ### Phase 2: Structural Memo — the Shared Rendering Core
 
-- [ ] **Task 4: `CabinetBox.tsx` — `React.memo(CabinetBoxInner)`**
+- [x] **Task 4: `CabinetBox.tsx` — `React.memo(CabinetBoxInner)`**
 
   **Description:** Split the existing `export function CabinetBox(...)` into
   `function CabinetBoxInner(...)` (body unchanged) + `export const CabinetBox =
@@ -203,23 +203,26 @@ Task 13 (manual profiler re-verification + docs close-out) — depends on Task 1
   stay byte-identical.
 
   **Acceptance criteria:**
-  - [ ] `CabinetBox.$$typeof === Symbol.for('react.memo')`.
-  - [ ] A render-count test: mount `CabinetBox` inside a re-rendering parent that passes
+  - [x] `CabinetBox.$$typeof === Symbol.for('react.memo')`.
+  - [x] A render-count test: mount `CabinetBox` inside a re-rendering parent that passes
         identical props (`popped`, `timelineKey`, `children`, etc.) each time; assert the inner
-        render body does not re-execute on the second/third render (render-count spy or
-        `React.Profiler.onRender`). Confirmed red against pre-fix `CabinetBox` first.
-  - [ ] The same test, with one prop changed (e.g. `popped`), confirms the render body DOES
-        re-execute — proves the memo isn't silently eating real updates.
-  - [ ] Every existing `CabinetBox.test.tsx` assertion (GSAP timeline registration, wall
-        scale/skew, `--cabinet-glow`, ResizeObserver-driven width, `zIndex`, `autoHeight`, etc.)
-        passes unmodified.
+        render body does not re-execute on the second/third render. The marker used is a spy on
+        `useCabinetBoxHeight` (real cross-module hook, called unconditionally in the render body —
+        `computeCabinetFrontFaceOffset`, this file's only other spy-able import, is called from
+        inside an *effect*, not synchronously during render, so it can't tell "did the render body
+        run" apart from "did the effect's own separate dependency check re-fire"; found while
+        writing Task 5's own end-to-end test below). Confirmed red first (3 calls across mount + 2
+        unchanged re-renders).
+  - [x] The same test, with one prop changed (`popped`), confirms the render body DOES
+        re-execute.
+  - [x] Every existing `CabinetBox.test.tsx` assertion passes unmodified.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/ui/controls/CabinetBox.test.tsx` passes.
-  - [ ] `npm run build:types`, `npm run lint` clean.
-  - [ ] `npm test` full suite passes — confirms every existing consumer (`VoxelTrack`, `Button`,
-        `Toggle`, `RadioButton`, `AccordionContainer`, `DirectionalPanel`, `TextInput`) still
-        renders correctly through the now-memoized export.
+  - [x] `npx vitest run src/components/ui/controls/CabinetBox.test.tsx` passes (69 tests — 66
+        pre-existing, 3 new).
+  - [x] `npm run build:types`, `npm run lint` clean (one import-order autofix needed after adding
+        the new `vi.mock`/import).
+  - [x] `npm test` full suite passes.
 
   **Dependencies:** None.
 
@@ -229,51 +232,60 @@ Task 13 (manual profiler re-verification + docs close-out) — depends on Task 1
   **Estimated scope:** S (mechanical split; the file's real complexity is in its existing
   unchanged internals, not this task's diff)
 
-- [ ] **Task 5: `VoxelTrack.tsx` — `React.memo(VoxelTrackInner)`**
+- [x] **Task 5: `VoxelTrack.tsx` — `React.memo(VoxelTrackInner)`**
 
   **Description:** Same split pattern: `function VoxelTrackInner({ states, boxSize, gap, axis,
   timelineKeyPrefix }: VoxelTrackProps)` + `export const VoxelTrack =
   React.memo(VoxelTrackInner);`. No internal logic changes.
 
   **Acceptance criteria:**
-  - [ ] `VoxelTrack.$$typeof === Symbol.for('react.memo')`.
-  - [ ] Render-count test: mount `VoxelTrack` with a stable `states` array reference (built once,
-        outside the re-rendering parent's own render) across 2-3 forced parent re-renders; assert
-        the render body doesn't re-execute (its own `.map()` over `states` doesn't run again — no
-        new `CabinetBox` elements constructed).
-  - [ ] The same test with a **new** (but deep-equal) `states` array reference on each render
-        confirms the render body DOES re-execute — this is what makes Task 1's memoization a real
-        precondition, not incidental: a bare `React.memo` on `VoxelTrack` alone, fed an unmemoized
-        caller, would never bail.
-  - [ ] **The end-to-end regression test this whole plan exists for:** render `SliderLinear`
-        (now depending on Tasks 1 + 4 + this task) inside a re-rendering parent with unchanged
-        `value`/`schema`; assert a spy on `computeVoxelBoxStates` OR a `CabinetBox`-level
-        render-count marker confirms NO individual `CabinetBox` in the row re-executes its own
-        render body on the parent's re-render. Confirmed red against pre-Task-1/4/5 code first.
-  - [ ] Every existing `VoxelTrack.test.tsx` assertion passes unmodified.
+  - [x] `VoxelTrack.$$typeof === Symbol.for('react.memo')`.
+  - [x] Render-count test (spy on `computeVoxelBoxZIndex`, called once per state unconditionally
+        in the `.map()` body): a stable `states` array reference across 2-3 forced parent
+        re-renders leaves the render body un-re-executed. Confirmed red first.
+  - [x] The same test with a **new** (but deep-equal) `states` array reference on each render
+        confirms the render body DOES re-execute — proves Task 1's memoization is a real
+        precondition, not incidental.
+  - [x] **The end-to-end regression test this whole plan exists for** — new file
+        `src/components/ui/controls/CabinetryCascade.test.tsx`: renders the REAL
+        `SliderLinear -> VoxelTrack -> CabinetBox` chain (no mocks between them), spies on
+        `useCabinetBoxHeight` (called once by `SliderLinear`'s own `useVoxelTrackSlider`, once per
+        real `CabinetBox` render). A `SliderLinear` re-render with unchanged `value`/`schema`
+        produces exactly a `+1` delta (SliderLinear's own fixed, unmemoized-root contribution) —
+        zero from any `CabinetBox`. Confirmed both ways: this test was RED with `VoxelTrack`'s
+        memo temporarily reverted (delta was `+5`, i.e. every box re-rendered, not just
+        `SliderLinear`'s own baseline) and GREEN with it restored — proving `CabinetBox`'s own
+        memo (Task 4) alone is NOT sufficient; `VoxelTrack` rebuilding fresh `children` divs every
+        render defeats every `CabinetBox`'s own shallow-compare bail-out regardless, exactly the
+        mechanism spec §1.2.2 describes.
+  - [x] Every existing `VoxelTrack.test.tsx` assertion passes unmodified.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/ui/controls/VoxelTrack.test.tsx
-        src/components/ui/controls/SliderLinear.test.tsx` passes.
-  - [ ] `npm run build:types`, `npm run lint` clean.
-  - [ ] `npm test` full suite passes.
+  - [x] `npx vitest run src/components/ui/controls/VoxelTrack.test.tsx
+        src/components/ui/controls/CabinetryCascade.test.tsx` passes.
+  - [x] `npm run build:types`, `npm run lint` clean.
+  - [x] `npm test` full suite passes (144 files / 2606 tests).
 
   **Dependencies:** Tasks 1, 2, 3 (states referential stability), Task 4 (`CabinetBox` itself
   memoized, so the end-to-end test's "nothing downstream re-executes" claim is actually true all
   the way down, not just at `VoxelTrack`'s own top level).
 
   **Files:** `src/components/ui/controls/VoxelTrack.tsx`,
-  `src/components/ui/controls/VoxelTrack.test.tsx`
+  `src/components/ui/controls/VoxelTrack.test.tsx`,
+  `src/components/ui/controls/CabinetryCascade.test.tsx` (new)
 
   **Estimated scope:** S–M (the mechanical split is small; the end-to-end regression test is the
   part worth budgeting real time for — it's the test that actually proves the mechanism, same
-  category as item 21 Task 4's `shiftHSL` spy)
+  category as item 21 Task 4's `shiftHSL` spy). Ran meaningfully over — the first two marker
+  designs for the end-to-end test each had a real flaw (see Task 4/5's own acceptance-criteria
+  notes above) caught only by actually trying to force a RED before trusting the GREEN.
 
 ### Checkpoint: Structural Core Complete
 
-- [ ] `npm run build:types`, `npm run lint`, `npm test` (full suite) clean.
-- [ ] The end-to-end "a slider with unchanged value/schema re-renders zero of its own
-      `CabinetBox`es" test is green, and was confirmed red before Tasks 1-5.
+- [x] `npm run build:types`, `npm run lint`, `npm test` (full suite, 144 files / 2606 tests) clean.
+- [x] The end-to-end "a slider with unchanged value/schema re-renders zero of its own
+      `CabinetBox`es" test is green, and was confirmed red (by temporarily reverting `VoxelTrack`'s
+      own memo) before trusting it.
 - [ ] Review with human before proceeding — this is the last checkpoint before the broader
       primitive sweep, which depends on this chain actually working.
 

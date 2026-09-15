@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { memo, type CSSProperties } from 'react';
 import { CabinetBox } from './CabinetBox';
 import {
   computeVoxelFillBackground,
@@ -37,7 +37,7 @@ interface VoxelTrackProps {
  * a spurious wall flash with no real transition behind it. See
  * CabinetBox.tsx's own CabinetBoxProps.skipMountAnimation comment.
  */
-export function VoxelTrack({ states, boxSize, gap, axis, timelineKeyPrefix }: VoxelTrackProps) {
+function VoxelTrackInner({ states, boxSize, gap, axis, timelineKeyPrefix }: VoxelTrackProps) {
   const tokens = {
     '--voxel-box-size': `${boxSize}px`,
     '--voxel-gap': `${gap}px`,
@@ -159,3 +159,11 @@ export function VoxelTrack({ states, boxSize, gap, axis, timelineKeyPrefix }: Vo
     </div>
   );
 }
+
+// React.memo (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 5) — every prop here is a
+// primitive or `states` (an array), so the default shallow compare is correct; no custom
+// comparator. This bail-out is only effective once `states` is itself a referentially stable
+// array across unrelated re-renders — see SliderLinear/SliderLog/SliderCenteredZero's own
+// useMemo wrap (Tasks 1-3) — a fresh (even deep-equal) array reference still re-executes this
+// component's render body every time, by design (shallow compare, not deep).
+export const VoxelTrack = memo(VoxelTrackInner);
