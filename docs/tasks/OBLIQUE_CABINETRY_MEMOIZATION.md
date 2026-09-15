@@ -328,13 +328,21 @@ exports, though they compose `CabinetBox`/`DualLabel` internally, already memoiz
 
   **Estimated scope:** S
 
-- [ ] **Task 7: `Toggle.tsx` + `TextInput.tsx`** — same shape. Note: `Toggle` sometimes receives
+- [x] **Task 7: `Toggle.tsx` + `TextInput.tsx`** — same shape. Note: `Toggle` sometimes receives
   caller-supplied `children` (Header's Mute switch) — memoize it anyway (spec §1.3's conditional
   case), same as `AccordionContainer`/`DirectionalPanel` below; document in the render-count test
   that the "no-children" call shape is the one with a guaranteed bail-out.
 
   **Acceptance criteria / Verification / Dependencies / Files / Scope:** same shape as Task 6,
-  for `Toggle.tsx`/`.test.tsx`, `TextInput.tsx`/`.test.tsx`.
+  for `Toggle.tsx`/`.test.tsx`, `TextInput.tsx`/`.test.tsx`. Marker for both: `resolveAccessibleName`.
+  - [x] `Toggle`'s bare (no-children) call shape confirmed to bail (flat count across unchanged
+        re-renders); the children-bearing call shape confirmed to still re-execute when the
+        caller constructs an actual *element* inline (`<span>🔊</span>`) — caught a test-design
+        bug first: a bare string child (`🔊` alone) is already `Object.is`-stable across renders
+        of the same literal, so it didn't actually demonstrate the conditional-benefit case at
+        all; fixed before treating the test as meaningful.
+  - [x] Both confirmed red first. `npx vitest run` passes (17 + 35 = 52 tests, 2 + 3 = 5 new).
+        `npm run build:types`, `npm run lint` clean.
 
 - [ ] **Task 8: `Stepper.tsx` + `StepperWithToggle.tsx`** — same shape.
 

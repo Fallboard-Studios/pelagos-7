@@ -24,7 +24,17 @@ vi.mock('./CabinetBox', () => ({
   ),
 }));
 
+// Spied (real cross-module call, wrapped so it still delegates to the actual
+// implementation) so a render-count test (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md
+// Task 7) can tell whether TextInput's render body actually re-executed —
+// resolveAccessibleName(schema) is called unconditionally in the render body.
+vi.mock('./accessibleName', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./accessibleName')>();
+  return { ...actual, resolveAccessibleName: vi.fn(actual.resolveAccessibleName) };
+});
+
 import { TextInput } from './TextInput';
+import { resolveAccessibleName } from './accessibleName';
 import type { TextInputSchema } from '@/types/controls';
 
 describe('TextInput', () => {
@@ -127,5 +137,34 @@ describe('TextInput', () => {
     const box = screen.getByTestId('cabinet-box');
     expect(box.contains(screen.getByRole('textbox'))).toBe(true);
     expect(box.textContent).toContain('Robot Name');
+  });
+
+  describe('React.memo (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 7)', () => {
+    const schema: TextInputSchema = { id: 'robotName', type: 'textInput', humanLabel: 'Robot Name' };
+
+    it('is a React.memo-wrapped component', () => {
+      expect((TextInput as unknown as { $$typeof: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
+    });
+
+    it('does not re-execute its render body on a re-render with identical props', () => {
+      const onChange = () => {};
+      const { rerender } = render(<TextInput schema={schema} value="" onChange={onChange} />);
+      const callsAfterMount = (resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      rerender(<TextInput schema={schema} value="" onChange={onChange} />);
+      rerender(<TextInput schema={schema} value="" onChange={onChange} />);
+
+      expect((resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length).toBe(callsAfterMount);
+    });
+
+    it('does re-execute its render body when a real prop changes (value)', () => {
+      const onChange = () => {};
+      const { rerender } = render(<TextInput schema={schema} value="" onChange={onChange} />);
+      const callsAfterMount = (resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      rerender(<TextInput schema={schema} value="a" onChange={onChange} />);
+
+      expect((resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(callsAfterMount);
+    });
   });
 });
