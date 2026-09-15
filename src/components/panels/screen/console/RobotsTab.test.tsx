@@ -1,7 +1,17 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent, within, act } from '@testing-library/react';
+
+// Spied (real cross-module call, wrapped so it still delegates to the actual implementation) so
+// a render-count test (docs/todo/backlog.md #27 follow-up, 2026-09-15) can tell whether
+// RobotsTab's own render body actually re-executed — filterRobotsByCompanyFocus is called
+// unconditionally, directly in RobotsTab's own body, every time it runs.
+vi.mock('@/utils/robotListFilter', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/utils/robotListFilter')>();
+  return { ...actual, filterRobotsByCompanyFocus: vi.fn(actual.filterRobotsByCompanyFocus) };
+});
 
 import RobotsTab from './RobotsTab';
+import { filterRobotsByCompanyFocus } from '@/utils/robotListFilter';
 import { useLocaleStore } from '@/stores/localeStore';
 import { useUIStore } from '@/stores/uiStore';
 import { getActiveLocaleId } from '@/utils/localeHelpers';
@@ -236,5 +246,48 @@ describe('RobotsTab', () => {
     expect(manager!.compareDocumentPosition(optionsSection!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     // Direct child of .robots-tab, not nested inside .company-manager anymore.
     expect(container.querySelector('.company-manager .company-options-section')).toBeNull();
+  });
+
+  describe('re-render cascade regression (docs/todo/backlog.md #27 follow-up, 2026-09-15)', () => {
+    // The end-to-end proof this whole fix exists for: `updateRobot` (localeStore.ts) hands back a
+    // new top-level `robots` array reference on every write to ANY robot in the locale (battery
+    // ticks, audio swells, field edits), even though it preserves each untouched robot's own
+    // object reference. Before this fix, RobotsTab subscribed to that whole array directly, so it
+    // (and everything statically composed beneath it — RobotFilterPanel, CompanyOptionsSection)
+    // re-executed on every single one of those writes, regardless of whether the edited robot was
+    // even visible in the current filter. useRobotRoster's own custom-equality selector should
+    // make RobotsTab's own body bail unless the SET of robot ids or their companyId assignments
+    // actually changed.
+    it("does not re-execute when an untouched robot's battery/audio field changes elsewhere in the locale", () => {
+      resetStores();
+      useLocaleStore.getState().addRobot(localeId, makeRobot('r1', 'Alpha') as unknown as Robot);
+      useLocaleStore.getState().addRobot(localeId, makeRobot('r2', 'Beta') as unknown as Robot);
+      render(<RobotsTab />);
+
+      const callsAfterMount = (filterRobotsByCompanyFocus as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      act(() => {
+        useLocaleStore.getState().updateRobot(localeId, 'r2', { batteryLevel: 55 });
+      });
+
+      expect((filterRobotsByCompanyFocus as ReturnType<typeof vi.fn>).mock.calls.length).toBe(callsAfterMount);
+    });
+
+    it('DOES re-execute when a robot is reassigned to a different company — the roster genuinely changed', () => {
+      resetStores();
+      useLocaleStore.getState().setLocaleData(localeId, { companies: [] } as unknown as Partial<Locale>);
+      useLocaleStore.getState().addRobot(localeId, makeRobot('r1', 'Alpha') as unknown as Robot);
+      useLocaleStore.getState().addRobot(localeId, makeRobot('r2', 'Beta') as unknown as Robot);
+      useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
+      render(<RobotsTab />);
+
+      const callsAfterMount = (filterRobotsByCompanyFocus as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      act(() => {
+        useLocaleStore.getState().assignRobotToCompany(localeId, 'r2', 'c1');
+      });
+
+      expect((filterRobotsByCompanyFocus as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(callsAfterMount);
+    });
   });
 });
