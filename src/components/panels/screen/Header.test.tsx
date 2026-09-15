@@ -55,17 +55,13 @@ function findHeaderHeightObserver(headerEl: Element): MockResizeObserver {
   return found;
 }
 
-/** Header now renders the nav RadioButton group twice — .header__row--nav.primary
- *  (shown ≥430px, inside .header__row--status-nav) and .secondary (shown
- *  below that), both bound to the exact same schema/store fields, swapped
- *  via a CSS media query rather than reflowed as one DOM instance ("big
- *  header restyle" commit, 4f025af). jsdom never evaluates that media query
- *  (no real layout), so both instances are always present/queryable here —
- *  picking the first match of a given option name is arbitrary but
- *  equivalent to picking the other, since clicking either fires the exact
- *  same onChange/onDeselect handler against the exact same store. */
+/** Header renders exactly one nav RadioButton instance (docs/todo/backlog.md #1 —
+ *  the group used to render twice, .primary/.secondary, swapped via a CSS media
+ *  query; deduplicated to a single .header__row--nav that CSS Grid repositions
+ *  instead). Kept as a named helper (rather than a bare screen.getByRole call at
+ *  each call site) so every existing call site below reads the same either way. */
 function getNavRadio(name: string): HTMLElement {
-  return screen.getAllByRole('radio', { name })[0];
+  return screen.getByRole('radio', { name });
 }
 
 let originalResizeObserver: typeof ResizeObserver;
@@ -166,11 +162,18 @@ describe('Header', () => {
     expect((screen.getByRole('switch', { name: /mute/i }) as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it('renders 3 nav options, once per responsive nav group (.primary + .secondary)', () => {
+  it('renders 3 nav options, exactly once each — a single shared instance, not duplicated per breakpoint', () => {
     render(<Header />);
-    expect(screen.getAllByRole('radio', { name: 'Robots' })).toHaveLength(2);
-    expect(screen.getAllByRole('radio', { name: 'Audio Rig' })).toHaveLength(2);
-    expect(screen.getAllByRole('radio', { name: 'Sector Settings' })).toHaveLength(2);
+    expect(screen.getAllByRole('radio', { name: 'Robots' })).toHaveLength(1);
+    expect(screen.getAllByRole('radio', { name: 'Audio Rig' })).toHaveLength(1);
+    expect(screen.getAllByRole('radio', { name: 'Sector Settings' })).toHaveLength(1);
+  });
+
+  it('renders exactly one .header__row--nav element — no .primary/.secondary split', () => {
+    const { container } = render(<Header />);
+    expect(container.querySelectorAll('.header__row--nav')).toHaveLength(1);
+    expect(container.querySelectorAll('.primary')).toHaveLength(0);
+    expect(container.querySelectorAll('.secondary')).toHaveLength(0);
   });
 
   it('selecting a nav option calls setActiveHubTile', () => {

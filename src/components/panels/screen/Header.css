@@ -8,6 +8,12 @@
    lives on .rocker-spacer in ScreenViewport.css, not here — Task 9's
    original "applied once to the whole header" placement moved once the
    secondary nav row was added outside that wrapper.
+
+   display: grid (was flex-direction: column) — docs/todo/backlog.md #1:
+   .rocker-spacer and .header__row--nav are this grid's only 2 items,
+   named "rocker"/"nav", letting the single nav RadioButton instance move
+   between its own full-width row (<430px) and sitting beside .rocker-spacer
+   (≥430px) via grid-template-areas alone — no second DOM instance needed.
    ---------------------------------------- */
 .header {
   --color-surface: rgba(26, 26, 26, 0.75);
@@ -15,13 +21,22 @@
   top: 8px;
   width: 100%;
   z-index: var(--z-header);
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-areas: "rocker" "nav";
   gap: var(--spacing-md);
   padding: var(--spacing-lg) var(--spacing-md);
   box-sizing: border-box;
   background: var(--color-surface);
   border-bottom: var(--border-width) solid var(--border-color);
+}
+
+@media screen and (min-width: 430px) {
+  .header {
+    grid-template-columns: 1fr auto;
+    grid-template-areas: "rocker nav";
+    align-items: center;
+  }
 }
 
 /* Row-direction flex: the Mute toggle (content-sized — see .header__mute-
@@ -101,6 +116,9 @@ sized wrapper (same reasoning audio-rig-drawer__param-row/signature-array-
   gap: var(--spacing-sm);
 }
 
+/* Single instance, no .primary/.secondary split (docs/todo/backlog.md #1) —
+   grid-area: nav is what actually repositions this between .header's own
+   two grid-template-areas states, above. */
 .header__row--nav {
   grid-area: nav;
   display: flex;
@@ -108,32 +126,6 @@ sized wrapper (same reasoning audio-rig-drawer__param-row/signature-array-
   justify-content: center;
   gap: var(--spacing-sm);
   width: 100%;
-}
-
-.header__row--nav.primary {
-  display: none;
-}
-
-.header__row--status-nav {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--spacing-md);
-  width: auto;
-}
-
-@media screen and (min-width: 430px) {
-  .header__row--nav.primary {
-    display: flex;
-  }
-
-  .header__row--nav.secondary {
-    display: none;
-  }
-
-  .header__row--status-nav {
-    justify-content: center;
-  }
 }
 
 @media screen and (min-width: 480px) {
