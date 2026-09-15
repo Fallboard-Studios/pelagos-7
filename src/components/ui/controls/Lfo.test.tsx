@@ -177,5 +177,52 @@ describe('Lfo', () => {
 
       expect((resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(callsAfterMount);
     });
+
+    // Live-verified regression follow-up (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md's
+    // AudioRigLfoGroup fix, same session): even once Lfo's OWN memo bails correctly at the
+    // AudioRigLfoGroup level, its 3 internal children (shape RadioButton, rate/depth
+    // SliderLinears) used to rebuild fresh schema objects AND fresh onChange closures on every
+    // render of Lfo itself — so whenever Lfo legitimately re-rendered because ONE field changed
+    // (e.g. dragging Rate), the other two sibling controls re-rendered too, even though their own
+    // value/schema/onChange were all unchanged. Each internal schema.id (`${schema.id}.shape`
+    // etc.) lets resolveAccessibleName's own call-argument schema.id distinguish which specific
+    // child re-executed, the same filtering technique AudioRigDrawer.test.tsx's own cascade tests
+    // use.
+    describe('field-level isolation among its own 3 internal children (shape/rate/depth)', () => {
+      function callsFor(schemaId: string): number {
+        return (resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.filter(
+          ([s]) => s.id === schemaId,
+        ).length;
+      }
+
+      it('changing only rate does not re-execute the shape RadioButton or depth SliderLinear', () => {
+        const onChange = () => {};
+        const { rerender } = render(<Lfo schema={schema} value={value} onChange={onChange} />);
+        const rateCallsBefore = callsFor('volumeLfo.rate');
+        const shapeCallsBefore = callsFor('volumeLfo.shape');
+        const depthCallsBefore = callsFor('volumeLfo.depth');
+        expect(rateCallsBefore).toBeGreaterThan(0);
+        expect(shapeCallsBefore).toBeGreaterThan(0);
+        expect(depthCallsBefore).toBeGreaterThan(0);
+
+        rerender(<Lfo schema={schema} value={{ ...value, rate: 5 }} onChange={onChange} />);
+
+        expect(callsFor('volumeLfo.rate')).toBeGreaterThan(rateCallsBefore);
+        expect(callsFor('volumeLfo.shape')).toBe(shapeCallsBefore);
+        expect(callsFor('volumeLfo.depth')).toBe(depthCallsBefore);
+      });
+
+      it('changing only shape does not re-execute the rate or depth SliderLinears', () => {
+        const onChange = () => {};
+        const { rerender } = render(<Lfo schema={schema} value={value} onChange={onChange} />);
+        const rateCallsBefore = callsFor('volumeLfo.rate');
+        const depthCallsBefore = callsFor('volumeLfo.depth');
+
+        rerender(<Lfo schema={schema} value={{ ...value, shape: 'square' }} onChange={onChange} />);
+
+        expect(callsFor('volumeLfo.rate')).toBe(rateCallsBefore);
+        expect(callsFor('volumeLfo.depth')).toBe(depthCallsBefore);
+      });
+    });
   });
 });
