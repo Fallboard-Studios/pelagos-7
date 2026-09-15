@@ -316,6 +316,15 @@ before its source data is ready).
 
 ### 21. Factory: Every Instance Re-renders Once/Sec for Day/Night Lighting
 
+**Status:** ☑ code fix landed on `refactor/factory-timing` (2026-09-14, Tasks 1-4 of
+[docs/tasks/FACTORY_LIGHTING_RERENDER.md](../tasks/FACTORY_LIGHTING_RERENDER.md) — full spec
+at [docs/specs/FACTORY_LIGHTING_RERENDER.md](../specs/FACTORY_LIGHTING_RERENDER.md)). **Not yet
+marked fixed** — the live re-profiling this item's own fix shape called for ("re-profiling
+with the same DevTools Ranked-view technique that found this to confirm the fix actually
+lands," below) needs a real browser with the React DevTools extension, which isn't available
+in-session; genuinely open until Crawford (or a future session with a live browser) runs it
+and reports back, matching the "not run this session" caveats elsewhere in this backlog.
+
 Found while live-verifying item 18 (2026-09-14, Crawford + React DevTools Profiler,
 Ranked view) — confirmed via two profiler samples exactly ~1s apart, both showing the
 identical pattern. High confidence, high impact, continuous (not one-off). Architecturally
@@ -375,6 +384,18 @@ ref/attribute write (or a GSAP tween) instead of a React re-render entirely — 
 invasive to (a) (21 sites would each need imperative wiring) without option (a)'s benefit
 of a clean component boundary, so not preferred; (c) reduce tick granularity — see Decision
 above for why this was passed over despite being cheap and low-risk.
+
+**What actually shipped (2026-09-14):** the spec-driven-development pass (step 2 above) found
+that of the 13 rooftop/facade renderer functions, only 5 (`pitchedRoof`/`crownSpire` rooftop;
+`squareWindows`/`wideWindows`/`tallWindows` facade) read a lighting field at all — the other 8
+were already fully static and needed no code change, just wholesale memoization. Rather than a
+new child component, the isolation boundary is a single `staticVisual` `useMemo` inside
+`FactoryInner` itself (confirmed with Crawford as a deliberate, smaller-footprint deviation from
+the "small child component" wording above — same performance outcome). Each of the 5 dynamic
+renderers gained a `compute*Layout`/`paint*` pair (geometry vs. color), wired through new
+`ROOFTOP_LAYOUT_PAINT`/`FACADE_LAYOUT_PAINT` registries. Full detail, including two real bugs
+caught and fixed during TDD (a rooftop layout-branch regression, and a same-module `vi.spyOn`
+dead end that needed a different spy target), in the task file linked above.
 
 ### 22. RobotBody: Every Robot Re-renders Once/Sec for Day/Night Lighting
 

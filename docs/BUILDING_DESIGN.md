@@ -400,6 +400,18 @@ type GreebleRenderer = (ctx: {
 }) => React.ReactElement;
 ```
 
+**Internal layout/paint split (2026-09-14, [docs/todo/backlog.md #21](todo/backlog.md#21-factory-every-instance-re-renders-oncesec-for-daynight-lighting)):**
+of the greebles above, only 5 (`pitchedRoof`/`crownSpire` rooftop; `squareWindows`/
+`wideWindows`/`tallWindows` facade) actually read a lighting field (`eastLMultiplier`/
+`westLMultiplier`/`nightDepth`/`flickerEpoch`) — those five are internally split into a
+`compute*Layout` function (geometry only, memoized once per factory in `Factory.tsx`) and a
+`paint*` function (color only, recomputed every lighting tick), wired through
+`ROOFTOP_LAYOUT_PAINT`/`FACADE_LAYOUT_PAINT` registries. Every `render<Greeble>` function
+documented above **remains the stable public entry point** — the split is an internal
+performance detail behind it, not a change to this contract. See
+[docs/specs/FACTORY_LIGHTING_RERENDER.md](specs/FACTORY_LIGHTING_RERENDER.md) for the full
+design.
+
 ---
 
 ### Rooftop Greebles

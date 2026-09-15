@@ -327,42 +327,55 @@ Task 5 (manual profiler re-verification + docs close-out) — depends on Task 4
   way, on the same branch, by the same method. Spec §5, §6.
 
   **Acceptance criteria / checklist:**
-  - [ ] `npm run dev`, open a locale with ~36 factories, record ~2s of idle time in the world view
-        with React DevTools Profiler's Ranked view.
-  - [ ] Confirm the once/sec `FactoryInner` re-render no longer shows `ROOFTOP_RENDERERS`/
-        `FACADE_RENDERERS`/`computeWindowGridLayout`/`computePitchedRoofLayout`/
-        `computeCrownSpireLayout` (or their callers) in the flame graph during a tick where only
-        `activeLocaleLocalTime` changed — only the cheap paint-side `applyColorShift` calls should
-        appear.
-  - [ ] Record the new total main-thread time for one tick and compare against the ~150ms
-        baseline the backlog entry recorded (2026-09-14 profiler samples).
-  - [ ] Visually spot-check: day/night lighting still visibly transitions on bodies, belts, and
-        the 5 dynamic greebles; the 8 static-only greebles still render correctly (no missing
-        machinery/antennae/etc.).
-  - [ ] Update `docs/todo/backlog.md` item 21: mark it fixed, link this plan and the live
-        profiler numbers, matching items 14-18's own "found → fixed → live-verified" pattern.
-  - [ ] `docs/BUILDING_DESIGN.md`'s "Greeble Renderers" section gets a short addendum noting the
-        internal layout/paint split for the 5 lighting-dependent renderers, and that
-        `render<Greeble>` remains the stable public entry point (spec §6) — optional polish, not
-        blocking.
+  - [ ] **Genuinely deferred — needs a live browser with the React DevTools extension, not
+        available in this session** (same "not run this session" category as several manual
+        checks in prior task files, e.g. `ROBOT_SELECTION_FILTER_PANEL.md`): `npm run dev`, open
+        a locale with ~36 factories, record ~2s of idle time in the world view with React
+        DevTools Profiler's Ranked view.
+  - [ ] Deferred alongside the above: confirm the once/sec `FactoryInner` re-render no longer
+        shows `ROOFTOP_RENDERERS`/`FACADE_RENDERERS`/`computeWindowGridLayout`/
+        `computePitchedRoofLayout`/`computeCrownSpireLayout` (or their callers) in the flame
+        graph during a tick where only `activeLocaleLocalTime` changed — only the cheap
+        paint-side `applyColorShift` calls should appear.
+  - [ ] Deferred alongside the above: record the new total main-thread time for one tick and
+        compare against the ~150ms baseline the backlog entry recorded (2026-09-14 profiler
+        samples).
+  - [ ] Deferred alongside the above: visually spot-check day/night lighting still visibly
+        transitions on bodies, belts, and the 5 dynamic greebles; the 8 static-only greebles
+        still render correctly.
+  - [x] Updated `docs/todo/backlog.md` item 21: status line added noting the code fix landed on
+        `refactor/factory-timing`, linking this task file and the spec, and explicitly **not**
+        marked fixed until the live profiler check above actually runs — matching this backlog's
+        own "found → fixed → live-verified" pattern (items 14-18) rather than skipping the
+        live-verified step.
+  - [x] `docs/BUILDING_DESIGN.md`'s "Greeble Renderers" section got the short addendum (spec §6)
+        — internal layout/paint split for the 5 lighting-dependent renderers, `render<Greeble>`
+        confirmed as the still-stable public entry point.
 
   **Verification:**
-  - [ ] No automated verification beyond re-running `npm test`/`npm run build` once more after any
-        doc edits (docs changes can't break the build, but confirm anyway per house habit).
+  - [x] `npm run lint`, `npm run build:types` re-run clean after the doc edits (no production
+        code touched in this task).
 
   **Dependencies:** Task 4.
 
-  **Files:** `docs/todo/backlog.md`, `docs/BUILDING_DESIGN.md` (optional)
+  **Files:** `docs/todo/backlog.md`, `docs/BUILDING_DESIGN.md`
 
-  **Estimated scope:** XS (no production code; profiler session + two doc edits)
+  **Estimated scope:** XS (no production code; two doc edits landed, one profiler session
+  genuinely deferred to a live browser)
 
 ### Checkpoint: Complete
 
-- [ ] All acceptance criteria across all 5 tasks met.
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] Live profiler numbers recorded and compare favorably against the ~150ms/tick baseline.
-- [ ] `docs/todo/backlog.md` item 21 marked fixed.
-- [ ] Ready for human review / PR.
+- [x] Tasks 1-4's acceptance criteria met (Task 5's doc-only items done; its live-profiler items
+      deferred — see above).
+- [x] `npm run build:types`, `npm run lint`, `npm test` (143/143, 2577/2577), `npm run build` all
+      clean as of Task 4's own checkpoint; re-confirmed clean (lint/types) after Task 5's doc-only
+      edits.
+- [ ] Live profiler numbers recorded and compare favorably against the ~150ms/tick baseline —
+      **open, needs a live browser** (Crawford, or a future session with one).
+- [ ] `docs/todo/backlog.md` item 21 marked fixed — blocked on the live profiler check above;
+      currently reads "code fix landed, not yet marked fixed."
+- [ ] Ready for human review / PR — code and docs are ready; the live-verification step above is
+      the one remaining gate before calling this fully closed.
 
 ## Risks and Mitigations
 
