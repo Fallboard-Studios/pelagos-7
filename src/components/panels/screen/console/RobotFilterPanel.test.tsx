@@ -3,6 +3,37 @@ import { render, screen, fireEvent, act, cleanup } from '@testing-library/react'
 
 vi.mock('@/animation/timelineMap', () => ({ setTimeline: vi.fn(), killTimeline: vi.fn() }));
 
+// Local gsap mock, overriding vitest.setup.ts's global noop for this file — same precedent
+// CabinetBox.test.tsx already establishes: the global mock's own top-level `set` is a plain
+// no-op (not a vi.fn()), so it can't be asserted against directly. Mirrors the global mock's full
+// shape (this tree also renders Button -> CabinetBox, which calls gsap.timeline().fromTo() on its
+// own mount) so every other component's own gsap usage keeps working unmodified — only the
+// top-level `set` is swapped for a spy.
+const gsapSetMock = vi.fn();
+vi.mock('gsap', () => {
+  const noop = () => {
+    const obj = {
+      set: () => obj,
+      to: () => obj,
+      fromTo: () => obj,
+      call: () => obj,
+      eventCallback: () => obj,
+      kill: () => {},
+    };
+    return obj;
+  };
+  return {
+    default: {
+      timeline: () => noop(),
+      set: (...args: unknown[]) => gsapSetMock(...args),
+      to: () => {},
+      fromTo: () => {},
+      delayedCall: () => ({ kill: () => {} }),
+      utils: { selector: () => () => [] },
+    },
+  };
+});
+
 // Lightweight stand-in for CompanyManager (the real thing renders a whole RadioButton row plus
 // TextInputs — irrelevant to this panel's own responsive-shell logic; same "mock a real, heavy
 // child" precedent AccordionContainer.test.tsx uses for CabinetBox).
@@ -59,6 +90,39 @@ describe('RobotFilterPanel', () => {
     it("carries data-tier='desktop' on its own root", () => {
       const { container } = render(<RobotFilterPanel />);
       expect(container.querySelector('.robot-filter-panel')?.getAttribute('data-tier')).toBe('desktop');
+    });
+
+    it('does not sync gsap transform state on mount — desktop never transforms', () => {
+      render(<RobotFilterPanel />);
+      expect(gsapSetMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('slide-in bug fix — mount-time gsap transform sync (§1.1)', () => {
+    it('syncs gsap\'s own xPercent state to the CSS closed-state baseline on mount, at mobile tier', () => {
+      stubMatchMedia({ mobile: true, tablet: true });
+      const { container } = render(<RobotFilterPanel />);
+      const panel = container.querySelector('.robot-filter-panel');
+      expect(gsapSetMock).toHaveBeenCalledWith(panel, { xPercent: -100 });
+    });
+
+    it('syncs gsap\'s own xPercent state to the CSS closed-state baseline on mount, at tablet tier', () => {
+      stubMatchMedia({ mobile: false, tablet: true });
+      const { container } = render(<RobotFilterPanel />);
+      const panel = container.querySelector('.robot-filter-panel');
+      expect(gsapSetMock).toHaveBeenCalledWith(panel, { xPercent: -100 });
+    });
+
+    it('syncs exactly once on mount, not on every render', () => {
+      stubMatchMedia({ mobile: true, tablet: true });
+      const { rerender } = render(<RobotFilterPanel />);
+      rerender(<RobotFilterPanel />);
+      // Filtered to xPercent calls specifically — gsapSetMock also observes Button's own
+      // CabinetBox skew-sync gsap.set() calls (a real, unrelated, mount-only gsap.set() consumer
+      // rendered in this same tree), which would otherwise make a raw call-count assertion here
+      // brittle against changes to CabinetBox's own gsap usage.
+      const xPercentCalls = gsapSetMock.mock.calls.filter(([, vars]) => vars && 'xPercent' in (vars as object));
+      expect(xPercentCalls).toHaveLength(1);
     });
   });
 

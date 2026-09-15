@@ -61,6 +61,21 @@ export const RobotFilterPanel = memo(function RobotFilterPanel() {
 
   useEffect(() => () => killTimeline(TIMELINE_KEY), []);
 
+  // Bugfix, found live: the CSS baseline (RobotFilterPanel.css) sets the closed-state resting
+  // value via a stylesheet `transform: translateX(-100%)` rule, but GSAP never reads percentage
+  // transforms off getComputedStyle — it resolves them to a pixel matrix and bakes that in as a
+  // separate internal offset, distinct from the xPercent channel animateTo() below tweens. Left
+  // unsynced, every subsequent xPercent tween composes on top of that baked-in pixel offset
+  // instead of replacing it, so the panel never actually reaches its intended on/off-screen
+  // position — it only ever "barely" moves. Calling gsap.set() once on mount establishes GSAP's
+  // own xPercent state to match the CSS baseline before any tween runs, the same instant
+  // "establish starting state via gsap.set()" pattern CabinetBox.tsx already uses for its own
+  // skew setup.
+  useEffect(() => {
+    if (!panelRef.current || isDesktop) return;
+    gsap.set(panelRef.current, { xPercent: -100 });
+  }, [isDesktop]);
+
   function animateTo(nextOpen: boolean) {
     const el = panelRef.current;
     if (!el || isDesktop) return; // desktop never transforms — always laid out in flow
