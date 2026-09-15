@@ -131,7 +131,7 @@ Task 5 (manual profiler re-verification + docs close-out) — depends on Task 4
 
 ### Phase 2: Renderer Splits (independent, parallelizable)
 
-- [ ] **Task 2: `rooftopGreebles.tsx` — split `pitchedRoof`/`crownSpire` into layout + paint**
+- [x] **Task 2: `rooftopGreebles.tsx` — split `pitchedRoof`/`crownSpire` into layout + paint**
 
   **Description:** Add `computePitchedRoofLayout`/`paintPitchedRoof` and
   `computeCrownSpireLayout`/`paintCrownSpire`, plus the `ROOFTOP_LAYOUT_PAINT` registry mapping
@@ -141,27 +141,33 @@ Task 5 (manual profiler re-verification + docs close-out) — depends on Task 4
   §1.4.
 
   **Acceptance criteria:**
-  - [ ] `computePitchedRoofLayout(ctx)` returns a deep-equal result for two `ctx`s that differ
+  - [x] `computePitchedRoofLayout(ctx)` returns a deep-equal result for two `ctx`s that differ
         only in `eastLMultiplier`/`westLMultiplier`/`nightDepth`/`flickerEpoch` — proves it's
         genuinely lighting-independent. Same for `computeCrownSpireLayout`.
-  - [ ] `paintPitchedRoof(layout, ctx)` returns different fills for two `ctx`s that differ only in
+  - [x] `paintPitchedRoof(layout, ctx)` returns different fills for two `ctx`s that differ only in
         `eastLMultiplier`/`westLMultiplier`, given the identical `layout` object. Same for
         `paintCrownSpire`.
-  - [ ] `computePitchedRoofLayout`/`computeCrownSpireLayout` return `null` (or the documented
-        fallback signal) under the exact same "missing lighting context" condition the current
-        fallback branch checks — the fallback visual path is preserved, not dropped.
-  - [ ] `renderPitchedRoof(ctx)`/`renderCrownSpire(ctx)` — every existing assertion in
+  - [x] `computePitchedRoofLayout`/`computeCrownSpireLayout` return `null`/the unshaded fallback
+        shape under the exact same "missing lighting context" condition the current fallback
+        branch checks — the fallback visual path is preserved, not dropped. (Caught and fixed a
+        real bug here during GREEN: `computePitchedRoofLayout` initially checked only
+        `frontCornerX`, dropping the original's `eastLMultiplier`/`westLMultiplier` definedness
+        check — a genuine geometry-branch regression for the case where `frontCornerX` is set but
+        the multipliers aren't, caught by the pre-existing `renderPitchedRoof` "apex x aligns
+        with frontCornerX when provided" test.)
+  - [x] `renderPitchedRoof(ctx)`/`renderCrownSpire(ctx)` — every existing assertion in
         `rooftopGreebles.test.tsx` for these two functions passes unmodified, byte-for-byte.
-  - [ ] `ROOFTOP_LAYOUT_PAINT` contains exactly the keys `pitchedRoof` and `crownSpire` — every
+  - [x] `ROOFTOP_LAYOUT_PAINT` contains exactly the keys `pitchedRoof` and `crownSpire` — every
         other `RooftopGreeble` key is absent (this absence is how `Factory.tsx` will later tell
         "static, memoize the plain call" apart from "dynamic, use compute+paint" in Task 4).
-  - [ ] `Factory.tsx` is untouched by this task — confirm via `git diff --stat`.
+  - [x] `Factory.tsx` is untouched by this task — confirmed via `git diff --stat` (empty).
 
   **Verification:**
-  - [ ] `npx vitest run src/components/actors/greebles/rooftopGreebles.test.tsx` passes.
-  - [ ] `npm run build:types`, `npm run lint` clean.
-  - [ ] `npm test` (full suite) passes — confirms this additive-only change breaks nothing
-        elsewhere.
+  - [x] `npx vitest run src/components/actors/greebles/rooftopGreebles.test.tsx` passes (76 tests
+        — 62 pre-existing, 14 new).
+  - [x] `npm run build:types`, `npm run lint` clean.
+  - [x] `npm test` (full suite, 143 files / 2569 tests) passes — confirms this additive-only
+        change breaks nothing elsewhere.
 
   **Dependencies:** None (parallelizable with Task 3).
 

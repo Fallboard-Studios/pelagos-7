@@ -14,6 +14,11 @@ import {
   renderPipesValves,
   attachFlickerAnimation,
   ROOFTOP_RENDERERS,
+  computePitchedRoofLayout,
+  paintPitchedRoof,
+  computeCrownSpireLayout,
+  paintCrownSpire,
+  ROOFTOP_LAYOUT_PAINT,
 } from './rooftopGreebles';
 import type { GreebleRendererContext } from './greebleTypes';
 
@@ -227,6 +232,68 @@ describe('renderPitchedRoof — shaded', () => {
 });
 
 // ========================================
+// PITCHED ROOF — LAYOUT/PAINT SPLIT
+// (docs/specs/FACTORY_LIGHTING_RERENDER.md §1.4 — Task 2)
+// ========================================
+
+describe('computePitchedRoofLayout / paintPitchedRoof', () => {
+  const shadedCtx: GreebleRendererContext = {
+    ...ctx,
+    frontCornerX: 40,
+    eastLMultiplier: 1.1,
+    westLMultiplier: 0.5,
+  };
+
+  it('returns null when frontCornerX is absent — the fallback-path signal', () => {
+    expect(computePitchedRoofLayout(ctx)).toBeNull();
+  });
+
+  it('is identical regardless of eastLMultiplier/westLMultiplier/nightDepth/flickerEpoch — genuinely geometry-only', () => {
+    const layoutA = computePitchedRoofLayout({
+      ...shadedCtx, eastLMultiplier: 1.1, westLMultiplier: 0.5, nightDepth: 0.8, flickerEpoch: 3,
+    });
+    const layoutB = computePitchedRoofLayout({
+      ...shadedCtx, eastLMultiplier: 0.2, westLMultiplier: 0.9, nightDepth: 0.1, flickerEpoch: 99,
+    });
+    expect(layoutA).toEqual(layoutB);
+  });
+
+  it('layout points match the shaded renderPitchedRoof output exactly', () => {
+    const layout = computePitchedRoofLayout(shadedCtx)!;
+    const ridgeY = shadedCtx.roofY! - shadedCtx.frontCornerX!;
+    expect(layout.slopePoints).toBe(`0,${shadedCtx.roofY} ${shadedCtx.frontCornerX},${shadedCtx.roofY} ${shadedCtx.frontCornerX},${ridgeY}`);
+    expect(layout.wallPoints).toBe(`${shadedCtx.frontCornerX},${ridgeY} ${shadedCtx.buildingWidth},${ridgeY} ${shadedCtx.buildingWidth},${shadedCtx.roofY} ${shadedCtx.frontCornerX},${shadedCtx.roofY}`);
+  });
+
+  it('paintPitchedRoof produces different fills for different lighting, given the identical layout', () => {
+    const layout = computePitchedRoofLayout(shadedCtx);
+    const dayEl = paintPitchedRoof(layout, { ...shadedCtx, eastLMultiplier: 1.1, westLMultiplier: 0.9 }) as EL;
+    const nightEl = paintPitchedRoof(layout, { ...shadedCtx, eastLMultiplier: 0.2, westLMultiplier: 0.3 }) as EL;
+    const dayChildren = React.Children.toArray(dayEl.props.children) as EL[];
+    const nightChildren = React.Children.toArray(nightEl.props.children) as EL[];
+    expect(dayChildren[0].props.fill).not.toBe(nightChildren[0].props.fill);
+    expect(dayChildren[1].props.fill).not.toBe(nightChildren[1].props.fill);
+  });
+
+  it('paintPitchedRoof falls back to the unshaded single-polygon shape when layout is null', () => {
+    const el = paintPitchedRoof(null, ctx) as EL;
+    expect(el.type).toBe('polygon');
+    expect(el.props.fill).toBe('hsl(180, 50%, 50%)');
+  });
+
+  it('renderPitchedRoof (compatibility wrapper) equals paintPitchedRoof(computePitchedRoofLayout(ctx), ctx)', () => {
+    const wrapped = renderPitchedRoof(shadedCtx);
+    const direct = paintPitchedRoof(computePitchedRoofLayout(shadedCtx), shadedCtx);
+    expect(wrapped).toEqual(direct);
+  });
+
+  it('ROOFTOP_LAYOUT_PAINT.pitchedRoof wires the same compute/paint pair', () => {
+    const entry = ROOFTOP_LAYOUT_PAINT.pitchedRoof!;
+    expect(entry.compute(shadedCtx)).toEqual(computePitchedRoofLayout(shadedCtx));
+  });
+});
+
+// ========================================
 // CROWN SPIRE TESTS
 // ========================================
 
@@ -353,6 +420,74 @@ describe('renderCrownSpire — shaded', () => {
     const el = renderCrownSpire({ ...shadedCtx, seed: 0 }) as EL;
     const children = React.Children.toArray(el.props.children) as EL[];
     expect(children[0].props.fill).not.toBe(children[1].props.fill);
+  });
+});
+
+// ========================================
+// CROWN SPIRE — LAYOUT/PAINT SPLIT
+// (docs/specs/FACTORY_LIGHTING_RERENDER.md §1.4 — Task 2)
+// ========================================
+
+describe('computeCrownSpireLayout / paintCrownSpire', () => {
+  const shadedCtx: GreebleRendererContext = {
+    ...ctx,
+    frontCornerX: 40,
+    eastLMultiplier: 1.1,
+    westLMultiplier: 0.5,
+  };
+
+  it('is identical regardless of eastLMultiplier/westLMultiplier/nightDepth/flickerEpoch — genuinely geometry-only', () => {
+    const layoutA = computeCrownSpireLayout({
+      ...shadedCtx, seed: 0, eastLMultiplier: 1.1, westLMultiplier: 0.5, nightDepth: 0.8, flickerEpoch: 3,
+    });
+    const layoutB = computeCrownSpireLayout({
+      ...shadedCtx, seed: 0, eastLMultiplier: 0.2, westLMultiplier: 0.9, nightDepth: 0.1, flickerEpoch: 99,
+    });
+    expect(layoutA).toEqual(layoutB);
+  });
+
+  it('produces one tier entry per step (2 for even seed, 3 for odd seed), plus one antenna', () => {
+    const layout2 = computeCrownSpireLayout({ ...shadedCtx, seed: 0 });
+    const layout3 = computeCrownSpireLayout({ ...shadedCtx, seed: 1 });
+    expect(layout2.tiers).toHaveLength(2);
+    expect(layout3.tiers).toHaveLength(3);
+    expect(layout2.antenna).toBeDefined();
+    expect(layout3.antenna).toBeDefined();
+  });
+
+  it('falls back to the unshaded tier-width shape when frontCornerX/eastL/westL are absent', () => {
+    const layout = computeCrownSpireLayout({ ...ctx, seed: 0 });
+    // Unshaded fallback has no per-face split — tiers carry a single `width`, not `frontW`/`sideW`.
+    expect(layout.tiers[0]).not.toHaveProperty('frontW');
+    expect(layout.tiers[0]).toHaveProperty('width');
+  });
+
+  it('paintCrownSpire produces different fills for different lighting, given the identical layout', () => {
+    const layout = computeCrownSpireLayout({ ...shadedCtx, seed: 0 });
+    const dayEl = paintCrownSpire(layout, { ...shadedCtx, seed: 0, eastLMultiplier: 1.1, westLMultiplier: 0.9 }) as EL;
+    const nightEl = paintCrownSpire(layout, { ...shadedCtx, seed: 0, eastLMultiplier: 0.2, westLMultiplier: 0.3 }) as EL;
+    const dayChildren = React.Children.toArray(dayEl.props.children) as EL[];
+    const nightChildren = React.Children.toArray(nightEl.props.children) as EL[];
+    expect(dayChildren[0].props.fill).not.toBe(nightChildren[0].props.fill);
+  });
+
+  it('renderCrownSpire (compatibility wrapper) equals paintCrownSpire(computeCrownSpireLayout(ctx), ctx)', () => {
+    const testCtx = { ...shadedCtx, seed: 1 };
+    const wrapped = renderCrownSpire(testCtx);
+    const direct = paintCrownSpire(computeCrownSpireLayout(testCtx), testCtx);
+    expect(wrapped).toEqual(direct);
+  });
+
+  it('ROOFTOP_LAYOUT_PAINT.crownSpire wires the same compute/paint pair', () => {
+    const entry = ROOFTOP_LAYOUT_PAINT.crownSpire!;
+    const testCtx = { ...shadedCtx, seed: 0 };
+    expect(entry.compute(testCtx)).toEqual(computeCrownSpireLayout(testCtx));
+  });
+});
+
+describe('ROOFTOP_LAYOUT_PAINT registry shape', () => {
+  it('contains exactly pitchedRoof and crownSpire — every other RooftopGreeble is absent', () => {
+    expect(Object.keys(ROOFTOP_LAYOUT_PAINT).sort()).toEqual(['crownSpire', 'pitchedRoof']);
   });
 });
 
