@@ -246,10 +246,12 @@ responsive breakpoint crossing) — not verified either way for those, only idle
 
 ### 18. AudioRigDrawer: Whole-Object globalAudio/globalLfo Selects
 
-**Status:** ☑ fixed — committed on `perf/rerender-cleanup` (`39b97d1`), not yet merged to
-`main`. Live re-verification with the same React DevTools "highlight updates" check that
-found this (drawer open, idle) not yet done — worth confirming the churn is actually gone
-before closing this out for good.
+**Status:** ☑ fixed and live-verified — committed on `perf/rerender-cleanup` (`39b97d1`),
+not yet merged to `main`. Re-checked live with the Profiler's "What caused this update?"
+panel (2026-09-14, Crawford): a post-fix commit during an audioSwells tick shows only
+`AudioRigEffectPanel key="eq3"` and `key="filterHPF"` re-rendering (6.2ms total) — every
+other effect panel (compressor, limiter, delay, reverb, filterLPF) correctly sat still.
+Confirms the fix works exactly as designed.
 
 Confirmed live (2026-09-14, Crawford, React DevTools "highlight updates") — worse than
 originally scoped. High confidence, high impact.
@@ -311,3 +313,37 @@ isolated to a specific component or call site.
 **Fix shape:** not yet determined — needs tracing (search for `y=` bindings in
 robot/actor/factory SVG components fed by a value that can be `''`/`undefined`/`NaN`
 before its source data is ready).
+
+### 21. Factory: Every Instance Re-renders Once/Sec for Day/Night Lighting
+
+Found while live-verifying item 18 (2026-09-14, Crawford + React DevTools Profiler,
+Ranked view) — confirmed via two profiler samples exactly ~1s apart, both showing the
+identical pattern. High confidence, high impact, continuous (not one-off). Architecturally
+different from items 14-18 — not a whole-object-selector bug, and narrowing the selector
+further won't fix it.
+
+`Factory.tsx:108` — `const localTime = useUIStore((s) => s.activeLocaleLocalTime ?? 12);`
+— every single `FactoryInner` instance (all ~36 factories in a locale) independently
+subscribes to this value to compute its own day/night lighting (`getLighting(cycleMeasure)
+.eastL/.westL` — sun-facing vs. shadow-side brightness). `AttenuationStyleView.tsx:46`
+ticks it via `setInterval(tick, 1000)` — correctly a real wall-clock second, not
+BeatClock/musical timing, so no CLAUDE.md scheduling violation there.
+
+The selector itself is already about as narrow as possible (a single primitive). The cost
+is structural: ~36 factories all recomputing real work (`getLighting`, `shiftHSL`,
+`applyColorShift`, greeble rendering) in the same second, each taking 2-9ms, summing to
+~150ms of main-thread work once every second, indefinitely, for as long as the world view
+is open. `Factory`'s own `React.memo` (line 313) can't help — memo only blocks a
+re-render caused by a *parent* passing unchanged props; it does nothing when a component's
+own store subscription changes, which is what's happening here (all 36 instances change
+"at once" because they all read the same tick).
+
+**Fix shape:** not yet determined — needs design discussion, not a narrow-the-selector
+fix. Candidates: (a) isolate the lighting-dependent color computation into a small child
+component per factory, memoized separately from the rest of the factory's (expensive,
+static) geometry/greebles, so only that child re-renders per tick; (b) drive the
+color/lighting shift via a direct ref/attribute write (or a GSAP tween interpolating
+between light states) instead of a React re-render entirely, matching CLAUDE.md's general
+preference for GSAP/direct-write over React state for continuous visual changes; (c)
+reduce tick granularity if a full 1000ms cadence isn't visually necessary for a slow
+day/night shift (product call, not just a technical one).
