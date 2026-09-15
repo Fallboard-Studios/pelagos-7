@@ -1,7 +1,17 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
+// Spied (real cross-module call, wrapped so it still delegates to the actual
+// implementation) so a render-count test (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md
+// Task 8) can tell whether Stepper's render body actually re-executed —
+// resolveAccessibleName(schema) is called unconditionally in the render body.
+vi.mock('./accessibleName', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./accessibleName')>();
+  return { ...actual, resolveAccessibleName: vi.fn(actual.resolveAccessibleName) };
+});
+
 import { Stepper } from './Stepper';
+import { resolveAccessibleName } from './accessibleName';
 import type { StepperSchema } from '@/types/controls';
 
 const densitySchema: StepperSchema = { id: 'density', type: 'stepper', min: 1, max: 16, loreLabel: 'DENSITY', humanLabel: 'Rhythmic Density' };
@@ -59,5 +69,32 @@ describe('Stepper', () => {
     const schema: StepperSchema = { id: 'x', type: 'stepper', min: 0, max: 20 };
     render(<Stepper schema={schema} value={4.999999999999999} onChange={() => {}} />);
     expect(screen.getByText('5')).toBeTruthy();
+  });
+
+  describe('React.memo (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 8)', () => {
+    it('is a React.memo-wrapped component', () => {
+      expect((Stepper as unknown as { $$typeof: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
+    });
+
+    it('does not re-execute its render body on a re-render with identical props', () => {
+      const onChange = () => {};
+      const { rerender } = render(<Stepper schema={densitySchema} value={5} onChange={onChange} />);
+      const callsAfterMount = (resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      rerender(<Stepper schema={densitySchema} value={5} onChange={onChange} />);
+      rerender(<Stepper schema={densitySchema} value={5} onChange={onChange} />);
+
+      expect((resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length).toBe(callsAfterMount);
+    });
+
+    it('does re-execute its render body when a real prop changes (value)', () => {
+      const onChange = () => {};
+      const { rerender } = render(<Stepper schema={densitySchema} value={5} onChange={onChange} />);
+      const callsAfterMount = (resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      rerender(<Stepper schema={densitySchema} value={6} onChange={onChange} />);
+
+      expect((resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(callsAfterMount);
+    });
   });
 });

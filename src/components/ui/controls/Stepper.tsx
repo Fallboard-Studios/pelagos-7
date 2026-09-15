@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import { DualLabel } from './DualLabel';
 import { resolveAccessibleName } from './accessibleName';
 import { formatDisplayValue } from './formatDisplayValue';
@@ -13,7 +15,7 @@ interface StepperProps {
 
 /** Integer +/- control. Controlled — clamps to schema.min/max, steps by
  *  schema.step (default 1), never calls onChange with an out-of-bounds value. */
-export function Stepper({ schema, value, onChange, disabled }: StepperProps) {
+function StepperInner({ schema, value, onChange, disabled }: StepperProps) {
   const step = schema.step ?? 1;
   const accessibleName = resolveAccessibleName(schema);
 
@@ -56,3 +58,7 @@ export function Stepper({ schema, value, onChange, disabled }: StepperProps) {
     </div>
   );
 }
+
+// React.memo (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 8) — every prop is a primitive
+// or stable schema object; the default shallow compare is correct.
+export const Stepper = memo(StepperInner);

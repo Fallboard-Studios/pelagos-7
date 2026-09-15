@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import { Toggle } from './Toggle';
 import { Stepper } from './Stepper';
 import { withActiveClass } from './activeClass';
@@ -22,7 +24,7 @@ interface StepperWithToggleProps {
  *  entirely, e.g. the company panel's greyed-out "None selected" state). The root also carries a
  *  plain `isActive` class (see Toggle.tsx) so a consumer can write
  *  `.sc-stepper-toggle.isActive { ... }`. */
-export function StepperWithToggle({ schema, value, onChange, disabled }: StepperWithToggleProps) {
+function StepperWithToggleInner({ schema, value, onChange, disabled }: StepperWithToggleProps) {
   const toggleSchema: ToggleSchema = { id: `${schema.id}.active`, type: 'toggle', loreLabel: schema.loreLabel, humanLabel: schema.humanLabel };
   const stepperSchema: StepperSchema = { id: schema.id, type: 'stepper', min: schema.min, max: schema.max };
 
@@ -43,3 +45,9 @@ export function StepperWithToggle({ schema, value, onChange, disabled }: Stepper
     </div>
   );
 }
+
+// React.memo (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 8) — every prop is a primitive,
+// a stable schema object, or the StepperWithToggleValue object (compared shallowly, same as
+// AudioRigDrawer's own per-effect settings objects — a caller replacing it wholesale on any real
+// change is the expected usage, matching every other primitive here).
+export const StepperWithToggle = memo(StepperWithToggleInner);

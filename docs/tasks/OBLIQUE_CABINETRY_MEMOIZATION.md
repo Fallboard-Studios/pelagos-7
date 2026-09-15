@@ -344,9 +344,20 @@ exports, though they compose `CabinetBox`/`DualLabel` internally, already memoiz
   - [x] Both confirmed red first. `npx vitest run` passes (17 + 35 = 52 tests, 2 + 3 = 5 new).
         `npm run build:types`, `npm run lint` clean.
 
-- [ ] **Task 8: `Stepper.tsx` + `StepperWithToggle.tsx`** — same shape.
+- [x] **Task 8: `Stepper.tsx` + `StepperWithToggle.tsx`** — same shape.
 
   **Files:** `Stepper.tsx`/`.test.tsx`, `StepperWithToggle.tsx`/`.test.tsx`
+
+  **Acceptance criteria:** `$$typeof`/render-count pair for both, marker `resolveAccessibleName`
+  for both — `StepperWithToggle` has no hook/utility call of its own, but it unconditionally
+  composes `Toggle` + `Stepper` (each of which calls `resolveAccessibleName` internally); if
+  `StepperWithToggle` bails, its body never constructs either child element, so neither of their
+  own calls fire either — the total count is still a valid "did this subtree's root bail" signal
+  (same reasoning as the `CabinetryCascade.test.tsx` end-to-end test, Task 5). Confirmed red first
+  (4 failures: both `$$typeof` checks, both "unchanged re-render" counts).
+
+  **Verification:** `npx vitest run` passes (11 + 12 = 23 tests, 3 + 3 = 6 new). `npm run
+  build:types`, `npm run lint` clean.
 
 - [ ] **Task 9: `CoordsInput.tsx` + `RadioButton.tsx`** — same shape. `RadioButton` renders one
   `CabinetBox` per option (spec §1.3) — its own memo benefit still depends on `CabinetBox` (Task
