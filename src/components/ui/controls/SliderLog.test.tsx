@@ -35,6 +35,12 @@ import {
   computeVoxelBoxStates,
   VOXEL_TRACK_DEFAULT_VERTICAL_HEIGHT,
 } from '@/utils/voxelTrackMath';
+// Separate namespace import so computeVoxelBoxStates can be spied on as a real
+// cross-module call from SliderLog.tsx's own perspective (docs/tasks/
+// OBLIQUE_CABINETRY_MEMOIZATION.md Task 2) — distinct from the named import
+// above, which existing tests already use directly to compute expected
+// values, unspied.
+import * as voxelTrackMath from '@/utils/voxelTrackMath';
 import type { SliderLogSchema } from '@/types/controls';
 
 // Attack/Decay/Release bounds (docs/reference/ROBOT_DATA_GRID.md), the min = 0 fixture.
@@ -303,6 +309,55 @@ describe('SliderLog component', () => {
       expect(onChange).toHaveBeenCalledTimes(1);
       const received = onChange.mock.calls[0][0];
       expect(received).toBeCloseTo(sliderLogTToValue(0.001, schema.min, schema.max), 10);
+    });
+  });
+
+  describe('computeVoxelBoxStates memoization (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 2)', () => {
+    it('does not recompute states across re-renders with unchanged value/schema.min/schema.max/boxCount', () => {
+      const spy = vi.spyOn(voxelTrackMath, 'computeVoxelBoxStates');
+      const { rerender } = render(<SliderLog schema={schema} value={2} onChange={() => {}} />);
+      const callsAfterMount = spy.mock.calls.length;
+      expect(callsAfterMount).toBeGreaterThan(0);
+
+      rerender(<SliderLog schema={schema} value={2} onChange={() => {}} />);
+      rerender(<SliderLog schema={schema} value={2} onChange={() => {}} />);
+
+      expect(spy.mock.calls.length).toBe(callsAfterMount);
+    });
+
+    it('recomputes states when value changes (t itself changes)', () => {
+      const spy = vi.spyOn(voxelTrackMath, 'computeVoxelBoxStates');
+      const { rerender } = render(<SliderLog schema={schema} value={2} onChange={() => {}} />);
+      const callsAfterMount = spy.mock.calls.length;
+
+      rerender(<SliderLog schema={schema} value={5} onChange={() => {}} />);
+
+      expect(spy.mock.calls.length).toBeGreaterThan(callsAfterMount);
+    });
+
+    it('recomputes states when schema.min/schema.max change, even with the raw value unchanged — t is derived from schema too', () => {
+      const spy = vi.spyOn(voxelTrackMath, 'computeVoxelBoxStates');
+      const { rerender } = render(<SliderLog schema={schema} value={2} onChange={() => {}} />);
+      const callsAfterMount = spy.mock.calls.length;
+
+      const widerSchema: SliderLogSchema = { ...schema, max: 20 };
+      rerender(<SliderLog schema={widerSchema} value={2} onChange={() => {}} />);
+
+      expect(spy.mock.calls.length).toBeGreaterThan(callsAfterMount);
+    });
+
+    it('recomputes states when the fitted boxCount changes (a ResizeObserver measurement), even with value/schema unchanged', () => {
+      const spy = vi.spyOn(voxelTrackMath, 'computeVoxelBoxStates');
+      render(<SliderLog schema={schema} value={2} onChange={() => {}} />);
+      const callsAfterMount = spy.mock.calls.length;
+
+      // 500px is wide enough to fit more than the default (unmeasured) 3-box
+      // minimum — see SliderLinear.test.tsx's own equivalent test for why
+      // 240px would be a false negative here.
+      const observer = MockResizeObserver.instances[0];
+      act(() => observer.fire(500, 0));
+
+      expect(spy.mock.calls.length).toBeGreaterThan(callsAfterMount);
     });
   });
 });
