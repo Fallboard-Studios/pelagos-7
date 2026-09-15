@@ -6,8 +6,17 @@ vi.mock('./CabinetBox', () => ({
     <div data-testid="cabinet-box" data-popped={popped} data-timeline-key={timelineKey}>{children}</div>
   ),
 }));
+// Spied (real cross-module call, wrapped so it still delegates to the actual
+// implementation) so a render-count test (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md
+// Task 6) can tell whether Button's render body actually re-executed —
+// resolveAccessibleName(schema) is called unconditionally in the render body.
+vi.mock('./accessibleName', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./accessibleName')>();
+  return { ...actual, resolveAccessibleName: vi.fn(actual.resolveAccessibleName) };
+});
 
 import { Button } from './Button';
+import { resolveAccessibleName } from './accessibleName';
 import type { ButtonSchema } from '@/types/controls';
 
 describe('Button', () => {
@@ -139,5 +148,34 @@ describe('Button', () => {
 
     fireEvent.pointerDown(button);
     expect(screen.getByTestId('cabinet-box').getAttribute('data-popped')).toBe('0.5');
+  });
+
+  describe('React.memo (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 6)', () => {
+    it('is a React.memo-wrapped component', () => {
+      expect((Button as unknown as { $$typeof: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
+    });
+
+    it('does not re-execute its render body on a re-render with identical props', () => {
+      const schema: ButtonSchema = { id: 'resetMelody', type: 'button', humanLabel: 'Reset Melody' };
+      const onClick = () => {};
+      const { rerender } = render(<Button schema={schema} onClick={onClick} />);
+      const callsAfterMount = (resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      rerender(<Button schema={schema} onClick={onClick} />);
+      rerender(<Button schema={schema} onClick={onClick} />);
+
+      expect((resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length).toBe(callsAfterMount);
+    });
+
+    it('does re-execute its render body when a real prop changes (disabled)', () => {
+      const schema: ButtonSchema = { id: 'resetMelody', type: 'button', humanLabel: 'Reset Melody' };
+      const onClick = () => {};
+      const { rerender } = render(<Button schema={schema} onClick={onClick} />);
+      const callsAfterMount = (resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      rerender(<Button schema={schema} onClick={onClick} disabled />);
+
+      expect((resolveAccessibleName as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(callsAfterMount);
+    });
   });
 });

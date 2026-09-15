@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { memo, useId, useState } from 'react';
 
 import { CabinetBox } from './CabinetBox';
 import { DualLabel } from './DualLabel';
@@ -34,7 +34,7 @@ interface ButtonProps {
  * but the vulnerability is identical, so the fix is applied preemptively
  * rather than waiting for a live collision.
  */
-export function Button({ schema, onClick, disabled }: ButtonProps) {
+function ButtonInner({ schema, onClick, disabled }: ButtonProps) {
   const accessibleName = resolveAccessibleName(schema);
   const instanceId = useId();
   const [hovered, setHovered] = useState(false);
@@ -65,3 +65,9 @@ export function Button({ schema, onClick, disabled }: ButtonProps) {
     </button>
   );
 }
+
+// React.memo (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 6) — schema is always a stable,
+// module-level config object; onClick/disabled are the only props a caller must keep stable to
+// benefit (an implicit performance contract, not a type-level one — see
+// docs/COMPONENT_LIBRARY.md).
+export const Button = memo(ButtonInner);

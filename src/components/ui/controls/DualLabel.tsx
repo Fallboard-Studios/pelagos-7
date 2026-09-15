@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import './DualLabel.css';
 
 interface DualLabelProps {
@@ -10,7 +11,7 @@ interface DualLabelProps {
  * standalone for display-only rows (Robot Name, Job Data, ...) and composed
  * internally by every other control primitive for its own label rendering.
  */
-export function DualLabel({ loreLabel, humanLabel }: DualLabelProps) {
+function DualLabelInner({ loreLabel, humanLabel }: DualLabelProps) {
   if (!loreLabel && !humanLabel) return null;
   return (
     <div className="sc-dual-label">
@@ -19,3 +20,9 @@ export function DualLabel({ loreLabel, humanLabel }: DualLabelProps) {
     </div>
   );
 }
+
+// React.memo (docs/tasks/OBLIQUE_CABINETRY_MEMOIZATION.md Task 6) — both props are always plain
+// strings pulled directly off a stable schema object, so the default shallow compare is correct.
+// Composed internally by every other primitive; its own benefit is realized once its parent
+// primitive is memoized and bails (so DualLabel is never even reached).
+export const DualLabel = memo(DualLabelInner);

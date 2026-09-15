@@ -300,7 +300,7 @@ of these take a `VoxelTrack`-derived array. Grouped in pairs to keep each task's
 order within this phase doesn't matter (all independent of each other and of Phase 2's `Xxx`
 exports, though they compose `CabinetBox`/`DualLabel` internally, already memoized by Task 4).
 
-- [ ] **Task 6: `DualLabel.tsx` + `Button.tsx`** — `React.memo`, each. `DualLabel`'s own props
+- [x] **Task 6: `DualLabel.tsx` + `Button.tsx`** — `React.memo`, each. `DualLabel`'s own props
   (`loreLabel?`, `humanLabel?`) are always plain strings off a stable `schema` — trivially
   memo-safe (spec §1.3's own note: its benefit is realized once its *parent* primitive bails, so
   `DualLabel` is never even reached — still worth memoizing directly for the cases where it is).
@@ -310,10 +310,15 @@ exports, though they compose `CabinetBox`/`DualLabel` internally, already memoiz
   render-count test proves a re-render with identical props doesn't re-execute the body, and a
   changed prop (e.g. `Button`'s `disabled`, `DualLabel`'s `humanLabel`) does. Every existing test
   in `DualLabel.test.tsx`/`Button.test.tsx` passes unmodified.
+  - [x] `DualLabel` has no hook or cross-module utility call in its render body to spy on — a
+        `$$typeof`-only structural test, matching item 23's `BubbleStream.test.tsx` precedent for
+        when a real render-based test isn't practical (confirmed via direct read, not assumed).
+  - [x] `Button` render-count marker: `resolveAccessibleName(schema)`, called unconditionally.
+        Confirmed red first (all 3 new tests failed against pre-fix code).
 
   **Verification:** `npx vitest run src/components/ui/controls/DualLabel.test.tsx
-  src/components/ui/controls/Button.test.tsx`; `npm run build:types`; `npm run lint`; `npm test`
-  full suite.
+  src/components/ui/controls/Button.test.tsx` passes (5 + 17 = 22 tests, 3 new). `npm run
+  build:types`, `npm run lint` clean.
 
   **Dependencies:** Task 4 (`CabinetBox` memoized — not required for these tests to pass, but
   required for the memo to be worth anything downstream).
