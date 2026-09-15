@@ -18,8 +18,25 @@ function makeLcg(seed: number): () => number {
 // ----------------------------------------
 
 describe('BubbleStream', () => {
-  it('exports a React component', () => {
-    expect(typeof BubbleStream).toBe('function');
+  // Rendering the real BubbleStream directly isn't viable here — its GSAP effect calls
+  // `tl.add()`, which the global `gsap` mock (vitest.setup.ts) doesn't implement, so it
+  // throws (confirmed directly while writing this test). Same reason
+  // FactoryBubbleStream.test.tsx stubs BubbleStream out entirely rather than rendering the
+  // real thing. So this checks the memo wrapper structurally instead of via a render-based
+  // re-render-count test.
+  it('exports a React.memo-wrapped component (backlog item 23)', () => {
+    expect(typeof BubbleStream).toBe('object');
+    // React.memo's own marker — see react/src/ReactSymbols.js. Confirms the export is
+    // actually wrapped, not just an object that happens to also be a function.
+    expect((BubbleStream as unknown as { $$typeof: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
+  });
+
+  it('does not pass a custom comparator — every prop is a primitive, so the default shallow compare is already correct', () => {
+    // A supplied `compare` function is the second arg to React.memo(); confirms this wasn't
+    // needed (and that BubbleStreamProps genuinely has no object/array prop that would need
+    // one — enforced separately by BubbleStreamProps' own type, all fields number/string/
+    // boolean).
+    expect((BubbleStream as unknown as { compare: unknown }).compare).toBeNull();
   });
 
   describe('config derivation', () => {

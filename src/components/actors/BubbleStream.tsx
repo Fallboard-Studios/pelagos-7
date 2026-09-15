@@ -100,7 +100,7 @@ function makeLcg(seed: number): () => number {
  * On mount every factory gets a random initial phase offset within its own
  * interval so bursts are staggered rather than synchronized.
  */
-export const BubbleStream: React.FC<BubbleStreamProps> = ({
+const BubbleStreamInner: React.FC<BubbleStreamProps> = ({
   actorId,
   ventX,
   ventY,
@@ -236,5 +236,16 @@ export const BubbleStream: React.FC<BubbleStreamProps> = ({
     </>
   );
 };
+
+/**
+ * Wrapped in `React.memo` (backlog item 23, docs/todo/backlog.md) — `FactoryInner` still
+ * re-renders once/sec for the day/night tick (item 21's own fix reduced what work that
+ * render does, not the render itself), and without this, every bubble-eligible factory's
+ * `BubbleStream` re-ran its own render body on every one of those ticks for no reason. Every
+ * prop here is a primitive (`BubbleStreamProps`), so the default shallow compare is already
+ * correct — no custom comparator needed. Matches the same `XxxInner`/`React.memo(XxxInner)`
+ * pattern `Factory.tsx` and the Robot shape components already use.
+ */
+export const BubbleStream = React.memo(BubbleStreamInner);
 
 export default BubbleStream;

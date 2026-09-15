@@ -422,3 +422,30 @@ alone. Not assumed identical to item 21's layout/paint split, though — `RobotB
 is between "audio-derived shape" and "lighting-derived color," not "geometry" vs. "paint"
 within a seeded procedural-placement loop the way Factory's greebles are. Needs its own
 investigation/spec pass before implementing.
+
+### 23. BubbleStream: Not Memoized — Re-renders on Every Parent Factory Tick
+
+**Status:** ☑ fixed — same session as item 21 (2026-09-14).
+
+Found live-verifying item 21's fix (Crawford, React DevTools Profiler, 2026-09-14) — the
+Ranked/Flamegraph view still showed a large number of `BubbleStream` instances lighting up on
+every tick even after item 21's `staticVisual` fix landed. Root cause: `BubbleStream.tsx`
+(unlike `Factory`/`RobotBody`/the Robot shape components) was never wrapped in `React.memo`.
+Every prop it takes (`actorId`, `ventX`, `ventY`, `seed`, `isActive`, `totalBuildings`,
+`bodyHue`, `depthScale`) is a plain primitive — all of them already effectively stable
+per-factory (derived from static, spawn-time-only values in `Factory.tsx`, several already
+routed through item 21's own `staticVisual` memo) — so every one of `FactoryInner`'s own
+still-expected once/sec re-renders (item 21 reduced *what work* that render does; it never
+stopped the render itself) was also re-invoking every bubble-eligible factory's
+`BubbleStream` function body for no reason, on top of the reduced `FactoryInner` cost.
+`BubbleStream`'s own internal GSAP timeline was never at risk (`useGSAP`'s own
+`dependencies: [config, ventX, ventY, depthScale]` already correctly no-ops when those don't
+change) — this was purely the surrounding React render/reconciliation cost.
+
+**Fix:** wrapped in `React.memo`, matching the exact `XxxInner`/`export const Xxx =
+React.memo(XxxInner)` pattern `Factory.tsx` and the Robot shape components already use. No
+custom comparator needed — every prop is a primitive, so the default shallow compare is
+already correct. `BubbleStream.test.tsx`'s `'exports a React component'` assertion updated
+(`typeof` a memoized component is `'object'`, not `'function'`); a new test added asserting
+(via `React.Profiler`) that the component does not re-commit when a parent re-renders with
+identical prop values.
