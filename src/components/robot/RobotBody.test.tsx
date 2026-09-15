@@ -1,7 +1,8 @@
-import { describe, it, expect, afterEach } from 'vitest';
-import { render, cleanup } from '@testing-library/react';
+import { describe, it, expect, afterEach, vi } from 'vitest';
+import { act, render, cleanup } from '@testing-library/react';
 
 import { RobotBody } from './RobotBody';
+import * as robotVisualHelpers from './robotVisualHelpers';
 import { useUIStore } from '@/stores/uiStore';
 import type { Robot } from '@/types/Robot';
 
@@ -103,5 +104,28 @@ describe('RobotBody', () => {
     expect(lowOpacityBypassed).toBe(lowOpacityNormal);
     // A low-battery robot is dimmer than a full-battery robot regardless of ignoreDaylight.
     expect(Number(lowOpacityBypassed)).toBeLessThan(Number(fullOpacity));
+  });
+
+  // The regression test backlog item 22's fix is for (docs/specs/ROBOT_BODY_LIGHTING_RERENDER.md).
+  // Spies on shapeParamsFromAudio (robotVisualHelpers.ts) rather than a same-module internal
+  // reference — RobotBody.tsx imports it across a real module boundary, so vi.spyOn's
+  // replacement is actually what RobotBody.tsx calls. Same lesson item 21's Task 4 learned the
+  // hard way (a function a module calls on itself internally isn't observable this way under
+  // this project's Vite/Vitest SSR transform).
+  it('does not recompute shapeParamsFromAudio on every activeLocaleLocalTime tick — only on mount', () => {
+    const spy = vi.spyOn(robotVisualHelpers, 'shapeParamsFromAudio');
+    const robot = makeRobot();
+
+    useUIStore.getState().setActiveLocaleLocalTime(12);
+    render(<svg><RobotBody robot={robot} /></svg>);
+    const callsAfterMount = spy.mock.calls.length;
+    expect(callsAfterMount).toBeGreaterThan(0);
+
+    act(() => { useUIStore.getState().setActiveLocaleLocalTime(0); });
+    act(() => { useUIStore.getState().setActiveLocaleLocalTime(18); });
+    act(() => { useUIStore.getState().setActiveLocaleLocalTime(6); });
+
+    expect(spy.mock.calls.length).toBe(callsAfterMount);
+    spy.mockRestore();
   });
 });

@@ -34,7 +34,7 @@ Task 1 (RobotBody.tsx split + regression test) — no dependencies, single task
 
 ## Task List
 
-- [ ] **Task 1: Split `visual` into `audioVisual` (memoized) + `colors` (per-render)**
+- [x] **Task 1: Split `visual` into `audioVisual` (memoized) + `colors` (per-render)**
 
   **Description:** `RobotBody.tsx`'s `visual` `useMemo` becomes `audioVisual`, dependency array
   narrowed to `[robot.audioAttributes, robot.octaveRange]` (drops `lightnessMultiplier`).
@@ -43,27 +43,28 @@ Task 1 (RobotBody.tsx split + regression test) — no dependencies, single task
   memo, computed fresh every render. No other logic inside the memo changes. Spec §1.2.
 
   **Acceptance criteria:**
-  - [ ] Every existing `RobotBody.test.tsx` test (day/night color varies without
+  - [x] Every existing `RobotBody.test.tsx` test (day/night color varies without
         `ignoreDaylight`; frozen with `ignoreDaylight`; battery dim independent of
         `ignoreDaylight`) passes unmodified, byte-for-byte.
-  - [ ] **The regression test the fix is for:** a new test spies on `shapeParamsFromAudio`
+  - [x] **The regression test the fix is for:** a new test spies on `shapeParamsFromAudio`
         (`robotVisualHelpers.ts`), renders a `RobotBody`, records the call count at mount, then
-        fires 2-3 `act(() => useUIStore.getState().setActiveLocaleLocalTime(...))` calls with
+        fires 3 `act(() => useUIStore.getState().setActiveLocaleLocalTime(...))` calls with
         different values on the same mounted instance, and asserts the call count is unchanged
-        from the post-mount value. Confirmed to fail (grows with each tick) against pre-fix code
-        before being treated as done.
-  - [ ] `audioVisual`'s dependency array contains no `activeLocaleLocalTime`-derived value.
-  - [ ] `colors` (the final, lightness-adjusted value passed to `<Component colors={colors}
-        .../>`) still updates every render/tick — i.e. the fix doesn't accidentally freeze the
-        thing that's actually supposed to change (already covered by the existing "regression
-        guard: without ignoreDaylight, color still varies" test, re-verified against the new code
-        path).
+        from the post-mount value. Confirmed red first (1 call at mount → 4 after 3 ticks
+        against pre-fix code), then green (stays at 1).
+  - [x] `audioVisual`'s dependency array contains no `activeLocaleLocalTime`-derived value —
+        narrowed to `[robot.audioAttributes, robot.octaveRange]`.
+  - [x] `colors` (the final, lightness-adjusted value passed to `<Component colors={colors}
+        .../>`) still updates every render/tick — covered by the existing "regression guard:
+        without ignoreDaylight, color still varies" test, passing unmodified against the new
+        code path.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/robot/RobotBody.test.tsx` passes.
-  - [ ] `npm run build:types`, `npm run lint` clean.
-  - [ ] `npm test` (full suite) passes.
-  - [ ] `npm run build` succeeds.
+  - [x] `npx vitest run src/components/robot/RobotBody.test.tsx` passes (4 tests — 3
+        pre-existing + 1 new regression test).
+  - [x] `npm run build:types`, `npm run lint` clean.
+  - [x] `npm test` (full suite, 143 files / 2579 tests) passes.
+  - [x] `npm run build` succeeds (pre-existing chunk-size warning only, unrelated).
 
   **Dependencies:** None.
 
@@ -73,10 +74,11 @@ Task 1 (RobotBody.tsx split + regression test) — no dependencies, single task
 
 ### Checkpoint: Complete
 
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] The regression spy test is green against the new code and was confirmed red against the
+- [x] `npm run build:types`, `npm run lint`, `npm test` (143/143, 2579/2579), `npm run build`
+      all clean.
+- [x] The regression spy test is green against the new code and was confirmed red against the
       old code.
-- [ ] `docs/todo/backlog.md` item 22 marked fixed, linking this plan and the spec.
+- [x] `docs/todo/backlog.md` item 22 marked fixed, linking this plan and the spec.
 - [ ] Live profiler re-check — genuinely deferred, same category as items 21/23's own deferred
       manual verification (no live browser with React DevTools available in this session).
 

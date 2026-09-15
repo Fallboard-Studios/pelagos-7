@@ -58,7 +58,14 @@ export const RobotBody = memo(function RobotBody({ robot, ignoreDaylight }: Robo
   // the audio-derived `visual` memo below (battery isn't an audio attribute).
   const dimOpacity = computeBatteryDimOpacity(robot.batteryLevel);
 
-  const visual = useMemo(() => {
+  // Everything audio-derived — no lightnessMultiplier anywhere in this memo or its
+  // dependency array. `lightnessMultiplier` is read in exactly one place downstream
+  // (`applyLightnessMultiplier`, below, outside the memo) — confirmed directly via a search of
+  // robotVisualHelpers.ts/robotVisualMapper.ts (neither reads it anywhere else) while writing
+  // docs/specs/ROBOT_BODY_LIGHTING_RERENDER.md (backlog item 22). Folding the once/sec lighting
+  // tick into this memo used to force the whole audio→shape/greeble pipeline to recompute every
+  // second for no reason.
+  const audioVisual = useMemo(() => {
     const { adsr, filterFreq, visualAudioMap } = robot.audioAttributes;
     const octaveRange = robot.audioAttributes.octaveRange ?? robot.octaveRange;
 
@@ -68,8 +75,8 @@ export const RobotBody = memo(function RobotBody({ robot, ignoreDaylight }: Robo
     const waveform = layerType ?? robot.audioAttributes.waveform;
     const attrsForColor = { ...robot.audioAttributes, waveform } as AudioAttributes;
 
+    // Pre-lightness colors — `applyLightnessMultiplier` is applied fresh every render, below.
     const baseColors = generateColors(attrsForColor);
-    const colors = applyLightnessMultiplier(baseColors, lightnessMultiplier);
 
     const mapped = mapVisualAudioToProps(visualAudioMap);
 
@@ -104,7 +111,7 @@ export const RobotBody = memo(function RobotBody({ robot, ignoreDaylight }: Robo
 
     return {
       Component: selectRobotShape(waveform),
-      colors,
+      baseColors,
       scale: calculateScale(octaveRange),
       detailLevel: detail,
       shapeParams,
@@ -115,9 +122,9 @@ export const RobotBody = memo(function RobotBody({ robot, ignoreDaylight }: Robo
       greeblePlacementBias,
       lightsProps: mapped.lightsProps,
     };
-  }, [robot.audioAttributes, robot.octaveRange, lightnessMultiplier]) as {
+  }, [robot.audioAttributes, robot.octaveRange]) as {
     Component: RobotSVGComponent;
-    colors: RobotColors;
+    baseColors: RobotColors;
     scale: number;
     detailLevel: number;
     shapeParams: ShapeParams;
@@ -129,7 +136,11 @@ export const RobotBody = memo(function RobotBody({ robot, ignoreDaylight }: Robo
     lightsProps?: { intensity: number; color: string };
   };
 
-  const { Component, colors, scale, detailLevel, shapeParams, microVariants, greebleCount, greebleSize, greeblePersistence, greeblePlacementBias } = visual;
+  // Cheap — recomputed every render/tick, same as Factory.tsx's own body/belt fills
+  // (docs/specs/FACTORY_LIGHTING_RERENDER.md's staticVisual precedent).
+  const colors = applyLightnessMultiplier(audioVisual.baseColors, lightnessMultiplier);
+
+  const { Component, scale, detailLevel, shapeParams, microVariants, greebleCount, greebleSize, greeblePersistence, greeblePlacementBias } = audioVisual;
 
   return (
     <Component

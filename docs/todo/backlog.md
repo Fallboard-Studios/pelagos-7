@@ -399,6 +399,17 @@ dead end that needed a different spy target), in the task file linked above.
 
 ### 22. RobotBody: Every Robot Re-renders Once/Sec for Day/Night Lighting
 
+**Status:** ☑ fixed — same session as items 21/23 (2026-09-14). Spec at
+[docs/specs/ROBOT_BODY_LIGHTING_RERENDER.md](../specs/ROBOT_BODY_LIGHTING_RERENDER.md), task
+breakdown at [docs/tasks/ROBOT_BODY_LIGHTING_RERENDER.md](../tasks/ROBOT_BODY_LIGHTING_RERENDER.md).
+Confirmed via direct code search that `lightnessMultiplier` was read in exactly one place
+(`applyLightnessMultiplier`) — a much smaller fix than item 21 turned out to be needed: `visual`
+split into `audioVisual` (memoized on `[robot.audioAttributes, robot.octaveRange]` only, no
+lighting dependency) and `colors` (the lightness-adjusted result, computed fresh every render).
+One file, one task, TDD'd (regression spy on `shapeParamsFromAudio` confirmed red — 1 call at
+mount growing to 4 after 3 ticks — then green). Live profiler re-check still deferred (no
+browser with React DevTools available in-session), same as items 21/23.
+
 Found while writing the spec for item 21's fix (`docs/specs/FACTORY_LIGHTING_RERENDER.md`,
 2026-09-14) — same `activeLocaleLocalTime` tick, same bug class as item 21, different
 component. Not yet scoped as its own fix; not addressed by item 21's spec.
