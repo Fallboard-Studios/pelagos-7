@@ -2,16 +2,17 @@
    (replaces mobile/tablet's old top:0/bottom:0 full-height overlay and desktop's old
    position:static), stacked in .robots-tab__body's own grid cell (1, 1) — see RobotsTab.css.
    align-self: start keeps this a content-height box rather than stretching to the grid row's
-   height (the row's own height is driven by .robots-tab__list, its grid sibling). top: 8px
-   matches .robot-filter-panel__toggle's own existing sticky offset below, positioning both just
-   under .console-panel__content's own reserved space for the sticky transport header above it. */
+   height (the row's own height is driven by .robots-tab__list, its grid sibling). top: 24px
+   matches .robot-filter-panel__toggle's own sticky offset below (Crawford's own request,
+   2026-09-15 — floats 24px from the top of the scroll viewport), positioning both just under
+   .console-panel__content's own reserved space for the sticky transport header above it. */
 .robot-filter-panel {
   overflow-y: auto;
   grid-column: 1;
   grid-row: 1;
   align-self: start;
   position: sticky;
-  top: 8px;
+  top: 24px;
 }
 
 /* Mobile + tablet: off-canvas overlay. transform is owned by the GSAP timeline at runtime
@@ -19,7 +20,7 @@
    any JS has run — the same "CSS owns the closed-state baseline, GSAP owns the transition" split
    AccordionContainer.css documents for its own height/opacity. */
 .robot-filter-panel:not([data-tier='desktop']) {
-  left: 8px;
+  left: 24px;
   width: min(85vw, 320px);
   transform: translateX(-100%);
   z-index: var(--z-overlay);
@@ -33,10 +34,12 @@
   width: 260px;
 }
 
+/* Floats 24px from the left/top of the scroll viewport while scrolling the robot list (Crawford's
+   own request, 2026-09-15). */
 .robot-filter-panel__toggle {
   position: sticky;
-  top: 8px;
-  left: 8px;
+  top: 24px;
+  left: 24px;
   z-index: var(--z-overlay);
 }
 
