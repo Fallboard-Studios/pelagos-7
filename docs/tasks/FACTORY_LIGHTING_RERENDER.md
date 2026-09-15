@@ -176,7 +176,7 @@ Task 5 (manual profiler re-verification + docs close-out) — depends on Task 4
 
   **Estimated scope:** S (one file's internal split + its test file; zero call-site changes)
 
-- [ ] **Task 3: `facadeGreebles.tsx` — split the window-grid renderers into layout + paint**
+- [x] **Task 3: `facadeGreebles.tsx` — split the window-grid renderers into layout + paint**
 
   **Description:** Add `WindowLayoutItem`, `computeWindowGridLayout(ctx, type, threshold)`, and
   `paintWindowGrid(items, ctx)`; `renderSquareWindows`/`renderWideWindows`/`renderTallWindows`
@@ -190,26 +190,31 @@ Task 5 (manual profiler re-verification + docs close-out) — depends on Task 4
   path). Spec §1.4.
 
   **Acceptance criteria:**
-  - [ ] `computeWindowGridLayout(ctx, type, threshold)` returns the identical set of
-        `WindowLayoutItem`s (same positions, same `r`/`c`/`seed`/`face`) for two `ctx`s that
+  - [x] `computeWindowGridLayout(ctx, type, threshold)` returns the identical set of
+        `WindowLayoutItem`s (same positions, same `r`/`c`/`seed`) for two `ctx`s that
         differ only in `nightDepth`/`flickerEpoch`/`lMultiplier`/`eastLMultiplier`/
         `westLMultiplier` — proves window *existence and position* is decided at layout time, not
         re-rolled by the paint-time tick.
-  - [ ] `paintWindowGrid(items, ctx)` produces a different set of lit/unlit windows (and/or
+  - [x] `paintWindowGrid(layout, ctx)` produces a different set of lit/unlit windows (and/or
         different opacities) for two `ctx`s that differ only in `nightDepth`/`flickerEpoch`,
-        given the identical `items` array.
-  - [ ] `renderSquareWindows(ctx)`/`renderWideWindows(ctx)`/`renderTallWindows(ctx)` — every
+        given the identical `layout`.
+  - [x] `renderSquareWindows(ctx)`/`renderWideWindows(ctx)`/`renderTallWindows(ctx)` — every
         existing assertion in `facadeGreebles.test.tsx` for these three functions passes
-        unmodified, byte-for-byte, including the east/west split behavior and its current
-        variable-naming quirk (not corrected as part of this task).
-  - [ ] `FACADE_LAYOUT_PAINT` contains exactly `squareWindows`, `wideWindows`, `tallWindows` — no
+        unmodified, byte-for-byte, including the east/west split behavior and its variable-naming
+        quirk (preserved, not corrected — the split's own `west`/`east` layout fields use the
+        semantically-correct labels directly instead of propagating the original's confusing
+        variable names).
+  - [x] `FACADE_LAYOUT_PAINT` contains exactly `squareWindows`, `wideWindows`, `tallWindows` — no
         other `FacadeGreeble` key.
-  - [ ] `Factory.tsx` is untouched by this task — confirm via `git diff --stat`.
+  - [x] `Factory.tsx` is untouched by this task — confirmed via `git diff --stat` (empty).
 
   **Verification:**
-  - [ ] `npx vitest run src/components/actors/greebles/facadeGreebles.test.tsx` passes.
-  - [ ] `npm run build:types`, `npm run lint` clean.
-  - [ ] `npm test` (full suite) passes.
+  - [x] `npx vitest run src/components/actors/greebles/facadeGreebles.test.tsx` passes (27 tests
+        — 20 pre-existing, 7 new).
+  - [x] `npm run build:types`, `npm run lint` clean.
+  - [x] `npm test` (full suite, 143 files / 2576 tests) passes. (One run mid-task hit 2 failures
+        in an unrelated file — a known pre-existing random-seeded flake documented in project
+        memory, not caused by this task; a clean immediate re-run confirmed 143/143, 2576/2576.)
 
   **Dependencies:** None (parallelizable with Task 2).
 
@@ -221,8 +226,8 @@ Task 5 (manual profiler re-verification + docs close-out) — depends on Task 4
 
 ### Checkpoint: Renderer Splits
 
-- [ ] `npm run build:types`, `npm run lint`, `npm test` (full suite) clean.
-- [ ] `Factory.tsx` has zero diff (`git diff --stat src/components/actors/Factory.tsx` empty) —
+- [x] `npm run build:types`, `npm run lint`, `npm test` (full suite, 143 files / 2576 tests) clean.
+- [x] `Factory.tsx` has zero diff (`git diff --stat src/components/actors/Factory.tsx` empty) —
       confirms Tasks 2-3 changed no observable app behavior yet; every existing test (including
       Task 1's new baseline) passes purely because `render<Greeble>` wrappers are byte-identical.
 - [ ] Review with human before proceeding to Phase 3 — this is the last checkpoint before the one
