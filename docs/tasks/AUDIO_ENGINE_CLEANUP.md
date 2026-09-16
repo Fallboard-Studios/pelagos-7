@@ -151,18 +151,18 @@ Tasks 4-8 have no dependency on Tasks 1-3 or on each other; they may be done in 
 
   **Estimated scope:** S (two files, mechanical extraction)
 
-- [ ] **Task 6: `AudioEngine.ts` — remove redundant per-note pan recompute in `triggerWithCap`**
+- [x] **Task 6: `AudioEngine.ts` — remove redundant per-note pan recompute in `triggerWithCap`**
 
   **Description:** `triggerWithCap` recomputes and reassigns `panner.pan.value` on every triggered note, duplicating work `updateAllPanners` already does for every reserved robot on every 16th-note tick (strictly more frequent than any single robot's note-trigger rate). Remove the recompute block inside `triggerWithCap`.
 
   **Acceptance criteria:**
-  - [ ] `triggerWithCap` no longer calls `getRobotVisualX`/`calculatePanFromPosition`/writes `panner.pan.value` itself.
-  - [ ] `updateAllPanners`'s own tick-level pan update is untouched.
-  - [ ] If any existing test asserts pan is set synchronously *within* `triggerWithCap` itself (rather than via a separate `updateAllPanners` call), that test is updated to assert against `updateAllPanners` instead — not kept as a reason to preserve the duplicate write. Flag this explicitly in the PR/commit if such a test exists.
+  - [x] `triggerWithCap` no longer calls `getRobotVisualX`/`calculatePanFromPosition`/writes `panner.pan.value` itself.
+  - [x] `updateAllPanners`'s own tick-level pan update is untouched.
+  - [x] No existing test asserted pan synchronously within `triggerWithCap` (there was zero pan coverage at all beforehand) — a new characterization test was added instead, proving the old behavior first, then proving its removal.
 
   **Verification:**
-  - [ ] `npx vitest run src/engine/AudioEngine.test.ts` passes (with the one test update above, if applicable, called out explicitly rather than silently changed).
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/engine/AudioEngine.test.ts` passes (104 tests: 103 original + 1 new).
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** None.
 
