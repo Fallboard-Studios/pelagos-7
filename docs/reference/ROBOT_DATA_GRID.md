@@ -6,6 +6,7 @@
 | Job Data | ASSIGNED PROTOCOL | Dual Label Component | N/A | N/A | No | Display only |
 | Battery Data | POWER CELL STATUS | Dual Label Component | N/A | N/A | No | Display only |
 | Docked Status | DOCKING STATE | Dual Label Component | N/A | N/A | No | States: DOCKED, DOCKING, DEPARTING, ACTIVE |
+| Status | ACOUSTIC EMISSION STATE *(draft, unconfirmed)* | Dual Label Component | N/A | N/A | No | Display only. True audibility (`isRobotAudible`) — Robot Options' own Status field, Roadmap 15.3. Values: Emitting, Disabled (see Draft table below) |
 | Company | UNIT AFFILIATION | Select Component | N/A | N/A | No | Options: Freelance, plus one per Company in the robot's locale. Reassigns `robot.companyId` via `assignRobotToCompany` (`localeStore.ts`); undefined `companyId` displays as Freelance |
 | Audio Setting | PROBE DIAGNOSTICS | Radio Button Component | N/A | N/A | No | Options: Off, Mute, Solo, Highlight |
 | Volume | TRANSDUCER PRESSURE INDEX | Slider - linear Component | 0% | 100% | Yes | Linear scaling for held level ratio. Display-only 0–100%, 1% steps — stored as `robot.masterVolume`, a 0–1 fraction (`VOLUME_SCHEMA`, `robotOptionsConfig.ts`), same display-vs-storage split as Sustain below |

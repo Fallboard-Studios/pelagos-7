@@ -3,28 +3,60 @@
   flex-direction: column;
   gap: 0.75rem;
   padding: 0.75rem 0;
-  /* Applied at the root (docs/specs/TYPE_SCALE.md §1.5) — every standalone
-     DualLabel row here shares one wrapper class (.robot-display-section__row),
-     so this could target that instead, but the root keeps the same
-     one-rule-covers-everything shape as RobotSelectionCard.css's own version
-     of this fix. No size-container declarations here — out of scope for
-     standalone DualLabel usage (§1.4). RadioButton's own explicit
-     font-family still wins by cascade regardless. */
+  /* Applied at the root (docs/specs/TYPE_SCALE.md §1.5) — every DualLabel-bearing descendant here
+     (the grid's own fields, plus SliderLinear's/RadioButton's internally-composed DualLabels)
+     shares this one rule, matching RobotSelectionCard.css's own version of this fix. No
+     size-container declarations here — out of scope for standalone DualLabel usage (§1.4).
+     RadioButton's own explicit font-family still wins by cascade regardless. */
   font-family: var(--font-controls);
   font-weight: var(--font-weight-control);
 }
 
-.robot-display-section__avatar {
-  width: 96px;
-  height: 96px;
-  align-self: center;
+/* Roadmap 15.3: centered avatar with Name/Job (row 1) and Docking/Status (row 2) flanking it —
+   a 3-column/2-row grid, not a literal circular layout (confirmed via /interview-me, see
+   docs/specs/ROBOT_DETAIL_TOP_CARD_REDESIGN.md §1.4). */
+.robot-display-section__grid {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
 }
 
-.robot-display-section__row {
+.robot-display-section__avatar {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  width: 96px;
+  height: 96px;
+}
+
+.robot-display-section__field {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.robot-display-section__field--name,
+.robot-display-section__field--docking {
+  grid-column: 1;
+  text-align: left;
+}
+
+.robot-display-section__field--job,
+.robot-display-section__field--status {
+  grid-column: 3;
+  text-align: right;
+}
+
+.robot-display-section__field--name,
+.robot-display-section__field--job {
+  grid-row: 1;
+}
+
+.robot-display-section__field--docking,
+.robot-display-section__field--status {
+  grid-row: 2;
 }
 
 .robot-display-section__value {

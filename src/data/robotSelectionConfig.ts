@@ -19,6 +19,11 @@ export const ROBOT_SELECTION_ROW_SCHEMAS = {
   name: { id: 'robotSelection.name', type: 'dualLabel', loreLabel: 'ROBOT IDENTIFIER', humanLabel: 'Robot Name' },
   job: { id: 'robotSelection.job', type: 'dualLabel', loreLabel: 'ASSIGNED PROTOCOL', humanLabel: 'Job Data' },
   docking: { id: 'robotSelection.docking', type: 'dualLabel', loreLabel: 'DOCKING STATE', humanLabel: 'Docked Status' },
+  // status: new field-level DualLabel (Roadmap 15.3) — the Status VALUE labels (AUDIBILITY_LABELS,
+  // below) already existed from Roadmap 15.2, but that card never wrapped Status in a DualLabel of
+  // its own (it renders bare, combined with Docking into one line) — this is the first FIELD-level
+  // lore/human pair for Status. Best-guess draft, pending review, same as AUDIBILITY_LABELS itself.
+  status: { id: 'robotSelection.status', type: 'dualLabel', loreLabel: 'ACOUSTIC EMISSION STATE', humanLabel: 'Status' },
   // .battery and .audio removed (Roadmap 15.2, docs/specs/ROBOT_CARDS_REDESIGN.md §1.5 item 1) —
   // genuinely dead once RobotSelectionCard stopped referencing them: Battery moved to
   // BATTERY_READOUT_SCHEMA (Roadmap 15.1) via RobotDisplaySection first, then RobotSelectionCard

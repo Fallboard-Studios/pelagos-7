@@ -90,18 +90,107 @@ describe('RobotDisplaySection', () => {
     expect(midnightFill).toBe(noonFill);
   });
 
-  it('renders Name/Job/Docking as plain text with no input/button role attached', () => {
+  it('renders Name/Job/Docking/Status as plain text with no input/button role attached (Roadmap 15.3 grid)', () => {
     const robot = makeRobot();
     useLocaleStore.getState().addRobot(localeId, robot);
     const { container } = render(<RobotDisplaySection robot={robot} />);
 
     // Scoped to the component's own read-only value spans — Battery is no
     // longer one of these (see the dedicated read-only-slider test below).
+    // makeRobot() defaults to audioMode: 'none' with no other robot in the
+    // locale soloed, so Status reads "Emitting" (isRobotAudible).
     const values = Array.from(container.querySelectorAll('.robot-display-section__value')).map((el) => el.textContent);
-    expect(values).toEqual(['Test Robot', 'Acoustic Survey', 'Active']);
+    expect(values).toEqual(['Test Robot', 'Acoustic Survey', 'Active', 'Emitting']);
 
     container.querySelectorAll('.robot-display-section__value').forEach((el) => {
       expect(el.closest('button, input, [role="button"], [role="radio"], [role="switch"]')).toBeNull();
+    });
+  });
+
+  describe('centered-avatar grid (Roadmap 15.3)', () => {
+    it('keeps a DualLabel caption above each of Name/Job/Docking/Status — a deliberate divergence from 15.2\'s unlabeled card', () => {
+      const robot = makeRobot();
+      useLocaleStore.getState().addRobot(localeId, robot);
+      const { container } = render(<RobotDisplaySection robot={robot} />);
+
+      const captions = Array.from(container.querySelectorAll('.sc-dual-label__human')).map((el) => el.textContent);
+      expect(captions).toContain('Robot Name');
+      expect(captions).toContain('Job Data');
+      expect(captions).toContain('Docked Status');
+      expect(captions).toContain('Status');
+    });
+
+    it('renders no .robot-display-section__row anywhere — retired in favor of the grid/field classes', () => {
+      const robot = makeRobot();
+      useLocaleStore.getState().addRobot(localeId, robot);
+      const { container } = render(<RobotDisplaySection robot={robot} />);
+
+      expect(container.querySelectorAll('.robot-display-section__row').length).toBe(0);
+      expect(container.querySelector('.robot-display-section__grid')).not.toBeNull();
+    });
+
+    it('reads "Emitting" for an audible robot (audioMode: none, no other robot soloed)', () => {
+      const robot = makeRobot({ audioMode: 'none' });
+      useLocaleStore.getState().addRobot(localeId, robot);
+      render(<RobotDisplaySection robot={robot} />);
+
+      expect(screen.getByText('Emitting')).toBeTruthy();
+      expect(screen.queryByText('Disabled')).toBeNull();
+    });
+
+    it('reads "Disabled" for a muted robot', () => {
+      const robot = makeRobot({ audioMode: 'mute' });
+      useLocaleStore.getState().addRobot(localeId, robot);
+      render(<RobotDisplaySection robot={robot} />);
+
+      expect(screen.getByText('Disabled')).toBeTruthy();
+      expect(screen.queryByText('Emitting')).toBeNull();
+    });
+
+    it('flips to "Disabled" once another robot in the same locale is soloed, and back once that solo is cleared', () => {
+      const robot = makeRobot({ id: 'r1', audioMode: 'none' });
+      const otherRobot = makeRobot({ id: 'r2', audioMode: 'none' });
+      useLocaleStore.getState().addRobot(localeId, robot);
+      useLocaleStore.getState().addRobot(localeId, otherRobot);
+      const { rerender } = render(<RobotDisplaySection robot={robot} />);
+      expect(screen.getByText('Emitting')).toBeTruthy();
+
+      act(() => {
+        useLocaleStore.getState().updateRobot(localeId, otherRobot.id, { audioMode: 'solo' });
+      });
+      rerender(<RobotDisplaySection robot={robot} />);
+      expect(screen.getByText('Disabled')).toBeTruthy();
+      expect(screen.queryByText('Emitting')).toBeNull();
+
+      act(() => {
+        useLocaleStore.getState().updateRobot(localeId, otherRobot.id, { audioMode: 'none' });
+      });
+      rerender(<RobotDisplaySection robot={robot} />);
+      expect(screen.getByText('Emitting')).toBeTruthy();
+    });
+  });
+
+  describe('Battery and Company rows are unchanged by the 15.3 grid restructure (spec\'s Scope correction)', () => {
+    it('Battery\'s SliderLinear still carries its own "Battery Data" DualLabel caption', () => {
+      const robot = makeRobot();
+      useLocaleStore.getState().addRobot(localeId, robot);
+      const { container } = render(<RobotDisplaySection robot={robot} />);
+
+      const readout = container.querySelector('[data-readonly="true"]');
+      expect(readout).not.toBeNull();
+      expect(screen.getByText('Battery Data')).toBeTruthy();
+    });
+
+    it('Company\'s RadioButton still carries its own "Company" DualLabel caption, with no wrapping row div', () => {
+      const robot = makeRobot();
+      useLocaleStore.getState().addRobot(localeId, robot);
+      const { container } = render(<RobotDisplaySection robot={robot} />);
+
+      expect(screen.getByText('Company')).toBeTruthy();
+      const radioButtonRoot = container.querySelector('.sc-radio-button');
+      expect(radioButtonRoot).not.toBeNull();
+      expect(radioButtonRoot!.closest('.robot-display-section__row')).toBeNull();
+      expect(radioButtonRoot!.parentElement).toBe(container.querySelector('.robot-display-section'));
     });
   });
 
