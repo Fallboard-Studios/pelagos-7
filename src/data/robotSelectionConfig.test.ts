@@ -32,6 +32,14 @@ describe('robotSelectionConfig', () => {
       expect((ROBOT_SELECTION_ROW_SCHEMAS as Record<string, unknown>).audio).toBeUndefined();
     });
 
+    // Roadmap 15.3 (docs/specs/ROBOT_DETAIL_TOP_CARD_REDESIGN.md §1.3) — the first field-level
+    // DualLabel for Status; RobotSelectionCard's own Status (15.2) renders bare, with no field-level
+    // label of its own, so this is new rather than a rename of an existing entry.
+    it('has a .status entry with a non-empty loreLabel and humanLabel of "Status"', () => {
+      expect(ROBOT_SELECTION_ROW_SCHEMAS.status.loreLabel).toBeTruthy();
+      expect(ROBOT_SELECTION_ROW_SCHEMAS.status.humanLabel).toBe('Status');
+    });
+
     it('every row schema is a dualLabel-typed ControlSchema with a unique id', () => {
       const rows = Object.values(ROBOT_SELECTION_ROW_SCHEMAS);
       for (const row of rows) {
