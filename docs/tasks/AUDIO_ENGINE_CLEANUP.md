@@ -33,21 +33,21 @@ Tasks 4-8 have no dependency on Tasks 1-3 or on each other; they may be done in 
 
 ### Phase 1: P0 — LFO/drift teardown leak
 
-- [ ] **Task 1: `lfoEngine.ts` — add `disposeRobotLfos(robotId)`**
+- [x] **Task 1: `lfoEngine.ts` — add `disposeRobotLfos(robotId)`**
 
   **Description:** Add a new function that fully tears down every robot-scoped LFO instance for one robot: for each target in `ROBOT_LFO_TARGET_IDS`, call the existing `disconnectLfoTarget(target, robotId)` (reuses its drift-detach + phase-fallback-cancel + `connectedSignals` cleanup), then additionally `.dispose()` and remove the entry from `activeLfos`, and remove the entry from `settingsByKey`. Export it from the `lfoEngine` object. Does not change `disconnectLfoTarget`'s existing reversible (non-disposing) behavior — this is a new, separate, one-way function.
 
   **Acceptance criteria:**
-  - [ ] `lfoEngine.disposeRobotLfos` is exported from `src/engine/lfoEngine.ts`'s `lfoEngine` object.
-  - [ ] After `connectLfoTarget('layer0.gain', robotId)` + `disposeRobotLfos(robotId)`, `getLfoSettings('layer0.gain', robotId)` returns `DEFAULT_LFO_SETTINGS['layer0.gain']` (proves `settingsByKey` was cleared, not just disconnected).
-  - [ ] After the same sequence, a subsequent `connectLfoTarget('layer0.gain', robotId)` call constructs a **new** `Tone.LFO` (proves `activeLfos` was cleared and the old node was disposed, not silently reused) — assert via a spy on the `Tone.LFO` constructor or by checking the returned node identity differs.
-  - [ ] Calling `disposeRobotLfos` for a robot with no connected LFOs at all does not throw.
-  - [ ] Calling `disposeRobotLfos` twice in a row for the same robot does not throw (idempotent).
-  - [ ] A robot's `'layerN.phase'` fallback (manual-polling, via `scheduleRepeat`) is genuinely cancelled by `disposeRobotLfos` — assert `cancelSchedule` was called (or that the schedule no longer fires) for that robot's phase target.
+  - [x] `lfoEngine.disposeRobotLfos` is exported from `src/engine/lfoEngine.ts`'s `lfoEngine` object.
+  - [x] After `connectLfoTarget('layer0.gain', robotId)` + `disposeRobotLfos(robotId)`, `getLfoSettings('layer0.gain', robotId)` returns `DEFAULT_LFO_SETTINGS['layer0.gain']` (proves `settingsByKey` was cleared, not just disconnected).
+  - [x] After the same sequence, a subsequent `connectLfoTarget('layer0.gain', robotId)` call constructs a **new** `Tone.LFO` (proves `activeLfos` was cleared and the old node was disposed, not silently reused) — assert via a spy on the `Tone.LFO` constructor or by checking the returned node identity differs.
+  - [x] Calling `disposeRobotLfos` for a robot with no connected LFOs at all does not throw.
+  - [x] Calling `disposeRobotLfos` twice in a row for the same robot does not throw (idempotent).
+  - [x] A robot's `'layerN.phase'` fallback (manual-polling, via `scheduleRepeat`) is genuinely cancelled by `disposeRobotLfos` — assert `cancelSchedule` was called (or that the schedule no longer fires) for that robot's phase target.
 
   **Verification:**
-  - [ ] `npx vitest run src/engine/lfoEngine.test.ts` passes, including new tests for the acceptance criteria above.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/engine/lfoEngine.test.ts` passes, including new tests for the acceptance criteria above. (101 tests, 8 new)
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** None.
 
