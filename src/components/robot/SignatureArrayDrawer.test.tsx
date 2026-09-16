@@ -239,7 +239,7 @@ describe('SignatureArrayDrawer', () => {
     gainLfoRate.focus();
     fireEvent.keyDown(gainLfoRate, { key: 'ArrowRight' });
 
-    expect(onLfoChange).toHaveBeenCalledWith('layer0.gain', { shape: 'sine', rate: 1.25, depth: 10 });
+    expect(onLfoChange).toHaveBeenCalledWith('layer0.gain', { shape: 'sine', rate: 1.05, depth: 10 });
   });
 
   describe('shared LFO display (LFO_CONSOLIDATED_DISPLAY — replaces the old per-param nested accordion)', () => {

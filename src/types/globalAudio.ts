@@ -7,14 +7,14 @@ import type { DriftGroupId } from './lfo';
 export interface ReverbSettings {
   /** seconds (0.1 - 10) */
   decay: number;
-  /** seconds (0 - 0.5) */
+  /** seconds (0 - 1) */
   preDelay: number;
   /** 0 - 1 */
   wet: number;
 }
 
 export interface DelaySettings {
-  /** seconds (0 - 1) */
+  /** seconds (0 - 10) */
   delayTime: number;
   /** 0 - 0.95 */
   feedback: number;
@@ -27,7 +27,7 @@ export interface CompressorSettings {
   threshold: number;
   /** 1 - 20 */
   ratio: number;
-  /** seconds (0.001 - 1) */
+  /** seconds (0.001 - 0.2) */
   attack: number;
   /** seconds (0.01 - 1) */
   release: number;

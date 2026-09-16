@@ -58,7 +58,7 @@ export type GlobalAudioSeedFieldKey =
 export const GLOBAL_AUDIO_SEED_RANGES: Record<GlobalAudioSeedFieldKey, SeedRange> = {
   'compressor.threshold': { min: -60, max: 0, scale: 'linear' },
   'compressor.ratio': { min: 1, max: 20, scale: 'linear' },
-  'compressor.attack': { min: 0.001, max: 1, scale: 'log' },
+  'compressor.attack': { min: 0.001, max: 0.2, scale: 'log' },
   'compressor.release': { min: 0.01, max: 1, scale: 'log' },
   'compressor.knee': { min: 0, max: 40, scale: 'linear' },
 
@@ -71,12 +71,12 @@ export const GLOBAL_AUDIO_SEED_RANGES: Record<GlobalAudioSeedFieldKey, SeedRange
   'filterHPF.frequency': { min: 20, max: 20000, scale: 'log' },
   'filterHPF.Q': { min: 0.1, max: 20, scale: 'log' },
 
-  'delay.delayTime': { min: 0, max: 1, scale: 'linear' },
+  'delay.delayTime': { min: 0, max: 10, scale: 'linear' },
   'delay.feedback': { min: 0, max: 0.95, scale: 'linear' },
   'delay.wet': { min: 0, max: 1, scale: 'linear' },
 
   'reverb.decay': { min: 0.1, max: 10, scale: 'log' },
-  'reverb.preDelay': { min: 0, max: 0.5, scale: 'linear' },
+  'reverb.preDelay': { min: 0, max: 1, scale: 'linear' },
   'reverb.wet': { min: 0, max: 1, scale: 'linear' },
 
   'limiter.threshold': { min: -20, max: 0, scale: 'linear' },

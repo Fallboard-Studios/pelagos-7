@@ -81,9 +81,9 @@ describe('GLOBAL_LFO_TARGET_IDS', () => {
 });
 
 describe('LfoSettings bounds', () => {
-  it('rate bounds are 0-10 Hz — 0 is the removed OSCILLATION STATE toggle\'s replacement "off" value', () => {
+  it('rate bounds are 0-20 Hz — 0 is the removed OSCILLATION STATE toggle\'s replacement "off" value', () => {
     expect(LFO_RATE_MIN).toBe(0);
-    expect(LFO_RATE_MAX).toBe(10);
+    expect(LFO_RATE_MAX).toBe(20);
   });
 
   it('depth bounds match ROBOT_DATA_GRID.md\'s LFO Depth row (0-100%)', () => {
