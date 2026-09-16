@@ -289,12 +289,17 @@ export function PowerRockerSwitch() {
                 51×23 outer units → 27×27 screen px (square).
                 preserveAspectRatio="none" + pre-compensated h ensures each
                 inner-viewBox unit maps equally in both axes (≈0.27px/unit).
-                GSAP attr-tweens `y`: 54 at rest, 50 when pressed.
+                GSAP attr-tweens `y`: 54 at rest, 50 when pressed. Bugfix, found live
+                (docs/todo/backlog.md #20): y also needs a real JSX default (POWER_SVG_REST.y)
+                — left GSAP-only, this SVG-length attribute had no valid value on the very
+                first paint, before useGSAP's mount effect runs, which Chrome logged as
+                `<svg> attribute y: ... Expected length, ""`.
                 Sits before rocker-ridge so the ridge shadow paints over it.
               */}
               <svg
                 className="rocker-power-svg"
                 x="25"
+                y={POWER_SVG_REST.y}
                 width="51"
                 height="23"
                 viewBox="0 0 100 100"

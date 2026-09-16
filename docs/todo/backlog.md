@@ -319,18 +319,24 @@ state.
 
 ### 20. SVG: Invalid Empty `y` Attribute at Load
 
-Found in the same console check as item 19 (2026-09-14). Confirmed real, not yet traced to
-a source.
+**Status:** ☑ fixed, pending live-browser confirmation — `bug/svg-y` (2026-09-15).
+`PowerRockerSwitch.tsx`'s nested `.rocker-power-svg` (the power icon inside the rocker switch)
+was the one element in the codebase whose `y` position was never set in JSX at all — its own
+comment said so outright ("GSAP attr-tweens `y`: 54 at rest, 50 when pressed"), set only by
+`useGSAP`'s `gsap.set(powerSvgEl, { attr: { y: POWER_SVG_REST.y } })` on mount. On the very first
+paint, before that effect runs, the attribute was absent/invalid — matching the exact browser
+error. "Twice on every load" is React `StrictMode` (`main.tsx`) double-invoking mount effects in
+dev, not two separate bug sites. Fix: give the `<svg>` an explicit `y={POWER_SVG_REST.y}` default
+in JSX so a valid value exists from the very first paint; GSAP still owns the tween from there.
+New `PowerRockerSwitch.test.tsx` test reproduced the bug directly (RED: `y` attribute `null` on
+initial render, under the real "before any JS has run" condition — `vitest.setup.ts`'s global
+gsap mock's own `set` is a genuine DOM no-op) before the fix, then passed after.
+`build:types`/`lint`/`test` (144 files/2696 tests) all clean. **Not confirmed in a live browser
+this session** (none available) — the hypothesis was strong (the one component matching the
+bug's exact shape) but the actual Chrome console output was never watched directly; flag if it
+recurs.
 
-Browser-logged twice on every load: `Error: <svg> attribute y: Unexpected end of attribute.
-Expected length, "".` — something renders an SVG element with `y=""` (empty string) where a
-number/length is expected. Likely in robot or actor SVG rendering, given when it fires
-(right after `[AudioEngine] Started`, alongside initial robot/actor spawn), but not yet
-isolated to a specific component or call site.
-
-**Fix shape:** not yet determined — needs tracing (search for `y=` bindings in
-robot/actor/factory SVG components fed by a value that can be `''`/`undefined`/`NaN`
-before its source data is ready).
+Found in the same console check as item 19 (2026-09-14).
 
 ### 21. Factory: Every Instance Re-renders Once/Sec for Day/Night Lighting
 
