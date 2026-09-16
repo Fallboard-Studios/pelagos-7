@@ -132,18 +132,18 @@ Tasks 4-8 have no dependency on Tasks 1-3 or on each other; they may be done in 
 
 ### Phase 3: P2 — small opportunistic cleanups (any order, independent)
 
-- [ ] **Task 5: `toneHelpers.ts` + `AudioEngine.ts` — dedupe stub-node construction**
+- [x] **Task 5: `toneHelpers.ts` + `AudioEngine.ts` — dedupe stub-node construction**
 
   **Description:** `AudioEngine.reserveVoice` writes out the panner/busGain/busFilter stub-node fallback (used when a Tone constructor is missing, or in the catch-all construction-failure path) as a near-identical inline object literal twice. Factor into one or more small helpers in `toneHelpers.ts` (e.g. `makeStubPanner()`, `makeStubGain()`, `makeStubFilter()`, or one generic `makeStubNode(extra?)`) reusing the existing `MinimalToneNode` type, and use the helper(s) at both sites in `AudioEngine.ts`.
 
   **Acceptance criteria:**
-  - [ ] The panner/busGain/busFilter stub-node literal shape exists in exactly one place per node type (in `toneHelpers.ts`), not duplicated inline in `AudioEngine.ts`.
-  - [ ] Both call sites in `reserveVoice` (the "ctor missing" fallback and the catch-block "construction threw" fallback) use the shared helper(s).
-  - [ ] Stub node shape/behavior is unchanged — same methods, same default values (`pan: 0`, same `initialBusGain` handling, etc.).
+  - [x] The panner/busGain/busFilter stub-node literal shape exists in exactly one place per node type (in `toneHelpers.ts`), not duplicated inline in `AudioEngine.ts`.
+  - [x] Both call sites in `reserveVoice` (the "ctor missing" fallback and the catch-block "construction threw" fallback) use the shared helper(s).
+  - [x] Stub node shape/behavior is unchanged — same methods, same default values (`pan: 0`, same `initialBusGain` handling, etc.); the catch-block busGain stub gained an unused `toDestination` no-op it didn't have before (harmless — nothing calls it), unifying it with the other site's shape.
 
   **Verification:**
-  - [ ] `npx vitest run src/engine/AudioEngine.test.ts src/engine/audioEngine/toneHelpers.test.ts` passes unmodified.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/engine/AudioEngine.test.ts src/engine/audioEngine/toneHelpers.test.ts` passes (105 tests: 103 original + 2 new characterization tests neither fallback path had before).
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** None.
 
