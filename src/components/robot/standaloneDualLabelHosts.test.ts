@@ -35,10 +35,11 @@ import { getCssRuleBody } from '@/testUtils/cssRuleBody';
 // assertions above are unaffected — .robot-selection-card itself, and the
 // DualLabel this suite's own root-inheritance rationale describes, are still
 // real (the company RadioButton's own internally-composed DualLabel).
-// RobotDisplaySection.tsx only has one wrapper class
-// (.robot-display-section__row, used consistently), but this targets its
-// root (.robot-display-section) too, for the same "one rule, not
-// per-row-class-coupled" consistency — not because it was strictly required
+// RobotDisplaySection.tsx (Roadmap 15.3 update: restructured from a single
+// .robot-display-section__row wrapper class into a centered-avatar grid,
+// .robot-display-section__field/__field--*) still targets its shared root
+// (.robot-display-section) here, for the same "one rule, not
+// per-field-class-coupled" consistency — not because it's strictly required
 // there. SectorSettingsDrawer.tsx's DualLabel has only one real wrapper
 // (.sector-settings-drawer__status, not the whole drawer), so THAT stays
 // scoped narrowly, matching the original plan — the drawer also renders
