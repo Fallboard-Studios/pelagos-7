@@ -56,38 +56,40 @@ Task 1 (robotSelectionConfig.ts — ROBOT_SELECTION_ROW_SCHEMAS.status)
 
 ### Phase 2: The card itself
 
-- [ ] **Task 2: `RobotDisplaySection` — centered-avatar grid + Status field**
+- [x] **Task 2: `RobotDisplaySection` — centered-avatar grid + Status field**
+
+  > **Discovered during implementation:** `src/components/robot/standaloneDualLabelHosts.test.ts` (a TYPE_SCALE.md regression guard, outside this plan's original file list) carried a comment describing `RobotDisplaySection.tsx` as having "only one wrapper class (`.robot-display-section__row`)" — stale once this task removed that class. Fixed alongside (comment only; no assertion in that file referenced the class, so no test logic changed) — same class of downstream-comment surprise `docs/tasks/ROBOT_CARDS_REDESIGN.md`'s own Task 4 found in this same file for the 15.2 sibling change.
 
   **Description:** Rewrite `RobotDisplaySection.tsx` and `RobotDisplaySection.css` per spec §4. Restructure the avatar plus Name/Job/Docking rows into a `.robot-display-section__grid` (3-column `1fr auto 1fr` / 2-row CSS Grid): avatar in the center column spanning both rows; Name (row 1, col 1) and Job (row 1, col 3) above; Docking (row 2, col 1) and the new Status field (row 2, col 3) below. Each of the four fields keeps its `DualLabel` lore/human caption, stacked above its value (`.robot-display-section__field`, replacing the old `.robot-display-section__row`'s side-by-side layout). Wire Status using the already-shipped `isRobotAudible(audioMode, anySolo)` (note: boolean `anySolo`, not a robots array — the pre-refactor signature in `ROBOT_CARDS_REDESIGN.md`'s own code samples is stale) and `AUDIBILITY_LABELS`, deriving `anySolo` the same boolean-selector way `RobotSelectionCard.tsx` already does. Battery (`SliderLinear`) and Company (`RadioButton`) keep their exact current markup and position directly below the grid — no wrapping `<div>`, no new `DualLabel` (spec's Scope correction: both already compose their own label internally).
 
   **Acceptance criteria:**
-  - [ ] Avatar renders centered, spanning both grid rows in the middle column; Name/Job render in row 1 (left/right); Docking/Status render in row 2 (left/right).
-  - [ ] All four grid fields (Name, Job, Docking, Status) render their `DualLabel` caption (`.sc-dual-label__human` text matching each field's `humanLabel`: "Robot Name", "Job Data", "Docked Status", "Status") — none are bare/unlabeled.
-  - [ ] Status text reads "Emitting" for an audible robot (`audioMode: 'none'`, no other robot in the locale `solo`) and "Disabled" for a muted robot (`audioMode: 'mute'`), via `isRobotAudible`.
-  - [ ] Status reflects locale-wide solo: a robot with `audioMode: 'none'` flips from "Emitting" to "Disabled" once another robot in the same locale (added to the store) has `audioMode: 'solo'`, and back once that solo robot is removed/reassigned.
-  - [ ] Battery's `SliderLinear` still renders its own `.sc-dual-label__human` reading "Battery Data" — unchanged from before this task, at the same position (directly below the grid).
-  - [ ] Company's `RadioButton` still renders its own `.sc-dual-label__human` reading "Company" — unchanged from before this task, at the same position (directly below Battery), with no wrapping `<div>` around it (removed — it's now a direct child, matching how `SliderLinear` was already a direct child).
-  - [ ] No `.robot-display-section__row` class remains in `RobotDisplaySection.css` — replaced by `.robot-display-section__grid`/`__field`/`__field--*`.
-  - [ ] `React.memo` wrapping (`RobotDisplaySection = memo(RobotDisplaySectionInner)`) is unchanged.
+  - [x] Avatar renders centered, spanning both grid rows in the middle column; Name/Job render in row 1 (left/right); Docking/Status render in row 2 (left/right).
+  - [x] All four grid fields (Name, Job, Docking, Status) render their `DualLabel` caption (`.sc-dual-label__human` text matching each field's `humanLabel`: "Robot Name", "Job Data", "Docked Status", "Status") — none are bare/unlabeled.
+  - [x] Status text reads "Emitting" for an audible robot (`audioMode: 'none'`, no other robot in the locale `solo`) and "Disabled" for a muted robot (`audioMode: 'mute'`), via `isRobotAudible`.
+  - [x] Status reflects locale-wide solo: a robot with `audioMode: 'none'` flips from "Emitting" to "Disabled" once another robot in the same locale (added to the store) has `audioMode: 'solo'`, and back once that solo robot is removed/reassigned.
+  - [x] Battery's `SliderLinear` still renders its own `.sc-dual-label__human` reading "Battery Data" — unchanged from before this task, at the same position (directly below the grid).
+  - [x] Company's `RadioButton` still renders its own `.sc-dual-label__human` reading "Company" — unchanged from before this task, at the same position (directly below Battery), with no wrapping `<div>` around it (removed — it's now a direct child, matching how `SliderLinear` was already a direct child).
+  - [x] No `.robot-display-section__row` class remains in `RobotDisplaySection.css` — replaced by `.robot-display-section__grid`/`__field`/`__field--*`.
+  - [x] `React.memo` wrapping (`RobotDisplaySection = memo(RobotDisplaySectionInner)`) is unchanged.
 
   **Verification:**
-  - [ ] `npx vitest run src/components/robot/RobotDisplaySection.test.tsx` passes — the existing "renders Name/Job/Docking as plain text" test updated for 4 values (Name/Job/Docking/Status) instead of 3; existing Battery and company-assignment tests pass with no logic changes; new tests cover Status audibility (both the simple mute case and the locale-wide-solo case) and the DualLabel-caption-presence assertion for all four fields plus the Battery/Company label-regression checks.
-  - [ ] `npm run build:types` clean.
-  - [ ] `npm run lint` clean.
-  - [ ] Full suite: `npx vitest run` — no regressions in any file that renders `RobotDisplaySection` (e.g. `RobotOptionsTab.test.tsx`, if it asserts on this component's DOM shape — check during implementation).
-  - [ ] `npm run build` clean.
+  - [x] `npx vitest run src/components/robot/RobotDisplaySection.test.tsx` passes (23/23) — the existing "renders Name/Job/Docking as plain text" test updated for 4 values (Name/Job/Docking/Status) instead of 3; existing Battery and company-assignment tests pass with no logic changes; new tests cover Status audibility (both the simple mute case and the locale-wide-solo case) and the DualLabel-caption-presence assertion for all four fields plus the Battery/Company label-regression checks.
+  - [x] `npm run build:types` clean.
+  - [x] `npm run lint` clean.
+  - [x] Full suite: `npx vitest run` — 143/143 files, 2712/2712 tests, including the retargeted comment in `standaloneDualLabelHosts.test.ts` noted above. No component asserted on the old DOM shape.
+  - [x] `npm run build` clean.
   - [ ] Manual check (spec §5): `npm run dev`, open Robot Options for any robot. Confirm avatar centered with Name/Job above (left/right) and Docking/Status below (left/right), each with a visible caption above its value; Battery slider and Company picker render below, unchanged. Resize to the narrowest supported width and confirm no field's text overflows its column illegibly. Set one robot's Audio Setting to Solo (via a different robot's Robot Options) and confirm this robot's own Status flips to "Disabled."
 
   **Dependencies:** Task 1 (`ROBOT_SELECTION_ROW_SCHEMAS.status`). External (already shipped, no task here): `isRobotAudible` (`src/utils/robotAudibility.ts`), `AUDIBILITY_LABELS` (Roadmap 15.2).
 
-  **Files:** `src/components/robot/RobotDisplaySection.tsx`, `src/components/robot/RobotDisplaySection.css`, `src/components/robot/RobotDisplaySection.test.tsx`
+  **Files:** `src/components/robot/RobotDisplaySection.tsx`, `src/components/robot/RobotDisplaySection.css`, `src/components/robot/RobotDisplaySection.test.tsx`; plus, discovered during implementation: `src/components/robot/standaloneDualLabelHosts.test.ts` (comment only)
 
   **Estimated scope:** M (3 files, the full vertical slice of the redesign)
 
 ### Checkpoint: Card shipped
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
 - [ ] Manual pass (Task 2's own manual check) confirms the redesigned card end-to-end, including the locale-wide Solo → Disabled behavior and the narrow-width text-overflow check — not yet run.
-- [ ] No remaining reference anywhere in `src/` to `.robot-display-section__row`.
+- [x] No remaining reference anywhere in `src/` to `.robot-display-section__row` (grep-confirmed).
 - [ ] Review with human before proceeding.
 
 ---
