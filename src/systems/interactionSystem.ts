@@ -8,7 +8,6 @@ import { AudioEngine } from '../engine/AudioEngine';
 import { getCurrentMeasure } from '../engine/beatClock';
 import useLocaleStore from '../stores/localeStore';
 import { RobotState } from '../types/Robot';
-import { DEV_TUNING } from '../constants';
 import { handleRobotIdle } from './idleSystem';
 import { killTimeline } from '../animation/timelineMap';
 import { getRef } from '../utils/refs';
@@ -18,7 +17,6 @@ import { getSeededVal } from '../utils/getSeededVal';
 // ========================================
 // CONSTANTS
 // ========================================
-const INTERACTION_COOLDOWN_MEASURES = 8;
 const INTERACTION_DURATION = 0.5; // 0.5 second interaction before returning to idle
 const FLURRY_NOTE_COUNT = 4; // Number of notes from each robot's melody
 
@@ -92,12 +90,6 @@ function playInteractionFlurry(localeId: string, robotAId: string, robotBId: str
       });
     }
   }
-
-  if (DEV_TUNING) {
-    console.log(
-      `[Interaction] Flurry: ${FLURRY_NOTE_COUNT} notes from each robot (16th notes)`
-    );
-  }
 }
 
 /**
@@ -152,12 +144,6 @@ export function triggerInteraction(localeId: string, robotAId: string, robotBId:
     state: RobotState.Interacting,
     lastInteractionMeasure: currentMeasure,
   });
-
-  if (DEV_TUNING) {
-    console.log(
-      `[Interaction] Robots ${robotAId} and ${robotBId} interacting (measure ${currentMeasure}, cooldown: ${INTERACTION_COOLDOWN_MEASURES} measures)`
-    );
-  }
 
   // Return robots to idle state after interaction completes
   // Store the recovery delays so they can be cancelled if robots are removed

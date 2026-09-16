@@ -428,7 +428,6 @@ export function spawnRobot(localeId: string, options?: { docking?: DockingState;
     spawnNoteVariance = source.noteVariance ?? DEFAULT_NOTE_VARIANCE;
     spawnPitchRepeat = source.pitchRepeat ?? DEFAULT_PITCH_REPEAT;
     spawnLfoSettings = source.lfoSettings ?? generateRobotLfoSettings(noiseMap ?? ((_x: number, _y: number) => 0 as number), spawnCount);
-    if (DEV_TUNING) console.log(`[SpawnSystem] Robot copying audio personality from ${source.id}`);
   } else {
     // Generate audio attributes — octaveRange is seeded directly inside generateAudioAttributes
     audioAttributes = noiseMap
@@ -549,10 +548,6 @@ export function spawnRobot(localeId: string, options?: { docking?: DockingState;
     if (DEV_TUNING) console.warn('[SpawnSystem] reserveVoice failed', err);
   }
   AudioEngine.registerRobotMelody(robot.id, robot.melody);
-
-  if (DEV_TUNING) {
-    console.log(`[Spawn] Robot ${robot.id} spawned (${docking}) with ${robot.melody.length} melody events`);
-  }
 }
 
 /**
@@ -639,11 +634,6 @@ export function spawnInitialCompanies(localeId: string): void {
     useLocaleStore.getState().addCompany(localeId, company);
     memberIds.forEach((id) => useLocaleStore.getState().updateRobot(localeId, id, { companyId: company.id }));
   }
-
-  if (DEV_TUNING) {
-    const companies = useLocaleStore.getState().getLocaleById(localeId)?.companies ?? [];
-    console.log(`[SpawnSystem] Seeded ${companies.length} companies for locale ${localeId}`);
-  }
 }
 
 /**
@@ -678,5 +668,4 @@ export function reRegisterAllRobotsAudio(localeId: string): void {
     AudioEngine.unregisterRobotMelody(robot.id);
     AudioEngine.registerRobotMelody(robot.id, robot.melody);
   });
-  if (DEV_TUNING) console.log(`[SpawnSystem] reRegisterAllRobotsAudio: re-registered ${robots.length} robots`);
 }

@@ -1,7 +1,7 @@
 // ========================================
 // IMPORTS
 // ========================================
-import { devLog, devWarn } from '../utils/helpers';
+import { devWarn } from '../utils/helpers';
 import { DAY_CYCLE_MEASURES } from '../constants';
 
 // Minimal transport-like interface to avoid importing Tone.js here.
@@ -66,7 +66,6 @@ export function initBeatClock(transport?: TransportLike): void {
     }
   }, '16n');
   initialized = true;
-  devLog('[BeatClock] initialized');
   // Register any schedules that were requested before transport initialization
   scheduleMap.forEach((entry, scheduleId) => {
     if (entry.transportId === undefined) {
@@ -75,7 +74,6 @@ export function initBeatClock(transport?: TransportLike): void {
           entry.callback();
         }, entry.interval, entry.interval);
         entry.transportId = transportId;
-        devLog('[BeatClock] Registered pending schedule:', scheduleId, entry.interval);
       } catch (err) {
         devWarn('[BeatClock] Failed to register pending schedule:', scheduleId, err);
       }
@@ -159,7 +157,6 @@ export function scheduleRepeat(interval: string, callback: () => void): string {
   // can be registered once initBeatClock provides the transport instance.
   if (!transportInstance) {
     scheduleMap.set(scheduleId, { interval, callback });
-    devLog('[BeatClock] scheduleRepeat (pending):', interval, 'id:', scheduleId);
     return scheduleId;
   }
 
@@ -170,8 +167,6 @@ export function scheduleRepeat(interval: string, callback: () => void): string {
   }, interval, interval);
 
   scheduleMap.set(scheduleId, { transportId, interval, callback });
-
-  devLog('[BeatClock] scheduleRepeat:', interval, 'id:', scheduleId);
 
   return scheduleId;
 }
@@ -184,7 +179,6 @@ export function scheduleRepeat(interval: string, callback: () => void): string {
 export function cancelSchedule(scheduleId: string): void {
   const entry = scheduleMap.get(scheduleId);
   if (entry === undefined) {
-    devLog('[BeatClock] cancelSchedule: no schedule found for', scheduleId);
     return;
   }
 
@@ -192,7 +186,6 @@ export function cancelSchedule(scheduleId: string): void {
   // transport, just remove it from the map.
   if (!transportInstance || entry.transportId === undefined) {
     scheduleMap.delete(scheduleId);
-    devLog('[BeatClock] cancelSchedule (pending):', scheduleId);
     return;
   }
 
@@ -202,7 +195,6 @@ export function cancelSchedule(scheduleId: string): void {
     devWarn('[BeatClock] cancelSchedule: failed to clear transport id', entry.transportId, err);
   }
   scheduleMap.delete(scheduleId);
-  devLog('[BeatClock] cancelSchedule: cleared', scheduleId);
 }
 
 /**
@@ -248,6 +240,4 @@ export function resetBeatClock(): void {
   // Clear listeners — stale subscribers from a previous session would otherwise
   // fire on the new session's measure ticks.
   measureListeners.length = 0;
-
-  devLog('[BeatClock] reset');
 }

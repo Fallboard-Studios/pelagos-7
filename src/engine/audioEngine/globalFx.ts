@@ -1,7 +1,7 @@
 import * as Tone from 'tone';
 
 import { getToneCtor, type ModulationTarget } from './toneHelpers';
-import { devLog, devWarn } from '@/utils/helpers';
+import { devWarn } from '@/utils/helpers';
 import type { ReverbSettings, DelaySettings, FilterSettings, EQ3Settings, CompressorSettings, LimiterSettings } from '@/types/globalAudio';
 import type { GlobalLfoTargetId } from '@/types/lfo';
 
@@ -130,7 +130,6 @@ export function wireGlobalFxChain(controlledDecay: boolean): void {
 
   if (chainNodes.length === 0) {
     // No FX nodes available at all (fully headless env) — nothing to wire.
-    devLog('[AudioEngine] FX chain wired — no nodes constructed (headless env)');
     return;
   }
 
@@ -156,8 +155,6 @@ export function wireGlobalFxChain(controlledDecay: boolean): void {
   } catch (err) {
     devWarn('[AudioEngine] wireGlobalFxChain failed', err);
   }
-
-  devLog('[AudioEngine] FX chain wired', controlledDecay ? '(Controlled Decay)' : '(Natural Decay)');
 }
 
 /** The live chain-entry node — EQ3, first in both Natural and Controlled

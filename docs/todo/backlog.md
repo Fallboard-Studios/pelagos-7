@@ -858,3 +858,48 @@ Audio Rig), rather than assume the audit above was exhaustive:**
 
 Full suite (144 files/2680 tests, unchanged — a pure hygiene fix, no new tests needed since it's
 not a functional regression), `build:types`, `lint`, `build` all clean.
+
+### 28. Repo-Wide: Informational console.log Noise Dominating the Console
+
+**Status:** ☑ fixed — `chore/console-log-cleanup` (2026-09-15), 4 commits, ~44 call sites across
+9 files. Raised directly by Crawford ("a whole lot of console logs going that we don't need
+anymore") — a broader companion to item 19, which fixed one specific instance of the same root
+cause.
+
+**Root cause:** most of these call sites were gated by `if (DEV_TUNING)` (or the `devLog`/`devWarn`
+helpers in `helpers.ts`, same gate), and `DEV_TUNING = import.meta.env.DEV` (`constants/index.ts`)
+is `true` for the entire lifetime of `npm run dev` — it never actually silenced anything during
+normal local development, only in a production build. Every one of these fired constantly, for as
+long as the app was open.
+
+**What was removed** (pure informational/status prints — no return value or side effect consumed
+elsewhere): `swimAnimation.ts`'s timeline started/stored (fired on every robot swim cycle,
+continuously — the single loudest source); `spawnSystem.ts`'s per-robot spawn, audio-copy,
+company-seeded, and re-registration-count logs; `interactionSystem.ts`'s flurry/interaction-start
+logs; `collisionSystem.ts`'s and `robotSystems.ts`'s already-running/started/stopped lifecycle
+logs; and the bulk of the audio engine's own status prints (`AudioEngine.ts` — Started/Stopped,
+voice reserve/release, melody register/unregister, layer-param/envelope-applied confirmations that
+fired on every real-time slider edit, polyphony-capped; `globalFx.ts` — FX chain wired;
+`beatClock.ts` — initialized/reset, scheduleRepeat/cancelSchedule on both branches, likely the
+single highest-frequency site given how central BeatClock is to musical timing; `harmonySystem.ts`
+— palette set/changed, cycle scheduled/stopped, the latter recurring every
+`MEASURES_PER_PALETTE_ENTRY` measures for the whole session). The now-fully-dead `devLog` helper
+itself was removed last, once nothing called it.
+
+**What was deliberately left alone:** every genuine error/warning path — `AudioEngine.ts`'s 3
+direct `console.warn`/`console.error` on actual failures, `idleSystem.ts`'s missing-robot warn
+(item 19), `main.tsx`'s one-time `?seed=` info, `helpers.ts`'s `swallow()`, and all ~94 `devWarn`
+callers across the audio engine and stores — every one of those wraps a real `catch (err)`, not
+routine status. `devWarn` itself is unchanged and still has real callers.
+
+Two incremental scope-check corrections made live during implementation, not silently absorbed:
+`swimAnimation.ts`'s "No ref found for robot X, deferring animation" warning was accidentally
+removed once, then restored — it was never in the approved list (a real, if minor, guard-miss
+signal, unlike the two status prints beside it that were approved). `interactionSystem.ts`'s
+`INTERACTION_COOLDOWN_MEASURES` constant and `AudioEngine.ts`'s `unregisterRobotMelody` count
+variable were removed too, as the direct, unavoidable consequence of removing their only
+consumers (the deleted log lines) — not unrelated cleanup.
+
+All 4 commits verified independently: `build:types`/`lint`/`test` (144 files/2695 tests) clean
+after each; final commit also re-ran `build`. Pure log removal with no behavior change — no new
+tests were needed or added.

@@ -10,7 +10,6 @@ import useLocaleStore from '../stores/localeStore';
 import { triggerInteraction } from './interactionSystem';
 import { getRef } from '../utils/refs';
 import { getCurrentMeasure } from '../engine/beatClock';
-import { DEV_TUNING } from '../constants';
 
 // ========================================
 // CONSTANTS
@@ -93,7 +92,6 @@ export function getCollisionChecksPerSecond(): number {
  */
 export function startCollisionDetection(localeId: string): void {
   if (tickerCallback) {
-    if (DEV_TUNING) console.warn('[CollisionSystem] Already running');
     return;
   }
 
@@ -136,7 +134,6 @@ export function startCollisionDetection(localeId: string): void {
   };
 
   gsap.ticker.add(tickerCallback);
-  if (DEV_TUNING) console.log('[CollisionSystem] Started');
 }
 
 /**
@@ -146,6 +143,5 @@ export function stopCollisionDetection(): void {
   if (tickerCallback) {
     gsap.ticker.remove(tickerCallback);
     tickerCallback = null;
-    if (DEV_TUNING) console.log('[CollisionSystem] Stopped');
   }
 }
