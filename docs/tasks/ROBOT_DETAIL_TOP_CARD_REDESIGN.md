@@ -50,7 +50,7 @@ Task 1 (robotSelectionConfig.ts — ROBOT_SELECTION_ROW_SCHEMAS.status)
 ### Checkpoint: Foundation schema
 - [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
 - [x] `ROBOT_SELECTION_ROW_SCHEMAS.status` has no consumers yet and no dead-code lint warnings (exported, so this should already be clean).
-- [ ] Review with human before proceeding.
+- [x] Review with human before proceeding.
 
 ---
 
@@ -78,7 +78,7 @@ Task 1 (robotSelectionConfig.ts — ROBOT_SELECTION_ROW_SCHEMAS.status)
   - [x] `npm run lint` clean.
   - [x] Full suite: `npx vitest run` — 143/143 files, 2712/2712 tests, including the retargeted comment in `standaloneDualLabelHosts.test.ts` noted above. No component asserted on the old DOM shape.
   - [x] `npm run build` clean.
-  - [ ] Manual check (spec §5): `npm run dev`, open Robot Options for any robot. Confirm avatar centered with Name/Job above (left/right) and Docking/Status below (left/right), each with a visible caption above its value; Battery slider and Company picker render below, unchanged. Resize to the narrowest supported width and confirm no field's text overflows its column illegibly. Set one robot's Audio Setting to Solo (via a different robot's Robot Options) and confirm this robot's own Status flips to "Disabled."
+  - [x] Manual check (spec §5): `npm run dev`, open Robot Options for any robot. Confirm avatar centered with Name/Job above (left/right) and Docking/Status below (left/right), each with a visible caption above its value; Battery slider and Company picker render below, unchanged. Resize to the narrowest supported width and confirm no field's text overflows its column illegibly. Set one robot's Audio Setting to Solo (via a different robot's Robot Options) and confirm this robot's own Status flips to "Disabled." — confirmed by Crawford.
 
   **Dependencies:** Task 1 (`ROBOT_SELECTION_ROW_SCHEMAS.status`). External (already shipped, no task here): `isRobotAudible` (`src/utils/robotAudibility.ts`), `AUDIBILITY_LABELS` (Roadmap 15.2).
 
@@ -88,9 +88,9 @@ Task 1 (robotSelectionConfig.ts — ROBOT_SELECTION_ROW_SCHEMAS.status)
 
 ### Checkpoint: Card shipped
 - [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] Manual pass (Task 2's own manual check) confirms the redesigned card end-to-end, including the locale-wide Solo → Disabled behavior and the narrow-width text-overflow check — not yet run.
+- [x] Manual pass (Task 2's own manual check) confirms the redesigned card end-to-end, including the locale-wide Solo → Disabled behavior and the narrow-width text-overflow check — confirmed by Crawford.
 - [x] No remaining reference anywhere in `src/` to `.robot-display-section__row` (grep-confirmed).
-- [ ] Review with human before proceeding.
+- [x] Review with human before proceeding.
 
 ---
 
@@ -120,9 +120,9 @@ Task 1 (robotSelectionConfig.ts — ROBOT_SELECTION_ROW_SCHEMAS.status)
 
 ### Checkpoint: Complete
 - [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] All acceptance criteria across all 3 tasks are met, except the still-open manual browser check under Task 2.
+- [x] All acceptance criteria across all 3 tasks are met, including the manual browser check under Task 2 — confirmed by Crawford.
 - [x] `docs/reference/ROBOT_DATA_GRID.md` reflects the shipped Status field.
-- [ ] Ready for human review / PR.
+- [x] Ready for human review / PR.
 
 ## Risks and Mitigations
 
