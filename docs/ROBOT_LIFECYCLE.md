@@ -254,14 +254,15 @@ locale load:
 
 ## Existing-System Guards
 
-Two already-shipping systems needed a `docking === Active` guard added, since neither was
+One already-shipping system needed a `docking === Active` guard added, since it was not
 originally docking-aware:
 
 - **`idleSystem.ts`'s `handleRobotIdle`**: early-returns for a non-`Active` robot, so a `Docked`
   robot never wanders off its off-screen position.
-- **`collisionSystem.ts`'s `canInteract`**: excludes non-`Active` robots. The collision ticker
-  iterates every robot in the store regardless of what's rendered — without this guard, a `Docked`
-  (muted) robot could still be flagged into an audible `triggerInteraction`.
+
+(`collisionSystem.ts` also gained the same guard at the time, but the module was unused —
+`startCollisionDetection` was never called from anywhere — and was removed outright rather than
+kept or backfilled with tests; see roadmap Phase 19.)
 
 ## Power Cycle Integration
 
@@ -291,7 +292,7 @@ robots silent afterward, exactly as before the outage.
 ## Testing Notes
 
 The current tests (`robotSystems.test.ts`, plus updated coverage in `idleSystem.test.ts`,
-`collisionSystem.test.ts`, `spawnSystem.test.ts`, `worldTransition.test.ts`) cover:
+`spawnSystem.test.ts`, `worldTransition.test.ts`) cover:
 - battery drain math for all four job types plus the no-job case, and recharge math, both clamped
 - threshold-triggered `Docking`/`Departing` entry with the hold, not an immediate landing
 - hold-elapsed landing on `Active`/`Docked`
@@ -305,6 +306,6 @@ The current tests (`robotSystems.test.ts`, plus updated coverage in `idleSystem.
 - `scoreJobAffinities` determinism and each profile scoring highest for a robot matching its description
 - `assignJob` respecting `JOB_MAX_ROBOTS_PER_TYPE`
 - `startRobotLifecycle`/`stopRobotLifecycle` idempotency
-- the `idleSystem.ts`/`collisionSystem.ts` docking guards
+- the `idleSystem.ts` docking guard
 - `spawnInitialRoster`'s active/docked split, seeded battery variation, its determinism across identical coordinates, and that every robot (Docked included) has a reserved voice/registered melody with `audioMode` matching its docking state
 - the never-zero-`Active` invariant: a sole `Active` robot at/below critical battery stays `Active` (including floored at exactly 0) instead of departing; it departs on a later tick once another robot has landed back on `Active`; and when two robots cross critical in the same tick, only one departs while the other is held

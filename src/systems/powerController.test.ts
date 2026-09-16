@@ -5,7 +5,6 @@ vi.mock('../engine/harmonySystem', () => ({ resetHarmony: vi.fn() }));
 vi.mock('../stores/audioStore', () => ({ useAudioStore: { getState: () => ({ bpm: 60 }) } }));
 vi.mock('./spawnSystem', () => ({ reRegisterAllRobotsAudio: vi.fn() }));
 vi.mock('./robotSystems', () => ({ stopRobotLifecycle: vi.fn() }));
-vi.mock('./collisionSystem', () => ({ stopCollisionDetection: vi.fn() }));
 const setPowerOnSpy = vi.fn();
 const setPowerOffSpy = vi.fn();
 vi.mock('../stores/uiStore', () => ({ useUIStore: { getState: () => ({ setPowerOn: setPowerOnSpy, setPowerOff: setPowerOffSpy }) } }));
@@ -18,7 +17,6 @@ import { AudioEngine } from '../engine/AudioEngine';
 import { resetHarmony } from '../engine/harmonySystem';
 import { reRegisterAllRobotsAudio } from './spawnSystem';
 import { stopRobotLifecycle } from './robotSystems';
-import { stopCollisionDetection } from './collisionSystem';
 import { useUIStore } from '../stores/uiStore';
 import { useLocaleStore } from '../stores/localeStore';
 
@@ -40,7 +38,6 @@ describe('powerController', () => {
     const p = powerController.shutdown();
     await p;
     expect(stopRobotLifecycle).toHaveBeenCalled();
-    expect(stopCollisionDetection).toHaveBeenCalled();
     expect(AudioEngine.killAll).toHaveBeenCalled();
     // locale actors cleared and ui setPowerOff should be called
     expect(useLocaleStore.getState().setLocaleData).toHaveBeenCalled();
@@ -57,7 +54,6 @@ describe('powerController', () => {
   it('shutdownWithAnimation halts systems and flips power state off, without touching locale actors', async () => {
     await powerController.shutdownWithAnimation();
     expect(stopRobotLifecycle).toHaveBeenCalled();
-    expect(stopCollisionDetection).toHaveBeenCalled();
     expect(AudioEngine.killAll).toHaveBeenCalled();
     expect(useUIStore.getState().setPowerOff).toHaveBeenCalled();
     expect(useLocaleStore.getState().setLocaleData).not.toHaveBeenCalled();
