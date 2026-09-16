@@ -118,10 +118,10 @@ describe('globalFx', () => {
   });
 
   describe('buildGlobalFxChain — Delay construction', () => {
-    it('constructs Tone.FeedbackDelay with an explicit maxDelay of 1', async () => {
+    it('constructs Tone.FeedbackDelay with an explicit maxDelay of 10', async () => {
       const globalFx = await import('./globalFx');
       globalFx.buildGlobalFxChain();
-      expect(Tone.FeedbackDelay).toHaveBeenCalledWith(expect.objectContaining({ maxDelay: 1 }));
+      expect(Tone.FeedbackDelay).toHaveBeenCalledWith(expect.objectContaining({ maxDelay: 10 }));
     });
   });
 

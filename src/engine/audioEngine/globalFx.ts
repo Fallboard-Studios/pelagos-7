@@ -64,11 +64,11 @@ export function buildGlobalFxChain(): void {
   }
   if (DelayCtor) {
     // maxDelay is explicit on purpose: it must stay >= the max of
-    // GLOBAL_AUDIO_SEED_RANGES['delay.delayTime'] (1s). Previously this was
+    // GLOBAL_AUDIO_SEED_RANGES['delay.delayTime'] (10s). Previously this was
     // an unset, implicit reliance on Tone.FeedbackDelay's own default of 1 —
     // correct today only by coincidence, and silently driftable if either
     // side changed independently.
-    _globalDelay = new DelayCtor({ delayTime: 0.25, feedback: 0.2, wet: 0, maxDelay: 1 });
+    _globalDelay = new DelayCtor({ delayTime: 0.25, feedback: 0.2, wet: 0, maxDelay: 10 });
   }
   if (EQ3Ctor) {
     _globalEQ = new EQ3Ctor({ low: 0, mid: 0, high: 0 });
