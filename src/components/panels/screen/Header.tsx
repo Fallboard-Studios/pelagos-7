@@ -69,6 +69,14 @@ function formatAttenuationStyleName(name: string | undefined): string {
  * hand-authored breakpoints in Header.css (430/480/880/1220px) rather than
  * the original spec's ResizeObserver-driven row merge — see
  * docs/tasks/HEADER_HUB_CONSOLIDATION.md's "Post-implementation follow-up".
+ *
+ * The nav RadioButton (docs/todo/backlog.md #1) is a single instance, not
+ * duplicated per breakpoint — .header itself is a 2-area CSS Grid
+ * ("rocker"/"nav") that repositions .header__row--nav from its own full-width
+ * row below .rocker-spacer (<430px) to sitting beside it (≥430px), purely via
+ * grid-template-areas. .rocker-spacer's own internal layout (volume + status,
+ * ScreenViewport.css) is untouched by this — it's one atomic grid item either
+ * way, not itself part of the grid restructuring.
  */
 function Header() {
   const headerRef = useRef<HTMLElement>(null);
@@ -173,41 +181,30 @@ function Header() {
             disabled={!isPoweredOn}
           />
         </div>
-        <div className="header__row--status-nav">
-          <div className="header__row header__row--status">
-            <div className="header__status__row">
-              <span className="header__attenuation-style">
-                <VisuallyHidden>Attenuation style: </VisuallyHidden>
-                {displayAttenuationStyleName}
-              </span>
-              <span className="header__coordinates">
-                <VisuallyHidden>Coordinates: </VisuallyHidden>
-                @ {coordinates?.x ?? 'CORRUPT X'}, {coordinates?.y ?? 'CORRUPT Y'}
-              </span>
-            </div>
-            <div className="header__status__row">
-              <span className="header__time">
-                <VisuallyHidden>Local time: </VisuallyHidden>
-                {hh}:{mm}
-              </span>
-              <span className="header__temp">
-                <VisuallyHidden>Temperature: </VisuallyHidden>
-                {activeLocaleTemperature !== null ? `${activeLocaleTemperature}°C` : 'CORRUPT TEMPERATURE'}
-              </span>
-            </div>
+        <div className="header__row header__row--status">
+          <div className="header__status__row">
+            <span className="header__attenuation-style">
+              <VisuallyHidden>Attenuation style: </VisuallyHidden>
+              {displayAttenuationStyleName}
+            </span>
+            <span className="header__coordinates">
+              <VisuallyHidden>Coordinates: </VisuallyHidden>
+              @ {coordinates?.x ?? 'CORRUPT X'}, {coordinates?.y ?? 'CORRUPT Y'}
+            </span>
           </div>
-          <div className="header__row header__row--nav primary">
-            <RadioButton
-              schema={HEADER_NAV_SCHEMA}
-              value={activeHubTile ?? ''}
-              onChange={handleNavChange}
-              onDeselect={handleNavDeselect}
-              boxSize={TOUCH_TARGET_SIZE}
-            />
+          <div className="header__status__row">
+            <span className="header__time">
+              <VisuallyHidden>Local time: </VisuallyHidden>
+              {hh}:{mm}
+            </span>
+            <span className="header__temp">
+              <VisuallyHidden>Temperature: </VisuallyHidden>
+              {activeLocaleTemperature !== null ? `${activeLocaleTemperature}°C` : 'CORRUPT TEMPERATURE'}
+            </span>
           </div>
         </div>
       </div>
-      <div className="header__row header__row--nav secondary">
+      <div className="header__row header__row--nav">
         <RadioButton
           schema={HEADER_NAV_SCHEMA}
           value={activeHubTile ?? ''}

@@ -18,6 +18,24 @@ duplicate of this doc.
 
 ### 1. Header Nav: Single-Instance Responsive RadioButton
 
+**Status:** ☑ fixed, pending manual visual verification — `feature/company-fixes-part-2`
+(2026-09-15). `Header.tsx` now renders one `RadioButton` instance; `.header` itself became
+a 2-area CSS Grid (`"rocker"`/`"nav"`, `Header.css`) that repositions `.header__row--nav`
+between its own full-width row below `.rocker-spacer` (<430px) and sitting beside it
+(≥430px) — the exact "named grid areas" shape this item's own fix-shape note below
+sketched, reusing `.header__row--nav`'s previously-inert `grid-area: nav` declaration.
+`.rocker-spacer` (`ScreenViewport.css`) gained one line (`grid-area: rocker`) and is
+otherwise untouched — its own internal volume/status layout, deadzone padding, and
+min-height are unaffected, confirmed via `git diff --stat`. The dead
+`.header__row--status-nav` wrapper and `.primary`/`.secondary` modifier classes/media
+rules were removed along with the duplication. `Header.test.tsx`'s "renders 3 nav options,
+once per responsive nav group" assertion is now "exactly once each," plus a new test
+asserting no `.primary`/`.secondary` split remains. All 4 verification commands
+(`build:types`/`lint`/`test`/`build`) clean. **Not verified in a live browser this
+session** (none available) — the responsive repositioning at the 430px crossover, and
+whether nav visually sits where it should beside `.rocker-spacer` at ≥430px, still needs a
+real-browser check before this is fully closed out.
+
 Found during `/code-review-and-quality` on the Header & Hub Consolidation work
 (2026-09-12). Moved here from roadmap item 14 (2026-09-11) — not a correctness bug, no
 other Header work in flight, and no urgency; queued until something else legitimately

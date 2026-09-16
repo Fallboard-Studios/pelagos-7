@@ -124,6 +124,11 @@
    the whole 3-row header rather than per-row, same simplicity trade-off
    Console.css's own --header-height clearance below makes. */
 .screen-content .rocker-spacer {
+  /* One atomic item of .header's own 2-area CSS Grid ("rocker"/"nav" —
+     Header.css, docs/todo/backlog.md #1); everything below is this element's
+     own unchanged internal layout (volume + status), untouched by that grid
+     restructuring. */
+  grid-area: rocker;
   padding-left: calc(var(--sleeve-bar-width) + var(--spacing-md));
   min-height: 164px;
   display: flex;
