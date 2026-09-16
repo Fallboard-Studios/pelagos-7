@@ -42,6 +42,22 @@ describe('PowerRockerSwitch', () => {
     mockIsPoweredOn = false;
   });
 
+  // docs/todo/backlog.md #20 — the browser logs `Error: <svg> attribute y: Unexpected end of
+  // attribute. Expected length, "".` twice on every load (React StrictMode double-invokes
+  // effects in dev). The nested .rocker-power-svg's own y is documented as GSAP-owned ("GSAP
+  // attr-tweens `y`: 54 at rest, 50 when pressed") and was never given a value in JSX — so on
+  // the very first paint, before useGSAP's mount effect has run, this attribute either didn't
+  // exist or (per GSAP's own attr-plugin behavior with a never-before-set SVG length attribute)
+  // briefly existed as an empty string, which the browser's SVG parser rejects. vitest.setup.ts's
+  // global gsap mock's own `set` is a genuine no-op (doesn't touch the DOM at all, unlike a real
+  // gsap.set()), so this test's rendered output reflects JSX alone — exactly the "before any JS
+  // has run" state the bug occurs in.
+  it("gives the nested power-icon svg a valid y attribute from JSX alone, not solely GSAP-owned (backlog #20)", () => {
+    const { container } = render(<PowerRockerSwitch />);
+    const powerSvg = container.querySelector('.rocker-power-svg');
+    expect(powerSvg?.getAttribute('y')).toBe('54');
+  });
+
   it('clicking when off starts powerController.powerOnSequence and registers sequence', async () => {
     const { getByRole } = render(<PowerRockerSwitch />);
     const btn = getByRole('button', { name: /Power on/i });
