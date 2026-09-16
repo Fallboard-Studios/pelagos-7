@@ -19,7 +19,7 @@ import { MIN_LEAD, MAX_POLYPHONY } from '../constants';
 import { getRef } from '../utils/refs';
 import { precomputeDataX } from '../utils/getSeededVal';
 import { tryGetLocaleNoiseMap } from '../utils/noiseMaps';
-import { devLog, devWarn } from '../utils/helpers';
+import { devWarn } from '../utils/helpers';
 import { isRobotAudible } from '../utils/robotAudibility';
 import { calculatePanFromPosition } from './audioEngine/panning';
 import { volumePositionToGain } from './audioEngine/volumeTaper';
@@ -213,12 +213,11 @@ async function loadInstruments(): Promise<void> {
   try {
     const robots = getActiveLocaleRobots();
     if (robots.length > 0) {
-      devLog(`[AudioEngine] Attempting post-load reservations for ${robots.length} robots`);
       robots.forEach((robot: Robot) => {
         try {
           const layers = (robot.audioAttributes as unknown as { layers?: OscillatorLayer[] })?.layers;
           if (Array.isArray(layers) && layers.length > 0) {
-            const ok = AudioEngine.reserveVoice(
+            AudioEngine.reserveVoice(
               robot.id,
               layers,
               robot.audioAttributes.adsr,
@@ -227,7 +226,6 @@ async function loadInstruments(): Promise<void> {
               (robot.audioAttributes as unknown as { layers?: OscillatorLayer[] })?.layers?.[0]?.pulseWidth,
               robot.masterVolume,
             );
-            devLog(`[AudioEngine] Post-load reserve for ${robot.id}: ${ok ? 'OK' : 'FAILED'}`);
           }
         } catch (err) {
           devWarn('[AudioEngine] Failed post-load reservation for robot', robot.id, err);
@@ -327,7 +325,6 @@ export function triggerWithCap(params: NoteParams): boolean {
   }
 
   if (activeVoices >= MAX_POLYPHONY) {
-    devLog(`[AudioEngine] Polyphony capped: ${activeVoices}/${MAX_POLYPHONY}`);
     skippedNotesThisMeasure++;
     return false;
   }
@@ -434,8 +431,6 @@ function startMelodyPlayback(): void {
 
     stepCounter++;
   }, '16n');
-
-  devLog('[AudioEngine] Melody playback started (16n tick)');
 }
 
 // ========================================
@@ -553,7 +548,6 @@ export const AudioEngine = {
     scheduleHarmonyCycle();
 
     initialized = true;
-    devLog('[AudioEngine] Started');
   },
 
   stop(): void {
@@ -576,8 +570,6 @@ export const AudioEngine = {
     activeVoices = 0;
     skippedNotesThisMeasure = 0;
     initialized = false;
-
-    devLog('[AudioEngine] Stopped');
   },
 
   /**
@@ -698,7 +690,6 @@ export const AudioEngine = {
       } catch (e) {
         devWarn('[AudioEngine] Failed to apply composite phase/detune/width at reservation time', e);
       }
-      devLog(`[AudioEngine] Reserved composite voice for ${robotId}`);
       return true;
     } catch (err) {
       devWarn('[AudioEngine] Failed to create composite voice:', err);
@@ -713,7 +704,6 @@ export const AudioEngine = {
       const busGain = ({ connect: () => { }, disconnect: () => { }, gain: { value: volumePositionToGain(masterVolume ?? 1) } } as MinimalToneNode) as unknown as Tone.Gain;
       const busFilter = ({ connect: () => { }, disconnect: () => { }, toDestination: () => { } } as MinimalToneNode) as unknown as Tone.Filter;
       compositeVoices.set(robotId, { composite: stubComposite, panner, busGain, busFilter });
-      devLog(`[AudioEngine] Reserved stub composite voice for ${robotId}`);
       return false;
     }
   },
@@ -736,7 +726,6 @@ export const AudioEngine = {
     }
     compositeVoices.delete(robotId);
     robotNoteIndex.delete(robotId);
-    devLog(`[AudioEngine] Released composite voice for ${robotId}`);
   },
 
   /** Return the composite voice reserved for a robot, or null if none. */
@@ -852,7 +841,6 @@ export const AudioEngine = {
       try {
         // Pass the full layers array as required by the composite.set contract
         entry.composite.set({ layers: layers as Partial<OscillatorLayer>[] });
-        devLog(`[AudioEngine] updateVoiceLayerParams applied for ${robotId}`);
       } catch (err) {
         devWarn('[AudioEngine] Failed to apply layer params on composite', err);
       }
@@ -882,7 +870,6 @@ export const AudioEngine = {
       try {
         const patched = entry.composite.layers.map(({ layer }) => ({ ...layer, adsr }));
         entry.composite.set({ layers: patched });
-        devLog(`[AudioEngine] updateVoiceEnvelope applied for ${robotId}`);
       } catch (err) {
         devWarn('[AudioEngine] Failed to apply envelope on composite', err);
       }
@@ -996,17 +983,13 @@ export const AudioEngine = {
       entries.push({ robotId, event, isGroupAccent: accentedStartSteps.has(event.startStep) });
       stepRegistry.set(event.startStep, entries);
     });
-
-    devLog(`[AudioEngine] Registered melody for robot ${robotId} (${effectiveMelody.length} events)`);
   },
 
   unregisterRobotMelody(robotId: string): void {
     robotNoteIndex.delete(robotId);
-    let removedCount = 0;
 
     stepRegistry.forEach((entries, step) => {
       const filtered = entries.filter((e) => e.robotId !== robotId);
-      removedCount += entries.length - filtered.length;
 
       if (filtered.length > 0) {
         stepRegistry.set(step, filtered);
@@ -1014,8 +997,6 @@ export const AudioEngine = {
         stepRegistry.delete(step);
       }
     });
-
-    devLog(`[AudioEngine] Unregistered melody for robot ${robotId} (${removedCount} events removed)`);
   },
 
   /**
@@ -1171,7 +1152,6 @@ export const AudioEngine = {
       // transport.cancel() above cleared the old 16n tick; resetBeatClock() lets it be recreated.
       resetBeatClock();
       _unsubscribeMeasure = null; // resetBeatClock cleared the listener array; drop the stale ref
-      devLog('[AudioEngine] killAll: transport cancelled, voices released, position reset');
     } catch (err) {
       devWarn('[AudioEngine] killAll failed', err);
     }
