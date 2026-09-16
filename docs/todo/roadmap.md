@@ -686,7 +686,9 @@ Same shape as 11.1.5.1/11.1.5.2, for `SliderCenteredZero` — and the most conse
 
 ## 11.1.6 Oblique Cabinetry: RadioButton
 
-Wires `RadioButton` into the cabinet-box mechanism. Radix's `ToggleGroup` renders one segment per `schema.options` entry, which puts this item closer in shape to `Toggle` (11.1.2) than to `Button`'s single momentary box or the sliders' continuous voxel-track — each segment is itself a discrete on/off state (selected vs. not), just N of them instead of one. Depends on 11.1.1 having shipped (reuses its cabinet-box primitive and face-shading) and reuses 11.1.2's state-keyed (not click-keyed) pop precedent; not yet interviewed/specced.
+Wires `RadioButton` into the cabinet-box mechanism. Radix's `ToggleGroup` renders one segment per `schema.options` entry, which puts this item closer in shape to `Toggle` (11.1.2) than to `Button`'s single momentary box or the sliders' continuous voxel-track — each segment is itself a discrete on/off state (selected vs. not), just N of them instead of one. Depends on 11.1.1 having shipped (reuses its cabinet-box primitive and face-shading) and reuses 11.1.2's state-keyed (not click-keyed) pop precedent.
+
+**Done** — see [docs/specs/OBLIQUE_CABINETRY_RADIO_BUTTON.md](../specs/OBLIQUE_CABINETRY_RADIO_BUTTON.md), [docs/tasks/OBLIQUE_CABINETRY_RADIO_BUTTON.md](../tasks/OBLIQUE_CABINETRY_RADIO_BUTTON.md), and [docs/intent/oblique-cabinetry-radio-button.md](../intent/oblique-cabinetry-radio-button.md) (confirmed via `/interview-me`, 2026-09-10). Confirmed shipped on `main` (PR #438): `RadioButton.tsx` renders one `CabinetBox` per `ToggleGroup.Item`, popped state derived directly from `value` (not Radix's `data-state`), reusing `CabinetBox`/`cabinetGeometry.ts`/the sliders' own `useVoxelTrackGap` unmodified. One post-ship amendment, made directly by Crawford and already noted above in [10.5](#105-company-assignment-select--radiobutton): every option now also pops on `mouseEnter`/`mouseLeave`, matching `Button`'s own hover-pop feedback — reversing this item's original "no hover/partial-pop on unselected options" exclusion, applied app-wide (the primitive has no per-instance variant). See `docs/specs/OBLIQUE_CABINETRY_RADIO_BUTTON.md`'s own post-ship amendment note.
 
 ### Create
 
@@ -708,7 +710,9 @@ Wires `RadioButton` into the cabinet-box mechanism. Radix's `ToggleGroup` render
 
 ## 11.1.7 Oblique Cabinetry: AccordionContainer
 
-Wires `AccordionContainer`'s trigger row into the cabinet-box mechanism — a single box wrapping the trigger's existing `+`/`−` indicator plus `DualLabel` content, popped when open and flat when closed, reusing 11.1.2's state-keyed pop rule (open/closed is exactly that shape: a persistent boolean, not a momentary click). The content panel's own existing GSAP height-tween expand/collapse is unchanged and out of scope — this item touches the trigger only. Depends on 11.1.1 having shipped; not yet interviewed/specced.
+Wires `AccordionContainer`'s trigger row into the cabinet-box mechanism — a single box wrapping the trigger's existing `+`/`−` indicator plus `DualLabel` content, popped when open and flat when closed, reusing 11.1.2's state-keyed pop rule (open/closed is exactly that shape: a persistent boolean, not a momentary click). The content panel's own existing GSAP height-tween expand/collapse is unchanged and out of scope — this item touches the trigger only. Depends on 11.1.1 having shipped.
+
+**Done** — see [docs/specs/OBLIQUE_CABINETRY_ACCORDION_CONTAINER.md](../specs/OBLIQUE_CABINETRY_ACCORDION_CONTAINER.md), [docs/tasks/OBLIQUE_CABINETRY_ACCORDION_CONTAINER.md](../tasks/OBLIQUE_CABINETRY_ACCORDION_CONTAINER.md), and [docs/intent/oblique-cabinetry-accordion-container.md](../intent/oblique-cabinetry-accordion-container.md). Confirmed shipped on `main` (PR #439): `AccordionContainer`'s trigger renders through `CabinetBox`, keyed off the same local `open` state the component already tracked (not `contentActive`), with the trigger's pop timeline and the content panel's existing height-tween timeline coexisting in `timelineMap` under distinct keys exactly as scoped.
 
 ### Create
 
@@ -837,17 +841,23 @@ Requested by Crawford (`docs/todo/temp.md`), 2026-09-11. High priority. Today's 
 
 ## 13. Bug: Vertical Slider Label Overflow
 
-Requested by Crawford (`docs/todo/temp.md`), 2026-09-11. High priority — a real shipped-behavior bug, not polish debt ("we can't ship this issue"). Some (not all) vertical sliders overflow their bounds; suspected but unconfirmed to be related to label font size. Notably, 11.1.5.1–11.1.5.3 already ran a manual verification pass on vertical `SliderLinear`/`SliderLog`/`SliderCenteredZero` against their real consumers and found only one bug (the `CabinetBox` wall-height fix, already shipped) — so this is either a regression since then or a case those passes didn't cover. Depends on 12 (Font Sizes) landing first. Not yet reproduced consistently; first step is nailing down exactly which sliders/contexts show it.
+Requested by Crawford (`docs/todo/temp.md`), 2026-09-11. High priority — a real shipped-behavior bug, not polish debt ("we can't ship this issue"). Some (not all) vertical sliders overflow their bounds; suspected but unconfirmed to be related to label font size. Notably, 11.1.5.1–11.1.5.3 already ran a manual verification pass on vertical `SliderLinear`/`SliderLog`/`SliderCenteredZero` against their real consumers and found only one bug (the `CabinetBox` wall-height fix, already shipped) — so this is either a regression since then or a case those passes didn't cover. Depends on 12 (Font Sizes) landing first.
+
+**Done** — confirmed shipped on `main`. Root cause, found live via DevTools, was unrelated to label font size (12 did not resolve this): the vertical box-track wrapper's `overflow-y: auto` was meant only for the rare 3-box overflow floor, but a native scrollbar renders its full chrome the instant `scrollHeight` exceeds `clientHeight` by even 1px — the Audio Rig's Filter Frequency/Resonance sliders hit exactly that as a sub-pixel rounding artifact, not a real too-tall-for-its-container problem. Fixed by switching `overflow-y` from `auto` to `hidden` on all three vertical slider variants (correct either way, since the element is `aria-hidden="true"`). Also landed from the same investigation: `SliderLinearSchema`/`SliderLogSchema`/`SliderCenteredZeroSchema` gained an optional `verticalHeight` field so a vertical slider's box-fitting budget is declared in config instead of silently defaulting, set on all 10 real vertical schemas in `audioRigConfig.ts`/`robotOptionsConfig.ts`. Regression coverage: `verticalSliderOverflow.test.ts` pins `overflow-y: hidden` on all three variants; `audioRigConfig.test.ts`/`robotOptionsConfig.test.ts` guard that every real vertical schema declares its own `verticalHeight`.
 
 ## 14. Visual Identity: Color Scheme & Trait-Based Theming
 
-Requested by Crawford (`docs/todo/temp.md`), 2026-09-11. High priority — "can't ship with what we've got." Crawford has a custom color scheme to bring over, replacing the current hand-picked static "Ballast" palette (`src/index.css`); colors stay static, not seed-driven, consistent with `docs/CONSOLE_THEMING.md`'s decision to cut seed-driven theming over its unresolved WCAG-safety-vs-visual-variety tension. Beyond the base palette swap, also exploring trait-based theming for Audio Rig controls — grouping parameters by shared trait rather than one flat palette, e.g. time-based params (Reverb, Delay, ADSR) sharing one color family, output params (Compressor, Limiter, Volumes) sharing another. Still being worked out; not yet interviewed/specced.
+Requested by Crawford (`docs/todo/temp.md`), 2026-09-11. High priority — "can't ship with what we've got." Crawford has a custom color scheme to bring over, replacing the current hand-picked static "Ballast" palette (`src/index.css`); colors stay static, not seed-driven, consistent with `docs/CONSOLE_THEMING.md`'s decision to cut seed-driven theming over its unresolved WCAG-safety-vs-visual-variety tension. Beyond the base palette swap, also exploring trait-based theming for Audio Rig controls — grouping parameters by shared trait rather than one flat palette, e.g. time-based params (Reverb, Delay, ADSR) sharing one color family, output params (Compressor, Limiter, Volumes) sharing another.
+
+**Done** — see [docs/intent/color-scheme-trait-theming.md](../intent/color-scheme-trait-theming.md), [docs/specs/COLOR_SCHEME_TRAIT_THEMING.md](../specs/COLOR_SCHEME_TRAIT_THEMING.md), and [docs/tasks/COLOR_SCHEME_TRAIT_THEMING.md](../tasks/COLOR_SCHEME_TRAIT_THEMING.md). Confirmed shipped on `main`: `src/index.css`'s `--color-accent-a`/`-b`/`--color-accent`/`--color-accent-gradient` are the new trait-scoped token set (replacing the flat "Ballast" accent), and `src/utils/traitColors.ts`'s `getTraitColorStyle`/`getRobotColorStyle` re-scope every consumer for a subtree via ordinary CSS cascade. `--color-bg`/`--color-surface`/`--color-border`/text tokens remain the unchanged static Ballast base.
 
 ## 15.1 Component: SliderLinear Read-Only Mode
 
 Split out of the original item 15 (Redesign: Robot Cards, requested by Crawford via `docs/todo/temp.md`, 2026-09-11) into 15.1–15.3 on 2026-09-13, once Crawford's written notes for that redesign made clear both the robot-card and robot-detail redesigns want to display Battery/Power as a read-only `SliderLinear` rather than bespoke markup — a primitive-level prerequisite for 15.3 below, with no dependency of its own. High priority.
 
-Adds an optional `readOnly` prop to `SliderLinear` (`src/components/ui/controls/SliderLinear.tsx`): when set, the slider shows the bound value (via the existing `VoxelTrack` fill) but accepts no pointer/keyboard interaction. Not yet interviewed/specced — open questions for that pass: whether this reuses Radix `Slider`'s own `disabled` wiring under the hood or is a distinct code path, and what ARIA treatment is correct (`aria-readonly` reads more accurately than `aria-disabled` for "an accurate live value you can't edit," but `disabled` is the only non-interactive state the primitive has today). `docs/COMPONENT_LIBRARY.md`'s `SliderLinear` contract entry needs updating once this ships.
+Adds an optional `readOnly` prop to `SliderLinear` (`src/components/ui/controls/SliderLinear.tsx`): when set, the slider shows the bound value (via the existing `VoxelTrack` fill) but accepts no pointer/keyboard interaction. Open questions going in: whether this reuses Radix `Slider`'s own `disabled` wiring under the hood or is a distinct code path, and what ARIA treatment is correct (`aria-readonly` reads more accurately than `aria-disabled` for "an accurate live value you can't edit," but `disabled` is the only non-interactive state the primitive has today).
+
+**Done** — see [docs/specs/SLIDER_LINEAR_READ_ONLY.md](../specs/SLIDER_LINEAR_READ_ONLY.md). Confirmed shipped on `main`: resolved as a distinct code path, not `disabled` reuse — `readOnly` renders the bound value through `VoxelTrack`'s existing fill under `role="status"`, with no `Slider.Root`/`Thumb` mounted at all, rather than a disabled-but-present Radix slider. `docs/COMPONENT_LIBRARY.md`'s `SliderLinear` contract entry updated to match.
 
 ## 15.2 Redesign: Robot Cards
 
@@ -855,11 +865,15 @@ The list-card half of the original item 15 (requested by Crawford, `docs/todo/te
 
 Per Crawford's notes: the card splits into a linked top half (activates `selectRobot`, same as today) and an unlinked bottom half holding only the company-assignment `RadioButton`. The top half is one meta-data row broken into two columns — the day/night-invariant avatar on the left, and on the right, three unlabeled rows (no `DualLabel` lore/human pair, just the raw value): Robot Name, Job, and a combined Docking/Status line, where Status reads "Emitting" or "Disabled." The existing standalone Battery-% row and `AudioStatusBadge` dot are both dropped from this card entirely (Battery moves to the redesigned detail card, 15.3; a battery-driven avatar dim already exists independently via `computeBatteryDimOpacity` and is unaffected).
 
-"Emitting"/"Disabled" is true audibility, not just this robot's own `audioMode` — confirmed with Crawford 2026-09-13: a robot reads "Disabled" when its own `audioMode` is `mute`, OR when any other robot in the same locale is `solo` and this one isn't. That mute/solo predicate exists today only inlined in `AudioEngine.ts`'s `triggerWithCap` (lines ~312-323) — this phase must extract it into one shared, exported function both the engine and this new UI status call, rather than re-deriving the same rule a second time (same class of issue as the open `docs/DUPLICATE_VALUE_AUDIT.md` items). Not yet interviewed/specced.
+"Emitting"/"Disabled" is true audibility, not just this robot's own `audioMode` — confirmed with Crawford 2026-09-13: a robot reads "Disabled" when its own `audioMode` is `mute`, OR when any other robot in the same locale is `solo` and this one isn't. That mute/solo predicate exists today only inlined in `AudioEngine.ts`'s `triggerWithCap` (lines ~312-323) — this phase must extract it into one shared, exported function both the engine and this new UI status call, rather than re-deriving the same rule a second time (same class of issue as the open `docs/DUPLICATE_VALUE_AUDIT.md` items).
+
+**Done** — see [docs/specs/ROBOT_CARDS_REDESIGN.md](../specs/ROBOT_CARDS_REDESIGN.md) and [docs/intent/robot-cards-redesign.md](../intent/robot-cards-redesign.md). Confirmed shipped on `main`: `RobotSelectionCard.tsx` splits into `.robot-selection-card__top` (clickable — avatar, Name/Job, and the combined Docking · Status line) and `.robot-selection-card__bottom` (company-assignment `RadioButton` only, a plain sibling with no nested-interactive-element bubbling concern). `isRobotAudible` (`src/utils/robotAudibility.ts`) was extracted and is now the single shared predicate consumed by both this card and `AudioEngine.ts`'s `triggerWithCap`, resolving the duplication this item's own scope flagged. **Scope note**: the bullet above says the standalone Battery row is "dropped from this card entirely" — as shipped, Battery instead renders via the new read-only `SliderLinear` (15.1) inside the top region alongside Name/Job/Status, rather than moving exclusively to 15.3's detail card. Left as originally drafted above for the historical record; this note reflects what actually shipped.
 
 ## 16. Redesign: Company CRUD Area
 
-Requested by Crawford (`docs/todo/temp.md`), 2026-09-11. High priority. `CompanyManager.tsx` (Phase 10) — visual/UX redesign of the existing company create/rename/delete + bulk-edit panel. Same color-scheme dependency as 15.1–15.3. Not yet interviewed/specced.
+Requested by Crawford (`docs/todo/temp.md`), 2026-09-11. High priority. `CompanyManager.tsx` (Phase 10) — visual/UX redesign of the existing company create/rename/delete + bulk-edit panel. Same color-scheme dependency as 15.1–15.3.
+
+**Done** — design changed per Crawford, 2026-09-16: rather than the fuller ground-up visual/UX redesign originally scoped above, the narrower [Company Section Enhancements](../specs/COMPANY_SECTION_ENHANCEMENTS.md) spec (confirmed via `/interview-me`, 2026-09-13 — the CRUD accordion wrap, per-company identity color, per-option `RadioButton` color, and selection-driven robot-list sort) plus its own follow-on [Company CRUD Button Preview](../specs/COMPANY_CRUD_BUTTON_PREVIEW.md) (dynamic Create/Rename/Delete labels) and [10.5](#105-company-assignment-select--radiobutton)'s `Select`→`RadioButton` swap were judged sufficient on their own — confirmed shipped on `main` (PRs #463, #466, and others). No separate ground-up visual/UX pass was ever built or is planned; this item is closed against that decision rather than left open waiting for one.
 
 ## 15.3 Redesign: Robot Detail Top Card
 
@@ -867,9 +881,29 @@ The detail-page half of the original item 15 (requested by Crawford, `docs/todo/
 
 Per Crawford's notes: a circular layout around the central, day/night-invariant avatar SVG — Name at top-left, Job at top-right, Docking status at bottom-left, and the same "Emitting"/"Disabled" Status (15.2's shared audibility predicate) at bottom-right, all unlabeled values as in 15.2. Beneath the circle, the new read-only `SliderLinear` (15.1) displays Battery level labeled "Power." Beneath that, the company-assignment `RadioButton` as its own section labeled "Company." Not yet interviewed/specced.
 
+## 17.1 Styling Overhaul: Sleeve / Tablet-Off State
+
+Requested by Crawford, 2026-09-16. High priority. First of a 5-part, per-view styling overhaul of the entire app (17.1–17.5), split by the app's own top-level view boundaries so each ships and reviews independently rather than as one large undifferentiated pass — precedes [18](#18-cabinetry-verification-accessibility--performance) (Cabinetry Verification), which should run once this series lands rather than before it, the same "verify after the visual-touching phases" ordering 18 already applies to 12/14/15.x/16. Not yet interviewed/specced. Scope: `SleeveContainer` and the tablet-off/powered-down visual state (`PowerRockerSwitch`, the Sleeve's own casing chrome) — deliberately out of scope for every prior Cabinetry/Color-Scheme phase (11.1.1's own About section: "the power rocker switch and the rest of the Sleeve casing — out of scope for now").
+
+## 17.2 Styling Overhaul: Console Hub (No View Selected)
+
+Requested by Crawford, 2026-09-16. High priority — second of the 17.1–17.5 series (see 17.1). Not yet interviewed/specced. Scope: the hub grid/nav state (`Console.tsx`/`ConsolePanel.tsx`, `HubNav`) before any tile is selected.
+
+## 17.3 Styling Overhaul: Robot Views
+
+Requested by Crawford, 2026-09-16. High priority — third of the 17.1–17.5 series (see 17.1). Not yet interviewed/specced. Scope: Robot Selection (`RobotsTab`, `RobotSelectionCard` — 15.2) and Robot Options (`RobotDisplaySection`, `PingControlsDrawer`, `PingContourDrawer`, `SignatureArrayDrawer` — 15.3) together, since both share the same robot-detail visual language.
+
+## 17.4 Styling Overhaul: Audio Rig View
+
+Requested by Crawford, 2026-09-16. High priority — fourth of the 17.1–17.5 series (see 17.1). Not yet interviewed/specced. Scope: `AudioRigDrawer` and its seven effect-block accordions plus the Drift accordion (10.2/10.3).
+
+## 17.5 Styling Overhaul: Sector Settings View
+
+Requested by Crawford, 2026-09-16. High priority — last of the 17.1–17.5 series (see 17.1). Not yet interviewed/specced. Scope: `SectorSettingsDrawer` (Attenuation Style/Planet Calibration and Plot Tuning panels) — also the direct predecessor to the new shareable-link import/export item (21, below); that item's own UI work should land after this pass, not before.
+
 ## 18. Cabinetry Verification: Accessibility & Performance
 
-Originally inserted as `11.2` immediately after the Oblique Cabinetry series (11.1.1–11.1.9) — the same "insert out of sequence, don't renumber later phases" pattern as 10.1–10.4. Moved here and renumbered (2026-09-11, Crawford's call): 12 (Font Sizes), 14 (Color Scheme), and 15.2/15.3/16 (the three screen redesigns — 15.1 is a primitive change, not a screen, but its new `readOnly` slider state falls under this same verification pass) above all touch fonts, colors, and layout in ways this verification pass needs to check too, not just the original 11.1.x Cabinetry series — running it before those land would mean redoing it once they ship anyway. Session Storage (20) comes after this instead, so persistence work starts against a UI that's already been through its accessibility/performance pass, not one about to change under it.
+Originally inserted as `11.2` immediately after the Oblique Cabinetry series (11.1.1–11.1.9) — the same "insert out of sequence, don't renumber later phases" pattern as 10.1–10.4. Moved here and renumbered (2026-09-11, Crawford's call): 12 (Font Sizes), 14 (Color Scheme), and 15.2/15.3/16 (the three screen redesigns — 15.1 is a primitive change, not a screen, but its new `readOnly` slider state falls under this same verification pass) above all touch fonts, colors, and layout in ways this verification pass needs to check too, not just the original 11.1.x Cabinetry series — running it before those land would mean redoing it once they ship anyway. The 17.1–17.5 Styling Overhaul series (inserted 2026-09-16, directly above) extends the same reasoning further — a broader per-view visual pass touching every screen this verification checks — so it belongs before this item too, not after. Session Storage (20) comes after this instead, so persistence work starts against a UI that's already been through its accessibility/performance pass, not one about to change under it.
 
 ### About
 
@@ -930,4 +964,16 @@ This phase replaces the (currently nonexistent) session/storage handling with an
 ### Docs
 
 - docs/SESSION_STORAGE.md created as a design doc for this phase — update its "not yet implemented" banner once storageEngine/stateResolver/urlSerializer actually ship. Already added to CLAUDE.md's reference doc list.
+
+## 21. Sector Settings: Shareable Link Import/Export
+
+Requested by Crawford, 2026-09-16. Depends on [20](#20-session-storage) (Session Storage) having shipped — reuses its `urlSerializer.ts` compression/encoding and `stateResolver.ts`'s URL-priority resolution rather than building a separate mechanism, and should land after [17.5](#175-styling-overhaul-sector-settings-view) (Sector Settings' own styling pass) rather than before it. Not yet interviewed/specced.
+
+### About
+
+Session Storage (20) makes a shareable link *possible* — the URL query string already carries a compressed, resolvable session payload — but today the only way to get one is to manually copy the browser's own address bar, and the only way to load one is to paste it there and reload. This phase adds explicit Export (generate and copy the current session's shareable link) and Import (paste a link or raw payload and apply it) controls to `SectorSettingsDrawer`, so sharing a session is a deliberate, discoverable in-app action rather than an address-bar trick a user has to already know about. Directly closes the "shareable link" half `docs/todo/backlog.md`'s existing Attenuation Style presets note is waiting on — Crawford wants to update the in-app preset list with current, shareable links once this lands.
+
+### Docs
+
+- docs/todo/backlog.md's Attenuation Style presets note ("Depends on Session Storage (Phase 20) for the 'shareable link' half") should be updated to point at this item once it ships.
 
