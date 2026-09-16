@@ -27,19 +27,19 @@ Task 1 (robotSelectionConfig.ts — ROBOT_SELECTION_ROW_SCHEMAS.status)
 
 ### Phase 1: Foundation
 
-- [ ] **Task 1: `robotSelectionConfig.ts` — add `ROBOT_SELECTION_ROW_SCHEMAS.status`**
+- [x] **Task 1: `robotSelectionConfig.ts` — add `ROBOT_SELECTION_ROW_SCHEMAS.status`**
 
   **Description:** Add a new `status` entry to `ROBOT_SELECTION_ROW_SCHEMAS` (spec §1.3): `{ id: 'robotSelection.status', type: 'dualLabel', loreLabel: 'ACOUSTIC EMISSION STATE', humanLabel: 'Status' }`. Flag it as a best-guess draft in a code comment, same convention `AUDIBILITY_LABELS` already uses in this file. `.name`/`.job`/`.docking` are untouched. No other export in this file changes — `AUDIBILITY_LABELS`, `BATTERY_READOUT_SCHEMA`, `JOB_TYPE_LABELS`, `DOCKING_STATE_LABELS` all already exist from Roadmap 15.2/15.1 and need no edits.
 
   **Acceptance criteria:**
-  - [ ] `ROBOT_SELECTION_ROW_SCHEMAS.status` exists with non-empty `loreLabel` and `humanLabel` strings.
-  - [ ] `ROBOT_SELECTION_ROW_SCHEMAS.name`/`.job`/`.docking` are byte-for-byte unchanged.
-  - [ ] The object literal still satisfies `Record<string, DualLabelSchema>` with no type assertion changes.
-  - [ ] No other export in `robotSelectionConfig.ts` is modified.
+  - [x] `ROBOT_SELECTION_ROW_SCHEMAS.status` exists with non-empty `loreLabel` and `humanLabel` strings.
+  - [x] `ROBOT_SELECTION_ROW_SCHEMAS.name`/`.job`/`.docking` are byte-for-byte unchanged.
+  - [x] The object literal still satisfies `Record<string, DualLabelSchema>` with no type assertion changes.
+  - [x] No other export in `robotSelectionConfig.ts` is modified.
 
   **Verification:**
-  - [ ] `npx vitest run src/data/robotSelectionConfig.test.ts` passes — existing `ROBOT_SELECTION_ROW_SCHEMAS` shape assertion extended to cover `.status` alongside `.name`/`.job`/`.docking`.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/data/robotSelectionConfig.test.ts` passes — existing `ROBOT_SELECTION_ROW_SCHEMAS` shape assertion extended to cover `.status` alongside `.name`/`.job`/`.docking`.
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** None.
 
@@ -48,8 +48,8 @@ Task 1 (robotSelectionConfig.ts — ROBOT_SELECTION_ROW_SCHEMAS.status)
   **Estimated scope:** XS (one config file, one additive key)
 
 ### Checkpoint: Foundation schema
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] `ROBOT_SELECTION_ROW_SCHEMAS.status` has no consumers yet and no dead-code lint warnings (exported, so this should already be clean).
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [x] `ROBOT_SELECTION_ROW_SCHEMAS.status` has no consumers yet and no dead-code lint warnings (exported, so this should already be clean).
 - [ ] Review with human before proceeding.
 
 ---
