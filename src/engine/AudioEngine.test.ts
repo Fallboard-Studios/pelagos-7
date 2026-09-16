@@ -1296,6 +1296,40 @@ describe('AudioEngine - Composite Voices (Layered)', () => {
     expect(result).toBe(true);
   });
 
+  it('falls back to a stub panner/gain/filter when a Tone constructor is unavailable, and reservation still succeeds (docs/tasks/AUDIO_ENGINE_CLEANUP.md Task 5)', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+    const Tone = await import('tone');
+    const realPanner = Tone.Panner;
+    (Tone as unknown as { Panner?: unknown }).Panner = undefined;
+    try {
+      const layered: any[] = [{ type: 'sine', gain: 0.6, detune: 0, phase: 0 }];
+      const ok = AudioEngine.reserveVoice('stub-ctor-robot', layered as any, TEST_ADSR);
+      expect(ok).toBe(true);
+      const { triggerWithCap } = await import('./AudioEngine');
+      expect(() => triggerWithCap({ robotId: 'stub-ctor-robot', note: 'C4', duration: '8n', time: 0 })).not.toThrow();
+    } finally {
+      (Tone as unknown as { Panner?: unknown }).Panner = realPanner;
+    }
+  });
+
+  it('falls back to a fully stubbed composite voice when construction throws, and reserveVoice returns false without throwing (docs/tasks/AUDIO_ENGINE_CLEANUP.md Task 5)', async () => {
+    const { AudioEngine } = await import('./AudioEngine');
+    await AudioEngine.start();
+    const Tone = await import('tone');
+    const realSynth = Tone.Synth;
+    (Tone as unknown as { Synth: unknown }).Synth = vi.fn(() => { throw new Error('simulated construction failure'); });
+    try {
+      const layered: any[] = [{ type: 'sine', gain: 0.6, detune: 0, phase: 0 }];
+      const ok = AudioEngine.reserveVoice('stub-catch-robot', layered as any, TEST_ADSR);
+      expect(ok).toBe(false);
+      const { triggerWithCap } = await import('./AudioEngine');
+      expect(() => triggerWithCap({ robotId: 'stub-catch-robot', note: 'C4', duration: '8n', time: 0 })).not.toThrow();
+    } finally {
+      (Tone as unknown as { Synth: unknown }).Synth = realSynth;
+    }
+  });
+
   it('releases composite and cleans up internal maps on releaseVoice', async () => {
     const { AudioEngine } = await import('./AudioEngine');
     await AudioEngine.start();

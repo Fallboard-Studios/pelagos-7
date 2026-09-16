@@ -23,7 +23,7 @@ import { devWarn } from '../utils/helpers';
 import { isRobotAudible } from '../utils/robotAudibility';
 import { calculatePanFromPosition } from './audioEngine/panning';
 import { volumePositionToGain } from './audioEngine/volumeTaper';
-import { getToneCtor, type MinimalToneNode, type ModulationTarget } from './audioEngine/toneHelpers';
+import { getToneCtor, makeStubPanner, makeStubGain, makeStubFilter, type MinimalToneNode, type ModulationTarget } from './audioEngine/toneHelpers';
 import { createCompositeVoice, type CompositeVoice } from './audioEngine/compositeVoice';
 import {
   buildGlobalFxChain,
@@ -651,9 +651,9 @@ export const AudioEngine = {
       const FilterCtor = getToneCtor<Tone.Filter>('Filter');
 
       const initialBusGain = volumePositionToGain(masterVolume ?? 1);
-      const panner = PannerCtor ? new PannerCtor({ pan: 0 }) : ({ connect: () => { }, pan: { value: 0 }, disconnect: () => { } } as MinimalToneNode) as unknown as Tone.Panner;
-      const busGain = GainCtorLocal ? new GainCtorLocal(initialBusGain) : ({ connect: () => ({}), disconnect: () => { }, gain: { value: initialBusGain }, toDestination: () => { } } as MinimalToneNode) as unknown as Tone.Gain;
-      const busFilter = FilterCtor ? new FilterCtor({ frequency: 1200, Q: 1 }) : ({ connect: () => ({}), disconnect: () => { }, toDestination: () => { } } as MinimalToneNode) as unknown as Tone.Filter;
+      const panner = PannerCtor ? new PannerCtor({ pan: 0 }) : makeStubPanner() as unknown as Tone.Panner;
+      const busGain = GainCtorLocal ? new GainCtorLocal(initialBusGain) : makeStubGain(initialBusGain) as unknown as Tone.Gain;
+      const busFilter = FilterCtor ? new FilterCtor({ frequency: 1200, Q: 1 }) : makeStubFilter() as unknown as Tone.Filter;
 
       // Connect graph: composite.output -> panner -> busGain -> busFilter -> master compressor/destination
       try { composite.output.connect(panner); } catch (e) { devWarn('[AudioEngine] composite.output.connect failed', e); }
@@ -700,9 +700,9 @@ export const AudioEngine = {
         set: (_params: unknown) => { },
         dispose: () => { },
       } as unknown as CompositeVoice;
-      const panner = ({ connect: () => { }, pan: { value: 0 }, disconnect: () => { } } as MinimalToneNode) as unknown as Tone.Panner;
-      const busGain = ({ connect: () => { }, disconnect: () => { }, gain: { value: volumePositionToGain(masterVolume ?? 1) } } as MinimalToneNode) as unknown as Tone.Gain;
-      const busFilter = ({ connect: () => { }, disconnect: () => { }, toDestination: () => { } } as MinimalToneNode) as unknown as Tone.Filter;
+      const panner = makeStubPanner() as unknown as Tone.Panner;
+      const busGain = makeStubGain(volumePositionToGain(masterVolume ?? 1)) as unknown as Tone.Gain;
+      const busFilter = makeStubFilter() as unknown as Tone.Filter;
       compositeVoices.set(robotId, { composite: stubComposite, panner, busGain, busFilter });
       return false;
     }
