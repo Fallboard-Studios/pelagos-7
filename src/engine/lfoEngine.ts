@@ -392,6 +392,37 @@ function disconnectLfoTarget(target: LfoTargetId, robotId?: string): void {
   }
 }
 
+/**
+ * Full, one-way teardown of every robot-scoped LFO instance for one robot —
+ * the "this robot is gone for good" counterpart to disconnectLfoTarget
+ * (docs/tasks/AUDIO_ENGINE_CLEANUP.md Task 1), called only from a robot's
+ * real removal (localeStore.ts's removeRobot/removeLocale), never from the
+ * release-then-reserve power-cycle path (spawnSystem.ts's
+ * reRegisterAllRobotsAudio) — that path still expects a robot's LFO state to
+ * survive, and this function permanently discards it. Unlike
+ * disconnectLfoTarget (reversible — a user can drag rate back up and expect
+ * the same settings/node to still exist), this also disposes the underlying
+ * Tone.LFO and removes it from activeLfos, and removes the persisted
+ * LfoSettings from settingsByKey, so nothing about this robot's LFO state
+ * lingers in module-scoped state forever.
+ */
+function disposeRobotLfos(robotId: string): void {
+  for (const target of ROBOT_LFO_TARGET_IDS) {
+    const key = instanceKey(target, robotId);
+    disconnectLfoTarget(target, robotId);
+    const lfo = activeLfos.get(key);
+    if (lfo) {
+      try {
+        lfo.dispose();
+      } catch (err) {
+        devWarn('[lfoEngine] disposeRobotLfos: dispose failed', err);
+      }
+      activeLfos.delete(key);
+    }
+    settingsByKey.delete(key);
+  }
+}
+
 export const lfoEngine = {
   getLfoSettings,
   setLfoRate,
@@ -401,6 +432,7 @@ export const lfoEngine = {
   stop,
   connectLfoTarget,
   disconnectLfoTarget,
+  disposeRobotLfos,
   setGlobalRateDrift,
   setGlobalDepthDrift,
 };
