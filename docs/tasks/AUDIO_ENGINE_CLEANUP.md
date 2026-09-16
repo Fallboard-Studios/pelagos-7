@@ -55,18 +55,18 @@ Tasks 4-8 have no dependency on Tasks 1-3 or on each other; they may be done in 
 
   **Estimated scope:** S (one file, one new function, reuses existing internals; test file gets a handful of new cases)
 
-- [ ] **Task 2: `lfoDrift.ts` — dispose drift Gain nodes in `detachDrift`**
+- [x] **Task 2: `lfoDrift.ts` — dispose drift Gain nodes in `detachDrift`**
 
   **Description:** `detachDrift` currently calls `.disconnect()` on `rateDriftGain`/`depthDriftGain` and removes the `driftLinks` entry, but never calls `.dispose()` on either `Tone.Gain` node. Add `.dispose()` calls (each in its own try/catch, matching the existing pattern in that function) before or alongside the existing `.disconnect()` calls.
 
   **Acceptance criteria:**
-  - [ ] `detachDrift` calls `.dispose()` on both `rateDriftGain` and `depthDriftGain`.
-  - [ ] Each dispose call is independently try/caught (a failure disposing one must not prevent disposing the other or removing the `driftLinks` entry) — matches the existing per-node try/catch style already in this function for `.disconnect()`.
-  - [ ] `driftLinks.delete(key)` still happens unconditionally afterward, same as today.
+  - [x] `detachDrift` calls `.dispose()` on both `rateDriftGain` and `depthDriftGain`.
+  - [x] Each dispose call is independently try/caught (a failure disposing one must not prevent disposing the other or removing the `driftLinks` entry) — matches the existing per-node try/catch style already in this function for `.disconnect()`.
+  - [x] `driftLinks.delete(key)` still happens unconditionally afterward, same as today.
 
   **Verification:**
-  - [ ] `npx vitest run src/engine/lfoEngine.test.ts` passes (drift-related tests live in this file per the existing `describe('disconnectLfoTarget disconnects both of a primary's drift Gains', ...)` block — extend or add an assertion there that `.dispose` was called, using a mock/spy Gain if the current mock doesn't already track dispose calls).
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/engine/lfoEngine.test.ts` passes (102 tests, 1 new — added to the existing `teardown` describe block).
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** None.
 
