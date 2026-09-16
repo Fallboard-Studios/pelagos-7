@@ -1330,6 +1330,35 @@ describe('AudioEngine - Composite Voices (Layered)', () => {
     }
   });
 
+  it('triggerWithCap no longer sets the panner\'s pan directly — that\'s updateAllPanners\' job now, once per tick (docs/tasks/AUDIO_ENGINE_CLEANUP.md Task 6)', async () => {
+    const { AudioEngine, triggerWithCap } = await import('./AudioEngine');
+    await AudioEngine.start();
+    const storeMod = await import('../stores/localeStore');
+    const attenuationStyleMod = await import('../stores/attenuationStyleStore');
+    const helpers = await import('../utils/localeHelpers');
+    (helpers.getActiveLocaleId as ReturnType<typeof vi.fn>).mockReturnValue(attenuationStyleMod.DEFAULT_LOCALE_ID);
+    storeMod.useLocaleStore.getState().setLocaleData(attenuationStyleMod.DEFAULT_LOCALE_ID, {
+      robots: [{
+        id: 'pan-recompute-robot', identityColor: '#428d95', audioMode: 'none',
+        audioAttributes: { adsr: TEST_ADSR, waveform: 'sine' as const, filterFreq: 100 },
+        masterVolume: 0.8, melody: [], octaveRange: [3, 4] as [number, number],
+        // x: 0 maps to pan -0.5 (calculatePanFromPosition) — clearly distinct from the
+        // Panner mock's own default pan.value of 0, so an unwanted write is detectable.
+        position: { x: 0, y: 0 }, destination: null, createdAt: Date.now(), name: '',
+        state: 'idle' as const, direction: 'right' as const, docking: 'active' as const, batteryLevel: 100,
+      }],
+    });
+    const layered: any[] = [{ type: 'sine', gain: 0.8, detune: 0, phase: 0 }];
+    AudioEngine.reserveVoice('pan-recompute-robot', layered as any, TEST_ADSR);
+    const Tone = await import('tone');
+    const pannerInstance = (Tone.Panner as unknown as { mock: { results: { value: { pan: { value: number } } }[] } }).mock.results.at(-1)!.value;
+    expect(pannerInstance.pan.value).toBe(0); // sanity: still the mock's untouched default before triggering
+
+    triggerWithCap({ robotId: 'pan-recompute-robot', note: 'C4', duration: '8n', time: 0 });
+
+    expect(pannerInstance.pan.value).toBe(0);
+  });
+
   it('releases composite and cleans up internal maps on releaseVoice', async () => {
     const { AudioEngine } = await import('./AudioEngine');
     await AudioEngine.start();

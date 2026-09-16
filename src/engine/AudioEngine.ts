@@ -342,7 +342,6 @@ export function triggerWithCap(params: NoteParams): boolean {
 
     const comp = compositeVoices.get(robotId);
     const synth = comp?.composite ?? null;
-    const panner = comp?.panner ?? null;
 
     if (!synth) {
       activeVoices = Math.max(0, activeVoices - 1);
@@ -361,15 +360,10 @@ export function triggerWithCap(params: NoteParams): boolean {
       return false;
     }
 
-    if (panner) {
-      try {
-        const visualX = getRobotVisualX(robotId);
-        panner.pan.value = calculatePanFromPosition(visualX);
-      } catch (err) {
-        console.warn('[AudioEngine] Failed to calculate/apply pan:', err);
-      }
-    }
-
+    // Pan is no longer recomputed here on every note — updateAllPanners (called once per
+    // 16th-note tick from startMelodyPlayback) already keeps every reserved robot's panner
+    // current at a strictly higher resolution than any single robot's own note-trigger rate,
+    // so this was pure duplicate work on the hot path (docs/tasks/AUDIO_ENGINE_CLEANUP.md Task 6).
     synth.triggerAttackRelease(note, duration, scheduleTime, params.velocity ?? 0.8);
     scheduleVoiceRelease(duration, scheduleTime);
     return true;
