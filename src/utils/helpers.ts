@@ -10,11 +10,6 @@ export function swallow(err: unknown, ctx?: string) {
   }
 }
 
-/** Log informational messages only when DEV_TUNING is enabled. */
-export function devLog(...args: unknown[]): void {
-  if (DEV_TUNING) console.log(...args);
-}
-
 /** Warn (e.g. on a caught/swallowed error) only when DEV_TUNING is enabled. */
 export function devWarn(...args: unknown[]): void {
   if (DEV_TUNING) console.warn(...args);
