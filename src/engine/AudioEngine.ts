@@ -88,6 +88,11 @@ const VOLUME_RAMP_SECONDS = 0.05;
 const VELOCITY_ROLL_X = precomputeDataX('audio.velocityRoll');
 const VELOCITY_VARIANCE_X = precomputeDataX('audio.velocityVariance');
 
+// Validates a resolved pitch string before triggering (e.g. "C4", "F#3", "Bb2") — hoisted to
+// module scope, same "precompute once, not per-note" discipline as VELOCITY_ROLL_X/
+// VELOCITY_VARIANCE_X above, since triggerWithCap runs on the per-note hot path.
+const NOTE_RE = /^[A-Ga-g][b#]{0,2}\d+$/;
+
 // ========================================
 // MODULE STATE
 // ========================================
@@ -352,7 +357,6 @@ export function triggerWithCap(params: NoteParams): boolean {
 
     // Validate note string before touching the synth — an invalid note can start
     // an oscillator attack before throwing, leaving voices permanently open.
-    const NOTE_RE = /^[A-Ga-g][b#]{0,2}\d+$/;
     if (!NOTE_RE.test(note)) {
       activeVoices = Math.max(0, activeVoices - 1);
       console.warn(`[AudioEngine] Invalid note string "${note}", skipping`);
