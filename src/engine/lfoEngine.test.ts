@@ -156,6 +156,7 @@ interface MockGainInstance {
   gain: { value: number };
   connect: ReturnType<typeof vi.fn>;
   disconnect: ReturnType<typeof vi.fn>;
+  dispose: ReturnType<typeof vi.fn>;
 }
 
 /**
@@ -1075,6 +1076,23 @@ describe('lfoEngine', () => {
 
         expect(rateDriftGain.disconnect).toHaveBeenCalledTimes(1);
         expect(depthDriftGain.disconnect).toHaveBeenCalledTimes(1);
+      });
+
+      it('disposes both of a primary\'s drift Gains too, not just disconnecting them (docs/tasks/AUDIO_ENGINE_CLEANUP.md Task 2)', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(0));
+        const { lfoEngine } = await import('./lfoEngine');
+        const Tone = await import('tone');
+        const gainCtor = Tone.Gain as unknown as ReturnType<typeof vi.fn>;
+        const before = gainCtor.mock.results.length;
+
+        lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+        const [rateDriftGain, depthDriftGain] = gainCtor.mock.results.slice(before).map((r) => r.value as MockGainInstance);
+
+        lfoEngine.disconnectLfoTarget('layer0.gain', 'robot-a');
+
+        expect(rateDriftGain.dispose).toHaveBeenCalledTimes(1);
+        expect(depthDriftGain.dispose).toHaveBeenCalledTimes(1);
       });
 
       it('never disconnects a shared pool oscillator itself — pool oscillators are app-lifetime, not per-target', async () => {
