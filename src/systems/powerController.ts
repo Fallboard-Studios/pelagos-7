@@ -3,7 +3,6 @@ import { useAudioStore } from '../stores/audioStore';
 import { resetHarmony } from '../engine/harmonySystem';
 import { reRegisterAllRobotsAudio } from './spawnSystem';
 import { stopRobotLifecycle } from './robotSystems';
-import { stopCollisionDetection } from './collisionSystem';
 import { useUIStore } from '../stores/uiStore';
 import { useLocaleStore } from '../stores/localeStore';
 import { getActiveLocaleId } from '../utils/localeHelpers';
@@ -32,7 +31,6 @@ export const powerController = {
     // tick after this power cycle. No robots are removed anymore — every robot
     // survives a power cycle now (docking replaces the old persists model).
     stopRobotLifecycle();
-    stopCollisionDetection();
     AudioEngine.killAll();
     try {
       useLocaleStore.getState().setLocaleData(getActiveLocaleId(), { actors: [] });
@@ -50,7 +48,6 @@ export const powerController = {
    */
   async shutdownWithAnimation() {
     stopRobotLifecycle(); // see shutdown()'s comment on why this must precede killAll()
-    stopCollisionDetection();
     AudioEngine.killAll();
     useUIStore.getState().setPowerOff();
   },

@@ -919,7 +919,7 @@ Extended scope from the move (2026-09-11): also confirms Phase 12's new type sca
 
 ## 19. Test Coverage: Untested Core Modules
 
-Requested by Crawford, 2026-09-16, following a source review of `src/` for coverage gaps left by early pre-testing-discipline work. `collisionSystem.ts` (`src/systems/`) was the one other module the review flagged — deliberately excluded here: it's unused today, and Crawford's call is to remove it outright rather than backfill tests for code likely to be rewritten from scratch if it's ever needed again. Not yet interviewed/specced.
+Requested by Crawford, 2026-09-16, following a source review of `src/` for coverage gaps left by early pre-testing-discipline work. `collisionSystem.ts` (`src/systems/`) was the one other module the review flagged — deliberately excluded here: it was unused (`startCollisionDetection` was never called from anywhere), and Crawford's call was to remove it outright rather than backfill tests for code likely to be rewritten from scratch if it's ever needed again. Removed 2026-09-16, along with `collisionSystem.test.ts` and its references in `powerController.ts`/`powerController.test.ts`. Not yet interviewed/specced.
 
 ### Create
 

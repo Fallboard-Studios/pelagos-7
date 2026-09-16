@@ -34,7 +34,7 @@ interface OceanSceneProps {
  * Root SVG scene component. Renders factory building layers (background →
  * midground → foreground), depth-gradient overlays, the robot layer, and the
  * debug UI overlay. Kicks off factory placement, robot spawning, factory
- * production scheduling, and collision detection on mount.
+ * production scheduling on mount.
  *
  * @param width           - SVG viewBox width in pixels (default 1920).
  * @param height          - SVG viewBox height in pixels (default 1080).
@@ -104,13 +104,8 @@ export function OceanScene({
   useEffect(() => {
     initializeLocale(localeId);
 
-    // Proximity-based robot interaction detection is on hold — current
-    // implementation is being reconsidered, not yet decided whether to keep it.
-    // startCollisionDetection(localeId);
-
     return () => {
       stopRobotLifecycle();
-      // stopCollisionDetection();
     };
     // Intentionally mount-only: this scene mounts once per power-on, and
     // initializeLocale itself is what changes an active locale now (Sector

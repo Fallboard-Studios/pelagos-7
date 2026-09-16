@@ -25,8 +25,8 @@ owns the GSAP side effects that get registered into it.
 ## Non-goals
 - No visual/behavioral change. Every animation's timing, easing, and sequencing stays identical.
 - No change to `timelineMap.ts`, `swimAnimation.ts`, or the non-React system modules
-  (`interactionSystem.ts`, `idleSystem.ts`, `collisionSystem.ts`) — they're plain TS modules
-  outside React and correctly don't use a React hook.
+  (`interactionSystem.ts`, `idleSystem.ts`) — they're plain TS modules outside React and
+  correctly don't use a React hook.
 - No change to `PowerRockerSwitch.tsx` or `BubbleStream.tsx` — already the target pattern.
 
 ## Target pattern
