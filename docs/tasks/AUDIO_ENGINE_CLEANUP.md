@@ -170,17 +170,17 @@ Tasks 4-8 have no dependency on Tasks 1-3 or on each other; they may be done in 
 
   **Estimated scope:** XS (delete a few lines from one function)
 
-- [ ] **Task 7: `AudioEngine.ts` — hoist `NOTE_RE` to module scope**
+- [x] **Task 7: `AudioEngine.ts` — hoist `NOTE_RE` to module scope**
 
   **Description:** `const NOTE_RE = /^[A-Ga-g][b#]{0,2}\d+$/;` is currently declared inside `triggerWithCap`, recompiling the regex literal on every note trigger. Hoist it to a module-level constant, matching the file's existing pattern of precomputed module-level constants.
 
   **Acceptance criteria:**
-  - [ ] `NOTE_RE` is declared once, at module scope, not inside `triggerWithCap`.
-  - [ ] `triggerWithCap` references the module-level constant; behavior (which note strings pass/fail validation) is unchanged.
+  - [x] `NOTE_RE` is declared once, at module scope, not inside `triggerWithCap`.
+  - [x] `triggerWithCap` references the module-level constant; behavior (which note strings pass/fail validation) is unchanged.
 
   **Verification:**
-  - [ ] `npx vitest run src/engine/AudioEngine.test.ts` passes unmodified.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/engine/AudioEngine.test.ts` passes unmodified (104 tests).
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** None.
 
