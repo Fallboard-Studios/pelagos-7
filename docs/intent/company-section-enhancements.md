@@ -44,5 +44,5 @@ Opportunistic follow-on to Phase 15.2 while already working in this area, ahead 
 - `RobotSelectionCard`'s top region (avatar/meta/battery) — keeps the robot's own `identityColor` exactly as shipped in 15.2.
 - Any reordering triggered by a robot's own individual company-assignment `RadioButton` click — only `CompanyButtonRow`'s selection drives the sort.
 - Collision-avoidance for spawn-time sibling companies' colors.
-- Any persistence or migration of existing data — no localStorage/session persistence exists yet (Roadmap Phase 19), so there is nothing to backfill.
+- Any persistence or migration of existing data — no localStorage/session persistence exists yet (Roadmap Phase 20), so there is nothing to backfill.
 - The broader Phase 16 visual/UX redesign of `CompanyManager` beyond these four changes.
