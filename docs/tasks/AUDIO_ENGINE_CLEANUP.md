@@ -105,18 +105,18 @@ Tasks 4-8 have no dependency on Tasks 1-3 or on each other; they may be done in 
 
 ### Phase 2: P1 — compositeVoice.ts duplication
 
-- [ ] **Task 4: `compositeVoice.ts` — extract shared oscillator-field fallback helper**
+- [x] **Task 4: `compositeVoice.ts` — extract shared oscillator-field fallback helper**
 
   **Description:** Extract the repeated 3-level fallback chain (try `synth.set({oscillator: {...}})`, then try writing `.value` on a Signal-shaped field, then try a raw property assignment) into one helper function, and use it from both the live-update path (`applyLayersContinuous`'s detune/phase/pulseWidth handling) and the construction-time path (`createCompositeVoice`'s equivalent detune/phase logic). Exact helper signature is an implementation detail — the bar is "the fallback logic exists in exactly one place."
 
   **Acceptance criteria:**
-  - [ ] The 3-level try/set/value/raw-assignment fallback chain exists in exactly one function in `compositeVoice.ts`, called from both the construction-time and live-update code paths.
-  - [ ] Behavior is unchanged for all three fields (detune, phase, pulseWidth/width) in both call paths — no new fallback ordering, no new field defaults.
-  - [ ] Every existing `devWarn` call this logic makes on failure is preserved (same log messages or equivalent, still one per field/failure mode) — do not silently drop error visibility while deduplicating.
+  - [x] The 3-level try/set/value/raw-assignment fallback chain exists in exactly one function in `compositeVoice.ts` (`applyOscFieldViaSet`), called from both the construction-time and live-update code paths for both phase and pulseWidth; detune's simpler direct-write shape is its own shared `applyOscDetune`, likewise called from both paths.
+  - [x] Behavior is unchanged for all three fields (detune, phase, pulseWidth/width) in both call paths — verified via 9 new characterization tests written against the pre-refactor code first, all still passing after.
+  - [x] Every existing `devWarn` call this logic makes on failure is preserved — one per field/failure mode, wording normalized slightly via a shared `verb` param (no test asserts exact message text).
 
   **Verification:**
-  - [ ] `npx vitest run src/engine/audioEngine/compositeVoice.test.ts` passes unmodified (no test changes required — this is a pure refactor).
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/engine/audioEngine/compositeVoice.test.ts` passes — 14 original tests unmodified + 9 new characterization tests, all green. (Deviated from "no new tests required" — this logic had zero prior coverage, so characterization tests were added first per this session's TDD instruction, as a real safety net for the extraction rather than a bare refactor-on-faith.)
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** None.
 
@@ -126,8 +126,9 @@ Tasks 4-8 have no dependency on Tasks 1-3 or on each other; they may be done in 
 
 ### Checkpoint: P1 complete
 
-- [ ] `npx vitest run src/engine/audioEngine/compositeVoice.test.ts` passes with zero test changes.
-- [ ] `npm run build:types`, `npm run lint` clean.
+- [x] `npx vitest run src/engine/audioEngine/compositeVoice.test.ts` passes (14 original + 9 new characterization tests).
+- [x] `npm run build:types`, `npm run lint` clean.
+- [x] `npm test` (full suite) passes — 2718 tests, 144 files.
 
 ### Phase 3: P2 — small opportunistic cleanups (any order, independent)
 
