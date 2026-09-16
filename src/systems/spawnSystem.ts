@@ -25,6 +25,7 @@ import useLocaleStore from '../stores/localeStore';
 import { initRobotIdleCounter } from './idleSystem';
 import { getLocaleNoiseMap } from '../utils/noiseMaps';
 import { getSeededVal } from '../utils/getSeededVal';
+import { quantizeToStep } from '../utils/math';
 import { ACCENT_COLORS, ROBOT_IDENTITY_COLOR_NAMES } from '../constants/accentColors';
 import type { RobotLfoTargetId, LfoSettings } from '../types/lfo';
 import { ROBOT_LFO_TARGET_IDS, LFO_SHAPES, LFO_RATE_MIN, LFO_RATE_MAX, LFO_DEPTH_MIN, LFO_DEPTH_MAX } from '../types/lfo';
@@ -59,6 +60,9 @@ const ADSR_MAX = { attack: 2, decay: 2, sustain: 1, release: 5 };
  *  for why gain=0 is now the "muted" state. */
 const LAYER_QUIET_THRESHOLD = 0.5;
 
+/** Mirrors the Signature Array Gain slider's own step (SEEDED_SLIDER_VALUE_QUANTIZATION). */
+const LAYER_GAIN_STEP = 0.01;
+
 // Octave registers — seed directly without Hz indirection
 // [min, max] inclusive; 3 tiers: bass, mid, treble
 const OCTAVE_REGISTERS = [
@@ -75,6 +79,8 @@ const FILTER_FREQ_RANGE = { min: 400, max: 2500 };
 // Master volume range: keep robots below full saturation
 const MASTER_VOLUME_MIN = 0.65;
 const MASTER_VOLUME_MAX = 0.85;
+/** Mirrors the Volume slider's own step, in percent-space (SEEDED_SLIDER_VALUE_QUANTIZATION). */
+const VOLUME_STEP_PERCENT = 1;
 
 /**
  * Fraction of rhythmicMotifLength's single seed draw ([0, 1)) that lands the field
@@ -283,7 +289,7 @@ export function generateAudioAttributes(noiseMap: NoiseFunction2D, offset: numbe
     const quiet = i !== 0 && getSeededVal(noiseMap, 'robot.audio.layer.quiet', layerOffset, 0, 1) < LAYER_QUIET_THRESHOLD;
     const layerWave: OscillatorLayer = {
       type: WAVEFORMS[Math.floor(getSeededVal(noiseMap, 'robot.audio.layer.waveform', layerOffset, 0, WAVEFORMS.length))],
-      gain: quiet ? 0 : getSeededVal(noiseMap, 'robot.audio.layer.gain', layerOffset, 0.2, 1.2),
+      gain: quiet ? 0 : quantizeToStep(getSeededVal(noiseMap, 'robot.audio.layer.gain', layerOffset, 0.2, 1.2), 0, LAYER_GAIN_STEP),
       detune: getSeededVal(noiseMap, 'robot.audio.layer.detune', layerOffset, -2, 2),
       phase: Math.floor(getSeededVal(noiseMap, 'robot.audio.layer.phase', layerOffset, 0, 361)) || 0,
     };
@@ -337,6 +343,9 @@ export function generateAudioAttributes(noiseMap: NoiseFunction2D, offset: numbe
  */
 const LFO_QUIET_THRESHOLD = 0.5;
 
+/** Mirrors Lfo.tsx's own RATE_STEP (SEEDED_SLIDER_VALUE_QUANTIZATION). */
+const LFO_RATE_STEP = 0.05;
+
 /**
  * Generate seeded LfoSettings for all 13 RobotLfoTargetId modulation targets,
  * the same way as the rest of a robot's audio personality (generateAudioAttributes
@@ -359,7 +368,7 @@ export function generateRobotLfoSettings(noiseMap: NoiseFunction2D, offset: numb
     const quiet = getSeededVal(noiseMap, `robot.lfo.${target}.quiet`, offset, 0, 1) < LFO_QUIET_THRESHOLD;
     const settings: LfoSettings = {
       shape: LFO_SHAPES[shapeIdx],
-      rate: quiet ? 0 : getSeededVal(noiseMap, `robot.lfo.${target}.rate`, offset, LFO_RATE_MIN, LFO_RATE_MAX),
+      rate: quiet ? 0 : quantizeToStep(getSeededVal(noiseMap, `robot.lfo.${target}.rate`, offset, LFO_RATE_MIN, LFO_RATE_MAX), LFO_RATE_MIN, LFO_RATE_STEP),
       depth: getSeededVal(noiseMap, `robot.lfo.${target}.depth`, offset, LFO_DEPTH_MIN, LFO_DEPTH_MAX),
     };
     return [target, settings] as const;
@@ -515,7 +524,11 @@ export function spawnRobot(localeId: string, options?: { docking?: DockingState;
       // Bass robots are louder, treble robots quieter. Register mid [1..5], neutral ~3.5.
       const registerMid = (octaveRange[0] + octaveRange[1]) / 2;
       const registerBias = (4.5 - registerMid) * 0.05;
-      return Math.max(0.5, Math.min(0.95, seeded + registerBias));
+      const raw = Math.max(0.5, Math.min(0.95, seeded + registerBias));
+      // Quantized in percent-space, not against the stored fraction directly —
+      // same "avoid a sub-percent grid" reasoning as Ping Variance Automation
+      // (globalAudioSeed.ts).
+      return quantizeToStep(raw * 100, 0, VOLUME_STEP_PERCENT) / 100;
     })(),
     createdAt: Date.now(),
     docking,
