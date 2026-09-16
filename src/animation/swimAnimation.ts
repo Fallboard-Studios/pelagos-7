@@ -91,9 +91,6 @@ export function createSwimTimeline(
     onComplete: onComplete ? () => {
       onComplete(robot.id);
     } : undefined,
-    onStart: DEV_TUNING ? () => {
-      console.log(`[SwimAnimation] Timeline started for robot ${robot.id}`);
-    } : undefined,
   });
 
   // Always set transformOrigin first to ensure flips occur around center
@@ -171,10 +168,6 @@ export function createSwimTimeline(
   );
 
   setTimeline(`swim-${robot.id}`, tl);
-
-  if (DEV_TUNING) {
-    console.log(`[SwimAnimation] Timeline stored for robot ${robot.id}, now playing...`);
-  }
 
   // Start the timeline (was paused during creation)
   tl.play();

@@ -16,7 +16,6 @@ import { generateSpawnPosition } from './spawnSystem';
 import { getLocaleNoiseMap } from '../utils/noiseMaps';
 import { getSeededVal } from '../utils/getSeededVal';
 import {
-  DEV_TUNING,
   BATTERY_DRAIN_BASE,
   JOB_BATTERY_DRAIN_SURCHARGE,
   BATTERY_RECHARGE_RATE,
@@ -120,7 +119,6 @@ export function tickRobotLifecycle(localeId: string, measure: number): void {
  *  spawnSystem.ts's former startSpawnScheduler singleton pattern. */
 export function startRobotLifecycle(localeId: string): void {
   if (lifecycleUnsubscribe !== null) {
-    if (DEV_TUNING) console.log('[RobotSystems] Lifecycle already running, skipping start');
     return;
   }
   // Deliberately ignore the callback's own `measure` argument — BeatClock
@@ -129,18 +127,15 @@ export function startRobotLifecycle(localeId: string): void {
   // before the day-cycle boundary becomes permanently unreachable. getCurrentMeasure()
   // is the real, unwrapped counter — use that instead.
   lifecycleUnsubscribe = subscribeToMeasure(() => tickRobotLifecycle(localeId, getCurrentMeasure()));
-  if (DEV_TUNING) console.log('[RobotSystems] Lifecycle started');
 }
 
 /** Stop the per-measure lifecycle tick. Idempotent — safe to call when not running. */
 export function stopRobotLifecycle(): void {
   if (lifecycleUnsubscribe === null) {
-    if (DEV_TUNING) console.log('[RobotSystems] Lifecycle not running, nothing to stop');
     return;
   }
   lifecycleUnsubscribe();
   lifecycleUnsubscribe = null;
-  if (DEV_TUNING) console.log('[RobotSystems] Lifecycle stopped');
 }
 
 // ========================================
