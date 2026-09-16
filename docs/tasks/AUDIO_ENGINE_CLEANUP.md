@@ -188,7 +188,7 @@ Tasks 4-8 have no dependency on Tasks 1-3 or on each other; they may be done in 
 
   **Estimated scope:** XS (move one line)
 
-- [ ] **Task 8 (optional — skip if not worth the churn): `AudioEngine.ts` — clear pending `scheduleVoiceRelease` timeouts on `stop`/`killAll`**
+- [x] **Task 8 (optional — skip if not worth the churn): `AudioEngine.ts` — clear pending `scheduleVoiceRelease` timeouts on `stop`/`killAll`** — **SKIPPED.** Testing this properly requires capturing the mocked `Tone.getContext().setTimeout` callback for manual firing, which means changing the shared Tone mock at the top of `AudioEngine.test.ts` — used by all ~104 tests in that file. That's a disproportionate, real-regression-risk lift for an edge case that's already harmless today (every write is `Math.max(0, ...)`-clamped, so a stale post-`killAll()` decrement self-corrects rather than going negative or breaking anything observable). Exactly the "low priority — do not go out of the way for this one" case the plan called out in advance.
 
   **Description:** `scheduleVoiceRelease` uses `Tone.getContext().setTimeout` (deliberately, to track real elapsed time independent of live BPM changes) to decrement `activeVoices` after a note's duration. `stop()`/`killAll()` reset `activeVoices = 0` unconditionally but never cancel pending timeouts from this function, so a stale one can still fire afterward — harmless today (every write is `Math.max(0, ...)`-clamped) but untracked. Track the returned timeout handle per voice and clear pending ones in `stop()`/`killAll()`, or gate the decrement on a generation/initialized check.
 
@@ -208,8 +208,8 @@ Tasks 4-8 have no dependency on Tasks 1-3 or on each other; they may be done in 
 
 ### Checkpoint: P2 complete
 
-- [ ] `npm test` (full suite) passes.
-- [ ] `npm run build:types`, `npm run lint` clean.
+- [x] `npm test` (full suite) passes — 2721 tests, 144 files (Tasks 5-7 implemented; Task 8 skipped, see above). Two isolated flaky single-test failures were observed across this whole implementation session's full-suite runs (once during Task 3, once during Task 6), neither reproducing on immediate re-run and neither related to files this plan touches — pre-existing suite flakiness, not a regression.
+- [x] `npm run build:types`, `npm run lint` clean.
 - [ ] Reviewed with human.
 
 ## Not a task: P2.4 (globalFx.ts ramp-vs-direct-value)
