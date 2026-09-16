@@ -47,7 +47,7 @@ vi.mock('tone', () => ({
     connect: vi.fn().mockReturnThis(),
     disconnect: vi.fn(),
     toDestination: vi.fn(),
-    frequency: { value: 20000 },
+    frequency: { value: 20000, rampTo: vi.fn() },
     Q: { value: 1 },
   })),
   Gain: vi.fn(() => ({
@@ -231,6 +231,49 @@ describe('globalFx', () => {
     const globalFx = await import('./globalFx');
     expect('setEffectBypass' in globalFx).toBe(false);
     expect('setGlobalBypass' in globalFx).toBe(false);
+  });
+
+  describe('setGlobalFilterLPF/HPF frequency ramping (docs/tasks/AUDIO_ENGINE_CLEANUP.md P2.4) — confirmed live: a large LPF frequency jump produced an audible click with a direct .value write', () => {
+    it('ramps the live LPF frequency via rampTo when available, rather than an instant .value jump', async () => {
+      const globalFx = await import('./globalFx');
+      globalFx.buildGlobalFxChain();
+      const lpfNode = secondLastInstance(Tone.Filter);
+
+      globalFx.setGlobalFilterLPF({ frequency: 4000 });
+
+      expect(lpfNode.frequency.rampTo).toHaveBeenCalledWith(4000, expect.any(Number));
+    });
+
+    it('ramps the live HPF frequency via rampTo too — same node type, same click risk', async () => {
+      const globalFx = await import('./globalFx');
+      globalFx.buildGlobalFxChain();
+      const hpfNode = lastInstance(Tone.Filter);
+
+      globalFx.setGlobalFilterHPF({ frequency: 800 });
+
+      expect(hpfNode.frequency.rampTo).toHaveBeenCalledWith(800, expect.any(Number));
+    });
+
+    it('falls back to a direct .value assignment when rampTo is unavailable (headless/older Tone)', async () => {
+      const globalFx = await import('./globalFx');
+      globalFx.buildGlobalFxChain();
+      const lpfNode = secondLastInstance(Tone.Filter);
+      delete lpfNode.frequency.rampTo;
+
+      globalFx.setGlobalFilterLPF({ frequency: 5000 });
+
+      expect(lpfNode.frequency.value).toBe(5000);
+    });
+
+    it('does not ramp Q — only frequency was confirmed audible, Q stays a direct .value write', async () => {
+      const globalFx = await import('./globalFx');
+      globalFx.buildGlobalFxChain();
+      const lpfNode = secondLastInstance(Tone.Filter);
+
+      globalFx.setGlobalFilterLPF({ Q: 8 });
+
+      expect(lpfNode.Q.value).toBe(8);
+    });
   });
 
   describe('setGlobalReverb', () => {
