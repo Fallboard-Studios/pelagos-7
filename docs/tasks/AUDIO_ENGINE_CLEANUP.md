@@ -74,20 +74,20 @@ Tasks 4-8 have no dependency on Tasks 1-3 or on each other; they may be done in 
 
   **Estimated scope:** XS (one function, two added dispose calls)
 
-- [ ] **Task 3: `localeStore.ts` — wire `disposeRobotLfos` into `removeRobot`/`removeLocale`**
+- [x] **Task 3: `localeStore.ts` — wire `disposeRobotLfos` into `removeRobot`/`removeLocale`**
 
   **Description:** Import `lfoEngine` and add a third try/catch call — alongside the existing `AudioEngine.releaseVoice`/`AudioEngine.unregisterRobotMelody` pair — calling `lfoEngine.disposeRobotLfos(robotId)` in `removeRobot`, and `lfoEngine.disposeRobotLfos(robot.id)` inside the existing `for (const robot of existing.robots)` loop in `removeLocale`. Matches the existing "independently try/caught per call" pattern already used at both sites.
 
   **Acceptance criteria:**
-  - [ ] `removeRobot(localeId, robotId)` calls `lfoEngine.disposeRobotLfos(robotId)`.
-  - [ ] `removeLocale(localeId)` calls `lfoEngine.disposeRobotLfos(robot.id)` for every robot in the removed locale.
-  - [ ] A thrown error from `disposeRobotLfos` in either call site is caught and does not prevent the robot/locale from still being removed from store state (matches existing resilience pattern for the other two calls).
-  - [ ] `spawnSystem.ts`'s `reRegisterAllRobotsAudio` (the power-cycle release-then-reserve path) is untouched — no call to `disposeRobotLfos` added there.
+  - [x] `removeRobot(localeId, robotId)` calls `lfoEngine.disposeRobotLfos(robotId)`.
+  - [x] `removeLocale(localeId)` calls `lfoEngine.disposeRobotLfos(robot.id)` for every robot in the removed locale.
+  - [x] A thrown error from `disposeRobotLfos` in either call site is caught and does not prevent the robot/locale from still being removed from store state (matches existing resilience pattern for the other two calls).
+  - [x] `spawnSystem.ts`'s `reRegisterAllRobotsAudio` (the power-cycle release-then-reserve path) is untouched — no call to `disposeRobotLfos` added there.
 
   **Verification:**
-  - [ ] `npx vitest run src/stores/localeStore.test.ts` passes, including new spy-based assertions on `lfoEngine.disposeRobotLfos` alongside the existing `releaseVoice`-spy assertions in the `removeRobot`/`removeLocale` describe blocks.
-  - [ ] `npx vitest run src/systems/spawnSystem.test.ts` (or whichever file covers `reRegisterAllRobotsAudio`) still passes unmodified — confirms no accidental behavior change to the power-cycle path.
-  - [ ] `npm run build:types`, `npm run lint` clean.
+  - [x] `npx vitest run src/stores/localeStore.test.ts` passes (68 tests) — including new spy-based assertions on `lfoEngine.disposeRobotLfos`, plus first-ever audio-cleanup coverage for `removeRobot` (it had none before this task).
+  - [x] `npx vitest run src/systems/spawnSystem.test.ts` passes unmodified (68 tests) — confirms no accidental behavior change to the power-cycle path.
+  - [x] `npm run build:types`, `npm run lint` clean.
 
   **Dependencies:** Task 1 (calls the function it adds).
 
@@ -97,10 +97,10 @@ Tasks 4-8 have no dependency on Tasks 1-3 or on each other; they may be done in 
 
 ### Checkpoint: P0 complete
 
-- [ ] `npx vitest run src/engine/lfoEngine.test.ts src/stores/localeStore.test.ts` passes.
-- [ ] `npm run build:types`, `npm run lint` clean.
-- [ ] `npm test` (full suite) passes — confirms the power-cycle path and every other consumer of `releaseVoice`/`lfoEngine` is unaffected.
-- [ ] Manual check: a robot that connects an LFO and is then removed (`removeRobot`) leaves no trace in `activeLfos`/`settingsByKey` — spot-check via the Task 1 test rather than a live browser session (headless engine, no audible way to verify directly).
+- [x] `npx vitest run src/engine/lfoEngine.test.ts src/stores/localeStore.test.ts` passes (102 + 68 tests).
+- [x] `npm run build:types`, `npm run lint` clean.
+- [x] `npm test` (full suite) passes — 2709 tests, 144 files — confirms the power-cycle path and every other consumer of `releaseVoice`/`lfoEngine` is unaffected.
+- [x] Manual check: a robot that connects an LFO and is then removed (`removeRobot`) leaves no trace in `activeLfos`/`settingsByKey` — verified via the Task 1 test rather than a live browser session (headless engine, no audible way to verify directly).
 - [ ] Reviewed with human before proceeding to P1/P2.
 
 ### Phase 2: P1 — compositeVoice.ts duplication
