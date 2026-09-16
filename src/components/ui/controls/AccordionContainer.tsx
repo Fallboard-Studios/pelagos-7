@@ -1,5 +1,6 @@
 import { memo, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import * as Accordion from '@radix-ui/react-accordion';
+import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 
 import { CabinetBox } from './CabinetBox';
@@ -65,9 +66,18 @@ function AccordionContainerInner({ schema, children, defaultOpen = false, style 
   const contentInnerRef = useRef<HTMLDivElement>(null);
   const timelineKey = `accordion-${schema.id}`;
 
+  // GSAP's own context.revert() (from useGSAP/contextSafe below) only kills the underlying GSAP
+  // tween it tracked — it has no knowledge of our separate timelineMap registry, so this manual
+  // cleanup is still required to keep that registry itself tidy on unmount.
   useEffect(() => {
     return () => killTimeline(timelineKey);
   }, [timelineKey]);
+
+  // No mount-time animation here — this hook call exists purely to get `contextSafe`, so
+  // animateTo() below (called from handleValueChange, not from this callback) is tracked by
+  // GSAP's own context and reverted on unmount, on top of the killTimeline dedup calls it
+  // already makes.
+  const { contextSafe } = useGSAP({ dependencies: [] });
 
   // If mounted already-open, the content still needs its height/overflow
   // (see animateTo()) freed from the CSS closed-state default (height: 0,
@@ -87,7 +97,7 @@ function AccordionContainerInner({ schema, children, defaultOpen = false, style 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function animateTo(nextOpen: boolean) {
+  const animateTo = contextSafe((nextOpen: boolean) => {
     const el = contentRef.current;
     const innerEl = contentInnerRef.current;
     if (!el) return;
@@ -136,7 +146,7 @@ function AccordionContainerInner({ schema, children, defaultOpen = false, style 
       });
     }
     setTimeline(timelineKey, tl);
-  }
+  });
 
   function handleValueChange(value: string) {
     const nextOpen = value === schema.id;

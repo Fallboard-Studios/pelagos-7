@@ -1,4 +1,5 @@
 import { memo, useEffect, useRef, useState } from 'react';
+import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 
 import { CompanyManager } from '@/components/company/CompanyManager';
@@ -62,8 +63,6 @@ export const RobotFilterPanel = memo(function RobotFilterPanel() {
   const selectedCompanyId = useUIStore((s) => s.selectedCompanyId);
   const allRobotsSelected = useUIStore((s) => s.allRobotsSelected);
 
-  useEffect(() => () => killTimeline(TIMELINE_KEY), []);
-
   // Bugfix, found live: the CSS baseline (RobotFilterPanel.css) sets the closed-state resting
   // value via a stylesheet `transform: translateX(-100%)` rule, but GSAP never reads percentage
   // transforms off getComputedStyle — it resolves them to a pixel matrix and bakes that in as a
@@ -74,12 +73,22 @@ export const RobotFilterPanel = memo(function RobotFilterPanel() {
   // own xPercent state to match the CSS baseline before any tween runs, the same instant
   // "establish starting state via gsap.set()" pattern CabinetBox.tsx already uses for its own
   // skew setup.
-  useEffect(() => {
+  //
+  // GSAP's own context.revert() (from useGSAP/contextSafe below) only kills the underlying GSAP
+  // tween it tracked — it has no knowledge of our separate timelineMap registry, so this manual
+  // cleanup is still required to keep that registry itself tidy on unmount (contextSafe is an
+  // added safety net for the tween itself, not a replacement for this).
+  useEffect(() => () => killTimeline(TIMELINE_KEY), []);
+
+  // contextSafe wraps animateTo (called from handleToggle and the selection-change effect below,
+  // not from this callback) so GSAP's own context — scoped to panelRef — tracks and reverts it
+  // on unmount too, on top of the killTimeline dedup calls animateTo already makes.
+  const { contextSafe } = useGSAP(() => {
     if (!panelRef.current || isDesktop) return;
     gsap.set(panelRef.current, { xPercent: -100 });
-  }, [isDesktop]);
+  }, { scope: panelRef, dependencies: [isDesktop] });
 
-  function animateTo(nextOpen: boolean) {
+  const animateTo = contextSafe((nextOpen: boolean) => {
     const el = panelRef.current;
     if (!el || isDesktop) return; // desktop never transforms — always laid out in flow
     killTimeline(TIMELINE_KEY);
@@ -88,7 +97,7 @@ export const RobotFilterPanel = memo(function RobotFilterPanel() {
     const tl = gsap.timeline();
     tl.to(el, { xPercent: nextOpen ? 0 : -100, duration: prefersReducedMotion ? 0 : SLIDE_DURATION, ease: 'power2.out' });
     setTimeline(TIMELINE_KEY, tl);
-  }
+  });
 
   useEffect(() => {
     if (!didMountRef.current) {

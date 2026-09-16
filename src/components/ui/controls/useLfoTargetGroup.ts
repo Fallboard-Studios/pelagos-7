@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import { setTimeline, killTimeline } from '@/animation/timelineMap';
 import { LFO_RATE_MIN, LFO_DEPTH_MIN } from '@/types/lfo';
@@ -60,6 +61,12 @@ export function useLfoTargetGroup<F extends string = string>({
 
   useEffect(() => () => killTimeline(timelineKey), [timelineKey]);
 
+  // No DOM ref here — this hook only ever builds a bookkeeping timeline for the transition
+  // delay, never queries elements — so no scope is needed. This call exists purely to get
+  // `contextSafe`, so select()'s gsap.timeline() below is tracked by GSAP's own context and
+  // reverted on unmount too, on top of the killTimeline dedup/cleanup calls above.
+  const { contextSafe } = useGSAP({ dependencies: [] });
+
   // Falls back if the currently-selected field disappears from a new `fields` array (e.g.
   // Signature Array's pulseWidth row hiding when a layer's type leaves 'pulse').
   useEffect(() => {
@@ -73,7 +80,7 @@ export function useLfoTargetGroup<F extends string = string>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fields]);
 
-  function select(next: F) {
+  const select = contextSafe((next: F) => {
     if (next === selected) return;
     killTimeline(timelineKey);
     setTransitioning(true);
@@ -85,7 +92,7 @@ export function useLfoTargetGroup<F extends string = string>({
     });
     tl.to({}, { duration: 0 }); // scaffold — real crossfade timing lands later
     setTimeline(timelineKey, tl);
-  }
+  });
 
   const activeField = fields.find((f) => f.field === selected) ?? fields[0];
   const displayValue = transitioning ? NEUTRAL_LFO_VALUE : activeField.lfoValue;

@@ -1,4 +1,5 @@
 import { memo, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 
 import { getCabinetPopDuration, getCabinetPopEase } from './cabinetAnimation';
@@ -210,6 +211,9 @@ function CabinetBoxInner({ popped, timelineKey, boxHeight: boxHeightOverride, po
   // effect's own comment for the bug this caused before being fixed,
   // 2026-09-09.
 
+  // GSAP's own context.revert() (from the useGSAP calls below) only kills the underlying GSAP
+  // tween it tracked — it has no knowledge of our separate timelineMap registry, so this manual
+  // cleanup is still required to keep that registry itself tidy on unmount.
   useEffect(() => {
     return () => killTimeline(timelineKey);
   }, [timelineKey]);
@@ -222,11 +226,11 @@ function CabinetBoxInner({ popped, timelineKey, boxHeight: boxHeightOverride, po
   // on .sc-cabinet-box__top-face/__left-face, or it will be silently
   // dropped the first time the geometry effect below sets scaleY/scaleX.
   // See docs/specs/OBLIQUE_CABINETRY_WALL_RENDERING.md §1.4.
-  useEffect(() => {
+  useGSAP(() => {
     if (!topFaceRef.current || !leftFaceRef.current) return;
     gsap.set(topFaceRef.current, { skewX: CABINET_TOP_FACE_SKEW_DEG });
     gsap.set(leftFaceRef.current, { skewY: CABINET_LEFT_FACE_SKEW_DEG });
-  }, []);
+  }, { scope: wrapperRef, dependencies: [] });
 
   // Post-implementation correction, 2026-09-09: this effect's guard used to
   // also bail on `width === 0`, requiring the ResizeObserver above to have
@@ -242,7 +246,7 @@ function CabinetBoxInner({ popped, timelineKey, boxHeight: boxHeightOverride, po
   // (found by Crawford: boxes briefly showing an incorrect intermediate
   // state while sliding past). Removing the width gate closes that window
   // entirely — the effect now runs synchronously with mount.
-  useEffect(() => {
+  useGSAP(() => {
     if (!frontRef.current || !topFaceRef.current || !leftFaceRef.current || !wrapperRef.current) return;
     killTimeline(timelineKey);
 
@@ -331,7 +335,7 @@ function CabinetBoxInner({ popped, timelineKey, boxHeight: boxHeightOverride, po
         { '--cabinet-glow': fromPopped },
         { '--cabinet-glow': poppedT, duration, ease }, 0);
     setTimeline(timelineKey, tl);
-  }, [poppedT, width, boxHeight, timelineKey, resolvedPopDistance, skipMountAnimation]);
+  }, { scope: wrapperRef, dependencies: [poppedT, width, boxHeight, timelineKey, resolvedPopDistance, skipMountAnimation] });
 
   // Both custom properties are computed here, in the one place that already
   // resolves the breakpoint tier for the geometry math (useCabinetBoxHeight)
