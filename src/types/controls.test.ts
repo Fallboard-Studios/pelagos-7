@@ -103,6 +103,14 @@ describe('SliderOrientation', () => {
     expect(log.orientation).toBe('auto');
     expect(centeredZero.orientation).toBe('horizontal');
   });
+
+  it('accepts an optional step field on SliderCenteredZeroSchema, unset by default', () => {
+    const noStep: SliderCenteredZeroSchema = { id: 'detune', type: 'sliderCenteredZero', min: -50, max: 50, orientation: 'horizontal' };
+    const withStep: SliderCenteredZeroSchema = { id: 'eq3Low', type: 'sliderCenteredZero', min: -12, max: 12, step: 0.5, orientation: 'horizontal' };
+
+    expect(noStep.step).toBeUndefined();
+    expect(withStep.step).toBe(0.5);
+  });
 });
 
 describe('PanelOrientation', () => {
