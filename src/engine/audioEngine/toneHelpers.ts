@@ -33,6 +33,25 @@ export function getToneCtor<T>(name: string): (new (...args: unknown[]) => T) | 
 }
 
 /**
+ * Stub panner/gain/filter nodes used by AudioEngine.reserveVoice's two fallback paths — when a
+ * Tone constructor is unavailable (test/headless envs), and in reserveVoice's own catch-all when
+ * composite voice construction throws. Previously two near-identical inline object literals per
+ * node type (docs/tasks/AUDIO_ENGINE_CLEANUP.md Task 5); collapsed here into one shared shape
+ * per node type, used by both fallback paths.
+ */
+export function makeStubPanner(): MinimalToneNode {
+  return { connect: () => undefined, pan: { value: 0 }, disconnect: () => { } };
+}
+
+export function makeStubGain(initialValue: number): MinimalToneNode {
+  return { connect: () => ({}), disconnect: () => { }, gain: { value: initialValue }, toDestination: () => { } };
+}
+
+export function makeStubFilter(): MinimalToneNode {
+  return { connect: () => ({}), disconnect: () => { }, toDestination: () => { } };
+}
+
+/**
  * A live, connectable Tone Signal or Param of any unit type — the return type
  * of AudioEngine.getRobotModulationTarget and getGlobalModulationTarget
  * (docs/tasks/LFO_INTEGRATION_PLAN.md Tasks 9-10). `any` is unavoidable here,

@@ -14,6 +14,64 @@ function createLayerGain(value: number, out: Tone.Gain): Tone.Gain {
 }
 
 /**
+ * Set a layer synth's detune directly on its oscillator's detune Signal. No `.set()` fallback
+ * chain needed here — detune is always a real Signal (with a `.value`) on any real Tone
+ * oscillator, unlike phase/width below. Shared by construction and the live-update `set({
+ * layers })` path (docs/tasks/AUDIO_ENGINE_CLEANUP.md Task 4) — previously duplicated verbatim
+ * in both places.
+ */
+function applyOscDetune(synth: SynthWithOscillator, detune: number, verb: 'apply' | 'set'): void {
+  try {
+    const osc = (synth as unknown as { oscillator?: { detune?: { value: number } } })?.oscillator;
+    if (osc && osc.detune) osc.detune.value = detune;
+  } catch (err) {
+    devWarn(`[AudioEngine] Failed to ${verb} detune on composite layer`, err);
+  }
+}
+
+/**
+ * Set a layer synth's phase or pulse-width oscillator field, with the 3-level fallback both
+ * call sites need since Tone.js doesn't guarantee a live Signal for every oscillator/field
+ * combination (docs/AUDIO_SYSTEM.md's "Two Tone.js divergences" — phase in particular has none
+ * at all): try `synth.set({ oscillator: { [setProp]: value } })` first; if that throws, try
+ * writing `.value` on a Signal-shaped `oscillator[setProp]`; if that's not Signal-shaped either,
+ * fall back to a raw property assignment. `setProp` is Tone's own oscillator property name
+ * (`'phase'` or `'width'` — pulseWidth's Tone-facing key differs from its own field name);
+ * `label` is only for the devWarn message, matching each field's existing wording. Shared by
+ * construction and the live-update `set({ layers })` path — previously duplicated verbatim in
+ * both places, for both fields.
+ */
+function applyOscFieldViaSet(
+  synth: SynthWithOscillator,
+  setProp: 'phase' | 'width',
+  label: 'phase' | 'pulseWidth',
+  value: number,
+  verb: 'apply' | 'set',
+): void {
+  try {
+    const osc = (synth as unknown as Record<string, Record<string, unknown> | undefined>)?.oscillator;
+    if (osc) {
+      try {
+        synth.set?.({ oscillator: { [setProp]: value } });
+      } catch {
+        try {
+          const oscField = osc[setProp] as { value?: number } | number | undefined;
+          if (typeof oscField === 'object' && oscField !== null && 'value' in oscField) {
+            (oscField as { value?: number }).value = value;
+          } else {
+            osc[setProp] = value;
+          }
+        } catch (err) {
+          devWarn(`[AudioEngine] Failed to ${verb} ${label} on composite layer`, err);
+        }
+      }
+    }
+  } catch (err) {
+    devWarn(`[AudioEngine] Failed to ${verb} ${label} on composite layer`, err);
+  }
+}
+
+/**
  * A live-update patch entry for `set({ layers })`. `adsr` is not part of the persisted
  * `OscillatorLayer` shape (Roadmap Phase 9 moved ADSR to one shared robot-level envelope,
  * see docs/specs/ROBOT_OPTIONS.md) — it's an ephemeral field this live-update RPC accepts so
@@ -94,60 +152,13 @@ export function createCompositeVoice(
     const layerGain = createLayerGain(layer.gain ?? 1, out);
     if (layerGain && typeof synth?.connect === 'function') synth.connect(layerGain);
     if (layer.detune !== undefined) {
-      try {
-        const osc = (synth as unknown as { oscillator?: { detune?: { value: number } } })?.oscillator;
-        if (osc && osc.detune) {
-          osc.detune.value = layer.detune;
-        }
-      } catch (err) {
-        devWarn('[AudioEngine] Failed to apply detune on composite layer', err);
-      }
+      applyOscDetune(synth as unknown as SynthWithOscillator, layer.detune, 'apply');
     }
     if (layer.phase !== undefined) {
-      try {
-        const osc = (synth as unknown as { oscillator?: { phase?: number | { value?: number } } })?.oscillator;
-        if (osc) {
-          // Tone oscillator may accept numeric phase or an object; attempt to set directly
-          try {
-            // Preferred: set via set({ oscillator: { phase } }) when available
-            (synth as unknown as SynthWithOscillator).set?.({ oscillator: { phase: layer.phase } });
-          } catch {
-            try {
-              const oscPhase = (osc as unknown as { phase?: { value?: number } | number })?.phase;
-              if (typeof oscPhase === 'object' && oscPhase !== null && 'value' in oscPhase) {
-                (oscPhase as { value?: number }).value = layer.phase;
-              } else {
-                (osc as unknown as { phase?: number }).phase = layer.phase;
-              }
-            } catch (err) {
-              devWarn('[AudioEngine] Failed to apply phase on composite layer', err);
-            }
-          }
-        }
-      } catch (err) {
-        devWarn('[AudioEngine] Failed to apply phase on composite layer', err);
-      }
+      applyOscFieldViaSet(synth as unknown as SynthWithOscillator, 'phase', 'phase', layer.phase, 'apply');
     }
     if (layer.pulseWidth !== undefined) {
-      try {
-        const osc = (synth as unknown as { oscillator?: { width?: number | { value?: number } } })?.oscillator;
-        if (osc) {
-          try { (synth as unknown as SynthWithOscillator).set?.({ oscillator: { width: layer.pulseWidth } }); } catch {
-            try {
-              const oscWidth = (osc as unknown as { width?: { value?: number } | number })?.width;
-              if (typeof oscWidth === 'object' && oscWidth !== null && 'value' in oscWidth) {
-                (oscWidth as { value?: number }).value = layer.pulseWidth;
-              } else {
-                (osc as unknown as { width?: number }).width = layer.pulseWidth;
-              }
-            } catch (err) {
-              devWarn('[AudioEngine] Failed to apply pulseWidth on composite layer', err);
-            }
-          }
-        }
-      } catch (err) {
-        devWarn('[AudioEngine] Failed to apply pulseWidth on composite layer', err);
-      }
+      applyOscFieldViaSet(synth as unknown as SynthWithOscillator, 'width', 'pulseWidth', layer.pulseWidth, 'apply');
     }
 
     return { synth, gainNode: layerGain, layer };
@@ -195,55 +206,13 @@ export function createCompositeVoice(
           }
         }
         if (p.detune !== undefined) {
-          try {
-            const osc = (synth as unknown as { oscillator?: { detune?: { value: number } } })?.oscillator;
-            if (osc && osc.detune) osc.detune.value = p.detune;
-          } catch (err) {
-            devWarn('[AudioEngine] Failed to set detune on composite layer', err);
-          }
+          applyOscDetune(synth as unknown as SynthWithOscillator, p.detune, 'set');
         }
         if (p.phase !== undefined) {
-          try {
-            const osc = (synth as unknown as SynthWithOscillator)?.oscillator;
-            if (osc) {
-              try { (synth as unknown as SynthWithOscillator).set?.({ oscillator: { phase: p.phase } }); } catch {
-                try {
-                  const oscPhase = (osc as unknown as { phase?: { value?: number } | number })?.phase;
-                  if (typeof oscPhase === 'object' && oscPhase !== null && 'value' in oscPhase) {
-                    (oscPhase as { value?: number }).value = p.phase;
-                  } else {
-                    (osc as unknown as { phase?: number }).phase = p.phase;
-                  }
-                } catch (err) {
-                  devWarn('[AudioEngine] Failed to set phase on composite layer', err);
-                }
-              }
-            }
-          } catch (err) {
-            devWarn('[AudioEngine] Failed to set phase on composite layer', err);
-          }
+          applyOscFieldViaSet(synth as unknown as SynthWithOscillator, 'phase', 'phase', p.phase, 'set');
         }
         if (p.pulseWidth !== undefined) {
-          try {
-            // Prefer Synth.set when available
-            try { (synth as unknown as SynthWithOscillator).set?.({ oscillator: { width: p.pulseWidth } }); } catch {
-              const osc = (synth as unknown as { oscillator?: { width?: { value?: number } | number } })?.oscillator;
-              if (osc) {
-                try {
-                  const oscWidth = (osc as unknown as { width?: { value?: number } | number })?.width;
-                  if (typeof oscWidth === 'object' && oscWidth !== null && 'value' in oscWidth) {
-                    (oscWidth as { value?: number }).value = p.pulseWidth;
-                  } else {
-                    (osc as unknown as { width?: number }).width = p.pulseWidth;
-                  }
-                } catch (err) {
-                  devWarn('[AudioEngine] Failed to set pulseWidth on composite layer', err);
-                }
-              }
-            }
-          } catch (err) {
-            devWarn('[AudioEngine] Failed to set pulseWidth on composite layer', err);
-          }
+          applyOscFieldViaSet(synth as unknown as SynthWithOscillator, 'width', 'pulseWidth', p.pulseWidth, 'set');
         }
         if (p.adsr && typeof (synth as unknown as { set?: (props: unknown) => void }).set === 'function') {
           try { (synth as unknown as { set?: (props: unknown) => void }).set?.({ envelope: p.adsr }); } catch (err) {

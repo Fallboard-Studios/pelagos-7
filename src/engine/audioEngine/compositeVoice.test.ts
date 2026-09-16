@@ -100,4 +100,84 @@ describe('createCompositeVoice', () => {
     createCompositeVoice([makeLayer({ type: 'square' }), makeLayer({ type: 'pulse' })], SHARED_ADSR);
     expect(Tone.Synth).toHaveBeenCalledTimes(2);
   });
+
+  describe('detune/phase/pulseWidth application (docs/tasks/AUDIO_ENGINE_CLEANUP.md Task 4) — characterizes today\'s behavior before extracting a shared helper, so the refactor has a real safety net', () => {
+    describe('at construction', () => {
+      it('applies detune directly onto oscillator.detune.value', () => {
+        createCompositeVoice([makeLayer({ detune: 37 })], SHARED_ADSR);
+        const synth = (Tone.Synth as unknown as { mock: { results: { value: { oscillator: { detune: { value: number } } } }[] } }).mock.results[0].value;
+        expect(synth.oscillator.detune.value).toBe(37);
+      });
+
+      it('applies phase via synth.set() when it succeeds', () => {
+        createCompositeVoice([makeLayer({ phase: 90 })], SHARED_ADSR);
+        const synth = (Tone.Synth as unknown as { mock: { results: { value: { set: ReturnType<typeof vi.fn> } }[] } }).mock.results[0].value;
+        expect(synth.set).toHaveBeenCalledWith({ oscillator: { phase: 90 } });
+      });
+
+      it('falls back to oscillator.phase.value when synth.set() throws and phase is Signal-shaped', () => {
+        (Tone.Synth as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(() => ({
+          connect: vi.fn().mockReturnThis(), disconnect: vi.fn(), dispose: vi.fn(),
+          triggerAttackRelease: vi.fn(), triggerAttack: vi.fn(), triggerRelease: vi.fn(),
+          set: vi.fn(() => { throw new Error('set unsupported'); }),
+          oscillator: { detune: { value: 0 }, phase: { value: 0 } },
+        }));
+        createCompositeVoice([makeLayer({ phase: 45 })], SHARED_ADSR);
+        const synth = (Tone.Synth as unknown as { mock: { results: { value: { oscillator: { phase: { value: number } } } }[] } }).mock.results[0].value;
+        expect(synth.oscillator.phase.value).toBe(45);
+      });
+
+      it('falls back to a raw oscillator.phase assignment when synth.set() throws and phase is a plain number', () => {
+        (Tone.Synth as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(() => ({
+          connect: vi.fn().mockReturnThis(), disconnect: vi.fn(), dispose: vi.fn(),
+          triggerAttackRelease: vi.fn(), triggerAttack: vi.fn(), triggerRelease: vi.fn(),
+          set: vi.fn(() => { throw new Error('set unsupported'); }),
+          oscillator: { detune: { value: 0 }, phase: 0 },
+        }));
+        createCompositeVoice([makeLayer({ phase: 45 })], SHARED_ADSR);
+        const synth = (Tone.Synth as unknown as { mock: { results: { value: { oscillator: { phase: number } } }[] } }).mock.results[0].value;
+        expect(synth.oscillator.phase).toBe(45);
+      });
+
+      it('applies pulseWidth via synth.set({ oscillator: { width } }) when it succeeds', () => {
+        createCompositeVoice([makeLayer({ type: 'pulse', pulseWidth: 0.3 })], SHARED_ADSR);
+        const synth = (Tone.Synth as unknown as { mock: { results: { value: { set: ReturnType<typeof vi.fn> } }[] } }).mock.results[0].value;
+        expect(synth.set).toHaveBeenCalledWith({ oscillator: { width: 0.3 } });
+      });
+    });
+
+    describe('via the live-update set({ layers }) path', () => {
+      it('applies detune directly onto oscillator.detune.value', () => {
+        const voice = createCompositeVoice([makeLayer()], SHARED_ADSR);
+        const synth = (Tone.Synth as unknown as { mock: { results: { value: { oscillator: { detune: { value: number } } } }[] } }).mock.results[0].value;
+        voice.set({ layers: [{ detune: 12 }] });
+        expect(synth.oscillator.detune.value).toBe(12);
+      });
+
+      it('applies phase via synth.set() when it succeeds', () => {
+        const voice = createCompositeVoice([makeLayer()], SHARED_ADSR);
+        const synth = (Tone.Synth as unknown as { mock: { results: { value: { set: ReturnType<typeof vi.fn> } }[] } }).mock.results[0].value;
+        voice.set({ layers: [{ phase: 180 }] });
+        expect(synth.set).toHaveBeenCalledWith({ oscillator: { phase: 180 } });
+      });
+
+      it('falls back to oscillator.phase.value when synth.set() throws and phase is Signal-shaped', () => {
+        const voice = createCompositeVoice([makeLayer()], SHARED_ADSR);
+        const synth = (Tone.Synth as unknown as { mock: { results: { value: { set: ReturnType<typeof vi.fn>; oscillator: { phase: { value: number } } } }[] } }).mock.results[0].value;
+        synth.oscillator.phase = { value: 0 };
+        synth.set = vi.fn(() => { throw new Error('set unsupported'); });
+        voice.set({ layers: [{ phase: 270 }] });
+        expect(synth.oscillator.phase.value).toBe(270);
+      });
+
+      it('falls back to a raw width assignment when synth.set() throws and width is a plain number', () => {
+        const voice = createCompositeVoice([makeLayer()], SHARED_ADSR);
+        const synth = (Tone.Synth as unknown as { mock: { results: { value: { set: ReturnType<typeof vi.fn>; oscillator: { width?: number } } }[] } }).mock.results[0].value;
+        synth.oscillator.width = 0;
+        synth.set = vi.fn(() => { throw new Error('set unsupported'); });
+        voice.set({ layers: [{ pulseWidth: 0.75 }] });
+        expect(synth.oscillator.width).toBe(0.75);
+      });
+    });
+  });
 });

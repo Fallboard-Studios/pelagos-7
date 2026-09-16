@@ -232,11 +232,13 @@ export function detachDrift(key: string): void {
   if (!link) return;
   try {
     link.rateDriftGain.disconnect();
+    link.rateDriftGain.dispose();
   } catch (err) {
     devWarn('[lfoDrift] detachDrift: rate-drift teardown failed', err);
   }
   try {
     link.depthDriftGain.disconnect();
+    link.depthDriftGain.dispose();
   } catch (err) {
     devWarn('[lfoDrift] detachDrift: depth-drift teardown failed', err);
   }

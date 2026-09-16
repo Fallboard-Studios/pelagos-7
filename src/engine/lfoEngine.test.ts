@@ -148,6 +148,7 @@ interface MockLfoInstance {
   stop: ReturnType<typeof vi.fn>;
   connect: ReturnType<typeof vi.fn>;
   disconnect: ReturnType<typeof vi.fn>;
+  dispose: ReturnType<typeof vi.fn>;
 }
 
 /** Shape of the mocked Tone.Gain instance above. */
@@ -155,6 +156,7 @@ interface MockGainInstance {
   gain: { value: number };
   connect: ReturnType<typeof vi.fn>;
   disconnect: ReturnType<typeof vi.fn>;
+  dispose: ReturnType<typeof vi.fn>;
 }
 
 /**
@@ -832,6 +834,94 @@ describe('lfoEngine', () => {
     });
   });
 
+  describe('disposeRobotLfos (docs/tasks/AUDIO_ENGINE_CLEANUP.md Task 1) — the one-way, full-teardown counterpart to disconnectLfoTarget, for a robot that is gone for good', () => {
+    it('is exported from the lfoEngine object', async () => {
+      const { lfoEngine } = await import('./lfoEngine');
+      expect(typeof lfoEngine.disposeRobotLfos).toBe('function');
+    });
+
+    it('disposes the underlying Tone.LFO node for a connected robot-scoped target', async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal());
+      const { lfoEngine } = await import('./lfoEngine');
+      lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+      const instance = await latestLfoInstance();
+
+      lfoEngine.disposeRobotLfos('robot-a');
+
+      expect(instance.dispose).toHaveBeenCalledTimes(1);
+    });
+
+    it('clears persisted settings — getLfoSettings falls back to DEFAULT_LFO_SETTINGS afterward', async () => {
+      const { DEFAULT_LFO_SETTINGS } = await import('../data/lfoConfig');
+      const { AudioEngine } = await import('./AudioEngine');
+      (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValue(fakeSignal());
+      const { lfoEngine } = await import('./lfoEngine');
+      lfoEngine.setLfoRate('layer0.gain', 4, 'robot-a');
+      lfoEngine.setLfoDepth('layer0.gain', 70, 'robot-a');
+      expect(lfoEngine.getLfoSettings('layer0.gain', 'robot-a')).not.toEqual(DEFAULT_LFO_SETTINGS['layer0.gain']);
+
+      lfoEngine.disposeRobotLfos('robot-a');
+
+      expect(lfoEngine.getLfoSettings('layer0.gain', 'robot-a')).toEqual(DEFAULT_LFO_SETTINGS['layer0.gain']);
+    });
+
+    it('reconnecting the same target for the same robot afterward constructs a brand-new Tone.LFO, not the disposed one', async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValue(fakeSignal());
+      const { lfoEngine } = await import('./lfoEngine');
+      lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+      const oldInstance = await latestLfoInstance();
+
+      lfoEngine.disposeRobotLfos('robot-a');
+      lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+      const newInstance = await latestLfoInstance();
+
+      expect(newInstance).not.toBe(oldInstance);
+    });
+
+    it('cancels a robot\'s phase-polling fallback schedule', async () => {
+      const { cancelSchedule } = await import('./beatClock');
+      const { lfoEngine } = await import('./lfoEngine');
+      lfoEngine.connectLfoTarget('layer0.phase', 'robot-a');
+      const sizeBeforeDispose = scheduleCallbacks.size;
+
+      lfoEngine.disposeRobotLfos('robot-a');
+
+      expect(cancelSchedule).toHaveBeenCalled();
+      expect(scheduleCallbacks.size).toBe(sizeBeforeDispose - 1);
+    });
+
+    it('does not throw for a robot with no connected LFOs at all', async () => {
+      const { lfoEngine } = await import('./lfoEngine');
+      expect(() => lfoEngine.disposeRobotLfos('never-connected-robot')).not.toThrow();
+    });
+
+    it('is idempotent — calling it twice in a row for the same robot does not throw', async () => {
+      const { AudioEngine } = await import('./AudioEngine');
+      (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal());
+      const { lfoEngine } = await import('./lfoEngine');
+      lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+
+      lfoEngine.disposeRobotLfos('robot-a');
+      expect(() => lfoEngine.disposeRobotLfos('robot-a')).not.toThrow();
+    });
+
+    it('does not affect a different robot\'s own connected LFO', async () => {
+      const { DEFAULT_LFO_SETTINGS } = await import('../data/lfoConfig');
+      const { AudioEngine } = await import('./AudioEngine');
+      (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValue(fakeSignal());
+      const { lfoEngine } = await import('./lfoEngine');
+      lfoEngine.setLfoRate('layer0.gain', 5, 'robot-a');
+      lfoEngine.setLfoRate('layer0.gain', 6, 'robot-b');
+
+      lfoEngine.disposeRobotLfos('robot-a');
+
+      expect(lfoEngine.getLfoSettings('layer0.gain', 'robot-a')).toEqual(DEFAULT_LFO_SETTINGS['layer0.gain']);
+      expect(lfoEngine.getLfoSettings('layer0.gain', 'robot-b').rate).toBe(6);
+    });
+  });
+
   describe('drift pool (Task 4 — structural, inert: both Gains stay at 0, nothing audible changes)', () => {
     describe('pool construction', () => {
       it('constructs no pool oscillator on module load or when only reading/setting rate, depth, or shape', async () => {
@@ -986,6 +1076,23 @@ describe('lfoEngine', () => {
 
         expect(rateDriftGain.disconnect).toHaveBeenCalledTimes(1);
         expect(depthDriftGain.disconnect).toHaveBeenCalledTimes(1);
+      });
+
+      it('disposes both of a primary\'s drift Gains too, not just disconnecting them (docs/tasks/AUDIO_ENGINE_CLEANUP.md Task 2)', async () => {
+        const { AudioEngine } = await import('./AudioEngine');
+        (AudioEngine.getRobotModulationTarget as ReturnType<typeof vi.fn>).mockReturnValueOnce(fakeSignal(0));
+        const { lfoEngine } = await import('./lfoEngine');
+        const Tone = await import('tone');
+        const gainCtor = Tone.Gain as unknown as ReturnType<typeof vi.fn>;
+        const before = gainCtor.mock.results.length;
+
+        lfoEngine.connectLfoTarget('layer0.gain', 'robot-a');
+        const [rateDriftGain, depthDriftGain] = gainCtor.mock.results.slice(before).map((r) => r.value as MockGainInstance);
+
+        lfoEngine.disconnectLfoTarget('layer0.gain', 'robot-a');
+
+        expect(rateDriftGain.dispose).toHaveBeenCalledTimes(1);
+        expect(depthDriftGain.dispose).toHaveBeenCalledTimes(1);
       });
 
       it('never disconnects a shared pool oscillator itself — pool oscillators are app-lifetime, not per-target', async () => {

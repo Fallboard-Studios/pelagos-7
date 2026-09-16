@@ -6,6 +6,7 @@ import { DAY_DURATION_MS } from '../constants/time';
 import { getLocaleNoiseMap, evictLocaleNoiseMap } from '../utils/noiseMaps';
 import { randomCoordinate } from '../utils/seedUtils';
 import { AudioEngine } from '../engine/AudioEngine';
+import { lfoEngine } from '../engine/lfoEngine';
 import {
   DEV_TUNING,
   RHYTHMIC_DENSITY_MIN,
@@ -127,6 +128,11 @@ export const useLocaleStore = create<LocaleState>((set, get) => ({
         } catch (err) {
           if (DEV_TUNING) swallow(err, 'AudioEngine.unregisterRobotMelody');
         }
+        try {
+          lfoEngine.disposeRobotLfos(robot.id);
+        } catch (err) {
+          if (DEV_TUNING) swallow(err, 'lfoEngine.disposeRobotLfos');
+        }
       }
     }
 
@@ -214,6 +220,11 @@ export const useLocaleStore = create<LocaleState>((set, get) => ({
       AudioEngine.unregisterRobotMelody(robotId);
     } catch (err) {
       if (DEV_TUNING) swallow(err, 'AudioEngine.unregisterRobotMelody');
+    }
+    try {
+      lfoEngine.disposeRobotLfos(robotId);
+    } catch (err) {
+      if (DEV_TUNING) swallow(err, 'lfoEngine.disposeRobotLfos');
     }
 
     set((state) => {

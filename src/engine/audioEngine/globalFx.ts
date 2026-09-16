@@ -19,6 +19,24 @@ let _globalLimiter: Tone.Limiter | null = null;
 let _masterGain: Tone.Gain | null = null;
 let _masterVolume = 1;
 
+/** Ramp duration for a live LPF/HPF frequency change — same declick rationale as
+ *  AudioEngine.ts's own VOLUME_RAMP_SECONDS: short enough to feel instant while dragging, long
+ *  enough to avoid an audible click on a large jump. Confirmed audible live on LPF frequency
+ *  with a direct .value write (docs/tasks/AUDIO_ENGINE_CLEANUP.md P2.4); Q and every other
+ *  global-chain param are left as direct writes — not confirmed audible, and out of scope for
+ *  this fix. */
+const FILTER_FREQUENCY_RAMP_SECONDS = 0.05;
+
+/** Ramp a Signal-backed AudioParam-like value to `target` when it supports .rampTo(), falling
+ *  back to a direct .value assignment when it doesn't (headless/test environments). */
+function rampOrSet(param: { rampTo?: (value: number, rampTime: number) => void; value: number }, target: number, rampSeconds: number): void {
+  if (typeof param.rampTo === 'function') {
+    param.rampTo(target, rampSeconds);
+  } else {
+    param.value = target;
+  }
+}
+
 /**
  * Build every global FX node and wire them into the default "Natural Decay"
  * topology via wireGlobalFxChain(false). All nodes are guarded with
@@ -238,7 +256,7 @@ export function setGlobalFilterLPF(params: Partial<FilterSettings>): void {
   const lpf = _globalLPF;
   if (!lpf) return;
   try {
-    if (params.frequency !== undefined) lpf.frequency.value = params.frequency;
+    if (params.frequency !== undefined) rampOrSet(lpf.frequency as unknown as { rampTo?: (value: number, rampTime: number) => void; value: number }, params.frequency, FILTER_FREQUENCY_RAMP_SECONDS);
     if (params.Q !== undefined) lpf.Q.value = params.Q;
   } catch (err) {
     devWarn('[AudioEngine] setGlobalFilterLPF failed', err);
@@ -249,7 +267,7 @@ export function setGlobalFilterHPF(params: Partial<FilterSettings>): void {
   const hpf = _globalHPF;
   if (!hpf) return;
   try {
-    if (params.frequency !== undefined) hpf.frequency.value = params.frequency;
+    if (params.frequency !== undefined) rampOrSet(hpf.frequency as unknown as { rampTo?: (value: number, rampTime: number) => void; value: number }, params.frequency, FILTER_FREQUENCY_RAMP_SECONDS);
     if (params.Q !== undefined) hpf.Q.value = params.Q;
   } catch (err) {
     devWarn('[AudioEngine] setGlobalFilterHPF failed', err);

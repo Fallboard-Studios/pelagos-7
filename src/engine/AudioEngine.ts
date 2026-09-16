@@ -23,7 +23,7 @@ import { devWarn } from '../utils/helpers';
 import { isRobotAudible } from '../utils/robotAudibility';
 import { calculatePanFromPosition } from './audioEngine/panning';
 import { volumePositionToGain } from './audioEngine/volumeTaper';
-import { getToneCtor, type MinimalToneNode, type ModulationTarget } from './audioEngine/toneHelpers';
+import { getToneCtor, makeStubPanner, makeStubGain, makeStubFilter, type MinimalToneNode, type ModulationTarget } from './audioEngine/toneHelpers';
 import { createCompositeVoice, type CompositeVoice } from './audioEngine/compositeVoice';
 import {
   buildGlobalFxChain,
@@ -87,6 +87,11 @@ const VOLUME_RAMP_SECONDS = 0.05;
 // Precompute data X positions for seeded noise sampling (module scope — hot path safe)
 const VELOCITY_ROLL_X = precomputeDataX('audio.velocityRoll');
 const VELOCITY_VARIANCE_X = precomputeDataX('audio.velocityVariance');
+
+// Validates a resolved pitch string before triggering (e.g. "C4", "F#3", "Bb2") — hoisted to
+// module scope, same "precompute once, not per-note" discipline as VELOCITY_ROLL_X/
+// VELOCITY_VARIANCE_X above, since triggerWithCap runs on the per-note hot path.
+const NOTE_RE = /^[A-Ga-g][b#]{0,2}\d+$/;
 
 // ========================================
 // MODULE STATE
@@ -342,7 +347,6 @@ export function triggerWithCap(params: NoteParams): boolean {
 
     const comp = compositeVoices.get(robotId);
     const synth = comp?.composite ?? null;
-    const panner = comp?.panner ?? null;
 
     if (!synth) {
       activeVoices = Math.max(0, activeVoices - 1);
@@ -353,7 +357,6 @@ export function triggerWithCap(params: NoteParams): boolean {
 
     // Validate note string before touching the synth — an invalid note can start
     // an oscillator attack before throwing, leaving voices permanently open.
-    const NOTE_RE = /^[A-Ga-g][b#]{0,2}\d+$/;
     if (!NOTE_RE.test(note)) {
       activeVoices = Math.max(0, activeVoices - 1);
       console.warn(`[AudioEngine] Invalid note string "${note}", skipping`);
@@ -361,15 +364,10 @@ export function triggerWithCap(params: NoteParams): boolean {
       return false;
     }
 
-    if (panner) {
-      try {
-        const visualX = getRobotVisualX(robotId);
-        panner.pan.value = calculatePanFromPosition(visualX);
-      } catch (err) {
-        console.warn('[AudioEngine] Failed to calculate/apply pan:', err);
-      }
-    }
-
+    // Pan is no longer recomputed here on every note — updateAllPanners (called once per
+    // 16th-note tick from startMelodyPlayback) already keeps every reserved robot's panner
+    // current at a strictly higher resolution than any single robot's own note-trigger rate,
+    // so this was pure duplicate work on the hot path (docs/tasks/AUDIO_ENGINE_CLEANUP.md Task 6).
     synth.triggerAttackRelease(note, duration, scheduleTime, params.velocity ?? 0.8);
     scheduleVoiceRelease(duration, scheduleTime);
     return true;
@@ -651,9 +649,9 @@ export const AudioEngine = {
       const FilterCtor = getToneCtor<Tone.Filter>('Filter');
 
       const initialBusGain = volumePositionToGain(masterVolume ?? 1);
-      const panner = PannerCtor ? new PannerCtor({ pan: 0 }) : ({ connect: () => { }, pan: { value: 0 }, disconnect: () => { } } as MinimalToneNode) as unknown as Tone.Panner;
-      const busGain = GainCtorLocal ? new GainCtorLocal(initialBusGain) : ({ connect: () => ({}), disconnect: () => { }, gain: { value: initialBusGain }, toDestination: () => { } } as MinimalToneNode) as unknown as Tone.Gain;
-      const busFilter = FilterCtor ? new FilterCtor({ frequency: 1200, Q: 1 }) : ({ connect: () => ({}), disconnect: () => { }, toDestination: () => { } } as MinimalToneNode) as unknown as Tone.Filter;
+      const panner = PannerCtor ? new PannerCtor({ pan: 0 }) : makeStubPanner() as unknown as Tone.Panner;
+      const busGain = GainCtorLocal ? new GainCtorLocal(initialBusGain) : makeStubGain(initialBusGain) as unknown as Tone.Gain;
+      const busFilter = FilterCtor ? new FilterCtor({ frequency: 1200, Q: 1 }) : makeStubFilter() as unknown as Tone.Filter;
 
       // Connect graph: composite.output -> panner -> busGain -> busFilter -> master compressor/destination
       try { composite.output.connect(panner); } catch (e) { devWarn('[AudioEngine] composite.output.connect failed', e); }
@@ -700,9 +698,9 @@ export const AudioEngine = {
         set: (_params: unknown) => { },
         dispose: () => { },
       } as unknown as CompositeVoice;
-      const panner = ({ connect: () => { }, pan: { value: 0 }, disconnect: () => { } } as MinimalToneNode) as unknown as Tone.Panner;
-      const busGain = ({ connect: () => { }, disconnect: () => { }, gain: { value: volumePositionToGain(masterVolume ?? 1) } } as MinimalToneNode) as unknown as Tone.Gain;
-      const busFilter = ({ connect: () => { }, disconnect: () => { }, toDestination: () => { } } as MinimalToneNode) as unknown as Tone.Filter;
+      const panner = makeStubPanner() as unknown as Tone.Panner;
+      const busGain = makeStubGain(volumePositionToGain(masterVolume ?? 1)) as unknown as Tone.Gain;
+      const busFilter = makeStubFilter() as unknown as Tone.Filter;
       compositeVoices.set(robotId, { composite: stubComposite, panner, busGain, busFilter });
       return false;
     }
