@@ -96,7 +96,7 @@ Task 1 (robotSelectionConfig.ts — ROBOT_SELECTION_ROW_SCHEMAS.status)
 
 ### Phase 3: Docs
 
-- [ ] **Task 3: `docs/reference/ROBOT_DATA_GRID.md` — Status field row**
+- [x] **Task 3: `docs/reference/ROBOT_DATA_GRID.md` — Status field row**
 
   **Description:** Append one row to the confirmed table (not the Draft table — this is a field, matching the shape of "Docked Status"/"Company" above it, per spec §6), flagged inline as unconfirmed since its lore label is this phase's own best guess:
 
@@ -105,12 +105,12 @@ Task 1 (robotSelectionConfig.ts — ROBOT_SELECTION_ROW_SCHEMAS.status)
   | Status | ACOUSTIC EMISSION STATE *(draft, unconfirmed)* | Dual Label Component | N/A | N/A | No | Display only. True audibility (`isRobotAudible`) — Robot Options' own Status field, Roadmap 15.3. Values: Emitting, Disabled (see Draft table below) |
 
   **Acceptance criteria:**
-  - [ ] Row appended to the confirmed table, same column shape as its neighbors, with the "draft, unconfirmed" flag on the Lore Label cell.
-  - [ ] `Lore Label`/`English Label` values match `ROBOT_SELECTION_ROW_SCHEMAS.status`'s actual shipped `loreLabel`/`humanLabel` exactly (spot-checked against Task 1's final code).
+  - [x] Row appended to the confirmed table, same column shape as its neighbors, with the "draft, unconfirmed" flag on the Lore Label cell.
+  - [x] `Lore Label`/`English Label` values match `ROBOT_SELECTION_ROW_SCHEMAS.status`'s actual shipped `loreLabel`/`humanLabel` exactly (spot-checked against Task 1's final code).
 
   **Verification:**
-  - [ ] Manual review — spot-checked against the shipped `robotSelectionConfig.ts`.
-  - [ ] `npm run build:types`, `npm run lint` clean (docs-only change, no behavioral impact — `npm test`/`npm run build` already verified clean against the same unchanged source at the prior checkpoint).
+  - [x] Manual review — spot-checked against the shipped `robotSelectionConfig.ts`.
+  - [x] `npm run build:types`, `npm run lint` clean (docs-only change, no behavioral impact — `npm test`/`npm run build` already verified clean against the same unchanged source at the prior checkpoint).
 
   **Dependencies:** Task 1 (documents its final values), Task 2 (documents the shipped consumer).
 
@@ -119,9 +119,9 @@ Task 1 (robotSelectionConfig.ts — ROBOT_SELECTION_ROW_SCHEMAS.status)
   **Estimated scope:** XS (docs only)
 
 ### Checkpoint: Complete
-- [ ] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
-- [ ] All acceptance criteria across all 3 tasks are met, including the manual browser check under Task 2.
-- [ ] `docs/reference/ROBOT_DATA_GRID.md` reflects the shipped Status field.
+- [x] `npm run build:types`, `npm run lint`, `npm test`, `npm run build` all clean.
+- [ ] All acceptance criteria across all 3 tasks are met, except the still-open manual browser check under Task 2.
+- [x] `docs/reference/ROBOT_DATA_GRID.md` reflects the shipped Status field.
 - [ ] Ready for human review / PR.
 
 ## Risks and Mitigations
