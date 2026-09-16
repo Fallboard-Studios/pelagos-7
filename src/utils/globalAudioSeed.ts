@@ -5,6 +5,7 @@ import type { NoiseFunction2D } from 'simplex-noise';
 
 import { getAttenuationStyleNoiseMap } from './noiseMaps';
 import { getSeededVal } from './getSeededVal';
+import { quantizeToStep } from './math';
 
 import type { GlobalAudioSettings } from '@/types/globalAudio';
 import { DEFAULT_GLOBAL_AUDIO_SETTINGS } from '@/types/globalAudio';
@@ -12,6 +13,7 @@ import { GLOBAL_AUDIO_LOADING_RANGES } from '@/data/globalAudioLoadingRanges';
 import { GLOBAL_AUDIO_SEED_RANGES, type GlobalAudioSeedFieldKey, type SeedRange } from '@/data/globalAudioSeedRanges';
 import {
   GLOBAL_LFO_TARGET_IDS,
+  LFO_RATE_MIN,
   type GlobalLfoTargetId,
   type LfoSettings,
   type LfoShape,
@@ -45,7 +47,13 @@ function sampleField(noiseMap: NoiseFunction2D, key: GlobalAudioSeedFieldKey): n
   // getSeededVal handles the seeded noise → [0, 1] draw; scaleUnitValue owns
   // range + log/linear mapping, so the two concerns stay separately testable.
   const t = getSeededVal(noiseMap, `globalAudio.${key}`, 0, 0, 1);
-  return scaleUnitValue(t, range);
+  const value = scaleUnitValue(t, range);
+  const { step } = GLOBAL_AUDIO_SEED_RANGES[key];
+  // Quantized against the FULL range's own min, never the narrower loading
+  // range's min — the grid a field's slider actually exposes is anchored to
+  // its full min, so quantizing against the loading min would land values on
+  // a different, incompatible grid.
+  return step === undefined ? value : quantizeToStep(value, GLOBAL_AUDIO_SEED_RANGES[key].min, step);
 }
 
 /**
@@ -153,10 +161,15 @@ const PING_VARIANCE_AUTOMATION_SEED_RANGE = { min: 0.33, max: 0.66 };
  */
 export function generatePingVarianceAutomation(attenuationStyleId: string, attenuationStyleName: string): number {
   const noiseMap = getAttenuationStyleNoiseMap(attenuationStyleId, attenuationStyleName);
-  return getSeededVal(
+  const raw = getSeededVal(
     noiseMap, 'globalAudio.pingVarianceAutomation', 0,
     PING_VARIANCE_AUTOMATION_SEED_RANGE.min, PING_VARIANCE_AUTOMATION_SEED_RANGE.max
   );
+  // Quantized in percent-space, not against the stored fraction directly —
+  // quantizing the fraction itself would round to hundredths of a fraction
+  // (a much finer grid than a whole percent), silently reintroducing a
+  // subtler version of the off-grid bug this quantization pass exists to fix.
+  return quantizeToStep(raw * 100, 0, 1) / 100;
 }
 
 /**
@@ -173,6 +186,14 @@ export const LFO_RATE_LOADING_MIN = 1;
 export const LFO_RATE_LOADING_MAX = 4;
 export const LFO_DEPTH_LOADING_MIN = 20;
 export const LFO_DEPTH_LOADING_MAX = 50;
+
+/**
+ * Mirrors Lfo.tsx's own RATE_STEP — kept as a separate local constant, same
+ * "mirrored, not shared" pattern spawnSystem.ts's own LFO_RATE_STEP uses,
+ * since the two files quantize independently sampled rates and have no
+ * other reason to share an import.
+ */
+const LFO_RATE_STEP = 0.05;
 
 /**
  * Loading-set restriction for global-chain LFO shape — narrower than
@@ -210,7 +231,11 @@ export function generateGlobalLfoSettings(
     const quiet = quietT < LFO_QUIET_THRESHOLD;
 
     result[target] = {
-      rate: quiet ? 0 : scaleUnitValue(rateT, { min: LFO_RATE_LOADING_MIN, max: LFO_RATE_LOADING_MAX, scale: 'linear' }),
+      rate: quiet ? 0 : quantizeToStep(
+        scaleUnitValue(rateT, { min: LFO_RATE_LOADING_MIN, max: LFO_RATE_LOADING_MAX, scale: 'linear' }),
+        LFO_RATE_MIN,
+        LFO_RATE_STEP,
+      ),
       depth: scaleUnitValue(depthT, { min: LFO_DEPTH_LOADING_MIN, max: LFO_DEPTH_LOADING_MAX, scale: 'linear' }),
       shape: LFO_LOADING_SHAPES[Math.min(LFO_LOADING_SHAPES.length - 1, Math.floor(shapeT * LFO_LOADING_SHAPES.length))],
     };
