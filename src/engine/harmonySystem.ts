@@ -2,7 +2,7 @@
 // IMPORTS
 // ========================================
 import { getCurrentMeasure, scheduleRepeat, cancelSchedule } from './beatClock';
-import { devLog, devWarn } from '../utils/helpers';
+import { devWarn } from '../utils/helpers';
 
 // ========================================
 // TYPES
@@ -70,7 +70,6 @@ export function resetHarmony(): void {
  */
 export function setAvailableNotes(notes: EighthNotes): void {
   availableNotes = notes;
-  devLog('[HarmonySystem] Palette manually set:', notes);
 }
 
 /**
@@ -93,14 +92,11 @@ export function scheduleHarmonyCycle(): void {
       if (paletteIndex !== lastPaletteIndex) {
         lastPaletteIndex = paletteIndex;
         availableNotes = HARMONY_PALETTES[paletteIndex] ?? HARMONY_PALETTES[0];
-        devLog(`[HarmonySystem] Palette changed to index ${paletteIndex}:`, availableNotes);
       }
     } catch (err) {
       devWarn('[HarmonySystem] palette cycle callback threw', err);
     }
   });
-
-  devLog(`[HarmonySystem] Harmony cycle scheduled (updates every ${MEASURES_PER_PALETTE_ENTRY} measures)`);
 }
 
 /**
@@ -110,6 +106,5 @@ export function stopHarmonyCycle(): void {
   if (scheduleId !== null) {
     cancelSchedule(scheduleId);
     scheduleId = null;
-    devLog('[HarmonySystem] Harmony cycle stopped');
   }
 }
