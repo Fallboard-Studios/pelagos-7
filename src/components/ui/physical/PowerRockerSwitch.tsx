@@ -76,7 +76,10 @@ export function PowerRockerSwitch() {
 
   // Set initial SVG attribute state via GSAP so it fully owns these attrs —
   // React has no points/y values in JSX to reconcile back on re-renders.
-  useGSAP(() => {
+  // contextSafe wraps every animation created outside this callback (the event-handler-driven
+  // ones below) so GSAP's own context — scoped to rockerRef — tracks them too, not just the
+  // mount-time gsap.set calls here.
+  const { contextSafe } = useGSAP(() => {
     if (!rockerRef.current) return;
     const sel = gsap.utils.selector(rockerRef.current);
     for (const face of ROCKER_FACES) {
@@ -89,11 +92,15 @@ export function PowerRockerSwitch() {
     gsap.set(powerSvgEl, { attr: { y: POWER_SVG_REST.y }, scaleY: POWER_SVG_REST.scaleY });
   }, { scope: rockerRef, dependencies: [] });
 
-  // Kill rocker timeline on unmount to prevent leaks
+  // Kill every timeline key this component can create on unmount to prevent leaks — the two
+  // press/return timelines plus the two delay sequences from handleRockerClick below. A pending
+  // sequence's onComplete (setShowConfirm/handlePowerOn/returnRocker) must never fire post-unmount.
   useEffect(() => {
     return () => {
       killTimeline('power-rocker');
       killTimeline('power-rocker-return');
+      killTimeline('power-rocker-confirm-delay');
+      killTimeline('power-rocker-sequence');
     };
   }, []);
 
@@ -102,7 +109,11 @@ export function PowerRockerSwitch() {
   // click as physical feedback, independent
   // of the modal outcome.
   // ----------------------------------------
-  function animateRockerPress() {
+  // contextSafe wraps and returns a new function without invoking it; the ref is only ever read
+  // once that wrapper is later called from a real event handler (handleRockerClick), never
+  // during this render.
+  // eslint-disable-next-line react-hooks/refs -- see comment above
+  const animateRockerPress = contextSafe(() => {
     if (!rockerRef.current) return;
     killTimeline('power-rocker-return');
     killTimeline('power-rocker');
@@ -119,9 +130,10 @@ export function PowerRockerSwitch() {
       // ── Hold (button stays depressed until dialog resolves) ────────────────
       .to({}, { duration: HOLD });
     setTimeline('power-rocker', tl);
-  }
+  });
 
-  function returnRocker() {
+  // eslint-disable-next-line react-hooks/refs -- see animateRockerPress above; contextSafe defers.
+  const returnRocker = contextSafe(() => {
     if (!rockerRef.current) return;
     killTimeline('power-rocker');
     killTimeline('power-rocker-return');
@@ -144,7 +156,7 @@ export function PowerRockerSwitch() {
       { attr: { y: POWER_SVG_REST.y }, scaleY: POWER_SVG_REST.scaleY, transformOrigin: '50% 50%', duration: MOTOR, ease: 'none' }, '<')
       .call(() => setIsTransitioning(false));
     setTimeline('power-rocker-return', tl);
-  }
+  });
 
   // ----------------------------------------
   // Power On
@@ -171,7 +183,7 @@ export function PowerRockerSwitch() {
   // Rocker click — animation fires immediately,
   // then branch on power state.
   // ----------------------------------------
-  function handleRockerClick() {
+  const handleRockerClick = contextSafe(() => {
     setIsTransitioning(true);
     animateRockerPress();
     if (isPoweredOn) {
@@ -190,7 +202,7 @@ export function PowerRockerSwitch() {
       seq.to({}, { duration: 0.5, onComplete: () => returnRocker() });
       setTimeline('power-rocker-sequence', seq);
     }
-  }
+  });
 
   const powerState = isPoweredOn ? 'on' : 'off';
   // Color is JS-owned (getStatusLightColor, the single statusLightColors source), motion stays

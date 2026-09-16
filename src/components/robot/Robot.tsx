@@ -1,7 +1,8 @@
 // ========================================
 // IMPORTS
 // ========================================
-import { memo, useRef, useLayoutEffect } from 'react';
+import { memo, useRef } from 'react';
+import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 
 import { RobotBody } from './RobotBody';
@@ -59,12 +60,12 @@ export const Robot = memo(function Robot({ robotId }: RobotProps) {
   // uiStore level, so only one of the two conditions is ever actually true.
   const isCompanyMember = allRobotsSelected || (selectedCompanyId !== null && robot?.companyId === selectedCompanyId);
 
-  // useLayoutEffect fires before paint, preventing a single frame at (0,0).
+  // useGSAP fires before paint (like useLayoutEffect), preventing a single frame at (0,0).
   // Intentionally run this effect only on mount so GSAP owns transforms.
   // Depends on `robotId` (the prop, always defined), not `robot.id` — `robot` itself can be
   // transiently undefined (see the defensive `if (!robot)` below), and hooks must run
   // unconditionally regardless.
-  useLayoutEffect(() => {
+  useGSAP(() => {
     if (ref.current && robot) {
       setRef(`robot-${robotId}`, ref.current);
       gsap.set(ref.current, {
@@ -80,8 +81,7 @@ export const Robot = memo(function Robot({ robotId }: RobotProps) {
       handleRobotIdle(localeId, robotId, { isReturning: true });
     }
     return () => deleteRef(`robot-${robotId}`);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [robotId]);
+  }, { scope: ref, dependencies: [robotId] });
 
   // Defensive only — OceanScene only ever renders a robotId that exists in the locale's roster
   // (fixed at 12, created once at locale load, never removed).
