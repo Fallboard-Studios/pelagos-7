@@ -212,9 +212,22 @@ Tasks 4-8 have no dependency on Tasks 1-3 or on each other; they may be done in 
 - [x] `npm run build:types`, `npm run lint` clean.
 - [ ] Reviewed with human.
 
-## Not a task: P2.4 (globalFx.ts ramp-vs-direct-value)
+## P2.4 (globalFx.ts ramp-vs-direct-value) — RESOLVED
 
-Per the spec, `setGlobalReverb`/`setGlobalDelay`/`setGlobalFilterLPF`/`setGlobalFilterHPF`/`setGlobalEQ`/`setGlobalCompressor`/`setGlobalLimiter` all use direct `.value =` assignment where `updateRobotMasterVolume` ramps to avoid zipper noise. This is a **listening-test judgment call requiring explicit approval**, not an implementation task — do not build this without raising it first and confirming which params (if any) are audibly better with a ramp.
+Per the spec, `setGlobalReverb`/`setGlobalDelay`/`setGlobalFilterLPF`/`setGlobalFilterHPF`/`setGlobalEQ`/`setGlobalCompressor`/`setGlobalLimiter` all used direct `.value =` assignment where `updateRobotMasterVolume` ramps to avoid zipper noise — flagged as a listening-test judgment call requiring explicit approval, not an implementation task to build unilaterally.
+
+**Confirmed live by the user**: a large LPF frequency jump produced an audible click. Fixed by
+ramping `frequency` on both `setGlobalFilterLPF` and `setGlobalFilterHPF` (same node type, same
+setter shape, same risk), using the same `rampTo`-with-fallback shape `updateRobotMasterVolume`
+already established, via a new small `rampOrSet` helper in `globalFx.ts`. Scope was an explicit
+choice, not a default: `Q` and every other global-chain param (EQ bands, compressor, delay,
+reverb, limiter) are deliberately left as direct writes — not confirmed audible, and there was
+no listening test for them. 4 new tests added to `globalFx.test.ts`. See the
+`globalFx: ramp LPF/HPF frequency...` commit for the full rationale.
+
+If EQ bands, compressor knobs, delay/reverb wet, or Q ever get their own confirmed-audible click
+report, the same `rampOrSet` helper is already there to reuse — but each one still needs its own
+listening test before being added, per the same reasoning that applied here.
 
 ## Risks and Mitigations
 

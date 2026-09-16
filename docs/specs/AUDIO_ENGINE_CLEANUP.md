@@ -154,6 +154,13 @@ logic exists in exactly one place," not a specific function shape.
    fix, and changing audio architecture requires asking first per CLAUDE.md. **Do not change this
    without explicit confirmation** — raise it with the user with a quick before/after test if
    picked up, and only change the params where it's audibly better.
+
+   **RESOLVED**: confirmed live by the user — a large LPF frequency jump produced an audible
+   click. Fixed by ramping `frequency` on both `setGlobalFilterLPF` and `setGlobalFilterHPF`
+   (same node type, same risk) via a new `rampOrSet` helper reusing `updateRobotMasterVolume`'s
+   existing shape; every other param here stays a direct write, since only frequency was ever
+   confirmed audible. See `docs/tasks/AUDIO_ENGINE_CLEANUP.md`'s P2.4 section for the full
+   before/after account.
 5. **Drift Gain disposal** — folded into P0 above (`detachDrift`), not a separate task.
 6. **(Optional, skip if not worth the churn) Dangling `scheduleVoiceRelease` timer past
    `killAll()`.** [AudioEngine.ts:256-271](../../src/engine/AudioEngine.ts#L256-L271) uses
