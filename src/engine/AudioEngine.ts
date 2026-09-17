@@ -4,7 +4,6 @@
 import * as Tone from 'tone';
 import gsap from 'gsap';
 import { useLocaleStore } from '../stores/localeStore';
-import { useDebugStore } from '../stores/debugStore';
 import { getActiveLocaleId } from '../utils/localeHelpers';
 import { lfoEngine } from './lfoEngine';
 
@@ -103,11 +102,6 @@ let initialized = false;
 let instrumentsLoaded = false;
 // Reservation state
 let activeVoices = 0;
-// Notes rejected by the polyphony cap (triggerWithCap) so far this measure —
-// snapshotted into useDebugStore.skippedNotesHistory and reset to 0 on every
-// measure boundary (see the subscribeToMeasure callback in start()). Feeds
-// the Skipped Notes debug counter (src/components/debug/SkippedNotesCounter.tsx).
-let skippedNotesThisMeasure = 0;
 // Global FX chain (compressor, reverb/delay/limiter/EQ/filters, master
 // gain) lives in src/engine/audioEngine/globalFx.ts as its own module state.
 // Unsubscribe handle for the BeatClock measure listener; prevents duplicate
@@ -306,12 +300,10 @@ export function triggerWithCap(params: NoteParams): boolean {
   // Enforce audioMode (mute/solo) here — this is the sole enforcement point,
   // not a backup: scheduleNote's own audioMode block only handles highlight
   // attenuation. Checked before the polyphony cap below so a muted/non-solo
-  // robot's note never counts against skippedNotesThisMeasure just because
-  // the cap happens to be full at the same time — that note was never going
-  // to play either way, unlike every reason the cap check below counts. No
-  // devLog on the mute/solo branches below — muted/non-solo robots hit this
-  // on every note attempt, and that's routine, intended behavior, not
-  // something worth logging per-note.
+  // robot's note never consumes a polyphony slot — that note was never going
+  // to play either way. No devLog on the mute/solo branches below —
+  // muted/non-solo robots hit this on every note attempt, and that's
+  // routine, intended behavior, not something worth logging per-note.
   try {
     const localeRobots = getActiveLocaleRobots();
     if (localeRobots.length > 0) {
@@ -330,7 +322,6 @@ export function triggerWithCap(params: NoteParams): boolean {
   }
 
   if (activeVoices >= MAX_POLYPHONY) {
-    skippedNotesThisMeasure++;
     return false;
   }
 
@@ -341,7 +332,6 @@ export function triggerWithCap(params: NoteParams): boolean {
     if (!compositeVoices.has(robotId)) {
       activeVoices = Math.max(0, activeVoices - 1);
       devWarn(`[AudioEngine] No composite voice reserved for ${robotId}, skipping note`);
-      skippedNotesThisMeasure++;
       return false;
     }
 
@@ -351,7 +341,6 @@ export function triggerWithCap(params: NoteParams): boolean {
     if (!synth) {
       activeVoices = Math.max(0, activeVoices - 1);
       devWarn('[AudioEngine] No composite voice available, skipping note');
-      skippedNotesThisMeasure++;
       return false;
     }
 
@@ -360,7 +349,6 @@ export function triggerWithCap(params: NoteParams): boolean {
     if (!NOTE_RE.test(note)) {
       activeVoices = Math.max(0, activeVoices - 1);
       console.warn(`[AudioEngine] Invalid note string "${note}", skipping`);
-      skippedNotesThisMeasure++;
       return false;
     }
 
@@ -374,7 +362,6 @@ export function triggerWithCap(params: NoteParams): boolean {
   } catch (err) {
     console.error('[AudioEngine] Failed to trigger note:', err);
     activeVoices = Math.max(0, activeVoices - 1);
-    skippedNotesThisMeasure++;
     return false;
   }
 }
@@ -407,7 +394,6 @@ function startMelodyPlayback(): void {
           devWarn(
             `[AudioEngine] Invalid note index ${event.noteIndex} for robot ${robotId}`
           );
-          skippedNotesThisMeasure++;
           return;
         }
 
@@ -423,7 +409,6 @@ function startMelodyPlayback(): void {
         });
       } catch (err) {
         devWarn(`[AudioEngine] Failed to schedule note for robot ${robotId}`, err);
-        skippedNotesThisMeasure++;
       }
     });
 
@@ -534,10 +519,6 @@ export const AudioEngine = {
       _unsubscribeMeasure?.();
       _unsubscribeMeasure = subscribeToMeasure((m: number) => {
         useLocaleStore.getState().setLocaleData(getActiveLocaleId(), { currentMeasure: m });
-        // Snapshot this measure's polyphony-cap skips into the debug history,
-        // then reset the counter for the next measure.
-        useDebugStore.getState().recordSkippedNotesForMeasure(skippedNotesThisMeasure);
-        skippedNotesThisMeasure = 0;
       });
     } catch (err) {
       devWarn('[AudioEngine] subscribeToMeasure failed', err);
@@ -566,7 +547,6 @@ export const AudioEngine = {
 
     stepCounter = 0;
     activeVoices = 0;
-    skippedNotesThisMeasure = 0;
     initialized = false;
   },
 
@@ -1031,7 +1011,6 @@ export const AudioEngine = {
         const noteName = notes[event.noteIndex];
         if (!noteName) {
           devWarn(`[AudioEngine] Invalid note index ${event.noteIndex} for robot ${robotId}`);
-          skippedNotesThisMeasure++;
           return;
         }
         const octave = event.octave ?? 4;
@@ -1046,7 +1025,6 @@ export const AudioEngine = {
         });
       } catch (err) {
         devWarn(`[AudioEngine] Failed to schedule note for robot ${robotId}`, err);
-        skippedNotesThisMeasure++;
       }
     });
   },
@@ -1144,7 +1122,6 @@ export const AudioEngine = {
 
       stepCounter = 0;
       activeVoices = 0;
-      skippedNotesThisMeasure = 0;
       initialized = false;
       // Reset beatClock so initBeatClock() re-registers its internal tick on next start.
       // transport.cancel() above cleared the old 16n tick; resetBeatClock() lets it be recreated.

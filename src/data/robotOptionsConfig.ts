@@ -171,8 +171,8 @@ export const FREQUENCY_PANEL_SCHEMA: DirectionalPanelSchema = {
  * in both robot mode (RobotOptionsTab) and company/All broadcast mode (CompanyOptionsSection) —
  * broadcasting it puts every member's playback into click-track mode at once. Rendered first,
  * above Density, so it reads as a mode switch for the rest of the accordion rather than one
- * control among many. PingControlsDrawer.tsx only renders it behind `DEV_TUNING` — same dev-only
- * gate as the Skipped Notes debug counter (App.tsx) — so it never reaches a production build.
+ * control among many. PingControlsDrawer.tsx only renders it behind `DEV_TUNING`, so it never
+ * reaches a production build.
  *
  * `humanLabel` feeds the toggle's accessible name (resolveAccessibleName) but is no longer shown
  * as external label text — PingControlsDrawer.tsx now passes "Click Track" directly as the

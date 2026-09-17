@@ -2,12 +2,10 @@ import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 
 import Tablet from './components/tablet/Tablet';
-import { SkippedNotesCounter } from './components/debug/SkippedNotesCounter';
 
 import { useAttenuationStyleStore, selectCurrentAttenuationStyle } from '@/stores/attenuationStyleStore';
 import useLocaleStore from '@/stores/localeStore';
 import { generateRealWorldGradients } from '@/utils/realWorldGradient';
-import { DEV_TUNING } from '@/constants';
 
 import './App.css';
 
@@ -39,7 +37,6 @@ function App() {
       <div className="real-world" style={realWorldStyle}>
         <Tablet />
       </div>
-      {DEV_TUNING && <SkippedNotesCounter />}
     </div>
   );
 }
