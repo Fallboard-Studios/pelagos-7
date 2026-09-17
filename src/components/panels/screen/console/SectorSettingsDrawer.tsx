@@ -19,11 +19,11 @@ import { getTraitColorStyle } from '@/utils/traitColors';
 import type { ButtonSchema } from '@/types/controls';
 import './SectorSettingsDrawer.css';
 
-const RANDOM_ATTENUATION_STYLE_SCHEMA: ButtonSchema = { id: 'sectorSettings.randomPlanet', type: 'button', humanLabel: 'Random' };
-const RANDOM_COORDS_SCHEMA: ButtonSchema = { id: 'sectorSettings.randomCoords', type: 'button', humanLabel: 'Random' };
+const RANDOM_ATTENUATION_STYLE_SCHEMA: ButtonSchema = { id: 'sectorSettings.randomPlanet', type: 'button', loreLabel: 'STOCHASTIC SEED [c]', humanLabel: 'Random' };
+const RANDOM_COORDS_SCHEMA: ButtonSchema = { id: 'sectorSettings.randomCoords', type: 'button', loreLabel: 'STOCHASTIC VECTOR [c]', humanLabel: 'Random' };
 
-function presetSchema(idSuffix: string, humanLabel: string): ButtonSchema {
-  return { id: `sectorSettings.preset.${idSuffix}`, type: 'button', humanLabel };
+function presetSchema(idSuffix: string, humanLabel: string, loreLabel: string): ButtonSchema {
+  return { id: `sectorSettings.preset.${idSuffix}`, type: 'button', loreLabel, humanLabel };
 }
 
 /**
@@ -92,7 +92,7 @@ export function SectorSettingsDrawer() {
           {ATTENUATION_STYLE_PRESETS.map((preset) => (
             <Button
               key={preset.label}
-              schema={presetSchema(`planet.${preset.label}`, preset.label)}
+              schema={presetSchema(`planet.${preset.label}`, preset.label, 'ATTENUATION PRESET [c]')}
               onClick={() => setAttenuationStyleNameDraft(preset.value)}
             />
           ))}
@@ -106,7 +106,7 @@ export function SectorSettingsDrawer() {
           {COORDINATE_PRESETS.map((preset) => (
             <Button
               key={preset.label}
-              schema={presetSchema(`coords.${preset.label}`, preset.label)}
+              schema={presetSchema(`coords.${preset.label}`, preset.label, 'PLOT PRESET [c]')}
               onClick={() => setCoordsDraft(preset.value)}
             />
           ))}

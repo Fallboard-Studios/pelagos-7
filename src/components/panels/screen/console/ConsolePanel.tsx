@@ -9,7 +9,7 @@ import type { HubTile } from '@/types/hub';
 import { useUIStore } from '@/stores/uiStore';
 import './ConsolePanel.css';
 
-const BACK_SCHEMA: ButtonSchema = { id: 'hubNavBack', type: 'button', humanLabel: 'Back' };
+const BACK_SCHEMA: ButtonSchema = { id: 'hubNavBack', type: 'button', loreLabel: 'CONSOLE RETREAT [c]', humanLabel: 'Back' };
 
 /**
  * One entry per HubTile, keyed by a Record so TypeScript itself enforces

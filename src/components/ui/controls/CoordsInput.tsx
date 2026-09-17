@@ -23,8 +23,8 @@ interface CoordsInputProps {
  * does not call onChange.
  */
 function CoordsInputInner({ schema, value, onChange }: CoordsInputProps) {
-  const xSchema: TextInputSchema = { id: `${schema.id}.x`, type: 'textInput', humanLabel: 'X' };
-  const ySchema: TextInputSchema = { id: `${schema.id}.y`, type: 'textInput', humanLabel: 'Y' };
+  const xSchema: TextInputSchema = { id: `${schema.id}.x`, type: 'textInput', loreLabel: 'LATERAL VECTOR [c]', humanLabel: 'X' };
+  const ySchema: TextInputSchema = { id: `${schema.id}.y`, type: 'textInput', loreLabel: 'VERTICAL VECTOR [c]', humanLabel: 'Y' };
 
   function handleX(raw: string) {
     // A native number input sanitizes an invalid keystroke (e.g. stray
