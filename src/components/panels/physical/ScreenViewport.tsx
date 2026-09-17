@@ -13,9 +13,7 @@ function ScreenViewport({ isPoweredOn }: ScreenViewportProps) {
     <main id={SCREEN_VIEWPORT_ID} className="screen-viewport">
       <div className="screen-occlusion" aria-hidden="true" />
 
-      <svg className="screen-rail top-rail" viewBox="0 0 100 2" width="100%" height="2" aria-hidden="true" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-        <line x1="0" y1="1" x2="100" y2="1" />
-      </svg>
+      <svg className="screen-rail right-light-beam" viewBox="0 0 100 2" width="100%" height="2" aria-hidden="true" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"></svg>
 
       <div className="screen-content">
         {isPoweredOn && <Header />}
@@ -23,9 +21,7 @@ function ScreenViewport({ isPoweredOn }: ScreenViewportProps) {
         {isPoweredOn && <Console />}
       </div>
 
-      <svg className="screen-rail bottom-rail" viewBox="0 0 100 2" width="100%" height="2" aria-hidden="true" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-        <line x1="0" y1="1" x2="100" y2="1" />
-      </svg>
+      <svg className="screen-rail left-light-beam" viewBox="0 0 100 2" width="100%" height="2" aria-hidden="true" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"></svg>
     </main>
   );
 }

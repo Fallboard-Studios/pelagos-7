@@ -75,15 +75,17 @@
   z-index: 3;
 }
 
-.top-rail {
+.right-light-beam {
   top: 0;
   left: auto;
   right: 0;
   background: linear-gradient(to left, rgba(255, 255, 255, 0.12), transparent);
 }
 
-.bottom-rail {
-  bottom: 0;
+.left-light-beam {
+  top: 0;
+  left: 0;
+  right: auto;
   background: linear-gradient(to right, rgba(255, 255, 255, 0.12), transparent);
 }
 
