@@ -974,22 +974,3 @@ Requested by Crawford, 2026-09-16. Depends on [20](#20-session-storage) (Session
 ### About
 
 Session Storage (20) makes a shareable link *possible* — the URL query string already carries a compressed, resolvable session payload — but today the only way to get one is to manually copy the browser's own address bar, and the only way to load one is to paste it there and reload. This phase adds explicit Export (generate and copy the current session's shareable link) and Import (paste a link or raw payload and apply it) controls to `SectorSettingsDrawer`, so sharing a session is a deliberate, discoverable in-app action rather than an address-bar trick a user has to already know about. Directly closes the "shareable link" half `docs/todo/backlog.md`'s existing Attenuation Style presets note is waiting on — Crawford wants to update the in-app preset list with current, shareable links once this lands.
-
-## 22. Bug: Seeded Values Not Quantized to Their Slider's Step
-
-Requested by Crawford, 2026-09-16 — found live: a robot's per-target LFO Rate loaded at `4.236 Hz`, a value the Rate slider's own `0.25 Hz` step can never produce by dragging. Source of investigation: [docs/reference/SLIDER_VALUES.md](../reference/SLIDER_VALUES.md), a full audit of every slider-controlled attribute in the Global Audio Rig and Robot Detail views (human label, slider type, unit, min/max/step, and seeded load min/max), built specifically to surface every instance of this bug class at a glance.
-
-### About
-
-Nearly every seeded/spawned slider value across both views is drawn as a continuous float via `getSeededVal`/`scaleUnitValue` and never rounded or quantized to that field's own slider step — only BPM (`Math.round()`-ed explicitly), Motif Length/Note Variance (integer by construction, `seedToggleValue`), and Octave Range (picked from fixed integer register tuples) get this right today. Confirmed instances from the audit: robot-level LFO Rate/Depth (the reported bug — no narrower loading window at all, full `[0, 10]` Hz / `[0, 100]`% range against `0.25`/`1` steps), global-chain LFO Rate/Depth (narrower load windows, same lack of rounding), Density, Pitch Repeat, Sustain, Volume (all display a seeded `0..1` fraction ×100 with no rounding against `step: 1`), Compressor Threshold/Ratio/Knee, and Ping Variance Automation. This phase should land a general fix — most likely a shared round-to-step helper applied at each generation call site — rather than patching call sites one at a time as they're individually noticed.
-
-**Done** — see [docs/intent/seeded-slider-value-quantization.md](../intent/seeded-slider-value-quantization.md), [docs/specs/SEEDED_SLIDER_VALUE_QUANTIZATION.md](../specs/SEEDED_SLIDER_VALUE_QUANTIZATION.md), and [docs/tasks/SEEDED_SLIDER_VALUE_QUANTIZATION.md](../tasks/SEEDED_SLIDER_VALUE_QUANTIZATION.md). Shipped on `feature/value-corrections`: a shared `quantizeToStep` helper (`src/utils/math.ts`) is now applied at every generation call site with a real declared step — EQ3, Delay Time/Feedback/Wet, Reverb Pre-Delay/Wet, Compressor Ratio, LFO Rate (global-chain and robot-level), Signature Array Gain, Ping Variance Automation, and Volume — plus one real audio-engine correctness fix found during planning (`Tone.FeedbackDelay`'s `maxDelay` was hardcoded to the old Delay Time max of `1`). A same-day follow-up, requested directly by Crawford, extended the fix to 6 more fields: LFO Depth (global-chain and robot-level), LFO Rate Drift/Depth Drift (all 4 drift groups), Compressor Threshold/Knee, Limiter Threshold, and the 3 oscillator layers' Detune — all now round to a whole unit (dB/percent/cent) at generation time. Density, Pitch Repeat, and Sustain remain unrounded — no declared step exists anywhere for those fields to quantize against. `docs/reference/SLIDER_VALUES.md`'s footnotes were updated in step with both passes.
-
-### Docs
-
-- `docs/reference/SLIDER_VALUES.md` gets a follow-up pass once fixed: its per-field footnotes calling out each unrounded case should be updated to reflect the corrected behavior, and the file's own opening note explaining the bug class may need rewording once it no longer describes current behavior.
-
-### Docs
-
-- docs/todo/backlog.md's Attenuation Style presets note ("Depends on Session Storage (Phase 20) for the 'shareable link' half") should be updated to point at this item once it ships.
-
