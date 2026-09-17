@@ -8,9 +8,7 @@ import { render } from '@testing-library/react';
 // real Tone.js/GSAP that throw in this jsdom environment — the same
 // boundary ScreenViewport.test.tsx itself draws for its own children).
 vi.mock('@/components/panels/physical/SleeveContainer', () => ({
-  default: ({ hasPowerSwitch }: { hasPowerSwitch?: boolean }) => (
-    <div data-testid={hasPowerSwitch ? 'sleeve-power' : 'sleeve-plain'} />
-  ),
+  default: () => <div data-testid="sleeve-container-stub" />,
 }));
 vi.mock('@/components/panels/physical/ScreenViewport', () => ({
   default: () => <div data-testid="screen-viewport-stub" />,
@@ -29,10 +27,9 @@ describe('Tablet', () => {
     expect(strip?.getAttribute('aria-hidden')).toBe('true');
   });
 
-  it('renders both SleeveContainer instances (power + plain) and ScreenViewport', () => {
+  it('renders SleeveContainer and ScreenViewport', () => {
     const { getByTestId } = render(<Tablet />);
-    expect(getByTestId('sleeve-power')).toBeTruthy();
-    expect(getByTestId('sleeve-plain')).toBeTruthy();
+    expect(getByTestId('sleeve-container-stub')).toBeTruthy();
     expect(getByTestId('screen-viewport-stub')).toBeTruthy();
   });
 });

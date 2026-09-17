@@ -10,10 +10,10 @@ function Tablet() {
 
   return (
     <div className="tablet">
-      <div className="sleeve-container__top-strip" aria-hidden="true" />
-      <SleeveContainer hasPowerSwitch={true} />
-      <ScreenViewport isPoweredOn={isPoweredOn} />
+      <div className="sleeve-container-strip sleeve-container__top-strip" aria-hidden="true" />
       <SleeveContainer />
+      <ScreenViewport isPoweredOn={isPoweredOn} />
+      <div className="sleeve-container-strip sleeve-container__bottom-strip" aria-hidden="true" />
     </div>
   );
 }

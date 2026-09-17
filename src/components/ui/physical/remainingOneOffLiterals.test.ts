@@ -64,21 +64,6 @@ describe('Header.css status row', () => {
   });
 });
 
-describe('SleeveContainer.css logo', () => {
-  const cssSource = readFileSync(
-    resolve(repoRoot, 'src/components/panels/physical/SleeveContainer.css'),
-    'utf-8',
-  );
-
-  it('sizes the sleeve logo with --font-size-label, keeping --font-mono untouched', () => {
-    const body = getCssRuleBody(cssSource, '.sleeve-logo');
-    expect(body).not.toBeNull();
-    expect(body).toContain('font-family: var(--font-mono);');
-    expect(body).toContain('font-size: var(--font-size-label);');
-    expect(body).not.toContain('var(--font-size-sm)');
-  });
-});
-
 describe('ConsolePanel.css stub (confirmed dead — zero .tsx consumers, migrated anyway per spec §7 item 5)', () => {
   const cssSource = readFileSync(
     resolve(repoRoot, 'src/components/panels/screen/console/ConsolePanel.css'),

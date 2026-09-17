@@ -102,7 +102,7 @@ describe('index.css type-scale tokens', () => {
     // not a hardcoded family/size/weight) so each control's own ancestor
     // rule (e.g. .sc-radio-button's font-family: var(--font-controls))
     // correctly reaches its own native <button>/<input> descendants.
-    const body = getCssRuleBody(cssSource, 'button, input, select, textarea');
+    const body = getCssRuleBody(cssSource, 'button,\ninput,\nselect,\ntextarea');
     expect(body).not.toBeNull();
     expect(body).toContain('font-family: inherit;');
     expect(body).toContain('font-size: inherit;');

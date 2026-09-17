@@ -263,8 +263,8 @@ export function PowerRockerSwitch() {
                 {/* Ridge fill — fades to transparent at both ends */}
                 <linearGradient id="rockerRidgeGrad" x1="0" y1="0" x2="1" y2="0">
                   <stop offset="0%" stopColor="rgba(0,0,0,0)" />
-                  <stop offset="12%" stopColor="rgba(0,0,0,0.65)" />
-                  <stop offset="88%" stopColor="rgba(0,0,0,0.65)" />
+                  <stop offset="6%" stopColor="rgba(0,0,0,0.65)" />
+                  <stop offset="94%" stopColor="rgba(0,0,0,0.65)" />
                   <stop offset="100%" stopColor="rgba(0,0,0,0)" />
                 </linearGradient>
               </defs>

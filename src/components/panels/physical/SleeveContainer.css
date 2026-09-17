@@ -10,11 +10,21 @@
   justify-content: space-between;
   pointer-events: none;
   z-index: calc(var(--z-header) - 1);
-  background: var(--color-surface);
+  background: var(--color-sleeve);
   /* Right-edge highlight on the straight sections above/below the jut */
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 2px 5px rgba(0, 0, 0, 0.55);
+  box-shadow: inset 1px 1px 1px rgba(255, 255, 255, 0.08);
+}
+
+.sleeve-container::after {
+  content: "";
+  position: absolute;
+  top: 12px;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  border-radius: 0 0 var(--sleeve-border-radius) 0;
+  z-index: -1;
+  box-shadow: 0 6px 5px rgba(0, 0, 0, 0.55);
 }
 
 .sleeve-container:not(.sleeve-container--cutaway) {
@@ -46,6 +56,7 @@
   top: 0;
   left: 0;
   height: var(--power-corner-height);
+  border-radius: 0 0 var(--sleeve-border-radius) 0;
 }
 
 .sleeve-container__power-corner {
@@ -61,35 +72,74 @@
   pointer-events: none;
 }
 
+.sleeve-container-strip {
+  position: absolute;
+  height: 12px;
+  background: var(--color-sleeve);
+  pointer-events: none;
+  z-index: calc(var(--z-header) - 1);
+  overflow-y: visible;
+  width: 100%;
+  max-width: 100%;
+}
+
+.sleeve-container-strip:after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 100%;
+  z-index: -1;
+  box-shadow: inset 1px 1px 1px rgba(255, 255, 255, 0.08), 0 2px 5px rgba(0, 0, 0, 0.55);
+}
+
 .sleeve-container__top-strip {
-  --offset: calc(var(--sleeve-bar-width) + 1px);
+  --offset: calc(var(--sleeve-bar-width) + 0px);
   position: absolute;
   top: 0;
   right: 0;
   left: var(--offset);
   width: calc(var(--tablet-max-width) + 32px - var(--offset));
   max-width: calc(var(--tablet-max-width) + 32px - var(--offset));
-  height: 8px;
-  background: var(--color-surface);
-  pointer-events: none;
-  z-index: 1;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 5px rgba(0, 0, 0, 0.55);
+}
 
+.sleeve-container__top-strip.sleeve-container-strip::after {
+  box-shadow: inset -1px 1px 1px rgba(255, 255, 255, 0.08), 0 2px 5px rgba(0, 0, 0, 0.55);
+}
+
+.sleeve-container__bottom-strip {
+  bottom: 0;
+  height: 32px;
+}
+
+.sleeve-container__bottom-strip::before {
+  content: "Trace Atlas";
+  width: 100%;
+  height: 100%;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: var(--font-size-heading-md);
+  text-align: center;
+  line-height: 1.5;
+  color: var(--color-text-primary);
+  opacity: 1;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  pointer-events: none;
+  position: absolute;
 }
 
 /* ─── Sleeve Logo ─────────────────────────────────────────────────────────── */
 .sleeve-logo {
   position: relative;
   z-index: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  width: 100%;
 
-  font-family: var(--font-mono);
-  font-size: var(--font-size-label);
-  color: var(--color-text-muted);
-  opacity: 0.9;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  -webkit-font-smoothing: antialiased;
-  user-select: none;
-  pointer-events: none;
-  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.25));
 }
