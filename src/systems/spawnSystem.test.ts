@@ -176,6 +176,15 @@ describe('spawnSystem', () => {
         expect(Object.is(layer.gain, 0)).toBe(true);
       }
     });
+
+    it('quantizes every layer\'s detune to a whole cent, across many seeds', () => {
+      const attributes = Array.from({ length: 60 }, (_, i) => generateAudioAttributes(mockNoiseMap, i));
+      for (const attrs of attributes) {
+        for (const layer of attrs.layers ?? []) {
+          expect(Number.isInteger(layer.detune), `detune: ${layer.detune}`).toBe(true);
+        }
+      }
+    });
   });
 
   describe('generateRobotLfoSettings', () => {
@@ -211,6 +220,16 @@ describe('spawnSystem', () => {
           if (rate === 0) continue;
           const stepsFromMin = rate / 0.05;
           expect(Math.abs(stepsFromMin - Math.round(stepsFromMin)), `${target}.rate (offset ${i})`).toBeLessThan(1e-9);
+        }
+      }
+    });
+
+    it('quantizes depth to a whole percent, across many seeds and targets (SEEDED_SLIDER_VALUE_QUANTIZATION follow-up)', () => {
+      for (let i = 0; i < 30; i++) {
+        const settings = generateRobotLfoSettings(mockNoiseMap, i);
+        for (const target of ROBOT_LFO_TARGET_IDS) {
+          const { depth } = settings[target];
+          expect(Number.isInteger(depth), `${target}.depth (offset ${i}): ${depth}`).toBe(true);
         }
       }
     });

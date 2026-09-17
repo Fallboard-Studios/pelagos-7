@@ -22,16 +22,19 @@ curve, not a flat numeric increment. Both cases are marked `—` below, with a n
 
 **Load Min/Max column note:** this is the range a *seeded/spawned* value can land in, sampled via
 `getSeededVal`/`scaleUnitValue` as a continuous float across that range. As of
-`SEEDED_SLIDER_VALUE_QUANTIZATION`, every field with a real, declared numeric `step` is now
-quantized onto that field's own grid at generation time (`quantizeToStep`, `src/utils/math.ts`) —
-EQ3, Delay Time/Feedback/Wet, Reverb Pre-Delay/Wet, Compressor Ratio, LFO Rate (both global-chain
-and robot-level), Signature Array Gain, Automatic Effects (Ping Variance Automation), and Volume.
-Fields that only fall back to `SliderLinear`'s *implicit* default step of `1` (marked `⁶` below —
-Density, Pitch Repeat, Sustain, LFO Depth, Compressor Threshold/Knee, Limiter Threshold) are
-**not** covered — they still seed a continuous float with no rounding, since there's no real
-declared step to quantize against. BPM, Motif Length, Note Variance, Octave Range, and the
-integer-floored Phase were already correctly aligned before this pass, for unrelated reasons noted
-at each row.
+`SEEDED_SLIDER_VALUE_QUANTIZATION` and a follow-up integer-rounding pass, every field with a real,
+declared numeric `step` — on the *generation* side, `GLOBAL_AUDIO_SEED_RANGES`/`quantizeToStep`
+call sites, not necessarily the UI schema (see Compressor/Limiter below) — is now quantized onto
+that field's own grid at generation time (`quantizeToStep`, `src/utils/math.ts`): EQ3, Delay
+Time/Feedback/Wet, Reverb Pre-Delay/Wet, Compressor Ratio/Threshold/Knee, Limiter Threshold, LFO
+Rate and Depth (both global-chain and robot-level), Rate Drift/Depth Drift (all 4 groups),
+Signature Array Gain, Signature Array Detune (all 3 oscillators), Automatic Effects (Ping Variance
+Automation), and Volume — rounded to a whole dB/Hz/percent/cent as appropriate to each field's own
+unit. Fields that only fall back to `SliderLinear`'s *implicit* default step of `1` with no
+generation-side step declared either (marked `⁶` below — Density, Pitch Repeat, Sustain) remain
+**not** covered — they still seed a continuous float with no rounding. BPM, Motif Length, Note
+Variance, Octave Range, and the integer-floored Phase were already correctly aligned before this
+pass, for unrelated reasons noted at each row.
 
 ---
 
@@ -90,8 +93,12 @@ Attenuation Style can load silent.
 | Knee | Linear | dB | 0 | 40 | 1² | 1 | 15 |
 | Decay Mode | Radio, not a slider | — | — | — | — | — | — |
 
-² No `step` in the schema — `SliderLinear.tsx`'s default of `1` applies. Neither Threshold nor
-Knee's own seeded load value is rounded to a whole number.
+² No `step` in the *schema* — `SliderLinear.tsx`'s default of `1` applies, same as before. Unlike
+most no-schema-step fields, though, the *generation* side (`GLOBAL_AUDIO_SEED_RANGES['compressor.
+threshold']`/`['compressor.knee']`, `src/data/globalAudioSeedRanges.ts`) now declares its own
+`step: 1` independently of the UI schema — `sampleField` (`globalAudioSeed.ts`) quantizes against
+it, so both Threshold and Knee's seeded load value is a whole dB now, matching the slider's
+implicit step by coincidence of both being `1`.
 
 ### Limiter
 
@@ -99,7 +106,9 @@ Knee's own seeded load value is rounded to a whole number.
 |---|---|---|---|---|---|---|---|
 | Threshold | Linear | dB | -20 | 0 | 1² | -3 | -1 |
 
-² No `step` in the schema — defaults to `1`; the seeded load value is not rounded.
+² No `step` in the *schema* — defaults to `1`. Same as Compressor Threshold/Knee above: `GLOBAL_
+AUDIO_SEED_RANGES['limiter.threshold']` declares its own `step: 1` on the generation side, so the
+seeded load value is a whole dB now.
 
 ### Transport & Composition
 
@@ -173,7 +182,7 @@ displayed ×100 with no rounding, same class as Density/Pitch Repeat/Volume abov
 | Human Label | Slider Type | Value Type | Min | Max | Step | Load Min | Load Max |
 |---|---|---|---|---|---|---|---|
 | Baseline Gain | Linear | — | 0 | 2 | 0.01 | 0.2 | 1.2¹³ |
-| Baseline Detune | Centered Zero | cents | -50 | 50 | — | -2 | 2 |
+| Baseline Detune | Centered Zero | cents | -50 | 50 | —¹⁵ | -2 | 2 |
 | Baseline Phase | Linear | degrees | 0 | 360 | 1⁶ | 0 | 360⁹ |
 | Baseline Interval | Linear | — | 0 | 1 | 0.01 | — | —¹⁰ |
 
@@ -182,7 +191,7 @@ displayed ×100 with no rounding, same class as Density/Pitch Repeat/Volume abov
 | Human Label | Slider Type | Value Type | Min | Max | Step | Load Min | Load Max |
 |---|---|---|---|---|---|---|---|
 | Coaxial Gain | Linear | — | 0 | 2 | 0.01 | 0¹¹ | 1.2¹³ |
-| Coaxial Detune | Centered Zero | cents | -50 | 50 | — | -2 | 2 |
+| Coaxial Detune | Centered Zero | cents | -50 | 50 | —¹⁵ | -2 | 2 |
 | Coaxial Phase | Linear | degrees | 0 | 360 | 1⁶ | 0 | 360⁹ |
 | Coaxial Interval | Linear | — | 0 | 1 | 0.01 | — | —¹⁰ |
 
@@ -191,7 +200,7 @@ displayed ×100 with no rounding, same class as Density/Pitch Repeat/Volume abov
 | Human Label | Slider Type | Value Type | Min | Max | Step | Load Min | Load Max |
 |---|---|---|---|---|---|---|---|
 | Harmonic Gain | Linear | — | 0 | 2 | 0.01 | 0¹¹ | 1.2¹³ |
-| Harmonic Detune | Centered Zero | cents | -50 | 50 | — | -2 | 2 |
+| Harmonic Detune | Centered Zero | cents | -50 | 50 | —¹⁵ | -2 | 2 |
 | Harmonic Phase | Linear | degrees | 0 | 360 | 1⁶ | 0 | 360⁹ |
 | Harmonic Interval | Linear | — | 0 | 1 | 0.01 | — | —¹⁰ |
 
@@ -204,6 +213,9 @@ never actually produces `361` itself.
 until a user drags it (`layer.pulseWidth ?? 0.5`). `0.5` happens to be exactly on the `0.01` step
 grid, so this isn't a live instance of the load-vs-step bug, just worth knowing it's never actually
 seeded.
+¹⁵ No numeric `step` in `SliderCenteredZero`'s *schema*, same as every other Centered Zero field —
+but the *generation* side now rounds anyway: `spawnSystem.ts`'s per-layer `detune` draw is
+quantized to a whole cent (`DETUNE_STEP = 1`), for all 3 layers (Baseline/Coaxial/Harmonic) alike.
 ¹¹ Coaxial/Harmonic each have a real ~50% chance (`LAYER_QUIET_THRESHOLD`) of loading at exactly
 `0` (muted) instead of a sampled value in `[0.2, 1.2]` — Baseline (Layer 1) never mutes and always
 samples the full `[0.2, 1.2]` range.
@@ -225,21 +237,21 @@ modulating. One row per field, not one per target:
 | Rate | Linear | Hz | 0 | 20 | 0.05 | 1 | 4 | 0 | 20¹² |
 | Depth | Linear | % | 0 | 100 | 1⁶ | 20 | 50 | 0 | 100¹² |
 
-⁶ No `step` on Depth's schema (`Lfo.tsx`'s `depthSchema`) — defaults to `1`; Depth is not covered
-by `SEEDED_SLIDER_VALUE_QUANTIZATION` and still seeds a continuous, unrounded float in both the
+⁶ No `step` on Depth's *schema* (`Lfo.tsx`'s `depthSchema`) — defaults to `1`. Like Compressor
+Threshold/Knee above, though, the *generation* side now declares its own step independently of the
+UI schema: a mirrored `LFO_DEPTH_STEP = 1` local to each of `globalAudioSeed.ts` and
+`spawnSystem.ts`, quantized against `LFO_DEPTH_MIN` — Depth is a whole percent now in both the
 global-chain and robot-level cases.
 ¹² **Robot-level LFO Rate/Depth sample the entire full/UI range with no narrower loading
 sub-window at all** (`spawnSystem.ts`'s `generateRobotLfoSettings` uses `LFO_RATE_MIN`/`MAX` and
 `LFO_DEPTH_MIN`/`MAX` directly) — unlike every global-chain field, which has its own narrower
-`GLOBAL_AUDIO_LOADING_RANGES`/`LFO_RATE_LOADING_MIN`/`MAX` window. Rate is now quantized to a
-`0.05` step in both cases (a mirrored `LFO_RATE_STEP` local to each of `globalAudioSeed.ts` and
-`spawnSystem.ts`) — Depth has no declared step and stays unrounded in both. This was the exact
-mechanism behind the originally reported bug: a robot's per-target Rate could seed anywhere in
-`[0, 10]` continuously against a `0.25` step (e.g. `4.236`) — now fixed by quantizing Rate at
-generation time. Depth remains unfixed in both the global-chain and robot-level cases — it has no
-declared step to quantize against, so it still seeds a continuous, unrounded float; the
-global-chain window is narrower (`[20, 50]` vs. the robot-level `[0, 100]`) but just as
-unquantized, only less likely to land far off-grid because the window itself is smaller.
+`GLOBAL_AUDIO_LOADING_RANGES`/`LFO_RATE_LOADING_MIN`/`MAX` window. Both Rate (`0.05` step) and
+Depth (`1` step, whole percent) are now quantized in both cases, via mirrored step constants local
+to each of `globalAudioSeed.ts` and `spawnSystem.ts`. This was the exact mechanism behind the
+originally reported bug: a robot's per-target Rate could seed anywhere in `[0, 10]` continuously
+against a `0.25` step (e.g. `4.236`) — now fixed for both Rate and Depth at generation time; the
+global-chain window is narrower (`[20, 50]` vs. the robot-level `[0, 100]` for Depth) but that only
+ever affected how far off-grid an unrounded value could land, not whether it's rounded now.
 
 ## LFO Drift (Rate Drift / Depth Drift) — applies to all 4 drift groups
 
@@ -249,8 +261,15 @@ every group:
 
 | Human Label | Slider Type | Value Type | Min | Max | Step | Load Min | Load Max |
 |---|---|---|---|---|---|---|---|
-| Rate Drift | Centered Zero | % | -100 | 100 | — | -70 | 70 |
-| Depth Drift | Centered Zero | % | -100 | 100 | — | -70 | 70 |
+| Rate Drift | Centered Zero | % | -100 | 100 | —¹⁴ | -70 | 70 |
+| Depth Drift | Centered Zero | % | -100 | 100 | —¹⁴ | -70 | 70 |
 
-No load-vs-step concern here — `SliderCenteredZero` has no numeric step to begin with, so a
-continuous seeded value is never "off-grid" the way a `SliderLinear` one can be.
+¹⁴ `SliderCenteredZero` still has no numeric `step` field in its *schema* — the UI slider's own
+granularity is unchanged. The *generation* side now rounds anyway: `GLOBAL_AUDIO_SEED_RANGES`'s
+8 `lfoDrift.*` entries (one `rateDrift`/`depthDrift` pair per group, `globalAudioSeedRanges.ts`)
+each declare `step: 0.01` — a whole percent in this field's `-1..1` stored-fraction space (1% =
+`0.01`) — and `sampleField` quantizes against it the same way it does every other stepped field.
+
+Since `SliderCenteredZero` never had a numeric step to compare against, there's no "off the
+slider's own grid" concern the way a `SliderLinear` field has — the whole-percent rounding above is
+purely a generation-side choice, not driven by any UI step this field lacks.

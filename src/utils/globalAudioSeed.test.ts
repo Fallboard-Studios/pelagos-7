@@ -198,9 +198,35 @@ describe('generateGlobalAudioSettings', () => {
       }
     });
 
-    it('leaves a field with no declared step (compressor.threshold) byte-for-byte unaffected — regression, not just "still works"', () => {
+    it('leaves a field with no declared step (filterLPF.frequency) byte-for-byte unaffected — regression, not just "still works"', () => {
       const settings = generateGlobalAudioSettings('regression-probe-seed', 'ProbePlanet');
-      expect(settings.compressor.threshold).toBe(-50.59248226496645);
+      expect(settings.filterLPF.frequency).toBe(4730.514641816347);
+    });
+
+    it('quantizes compressor.threshold and compressor.knee to a whole dB, across many seeds', () => {
+      for (let i = 0; i < 20; i++) {
+        const settings = generateGlobalAudioSettings(`seed-quantize-sample-${i}`, `QuantizeSample${i}`);
+        expect(Number.isInteger(settings.compressor.threshold), `threshold attenuationStyle ${i}`).toBe(true);
+        expect(Number.isInteger(settings.compressor.knee), `knee attenuationStyle ${i}`).toBe(true);
+      }
+    });
+
+    it('quantizes limiter.threshold to a whole dB, across many seeds', () => {
+      for (let i = 0; i < 20; i++) {
+        const settings = generateGlobalAudioSettings(`seed-quantize-sample-${i}`, `QuantizeSample${i}`);
+        expect(Number.isInteger(settings.limiter.threshold), `attenuationStyle ${i}`).toBe(true);
+      }
+    });
+
+    it('quantizes every lfoDrift field (rateDrift/depthDrift, all 4 groups) to a whole percent, across many seeds', () => {
+      for (let i = 0; i < 20; i++) {
+        const settings = generateGlobalAudioSettings(`seed-quantize-sample-${i}`, `QuantizeSample${i}`);
+        for (const group of DRIFT_GROUP_IDS) {
+          const { rateDrift, depthDrift } = settings.lfoDrift[group];
+          expect(Math.abs(rateDrift * 100 - Math.round(rateDrift * 100)), `${group}.rateDrift attenuationStyle ${i}`).toBeLessThan(1e-9);
+          expect(Math.abs(depthDrift * 100 - Math.round(depthDrift * 100)), `${group}.depthDrift attenuationStyle ${i}`).toBeLessThan(1e-9);
+        }
+      }
     });
   });
 
@@ -374,6 +400,17 @@ describe('generateGlobalLfoSettings', () => {
         if (rate === 0) continue;
         const stepsFromMin = rate / 0.05;
         expect(Math.abs(stepsFromMin - Math.round(stepsFromMin)), `${target}.rate (attenuationStyle ${i})`).toBeLessThan(1e-9);
+      }
+    }
+  });
+
+  it('quantizes depth to a whole percent across many seeds and targets', () => {
+    const SAMPLE_ATTENUATION_STYLES = 20;
+    for (let i = 0; i < SAMPLE_ATTENUATION_STYLES; i++) {
+      const settings = generateGlobalLfoSettings(`seed-lfo-sample-${i}`, `Sample${i}`);
+      for (const target of GLOBAL_LFO_TARGET_IDS) {
+        const { depth } = settings[target];
+        expect(Number.isInteger(depth), `${target}.depth (attenuationStyle ${i}): ${depth}`).toBe(true);
       }
     }
   });

@@ -113,6 +113,20 @@ describe('GLOBAL_AUDIO_SEED_RANGES', () => {
     expect(GLOBAL_AUDIO_SEED_RANGES['limiter.threshold'].scale).toBe('linear');
   });
 
+  it('declares an integer step (1) on compressor.threshold, compressor.knee, and limiter.threshold — whole-dB rounding', () => {
+    expect(GLOBAL_AUDIO_SEED_RANGES['compressor.threshold'].step).toBe(1);
+    expect(GLOBAL_AUDIO_SEED_RANGES['compressor.knee'].step).toBe(1);
+    expect(GLOBAL_AUDIO_SEED_RANGES['limiter.threshold'].step).toBe(1);
+  });
+
+  it('declares a 0.01 step (whole-percent, in fraction-space) on every lfoDrift field, all 4 groups', () => {
+    for (const key of EXPECTED_KEYS) {
+      if (key.startsWith('lfoDrift.')) {
+        expect(GLOBAL_AUDIO_SEED_RANGES[key].step, key).toBe(0.01);
+      }
+    }
+  });
+
   it('never has min >= max for any field', () => {
     for (const key of EXPECTED_KEYS) {
       const { min, max } = GLOBAL_AUDIO_SEED_RANGES[key];

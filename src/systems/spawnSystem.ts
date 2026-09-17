@@ -63,6 +63,9 @@ const LAYER_QUIET_THRESHOLD = 0.5;
 /** Mirrors the Signature Array Gain slider's own step (SEEDED_SLIDER_VALUE_QUANTIZATION). */
 const LAYER_GAIN_STEP = 0.01;
 
+/** Rounds each oscillator layer's Detune to a whole cent (SEEDED_SLIDER_VALUE_QUANTIZATION follow-up). */
+const DETUNE_STEP = 1;
+
 // Octave registers — seed directly without Hz indirection
 // [min, max] inclusive; 3 tiers: bass, mid, treble
 const OCTAVE_REGISTERS = [
@@ -290,7 +293,7 @@ export function generateAudioAttributes(noiseMap: NoiseFunction2D, offset: numbe
     const layerWave: OscillatorLayer = {
       type: WAVEFORMS[Math.floor(getSeededVal(noiseMap, 'robot.audio.layer.waveform', layerOffset, 0, WAVEFORMS.length))],
       gain: quiet ? 0 : quantizeToStep(getSeededVal(noiseMap, 'robot.audio.layer.gain', layerOffset, 0.2, 1.2), 0, LAYER_GAIN_STEP),
-      detune: getSeededVal(noiseMap, 'robot.audio.layer.detune', layerOffset, -2, 2),
+      detune: quantizeToStep(getSeededVal(noiseMap, 'robot.audio.layer.detune', layerOffset, -2, 2), 0, DETUNE_STEP),
       phase: Math.floor(getSeededVal(noiseMap, 'robot.audio.layer.phase', layerOffset, 0, 361)) || 0,
     };
     layers.push(layerWave);
@@ -346,6 +349,10 @@ const LFO_QUIET_THRESHOLD = 0.5;
 /** Mirrors Lfo.tsx's own RATE_STEP (SEEDED_SLIDER_VALUE_QUANTIZATION). */
 const LFO_RATE_STEP = 0.05;
 
+/** Rounds Depth to a whole percent (SEEDED_SLIDER_VALUE_QUANTIZATION follow-up) — already
+ *  stored in percent units (0-100), so no unit conversion needed. */
+const LFO_DEPTH_STEP = 1;
+
 /**
  * Generate seeded LfoSettings for all 13 RobotLfoTargetId modulation targets,
  * the same way as the rest of a robot's audio personality (generateAudioAttributes
@@ -369,7 +376,7 @@ export function generateRobotLfoSettings(noiseMap: NoiseFunction2D, offset: numb
     const settings: LfoSettings = {
       shape: LFO_SHAPES[shapeIdx],
       rate: quiet ? 0 : quantizeToStep(getSeededVal(noiseMap, `robot.lfo.${target}.rate`, offset, LFO_RATE_MIN, LFO_RATE_MAX), LFO_RATE_MIN, LFO_RATE_STEP),
-      depth: getSeededVal(noiseMap, `robot.lfo.${target}.depth`, offset, LFO_DEPTH_MIN, LFO_DEPTH_MAX),
+      depth: quantizeToStep(getSeededVal(noiseMap, `robot.lfo.${target}.depth`, offset, LFO_DEPTH_MIN, LFO_DEPTH_MAX), LFO_DEPTH_MIN, LFO_DEPTH_STEP),
     };
     return [target, settings] as const;
   });

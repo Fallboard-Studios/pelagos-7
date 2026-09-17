@@ -14,6 +14,7 @@ import { GLOBAL_AUDIO_SEED_RANGES, type GlobalAudioSeedFieldKey, type SeedRange 
 import {
   GLOBAL_LFO_TARGET_IDS,
   LFO_RATE_MIN,
+  LFO_DEPTH_MIN,
   type GlobalLfoTargetId,
   type LfoSettings,
   type LfoShape,
@@ -195,6 +196,11 @@ export const LFO_DEPTH_LOADING_MAX = 50;
  */
 const LFO_RATE_STEP = 0.05;
 
+/** Rounds depth to a whole percent — depth is already stored in percent units (0-100), so no
+ *  unit conversion is needed the way Rate/Volume/Ping Variance Automation's percent-space
+ *  conversions require. */
+const LFO_DEPTH_STEP = 1;
+
 /**
  * Loading-set restriction for global-chain LFO shape — narrower than
  * LFO_SHAPES (all 4: triangle/sine/square/sawtooth, still the full set the
@@ -236,7 +242,11 @@ export function generateGlobalLfoSettings(
         LFO_RATE_MIN,
         LFO_RATE_STEP,
       ),
-      depth: scaleUnitValue(depthT, { min: LFO_DEPTH_LOADING_MIN, max: LFO_DEPTH_LOADING_MAX, scale: 'linear' }),
+      depth: quantizeToStep(
+        scaleUnitValue(depthT, { min: LFO_DEPTH_LOADING_MIN, max: LFO_DEPTH_LOADING_MAX, scale: 'linear' }),
+        LFO_DEPTH_MIN,
+        LFO_DEPTH_STEP,
+      ),
       shape: LFO_LOADING_SHAPES[Math.min(LFO_LOADING_SHAPES.length - 1, Math.floor(shapeT * LFO_LOADING_SHAPES.length))],
     };
   }
