@@ -171,7 +171,7 @@ Polyphony management controls the maximum number of simultaneous audio voices to
 
 **For complete implementation details, see [POLYPHONY_GUIDE.md](POLYPHONY_GUIDE.md).**
 
-**Skipped Notes debug counter.** A bottom-left, dev-only overlay (`SkippedNotesCounter.tsx`, rendered from `App.tsx` behind `DEV_TUNING` — unreachable in a production build) showing how many note triggers were rejected in the current measure. `triggerWithCap`, `startMelodyPlayback`, and `playRegisteredEvents` each count every reason a trigger fails — the polyphony cap, a missing composite voice, an invalid note string, or a thrown scheduling error — not just the cap alone. The running count is snapshotted into `useDebugStore`'s rolling per-measure history on each `subscribeToMeasure` tick, then reset for the next measure. Originally added to diagnose the voice-release stall bug (see [BPM_CONTROL.md](tasks/BPM_CONTROL.md)'s "Post-launch addition: Skipped Notes debug counter"); kept afterward as a standing tool — a rising count during a live tempo change is a fast way to notice voices genuinely aren't clearing, without waiting to hear playback audibly degrade.
+**Skipped Notes debug counter — removed.** A bottom-left, dev-only overlay (`SkippedNotesCounter.tsx`) once showed how many note triggers were rejected per measure, backed by a `useDebugStore` rolling history. Originally added to diagnose the voice-release stall bug (see [BPM_CONTROL.md](tasks/BPM_CONTROL.md)'s "Post-launch addition: Skipped Notes debug counter"), then removed entirely (2026-09-16, Crawford's own request) along with `debugStore.ts` — `triggerWithCap`, `startMelodyPlayback`, and `playRegisteredEvents` no longer count skip reasons at all.
 
 ## Layered / Composite Voices and Visual Mapping
 

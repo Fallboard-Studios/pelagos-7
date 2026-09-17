@@ -79,18 +79,6 @@ describe('SleeveContainer.css logo', () => {
   });
 });
 
-describe('SkippedNotesCounter.css', () => {
-  const cssSource = readFileSync(resolve(repoRoot, 'src/components/debug/SkippedNotesCounter.css'), 'utf-8');
-
-  it('sizes the counter with --font-size-label, keeping --font-mono untouched', () => {
-    const body = getCssRuleBody(cssSource, '.skipped-notes-counter');
-    expect(body).not.toBeNull();
-    expect(body).toContain('font-family: var(--font-mono);');
-    expect(body).toContain('font-size: var(--font-size-label);');
-    expect(body).not.toContain('var(--font-size-sm)');
-  });
-});
-
 describe('ConsolePanel.css stub (confirmed dead — zero .tsx consumers, migrated anyway per spec §7 item 5)', () => {
   const cssSource = readFileSync(
     resolve(repoRoot, 'src/components/panels/screen/console/ConsolePanel.css'),

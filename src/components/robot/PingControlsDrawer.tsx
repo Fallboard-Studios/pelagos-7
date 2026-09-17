@@ -118,8 +118,8 @@ function PingControlsDrawerInner({
     <AccordionContainer schema={MELODY_ACCORDION_SCHEMA} style={style}>
       <div className="ping-controls-drawer">
         <DirectionalPanel schema={PHRASING_PANEL_SCHEMA}>
-          {/* Dev-only, same gate as the Skipped Notes debug counter (App.tsx) — a testing aid,
-              not something a production build's audience should see or be able to reach. */}
+          {/* Dev-only — a testing aid, not something a production build's audience should see
+              or be able to reach. */}
           {DEV_TUNING && (
             <Toggle schema={CLICK_TRACK_SCHEMA} value={value.clickTrackActive} onChange={onClickTrackActiveChange} disabled={disabled}>
               Click Track
