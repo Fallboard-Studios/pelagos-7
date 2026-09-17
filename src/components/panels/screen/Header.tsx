@@ -21,15 +21,14 @@ import './Header.css';
  *  docs/specs/HEADER_HUB_CONSOLIDATION.md §1.4. */
 const TOUCH_TARGET_SIZE = 44;
 
-/** humanLabel: 'Mute' feeds the switch's accessible name (resolveAccessibleName)
- *  but is never visibly shown as its own DualLabel row — the Toggle usage
- *  below passes text facade content instead (which suppresses Toggle's
- *  external DualLabel automatically), doing double duty as row 1's own
- *  "Volume" label since the slider itself no longer carries one (see
- *  VOLUME_SCHEMA below). Keeping humanLabel here is strictly better than
- *  dropping it (a real aria-label instead of falling back to schema.id),
- *  since it's never rendered as visible text either way. */
-const MUTE_SCHEMA: ToggleSchema = { id: 'headerMute', type: 'toggle', humanLabel: 'Mute' };
+/** humanLabel: 'Mute' feeds the switch's accessible name (resolveAccessibleName).
+ *  The Toggle usage below still passes text facade content instead of relying
+ *  on the external DualLabel row, doing double duty as row 1's own "Volume"
+ *  label since the slider itself carries its own now (see VOLUME_SCHEMA
+ *  below) — loreLabel added per Crawford's own request (2026-09-16) to
+ *  resolve the flagged gap (docs/specs/HEADER_HUB_CONSOLIDATION.md §7 item #2),
+ *  even though it renders alongside the facade text rather than replacing it. */
+const MUTE_SCHEMA: ToggleSchema = { id: 'headerMute', type: 'toggle', loreLabel: 'SIGNAL SUPPRESSION [c]', humanLabel: 'Mute' };
 
 /** Row 1's volume slider, the shared Cabinetry SliderLinear (same primitive
  *  the robot detail page's own Volume control uses, see
@@ -37,13 +36,14 @@ const MUTE_SCHEMA: ToggleSchema = { id: 'headerMute', type: 'toggle', humanLabel
  *  0-100 display range, 1% steps — audioStore.volume itself is 0..1, so
  *  Header converts pct/100 on write and volume*100 on read, same
  *  display-vs-storage split VOLUME_SCHEMA's own doc-comment describes.
- *  No humanLabel/loreLabel — the Mute toggle sitting beside it (below) is
- *  what visibly reads "Volume" now, so a second DualLabel row here would be
- *  redundant. Accepts the same id-fallback aria-label trade-off already
- *  flagged for MUTE_SCHEMA/HEADER_NAV_SCHEMA (docs/specs/HEADER_HUB_CONSOLIDATION.md
- *  §7 item #2) rather than reintroducing a visible label just for a11y. */
+ *  Previously shipped with no humanLabel/loreLabel (the Mute toggle beside it
+ *  was the only visible "Volume" cue) — both added per Crawford's own request
+ *  (2026-09-16) to resolve the flagged gap (docs/specs/HEADER_HUB_CONSOLIDATION.md
+ *  §7 item #2), even though it now sits alongside Mute's own facade text. */
 const VOLUME_SCHEMA: SliderLinearSchema = {
   id: 'headerVolume',
+  loreLabel: 'MASTER TRANSDUCER OUTPUT [c]',
+  humanLabel: 'Volume [c]',
   min: 0,
   max: 100,
   step: 1,

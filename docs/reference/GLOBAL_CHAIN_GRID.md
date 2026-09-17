@@ -41,7 +41,7 @@ There is no rig-wide bypass control and no per-effect Enabled toggle — both we
 
 | Control | Setter | Field | Unit / Range | Loading Range | Effect Label | Param Label | UI |
 |---|---|---|---|---|---|---|---|
-| Decay Mode | `setCompressorBeforeDelay()` | `compressorBeforeDelay` | radio: Natural Decay / Controlled Decay | — (not seeded; always starts `natural`) | — (no lore label defined) | *(human label only)* "Decay Mode" | RADIO BUTTON (2-option) |
+| Decay Mode | `setCompressorBeforeDelay()` | `compressorBeforeDelay` | radio: Natural Decay / Controlled Decay | — (not seeded; always starts `natural`) | DECAY PROTOCOL [c] | "Decay Mode" | RADIO BUTTON (2-option) |
 | EQ Drift | `setGlobalLfoDrift('eq3', …)` | `lfoDrift.eq3.rateDrift` | %, −100 to 100 (stored fraction, −1 to 1) | −70 to 70 (stored −0.7 to 0.7) | SPECTRAL FLUX | CADENCE INSTABILITY | SLIDER (Center-Zero) |
 | EQ Drift | `setGlobalLfoDrift('eq3', …)` | `lfoDrift.eq3.depthDrift` | %, −100 to 100 (stored fraction, −1 to 1) | −70 to 70 (stored −0.7 to 0.7) | SPECTRAL FLUX | AMPLITUDE INSTABILITY | SLIDER (Center-Zero) |
 | Low-Pass Drift | `setGlobalLfoDrift('filterLPF', …)` | `lfoDrift.filterLPF.rateDrift` | %, −100 to 100 (stored fraction, −1 to 1) | −70 to 70 (stored −0.7 to 0.7) | HIGH-MASK FLUX | CADENCE INSTABILITY | SLIDER (Center-Zero) |

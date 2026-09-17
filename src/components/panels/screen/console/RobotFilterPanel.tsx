@@ -19,8 +19,8 @@ const SLIDE_DURATION = 0.25;
 // companyConfig.ts-owned schemas. humanLabel drives both the visible DualLabel text and the
 // accessible name (resolveAccessibleName) — the state-changing label across these two distinct
 // buttons is the only signal of open/closed state (Button.tsx has no aria-expanded passthrough).
-const FILTER_TOGGLE_SCHEMA: ButtonSchema = { id: 'robotFilterPanel.toggle', type: 'button', humanLabel: 'Show Filters' };
-const FILTER_CLOSE_SCHEMA: ButtonSchema = { id: 'robotFilterPanel.close', type: 'button', humanLabel: 'Hide Filters' };
+const FILTER_TOGGLE_SCHEMA: ButtonSchema = { id: 'robotFilterPanel.toggle', type: 'button', loreLabel: 'ROSTER FILTER ACCESS [c]', humanLabel: 'Show Filters' };
+const FILTER_CLOSE_SCHEMA: ButtonSchema = { id: 'robotFilterPanel.close', type: 'button', loreLabel: 'ROSTER FILTER DISMISSAL [c]', humanLabel: 'Hide Filters' };
 
 /**
  * Responsive shell for the company filter panel (Roadmap: Robot Selection Filter Panel) — wraps

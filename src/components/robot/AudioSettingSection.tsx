@@ -69,8 +69,10 @@ function AudioSettingSectionInner({ value, onAudioModeChange, onVolumeChange, on
   // fresh, inline, on every render, unlike every other primitive's schema in this codebase, which
   // is always a stable reference. Keyed on displayLabel alone, matching Lfo.tsx's own
   // schema.id-keying precedent for its 3 internal schemas — 'id'/'type' are literal constants.
+  // loreLabel: OSCILLATION — docs/reference/ROBOT_DATA_GRID.md's "LFO MODULE" row, same fixed
+  // group-level term LfoTargetGroup.tsx's own lfoSchema now uses.
   const lfoSchema: LfoSchema = useMemo(
-    () => ({ id: 'robotOptions.volume.lfo', type: 'lfo', humanLabel: displayLabel }),
+    () => ({ id: 'robotOptions.volume.lfo', type: 'lfo', loreLabel: 'OSCILLATION', humanLabel: displayLabel }),
     [displayLabel],
   );
 

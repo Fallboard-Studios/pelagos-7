@@ -67,8 +67,12 @@ function LfoTargetGroupInner<F extends string = string>({
     () => ({ id: `${groupId}.sliders`, type: 'directionalPanel', orientation: sliderPanelOrientation }),
     [groupId, sliderPanelOrientation],
   );
+  // loreLabel is the fixed group-level term (docs/reference/ROBOT_DATA_GRID.md's "LFO MODULE"
+  // row names it OSCILLATION, previously never wired in per that row's own † footnote) — unlike
+  // humanLabel, it never swaps with the targeted field, since it names the module itself, not
+  // whichever field it's currently modulating.
   const lfoSchema: LfoSchema = useMemo(
-    () => ({ id: `${groupId}.lfo`, type: 'lfo', humanLabel: displayLabel }),
+    () => ({ id: `${groupId}.lfo`, type: 'lfo', loreLabel: 'OSCILLATION', humanLabel: displayLabel }),
     [groupId, displayLabel],
   );
   const handleLfoChange = useCallback((v: LfoValue) => onLfoChange(selected, v), [selected, onLfoChange]);

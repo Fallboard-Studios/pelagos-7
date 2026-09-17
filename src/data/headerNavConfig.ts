@@ -6,17 +6,21 @@
  * directly — no separate target field, since RadioButton's value/onChange
  * already round-trips through activeHubTile one-for-one.
  *
- * No schema-level loreLabel/humanLabel (DualLabel renders nothing above the
- * group as a result) — matches the old tile grid's own lack of a group
- * heading, at the cost of the group root's own aria-label falling back to
- * schema.id ('headerHubNav') rather than a real phrase. Flagged, not
- * silently decided — see docs/specs/HEADER_HUB_CONSOLIDATION.md §7 item #2.
+ * Previously shipped with no schema-level loreLabel/humanLabel (DualLabel
+ * rendered nothing above the group as a result) — matched the old tile
+ * grid's own lack of a group heading, at the cost of the group root's own
+ * aria-label falling back to schema.id ('headerHubNav') rather than a real
+ * phrase. Flagged, not silently decided, in docs/specs/
+ * HEADER_HUB_CONSOLIDATION.md §7 item #2 — resolved by adding both labels
+ * below (Crawford's own request, 2026-09-16).
  */
 import type { RadioButtonSchema } from '@/types/controls';
 
 export const HEADER_NAV_SCHEMA: RadioButtonSchema = {
   id: 'headerHubNav',
   type: 'radio',
+  loreLabel: 'CONSOLE NAVIGATION [c]',
+  humanLabel: 'Navigation [c]',
   options: [
     { value: 'robots', label: 'Robots' },
     { value: 'audioRig', label: 'Audio Rig' },

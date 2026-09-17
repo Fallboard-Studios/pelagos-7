@@ -197,8 +197,10 @@ function AudioRigLfoGroup({ groupId, params, effect, fieldOnChange, driftContent
     () => ({ id: `${groupId}.sliders`, type: 'directionalPanel' as const, orientation: slidersOrientation }),
     [groupId, slidersOrientation],
   );
+  // loreLabel: OSCILLATION — docs/reference/ROBOT_DATA_GRID.md's "LFO MODULE" row, same fixed
+  // group-level term LfoTargetGroup.tsx's own lfoSchema uses.
   const lfoDisplaySchema = useMemo(
-    () => ({ id: `${groupId}.lfo`, type: 'lfo' as const, humanLabel: displayLabel }),
+    () => ({ id: `${groupId}.lfo`, type: 'lfo' as const, loreLabel: 'OSCILLATION', humanLabel: displayLabel }),
     [groupId, displayLabel],
   );
 

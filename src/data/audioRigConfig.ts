@@ -179,6 +179,7 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
 export const DECAY_MODE_SCHEMA: RadioButtonSchema = {
   id: 'audioRig.compressorBeforeDelay',
   type: 'radio',
+  loreLabel: 'DECAY PROTOCOL [c]',
   humanLabel: 'Decay Mode',
   options: [
     { value: 'natural', label: 'Natural Decay' },
