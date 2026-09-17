@@ -93,16 +93,16 @@ describe('Lfo', () => {
     expect(rateSlider.getAttribute('aria-valuemax')).toBe(String(LFO_RATE_MAX));
   });
 
-  it('steps the rate slider by clean 0.25 increments per arrow-key press, not the default step of 1', () => {
+  it('steps the rate slider by clean 0.05 increments per arrow-key press, not the default step of 1', () => {
     const onChange = vi.fn();
     render(<Lfo schema={schema} value={value} onChange={onChange} />);
     const [rateSlider] = screen.getAllByRole('slider');
     rateSlider.focus();
     fireEvent.keyDown(rateSlider, { key: 'ArrowRight' });
-    // Radix's step grid anchors to min (0) — 0, 0.25, 0.5, ..., 2.0, 2.25,
-    // 2.5... — landing exactly on 2.25 from a starting value of 2, not the
+    // Radix's step grid anchors to min (0) — 0, 0.05, 0.1, ..., 2.0, 2.05,
+    // 2.1... — landing exactly on 2.05 from a starting value of 2, not the
     // old default step of 1 (which would land on 3).
-    expect(onChange).toHaveBeenCalledWith({ shape: 'sine', rate: 2.25, depth: 40 });
+    expect(onChange).toHaveBeenCalledWith({ shape: 'sine', rate: 2.05, depth: 40 });
   });
 
   it("the depth slider's bounds match LFO_DEPTH_MIN/MAX from src/types/lfo.ts", () => {
@@ -121,7 +121,7 @@ describe('Lfo', () => {
 
   it('calls onChange with the complete LfoValue when the rate slider changes to 0', () => {
     const onChange = vi.fn();
-    render(<Lfo schema={schema} value={{ shape: 'sine', rate: 0.25, depth: 40 }} onChange={onChange} />);
+    render(<Lfo schema={schema} value={{ shape: 'sine', rate: 0.05, depth: 40 }} onChange={onChange} />);
     const [rateSlider] = screen.getAllByRole('slider');
     rateSlider.focus();
     fireEvent.keyDown(rateSlider, { key: 'ArrowLeft' });

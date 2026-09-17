@@ -3,7 +3,7 @@
 // ========================================
 import { describe, it, expect } from 'vitest';
 
-import { lerp } from './math';
+import { lerp, quantizeToStep } from './math';
 
 // ========================================
 // TEST SUITE
@@ -47,6 +47,38 @@ describe('math utilities', () => {
       expect(lerp(0, 10, -0.5)).toBe(-5);
       // t > 1
       expect(lerp(0, 10, 1.5)).toBe(15);
+    });
+  });
+
+  describe('quantizeToStep', () => {
+    it('rounds to the nearest step, not floor or ceil', () => {
+      expect(quantizeToStep(4.236, 0, 0.25)).toBe(4.25);
+    });
+
+    it('leaves an already on-grid value unchanged', () => {
+      expect(quantizeToStep(0, 0, 0.25)).toBe(0);
+    });
+
+    it('quantizes correctly against a negative min', () => {
+      const result = quantizeToStep(-3, -12, 0.5);
+      const steps = (result - -12) / 0.5;
+      expect(Number.isInteger(steps)).toBe(true);
+    });
+
+    it('always lands on the min + n*step grid, for any input', () => {
+      const cases: Array<[number, number, number]> = [
+        [4.236, 0, 0.25],
+        [0, 0, 0.25],
+        [-3, -12, 0.5],
+        [9.999, 0, 0.01],
+        [-0.001, -1, 0.1],
+        [100, 0, 3],
+      ];
+      for (const [value, min, step] of cases) {
+        const result = quantizeToStep(value, min, step);
+        const stepsFromMin = (result - min) / step;
+        expect(Math.abs(stepsFromMin - Math.round(stepsFromMin))).toBeLessThan(1e-9);
+      }
     });
   });
 });

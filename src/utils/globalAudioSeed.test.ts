@@ -20,6 +20,7 @@ import { evictAttenuationStyleNoiseMap } from './noiseMaps';
 import { GLOBAL_AUDIO_LOADING_RANGES } from '@/data/globalAudioLoadingRanges';
 import { type GlobalAudioSeedFieldKey } from '@/data/globalAudioSeedRanges';
 import { GLOBAL_LFO_TARGET_IDS, LFO_SHAPES, LFO_RATE_MIN, LFO_RATE_MAX, LFO_DEPTH_MIN, LFO_DEPTH_MAX, DRIFT_GROUP_IDS } from '@/types/lfo';
+import { GLOBAL_AUDIO_SEED_RANGES } from '@/data/globalAudioSeedRanges';
 
 // ========================================
 // TESTS
@@ -172,6 +173,61 @@ describe('generateGlobalAudioSettings', () => {
     const first = generateGlobalAudioSettings('seed-test-planet', 'Nova');
     const second = generateGlobalAudioSettings('seed-test-planet', 'Nova');
     expect(second.delay.wet === 0).toBe(first.delay.wet === 0);
+  });
+
+  describe('quantization (SEEDED_SLIDER_VALUE_QUANTIZATION Task 5)', () => {
+    afterEach(() => {
+      for (let i = 0; i < 20; i++) evictAttenuationStyleNoiseMap(`seed-quantize-sample-${i}`);
+    });
+
+    it('quantizes every field with a declared step (eq3.low, delay.delayTime, compressor.ratio) onto its own min + n*step grid, across many seeds', () => {
+      const fieldsWithStep: Array<[GlobalAudioSeedFieldKey, string]> = [
+        ['eq3.low', 'eq3'],
+        ['delay.delayTime', 'delay'],
+        ['compressor.ratio', 'compressor'],
+      ];
+      for (let i = 0; i < 20; i++) {
+        const settings = generateGlobalAudioSettings(`seed-quantize-sample-${i}`, `QuantizeSample${i}`);
+        for (const [key, block] of fieldsWithStep) {
+          const field = key.split('.')[1] as keyof typeof settings.eq3;
+          const value = (settings as unknown as Record<string, Record<string, number>>)[block][field];
+          const { min, step } = GLOBAL_AUDIO_SEED_RANGES[key];
+          const stepsFromMin = (value - min) / (step as number);
+          expect(Math.abs(stepsFromMin - Math.round(stepsFromMin)), `${key} attenuationStyle ${i}`).toBeLessThan(1e-9);
+        }
+      }
+    });
+
+    it('leaves a field with no declared step (filterLPF.frequency) byte-for-byte unaffected — regression, not just "still works"', () => {
+      const settings = generateGlobalAudioSettings('regression-probe-seed', 'ProbePlanet');
+      expect(settings.filterLPF.frequency).toBe(4730.514641816347);
+    });
+
+    it('quantizes compressor.threshold and compressor.knee to a whole dB, across many seeds', () => {
+      for (let i = 0; i < 20; i++) {
+        const settings = generateGlobalAudioSettings(`seed-quantize-sample-${i}`, `QuantizeSample${i}`);
+        expect(Number.isInteger(settings.compressor.threshold), `threshold attenuationStyle ${i}`).toBe(true);
+        expect(Number.isInteger(settings.compressor.knee), `knee attenuationStyle ${i}`).toBe(true);
+      }
+    });
+
+    it('quantizes limiter.threshold to a whole dB, across many seeds', () => {
+      for (let i = 0; i < 20; i++) {
+        const settings = generateGlobalAudioSettings(`seed-quantize-sample-${i}`, `QuantizeSample${i}`);
+        expect(Number.isInteger(settings.limiter.threshold), `attenuationStyle ${i}`).toBe(true);
+      }
+    });
+
+    it('quantizes every lfoDrift field (rateDrift/depthDrift, all 4 groups) to a whole percent, across many seeds', () => {
+      for (let i = 0; i < 20; i++) {
+        const settings = generateGlobalAudioSettings(`seed-quantize-sample-${i}`, `QuantizeSample${i}`);
+        for (const group of DRIFT_GROUP_IDS) {
+          const { rateDrift, depthDrift } = settings.lfoDrift[group];
+          expect(Math.abs(rateDrift * 100 - Math.round(rateDrift * 100)), `${group}.rateDrift attenuationStyle ${i}`).toBeLessThan(1e-9);
+          expect(Math.abs(depthDrift * 100 - Math.round(depthDrift * 100)), `${group}.depthDrift attenuationStyle ${i}`).toBeLessThan(1e-9);
+        }
+      }
+    });
   });
 
   describe('lfoDrift', () => {
@@ -335,6 +391,30 @@ describe('generateGlobalLfoSettings', () => {
     }
   });
 
+  it('quantizes rate to a 0.05 grid across many seeds and targets, excluding the quiet -> 0 case', () => {
+    const SAMPLE_ATTENUATION_STYLES = 20;
+    for (let i = 0; i < SAMPLE_ATTENUATION_STYLES; i++) {
+      const settings = generateGlobalLfoSettings(`seed-lfo-sample-${i}`, `Sample${i}`);
+      for (const target of GLOBAL_LFO_TARGET_IDS) {
+        const { rate } = settings[target];
+        if (rate === 0) continue;
+        const stepsFromMin = rate / 0.05;
+        expect(Math.abs(stepsFromMin - Math.round(stepsFromMin)), `${target}.rate (attenuationStyle ${i})`).toBeLessThan(1e-9);
+      }
+    }
+  });
+
+  it('quantizes depth to a whole percent across many seeds and targets', () => {
+    const SAMPLE_ATTENUATION_STYLES = 20;
+    for (let i = 0; i < SAMPLE_ATTENUATION_STYLES; i++) {
+      const settings = generateGlobalLfoSettings(`seed-lfo-sample-${i}`, `Sample${i}`);
+      for (const target of GLOBAL_LFO_TARGET_IDS) {
+        const { depth } = settings[target];
+        expect(Number.isInteger(depth), `${target}.depth (attenuationStyle ${i}): ${depth}`).toBe(true);
+      }
+    }
+  });
+
   it('seeds a nonzero (real, oscillating) rate for roughly 2-in-3 targets across many Attenuation Styles, not roughly half (>= 0.34 threshold, not a flat 50/50)', () => {
     const SAMPLE_ATTENUATION_STYLES = 40;
     let nonzeroCount = 0;
@@ -387,6 +467,14 @@ describe('generatePingVarianceAutomation', () => {
     const a = generatePingVarianceAutomation('seed-test-planet', 'Nova');
     const b = generatePingVarianceAutomation('seed-test-planet-b', 'Zenith');
     expect(b).not.toBe(a);
+  });
+
+  it('always returns a value whose percent (x100) is an integer, across many Attenuation Styles', () => {
+    const SAMPLE_ATTENUATION_STYLES = 30;
+    for (let i = 0; i < SAMPLE_ATTENUATION_STYLES; i++) {
+      const value = generatePingVarianceAutomation(`seed-pva-sample-${i}`, `PvaSample${i}`);
+      expect(Number.isInteger(value * 100), `attenuationStyle ${i}: ${value}`).toBe(true);
+    }
   });
 
   it('is not a Math.random()-driven value anywhere in this module (source-scan regression guard)', () => {

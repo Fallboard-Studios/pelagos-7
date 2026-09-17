@@ -81,6 +81,7 @@ export interface SliderCenteredZeroSchema extends ControlSchemaBase, SliderVerti
   type: 'sliderCenteredZero';
   min: number; // negative bound, e.g. -50
   max: number; // positive bound, e.g. +50
+  step?: number;
   unit?: string;
   orientation: SliderOrientation;
 }

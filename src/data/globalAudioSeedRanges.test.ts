@@ -58,7 +58,7 @@ describe('GLOBAL_AUDIO_SEED_RANGES', () => {
   it('matches the documented ranges in src/types/globalAudio.ts and GLOBAL_CHAIN_GRID.md', () => {
     expect(GLOBAL_AUDIO_SEED_RANGES['compressor.threshold']).toMatchObject({ min: -60, max: 0 });
     expect(GLOBAL_AUDIO_SEED_RANGES['compressor.ratio']).toMatchObject({ min: 1, max: 20 });
-    expect(GLOBAL_AUDIO_SEED_RANGES['compressor.attack']).toMatchObject({ min: 0.001, max: 1 });
+    expect(GLOBAL_AUDIO_SEED_RANGES['compressor.attack']).toMatchObject({ min: 0.001, max: 0.2 });
     expect(GLOBAL_AUDIO_SEED_RANGES['compressor.release']).toMatchObject({ min: 0.01, max: 1 });
     expect(GLOBAL_AUDIO_SEED_RANGES['compressor.knee']).toMatchObject({ min: 0, max: 40 });
     expect(GLOBAL_AUDIO_SEED_RANGES['eq3.low']).toMatchObject({ min: -12, max: 12 });
@@ -68,11 +68,11 @@ describe('GLOBAL_AUDIO_SEED_RANGES', () => {
     expect(GLOBAL_AUDIO_SEED_RANGES['filterLPF.Q']).toMatchObject({ min: 0.1, max: 20 });
     expect(GLOBAL_AUDIO_SEED_RANGES['filterHPF.frequency']).toMatchObject({ min: 20, max: 20000 });
     expect(GLOBAL_AUDIO_SEED_RANGES['filterHPF.Q']).toMatchObject({ min: 0.1, max: 20 });
-    expect(GLOBAL_AUDIO_SEED_RANGES['delay.delayTime']).toMatchObject({ min: 0, max: 1 });
+    expect(GLOBAL_AUDIO_SEED_RANGES['delay.delayTime']).toMatchObject({ min: 0, max: 10 });
     expect(GLOBAL_AUDIO_SEED_RANGES['delay.feedback']).toMatchObject({ min: 0, max: 0.95 });
     expect(GLOBAL_AUDIO_SEED_RANGES['delay.wet']).toMatchObject({ min: 0, max: 1 });
     expect(GLOBAL_AUDIO_SEED_RANGES['reverb.decay']).toMatchObject({ min: 0.1, max: 10 });
-    expect(GLOBAL_AUDIO_SEED_RANGES['reverb.preDelay']).toMatchObject({ min: 0, max: 0.5 });
+    expect(GLOBAL_AUDIO_SEED_RANGES['reverb.preDelay']).toMatchObject({ min: 0, max: 1 });
     expect(GLOBAL_AUDIO_SEED_RANGES['reverb.wet']).toMatchObject({ min: 0, max: 1 });
     expect(GLOBAL_AUDIO_SEED_RANGES['limiter.threshold']).toMatchObject({ min: -20, max: 0 });
     expect(GLOBAL_AUDIO_SEED_RANGES['lfoDrift.eq3.rateDrift']).toMatchObject({ min: -1, max: 1 });
@@ -111,6 +111,20 @@ describe('GLOBAL_AUDIO_SEED_RANGES', () => {
 
   it('marks limiter.threshold linear, matching compressor.threshold\'s own dB-slider convention', () => {
     expect(GLOBAL_AUDIO_SEED_RANGES['limiter.threshold'].scale).toBe('linear');
+  });
+
+  it('declares an integer step (1) on compressor.threshold, compressor.knee, and limiter.threshold — whole-dB rounding', () => {
+    expect(GLOBAL_AUDIO_SEED_RANGES['compressor.threshold'].step).toBe(1);
+    expect(GLOBAL_AUDIO_SEED_RANGES['compressor.knee'].step).toBe(1);
+    expect(GLOBAL_AUDIO_SEED_RANGES['limiter.threshold'].step).toBe(1);
+  });
+
+  it('declares a 0.01 step (whole-percent, in fraction-space) on every lfoDrift field, all 4 groups', () => {
+    for (const key of EXPECTED_KEYS) {
+      if (key.startsWith('lfoDrift.')) {
+        expect(GLOBAL_AUDIO_SEED_RANGES[key].step, key).toBe(0.01);
+      }
+    }
   });
 
   it('never has min >= max for any field', () => {

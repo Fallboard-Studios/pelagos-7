@@ -28,7 +28,7 @@
 | Reverb | `setGlobalReverb()` | wet | 0–1 | 0.1–0.4 | SPATIAL DIFFUSION MATRIX | DIFFUSED SIGNAL BALANCE | SLIDER | – | – | X |
 | Compressor | `setGlobalCompressor()` | threshold | dB, −60 to 0 | −55 to −45 | DYNAMIC RANGE CONDENSER | ATTENUATION THRESHOLD | SLIDER | – | – | – |
 | Compressor | `setGlobalCompressor()` | ratio | 1–20 | 10–20 | DYNAMIC RANGE CONDENSER | COMPRESSION RATIO | SLIDER (step 1) | – | – | – |
-| Compressor | `setGlobalCompressor()` | attack | seconds, 0.001–1 | 0.003–0.05 | DYNAMIC RANGE CONDENSER | COMPRESSION RATE | SLIDER (Logarithmic) | – | – | – |
+| Compressor | `setGlobalCompressor()` | attack | seconds, 0.001–0.2 | 0.003–0.05 | DYNAMIC RANGE CONDENSER | COMPRESSION RATE | SLIDER (Logarithmic) | – | – | – |
 | Compressor | `setGlobalCompressor()` | release | seconds, 0.01–1 | 0.05–0.3 | DYNAMIC RANGE CONDENSER | RAREFACTION RATE | SLIDER (Logarithmic) | – | – | – |
 | Compressor | `setGlobalCompressor()` | knee | dB, 0–40 | 1–15 | DYNAMIC RANGE CONDENSER | CURVATURE DAMPING | SLIDER | – | – | – |
 | Limiter | `setGlobalLimiter()` | threshold | dB, −20 to 0 | −3 to −1 | TERMINAL CEILING GATE | OUTPUT CEILING | SLIDER | – | – | – |
@@ -58,7 +58,7 @@ There is no rig-wide bypass control and no per-effect Enabled toggle — both we
 
 ## Notes from the Tone.js verification pass (V2)
 
-- **Compressor** — every full-range value above checked exactly against `Tone.Compressor`'s own `@min`/`@max` doc comments: `ratio` (1–20) and `knee` (0–40) match Tone's hard bounds exactly; `threshold` (−60 to 0) is a deliberately narrower slice of Tone's true −100 to 0; `attack`/`release` (0.001–1 / 0.01–1) both sit safely inside Tone's 0–1.
+- **Compressor** — every full-range value above checked exactly against `Tone.Compressor`'s own `@min`/`@max` doc comments: `ratio` (1–20) and `knee` (0–40) match Tone's hard bounds exactly; `threshold` (−60 to 0) is a deliberately narrower slice of Tone's true −100 to 0; `attack` (0.001–0.2) and `release` (0.01–1) both sit safely inside Tone's 0–1.
 - **Low-Pass/High-Pass Filter** frequency (20–20000 Hz) isn't just a UI convention — it's the exact range `Tone.Filter`'s own class doc references ("frequency response curve... between 20hz-20khz"). `Q` has no Tone-documented bound; 0.1–20 is a conventional musically-useful range, not derived from a hard limit.
 - **EQ (3-band)** `low`/`mid`/`high` have no Tone-documented numeric bound either; ±12 dB full range is a conventional EQ range, a judgment call not a hard constraint. `Tone.EQ3` also exposes a shared `Q` and `lowFrequency`/`highFrequency` crossover points that aren't surfaced as controls here — noted, not added.
 - **Delay** `feedback` is capped at 0.95, short of Tone's technical 0–1, to avoid runaway buildup near unity. `delayTime`'s 0–1s full range has an explicit `maxDelay: 1` set on the underlying `Tone.FeedbackDelay` node — the two must stay in sync if this range ever changes. LFO judged unwanted on Delay's own time parameter, hence no `LFO?` flag; `delay.wet` never got one either, but is still swell-eligible (Audio Swells was built independently of LFO/Drift, per `docs/specs/AUDIO_SWELLS.md` §1.1 — it deliberately reuses neither `Tone.LFO` nor a Signal/Param connection).

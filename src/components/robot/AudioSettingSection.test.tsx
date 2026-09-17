@@ -154,7 +154,7 @@ describe('AudioSettingSection', () => {
       rateSlider.focus();
       fireEvent.keyDown(rateSlider, { key: 'ArrowRight' });
 
-      expect(onVolumeLfoChange).toHaveBeenCalledWith({ shape: 'sine', rate: 0.25, depth: 20 });
+      expect(onVolumeLfoChange).toHaveBeenCalledWith({ shape: 'sine', rate: 0.05, depth: 20 });
     });
   });
 

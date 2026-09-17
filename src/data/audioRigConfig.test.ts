@@ -77,9 +77,9 @@ describe('AUDIO_RIG_CONFIG', () => {
       });
     });
 
-    it('attack is a log slider, seconds, 0.001 to 1', () => {
+    it('attack is a log slider, seconds, 0.001 to 0.2', () => {
       expect(findParam('compressor', 'attack').schema).toMatchObject({
-        type: 'sliderLog', loreLabel: 'COMPRESSION RATE', min: 0.001, max: 1, unit: 's',
+        type: 'sliderLog', loreLabel: 'COMPRESSION RATE', min: 0.001, max: 0.2, unit: 's',
       });
     });
 
@@ -103,10 +103,10 @@ describe('AUDIO_RIG_CONFIG', () => {
   });
 
   describe('3-Band EQ', () => {
-    it('has all 3 bands as center-zero sliders, dB, -12 to 12', () => {
+    it('has all 3 bands as center-zero sliders, dB, -12 to 12, step 0.5', () => {
       for (const field of ['low', 'mid', 'high']) {
         expect(findParam('eq3', field).schema).toMatchObject({
-          type: 'sliderCenteredZero', min: -12, max: 12, unit: 'dB',
+          type: 'sliderCenteredZero', min: -12, max: 12, step: 0.5, unit: 'dB',
         });
       }
     });
@@ -167,9 +167,9 @@ describe('AUDIO_RIG_CONFIG', () => {
       }
     });
 
-    it('delayTime is a linear slider, seconds, 0 to 1, not LFO-flagged — LFO removed from Delay\'s delayTime', () => {
+    it('delayTime is a linear slider, seconds, 0 to 10, step 0.001, not LFO-flagged — LFO removed from Delay\'s delayTime', () => {
       const param = findParam('delay', 'delayTime');
-      expect(param.schema).toMatchObject({ type: 'sliderLinear', loreLabel: 'PROPAGATION LAG', min: 0, max: 1, unit: 's' });
+      expect(param.schema).toMatchObject({ type: 'sliderLinear', loreLabel: 'PROPAGATION LAG', min: 0, max: 10, step: 0.001, unit: 's' });
       expect(param.lfoTarget).toBeUndefined();
     });
 
@@ -197,9 +197,9 @@ describe('AUDIO_RIG_CONFIG', () => {
       expect(param.lfoTarget).toBeUndefined();
     });
 
-    it('preDelay is a linear slider, seconds, 0 to 0.5, not LFO-flagged', () => {
+    it('preDelay is a linear slider, seconds, 0 to 1, not LFO-flagged', () => {
       const param = findParam('reverb', 'preDelay');
-      expect(param.schema).toMatchObject({ type: 'sliderLinear', loreLabel: 'INITIAL LAG', min: 0, max: 0.5, unit: 's' });
+      expect(param.schema).toMatchObject({ type: 'sliderLinear', loreLabel: 'INITIAL LAG', min: 0, max: 1, unit: 's' });
       expect(param.lfoTarget).toBeUndefined();
     });
 

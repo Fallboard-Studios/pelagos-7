@@ -62,7 +62,7 @@ function SliderCenteredZeroInner({ schema, value, onChange, disabled, verticalHe
         orientation={orientation}
         min={schema.min}
         max={schema.max}
-        step={1}
+        step={schema.step ?? 1}
         value={[value]}
         onValueChange={(values) => onChange(values[0])}
         disabled={disabled}

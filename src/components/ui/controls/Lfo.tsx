@@ -25,7 +25,7 @@ const SHAPE_OPTIONS = LFO_SHAPES.map((shape) => ({ value: shape, label: shape.to
  * the LFO's "off" state, replacing the removed OSCILLATION STATE toggle
  * (see lfoEngine.ts's connect/disconnect callers).
  */
-const RATE_STEP = 0.25;
+const RATE_STEP = 0.05;
 
 /**
  * Composes RadioButton (shape) + two SliderLinears (rate, depth) per the

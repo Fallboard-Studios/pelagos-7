@@ -22,6 +22,7 @@ export interface SeedRange {
   min: number;
   max: number;
   scale: SeedScale;
+  step?: number;
 }
 
 export type GlobalAudioSeedFieldKey =
@@ -56,40 +57,42 @@ export type GlobalAudioSeedFieldKey =
 // See docs/reference/GLOBAL_CHAIN_GRID.md, the source of truth for every
 // value below.
 export const GLOBAL_AUDIO_SEED_RANGES: Record<GlobalAudioSeedFieldKey, SeedRange> = {
-  'compressor.threshold': { min: -60, max: 0, scale: 'linear' },
-  'compressor.ratio': { min: 1, max: 20, scale: 'linear' },
-  'compressor.attack': { min: 0.001, max: 1, scale: 'log' },
+  'compressor.threshold': { min: -60, max: 0, scale: 'linear', step: 1 },
+  'compressor.ratio': { min: 1, max: 20, scale: 'linear', step: 1 },
+  'compressor.attack': { min: 0.001, max: 0.2, scale: 'log' },
   'compressor.release': { min: 0.01, max: 1, scale: 'log' },
-  'compressor.knee': { min: 0, max: 40, scale: 'linear' },
+  'compressor.knee': { min: 0, max: 40, scale: 'linear', step: 1 },
 
-  'eq3.low': { min: -12, max: 12, scale: 'linear' },
-  'eq3.mid': { min: -12, max: 12, scale: 'linear' },
-  'eq3.high': { min: -12, max: 12, scale: 'linear' },
+  'eq3.low': { min: -12, max: 12, scale: 'linear', step: 0.5 },
+  'eq3.mid': { min: -12, max: 12, scale: 'linear', step: 0.5 },
+  'eq3.high': { min: -12, max: 12, scale: 'linear', step: 0.5 },
 
   'filterLPF.frequency': { min: 20, max: 20000, scale: 'log' },
   'filterLPF.Q': { min: 0.1, max: 20, scale: 'log' },
   'filterHPF.frequency': { min: 20, max: 20000, scale: 'log' },
   'filterHPF.Q': { min: 0.1, max: 20, scale: 'log' },
 
-  'delay.delayTime': { min: 0, max: 1, scale: 'linear' },
-  'delay.feedback': { min: 0, max: 0.95, scale: 'linear' },
-  'delay.wet': { min: 0, max: 1, scale: 'linear' },
+  'delay.delayTime': { min: 0, max: 10, scale: 'linear', step: 0.001 },
+  'delay.feedback': { min: 0, max: 0.95, scale: 'linear', step: 0.01 },
+  'delay.wet': { min: 0, max: 1, scale: 'linear', step: 0.01 },
 
   'reverb.decay': { min: 0.1, max: 10, scale: 'log' },
-  'reverb.preDelay': { min: 0, max: 0.5, scale: 'linear' },
-  'reverb.wet': { min: 0, max: 1, scale: 'linear' },
+  'reverb.preDelay': { min: 0, max: 1, scale: 'linear', step: 0.01 },
+  'reverb.wet': { min: 0, max: 1, scale: 'linear', step: 0.01 },
 
-  'limiter.threshold': { min: -20, max: 0, scale: 'linear' },
+  'limiter.threshold': { min: -20, max: 0, scale: 'linear', step: 1 },
 
   // Global LFO drift amounts, one independent pair per drift group
   // (docs/specs/LFO_DRIFT_GROUPS.md) — bipolar, not sourced from
   // GLOBAL_CHAIN_GRID.md (drift didn't exist when that doc was written).
-  'lfoDrift.eq3.rateDrift': { min: -1, max: 1, scale: 'linear' },
-  'lfoDrift.eq3.depthDrift': { min: -1, max: 1, scale: 'linear' },
-  'lfoDrift.filterLPF.rateDrift': { min: -1, max: 1, scale: 'linear' },
-  'lfoDrift.filterLPF.depthDrift': { min: -1, max: 1, scale: 'linear' },
-  'lfoDrift.filterHPF.rateDrift': { min: -1, max: 1, scale: 'linear' },
-  'lfoDrift.filterHPF.depthDrift': { min: -1, max: 1, scale: 'linear' },
-  'lfoDrift.robots.rateDrift': { min: -1, max: 1, scale: 'linear' },
-  'lfoDrift.robots.depthDrift': { min: -1, max: 1, scale: 'linear' },
+  // step: 0.01 rounds to the nearest whole percent in the -100..100 display
+  // space (this field is stored as a -1..1 fraction, so 1% = 0.01 here).
+  'lfoDrift.eq3.rateDrift': { min: -1, max: 1, scale: 'linear', step: 0.01 },
+  'lfoDrift.eq3.depthDrift': { min: -1, max: 1, scale: 'linear', step: 0.01 },
+  'lfoDrift.filterLPF.rateDrift': { min: -1, max: 1, scale: 'linear', step: 0.01 },
+  'lfoDrift.filterLPF.depthDrift': { min: -1, max: 1, scale: 'linear', step: 0.01 },
+  'lfoDrift.filterHPF.rateDrift': { min: -1, max: 1, scale: 'linear', step: 0.01 },
+  'lfoDrift.filterHPF.depthDrift': { min: -1, max: 1, scale: 'linear', step: 0.01 },
+  'lfoDrift.robots.rateDrift': { min: -1, max: 1, scale: 'linear', step: 0.01 },
+  'lfoDrift.robots.depthDrift': { min: -1, max: 1, scale: 'linear', step: 0.01 },
 };

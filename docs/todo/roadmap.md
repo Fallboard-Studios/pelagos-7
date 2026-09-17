@@ -974,8 +974,3 @@ Requested by Crawford, 2026-09-16. Depends on [20](#20-session-storage) (Session
 ### About
 
 Session Storage (20) makes a shareable link *possible* — the URL query string already carries a compressed, resolvable session payload — but today the only way to get one is to manually copy the browser's own address bar, and the only way to load one is to paste it there and reload. This phase adds explicit Export (generate and copy the current session's shareable link) and Import (paste a link or raw payload and apply it) controls to `SectorSettingsDrawer`, so sharing a session is a deliberate, discoverable in-app action rather than an address-bar trick a user has to already know about. Directly closes the "shareable link" half `docs/todo/backlog.md`'s existing Attenuation Style presets note is waiting on — Crawford wants to update the in-app preset list with current, shareable links once this lands.
-
-### Docs
-
-- docs/todo/backlog.md's Attenuation Style presets note ("Depends on Session Storage (Phase 20) for the 'shareable link' half") should be updated to point at this item once it ships.
-

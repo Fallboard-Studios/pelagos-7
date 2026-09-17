@@ -160,6 +160,25 @@ describe('SliderCenteredZero component', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it('defaults to a keyboard step of 1 when schema.step is unset', () => {
+    const onChange = vi.fn();
+    render(<SliderCenteredZero schema={detuneSchema} value={0} onChange={onChange} />);
+    const thumb = screen.getByRole('slider');
+    thumb.focus();
+    fireEvent.keyDown(thumb, { key: 'ArrowRight' });
+    expect(onChange).toHaveBeenCalledWith(1);
+  });
+
+  it('uses schema.step for the keyboard step when set', () => {
+    const onChange = vi.fn();
+    const steppedSchema: SliderCenteredZeroSchema = { ...detuneSchema, step: 5 };
+    render(<SliderCenteredZero schema={steppedSchema} value={0} onChange={onChange} />);
+    const thumb = screen.getByRole('slider');
+    thumb.focus();
+    fireEvent.keyDown(thumb, { key: 'ArrowRight' });
+    expect(onChange).toHaveBeenCalledWith(5);
+  });
+
   it("resolves to exactly one role='slider' element — the voxel boxes introduce no accessibility-tree ambiguity", () => {
     render(<SliderCenteredZero schema={detuneSchema} value={0} onChange={() => {}} />);
     expect(screen.getAllByRole('slider')).toHaveLength(1);

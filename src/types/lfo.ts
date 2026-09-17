@@ -125,7 +125,7 @@ export const DRIFT_GROUP_IDS: readonly DriftGroupId[] = ['eq3', 'filterLPF', 'fi
  *  removed OSCILLATION STATE toggle — rate=0 fully disconnects the LFO from
  *  its target (see lfoEngine.ts's connect/disconnect callers). */
 export const LFO_RATE_MIN = 0;
-export const LFO_RATE_MAX = 10;
+export const LFO_RATE_MAX = 20;
 
 /** Percent — docs/reference/ROBOT_DATA_GRID.md's "LFO Depth" row (OSCILLATION DEPTH). */
 export const LFO_DEPTH_MIN = 0;

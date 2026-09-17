@@ -156,6 +156,35 @@ describe('spawnSystem', () => {
       // Not perfectly correlated — some robot has Coaxial and Harmonic disagreeing
       expect(attributes.some((a) => (a.layers![1].gain === 0) !== (a.layers![2].gain === 0))).toBe(true);
     });
+
+    it('quantizes every non-muted layer\'s gain to a 0.01 grid, across many seeds (SEEDED_SLIDER_VALUE_QUANTIZATION Task 6)', () => {
+      const attributes = Array.from({ length: 60 }, (_, i) => generateAudioAttributes(mockNoiseMap, i));
+      for (const attrs of attributes) {
+        for (const layer of attrs.layers ?? []) {
+          if (layer.gain === 0) continue;
+          const stepsFromMin = layer.gain / 0.01;
+          expect(Math.abs(stepsFromMin - Math.round(stepsFromMin))).toBeLessThan(1e-9);
+        }
+      }
+    });
+
+    it('leaves a muted layer\'s gain exactly 0 — never passed through quantizeToStep (regression)', () => {
+      const attributes = Array.from({ length: 60 }, (_, i) => generateAudioAttributes(mockNoiseMap, i));
+      const mutedGains = attributes.flatMap((a) => (a.layers ?? []).slice(1)).filter((l) => l.gain === 0);
+      expect(mutedGains.length, 'expected at least one muted layer across 60 spawns x 2 mutable layers').toBeGreaterThan(0);
+      for (const layer of mutedGains) {
+        expect(Object.is(layer.gain, 0)).toBe(true);
+      }
+    });
+
+    it('quantizes every layer\'s detune to a whole cent, across many seeds', () => {
+      const attributes = Array.from({ length: 60 }, (_, i) => generateAudioAttributes(mockNoiseMap, i));
+      for (const attrs of attributes) {
+        for (const layer of attrs.layers ?? []) {
+          expect(Number.isInteger(layer.detune), `detune: ${layer.detune}`).toBe(true);
+        }
+      }
+    });
   });
 
   describe('generateRobotLfoSettings', () => {
@@ -181,6 +210,28 @@ describe('spawnSystem', () => {
       const settings = generateRobotLfoSettings(mockNoiseMap, 0);
       const isQuiet = ROBOT_LFO_TARGET_IDS.map((t) => settings[t].rate === 0);
       expect(new Set(isQuiet).size, 'expected both quiet and oscillating targets among the 13').toBe(2);
+    });
+
+    it('quantizes rate to a 0.05 grid, across many seeds and targets, excluding the quiet -> 0 case (SEEDED_SLIDER_VALUE_QUANTIZATION Task 6)', () => {
+      for (let i = 0; i < 30; i++) {
+        const settings = generateRobotLfoSettings(mockNoiseMap, i);
+        for (const target of ROBOT_LFO_TARGET_IDS) {
+          const { rate } = settings[target];
+          if (rate === 0) continue;
+          const stepsFromMin = rate / 0.05;
+          expect(Math.abs(stepsFromMin - Math.round(stepsFromMin)), `${target}.rate (offset ${i})`).toBeLessThan(1e-9);
+        }
+      }
+    });
+
+    it('quantizes depth to a whole percent, across many seeds and targets (SEEDED_SLIDER_VALUE_QUANTIZATION follow-up)', () => {
+      for (let i = 0; i < 30; i++) {
+        const settings = generateRobotLfoSettings(mockNoiseMap, i);
+        for (const target of ROBOT_LFO_TARGET_IDS) {
+          const { depth } = settings[target];
+          expect(Number.isInteger(depth), `${target}.depth (offset ${i}): ${depth}`).toBe(true);
+        }
+      }
     });
 
     it('gives different targets different values within the same call — dataIds are genuinely distinct, not colliding', () => {
@@ -231,6 +282,17 @@ describe('spawnSystem', () => {
       expect(Object.keys(robot.lfoSettings ?? {}).sort()).toEqual([...ROBOT_LFO_TARGET_IDS].sort());
 
       expect(registerSpy).toHaveBeenCalledWith(robot.id, robot.melody);
+    });
+
+    it('quantizes masterVolume so its percent (x100) is always an integer, across many spawns (SEEDED_SLIDER_VALUE_QUANTIZATION Task 6)', () => {
+      for (let i = 0; i < 30; i++) {
+        spawnRobot(DEFAULT_LOCALE_ID);
+      }
+      const robots = useLocaleStore.getState().getLocaleById(DEFAULT_LOCALE_ID)?.robots ?? [];
+      expect(robots.length).toBeGreaterThan(0);
+      for (const robot of robots) {
+        expect(Number.isInteger(robot.masterVolume * 100), `robot ${robot.id}: ${robot.masterVolume}`).toBe(true);
+      }
     });
 
     it('spawns robots with the new percentage/toggle melody shapes', () => {

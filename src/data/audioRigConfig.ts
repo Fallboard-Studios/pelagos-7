@@ -73,17 +73,17 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
     params: [
       {
         field: 'low',
-        schema: { id: 'eq3.low', type: 'sliderCenteredZero', loreLabel: 'SUB-BAND', humanLabel: 'Low', min: -12, max: 12, unit: 'dB', orientation: 'vertical', verticalHeight: 256 },
+        schema: { id: 'eq3.low', type: 'sliderCenteredZero', loreLabel: 'SUB-BAND', humanLabel: 'Low', min: -12, max: 12, step: 0.5, unit: 'dB', orientation: 'vertical', verticalHeight: 256 },
         lfoTarget: 'eq3.low',
       },
       {
         field: 'mid',
-        schema: { id: 'eq3.mid', type: 'sliderCenteredZero', loreLabel: 'MEDIAL-BAND', humanLabel: 'Mid', min: -12, max: 12, unit: 'dB', orientation: 'vertical', verticalHeight: 256 },
+        schema: { id: 'eq3.mid', type: 'sliderCenteredZero', loreLabel: 'MEDIAL-BAND', humanLabel: 'Mid', min: -12, max: 12, step: 0.5, unit: 'dB', orientation: 'vertical', verticalHeight: 256 },
         lfoTarget: 'eq3.mid',
       },
       {
         field: 'high',
-        schema: { id: 'eq3.high', type: 'sliderCenteredZero', loreLabel: 'APICAL-BAND', humanLabel: 'High', min: -12, max: 12, unit: 'dB', orientation: 'vertical', verticalHeight: 256 },
+        schema: { id: 'eq3.high', type: 'sliderCenteredZero', loreLabel: 'APICAL-BAND', humanLabel: 'High', min: -12, max: 12, step: 0.5, unit: 'dB', orientation: 'vertical', verticalHeight: 256 },
         lfoTarget: 'eq3.high',
       },
     ],
@@ -127,7 +127,7 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
       // No lfoTarget/lfoAccordion — LFO removed from delayTime; the effect
       // still seeds/edits its value normally (GlobalAudioSeedFieldKey is a
       // separate, unrelated type from GlobalLfoTargetId).
-      { field: 'delayTime', schema: { id: 'delay.delayTime', type: 'sliderLinear', loreLabel: 'PROPAGATION LAG', humanLabel: 'Time', min: 0, max: 1, step: 0.01, unit: 's', orientation: 'horizontal' } },
+      { field: 'delayTime', schema: { id: 'delay.delayTime', type: 'sliderLinear', loreLabel: 'PROPAGATION LAG', humanLabel: 'Time', min: 0, max: 10, step: 0.001, unit: 's', orientation: 'horizontal' } },
       { field: 'feedback', schema: { id: 'delay.feedback', type: 'sliderLinear', loreLabel: 'RECIRCULATION RATE', humanLabel: 'Feedback', min: 0, max: 0.95, step: 0.01, orientation: 'horizontal' } },
       { field: 'wet', schema: { id: 'delay.wet', type: 'sliderLinear', loreLabel: 'REFLECTED SIGNAL BALANCE', humanLabel: 'Mix', min: 0, max: 1, step: 0.01, orientation: 'horizontal' } },
     ],
@@ -137,7 +137,7 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
     panel: panelSchema('reverb', 'SPATIAL DIFFUSION MATRIX', 'Reverb', 'column'),
     params: [
       { field: 'decay', schema: { id: 'reverb.decay', type: 'sliderLog', loreLabel: 'DISSIPATION DURATION', humanLabel: 'Decay', min: 0.1, max: 10, unit: 's', orientation: 'horizontal' } },
-      { field: 'preDelay', schema: { id: 'reverb.preDelay', type: 'sliderLinear', loreLabel: 'INITIAL LAG', humanLabel: 'Pre-Delay', min: 0, max: 0.5, step: 0.01, unit: 's', orientation: 'horizontal' } },
+      { field: 'preDelay', schema: { id: 'reverb.preDelay', type: 'sliderLinear', loreLabel: 'INITIAL LAG', humanLabel: 'Pre-Delay', min: 0, max: 1, step: 0.01, unit: 's', orientation: 'horizontal' } },
       // dampening removed (V2) — Tone.Reverb has no such property; the slider
       // controlled a dead cast in globalFx.ts since Phase 0.
       { field: 'wet', schema: { id: 'reverb.wet', type: 'sliderLinear', loreLabel: 'DIFFUSED SIGNAL BALANCE', humanLabel: 'Mix', min: 0, max: 1, step: 0.01, orientation: 'horizontal' } },
@@ -149,7 +149,7 @@ export const AUDIO_RIG_CONFIG: AudioRigEffectBlock[] = [
     params: [
       { field: 'threshold', schema: { id: 'compressor.threshold', type: 'sliderLinear', loreLabel: 'ATTENUATION THRESHOLD', humanLabel: 'Threshold', min: -60, max: 0, unit: 'dB', orientation: 'horizontal' } },
       { field: 'ratio', schema: { id: 'compressor.ratio', type: 'sliderLinear', loreLabel: 'COMPRESSION RATIO', humanLabel: 'Ratio', min: 1, max: 20, step: 1, orientation: 'horizontal' } },
-      { field: 'attack', schema: { id: 'compressor.attack', type: 'sliderLog', loreLabel: 'COMPRESSION RATE', humanLabel: 'Attack', min: 0.001, max: 1, unit: 's', orientation: 'horizontal' } },
+      { field: 'attack', schema: { id: 'compressor.attack', type: 'sliderLog', loreLabel: 'COMPRESSION RATE', humanLabel: 'Attack', min: 0.001, max: 0.2, unit: 's', orientation: 'horizontal' } },
       { field: 'release', schema: { id: 'compressor.release', type: 'sliderLog', loreLabel: 'RAREFACTION RATE', humanLabel: 'Release', min: 0.01, max: 1, unit: 's', orientation: 'horizontal' } },
       { field: 'knee', schema: { id: 'compressor.knee', type: 'sliderLinear', loreLabel: 'CURVATURE DAMPING', humanLabel: 'Knee', min: 0, max: 40, unit: 'dB', orientation: 'horizontal' } },
     ],
