@@ -111,6 +111,13 @@ function AccordionContainerInner({ schema, children, defaultOpen = false, style 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // The height the open tween should land on: the inner wrapper's own laid-out box, i.e. exactly what `height: auto` resolves
+  // to once the tween completes. Not `scrollHeight` — that also counts the last CabinetBox's popped-out front face
+  // overhanging the wrapper (a transform, so it isn't layout), which `auto` drops, so every open used to end by snapping
+  // ~2-3 px shorter and pulling every section below it up with it (measured in real Chrome, docs/PERFORMANCE.md).
+  // Falls back to scrollHeight only if the inner ref is somehow missing.
+  const measureContentHeight = () => contentInnerRef.current?.getBoundingClientRect().height ?? contentRef.current?.scrollHeight ?? 0;
+
   const animateTo = contextSafe((nextOpen: boolean) => {
     const el = contentRef.current;
     const innerEl = contentInnerRef.current;
@@ -123,7 +130,7 @@ function AccordionContainerInner({ schema, children, defaultOpen = false, style 
       && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const duration = getAccordionDuration(prefersReducedMotion);
     const fadeDuration = getAccordionFadeDuration(prefersReducedMotion);
-    const targetHeight = nextOpen ? el.scrollHeight : 0;
+    const targetHeight = nextOpen ? measureContentHeight() : 0;
 
     // Two sequential steps, deliberately never simultaneous, so the content
     // is never visible while a sibling section is still mid-reposition:
@@ -183,7 +190,7 @@ function AccordionContainerInner({ schema, children, defaultOpen = false, style 
     let lastHeight = -1;
     let ticks = 0;
     const startWhenSettled = () => {
-      const height = contentRef.current?.scrollHeight ?? 0;
+      const height = measureContentHeight();
       ticks += 1;
       if (height === lastHeight || ticks >= FIRST_OPEN_MAX_SETTLE_TICKS) {
         animateTo(true);

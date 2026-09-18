@@ -91,6 +91,16 @@ function stubMatchMedia(prefersReducedMotion: boolean) {
   });
 }
 
+/** Stubs the measured height of an accordion's `.sc-accordion__content-inner` — what animateTo() tweens open to (the
+ *  inner wrapper's laid-out box; see AccordionContainer.tsx's measureContentHeight). `heightOf` receives that element, so a
+ *  test can report a height only once its children have actually mounted. Every other element measures 0, as in jsdom. */
+function stubContentHeight(heightOf: (inner: Element) => number) {
+  return vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+    const height = this.classList.contains('sc-accordion__content-inner') ? heightOf(this) : 0;
+    return { x: 0, y: 0, top: 0, left: 0, right: 0, bottom: height, width: 0, height, toJSON: () => ({}) } as DOMRect;
+  });
+}
+
 describe('getAccordionDuration', () => {
   it('returns 0 when prefers-reduced-motion is set', () => {
     expect(getAccordionDuration(true)).toBe(0);
@@ -282,6 +292,25 @@ describe('AccordionContainer', () => {
       expect(fadeStepIndex).toBeGreaterThan(heightStepIndex);
     });
 
+    it('tweens open to the content\'s own laid-out height, not scrollHeight — scrollHeight counts the last box\'s popped-out overhang that height:auto drops, which made every open end in a 2-3 px snap', () => {
+      // scrollHeight (200) includes the ~2.5 px front-face overhang; the inner wrapper's real box is 197.5.
+      const scroll = vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockReturnValue(200);
+      const rect = stubContentHeight(() => 197.5);
+      try {
+        const { container } = render(<AccordionContainer schema={schema} defaultOpen>Content</AccordionContainer>);
+        fireEvent.click(screen.getByRole('button')); // close
+        timelineCalls = [];
+        fireEvent.click(screen.getByRole('button')); // reopen — the synchronous path
+
+        const content = container.querySelector('.sc-accordion__content');
+        const heightStep = timelineCalls.find((c) => c.method === 'to' && c.target === content && 'height' in c.vars);
+        expect(heightStep?.vars.height).toBe(197.5);
+      } finally {
+        scroll.mockRestore();
+        rect.mockRestore();
+      }
+    });
+
     it('on close, fades the content out before animating height back to 0', () => {
       const { container } = render(<AccordionContainer schema={schema} defaultOpen>Content</AccordionContainer>);
       const { content, inner } = contentEls(container);
@@ -337,9 +366,7 @@ describe('AccordionContainer', () => {
     it('measures the content only after it has mounted, so the height tween targets its real height', () => {
       // Only reports a height once the probe is actually in the DOM — a synchronous measure taken before the
       // children mount would read 0 here and tween to nothing (the failure mode spec §1.3 exists to prevent).
-      const spy = vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockImplementation(function (this: Element) {
-        return this.querySelector('[data-testid="probe-body"]') ? 240 : 0;
-      });
+      const spy = stubContentHeight((inner) => (inner.querySelector('[data-testid="probe-body"]') ? 240 : 0));
       try {
         const { container } = render(<AccordionContainer schema={schema}><Probe /></AccordionContainer>);
         const content = container.querySelector('.sc-accordion__content');
@@ -504,9 +531,7 @@ describe('AccordionContainer', () => {
     });
 
     it('builds the height tween once the tick fires, targeting the content\'s measured height', () => {
-      const spy = vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockImplementation(function (this: Element) {
-        return this.querySelector('span') ? 180 : 0;
-      });
+      const spy = stubContentHeight((inner) => (inner.querySelector('span') ? 180 : 0));
       try {
         render(<AccordionContainer schema={schema}><span>body</span></AccordionContainer>);
         fireEvent.click(trigger());
@@ -567,9 +592,7 @@ describe('AccordionContainer', () => {
     it('keeps waiting while the height is still changing, and animates once two consecutive ticks agree', () => {
       const readings = [100, 240, 240];
       let read = 0;
-      const spy = vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockImplementation(function (this: Element) {
-        return this.querySelector('span') ? readings[Math.min(read++, readings.length - 1)] : 0;
-      });
+      const spy = stubContentHeight((inner) => (inner.querySelector('span') ? readings[Math.min(read++, readings.length - 1)] : 0));
       try {
         render(<AccordionContainer schema={schema}><span>body</span></AccordionContainer>);
         fireEvent.click(trigger());
@@ -588,9 +611,7 @@ describe('AccordionContainer', () => {
 
     it('gives up waiting after a fixed number of ticks and animates anyway, if the height never settles', () => {
       let read = 0;
-      const spy = vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockImplementation(function (this: Element) {
-        return this.querySelector('span') ? 100 + read++ : 0; // a different height every read — never stable
-      });
+      const spy = stubContentHeight((inner) => (inner.querySelector('span') ? 100 + read++ : 0)); // a different height every read — never stable
       try {
         render(<AccordionContainer schema={schema}><span>body</span></AccordionContainer>);
         fireEvent.click(trigger());
