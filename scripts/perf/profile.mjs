@@ -129,10 +129,20 @@ const SAMPLER_JS = `
     _running: false,
     _gen: 0,
     _samples: [],
+    _oldStyles: [],
+    _observer: null,
+    _content: null,
     start(trigger) {
       const content = trigger.closest('.sc-accordion').querySelector('.sc-accordion__content');
       const inner = content.querySelector('.sc-accordion__content-inner');
       this._samples = [];
+      // Every inline-style write to the wrapper, as the value it REPLACED. GSAP writes the tween's final px height and then
+      // 'auto' back-to-back within one tick, so frame sampling can miss the px value entirely; the mutation records can't.
+      this._oldStyles = [];
+      this._observer?.disconnect();
+      this._content = content;
+      this._observer = new MutationObserver((records) => { for (const r of records) this._oldStyles.push(r.oldValue ?? ''); });
+      this._observer.observe(content, { attributes: true, attributeFilter: ['style'], attributeOldValue: true });
       this._running = true;
       // A generation token, not just the running flag: start() flips the flag back to true, so without it the previous
       // toggle's still-scheduled frame loop would keep pushing its own (different) element into the new sample array.
@@ -152,26 +162,37 @@ const SAMPLER_JS = `
       };
       requestAnimationFrame(tick);
     },
-    stop() { this._running = false; this._gen++; return this._samples; },
+    stop() {
+      this._running = false;
+      this._gen++;
+      for (const r of this._observer?.takeRecords() ?? []) this._oldStyles.push(r.oldValue ?? '');
+      this._observer?.disconnect();
+      return { samples: this._samples, oldStyles: this._oldStyles, finalStyle: this._content?.getAttribute('style') ?? '' };
+    },
   };
 `;
 
-/** Turns one toggle's per-frame samples into the numbers roadmap 17.2.2's smoothness pass cares about:
+/** Turns one toggle's samples into the numbers roadmap 17.2.2's smoothness pass cares about:
  *  - emptyOpenFrames: frames where the section reports expanded but has no children yet (an open-but-empty flash);
- *  - jumpPx: the height difference across the frame where GSAP releases the wrapper from a px height to `auto` — the
- *    R1 "measured before content settled" snap (≈ 0 when the tween targeted the real height);
+ *  - jumpPx: the height snap when GSAP hands the wrapper from its final px height to `auto` — the gap between the height the
+ *    tween targeted and the height `auto` resolved to. Read from the wrapper's inline-style writes (a MutationObserver), not
+ *    from frames, so it means the same thing at any frame rate: comparing sampled frames instead reports "the tween finished
+ *    between two frames" as a huge jump whenever frames are slow (e.g. under 4x throttle);
  *  - frames slower than 50 ms, and the slowest gap (the mount shows up here at high throttle). */
-function analyzeSamples(samples) {
-  const isPx = (s) => /px$/.test(s.sh);
-  const emptyOpenFrames = samples.filter((s) => s.exp === 'true' && s.kids === 0).length;
-  let jumpPx = null;
-  const firstAuto = samples.findIndex((s) => s.sh === 'auto');
-  if (firstAuto > 0) {
-    let j = firstAuto - 1;
-    while (j >= 0 && !isPx(samples[j])) j--;
-    if (j >= 0) jumpPx = Math.round(Math.abs(samples[firstAuto].h - samples[j].h) * 10) / 10;
-  }
-  const gaps = samples.slice(1).map((s) => s.dt);
+function analyzeSamples({ samples, oldStyles, finalStyle }) {
+  const isPx = (st) => /px$/.test(st.sh);
+  const heightPx = (style) => {
+    const m = /height:\s*([\d.]+)px/.exec(style);
+    return m ? Number(m[1]) : null;
+  };
+  const emptyOpenFrames = samples.filter((st) => st.exp === 'true' && st.kids === 0).length;
+  // The value each write produced is the next write's replaced value (the last write's is the current inline style).
+  const newStyles = [...oldStyles.slice(1), finalStyle];
+  const autoWrite = newStyles.findIndex((st) => /height:\s*auto/.test(st));
+  const target = autoWrite >= 0 ? heightPx(oldStyles[autoWrite]) : null;
+  const settled = samples.at(-1)?.h;
+  const jumpPx = target !== null && settled !== undefined ? Math.round(Math.abs(settled - target) * 10) / 10 : null;
+  const gaps = samples.slice(1).map((st) => st.dt);
   return {
     frames: samples.length,
     'empty-open frames': emptyOpenFrames,
@@ -179,7 +200,7 @@ function analyzeSamples(samples) {
     'frames >50ms': gaps.filter((g) => g > 50).length,
     'max frame gap (ms)': Math.max(0, ...gaps),
     'tween frames': samples.filter(isPx).length,
-    'final height (px)': Math.round(samples.at(-1)?.h ?? 0),
+    'final height (px)': Math.round(settled ?? 0),
   };
 }
 
