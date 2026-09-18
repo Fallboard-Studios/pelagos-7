@@ -13,6 +13,15 @@ export default [
   js.configs.recommended,
   ...tseslint.configs.recommended,
 
+  // Standalone Node scripts (scripts/perf/) — Node globals (console, process, fetch, WebSocket), not the browser's.
+  {
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      globals: { ...globals.node, WebSocket: 'readonly' },
+    },
+  },
+
   // React-specific rules
   {
     files: ['**/*.{ts,tsx}'],
