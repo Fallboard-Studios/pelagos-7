@@ -126,7 +126,6 @@
    the whole 3-row header rather than per-row, same simplicity trade-off
    Console.css's own --header-height clearance below makes. */
 .screen-content .rocker-spacer {
-  min-height: calc(var(--power-corner-height) - var(--spacing-lg));
   display: grid;
   grid-template-columns: var(--sleeve-bar-width) 1fr 1fr;
   grid-template-rows: auto auto;

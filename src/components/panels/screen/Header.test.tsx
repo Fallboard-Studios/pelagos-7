@@ -164,9 +164,9 @@ describe('Header', () => {
 
   it('renders 3 nav options, exactly once each — a single shared instance, not duplicated per breakpoint', () => {
     render(<Header />);
-    expect(screen.getAllByRole('radio', { name: 'Robots' })).toHaveLength(1);
-    expect(screen.getAllByRole('radio', { name: 'Audio Rig' })).toHaveLength(1);
-    expect(screen.getAllByRole('radio', { name: 'Sector Settings' })).toHaveLength(1);
+    expect(screen.getAllByRole('radio', { name: 'Probes' })).toHaveLength(1);
+    expect(screen.getAllByRole('radio', { name: 'Fleet Params' })).toHaveLength(1);
+    expect(screen.getAllByRole('radio', { name: 'Nav & Comms' })).toHaveLength(1);
   });
 
   it('renders exactly one .header__row--nav element — no .primary/.secondary split', () => {
@@ -178,14 +178,14 @@ describe('Header', () => {
 
   it('selecting a nav option calls setActiveHubTile', () => {
     render(<Header />);
-    fireEvent.click(getNavRadio('Audio Rig'));
+    fireEvent.click(getNavRadio('Fleet Params'));
     expect(useUIStore.getState().activeHubTile).toBe('audioRig');
   });
 
   it('re-selecting the active nav option clears activeHubTile back to null (deselect-to-empty, via RadioButton\'s onDeselect)', () => {
     useUIStore.setState({ activeHubTile: 'settings' });
     render(<Header />);
-    fireEvent.click(getNavRadio('Sector Settings'));
+    fireEvent.click(getNavRadio('Nav & Comms'));
     expect(useUIStore.getState().activeHubTile).toBeNull();
   });
 
@@ -196,7 +196,7 @@ describe('Header', () => {
     // onDeselect (not onChange) — handleNavDeselect must still recognize the
     // robots+selectedRobotId case and drop to the list, not blank
     // activeHubTile to null.
-    fireEvent.click(getNavRadio('Robots'));
+    fireEvent.click(getNavRadio('Probes'));
     expect(useUIStore.getState().selectedRobotId).toBeNull();
     expect(useUIStore.getState().activeHubTile).toBe('robots');
   });
@@ -204,14 +204,14 @@ describe('Header', () => {
   it('re-selecting Robots while selectedRobotId is already null blanks all the way out, same as any other tile', () => {
     useUIStore.setState({ activeHubTile: 'robots', selectedRobotId: null });
     render(<Header />);
-    fireEvent.click(getNavRadio('Robots'));
+    fireEvent.click(getNavRadio('Probes'));
     expect(useUIStore.getState().activeHubTile).toBeNull();
   });
 
   it('selecting a non-robots tile does not touch selectedRobotId', () => {
     useUIStore.setState({ activeHubTile: null, selectedRobotId: 'robot-3' });
     render(<Header />);
-    fireEvent.click(getNavRadio('Audio Rig'));
+    fireEvent.click(getNavRadio('Fleet Params'));
     expect(useUIStore.getState().selectedRobotId).toBe('robot-3');
   });
 

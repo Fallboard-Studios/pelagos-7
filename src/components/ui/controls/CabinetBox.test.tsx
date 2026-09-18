@@ -263,11 +263,21 @@ describe('CabinetBox', () => {
     // stubMatchMedia(false) (beforeEach) never matches a breakpoint query,
     // so useCabinetBoxHeight would otherwise resolve desktop (48) — the
     // override must win over that resolved value, not merely be accepted.
+    // Picked above the 44px floor (see next test) so this value survives
+    // Math.max unchanged and still unambiguously differs from 48.
+    const { container } = render(
+      <CabinetBox popped={false} timelineKey="test-box" boxHeight={56}>x</CabinetBox>,
+    );
+    const wrapper = container.querySelector('.sc-cabinet-box') as HTMLElement;
+    expect(wrapper.style.getPropertyValue('--cabinet-box-height')).toBe('56px');
+  });
+
+  it('floors --cabinet-box-height at 44px, even when a smaller boxHeight override is given', () => {
     const { container } = render(
       <CabinetBox popped={false} timelineKey="test-box" boxHeight={32}>x</CabinetBox>,
     );
     const wrapper = container.querySelector('.sc-cabinet-box') as HTMLElement;
-    expect(wrapper.style.getPropertyValue('--cabinet-box-height')).toBe('32px');
+    expect(wrapper.style.getPropertyValue('--cabinet-box-height')).toBe('44px');
   });
 
   describe('wall rendering (roadmap 11.1.1 follow-up — two fixed-skew, scale-tweened divs, replacing SVG polygons; docs/specs/OBLIQUE_CABINETRY_WALL_RENDERING.md)', () => {

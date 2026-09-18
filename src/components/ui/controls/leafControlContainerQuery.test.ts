@@ -8,7 +8,8 @@ import { getCssRuleBody } from '@/testUtils/cssRuleBody';
 
 // TYPE_SCALE.md Tasks 4-6 — every one of the 11 leaf ControlSchema
 // primitives' own root CSS selector gets font-family/font-weight
-// (--font-controls/--font-weight-control, spec §1.5), and MOST of them also
+// (--font-sans/--font-weight-control — moved off --font-controls,
+// styling/header, 2026-09-17), and MOST of them also
 // establish the shared sc-control size-container context DualLabel.css's own
 // compact fallback (Task 3) queries.
 //
@@ -77,8 +78,8 @@ describe.each(LEAF_CONTROLS)('$file root selector ($selector)', ({ file, selecto
     expect(body).not.toBeNull();
   });
 
-  it('sets font-family to --font-controls', () => {
-    expect(body).toContain('font-family: var(--font-controls);');
+  it('sets font-family to --font-sans', () => {
+    expect(body).toContain('font-family: var(--font-sans);');
   });
 
   it('sets font-weight to --font-weight-control', () => {

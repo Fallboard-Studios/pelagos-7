@@ -109,9 +109,9 @@ describe('Toggle', () => {
     expect(screen.getByTestId('cabinet-box').getAttribute('data-popped')).toBe('0.5');
   });
 
-  it('passes a fixed 32px boxHeight to CabinetBox, regardless of viewport', () => {
+  it('passes a fixed 44px boxHeight to CabinetBox, regardless of viewport', () => {
     render(<Toggle schema={schema} value={false} onChange={() => {}} />);
-    expect(screen.getByTestId('cabinet-box').getAttribute('data-box-height')).toBe('32');
+    expect(screen.getByTestId('cabinet-box').getAttribute('data-box-height')).toBe('44');
   });
 
   it('passes a schema-scoped timelineKey distinct from Button\'s own cabinet-button- prefix, plus a per-instance useId() segment', () => {
@@ -144,26 +144,26 @@ describe('Toggle', () => {
     expect(container.querySelector('.sc-toggle__thumb')).toBeNull();
   });
 
-  it('passes an explicit boxSize straight through as CabinetBox\'s boxHeight, overriding the fixed 32px default (docs/specs/HEADER_HUB_CONSOLIDATION.md §1.4)', () => {
-    render(<Toggle schema={schema} value={false} onChange={() => {}} boxSize={44} />);
+  it('passes an explicit boxSize straight through as CabinetBox\'s boxHeight, overriding the fixed 44px default (docs/specs/HEADER_HUB_CONSOLIDATION.md §1.4)', () => {
+    render(<Toggle schema={schema} value={false} onChange={() => {}} boxSize={56} />);
+    expect(screen.getByTestId('cabinet-box').getAttribute('data-box-height')).toBe('56');
+  });
+
+  it('omitting boxSize still passes the fixed 44px default — every existing consumer is unaffected (regression guard)', () => {
+    render(<Toggle schema={schema} value={false} onChange={() => {}} />);
     expect(screen.getByTestId('cabinet-box').getAttribute('data-box-height')).toBe('44');
   });
 
-  it('omitting boxSize still passes the fixed 32px default — every existing consumer is unaffected (regression guard)', () => {
-    render(<Toggle schema={schema} value={false} onChange={() => {}} />);
-    expect(screen.getByTestId('cabinet-box').getAttribute('data-box-height')).toBe('32');
+  it('also updates the --cabinet-toggle-box-size custom property (Toggle.css\'s own front-face size override) to match boxSize, not just CabinetBox\'s boxHeight prop', () => {
+    render(<Toggle schema={schema} value={false} onChange={() => {}} boxSize={56} />);
+    const switchRoot = screen.getByRole('switch');
+    expect(switchRoot.style.getPropertyValue('--cabinet-toggle-box-size')).toBe('56px');
   });
 
-  it('also updates the --cabinet-toggle-box-size custom property (Toggle.css\'s own front-face size override) to match boxSize, not just CabinetBox\'s boxHeight prop', () => {
-    render(<Toggle schema={schema} value={false} onChange={() => {}} boxSize={44} />);
+  it('--cabinet-toggle-box-size still defaults to 44px when boxSize is omitted', () => {
+    render(<Toggle schema={schema} value={false} onChange={() => {}} />);
     const switchRoot = screen.getByRole('switch');
     expect(switchRoot.style.getPropertyValue('--cabinet-toggle-box-size')).toBe('44px');
-  });
-
-  it('--cabinet-toggle-box-size still defaults to 32px when boxSize is omitted', () => {
-    render(<Toggle schema={schema} value={false} onChange={() => {}} />);
-    const switchRoot = screen.getByRole('switch');
-    expect(switchRoot.style.getPropertyValue('--cabinet-toggle-box-size')).toBe('32px');
   });
 
   // Facade content — an icon or short text rendered on CabinetBox's own front face, replacing
