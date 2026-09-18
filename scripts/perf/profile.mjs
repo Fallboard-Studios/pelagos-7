@@ -32,6 +32,8 @@ const HELP = `Usage: npm run perf -- [flags]
   --url <url>        page to profile (default http://localhost:4173/trace-atlas/, i.e. \`vite preview\`)
   --throttle <n>     CPU slowdown multiplier, 1 = none (default 4, Chrome DevTools' "recommended" mobile setting)
   --mobile           emulate a 390x844 phone viewport instead of 1280x900 desktop
+  --width <px>       viewport width (overrides --mobile/desktop; <= 480 is treated as a phone)
+  --smoothness       instead of the step table, sample each accordion's first open frame by frame (empty-open flash, height snap, slow frames)
   --profile          also capture a CPU profile (top self/inclusive functions) — most readable against a \`--minify false\` build
   --trace            also capture a layout/paint trace summary (forced layouts, paint, compositing)
   --chrome <path>    Chrome/Edge executable (else $CHROME_PATH, else a platform default)
@@ -44,6 +46,8 @@ const { values: opts } = parseArgs({
     url: { type: 'string', default: 'http://localhost:4173/trace-atlas/' },
     throttle: { type: 'string', default: '4' },
     mobile: { type: 'boolean', default: false },
+    width: { type: 'string' },
+    smoothness: { type: 'boolean', default: false },
     profile: { type: 'boolean', default: false },
     trace: { type: 'boolean', default: false },
     chrome: { type: 'string' },
@@ -116,7 +120,72 @@ async function connect(port) {
   };
 }
 
+/** In-page frame sampler (injected once in --smoothness mode; verification tooling only, never app code). While running it
+ *  records, on every animation frame, the observed accordion's wrapper height and inline `style.height`, how many children
+ *  its content-inner holds, and its trigger's aria-expanded — enough to see an open-but-empty frame and the moment GSAP
+ *  hands the height over to `auto`. */
+const SAMPLER_JS = `
+  window.__smooth = {
+    _running: false,
+    _gen: 0,
+    _samples: [],
+    start(trigger) {
+      const content = trigger.closest('.sc-accordion').querySelector('.sc-accordion__content');
+      const inner = content.querySelector('.sc-accordion__content-inner');
+      this._samples = [];
+      this._running = true;
+      // A generation token, not just the running flag: start() flips the flag back to true, so without it the previous
+      // toggle's still-scheduled frame loop would keep pushing its own (different) element into the new sample array.
+      const gen = ++this._gen;
+      let last = performance.now();
+      const tick = (now) => {
+        if (!this._running || gen !== this._gen) return;
+        this._samples.push({
+          dt: Math.round(now - last),
+          h: content.getBoundingClientRect().height,
+          sh: content.style.height,
+          kids: inner.childElementCount,
+          exp: trigger.getAttribute('aria-expanded'),
+        });
+        last = now;
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    },
+    stop() { this._running = false; this._gen++; return this._samples; },
+  };
+`;
+
+/** Turns one toggle's per-frame samples into the numbers roadmap 17.2.2's smoothness pass cares about:
+ *  - emptyOpenFrames: frames where the section reports expanded but has no children yet (an open-but-empty flash);
+ *  - jumpPx: the height difference across the frame where GSAP releases the wrapper from a px height to `auto` — the
+ *    R1 "measured before content settled" snap (≈ 0 when the tween targeted the real height);
+ *  - frames slower than 50 ms, and the slowest gap (the mount shows up here at high throttle). */
+function analyzeSamples(samples) {
+  const isPx = (s) => /px$/.test(s.sh);
+  const emptyOpenFrames = samples.filter((s) => s.exp === 'true' && s.kids === 0).length;
+  let jumpPx = null;
+  const firstAuto = samples.findIndex((s) => s.sh === 'auto');
+  if (firstAuto > 0) {
+    let j = firstAuto - 1;
+    while (j >= 0 && !isPx(samples[j])) j--;
+    if (j >= 0) jumpPx = Math.round(Math.abs(samples[firstAuto].h - samples[j].h) * 10) / 10;
+  }
+  const gaps = samples.slice(1).map((s) => s.dt);
+  return {
+    frames: samples.length,
+    'empty-open frames': emptyOpenFrames,
+    'height jump at auto (px)': jumpPx,
+    'frames >50ms': gaps.filter((g) => g > 50).length,
+    'max frame gap (ms)': Math.max(0, ...gaps),
+    'tween frames': samples.filter(isPx).length,
+    'final height (px)': Math.round(samples.at(-1)?.h ?? 0),
+  };
+}
+
 async function run({ send, onEvent }) {
+  const viewportWidth = opts.width ? Number(opts.width) : (opts.mobile ? 390 : 1280);
+  const isPhone = opts.mobile || viewportWidth <= 480;
   const evaluate = async (expression) => {
     const r = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
     if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description ?? 'evaluate failed');
@@ -125,9 +194,9 @@ async function run({ send, onEvent }) {
 
   await send('Page.enable');
   await send('Runtime.enable');
-  await send('Emulation.setDeviceMetricsOverride', opts.mobile
-    ? { width: 390, height: 844, deviceScaleFactor: 2, mobile: true }
-    : { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
+  await send('Emulation.setDeviceMetricsOverride', isPhone
+    ? { width: viewportWidth, height: 844, deviceScaleFactor: 2, mobile: true }
+    : { width: viewportWidth, height: 900, deviceScaleFactor: 1, mobile: false });
   await send('Page.addScriptToEvaluateOnNewDocument', {
     source: `
       window.__longTasks = [];
@@ -190,8 +259,13 @@ async function run({ send, onEvent }) {
     };
   }
 
-  console.log(`Profiling ${opts.url} — ${opts.throttle}x CPU throttle, ${opts.mobile ? 'mobile 390x844' : 'desktop 1280x900'}`);
+  console.log(`Profiling ${opts.url} — ${opts.throttle}x CPU throttle, ${isPhone ? 'phone' : 'desktop'} ${viewportWidth}px wide`);
   console.log(`Long-task counts use Tone's ${LOOKAHEAD_MS} ms lookahead as the audible-pause threshold.\n`);
+
+  if (opts.smoothness) {
+    await runSmoothness();
+    return;
+  }
 
   const rows = [];
   /** Opens every currently-collapsed accordion on the page once, in DOM order, one measured row each — the per-section
@@ -209,6 +283,50 @@ async function run({ send, onEvent }) {
       sectionRows.push(await measureStep(`${prefix} › ${label}`, () => evaluate(`document.querySelector('.sc-accordion__trigger[aria-expanded="false"]').click()`), 1500));
     }
     return sectionRows;
+  }
+
+  /** One toggle of one accordion, sampled frame by frame. `pick` is a JS expression yielding the trigger element. */
+  async function sampleToggle(label, pick) {
+    await evaluate(`(() => { const t = ${pick}; window.__smooth.start(t); t.click(); })()`);
+    await sleep(1500 + 500 * Number(opts.throttle));
+    return { section: label, ...analyzeSamples(await evaluate('window.__smooth.stop()')) };
+  }
+
+  /** Smoothness pass (roadmap 17.2.2, task 8): first-open every collapsed accordion on the current screen, then close and
+   *  reopen the first one to confirm the already-mounted path. */
+  async function smoothEachAccordion(prefix) {
+    const firstCollapsed = `document.querySelector('.sc-accordion__trigger[aria-expanded="false"]')`;
+    const labels = await evaluate(`[...document.querySelectorAll('.sc-accordion__trigger[aria-expanded="false"]')].map((t) => {
+      const human = t.querySelector('.sc-dual-label__human');
+      return ((human ?? t).textContent || '').replace(/\\s+/g, ' ').trim();
+    })`);
+    const out = [];
+    for (const label of labels) out.push(await sampleToggle(`${prefix} › ${label} (first open)`, firstCollapsed));
+    if (labels.length) {
+      const firstTrigger = `document.querySelectorAll('.sc-accordion__trigger')[0]`;
+      out.push(await sampleToggle(`${prefix} › ${labels[0]} (close)`, firstTrigger));
+      out.push(await sampleToggle(`${prefix} › ${labels[0]} (reopen)`, firstTrigger));
+    }
+    return out;
+  }
+
+  async function runSmoothness() {
+    await evaluate(SAMPLER_JS);
+    await click('power on');
+    await sleep(6000);
+    const smoothRows = [];
+    await click(TILE_FLEET);
+    await sleep(2500);
+    smoothRows.push(...await smoothEachAccordion('fleet'));
+    await click(TILE_PROBES);
+    await sleep(2500);
+    await clickSelector('.robot-selection-card__top');
+    await sleep(2500);
+    smoothRows.push(...await smoothEachAccordion('detail'));
+    console.table(smoothRows);
+    const flashes = smoothRows.reduce((n, r) => n + r['empty-open frames'], 0);
+    const jumps = smoothRows.map((r) => r['height jump at auto (px)']).filter((j) => j !== null);
+    console.log(`Empty-open frames across all toggles: ${flashes}. Largest height jump at auto: ${jumps.length ? Math.max(...jumps) : 'n/a'} px.`);
   }
 
   rows.push(await measureStep('power on', () => click('power on'), 6000));
