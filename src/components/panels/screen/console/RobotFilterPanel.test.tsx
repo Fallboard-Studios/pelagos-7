@@ -84,7 +84,7 @@ describe('RobotFilterPanel', () => {
   describe('desktop tier', () => {
     it('renders no toggle button', () => {
       render(<RobotFilterPanel />);
-      expect(screen.queryByRole('button', { name: /filters/i })).toBeNull();
+      expect(screen.queryByRole('button', { name: /^show companies$/i })).toBeNull();
     });
 
     it("carries data-tier='desktop' on its own root", () => {
@@ -130,13 +130,13 @@ describe('RobotFilterPanel', () => {
     it('renders a toggle button at mobile tier', () => {
       stubMatchMedia({ mobile: true, tablet: true });
       render(<RobotFilterPanel />);
-      expect(screen.getByRole('button', { name: /filters/i })).toBeTruthy();
+      expect(screen.getByRole('button', { name: /^show companies$/i })).toBeTruthy();
     });
 
     it('renders a toggle button at tablet tier', () => {
       stubMatchMedia({ mobile: false, tablet: true });
       render(<RobotFilterPanel />);
-      expect(screen.getByRole('button', { name: /filters/i })).toBeTruthy();
+      expect(screen.getByRole('button', { name: /^show companies$/i })).toBeTruthy();
     });
 
     it("carries data-tier='mobile'/'tablet' on its own root, matching the stubbed query", () => {
@@ -151,87 +151,86 @@ describe('RobotFilterPanel', () => {
       expect(container.querySelector('.robot-filter-panel')?.classList.contains('isActive')).toBe(false);
     });
 
-    it('adds the isActive class when the toggle is clicked, and removes it on a second click', () => {
+    it('adds the isActive class when the toggle is clicked, and removes it when the close button is clicked', () => {
       stubMatchMedia({ mobile: true, tablet: true });
       const { container } = render(<RobotFilterPanel />);
-      const toggle = screen.getByRole('button', { name: /filters/i });
 
-      fireEvent.click(toggle);
+      fireEvent.click(screen.getByRole('button', { name: /^show companies$/i }));
       expect(container.querySelector('.robot-filter-panel')?.classList.contains('isActive')).toBe(true);
 
-      fireEvent.click(toggle);
+      fireEvent.click(screen.getByRole('button', { name: /^hide companies$/i }));
       expect(container.querySelector('.robot-filter-panel')?.classList.contains('isActive')).toBe(false);
     });
 
     it('registers a GSAP timeline (under its own dedicated key) via setTimeline when the toggle opens the panel', () => {
       stubMatchMedia({ mobile: true, tablet: true });
       render(<RobotFilterPanel />);
-      fireEvent.click(screen.getByRole('button', { name: /filters/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^show companies$/i }));
       // setTimeline is also called by Button's own internal CabinetBox (an unrelated pop
       // animation) — filter to this panel's own key so the assertion is specific to its slide.
       expect(setTimeline).toHaveBeenCalledWith('robot-filter-panel', expect.anything());
     });
 
-    it('does not auto-close (or touch its own GSAP timeline) purely from mounting with a pre-existing selection', () => {
-      stubMatchMedia({ mobile: true, tablet: true });
-      useUIStore.getState().selectCompany('c1');
+    // The panel used to auto-close whenever selectedCompanyId/allRobotsSelected changed — removed
+    // (Crawford's own request, 2026-09-18): it now closes only via its own Hide button.
+    describe('stays open across selection changes (no auto-close)', () => {
+      function openPanel() {
+        stubMatchMedia({ mobile: true, tablet: true });
+        const utils = render(<RobotFilterPanel />);
+        fireEvent.click(screen.getByRole('button', { name: /^show companies$/i }));
+        const panel = () => utils.container.querySelector('.robot-filter-panel');
+        expect(panel()?.classList.contains('isActive')).toBe(true);
+        return { ...utils, panel };
+      }
 
-      render(<RobotFilterPanel />);
+      it('stays open when a company is selected', () => {
+        const { panel } = openPanel();
+        act(() => { useUIStore.getState().selectCompany('c1'); });
+        expect(panel()?.classList.contains('isActive')).toBe(true);
+      });
 
-      expect(setTimeline).not.toHaveBeenCalledWith('robot-filter-panel', expect.anything());
-    });
+      it('stays open when "All" (selectAllRobots) is chosen', () => {
+        const { panel } = openPanel();
+        act(() => { useUIStore.getState().selectAllRobots(); });
+        expect(panel()?.classList.contains('isActive')).toBe(true);
+      });
 
-    it('auto-closes when a company is selected while the panel is open', () => {
-      stubMatchMedia({ mobile: true, tablet: true });
-      const { container } = render(<RobotFilterPanel />);
-      fireEvent.click(screen.getByRole('button', { name: /filters/i })); // open
-      expect(container.querySelector('.robot-filter-panel')?.classList.contains('isActive')).toBe(true);
+      it('does not start a slide animation when the selection changes', () => {
+        openPanel();
+        vi.mocked(setTimeline).mockClear();
+        act(() => { useUIStore.getState().selectCompany('c1'); });
+        expect(setTimeline).not.toHaveBeenCalledWith('robot-filter-panel', expect.anything());
+      });
 
-      act(() => { useUIStore.getState().selectCompany('c1'); });
-
-      expect(container.querySelector('.robot-filter-panel')?.classList.contains('isActive')).toBe(false);
-    });
-
-    it('auto-closes when "All" (selectAllRobots) is chosen while the panel is open', () => {
-      stubMatchMedia({ mobile: true, tablet: true });
-      const { container } = render(<RobotFilterPanel />);
-      fireEvent.click(screen.getByRole('button', { name: /filters/i })); // open
-      expect(container.querySelector('.robot-filter-panel')?.classList.contains('isActive')).toBe(true);
-
-      act(() => { useUIStore.getState().selectAllRobots(); });
-
-      expect(container.querySelector('.robot-filter-panel')?.classList.contains('isActive')).toBe(false);
-    });
-
-    it('does not auto-close if the panel is already closed when the selection changes', () => {
-      stubMatchMedia({ mobile: true, tablet: true });
-      const { container } = render(<RobotFilterPanel />);
-      // Never opened.
-      act(() => { useUIStore.getState().selectCompany('c1'); });
-      expect(container.querySelector('.robot-filter-panel')?.classList.contains('isActive')).toBe(false);
+      it('still closes via its own close button', () => {
+        const { panel } = openPanel();
+        act(() => { useUIStore.getState().selectCompany('c1'); });
+        fireEvent.click(screen.getByRole('button', { name: /^hide companies$/i }));
+        expect(panel()?.classList.contains('isActive')).toBe(false);
+      });
     });
   });
 
-  describe('close button + Show/Hide Filters labels (§1.2)', () => {
-    it('renders "Show Filters" as the toggle\'s accessible name, before opening, at mobile/tablet tier', () => {
+  describe('close button + Show/Hide Companies labels (§1.2)', () => {
+    it('renders "Show Companies" as the toggle\'s accessible name, before opening, at mobile/tablet tier', () => {
       stubMatchMedia({ mobile: true, tablet: true });
       render(<RobotFilterPanel />);
-      expect(screen.getByRole('button', { name: /^show filters$/i })).toBeTruthy();
-      expect(screen.queryByRole('button', { name: /^hide filters$/i })).toBeNull();
+      expect(screen.getByRole('button', { name: /^show companies$/i })).toBeTruthy();
+      expect(screen.queryByRole('button', { name: /^hide companies$/i })).toBeNull();
     });
 
-    it('renders no "Hide Filters" close button at desktop tier, even conceptually "open"', () => {
+    it('renders no toggle or close button at desktop tier', () => {
       render(<RobotFilterPanel />); // desktop by default (beforeEach)
-      expect(screen.queryByRole('button', { name: /^hide filters$/i })).toBeNull();
-      expect(screen.queryByRole('button', { name: /^show filters$/i })).toBeNull();
+      expect(screen.queryByRole('button', { name: /^hide companies$/i })).toBeNull();
+      expect(screen.queryByRole('button', { name: /^show companies$/i })).toBeNull();
     });
 
-    it('renders a "Hide Filters" close button, before CompanyManager in document order, once opened', () => {
+    it('renders a "Hide Companies" close button, before CompanyManager in document order, once opened', () => {
       stubMatchMedia({ mobile: true, tablet: true });
       const { container } = render(<RobotFilterPanel />);
-      fireEvent.click(screen.getByRole('button', { name: /^show filters$/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^show companies$/i }));
 
-      const close = screen.getByRole('button', { name: /^hide filters$/i });
+      const close = screen.getByRole('button', { name: /^hide companies$/i });
       expect(close).toBeTruthy();
       const panel = container.querySelector('.robot-filter-panel');
       const companyManager = screen.getByTestId('company-manager-mock');
@@ -241,20 +240,30 @@ describe('RobotFilterPanel', () => {
       expect(close.compareDocumentPosition(companyManager) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
 
-    it('the "Show Filters" toggle stays mounted and present while the panel is open', () => {
+    it('the "Show Companies" toggle is replaced by the close button while open, and returns once closed', () => {
       stubMatchMedia({ mobile: true, tablet: true });
       render(<RobotFilterPanel />);
-      fireEvent.click(screen.getByRole('button', { name: /^show filters$/i }));
-      expect(screen.getByRole('button', { name: /^show filters$/i })).toBeTruthy();
+      fireEvent.click(screen.getByRole('button', { name: /^show companies$/i })); // open
+      expect(screen.queryByRole('button', { name: /^show companies$/i })).toBeNull();
+
+      fireEvent.click(screen.getByRole('button', { name: /^hide companies$/i })); // close
+      expect(screen.getByRole('button', { name: /^show companies$/i })).toBeTruthy();
     });
 
-    it('clicking "Hide Filters" closes the panel, same as clicking the toggle again', () => {
+    it('renders exactly one "Hide Companies" button while open', () => {
+      stubMatchMedia({ mobile: true, tablet: true });
+      render(<RobotFilterPanel />);
+      fireEvent.click(screen.getByRole('button', { name: /^show companies$/i }));
+      expect(screen.getAllByRole('button', { name: /^hide companies$/i })).toHaveLength(1);
+    });
+
+    it('clicking "Hide Companies" closes the panel', () => {
       stubMatchMedia({ mobile: true, tablet: true });
       const { container } = render(<RobotFilterPanel />);
-      fireEvent.click(screen.getByRole('button', { name: /^show filters$/i })); // open
+      fireEvent.click(screen.getByRole('button', { name: /^show companies$/i })); // open
       expect(container.querySelector('.robot-filter-panel')?.classList.contains('isActive')).toBe(true);
 
-      fireEvent.click(screen.getByRole('button', { name: /^hide filters$/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^hide companies$/i }));
       expect(container.querySelector('.robot-filter-panel')?.classList.contains('isActive')).toBe(false);
     });
   });
@@ -270,8 +279,7 @@ describe('RobotFilterPanel', () => {
   // Bugfix, found live (docs/todo/backlog.md #27 follow-up) — same class as CompanyManager's own
   // documented fix: RobotsTab re-renders on every audio-swell tick (~8-9x/sec), and this panel
   // takes zero props, so a memo boundary is correct and sufficient (an empty prop list can never
-  // differ) — it still re-renders normally when its own selectedCompanyId/allRobotsSelected
-  // subscriptions actually change.
+  // differ) — it still re-renders normally when its own useCabinetTier subscription changes.
   it('is a React.memo-wrapped component', () => {
     expect((RobotFilterPanel as unknown as { $$typeof: symbol }).$$typeof).toBe(Symbol.for('react.memo'));
   });

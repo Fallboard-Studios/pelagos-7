@@ -17,6 +17,15 @@
    RobotFilterPanel's own data-tier reads 'desktop' (:has() reads that attribute directly — no new
    prop threaded through RobotsTab.tsx for it). */
 .robots-tab__body {
+  /* Shared by RobotFilterPanel.css's panel and toggle (siblings, so it has to live on their parent):
+     where they stick while scrolling — just under the header, see --console-header-clearance in
+     ConsolePanel.css. */
+  --robot-filter-stick-top: var(--spacing-lg);
+  /* Off-desktop only: the sticky toggle (RobotFilterPanel.css) shares cell (1, 1) with the list
+     rather than taking a row of its own (a sticky element can't leave its own grid area), so the
+     list is pushed down by the toggle's height + --spacing-lg to sit 16px below it. The button's
+     height isn't a token anywhere — this is an estimate; adjust if the gap looks off. */
+  --robot-filter-toggle-height: 44px;
   display: grid;
   grid-template-columns: 1fr;
   align-items: start;
@@ -37,6 +46,7 @@
   grid-column: 1;
   grid-row: 1;
   min-width: 0;
+  margin-top: calc(var(--robot-filter-toggle-height) + var(--spacing-lg) + 8px);
   /* Bugfix, found live: selecting a real company (filterRobotsByCompanyFocus, formerly
      sortRobotsByCompanyFocus's own reorder-to-the-end behavior before Roadmap: Robot Selection
      Filter Panel) moved/removed cards' actual DOM position, not just their size, and the
@@ -53,6 +63,8 @@
 
 .robots-tab__body:has(> .robot-filter-panel[data-tier='desktop']) .robots-tab__list {
   grid-column: 2;
+  margin-top: 0;
+  /* no toggle on desktop — the panel is its own sidebar column */
 }
 
 /* Replaces .robots-tab__list (as RobotFilterPanel's own sibling in .robots-tab__body) when a
@@ -62,7 +74,7 @@
   grid-column: 1;
   grid-row: 1;
   min-width: 0;
-  margin: 0;
+  margin: calc(var(--robot-filter-toggle-height) + var(--spacing-lg)) 0 0;
   padding: 24px 16px;
   text-align: center;
   color: var(--color-text-muted);
@@ -70,4 +82,5 @@
 
 .robots-tab__body:has(> .robot-filter-panel[data-tier='desktop']) .robots-tab__empty {
   grid-column: 2;
+  margin-top: 0;
 }

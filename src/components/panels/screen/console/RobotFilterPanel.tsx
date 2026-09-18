@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/controls/Button';
 import { withActiveClass } from '@/components/ui/controls/activeClass';
 import { useCabinetTier } from '@/components/ui/controls/useCabinetBoxHeight';
 import { setTimeline, killTimeline } from '@/animation/timelineMap';
-import { useUIStore } from '@/stores/uiStore';
 import type { ButtonSchema } from '@/types/controls';
 import './RobotFilterPanel.css';
 
@@ -19,8 +18,8 @@ const SLIDE_DURATION = 0.25;
 // companyConfig.ts-owned schemas. humanLabel drives both the visible DualLabel text and the
 // accessible name (resolveAccessibleName) — the state-changing label across these two distinct
 // buttons is the only signal of open/closed state (Button.tsx has no aria-expanded passthrough).
-const FILTER_TOGGLE_SCHEMA: ButtonSchema = { id: 'robotFilterPanel.toggle', type: 'button', loreLabel: 'ROSTER FILTER ACCESS [c]', humanLabel: 'Show Filters' };
-const FILTER_CLOSE_SCHEMA: ButtonSchema = { id: 'robotFilterPanel.close', type: 'button', loreLabel: 'ROSTER FILTER DISMISSAL [c]', humanLabel: 'Hide Filters' };
+const FILTER_TOGGLE_SCHEMA: ButtonSchema = { id: 'robotFilterPanel.toggle', type: 'button', humanLabel: 'Show Companies' };
+const FILTER_CLOSE_SCHEMA: ButtonSchema = { id: 'robotFilterPanel.close', type: 'button', humanLabel: 'Hide Companies' };
 
 /**
  * Responsive shell for the company filter panel (Roadmap: Robot Selection Filter Panel) — wraps
@@ -38,41 +37,33 @@ const FILTER_CLOSE_SCHEMA: ButtonSchema = { id: 'robotFilterPanel.close', type: 
  * own animateTo()/setTimeline()/killTimeline() pattern exactly (a transform tween in place of a
  * height tween), respecting prefers-reduced-motion (snap instead of animate).
  *
- * Auto-closes whenever selectedCompanyId/allRobotsSelected changes post-mount — picking any
- * filter option (All, a company, or Reset) drops the user straight onto the now-filtered list,
- * confirmed in interview ("there aren't multiple options to select at once here, so we should
- * just present the results"). Skips the very first render (mount) via didMountRef, the same
- * "mount is special-cased" precedent AccordionContainer.tsx's own defaultOpen effect
- * establishes — without it, mounting with an already-selected company would otherwise fire a
- * pointless close/animate on load.
+ * Closes only via its own toggle/close button — picking a filter option (All, a company, or
+ * Reset) deliberately leaves it open (Crawford's own request, 2026-09-18; it used to auto-close
+ * on any selectedCompanyId/allRobotsSelected change so the user landed straight on the filtered
+ * list).
  *
  * Bugfix, found live (docs/todo/backlog.md #27 follow-up) — same class as CompanyManager's own
  * documented fix: RobotsTab (this component's own parent) re-renders on every audio-swell tick
  * (~8-9x/sec, see CompanyManager.tsx's own doc comment for the full mechanism), and this panel
  * takes zero props, so memo() is correct and sufficient (an empty prop list can never differ) —
- * it still re-renders normally whenever its own selectedCompanyId/allRobotsSelected/useCabinetTier
- * subscriptions actually change.
+ * it still re-renders normally whenever its own useCabinetTier subscription actually changes.
  */
 export const RobotFilterPanel = memo(function RobotFilterPanel() {
   const tier = useCabinetTier();
   const isDesktop = tier === 'desktop';
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
-  const didMountRef = useRef(false);
 
-  const selectedCompanyId = useUIStore((s) => s.selectedCompanyId);
-  const allRobotsSelected = useUIStore((s) => s.allRobotsSelected);
-
-  // Bugfix, found live: the CSS baseline (RobotFilterPanel.css) sets the closed-state resting
-  // value via a stylesheet `transform: translateX(-100%)` rule, but GSAP never reads percentage
-  // transforms off getComputedStyle — it resolves them to a pixel matrix and bakes that in as a
-  // separate internal offset, distinct from the xPercent channel animateTo() below tweens. Left
-  // unsynced, every subsequent xPercent tween composes on top of that baked-in pixel offset
-  // instead of replacing it, so the panel never actually reaches its intended on/off-screen
-  // position — it only ever "barely" moves. Calling gsap.set() once on mount establishes GSAP's
-  // own xPercent state to match the CSS baseline before any tween runs, the same instant
-  // "establish starting state via gsap.set()" pattern CabinetBox.tsx already uses for its own
-  // skew setup.
+  // Bugfix, found live (twice): GSAP never reads percentage transforms off getComputedStyle — it
+  // resolves a stylesheet `transform: translateX(-100%)` to a pixel matrix and bakes that in as a
+  // separate internal x offset, distinct from the xPercent channel animateTo() below tweens. The
+  // first fix (calling gsap.set({ xPercent: -100 }) on top of that CSS rule) didn't remove the
+  // baked offset, it stacked on it: closed = -2 panel widths, open = -1 — so opening the panel
+  // left all but its right ~12px off-screen. RobotFilterPanel.css therefore no longer declares any
+  // `transform` for the off-canvas tiers at all; this gsap.set() is now the sole source of the
+  // closed-state position, and runs in a layout effect (useGSAP), before first paint, so there's
+  // no un-transformed flash — the same "establish starting state via gsap.set()" pattern
+  // CabinetBox.tsx already uses for its own skew setup.
   //
   // GSAP's own context.revert() (from useGSAP/contextSafe below) only kills the underlying GSAP
   // tween it tracked — it has no knowledge of our separate timelineMap registry, so this manual
@@ -80,16 +71,18 @@ export const RobotFilterPanel = memo(function RobotFilterPanel() {
   // added safety net for the tween itself, not a replacement for this).
   useEffect(() => () => killTimeline(TIMELINE_KEY), []);
 
-  // contextSafe wraps animateTo (called from handleToggle and the selection-change effect below,
-  // not from this callback) so GSAP's own context — scoped to panelRef — tracks and reverts it
-  // on unmount too, on top of the killTimeline dedup calls animateTo already makes.
+  // contextSafe wraps animateTo (called from handleToggle, not from this callback) so GSAP's own
+  // context — scoped to panelRef — tracks and reverts it on unmount too, on top of the
+  // killTimeline dedup calls animateTo already makes.
   const { contextSafe } = useGSAP(() => {
     if (!panelRef.current || isDesktop) return;
     gsap.set(panelRef.current, { xPercent: -100 });
   }, { scope: panelRef, dependencies: [isDesktop] });
 
-  const animateTo = contextSafe((nextOpen: boolean) => {
-    const el = panelRef.current;
+  // `el` is passed in by the caller (handleToggle reads panelRef.current in the click handler)
+  // rather than read from panelRef in here — react-hooks/refs flags a ref read inside a function
+  // handed to contextSafe() during render, even though it only ever runs later, from the handler.
+  const animateTo = contextSafe((el: HTMLDivElement | null, nextOpen: boolean) => {
     if (!el || isDesktop) return; // desktop never transforms — always laid out in flow
     killTimeline(TIMELINE_KEY);
     const prefersReducedMotion = typeof window.matchMedia === 'function'
@@ -99,27 +92,15 @@ export const RobotFilterPanel = memo(function RobotFilterPanel() {
     setTimeline(TIMELINE_KEY, tl);
   });
 
-  useEffect(() => {
-    if (!didMountRef.current) {
-      didMountRef.current = true;
-      return;
-    }
-    if (open) {
-      setOpen(false);
-      animateTo(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCompanyId, allRobotsSelected]);
-
   function handleToggle() {
     const next = !open;
     setOpen(next);
-    animateTo(next);
+    animateTo(panelRef.current, next);
   }
 
   return (
     <>
-      {!isDesktop && (
+      {!isDesktop && !open && (
         <div className="robot-filter-panel__toggle">
           <Button schema={FILTER_TOGGLE_SCHEMA} onClick={handleToggle} />
         </div>
