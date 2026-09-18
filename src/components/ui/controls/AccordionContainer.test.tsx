@@ -10,6 +10,10 @@ vi.mock('@/animation/timelineMap', () => ({ setTimeline: vi.fn(), killTimeline: 
 // the exact order animateTo() queues steps in, not just that a timeline was
 // created.
 let timelineCalls: Array<{ method: 'set' | 'to'; target: unknown; vars: Record<string, unknown> }> = [];
+// The first-open start is a timeline `.call()` fired on GSAP's next tick (see the 'deferred one GSAP tick' block below).
+// Default: fire it immediately, so every other test sees the resulting tween synchronously, exactly as before.
+let deferredStarts: Array<() => void> = [];
+let runStartsImmediately = true;
 vi.mock('gsap', () => {
   const chainable = {
     set: (target: unknown, vars: Record<string, unknown>) => {
@@ -19,6 +23,11 @@ vi.mock('gsap', () => {
     to: (target: unknown, vars: Record<string, unknown>) => {
       timelineCalls.push({ method: 'to', target, vars });
       if (typeof vars.onComplete === 'function') (vars.onComplete as () => void)();
+      return chainable;
+    },
+    call: (fn: () => void) => {
+      if (runStartsImmediately) fn();
+      else deferredStarts.push(fn);
       return chainable;
     },
   };
@@ -62,7 +71,7 @@ vi.mock('./activeClass', async (importOriginal) => {
 import { useEffect, useState, type CSSProperties } from 'react';
 import { AccordionContainer, CABINET_ACCORDION_TRIGGER_HEIGHT } from './AccordionContainer';
 import { CABINET_TOGGLE_BOX_SIZE } from './Toggle';
-import { getAccordionDuration, ACCORDION_DURATION } from './accordionAnimation';
+import { getAccordionDuration, ACCORDION_DURATION, FIRST_OPEN_MAX_SETTLE_TICKS } from './accordionAnimation';
 import { withActiveClass } from './activeClass';
 import { setTimeline, killTimeline } from '@/animation/timelineMap';
 import type { AccordionSchema } from '@/types/controls';
@@ -97,6 +106,8 @@ describe('AccordionContainer', () => {
   beforeEach(() => {
     stubMatchMedia(false);
     timelineCalls = [];
+    deferredStarts = [];
+    runStartsImmediately = true;
   });
 
   afterEach(() => {
@@ -342,13 +353,15 @@ describe('AccordionContainer', () => {
     });
 
     it('registers exactly one timeline for the first open, and one per later toggle — the deferred animation never double-fires', () => {
+      // Only the section's own timeline key — a first open also registers a short-lived `-start` handle beside it.
+      const ownTimelines = () => vi.mocked(setTimeline).mock.calls.filter(([key]) => key === 'accordion-pingControls').length;
       render(<AccordionContainer schema={schema}><Probe /></AccordionContainer>);
       fireEvent.click(triggerOf());
-      expect(setTimeline).toHaveBeenCalledTimes(1);
+      expect(ownTimelines()).toBe(1);
       fireEvent.click(triggerOf()); // close
-      expect(setTimeline).toHaveBeenCalledTimes(2);
+      expect(ownTimelines()).toBe(2);
       fireEvent.click(triggerOf()); // reopen
-      expect(setTimeline).toHaveBeenCalledTimes(3);
+      expect(ownTimelines()).toBe(3);
     });
 
     it('keeps its children mounted, and their local state, after being closed and reopened', () => {
@@ -445,6 +458,162 @@ describe('AccordionContainer', () => {
       vi.mocked(killTimeline).mockClear();
       unmount();
       expect(killTimeline).toHaveBeenCalled();
+    });
+  });
+
+  // Roadmap 17.2.2, task 8 (smoothness). Measured in real Chrome: a freshly-mounted section's controls do heavy work
+  // (the mount, then a second wave once their ResizeObservers fire) while its height tween's clock is already running,
+  // so the two heaviest sections opened in 3 frames instead of ~12, with a visible height snap at the end. The first
+  // open therefore waits, tick by tick on GSAP's own clock, until the section's height stops changing, then builds
+  // the tween from "now" against the settled height.
+  describe('first-open start waits for the section to settle (smoothness)', () => {
+    const START_KEY = 'accordion-pingControls-start';
+    const heightTweens = () => timelineCalls.filter((c) => c.method === 'to' && 'height' in c.vars);
+    // One GSAP tick: fire whatever start callbacks are pending (each may schedule the next tick's own).
+    const tickOnce = () => {
+      const starts = deferredStarts;
+      deferredStarts = [];
+      starts.forEach((fn) => fn());
+    };
+    const tickUntilIdle = (max = 50) => {
+      for (let i = 0; i < max && deferredStarts.length; i++) tickOnce();
+    };
+    const trigger = () => screen.getByRole('button', { name: /Ping Controls/ });
+
+    beforeEach(() => {
+      deferredStarts = [];
+      runStartsImmediately = false;
+    });
+
+    afterEach(() => {
+      runStartsImmediately = true;
+      deferredStarts = [];
+    });
+
+    it('builds no tween at click time on a first open — the start waits for the next tick', () => {
+      render(<AccordionContainer schema={schema}><span>body</span></AccordionContainer>);
+
+      fireEvent.click(trigger());
+
+      expect(heightTweens()).toHaveLength(0);
+      expect(deferredStarts).toHaveLength(1);
+      // Registered under its own key so a toggle or unmount can cancel it.
+      expect(setTimeline).toHaveBeenCalledWith(START_KEY, expect.anything());
+      // ...but the content itself is already mounted and in the DOM for that first paint.
+      expect(screen.getByText('body')).toBeTruthy();
+    });
+
+    it('builds the height tween once the tick fires, targeting the content\'s measured height', () => {
+      const spy = vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockImplementation(function (this: Element) {
+        return this.querySelector('span') ? 180 : 0;
+      });
+      try {
+        render(<AccordionContainer schema={schema}><span>body</span></AccordionContainer>);
+        fireEvent.click(trigger());
+
+        tickUntilIdle();
+
+        expect(heightTweens()).toHaveLength(1);
+        expect(heightTweens()[0].vars.height).toBe(180);
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
+    it('cancels the pending start when the section is toggled closed before the tick — a stale start must not reopen it', () => {
+      render(<AccordionContainer schema={schema}><span>body</span></AccordionContainer>);
+      fireEvent.click(trigger());
+      vi.mocked(killTimeline).mockClear();
+
+      fireEvent.click(trigger()); // close before the deferred start fires
+
+      expect(killTimeline).toHaveBeenCalledWith(START_KEY);
+    });
+
+    it('cancels the pending start when unmounted before the tick', () => {
+      const { unmount } = render(<AccordionContainer schema={schema}><span>body</span></AccordionContainer>);
+      fireEvent.click(trigger());
+      vi.mocked(killTimeline).mockClear();
+
+      unmount();
+
+      expect(killTimeline).toHaveBeenCalledWith(START_KEY);
+    });
+
+    it('does not defer a reopen — the content is already mounted, so its tween is built in the click\'s own tick', () => {
+      render(<AccordionContainer schema={schema}><span>body</span></AccordionContainer>);
+      fireEvent.click(trigger());
+      tickUntilIdle();
+      fireEvent.click(trigger()); // close
+      timelineCalls = [];
+      deferredStarts = [];
+
+      fireEvent.click(trigger()); // reopen
+
+      expect(deferredStarts).toHaveLength(0);
+      expect(heightTweens()).toHaveLength(1);
+    });
+
+    it('still builds a zero-duration (snap) tween on a first open under prefers-reduced-motion', () => {
+      stubMatchMedia(true);
+      render(<AccordionContainer schema={schema}><span>body</span></AccordionContainer>);
+      fireEvent.click(trigger());
+
+      tickUntilIdle();
+
+      expect(heightTweens()[0].vars.duration).toBe(0);
+    });
+
+    it('keeps waiting while the height is still changing, and animates once two consecutive ticks agree', () => {
+      const readings = [100, 240, 240];
+      let read = 0;
+      const spy = vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockImplementation(function (this: Element) {
+        return this.querySelector('span') ? readings[Math.min(read++, readings.length - 1)] : 0;
+      });
+      try {
+        render(<AccordionContainer schema={schema}><span>body</span></AccordionContainer>);
+        fireEvent.click(trigger());
+
+        tickOnce(); // reads 100 — nothing to compare against yet
+        expect(heightTweens()).toHaveLength(0);
+        tickOnce(); // reads 240 — it grew, so it is not settled
+        expect(heightTweens()).toHaveLength(0);
+        tickOnce(); // reads 240 again — settled
+        expect(heightTweens()).toHaveLength(1);
+        expect(heightTweens()[0].vars.height).toBe(240);
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
+    it('gives up waiting after a fixed number of ticks and animates anyway, if the height never settles', () => {
+      let read = 0;
+      const spy = vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockImplementation(function (this: Element) {
+        return this.querySelector('span') ? 100 + read++ : 0; // a different height every read — never stable
+      });
+      try {
+        render(<AccordionContainer schema={schema}><span>body</span></AccordionContainer>);
+        fireEvent.click(trigger());
+
+        for (let i = 0; i < FIRST_OPEN_MAX_SETTLE_TICKS - 1; i++) tickOnce();
+        expect(heightTweens()).toHaveLength(0);
+
+        tickOnce(); // the cap
+        expect(heightTweens()).toHaveLength(1);
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
+    it('cancelling mid-wait — a close after some ticks but before it settled — stops the polling for good', () => {
+      render(<AccordionContainer schema={schema}><span>body</span></AccordionContainer>);
+      fireEvent.click(trigger());
+      tickOnce();
+      vi.mocked(killTimeline).mockClear();
+
+      fireEvent.click(trigger()); // close mid-wait
+
+      expect(killTimeline).toHaveBeenCalledWith(START_KEY);
     });
   });
 

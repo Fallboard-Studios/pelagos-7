@@ -6,7 +6,7 @@ import gsap from 'gsap';
 import { CabinetBox } from './CabinetBox';
 import { CABINET_TOGGLE_BOX_SIZE } from './Toggle';
 import { DualLabel } from './DualLabel';
-import { getAccordionDuration, getAccordionFadeDuration } from './accordionAnimation';
+import { getAccordionDuration, getAccordionFadeDuration, FIRST_OPEN_MAX_SETTLE_TICKS } from './accordionAnimation';
 import { withActiveClass } from './activeClass';
 import { setTimeline, killTimeline } from '@/animation/timelineMap';
 import type { AccordionSchema } from '@/types/controls';
@@ -73,13 +73,19 @@ function AccordionContainerInner({ schema, children, defaultOpen = false, style 
   const contentRef = useRef<HTMLDivElement>(null);
   const contentInnerRef = useRef<HTMLDivElement>(null);
   const timelineKey = `accordion-${schema.id}`;
+  // A first open waits, tick by tick on GSAP's own clock, for its new content to settle before building its tween (see the
+  // layout effect below). Each wait is a tiny timeline registered under this key, so a toggle or unmount cancels it.
+  const startKey = `${timelineKey}-start`;
 
   // GSAP's own context.revert() (from useGSAP/contextSafe below) only kills the underlying GSAP
   // tween it tracked — it has no knowledge of our separate timelineMap registry, so this manual
   // cleanup is still required to keep that registry itself tidy on unmount.
   useEffect(() => {
-    return () => killTimeline(timelineKey);
-  }, [timelineKey]);
+    return () => {
+      killTimeline(timelineKey);
+      killTimeline(startKey);
+    };
+  }, [timelineKey, startKey]);
 
   // No mount-time animation here — this hook call exists purely to get `contextSafe`, so
   // animateTo() below (called from handleValueChange, not from this callback) is tracked by
@@ -110,6 +116,8 @@ function AccordionContainerInner({ schema, children, defaultOpen = false, style 
     const innerEl = contentInnerRef.current;
     if (!el) return;
     killTimeline(timelineKey);
+    // Any toggle supersedes a first-open start that has not fired yet, so a stale one can never reopen a closed section.
+    killTimeline(startKey);
 
     const prefersReducedMotion = typeof window.matchMedia === 'function'
       && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -165,7 +173,30 @@ function AccordionContainerInner({ schema, children, defaultOpen = false, style 
   useLayoutEffect(() => {
     if (!pendingFirstOpenAnimation.current) return;
     pendingFirstOpenAnimation.current = false;
-    animateTo(true);
+    // Don't build the tween now — wait for the section to settle first. Measured in real Chrome
+    // (docs/PERFORMANCE.md): a freshly-mounted section's controls do a heavy mount, then a second wave of work once their
+    // ResizeObservers fire and their box counts re-fit, all while a tween created here would already be running. GSAP
+    // stamps a new timeline with its *last tick's* time, so that heavy work ate most of the 250 ms before the first
+    // rendered frame — the two heaviest sections opened in 3 frames instead of ~12, then snapped by however much the
+    // content had grown since it was measured. So poll on GSAP's own ticks (no timers) until two consecutive ticks read
+    // the same height, then build the real tween from "now" against that settled height. A cap keeps it bounded.
+    let lastHeight = -1;
+    let ticks = 0;
+    const startWhenSettled = () => {
+      const height = contentRef.current?.scrollHeight ?? 0;
+      ticks += 1;
+      if (height === lastHeight || ticks >= FIRST_OPEN_MAX_SETTLE_TICKS) {
+        animateTo(true);
+        return;
+      }
+      lastHeight = height;
+      const next = gsap.timeline();
+      next.call(startWhenSettled);
+      setTimeline(startKey, next);
+    };
+    const start = gsap.timeline();
+    start.call(startWhenSettled);
+    setTimeline(startKey, start);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasOpened]);
 
