@@ -40,14 +40,20 @@
      never was). scrollbar-gutter: stable breaks the loop at its root cause — the available
      content width no longer depends on whether a scrollbar is currently rendered at all. */
   scrollbar-gutter: stable;
-  padding: 265px 8px 8px;
+  padding: 335px 8px 8px;
 }
 
-/* @media screen and (min-width: 515px) {
+@media screen and (min-width: 600px) {
   .console-panel__content {
-    padding-top: 216px;
+    padding-top: 245px;
   }
-} */
+}
+
+@media screen and (min-width: 48em) {
+  .console-panel__content {
+    padding-top: 195px;
+  }
+}
 
 .console-panel__stub {
   display: flex;
