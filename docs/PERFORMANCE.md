@@ -150,6 +150,85 @@ The largest single section is **Source** on the robot detail page (233 boxes), t
 | 3 — 4×, medians of 3 | Total time in ≥ 100 ms tasks: open Fleet Params (2,659 ms), open robot detail (2,854 ms) | Down **≥ 60%**: Fleet Params **≤ 1,064 ms**, robot detail **≤ 1,142 ms** |
 | 4 — recorded, not gated | First-open cost per section (rows above), 1× and 4× | Target < 100 ms at 1×; a miss is documented, not blocking (spec §7 Q5) |
 
+## Post-change results for roadmap 17.2.2 — accordion lazy mount (2026-09-18)
+
+Measured against the pre-change baseline above, with the same harness, machine, viewport (1280×900), and procedure: 3 sequential runs at each throttle rate with nothing else running, no orphaned processes before or after. **Code measured:** commit `6fb88b7` (production, minified `npm run build` + `vite preview`). Cells read `median (min–max)`.
+
+### 1× throttle — 3 runs (median (min–max))
+
+| Step | tasks ≥100 ms | longest (ms) | total in ≥100 ms tasks (ms) | cabinet boxes | boxes in closed accordions |
+|---|---|---|---|---|---|
+| power on | 1 | 584 (555–692) | 584 (555–692) | 12 | 0 |
+| open Fleet Params | 0 | 0 | 0 | 20 | 0 |
+| fleet › Transport & Composition | 0 | 0 | 0 | 41 | 0 |
+| fleet › EQ & Filters | 1 (1–2) | 128 (125–132) | 132 (125–229) | 173 (172–174) | 0 |
+| fleet › Time & Space | 0 | 0 | 0 | 235 (234–236) | 0 |
+| fleet › Output | 0 | 63 (54–72) | 0 | 319 (318–320) | 0 |
+| switch to Probes | 1 | 132 (131–147) | 132 (131–147) | 137 (124–137) | 0 |
+| open first robot (detail) | 0 | 0 | 0 | 45 (44–45) | 0 |
+| detail › Volume | 0 | 0 | 0 | 84 (83–84) | 0 |
+| detail › Melody | 0 | 0 | 0 | 129 (128–129) | 0 |
+| detail › Envelope | 0 | 0 | 0 | 170 (169–170) | 0 |
+| detail › Source | 1 | 106 (106–107) | 106 (106–107) | 402 (400–404) | 0 |
+| back to robot list | 1 | 143 (136–150) | 143 (136–150) | 137 (124–137) | 0 |
+| switch to Nav & Comms | 0 | 0 | 0 | 26 | 0 |
+| back to Fleet Params | 0 | 0 | 0 | 20 | 0 |
+
+### 4× throttle — 3 runs (median (min–max))
+
+| Step | tasks ≥100 ms | longest (ms) | total in ≥100 ms tasks (ms) | cabinet boxes | boxes in closed accordions |
+|---|---|---|---|---|---|
+| power on | 4 | 2151 (2086–2315) | 2828 (2729–2962) | 12 | 0 |
+| open Fleet Params | 1 | 132 (124–143) | 132 (124–143) | 20 | 0 |
+| fleet › Transport & Composition | 2 | 164 (150–199) | 303 (296–343) | 41 | 0 |
+| fleet › EQ & Filters | 3 (3–4) | 903 (882–965) | 1551 (1473–1566) | 175 | 0 |
+| fleet › Time & Space | 2 | 259 (254–307) | 441 (417–512) | 237 | 0 |
+| fleet › Output | 2 | 375 (369–436) | 570 (535–685) | 321 | 0 |
+| switch to Probes | 4 (3–4) | 917 (754–949) | 1523 (1233–1547) | 124 | 0 |
+| open first robot (detail) | 2 | 170 (162–171) | 274 (269–306) | 44 | 0 |
+| detail › Volume | 2 | 145 (143–191) | 283 (282–336) | 83 | 0 |
+| detail › Melody | 2 | 171 (170–175) | 326 (320–335) | 128 | 0 |
+| detail › Envelope | 2 | 176 (168–178) | 279 (268–281) | 169 | 0 |
+| detail › Source | 4 | 721 (700–798) | 1623 (1578–1730) | 402 (402–403) | 0 |
+| back to robot list | 4 (3–4) | 797 (795–850) | 1346 (1187–1404) | 124 | 0 |
+| switch to Nav & Comms | 1 | 189 (188–198) | 189 (188–198) | 26 | 0 |
+| back to Fleet Params | 0 | 64 (58–69) | 0 | 20 | 0 |
+
+### Gate results (thresholds from [docs/specs/ACCORDION_LAZY_MOUNT.md](specs/ACCORDION_LAZY_MOUNT.md) §5.3, fixed before implementation)
+
+| Gate | Threshold | Result | |
+|---|---|---|---|
+| 1 — closed-accordion boxes | 0 in any never-opened section | **0** on every screen | **PASS** |
+| 1 — box totals | Fleet Params ≤ 25 · Probes list ≤ 150 · robot detail ≤ 55 · Nav & Comms unchanged | **20** (was 321) · **137**, range 124–137 (was 481–494) · **45**, range 44–45 (was ~402–403) · **26** | **PASS** |
+| 2 — open Fleet Params, 1× | no task ≥ 100 ms | **0** tasks ≥ 100 ms, longest 0 ms (was 262 ms) | **PASS** |
+| 2 — open robot detail, 1× | no task ≥ 100 ms | **0** tasks ≥ 100 ms, longest 0 ms (was 291 ms) | **PASS** |
+| 2 — switch to Probes list, 1× | longest ≤ 205 ms (≤ 50% of 410) | **132 ms** (−68%) | **PASS** |
+| 3 — open Fleet Params, 4× | total in ≥ 100 ms tasks ≤ 1,064 ms (down ≥ 60% from 2,659) | **132 ms** (−95%) | **PASS** |
+| 3 — open robot detail, 4× | total in ≥ 100 ms tasks ≤ 1,142 ms (down ≥ 60% from 2,854) | **274 ms** (−90%) | **PASS** |
+
+Other steps moved the same direction (medians, pre → post): 4× switch to Probes total 4,286 → 1,523 ms (−64%), 4× back to robot list 4,185 → 1,346 ms (−68%), 4× back to Fleet Params 2,266 → 0 ms; 1× back to Fleet Params 209 ms → no long task. `power on` is unchanged (~580–620 ms; it is audio start-up, not a tile).
+
+### First-open cost — recorded, not gated (spec §5.3.4, §7 Q5)
+
+The work did not disappear; it moved from opening a tile to the first time each section is opened. Longest single task when a never-opened section is first opened (median), pre-change vs post-change:
+
+| Section | Boxes | 1× pre | 1× post | 4× pre | 4× post |
+|---|---|---|---|---|---|
+| fleet › Transport & Composition | 21 | 0 | 0 | 97 | 164 |
+| fleet › EQ & Filters | 132 | 0 | **128** | 118 | **903** |
+| fleet › Time & Space | 62 | 0 | 0 | 124 | 259 |
+| fleet › Output | 84 | 0 | 63 | 112 | 375 |
+| detail › Volume | 39 | 0 | 0 | 98 | 145 |
+| detail › Melody | 45 | 0 | 0 | 103 | 171 |
+| detail › Envelope | 41 | 0 | 0 | 96 | 176 |
+| detail › Source | 232 | 0 | **106** | 135 | **721** |
+
+(Pre-change values are the near-zero height-tween cost, since the content was already mounted; a bare `0` means no task reached Chrome's 50 ms reporting threshold. Box counts are the increase in `.sc-cabinet-box` when the section opened.)
+
+- **Two sections exceed 100 ms at 1×:** EQ & Filters (128 ms, 132 boxes) and Source (106 ms, 232 boxes). Per the decision recorded in the spec (§7 Q5), that is documented, not blocking. At 4× (the phone proxy) EQ & Filters is the worst single hitch at ~0.9 s.
+- **Total work is conserved, as designed:** opening all four Fleet Params sections at 4× costs 303 + 1,551 + 441 + 570 ≈ 2,865 ms of ≥ 100 ms tasks in total, against 2,659 ms that the pre-change tile open paid up front — now spread over four separate user-initiated clicks instead of one stall that pauses audio on every tile switch.
+- **What remains to be improved** (not this item): the per-box mount cost itself (roadmap 17.2.3) is what makes those first opens 0.1–0.9 s at 4×; and the 137 boxes still on the Probes list plus the header's 12 are outside any accordion.
+
 ## Recording a new baseline
 
 After a fix from 17.2.2–17.2.5, re-run `npm run perf` 3× at the same settings, compare medians against the table above, and add a dated row/section here rather than overwriting it, so the history of what each fix bought stays visible.
