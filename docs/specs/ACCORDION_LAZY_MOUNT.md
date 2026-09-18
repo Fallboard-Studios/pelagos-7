@@ -58,7 +58,7 @@ Checked 2026-09-18 across all 6 call sites (`AudioRigDrawer` ×2 sites, `AudioSe
 
 ### 1.6 What the change breaks: tests, mechanically
 
-A throwaway prototype (children rendered only while `open`; reverted) was run against the full suite to size the blast radius: **129–130 of 2,716 tests failed across 5–6 files, and every failure is a test that renders a drawer and queries into an accordion without opening it.** The same prototype left `AccordionContainer.test.tsx`, `RobotOptionsTab.test.tsx`, and `CompanyOptionsSection.test.tsx` passing.
+A throwaway prototype (children rendered only while `open`; reverted) was run against the full suite to size the blast radius: **129–130 of 2,716 tests failed across 5–6 files, all of them files that render an accordion-wrapped drawer.** Not every failure was individually inspected; the ones read (e.g. the Audio Rig render-count cascade tests seeing zero calls from a section that never mounted) are all of the form "queries into a section that was never opened," and the single `CompanyCrudControls` failure below is unverified and may be unrelated. The same prototype left `AccordionContainer.test.tsx`, `RobotOptionsTab.test.tsx`, and `CompanyOptionsSection.test.tsx` passing.
 
 | File | Failing under the prototype |
 |---|---|
