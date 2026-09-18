@@ -92,7 +92,7 @@ src/
 │       └── CompanyCrudControls.test.tsx  # INVESTIGATE — 1 intermittent failure under the prototype (§1.6)
 └── testUtils/
     ├── openAccordions.ts                 # NEW — shared helper (§4.3); alongside cssRuleBody.ts
-    └── openAccordions.test.ts            # NEW — the helper's own test, matching cssRuleBody's precedent
+    └── openAccordions.test.tsx            # NEW — the helper's own test, matching cssRuleBody's precedent
 scripts/perf/
 └── profile.mjs                           # MODIFIED — "boxes in closed accordions" metric + robot-detail steps
                                           # (both already in the working tree, see §6) + a first-open-of-a-section step (§5.3)
@@ -217,7 +217,7 @@ Written first, per the repo's TDD workflow, each failing before the change:
 7. **`prefers-reduced-motion` first open** still mounts and snaps (duration 0), matching the existing reduced-motion test's contract.
 8. **Trigger ARIA unchanged:** `aria-expanded` and `aria-controls` still valid on a never-opened section (wrapper exists).
 
-Plus the helper's own test (`openAccordions.test.ts`): opens all collapsed sections, ignores already-open ones, ignores non-accordion buttons.
+Plus the helper's own test (`openAccordions.test.tsx`): opens all collapsed sections, ignores already-open ones, ignores non-accordion buttons.
 
 Plus one integration guard in `AudioRigDrawer.test.tsx`: **rendering the drawer mounts no slider controls from never-opened sections, and opening one section mounts only that section's controls** — the regression test the whole item exists for, since it's what would silently revert if someone re-adds an eager mount.
 

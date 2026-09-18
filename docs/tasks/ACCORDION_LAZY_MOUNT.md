@@ -107,12 +107,12 @@ Tasks 1→2 and 3→(4,5) are independent chains and could run in parallel; Task
   - [ ] Exports only the helper; no dependency on any drawer or store.
 
   **Verification:**
-  - [ ] `npx vitest run src/testUtils/openAccordions.test.ts` passes (written first, seen failing, then passing).
+  - [ ] `npx vitest run src/testUtils/openAccordions.test.tsx` passes (written first, seen failing, then passing).
   - [ ] `npm run build:types` and `npm run lint` clean.
 
   **Dependencies:** None.
 
-  **Files:** `src/testUtils/openAccordions.ts`, `src/testUtils/openAccordions.test.ts`
+  **Files:** `src/testUtils/openAccordions.ts`, `src/testUtils/openAccordions.test.tsx`
 
   **Estimated scope:** S (2 files).
 
