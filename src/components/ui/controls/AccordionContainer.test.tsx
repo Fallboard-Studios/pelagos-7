@@ -59,7 +59,7 @@ vi.mock('./activeClass', async (importOriginal) => {
   return { ...actual, withActiveClass: vi.fn(actual.withActiveClass) };
 });
 
-import type { CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { AccordionContainer, CABINET_ACCORDION_TRIGGER_HEIGHT } from './AccordionContainer';
 import { CABINET_TOGGLE_BOX_SIZE } from './Toggle';
 import { getAccordionDuration, ACCORDION_DURATION } from './accordionAnimation';
@@ -284,6 +284,167 @@ describe('AccordionContainer', () => {
       );
       expect(fadeStepIndex).toBeGreaterThanOrEqual(0);
       expect(heightStepIndex).toBeGreaterThan(fadeStepIndex);
+    });
+  });
+
+  // Roadmap 17.2.2 (docs/specs/ACCORDION_LAZY_MOUNT.md) — a section's children are not built until it is first
+  // opened, and then stay mounted. The probe below counts its own mounts and holds local state, so a test can
+  // tell "never mounted" from "mounted once and kept" from "remounted".
+  describe('lazy mount (docs/specs/ACCORDION_LAZY_MOUNT.md)', () => {
+    let probeMounts = 0;
+    function Probe({ label = 'probe' }: { label?: string }) {
+      const [bumps, setBumps] = useState(0);
+      useEffect(() => { probeMounts += 1; }, []);
+      return (
+        <div data-testid={`${label}-body`}>
+          <span>{label} bumped {bumps}</span>
+          <button type="button" onClick={() => setBumps((n) => n + 1)}>bump {label}</button>
+        </div>
+      );
+    }
+
+    const triggerOf = (name = 'Ping Controls') => screen.getByRole('button', { name: new RegExp(name) });
+
+    beforeEach(() => { probeMounts = 0; });
+
+    it('renders none of its children while it has never been opened', () => {
+      const { container } = render(<AccordionContainer schema={schema}><Probe /></AccordionContainer>);
+      expect(probeMounts).toBe(0);
+      expect(screen.queryByTestId('probe-body')).toBeNull();
+      // The wrapper stays: the height tween and Radix's aria-controls both need it, only its children are conditional.
+      expect(container.querySelector('.sc-accordion__content')).toBeTruthy();
+      expect(container.querySelector('.sc-accordion__content-inner')?.childElementCount).toBe(0);
+    });
+
+    it('mounts its children on the first open', () => {
+      render(<AccordionContainer schema={schema}><Probe /></AccordionContainer>);
+      fireEvent.click(triggerOf());
+      expect(screen.getByTestId('probe-body')).toBeTruthy();
+      expect(probeMounts).toBe(1);
+    });
+
+    it('measures the content only after it has mounted, so the height tween targets its real height', () => {
+      // Only reports a height once the probe is actually in the DOM — a synchronous measure taken before the
+      // children mount would read 0 here and tween to nothing (the failure mode spec §1.3 exists to prevent).
+      const spy = vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockImplementation(function (this: Element) {
+        return this.querySelector('[data-testid="probe-body"]') ? 240 : 0;
+      });
+      try {
+        const { container } = render(<AccordionContainer schema={schema}><Probe /></AccordionContainer>);
+        const content = container.querySelector('.sc-accordion__content');
+        fireEvent.click(triggerOf());
+
+        const heightStep = timelineCalls.find((c) => c.method === 'to' && c.target === content && 'height' in c.vars);
+        expect(heightStep?.vars.height).toBe(240);
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
+    it('registers exactly one timeline for the first open, and one per later toggle — the deferred animation never double-fires', () => {
+      render(<AccordionContainer schema={schema}><Probe /></AccordionContainer>);
+      fireEvent.click(triggerOf());
+      expect(setTimeline).toHaveBeenCalledTimes(1);
+      fireEvent.click(triggerOf()); // close
+      expect(setTimeline).toHaveBeenCalledTimes(2);
+      fireEvent.click(triggerOf()); // reopen
+      expect(setTimeline).toHaveBeenCalledTimes(3);
+    });
+
+    it('keeps its children mounted, and their local state, after being closed and reopened', () => {
+      render(<AccordionContainer schema={schema}><Probe /></AccordionContainer>);
+      fireEvent.click(triggerOf());
+      fireEvent.click(screen.getByRole('button', { name: 'bump probe' }));
+      expect(screen.getByText('probe bumped 1')).toBeTruthy();
+
+      fireEvent.click(triggerOf()); // close — hides, does not unmount
+      expect(screen.getByTestId('probe-body')).toBeTruthy();
+      expect(triggerOf().getAttribute('aria-expanded')).toBe('false');
+
+      fireEvent.click(triggerOf()); // reopen
+      expect(probeMounts).toBe(1);
+      expect(screen.getByText('probe bumped 1')).toBeTruthy();
+    });
+
+    it('still animates a reopen (a timeline is registered) even though nothing is mounted again', () => {
+      render(<AccordionContainer schema={schema}><Probe /></AccordionContainer>);
+      fireEvent.click(triggerOf());
+      fireEvent.click(triggerOf());
+      vi.mocked(setTimeline).mockClear();
+      timelineCalls = [];
+
+      fireEvent.click(triggerOf());
+
+      expect(setTimeline).toHaveBeenCalledTimes(1);
+      expect(timelineCalls.some((c) => c.method === 'to' && 'height' in c.vars)).toBe(true);
+    });
+
+    it('mounts children immediately when defaultOpen is true, without waiting for a click', () => {
+      render(<AccordionContainer schema={schema} defaultOpen><Probe /></AccordionContainer>);
+      expect(screen.getByTestId('probe-body')).toBeTruthy();
+      expect(probeMounts).toBe(1);
+    });
+
+    it('opening one section mounts only that section — a sibling that was never opened stays empty', () => {
+      const other: AccordionSchema = { id: 'pingContour', type: 'accordion', humanLabel: 'Ping Contour' };
+      render(
+        <>
+          <AccordionContainer schema={schema}><Probe label="alpha" /></AccordionContainer>
+          <AccordionContainer schema={other}><Probe label="beta" /></AccordionContainer>
+        </>,
+      );
+
+      fireEvent.click(triggerOf('Ping Controls'));
+
+      expect(screen.getByTestId('alpha-body')).toBeTruthy();
+      expect(screen.queryByTestId('beta-body')).toBeNull();
+    });
+
+    it('renders the latest children on first open, not the ones it was first given while closed', () => {
+      const { rerender } = render(<AccordionContainer schema={schema}><span>first content</span></AccordionContainer>);
+      rerender(<AccordionContainer schema={schema}><span>second content</span></AccordionContainer>);
+      expect(screen.queryByText('first content')).toBeNull();
+      expect(screen.queryByText('second content')).toBeNull();
+
+      fireEvent.click(triggerOf());
+
+      expect(screen.getByText('second content')).toBeTruthy();
+      expect(screen.queryByText('first content')).toBeNull();
+    });
+
+    it('mounts and snaps (zero-duration tween) on the first open under prefers-reduced-motion', () => {
+      stubMatchMedia(true);
+      const { container } = render(<AccordionContainer schema={schema}><Probe /></AccordionContainer>);
+      const content = container.querySelector('.sc-accordion__content');
+
+      fireEvent.click(triggerOf());
+
+      expect(screen.getByTestId('probe-body')).toBeTruthy();
+      const heightStep = timelineCalls.find((c) => c.method === 'to' && c.target === content && 'height' in c.vars);
+      expect(heightStep?.vars.duration).toBe(0);
+    });
+
+    it('keeps aria-expanded correct on a never-opened section, and once opened aria-controls points at the always-rendered content wrapper', () => {
+      render(<AccordionContainer schema={schema}><Probe /></AccordionContainer>);
+      const trigger = triggerOf();
+      expect(trigger.getAttribute('aria-expanded')).toBe('false');
+      // Radix's collapsible trigger only sets aria-controls while open (`context.open ? contentId : undefined`) —
+      // existing behavior, unchanged by lazy mounting, so a never-opened section has none.
+      expect(trigger.getAttribute('aria-controls')).toBeNull();
+
+      fireEvent.click(trigger);
+
+      const controlsId = trigger.getAttribute('aria-controls');
+      expect(controlsId).toBeTruthy();
+      expect(document.getElementById(controlsId!)?.classList.contains('sc-accordion__content')).toBe(true);
+    });
+
+    it('unmounting after a first open still cleans its timeline up', () => {
+      const { unmount } = render(<AccordionContainer schema={schema}><Probe /></AccordionContainer>);
+      fireEvent.click(triggerOf());
+      vi.mocked(killTimeline).mockClear();
+      unmount();
+      expect(killTimeline).toHaveBeenCalled();
     });
   });
 

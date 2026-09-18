@@ -53,7 +53,7 @@ Checked 2026-09-18 across all 6 call sites (`AudioRigDrawer` ×2 sites, `AudioSe
 
 - **No accordion child registers engine/store side effects on mount.** The only `useEffect`s in those drawers (`PingContourDrawer.tsx:57`, `SignatureArrayDrawer.tsx:248`) are ref-caching effects in the drawer component itself — *outside* the accordion's children — so they are unaffected. `useLfoTargetGroup`'s effects are a timeline-cleanup and a `fields` fallback, both local.
 - **No call site passes `defaultOpen`.** Kept supported (initial `hasOpened = defaultOpen`), but no production path exercises it today.
-- **Radix `aria-controls` stays valid**: the content wrapper still always renders; only its children are conditional.
+- **Radix's ARIA wiring is unchanged**: the content wrapper (with its `id`) still always renders and only its children are conditional. Radix's trigger sets `aria-controls` only while the section is open (`context.open ? contentId : undefined`) — existing behavior, so a never-opened section has none, before and after this change. (Corrected during implementation: the first draft said it "stays valid" on a closed section.)
 - **Accessibility side effect, noted not fixed:** because the wrapper is `forceMount`ed with `height: 0; overflow: hidden` rather than `hidden`, controls inside an *opened-then-collapsed* section still appear to be reachable by keyboard today. Lazy mounting improves this for never-opened sections (nothing to focus) but does not change it for reopened ones. Recorded for roadmap 18's accessibility pass; out of scope here.
 
 ### 1.6 What the change breaks: tests, mechanically
@@ -215,7 +215,7 @@ Written first, per the repo's TDD workflow, each failing before the change:
 5. **Reopening does not remount and takes the synchronous path** (no layout-effect detour — `animateTo` runs in the click's own tick).
 6. **`defaultOpen` mounts children immediately** and still sets the wrapper `height: auto` (existing test at line ~178 stays green untouched).
 7. **`prefers-reduced-motion` first open** still mounts and snaps (duration 0), matching the existing reduced-motion test's contract.
-8. **Trigger ARIA unchanged:** `aria-expanded` and `aria-controls` still valid on a never-opened section (wrapper exists).
+8. **Trigger ARIA unchanged:** `aria-expanded` correct on a never-opened section; once opened, `aria-controls` resolves to the always-rendered content wrapper (Radix omits `aria-controls` while closed, before and after this change).
 
 Plus the helper's own test (`openAccordions.test.tsx`): opens all collapsed sections, ignores already-open ones, ignores non-accordion buttons.
 

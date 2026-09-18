@@ -176,7 +176,7 @@ Tasks 1→2 and 3→(4,5) are independent chains and could run in parallel; Task
   - [ ] First open mounts the children **and** the height tween's target equals the (stubbed) measured `scrollHeight` — i.e. measured after mount, not synchronously before it. A synchronous implementation fails this test.
   - [ ] First open registers exactly one timeline (`setTimeline` once); the layout effect does not double-fire `animateTo`.
   - [ ] Open → close → reopen: children stay mounted (mount count 1) and local child state survives; the reopen takes the synchronous path.
-  - [ ] `defaultOpen` mounts children immediately and still sets wrapper `height: auto`; `prefers-reduced-motion` first open still mounts and snaps; trigger `aria-expanded`/`aria-controls` valid on a never-opened section.
+  - [ ] `defaultOpen` mounts children immediately and still sets wrapper `height: auto`; `prefers-reduced-motion` first open still mounts and snaps; trigger `aria-expanded` correct on a never-opened section and, once opened, `aria-controls` resolving to the always-rendered content wrapper (Radix omits `aria-controls` while closed — unchanged).
   - [ ] Every pre-existing `AccordionContainer.test.tsx` test passes unmodified.
   - [ ] The full suite passes, including the Task 4–5 files, `CompanyCrudControls.test.tsx`, and the new integration guard. (If a previously-unseen failure appears, it is diagnosed, not skipped.)
   - [ ] No file outside the list below changes — in particular no consumer component (`AudioRigDrawer.tsx`, the four robot drawers) and no CSS.

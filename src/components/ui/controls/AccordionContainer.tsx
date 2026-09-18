@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { memo, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import * as Accordion from '@radix-ui/react-accordion';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
@@ -62,6 +62,14 @@ const cabinetTokens = {
  */
 function AccordionContainerInner({ schema, children, defaultOpen = false, style }: AccordionContainerProps) {
   const [open, setOpen] = useState(defaultOpen);
+  // Whether this section has EVER been opened. Its children are only built once it has, and never torn down again —
+  // collapsing just hides them — so a section that's been opened behaves exactly as every section did before this
+  // existed. Never goes back to false. A section mounted already-open (defaultOpen) builds its content immediately.
+  // See docs/specs/ACCORDION_LAZY_MOUNT.md §1.
+  const [hasOpened, setHasOpened] = useState(defaultOpen);
+  // Set by handleValueChange on a FIRST open, consumed by the layout effect below. A ref rather than state: it's a
+  // one-shot handoff from an event handler to the next commit, never rendered.
+  const pendingFirstOpenAnimation = useRef(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const contentInnerRef = useRef<HTMLDivElement>(null);
   const timelineKey = `accordion-${schema.id}`;
@@ -148,10 +156,29 @@ function AccordionContainerInner({ schema, children, defaultOpen = false, style 
     setTimeline(timelineKey, tl);
   });
 
+  // First open only: the content wasn't in the DOM when the click happened, and animateTo() reads el.scrollHeight —
+  // calling it now would measure an empty wrapper (height 0), tween to nothing, and snap open at the end. So the
+  // animation waits until React has committed the content. A layout effect (not useEffect, not a timer) runs after the
+  // DOM update but before paint, so the tween still starts in the frame the user clicked, with no flash of an
+  // open-but-empty section. Deps are [hasOpened] only: animateTo is a fresh closure every render, and this must fire
+  // exactly once per first open.
+  useLayoutEffect(() => {
+    if (!pendingFirstOpenAnimation.current) return;
+    pendingFirstOpenAnimation.current = false;
+    animateTo(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasOpened]);
+
   function handleValueChange(value: string) {
     const nextOpen = value === schema.id;
     setOpen(nextOpen);
-    animateTo(nextOpen);
+    if (nextOpen && !hasOpened) {
+      // Content not built yet — build it now (batched with setOpen into one render), animate after that commit.
+      pendingFirstOpenAnimation.current = true;
+      setHasOpened(true);
+      return;
+    }
+    animateTo(nextOpen); // content already built: the original synchronous path, unchanged
   }
 
   return (
@@ -193,7 +220,7 @@ function AccordionContainerInner({ schema, children, defaultOpen = false, style 
           </Accordion.Trigger>
         </Accordion.Header>
         <Accordion.Content ref={contentRef} className="sc-accordion__content" forceMount>
-          <div className="sc-accordion__content-inner" ref={contentInnerRef}>{children}</div>
+          <div className="sc-accordion__content-inner" ref={contentInnerRef}>{hasOpened ? children : null}</div>
         </Accordion.Content>
       </Accordion.Item>
     </Accordion.Root>

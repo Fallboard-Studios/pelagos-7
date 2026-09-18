@@ -120,6 +120,55 @@ describe('AudioRigDrawer', () => {
     }
   });
 
+  // Roadmap 17.2.2 (docs/specs/ACCORDION_LAZY_MOUNT.md) — the regression guard the whole item exists for: opening this tile
+  // used to build all ~300 cabinet boxes of every collapsed section up front (a main-thread stall long enough to pause
+  // audio). If anyone re-adds an eager mount, these fail. Plain render() on purpose — renderOpen() would defeat them.
+  describe('lazy mount (docs/specs/ACCORDION_LAZY_MOUNT.md) — a section builds its controls only once it is opened', () => {
+    const trigger = (name: RegExp) => screen.getByRole('button', { name });
+
+    it('mounts no slider and no cabinet box inside any section until one is opened', () => {
+      const { container } = render(<AudioRigDrawer />);
+      expect(screen.queryAllByRole('slider')).toHaveLength(0);
+      expect(container.querySelectorAll('.sc-accordion__content .sc-cabinet-box')).toHaveLength(0);
+    });
+
+    it('opening EQ & Filters mounts its sliders and nothing from the other sections', () => {
+      const { container } = render(<AudioRigDrawer />);
+
+      fireEvent.click(trigger(/EQ & Filters/i));
+
+      expect(screen.getByRole('slider', { name: 'Low' })).toBeTruthy();
+      // Tempo lives in Transport & Composition and Threshold in Output — both still never opened.
+      expect(screen.queryByRole('slider', { name: 'Tempo' })).toBeNull();
+      expect(screen.queryAllByRole('slider', { name: 'Threshold' })).toHaveLength(0);
+      // Every cabinet box mounted inside a section sits in the one that was opened.
+      const inOpenSection = container.querySelectorAll('.sc-accordion__content[data-state="open"] .sc-cabinet-box').length;
+      expect(inOpenSection).toBeGreaterThan(0);
+      expect(container.querySelectorAll('.sc-accordion__content .sc-cabinet-box')).toHaveLength(inOpenSection);
+    });
+
+    it('opening a second section adds its controls without dropping the first section\'s', () => {
+      render(<AudioRigDrawer />);
+
+      fireEvent.click(trigger(/EQ & Filters/i));
+      fireEvent.click(trigger(/Output/i));
+
+      expect(screen.getByRole('slider', { name: 'Low' })).toBeTruthy();
+      expect(screen.queryAllByRole('slider', { name: 'Threshold' }).length).toBeGreaterThan(0);
+      expect(screen.queryByRole('slider', { name: 'Tempo' })).toBeNull();
+    });
+
+    it('closing a section afterward keeps its controls mounted (collapsing hides, it does not unmount)', () => {
+      render(<AudioRigDrawer />);
+
+      fireEvent.click(trigger(/EQ & Filters/i));
+      fireEvent.click(trigger(/EQ & Filters/i));
+
+      expect(trigger(/EQ & Filters/i).getAttribute('aria-expanded')).toBe('false');
+      expect(screen.getByRole('slider', { name: 'Low' })).toBeTruthy();
+    });
+  });
+
   describe('EQ & Filters internal layout (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.5/§1.6 — flattened, no intermediate grouping panel)', () => {
     it('eq3, filterLPF, and filterHPF are direct siblings of one shared PanelGroup, in that order — no intermediate wrapper between them', () => {
       renderOpen(<AudioRigDrawer />);
