@@ -180,7 +180,7 @@ reaches `applyColorShift`, so variant code doesn't need to be aware of it.
 
 ## Day/Night Cycle (Lightness Curve)
 
-Pelagos-7 uses a **96-measure day/night cycle** in the lighting helpers, but the
+Trace Atlas uses a **96-measure day/night cycle** in the lighting helpers, but the
 current renderer does not pull these values from the audio transport. Instead,
 `Factory.tsx` reads the active locale's local time from the UI store, converts it
 into a 0–95 measure-like value, and passes it to `getLighting()` from

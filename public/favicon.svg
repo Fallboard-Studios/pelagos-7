@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <!-- Header trait accent pair (TRAIT_COLORS.header: teal -> green), same 135deg gradient a fully-filled volume-slider box uses. -->
+    <linearGradient id="front" gradientUnits="userSpaceOnUse" x1="22" y1="17" x2="62" y2="57">
+      <stop offset="0" stop-color="#41ad9f" />
+      <stop offset="1" stop-color="#68cb97" />
+    </linearGradient>
+  </defs>
+  <!-- Fully popped CabinetBox: 40px front face, 10px pop distance, 2:1 oblique projection (front offset 2d right, d down). -->
+  <!-- Top wall: accent midpoint mixed 20% toward white (CabinetBox.css .sc-cabinet-box__top-face). -->
+  <polygon points="2,7 42,7 62,17 22,17" fill="#71c7ac" stroke="#71c7ac" stroke-width="0.5" stroke-linejoin="round" />
+  <!-- Left wall: accent midpoint mixed 20% toward black (CabinetBox.css .sc-cabinet-box__left-face-inner). -->
+  <polygon points="2,7 22,17 22,57 2,47" fill="#44967c" stroke="#44967c" stroke-width="0.5" stroke-linejoin="round" />
+  <rect x="22" y="17" width="40" height="40" fill="url(#front)" />
+</svg>

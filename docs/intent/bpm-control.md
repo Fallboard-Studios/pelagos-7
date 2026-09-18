@@ -4,7 +4,7 @@ Confirmed via `/interview-me`, 2026-09-01. Started from an external (Gemini-draf
 
 ## Outcome
 
-BPM becomes a real, seed-driven **locale-compositional property** — generated from the active locale's (x, y) coordinates at build time, the same way other procedurally generated locale content is derived — with a live manual-override control added to the Audio Rig drawer that drives the actual `Tone.Transport` tempo via `AudioEngine.setBPM`. The control is built from Pelagos-7's existing closed-set `ControlSchema` primitives; no new UI primitive is introduced.
+BPM becomes a real, seed-driven **locale-compositional property** — generated from the active locale's (x, y) coordinates at build time, the same way other procedurally generated locale content is derived — with a live manual-override control added to the Audio Rig drawer that drives the actual `Tone.Transport` tempo via `AudioEngine.setBPM`. The control is built from Trace Atlas's existing closed-set `ControlSchema` primitives; no new UI primitive is introduced.
 
 ## User
 

@@ -56,7 +56,7 @@ of work" (§1.3 of its own spec). This is that later unit of work — raised dir
   specifically to do what that one declined to. Do not treat 10.1's spec text as still binding for
   the identifiers it named; it documents a past decision, not a present one.
 - `DEFAULT_PELAGOS` (and its literal id `'pelagos'`) stays as-is — a proper-noun default *instance*
-  name (the game's own title, "Pelagos-7"), not an instance of the generic "planet" concept being
+  name (the default planet's name, "Pelagos"), not an instance of the generic "planet" concept being
   renamed. Its type changes to `AttenuationStyle`; its own name does not.
 - `PlanetState` (`src/types/planet.ts`) is dead code — `planetStore.ts` never imports it, defining its
   own separate `PlanetStore` interface instead. Delete it outright rather than renaming it.

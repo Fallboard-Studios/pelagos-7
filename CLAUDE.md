@@ -1,4 +1,4 @@
-# Pelagos-7 — Concise Agent Instructions
+# Trace Atlas — Concise Agent Instructions
 
 Purpose: a compact operating guide for agents and contributors. This file captures the repository's non-negotiable architecture constraints and default workflow expectations. Implementation details and examples live in the linked docs; keep this file concise and action-oriented.
 
