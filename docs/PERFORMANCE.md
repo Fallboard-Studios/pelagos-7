@@ -214,14 +214,14 @@ The work did not disappear; it moved from opening a tile to the first time each 
 
 | Section | Boxes | 1× pre | 1× post | 4× pre | 4× post |
 |---|---|---|---|---|---|
-| fleet › Transport & Composition | 21 | 0 | 0 | 97 | 164 |
-| fleet › EQ & Filters | 132 | 0 | **128** | 118 | **903** |
-| fleet › Time & Space | 62 | 0 | 0 | 124 | 259 |
-| fleet › Output | 84 | 0 | 63 | 112 | 375 |
-| detail › Volume | 39 | 0 | 0 | 98 | 145 |
-| detail › Melody | 45 | 0 | 0 | 103 | 171 |
-| detail › Envelope | 41 | 0 | 0 | 96 | 176 |
-| detail › Source | 232 | 0 | **106** | 135 | **721** |
+| fleet › Transport & Composition | 21 | 0 | 0 | 92 | 164 |
+| fleet › EQ & Filters | 132 | 0 | **128** | 120 | **903** |
+| fleet › Time & Space | 62 | 0 | 0 | 82 | 259 |
+| fleet › Output | 84 | 0 | 63 | 109 | 375 |
+| detail › Volume | 39 | 0 | 0 | 90 | 145 |
+| detail › Melody | 45 | 0 | 0 | 94 | 171 |
+| detail › Envelope | 41 | 0 | 0 | 77 | 176 |
+| detail › Source | 232 | 0 | **106** | 100 | **721** |
 
 (Pre-change values are the near-zero height-tween cost, since the content was already mounted; a bare `0` means no task reached Chrome's 50 ms reporting threshold. Box counts are the increase in `.sc-cabinet-box` when the section opened.)
 
