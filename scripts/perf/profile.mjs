@@ -160,12 +160,24 @@ async function run({ send, onEvent }) {
     if (!result) throw new Error(`No button matching "${text}" — did a nav label change (see the TILE_* constants)?`);
   };
 
+  /** Clicks the first element matching a CSS selector (for controls that aren't a native <button>, e.g. a role="button" div). */
+  const clickSelector = async (selector) => {
+    const result = await evaluate(`(() => {
+      const el = document.querySelector(${JSON.stringify(selector)});
+      if (!el) return false;
+      el.click();
+      return true;
+    })()`);
+    if (!result) throw new Error(`No element matching "${selector}".`);
+  };
+
   async function measureStep(step, action, settleMs = 4000) {
     await evaluate('window.__longTasks.length = 0');
     await action();
     await sleep(settleMs);
     const tasks = await evaluate('window.__longTasks.slice()');
     const cabinetBoxes = await evaluate(`document.querySelectorAll('.sc-cabinet-box').length`);
+    const boxesInClosedAccordions = await evaluate(`document.querySelectorAll('.sc-accordion__content[data-state="closed"] .sc-cabinet-box').length`);
     const over = tasks.filter((t) => t.ms >= LOOKAHEAD_MS);
     return {
       step,
@@ -174,6 +186,7 @@ async function run({ send, onEvent }) {
       [`total in >=${LOOKAHEAD_MS}ms tasks (ms)`]: over.reduce((sum, t) => sum + t.ms, 0),
       'tasks >=50ms': tasks.length,
       cabinetBoxes,
+      'boxes in closed accordions': boxesInClosedAccordions,
     };
   }
 
@@ -184,6 +197,8 @@ async function run({ send, onEvent }) {
   rows.push(await measureStep('power on', () => click('power on'), 6000));
   rows.push(await measureStep(`open ${TILE_FLEET}`, () => click(TILE_FLEET)));
   rows.push(await measureStep(`switch to ${TILE_PROBES}`, () => click(TILE_PROBES)));
+  rows.push(await measureStep('open first robot (detail)', () => clickSelector('.robot-selection-card__top')));
+  rows.push(await measureStep('back to robot list', () => click('back')));
   rows.push(await measureStep(`switch to ${TILE_SETTINGS}`, () => click(TILE_SETTINGS)));
   rows.push(await measureStep(`back to ${TILE_FLEET}`, () => click(TILE_FLEET)));
   console.table(rows);
