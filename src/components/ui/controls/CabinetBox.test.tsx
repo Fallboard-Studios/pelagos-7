@@ -146,9 +146,9 @@ describe('CabinetBox', () => {
     // still needed a real measurement to run, none of the assertions below
     // could possibly pass at this point.
     const topFace = container.querySelector('.sc-cabinet-box__top-face');
-    const leftFace = container.querySelector('.sc-cabinet-box__left-face');
+    const leftFaceInner = container.querySelector('.sc-cabinet-box__left-face-inner');
     expect(setMock).toHaveBeenCalledWith(topFace, { scaleY: 0.4 });
-    expect(setMock).toHaveBeenCalledWith(leftFace, { scaleX: 0.4 });
+    expect(setMock).toHaveBeenCalledWith(leftFaceInner, { scaleX: 0.4 });
   });
 
   it('calls killTimeline on unmount', () => {
@@ -263,11 +263,21 @@ describe('CabinetBox', () => {
     // stubMatchMedia(false) (beforeEach) never matches a breakpoint query,
     // so useCabinetBoxHeight would otherwise resolve desktop (48) — the
     // override must win over that resolved value, not merely be accepted.
+    // Picked above the 44px floor (see next test) so this value survives
+    // Math.max unchanged and still unambiguously differs from 48.
+    const { container } = render(
+      <CabinetBox popped={false} timelineKey="test-box" boxHeight={56}>x</CabinetBox>,
+    );
+    const wrapper = container.querySelector('.sc-cabinet-box') as HTMLElement;
+    expect(wrapper.style.getPropertyValue('--cabinet-box-height')).toBe('56px');
+  });
+
+  it('floors --cabinet-box-height at 44px, even when a smaller boxHeight override is given', () => {
     const { container } = render(
       <CabinetBox popped={false} timelineKey="test-box" boxHeight={32}>x</CabinetBox>,
     );
     const wrapper = container.querySelector('.sc-cabinet-box') as HTMLElement;
-    expect(wrapper.style.getPropertyValue('--cabinet-box-height')).toBe('32px');
+    expect(wrapper.style.getPropertyValue('--cabinet-box-height')).toBe('44px');
   });
 
   describe('wall rendering (roadmap 11.1.1 follow-up — two fixed-skew, scale-tweened divs, replacing SVG polygons; docs/specs/OBLIQUE_CABINETRY_WALL_RENDERING.md)', () => {
@@ -405,8 +415,8 @@ describe('CabinetBox', () => {
         expect(topFrom.scaleY).toBe(0);
         expect(topTo.scaleY).toBe(1);
 
-        const leftFace = container.querySelector('.sc-cabinet-box__left-face');
-        const [, leftFrom, leftTo] = fromToMock.mock.calls.find(([target]) => target === leftFace) as [
+        const leftFaceInner = container.querySelector('.sc-cabinet-box__left-face-inner');
+        const [, leftFrom, leftTo] = fromToMock.mock.calls.find(([target]) => target === leftFaceInner) as [
           unknown, Record<string, unknown>, Record<string, unknown>,
         ];
         expect(leftFrom.scaleX).toBe(0);
@@ -493,9 +503,9 @@ describe('CabinetBox', () => {
         act(() => observer.fire(100, 48));
 
         const topFace = container.querySelector('.sc-cabinet-box__top-face');
-        const leftFace = container.querySelector('.sc-cabinet-box__left-face');
+        const leftFaceInner = container.querySelector('.sc-cabinet-box__left-face-inner');
         expect(setMock).toHaveBeenCalledWith(topFace, { scaleY: 0.4 });
-        expect(setMock).toHaveBeenCalledWith(leftFace, { scaleX: 0.4 });
+        expect(setMock).toHaveBeenCalledWith(leftFaceInner, { scaleX: 0.4 });
         expect(fromToMock).not.toHaveBeenCalled();
       });
     });
@@ -843,11 +853,11 @@ describe('CabinetBox', () => {
       rerender(<CabinetBox popped={false} timelineKey="test-box">x</CabinetBox>);
 
       const topFace = container.querySelector('.sc-cabinet-box__top-face');
-      const leftFace = container.querySelector('.sc-cabinet-box__left-face');
+      const leftFaceInner = container.querySelector('.sc-cabinet-box__left-face-inner');
       const front = container.querySelector('.sc-cabinet-box__front');
       const wrapper = container.querySelector('.sc-cabinet-box');
 
-      for (const target of [topFace, leftFace, front, wrapper]) {
+      for (const target of [topFace, leftFaceInner, front, wrapper]) {
         const [, , toVars] = fromToMock.mock.calls.find(([callTarget]) => callTarget === target) as [
           unknown, Record<string, unknown>, Record<string, unknown>,
         ];

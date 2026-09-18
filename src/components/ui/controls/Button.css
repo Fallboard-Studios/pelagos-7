@@ -4,7 +4,7 @@
    remains. */
 .sc-button {
   display: inline-flex;
-  font-family: var(--font-controls);
+  font-family: var(--font-sans);
   font-weight: var(--font-weight-control);
   /* This selector deliberately does NOT establish the shared sc-control
      size-query container (docs/specs/TYPE_SCALE.md incident, discovered in

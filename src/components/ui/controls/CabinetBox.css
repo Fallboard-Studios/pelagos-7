@@ -106,11 +106,20 @@
    docs/specs/OBLIQUE_CABINETRY_WALL_RENDERING.md §1.2/§1.4.
 
    NEVER add a `transform:` rule here (including skewX/skewY) — GSAP owns
-   the entire transform on both elements. The skew is set exactly once via
-   gsap.set() on mount (CabinetBox.tsx); a CSS-authored transform would be
-   silently clobbered the instant GSAP writes scaleY/scaleX, since GSAP's
+   the entire transform on both elements (top-face directly; left-face via
+   its own leftFaceOuterRef, see CabinetBox.tsx). The skew is set exactly
+   once via gsap.set() on mount; a CSS-authored transform would be silently
+   clobbered the first time GSAP writes to that same element, since GSAP's
    inline style write fully replaces the element's transform rather than
-   merging with a separate CSS declaration. */
+   merging with a separate CSS declaration.
+
+   .sc-cabinet-box__left-face itself (this outer element) is NEVER given a
+   scale by GSAP — only its own skew, once, ever. The animated scaleX lives
+   on the nested .sc-cabinet-box__left-face-inner element instead. See
+   CabinetBox.tsx's leftFaceOuterRef/leftFaceInnerRef comment for why: GSAP
+   cannot round-trip a pure skewY through its own transform cache once
+   anything else touches that same element's transform again, so the skew
+   and the animated scale must live on two separate elements. */
 .sc-cabinet-box__top-face,
 .sc-cabinet-box__left-face {
   position: absolute;
@@ -123,7 +132,16 @@
   background-color: color-mix(in srgb, var(--color-accent) 100%, white 20%);
 }
 
-.sc-cabinet-box__left-face {
+/* No background-color here anymore — see CabinetBox.tsx's own
+   leftFaceOuterRef/leftFaceInnerRef comment. This outer element carries
+   ONLY the static skew (GSAP touches it exactly once, ever); the visible
+   fill and the animated scale both live on .sc-cabinet-box__left-face-inner
+   below, so GSAP's own transform cache for this element never has to
+   reconcile a skew with anything else. */
+.sc-cabinet-box__left-face-inner {
+  position: absolute;
+  inset: 0;
+  transform-origin: top left;
   background-color: color-mix(in srgb, var(--color-accent) 100%, black 25%);
 }
 
