@@ -18,25 +18,16 @@
 .header {
   --color-surface: rgba(26, 26, 26, 0.75);
   position: sticky;
-  top: 8px;
+  top: 12px;
   width: 100%;
   z-index: var(--z-header);
-  display: grid;
-  grid-template-columns: 1fr;
-  grid-template-areas: "rocker" "nav";
+  display: flex;
+  flex-direction: column;
   gap: var(--spacing-md);
   padding: var(--spacing-lg) var(--spacing-md);
   box-sizing: border-box;
   background: var(--color-surface);
   border-bottom: var(--border-width) solid var(--border-color);
-}
-
-@media screen and (min-width: 430px) {
-  .header {
-    grid-template-columns: 1fr auto;
-    grid-template-areas: "rocker nav";
-    align-items: center;
-  }
 }
 
 /* Row-direction flex: the Mute toggle (content-sized — see .header__mute-
@@ -49,9 +40,32 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--spacing-sm);
   width: 100%;
-  max-width: 140px;
+  max-width: 220px;
+  grid-column: 2 / span 2;
+  grid-row: 1 / span 1;
+}
+
+@media screen and (min-width: 600px) {
+  .header__row--volume {
+    grid-column: 2 / span 1;
+    gap: var(--spacing-lg);
+    order: 1;
+  }
+}
+
+@media screen and (min-width: 48em) {
+  .header__row--volume {
+    max-width: 205px;
+  }
+}
+
+@media screen and (min-width: 64em) {
+  .header__row--volume {
+    max-width: 640px;
+  }
 }
 
 /* SliderLinear's own self-fit assumes an externally-determined, non-content-
@@ -85,6 +99,7 @@ sized wrapper (same reasoning audio-rig-drawer__param-row/signature-array-
 .header__row--volume .sc-slider-linear {
   flex: 1 1 auto;
   min-width: 0;
+  width: 100%;
   align-self: stretch;
 }
 
@@ -112,9 +127,28 @@ sized wrapper (same reasoning audio-rig-drawer__param-row/signature-array-
 .header__row--status {
   grid-area: status;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--spacing-sm);
+  grid-column: 2 / span 2;
+  grid-row: 2 / span 1;
+  min-width: 100px;
 }
+
+@media screen and (min-width: 600px) {
+  .header__row--status {
+    align-items: flex-end;
+    grid-column: 3 / span 1;
+    grid-row: 1 / span 1;
+  }
+}
+
+@media screen and (min-width: 48em) {
+  .header__row--status {
+    grid-column: 4 / span 1;
+    order: 3;
+  }
+}
+
 
 /* Single instance, no .primary/.secondary split (docs/todo/backlog.md #1) —
    grid-area: nav is what actually repositions this between .header's own
@@ -126,32 +160,37 @@ sized wrapper (same reasoning audio-rig-drawer__param-row/signature-array-
   justify-content: center;
   gap: var(--spacing-sm);
   width: 100%;
+  grid-column: 1 / span 3;
+  grid-row: 3 / span 1;
 }
 
-@media screen and (min-width: 480px) {
+@media screen and (min-width: 600px) {
+  .header__row--nav {
+    grid-column: 2 / span 2;
+    grid-row: 2 / span 1;
+  }
+}
+
+@media screen and (min-width: 48em) {
+  .header__row--nav {
+    grid-column: 3 / span 1;
+    grid-row: 1 / span 1;
+    order: 2;
+  }
+}
+
+
+.header__row--nav .sc-radio-button__root {
+  justify-content: center;
+}
+
+@media screen and (min-width: 48em) {
   .header__row--volume {
-    width: 100%;
-    min-width: 300px;
-    max-width: calc(100% - 200px);
     flex-direction: row;
-    gap: var(--spacing-lg);
-    align-items: flex-start;
-    justify-content: flex-start;
   }
 
-  /* Reverts the base rule's align-self: stretch fix above — irrelevant at
-     this breakpoint (flex-grow/shrink on the main axis, width, already
-     governs sizing correctly in row-direction) and left inheriting the
-     container's own align-items: flex-start again, unchanged from before
-     that fix existed. */
-  .header__row--volume .sc-slider-linear {
-    align-self: auto;
-  }
-}
-
-@media screen and (min-width: 880px) {
-  .header__row--volume {
-    max-width: calc(100% - 420px);
+  .header__row--nav .sc-radio-button__root {
+    justify-content: flex-end;
   }
 }
 
@@ -171,7 +210,6 @@ sized wrapper (same reasoning audio-rig-drawer__param-row/signature-array-
   letter-spacing: 0.05em;
   flex-direction: column;
   flex-wrap: wrap;
-  align-items: center;
   width: auto;
 }
 
@@ -181,4 +219,11 @@ sized wrapper (same reasoning audio-rig-drawer__param-row/signature-array-
   justify-content: center;
   gap: var(--spacing-sm);
   flex-wrap: wrap;
+}
+
+@media screen and (min-width: 64em) {
+  .header .header__status__row {
+    flex-direction: row;
+    justify-content: flex-start;
+  }
 }

@@ -42,8 +42,6 @@ const MUTE_SCHEMA: ToggleSchema = { id: 'headerMute', type: 'toggle', loreLabel:
  *  §7 item #2), even though it now sits alongside Mute's own facade text. */
 const VOLUME_SCHEMA: SliderLinearSchema = {
   id: 'headerVolume',
-  loreLabel: 'MASTER TRANSDUCER OUTPUT [c]',
-  humanLabel: 'Volume [c]',
   min: 0,
   max: 100,
   step: 1,
@@ -51,15 +49,6 @@ const VOLUME_SCHEMA: SliderLinearSchema = {
   orientation: 'horizontal',
   type: 'sliderLinear',
 };
-
-/** Row 2's Attenuation Style readout — truncated past 15 chars so a long
- *  name doesn't blow out the row's width, falling back to a placeholder
- *  when the style/name itself isn't available yet. Extracted out of an
- *  inline nested ternary (code review, 2026-09-12) for readability. */
-function formatAttenuationStyleName(name: string | undefined): string {
-  if (!name) return 'CORRUPT NAME';
-  return name.length < 15 ? name : `${name.slice(0, 12)}...`;
-}
 
 /**
  * The header docked to the top of ScreenViewport (roadmap-adjacent,
@@ -143,7 +132,6 @@ function Header() {
   const hh = String(Math.max(0, Math.min(23, localHour))).padStart(2, '0');
   const mm = String(Math.max(0, Math.min(59, localMinute))).padStart(2, '0');
   const currentAttenuationStyle = useAttenuationStyleStore(selectCurrentAttenuationStyle);
-  const displayAttenuationStyleName = formatAttenuationStyleName(currentAttenuationStyle?.name);
   const currentLocaleId = currentAttenuationStyle?.currentLocaleId;
   // .coordinates specifically, not the whole locale object (bugfix, found live — same class as
   // SectorSettingsDrawer.tsx's own fix): coordinates is the only field this component ever reads
@@ -183,10 +171,6 @@ function Header() {
         </div>
         <div className="header__row header__row--status">
           <div className="header__status__row">
-            <span className="header__attenuation-style">
-              <VisuallyHidden>Attenuation style: </VisuallyHidden>
-              {displayAttenuationStyleName}
-            </span>
             <span className="header__coordinates">
               <VisuallyHidden>Coordinates: </VisuallyHidden>
               @ {coordinates?.x ?? 'CORRUPT X'}, {coordinates?.y ?? 'CORRUPT Y'}
@@ -203,15 +187,15 @@ function Header() {
             </span>
           </div>
         </div>
-      </div>
-      <div className="header__row header__row--nav">
-        <RadioButton
-          schema={HEADER_NAV_SCHEMA}
-          value={activeHubTile ?? ''}
-          onChange={handleNavChange}
-          onDeselect={handleNavDeselect}
-          boxSize={TOUCH_TARGET_SIZE}
-        />
+        <div className="header__row header__row--nav">
+          <RadioButton
+            schema={HEADER_NAV_SCHEMA}
+            value={activeHubTile ?? ''}
+            onChange={handleNavChange}
+            onDeselect={handleNavDeselect}
+            boxSize={TOUCH_TARGET_SIZE}
+          />
+        </div>
       </div>
     </header>
   );

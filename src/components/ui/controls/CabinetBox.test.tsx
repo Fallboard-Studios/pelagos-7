@@ -146,9 +146,9 @@ describe('CabinetBox', () => {
     // still needed a real measurement to run, none of the assertions below
     // could possibly pass at this point.
     const topFace = container.querySelector('.sc-cabinet-box__top-face');
-    const leftFace = container.querySelector('.sc-cabinet-box__left-face');
+    const leftFaceInner = container.querySelector('.sc-cabinet-box__left-face-inner');
     expect(setMock).toHaveBeenCalledWith(topFace, { scaleY: 0.4 });
-    expect(setMock).toHaveBeenCalledWith(leftFace, { scaleX: 0.4 });
+    expect(setMock).toHaveBeenCalledWith(leftFaceInner, { scaleX: 0.4 });
   });
 
   it('calls killTimeline on unmount', () => {
@@ -405,8 +405,8 @@ describe('CabinetBox', () => {
         expect(topFrom.scaleY).toBe(0);
         expect(topTo.scaleY).toBe(1);
 
-        const leftFace = container.querySelector('.sc-cabinet-box__left-face');
-        const [, leftFrom, leftTo] = fromToMock.mock.calls.find(([target]) => target === leftFace) as [
+        const leftFaceInner = container.querySelector('.sc-cabinet-box__left-face-inner');
+        const [, leftFrom, leftTo] = fromToMock.mock.calls.find(([target]) => target === leftFaceInner) as [
           unknown, Record<string, unknown>, Record<string, unknown>,
         ];
         expect(leftFrom.scaleX).toBe(0);
@@ -493,9 +493,9 @@ describe('CabinetBox', () => {
         act(() => observer.fire(100, 48));
 
         const topFace = container.querySelector('.sc-cabinet-box__top-face');
-        const leftFace = container.querySelector('.sc-cabinet-box__left-face');
+        const leftFaceInner = container.querySelector('.sc-cabinet-box__left-face-inner');
         expect(setMock).toHaveBeenCalledWith(topFace, { scaleY: 0.4 });
-        expect(setMock).toHaveBeenCalledWith(leftFace, { scaleX: 0.4 });
+        expect(setMock).toHaveBeenCalledWith(leftFaceInner, { scaleX: 0.4 });
         expect(fromToMock).not.toHaveBeenCalled();
       });
     });
@@ -843,11 +843,11 @@ describe('CabinetBox', () => {
       rerender(<CabinetBox popped={false} timelineKey="test-box">x</CabinetBox>);
 
       const topFace = container.querySelector('.sc-cabinet-box__top-face');
-      const leftFace = container.querySelector('.sc-cabinet-box__left-face');
+      const leftFaceInner = container.querySelector('.sc-cabinet-box__left-face-inner');
       const front = container.querySelector('.sc-cabinet-box__front');
       const wrapper = container.querySelector('.sc-cabinet-box');
 
-      for (const target of [topFace, leftFace, front, wrapper]) {
+      for (const target of [topFace, leftFaceInner, front, wrapper]) {
         const [, , toVars] = fromToMock.mock.calls.find(([callTarget]) => callTarget === target) as [
           unknown, Record<string, unknown>, Record<string, unknown>,
         ];

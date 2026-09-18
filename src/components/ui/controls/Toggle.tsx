@@ -45,7 +45,7 @@ interface ToggleProps {
  * larger size on wider viewports. See docs/specs/OBLIQUE_CABINETRY_TOGGLE.md §1.2.
  * Applies only to the bare (no facade content) case — see `children` above.
  */
-export const CABINET_TOGGLE_BOX_SIZE = 32;
+export const CABINET_TOGGLE_BOX_SIZE = 44;
 
 /**
  * Binary ON/OFF control wrapping @radix-ui/react-switch. Controlled — never

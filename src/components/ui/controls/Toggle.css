@@ -2,8 +2,10 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-family: var(--font-controls);
+  width: 100%;
+  font-family: var(--font-sans);
   font-weight: var(--font-weight-control);
+  font-size: var(--font-size-heading-md);
   container-type: inline-size;
   container-name: sc-control;
 }

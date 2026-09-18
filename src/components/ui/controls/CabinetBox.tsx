@@ -138,7 +138,35 @@ function CabinetBoxInner({ popped, timelineKey, boxHeight: boxHeightOverride, po
   // parallelogram the old points-attribute tweening did, entirely on the
   // compositor.
   const topFaceRef = useRef<HTMLDivElement>(null);
-  const leftFaceRef = useRef<HTMLDivElement>(null);
+  // Split into two nested elements — bugfix, 2026-09-17 (found live: the
+  // left wall's own transform stopped matching the top wall/front face at
+  // higher pop distances, worse the deeper the pop). Root cause: GSAP
+  // cannot round-trip a pure skewY through its own transform cache. The
+  // first time anything ELSE touches this element's transform again (our
+  // own scaleX tween), GSAP re-derives its internal state from the
+  // rendered matrix and re-expresses skewY as an equivalent
+  // rotate+skewX+non-uniform-scale combination — mathematically equal to
+  // the ORIGINAL skewY+scaleX(1) only at the exact instant that happened,
+  // never again for any other scaleX value, because that decomposition
+  // bakes in a fixed scaleY (cos of the skew angle) and rotation that a
+  // later, different scaleX no longer combines with correctly. It
+  // shrinks the wall's effective width to ~67% of intended and steepens
+  // its slope, by an amount that scales with popDistance — invisible at
+  // Button/Toggle's tiny 2px default, glaring at VoxelTrack's 8px. Pure
+  // skewX (the top-face wall, below) has no such issue — its own
+  // decomposition is an exact fixed point (scaleX/scaleY/rotation all
+  // round-trip to their original values), which is why only the left
+  // face needed this split. `leftFaceOuterRef` carries the static skew
+  // (GSAP touches it exactly once, ever — see the one-time skew effect
+  // below) and never anything else; `leftFaceInnerRef` carries ONLY the
+  // animated scaleX plus the visible background color, so GSAP's own
+  // cache for each of these two nodes only ever holds one transform
+  // property, never both entangled on the same element. CSS transform
+  // composition across nested elements (child's own transform applied
+  // first, then the parent's) reproduces the exact same visual math as
+  // the original single-element scale-then-skew intent.
+  const leftFaceOuterRef = useRef<HTMLDivElement>(null);
+  const leftFaceInnerRef = useRef<HTMLDivElement>(null);
   // Always called (Rules of Hooks), even when boxHeightOverride is supplied —
   // its result is simply unused in that case.
   const responsiveBoxHeight = useCabinetBoxHeight();
@@ -221,15 +249,17 @@ function CabinetBoxInner({ popped, timelineKey, boxHeight: boxHeightOverride, po
   // The wall skew is a fixed property of the 2:1 oblique projection —
   // independent of t, popDistance, or width/height — so it's set exactly
   // once, on mount, and never touched again. GSAP must own the whole
-  // `transform` on these two elements (it fully replaces the inline style
-  // on every write); never author `transform`/`skewX`/`skewY` as a CSS rule
+  // `transform` on these elements (it fully replaces the inline style on
+  // every write); never author `transform`/`skewX`/`skewY` as a CSS rule
   // on .sc-cabinet-box__top-face/__left-face, or it will be silently
   // dropped the first time the geometry effect below sets scaleY/scaleX.
-  // See docs/specs/OBLIQUE_CABINETRY_WALL_RENDERING.md §1.4.
+  // See docs/specs/OBLIQUE_CABINETRY_WALL_RENDERING.md §1.4. leftFaceOuterRef
+  // specifically must NEVER receive any other gsap.set/tween call, ever —
+  // see leftFaceOuterRef/leftFaceInnerRef's own comment above for why.
   useGSAP(() => {
-    if (!topFaceRef.current || !leftFaceRef.current) return;
+    if (!topFaceRef.current || !leftFaceOuterRef.current) return;
     gsap.set(topFaceRef.current, { skewX: CABINET_TOP_FACE_SKEW_DEG });
-    gsap.set(leftFaceRef.current, { skewY: CABINET_LEFT_FACE_SKEW_DEG });
+    gsap.set(leftFaceOuterRef.current, { skewY: CABINET_LEFT_FACE_SKEW_DEG });
   }, { scope: wrapperRef, dependencies: [] });
 
   // Post-implementation correction, 2026-09-09: this effect's guard used to
@@ -247,7 +277,7 @@ function CabinetBoxInner({ popped, timelineKey, boxHeight: boxHeightOverride, po
   // state while sliding past). Removing the width gate closes that window
   // entirely — the effect now runs synchronously with mount.
   useGSAP(() => {
-    if (!frontRef.current || !topFaceRef.current || !leftFaceRef.current || !wrapperRef.current) return;
+    if (!frontRef.current || !topFaceRef.current || !leftFaceInnerRef.current || !wrapperRef.current) return;
     killTimeline(timelineKey);
 
     // A real transition only when `poppedT` itself changed since the last
@@ -272,7 +302,7 @@ function CabinetBoxInner({ popped, timelineKey, boxHeight: boxHeightOverride, po
       // here would incorrectly assume the box is coming from the *opposite*
       // state and visibly flatten-then-re-pop an already-popped box.
       gsap.set(topFaceRef.current, { scaleY: poppedT });
-      gsap.set(leftFaceRef.current, { scaleX: poppedT });
+      gsap.set(leftFaceInnerRef.current, { scaleX: poppedT });
       gsap.set(frontRef.current, { x: target.frontFaceOffsetX, y: target.frontFaceOffsetY });
       gsap.set(wrapperRef.current, { '--cabinet-glow': poppedT });
       return;
@@ -285,7 +315,7 @@ function CabinetBoxInner({ popped, timelineKey, boxHeight: boxHeightOverride, po
       // is no tween. See CabinetBoxProps.skipMountAnimation for why this
       // exists (VoxelTrack's straddle-boundary remounts).
       gsap.set(topFaceRef.current, { scaleY: poppedT });
-      gsap.set(leftFaceRef.current, { scaleX: poppedT });
+      gsap.set(leftFaceInnerRef.current, { scaleX: poppedT });
       gsap.set(frontRef.current, { x: target.frontFaceOffsetX, y: target.frontFaceOffsetY });
       gsap.set(wrapperRef.current, { '--cabinet-glow': poppedT });
       return;
@@ -320,7 +350,7 @@ function CabinetBoxInner({ popped, timelineKey, boxHeight: boxHeightOverride, po
 
     const tl = gsap.timeline();
     tl.fromTo(topFaceRef.current, { scaleY: fromPopped }, { scaleY: poppedT, duration, ease }, 0)
-      .fromTo(leftFaceRef.current, { scaleX: fromPopped }, { scaleX: poppedT, duration, ease }, 0)
+      .fromTo(leftFaceInnerRef.current, { scaleX: fromPopped }, { scaleX: poppedT, duration, ease }, 0)
       .fromTo(frontRef.current,
         { x: from.frontFaceOffsetX, y: from.frontFaceOffsetY },
         { x: to.frontFaceOffsetX, y: to.frontFaceOffsetY, duration, ease }, 0)
@@ -345,7 +375,7 @@ function CabinetBoxInner({ popped, timelineKey, boxHeight: boxHeightOverride, po
   // hand-synced sources down to this one. Same "JS-owned value applied as
   // an inline style" pattern App.tsx's own realWorldGradient already uses.
   const cabinetTokens = {
-    '--cabinet-box-height': `${boxHeight}px`,
+    '--cabinet-box-height': `${Math.max(boxHeight, 44)}px`,
     '--cabinet-pop-distance': `${resolvedPopDistance}px`,
     ...(zIndex !== undefined ? { zIndex } : {}),
   } as CSSProperties;
@@ -393,10 +423,12 @@ function CabinetBoxInner({ popped, timelineKey, boxHeight: boxHeightOverride, po
           style={{ width: `${width}px`, height: `${resolvedPopDistance}px` }}
         />
         <div
-          ref={leftFaceRef}
+          ref={leftFaceOuterRef}
           className="sc-cabinet-box__left-face"
           style={{ width: `${2 * resolvedPopDistance}px`, height: autoHeight ? '100%' : `${leftFaceHeight}px` }}
-        />
+        >
+          <div ref={leftFaceInnerRef} className="sc-cabinet-box__left-face-inner" />
+        </div>
       </div>
       <div ref={frontRef} className="sc-cabinet-box__front" style={frontStyle}>
         {children}

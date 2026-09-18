@@ -10,7 +10,7 @@
      heading tiers (docs/specs/TYPE_SCALE.md §1.5). Falls back to Rajdhani
      before the generic stack, mirroring --font-sans's own fallback shape. */
   --font-controls: 'Titillium Web', 'Rajdhani', system-ui, Avenir, Helvetica, Arial, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Segoe UI Mono", monospace;
+  --font-mono: var(--font-sans), ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Segoe UI Mono", monospace;
 
   /* New semantic type scale (docs/specs/TYPE_SCALE.md §1.2). --font-size-body
      and the 3 --font-size-heading-* tokens have no real consumer yet — same

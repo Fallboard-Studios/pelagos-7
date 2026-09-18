@@ -19,11 +19,11 @@ import type { RadioButtonSchema } from '@/types/controls';
 export const HEADER_NAV_SCHEMA: RadioButtonSchema = {
   id: 'headerHubNav',
   type: 'radio',
-  loreLabel: 'CONSOLE NAVIGATION [c]',
-  humanLabel: 'Navigation [c]',
+  // loreLabel: 'CONSOLE NAVIGATION [c]',
+  // humanLabel: 'Navigation [c]',
   options: [
-    { value: 'robots', label: 'Robots' },
-    { value: 'audioRig', label: 'Audio Rig' },
-    { value: 'settings', label: 'Sector Settings' },
+    { value: 'robots', label: 'Probes' },
+    { value: 'audioRig', label: 'Fleet Params' },
+    { value: 'settings', label: 'Nav & Comms' },
   ],
 };

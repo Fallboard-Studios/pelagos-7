@@ -8,8 +8,9 @@
   flex-direction: column;
   gap: 4px;
   width: 100%;
-  font-family: var(--font-controls);
+  font-family: var(--font-sans);
   font-weight: var(--font-weight-control);
+  font-size: var(--font-size-heading-md);
   container-type: inline-size;
   container-name: sc-control;
 }
@@ -30,6 +31,10 @@
   flex-wrap: wrap;
   width: 100%;
   gap: var(--cabinet-radio-gap, 8px);
+}
+
+.sc-radio-button__root .sc-cabinet-box__front {
+  width: auto !important;
 }
 
 /* Never larger than its own content — same reasoning as Button.css's own
