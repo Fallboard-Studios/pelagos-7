@@ -16,7 +16,7 @@ describe('CompanyCrudControls', () => {
 
   afterEach(() => {
     useLocaleStore.getState().setLocaleData(localeId, { robots: [], companies: [] } as unknown as Partial<Locale>);
-    useUIStore.getState().selectCompany(null);
+    useUIStore.getState().selectAllRobots();
   });
 
   it("Create's name input pre-fills with a generated \"Adjective Noun\" suggestion", () => {
@@ -431,7 +431,7 @@ describe('CompanyCrudControls', () => {
       render(<CompanyCrudControls />);
       expect(screen.getByRole('button', { name: 'Delete Iron Consortium' })).toBeTruthy();
 
-      act(() => { useUIStore.getState().selectCompany(null); });
+      act(() => { useUIStore.getState().selectAllRobots(); });
 
       expect(screen.getByRole('button', { name: 'Delete' })).toBeTruthy();
     });
@@ -443,17 +443,32 @@ describe('CompanyCrudControls', () => {
     expect((screen.getByRole('textbox', { name: /rename company/i }) as HTMLInputElement).disabled).toBe(true);
   });
 
-  it('clicking Delete calls removeCompany then selectCompany(null), in that order', () => {
+  it('clicking Delete calls removeCompany then selectAllRobots, in that order', () => {
     useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
     useUIStore.getState().selectCompany('c1');
     const calls: string[] = [];
-    vi.spyOn(useLocaleStore.getState(), 'removeCompany').mockImplementation(() => { calls.push('removeCompany'); });
-    vi.spyOn(useUIStore.getState(), 'selectCompany').mockImplementation(() => { calls.push('selectCompany'); });
+    const removeSpy = vi.spyOn(useLocaleStore.getState(), 'removeCompany').mockImplementation(() => { calls.push('removeCompany'); });
+    const selectAllSpy = vi.spyOn(useUIStore.getState(), 'selectAllRobots').mockImplementation(() => { calls.push('selectAllRobots'); });
     render(<CompanyCrudControls />);
 
     fireEvent.click(screen.getByRole('button', { name: /^delete\b/i }));
 
-    expect(calls).toEqual(['removeCompany', 'selectCompany']);
+    expect(calls).toEqual(['removeCompany', 'selectAllRobots']);
+    // Restored explicitly — these spies replace the store's own actions in place and would
+    // otherwise leak into every later test in this file.
+    removeSpy.mockRestore();
+    selectAllSpy.mockRestore();
+  });
+
+  it('after deleting the selected company, the selection falls back to All (not an empty/None state)', () => {
+    useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
+    useUIStore.getState().selectCompany('c1');
+    render(<CompanyCrudControls />);
+
+    fireEvent.click(screen.getByRole('button', { name: /^delete\b/i }));
+
+    expect(useUIStore.getState().allRobotsSelected).toBe(true);
+    expect(useUIStore.getState().selectedCompanyId).toBeNull();
   });
 
   // Roadmap: Robot Selection Filter Panel — the AccordionContainer wrap (docs/specs/

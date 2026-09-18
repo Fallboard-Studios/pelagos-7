@@ -22,8 +22,8 @@ export const HEADER_NAV_SCHEMA: RadioButtonSchema = {
   // loreLabel: 'CONSOLE NAVIGATION [c]',
   // humanLabel: 'Navigation [c]',
   options: [
-    { value: 'robots', label: 'Probes' },
     { value: 'audioRig', label: 'Fleet Params' },
+    { value: 'robots', label: 'Probes' },
     { value: 'settings', label: 'Nav & Comms' },
   ],
 };

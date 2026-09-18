@@ -91,7 +91,7 @@ describe('Robot company-member glow (Roadmap Phase 10)', () => {
   beforeEach(() => {
     useUIStore.getState().selectRobot(null);
     useUIStore.getState().setActiveHubTile(null);
-    useUIStore.getState().selectCompany(null);
+    useUIStore.getState().selectAllRobots();
     useLocaleStore.getState().setLocaleData(localeId, { robots: [] } as unknown as Partial<Locale>);
   });
 
@@ -109,7 +109,7 @@ describe('Robot company-member glow (Roadmap Phase 10)', () => {
     expect(container.querySelector('.robot.isCompanyMember')).toBeNull();
   });
 
-  it('does not apply isCompanyMember when no company is selected, even for a robot with a companyId', () => {
+  it('does not apply isCompanyMember by default (All selected), even for a robot with a companyId', () => {
     const { container } = renderRobot({ id: 'r1', companyId: 'c1' });
 
     expect(container.querySelector('.robot.isCompanyMember')).toBeNull();
@@ -142,17 +142,19 @@ describe('Robot company-member glow (Roadmap Phase 10)', () => {
     expect(el.classList.contains('isCompanyMember')).toBe(true);
   });
 
-  it('applies isCompanyMember to every robot when allRobotsSelected ("All") is true, regardless of its company', () => {
+  // "All" is the default selection now, so it must NOT glow every robot — the glow is what marks a
+  // specific company's members apart from the rest (2026-09-18).
+  it('does not apply isCompanyMember to any robot when "All" is selected, regardless of its company', () => {
     useUIStore.getState().selectAllRobots();
     const { container } = renderRobot({ id: 'r1', companyId: 'c2' });
 
-    expect(container.querySelector('.robot.isCompanyMember')).toBeTruthy();
+    expect(container.querySelector('.robot.isCompanyMember')).toBeNull();
   });
 
-  it('applies isCompanyMember to a Freelance robot (no companyId) too when "All" is selected', () => {
+  it('does not apply isCompanyMember to a Freelance robot (no companyId) when "All" is selected', () => {
     useUIStore.getState().selectAllRobots();
     const { container } = renderRobot({ id: 'r1', companyId: undefined });
 
-    expect(container.querySelector('.robot.isCompanyMember')).toBeTruthy();
+    expect(container.querySelector('.robot.isCompanyMember')).toBeNull();
   });
 });

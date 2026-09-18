@@ -67,7 +67,7 @@ export function CompanyCrudControls() {
   const localeId = getActiveLocaleId();
   const companies = useLocaleStore((s) => s.locales[localeId]?.companies ?? []);
   const selectedCompanyId = useUIStore((s) => s.selectedCompanyId);
-  const selectCompany = useUIStore((s) => s.selectCompany);
+  const selectAllRobots = useUIStore((s) => s.selectAllRobots);
   const selectedCompany = companies.find((c) => c.id === selectedCompanyId);
 
   const [createNameDraft, setCreateNameDraft] = useState(suggestCompanyName);
@@ -157,7 +157,7 @@ export function CompanyCrudControls() {
   const handleDelete = () => {
     if (!selectedCompany) return;
     useLocaleStore.getState().removeCompany(localeId, selectedCompany.id);
-    selectCompany(null);
+    selectAllRobots();
   };
 
   return (

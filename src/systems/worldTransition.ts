@@ -234,6 +234,8 @@ export function retransmitWorld(input: RetransmitInput): void {
   if (action.mode === 'noop') return;
 
   useUIStore.getState().selectRobot(null);
+  // Companies are regenerated with fresh ids on a reseed — a selected company's id would dangle.
+  useUIStore.getState().selectAllRobots();
   const oldAttenuationStyle = selectCurrentAttenuationStyle(useAttenuationStyleStore.getState());
   if (!oldAttenuationStyle) return;
   const oldLocaleId = oldAttenuationStyle.currentLocaleId;

@@ -13,7 +13,7 @@ import { ACCENT_COLORS } from '../constants/accentColors';
  *  click, which RadioButton.tsx already guards against (never calls onChange with it) — this
  *  sentinel isn't load-bearing against that the way it was for Radix Select.Item's own
  *  empty-string rejection back when this schema built a Select. Kept non-empty anyway, for the
- *  same defensive-and-symmetry reason NONE_VALUE documents below, and because every consumer
+ *  same defensive-and-symmetry reason ALL_VALUE documents below, and because every consumer
  *  already branches on it (value === FREELANCE_VALUE ? null : value). */
 export const FREELANCE_VALUE = '__freelance__';
 
@@ -47,29 +47,22 @@ export function buildCompanyAssignmentSchema(companies: Company[]): RadioButtonS
 
 /** Distinct sentinel from FREELANCE_VALUE — two different UI surfaces (the robot-to-company
  *  assignment RadioButton vs. this row's own "view/edit this company's options" RadioButton),
- *  each with its own "nothing selected" meaning. Both are RadioButton today (Roadmap 10.5) — this
- *  sentinel predates that and was already distinct from FREELANCE_VALUE for the same reason. */
-export const NONE_VALUE = '__none__';
-
-/** Distinct sentinel from both NONE_VALUE and FREELANCE_VALUE — "highlight every robot
- *  regardless of company," not "no company"/"unaffiliated." Never reaches uiStore directly
- *  (translated to the selectAllRobots action at the CompanyButtonRow boundary, same as
- *  NONE_VALUE is translated to selectCompany(null)) — see uiStore.ts's allRobotsSelected. */
+ *  each with its own meaning: "every robot regardless of company," not "no company"/
+ *  "unaffiliated." Never reaches uiStore directly (translated to the selectAllRobots action at
+ *  the CompanyButtonRow boundary) — see uiStore.ts's allRobotsSelected. */
 export const ALL_VALUE = '__all__';
 
 /** CompanyButtonRow reuses the RadioButton primitive — a company button row is exactly "one
  *  active among many, click to select," which RadioButton already implements (including the
  *  active-state styling), rather than reinventing that with a list of independent Buttons.
  *
- *  Order is All, then the per-company list, then Reset last (Roadmap: Robot Selection Filter
- *  Panel) — the two "no single company" meta-options deliberately sandwich the (possibly long,
- *  user-generated) company list rather than both preceding it. All shows every robot including
- *  freelancers and keeps bulk-edit armed for the whole roster (CompanyOptionsSection's own
- *  `allRobotsSelected` branch, unchanged); Reset (this schema's own NONE_VALUE sentinel, renamed
- *  from "None") shows every robot with bulk-edit disabled. Each gets its own fixed accent color —
- *  green for All, red for Reset — same as every company option's own `color`
- *  (docs/specs/COMPANY_SECTION_ENHANCEMENTS.md §1.3); unlike that history, there is no longer an
- *  "ambient fallback, no color" option anywhere in this row. */
+ *  Order is All, then the per-company list (Roadmap: Robot Selection Filter Panel). All is the
+ *  default selection — it shows every robot including freelancers and keeps bulk-edit armed for
+ *  the whole roster (CompanyOptionsSection's own `allRobotsSelected` branch). There is no
+ *  Reset/None option (removed 2026-09-18): the selection is always All or one company. All gets
+ *  its own fixed green accent, same as every company option's own `color` (docs/specs/
+ *  COMPANY_SECTION_ENHANCEMENTS.md §1.3); there is no "ambient fallback, no color" option anywhere
+ *  in this row. */
 export function buildCompanyButtonRowSchema(companies: Company[]): RadioButtonSchema {
   return {
     id: 'company.buttonRow',
@@ -79,7 +72,6 @@ export function buildCompanyButtonRowSchema(companies: Company[]): RadioButtonSc
     options: [
       { value: ALL_VALUE, label: 'All', color: ACCENT_COLORS.green },
       ...companies.map((c) => ({ value: c.id, label: c.name, color: c.color })),
-      { value: NONE_VALUE, label: 'Reset', color: ACCENT_COLORS.red },
     ],
   };
 }

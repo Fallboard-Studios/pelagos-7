@@ -37,9 +37,8 @@ const TIME_SPACE_DISABLED_STYLE = getDisabledTraitColorStyle('timeSpace');
 const SPECTRAL_ACTIVE_STYLE = getTraitColorStyle('spectral');
 const SPECTRAL_DISABLED_STYLE = getDisabledTraitColorStyle('spectral');
 
-// Placeholder values shown when there's nothing to derive real ones from — "None" selected, or a
-// selected company with zero members (nothing to broadcast to, nothing to resolve a baseline
-// from). Kept structurally complete (e.g. 3 layer slots, not an empty array) so the panel's
+// Placeholder values shown when there's nothing to derive real ones from — a selected company
+// with zero members (nothing to broadcast to, nothing to resolve a baseline from). Kept structurally complete (e.g. 3 layer slots, not an empty array) so the panel's
 // layout doesn't jump between the disabled and enabled states.
 const DISABLED_AUDIO_SETTING: AudioSettingValue = {
   audioMode: 'none',

@@ -22,17 +22,19 @@ export interface UIStore {
   activeLocaleTemperature: number | null;
   selectedRobotId: string | null;
   /** The company (Roadmap Phase 10) currently selected in the Robots tab's CompanyManager —
-   *  null is "None", the default. Independent of selectedRobotId: selecting one never touches
-   *  the other. Drives both the company-glow world-view/list highlight and which company's
-   *  values the CompanyOptionsSection panel is bound to. Mutually exclusive with
-   *  allRobotsSelected — selecting a company (or "None") always clears it. */
+   *  null whenever allRobotsSelected is true (the default). Independent of selectedRobotId:
+   *  selecting one never touches the other. Drives both the company-glow world-view highlight and
+   *  which company's values the CompanyOptionsSection panel is bound to. Mutually exclusive with
+   *  allRobotsSelected — selecting a company always clears it. */
   selectedCompanyId: string | null;
-  /** The button row's "All" option — highlights every robot regardless of company, false by
-   *  default. Mutually exclusive with selectedCompanyId: selectAllRobots clears
-   *  selectedCompanyId, and selectCompany (any id, or null for "None") clears this. Deliberately
-   *  does NOT feed CompanyOptionsSection/CompanyCrudControls — there is no Company object to
-   *  bind a bulk-edit panel or Rename/Delete to for "All"; those stay driven by
-   *  selectedCompanyId alone, same as "None". */
+  /** The button row's "All" option, true by default — there is no separate "nothing selected"
+   *  state (the old "None"/"Reset" option was removed 2026-09-18): the selection is always either
+   *  All or one company. Shows every robot in the list and keeps bulk-edit armed for the whole
+   *  roster, but deliberately does NOT glow every robot in the world view (Robot.tsx — that glow
+   *  marks a specific company's members apart). Mutually exclusive with selectedCompanyId:
+   *  selectAllRobots clears selectedCompanyId, and selectCompany clears this. Deliberately does
+   *  NOT feed CompanyCrudControls — there is no Company object to bind Rename/Delete to for "All";
+   *  those stay driven by selectedCompanyId alone. */
   allRobotsSelected: boolean;
   activeHubTile: HubTile | null;
   setActiveLocaleLocalTime: (t: number | null) => void;
@@ -43,7 +45,7 @@ export interface UIStore {
   setPowerOn: () => void;
   setPowerOff: () => void;
   selectRobot: (id: string | null) => void;
-  selectCompany: (id: string | null) => void;
+  selectCompany: (id: string) => void;
   selectAllRobots: () => void;
   setActiveHubTile: (tile: HubTile | null) => void;
   setActiveLocaleTemperature: (t: number | null) => void;
@@ -63,7 +65,7 @@ export const useUIStore = create<UIStore>((set) => ({
   activeLocaleTemperature: null,
   selectedRobotId: null,
   selectedCompanyId: null,
-  allRobotsSelected: false,
+  allRobotsSelected: true,
   activeHubTile: null,
 
   setActiveView: (v) => set({ activeView: v }),

@@ -40,14 +40,25 @@
      never was). scrollbar-gutter: stable breaks the loop at its root cause — the available
      content width no longer depends on whether a scrollbar is currently rendered at all. */
   scrollbar-gutter: stable;
-  padding: 265px 8px 8px;
+  /* Space reserved above the scrolling content for the header floating over this element's top
+     edge. A custom property (not just padding-top) because position: sticky offsets inside this
+     scroller are measured from its edge, not from below its padding — anything that should stick
+     "just under the header" (RobotFilterPanel.css) reads this same value instead of guessing. */
+  --console-header-clearance: 335px;
+  padding: var(--console-header-clearance) 8px 8px;
 }
 
-/* @media screen and (min-width: 515px) {
+@media screen and (min-width: 600px) {
   .console-panel__content {
-    padding-top: 216px;
+    --console-header-clearance: 245px;
   }
-} */
+}
+
+@media screen and (min-width: 48em) {
+  .console-panel__content {
+    --console-header-clearance: 195px;
+  }
+}
 
 .console-panel__stub {
   display: flex;
