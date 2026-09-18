@@ -10,7 +10,7 @@
    value, so this sticks just below the header, --spacing-lg (16px) clear of it (see
    --robot-filter-stick-top on .robots-tab__body, shared with the toggle below). */
 .robot-filter-panel {
-  overflow-y: auto;
+
   grid-column: 1;
   grid-row: 1;
   align-self: start;
@@ -27,6 +27,7 @@
    width off-screen (only its right edge, ~12px, was visible). Starting from no transform means
    xPercent is the only thing moving it. */
 .robot-filter-panel:not([data-tier='desktop']) {
+  overflow-y: auto;
   left: 0;
   width: min(85vw, 320px);
   z-index: var(--z-overlay);

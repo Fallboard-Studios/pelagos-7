@@ -60,19 +60,13 @@ describe('uiStore — selectedCompanyId (Roadmap Phase 10)', () => {
     useUIStore.setState(INITIAL_STATE, true);
   });
 
-  it('defaults to null — the "None" button, not a pre-selected company', () => {
+  it('defaults to null — "All" (allRobotsSelected) is the default selection, not a pre-selected company', () => {
     expect(useUIStore.getState().selectedCompanyId).toBeNull();
   });
 
   it('selectCompany sets selectedCompanyId', () => {
     useUIStore.getState().selectCompany('company-0-abc');
     expect(useUIStore.getState().selectedCompanyId).toBe('company-0-abc');
-  });
-
-  it('selectCompany(null) returns to "None"', () => {
-    useUIStore.getState().selectCompany('company-0-abc');
-    useUIStore.getState().selectCompany(null);
-    expect(useUIStore.getState().selectedCompanyId).toBeNull();
   });
 
   it('is independent of selectedRobotId — selecting a company never touches robot selection', () => {
@@ -93,11 +87,11 @@ describe('uiStore — allRobotsSelected ("All" button in the company row)', () =
     useUIStore.setState(INITIAL_STATE, true);
   });
 
-  it('defaults to false', () => {
-    expect(useUIStore.getState().allRobotsSelected).toBe(false);
+  it('defaults to true — "All" is the default selection; there is no separate "nothing selected" state', () => {
+    expect(useUIStore.getState().allRobotsSelected).toBe(true);
   });
 
-  it('selectAllRobots sets allRobotsSelected and clears any selected company — mutually exclusive with "None"/a company', () => {
+  it('selectAllRobots sets allRobotsSelected and clears any selected company — mutually exclusive with a company', () => {
     useUIStore.getState().selectCompany('company-0-abc');
     useUIStore.getState().selectAllRobots();
     expect(useUIStore.getState().allRobotsSelected).toBe(true);
@@ -109,12 +103,6 @@ describe('uiStore — allRobotsSelected ("All" button in the company row)', () =
     useUIStore.getState().selectCompany('company-0-abc');
     expect(useUIStore.getState().allRobotsSelected).toBe(false);
     expect(useUIStore.getState().selectedCompanyId).toBe('company-0-abc');
-  });
-
-  it('selectCompany(null) ("None") also clears allRobotsSelected', () => {
-    useUIStore.getState().selectAllRobots();
-    useUIStore.getState().selectCompany(null);
-    expect(useUIStore.getState().allRobotsSelected).toBe(false);
   });
 
   it('is independent of selectedRobotId', () => {

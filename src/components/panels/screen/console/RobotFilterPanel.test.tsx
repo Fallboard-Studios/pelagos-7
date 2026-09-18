@@ -42,7 +42,7 @@ vi.mock('@/components/company/CompanyManager', () => ({
 }));
 
 import { RobotFilterPanel } from './RobotFilterPanel';
-import { setTimeline } from '@/animation/timelineMap';
+import { setTimeline, killTimeline } from '@/animation/timelineMap';
 import { useUIStore } from '@/stores/uiStore';
 
 /** Same shape as useResponsivePanelOrientation.test.ts's own stubMatchMedia — this component
@@ -73,7 +73,7 @@ describe('RobotFilterPanel', () => {
   afterEach(() => {
     cleanup();
     vi.clearAllMocks();
-    useUIStore.getState().selectCompany(null);
+    useUIStore.getState().selectAllRobots();
   });
 
   it("renders CompanyManager's own content regardless of tier", () => {
@@ -123,6 +123,86 @@ describe('RobotFilterPanel', () => {
       // brittle against changes to CabinetBox's own gsap usage.
       const xPercentCalls = gsapSetMock.mock.calls.filter(([, vars]) => vars && 'xPercent' in (vars as object));
       expect(xPercentCalls).toHaveLength(1);
+    });
+  });
+
+  // Bugfix, found live: resizing mobile -> desktop left GSAP's inline xPercent: -100 on the panel
+  // (nothing ever cleared it), so the desktop sidebar — which is never meant to be transformed —
+  // stayed hidden unless the panel happened to be open when the window grew.
+  describe('resizing across the mobile/desktop boundary', () => {
+    /** Like stubMatchMedia, but hands back a resize() that flips the tier and fires the
+     *  registered 'change' listeners, the way a real viewport resize would. */
+    function stubResizableMatchMedia(initial: { mobile: boolean; tablet: boolean }) {
+      const state = { ...initial };
+      const listeners = new Set<() => void>();
+      Object.defineProperty(window, 'matchMedia', {
+        writable: true,
+        configurable: true,
+        value: vi.fn().mockImplementation((query: string) => ({
+          get matches() {
+            if (query.includes('prefers-reduced-motion')) return false;
+            return query.includes('640px') ? state.mobile : state.tablet;
+          },
+          media: query,
+          addEventListener: (_: string, l: () => void) => listeners.add(l),
+          removeEventListener: (_: string, l: () => void) => listeners.delete(l),
+        })),
+      });
+      return (next: { mobile: boolean; tablet: boolean }) => {
+        Object.assign(state, next);
+        act(() => { listeners.forEach((l) => l()); });
+      };
+    }
+
+    const transformClears = () => gsapSetMock.mock.calls.filter(
+      ([, vars]) => vars && (vars as { clearProps?: string }).clearProps === 'transform',
+    );
+
+    it('clears the panel\'s GSAP transform when going from mobile to desktop, so the sidebar is visible', () => {
+      const resize = stubResizableMatchMedia({ mobile: true, tablet: true });
+      const { container } = render(<RobotFilterPanel />);
+      const panel = container.querySelector('.robot-filter-panel');
+      expect(transformClears()).toHaveLength(0);
+
+      resize({ mobile: false, tablet: false });
+
+      expect(container.querySelector('.robot-filter-panel')?.getAttribute('data-tier')).toBe('desktop');
+      expect(gsapSetMock).toHaveBeenCalledWith(panel, { clearProps: 'transform' });
+    });
+
+    it('does not clear anything when mounting straight into desktop — there is no transform to clear', () => {
+      stubResizableMatchMedia({ mobile: false, tablet: false });
+      render(<RobotFilterPanel />);
+      expect(transformClears()).toHaveLength(0);
+    });
+
+    it('closes an open panel when it goes to desktop, and re-parks it off-screen when coming back to mobile', () => {
+      const resize = stubResizableMatchMedia({ mobile: true, tablet: true });
+      const { container } = render(<RobotFilterPanel />);
+      fireEvent.click(screen.getByRole('button', { name: /^show companies$/i }));
+      expect(container.querySelector('.robot-filter-panel')?.classList.contains('isActive')).toBe(true);
+
+      resize({ mobile: false, tablet: false });
+      expect(container.querySelector('.robot-filter-panel')?.classList.contains('isActive')).toBe(false);
+
+      gsapSetMock.mockClear();
+      resize({ mobile: true, tablet: true });
+      const panel = container.querySelector('.robot-filter-panel');
+      expect(gsapSetMock).toHaveBeenCalledWith(panel, { xPercent: -100 });
+      // Back on mobile it reads as closed (Show button, no isActive) — matching where it's parked.
+      expect(panel?.classList.contains('isActive')).toBe(false);
+      expect(screen.getByRole('button', { name: /^show companies$/i })).toBeTruthy();
+    });
+
+    it('kills any in-flight slide timeline when leaving mobile for desktop', () => {
+      const resize = stubResizableMatchMedia({ mobile: true, tablet: true });
+      render(<RobotFilterPanel />);
+      fireEvent.click(screen.getByRole('button', { name: /^show companies$/i }));
+      vi.mocked(killTimeline).mockClear();
+
+      resize({ mobile: false, tablet: false });
+
+      expect(killTimeline).toHaveBeenCalledWith('robot-filter-panel');
     });
   });
 

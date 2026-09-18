@@ -20,9 +20,10 @@ describe('CompanyManager', () => {
     expect(buttonRow!.compareDocumentPosition(crudControls!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('renders the "Reset" company button by default (no company selected)', () => {
+  it('renders "All" checked by default, and no "Reset" button', () => {
     render(<CompanyManager />);
-    expect(screen.getByRole('radio', { name: 'Reset' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'All' }).getAttribute('aria-checked')).toBe('true');
+    expect(screen.queryByRole('radio', { name: 'Reset' })).toBeNull();
   });
 
   // Roadmap Phase 14 (docs/specs/COLOR_SCHEME_TRAIT_THEMING.md §1.5, Task 14) — the Company

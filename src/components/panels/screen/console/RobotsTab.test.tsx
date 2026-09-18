@@ -46,7 +46,7 @@ describe('RobotsTab', () => {
   function resetStores() {
     useLocaleStore.getState().setLocaleData(localeId, { robots: [] } as unknown as Partial<Locale>);
     useUIStore.getState().selectRobot(null);
-    useUIStore.getState().selectCompany(null);
+    useUIStore.getState().selectAllRobots();
   }
 
   it('lists every robot in the active locale as a card, by name', () => {
@@ -192,11 +192,11 @@ describe('RobotsTab', () => {
       expect(screen.queryByText(/currently has no assigned robots/)).toBeNull();
     });
 
-    it('does not show the empty-state message when All/Reset is selected, even with an empty roster', () => {
+    it('does not show the empty-state message when All is selected, even with an empty roster', () => {
       resetStores();
       useLocaleStore.getState().setLocaleData(localeId, { robots: [], companies: [] } as unknown as Partial<Locale>);
       useLocaleStore.getState().addCompany(localeId, { id: 'c1', name: 'Iron Consortium', color: '#4f6d7a', robotIds: [] });
-      // Nothing selected (Reset) — no company name to attach the message to.
+      // All is selected (the default) — no company name to attach the message to.
 
       render(<RobotsTab />);
 

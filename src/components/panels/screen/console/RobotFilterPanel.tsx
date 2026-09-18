@@ -74,10 +74,40 @@ export const RobotFilterPanel = memo(function RobotFilterPanel() {
   // contextSafe wraps animateTo (called from handleToggle, not from this callback) so GSAP's own
   // context — scoped to panelRef — tracks and reverts it on unmount too, on top of the
   // killTimeline dedup calls animateTo already makes.
+  //
+  // Also runs on every mobile/tablet <-> desktop change (dependencies: [isDesktop]), not just on
+  // mount. Bugfix, found live: going mobile -> desktop used to leave GSAP's inline xPercent: -100
+  // on the panel, since only the off-canvas tiers ever set a transform and nothing ever cleared
+  // it — so the desktop sidebar, never meant to be transformed, stayed hidden unless the panel
+  // happened to be open when the window grew. Leaving the off-canvas tiers now kills any
+  // in-flight slide and clears the transform outright. wasOffCanvasRef keeps a straight-to-desktop
+  // mount from doing that pointless clear (there's nothing to clear yet).
+  const wasOffCanvasRef = useRef(false);
   const { contextSafe } = useGSAP(() => {
-    if (!panelRef.current || isDesktop) return;
-    gsap.set(panelRef.current, { xPercent: -100 });
+    const el = panelRef.current;
+    if (!el) return;
+    if (isDesktop) {
+      if (wasOffCanvasRef.current) {
+        wasOffCanvasRef.current = false;
+        killTimeline(TIMELINE_KEY);
+        gsap.set(el, { clearProps: 'transform' });
+      }
+      return;
+    }
+    wasOffCanvasRef.current = true;
+    gsap.set(el, { xPercent: -100 });
   }, { scope: panelRef, dependencies: [isDesktop] });
+
+  // The panel is always parked closed (xPercent: -100, above) whenever the tier flips, so `open`
+  // resets with it — otherwise coming back to mobile after an open -> desktop -> mobile round trip
+  // would show a hidden panel labelled as open. Adjusted during render (React's recommended
+  // "reset state when a value changes" pattern, the same one RadioButton.tsx uses), not in an
+  // effect, so the stale `open` never commits.
+  const [prevIsDesktop, setPrevIsDesktop] = useState(isDesktop);
+  if (isDesktop !== prevIsDesktop) {
+    setPrevIsDesktop(isDesktop);
+    setOpen(false);
+  }
 
   // `el` is passed in by the caller (handleToggle reads panelRef.current in the click handler)
   // rather than read from panelRef in here — react-hooks/refs flags a ref read inside a function

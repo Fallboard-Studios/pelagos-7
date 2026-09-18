@@ -239,6 +239,21 @@ describe('worldTransition', () => {
       expect(useUIStore.getState().activeHubTile).toBe('settings');
     });
 
+    // Companies are regenerated with fresh ids on a reseed, so a previously selected company id
+    // would dangle (empty robot list, no button checked) — selection falls back to "All".
+    it('resets a selected company back to All, since the new locale gets fresh company ids', () => {
+      useUIStore.getState().selectCompany('company-from-the-old-locale');
+      retransmitWorld({ coordinates: { x: 1000, y: 2000 } });
+      expect(useUIStore.getState().allRobotsSelected).toBe(true);
+      expect(useUIStore.getState().selectedCompanyId).toBeNull();
+    });
+
+    it('leaves the selection alone on a no-op retransmit', () => {
+      useUIStore.getState().selectCompany('company-x');
+      retransmitWorld({});
+      expect(useUIStore.getState().selectedCompanyId).toBe('company-x');
+    });
+
     it("stamps the new locale's dayStartTimestamp reading abs(x % 24) immediately (buildLocale, positive x)", () => {
       retransmitWorld({ coordinates: { x: 1000, y: 2000 } });
       const attenuationStyle = selectCurrentAttenuationStyle(useAttenuationStyleStore.getState())!;

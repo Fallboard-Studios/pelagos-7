@@ -223,10 +223,10 @@ describe('CompanyOptionsSection', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     useLocaleStore.getState().setLocaleData(localeId, { robots: [], companies: [] } as unknown as Partial<Locale>);
-    useUIStore.getState().selectCompany(null);
+    useUIStore.getState().selectAllRobots();
   });
 
-  it('renders every section disabled with no company selected', () => {
+  it('renders every section disabled when the selection has no member robots (default All, empty roster)', () => {
     render(<CompanyOptionsSection />);
 
     expect(screen.getByTestId('audio-setting-section-stub').getAttribute('data-disabled')).toBe('');

@@ -2,13 +2,13 @@ import { RadioButton } from '@/components/ui/controls/RadioButton';
 import { useLocaleStore } from '@/stores/localeStore';
 import { useUIStore } from '@/stores/uiStore';
 import { getActiveLocaleId } from '@/utils/localeHelpers';
-import { NONE_VALUE, ALL_VALUE, buildCompanyButtonRowSchema } from '@/data/companyConfig';
+import { ALL_VALUE, buildCompanyButtonRowSchema } from '@/data/companyConfig';
 
 import './CompanyButtonRow.css';
 
 /**
- * Company button row (Roadmap Phase 10) — one button per company in the active locale, plus
- * "None" and "All". Reuses the RadioButton primitive rather than a bespoke button list: this is
+ * Company button row (Roadmap Phase 10) — "All" (the default) plus one button per company in the
+ * active locale; there is no Reset/None option, the selection is always one or the other. Reuses the RadioButton primitive rather than a bespoke button list: this is
  * exactly "one active among many, click to select," which RadioButton already implements,
  * active-state styling included. `uiStore.allRobotsSelected`/`selectedCompanyId` (mutually
  * exclusive — see uiStore.ts) drive which button is checked; clicking "All" calls
@@ -23,14 +23,14 @@ export function CompanyButtonRow() {
   const selectAllRobots = useUIStore((s) => s.selectAllRobots);
 
   const schema = buildCompanyButtonRowSchema(companies);
-  const value = allRobotsSelected ? ALL_VALUE : (selectedCompanyId ?? NONE_VALUE);
+  const value = allRobotsSelected || selectedCompanyId === null ? ALL_VALUE : selectedCompanyId;
 
   const handleChange = (v: string) => {
     if (v === ALL_VALUE) {
       selectAllRobots();
       return;
     }
-    selectCompany(v === NONE_VALUE ? null : v);
+    selectCompany(v);
   };
 
   return (
