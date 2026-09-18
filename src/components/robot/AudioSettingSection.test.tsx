@@ -38,6 +38,17 @@ import { resolveAccessibleName } from '@/components/ui/controls/accessibleName';
 import { AUDIO_SETTING_SCHEMA } from '@/data/robotOptionsConfig';
 import type { LfoValue } from '@/types/controls';
 import type { Robot } from '@/types/Robot';
+import { openAllAccordions } from '@/testUtils/openAccordions';
+
+// AccordionContainer only mounts a section's controls once it has been opened (docs/specs/ACCORDION_LAZY_MOUNT.md), and
+// every assertion in this file is about controls inside that section — so each render expands it first, exactly as a
+// user would before touching a control. A test asserting that a section is *closed* would use plain render().
+function renderOpen(ui: React.ReactElement) {
+  const result = render(ui);
+  openAllAccordions(result.container);
+  return result;
+}
+
 
 const DEFAULT_VOLUME_LFO: LfoValue = { shape: 'sine', rate: 0, depth: 20 };
 
@@ -69,7 +80,7 @@ function makeValue(overrides: Partial<{ audioMode: NonNullable<Robot['audioMode'
 describe('AudioSettingSection', () => {
   it('Audio Setting radio includes all 4 options and calls onAudioModeChange with the selected value', () => {
     const onAudioModeChange = vi.fn();
-    render(
+    renderOpen(
       <AudioSettingSection
         value={makeValue()}
         onAudioModeChange={onAudioModeChange}
@@ -87,7 +98,7 @@ describe('AudioSettingSection', () => {
   });
 
   it('Volume slider displays 0-100% of the 0..1 masterVolume value', () => {
-    render(
+    renderOpen(
       <AudioSettingSection
         value={makeValue({ masterVolume: 0.42 })}
         onAudioModeChange={() => {}}
@@ -104,7 +115,7 @@ describe('AudioSettingSection', () => {
 
   it('a Volume edit calls onVolumeChange with the new percent (0-100), not the 0..1 fraction', () => {
     const onVolumeChange = vi.fn();
-    render(
+    renderOpen(
       <AudioSettingSection
         value={makeValue({ masterVolume: 0.42 })}
         onAudioModeChange={() => {}}
@@ -120,7 +131,7 @@ describe('AudioSettingSection', () => {
 
   describe('shared LFO display (LFO_CONSOLIDATED_DISPLAY — replaces the old nested "Modulation" accordion)', () => {
     it('renders Volume as a bare slider followed by its shared LFO display, inside exactly one Volume accordion (docs/specs/ROBOT_OPTIONS_RESPONSIVE_LAYOUT.md §1.2)', () => {
-      const { container } = render(
+      const { container } = renderOpen(
         <AudioSettingSection value={makeValue()} onAudioModeChange={() => {}} onVolumeChange={() => {}} onVolumeLfoChange={() => {}} />
       );
       const accordions = container.querySelectorAll('.sc-accordion');
@@ -132,7 +143,7 @@ describe('AudioSettingSection', () => {
     });
 
     it("the shared display's own label reads 'Volume' — from VOLUME_SCHEMA.humanLabel, no new copy", () => {
-      const { container } = render(
+      const { container } = renderOpen(
         <AudioSettingSection value={makeValue()} onAudioModeChange={() => {}} onVolumeChange={() => {}} onVolumeLfoChange={() => {}} />
       );
       const display = container.querySelector('.sc-lfo-target-group__display')!;
@@ -141,7 +152,7 @@ describe('AudioSettingSection', () => {
 
     it('reflects volumeLfo and calls onVolumeLfoChange when the rate slider moves off 0', () => {
       const onVolumeLfoChange = vi.fn();
-      render(
+      renderOpen(
         <AudioSettingSection
           value={makeValue({ volumeLfo: { shape: 'sine', rate: 0, depth: 20 } })}
           onAudioModeChange={() => {}}
@@ -160,7 +171,7 @@ describe('AudioSettingSection', () => {
 
   describe('Volume accordion + 2-column desktop split (docs/specs/ROBOT_OPTIONS_RESPONSIVE_LAYOUT.md §1.2)', () => {
     it('the Audio Setting radio and Volume slider both render inside the settings-column panel, and the Lfo display is a sibling of that panel', () => {
-      render(
+      renderOpen(
         <AudioSettingSection value={makeValue()} onAudioModeChange={() => {}} onVolumeChange={() => {}} onVolumeLfoChange={() => {}} />
       );
       // The settings-column panel (Audio Setting + Volume) is the innermost .sc-directional-panel
@@ -173,7 +184,7 @@ describe('AudioSettingSection', () => {
     });
 
     it("the Volume row is not a flex container — 'audio-setting-section__row' adds display:flex, which shrinks a lone flex item (the slider) to its own content width instead of the row's full width, breaking useVoxelTrackBoxCount's self-observation (same pattern audio-rig-drawer__param-row / sc-lfo-target-group__row already avoid elsewhere by carrying no display rule at all)", () => {
-      render(
+      renderOpen(
         <AudioSettingSection value={makeValue()} onAudioModeChange={() => {}} onVolumeChange={() => {}} onVolumeLfoChange={() => {}} />
       );
       const volumeRow = screen.getByRole('slider', { name: /volume/i }).closest('.sc-lfo-target-group__row')!;
@@ -182,7 +193,7 @@ describe('AudioSettingSection', () => {
 
     it('renders data-orientation="column" on the outer row panel when the mobile tier matches — everything stacks in one column', () => {
       stubMatchMedia({ mobile: true, tablet: true });
-      render(
+      renderOpen(
         <AudioSettingSection value={makeValue()} onAudioModeChange={() => {}} onVolumeChange={() => {}} onVolumeLfoChange={() => {}} />
       );
       const outerRowContent = screen.getByRole('radio', { name: 'Solo' })
@@ -193,7 +204,7 @@ describe('AudioSettingSection', () => {
 
     it('renders data-orientation="row" on the outer row panel when neither tier matches (desktop) — settings column beside the Lfo display', () => {
       stubMatchMedia({ mobile: false, tablet: false });
-      render(
+      renderOpen(
         <AudioSettingSection value={makeValue()} onAudioModeChange={() => {}} onVolumeChange={() => {}} onVolumeLfoChange={() => {}} />
       );
       const settingsColumn = screen.getByRole('radio', { name: 'Solo' }).closest('.sc-directional-panel')!;
@@ -206,7 +217,7 @@ describe('AudioSettingSection', () => {
 
     it('the settings-column panel is always column-oriented, regardless of tier', () => {
       stubMatchMedia({ mobile: false, tablet: false });
-      render(
+      renderOpen(
         <AudioSettingSection value={makeValue()} onAudioModeChange={() => {}} onVolumeChange={() => {}} onVolumeLfoChange={() => {}} />
       );
       const settingsColumn = screen.getByRole('radio', { name: 'Solo' }).closest('.sc-directional-panel')!;
@@ -214,7 +225,7 @@ describe('AudioSettingSection', () => {
     });
 
     it('the Volume row carries the shared sc-lfo-target-group__row class and is targeted by default — the same targeting wiring AudioRigLfoGroup uses, even with only one field to target', () => {
-      render(
+      renderOpen(
         <AudioSettingSection value={makeValue()} onAudioModeChange={() => {}} onVolumeChange={() => {}} onVolumeLfoChange={() => {}} />
       );
       const volumeRow = screen.getByRole('slider', { name: /volume/i }).closest('.sc-lfo-target-group__row')!;
@@ -224,7 +235,7 @@ describe('AudioSettingSection', () => {
   });
 
   it('is not disabled by default', () => {
-    render(
+    renderOpen(
       <AudioSettingSection
         value={makeValue()}
         onAudioModeChange={() => {}}
@@ -236,7 +247,7 @@ describe('AudioSettingSection', () => {
   });
 
   it('disables Audio Setting, Volume, and the shared Volume LFO display\'s controls when disabled is true', () => {
-    render(
+    renderOpen(
       <AudioSettingSection
         value={makeValue()}
         onAudioModeChange={() => {}}
@@ -253,7 +264,7 @@ describe('AudioSettingSection', () => {
   it('does not call onAudioModeChange or onVolumeChange when disabled', () => {
     const onAudioModeChange = vi.fn();
     const onVolumeChange = vi.fn();
-    render(
+    renderOpen(
       <AudioSettingSection
         value={makeValue()}
         onAudioModeChange={onAudioModeChange}
@@ -275,7 +286,7 @@ describe('AudioSettingSection', () => {
   // (getTraitColorStyle('output'), applied at the RobotOptionsTab call site in Task 12).
   describe('style prop', () => {
     it('forwards a caller-supplied style to the section\'s own AccordionContainer root', () => {
-      const { container } = render(
+      const { container } = renderOpen(
         <AudioSettingSection
           value={makeValue()}
           onAudioModeChange={() => {}}
@@ -290,7 +301,7 @@ describe('AudioSettingSection', () => {
     });
 
     it('renders with no inline style when the prop is omitted — existing consumers unaffected', () => {
-      const { container } = render(
+      const { container } = renderOpen(
         <AudioSettingSection
           value={makeValue()}
           onAudioModeChange={() => {}}
@@ -310,7 +321,7 @@ describe('AudioSettingSection', () => {
 
     it('passes Lfo the same schema object reference across re-renders with the same displayLabel', () => {
       capturedLfoSchemas.length = 0;
-      const { rerender } = render(
+      const { rerender } = renderOpen(
         <AudioSettingSection value={makeValue()} onAudioModeChange={() => {}} onVolumeChange={() => {}} onVolumeLfoChange={() => {}} />
       );
       rerender(
@@ -329,7 +340,7 @@ describe('AudioSettingSection', () => {
     // RadioButton got a new `onChange` reference regardless of whether audioMode itself changed.
     it('changing Volume does not re-render the Audio Setting radio', () => {
       const onAudioModeChange = vi.fn();
-      const { rerender } = render(
+      const { rerender } = renderOpen(
         <AudioSettingSection value={makeValue({ masterVolume: 0.42 })} onAudioModeChange={onAudioModeChange} onVolumeChange={() => {}} onVolumeLfoChange={() => {}} />
       );
       (resolveAccessibleName as ReturnType<typeof vi.fn>).mockClear();

@@ -35,6 +35,17 @@ import { useAudioStore } from '@/stores/audioStore';
 import { DEFAULT_GLOBAL_AUDIO_SETTINGS } from '@/types/globalAudio';
 import type { OscillatorLayer } from '@/types/layeredAudio';
 import type { Robot } from '@/types/Robot';
+import { openAllAccordions } from '@/testUtils/openAccordions';
+
+// AccordionContainer only mounts a section's controls once it has been opened (docs/specs/ACCORDION_LAZY_MOUNT.md), and
+// every assertion in this file is about controls inside that section — so each render expands it first, exactly as a
+// user would before touching a control. A test asserting that a section is *closed* would use plain render().
+function renderOpen(ui: React.ReactElement) {
+  const result = render(ui);
+  openAllAccordions(result.container);
+  return result;
+}
+
 
 function makeLayers(): OscillatorLayer[] {
   return [
@@ -66,14 +77,14 @@ describe('SignatureArrayDrawer', () => {
   });
 
   it('renders exactly 3 layer sections, in Baseline/Coaxial/Harmonic order', () => {
-    const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
+    const { container } = renderOpen(<SignatureArrayDrawer value={makeValue()} {...noop} />);
     const sections = container.querySelectorAll('[data-layer-key]');
     expect(sections).toHaveLength(3);
     expect(Array.from(sections).map((s) => s.getAttribute('data-layer-key'))).toEqual(['layer0', 'layer1', 'layer2']);
   });
 
   it('wraps its content in one Source accordion containing 4 top-level panels — Baseline/Coaxial/Harmonic, then Robot Drift, in order (DIRECTIONAL_PANEL_WIRING Task 8 + Robot Drift follow-up, reordered to render last)', () => {
-    const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
+    const { container } = renderOpen(<SignatureArrayDrawer value={makeValue()} {...noop} />);
     expect(container.querySelectorAll('.sc-accordion')).toHaveLength(1);
     expect(container.querySelector('.sc-accordion')?.textContent).toContain('Source');
     // Top-level panels only — each layer's own LfoTargetGroup now nests an inner sliders panel of
@@ -96,7 +107,7 @@ describe('SignatureArrayDrawer', () => {
 
   describe('Robot Drift panel (moved from AudioRigDrawer\'s Transport & Composition — global lfoDrift.robots, read/written directly via useAudioStore)', () => {
     it('renders as the last panel in the Source accordion, after Harmonic', () => {
-      const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
+      const { container } = renderOpen(<SignatureArrayDrawer value={makeValue()} {...noop} />);
       const driftPanel = screen.getByText('Robot Drift').closest('.sc-directional-panel');
       const harmonicPanel = screen.getByText('Harmonic').closest('.sc-directional-panel');
       expect(driftPanel).not.toBeNull();
@@ -109,7 +120,7 @@ describe('SignatureArrayDrawer', () => {
       useAudioStore.setState((s) => ({
         globalAudio: { ...s.globalAudio, lfoDrift: { ...s.globalAudio.lfoDrift, robots: { rateDrift: -0.2, depthDrift: 0.9 } } },
       }));
-      render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
+      renderOpen(<SignatureArrayDrawer value={makeValue()} {...noop} />);
       const driftPanel = screen.getByText('Robot Drift').closest('.sc-directional-panel') as HTMLElement;
       expect(within(driftPanel).getByRole('slider', { name: 'Rate Drift' }).getAttribute('aria-valuenow')).toBe('-20');
       expect(within(driftPanel).getByRole('slider', { name: 'Depth Drift' }).getAttribute('aria-valuenow')).toBe('90');
@@ -119,7 +130,7 @@ describe('SignatureArrayDrawer', () => {
       useAudioStore.setState((s) => ({
         globalAudio: { ...s.globalAudio, lfoDrift: { ...s.globalAudio.lfoDrift, robots: { rateDrift: 0, depthDrift: 0.5 } } },
       }));
-      render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
+      renderOpen(<SignatureArrayDrawer value={makeValue()} {...noop} />);
       const driftPanel = screen.getByText('Robot Drift').closest('.sc-directional-panel') as HTMLElement;
       const rateSlider = within(driftPanel).getByRole('slider', { name: 'Rate Drift' });
       rateSlider.focus();
@@ -132,7 +143,7 @@ describe('SignatureArrayDrawer', () => {
     });
 
     it('renders identically regardless of the drawer\'s own `disabled` prop — a global control, not scoped to the selected robot/company', () => {
-      render(<SignatureArrayDrawer value={makeValue()} {...noop} disabled />);
+      renderOpen(<SignatureArrayDrawer value={makeValue()} {...noop} disabled />);
       const driftPanel = screen.getByText('Robot Drift').closest('.sc-directional-panel') as HTMLElement;
       expect(within(driftPanel).getByRole('slider', { name: 'Rate Drift' }).getAttribute('data-disabled')).toBeNull();
       expect(within(driftPanel).getByRole('slider', { name: 'Depth Drift' }).getAttribute('data-disabled')).toBeNull();
@@ -140,7 +151,7 @@ describe('SignatureArrayDrawer', () => {
   });
 
   it("each layer's data-layer-key div is nested inside its own DirectionalPanel — wrapped around, not replaced", () => {
-    const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
+    const { container } = renderOpen(<SignatureArrayDrawer value={makeValue()} {...noop} />);
     (['layer0', 'layer1', 'layer2'] as const).forEach((key) => {
       const layerDiv = layerSection(container, key);
       expect(layerDiv.closest('.sc-directional-panel')).not.toBeNull();
@@ -148,13 +159,13 @@ describe('SignatureArrayDrawer', () => {
   });
 
   it('renders no Active toggle anywhere — muting is expressed via each layer\'s own Gain slider instead', () => {
-    const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
+    const { container } = renderOpen(<SignatureArrayDrawer value={makeValue()} {...noop} />);
 
     expect(within(container).queryAllByRole('switch')).toHaveLength(0);
   });
 
   it('each layer\'s Type radio has exactly the 5 waveform options, no Noise', () => {
-    const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
+    const { container } = renderOpen(<SignatureArrayDrawer value={makeValue()} {...noop} />);
 
     (['layer0', 'layer1', 'layer2'] as const).forEach((key) => {
       const typeGroup = layerSection(container, key).querySelector<HTMLElement>('.sc-radio-button')!;
@@ -166,14 +177,14 @@ describe('SignatureArrayDrawer', () => {
   it('shows Interval only for Burst(pulse) layers', () => {
     const layers = makeLayers();
     layers[1] = { ...layers[1], type: 'pulse' };
-    const { container } = render(<SignatureArrayDrawer value={makeValue({ layers })} {...noop} />);
+    const { container } = renderOpen(<SignatureArrayDrawer value={makeValue({ layers })} {...noop} />);
 
     expect(within(layerSection(container, 'layer0')).queryByText(/Interval/i)).toBeNull();
     expect(within(layerSection(container, 'layer1')).getByText(/Interval/i)).toBeTruthy();
   });
 
   it('hides Interval for Binary(square) layers', () => {
-    const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} />); // layer1 is 'square'
+    const { container } = renderOpen(<SignatureArrayDrawer value={makeValue()} {...noop} />); // layer1 is 'square'
 
     expect(within(layerSection(container, 'layer1')).queryByText(/Interval/i)).toBeNull();
   });
@@ -181,7 +192,7 @@ describe('SignatureArrayDrawer', () => {
   it('a Type change calls onStructuralChange, not onContinuousChange', () => {
     const onStructuralChange = vi.fn();
     const onContinuousChange = vi.fn();
-    const { container } = render(
+    const { container } = renderOpen(
       <SignatureArrayDrawer value={makeValue()} onContinuousChange={onContinuousChange} onStructuralChange={onStructuralChange} onLfoChange={() => {}} />
     );
 
@@ -196,7 +207,7 @@ describe('SignatureArrayDrawer', () => {
   it('a Gain change calls onContinuousChange, not onStructuralChange', () => {
     const onStructuralChange = vi.fn();
     const onContinuousChange = vi.fn();
-    const { container } = render(
+    const { container } = renderOpen(
       <SignatureArrayDrawer value={makeValue()} onContinuousChange={onContinuousChange} onStructuralChange={onStructuralChange} onLfoChange={() => {}} />
     );
 
@@ -209,7 +220,7 @@ describe('SignatureArrayDrawer', () => {
   it('dragging Coaxial\'s Gain to 0 calls onContinuousChange (not onStructuralChange), keeping its Type/Detune/Phase values, not cleared', () => {
     const onContinuousChange = vi.fn();
     const onStructuralChange = vi.fn();
-    const { container } = render(
+    const { container } = renderOpen(
       <SignatureArrayDrawer value={makeValue()} onContinuousChange={onContinuousChange} onStructuralChange={onStructuralChange} onLfoChange={() => {}} />
     );
 
@@ -231,7 +242,7 @@ describe('SignatureArrayDrawer', () => {
     const value = makeValue({
       lfoSettings: { 'layer0.gain': { shape: 'sine', rate: 1, depth: 10 } } as unknown as Robot['lfoSettings'],
     });
-    const { container } = render(
+    const { container } = renderOpen(
       <SignatureArrayDrawer value={value} onContinuousChange={() => {}} onStructuralChange={() => {}} onLfoChange={onLfoChange} />
     );
 
@@ -244,24 +255,24 @@ describe('SignatureArrayDrawer', () => {
 
   describe('shared LFO display (LFO_CONSOLIDATED_DISPLAY — replaces the old per-param nested accordion)', () => {
     it('renders exactly one shared LFO display per layer — 3 total, never one per param', () => {
-      const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
+      const { container } = renderOpen(<SignatureArrayDrawer value={makeValue()} {...noop} />);
       expect(container.querySelectorAll('.sc-lfo')).toHaveLength(3);
     });
 
     it('renders no accordion anywhere except the drawer\'s own single Source wrapper — no nested "Modulation" accordion per param', () => {
-      const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
+      const { container } = renderOpen(<SignatureArrayDrawer value={makeValue()} {...noop} />);
       expect(container.querySelectorAll('.sc-accordion')).toHaveLength(1);
     });
 
     it('the Type radio renders inline among the layer\'s other controls, not inside the shared LFO group\'s row targeting', () => {
-      const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
+      const { container } = renderOpen(<SignatureArrayDrawer value={makeValue()} {...noop} />);
       const typeRadio = within(layerSection(container, 'layer0')).getByRole('radio', { name: 'GRADIENT' });
       expect(typeRadio.closest('.sc-lfo-target-group__row')).toBeNull();
     });
 
     it('clicking a different param\'s row switches which target the shared display edits, once the transition completes', async () => {
       const onLfoChange = vi.fn();
-      const { container } = render(
+      const { container } = renderOpen(
         <SignatureArrayDrawer value={makeValue()} onContinuousChange={() => {}} onStructuralChange={() => {}} onLfoChange={onLfoChange} />
       );
       const detuneSlider = within(layerSection(container, 'layer0')).getByRole('slider', { name: /detune/i });
@@ -283,7 +294,7 @@ describe('SignatureArrayDrawer', () => {
     it('toggling a layer\'s type to pulse shows the Interval row in that layer\'s shared group', () => {
       const layers = makeLayers();
       layers[1] = { ...layers[1], type: 'pulse' };
-      const { container } = render(<SignatureArrayDrawer value={makeValue({ layers })} {...noop} />);
+      const { container } = renderOpen(<SignatureArrayDrawer value={makeValue({ layers })} {...noop} />);
       const intervalSlider = within(layerSection(container, 'layer1')).getByRole('slider', { name: /interval/i });
       expect(intervalSlider.closest('.sc-lfo-target-group__row')).not.toBeNull();
     });
@@ -293,7 +304,7 @@ describe('SignatureArrayDrawer', () => {
       layers[1] = { ...layers[1], type: 'pulse' };
       const value = makeValue({ layers });
       const onLfoChange = vi.fn();
-      const { container, rerender } = render(
+      const { container, rerender } = renderOpen(
         <SignatureArrayDrawer value={value} onContinuousChange={() => {}} onStructuralChange={() => {}} onLfoChange={onLfoChange} />
       );
 
@@ -330,7 +341,7 @@ describe('SignatureArrayDrawer', () => {
         // DEFAULT_LFO_SETTINGS, exactly as CompanyOptionsSection's own resolved snapshot does.
         lfoSettings: { 'layer2.phase': { shape: 'square', rate: 3, depth: 25 } } as unknown as Robot['lfoSettings'],
       });
-      const { container } = render(
+      const { container } = renderOpen(
         <SignatureArrayDrawer value={value} onContinuousChange={() => {}} onStructuralChange={() => {}} onLfoChange={onLfoChange} />
       );
 
@@ -344,7 +355,7 @@ describe('SignatureArrayDrawer', () => {
   });
 
   it('disables every internal control when disabled is true', () => {
-    const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} disabled />);
+    const { container } = renderOpen(<SignatureArrayDrawer value={makeValue()} {...noop} disabled />);
 
     const baseline = layerSection(container, 'layer0');
     expect(within(baseline).getByRole('radio', { name: 'GRADIENT' }).getAttribute('data-disabled')).toBe('');
@@ -358,7 +369,7 @@ describe('SignatureArrayDrawer', () => {
   // proves Robot Drift (rendered inside this same accordion) inherits it via cascade, per spec §1.6.
   describe('style prop', () => {
     it('forwards a caller-supplied style to the drawer\'s own AccordionContainer root', () => {
-      const { container } = render(
+      const { container } = renderOpen(
         <SignatureArrayDrawer
           value={makeValue()}
           {...noop}
@@ -371,13 +382,13 @@ describe('SignatureArrayDrawer', () => {
     });
 
     it('renders with no inline style when the prop is omitted — existing consumers unaffected', () => {
-      const { container } = render(<SignatureArrayDrawer value={makeValue()} {...noop} />);
+      const { container } = renderOpen(<SignatureArrayDrawer value={makeValue()} {...noop} />);
       const root = container.querySelector('.sc-accordion') as HTMLElement;
       expect(root.getAttribute('style')).toBeNull();
     });
 
     it("Robot Drift's own sliders are a physical DOM descendant of the styled accordion root — inherits via cascade, no separate wiring", () => {
-      const { container } = render(
+      const { container } = renderOpen(
         <SignatureArrayDrawer
           value={makeValue()}
           {...noop}
@@ -417,7 +428,7 @@ describe('SignatureArrayDrawer', () => {
       const onStructuralChange = vi.fn();
       const onLfoChange = vi.fn();
       const initialValue = makeValue();
-      const { rerender } = render(
+      const { rerender } = renderOpen(
         <SignatureArrayDrawer value={initialValue} onContinuousChange={onContinuousChange} onStructuralChange={onStructuralChange} onLfoChange={onLfoChange} />
       );
       (resolveAccessibleName as ReturnType<typeof vi.fn>).mockClear();

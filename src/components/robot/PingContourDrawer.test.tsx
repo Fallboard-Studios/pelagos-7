@@ -16,6 +16,17 @@ import { PingContourDrawer } from './PingContourDrawer';
 import { resolveAccessibleName } from '@/components/ui/controls/accessibleName';
 import { ATTACK_SCHEMA, DECAY_SCHEMA, SUSTAIN_SCHEMA, RELEASE_SCHEMA } from '@/data/robotOptionsConfig';
 import type { ADSREnvelope } from '@/types/Robot';
+import { openAllAccordions } from '@/testUtils/openAccordions';
+
+// AccordionContainer only mounts a section's controls once it has been opened (docs/specs/ACCORDION_LAZY_MOUNT.md), and
+// every assertion in this file is about controls inside that section — so each render expands it first, exactly as a
+// user would before touching a control. A test asserting that a section is *closed* would use plain render().
+function renderOpen(ui: React.ReactElement) {
+  const result = render(ui);
+  openAllAccordions(result.container);
+  return result;
+}
+
 
 const adsr: ADSREnvelope = { attack: 0.2, decay: 0.3, sustain: 0.8, release: 1.5 };
 
@@ -39,20 +50,20 @@ describe('PingContourDrawer', () => {
     // SliderLog's Radix root operates on the internal t in [0,1] (see sliderLogMath.ts) —
     // aria-valuenow reflects t, not the schema-space value — so this checks the visible
     // formatted-value text instead, which is what actually shows the real domain value.
-    const { container } = render(<PingContourDrawer value={adsr} onChange={() => {}} />);
+    const { container } = renderOpen(<PingContourDrawer value={adsr} onChange={() => {}} />);
 
     const values = Array.from(container.querySelectorAll('.sc-slider-log__value')).map((el) => el.textContent);
     expect(values).toEqual(['0.2s', '0.3s', '1.5s']);
   });
 
   it('Sustain displays as 0-100% of the stored 0..1 value', () => {
-    render(<PingContourDrawer value={adsr} onChange={() => {}} />);
+    renderOpen(<PingContourDrawer value={adsr} onChange={() => {}} />);
     expect(screen.getByRole('slider', { name: /sustain/i }).getAttribute('aria-valuenow')).toBe('80');
   });
 
   it('an Attack edit calls onChange with the full ADSREnvelope, only attack changed', () => {
     const onChange = vi.fn();
-    render(<PingContourDrawer value={adsr} onChange={onChange} />);
+    renderOpen(<PingContourDrawer value={adsr} onChange={onChange} />);
 
     const attackSlider = screen.getByRole('slider', { name: /attack/i });
     fireEvent.keyDown(attackSlider, { key: 'ArrowRight' });
@@ -67,7 +78,7 @@ describe('PingContourDrawer', () => {
 
   it('a Sustain edit converts the displayed percent back to the stored 0..1 value', () => {
     const onChange = vi.fn();
-    render(<PingContourDrawer value={adsr} onChange={onChange} />);
+    renderOpen(<PingContourDrawer value={adsr} onChange={onChange} />);
 
     const sustainSlider = screen.getByRole('slider', { name: /sustain/i });
     fireEvent.keyDown(sustainSlider, { key: 'ArrowLeft' });
@@ -78,7 +89,7 @@ describe('PingContourDrawer', () => {
   });
 
   it('wraps its controls in one Envelope accordion containing one Ping Contour panel (DIRECTIONAL_PANEL_WIRING Task 7) — keeps its old accordion\'s label as the panel\'s', () => {
-    const { container } = render(<PingContourDrawer value={adsr} onChange={() => {}} />);
+    const { container } = renderOpen(<PingContourDrawer value={adsr} onChange={() => {}} />);
     expect(container.querySelectorAll('.sc-accordion')).toHaveLength(1);
     expect(screen.getAllByText('Envelope')).toHaveLength(1);
     const pingContourPanel = screen.getByText('Ping Contour').closest('.sc-directional-panel');
@@ -90,7 +101,7 @@ describe('PingContourDrawer', () => {
   describe('Attack+Decay / Sustain+Release pairing (docs/specs/ROBOT_OPTIONS_RESPONSIVE_LAYOUT.md §1.4 — "two across" on desktop)', () => {
     it('Attack and Decay share a row, and Sustain and Release share a row, on desktop', () => {
       stubMatchMedia({ mobile: false, tablet: false });
-      render(<PingContourDrawer value={adsr} onChange={() => {}} />);
+      renderOpen(<PingContourDrawer value={adsr} onChange={() => {}} />);
       const attackRow = screen.getByRole('slider', { name: /attack/i }).closest('.sc-directional-panel')!;
       const decayRow = screen.getByRole('slider', { name: /decay/i }).closest('.sc-directional-panel')!;
       const sustainRow = screen.getByRole('slider', { name: /sustain/i }).closest('.sc-directional-panel')!;
@@ -104,7 +115,7 @@ describe('PingContourDrawer', () => {
 
     it('Attack, Decay, Sustain, and Release each get their own row on mobile/tablet', () => {
       stubMatchMedia({ mobile: true, tablet: true });
-      render(<PingContourDrawer value={adsr} onChange={() => {}} />);
+      renderOpen(<PingContourDrawer value={adsr} onChange={() => {}} />);
       const attackRow = screen.getByRole('slider', { name: /attack/i }).closest('.sc-directional-panel')!;
       const decayRow = screen.getByRole('slider', { name: /decay/i }).closest('.sc-directional-panel')!;
       expect(attackRow).toBe(decayRow); // still the same shared sub-row panel...
@@ -112,14 +123,14 @@ describe('PingContourDrawer', () => {
     });
 
     it('preserves ADSR order: Attack, Decay, Sustain, Release', () => {
-      render(<PingContourDrawer value={adsr} onChange={() => {}} />);
+      renderOpen(<PingContourDrawer value={adsr} onChange={() => {}} />);
       const sliders = screen.getAllByRole('slider');
       expect(sliders.map((s) => s.getAttribute('aria-label'))).toEqual(['Attack', 'Decay', 'Sustain', 'Release']);
     });
   });
 
   it('disables every internal control when disabled is true', () => {
-    render(<PingContourDrawer value={adsr} onChange={() => {}} disabled />);
+    renderOpen(<PingContourDrawer value={adsr} onChange={() => {}} disabled />);
     screen.getAllByRole('slider').forEach((slider) => {
       expect(slider.getAttribute('data-disabled')).toBe('');
     });
@@ -127,7 +138,7 @@ describe('PingContourDrawer', () => {
 
   it('does not call onChange when disabled', () => {
     const onChange = vi.fn();
-    render(<PingContourDrawer value={adsr} onChange={onChange} disabled />);
+    renderOpen(<PingContourDrawer value={adsr} onChange={onChange} disabled />);
     fireEvent.keyDown(screen.getByRole('slider', { name: /attack/i }), { key: 'ArrowRight' });
     expect(onChange).not.toHaveBeenCalled();
   });
@@ -137,7 +148,7 @@ describe('PingContourDrawer', () => {
   // (getTraitColorStyle('timeSpace'), applied at the RobotOptionsTab call site in Task 12).
   describe('style prop', () => {
     it('forwards a caller-supplied style to the drawer\'s own AccordionContainer root', () => {
-      const { container } = render(
+      const { container } = renderOpen(
         <PingContourDrawer
           value={adsr}
           onChange={() => {}}
@@ -150,7 +161,7 @@ describe('PingContourDrawer', () => {
     });
 
     it('renders with no inline style when the prop is omitted — existing consumers unaffected', () => {
-      const { container } = render(<PingContourDrawer value={adsr} onChange={() => {}} />);
+      const { container } = renderOpen(<PingContourDrawer value={adsr} onChange={() => {}} />);
       const root = container.querySelector('.sc-accordion') as HTMLElement;
       expect(root.getAttribute('style')).toBeNull();
     });
@@ -182,7 +193,7 @@ describe('PingContourDrawer', () => {
 
     it('changing Attack re-renders only Attack\'s own slider, not Decay/Sustain/Release', () => {
       const onChange = vi.fn();
-      const { rerender } = render(<PingContourDrawer value={adsr} onChange={onChange} />);
+      const { rerender } = renderOpen(<PingContourDrawer value={adsr} onChange={onChange} />);
       (resolveAccessibleName as ReturnType<typeof vi.fn>).mockClear();
 
       rerender(<PingContourDrawer value={{ ...adsr, attack: 0.9 }} onChange={onChange} />);
