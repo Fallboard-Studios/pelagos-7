@@ -1,7 +1,7 @@
 # Animation System Guide
 
 ## Overview
-Animation in Pelagos-7 is driven by GSAP and SVG transforms. The runtime is centered around a small set of helpers rather than a large abstraction layer:
+Animation in Trace Atlas is driven by GSAP and SVG transforms. The runtime is centered around a small set of helpers rather than a large abstraction layer:
 
 - [src/animation/timelineMap.ts](../src/animation/timelineMap.ts) manages timeline lifecycle
 - [src/utils/refs.ts](../src/utils/refs.ts) stores top-level SVG refs for helpers outside React

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Pelagos-7's UI is a "Sleeve & Glass" tablet shell. `Tablet.tsx` composes two decorative `SleeveContainer`s flanking a single `ScreenViewport`:
+Trace Atlas's UI is a "Sleeve & Glass" tablet shell. `Tablet.tsx` composes two decorative `SleeveContainer`s flanking a single `ScreenViewport`:
 
 ```typescript
 <SleeveContainer hasPowerSwitch={true} />

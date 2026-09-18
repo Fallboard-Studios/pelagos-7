@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide documents the current Pelagos-7 audio architecture and the conventions enforced by the engine implementation in [src/engine/AudioEngine.ts](../src/engine/AudioEngine.ts). It focuses on the shared scheduling, timing, polyphony, and melody patterns used across the app.
+This guide documents the current Trace Atlas audio architecture and the conventions enforced by the engine implementation in [src/engine/AudioEngine.ts](../src/engine/AudioEngine.ts). It focuses on the shared scheduling, timing, polyphony, and melody patterns used across the app.
 
 **Related references:**
 - [BeatClock Guide](BEAT_CLOCK.md) - Musical timing and scheduling
@@ -175,7 +175,7 @@ Polyphony management controls the maximum number of simultaneous audio voices to
 
 ## Layered / Composite Voices and Visual Mapping
 
-Pelagos-7 uses serializable audio descriptors at spawn time so visuals and audio can share the same data without constructing Tone objects during render. The canonical descriptor is now the robot's `audioAttributes.layers` array, and the compact visual mapping is stored in `audioAttributes.visualAudioMap`.
+Trace Atlas uses serializable audio descriptors at spawn time so visuals and audio can share the same data without constructing Tone objects during render. The canonical descriptor is now the robot's `audioAttributes.layers` array, and the compact visual mapping is stored in `audioAttributes.visualAudioMap`.
 
 Key points:
 - Each layer is an `OscillatorLayer` with `type` (a `WaveformType` — `'noise'` was removed in Roadmap Phase 9), `gain`, `detune`, `phase`, and optional `pulseWidth`. There is no separate `active` flag — `gain: 0` is how Coaxial/Harmonic are muted (Baseline always seeds a real, nonzero gain); see `filterAudibleLayers` below. There is no per-layer `adsr` field either — every layer shares the one envelope on `audioAttributes.adsr` (Roadmap Phase 9 collapsed Signature Array editing down to a single shared envelope per robot).
@@ -393,7 +393,7 @@ Every trigger/selection/timing/direction/magnitude decision is a `getSeededVal(n
 
 ## Scheduling Patterns
 
-Audio scheduling in Pelagos-7 is driven by the transport-backed BeatClock and AudioEngine for sample-accurate, musically-aligned timing.
+Audio scheduling in Trace Atlas is driven by the transport-backed BeatClock and AudioEngine for sample-accurate, musically-aligned timing.
 
 **Core APIs:**
 - `scheduleRepeat()` / `cancelSchedule()` — named exports from `beatClock.ts` (not a `BeatClock.` namespace) — app-facing recurring musical work

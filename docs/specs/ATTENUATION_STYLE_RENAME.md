@@ -87,7 +87,7 @@ own file list (§2) — confirmed by grep, no external caller reads `.planetId` 
 ### 1.3 `DEFAULT_PELAGOS`
 
 Stays exactly as named, per the intent doc's explicit Constraint — it is the game's own proper-noun
-default instance ("Pelagos-7"), not an instance of the generic concept being renamed. Only its
+default instance ("Pelagos"), not an instance of the generic concept being renamed. Only its
 *type* changes, from `Planet` to `AttenuationStyle`; the constant name, its `id: 'pelagos'` literal,
 and `DEFAULT_LOCALE_ID = 'pelagos-default'` are all untouched.
 

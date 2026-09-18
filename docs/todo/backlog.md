@@ -115,10 +115,12 @@ has final copy.
 ### 5. Onload: Sleeve Logo
 
 Requested by Crawford (`docs/todo/temp.md`), 2026-09-11. Medium priority.
-`SleeveContainer.tsx` already renders a placeholder text wordmark ("PELAGOS",
-`SleeveContainer.tsx:20`) in the non-power-switch sleeve variant. Crawford wants a real
-image logo, bottom-right — open question whether it replaces the text wordmark or sits
-alongside it. Blocked on Crawford finalizing a project name/logo.
+The project name is now final ("Trace Atlas") and the sleeve already shows it as a text
+wordmark — a CSS `::before` pseudo-element on `.sleeve-container__bottom-strip`
+(`SleeveContainer.css:116-133`, uppercased, centered), not markup in `SleeveContainer.tsx`.
+Crawford wants a real image logo, bottom-right — open question whether it replaces the
+text wordmark or sits alongside it. Blocked only on the logo artwork itself (a favicon
+cube, `public/favicon.svg`, exists but isn't a wordmark-scale logo).
 
 ### 6. Helper Text on Inputs (Info Icon)
 
