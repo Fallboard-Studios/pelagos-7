@@ -194,10 +194,29 @@ async function run({ send, onEvent }) {
   console.log(`Long-task counts use Tone's ${LOOKAHEAD_MS} ms lookahead as the audible-pause threshold.\n`);
 
   const rows = [];
+  /** Opens every currently-collapsed accordion on the page once, in DOM order, one measured row each — the per-section
+   *  first-open cost (roadmap 17.2.2). Each click opens the *first* still-collapsed trigger, so the pre-read label list
+   *  and the click order line up. Pre-lazy-mount these rows are near zero (content is already mounted; only the height
+   *  tween runs); post-lazy-mount they carry the mount cost that moved here. */
+  async function measureEachAccordion(prefix) {
+    const labels = await evaluate(`[...document.querySelectorAll('.sc-accordion__trigger[aria-expanded="false"]')].map((t) => {
+      const human = t.querySelector('.sc-dual-label__human');
+      return ((human ?? t).textContent || '').replace(/\\s+/g, ' ').trim();
+    })`);
+    console.log(`${prefix}: ${labels.length} collapsed accordion(s) found`);
+    const sectionRows = [];
+    for (const label of labels) {
+      sectionRows.push(await measureStep(`${prefix} › ${label}`, () => evaluate(`document.querySelector('.sc-accordion__trigger[aria-expanded="false"]').click()`), 1500));
+    }
+    return sectionRows;
+  }
+
   rows.push(await measureStep('power on', () => click('power on'), 6000));
   rows.push(await measureStep(`open ${TILE_FLEET}`, () => click(TILE_FLEET)));
+  rows.push(...await measureEachAccordion('fleet'));
   rows.push(await measureStep(`switch to ${TILE_PROBES}`, () => click(TILE_PROBES)));
   rows.push(await measureStep('open first robot (detail)', () => clickSelector('.robot-selection-card__top')));
+  rows.push(...await measureEachAccordion('detail'));
   rows.push(await measureStep('back to robot list', () => click('back')));
   rows.push(await measureStep(`switch to ${TILE_SETTINGS}`, () => click(TILE_SETTINGS)));
   rows.push(await measureStep(`back to ${TILE_FLEET}`, () => click(TILE_FLEET)));
