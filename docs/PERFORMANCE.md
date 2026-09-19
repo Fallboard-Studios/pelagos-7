@@ -22,6 +22,8 @@ Flags (`npm run perf -- --help` for the full list):
 |---|---|
 | `--throttle <n>` | CPU slowdown multiplier; `1` = none. Default `4` (Chrome DevTools' "recommended" mobile setting). |
 | `--mobile` | 390×844 phone viewport instead of 1280×900. |
+| `--width <px>` | Viewport width (overrides `--mobile`/desktop; ≤ 480 is treated as a phone). Use 390 / 820 / 1280 for the three breakpoints. |
+| `--smoothness` | Instead of the step table, opens every accordion frame-by-frame-sampled and reports empty-open frames, the height snap at `auto`, and slow frames — see the smoothness section below. |
 | `--profile` | Adds a CPU profile (top self/inclusive functions) for an idle window and for opening Fleet Params. |
 | `--trace` | Adds a layout/paint trace summary for the same two windows. |
 | `--url <url>` | Profile a different server (e.g. an unminified build). |
@@ -35,11 +37,12 @@ npx vite preview --outDir <some-temp-dir> --port 4174
 npm run perf -- --url http://localhost:4174/trace-atlas/ --profile --trace
 ```
 
-The default step sequence: power on → open Fleet Params → switch to Probes → switch to Nav & Comms → back to Fleet Params. Steps are clicked by their visible header-nav labels (`TILE_*` constants at the top of the script) — a label rename in `src/data/headerNavConfig.ts` needs the same rename there. Each step reports:
+The default step sequence: power on → open Fleet Params → open each of its accordions in turn → switch to Probes → open the first robot (detail) → open each of its accordions in turn → back to the robot list → switch to Nav & Comms → back to Fleet Params. Steps are clicked by their visible header-nav labels (`TILE_*` constants at the top of the script) — a label rename in `src/data/headerNavConfig.ts` needs the same rename there. Each step reports:
 
 - `tasks >=100ms` / `longest (ms)` / `total in >=100ms tasks (ms)` — main-thread long tasks over Tone's lookahead (the audible-pause count).
 - `tasks >=50ms` — total long tasks Chrome reports (its own threshold), including the steady background churn after a switch.
 - `cabinetBoxes` — `.sc-cabinet-box` elements on the page. **This includes the header's 12** (present at power-on), and the Probes count drifts upward across a run as factories build robots.
+- `boxes in closed accordions` — `.sc-cabinet-box` elements inside a collapsed accordion. Before roadmap 17.2.2 this measured waste (it was 301 on Fleet Params); since the lazy mount it is **expected to be 0 for a never-opened section, so a non-zero value right after a tile opens is a regression alarm** (someone re-added an eager mount). The per-section rows (`fleet › …`, `detail › …`) are the first-open cost of each section.
 
 ## Caveats
 

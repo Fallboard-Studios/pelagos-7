@@ -8,7 +8,7 @@
 > - Dev server: `npm run dev`
 > - Profiling harness (roadmap 17.2.1): `npm run build && npx vite preview --port 4173`, then `npm run perf -- --throttle 1` and `npm run perf -- --throttle 4` in a second terminal — see [docs/PERFORMANCE.md](../PERFORMANCE.md)
 
-Source of intent: [Roadmap 17.2.2](../todo/roadmap.md#1722-performance-lazy-mount-collapsed-accordion-content), requested by Crawford 2026-09-18 after profiling showed view switches stalling the main thread long enough to pause audio. No separate intent doc — the profiling data in [docs/PERFORMANCE.md](../PERFORMANCE.md) and §1.1 below is the motivation. **Status: approved 2026-09-18** — Crawford confirmed every §7 recommendation and added one scope opening (animation timing, §3/§7); task breakdown in [docs/tasks/ACCORDION_LAZY_MOUNT.md](../tasks/ACCORDION_LAZY_MOUNT.md).
+Source of intent: [Roadmap 17.2.2](../todo/roadmap.md#1722-performance-lazy-mount-collapsed-accordion-content), requested by Crawford 2026-09-18 after profiling showed view switches stalling the main thread long enough to pause audio. No separate intent doc — the profiling data in [docs/PERFORMANCE.md](../PERFORMANCE.md) and §1.1 below is the motivation. **Status: implemented 2026-09-18** on `bug/view-change-slowdown` (Crawford approved the spec and every §7 decision the same day; one visual sign-off on a real device is still outstanding). §4.1's sketch is the *starting* design — §8 records what actually shipped and why it differs. Task breakdown: [docs/tasks/ACCORDION_LAZY_MOUNT.md](../tasks/ACCORDION_LAZY_MOUNT.md); measured results: [docs/PERFORMANCE.md](../PERFORMANCE.md).
 
 ---
 
@@ -269,3 +269,17 @@ Every criterion below is checkable, and the performance ones use the 17.2.1 harn
 * **R3 — Extra render on first open.** `hasOpened` adds one state change (batched with `open`, so one render) and the newly mounted controls' `ResizeObserver`s each fire once. Negligible against what's removed; included so it isn't a surprise in the profile.
 * **R4 — Test churn is large but mechanical.** ~130 tests across 5–6 files change by one helper call each. Risk is a reviewer skimming past a test that quietly stopped asserting something — mitigated by §3's "never weaken a test" boundary and by reviewing the diff for *only* `openAllAccordions()` additions in those files.
 * **R5 — Anything outside `src/` that expects closed content in the DOM.** Audited none in `src/` (§1.5); the harness's "boxes in closed accordions" metric will count 0 by design after this change, so that column's meaning shifts from "waste" to "regression alarm" — noted in `docs/PERFORMANCE.md` with the post-change section.
+
+---
+
+## 8. As Shipped (2026-09-18)
+
+What landed matches §1.2–§1.6 and §4.3 exactly. §4.1's code sketch changed in three ways, all found by measuring in real Chrome (jsdom can't see frames), all within the animation latitude §3 granted:
+
+1. **The first-open animation waits for the content to settle, on GSAP's own ticks.** §4.1 called `animateTo(true)` from the layout effect. That measured the right height at the right time in jsdom, but in Chrome the mount task ran while the tween's clock was already ticking (GSAP stamps a new timeline with its *last tick's* time), so the two heaviest sections (EQ & Filters, Source) opened in 3 tween frames instead of the ~12 they had before this change. Deferring by a single tick was not enough — the controls' ResizeObservers do a second wave of work after first paint, and Source got *worse* (1 frame, a 15 px snap). The layout effect now starts a short timeline whose `.call()` polls each tick until two consecutive ticks read the same height (capped at `FIRST_OPEN_MAX_SETTLE_TICKS` = 8), then runs `animateTo(true)`. It is registered under `${timelineKey}-start` in `timelineMap` so a toggle or unmount cancels it; `animateTo` itself kills any pending start. No timers, so the repo's no-`setTimeout`-for-timing rule holds. Reopens and closes are unchanged.
+2. **The tween targets the inner wrapper's laid-out height, not `scrollHeight`.** Every open — before this change too — ended by snapping 2–2.5 px shorter, because `scrollHeight` counts the last box's popped-out overhang (a transform) that `height: auto` drops. `measureContentHeight()` (inner wrapper's `getBoundingClientRect().height`) is now shared by the tween target and the settle check. Snap: 2–2.5 px → 0–0.5 px.
+3. **No duration, easing, or sequencing was changed** — only when the tween is built and what height it lands on.
+
+**Corrections to the draft:** §1.5's claim that Radix's `aria-controls` "stays valid" on a closed section was wrong — Radix sets it only while open (fixed in place above). §5.3.7's "manual browser check" became scripted frame sampling (`npm run perf -- --smoothness`) plus a still-outstanding human look.
+
+**Known residual (not fixed):** at 820 px wide, EQ & Filters sometimes (~36% of runs; 0 of 5 pre-change) grows ~15 px about 120 ms after its open completes — a late re-layout of the freshly-mounted content after the settle check has passed. Recorded in `docs/PERFORMANCE.md`; the cause is not identified.
