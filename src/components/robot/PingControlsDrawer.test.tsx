@@ -11,6 +11,17 @@ vi.mock('@/constants', async (importOriginal) => {
 });
 
 import { PingControlsDrawer, type PingControlsValue } from './PingControlsDrawer';
+import { openAllAccordions } from '@/testUtils/openAccordions';
+
+// AccordionContainer only mounts a section's controls once it has been opened (docs/specs/ACCORDION_LAZY_MOUNT.md), and
+// every assertion in this file is about controls inside that section — so each render expands it first, exactly as a
+// user would before touching a control. A test asserting that a section is *closed* would use plain render().
+function renderOpen(ui: React.ReactElement) {
+  const result = render(ui);
+  openAllAccordions(result.container);
+  return result;
+}
+
 
 function makeValue(overrides: Partial<PingControlsValue> = {}): PingControlsValue {
   return {
@@ -30,7 +41,7 @@ describe('PingControlsDrawer', () => {
   });
 
   it('wraps its content in exactly one Melody accordion, containing 2 nested panels — Phrasing and Frequency (DIRECTIONAL_PANEL_WIRING Task 6)', () => {
-    const { container } = render(
+    const { container } = renderOpen(
       <PingControlsDrawer
         value={makeValue()}
         onDensityChange={() => {}}
@@ -50,7 +61,7 @@ describe('PingControlsDrawer', () => {
   });
 
   it('Density, Motif Length, and Pitch Repeat render inside the Phrasing panel; Octave Min/Max and Note Variance render inside the Frequency panel', () => {
-    render(
+    renderOpen(
       <PingControlsDrawer
         value={makeValue()}
         onDensityChange={() => {}}
@@ -79,7 +90,7 @@ describe('PingControlsDrawer', () => {
 
   it('changing Density calls onDensityChange', () => {
     const onDensityChange = vi.fn();
-    render(
+    renderOpen(
       <PingControlsDrawer
         value={makeValue()}
         onDensityChange={onDensityChange}
@@ -99,7 +110,7 @@ describe('PingControlsDrawer', () => {
 
   it('changing Motif Length calls onMotifLengthChange with the raw number, no object wrapping', () => {
     const onMotifLengthChange = vi.fn();
-    render(
+    renderOpen(
       <PingControlsDrawer
         value={makeValue({ rhythmicMotifLength: 4 })}
         onDensityChange={() => {}}
@@ -118,7 +129,7 @@ describe('PingControlsDrawer', () => {
   });
 
   it('Motif Length slider reaches 0 and stays interactive there — never disabled purely because its own value is 0', () => {
-    render(
+    renderOpen(
       <PingControlsDrawer
         value={makeValue({ rhythmicMotifLength: 0 })}
         onDensityChange={() => {}}
@@ -138,7 +149,7 @@ describe('PingControlsDrawer', () => {
 
   it('changing Octave Range Min calls onOctaveMinChange', () => {
     const onOctaveMinChange = vi.fn();
-    render(
+    renderOpen(
       <PingControlsDrawer
         value={makeValue({ octaveRange: [3, 5] })}
         onDensityChange={() => {}}
@@ -158,7 +169,7 @@ describe('PingControlsDrawer', () => {
 
   it('changing Octave Range Max calls onOctaveMaxChange', () => {
     const onOctaveMaxChange = vi.fn();
-    render(
+    renderOpen(
       <PingControlsDrawer
         value={makeValue({ octaveRange: [3, 5] })}
         onDensityChange={() => {}}
@@ -178,7 +189,7 @@ describe('PingControlsDrawer', () => {
 
   it('changing Note Variance calls onNoteVarianceChange with the raw number, no object wrapping', () => {
     const onNoteVarianceChange = vi.fn();
-    render(
+    renderOpen(
       <PingControlsDrawer
         value={makeValue({ noteVariance: 3 })}
         onDensityChange={() => {}}
@@ -197,7 +208,7 @@ describe('PingControlsDrawer', () => {
   });
 
   it('Note Variance slider reaches 0 and stays interactive there — never disabled purely because its own value is 0', () => {
-    render(
+    renderOpen(
       <PingControlsDrawer
         value={makeValue({ noteVariance: 0 })}
         onDensityChange={() => {}}
@@ -217,7 +228,7 @@ describe('PingControlsDrawer', () => {
 
   it('changing Pitch Repeat calls onPitchRepeatChange', () => {
     const onPitchRepeatChange = vi.fn();
-    render(
+    renderOpen(
       <PingControlsDrawer
         value={makeValue({ pitchRepeat: 50, rhythmicMotifLength: 8 })}
         onDensityChange={() => {}}
@@ -236,7 +247,7 @@ describe('PingControlsDrawer', () => {
   });
 
   it('Pitch Repeat is disabled when rhythmicMotifLength is 0, even though generationDisabled is otherwise false', () => {
-    render(
+    renderOpen(
       <PingControlsDrawer
         value={makeValue({ rhythmicMotifLength: 0 })}
         onDensityChange={() => {}}
@@ -256,7 +267,7 @@ describe('PingControlsDrawer', () => {
   });
 
   it('Pitch Repeat is enabled when rhythmicMotifLength is nonzero and nothing else disables generation', () => {
-    render(
+    renderOpen(
       <PingControlsDrawer
         value={makeValue({ rhythmicMotifLength: 8 })}
         onDensityChange={() => {}}
@@ -274,7 +285,7 @@ describe('PingControlsDrawer', () => {
 
   it('Reset Melody is a plain one-click Button when onResetMelody is provided - no confirmation dialog', () => {
     const onResetMelody = vi.fn();
-    render(
+    renderOpen(
       <PingControlsDrawer
         value={makeValue()}
         onDensityChange={() => {}}
@@ -295,7 +306,7 @@ describe('PingControlsDrawer', () => {
   });
 
   it('omits the Reset Melody button entirely when onResetMelody is not provided (company mode)', () => {
-    render(
+    renderOpen(
       <PingControlsDrawer
         value={makeValue()}
         onDensityChange={() => {}}
@@ -312,7 +323,7 @@ describe('PingControlsDrawer', () => {
   });
 
   it('renders the Click Track toggle regardless of mode — unlike Reset Melody, it has a company-scoped meaning', () => {
-    render(
+    renderOpen(
       <PingControlsDrawer
         value={makeValue()}
         onDensityChange={() => {}}
@@ -329,7 +340,7 @@ describe('PingControlsDrawer', () => {
   });
 
   it('shows "Click Track" as the toggle\'s own facade content, not external label text', () => {
-    render(
+    renderOpen(
       <PingControlsDrawer
         value={makeValue()}
         onDensityChange={() => {}}
@@ -347,7 +358,7 @@ describe('PingControlsDrawer', () => {
 
   it('omits the Click Track toggle entirely when DEV_TUNING is false — never reachable in a production build', () => {
     mockDevTuning = false;
-    render(
+    renderOpen(
       <PingControlsDrawer
         value={makeValue()}
         onDensityChange={() => {}}
@@ -365,7 +376,7 @@ describe('PingControlsDrawer', () => {
 
   it('toggling Click Track calls onClickTrackActiveChange', () => {
     const onClickTrackActiveChange = vi.fn();
-    render(
+    renderOpen(
       <PingControlsDrawer
         value={makeValue({ clickTrackActive: false })}
         onDensityChange={() => {}}
@@ -384,7 +395,7 @@ describe('PingControlsDrawer', () => {
   });
 
   it('disables Density/Motif Length/Octave Range/Note Variance/Reset Melody, but not the Click Track toggle itself, while Click Track is active', () => {
-    render(
+    renderOpen(
       <PingControlsDrawer
         value={makeValue({ clickTrackActive: true })}
         onDensityChange={() => {}}
@@ -407,7 +418,7 @@ describe('PingControlsDrawer', () => {
   });
 
   it('disables every internal control, including Click Track, when disabled is true', () => {
-    render(
+    renderOpen(
       <PingControlsDrawer
         value={makeValue()}
         onDensityChange={() => {}}
@@ -433,7 +444,7 @@ describe('PingControlsDrawer', () => {
   // (getTraitColorStyle('composition'), applied at the RobotOptionsTab call site in Task 12).
   describe('style prop', () => {
     function renderDrawer(style?: CSSProperties) {
-      return render(
+      return renderOpen(
         <PingControlsDrawer
           value={makeValue()}
           onDensityChange={() => {}}

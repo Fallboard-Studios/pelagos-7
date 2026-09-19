@@ -48,6 +48,16 @@ import { ACCENT_COLORS } from '@/constants/accentColors';
 import { DEFAULT_GLOBAL_AUDIO_SETTINGS } from '@/types/globalAudio';
 import { DEFAULT_LFO_SETTINGS } from '@/data/lfoConfig';
 import { GLOBAL_LFO_TARGET_IDS, type GlobalLfoTargetId } from '@/types/lfo';
+import { openAllAccordions } from '@/testUtils/openAccordions';
+
+// AccordionContainer only mounts a section's controls once it has been opened (docs/specs/ACCORDION_LAZY_MOUNT.md), and
+// every assertion in this file is about controls inside those sections — so each render expands them all first, exactly
+// as a user would before touching a slider. A test asserting that a section is *closed* would use plain render().
+function renderOpen(ui: React.ReactElement) {
+  const result = render(ui);
+  openAllAccordions(result.container);
+  return result;
+}
 
 /** Stubs window.matchMedia so the mobile (max-width: 640px) and tablet (max-width: 1024px)
  *  tier queries can be controlled — same shape as useCabinetBoxHeight.test.ts's own
@@ -83,7 +93,7 @@ describe('AudioRigDrawer', () => {
   });
 
   it('renders exactly 4 top-level accordions, in Transport & Composition / EQ & Filters / Time & Space / Output order (DirectionalPanel wiring)', () => {
-    const { container } = render(<AudioRigDrawer />);
+    const { container } = renderOpen(<AudioRigDrawer />);
     const topLevelAccordions = [...container.querySelector('.audio-rig-drawer')!.children]
       .filter((el) => el.classList.contains('sc-accordion'));
     expect(topLevelAccordions.map((el) => el.querySelector('.sc-dual-label__human')?.textContent)).toEqual([
@@ -92,7 +102,7 @@ describe('AudioRigDrawer', () => {
   });
 
   it('renders each old effect block\'s label as a DirectionalPanel nested inside its new top-level accordion — no longer its own accordion', () => {
-    render(<AudioRigDrawer />);
+    renderOpen(<AudioRigDrawer />);
     for (const label of ['3-Band EQ', 'Low-Pass Filter', 'High-Pass Filter', 'Delay', 'Reverb', 'Compressor', 'Limiter']) {
       const labelEl = screen.getByText(label);
       expect(labelEl.closest('button'), label).toBeNull(); // not an accordion trigger anymore
@@ -103,16 +113,65 @@ describe('AudioRigDrawer', () => {
   });
 
   it('keeps the existing bordered effect-block wrapper around each block\'s panel, now one level deeper than before', () => {
-    render(<AudioRigDrawer />);
+    renderOpen(<AudioRigDrawer />);
     for (const label of ['3-Band EQ', 'Low-Pass Filter', 'High-Pass Filter', 'Delay', 'Reverb', 'Compressor', 'Limiter']) {
       const panel = screen.getByText(label).closest('.sc-directional-panel')!;
       expect(panel.closest('.audio-rig-drawer__effect-block'), label).not.toBeNull();
     }
   });
 
+  // Roadmap 17.2.2 (docs/specs/ACCORDION_LAZY_MOUNT.md) — the regression guard the whole item exists for: opening this tile
+  // used to build all ~300 cabinet boxes of every collapsed section up front (a main-thread stall long enough to pause
+  // audio). If anyone re-adds an eager mount, these fail. Plain render() on purpose — renderOpen() would defeat them.
+  describe('lazy mount (docs/specs/ACCORDION_LAZY_MOUNT.md) — a section builds its controls only once it is opened', () => {
+    const trigger = (name: RegExp) => screen.getByRole('button', { name });
+
+    it('mounts no slider and no cabinet box inside any section until one is opened', () => {
+      const { container } = render(<AudioRigDrawer />);
+      expect(screen.queryAllByRole('slider')).toHaveLength(0);
+      expect(container.querySelectorAll('.sc-accordion__content .sc-cabinet-box')).toHaveLength(0);
+    });
+
+    it('opening EQ & Filters mounts its sliders and nothing from the other sections', () => {
+      const { container } = render(<AudioRigDrawer />);
+
+      fireEvent.click(trigger(/EQ & Filters/i));
+
+      expect(screen.getByRole('slider', { name: 'Low' })).toBeTruthy();
+      // Tempo lives in Transport & Composition and Threshold in Output — both still never opened.
+      expect(screen.queryByRole('slider', { name: 'Tempo' })).toBeNull();
+      expect(screen.queryAllByRole('slider', { name: 'Threshold' })).toHaveLength(0);
+      // Every cabinet box mounted inside a section sits in the one that was opened.
+      const inOpenSection = container.querySelectorAll('.sc-accordion__content[data-state="open"] .sc-cabinet-box').length;
+      expect(inOpenSection).toBeGreaterThan(0);
+      expect(container.querySelectorAll('.sc-accordion__content .sc-cabinet-box')).toHaveLength(inOpenSection);
+    });
+
+    it('opening a second section adds its controls without dropping the first section\'s', () => {
+      render(<AudioRigDrawer />);
+
+      fireEvent.click(trigger(/EQ & Filters/i));
+      fireEvent.click(trigger(/Output/i));
+
+      expect(screen.getByRole('slider', { name: 'Low' })).toBeTruthy();
+      expect(screen.queryAllByRole('slider', { name: 'Threshold' }).length).toBeGreaterThan(0);
+      expect(screen.queryByRole('slider', { name: 'Tempo' })).toBeNull();
+    });
+
+    it('closing a section afterward keeps its controls mounted (collapsing hides, it does not unmount)', () => {
+      render(<AudioRigDrawer />);
+
+      fireEvent.click(trigger(/EQ & Filters/i));
+      fireEvent.click(trigger(/EQ & Filters/i));
+
+      expect(trigger(/EQ & Filters/i).getAttribute('aria-expanded')).toBe('false');
+      expect(screen.getByRole('slider', { name: 'Low' })).toBeTruthy();
+    });
+  });
+
   describe('EQ & Filters internal layout (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.5/§1.6 — flattened, no intermediate grouping panel)', () => {
     it('eq3, filterLPF, and filterHPF are direct siblings of one shared PanelGroup, in that order — no intermediate wrapper between them', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const eqEffectBlock = screen.getByText('3-Band EQ').closest('.audio-rig-drawer__effect-block')!;
       const lpfEffectBlock = screen.getByText('Low-Pass Filter').closest('.audio-rig-drawer__effect-block')!;
       const hpfEffectBlock = screen.getByText('High-Pass Filter').closest('.audio-rig-drawer__effect-block')!;
@@ -132,7 +191,7 @@ describe('AudioRigDrawer', () => {
     });
 
     it('eq3, filterLPF, and filterHPF each keep their own independent Cabinetry facade — not one shared facade (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md\'s "Separate facades" amendment)', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const eqFacade = screen.getByText('3-Band EQ').closest('.sc-directional-panel-facade')!;
       const lpfFacade = screen.getByText('Low-Pass Filter').closest('.sc-directional-panel-facade')!;
       const hpfFacade = screen.getByText('High-Pass Filter').closest('.sc-directional-panel-facade')!;
@@ -146,21 +205,21 @@ describe('AudioRigDrawer', () => {
 
     it('stacks one-per-row (column) on mobile/tablet', () => {
       stubMatchMedia({ mobile: true, tablet: true });
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const content = screen.getByText('3-Band EQ').closest('.audio-rig-drawer__effect-block')!.parentElement!;
       expect(content.getAttribute('data-orientation')).toBe('column');
     });
 
     it('shares one row (data-orientation="row") on desktop', () => {
       stubMatchMedia({ mobile: false, tablet: false });
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const content = screen.getByText('3-Band EQ').closest('.audio-rig-drawer__effect-block')!.parentElement!;
       expect(content.getAttribute('data-orientation')).toBe('row');
     });
 
     it('applies no flexBasis override to eq3/filterLPF/filterHPF on desktop — equal thirds via DirectionalPanel.css\'s own flex: 1 1 0 default', () => {
       stubMatchMedia({ mobile: false, tablet: false });
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       for (const label of ['3-Band EQ', 'Low-Pass Filter', 'High-Pass Filter']) {
         const effectBlock = screen.getByText(label).closest('.audio-rig-drawer__effect-block') as HTMLElement;
         expect(effectBlock.style.flexBasis, label).toBe('');
@@ -169,7 +228,7 @@ describe('AudioRigDrawer', () => {
 
     it('applies no flexBasis override on mobile/tablet', () => {
       stubMatchMedia({ mobile: true, tablet: true });
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       for (const label of ['3-Band EQ', 'Low-Pass Filter', 'High-Pass Filter']) {
         const effectBlock = screen.getByText(label).closest('.audio-rig-drawer__effect-block') as HTMLElement;
         expect(effectBlock.style.flexBasis, label).toBe('');
@@ -178,7 +237,7 @@ describe('AudioRigDrawer', () => {
 
     it('applies no flexBasis override to any other block (Delay, Reverb, Compressor, Limiter)', () => {
       stubMatchMedia({ mobile: false, tablet: false });
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       for (const label of ['Delay', 'Reverb', 'Compressor', 'Limiter']) {
         const effectBlock = screen.getByText(label).closest('.audio-rig-drawer__effect-block') as HTMLElement;
         expect(effectBlock.style.flexBasis, label).toBe('');
@@ -186,7 +245,7 @@ describe('AudioRigDrawer', () => {
     });
 
     it('Time & Space wraps Delay/Reverb in one shared responsive PanelGroup; Output wraps Compressor/Limiter in a fixed-column PanelGroup — neither is a DirectionalPanel, so neither claims a shared facade', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
 
       // Delay and Reverb share one further .sc-panel-group ancestor above their own block panel —
       // same shape as eq3/filterLPF/filterHPF's outer PanelGroup above.
@@ -229,7 +288,7 @@ describe('AudioRigDrawer', () => {
 
   describe('Delay/Reverb param rows (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.7 — every slider own row, at every breakpoint, no paired topRow)', () => {
     it('Delay renders Time, Feedback, and Mix as 3 direct param-rows inside its own block panel — no nested row wrapper', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const delayBlockContent = screen.getByText('Delay').closest('.sc-directional-panel')!
         .querySelector(':scope > .sc-directional-panel__content')!;
       const directRows = delayBlockContent.querySelectorAll(':scope > .audio-rig-drawer__param-row');
@@ -238,7 +297,7 @@ describe('AudioRigDrawer', () => {
     });
 
     it('Reverb renders Decay, Pre-Delay, and Mix as 3 direct param-rows inside its own block panel — no nested row wrapper', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const reverbBlockContent = screen.getByText('Reverb').closest('.sc-directional-panel')!
         .querySelector(':scope > .sc-directional-panel__content')!;
       const directRows = reverbBlockContent.querySelectorAll(':scope > .audio-rig-drawer__param-row');
@@ -248,7 +307,7 @@ describe('AudioRigDrawer', () => {
   });
 
   it('Delay/Reverb/Compressor/Limiter (no LFO group) render as column-orientation blocks', () => {
-    render(<AudioRigDrawer />);
+    renderOpen(<AudioRigDrawer />);
     for (const label of ['Delay', 'Reverb', 'Compressor', 'Limiter']) {
       const panel = screen.getByText(label).closest('.sc-directional-panel')!;
       expect(panel.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation'), label).toBe('column');
@@ -256,7 +315,7 @@ describe('AudioRigDrawer', () => {
   });
 
   it("3-Band EQ's, Low-Pass's, and High-Pass's own sliders all render in a row-orientation panel — every other group's sliders panel stays column (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.4: filterLPF/filterHPF's Frequency/Resonance reverted to 'vertical', so AudioRigLfoGroup's existing 'row if any param is vertical' heuristic now resolves 'row' for them too, same as eq3)", () => {
-    render(<AudioRigDrawer />);
+    renderOpen(<AudioRigDrawer />);
     const eqSlidersPanel = screen.getByRole('slider', { name: 'Low' }).closest('.sc-directional-panel') as HTMLElement;
     expect(eqSlidersPanel.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('row');
 
@@ -274,7 +333,7 @@ describe('AudioRigDrawer', () => {
   });
 
   it('no longer renders a Chorus accordion', () => {
-    render(<AudioRigDrawer />);
+    renderOpen(<AudioRigDrawer />);
     expect(screen.queryByText('Chorus')).toBeNull();
   });
 
@@ -282,7 +341,7 @@ describe('AudioRigDrawer', () => {
     useAudioStore.setState((s) => ({
       globalAudio: { ...s.globalAudio, compressor: { ...s.globalAudio.compressor, threshold: -12 } },
     }));
-    render(<AudioRigDrawer />);
+    renderOpen(<AudioRigDrawer />);
     // Compressor and Limiter both have a "Threshold" param — Compressor's
     // accordion renders first in the new chain order, so index [0] is its own.
     const thresholdSlider = screen.getAllByRole('slider', { name: 'Threshold' })[0];
@@ -297,7 +356,7 @@ describe('AudioRigDrawer', () => {
         filterHPF: { ...s.globalAudio.filterHPF, Q: 8 },
       },
     }));
-    render(<AudioRigDrawer />);
+    renderOpen(<AudioRigDrawer />);
     // LPF and HPF both have a "Resonance" param — LPF's accordion renders first.
     const [lpfResonance, hpfResonance] = screen.getAllByRole('slider', { name: 'Resonance' });
     expect(lpfResonance.closest('.sc-slider-log')?.textContent).toContain('5');
@@ -305,7 +364,7 @@ describe('AudioRigDrawer', () => {
   });
 
   it('dragging a param control calls setGlobalAudio with the right effect/field/value', () => {
-    render(<AudioRigDrawer />);
+    renderOpen(<AudioRigDrawer />);
     const thresholdSlider = screen.getAllByRole('slider', { name: 'Threshold' })[0];
     thresholdSlider.focus();
     fireEvent.keyDown(thresholdSlider, { key: 'ArrowRight' }); // default step 1, from default -24
@@ -316,7 +375,7 @@ describe('AudioRigDrawer', () => {
     useAudioStore.setState((s) => ({
       globalAudio: { ...s.globalAudio, delay: { ...s.globalAudio.delay, delayTime: 0.5 } },
     }));
-    render(<AudioRigDrawer />);
+    renderOpen(<AudioRigDrawer />);
     const delayTimeSlider = screen.getByRole('slider', { name: 'Time' });
     delayTimeSlider.focus();
     fireEvent.keyDown(delayTimeSlider, { key: 'ArrowRight' });
@@ -327,41 +386,41 @@ describe('AudioRigDrawer', () => {
   });
 
   it('renders no rig-wide bypass switch or per-effect Enabled toggles — removed, off states are expressed via the sliders themselves', () => {
-    render(<AudioRigDrawer />);
+    renderOpen(<AudioRigDrawer />);
     expect(screen.queryByRole('switch', { name: 'Bypass (this may be loud or distorted)' })).toBeNull();
     expect(screen.queryByRole('switch', { name: 'Compressor Enabled' })).toBeNull();
     expect(screen.queryByRole('switch', { name: 'Reverb Enabled' })).toBeNull();
   });
 
   it('every param control renders enabled — no drawer-level disabling concept left', () => {
-    render(<AudioRigDrawer />);
+    renderOpen(<AudioRigDrawer />);
     const thresholdSlider = screen.getAllByRole('slider', { name: 'Threshold' })[0];
     expect(thresholdSlider.getAttribute('data-disabled')).toBeNull();
   });
 
   describe('shared LFO display (LFO_CONSOLIDATED_DISPLAY — replaces the old nested per-slider accordion)', () => {
     it('renders exactly one shared LFO display per LFO-bearing block — 3 total (eq3, filterLPF, filterHPF), never one per param', () => {
-      const { container } = render(<AudioRigDrawer />);
+      const { container } = renderOpen(<AudioRigDrawer />);
       // A plain count of the shared display's own root class also proves "not one per param" —
       // 7 GlobalLfoTargetId params would otherwise render 7.
       expect(container.querySelectorAll('.sc-lfo')).toHaveLength(3);
     });
 
     it('renders no shared LFO display for delay, reverb, compressor, or limiter — none of their params carry lfoTarget', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const thresholdSlider = screen.getAllByRole('slider', { name: 'Threshold' })[0]; // Compressor's
       const accordionContent = thresholdSlider.closest('.sc-accordion__content-inner');
       expect(accordionContent?.querySelector('.sc-lfo')).toBeNull();
     });
 
     it('renders no accordion nested inside eq3/filterLPF/filterHPF\'s own accordion — the shared display is plain content', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const eqAccordionContent = screen.getByRole('slider', { name: 'Low' }).closest('.sc-accordion__content-inner')!;
       expect(eqAccordionContent.querySelectorAll('.sc-accordion')).toHaveLength(0);
     });
 
     it('shows the targeted param\'s own name as the shared display\'s label, defaulting to the group\'s first param', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const eqAccordionContent = screen.getByRole('slider', { name: 'Low' }).closest('.sc-accordion__content-inner')!;
       expect(eqAccordionContent.querySelector('.sc-lfo')?.textContent).toContain('Low');
     });
@@ -370,7 +429,7 @@ describe('AudioRigDrawer', () => {
       useAudioStore.setState((s) => ({
         globalLfo: { ...s.globalLfo, 'eq3.low': { shape: 'square', rate: 5, depth: 60 } },
       }));
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
 
       const rateSlider = screen.getAllByRole('slider', { name: 'Rate' })[0];
       const depthSlider = screen.getAllByRole('slider', { name: 'Depth' })[0];
@@ -380,7 +439,7 @@ describe('AudioRigDrawer', () => {
     });
 
     it('dragging the shared display\'s rate slider off 0 calls setGlobalLfo for the currently-targeted field (eq3.low by default)', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const rateSlider = screen.getAllByRole('slider', { name: 'Rate' })[0]; // eq3's shared display, defaulting to eq3.low
       expect(useAudioStore.getState().globalLfo['eq3.low'].rate).toBe(0);
 
@@ -391,13 +450,13 @@ describe('AudioRigDrawer', () => {
     });
 
     it('the shared LFO display is enabled by default — no parent-effect enabled/disabled concept left to gate it', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const rateSlider = screen.getAllByRole('slider', { name: 'Rate' })[0];
       expect(rateSlider.getAttribute('data-disabled')).toBeNull();
     });
 
     it('renders no status light on the parent EQ & Filters accordion — the feature was removed entirely', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const eqFiltersTrigger = screen.getByRole('button', { name: /EQ & Filters/i });
       expect(eqFiltersTrigger.querySelector('.sc-accordion__light')).toBeNull();
     });
@@ -406,13 +465,14 @@ describe('AudioRigDrawer', () => {
       useAudioStore.setState((s) => ({
         globalLfo: { ...s.globalLfo, 'eq3.low': { shape: 'square', rate: 5, depth: 60 } },
       }));
+      // Plain render, deliberately — this test asserts the section is still closed, which renderOpen() would defeat.
       render(<AudioRigDrawer />);
       const eqFiltersTrigger = screen.getByRole('button', { name: /EQ & Filters/i });
       expect(eqFiltersTrigger.getAttribute('aria-expanded')).toBe('false');
     });
 
     it('clicking a different band\'s row (click-around, not just the slider) marks that row targeted, once the transition completes', async () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const midSlider = screen.getByRole('slider', { name: 'Mid' });
       const midRow = midSlider.closest('.sc-lfo-target-group__row')!;
       const lowRow = screen.getByRole('slider', { name: 'Low' }).closest('.sc-lfo-target-group__row')!;
@@ -427,7 +487,7 @@ describe('AudioRigDrawer', () => {
     });
 
     it('keyboard-focusing a different band\'s slider switches which globalLfo entry the shared display edits, once the transition completes', async () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const highSlider = screen.getByRole('slider', { name: 'High' });
       // Wrapped in an async act() so the transition's microtask-resolved onComplete (see
       // useLfoTargetGroup.ts's select()) is flushed before any assertion runs.
@@ -450,7 +510,7 @@ describe('AudioRigDrawer', () => {
 
   describe('Reverb (Task 11)', () => {
     it('renders no dampening slider — dead, removed', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       expect(screen.queryByRole('slider', { name: 'Dampening' })).toBeNull();
     });
   });
@@ -458,7 +518,7 @@ describe('AudioRigDrawer', () => {
   describe('Compressor sub-rows (docs/specs/AUDIO_RIG_RESPONSIVE_LAYOUT.md §1.8)', () => {
     it('Threshold+Ratio and Attack+Release pairs stack (column) on mobile/tablet', () => {
       stubMatchMedia({ mobile: true, tablet: true });
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const thresholdRow = screen.getAllByRole('slider', { name: 'Threshold' })[0].closest('.sc-directional-panel')!;
       const attackRow = screen.getByRole('slider', { name: 'Attack' }).closest('.sc-directional-panel')!;
       expect(thresholdRow.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('column');
@@ -467,7 +527,7 @@ describe('AudioRigDrawer', () => {
 
     it('Threshold+Ratio and Attack+Release pairs share a row (row) on desktop', () => {
       stubMatchMedia({ mobile: false, tablet: false });
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const thresholdRow = screen.getAllByRole('slider', { name: 'Threshold' })[0].closest('.sc-directional-panel')!;
       const attackRow = screen.getByRole('slider', { name: 'Attack' }).closest('.sc-directional-panel')!;
       expect(thresholdRow.querySelector(':scope > .sc-directional-panel__content')?.getAttribute('data-orientation')).toBe('row');
@@ -475,7 +535,7 @@ describe('AudioRigDrawer', () => {
     });
 
     it('Knee and the Decay Mode radio each render as their own direct param-row — no shared wrapper between them', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const kneeRow = screen.getByRole('slider', { name: 'Knee' }).closest('.audio-rig-drawer__param-row')!;
       const decayModeRow = screen.getByRole('radio', { name: 'Natural Decay' }).closest('.audio-rig-drawer__param-row')!;
       expect(kneeRow).not.toBe(decayModeRow);
@@ -491,13 +551,13 @@ describe('AudioRigDrawer', () => {
 
   describe('Decay radio button', () => {
     it('renders both options, defaulting to Natural Decay selected (compressorBeforeDelay: false)', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       expect(screen.getByRole('radio', { name: 'Natural Decay' }).getAttribute('aria-checked')).toBe('true');
       expect(screen.getByRole('radio', { name: 'Controlled Decay' }).getAttribute('aria-checked')).toBe('false');
     });
 
     it('clicking Controlled Decay calls setCompressorBeforeDelay(true)', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       expect(useAudioStore.getState().globalAudio.compressorBeforeDelay).toBe(false);
 
       fireEvent.click(screen.getByRole('radio', { name: 'Controlled Decay' }));
@@ -507,7 +567,7 @@ describe('AudioRigDrawer', () => {
 
     it('once compressorBeforeDelay is true, Controlled Decay reads as selected and Natural Decay does not', () => {
       useAudioStore.setState((s) => ({ globalAudio: { ...s.globalAudio, compressorBeforeDelay: true } }));
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
 
       expect(screen.getByRole('radio', { name: 'Controlled Decay' }).getAttribute('aria-checked')).toBe('true');
       expect(screen.getByRole('radio', { name: 'Natural Decay' }).getAttribute('aria-checked')).toBe('false');
@@ -517,7 +577,7 @@ describe('AudioRigDrawer', () => {
       useAudioStore.setState((s) => ({
         globalAudio: { ...s.globalAudio, compressorBeforeDelay: true },
       }));
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
 
       fireEvent.click(screen.getByRole('radio', { name: 'Natural Decay' }));
 
@@ -525,7 +585,7 @@ describe('AudioRigDrawer', () => {
     });
 
     it('lives inside the Compressor panel, under its other params — not the master row', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const decayRadio = screen.getByRole('radio', { name: 'Natural Decay' });
       const compressorPanel = screen.getByText('Compressor').closest('.sc-directional-panel');
       expect(compressorPanel?.contains(decayRadio)).toBe(true);
@@ -533,14 +593,14 @@ describe('AudioRigDrawer', () => {
     });
 
     it('renders enabled — no parent-effect enabled/disabled concept left to gate it', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       expect(screen.getByRole('radio', { name: 'Natural Decay' }).getAttribute('data-disabled')).toBeNull();
     });
   });
 
   describe('Drift (LFO_CONSOLIDATED_DISPLAY — eq3/filterLPF/filterHPF\'s own drift moved inside their own accordion)', () => {
     it('no longer renders Robot Drift anywhere — moved to the robot/company Source accordion (SignatureArrayDrawer)', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       expect(screen.queryByText('Robot Drift')).toBeNull();
       expect(screen.queryByText('EQ Drift')).toBeNull();
       expect(screen.queryByText('Low-Pass Drift')).toBeNull();
@@ -548,13 +608,13 @@ describe('AudioRigDrawer', () => {
     });
 
     it('still renders 3 Rate Drift / Depth Drift slider pairs — eq3/filterLPF/filterHPF\'s own (robots\' pair moved out)', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       expect(screen.getAllByRole('slider', { name: 'Rate Drift' })).toHaveLength(3);
       expect(screen.getAllByRole('slider', { name: 'Depth Drift' })).toHaveLength(3);
     });
 
     it("eq3's own Rate/Depth Drift sliders render inside eq3's own panel, directly beneath its shared LFO display — not a separate titled block", () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const eqPanel = screen.getByText('3-Band EQ').closest('.sc-directional-panel') as HTMLElement;
       expect(eqPanel.textContent).toContain('Rate Drift');
       expect(eqPanel.textContent).toContain('Depth Drift');
@@ -570,7 +630,7 @@ describe('AudioRigDrawer', () => {
           },
         },
       }));
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const eqPanel = screen.getByText('3-Band EQ').closest('.sc-directional-panel') as HTMLElement;
       expect(within(eqPanel).getByRole('slider', { name: 'Rate Drift' }).getAttribute('aria-valuenow')).toBe('30');
       expect(within(eqPanel).getByRole('slider', { name: 'Depth Drift' }).getAttribute('aria-valuenow')).toBe('-60');
@@ -583,7 +643,7 @@ describe('AudioRigDrawer', () => {
           lfoDrift: { ...s.globalAudio.lfoDrift, eq3: { rateDrift: 0, depthDrift: 0 }, filterLPF: { rateDrift: 0.5, depthDrift: 0.5 } },
         },
       }));
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const eqPanel = screen.getByText('3-Band EQ').closest('.sc-directional-panel') as HTMLElement;
       const eq3RateSlider = within(eqPanel).getByRole('slider', { name: 'Rate Drift' });
       eq3RateSlider.focus();
@@ -597,7 +657,7 @@ describe('AudioRigDrawer', () => {
     });
 
     it('all 6 sliders (3 groups x 2) render enabled — no rig-wide bypass left to disable them', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const sliders = [
         ...screen.getAllByRole('slider', { name: 'Rate Drift' }),
         ...screen.getAllByRole('slider', { name: 'Depth Drift' }),
@@ -612,14 +672,14 @@ describe('AudioRigDrawer', () => {
   describe('Ping Variance Automation slider (Task 6)', () => {
     it('renders exactly once, showing the store\'s current fraction as a 0-100 percent', () => {
       useAudioStore.setState({ pingVarianceAutomation: 0.42 });
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const slider = screen.getByRole('slider', { name: 'Automatic Effects' });
       expect(slider.getAttribute('aria-valuenow')).toBe('42');
     });
 
     it('dragging it calls setPingVarianceAutomation with the dragged percent divided by 100', () => {
       useAudioStore.setState({ pingVarianceAutomation: 0.5 });
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const slider = screen.getByRole('slider', { name: 'Automatic Effects' });
       slider.focus();
       fireEvent.keyDown(slider, { key: 'ArrowRight' });
@@ -630,13 +690,13 @@ describe('AudioRigDrawer', () => {
     });
 
     it('renders enabled — no rig-wide bypass left to disable it', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const slider = screen.getByRole('slider', { name: 'Automatic Effects' });
       expect(slider.getAttribute('data-disabled')).toBeNull();
     });
 
     it('renders inside Transport & Composition\'s Speed & Automation panel — no longer a bare control outside any accordion', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const slider = screen.getByRole('slider', { name: 'Automatic Effects' });
       const panel = slider.closest('.sc-directional-panel');
       expect(panel!.querySelector('.sc-dual-label__human')?.textContent).toBe('Speed & Automation');
@@ -644,7 +704,7 @@ describe('AudioRigDrawer', () => {
     });
 
     it('renders inside its own .audio-rig-drawer__param-row — a dedicated single-control wrapper, matching every other param in this drawer, so its own live box-count measurement reads its own fair share of the panel rather than the whole shared Speed & Automation panel', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const slider = screen.getByRole('slider', { name: 'Automatic Effects' });
       expect(slider.closest('.audio-rig-drawer__param-row')).toBeTruthy();
     });
@@ -653,14 +713,14 @@ describe('AudioRigDrawer', () => {
   describe('Tempo slider (BPM Control Task 5)', () => {
     it('renders exactly once, showing the store\'s current bpm directly — no scaling', () => {
       useAudioStore.setState({ bpm: 72 });
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const slider = screen.getByRole('slider', { name: 'Tempo' });
       expect(slider.getAttribute('aria-valuenow')).toBe('72');
     });
 
     it('dragging it calls setBPM directly with the dragged value — no conversion', () => {
       useAudioStore.setState({ bpm: 72 });
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const slider = screen.getByRole('slider', { name: 'Tempo' });
       slider.focus();
       fireEvent.keyDown(slider, { key: 'ArrowRight' });
@@ -671,13 +731,13 @@ describe('AudioRigDrawer', () => {
     });
 
     it('renders enabled — no rig-wide bypass left to disable it', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const slider = screen.getByRole('slider', { name: 'Tempo' });
       expect(slider.getAttribute('data-disabled')).toBeNull();
     });
 
     it('renders inside Transport & Composition\'s Speed & Automation panel — no longer a bare control outside any accordion', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const slider = screen.getByRole('slider', { name: 'Tempo' });
       const panel = slider.closest('.sc-directional-panel');
       expect(panel!.querySelector('.sc-dual-label__human')?.textContent).toBe('Speed & Automation');
@@ -685,7 +745,7 @@ describe('AudioRigDrawer', () => {
     });
 
     it('renders before Automatic Effects, inside the same Speed & Automation panel', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const pingSlider = screen.getByRole('slider', { name: 'Automatic Effects' });
       const tempoSlider = screen.getByRole('slider', { name: 'Tempo' });
       const pingPanel = pingSlider.closest('.sc-directional-panel');
@@ -696,13 +756,13 @@ describe('AudioRigDrawer', () => {
     });
 
     it('renders inside its own .audio-rig-drawer__param-row — a dedicated single-control wrapper, matching every other param in this drawer, so its own live box-count measurement reads its own fair share of the panel rather than the whole shared Speed & Automation panel', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const slider = screen.getByRole('slider', { name: 'Tempo' });
       expect(slider.closest('.audio-rig-drawer__param-row')).toBeTruthy();
     });
 
     it("Tempo and Automatic Effects each get their own separate .audio-rig-drawer__param-row — not sharing one wrapper between them", () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const tempoSlider = screen.getByRole('slider', { name: 'Tempo' });
       const pingSlider = screen.getByRole('slider', { name: 'Automatic Effects' });
       const tempoRow = tempoSlider.closest('.audio-rig-drawer__param-row');
@@ -722,7 +782,7 @@ describe('AudioRigDrawer', () => {
     }
 
     it('scopes EQ & Filters to the Spectral trait (cyan/indigo)', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const el = accordionByLabel('EQ & Filters');
       expect(el.style.getPropertyValue('--color-accent-a')).toBe(ACCENT_COLORS.cyan);
       expect(el.style.getPropertyValue('--color-accent-b')).toBe(ACCENT_COLORS.indigo);
@@ -734,7 +794,7 @@ describe('AudioRigDrawer', () => {
     // (the base properties genuinely do cascade) while still rendering the WRONG gradient, which is
     // exactly why this needs its own explicit check, not just "-a/-b are correct."
     it('also sets --color-accent/--color-accent-gradient as literal values on the accordion — never a var()-reference to --color-accent-a/-b', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const el = accordionByLabel('EQ & Filters');
       expect(el.style.getPropertyValue('--color-accent')).toBe(
         `color-mix(in srgb, ${ACCENT_COLORS.cyan} 50%, ${ACCENT_COLORS.indigo} 50%)`,
@@ -747,28 +807,28 @@ describe('AudioRigDrawer', () => {
     });
 
     it('scopes Time & Space to the Time/Space trait (purple/pink)', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const el = accordionByLabel('Time & Space');
       expect(el.style.getPropertyValue('--color-accent-a')).toBe(ACCENT_COLORS.purple);
       expect(el.style.getPropertyValue('--color-accent-b')).toBe(ACCENT_COLORS.pink);
     });
 
     it('scopes Output to the Output trait (burnt orange/orange)', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const el = accordionByLabel('Output');
       expect(el.style.getPropertyValue('--color-accent-a')).toBe(ACCENT_COLORS.burntOrange);
       expect(el.style.getPropertyValue('--color-accent-b')).toBe(ACCENT_COLORS.orange);
     });
 
     it('scopes Transport & Composition to the Composition trait (emerald/lime)', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const el = accordionByLabel('Transport & Composition');
       expect(el.style.getPropertyValue('--color-accent-a')).toBe(ACCENT_COLORS.emerald);
       expect(el.style.getPropertyValue('--color-accent-b')).toBe(ACCENT_COLORS.lime);
     });
 
     it('gives all 4 top-level accordions distinct trait colors from one another', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const pairs = ['EQ & Filters', 'Time & Space', 'Output', 'Transport & Composition'].map((label) => {
         const el = accordionByLabel(label);
         return `${el.style.getPropertyValue('--color-accent-a')}/${el.style.getPropertyValue('--color-accent-b')}`;
@@ -777,13 +837,13 @@ describe('AudioRigDrawer', () => {
     });
 
     it('does not add any inline style to a nested per-effect DirectionalPanel — the color reaches it purely via cascade from its parent accordion', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const panel = screen.getByText('3-Band EQ').closest('.sc-directional-panel') as HTMLElement;
       expect(panel.getAttribute('style')).toBeNull();
     });
 
     it("eq3's own Drift sliders are a physical DOM descendant of the Spectral-scoped EQ & Filters accordion — no separate wrapper or style between them (spec §1.6's 'no dedicated code' claim)", () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const eqAccordion = accordionByLabel('EQ & Filters');
       const eq3RateSlider = within(eqAccordion).getAllByRole('slider', { name: 'Rate Drift' })[0];
       expect(eqAccordion.contains(eq3RateSlider)).toBe(true);
@@ -798,7 +858,7 @@ describe('AudioRigDrawer', () => {
     }
 
     it("a setGlobalAudio update to ONE field (Delay's delayTime, simulating an audio-swell tick) does not re-execute a SIBLING field's own control (Delay's Mix/wet) — only the changed field's own control re-renders", () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const delayTimeCallsBefore = callsFor('delay.delayTime');
       const delayWetCallsBefore = callsFor('delay.wet');
       expect(delayTimeCallsBefore).toBeGreaterThan(0);
@@ -813,7 +873,7 @@ describe('AudioRigDrawer', () => {
     });
 
     it('the same holds for the compressor\'s hand-composed block (Threshold changes, Knee\'s own control does not re-render)', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const thresholdCallsBefore = callsFor('compressor.threshold');
       const kneeCallsBefore = callsFor('compressor.knee');
       expect(thresholdCallsBefore).toBeGreaterThan(0);
@@ -828,7 +888,7 @@ describe('AudioRigDrawer', () => {
     });
 
     it('a setGlobalAudio update to one effect does not re-render an UNRELATED effect\'s own controls (Delay changes, Reverb\'s Mix does not re-render) — item 18\'s own per-effect selector scoping, still correct here', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const reverbWetCallsBefore = callsFor('reverb.wet');
       expect(reverbWetCallsBefore).toBeGreaterThan(0);
 
@@ -851,7 +911,7 @@ describe('AudioRigDrawer', () => {
     // changed. Task 12's own cascade tests never covered the AudioRigLfoGroup path (only
     // Delay/Compressor, neither of which has any lfoTarget params) — a real test-coverage gap.
     it("changing a NON-displayed field within an LFO-bearing block (eq3's mid, while 'low' remains the default-selected/displayed LFO target — useLfoTargetGroup starts at fields[0]) does not re-execute the shared LFO display's own internal controls", () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const lfoRateCallsBefore = callsFor('audioRig.eq3.lfo.rate');
       const lfoDepthCallsBefore = callsFor('audioRig.eq3.lfo.depth');
       expect(lfoRateCallsBefore).toBeGreaterThan(0);
@@ -866,7 +926,7 @@ describe('AudioRigDrawer', () => {
     });
 
     it('sanity check: the shared LFO display DOES re-render when the currently-DISPLAYED target\'s own value changes (eq3\'s Low, the default-selected field)', () => {
-      render(<AudioRigDrawer />);
+      renderOpen(<AudioRigDrawer />);
       const lfoRateCallsBefore = callsFor('audioRig.eq3.lfo.rate');
 
       act(() => {
