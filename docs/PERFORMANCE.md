@@ -229,6 +229,55 @@ The work did not disappear; it moved from opening a tile to the first time each 
 - **Total work is conserved, as designed:** opening all four Fleet Params sections at 4× costs 303 + 1,551 + 441 + 570 ≈ 2,865 ms of ≥ 100 ms tasks in total, against 2,659 ms that the pre-change tile open paid up front — now spread over four separate user-initiated clicks instead of one stall that pauses audio on every tile switch.
 - **What remains to be improved** (not this item): the per-box mount cost itself (roadmap 17.2.3) is what makes those first opens 0.1–0.9 s at 4×; and the 137 boxes still on the Probes list plus the header's 12 are outside any accordion.
 
+## Smoothness pass for roadmap 17.2.2 — first-open animation (2026-09-18)
+
+Measured with `npm run perf -- --smoothness --width <px> --throttle <n>` (see [docs/tasks/ACCORDION_LAZY_MOUNT.md](tasks/ACCORDION_LAZY_MOUNT.md) Task 8): it opens every accordion on Fleet Params and on a robot's detail page while sampling the wrapper on every animation frame, then closes and reopens the first one. Numbers are from real headless Chrome; "tween frames" is how many frames actually rendered a mid-tween height (a 250 ms open at 60 fps would be ~15).
+
+### What it found, and what changed
+
+| Build | EQ & Filters tween frames | Source tween frames | Height snap at `auto` |
+|---|---|---|---|
+| Pre-change (everything mounted up front), 1280 px, 1× | 12 | 12 | 2–2.5 px |
+| Plain lazy mount (commit `6fb88b7`), 1280 px, 1× | **3** | **3** | 2–2.5 px |
+| + wait for the section to settle (`d093a41`), 1280 px, 1× | 14 | 13 | 2–2.5 px |
+| + tween to the laid-out height (`414cd4b`), 1280 px, 1× | 10–13 (4 runs) | 11–14 (3 of 4 runs; one run gave 3 — a one-off, not seen again in 3 further runs) | **0–0.5 px** |
+
+1. **The plain lazy mount regressed the two heaviest sections' open animation** (12 → 3 frames): the mount work runs while the tween's clock is already ticking, and GSAP stamps a new timeline with its last tick's time, so most of the 250 ms was gone before the first frame. Deferring the start by one tick was not enough (Source got worse: 1 frame, a 15 px snap) — the controls do a second wave of work after their first paint (ResizeObservers, box-count re-fit). The first open now polls on GSAP's own ticks until two consecutive ticks read the same height, then builds the tween from "now".
+2. **A 2–2.5 px height snap at the end of every open predates this work** — it appears on the untouched reopen path and in the pre-change build. The tween targeted `scrollHeight`, which counts the last box's popped-out overhang (a transform), while `height: auto` drops it, so everything below the section jumped up ~2.5 px when the tween completed. The tween now targets the inner wrapper's laid-out height. It is now 0–0.5 px.
+
+### Final results, all configurations (production build `414cd4b`, headless Chrome, one run each)
+
+| Viewport | Throttle | Empty-open frames | Largest height snap | EQ & Filters: tween frames / longest frame gap | Source: tween frames / longest frame gap |
+|---|---|---|---|---|---|
+| 390 px | 1× | 0 | 0.5 px | 14 / 167 ms | 15 / 150 ms |
+| 820 px | 1× | 0 | **14.5 px** (see below) | 9 / 250 ms | 14 / 150 ms |
+| 1280 px | 1× | 0 | 0.5 px | 10 / 300 ms | 11 / 184 ms |
+| 390 px | 4× | 0 | 0.5 px | 1 / 1,384 ms | 1 / 1,100 ms |
+| 820 px | 4× | 0 | 0.5 px | 0 / 1,650 ms | 1 / 1,200 ms |
+| 1280 px | 4× | 0 | 0.5 px | 1 / 1,367 ms | 0 / 1,350 ms |
+
+- **No open-but-empty frame anywhere** (0 across every toggle, at every width and throttle) — the layout-effect deferral works.
+- **At 4× the open effectively snaps — for every section, including untouched reopens** (1–2 tween frames), because each frame takes 100–300 ms (and the mount frame 0.7–1.7 s), so a 250 ms tween has almost no frames to render into. That is the throttled device's frame rate, not the animation; the actionable number is the mount hitch itself (the "longest frame gap" column, and the first-open table above), which is what 17.2.3 addresses.
+- **Verified the metric can detect a snap:** with the old `scrollHeight` measurement temporarily restored, it reports 2–2.5 px on every open; with the fix, 0–0.5 px. (An earlier version of the metric compared sampled frames and reported spurious "jumps" of up to 2,032 px at 4× whenever the tween finished between two slow frames; it now reads GSAP's actual style writes, so it means the same thing at any frame rate.)
+
+### Known residual — a late ~15 px growth on EQ & Filters at tablet width
+
+At 820 px wide, opening EQ & Filters (the tallest section, ~3,050 px) sometimes grows by ~14.5 px about seven frames (~120 ms) *after* the open completes: 1 of 1 in the matrix run above, then 2 of 3, 0 of 3, and 1 of 4 in three later batches — **4 of 11 runs (~36%)** overall. The tween itself completes at the correct height; the growth is a separate late re-layout of the just-mounted content that lands after the settle check has already seen two equal readings. **The pre-change build showed it in 0 of 5 runs**, so it is a consequence of lazy mounting, not live-content reflow. Cause not yet identified (candidates: a responsive layout hook or `ResizeObserver`-driven re-render in the EQ & Filters controls at that width). Not chased by making every open wait longer — that would cost more smoothness than it buys. Recorded here so 17.2.3 (per-box mount cost) can look for it.
+
+### Final-build re-check of the Task 7 gates
+
+Because the component changed twice after the first post-change measurement, the gates were re-measured on `414cd4b`: 3 sequential runs each at 1× and 4×. All still pass in absolute terms:
+
+| Gate | Threshold | Final build | |
+|---|---|---|---|
+| 1 — closed-accordion boxes / totals | 0 · Fleet ≤ 25, Probes ≤ 150, detail ≤ 55, Nav & Comms 26 | 0 · **20**, **137** (124–137), **45** (44–45), **26** | **PASS** |
+| 2 — open Fleet Params / robot detail, 1× | no task ≥ 100 ms | **0** / **0** tasks ≥ 100 ms | **PASS** |
+| 2 — switch to Probes, 1× | ≤ 205 ms | **178 ms** (167–181) | **PASS** |
+| 3 — open Fleet Params, 4× | total ≤ 1,064 ms | **298 ms** (172–314) | **PASS** |
+| 3 — open robot detail, 4× | total ≤ 1,142 ms | **453 ms** (386–538) | **PASS** |
+
+**Machine drift, and why the first-open numbers moved.** This session's numbers ran ~15–35% higher than the first post-change session across the board, including `power on` (584 → 666 ms at 1×, 2,151 → 2,878 ms at 4×), which has nothing to do with accordions — so cross-session comparisons of absolute numbers are unreliable here. To separate machine from code, the previous component version (`6fb88b7`) and the final code were run back to back in the same session at 1×: EQ & Filters first open 199 vs 201 ms, Source 166 vs 146 ms, Probes 164 vs 191 ms, `power on` 685 vs 686 ms — the same within run-to-run noise, so the settle and measure changes cost nothing measurable. Final-build first-open numbers, 1× (this session): EQ & Filters 197 ms, Source 151 ms, Output 90 ms, Time & Space 72 ms, all detail sections other than Source 0; 4×: EQ & Filters 1,284 ms, Source 1,158 ms, Output 573 ms, Time & Space 385 ms.
+
 ## Recording a new baseline
 
 After a fix from 17.2.2–17.2.5, re-run `npm run perf` 3× at the same settings, compare medians against the table above, and add a dated row/section here rather than overwriting it, so the history of what each fix bought stays visible.
